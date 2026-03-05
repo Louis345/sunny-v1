@@ -5,10 +5,14 @@ const client = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY,
 });
 
-const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "Rachel";
+let activeVoiceId = process.env.ELEVENLABS_VOICE_ID ?? "21m00Tcm4TlvDq8ikWAM";
+
+export function setVoiceId(voiceId: string): void {
+  activeVoiceId = voiceId;
+}
 
 export async function speak(text: string): Promise<void> {
-  const audio = await client.textToSpeech.convert(voiceId, {
+  const audio = await client.textToSpeech.convert(activeVoiceId, {
     text,
     modelId: "eleven_multilingual_v2",
   });
