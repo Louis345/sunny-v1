@@ -1,0 +1,20 @@
+{
+  "name": "sunny",
+  "version": "0.1.0",
+  "description": "Project Sunny — AI therapeutic learning companion",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "npx tsx src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@elevenlabs/elevenlabs-js": "^2.37.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}
