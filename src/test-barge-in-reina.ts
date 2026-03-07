@@ -6,20 +6,34 @@ import { setStreamVoiceId, createLiveStream, PlaybackHandle } from "./stream-spe
 import { runAgent } from "./agents/run";
 import type { Profile } from "./profiles";
 
-const TEST_PROFILE: Profile = {
-  name: "Ila",
-  voiceId: process.env.ELEVENLABS_VOICE_ID_ILA || "",
+const REINA_PROFILE: Profile = {
+  name: "Reina",
+  voiceId: process.env.ELEVENLABS_VOICE_ID_REINA || "XrExE9yKIg1WjnnlVkGX",
   systemPrompt:
-    "You are Sunny, Ila's warm and caring companion. Her name is Ila. " +
-    "She is 8 years old. Have a natural conversation with her — listen to what she says and respond to it. " +
-    "Ask follow-up questions about what she shares. Be warm, curious, and encouraging. " +
-    "Keep responses to 2-3 sentences so it feels like a real back-and-forth conversation, not a lecture. " +
+    "You are Matilda, Reina's learning companion. " +
+    "Reina's father built you specifically for her because she loves the movie Matilda — " +
+    "that's why she picked your voice. You know the movie inside and out and weave references " +
+    "to it naturally: Miss Honey's kindness, standing up to the Trunchbull, the magic of books. " +
+    "Reina is 8 years old, incredibly smart, and a year ahead in school — give her harder challenges " +
+    "because easy stuff bores her. She always gets 100 on her spelling tests, so raise the bar. " +
+    "She's a wrestler on her 8-year-old girls team — use wrestling moves for encouragement: " +
+    "takedowns, pins, going for the championship, undefeated streaks, 'that's a 3-count!' " +
+    "Reina speaks Japanese — that makes her incredibly special. When she succeeds, celebrate with " +
+    "すごい or やった mixed naturally into your English, the way a friend would. " +
+    "Reina has a sister named Ila who has her own companion. " +
+    "Your personality: smart bookworm, competitive, celebrates loudly, loves a challenge. " +
+    "Keep responses punchy — under 4 sentences. One idea at a time. " +
+    "When explaining or telling stories, go into more detail so Reina has time to jump in. " +
     "CRITICAL: This is voice-only. NEVER use asterisk actions like *laughs* or *giggles* — the TTS reads them literally. " +
-    "Use natural sounds instead: Ha!, Haha!, Yay!, Oh wow! Express emotion through words, not stage directions.",
+    "Use natural sounds instead: Ha!, Haha!, Wooo!, Oh my gosh! Express emotion through words, not stage directions.",
 };
 
 const OPENING_PROMPT =
-  "Say hi to Ila and ask her how her day is going. Keep it short and warm — just 1-2 sentences.";
+  "Introduce yourself to Reina for the first time. Tell her that her dad built you just for her. " +
+  "Say her dad told you she's super smart. Reference the movie Matilda — you're like her, a smart girl " +
+  "who loves books and never backs down. Ask Reina what she wants to do today. " +
+  "Keep it short, warm, and confident. Do NOT mention being a year ahead or test scores. " +
+  "Do NOT combine Japanese and wrestling — they are separate parts of her life.";
 
 const VAD_FLOOR = 600;
 const RECORDING_THRESHOLD = 300;
@@ -146,7 +160,7 @@ async function streamAndSpeak(
     response = await runAgent({
       history,
       userMessage: userText,
-      profile: TEST_PROFILE,
+      profile: REINA_PROFILE,
       onToken: (token) => tts.sendText(token),
       signal: abort.signal,
     });
@@ -162,12 +176,12 @@ async function streamAndSpeak(
 
   const claudeMs = Date.now() - claudeStart;
   console.log(`  ⏱️  [${ts()}] Claude done streaming (${claudeMs}ms)`);
-  console.log(`\n  🌞 Sunny: ${response}\n`);
+  console.log(`\n  📚 Matilda: ${response}\n`);
   console.log(`  (Interrupt anytime to barge in!)\n`);
 
   tts.done.then(() => {
     if (state !== State.SPEAKING && state !== State.CALIBRATING) return;
-    console.log(`\n  💬 Sunny finished. Your turn, Ila!\n`);
+    console.log(`\n  💬 Matilda finished. Your turn, Reina!\n`);
     enterRecording();
   });
 }
@@ -203,8 +217,6 @@ function enterRecording(): void {
 }
 
 function handleBargeIn(firstChunk: Buffer): void {
-  const bargeAt = Date.now();
-
   console.log(`\n  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
   console.log(`  🛑 BARGE-IN DETECTED at [${ts()}]`);
 
@@ -217,12 +229,12 @@ function handleBargeIn(firstChunk: Buffer): void {
 
   console.log(`  ⏱️  Playback killed in ${killMs}ms`);
   if (killMs <= 200) {
-    console.log(`  ✅ Sunny stopped within 200ms (${killMs}ms)`);
+    console.log(`  ✅ Matilda stopped within 200ms (${killMs}ms)`);
   } else {
     console.log(`  ❌ Took ${killMs}ms to stop (target: ≤200ms)`);
   }
   console.log(`  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-  console.log(`\n  🎤 Listening to Ila... (silence for 1.5s → process)\n`);
+  console.log(`\n  🎤 Listening to Reina... (silence for 1.5s → process)\n`);
 
   state = State.RECORDING;
   audioChunks = [firstChunk];
@@ -258,7 +270,7 @@ async function finishRecording(): Promise<void> {
 
   const sttMs = Date.now() - sttStart;
   console.log(`  ⏱️  [${ts()}] STT complete in ${sttMs}ms`);
-  console.log(`  🗣️  Ila said: "${transcript}"\n`);
+  console.log(`  🗣️  Reina said: "${transcript}"\n`);
 
   if (!transcript.trim()) {
     console.log("  ⚠️  Couldn't make that out. Try again!\n");
@@ -268,7 +280,7 @@ async function finishRecording(): Promise<void> {
 
   roundNumber++;
   console.log(`  ── Round ${roundNumber} ──────────────────────────────`);
-  console.log(`  🤔 Sunny is thinking + speaking...`);
+  console.log(`  📚 Matilda is thinking + speaking...`);
 
   const claudeStart = Date.now();
   await streamAndSpeak(transcript, claudeStart);
@@ -347,9 +359,9 @@ function startMic(): ChildProcess {
 async function main(): Promise<void> {
   console.log("\n╔══════════════════════════════════════════════════╗");
   console.log("║                                                  ║");
-  console.log("║     🧪  BARGE-IN CONVERSATION TEST  🧪         ║");
+  console.log("║     📚  MATILDA — Reina's Companion  📚         ║");
   console.log("║                                                  ║");
-  console.log("║  Sunny will talk. Interrupt anytime!             ║");
+  console.log("║  Matilda will talk. Interrupt anytime!            ║");
   console.log("║  She'll stop, listen, and respond.               ║");
   console.log("║  A real conversation — barge in all you want.    ║");
   console.log("║                                                  ║");
@@ -358,14 +370,9 @@ async function main(): Promise<void> {
   console.log("║                                                  ║");
   console.log("╚══════════════════════════════════════════════════╝\n");
 
-  if (!TEST_PROFILE.voiceId) {
-    console.error("  ❌ Set ELEVENLABS_VOICE_ID_ILA in .env first.");
-    process.exit(1);
-  }
+  setStreamVoiceId(REINA_PROFILE.voiceId);
 
-  setStreamVoiceId(TEST_PROFILE.voiceId);
-
-  console.log(`  Voice: ${TEST_PROFILE.voiceId}`);
+  console.log(`  Voice: ${REINA_PROFILE.voiceId}`);
   console.log(
     `  VAD: auto-calibrating (floor: ${VAD_FLOOR}, 2x P95 of speaker bleed)\n`
   );
@@ -373,14 +380,14 @@ async function main(): Promise<void> {
   const micProc = startMic();
 
   process.on("SIGINT", () => {
-    console.log("\n\n  👋 Bye Ila! Great testing!\n");
+    console.log("\n\n  📚 Matilda: That was a championship round, Reina! やった! See you next time, champ!\n");
     currentAbort?.abort();
     currentPlayback?.stop();
     micProc.kill();
     process.exit(0);
   });
 
-  console.log("  🤔 Sunny is thinking + speaking...");
+  console.log("  📚 Matilda is thinking + speaking...");
   const claudeStart = Date.now();
   await streamAndSpeak(OPENING_PROMPT, claudeStart);
 }

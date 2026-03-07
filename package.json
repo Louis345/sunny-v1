@@ -9,8 +9,10 @@
     "dev": "npx tsx src/index.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
     "@anthropic-ai/sdk": "^0.39.0",
     "@elevenlabs/elevenlabs-js": "^2.37.0",
+    "ai": "^6.0.116",
     "dotenv": "^16.4.7",
     "ws": "^8.19.0"
   },

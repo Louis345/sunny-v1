@@ -11,10 +11,19 @@ export function setVoiceId(voiceId: string): void {
   activeVoiceId = voiceId;
 }
 
+function getPronunciationLocators() {
+  const dictId = process.env.ELEVENLABS_PRONUNCIATION_DICT_ID;
+  const versionId = process.env.ELEVENLABS_PRONUNCIATION_DICT_VERSION;
+  if (!dictId || !versionId) return undefined;
+  return [{ pronunciationDictionaryId: dictId, versionId }];
+}
+
 export async function speak(text: string): Promise<void> {
+  const locators = getPronunciationLocators();
   const audio = await client.textToSpeech.convert(activeVoiceId, {
     text,
     modelId: "eleven_multilingual_v2",
+    ...(locators && { pronunciationDictionaryLocators: locators }),
   });
 
   await play(audio);

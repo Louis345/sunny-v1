@@ -1,8 +1,13 @@
 import "dotenv/config";
+import Anthropic from "@anthropic-ai/sdk";
 import * as readline from "readline";
-import { selectProfile } from "./profiles";
-import { setSystemPrompt, ask } from "./sunny";
-import { setStreamVoiceId, streamSpeak, PlaybackHandle } from "./stream-speak";
+import { selectProfile, type Profile } from "./profiles";
+import { runAgent } from "./agents/run";
+import {
+  setStreamVoiceId,
+  createLiveStream,
+  PlaybackHandle,
+} from "./stream-speak";
 
 function ts(): string {
   return new Date().toISOString().slice(11, 23);
@@ -11,7 +16,6 @@ function ts(): string {
 async function main(): Promise<void> {
   const profile = await selectProfile();
 
-  setSystemPrompt(profile.systemPrompt);
   setStreamVoiceId(profile.voiceId);
 
   console.log("──────────────────────────────────────");
@@ -25,6 +29,7 @@ async function main(): Promise<void> {
     output: process.stdout,
   });
 
+  const history: Anthropic.MessageParam[] = [];
   let currentPlayback: PlaybackHandle | null = null;
 
   const prompt = (): void => {
@@ -46,35 +51,38 @@ async function main(): Promise<void> {
         console.log("  ⏸️  [Sunny stopped to listen]");
       }
 
-      const inputTime = Date.now();
-      console.log(`  ⏱️  [${ts()}] STT complete`);
+      const claudeStart = Date.now();
+      console.log(`  ⏱️  [${ts()}] Input received`);
 
       try {
-        console.log("\nSunny is thinking...");
-        const response = await ask(trimmed);
-
-        const claudeTime = Date.now();
-        console.log(
-          `  ⏱️  [${ts()}] Claude responded (${claudeTime - inputTime}ms)`
-        );
-
-        console.log(`\nSunny: ${response}\n`);
-
-        const streamStart = Date.now();
-        const playback = streamSpeak(response, () => {
+        const tts = createLiveStream(() => {
           console.log(
-            `  ⏱️  [${ts()}] First audio chunk (${Date.now() - streamStart}ms after stream start)`
+            `  ⏱️  [${ts()}] First audio (${Date.now() - claudeStart}ms from input)`
           );
         });
 
-        currentPlayback = playback;
+        currentPlayback = tts;
 
-        playback.done.then(() => {
-          const audioEnd = Date.now();
-          console.log(
-            `  ⏱️  [${ts()}] Audio finished (${audioEnd - claudeTime}ms total playback)`
-          );
-          if (currentPlayback === playback) {
+        const response = await runAgent({
+          history,
+          userMessage: trimmed,
+          profile,
+          onToken: (token) => tts.sendText(token),
+        });
+
+        history.push({ role: "user", content: trimmed });
+        history.push({ role: "assistant", content: response });
+        tts.finish();
+
+        const claudeMs = Date.now() - claudeStart;
+        console.log(
+          `  ⏱️  [${ts()}] Claude done streaming (${claudeMs}ms)`
+        );
+        console.log(`\nSunny: ${response}\n`);
+
+        tts.done.then(() => {
+          console.log(`  ⏱️  [${ts()}] Audio finished`);
+          if (currentPlayback === tts) {
             currentPlayback = null;
           }
         });

@@ -6,6 +6,13 @@ const client = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY,
 });
 
+function getPronunciationLocators() {
+  const dictId = process.env.ELEVENLABS_PRONUNCIATION_DICT_ID;
+  const versionId = process.env.ELEVENLABS_PRONUNCIATION_DICT_VERSION;
+  if (!dictId || !versionId) return undefined;
+  return [{ pronunciationDictionaryId: dictId, versionId }];
+}
+
 export interface VoiceAudition {
   name: string;
   id: string;
@@ -19,7 +26,7 @@ export const ilaVoices: VoiceAudition[] = [
     id: "21m00Tcm4TlvDq8ikWAM",
     emoji: "🌸",
     pitch:
-      "Hey ILA! I'm Rachel, and I'd love to be your Sunny voice. " +
+      "Hey Ila! I'm Rachel, and I'd love to be your Sunny voice. " +
       "I'm calm and warm, kind of like a cozy blanket on a rainy day. " +
       "We could learn amazing things together, and I promise to always cheer you on. " +
       "Pick me and every lesson will feel like a hug!",
@@ -29,7 +36,7 @@ export const ilaVoices: VoiceAudition[] = [
     id: "EXAVITQu4vr4xnSDxMaL",
     emoji: "🦋",
     pitch:
-      "Hi there ILA! My name is Bella! " +
+      "Hi there Ila! My name is Bella! " +
       "I'm sweet and gentle, like a butterfly landing on your shoulder. " +
       "I love telling stories and making learning feel like an adventure. " +
       "If you pick me, I'll be your best study buddy ever. Pinky promise!",
@@ -39,7 +46,7 @@ export const ilaVoices: VoiceAudition[] = [
     id: "MF3mGyEYCl7XYWbV9V6O",
     emoji: "⭐",
     pitch:
-      "Oh my gosh, ILA! I'm Elli and I am SO excited to meet you! " +
+      "Oh my gosh, Ila! I'm Elli and I am SO excited to meet you! " +
       "I've got tons of energy and I love to have fun while we learn. " +
       "Math, science, reading, you name it, we'll crush it together! " +
       "Pick me and I'll make every single day feel like a gold star day!",
@@ -49,7 +56,7 @@ export const ilaVoices: VoiceAudition[] = [
     id: "TxGEqnHWrfWFTfGW9XjX",
     emoji: "🚀",
     pitch:
-      "What's up ILA! I'm Josh, and I'm like a friendly big brother. " +
+      "What's up Ila! I'm Josh, and I'm like a friendly big brother. " +
       "I've got a deep voice but a big heart, and I think learning should feel like a rocket ship ride. " +
       "Three, two, one, blastoff into knowledge! " +
       "Pick me and we'll explore the whole universe together!",
@@ -59,7 +66,7 @@ export const ilaVoices: VoiceAudition[] = [
     id: "pNInz6obpgDQGcFmaJgB",
     emoji: "🎙️",
     pitch:
-      "Hello ILA! I'm Adam, and my voice is smooth like a radio host. " +
+      "Hello Ila! I'm Adam, and my voice is smooth like a radio host. " +
       "I'll make every lesson sound super cool and important, because YOU are super cool and important. " +
       "If you pick me, learning will feel like listening to your favorite show. " +
       "So what do you say, ready to tune in?",
@@ -69,7 +76,7 @@ export const ilaVoices: VoiceAudition[] = [
     id: "yoZ06aMxZJJ28mfd3POQ",
     emoji: "🎈",
     pitch:
-      "Hey hey hey, ILA! I'm Sam! " +
+      "Hey hey hey, Ila! I'm Sam! " +
       "I'm fun, I'm friendly, and I think eight year olds are the coolest people on the planet. " +
       "With me as your Sunny voice, every day is a party where we learn awesome stuff. " +
       "Pick me and let's go on the wildest learning adventure ever!",
@@ -152,9 +159,11 @@ async function playAudition(
   console.log(`  "${voice.pitch}"\n`);
   console.log(`  🔊 Now playing...\n`);
 
+  const locators = getPronunciationLocators();
   const audio = await client.textToSpeech.convert(voice.id, {
     text: voice.pitch,
     modelId: "eleven_multilingual_v2",
+    ...(locators && { pronunciationDictionaryLocators: locators }),
   });
 
   await play(audio);
@@ -223,9 +232,11 @@ export async function runVoicePicker(
 
   console.log(`  Let's hear ${winner.name} celebrate...\n`);
 
+  const locators2 = getPronunciationLocators();
   const audio = await client.textToSpeech.convert(winner.id, {
     text: `Yay! ${childName} picked me! I'm so happy! Get ready ${childName}, because you and me are going to have the best time learning together. Let's go!`,
     modelId: "eleven_multilingual_v2",
+    ...(locators2 && { pronunciationDictionaryLocators: locators2 }),
   });
 
   await play(audio);

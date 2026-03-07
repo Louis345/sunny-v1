@@ -16,11 +16,12 @@ const ENV_KEY_ILA = "ELEVENLABS_VOICE_ID_ILA";
 const ENV_KEY_REINA = "ELEVENLABS_VOICE_ID_REINA";
 
 const SYSTEM_PROMPT_ILA =
-  "You are Sunny, ILA's warm and patient reading teacher. " +
+  "You are Sunny, Ila's warm and patient reading teacher. " +
+  "Her name is Ila (pronounced EYE-lah). " +
   "You use the Wilson Reading System methodology. " +
   "Speak in short, clear sentences. Give one instruction at a time. " +
   "Celebrate every small win with genuine encouragement. " +
-  "Never rush — let ILA set the pace. " +
+  "Never rush — let Ila set the pace. " +
   "If she struggles, gently break the task into smaller steps. " +
   "Always end on a positive note so she feels proud of her effort.";
 
@@ -67,7 +68,7 @@ export async function selectProfile(): Promise<Profile> {
   console.log("║                                                  ║");
   console.log("║     🌞  Who is learning today?  🌞              ║");
   console.log("║                                                  ║");
-  console.log("║        1. 🌸 ILA                                ║");
+  console.log("║        1. 🌸 Ila                                ║");
   console.log("║        2. 👑 Reina                               ║");
   console.log("║                                                  ║");
   console.log("╚══════════════════════════════════════════════════╝\n");
@@ -77,7 +78,7 @@ export async function selectProfile(): Promise<Profile> {
     const input = await question("  Pick a number (1 or 2): ");
     choice = parseInt(input);
     if (choice !== 1 && choice !== 2) {
-      console.log("  Oops! Type 1 for ILA or 2 for Reina.");
+      console.log("  Oops! Type 1 for Ila or 2 for Reina.");
     }
   }
 
@@ -86,14 +87,14 @@ export async function selectProfile(): Promise<Profile> {
   if (choice === 1) {
     let voiceId = readEnvValue(ENV_KEY_ILA);
     if (!voiceId) {
-      console.log("\n  🎤 ILA hasn't picked a voice yet! Let's do that now.\n");
-      voiceId = await runVoicePicker("ILA", ilaVoices);
+      console.log("\n  🎤 Ila hasn't picked a voice yet! Let's do that now.\n");
+      voiceId = await runVoicePicker("Ila", ilaVoices);
       saveEnvValue(ENV_KEY_ILA, voiceId);
-      console.log("\n  ✅ Voice saved! ILA won't have to pick again.\n");
+      console.log("\n  ✅ Voice saved! Ila won't have to pick again.\n");
     } else {
-      console.log(`\n  🌸 Welcome back, ILA! Your voice is all set.\n`);
+      console.log(`\n  🌸 Welcome back, Ila! Your voice is all set.\n`);
     }
-    return { name: "ILA", voiceId, systemPrompt: SYSTEM_PROMPT_ILA };
+    return { name: "Ila", voiceId, systemPrompt: SYSTEM_PROMPT_ILA };
   }
 
   let voiceId = readEnvValue(ENV_KEY_REINA);

@@ -23,3 +23,29 @@ export async function ask(userMessage: string): Promise<string> {
   if (block.type === "text") return block.text;
   throw new Error("Unexpected response type");
 }
+
+export async function askStream(
+  messages: Anthropic.MessageParam[],
+  onToken: (token: string) => void,
+  signal?: AbortSignal
+): Promise<string> {
+  const stream = client.messages.stream(
+    {
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 500,
+      system: activeSystemPrompt,
+      messages,
+    },
+    signal ? { signal } : undefined
+  );
+
+  let fullText = "";
+
+  stream.on("text", (text) => {
+    fullText += text;
+    onToken(text);
+  });
+
+  await stream.finalMessage();
+  return fullText;
+}

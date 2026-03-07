@@ -2,3 +2,6 @@ node_modules/
 dist/
 .env
 *.js.map
+
+# Reference repo for AI Agents course (Frontend Masters)
+_reference/

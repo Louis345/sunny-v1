@@ -3,6 +3,14 @@ import WebSocket from "ws";
 import { spawn, ChildProcess, execSync } from "child_process";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
+const FLUSH_INTERVAL_MS = 150;
+
+function getPronunciationLocators(): object[] | undefined {
+  const dictId = process.env.ELEVENLABS_PRONUNCIATION_DICT_ID;
+  const versionId = process.env.ELEVENLABS_PRONUNCIATION_DICT_VERSION;
+  if (!dictId || !versionId) return undefined;
+  return [{ pronunciation_dictionary_id: dictId, version_id: versionId }];
+}
 
 let activeVoiceId = "21m00Tcm4TlvDq8ikWAM";
 
@@ -13,6 +21,11 @@ export function setStreamVoiceId(voiceId: string): void {
 export interface PlaybackHandle {
   stop: () => void;
   done: Promise<void>;
+}
+
+export interface LiveStreamHandle extends PlaybackHandle {
+  sendText: (chunk: string) => void;
+  finish: () => void;
 }
 
 function detectPlayer(): { cmd: string; args: string[] } {
@@ -30,129 +43,269 @@ function detectPlayer(): { cmd: string; args: string[] } {
   throw new Error("No audio player found. Install mpv or ffplay.");
 }
 
-export function streamSpeak(
-  text: string,
-  onFirstAudio?: () => void
-): PlaybackHandle {
-  const apiKey = process.env.ELEVENLABS_API_KEY!;
-  const modelId = "eleven_multilingual_v2";
-  const url =
-    `${WS_BASE}/${activeVoiceId}/stream-input` +
-    `?model_id=${encodeURIComponent(modelId)}` +
-    `&output_format=mp3_44100_128` +
-    `&optimize_streaming_latency=3`;
-
-  let stopped = false;
-  let ws: WebSocket | null = null;
-  let player: ChildProcess | null = null;
-  let firstChunkFired = false;
-  let audioChunkCount = 0;
+function spawnPlayer(): {
+  player: ChildProcess;
+  resolvePromise: () => void;
+  done: Promise<void>;
+} {
   let resolvePromise: () => void;
-
   const done = new Promise<void>((r) => {
     resolvePromise = r;
   });
 
-  try {
-    const { cmd, args } = detectPlayer();
-    player = spawn(cmd, args, { stdio: ["pipe", "ignore", "pipe"] });
+  const { cmd, args } = detectPlayer();
+  const player = spawn(cmd, args, { stdio: ["pipe", "ignore", "pipe"] });
 
-    player.stdin!.on("error", () => {});
-
-    player.stderr!.on("data", (data: Buffer) => {
-      const msg = data.toString().trim();
-      if (msg) console.error(`  [ffplay] ${msg}`);
-    });
-
-    player.on("close", (code) => {
-      if (!stopped) {
-        if (audioChunkCount === 0) {
-          console.error(
-            `  ⚠️  Player exited (code ${code}) with 0 audio chunks — WebSocket may have failed`
-          );
-        }
-        resolvePromise();
-      }
-    });
-
-    player.on("error", (err) => {
-      console.error("  Audio player error:", err.message);
-      resolvePromise();
-    });
-  } catch (err: any) {
-    console.error(`  ${err.message}`);
+  player.stdin!.on("error", () => {});
+  player.stderr!.on("data", (d: Buffer) => {
+    const m = d.toString().trim();
+    if (m) console.error(`  [ffplay] ${m}`);
+  });
+  player.on("error", (err) => {
+    console.error("  Audio player error:", err.message);
     resolvePromise!();
-    return { stop: () => {}, done };
-  }
-
-  ws = new WebSocket(url);
-
-  ws.on("open", () => {
-    ws!.send(
-      JSON.stringify({
-        text: " ",
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-        xi_api_key: apiKey,
-      })
-    );
-
-    ws!.send(
-      JSON.stringify({
-        text: text + " ",
-        try_trigger_generation: true,
-      })
-    );
-
-    ws!.send(JSON.stringify({ text: "" }));
   });
 
-  ws.on("message", (data) => {
-    if (stopped) return;
+  return { player, resolvePromise: resolvePromise!, done };
+}
 
+function buildWsUrl(): string {
+  return (
+    `${WS_BASE}/${activeVoiceId}/stream-input` +
+    `?model_id=${encodeURIComponent("eleven_multilingual_v2")}` +
+    `&output_format=mp3_44100_128` +
+    `&optimize_streaming_latency=3`
+  );
+}
+
+function handleWsAudio(
+  ws: WebSocket,
+  player: ChildProcess,
+  resolvePromise: () => void,
+  onFirstAudio: (() => void) | undefined,
+  stoppedRef: { value: boolean },
+  statsRef: { chunks: number; firstFired: boolean }
+): void {
+  ws.on("message", (data) => {
+    if (stoppedRef.value) return;
     const msg = JSON.parse(data.toString());
 
-    if (msg.audio && player?.stdin?.writable) {
-      audioChunkCount++;
-      if (!firstChunkFired) {
-        firstChunkFired = true;
+    if (msg.audio && player.stdin?.writable) {
+      statsRef.chunks++;
+      if (!statsRef.firstFired) {
+        statsRef.firstFired = true;
         onFirstAudio?.();
       }
       player.stdin.write(Buffer.from(msg.audio, "base64"));
     }
 
     if (msg.isFinal) {
-      player?.stdin?.end();
+      player.stdin?.end();
     }
   });
 
   ws.on("error", (err) => {
     console.error("  🔴 TTS WebSocket error:", err.message);
-    player?.kill();
+    player.kill();
   });
 
   ws.on("close", (code, reason) => {
-    if (audioChunkCount === 0) {
+    if (statsRef.chunks === 0) {
       console.error(
-        `  🔴 TTS WebSocket closed before sending audio (code: ${code}, reason: ${reason || "none"})`
+        `  🔴 TTS WebSocket closed before audio (code: ${code}, reason: ${reason || "none"})`
       );
     }
-    if (!stopped && player?.stdin?.writable) {
+    if (!stoppedRef.value && player.stdin?.writable) {
       player.stdin.end();
     }
   });
 
-  return {
-    stop: () => {
-      if (stopped) return;
-      stopped = true;
-      try {
-        ws?.close();
-      } catch {}
-      try {
-        player?.kill("SIGKILL");
-      } catch {}
+  player.on("close", (exitCode) => {
+    if (!stoppedRef.value) {
+      if (statsRef.chunks === 0) {
+        console.error(
+          `  ⚠️  Player exited (code ${exitCode}) with 0 audio chunks`
+        );
+      }
       resolvePromise();
+    }
+  });
+}
+
+function makeStopFn(
+  stoppedRef: { value: boolean },
+  ws: WebSocket | null,
+  player: ChildProcess | null,
+  resolvePromise: () => void,
+  flushTimer?: { ref: NodeJS.Timeout | null }
+): () => void {
+  return () => {
+    if (stoppedRef.value) return;
+    stoppedRef.value = true;
+    if (flushTimer?.ref) {
+      clearTimeout(flushTimer.ref);
+      flushTimer.ref = null;
+    }
+    try {
+      ws?.close();
+    } catch {}
+    try {
+      player?.kill("SIGKILL");
+    } catch {}
+    resolvePromise();
+  };
+}
+
+// --- Full-text mode (existing API) ---
+
+export function streamSpeak(
+  text: string,
+  onFirstAudio?: () => void
+): PlaybackHandle {
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const stoppedRef = { value: false };
+  const statsRef = { chunks: 0, firstFired: false };
+
+  let player: ChildProcess;
+  let resolvePromise: () => void;
+  let done: Promise<void>;
+
+  try {
+    ({ player, resolvePromise, done } = spawnPlayer());
+  } catch (err: any) {
+    console.error(`  ${err.message}`);
+    return {
+      stop: () => {},
+      done: Promise.resolve(),
+    };
+  }
+
+  const ws = new WebSocket(buildWsUrl());
+
+  ws.on("open", () => {
+    const locators = getPronunciationLocators();
+    ws.send(
+      JSON.stringify({
+        text: " ",
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+        xi_api_key: apiKey,
+        ...(locators && { pronunciation_dictionary_locators: locators }),
+      })
+    );
+    ws.send(
+      JSON.stringify({ text: text + " ", try_trigger_generation: true })
+    );
+    ws.send(JSON.stringify({ text: "" }));
+  });
+
+  handleWsAudio(ws, player, resolvePromise, onFirstAudio, stoppedRef, statsRef);
+
+  return {
+    stop: makeStopFn(stoppedRef, ws, player, resolvePromise),
+    done,
+  };
+}
+
+// --- Live streaming mode (token-by-token) ---
+
+export function createLiveStream(
+  onFirstAudio?: () => void
+): LiveStreamHandle {
+  const apiKey = process.env.ELEVENLABS_API_KEY!;
+  const stoppedRef = { value: false };
+  const statsRef = { chunks: 0, firstFired: false };
+  const flushTimer: { ref: NodeJS.Timeout | null } = { ref: null };
+
+  let player: ChildProcess;
+  let resolvePromise: () => void;
+  let done: Promise<void>;
+
+  try {
+    ({ player, resolvePromise, done } = spawnPlayer());
+  } catch (err: any) {
+    console.error(`  ${err.message}`);
+    return {
+      sendText: () => {},
+      finish: () => {},
+      stop: () => {},
+      done: Promise.resolve(),
+    };
+  }
+
+  const ws = new WebSocket(buildWsUrl());
+  let wsReady = false;
+  let buffer = "";
+
+  function flushBuffer(trigger: boolean): void {
+    if (!buffer || stoppedRef.value) return;
+    if (ws.readyState !== WebSocket.OPEN) return;
+    ws.send(
+      JSON.stringify({
+        text: buffer + " ",
+        ...(trigger && { try_trigger_generation: true }),
+      })
+    );
+    buffer = "";
+  }
+
+  function scheduleFlush(): void {
+    if (flushTimer.ref) return;
+    flushTimer.ref = setTimeout(() => {
+      flushTimer.ref = null;
+      flushBuffer(true);
+    }, FLUSH_INTERVAL_MS);
+  }
+
+  ws.on("open", () => {
+    const locators = getPronunciationLocators();
+    ws.send(
+      JSON.stringify({
+        text: " ",
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+        xi_api_key: apiKey,
+        ...(locators && { pronunciation_dictionary_locators: locators }),
+      })
+    );
+    wsReady = true;
+
+    if (buffer) {
+      flushBuffer(true);
+    }
+  });
+
+  handleWsAudio(ws, player, resolvePromise, onFirstAudio, stoppedRef, statsRef);
+
+  return {
+    sendText(chunk: string) {
+      if (stoppedRef.value) return;
+      buffer += chunk;
+
+      if (!wsReady) return;
+
+      if (/[.!?,;:\n]/.test(chunk)) {
+        if (flushTimer.ref) {
+          clearTimeout(flushTimer.ref);
+          flushTimer.ref = null;
+        }
+        flushBuffer(true);
+      } else {
+        scheduleFlush();
+      }
     },
+
+    finish() {
+      if (stoppedRef.value) return;
+      if (flushTimer.ref) {
+        clearTimeout(flushTimer.ref);
+        flushTimer.ref = null;
+      }
+      flushBuffer(true);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ text: "" }));
+      }
+    },
+
+    stop: makeStopFn(stoppedRef, ws, player, resolvePromise, flushTimer),
     done,
   };
 }
