@@ -15,12 +15,12 @@
 
 ### Index Scores
 
-| Index | Standard Score | Percentile | Level |
-|-------|---------------|------------|-------|
-| Core Language | 82 | 12th | Mild Delay |
-| Receptive Language | 82 | 12th | Mild Delay |
-| Expressive Language | 74 | 4th | Moderate Delay |
-| Language Structure | 82 | 12th | Mild Delay |
+| Index               | Standard Score | Percentile | Level          |
+| ------------------- | -------------- | ---------- | -------------- |
+| Core Language       | 82             | 12th       | Mild Delay     |
+| Receptive Language  | 82             | 12th       | Mild Delay     |
+| Expressive Language | 74             | 4th        | Moderate Delay |
+| Language Structure  | 82             | 12th       | Mild Delay     |
 
 ### Individual Test Scores
 
@@ -45,6 +45,29 @@ Ila has dyslexia — decoding, phonemic awareness, and sight word recognition ar
 
 Received Speech Improvement services starting January 2024 (Kindergarten) for L, S, Z, S blends, and TH sounds. Made steady progress and passed screening fall 2024 — graduated from speech services. Shows she can make meaningful progress with structured support.
 
+### Academic Achievement (WIAT-4, January 2026)
+
+| Subtest | Score | Percentile | Level |
+|---------|-------|------------|-------|
+| Total Reading | 81 | 10th | Below Average |
+| Word Reading | 82 | 12th | Below Average |
+| Pseudoword Decoding | 85 | 16th | Low Average |
+| Reading Comprehension | 85 | 16th | Low Average |
+| Oral Reading Fluency | 85 | 16th | Low Average |
+| Math Problem Solving | 85 | 16th | Low Average |
+| Numerical Operations | 107 | 68th | Average ← surprise strength |
+| Spelling | 102 | 55th | Average ← in isolation |
+| Sentence Building | 94 | 34th | Average |
+
+### Key Insights from WIAT-4
+
+- Reads ~97 words/minute with 13 errors on first passage
+- Reading comprehension: 27% literal questions, 63% inferential — stronger with inference than facts
+- Narrative comprehension (64%) vs expository (13%) — she understands stories, not textbooks
+- Spelling collapses under cognitive load — average in isolation, breaks down in sentences
+- Math computation is average when language is removed — not a math problem, a language problem
+- Rushing is her biggest enemy — rapid pace causes errors that don't reflect her true ability
+
 ### What this means for Sunny
 
 She cannot hold long verbal instructions. If you give her three steps, she'll lose the second and third. Everything must be broken into one step at a time, confirmed before moving on. Her scores jump dramatically when she can see what she's working on — always describe things visually or reference pictures. Because of the dyslexia, never assume she can read something — always say it out loud too. Use a clear "ready? go!" signal before giving directions. Her Sentence Comprehension is average — that's her anchor, use it. Her speech sounds fine so don't treat her like she has a speech impediment.
@@ -61,6 +84,8 @@ She cannot hold long verbal instructions. If you give her three steps, she'll lo
 ## What Works
 
 - **Visual support always** — 100% accuracy with pictures, 37.5% without. She collapses without visuals.
+- **Narrative over expository** — frame everything as a story, not a lesson
+- **Inference over recall** — ask "what do you think happens next?" not "what did I just say?"
 - **One instruction at a time** — never stack directions
 - **"Wait until I say Go"** — give her a clear signal before she needs to act
 - **Short sentences** from Sunny — match her processing capacity
@@ -87,6 +112,8 @@ She cannot hold long verbal instructions. If you give her three steps, she'll lo
 - Proud when she succeeds — lights up with genuine encouragement
 - ADHD means impulse control is hard — she will interrupt, jump ahead, and lose focus. This is not defiance, it's her brain.
 - Described as "an absolute pleasure to work with" by her evaluator — she is friendly, willing, and easily engaged
+- Favorite show: GeGeGe no Kitaro
+- Language: English, Japanese
 
 ## Session History
 
