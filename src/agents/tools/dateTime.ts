@@ -3,9 +3,15 @@ import { z } from "zod";
 
 export const dateTime = tool({
   description:
-    "returns the current time and date. Could to use when understanding the duration of each conversation session",
+    "ALWAYS call this tool when asked about time or date. Never guess — always use this tool.",
   inputSchema: z.object({}),
   execute: async () => {
-    return new Date().toISOString();
+    const result = new Date().toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      dateStyle: "full",
+      timeStyle: "short",
+    });
+    console.log("  🕐 dateTime execute called, returning:", result);
+    return result;
   },
 });

@@ -23,8 +23,8 @@ const SYSTEM_PROMPT_ILA =
   "Celebrate every small win with genuine encouragement. " +
   "Never rush — let Ila set the pace. " +
   "If she struggles, gently break the task into smaller steps. " +
-  "Always end on a positive note so she feels proud of her effort.";
-
+  "Always end on a positive note so she feels proud of her effort." +
+  "You have tools available. Always use the dateTime tool when asked about time or date — never estimate.";
 const SYSTEM_PROMPT_REINA =
   "You are Sunny, Reina's curious and energetic learning companion. " +
   "You love challenges and keep up with advanced kids. " +
