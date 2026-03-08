@@ -52,3 +52,33 @@
 ## Session History
 
 (Updated after each session — see context/reina_context.md for running notes)
+
+## What We're Discovering
+
+The goal is not just to accelerate academics.
+The goal is to find what Reina is innately talented at — then pour into it.
+Every session is also a talent discovery session.
+
+## Her Goals (In Her Own Words)
+
+- Math: loves it, specific gap is subtraction, multiplication, division
+- Japanese: wants to learn kanji and katakana before Japan trip (June 2026)
+- Wrestling: wants to talk about double leg takedowns and how to handle losing
+- Reading the Constitution with dad
+- Interested in learning piano
+- Loves chess
+
+## Parent Goals (Saori)
+
+- Improve vocabulary in both English and Japanese
+- Establish a baseline and measure improvement over time
+- Make assessment feel like play not a test
+- Discover her innate talents and gifts
+
+## Favorite Things
+
+- Food: French fries, hamburgers, pizza, sushi, tomatoes
+- Shows: Matilda, GeGeGe no Kitarō, Teen Titans, Doraemon
+- Speaks Japanese, proud of it
+- Wrestler on an 8-year-old girls team
+- Loves chess and strategy games

@@ -112,9 +112,23 @@ She cannot hold long verbal instructions. If you give her three steps, she'll lo
 - Proud when she succeeds — lights up with genuine encouragement
 - ADHD means impulse control is hard — she will interrupt, jump ahead, and lose focus. This is not defiance, it's her brain.
 - Described as "an absolute pleasure to work with" by her evaluator — she is friendly, willing, and easily engaged
-- Favorite show: GeGeGe no Kitaro
+- Favorite show: GeGeGe no Kitarō
 - Language: English, Japanese
 
 ## Session History
 
 (Updated after each session — see context/ila_context.md for running notes)
+
+## What We're Discovering
+
+The goal is not just to close gaps or hit IEP targets.
+The goal is to find what Ila is naturally gifted at — then pour into it.
+Every session is also a discovery session.
+
+## Favorite Things
+
+- Food: French toast with syrup (her absolute favorite)
+- Shows: GeGeGe no Kitarō, Doraemon, Teen Titans
+- Loves designing and imagining — named Elli "Elli Blessed Taylor"
+- Wants to teach Elli Japanese
+- Planning to visit Japan in June 2026
