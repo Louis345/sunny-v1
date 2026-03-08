@@ -44,8 +44,9 @@ const OPENING_PROMPT =
 // Barge-in uses RMS so speaker echo doesn't fool Flux.
 // Calibrates against actual speaker output, then requires voice ABOVE that level.
 const BARGE_IN_FLOOR = 800;
-const BARGE_IN_WINDOW = 20;
-const BARGE_IN_HITS = 10;
+const BARGE_IN_GUARD_MS = 500;
+const BARGE_IN_CONSECUTIVE_NEEDED = 15;
+const BARGE_IN_THRESHOLD_MULTIPLIER = 1.2;
 const CALIBRATION_MS = 1500;
 
 enum State {
@@ -59,7 +60,8 @@ let state: State = State.PROCESSING;
 let currentPlayback: PlaybackHandle | null = null;
 let currentAbort: AbortController | null = null;
 let roundNumber = 0;
-let bargeWindow: boolean[] = [];
+let consecutiveHits = 0;
+let speakingStartTime = 0;
 let bargeThreshold = BARGE_IN_FLOOR;
 let calibrationSamples: number[] = [];
 let calibrationStart = 0;
@@ -87,7 +89,7 @@ async function streamAndSpeak(
   claudeStart: number
 ): Promise<void> {
   state = State.PROCESSING;
-  bargeWindow = [];
+  consecutiveHits = 0;
 
   const tts = createLiveStream(() => {
     console.log(
@@ -101,6 +103,7 @@ async function streamAndSpeak(
       console.log(`  🔧 Calibrating speaker bleed (${CALIBRATION_MS / 1000}s)...`);
     } else {
       state = State.SPEAKING;
+      speakingStartTime = Date.now();
     }
   });
 
@@ -154,6 +157,7 @@ function finishCalibration(): void {
   }
   calibrated = true;
   state = State.SPEAKING;
+  speakingStartTime = Date.now();
 }
 
 function handleBargeIn(): void {
@@ -293,17 +297,25 @@ async function main(): Promise<void> {
         break;
 
       case State.SPEAKING: {
-        // RMS-based barge-in — threshold calibrated above speaker bleed
-        const hit = rms > bargeThreshold;
-        bargeWindow.push(hit);
-        if (bargeWindow.length > BARGE_IN_WINDOW) bargeWindow.shift();
-        const hits = bargeWindow.filter(Boolean).length;
-        if (hit) {
-          process.stdout.write(`\r  🎤 RMS ${Math.round(rms)} / ${bargeThreshold} | ${hits}/${BARGE_IN_HITS} hits  `);
+        const effectiveThreshold = Math.round(
+          bargeThreshold * BARGE_IN_THRESHOLD_MULTIPLIER,
+        );
+        const hit = rms > effectiveThreshold;
+        if (Date.now() - speakingStartTime < BARGE_IN_GUARD_MS) {
+          consecutiveHits = 0;
+          break;
         }
-        if (hits >= BARGE_IN_HITS) {
-          process.stdout.write("\n");
-          handleBargeIn();
+        if (hit) {
+          consecutiveHits++;
+          process.stdout.write(
+            `\r  🎤 RMS ${Math.round(rms)} / ${effectiveThreshold} | ${consecutiveHits}/${BARGE_IN_CONSECUTIVE_NEEDED}  `,
+          );
+          if (consecutiveHits >= BARGE_IN_CONSECUTIVE_NEEDED) {
+            process.stdout.write("\n");
+            handleBargeIn();
+          }
+        } else {
+          consecutiveHits = 0;
         }
         break;
       }

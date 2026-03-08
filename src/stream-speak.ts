@@ -5,6 +5,11 @@ import { spawn, ChildProcess, execSync } from "child_process";
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 150;
 
+/** Normalize text for TTS so names like Ila are pronounced correctly (EYE-lah). */
+function normalizeForTTS(text: string): string {
+  return text.replace(/\bIla\b/gi, "EYE-lah");
+}
+
 function getPronunciationLocators(): object[] | undefined {
   const dictId = process.env.ELEVENLABS_PRONUNCIATION_DICT_ID;
   const versionId = process.env.ELEVENLABS_PRONUNCIATION_DICT_VERSION;
@@ -193,7 +198,7 @@ export function streamSpeak(
       })
     );
     ws.send(
-      JSON.stringify({ text: text + " ", try_trigger_generation: true })
+      JSON.stringify({ text: normalizeForTTS(text) + " ", try_trigger_generation: true })
     );
     ws.send(JSON.stringify({ text: "" }));
   });
@@ -239,9 +244,10 @@ export function createLiveStream(
   function flushBuffer(trigger: boolean): void {
     if (!buffer || stoppedRef.value) return;
     if (ws.readyState !== WebSocket.OPEN) return;
+    const toSend = normalizeForTTS(buffer) + " ";
     ws.send(
       JSON.stringify({
-        text: buffer + " ",
+        text: toSend,
         ...(trigger && { try_trigger_generation: true }),
       })
     );
