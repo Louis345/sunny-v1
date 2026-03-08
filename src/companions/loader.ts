@@ -56,9 +56,11 @@ function loadCompanion(
   const isFirstSession =
     context.trim().length === 0 || context.includes("(empty");
 
-  const openingLine = isFirstSession
-    ? parseField(companionMd, "Opening Line")
-    : parseField(companionMd, "Returning Greeting");
+  const openingLine =
+    (isFirstSession
+      ? parseField(companionMd, "Opening Line")
+      : parseField(companionMd, "Returning Greeting")) ||
+    parseField(companionMd, "Opening Line");
   const goodbye = parseField(companionMd, "Goodbye");
 
   const systemPrompt =
