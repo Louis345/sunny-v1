@@ -5,9 +5,13 @@ import { spawn, ChildProcess, execSync } from "child_process";
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 150;
 
-/** Normalize text for TTS so names like Ila are pronounced correctly (EYE-lah). */
+/** Normalize text for TTS so names and Japanese are pronounced correctly. */
 function normalizeForTTS(text: string): string {
-  return text.replace(/\bIla\b/gi, "EYE-lah");
+  return text
+    .replace(/\bIla\b/gi, "EYE-lah")
+    .replace(/すごい/g, "sugoi")
+    .replace(/やった/g, "yatta")
+    .replace(/頑張って/g, "ganbatte");
 }
 
 function getPronunciationLocators(): object[] | undefined {

@@ -6,7 +6,11 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "npx tsx src/index.ts"
+    "dev": "npx tsx src/index.ts",
+    "ila": "npx tsx src/sessions/ila.ts",
+    "reina": "npx tsx src/sessions/reina.ts",
+    "plan-ila": "npx tsx src/agents/support/curriculum-planner.ts ila",
+    "plan-reina": "npx tsx src/agents/support/curriculum-planner.ts reina"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

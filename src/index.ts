@@ -2,7 +2,7 @@ import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
 import * as readline from "readline";
 import { selectProfile, type Profile } from "./profiles";
-import { runAgent } from "./agents/run";
+import { runAgent } from "./agents/conversation/run";
 import {
   setStreamVoiceId,
   createLiveStream,
