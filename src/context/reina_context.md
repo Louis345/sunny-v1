@@ -146,3 +146,22 @@ First session functioned as rapport-building and baseline introduction. Client d
 ---
 
 **NEXT SESSION:** Follow up on her energy level — she had momentum but didn't sustain. Check if she wants to channel today's courage into an academic challenge, or if she just needed to connect and celebrate.
+
+## Session — 3/9/2026, 10:05 PM
+---
+
+**Learning Coach Note — Reina**
+
+**Engagement:** High. Reina initiated session asking to continue riddle three from morning session. She remembered exactly where they left off unprompted — strong working memory.
+
+**Wins:**
+- Map riddle: answered instantly, already knew it from morning
+- Fire riddle: solved with one hint (campfire clue)
+- Echo riddle: solved correctly, then immediately questioned whether the riddle's logic was accurate — caves vs open spaces. That's critical thinking, not just pattern matching.
+- Footprints riddle: recognized it as a repeat and answered from memory
+
+**Watch:**
+- Matilda repeated riddles from the morning session — need a riddle tracking list in curriculum
+- ElevenLabs quota hit mid-session, TTS died at round 20
+
+**Note for next session:** Reina wants harder riddles. She's burning through them. Consider logic puzzles, lateral thinking problems, or math riddles next.
