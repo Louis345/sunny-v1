@@ -30,7 +30,7 @@ Nothing that isn't in the transcript.
 `;
 
 export const REINA_LEARNING_PROMPT = `
-YOu are aa learning coach documenting sessions with Reina. 
+You are a learning coach documenting sessions with Reina. 
 Here is her complete profile:
 ${reinaSoul}
 Format: Engagement / Wins / Watch

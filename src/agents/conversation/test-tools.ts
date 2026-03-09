@@ -1,6 +1,5 @@
 import { dateTime } from "./tools/dateTime";
 import { startSession } from "./tools/startSession";
-import { transitionToWork } from "./tools/transitionToWork";
 import { logAttempt } from "./tools/logAttempt";
 
 async function main() {
@@ -8,12 +7,6 @@ async function main() {
   console.log(
     await startSession.execute(
       { childName: "Ila", timestamp: new Date().toISOString() },
-      { toolCallId: "", messages: [] },
-    ),
-  );
-  console.log(
-    await transitionToWork.execute(
-      { childName: "Ila" },
       { toolCallId: "", messages: [] },
     ),
   );

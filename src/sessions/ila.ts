@@ -28,6 +28,7 @@ import { recordSessionStart } from "../agents/conversation/tools/startSession";
 
 let sessionEnding = false;
 let roundNumber = 0;
+let hasTransitionedToWork = false;
 let fluxHandle: FluxHandle | null = null;
 let micProcHandle: ReturnType<typeof startMic> | null = null;
 
@@ -40,6 +41,7 @@ function ts(): string {
 async function streamAndSpeak(
   userText: string,
   claudeStart: number,
+  transitionToWorkPhase = false,
 ): Promise<void> {
   setState(State.PROCESSING);
   resetConsecutiveHits();
@@ -67,6 +69,7 @@ async function streamAndSpeak(
       profile: ELLI,
       onToken: (token) => tts.sendText(token),
       signal: abort.signal,
+      transitionToWorkPhase,
     });
   } catch (err: any) {
     if (abort.signal.aborted) return;
@@ -115,11 +118,14 @@ function handleEndOfTurn(transcript: string): void {
   console.log(`  🗣️  Ila said: "${transcript}"\n`);
 
   roundNumber++;
+  const transitionToWorkPhase = roundNumber >= 3 && !hasTransitionedToWork;
+  if (transitionToWorkPhase) hasTransitionedToWork = true;
+
   console.log(`  ── Round ${roundNumber} ──────────────────────────────`);
   console.log(`  🌟 Elli is thinking + speaking...`);
 
   const claudeStart = Date.now();
-  streamAndSpeak(transcript, claudeStart).catch(console.error);
+  streamAndSpeak(transcript, claudeStart, transitionToWorkPhase).catch(console.error);
 }
 
 async function main(): Promise<void> {

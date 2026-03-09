@@ -1,11 +1,7 @@
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
-import {
-  dateTime,
-  transitionToWork,
-  logAttempt,
-} from "./tools";
+import { dateTime, logAttempt } from "./tools";
 
 export interface RunAgentOptions {
   history: ModelMessage[];
@@ -15,21 +11,26 @@ export interface RunAgentOptions {
   signal?: AbortSignal;
   onStepFinish?: (step: { finishReason: string; toolCalls?: unknown[]; toolResults?: unknown[] }) => void;
   quiet?: boolean;
+  /** When true, append instruction to redirect to learning (called after 3 turns) */
+  transitionToWorkPhase?: boolean;
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<string> {
-  const { history, userMessage, profile, onToken, signal, onStepFinish, quiet } = opts;
+  const { history, userMessage, profile, onToken, signal, onStepFinish, quiet, transitionToWorkPhase } = opts;
 
   let fullText = "";
+  const systemPrompt = transitionToWorkPhase
+    ? profile.systemPrompt +
+      "\n\n[System: Transition to work phase. The child has had 3+ turns of banter. Redirect naturally to learning activities — e.g. 'Oh I just thought of a fun game — want to try it?']"
+    : profile.systemPrompt;
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-20250514"),
-    system: profile.systemPrompt,
+    system: systemPrompt,
     messages: [...history, { role: "user", content: userMessage }],
     maxOutputTokens: 500,
     tools: {
       dateTime,
-      transitionToWork,
       logAttempt,
     },
     stopWhen: stepCountIs(5),
