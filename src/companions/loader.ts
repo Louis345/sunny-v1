@@ -22,6 +22,41 @@ function parseMeta(md: string, key: string): string {
   return match ? match[1].trim() : "";
 }
 
+function getTimeBasedGreeting(childName: string): string {
+  const hour = new Date().getHours();
+
+  const greetings: Record<string, string[]> = {
+    morning: [
+      `${childName}! Good morning — how'd you sleep?`,
+      `Hey ${childName}! Morning! What's going on?`,
+      `${childName}! You're up — how's your morning so far?`,
+    ],
+    afternoon: [
+      `${childName}! How was school today?`,
+      `Hey ${childName}! You're back — how'd it go?`,
+      `${childName}! Tell me everything — how was your day?`,
+    ],
+    evening: [
+      `${childName}! How's your night going?`,
+      `Hey ${childName}! What's been happening?`,
+      `${childName}! Good to see you — what's new?`,
+    ],
+    night: [
+      `${childName}! It's getting late — what's up?`,
+      `Hey ${childName}! Still going strong tonight?`,
+      `${childName}! Night owl! What's on your mind?`,
+    ],
+  };
+
+  const bucket =
+    hour < 12 ? "morning" :
+    hour < 16 ? "afternoon" :
+    hour < 21 ? "evening" : "night";
+
+  const options = greetings[bucket];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
 export interface CompanionConfig {
   name: string;
   childName: string;
@@ -56,11 +91,9 @@ function loadCompanion(
   const isFirstSession =
     context.trim().length === 0 || context.includes("(empty");
 
-  const openingLine =
-    (isFirstSession
-      ? parseField(companionMd, "Opening Line")
-      : parseField(companionMd, "Returning Greeting")) ||
-    parseField(companionMd, "Opening Line");
+  const openingLine = isFirstSession
+    ? parseField(companionMd, "Opening Line")
+    : getTimeBasedGreeting(childName);
   const goodbye = parseField(companionMd, "Goodbye");
 
   const systemPrompt =
