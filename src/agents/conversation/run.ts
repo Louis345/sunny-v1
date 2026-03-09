@@ -3,7 +3,6 @@ import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
 import {
   dateTime,
-  startSession,
   transitionToWork,
   logAttempt,
 } from "./tools";
@@ -14,10 +13,12 @@ export interface RunAgentOptions {
   profile: Profile;
   onToken: (chunk: string) => void;
   signal?: AbortSignal;
+  onStepFinish?: (step: { finishReason: string; toolCalls?: unknown[]; toolResults?: unknown[] }) => void;
+  quiet?: boolean;
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<string> {
-  const { history, userMessage, profile, onToken, signal } = opts;
+  const { history, userMessage, profile, onToken, signal, onStepFinish, quiet } = opts;
 
   let fullText = "";
 
@@ -28,21 +29,23 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     maxOutputTokens: 500,
     tools: {
       dateTime,
-      startSession,
       transitionToWork,
       logAttempt,
     },
     stopWhen: stepCountIs(5),
     abortSignal: signal,
     onStepFinish: (step) => {
-      console.log(
-        "  🔧 Step finished:",
-        step.finishReason,
-        step.toolCalls?.length ?? 0,
-        "tool calls",
-      );
-      if (step.toolResults) {
-        console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
+      onStepFinish?.(step);
+      if (!quiet) {
+        console.log(
+          "  🔧 Step finished:",
+          step.finishReason,
+          step.toolCalls?.length ?? 0,
+          "tool calls",
+        );
+        if (step.toolResults) {
+          console.log("  🔧 Tool results:", JSON.stringify(step.toolResults));
+        }
       }
     },
   });

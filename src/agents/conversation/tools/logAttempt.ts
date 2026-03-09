@@ -7,32 +7,20 @@ export const logAttempt = tool({
   description: "logs an attempt by the child",
   inputSchema: z.object({
     childName: z.enum(["Ila", "Reina"]),
-    timestamp: z.string(),
     word: z.string(),
     correct: z.boolean(),
   }),
-  execute: async ({ childName, timestamp, word, correct }) => {
-    let filePath = "";
+  execute: async ({ childName, word, correct }) => {
+    const timestamp = new Date().toISOString();
+    const logsDir = path.resolve(process.cwd(), "src", "logs");
+    await fs.promises.mkdir(logsDir, { recursive: true });
 
-    childName === "Ila"
-      ? (filePath = path.resolve(
-          process.cwd(),
-          "src",
-          "context",
-          "ila_context.md",
-        ))
-      : (filePath = path.resolve(
-          process.cwd(),
-          "src",
-          "context",
-          "reina_context.md",
-        ));
+    const fileName = childName === "Ila" ? "ila_attempts.json" : "reina_attempts.json";
+    const filePath = path.resolve(logsDir, fileName);
 
-    await fs.promises.appendFile(
-      filePath,
-      `[${timestamp}] ${word} ${correct ? "correctly" : "incorrectly"} `,
-      "utf-8",
-    );
+    const entry = JSON.stringify({ timestamp, word, correct }) + "\n";
+    await fs.promises.appendFile(filePath, entry, "utf-8");
+
     return `${childName} attempted "${word}" — ${correct ? "✅ correct" : "❌ incorrect"} at ${timestamp}`;
   },
 });

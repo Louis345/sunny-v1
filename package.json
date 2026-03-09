@@ -10,7 +10,8 @@
     "ila": "npx tsx src/sessions/ila.ts",
     "reina": "npx tsx src/sessions/reina.ts",
     "plan-ila": "npx tsx src/agents/support/curriculum-planner.ts ila",
-    "plan-reina": "npx tsx src/agents/support/curriculum-planner.ts reina"
+    "plan-reina": "npx tsx src/agents/support/curriculum-planner.ts reina",
+    "test-latency": "npx tsx src/sessions/test-latency.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

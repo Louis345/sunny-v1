@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const dateTime = tool({
   description:
-    "ALWAYS call this tool when asked about time or date. Never guess — always use this tool.",
+    "Only call when the user explicitly asks about the current time or date (e.g. 'what time is it?', 'what's the date?'). Never call proactively or on every turn.",
   inputSchema: z.object({}),
   execute: async () => {
     const result = new Date().toLocaleString("en-US", {

@@ -24,6 +24,7 @@ import {
 } from "../utils/audio";
 import { isGoodbye } from "../utils/goodbye";
 import { recordSession } from "../agents/support/slp-recorder";
+import { recordSessionStart } from "../agents/conversation/tools/startSession";
 
 let sessionEnding = false;
 let roundNumber = 0;
@@ -139,6 +140,8 @@ async function main(): Promise<void> {
   console.log(`  Turn detection: Deepgram Flux (listening) + RMS barge-in (speaking)\n`);
 
   setSessionLabels({ companionName: "Matilda", childName: "Reina" });
+
+  await recordSessionStart("Reina");
 
   const micProc = startMic();
   micProcHandle = micProc;

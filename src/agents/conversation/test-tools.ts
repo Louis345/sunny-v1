@@ -13,18 +13,13 @@ async function main() {
   );
   console.log(
     await transitionToWork.execute(
-      { childName: "Ila", timestamp: new Date().toISOString() },
+      { childName: "Ila" },
       { toolCallId: "", messages: [] },
     ),
   );
   console.log(
     await logAttempt.execute(
-      {
-        childName: "Ila",
-        word: "cat",
-        correct: true,
-        timestamp: new Date().toISOString(),
-      },
+      { childName: "Ila", word: "cat", correct: true },
       { toolCallId: "", messages: [] },
     ),
   );
