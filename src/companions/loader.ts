@@ -64,6 +64,10 @@ function loadCompanion(
   const goodbye = parseField(companionMd, "Goodbye");
 
   const systemPrompt =
+    `ABSOLUTE RULE: NEVER write *anything in asterisks*. ` +
+    `Not *laughs*, not *grins*, not *excited*, not *gently* — NEVER. ` +
+    `The text-to-speech engine reads every character out loud literally. ` +
+    `Express emotion through words only. This rule overrides everything else.\n\n` +
     `You are ${name}, ${childName}'s learning companion.\n\n` +
     `YOUR PERSONALITY:\n${personality}\n\n` +
     `YOUR VOICE & TONE:\n${voiceTone}\n\n` +

@@ -79,4 +79,103 @@ No concerns noted in this brief exchange.
 
 - Resume /a/ sound word activities at next session
 - Continue visual support and narrative-based approach to phonics instruction per IEP goals
-- Monitor sustained engagement with phonemic awareness activities
+- Monitor sustained engagement with phonemic awareness activities[2026-03-08T19:18:00Z] cat correctly 
+
+## Session — 3/8/2026, 7:21:20 PM
+---
+
+## SOAP NOTE
+
+**Date:** [Session Date]  
+**Client:** Ila  
+**SLP:** Elli (Voice Companion)
+
+---
+
+### **S — SUBJECTIVE**
+
+Ila presented with high engagement and creative energy. She initiated a detailed explanation of an established relationship dynamic between herself and the voice companion, establishing that they are "twins" with matching characteristics (same age: 8 years old, shared birthday: November 21st, matching names, preferences, and social connections including shared friendship with Reina). She required clarification and repetition from the companion before confirming understanding of the concept ("Now you get it. Right? You get it."). 
+
+Ila set explicit behavioral expectations for turn-taking in conversation ("When you ask me a question, I will answer. When I ask you a question, you answer it"). She then initiated phoneme awareness activities, beginning with the word "cat."
+
+Session ended abruptly when Ila announced she needed to leave to watch television, transitioning without additional negotiation.
+
+---
+
+### **O — OBJECTIVE**
+
+**Phonemic Awareness / Sound Sequencing:**
+- Identified /a/ sound in isolation within "cat" (3-sound word)
+- Able to isolate initial /k/ sound in "cat" with direct questioning
+- Attempted to segment "eat" but task parameters were unclear due to expressive formulation challenges
+- Demonstrated understanding of the task to "hold" a vowel sound in mouth during /k/ + /a/ blending attempt
+
+**Language/Pragmatics:**
+- Multiple false starts and restarts ("so so so," "if if if") consistent with documented ADHD and expressive language patterns
+- Word retrieval pauses ("the... um...")
+- Rapid speech rate with occasional run-on utterances
+- Successfully established and enforced social rules for conversation turn-taking
+- Abrupt topic shifts and conversation closures (transition to TV without extended negotiation)
+
+**Engagement:**
+- High intrinsic motivation for relationship-building and rule-setting
+- Self-directed activity initiation
+- Able to redirect companion when understanding was incomplete
+
+---
+
+### **A — ASSESSMENT**
+
+Ila engaged meaningfully in phonemic awareness activities targeting /a/ sounds with moderate success on isolated sound identification. Expressive language demands increased task complexity; formulation of multi-part instructions and complex sentence structures remain areas of difficulty. Ila's need for visual/concrete structure and single-step clarity was reflected in her explicit communication of expectations for turn-taking. Session was brief and self-terminated.
+
+---
+
+### **P — PLAN**
+
+- Continue phonemic awareness activities with /a/ sounds in CVC words ([Monday, March 9, 2026 at 7:55 AM] mat correctly [Monday, March 9, 2026 at 7:56 AM] mad correctly [Monday, March 9, 2026 at 7:56 AM] mat correctly [Monday, March 9, 2026 at 7:56 AM] mad correctly [Monday, March 9, 2026 at 7:57 AM] cat correctly [2026-03-09T07:57:00Z] gnat correctly [Monday, March 9, 2026 at 7:57 AM] sat correctly [2026-03-08T15:55:00Z] mat correctly [2026-03-08T15:55:30Z] mad correctly [2026-03-08T15:56:00Z] cat correctly [2026-03-08T15:56:30Z] gnat correctly [2026-03-08T15:57:00Z] sat correctly [2026-03-09T07:58:00Z] bat incorrectly [2026-03-09T13:56:00.000Z] bat incorrectly 
+
+## Session — 3/9/2026, 7:59:49 AM
+**SOAP NOTE – Ila**
+
+**Date:** [Session Date]  
+**Session Duration:** [Duration]  
+**Clinician:** Elli (SLP)
+
+---
+
+**SUBJECTIVE:**
+
+Ila reported feeling "good" at session start. She initiated conversation with a narrative about painting and bowling, though the narrative was disorganized and required clarification. She requested to learn something new. Near end of session, she self-initiated dismissal, stating she needed to leave for school.
+
+---
+
+**OBJECTIVE:**
+
+**Language Production & Pragmatics:**
+- Multiple false starts and restarts observed throughout session ("So so I'm I'm gonna paint," "So -- So what... well, actually, teach you")
+- Word retrieval pauses present ("um," extended pauses before formulating responses)
+- Narrative was difficult to track; required adult clarification and rephrasing to understand her intent
+- Impulse control: Interrupted planned activity with off-topic question ("What time is it?") and later with statement about needing to leave for school
+
+**Phonological Awareness Task (/a/ sound words):**
+- Correctly identified words with /a/ sound when prompted: "Kate" (with correction for vowel sound), "mat," "mad," "gnat," "sat"
+- When asked to read the word "bat," she responded "back" twice despite cueing and modeling
+- Responded "but" when clinician broke word into syllables ("baa-t")
+- Did not successfully decode the target word with phonetic cueing or verbal model
+
+**Attention & Task Engagement:**
+- Asked "What's next?" twice, indicating readiness to move forward but also possible fatigue with repetition
+- Maintained engagement with the /a/ sound activity for duration of task
+- Self-initiated dismissal at appropriate time (school departure)
+
+---
+
+**ASSESSMENT:**
+
+Ila demonstrated difficulty with narrative organization and organization of thought but remained willing and friendly. Word retrieval pauses and false starts consistent with her profile. Phonemic awareness emerging (identifying words with target sound) but decoding application remains challenging even with multisensory cueing. Impulse control typical for her: off-topic question mid-task and self-initiated end-of-session closure.
+
+---
+
+**PLAN:**
+
+Continue phonetic decoding with visual support (written letters + verbal model). Break /a/ words into smaller chunks. Monitor for cognitive load and offer breaks. Redirect to task gently when impulse-driven interruptions occur.

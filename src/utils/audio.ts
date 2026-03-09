@@ -3,7 +3,7 @@ import type { PlaybackHandle } from "../stream-speak";
 
 // Barge-in uses RMS so speaker echo doesn't fool Flux.
 // Calibrates against actual speaker output, then requires voice ABOVE that level.
-export const BARGE_IN_FLOOR = 800;
+export const BARGE_IN_FLOOR = 200;
 export const BARGE_IN_GUARD_MS = 500;
 export const BARGE_IN_CONSECUTIVE_NEEDED = 15;
 export const BARGE_IN_THRESHOLD_MULTIPLIER = 1.2;
@@ -49,7 +49,7 @@ export function startMic(): ChildProcess {
       "-f",
       "avfoundation",
       "-i",
-      ":0",
+      `:${process.env.AUDIO_DEVICE_INDEX ?? "0"}`,
       "-f",
       "s16le",
       "-ar",
@@ -130,7 +130,7 @@ export function finishCalibration(): void {
       calibrationSamples.reduce((a, b) => a + b, 0) / calibrationSamples.length;
     const p95idx = Math.ceil(0.95 * sorted.length) - 1;
     const p95 = sorted[Math.max(0, p95idx)];
-    bargeThreshold = Math.max(BARGE_IN_FLOOR, Math.round(p95 * 2));
+    bargeThreshold = Math.max(BARGE_IN_FLOOR, Math.round(p95 * 0.8));
     console.log(
       `  🔧 Calibrated — speaker bleed avg: ${Math.round(avg)}, P95: ${Math.round(p95)}, barge-in threshold: ${bargeThreshold} RMS`,
     );
