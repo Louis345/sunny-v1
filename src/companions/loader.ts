@@ -96,7 +96,7 @@ function loadCompanion(
     : getTimeBasedGreeting(childName);
   const goodbye = parseField(companionMd, "Goodbye");
 
-  const systemPrompt =
+  const basePrompt =
     `ABSOLUTE RULE: NEVER write *anything in asterisks*. ` +
     `Not *laughs*, not *grins*, not *excited*, not *gently* — NEVER. ` +
     `The text-to-speech engine reads every character out loud literally. ` +
@@ -110,6 +110,12 @@ function loadCompanion(
     `CURRICULUM:\n\n${curriculum}\n\n` +
     `${childName.toUpperCase()}'S SOUL FILE (read this carefully — this is who they are):\n\n${soul}\n\n` +
     `SESSION CONTEXT:\n\n${context}`;
+
+  const matildaLimit =
+    "HARD LIMIT: 3 sentences maximum per response. Aim for 2. Reina is quiet — match her energy.\n\n";
+
+  const systemPrompt =
+    childName === "Reina" ? matildaLimit + basePrompt : basePrompt;
 
   return {
     name,

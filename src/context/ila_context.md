@@ -179,3 +179,101 @@ Ila demonstrated difficulty with narrative organization and organization of thou
 **PLAN:**
 
 Continue phonetic decoding with visual support (written letters + verbal model). Break /a/ words into smaller chunks. Monitor for cognitive load and offer breaks. Redirect to task gently when impulse-driven interruptions occur.
+
+## Session — 3/9/2026, 6:59:02 PM
+---
+
+## SOAP NOTE
+
+**Date:** Monday, March 9, 2026  
+**Time:** 6:43 PM  
+**Client:** Ila (8 years, 3 months)  
+**Clinician:** [Your name]
+
+---
+
+### **S — SUBJECTIVE**
+
+Ila reported having a good day at school. She volunteered that she scored 103 on a recent test involving /o/ words. She was enthusiastic about sharing test information and initiated a structured turn-taking activity where she gave specific instructions for how to interact (i.e., "when I say period, then you can talk").
+
+---
+
+### **O — OBJECTIVE**
+
+**Sound Identification Tasks:**
+- First sound identification: Demonstrated emerging accuracy. Correctly identified /m/ in "mat" (after modeling), /b/ in "big," and /d/ in "dog." Made errors on /s/ in "sun" (responded "you") and /s/ in "stop" (gave whole word "stop" rather than isolating initial sound).
+- Phoneme segmentation: Successfully segmented "cat" into /c/ /a/ /t/ when asked to identify all sounds in sequence.
+
+**Receptive Language:**
+- Understood and followed single-step directions throughout session.
+- Required clarification on more complex, multi-part instructions (e.g., when Ila attempted to explain a word game involving word endings and sound patterns, multiple clarifications were needed before shifting to a different activity).
+
+**Expressive Language:**
+- Speech was intelligible and articulation age-appropriate.
+- Demonstrated false starts and word retrieval pauses ("um," "so so so").
+- Used some word order confusion and incomplete sentence formulation when describing complex ideas (e.g., "Like, I say, tap, then you should work that, um, ends the scene").
+- Successfully created and presented a riddle with complex sentence structure: "I am invisible, but I'm invisible, but you can't hear you can't hear me. You can hear me with all away. What is it?" (Answer: sound). Note: some repetition and word choice errors present but meaning was conveyed.
+
+**Engagement & Behavior:**
+- Remained engaged throughout session.
+- Initiated topic changes appropriately and self-directed activity shifts (from sound practice to riddles to ending session).
+- Demonstrated impulse control by accepting redirection and waiting for turns during games.
+
+---
+
+### **A — ASSESSMENT**
+
+Ila demonstrated emerging phonemic awareness skills with accurate first sound identification on single-sound words and successful segmentation of a three-phoneme word. Performance declined on blend-initial words, suggesting continued difficulty isolating individual
+
+## Session — 3/10/2026, 8:02:27 AM
+---
+
+## SOAP NOTE
+
+**CLIENT:** Ila (8y3m) | **DATE:** [Session Date] | **TIME:** [Duration] | **SLP:** [Name]
+
+---
+
+### **S — SUBJECTIVE**
+
+Ila reported feeling "great" at start of session. Demonstrated high motivation and willingness to engage. Session was interrupted at end due to Ila needing to leave for school.
+
+---
+
+### **O — OBJECTIVE**
+
+**Activities:**
+- Phoneme identification and blending practice targeting /a/ sound in CVC words (cat, hat, mat, bat, sat, bag, rag)
+- Word decoding and reading fluency
+
+**Responses & Accuracy:**
+- /a/ phoneme identification: 100% accurate (identified /a/ in cat, hat, mat, bat, sat, bag, rag when asked to isolate middle sound)
+- CVC word decoding:
+  - "hat": decoded correctly (/h/ - /a/ - /t/ → "hat") ✓
+  - "mat": decoded correctly (/m/ - /a/ - /t/ → "mat") ✓
+  - "bat": decoded correctly → "bat" ✓
+  - "sat": decoded correctly → "sat" ✓
+  - "bag": decoded correctly → "bag" ✓
+  - "rag": self-corrected through trial-and-error ("rack" → "rat" → "rag") ✓
+- Initial /c/ sound identification in "cat": produced /z/ instead of /c/ (one error)
+- Overall CVC word reading accuracy: 6/7 correct
+
+**Behavior & Engagement:**
+- High motivation throughout; requested more challenging words ("can i get more")
+- Demonstrated confidence; stated words were "too easy"
+- Self-corrected on multisyllabic attempt ("rag")
+- No signs of frustration or shutdown
+
+---
+
+### **A — ASSESSMENT**
+
+Ila demonstrated strong phoneme identification and CVC word decoding skills at the /a/ sound level. Accuracy suggests readiness for increased difficulty. One articulation error (/z/ for /c/) noted but may reflect task-specific trial-and-error rather than consistent pattern. Session engagement was strong; client self-advocated for challenge and showed confidence in ability.
+
+---
+
+### **P — PLAN**
+
+- Progress to more complex word patterns (CVCC, CCVC) or additional vowel sounds as appropriate
+- Continue to monitor initial consonant accuracy
+- Maintain high engagement approach; Ila responds well to challenge and self-direction

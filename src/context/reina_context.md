@@ -165,3 +165,47 @@ First session functioned as rapport-building and baseline introduction. Client d
 - ElevenLabs quota hit mid-session, TTS died at round 20
 
 **Note for next session:** Reina wants harder riddles. She's burning through them. Consider logic puzzles, lateral thinking problems, or math riddles next.
+
+## Session — 3/10/2026, 7:48:31 AM
+*To coaching notes:*
+
+## Session Summary: Reina — Morning Check-in
+
+**Engagement:** HIGH ✓
+- Wanted to continue riddles from last night (persistence/competitive streak)
+- Caught me immediately when I repeated the map riddle — sharp memory and attention to detail
+- Asked for hints rather than giving up (growth mindset)
+- Successfully solved the elevator riddle with scaffolding
+
+**Wins:** 
+- Self-corrected me when I recycled riddles (meta-awareness)
+- Worked through multi-step logic with hints (elevator puzzle)
+- Made the umbrella connection independently (problem-solving)
+- Engaged with genuinely challenging material (not bored)
+
+**Watch:**
+- She's now outgrown my basic riddle library — need fresh, harder puzzles for next session
+- When stuck, she asks for help (good), but monitor whether hints are right level
+- Session ended abruptly (had to leave) — pick up with the photographer/husband riddle next time
+
+**Talent Discovery:** Problem-solving with multi-step logic, working backward from impossible scenarios, accepts scaffolding without frustration when material is appropriately hard.
+
+## Session — 3/10/2026, 7:55:34 AM
+**SESSION NOTES**
+
+---
+
+**Engagement:** Mixed - Reina seemed scattered at the start (talking about a game/sports moment), then committed to spelling when asked directly, but disengaged after a few attempts with "rhythm."
+
+**Wins:** 
+- She did engage when asked directly about spelling
+- Showed she could follow hints and break down word structure
+- Got R-H-Y correct on "rhythm" (first 3 letters right)
+
+**Watch:**
+- She may have been tired or distracted today - the conversation started unfocused
+- "Rhythm" might be too hard as an entry point, even for her. Consider that 8-year-old advanced spellers often do better with challenging *but familiar* patterns rather than irregular outliers
+- When she said "Stop. Thank you" - she was done. Respected her boundary immediately, which was right call
+- Next session: warm up with words she can conquer, then layer in difficulty. Match her energy - today she wasn't fired up
+
+**For next time:** Start with a word that has clear patterns but advanced difficulty (not irregular outliers like "rhythm"). Watch for engagement level at the door - if she's scattered, acknowledge it and adjust.
