@@ -118,7 +118,7 @@ function handleEndOfTurn(transcript: string): void {
   console.log(`  🗣️  Ila said: "${transcript}"\n`);
 
   roundNumber++;
-  const transitionToWorkPhase = roundNumber >= 3 && !hasTransitionedToWork;
+  const transitionToWorkPhase = roundNumber >= 4 && !hasTransitionedToWork;
   if (transitionToWorkPhase) hasTransitionedToWork = true;
 
   console.log(`  ── Round ${roundNumber} ──────────────────────────────`);

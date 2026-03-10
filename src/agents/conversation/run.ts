@@ -21,7 +21,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   let fullText = "";
   const systemPrompt = transitionToWorkPhase
     ? profile.systemPrompt +
-      "\n\n[System: Transition to work phase. The child has had 3+ turns of banter. Redirect naturally to learning activities — e.g. 'Oh I just thought of a fun game — want to try it?']"
+      "\n\n[System: Transition to work phase. The child has had 4+ turns of banter. Redirect naturally to learning activities — e.g. 'Oh I just thought of a fun game — want to try it?']"
     : profile.systemPrompt;
 
   const result = streamText({
