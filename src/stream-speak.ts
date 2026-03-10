@@ -7,11 +7,7 @@ const FLUSH_INTERVAL_MS = 150;
 
 /** Normalize text for TTS so names and Japanese are pronounced correctly. */
 function normalizeForTTS(text: string): string {
-  return text
-    .replace(/\bIla\b/gi, "EYE-lah")
-    .replace(/すごい/g, "sugoi")
-    .replace(/やった/g, "yatta")
-    .replace(/頑張って/g, "ganbatte");
+  return text.replace(/\bIla\b/gi, "EYE-lah");
 }
 
 function getPronunciationLocators(): object[] | undefined {
