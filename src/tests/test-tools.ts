@@ -1,6 +1,4 @@
-import { dateTime } from "./tools/dateTime";
-import { startSession } from "./tools/startSession";
-import { logAttempt } from "./tools/logAttempt";
+import { dateTime, startSession, logAttempt } from "../agents/elli/tools";
 
 async function main() {
   console.log(await dateTime.execute({}, { toolCallId: "", messages: [] }));

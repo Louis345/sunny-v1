@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { runAgent } from "../agents/conversation/run";
+import { runAgent } from "../agents/elli/run";
 import { ELLI } from "../companions/loader";
 import type { ModelMessage } from "ai";
 

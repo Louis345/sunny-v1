@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { spawn, ChildProcess } from "child_process";
 import { setStreamVoiceId, createLiveStream, PlaybackHandle } from "./stream-speak";
-import { runAgent } from "./agents/conversation/run";
+import { runAgent } from "./agents/elli/run";
 import type { Profile } from "./profiles";
 
 const REINA_PROFILE: Profile = {

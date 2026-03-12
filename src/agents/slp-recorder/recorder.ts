@@ -1,7 +1,7 @@
-import path from "path";
-import fs from "fs";
 import type { ModelMessage } from "ai";
 import { SLP_PROMPT, REINA_LEARNING_PROMPT } from "../prompts";
+import { appendToContext } from "../../utils/appendToContext";
+import { runPsychologist } from "../psychologist/psychologist";
 
 export async function recordSession(
   history: ModelMessage[],
@@ -19,14 +19,6 @@ export async function recordSession(
     maxOutputTokens: 600,
   });
 
-  const timestamp = new Date().toLocaleString("en-US", {
-    timeZone: "America/New_York",
-  });
-  const entry = `\n\n## Session — ${timestamp}\n${summary}`;
-
-  const fileName = childName === "Ila" ? "ila_context.md" : "reina_context.md";
-  const filePath = path.resolve(process.cwd(), "src", "context", fileName);
-  await fs.promises.appendFile(filePath, entry, "utf-8");
-
-  console.log(`  ✅ Session saved to ${fileName}`);
+  await appendToContext(childName, "Session", summary);
+  await runPsychologist(childName);
 }

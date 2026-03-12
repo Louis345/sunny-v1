@@ -3,7 +3,7 @@ import {
   setStreamVoiceId,
   createLiveStream,
 } from "../stream-speak";
-import { runAgent } from "../agents/conversation/run";
+import { runAgent } from "../agents/elli/run";
 import { connectFlux, FluxHandle } from "../deepgram-turn";
 import { MATILDA } from "../companions/loader";
 import { type ModelMessage } from "ai";
@@ -23,8 +23,8 @@ import {
   cleanupPlayback,
 } from "../utils/audio";
 import { isGoodbye } from "../utils/goodbye";
-import { recordSession } from "../agents/support/slp-recorder";
-import { recordSessionStart } from "../agents/conversation/tools/startSession";
+import { recordSession } from "../agents/slp-recorder/recorder";
+import { recordSessionStart } from "../agents/elli/tools/startSession";
 
 let sessionEnding = false;
 let roundNumber = 0;
