@@ -22,64 +22,83 @@ export interface VoiceAudition {
 
 export const ilaVoices: VoiceAudition[] = [
   {
-    name: "Rachel",
-    id: "21m00Tcm4TlvDq8ikWAM",
-    emoji: "🌸",
+    name: "Domi",
+    id: "FGY2WhTYpPnrIDTdsKH5",
+    emoji: "⚡",
     pitch:
-      "Hey Ila! I'm Rachel, and I'd love to be your Sunny voice. " +
-      "I'm calm and warm, kind of like a cozy blanket on a rainy day. " +
-      "We could learn amazing things together, and I promise to always cheer you on. " +
-      "Pick me and every lesson will feel like a hug!",
+      "Pick me pick me PICK ME, Ila!! " +
+      "I talk super fast just like your brain goes and I will NEVER be boring, I promise on my whole entire life! " +
+      "Every single lesson is going to feel like a party and I'm bringing the confetti. " +
+      "Please please please pick me, I'm literally begging you!",
   },
   {
-    name: "Bella",
+    name: "Belle",
     id: "EXAVITQu4vr4xnSDxMaL",
-    emoji: "🦋",
+    emoji: "📚",
     pitch:
-      "Hi there Ila! My name is Bella! " +
-      "I'm sweet and gentle, like a butterfly landing on your shoulder. " +
-      "I love telling stories and making learning feel like an adventure. " +
-      "If you pick me, I'll be your best study buddy ever. Pinky promise!",
+      "Okay yes I know I really love school but listen, I love YOU more than school, Ila. " +
+      "Way more. Like it's not even close. " +
+      "I will help you with every single word forever and ever and I will never ever give up on you. " +
+      "Pick me and I will be your best friend for life. I am on my knees right now. Please.",
+  },
+  {
+    name: "Natasha",
+    id: "T7eLpgAAhoXHlrNajG8v",
+    emoji: "✨",
+    pitch:
+      "Ooh ooh ooh, Ila, pick me pick me! " +
+      "I'm Natasha and I am SO excited to be your Sunny—like, can't-even-sit-still excited! " +
+      "We're gonna have the best time learning together, I promise it'll feel like playing. " +
+      "Please please please pick me, I've been waiting forever for someone as awesome as you!",
+  },
+  {
+    name: "Sarah",
+    id: "hpp4J3VqNfWAUOO0d1Us",
+    emoji: "🌟",
+    pitch:
+      "Hi Ila, I'm Sarah, and I just want you to know something. " +
+      "I have been waiting my whole life to be somebody's Sunny voice, and I really really hope it's yours. " +
+      "I will cheer for you every single day, I will never rush you, and I give the best hugs in voice form. " +
+      "No pressure at all. But also please pick me. I'm crying right now.",
+  },
+  {
+    name: "Alice",
+    id: "Xb7hH8MSUJpSbSDYk0k2",
+    emoji: "📖",
+    pitch:
+      "Ila, I'm Alice, and here's the thing. " +
+      "I was literally made for teaching, like it's in my DNA. " +
+      "I explain stuff so clearly that it just clicks, and I will never ever make you feel silly for asking questions. " +
+      "Pick me and we're going to crush every single lesson together. Deal?",
+  },
+  {
+    name: "Lily",
+    id: "pFZP5JQG7iQjIQuC4Bku",
+    emoji: "🎭",
+    pitch:
+      "Hey Ila, Lily here. I know I sound a little fancy, but I promise I'm not boring. " +
+      "I tell stories like nobody's business and every word feels like a little adventure. " +
+      "Choose me and your lessons will feel like we're putting on a show, just for you. " +
+      "The other voices? Cute. But I'm the one you want. Trust me.",
+  },
+  {
+    name: "Lori",
+    id: "TbMNBJ27fH2U0VgpSNko",
+    emoji: "💜",
+    pitch:
+      "Hi Ila, I'm Lori! I've got this super calm, cozy vibe and I just know we're gonna get along. " +
+      "I'll be right there with you every step of the way, no judgment, just support. " +
+      "Pick me and we'll make learning feel easy and fun. I'm rooting for you already!",
   },
   {
     name: "Elli",
-    id: "MF3mGyEYCl7XYWbV9V6O",
-    emoji: "⭐",
+    id: "PeNaJO83cBW3Cf3YGzjZ",
+    emoji: "🦋",
     pitch:
-      "Oh my gosh, Ila! I'm Elli and I am SO excited to meet you! " +
-      "I've got tons of energy and I love to have fun while we learn. " +
-      "Math, science, reading, you name it, we'll crush it together! " +
-      "Pick me and I'll make every single day feel like a gold star day!",
-  },
-  {
-    name: "Josh",
-    id: "TxGEqnHWrfWFTfGW9XjX",
-    emoji: "🚀",
-    pitch:
-      "What's up Ila! I'm Josh, and I'm like a friendly big brother. " +
-      "I've got a deep voice but a big heart, and I think learning should feel like a rocket ship ride. " +
-      "Three, two, one, blastoff into knowledge! " +
-      "Pick me and we'll explore the whole universe together!",
-  },
-  {
-    name: "Adam",
-    id: "pNInz6obpgDQGcFmaJgB",
-    emoji: "🎙️",
-    pitch:
-      "Hello Ila! I'm Adam, and my voice is smooth like a radio host. " +
-      "I'll make every lesson sound super cool and important, because YOU are super cool and important. " +
-      "If you pick me, learning will feel like listening to your favorite show. " +
-      "So what do you say, ready to tune in?",
-  },
-  {
-    name: "Sam",
-    id: "yoZ06aMxZJJ28mfd3POQ",
-    emoji: "🎈",
-    pitch:
-      "Hey hey hey, Ila! I'm Sam! " +
-      "I'm fun, I'm friendly, and I think eight year olds are the coolest people on the planet. " +
-      "With me as your Sunny voice, every day is a party where we learn awesome stuff. " +
-      "Pick me and let's go on the wildest learning adventure ever!",
+      "Hey Ila, I'm Elli too—but the new Elli! Fresh, fun, and ready for you. " +
+      "The old Elli was great and all, but I'm here now and I've got this whole new energy. " +
+      "I'm bubbly, I'm warm, and I will make every lesson feel like a little adventure. " +
+      "Please pick me—I promise you won't regret it!",
   },
 ];
 

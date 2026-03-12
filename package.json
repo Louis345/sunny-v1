@@ -11,6 +11,7 @@
     "reina": "npx tsx src/sessions/reina.ts",
     "plan-ila": "npx tsx src/agents/curriculum-planner/planner.ts ila",
     "plan-reina": "npx tsx src/agents/curriculum-planner/planner.ts reina",
+    "voice-showdown": "npx tsx src/voice-showdown.ts",
     "test:psychologist": "npx tsx src/scripts/test-psychologist.ts",
     "test:latency": "npx tsx src/scripts/test-latency.ts",
     "test:tools": "npx tsx src/tests/test-tools.ts"
