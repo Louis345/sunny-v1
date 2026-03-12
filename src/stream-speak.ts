@@ -89,7 +89,8 @@ function handleWsAudio(
   resolvePromise: () => void,
   onFirstAudio: (() => void) | undefined,
   stoppedRef: { value: boolean },
-  statsRef: { chunks: number; firstFired: boolean }
+  statsRef: { chunks: number; firstFired: boolean },
+  onClosedBeforeAudio?: () => void | Promise<void>
 ): void {
   ws.on("message", (data) => {
     if (stoppedRef.value) return;
@@ -119,6 +120,7 @@ function handleWsAudio(
       console.error(
         `  🔴 TTS WebSocket closed before audio (code: ${code}, reason: ${reason || "none"})`
       );
+      void Promise.resolve(onClosedBeforeAudio?.()).catch(console.error);
     }
     if (!stoppedRef.value && player.stdin?.writable) {
       player.stdin.end();
@@ -214,7 +216,8 @@ export function streamSpeak(
 // --- Live streaming mode (token-by-token) ---
 
 export function createLiveStream(
-  onFirstAudio?: () => void
+  onFirstAudio?: () => void,
+  onClosedBeforeAudio?: () => void | Promise<void>
 ): LiveStreamHandle {
   const apiKey = process.env.ELEVENLABS_API_KEY!;
   const stoppedRef = { value: false };
@@ -279,7 +282,15 @@ export function createLiveStream(
     }
   });
 
-  handleWsAudio(ws, player, resolvePromise, onFirstAudio, stoppedRef, statsRef);
+  handleWsAudio(
+    ws,
+    player,
+    resolvePromise,
+    onFirstAudio,
+    stoppedRef,
+    statsRef,
+    onClosedBeforeAudio
+  );
 
   return {
     sendText(chunk: string) {

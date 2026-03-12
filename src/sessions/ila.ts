@@ -46,16 +46,26 @@ async function streamAndSpeak(
   setState(State.PROCESSING);
   resetConsecutiveHits();
 
-  const tts = createLiveStream(() => {
-    console.log(
-      `  ⏱️  [${ts()}] First audio (${Date.now() - claudeStart}ms from Claude call)`,
-    );
-    if (!getCalibrated()) {
-      startCalibration();
-    } else {
-      startSpeaking();
+  const tts = createLiveStream(
+    () => {
+      console.log(
+        `  ⏱️  [${ts()}] First audio (${Date.now() - claudeStart}ms from Claude call)`,
+      );
+      if (!getCalibrated()) {
+        startCalibration();
+      } else {
+        startSpeaking();
+      }
+    },
+    async () => {
+      await recordSession(history, "Ila");
+      if (sessionEnding) {
+        fluxHandle?.close();
+        micProcHandle?.kill();
+        process.exit(0);
+      }
     }
-  });
+  );
 
   setCurrentPlayback(tts);
   const abort = new AbortController();
@@ -118,7 +128,7 @@ function handleEndOfTurn(transcript: string): void {
   console.log(`  🗣️  Ila said: "${transcript}"\n`);
 
   roundNumber++;
-  const transitionToWorkPhase = roundNumber >= 4 && !hasTransitionedToWork;
+  const transitionToWorkPhase = roundNumber >= 5 && !hasTransitionedToWork;
   if (transitionToWorkPhase) hasTransitionedToWork = true;
 
   console.log(`  ── Round ${roundNumber} ──────────────────────────────`);

@@ -44,16 +44,26 @@ async function streamAndSpeak(
   setState(State.PROCESSING);
   resetConsecutiveHits();
 
-  const tts = createLiveStream(() => {
-    console.log(
-      `  ⏱️  [${ts()}] First audio (${Date.now() - claudeStart}ms from Claude call)`
-    );
-    if (!getCalibrated()) {
-      startCalibration();
-    } else {
-      startSpeaking();
+  const tts = createLiveStream(
+    () => {
+      console.log(
+        `  ⏱️  [${ts()}] First audio (${Date.now() - claudeStart}ms from Claude call)`
+      );
+      if (!getCalibrated()) {
+        startCalibration();
+      } else {
+        startSpeaking();
+      }
+    },
+    async () => {
+      await recordSession(history, "Reina");
+      if (sessionEnding) {
+        fluxHandle?.close();
+        micProcHandle?.kill();
+        process.exit(0);
+      }
     }
-  });
+  );
 
   setCurrentPlayback(tts);
   const abort = new AbortController();
