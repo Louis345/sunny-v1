@@ -90,8 +90,16 @@ function handleWsAudio(
   onFirstAudio: (() => void) | undefined,
   stoppedRef: { value: boolean },
   statsRef: { chunks: number; firstFired: boolean },
-  onClosedBeforeAudio?: () => void | Promise<void>
+  onTtsDiedWithoutAudio?: () => void
 ): void {
+  let diedWithoutAudioFired = false;
+  function maybeFireDiedWithoutAudio(): void {
+    if (statsRef.chunks === 0 && !diedWithoutAudioFired) {
+      diedWithoutAudioFired = true;
+      onTtsDiedWithoutAudio?.();
+    }
+  }
+
   ws.on("message", (data) => {
     if (stoppedRef.value) return;
     const msg = JSON.parse(data.toString());
@@ -120,7 +128,7 @@ function handleWsAudio(
       console.error(
         `  🔴 TTS WebSocket closed before audio (code: ${code}, reason: ${reason || "none"})`
       );
-      void Promise.resolve(onClosedBeforeAudio?.()).catch(console.error);
+      maybeFireDiedWithoutAudio();
     }
     if (!stoppedRef.value && player.stdin?.writable) {
       player.stdin.end();
@@ -133,6 +141,7 @@ function handleWsAudio(
         console.error(
           `  ⚠️  Player exited (code ${exitCode}) with 0 audio chunks`
         );
+        maybeFireDiedWithoutAudio();
       }
       resolvePromise();
     }
@@ -217,7 +226,7 @@ export function streamSpeak(
 
 export function createLiveStream(
   onFirstAudio?: () => void,
-  onClosedBeforeAudio?: () => void | Promise<void>
+  onTtsDiedWithoutAudio?: () => void
 ): LiveStreamHandle {
   const apiKey = process.env.ELEVENLABS_API_KEY!;
   const stoppedRef = { value: false };
@@ -282,15 +291,7 @@ export function createLiveStream(
     }
   });
 
-  handleWsAudio(
-    ws,
-    player,
-    resolvePromise,
-    onFirstAudio,
-    stoppedRef,
-    statsRef,
-    onClosedBeforeAudio
-  );
+  handleWsAudio(ws, player, resolvePromise, onFirstAudio, stoppedRef, statsRef, onTtsDiedWithoutAudio);
 
   return {
     sendText(chunk: string) {

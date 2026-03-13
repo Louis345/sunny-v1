@@ -131,11 +131,12 @@ export function finishCalibration(): void {
     const p95idx = Math.ceil(0.95 * sorted.length) - 1;
     const p95 = sorted[Math.max(0, p95idx)];
     bargeThreshold = Math.max(BARGE_IN_FLOOR, Math.round(p95 * 0.8));
+    bargeThreshold = Math.max(bargeThreshold, 500);
     console.log(
       `  🔧 Calibrated — speaker bleed avg: ${Math.round(avg)}, P95: ${Math.round(p95)}, barge-in threshold: ${bargeThreshold} RMS`,
     );
   } else {
-    bargeThreshold = BARGE_IN_FLOOR;
+    bargeThreshold = Math.max(BARGE_IN_FLOOR, 500);
   }
   calibrated = true;
   state = State.SPEAKING;

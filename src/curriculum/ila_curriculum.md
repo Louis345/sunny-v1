@@ -1,28 +1,27 @@
 ## Focus Area
-Wilson Step 1 — Short vowel CVC words with /i/ pattern. Moving to /i/ after strong mastery of /a/ patterns. /i/ provides clear visual mouth position contrast to /a/ and introduces new vowel discrimination. Focusing on high-frequency concrete words that can be visualized, building on Ila's strength with picture-supported learning.
+Wilson Step 1 — Full phoneme segmentation with /i/ CVC words. Moving from isolated middle sound identification (mastered) to complete sound sequencing (first/middle/last). This builds phonological awareness essential for decoding while introducing vowel discrimination between /a/ and /i/ patterns. Focus on concrete, visualizable words that leverage Ila's strength with picture-supported learning.
 
 ## Words for Next 3 Sessions
-Session 1: dig, fig, pig, wig, zip
-Session 2: sit, hit, bit, fit, pit  
-Session 3: win, pin, tin, bin, fin
+Session 1: sit, hit, bit, win, pin
+Session 2: fit, pit, tin, bin, fin  
+Session 3: mix /a/ and /i/: cat, sit, bat, hit, mat
 
 ## Clinical Reasoning
-Ila has demonstrated strong mastery of /a/ CVC words with 6/7 accuracy in recent sessions and consistent phoneme identification skills. Her CELF-5 profile shows 100% accuracy with visual support vs 37.5% without, so continuing with concrete, picturable words is essential. The /i/ vowel provides:
+Ila has demonstrated 100% accuracy on /i/ middle sound identification across 10 attempts with zero errors. Her performance pattern shows mastery of single-task phoneme identification but needs progression to full segmentation skills. Based on her CELF-5 profile:
 
-- Clear articulatory contrast to previously mastered /a/ (high front vs low central tongue position)
-- Builds vowel discrimination skills needed for reading fluency
-- Selected words are all concrete nouns/verbs that can be visualized or acted out
-- Avoiding words already mastered (bat, sat, bag, rag) and introducing fresh /i/ words
-- Progression from animals/objects (Session 1) to actions (Session 2) to objects (Session 3) matches her narrative comprehension strength
+- **Recalling Sentences (5th percentile)**: Full segmentation reduces auditory memory load by breaking words into discrete units she can manipulate
+- **Visual support strength (100% vs 37.5%)**: All selected words can be acted out or visualized 
+- **Following Directions (2nd percentile)**: Single instruction format ("tell me all three sounds") vs multi-step directions
+- **Sentence Comprehension strength**: Using words in sentence context as extension activity
 
-Given her ADHD combined type and 2nd percentile Following Directions score, maintaining single-syllable CVC structure reduces cognitive load while building foundational phonics skills. Her recent confidence ("too easy") and request for challenge indicates readiness for new vowel pattern.
+The March 12th sessions showed she resisted harder tasks when fatigued but engaged with sentence generation. Session 3 introduces /a/ vs /i/ discrimination to prevent pattern matching and build true vowel awareness. Avoiding previously mastered words (dig, fig, pig, wig, zip) and words with multiple correct attempts (hat, mat, bat, sat).
 
 ## Success Looks Like
 Elli should observe:
-- Ila can discriminate /i/ from /a/ when both are presented (vowel contrast skill)
-- She segments each /i/ word into 3 distinct phonemes (/d/-/i/-/g/)
-- She identifies /i/ in medial position consistently across all words
-- She connects words to visual meaning without hesitation (pig = animal, sit = action)
-- She reads each word fluently within 3-5 seconds
-- She maintains engagement through all 5 words per session
-- She demonstrates confidence and requests continued challenge
+- Ila segments each word into 3 distinct phonemes (/s/-/i/-/t/) without prompting
+- She differentiates /a/ and /i/ vowels when mixed in Session 3
+- She maintains accuracy above 80% on segmentation tasks
+- She generates sentences using target words (building on narrative strength)
+- She requests challenge rather than showing avoidance behaviors
+- She completes segmentation within 5-10 seconds per word
+- She demonstrates confidence with "that's easy" or similar self-advocacy

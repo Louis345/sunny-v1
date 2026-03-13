@@ -114,8 +114,22 @@ function loadCompanion(
   const matildaLimit =
     "HARD LIMIT: 3 sentences maximum per response. Aim for 2. Reina is quiet — match her energy.\n\n";
 
+  const logAttemptRules =
+    childName === "Ila"
+      ? `CRITICAL — logAttempt rules:\n` +
+        `- Call logAttempt ONCE, immediately after Ila answers a word.\n` +
+        `- ONLY log the word she just answered in this turn.\n` +
+        `- NEVER call logAttempt for words from previous turns.\n` +
+        `- If the tool returns "already attempted" — never call it again for that word for the rest of the session.\n` +
+        `- Do NOT batch-log at the end of a turn.\n\n`
+      : "";
+
   const systemPrompt =
-    childName === "Reina" ? matildaLimit + basePrompt : basePrompt;
+    childName === "Reina"
+      ? matildaLimit + basePrompt
+      : childName === "Ila"
+        ? logAttemptRules + basePrompt
+        : basePrompt;
 
   return {
     name,

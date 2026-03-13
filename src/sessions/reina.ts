@@ -55,14 +55,15 @@ async function streamAndSpeak(
         startSpeaking();
       }
     },
-    async () => {
-      await recordSession(history, "Reina");
-      if (sessionEnding) {
-        fluxHandle?.close();
-        micProcHandle?.kill();
-        process.exit(0);
-      }
-    }
+    () => {
+      recordSession(history, "Reina")
+        .then(() => {
+          fluxHandle?.close();
+          micProcHandle?.kill();
+          process.exit(0);
+        })
+        .catch(console.error);
+    },
   );
 
   setCurrentPlayback(tts);

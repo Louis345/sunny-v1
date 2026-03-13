@@ -28,3 +28,14 @@
 {"timestamp":"2026-03-10T12:02:11.005Z","word":"sat","correct":true}
 {"timestamp":"2026-03-10T12:02:11.416Z","word":"bag","correct":true}
 {"timestamp":"2026-03-10T12:02:11.825Z","word":"rag","correct":true}
+{"timestamp":"2026-03-12T23:36:17.091Z","word":"riddles","correct":true}
+{"timestamp":"2026-03-12T23:38:38.081Z","word":"dig","correct":true}
+{"timestamp":"2026-03-12T23:39:42.407Z","word":"fig","correct":true}
+{"timestamp":"2026-03-12T23:40:21.920Z","word":"pig","correct":true}
+{"timestamp":"2026-03-12T23:40:43.154Z","word":"wig","correct":true}
+{"timestamp":"2026-03-12T23:41:09.016Z","word":"zip","correct":false}
+{"timestamp":"2026-03-12T23:58:53.153Z","word":"dig","correct":true}
+{"timestamp":"2026-03-12T23:59:08.206Z","word":"fig","correct":true}
+{"timestamp":"2026-03-12T23:59:31.486Z","word":"pig","correct":true}
+{"timestamp":"2026-03-12T23:59:51.673Z","word":"wig","correct":true}
+{"timestamp":"2026-03-13T00:00:42.462Z","word":"zip","correct":true}

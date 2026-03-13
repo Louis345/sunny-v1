@@ -280,3 +280,83 @@ Ila demonstrated strong phoneme identification and CVC word decoding skills at t
 
 ## Psychologist Report — 3/11/2026, 8:22:21 PM
 I'll follow my process systematically. Let me start by querying recent sessions and flagging clinical gaps.
+
+---
+
+Recovered Session Notes — March 12, 2026
+Written manually from transcript logs. Sessions lost due to TTS WebSocket crash (code 1000).
+
+## Session — March 12, 2026 — 8:11 PM
+---
+Voice: PeNaJO83cBW3Cf3YGzjZ (new voice, first session after Elli voice lost)
+Duration: ~36 rounds
+Status: RECOVERED — TTS crash, recordSession() never fired
+
+### S — Subjective
+Ila arrived negotiating. Before any word work she said "before you do work, you'll make me happy. I promise. Right?" — establishing the social contract on her terms. She requested riddles and held the line through multiple redirects. When Elli kept offering /i/ words she said "Just a little bit... just riddles. Riddles. I wanna do riddles." She was engaged, high energy, and clearly in control of the session pace. When she finally decided to do word work she announced it herself: "By now, we're doing work."
+
+### O — Objective
+**Warm-up (Rounds 1–24):** Extended riddle exchange. Ila gave a phone riddle ("you wear it, but you don't walk on it... you can walk around with it") that required three clues before Elli guessed correctly. Ila gave genuine clues and corrected Elli's wrong answers firmly ("No. Not close."). She also attempted a bee riddle — said "b a b" repeatedly which Elli misread as spelling. Ila held her ground: "Been saying that it's a b a b" — she was correct and Elli eventually acknowledged it.
+
+**Word Work (Rounds 25–36):**
+| Word | Result | Notes |
+|------|--------|-------|
+| dig | ✅ correct | Identified /i/ middle sound immediately |
+| fig | ✅ correct | Asked "what is a fig?" — curious, not avoidant |
+| pig | ✅ correct | Said "I, egg, I, the pig, and there's a i in the middle" — over-explained but correct |
+| wig | ✅ correct | Immediate — "wick. Oh, the wig's answer is I" |
+| zip | ✅ correct | Said "I" after clarification of the word |
+
+All 5 /i/ CVC words correct. Zero errors on middle sound identification.
+
+### A — Assessment
+Ila demonstrated solid /i/ vowel discrimination across all five target words with no errors. The extended warm-up (24 rounds of riddles) was a negotiation pattern — she tests boundaries then complies on her own terms. The riddle she created ("you wear it but don't walk on it, you can walk around with it") showed complex sentence structure and multi-clue reasoning. She self-corrected the bee riddle interaction, showing metacognitive awareness ("Been saying that it's a b a b").
+Difficulty level is clearly below ceiling. She answered middle sound questions in one word with no hesitation. Ready for segmentation (all 3 sounds) and vowel discrimination (/a/ vs /i/ mixing).
+Warm-up boundary needs enforcement — 24 rounds before word work is too long. She can negotiate but not indefinitely.
+
+### P — Plan
+- Next session: move to full segmentation (first/middle/last sound) — do not re-ask middle sound only
+- Introduce /a/ vs /i/ discrimination — mix both vowels so she cannot pattern match
+- Warm-up hard close at turn 4-5 regardless of negotiation
+- Riddle limit: one exchange per session max, offered as reward after word work not before
+
+---
+
+## Session — March 12, 2026 — 8:37 PM
+---
+Voice: PeNaJO83cBW3Cf3YGzjZ
+Duration: ~19 rounds
+Status: RECOVERED — TTS crash at round 19, recordSession() never fired
+
+### S — Subjective
+Second session same night. Minimal warm-up — Ila said "You tell me" when asked what she wanted to do, letting Elli lead. Went straight to /i/ words with little resistance. She was cooperative and moving faster than the first session. When asked to make up a sentence she produced two: "I put on no pig wig on a pig" and "A man tucked a wig and put it on his bald head." When Elli moved toward segmentation ("tell me all three sounds in dig") Ila said "So don't pop quiz" — signaling fatigue or resistance to harder work. Session crashed before this was resolved.
+
+### O — Objective
+**Warm-up (Rounds 1–2):** Minimal. Ila deferred to Elli to choose the activity.
+
+**Word Work (Rounds 3–10):**
+| Word | Result | Notes |
+|------|--------|-------|
+| dig | ✅ correct | Said "i" immediately on first ask |
+| fig | ✅ correct | Said "I" immediately |
+| pig | ✅ correct | Said "Some eye" — unusual phrasing but correct |
+| wig | ✅ correct | Said "I" immediately |
+| zip | ✅ correct | Said "I" after Elli re-stated the word |
+
+**Extension activities (Rounds 11–19):**
+- Read "pig" aloud ✅
+- Sentence generation: "I put on no pig wig on a pig" ✅ — two /i/ words in one sentence
+- Sentence generation: "A man tucked a wig and put it on his bald head" ✅ — strong narrative structure, correct use of "wig"
+- Resisted segmentation task ("don't pop quiz") — session crashed before resolution
+
+### A — Assessment
+Back-to-back sessions same night. All 5 /i/ words correct again with zero errors and faster response times than session 1. The sentence generation was unprompted creativity — "a man tucked a wig and put it on his bald head" shows strong narrative ability and vocabulary beyond the target words.
+The "don't pop quiz" response to segmentation is important data — she knew the task was harder and pushed back. This is not avoidance of the sound; it's fatigue from a second session in one night. Do not interpret as inability.
+Confirmed: /i/ CVC middle sound identification is fully mastered. This task is below her ceiling.
+
+### P — Plan
+- /i/ CVC middle sound: MASTERED — retire this as the primary task
+- Move to: full segmentation (first/middle/last), blending, and /a/ vs /i/ discrimination
+- Sentence generation is a strength — use it as the engagement hook, not riddles
+- Do not run two sessions same night — fatigue affects performance and cooperation
+- logAttempt tool calling every turn 5x is a bug — fix before next session

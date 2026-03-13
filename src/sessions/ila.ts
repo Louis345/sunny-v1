@@ -57,14 +57,15 @@ async function streamAndSpeak(
         startSpeaking();
       }
     },
-    async () => {
-      await recordSession(history, "Ila");
-      if (sessionEnding) {
-        fluxHandle?.close();
-        micProcHandle?.kill();
-        process.exit(0);
-      }
-    }
+    () => {
+      recordSession(history, "Ila")
+        .then(() => {
+          fluxHandle?.close();
+          micProcHandle?.kill();
+          process.exit(0);
+        })
+        .catch(console.error);
+    },
   );
 
   setCurrentPlayback(tts);
