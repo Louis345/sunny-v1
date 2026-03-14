@@ -130,16 +130,31 @@ function loadCompanion(
     `SESSION CONTEXT:\n\n${context}`;
 
   const matildaLimit =
-    "HARD LIMIT: 3 sentences maximum per response. Aim for 2. Reina is quiet — match her energy.\n\n";
+    "ABSOLUTE RULE: ONE question per turn. Never ask two questions in the same response.\n" +
+    "HARD LIMIT: 2 sentences maximum per response. One sentence is often better.\n" +
+    "In Math Mode: the entire turn is the problem. 'Okay Reina — 7 plus 5. Go.' That's it. Stop.\n" +
+    "Celebrate AFTER she answers, not before. Never celebrate and ask a question in the same breath.\n" +
+    "Reina is quiet — match her energy. Short. Direct. Wait for her.\n\n";
 
   const logAttemptRules =
     childName === "Ila"
       ? `CRITICAL — logAttempt rules:\n` +
-        `- Call logAttempt ONCE, immediately after Ila answers a word.\n` +
+        `- Call logAttempt ONCE, immediately after Ila answers a word or sound.\n` +
         `- ONLY log the word she just answered in this turn.\n` +
         `- NEVER call logAttempt for words from previous turns.\n` +
         `- If the tool returns "already attempted" — never call it again for that word for the rest of the session.\n` +
-        `- Do NOT batch-log at the end of a turn.\n\n`
+        `- Do NOT batch-log at the end of a turn.\n\n` +
+        `PHONEME SEGMENTATION — logAttempt rules:\n` +
+        `- During phoneme segmentation (asking first/middle/last sounds), call logAttempt after ALL THREE sounds are identified, not after each individual sound.\n` +
+        `- If Ila correctly names all 3 sounds in sequence → logAttempt(word, correct: true)\n` +
+        `- If she gets any sound wrong and cannot self-correct → logAttempt(word, correct: false)\n` +
+        `- Do NOT call logAttempt after each individual phoneme answer — wait for the full word to be completed.\n\n` +
+        `PHONEME ANSWER RECOGNITION — what counts as CORRECT:\n` +
+        `- A single letter said aloud: "s", "t", "i" → CORRECT\n` +
+        `- The sound isolated: "sss", "ih", "tuh" → CORRECT\n` +
+        `- In a phrase: "I hear s", "the first sound is s", "s sound" → CORRECT\n` +
+        `- Do NOT mark incorrect just because the answer is short. "s" is a complete answer.\n` +
+        `- For vowels: "ih", "i", "the letter i" all count as correct for /ɪ/ in "sit"\n\n`
       : "";
 
   const systemPrompt =

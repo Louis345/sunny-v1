@@ -6,3 +6,12 @@ src/**/*.js
 
 # Reference repo for AI Agents course (Frontend Masters)
 _reference/
+
+# Document ingester — private documents not committed
+src/intake/ila/*.txt
+src/intake/ila/*.md
+src/intake/ila/*.json
+src/intake/reina/*.txt
+src/intake/reina/*.md
+src/intake/reina/*.json
+src/intake/processed/

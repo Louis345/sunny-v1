@@ -35,7 +35,10 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
   const result = streamText({
     model: anthropic("claude-sonnet-4-20250514"),
     system: systemPrompt,
-    messages: [...history, { role: "user", content: userMessage }],
+    messages: [
+      ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
+      { role: "user", content: userMessage }
+    ],
     maxOutputTokens: 500,
     tools: {
       dateTime,

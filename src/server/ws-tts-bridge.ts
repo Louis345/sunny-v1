@@ -19,8 +19,8 @@ function getPronunciationLocators(): object[] | undefined {
 function buildWsUrl(voiceId: string): string {
   return (
     `${WS_BASE}/${voiceId}/stream-input` +
-    `?model_id=${encodeURIComponent("eleven_multilingual_v2")}` +
-    `&output_format=pcm_22050` +
+    `?model_id=${encodeURIComponent("eleven_flash_v2_5")}` +
+    `&output_format=pcm_24000` +
     `&optimize_streaming_latency=3`
   );
 }

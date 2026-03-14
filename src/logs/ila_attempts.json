@@ -39,3 +39,5 @@
 {"timestamp":"2026-03-12T23:59:31.486Z","word":"pig","correct":true}
 {"timestamp":"2026-03-12T23:59:51.673Z","word":"wig","correct":true}
 {"timestamp":"2026-03-13T00:00:42.462Z","word":"zip","correct":true}
+{"timestamp":"2026-03-14T18:58:09.838Z","word":"sit","correct":false}
+{"timestamp":"2026-03-14T19:34:51.623Z","word":"sit","correct":true}

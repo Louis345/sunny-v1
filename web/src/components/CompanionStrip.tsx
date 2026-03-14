@@ -33,9 +33,9 @@ export function CompanionStrip({
       </div>
       <div className="text-sm font-medium text-gray-900">{companionName}</div>
 
-      <div className="w-full bg-white border border-gray-200 rounded-lg p-3 min-h-[80px]">
+      <div className="w-full bg-white border border-gray-200 rounded-lg p-3 min-h-[80px] max-h-[420px] overflow-y-auto">
         <div className="text-xs text-gray-500 mb-1">{companionName} says:</div>
-        <div className="text-sm text-gray-900 leading-relaxed">
+        <div className="text-sm text-gray-900 leading-relaxed break-words">
           {companionText || "..."}
         </div>
       </div>

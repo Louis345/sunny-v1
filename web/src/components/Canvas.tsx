@@ -75,31 +75,49 @@ export function Canvas({ canvas, reward, sessionPhase }: Props) {
                 dangerouslySetInnerHTML={{ __html: canvas.svg }}
               />
             )}
-            {canvas.content && (
-              <p className="text-center text-7xl font-bold text-gray-900 tracking-widest font-mono">
-                {canvas.content}
-              </p>
-            )}
+            {canvas.content &&
+              (() => {
+                const word = canvas.content;
+                const boxes = canvas.phonemeBoxes ?? [];
+                const activeBox = boxes.find((b) => b.highlighted);
+
+                const activeIndex = activeBox
+                  ? activeBox.position === "first"
+                    ? 0
+                    : activeBox.position === "last"
+                      ? word.length - 1
+                      : Math.floor(word.length / 2)
+                  : -1;
+
+                return (
+                  <div className="flex justify-center items-end gap-1">
+                    {word.split("").map((letter, i) => {
+                      const isActive = i === activeIndex;
+                      return (
+                        <span
+                          key={i}
+                          className="font-bold font-mono transition-all duration-200"
+                          style={{
+                            fontSize: "6rem",
+                            lineHeight: 1,
+                            color: isActive ? "#EF9F27" : "#111827",
+                            borderBottom: isActive
+                              ? "6px solid #EF9F27"
+                              : "6px solid transparent",
+                            paddingBottom: "4px",
+                          }}
+                        >
+                          {letter}
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             {canvas.label && (
               <p className="text-center text-xl font-medium text-gray-900">
                 {canvas.label}
               </p>
-            )}
-            {canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-2">
-                {canvas.phonemeBoxes.map((box, i) => (
-                  <div
-                    key={i}
-                    className={`px-4 py-2 rounded-lg border-2 text-lg font-mono ${
-                      box.highlighted
-                        ? "border-blue-500 bg-blue-50 text-blue-900"
-                        : "border-gray-200 bg-gray-50 text-gray-700"
-                    }`}
-                  >
-                    {box.value}
-                  </div>
-                ))}
-              </div>
             )}
           </div>
         )}

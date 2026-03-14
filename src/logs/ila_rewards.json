@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "timestamp": "2026-03-14T19:34:51.656Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 1500,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-14T19:35:11.850Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 1500,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  }
+]

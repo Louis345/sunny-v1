@@ -158,14 +158,29 @@ export function useSession() {
 
       case "tool_call": {
         const toolName = msg.tool as string;
+        const result = msg.result as Record<string, unknown> | undefined;
+        const args = (msg.args ?? {}) as Record<string, unknown>;
 
-        // Canvas tool — accept both casing variants
+        // Canvas tool — data may be in result.output, result, or args
         if (toolName === "showCanvas" || toolName === "show_canvas") {
-          const data = (msg.result ?? msg.args ?? {}) as Record<string, unknown>;
+          const data = (
+            result?.output ??
+            result ??
+            args
+          ) as Record<string, unknown>;
+
+          const mode = data.mode as CanvasState["mode"];
+          const validModes: CanvasState["mode"][] = [
+            "idle",
+            "teaching",
+            "reward",
+            "riddle",
+            "championship",
+          ];
           setStateRef.current((s) => ({
             ...s,
             canvas: {
-              mode: (data.mode as CanvasState["mode"]) ?? "idle",
+              mode: mode && validModes.includes(mode) ? mode : "idle",
               svg: data.svg as string | undefined,
               label: data.label as string | undefined,
               content: data.content as string | undefined,
@@ -176,8 +191,8 @@ export function useSession() {
 
         // logAttempt streak tracking
         if (toolName === "logAttempt" || toolName === "log_attempt") {
-          const correct = (msg.result as Record<string, unknown>)?.correct === true ||
-            (msg.args as Record<string, unknown>)?.correct === true;
+          const correct =
+            result?.correct === true || args?.correct === true;
           setStateRef.current((s) => ({
             ...s,
             correctStreak: correct ? s.correctStreak + 1 : 0,
@@ -204,7 +219,12 @@ export function useSession() {
         break;
 
       case "session_ended":
-        setStateRef.current((s) => ({ ...s, phase: "ended" }));
+        setStateRef.current((s) => ({
+          ...s,
+          phase: "ended",
+          canvas: { mode: "idle" },
+          reward: null,
+        }));
         stopMicRef.current();
         break;
 
@@ -280,7 +300,7 @@ export function useSession() {
   stopMicRef.current = stopMic;
 
   // --- Audio: Speaker (server → browser) ---
-  // ElevenLabs sends PCM 16-bit signed mono at 22050 Hz (pcm_22050)
+  // ElevenLabs sends PCM 16-bit signed mono at 24000 Hz (pcm_24000)
 
   async function playNextChunk() {
     if (audioQueueRef.current.length === 0) {
@@ -293,7 +313,7 @@ export function useSession() {
 
     try {
       if (!playContextRef.current || playContextRef.current.state === "closed") {
-        playContextRef.current = new AudioContext({ sampleRate: 22050 });
+        playContextRef.current = new AudioContext({ sampleRate: 24000 });
       }
       if (playContextRef.current.state === "suspended") {
         await playContextRef.current.resume();
@@ -392,7 +412,7 @@ export function useSession() {
 
 function pcmToAudioBuffer(ctx: AudioContext, arrayBuffer: ArrayBuffer): AudioBuffer {
   const int16 = new Int16Array(arrayBuffer);
-  const audioBuffer = ctx.createBuffer(1, int16.length, 22050);
+  const audioBuffer = ctx.createBuffer(1, int16.length, 24000);
   const channel = audioBuffer.getChannelData(0);
   for (let i = 0; i < int16.length; i++) {
     channel[i] = int16[i] / 32768;

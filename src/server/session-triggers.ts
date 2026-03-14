@@ -8,7 +8,7 @@
 
 import path from "path";
 import fs from "fs";
-import { isGoodbye } from "../utils/goodbye";
+import { isGoodbye, isAssistantGoodbye } from "../utils/goodbye";
 
 export type ChildName = "Ila" | "Reina";
 
@@ -85,7 +85,7 @@ export function checkUserGoodbye(transcript: string): boolean {
  * When Claude wraps up and says "Bye!" or "See you next time!", this fires.
  */
 export function checkAssistantGoodbye(assistantText: string): boolean {
-  return isGoodbye(assistantText);
+  return isAssistantGoodbye(assistantText);
 }
 
 /**

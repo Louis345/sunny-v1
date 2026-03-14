@@ -658,3 +658,265 @@ Ila has demonstrated mastery on 10 of 13 target words (10/13 = 77% overall; /i/ 
 ## Signal
 
 **ADVANCE to full three-sound segmentation with /a/ and /i/ CVC words mixed.** Ila has achieved mastery-level accuracy on isolated middle-sound identification (10/13 words at 77%+ accuracy, /i/ vowels perfect). However, **do not advance phoneme work further until formal probes on Following Directions, Word Structure, Recalling Sentences, and Word Classes have been completed and documented.** These are severe CELF-5 gaps (2nd, 5th, 5th, 3rd percentiles) with zero evidence of formal assessment in session. IEP progress monitoring cannot proceed without baseline data on these critical skills.
+
+## Session — 3/14/2026, 3:00:01 PM
+**SOAP Note — Session Date: [Current Date]**
+
+**S — Subjective:**
+Client initiated session stating, "I wanna do some studying." Requested visual support (pig drawing). Engaged with phoneme segmentation task on word "sit."
+
+**O — Objective:**
+- **Phoneme Segmentation Task (word: "sit")**
+  - Final sound identification: spontaneously produced /t/ at word-final position ("it")
+  - Initial sound identification: correctly identified /s/ as first sound when prompted for "very first sound"
+  - Modeled request: "Can you hear me?" — checked for auditory connection mid-task
+  - Currently working on: middle sound (/ɪ/) identification
+  
+- **Engagement & Behavior:**
+  - High initiation for learning activity
+  - Responded to visual supports (pig drawing, word on canvas)
+  - Required redirection back to task once (after asking "Can you hear me")
+  - No false starts or word retrieval pauses noted in this segment
+  - Speech intelligibility: good
+
+**A — Assessment:**
+Client demonstrating emerging phonemic awareness for initial and final phoneme position identification. Requires continued support with medial sound isolation. Responds well to visual supports and direct single-step prompts.
+
+**P — Plan:**
+- Continue phoneme segmentation with medial sound in "sit"
+- Monitor for fatigue; offer breaks as needed
+- Maintain visual supports on canvas
+- Use affirmative reinforcement for attempts
+
+## Psychologist Report — 3/14/2026, 3:00:22 PM
+Now I understand. The flagGap tool shows these skills have been *mentioned* in planning documents and SOAP note sections (6 mentions for Following Directions, 6 for Recalling Sentences, etc.), but the session history review makes clear: **they were never formally probed with actual performance data recorded.**
+
+Let me analyze what I actually have:
+
+---
+
+## STEP 1: SESSION PATTERNS (from querySessions)
+
+**5 Recent Sessions (3/8 - 3/14/2026):**
+- 3/8: Two brief warm-up sessions (time check, bike riding narrative) — no substantive language work
+- 3/9: Two sessions — first focused on /a/ sound identification (cat, mat, mad, gnat, sat); second on sound riddles and phoneme sequencing
+- 3/10: Morning session — 100% accuracy on /a/ middle sound isolation (cat, hat, mat, bat, sat, bag, rag); client self-advocated for challenge
+- 3/12: Two sessions (recovered from TTS crash) — extended riddle negotiation (24 rounds before word work); then back-to-back sessions with 5/5 correct /i/ words (dig, fig, pig, wig, zip)
+- 3/14: Phoneme segmentation on "sit" — partial session, initial and final sounds correct, middle sound in progress
+
+**Pattern:** Rapid progression from /a/ middle-sound isolation (3/9-3/10) to /i/ words (3/12) to three-sound segmentation (3/14). Zero errors on /i/ words. Emerging control on /a/ (cat struggling at 33%, hat/mat at 67-71%).
+
+---
+
+## STEP 2: FLAGGED GAPS — CLINICAL REALITY
+
+| Skill | CELF-5 Percentile | Mentions in Notes | Actual Session Data | Status |
+|-------|-------------------|-------------------|-------------------|--------|
+| **Following Directions** | 2nd | 6 | Single-step only ("tell me the sound"); no multi-step sequences tested | **NEVER FORMALLY PROBED** |
+| **Word Structure** | 5th | 6 | Discussed in plans; no elicited morphology probes | **NEVER FORMALLY PROBED** |
+| **Formulated Sentences** | 16th | 3 | Unprompted sentences observed ("A man tucked a wig..."); no demand-based formulation | **NEVER FORMALLY PROBED** |
+| **Recalling Sentences** | 5th | 6 | No sentence repetition attempts; only discrete phoneme tasks | **NEVER FORMALLY PROBED** |
+| **Word Classes** | 9th (12/12 with pictures, 3/8 without) | 5 | All phoneme work embedded in visual context; no picture-absent probes | **NEVER FORMALLY PROBED ON PICTURE-ABSENT** |
+
+---
+
+## STEP 3: WORD ATTEMPT ACCURACY ANALYSIS
+
+**Mastered (100%, 2-3 attempts):**
+- All /i/ CVC words: dig, fig, pig, wig, big, bag, rag, zip (8 words × 2-3 attempts = 100%)
+- /a/ CVC: bat, sat, bag, rag (4 words × 3 attempts = 100%)
+
+**Emerging (67-71%, 6-7 attempts):**
+- hat: 5/7 correct = 71%
+- mat: 4/6 correct = 67%
+
+**Struggling (33%, 3 attempts):**
+- cat: 1/3 correct = 33%
+
+**Never retested (one error, no follow-up):**
+- stop: 0/1
+
+**Overall: 10/13 words at mastery or high-emerging = 77% accuracy. /i/ vowel 100%, /a/ vowel 75%.**
+
+---
+
+## STEP 4: MY REPORT
+
+### Curriculum Status
+
+**Phoneme identification—isolated middle sound (/i/ and /a/ CVC) — 5 sessions, 87% accuracy** → **ADVANCE**
+
+Ila has achieved 100% accuracy on 8 /i/ words (dig, fig, pig, wig, big, bag, rag, zip) and 75% accuracy on /a/ words (bat, sat, bag, rag 100%; hat 71%; mat 67%; cat 33%). Single middle-sound isolation is below ceiling. She self-advocated for challenge on 3/10 ("can i get more," "that's easy") and demonstrated confidence. Session 3/14 shows she can isolate initial and final sounds in "sit," indicating readiness for full three-phoneme segmentation.
+
+---
+
+### Probe Targets — Next Session
+
+- **CRITICAL: Following Directions (2nd percentile)** — mentioned 6 times in planning but never formally tested. Zero multi-step direction probes conducted. CELF-5 documents she struggles with 2+ step sequences and multiple modifiers. Must establish baseline: probe "touch the big red ball, then tap your head." Essential for IEP progress monitoring.
+
+- **CRITICAL: Word Structure (5th percentile)** — mentioned 6 times but zero formal elicitation. CELF-5 documents errors in irregular plurals, future tense, pronouns, copula. Ila's unprompted sentences show strength but demand-based morphology never tested. Must probe: irregular plurals ("One mouse, two ___"), future tense ("The cat will ___"), pronouns ("___ is running").
+
+- **CRITICAL: Recalling Sentences (5th percentile)** — mentioned 6 times, zero sentence repetition attempts. CELF-5 documents 5th percentile auditory memory. All session work is discrete phoneme-level (not sentence-embedded). Must probe: 4-5 word sentences, then 8+ word sentences with clauses.
+
+- **CRITICAL: Word Classes—picture-absent condition (3rd-9th percentile split)** — mentioned 5 times but zero probes without pictures. CELF-5 shows 100% with pictures, 37.5% without. All phoneme work has visual support. Must quantify dependence: test word category identification both WITH and WITHOUT pictures.
+
+- **WATCH: Three-phoneme segmentation in mixed /a/ and /i/ words**
+
+## Session — 3/14/2026, 3:24:07 PM
+# SOAP Note — Session with Ila
+
+**Date:** [Current session]  
+**Duration:** [Ongoing]  
+**Clinician:** [SLP]  
+**Client:** Ila (8y3m, Grade 2)
+
+---
+
+## S – Subjective
+
+Ila reported she had been studying. She agreed willingly to engage in session activities and indicated readiness ("Yes") when presented with new learning opportunities.
+
+---
+
+## O – Objective
+
+**Tasks presented:**
+- Phonemic awareness work using sound sequencing in the word "sit"
+- Visual support: three-box sound elicitation task with highlighted boxes
+
+**Responses:**
+- Initial response to "first sound in sit": produced full word repetition ("Sit") rather than isolating the initial phoneme
+- After modeling/redirection to isolate initial sound: correctly identified /s/ as first sound
+- Demonstrated ability to identify initial consonant when prompted to focus on highlighted first box
+- Currently working on medial vowel identification in word "sit"
+
+**Observations:**
+- Engaged and willing participant
+- Responded to visual cueing (highlighted boxes)
+- Required redirect from whole-word production to phoneme isolation
+- No behavioral concerns noted
+- Appropriate eye contact and responsiveness
+
+---
+
+## A – Assessment
+
+Ila is demonstrating emerging phonemic awareness skills with visual support. Initial sound isolation was achieved after clarification of task demands. Medial sound identification task is currently in progress.
+
+---
+
+## P – Plan
+
+- Continue sound box elicitation for word "sit" (middle and final sounds)
+- Maintain visual support (highlighted boxes) as primary cueing strategy
+- Use single, clear instructions paired with visual reference
+- Monitor for task engagement and cognitive load
+
+## Psychologist Report — 3/14/2026, 3:24:22 PM
+The flagGap verdicts now show mentions (not testing counts, but references in notes). Let me analyze what the querySessions output actually revealed and cross-reference with the word attempt history you provided.
+
+---
+
+## Curriculum Status
+
+**Phoneme identification—isolated middle sound (/i/ and /a/ CVC) — 5 sessions, 87% accuracy** → **ADVANCE**
+
+Ila has achieved 100% accuracy on 8 /i/ words (dig, fig, pig, wig, big, bag, rag, zip) and 75% accuracy on /a/ words (bat, sat, bag, rag 100%; hat 71%; mat 67%; cat 33%). Single middle-sound isolation is below ceiling. She self-advocated for challenge ("can i get more," "that's easy"). Session 3/14 shows she can isolate initial and final sounds in "sit," indicating readiness for full three-phoneme segmentation.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Following Directions (2nd percentile)** — mentioned 9 times in notes but represents discussion/planning, not formal baseline probes. Zero documented multi-step direction sequences (2-step, 3-step with modifiers). Must conduct now: "Touch the big red ball, then tap your head" to establish IEP baseline.
+
+- **CRITICAL: Word Structure (5th percentile)** — mentioned 8 times in planning notes; zero elicited morphology probes. CELF-5 documents errors in irregular plurals, future tense, pronouns, copula. Ila generated unprompted sentences ("A man tucked a wig and put it on his bald head") with correct syntax, but demand-based accuracy never tested. Must probe: irregular plurals ("One mouse, two ___"), future tense ("The cat will ___"), pronouns ("___ is running").
+
+- **CRITICAL: Recalling Sentences (5th percentile)** — mentioned 9 times; zero sentence repetition attempts in actual sessions. CELF-5 documents 5th percentile auditory memory with breakdown at longer sentence length. Must probe: 4-5 word sentences ("The cat is on the table"), then 8+ word sentences with clauses ("When the dog ran outside, he found a ball by the fence").
+
+- **CRITICAL: Word Classes (9th percentile, visual split 100% with pictures / 37.5% without)** — mentioned 7 times; zero probes on picture-absent condition. All phoneme work embedded with visual support. Must quantify her reliance: test noun/verb/adjective identification both WITH pictures and WITHOUT pictures to document the gap.
+
+- **WATCH: Three-phoneme segmentation in mixed vowels** — She has mastered /a/ and /i/ middle sounds in isolation. Session 3/14 shows she can isolate initial and final sounds. Ready for full segmentation (all three sounds), but must use MIXED /a/ and /i/ word sets to prevent pattern-matching and confirm true vowel discrimination.
+
+---
+
+## Signal
+
+**ADVANCE to three-phoneme full segmentation with mixed /a/ and /i/ CVC words. Do not delay formal probes on Following Directions, Word Structure, Recalling Sentences, and Word Classes.** Ila has mastered isolated middle-sound identification (10/13 words at 77%+ accuracy). However, these four CELF-5 critical gaps (2nd, 5th, 5th, 9th percentiles) are unprobed in actual session data. IEP progress monitoring and curriculum decisions cannot proceed without baseline documentation. Conduct probes alongside phoneme advancement, not sequentially.
+
+## Session — 3/14/2026, 3:35:49 PM
+**SOAP Note — Ila**
+
+**Date:** [Session Date]
+
+**Session Duration:** [Time]
+
+**Clinician:** [Your Name]
+
+---
+
+**S — Subjective**
+
+Ila engaged willingly in phonemic awareness activity using visual support (word boxes with highlighted target sounds). She initiated session closure appropriately, indicating need to leave and requesting to continue later.
+
+---
+
+**O — Objective**
+
+**Task:** Phonemic segmentation of CVC word "sit" with visual support (three boxes, one per sound)
+
+**Performance:**
+- Identified initial /s/: ✓ correct
+- Identified medial /i/: ✓ correct  
+- Identified final /t/: ✓ correct
+- 3/3 sounds identified correctly (100%)
+
+**Behavior:**
+- Attended to task with visual support present
+- Responded to direct questions appropriately
+- No multi-step directions required (single-step task format used)
+- Session ended cooperatively; Ila self-initiated closure and requested continuation later
+
+---
+
+**A — Assessment**
+
+Ila demonstrated solid phonemic awareness skills when task was presented with visual support and broken into single-step format. Performance aligns with her profile: visual support facilitated accurate responses. Task format (one sound at a time, highlighted visual target) matched her documented need for visual anchoring and single-step instruction delivery.
+
+---
+
+**P — Plan**
+
+- Continue phonemic segmentation activities with visual support
+- Maintain single-step instruction format
+- Resume session at next scheduled time per Ila's request
+
+## Psychologist Report — 3/14/2026, 3:36:05 PM
+---
+
+## Curriculum Status
+
+**Phoneme segmentation (three-sound CVC: /a/ and /i/ vowels) — 1 session, 100% accuracy on "sit"** → **ADVANCE**
+
+Ila completed full three-phoneme segmentation on "sit" with 100% accuracy (initial /s/, medial /ɪ/, final /t/ correct). This represents progression from mastered isolated middle-sound work (87% accuracy over prior 5 sessions). She demonstrated concept transfer to new task complexity without reverting to single-sound responses. Visual support was essential and provided; single-step instruction format was effective.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Following Directions (2nd percentile)** — Tool indicates 11 session mentions but querySession output shows these are planning/discussion references in SOAP notes, not formal baseline probes of multi-step sequences. CELF-5 documents she requires prompting ("wait until I say Go") and fails with 2+ steps or multiple modifiers. Must formally probe: 2-step directions (standard modality), then 3-step with modifiers. Baseline required before advancing curriculum further.
+
+- **CRITICAL: Word Structure (5th percentile)** — Tool indicates 10 mentions; actual session probes appear limited to unprompted observation ("A man tucked a wig..."). CELF-5 documents errors on irregular plurals, future tense, pronouns, copula verbs. Must formally elicit under demand: irregular plurals ("One mouse, two ___"), future tense ("The cat will ___"), pronouns ("___ is running"), contractible copula ("It ___ raining").
+
+- **CRITICAL: Recalling Sentences (5th percentile)** — Tool indicates 11 mentions; querySession shows zero sentence repetition probes in actual sessions (all work is discrete phoneme-level). CELF-5 documents 5th percentile auditory memory with breakdown at longer lengths. Must establish baseline: repeat 4-word sentences, then 8+ word sentences with embedded clauses.
+
+- **CRITICAL: Word Classes (9th percentile / visual split 100% with pictures vs. 37.5% without)** — Tool indicates 9 mentions; zero documented probes on picture-absent condition. All phoneme work to date has visual support. Must quantify her reliance: test noun/verb/adjective identification both WITH pictures and WITHOUT pictures to document the performance gap and dependency pattern.
+
+- **CRITICAL: Formulated Sentences (16th percentile)** — Tool indicates 4 mentions; zero formal demand-based formulation probes. CELF-5 documents she drops stimulus words and produces subject-verb agreement errors. Must probe: given a word ("cat"), formulate a complete sentence; given a category ("animals"), generate related sentences.
+
+- **WATCH: Mixed-vowel discrimination in full segmentation** — Ila performed 100% on "sit" (/i/ vowel). Must now probe mixed /a/ and /i/ words in same session to prevent pattern-matching (e.g., "sit" then "sat" in immediate sequence). Current accuracy may reflect vowel-specific pattern recognition rather than true vowel discrimination.
+
+---
+
+## Signal
+
+**ADVANCE to mixed-vowel full segmentation (sit, cat, hit, mat, bit in alternating sequence).** Ila has demonstrated concept transfer on three-phoneme segmentation and achieved 100% accuracy on "sit" with visual support and single-step instruction. However, **immediately conduct formal probes on Following Directions, Word Structure, Recalling Sentences, Word Classes, and Formulated Sentences before scheduling additional phoneme advancement sessions.** These five CELF-5 critical gaps (2nd, 5th, 5th, 9th, 16th percentiles) show "tested" verdicts in the tool output, but querySession review reveals these are planning mentions, not documented baseline probes. IEP progress monitoring cannot proceed without formal documentation of actual performance on these skills. Probes must happen this week, in parallel with phoneme work.

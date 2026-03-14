@@ -332,3 +332,44 @@ Reina responds immediately to competitive framing (riddle streaks, "can you beat
 ## Signal
 
 **ADVANCE on riddle/problem-solving curriculum; HOLD on spelling pending energy/engagement assessment; CRITICAL PRIORITY: Administer all untested CELF-5 receptive and formulated language skills before next riddle session to establish baseline and rule out gaps masked by strong nonverbal reasoning.**
+
+## Session — 3/14/2026, 3:38:24 PM
+Before I continue with this session, let me clarify — **what kind of work are you most interested in right now?**
+
+- **Math** (addition, subtraction, multiplication)?
+- **Vocabulary/spelling** challenges?
+- **Japanese** (kanji, katakana, or words)?
+- **Chess** or strategy?
+- **Reading** something together?
+- **Something else** you want to explore?
+
+You tell me what you want to wrestle with today, and we'll make it count. 💪
+
+## Psychologist Report — 3/14/2026, 3:38:38 PM
+Based on the session history and gap analysis, here is my curriculum report:
+
+## Curriculum Status
+
+**Problem-Solving & Riddle Logic** — 3 sessions (3/10 AM, 3/12 x2), 100% engagement, strong gains in lateral thinking, multi-step reasoning, meta-awareness, and self-advocacy → **ADVANCE**
+
+**Math (Addition & Subtraction)** — 0 sessions (curriculum plan drafted, not yet executed). Parent goal stated. Student choice confirmed (3/14). Ready to begin Phase 1 diagnostic → **BEGIN**
+
+**Spelling (Advanced)** — 2 sessions, 33% accuracy on irregular outlier (rhythm), strong accuracy on pattern-based words (keyboard 100%, towel with scaffolding) → **HOLD**
+
+**Speech Clarity Under High-Speed Output** — 3+ sessions, consistent observation of articulation drift ("tower"/towel, unclear words, run-on repetition during excitement) → **MONITOR**
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Word Definitions** (tested 2 times in notes, but no formal assessment data; profile claims "advanced vocabulary") — Required baseline before Japanese kanji/katakana work or reading Constitution with father
+- **CRITICAL: Formulated Sentences** (tested 1 time; riddling discourse only) — No evidence of narrative generation, explanation, or expository language; needed for math word problem comprehension
+- **CRITICAL: Recalling Sentences** (tested 2 times; working memory appears strong but sentence-level recall never formally probed) — Working memory strong for riddles; unclear for language-level demands
+- **WATCH: Following Directions** (tested 2 times in notes; no clear evidence of multi-step direction compliance in sessions) — Foundational for academic task compliance; verify under demand
+- **WATCH: Word Classes** (tested 2 times in notes; never addressed in curriculum) — Grammar foundation for both English and Japanese learning goals
+
+---
+
+## Signal
+
+**ADVANCE on problem-solving; BEGIN math Phase 1 diagnostic per her 3/14 choice; HOLD spelling pending competitive framing re-introduction; CONCURRENTLY FLAG for formal CELF-5 administration on Word Definitions, Formulated Sentences, and sentence-level recall before advancing to multi-domain work (Japanese, reading, math word problems).** She is cognitively ready for high challenge, but foundational language assessment gaps must be closed to avoid masking weaknesses with nonverbal reasoning strength.
