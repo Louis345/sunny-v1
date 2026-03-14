@@ -1,7 +1,6 @@
 import "dotenv/config";
-import Anthropic from "@anthropic-ai/sdk";
 import * as readline from "readline";
-import { selectProfile, type Profile } from "./profiles";
+import { selectProfile } from "./profiles";
 import { runAgent } from "./agents/elli/run";
 import {
   setStreamVoiceId,
@@ -19,7 +18,7 @@ async function main(): Promise<void> {
   setStreamVoiceId(profile.voiceId);
 
   console.log("──────────────────────────────────────");
-  console.log(`  Project Sunny — ${profile.name}'s Session`);
+  console.log(`  Project Sunny — ${profile.childName}'s Session`);
   console.log("  Type a message. Type 'exit' to quit.");
   console.log("  (You can type while Sunny speaks to interrupt!)");
   console.log("──────────────────────────────────────");
@@ -29,17 +28,17 @@ async function main(): Promise<void> {
     output: process.stdout,
   });
 
-  const history: Anthropic.MessageParam[] = [];
+  const history: { role: "user" | "assistant"; content: string }[] = [];
   let currentPlayback: PlaybackHandle | null = null;
 
   const prompt = (): void => {
-    rl.question(`\n${profile.name}: `, async (input) => {
+    rl.question(`\n${profile.childName}: `, async (input) => {
       const trimmed = input.trim();
 
       if (!trimmed || trimmed.toLowerCase() === "exit") {
         currentPlayback?.stop();
         console.log(
-          `\nSunny: Bye for now, ${profile.name}! You did great today. 💛\n`
+          `\nSunny: Bye for now, ${profile.childName}! You did great today. 💛\n`
         );
         rl.close();
         return;

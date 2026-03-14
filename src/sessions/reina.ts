@@ -56,13 +56,10 @@ async function streamAndSpeak(
       }
     },
     () => {
-      recordSession(history, "Reina")
-        .then(() => {
-          fluxHandle?.close();
-          micProcHandle?.kill();
-          process.exit(0);
-        })
-        .catch(console.error);
+      console.error(
+        "  ⚠️  TTS died without audio — falling back to listening",
+      );
+      setState(State.LISTENING);
     },
   );
 

@@ -1,7 +1,15 @@
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
-import { dateTime, logAttempt } from "./tools";
+import {
+  dateTime,
+  logAttempt,
+  startSession,
+  transitionToWork,
+  mathProblem,
+  riddleTracker,
+  showCanvas,
+} from "./tools";
 
 export interface RunAgentOptions {
   history: ModelMessage[];
@@ -32,6 +40,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     tools: {
       dateTime,
       logAttempt,
+      startSession,
+      transitionToWork,
+      mathProblem,
+      riddleTracker,
+      showCanvas,
     },
     stopWhen: stepCountIs(5),
     abortSignal: signal,

@@ -88,6 +88,8 @@ function loadCompanion(
   const personality = parseField(companionMd, "Personality");
   const voiceTone = parseField(companionMd, "Voice & Tone");
   const sessionStructure = parseField(companionMd, "Session Structure");
+  const canvas = parseField(companionMd, "Canvas");
+  const sessionEnding = parseField(companionMd, "Session Ending");
   const isFirstSession =
     context.trim().length === 0 || context.includes("(empty");
 
@@ -107,6 +109,8 @@ function loadCompanion(
     (sessionStructure
       ? `SESSION STRUCTURE (follow this every session):\n${sessionStructure}\n\n`
       : "") +
+    (canvas ? `CANVAS:\n${canvas}\n\n` : "") +
+    (sessionEnding ? `SESSION ENDING:\n${sessionEnding}\n\n` : "") +
     `CURRICULUM:\n\n${curriculum}\n\n` +
     `${childName.toUpperCase()}'S SOUL FILE (read this carefully — this is who they are):\n\n${soul}\n\n` +
     `SESSION CONTEXT:\n\n${context}`;

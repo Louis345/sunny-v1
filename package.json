@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "npx tsx src/scripts/launch-kiosk.ts --no-browser",
     "dev": "npx tsx src/index.ts",
     "ila": "npx tsx src/sessions/ila.ts",
     "reina": "npx tsx src/sessions/reina.ts",
@@ -14,7 +14,11 @@
     "voice-showdown": "npx tsx src/voice-showdown.ts",
     "test:psychologist": "npx tsx src/scripts/test-psychologist.ts",
     "test:latency": "npx tsx src/scripts/test-latency.ts",
-    "test:tools": "npx tsx src/tests/test-tools.ts"
+    "test:tools": "npx tsx src/tests/test-tools.ts",
+    "server": "npx tsx src/server.ts",
+    "web": "cd web && npm run dev",
+    "web:build": "cd web && npm run build",
+    "sunny": "npx tsx src/scripts/launch-kiosk.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -22,10 +26,14 @@
     "@deepgram/sdk": "^5.0.0",
     "@elevenlabs/elevenlabs-js": "^2.37.0",
     "ai": "^6.0.116",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.7",
+    "express": "^5.2.1",
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^22.13.10",
     "@types/ws": "^8.18.1",
     "tsx": "^4.21.0",

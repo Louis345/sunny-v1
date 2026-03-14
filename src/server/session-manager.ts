@@ -1,0 +1,327 @@
+import type { WebSocket } from "ws";
+import { ELLI, MATILDA, type CompanionConfig } from "../companions/loader";
+import { runAgent } from "../agents/elli/run";
+import { recordSession } from "../agents/slp-recorder/recorder";
+import { connectFlux, type FluxHandle } from "../deepgram-turn";
+import {
+  checkUserGoodbye,
+  checkAssistantGoodbye,
+  startMaxDurationTimer,
+  getRewardDurations,
+} from "./session-triggers";
+import { WsTtsBridge } from "./ws-tts-bridge";
+import { appendRewardLog } from "../agents/elli/tools/logReward";
+import type { ModelMessage } from "ai";
+
+type ChildName = "Ila" | "Reina";
+
+interface RewardEvent {
+  timestamp: string;
+  rewardStyle: "flash" | "takeover" | "none";
+  displayDuration_ms: number;
+  timeToNextUtterance_ms: number;
+  nextAnswerCorrect: boolean | null;
+  childVerbalReaction: string | null;
+  sessionPhase: string;
+  correctStreakAtTime: number;
+}
+
+export class SessionManager {
+  private ws: WebSocket;
+  private childName: ChildName;
+  private companion: CompanionConfig;
+  private conversationHistory: ModelMessage[] = [];
+  private ttsBridge: WsTtsBridge | null = null;
+  private currentAbort: AbortController | null = null;
+  private clearSessionTimer: (() => void) | null = null;
+  private fluxHandle: FluxHandle | null = null;
+  private isEnding = false;
+  private sessionStartTime = 0;
+  private roundNumber = 0;
+
+  private rewardLog: RewardEvent[] = [];
+  private correctStreak = 0;
+
+  constructor(ws: WebSocket, childName: ChildName) {
+    this.ws = ws;
+    this.childName = childName;
+    this.companion = childName === "Ila" ? ELLI : MATILDA;
+  }
+
+  private send(type: string, payload: Record<string, unknown> = {}): void {
+    if (this.ws.readyState === this.ws.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type,
+          timestamp: new Date().toISOString(),
+          ...payload,
+        })
+      );
+    }
+  }
+
+  async start(): Promise<void> {
+    const ts = new Date().toISOString();
+    this.sessionStartTime = Date.now();
+    console.log(
+      `  🌟 [${ts}] Starting session: ${this.childName} with ${this.companion.name}`
+    );
+
+    this.send("session_started", {
+      child: this.childName,
+      childName: this.childName,
+      companion: this.companion.name,
+      companionName: this.companion.name,
+      emoji: this.companion.emoji,
+      voiceId: this.companion.voiceId,
+      openingLine: this.companion.openingLine,
+      goodbye: this.companion.goodbye,
+    });
+
+    this.clearSessionTimer = startMaxDurationTimer(this.childName, () => {
+      console.log("  ⏰ Session timeout reached (15 min)");
+      this.end();
+    });
+
+    this.ttsBridge = new WsTtsBridge(this.ws, this.companion.voiceId);
+    await this.ttsBridge.connect();
+
+    await this.connectDeepgram();
+
+    await this.handleCompanionTurn(this.companion.openingLine);
+  }
+
+  receiveAudio(pcm: Buffer): void {
+    if (this.fluxHandle) {
+      this.fluxHandle.sendAudio(pcm);
+    }
+  }
+
+  bargeIn(): void {
+    const ts = new Date().toISOString();
+    console.log(`  🛑 [${ts}] Barge-in received`);
+
+    if (this.currentAbort) {
+      this.currentAbort.abort();
+      this.currentAbort = null;
+    }
+
+    if (this.ttsBridge) {
+      this.ttsBridge.stop();
+    }
+
+    this.send("audio_done");
+  }
+
+  async end(): Promise<void> {
+    if (this.isEnding) return;
+    this.isEnding = true;
+
+    const ts = new Date().toISOString();
+    console.log(`  🏁 [${ts}] Ending session for ${this.childName}`);
+
+    if (this.clearSessionTimer) {
+      this.clearSessionTimer();
+      this.clearSessionTimer = null;
+    }
+
+    if (this.fluxHandle) {
+      this.fluxHandle.close();
+      this.fluxHandle = null;
+    }
+
+    if (this.ttsBridge) {
+      this.ttsBridge.close();
+      this.ttsBridge = null;
+    }
+
+    try {
+      await recordSession(this.conversationHistory, this.childName);
+
+      appendRewardLog(this.childName, this.rewardLog);
+
+      this.send("session_ended", {
+        summary: `Session ended. ${this.conversationHistory.length} turns.`,
+        duration_ms: Date.now() - this.sessionStartTime,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("  🔴 Post-session chain error:", message);
+      this.send("error", { message: "Post-session processing failed" });
+    }
+  }
+
+  private async connectDeepgram(): Promise<void> {
+    this.fluxHandle = await connectFlux({
+      onOpen: () => {
+        console.log("  ✅ Deepgram Flux connected");
+      },
+      onStartOfTurn: () => {},
+      onInterim: (text) => {
+        this.send("interim", { text });
+      },
+      onEndOfTurn: (transcript) => {
+        this.handleEndOfTurn(transcript).catch(console.error);
+      },
+      onError: (err) => {
+        console.error("  🔴 Deepgram error:", err.message);
+      },
+    });
+  }
+
+  private async handleEndOfTurn(transcript: string): Promise<void> {
+    const ts = new Date().toISOString();
+    console.log(`  💬 [${ts}] ${this.childName}: "${transcript}"`);
+
+    this.send("final", { text: transcript });
+
+    if (checkUserGoodbye(transcript)) {
+      console.log(`  👋 [${ts}] Goodbye detected`);
+      await this.end();
+      return;
+    }
+
+    this.roundNumber++;
+    await this.runCompanionResponse(transcript);
+  }
+
+  private async runCompanionResponse(userMessage: string): Promise<void> {
+    this.currentAbort = new AbortController();
+    let fullResponse = "";
+
+    const transitionToWorkPhase =
+      this.roundNumber >= 5 && this.childName === "Ila";
+
+    try {
+      await runAgent({
+        history: this.conversationHistory,
+        userMessage,
+        profile: this.companion,
+        onToken: (chunk) => {
+          fullResponse += chunk;
+          this.send("response_text", { chunk });
+          if (this.ttsBridge) {
+            this.ttsBridge.sendText(chunk);
+          }
+        },
+        signal: this.currentAbort.signal,
+        transitionToWorkPhase,
+        onStepFinish: (step) => {
+          const toolCalls = (step.toolCalls ?? []) as Array<{
+            toolName?: string;
+            name?: string;
+            args?: Record<string, unknown>;
+          }>;
+          const toolResults = (step.toolResults ?? []) as unknown[];
+          for (let i = 0; i < toolCalls.length; i++) {
+            const tc = toolCalls[i];
+            const toolName = tc.toolName ?? tc.name ?? "unknown";
+            const args = tc.args ?? {};
+            const result = toolResults[i];
+            this.handleToolCall(toolName, args, result);
+          }
+        },
+      });
+
+      this.conversationHistory.push(
+        { role: "user", content: userMessage },
+        { role: "assistant", content: fullResponse }
+      );
+
+      if (checkAssistantGoodbye(fullResponse)) {
+        console.log("  👋 Companion said goodbye");
+        await this.end();
+        return;
+      }
+
+      if (this.ttsBridge) {
+        await this.ttsBridge.finish();
+      }
+      this.send("audio_done");
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        console.log("  ⚡ Agent aborted (barge-in)");
+        return;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("  🔴 Agent error:", message);
+      this.send("error", { message: "Companion response failed" });
+    } finally {
+      this.currentAbort = null;
+    }
+  }
+
+  private async handleCompanionTurn(text: string): Promise<void> {
+    this.send("response_text", { chunk: text });
+    if (this.ttsBridge) {
+      this.ttsBridge.sendText(text);
+      await this.ttsBridge.finish();
+    }
+    this.send("audio_done");
+  }
+
+  handleToolCall(
+    tool: string,
+    args: Record<string, unknown>,
+    result: unknown
+  ): void {
+    this.send("tool_call", { tool, args, result });
+
+    if (tool === "logAttempt") {
+      this.processReward(args);
+    }
+
+    if (tool === "showCanvas") {
+      const r = result as { svg?: string; label?: string; mode?: string };
+      const { takeover_ms } = getRewardDurations(this.childName);
+      this.send("reward", {
+        rewardStyle: "takeover",
+        svg: r?.svg,
+        label: r?.label,
+        displayDuration_ms: takeover_ms,
+      });
+      this.logRewardEvent("takeover", takeover_ms);
+    }
+  }
+
+  private processReward(attemptArgs: Record<string, unknown>): void {
+    const correct = attemptArgs.correct === true;
+
+    if (correct) {
+      this.correctStreak++;
+
+      if (this.childName === "Ila") {
+        const { flash_ms } = getRewardDurations(this.childName);
+        this.send("reward", {
+          rewardStyle: "flash",
+          displayDuration_ms: flash_ms,
+        });
+        this.logRewardEvent("flash", flash_ms);
+      }
+
+      if (this.correctStreak === 3) {
+        this.send("phase", { phase: "riddle" });
+      }
+
+      if (this.correctStreak === 5) {
+        this.send("phase", { phase: "championship" });
+        this.correctStreak = 0;
+      }
+    } else {
+      this.correctStreak = 0;
+    }
+  }
+
+  private logRewardEvent(style: string, duration_ms: number): void {
+    this.rewardLog.push({
+      timestamp: new Date().toISOString(),
+      rewardStyle: style as "flash" | "takeover" | "none",
+      displayDuration_ms: duration_ms,
+      timeToNextUtterance_ms: -1,
+      nextAnswerCorrect: null,
+      childVerbalReaction: null,
+      sessionPhase: "learning",
+      correctStreakAtTime: this.correctStreak,
+    });
+  }
+}

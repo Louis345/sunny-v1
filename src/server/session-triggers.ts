@@ -1,0 +1,103 @@
+/**
+ * Session end logic for the web path.
+ * Three triggers — whichever fires first ends the session:
+ * 1. User says goodbye (isGoodbye)
+ * 2. Max session duration (15 min, configurable)
+ * 3. Companion detects disengagement and says goodbye (triggers #1)
+ */
+
+import path from "path";
+import fs from "fs";
+import { isGoodbye } from "../utils/goodbye";
+
+export type ChildName = "Ila" | "Reina";
+
+export interface SessionConfig {
+  maxDurationMinutes: number;
+  ila?: {
+    maxDurationMinutes?: number;
+    rewardFlashDuration_ms?: number;
+    rewardTakeoverDuration_ms?: number;
+  };
+  reina?: {
+    maxDurationMinutes?: number;
+    rewardFlashDuration_ms?: number;
+    rewardTakeoverDuration_ms?: number;
+  };
+}
+
+let configCache: SessionConfig | null = null;
+
+function loadConfig(): SessionConfig {
+  if (configCache) return configCache;
+  const configPath = path.resolve(
+    process.cwd(),
+    "src",
+    "config",
+    "session_config.json"
+  );
+  try {
+    const raw = fs.readFileSync(configPath, "utf-8");
+    configCache = JSON.parse(raw);
+    return configCache!;
+  } catch {
+    configCache = {
+      maxDurationMinutes: 15,
+      ila: { maxDurationMinutes: 15 },
+      reina: { maxDurationMinutes: 15 },
+    };
+    return configCache;
+  }
+}
+
+function getMaxDurationMs(childName: ChildName): number {
+  const config = loadConfig();
+  const childConfig =
+    childName === "Ila" ? config.ila : config.reina;
+  const minutes =
+    childConfig?.maxDurationMinutes ?? config.maxDurationMinutes;
+  return minutes * 60 * 1000;
+}
+
+export interface RewardDurations {
+  flash_ms: number;
+  takeover_ms: number;
+}
+
+export function getRewardDurations(childName: ChildName): RewardDurations {
+  const config = loadConfig();
+  const childConfig = childName === "Ila" ? config.ila : config.reina;
+  return {
+    flash_ms: childConfig?.rewardFlashDuration_ms ?? (childName === "Ila" ? 1500 : 2000),
+    takeover_ms: childConfig?.rewardTakeoverDuration_ms ?? (childName === "Ila" ? 3000 : 6000),
+  };
+}
+
+/**
+ * Trigger 1: User says goodbye.
+ */
+export function checkUserGoodbye(transcript: string): boolean {
+  return isGoodbye(transcript);
+}
+
+/**
+ * Trigger 3: Companion says goodbye (e.g. after detecting disengagement).
+ * When Claude wraps up and says "Bye!" or "See you next time!", this fires.
+ */
+export function checkAssistantGoodbye(assistantText: string): boolean {
+  return isGoodbye(assistantText);
+}
+
+/**
+ * Trigger 2: Max session duration.
+ * Call when session starts. Returns a cleanup function.
+ * The callback fires once when the timer expires.
+ */
+export function startMaxDurationTimer(
+  childName: ChildName,
+  onExpired: () => void
+): () => void {
+  const ms = getMaxDurationMs(childName);
+  const timeout = setTimeout(onExpired, ms);
+  return () => clearTimeout(timeout);
+}

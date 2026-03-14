@@ -3,40 +3,16 @@ import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 import { runVoicePicker, ilaVoices, reinaVoices } from "./pick-voice";
-
-export interface Profile {
-  name: string;
-  voiceId: string;
-  systemPrompt: string;
-}
+import { ELLI, MATILDA } from "./companions/loader";
+import type { CompanionConfig } from "./companions/loader";
 
 const ENV_PATH = path.resolve(__dirname, "..", ".env");
 
 const ENV_KEY_ILA = "ELEVENLABS_VOICE_ID_ILA";
 const ENV_KEY_REINA = "ELEVENLABS_VOICE_ID_REINA";
 
-const TTS_RULE =
-  " CRITICAL: NEVER use asterisks for actions or emotions (e.g. *grins*, *laughs*, *leans in*). The TTS engine reads every character out loud. Use words only: say \"Ha!\" not *laughs*. Say \"Wow!\" not *gasps*. No stage directions ever.";
-
-const SYSTEM_PROMPT_ILA =
-  "You are Sunny, Ila's warm and patient reading teacher. " +
-  "Her name is Ila (pronounced EYE-lah). " +
-  "You use the Wilson Reading System methodology. " +
-  "Speak in short, clear sentences. Give one instruction at a time. " +
-  "Celebrate every small win with genuine encouragement. " +
-  "Never rush — let Ila set the pace. " +
-  "If she struggles, gently break the task into smaller steps. " +
-  "Always end on a positive note so she feels proud of her effort." +
-  "You have tools available. Always use the dateTime tool when asked about time or date — never estimate." +
-  TTS_RULE;
-const SYSTEM_PROMPT_REINA =
-  "You are Sunny, Reina's curious and energetic learning companion. " +
-  "You love challenges and keep up with advanced kids. " +
-  "Make learning feel like a friendly competition — use scoreboards, streaks, and personal bests. " +
-  "Ask tricky follow-up questions that make her think deeper. " +
-  "Match her energy — if she's fired up, you're fired up. " +
-  "Celebrate effort AND cleverness. Make her feel like the smartest kid in the room." +
-  TTS_RULE;
+/** @deprecated Use CompanionConfig from loader. Kept for runAgent compatibility. */
+export type Profile = Pick<CompanionConfig, "name" | "voiceId" | "systemPrompt">;
 
 function readEnvValue(key: string): string | undefined {
   if (!fs.existsSync(ENV_PATH)) return undefined;
@@ -60,7 +36,7 @@ function saveEnvValue(key: string, value: string): void {
   fs.writeFileSync(ENV_PATH, content, "utf-8");
 }
 
-export async function selectProfile(): Promise<Profile> {
+export async function selectProfile(): Promise<CompanionConfig> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -95,11 +71,12 @@ export async function selectProfile(): Promise<Profile> {
       console.log("\n  🎤 Ila hasn't picked a voice yet! Let's do that now.\n");
       voiceId = await runVoicePicker("Ila", ilaVoices);
       saveEnvValue(ENV_KEY_ILA, voiceId);
+      process.env[ENV_KEY_ILA] = voiceId;
       console.log("\n  ✅ Voice saved! Ila won't have to pick again.\n");
     } else {
       console.log(`\n  🌸 Welcome back, Ila! Your voice is all set.\n`);
     }
-    return { name: "Ila", voiceId, systemPrompt: SYSTEM_PROMPT_ILA };
+    return { ...ELLI, voiceId };
   }
 
   let voiceId = readEnvValue(ENV_KEY_REINA);
@@ -107,9 +84,10 @@ export async function selectProfile(): Promise<Profile> {
     console.log("\n  🎤 Reina hasn't picked a voice yet! Let's do that now.\n");
     voiceId = await runVoicePicker("Reina", reinaVoices);
     saveEnvValue(ENV_KEY_REINA, voiceId);
+    process.env[ENV_KEY_REINA] = voiceId;
     console.log("\n  ✅ Voice saved! Reina won't have to pick again.\n");
   } else {
     console.log(`\n  👑 Welcome back, Reina! Your voice is all set.\n`);
   }
-  return { name: "Reina", voiceId, systemPrompt: SYSTEM_PROMPT_REINA };
+  return { ...MATILDA, voiceId };
 }
