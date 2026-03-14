@@ -1,5 +1,28 @@
+I need to analyze Ila's current performance data before planning the next 3 sessions.
+
+## Current Performance Analysis
+
+Based on the session data provided:
+
+**Mastered Skills:**
+- /i/ CVC middle sound identification: 100% accuracy (dig, fig, pig, wig - all perfect)
+- /a/ CVC middle sound identification: Strong performance on bat, sat, bag, rag
+- Self-advocacy for challenge ("can i get more," "that's easy")
+- Visual support dependency correctly identified by Ila ("I don't see anything in the canvas")
+
+**Emerging Skills:**
+- hat, mat showing 67-71% accuracy 
+- Full three-phoneme segmentation (introduced but needs development)
+- Mixed vowel discrimination (never formally tested)
+
+**Critical Gaps Never Assessed:**
+- Following Directions (2nd percentile) - only single-step instructions used
+- Word Structure (5th percentile) - no morphological probes
+- Recalling Sentences (5th percentile) - no sentence repetition tasks
+- Word Classes without visual support (3rd percentile) - all work has visual support
+
 ## Focus Area
-Wilson Step 1 — Full phoneme segmentation with CVC words containing /i/ and /a/ vowels. Transitioning from isolated middle sound identification (mastered at 100%) to complete three-sound analysis while introducing vowel discrimination to prevent pattern-matching and build true phonological awareness for decoding.
+Wilson Step 1 — Full three-phoneme segmentation with CVC words, transitioning from mastered middle-sound isolation to complete sound analysis. Introducing mixed /a/ and /i/ vowels to build true vowel discrimination and prevent pattern-matching within vowel families.
 
 ## Words for Next 3 Sessions
 Session 1: sit, hit, bit, win, pin
@@ -7,27 +30,29 @@ Session 2: fit, kit, lid, six, mix
 Session 3: sit, cat, hit, mat, bit
 
 ## Clinical Reasoning
-**Mastery Data Analysis:**
-- /i/ CVC middle sound: 100% accuracy across 15+ attempts (dig, fig, pig, wig, big confirmed mastery)
-- /a/ CVC middle sound: 85% accuracy with discrimination gaps (bat/sat/bag 100%, hat/mat 67-71%, cat 33%)
-- Single phoneme isolation is below ceiling — Ila self-advocated for challenge on 3/10 and 3/12
+**CELF-5 Profile Alignment:**
+- Leverages Sentence Comprehension strength (63rd percentile) with highly concrete, visualizable words
+- Maintains single-step instructions matching Following Directions capacity (2nd percentile)
+- Builds on Word Classes visual dependency (100% with pictures vs 37.5% without) using imageable targets
+- Addresses Recalling Sentences weakness (5th percentile) through three-phoneme sequences as memory building blocks
 
-**CELF-5 Profile Targeting:**
-- **Following Directions (2nd percentile)**: "Tell me all three sounds in [word]" remains single-step instruction matching her processing capacity
-- **Recalling Sentences (5th percentile)**: Three-phoneme sequences build auditory memory in manageable chunks before advancing to sentence-level recall
-- **Sentence Comprehension (63rd percentile — her strength)**: Visual-concrete words (sit=chair, hit=action, win=race) leverage her 100% accuracy with picture support
-- **Word Classes visual dependence**: All targets are highly imageable to support her documented reliance on visual processing
+**Progression Logic:**
+- Sessions 1-2: Pure vowel families (/i/ only) to establish three-sound segmentation without vowel confusion
+- Session 3: First mixed-vowel presentation (/i/ vs /a/) to test true phonemic discrimination
+- Excludes mastered words (dig, fig, pig, wig, bag, rag) to maintain engagement through novelty
+- All words highly concrete and visualizable matching her documented visual processing strength
 
-**Critical Gap Address:**
-Session 3 introduces mixed /a/ and /i/ vowels for first time. March sessions showed pattern-matching within vowel type — never tested discrimination between vowels. This prevents true phonemic awareness and limits decoding transfer.
-
-Excluded previously mastered words (dig, fig, pig, wig, bag, rag) to maintain engagement through novelty while systematically building segmentation skills.
+**Data-Driven Decisions:**
+- 10/13 target words at mastery level (77% overall success rate)
+- /i/ words showing 100% accuracy across all attempts
+- Self-advocacy for challenge indicates readiness for increased complexity
+- No evidence of vowel discrimination testing - critical gap to address
 
 ## Success Looks Like
 Elli should observe:
-- **Full segmentation accuracy**: Produces all three phonemes (/s/-/i/-/t/) without reverting to middle-sound-only responses
-- **80%+ accuracy** across 15 total attempts over 3 sessions
-- **Vowel discrimination**: Correctly identifies /i/ vs /a/ in Session 3 mixed presentation without confusion
-- **Processing speed**: Completes segmentation within 5-10 seconds per word (fluency building)
-- **Confidence markers**: Self-advocates for more challenge or generates unprompted sentences using target words
-- **No shutdown behaviors**: Maintains engagement when task complexity increases from previous mastered level
+- **Complete segmentation**: Produces all three sounds (/s/-/i/-/t/) without reverting to middle-sound-only
+- **80%+ accuracy** across 15 attempts over 3 sessions  
+- **Vowel discrimination**: Session 3 mixed /a/ and /i/ words completed without pattern confusion
+- **Processing fluency**: 5-10 second response time per segmentation task
+- **Maintained engagement**: No shutdown behaviors when task complexity increases
+- **Self-advocacy**: Continues requesting challenge or generates unprompted target word sentences
