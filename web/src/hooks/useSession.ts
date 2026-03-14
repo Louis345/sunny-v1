@@ -43,7 +43,8 @@ interface SessionState {
 
 export function useSession() {
   const wsRef = useRef<WebSocket | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const micContextRef = useRef<AudioContext | null>(null);
+  const playContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
@@ -156,32 +157,27 @@ export function useSession() {
         break;
 
       case "tool_call": {
-        const tool = msg.tool as string;
-        const args = (msg.args ?? {}) as Record<string, unknown>;
-        const result = msg.result as Record<string, unknown> | undefined;
+        const toolName = msg.tool as string;
 
-        if (tool === "showCanvas" && result) {
-          const mode = result.mode as CanvasState["mode"];
-          const validModes: CanvasState["mode"][] = [
-            "idle",
-            "teaching",
-            "reward",
-            "riddle",
-            "championship",
-          ];
+        // Canvas tool — accept both casing variants
+        if (toolName === "showCanvas" || toolName === "show_canvas") {
+          const data = (msg.result ?? msg.args ?? {}) as Record<string, unknown>;
           setStateRef.current((s) => ({
             ...s,
             canvas: {
-              mode: mode && validModes.includes(mode) ? mode : "idle",
-              svg: result.svg as string | undefined,
-              label: result.label as string | undefined,
-              content: result.content as string | undefined,
-              phonemeBoxes: result.phonemeBoxes as CanvasState["phonemeBoxes"],
+              mode: (data.mode as CanvasState["mode"]) ?? "idle",
+              svg: data.svg as string | undefined,
+              label: data.label as string | undefined,
+              content: data.content as string | undefined,
+              phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
             },
           }));
         }
-        if (tool === "logAttempt") {
-          const correct = args.correct === true;
+
+        // logAttempt streak tracking
+        if (toolName === "logAttempt" || toolName === "log_attempt") {
+          const correct = (msg.result as Record<string, unknown>)?.correct === true ||
+            (msg.args as Record<string, unknown>)?.correct === true;
           setStateRef.current((s) => ({
             ...s,
             correctStreak: correct ? s.correctStreak + 1 : 0,
@@ -235,7 +231,7 @@ export function useSession() {
 
         mediaStreamRef.current = stream;
         const audioCtx = new AudioContext({ sampleRate: 16000 });
-        audioContextRef.current = audioCtx;
+        micContextRef.current = audioCtx;
 
         const source = audioCtx.createMediaStreamSource(stream);
         const processor = audioCtx.createScriptProcessor(4096, 1, 1);
@@ -271,9 +267,9 @@ export function useSession() {
       } catch {}
       processorRef.current = null;
     }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
+    if (micContextRef.current) {
+      micContextRef.current.close();
+      micContextRef.current = null;
     }
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -284,6 +280,25 @@ export function useSession() {
   stopMicRef.current = stopMic;
 
   // --- Audio: Speaker (server → browser) ---
+  // ElevenLabs sends PCM 16-bit signed mono at 22050 Hz (pcm_22050_16)
+
+  function pcmToAudioBuffer(
+    ctx: AudioContext,
+    int16Data: Int16Array
+  ): AudioBuffer {
+    const frameCount = int16Data.length;
+    const audioBuffer = ctx.createBuffer(
+      1, // mono
+      frameCount,
+      22050 // must match pcm_22050_16
+    );
+    const channelData = audioBuffer.getChannelData(0);
+    for (let i = 0; i < frameCount; i++) {
+      // Int16 range is -32768 to 32767 — divide by 32768 to get -1.0 to ~1.0
+      channelData[i] = int16Data[i] / 32768;
+    }
+    return audioBuffer;
+  }
 
   async function playNextChunk() {
     if (audioQueueRef.current.length === 0) {
@@ -295,17 +310,24 @@ export function useSession() {
     const chunk = audioQueueRef.current.shift()!;
 
     try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
+      if (!playContextRef.current || playContextRef.current.state === "closed") {
+        playContextRef.current = new AudioContext({ sampleRate: 22050 });
       }
-      const audioBuffer = await audioContextRef.current.decodeAudioData(chunk.slice(0));
-      const source = audioContextRef.current.createBufferSource();
+      if (playContextRef.current.state === "suspended") {
+        await playContextRef.current.resume();
+      }
+
+      // chunk is an ArrayBuffer of raw Int16 PCM bytes from ElevenLabs
+      const int16 = new Int16Array(chunk);
+      const audioBuffer = pcmToAudioBuffer(playContextRef.current, int16);
+
+      const source = playContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(audioContextRef.current.destination);
+      source.connect(playContextRef.current.destination);
       source.onended = () => playNextChunk();
       source.start();
     } catch (err) {
-      console.error("Audio playback error:", err);
+      console.error("PCM playback error:", err);
       isPlayingRef.current = false;
       playNextChunk();
     }
@@ -371,6 +393,10 @@ export function useSession() {
   useEffect(() => {
     return () => {
       stopMic();
+      if (playContextRef.current) {
+        playContextRef.current.close();
+        playContextRef.current = null;
+      }
       wsRef.current?.close();
     };
   }, [stopMic]);

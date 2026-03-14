@@ -189,6 +189,11 @@ export class SessionManager {
     this.currentAbort = new AbortController();
     let fullResponse = "";
 
+    // Reconnect TTS for this turn — ElevenLabs WS closes after each finish()
+    if (this.ttsBridge) {
+      await this.ttsBridge.connect();
+    }
+
     const transitionToWorkPhase =
       this.roundNumber >= 5 && this.childName === "Ila";
 
@@ -211,12 +216,14 @@ export class SessionManager {
             toolName?: string;
             name?: string;
             args?: Record<string, unknown>;
+            input?: Record<string, unknown>;
           }>;
           const toolResults = (step.toolResults ?? []) as unknown[];
           for (let i = 0; i < toolCalls.length; i++) {
             const tc = toolCalls[i];
-            const toolName = tc.toolName ?? tc.name ?? "unknown";
-            const args = tc.args ?? {};
+            let toolName = tc.toolName ?? tc.name ?? "unknown";
+            if (toolName === "show_canvas") toolName = "showCanvas";
+            const args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
             this.handleToolCall(toolName, args, result);
           }
@@ -272,15 +279,17 @@ export class SessionManager {
     }
 
     if (tool === "showCanvas") {
-      const r = result as { svg?: string; label?: string; mode?: string };
-      const { takeover_ms } = getRewardDurations(this.childName);
-      this.send("reward", {
-        rewardStyle: "takeover",
-        svg: r?.svg,
-        label: r?.label,
-        displayDuration_ms: takeover_ms,
-      });
-      this.logRewardEvent("takeover", takeover_ms);
+      const r = (result ?? args) as { svg?: string; label?: string; mode?: string };
+      if (r?.mode === "reward" || r?.mode === "championship") {
+        const { takeover_ms } = getRewardDurations(this.childName);
+        this.send("reward", {
+          rewardStyle: "takeover",
+          svg: r?.svg,
+          label: r?.label,
+          displayDuration_ms: takeover_ms,
+        });
+        this.logRewardEvent("takeover", takeover_ms);
+      }
     }
   }
 

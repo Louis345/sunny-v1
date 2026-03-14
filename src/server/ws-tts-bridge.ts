@@ -20,7 +20,7 @@ function buildWsUrl(voiceId: string): string {
   return (
     `${WS_BASE}/${voiceId}/stream-input` +
     `?model_id=${encodeURIComponent("eleven_multilingual_v2")}` +
-    `&output_format=mp3_44100_128` +
+    `&output_format=pcm_22050_16` +
     `&optimize_streaming_latency=3`
   );
 }
@@ -44,6 +44,12 @@ export class WsTtsBridge {
   }
 
   async connect(): Promise<void> {
+    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
+      this.elevenWs.close();
+      this.elevenWs = null;
+      this.wsReady = false;
+    }
+
     return new Promise((resolve, reject) => {
       const url = buildWsUrl(this.voiceId);
       this.elevenWs = new WebSocket(url);

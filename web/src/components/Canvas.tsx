@@ -19,9 +19,10 @@ interface Props {
   canvas: CanvasState;
   reward: RewardEvent | null;
   sessionPhase: string;
+  childName?: string;
 }
 
-export function Canvas({ canvas, reward, sessionPhase }: Props) {
+export function Canvas({ canvas, reward, sessionPhase, childName = "Ila" }: Props) {
   const showReward = reward?.rewardStyle === "takeover" && reward.svg;
   const showFlash = reward?.rewardStyle === "flash";
 
@@ -59,9 +60,20 @@ export function Canvas({ canvas, reward, sessionPhase }: Props) {
 
       <div className="w-full max-w-2xl">
         {canvas.mode === "idle" && (
-          <div className="text-center text-gray-500">
-            <p className="text-lg">Listening...</p>
-            <p className="text-sm mt-2">Talk to your companion!</p>
+          <div className="flex flex-col items-center justify-center gap-4 select-none">
+            <div
+              className="text-8xl"
+              style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.08))" }}
+            >
+              {childName === "Ila" ? "🌟" : "📚"}
+            </div>
+            <div className="text-xl font-medium text-gray-400 tracking-wide">
+              {childName === "Ila" ? "Ready when you are" : "Let's explore something"}
+            </div>
+            <div
+              className="mt-2 w-12 h-1 rounded-full"
+              style={{ backgroundColor: childName === "Ila" ? "#EF9F27" : "#85B7EB", opacity: 0.5 }}
+            />
           </div>
         )}
 
@@ -73,9 +85,9 @@ export function Canvas({ canvas, reward, sessionPhase }: Props) {
                 dangerouslySetInnerHTML={{ __html: canvas.svg }}
               />
             )}
-            {canvas.label && (
+            {(canvas.content || canvas.label) && (
               <p className="text-center text-xl font-medium text-gray-900">
-                {canvas.label}
+                {canvas.content ?? canvas.label}
               </p>
             )}
             {canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0 && (
