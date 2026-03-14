@@ -71,7 +71,6 @@ export function SessionScreen({
         canvas={canvas}
         reward={reward}
         sessionPhase={sessionPhase}
-        childName={childName}
       />
     </div>
   );

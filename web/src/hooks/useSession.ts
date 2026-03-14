@@ -280,25 +280,7 @@ export function useSession() {
   stopMicRef.current = stopMic;
 
   // --- Audio: Speaker (server → browser) ---
-  // ElevenLabs sends PCM 16-bit signed mono at 22050 Hz (pcm_22050_16)
-
-  function pcmToAudioBuffer(
-    ctx: AudioContext,
-    int16Data: Int16Array
-  ): AudioBuffer {
-    const frameCount = int16Data.length;
-    const audioBuffer = ctx.createBuffer(
-      1, // mono
-      frameCount,
-      22050 // must match pcm_22050_16
-    );
-    const channelData = audioBuffer.getChannelData(0);
-    for (let i = 0; i < frameCount; i++) {
-      // Int16 range is -32768 to 32767 — divide by 32768 to get -1.0 to ~1.0
-      channelData[i] = int16Data[i] / 32768;
-    }
-    return audioBuffer;
-  }
+  // ElevenLabs sends PCM 16-bit signed mono at 22050 Hz (pcm_22050)
 
   async function playNextChunk() {
     if (audioQueueRef.current.length === 0) {
@@ -316,11 +298,7 @@ export function useSession() {
       if (playContextRef.current.state === "suspended") {
         await playContextRef.current.resume();
       }
-
-      // chunk is an ArrayBuffer of raw Int16 PCM bytes from ElevenLabs
-      const int16 = new Int16Array(chunk);
-      const audioBuffer = pcmToAudioBuffer(playContextRef.current, int16);
-
+      const audioBuffer = pcmToAudioBuffer(playContextRef.current, chunk);
       const source = playContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(playContextRef.current.destination);
@@ -411,6 +389,16 @@ export function useSession() {
 }
 
 // --- Helpers ---
+
+function pcmToAudioBuffer(ctx: AudioContext, arrayBuffer: ArrayBuffer): AudioBuffer {
+  const int16 = new Int16Array(arrayBuffer);
+  const audioBuffer = ctx.createBuffer(1, int16.length, 22050);
+  const channel = audioBuffer.getChannelData(0);
+  for (let i = 0; i < int16.length; i++) {
+    channel[i] = int16[i] / 32768;
+  }
+  return audioBuffer;
+}
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = atob(base64);

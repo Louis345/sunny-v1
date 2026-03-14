@@ -19,10 +19,9 @@ interface Props {
   canvas: CanvasState;
   reward: RewardEvent | null;
   sessionPhase: string;
-  childName?: string;
 }
 
-export function Canvas({ canvas, reward, sessionPhase, childName = "Ila" }: Props) {
+export function Canvas({ canvas, reward, sessionPhase }: Props) {
   const showReward = reward?.rewardStyle === "takeover" && reward.svg;
   const showFlash = reward?.rewardStyle === "flash";
 
@@ -61,19 +60,10 @@ export function Canvas({ canvas, reward, sessionPhase, childName = "Ila" }: Prop
       <div className="w-full max-w-2xl">
         {canvas.mode === "idle" && (
           <div className="flex flex-col items-center justify-center gap-4 select-none">
-            <div
-              className="text-8xl"
-              style={{ filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.08))" }}
-            >
-              {childName === "Ila" ? "🌟" : "📚"}
-            </div>
+            <div className="text-8xl">🌟</div>
             <div className="text-xl font-medium text-gray-400 tracking-wide">
-              {childName === "Ila" ? "Ready when you are" : "Let's explore something"}
+              Ready when you are
             </div>
-            <div
-              className="mt-2 w-12 h-1 rounded-full"
-              style={{ backgroundColor: childName === "Ila" ? "#EF9F27" : "#85B7EB", opacity: 0.5 }}
-            />
           </div>
         )}
 
@@ -85,9 +75,14 @@ export function Canvas({ canvas, reward, sessionPhase, childName = "Ila" }: Prop
                 dangerouslySetInnerHTML={{ __html: canvas.svg }}
               />
             )}
-            {(canvas.content || canvas.label) && (
+            {canvas.content && (
+              <p className="text-center text-7xl font-bold text-gray-900 tracking-widest font-mono">
+                {canvas.content}
+              </p>
+            )}
+            {canvas.label && (
               <p className="text-center text-xl font-medium text-gray-900">
-                {canvas.content ?? canvas.label}
+                {canvas.label}
               </p>
             )}
             {canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0 && (

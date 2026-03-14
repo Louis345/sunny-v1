@@ -20,7 +20,7 @@ function buildWsUrl(voiceId: string): string {
   return (
     `${WS_BASE}/${voiceId}/stream-input` +
     `?model_id=${encodeURIComponent("eleven_multilingual_v2")}` +
-    `&output_format=pcm_22050_16` +
+    `&output_format=pcm_22050` +
     `&optimize_streaming_latency=3`
   );
 }
