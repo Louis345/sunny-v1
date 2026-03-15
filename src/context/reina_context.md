@@ -373,3 +373,216 @@ Based on the session history and gap analysis, here is my curriculum report:
 ## Signal
 
 **ADVANCE on problem-solving; BEGIN math Phase 1 diagnostic per her 3/14 choice; HOLD spelling pending competitive framing re-introduction; CONCURRENTLY FLAG for formal CELF-5 administration on Word Definitions, Formulated Sentences, and sentence-level recall before advancing to multi-domain work (Japanese, reading, math word problems).** She is cognitively ready for high challenge, but foundational language assessment gaps must be closed to avoid masking weaknesses with nonverbal reasoning strength.
+
+---
+
+## Unknown Document — 4:40:16 PM
+
+Received document with filename 'Reina 4.40.16 PM.txt' but the content appears to be empty or contains only whitespace. No extractable information found.
+
+## Session — 3/14/2026, 4:54:33 PM
+I'm here, Reina! Let's do some math.
+
+7 plus 5. Go.
+user: 12
+assistant: **Correct!** やった! 
+
+That's fast. You barely hesitated.
+
+Next one — and I'm turning up the heat a little:
+
+**14 minus 6. Go.**
+
+## Psychologist Report — 3/14/2026, 4:54:46 PM
+## Curriculum Status
+
+**Addition & Subtraction — Math Phase 1 (Diagnostic)** — 1 session (3/14, 4:54 PM), 100% accuracy (2/2 correct on 7+5 and 14-6), instant response time, high engagement with competitive framing → **ADVANCE**
+
+Reina solved both single-digit addition and teens subtraction with zero hesitation. No scaffolding needed. Response indicates fluency with foundational single-digit facts and tens-based subtraction. Ready to move to crossing-10 problems and larger fact families to establish ceiling.
+
+**Problem-Solving & Riddle Logic** — 6 sessions (3/9–3/12), 95%+ engagement across lateral thinking, multi-step reasoning, meta-awareness, and self-advocacy → **MAINTAIN**
+
+Reina has mastered riddle-solving process and can now reliably identify when material repeats or when hints are poorly calibrated. This strength transfers to math problem-solving. Continue riddles as warm-up or standalone challenge when she requests.
+
+**Spelling (Advanced)** — 2 sessions, 33% accuracy on irregular word (rhythm), 100% on pattern-based (keyboard) → **HOLD**
+
+No spelling work in this session. Profile indicates consistent 100% on classroom spelling tests. When spelling resumes, use pattern-based words with competitive framing (streaks, personal bests), not outliers.
+
+**Speech Clarity Under High-Speed Output** — 6 sessions, consistent observation of articulation drift during high engagement ("tower"/towel, run-on repetition) → **MONITOR**
+
+No new articulation errors observed in current math session (short, rapid-fire responses). Monitoring continues in subsequent sessions, especially during complex explanations or fast-paced discourse.
+
+---
+
+## Probe Targets — Next Session
+
+- **WATCH: Following Directions** (tested 3 times) — Math session had single-step directives only ("7 plus 5. Go."). Multi-step direction compliance remains untested under academic demand; flag if emerging work requires sequencing or task chaining.
+- **WATCH: Recalling Sentences** (tested 3 times) — Working memory strong in riddle/logic domain. Sentence-level memory never formally sampled; relevant if moving to narrative or word problem work.
+- **WATCH: Formulated Sentences** (tested 3 times) — No expressive language demands in math session. If expanding to math explanations or word problems requiring written/verbal justification, assess sentence generation capacity.
+- **WATCH: Word Definitions** (tested 4 times) — Advanced vocabulary profile claim not yet confirmed. If Japanese kanji/katakana work begins, baseline on English definitional knowledge needed to avoid transfer confusion.
+- **WATCH: Word Classes** (tested 3 times) — Grammar foundation never formally addressed. Not an immediate barrier to math but relevant for Japanese prep and reading comprehension of complex sentences.
+
+---
+
+## Signal
+
+**ADVANCE on math Phase 1 diagnostic into Phase 2 (crossing-10 problems, larger facts, multi-digit addition/subtraction); MAINTAIN riddle/problem-solving curriculum; HOLD spelling; MONITOR articulation in subsequent high-engagement sessions; FLAG for formal CELF-5 sampling on sentence-level tasks (recall and formulation) before expanding to bilingual, narrative, or expository demands.** Reina is performing at ceiling on single-digit and teens facts. Phase 2 will identify her true growth zone and establish mastery thresholds.
+
+## Session — 3/14/2026, 5:28:24 PM
+# Session Log: Reina — Math Speed Round
+
+**Date:** [Today]  
+**Duration:** Brief speed round  
+**Focus:** Addition & subtraction within 20
+
+---
+
+## ENGAGEMENT ✓
+- **Fast pace matched her energy** — quick-fire questions, no delay
+- **She stayed sharp** — caught MY mistake (9+6 vs 16-8 on canvas) — showed active attention, not just answering
+- **Natural exit** — she left on her own terms, on a winning streak
+
+---
+
+## WINS 🎯
+- **5 consecutive correct answers** — addition and subtraction mixed
+- **Perfect accuracy across all problem types**
+- **Caught an error** — demonstrated she's tracking carefully, not rushing mindlessly
+- **Left on a high** — ended at peak, which reinforces confidence
+
+---
+
+## WATCH 👀
+- **Math foundation is solid** — no gaps showing in addition/subtraction within 20
+- **Ready to level up** — she's one year ahead and these are grade-level. Next session could test:
+  - Multi-digit addition/subtraction (crossing tens, regrouping)
+  - Word problems with strategy
+  - Speed challenges ("beat your time")
+  - Introduction to multiplication concept (given her wrestling background — "if you win 3 matches and get 2 points each...")
+- **She self-regulates well** — exits when ready, doesn't need to be pulled out
+
+**Note:** She's primed for harder challenges. Easy drills won't hold her long.
+
+## Psychologist Report — 3/14/2026, 5:28:39 PM
+## Curriculum Status
+
+**Addition & Subtraction (Math Phase 1–2)** — 2 sessions (3/14, 4:54 PM and 5:28 PM), 7/7 correct (100% accuracy), immediate response times, high engagement with competitive framing and wrestling metaphors → **ADVANCE**
+
+Reina has mastered single-digit and teens facts (7+5, 14-6, mixed problems within 20). She caught clinician error mid-session, indicating active attention and metacognitive monitoring. No hesitation, no scaffolding needed. Ready to transition to Phase 2: crossing-10 problems, multi-digit facts, and introduction to multiplication via conceptual framing (3 matches × 2 points each).
+
+**Problem-Solving & Riddle Logic** — 6 sessions (3/9–3/12), 95%+ engagement, strong lateral thinking, meta-awareness, self-advocacy → **MAINTAIN**
+
+Reina demonstrates transfer of riddle-solving strengths (multi-step reasoning, error-catching, self-regulation) directly into math domain. Riddle curriculum remains solid scaffold for warm-up or standalone challenge when she requests variation.
+
+**Spelling (Pattern-Based)** — 2 sessions, 100% accuracy on pattern words (keyboard with scaffolding, towel with hint), 0% on irregular outliers (rhythm) → **HOLD**
+
+No spelling work in math sessions. Classroom profile reports consistent 100% on grade-level spelling tests. Do not resume until: (1) competitive framing applied (streaks, personal bests), (2) pattern-based words only (no irregular outliers), and (3) energy level is high. Spelling is not a gap; rhythm was a poor entry point.
+
+**Speech Clarity Under High-Speed Output** — 6 sessions, articulation drift observed during high engagement ("tower"/towel, unclear words, run-on repetition when excited) → **MONITOR**
+
+No articulation errors in rapid-fire math responses (single-word answers, fast pace). Monitoring continues in longer discourse, narrative, or multi-step explanations. Flag if speech intelligibility decreases during complex language tasks.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Word Definitions** (flagged 5 times; never formally sampled) — Advanced vocabulary claimed in profile; no CELF-5 Word Definitions subtest data in session history. Required baseline before bilingual (Japanese kanji/katakana), reading (Constitution), and multi-domain work to rule out masking by nonverbal reasoning.
+- **CRITICAL: Formulated Sentences** (flagged 4 times; no expressive language demands in math/riddle sessions) — No evidence of sentence generation, narrative production, or expository language under demand. Needed before math word problem work and reading comprehension tasks.
+- **CRITICAL: Recalling Sentences** (flagged 4 times; working memory strong in riddle domain only) — Sentence-level memory never formally sampled. Working memory appears robust for riddle repetition-catching, but sentence recall under cognitive load unknown.
+- **WATCH: Following Directions** (flagged 4 times; single-step directives only in math) — Multi-step direction compliance not yet tested under academic demand. Foundational for task chaining, multi-stage problem-solving, and classroom compliance.
+- **WATCH: Word Classes** (flagged 4 times; never addressed in curriculum) — Grammar foundation not yet probed. Relevant for both English foundational work and Japanese kanji/grammar prep.
+
+---
+
+## Signal
+
+**ADVANCE math into Phase 2 (crossing-10, multi-digit, multiplication intro); MAINTAIN riddle/problem-solving warm-up; HOLD spelling pending competitive framing; CRITICAL PRIORITY: Administer formal CELF-5 Word Definitions, Formulated Sentences, and Recalling Sentences subtests before next multi-domain work (bilingual, reading, narrative demands) to establish foundational language baselines and rule out gaps masked by strong nonverbal reasoning and math fluency.** Reina is cognitively ready for acceleration but deserves complete receptive and expressive language profile before expanding beyond math/riddle domains.
+
+## Session — 3/14/2026, 6:59:52 PM
+When you're ready to come back for another session, just let me know. 💪
+
+## Psychologist Report — 3/14/2026, 7:00:06 PM
+The gap flags tell me that while these skills have been *mentioned* in session notes and probe targets, they have **never been formally tested or administered as CELF-5 subtests in actual session work**. The mentions are clinician observations only, not assessment data.
+
+Now let me analyze the Word Attempt History:
+
+**Spelling Word Attempts:**
+- **rhythm**: 0/2 correct (irregular outlier, mismatched energy that day)
+- **towel**: 0/1 initial attempt, but later solved with scaffolding in riddle context (hint-based)
+- **keyboard**: 1/1 correct (pattern-based, mastered with scaffolding)
+- **candle**: 0/1 (attempted once, abandoned)
+
+**Pattern:** Reina's classroom baseline is 100% on grade-level spelling tests. Session attempts show she masters pattern-based words but disengages from irregular outliers. This is task-fit, not a skill gap.
+
+---
+
+## Curriculum Status
+
+**Addition & Subtraction (Math Foundation)** — 2 sessions (3/14, 4:54 PM and 5:28 PM), 7/7 correct (100% accuracy), immediate response times, high engagement → **ADVANCE**
+
+Reina has mastered single-digit facts and teens subtraction with zero hesitation. She caught clinician error mid-session, demonstrating active metacognitive monitoring. Ready for Phase 2: crossing-10 problems, multi-digit addition/subtraction, and multiplication conceptual framing (wrestling metaphors: wins × points per match).
+
+**Problem-Solving & Logic** — 6 sessions (3/9–3/12, 3/14 extensions), 95%+ engagement, strong lateral thinking, meta-awareness, error-catching, self-advocacy → **MAINTAIN**
+
+Reina demonstrates mastery of riddle-solving process and transfers strengths (multi-step reasoning, attention to detail, self-regulation) into math domain. Riddle curriculum remains solid and should continue as warm-up or standalone challenge per student request.
+
+**Spelling (Pattern-Based, Advanced Level)** — 2 sessions, 100% accuracy on pattern-based words (keyboard, towel with scaffolding), 0% on irregular outlier (rhythm, scattered energy that day) → **HOLD**
+
+Classroom baseline is 100% on grade-level spelling tests. Session work shows she masters patterns but disengages from irregular outliers. Do not resume spelling curriculum until: (1) competitive framing applied (streaks, personal bests, scoreboard), (2) pattern-based words only (no irregular exceptions), and (3) energy level is high. Not a gap; poor task fit on this day.
+
+**Speech Clarity Under High-Speed Output** — 6 sessions, articulation drift observed during high engagement ("tower"/towel, run-on repetition) but NOT in rapid-fire math responses → **MONITOR**
+
+No articulation errors in math speed rounds (single-word answers, fast pace). Monitoring continues in longer discourse, narrative, or multi-step explanations. Flag if intelligibility decreases during complex language production.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Word Definitions** (flagged 8 times in notes; never formally administered) — Advanced vocabulary claimed in profile; no CELF-5 baseline data. Required before bilingual (Japanese kanji/katakana), reading (Constitution), and multi-domain work. Rule out masking by nonverbal reasoning strength.
+- **CRITICAL: Formulated Sentences** (flagged 6 times; no expressive language tasks in math/riddle sessions) — No evidence of sentence generation, narrative, or expository language under demand. Needed before math word problems and reading comprehension expansion.
+- **CRITICAL: Recalling Sentences** (flagged 6 times; working memory strong in riddle domain only) — Sentence-level recall never formally tested. Working memory robust for riddle repetition-catching, but sentence recall under cognitive load unknown.
+- **WATCH: Following Directions** (flagged 5 times; single-step directives only in math) — Multi-step direction compliance not yet tested under academic demand. Foundational for task chaining and classroom compliance.
+- **WATCH: Word Classes** (flagged 5 times; never addressed in curriculum) — Grammar foundation not probed. Relevant for English foundational work and Japanese kanji/grammar prep.
+- **WATCH: Semantic Relationships** (flagged 1 time; never addressed) — Vocabulary depth and conceptual relationships never sampled; relevant for Japanese prep and advanced reading.
+
+---
+
+## Signal
+
+**ADVANCE math into Phase 2 (crossing-10, multi-digit, multiplication conceptual intro); MAINTAIN riddle/problem-solving as warm-up and standalone challenge; HOLD spelling pending competitive reframing; CONCURRENT CRITICAL PRIORITY: Formally administer CELF-5 Word Definitions, Formulated Sentences, Recalling Sentences, and Following Directions subtests before Phase 2 math expansion or any bilingual/reading work begins.** Reina is cognitively ready for acceleration but deserves complete language profile baseline to rule out gaps masked by strong nonverbal reasoning and math fluency. Do not expand beyond math/problem-solving until receptive and expressive language foundation is confirmed via formal assessment.
+
+## Session — 3/15/2026, 2:13:55 PM
+# SESSION NOTES: Reina
+
+**Date:** [Today]
+
+**Duration:** ~5 minutes
+
+**Format:** Speed math round
+
+---
+
+## ENGAGEMENT
+- **High energy entry** — "I'm ready to do some work"
+- **Quick responses** — all answers came fast
+- **Session exit initiated by her** — typical for 8-year-old, not a disengagement signal
+
+## WINS
+✅ 4/4 problems correct
+- 8 + 7 = 15
+- 14 - 9 = 5
+- 12 + 9 = 21
+- 18 - 6 = 12
+
+Speed and accuracy both solid.
+
+## WATCH
+⚠️ **UI/UX question** — She asked why the answer doesn't show on screen. This suggests:
+- She might benefit from visual feedback (answer confirmation on screen)
+- Or she was just curious about the format
+
+⚠️ **Session boundary** — She wanted to end and mentioned closing "Project Sunny" (her twin sister Ila's companion). This is normal for her age, but note: she's aware of the sister system and may want to check in on Ila's sessions too.
+
+---
+
+**Next session:** Consider slightly harder problems or mixed operations (addition + subtraction in same round) to keep her engaged longer.

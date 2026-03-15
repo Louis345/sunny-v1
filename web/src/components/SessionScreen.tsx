@@ -10,6 +10,7 @@ interface CompanionConfig {
 interface CanvasState {
   mode: "idle" | "teaching" | "reward" | "riddle" | "championship";
   svg?: string;
+  lottieData?: Record<string, unknown>;
   label?: string;
   content?: string;
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
@@ -18,6 +19,7 @@ interface CanvasState {
 interface RewardEvent {
   rewardStyle: "flash" | "takeover" | "none";
   svg?: string;
+  lottieData?: Record<string, unknown>;
   label?: string;
   displayDuration_ms: number;
 }
@@ -31,8 +33,10 @@ interface Props {
   canvas: CanvasState;
   reward: RewardEvent | null;
   sessionPhase: string;
+  sessionState: string;
   onBargeIn: () => void;
   onEndSession: () => void;
+  onCanvasDone: () => void;
 }
 
 const colors: Record<string, { accent: string; bg: string }> = {
@@ -49,8 +53,10 @@ export function SessionScreen({
   canvas,
   reward,
   sessionPhase,
+  sessionState,
   onBargeIn,
   onEndSession,
+  onCanvasDone,
 }: Props) {
   const color = colors[childName] ?? colors.Ila;
 
@@ -71,6 +77,9 @@ export function SessionScreen({
         canvas={canvas}
         reward={reward}
         sessionPhase={sessionPhase}
+        sessionState={sessionState}
+        accentColor={color.accent}
+        onCanvasDone={onCanvasDone}
       />
     </div>
   );

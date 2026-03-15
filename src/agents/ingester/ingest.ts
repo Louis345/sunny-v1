@@ -142,11 +142,18 @@ async function main(): Promise<void> {
     console.log(`    ${r.file} → ${r.type} → ${r.child}'s ${r.destination} file`);
   });
 
-  // Trigger curriculum planner if context was updated
-  if (results.some((r) => r.destination === "context")) {
+  // Trigger curriculum planner for each child whose context was updated
+  const childrenWithContextUpdate = [
+    ...new Set(
+      results.filter((r) => r.destination === "context").map((r) => r.child)
+    ),
+  ];
+  if (childrenWithContextUpdate.length > 0) {
     console.log("\n  🔄 Context updated — re-running Curriculum Planner...");
     const { curriculumPlanner } = await import("../curriculum-planner/planner");
-    await curriculumPlanner();
+    for (const child of childrenWithContextUpdate) {
+      await curriculumPlanner(child);
+    }
   }
 
   console.log("\n  ✅ Ingestion complete. Processed files moved to src/intake/processed/\n");

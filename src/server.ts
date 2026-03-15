@@ -49,3 +49,23 @@ httpServer.listen(PORT, () => {
     );
   }
 });
+
+let shuttingDown = false;
+
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`  🛑 Shutting down (${signal})...`);
+
+  try {
+    wss.close();
+    httpServer.close();
+  } catch (_) {
+    // ignore cleanup errors
+  }
+
+  process.exit(0);
+}
+
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));

@@ -920,3 +920,21 @@ Ila completed full three-phoneme segmentation on "sit" with 100% accuracy (initi
 ## Signal
 
 **ADVANCE to mixed-vowel full segmentation (sit, cat, hit, mat, bit in alternating sequence).** Ila has demonstrated concept transfer on three-phoneme segmentation and achieved 100% accuracy on "sit" with visual support and single-step instruction. However, **immediately conduct formal probes on Following Directions, Word Structure, Recalling Sentences, Word Classes, and Formulated Sentences before scheduling additional phoneme advancement sessions.** These five CELF-5 critical gaps (2nd, 5th, 5th, 9th, 16th percentiles) show "tested" verdicts in the tool output, but querySession review reveals these are planning mentions, not documented baseline probes. IEP progress monitoring cannot proceed without formal documentation of actual performance on these skills. Probes must happen this week, in parallel with phoneme work.
+
+---
+
+## Unknown Document — ILA.txt
+
+Document appears to be empty or contains only whitespace. No extractable information found.
+
+---
+
+## Unknown Document — Scanned Document 2.txt
+
+Document appears to be empty or contains only whitespace. No extractable information found.
+
+---
+
+## Unknown Document — Scanned Document.txt
+
+Received empty document with filename 'Scanned Document.txt'. No content available to process or classify.

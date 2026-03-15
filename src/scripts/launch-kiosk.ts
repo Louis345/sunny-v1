@@ -146,14 +146,13 @@ async function main() {
     }
   }
 
-  // Handle shutdown
+  // Shutdown: kill children and exit. Do NOT log — server.ts logs "Shutting down".
   process.on("SIGINT", () => {
-    console.log("\n  🛑 Shutting down...");
     if (chromium?.pid) {
       try {
         process.kill(-chromium.pid, "SIGTERM");
       } catch {
-        // Process may already be gone
+        /* process may already be gone */
       }
     }
     server.kill();

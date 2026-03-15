@@ -3,6 +3,12 @@ import fs from "fs";
 import path from "path";
 import { z } from "zod";
 
+const probeCalledThisSession = new Set<string>();
+
+export function resetMathProbeSession(childName: "Ila" | "Reina"): void {
+  probeCalledThisSession.delete(`${childName}-probe`);
+}
+
 export const mathProblem = tool({
   description:
     "Call this after every math attempt to log the result and get context for the next problem. Also call at session start to get the opening problem.",
@@ -25,6 +31,19 @@ export const mathProblem = tool({
     childAnswer,
     correct,
   }) => {
+    if (childAnswer === null && correct === null) {
+      const key = `${childName}-probe`;
+      if (probeCalledThisSession.has(key)) {
+        return JSON.stringify({
+          logged: "probe already called this session — skipped",
+          weakSpot: "6-10",
+          accuracyByBucket: {},
+          suggestion: "Continue with current problem range",
+        });
+      }
+      probeCalledThisSession.add(key);
+    }
+
     const timestamp = new Date().toISOString();
     const logsDir = path.resolve(process.cwd(), "src", "logs");
     await fs.promises.mkdir(logsDir, { recursive: true });
@@ -76,26 +95,35 @@ export const mathProblem = tool({
     }
 
     // Find weakest bucket (lowest accuracy with at least 2 attempts)
-    let weakestBucket = "0-5";
-    let lowestAccuracy = 1;
-    for (const [bucket, { correct: c, total }] of Object.entries(buckets)) {
-      if (total >= 2) {
-        const acc = c / total;
-        if (acc < lowestAccuracy) {
-          lowestAccuracy = acc;
-          weakestBucket = bucket;
+    const hasHistory = Object.values(buckets).some((b) => b.total > 0);
+    let weakSpot = "6-10"; // default to harder range, not beginner
+    if (hasHistory) {
+      let lowestAccuracy = 1;
+      for (const [bucket, { correct: c, total }] of Object.entries(buckets)) {
+        if (total >= 2) {
+          const acc = c / total;
+          if (acc < lowestAccuracy) {
+            lowestAccuracy = acc;
+            weakSpot = bucket;
+          }
         }
       }
+    } else {
+      weakSpot = "6-10"; // default floor — never start below this without data
     }
+
+    const suggestion = hasHistory
+      ? `Focus next problems on the ${weakSpot} range. Accuracy there: ${Math.round((buckets[weakSpot as keyof typeof buckets].correct / Math.max(buckets[weakSpot as keyof typeof buckets].total, 1)) * 100)}%`
+      : "No history — start at 6-10 range as default floor.";
 
     return JSON.stringify({
       logged:
         correct !== null
           ? `${operandA} ${operation === "addition" ? "+" : "-"} ${operandB} = ${childAnswer} (${correct ? "✅" : "❌"})`
           : "session start",
-      weakSpot: weakestBucket,
+      weakSpot,
       accuracyByBucket: buckets,
-      suggestion: `Focus next problems on the ${weakestBucket} range. Accuracy there: ${Math.round((buckets[weakestBucket as keyof typeof buckets].correct / Math.max(buckets[weakestBucket as keyof typeof buckets].total, 1)) * 100)}%`,
+      suggestion,
     });
   },
 });

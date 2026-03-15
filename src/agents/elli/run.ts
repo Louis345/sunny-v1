@@ -49,7 +49,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       riddleTracker,
       showCanvas,
     },
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(8),
     abortSignal: signal,
     onStepFinish: (step) => {
       onStepFinish?.(step);
@@ -67,9 +67,17 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     },
   });
 
-  for await (const chunk of result.textStream) {
-    fullText += chunk;
-    onToken(chunk);
+  // Use fullStream to ensure text deltas reach onToken even when tools/stopWhen
+  // cause textStream to skip chunks on plain-text-only turns
+  for await (const part of result.fullStream) {
+    if (part.type === "text-delta") {
+      const p = part as { textDelta?: string; text?: string };
+      const text = p.textDelta ?? p.text ?? "";
+      if (text) {
+        fullText += text;
+        onToken(text);
+      }
+    }
   }
 
   return fullText;

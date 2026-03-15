@@ -65,6 +65,12 @@ export function handleWsConnection(
         break;
       }
 
+      case "canvas_done": {
+        if (!session) return;
+        session.canvasDone();
+        break;
+      }
+
       default:
         ws.send(
           JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })

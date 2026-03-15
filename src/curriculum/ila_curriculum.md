@@ -1,36 +1,33 @@
-Looking at Ila's profile and session history, I need to make curriculum decisions based on her documented performance patterns and clinical needs.
-
 ## Focus Area
-Wilson Step 1 — Mixed-vowel three-phoneme segmentation with /a/ and /i/ CVC words. Transitioning from mastered isolated middle-sound identification to complete phonemic analysis while preventing pattern-matching through vowel alternation within sessions.
+Wilson Step 2: Mixed-vowel three-phoneme segmentation with transition to visual decoding. Ila has mastered isolated middle-sound identification (87% accuracy across /a/ and /i/ words) and achieved 100% on full segmentation of "sit." Ready to advance to mixed-vowel discrimination and introduce reading CVC words from visual display. This addresses her documented visual dependency (Word Classes: 100% with pictures vs 37.5% without) while building toward independent decoding skills.
 
 ## Words for Next 3 Sessions
-Session 1: hit, sad, bit, bad, kit
-Session 2: lid, hat, did, mat, hid  
-Session 3: mix, wax, six, max, fix
+**Session 1:** hit, sad, bit, bad, win  
+**Session 2:** lid, tan, did, pan, pin  
+**Session 3:** mix, wax, six, tax, fix
 
 ## Clinical Reasoning
-**Based on CELF-5 and WIAT-4 scores:**
-- Leverages her 63rd percentile Sentence Comprehension strength with concrete, imageable CVC words
-- Maintains critical visual support (her Word Classes: 100% with pictures vs 37.5% without) 
-- Uses single-step instruction format matching her Following Directions capacity (2nd percentile)
-- Excludes mastered words (dig, fig, pig, wig, bag, rag, bat, sat) to prevent boredom
+**Addresses CELF-5 profile needs:**
+- Visual support essential (Word Classes split 100%/37.5%) — all words displayed on canvas during decoding phase
+- Single-step instructions (Following Directions 2nd percentile) — one sound at a time with clear "ready/go" signals
+- Leverages Sentence Comprehension strength (63rd percentile) — concrete, imageable CVC words
 
-**Addresses current performance gaps:**
-- Mixed /a/ and /i/ vowels within each session prevent vowel-family pattern matching
-- Includes struggling word "hat" (71%) and "mat" (67%) with vowel discrimination support
-- Cat (33% accuracy) temporarily excluded to build confidence before reintroduction
-- Progressive complexity: familiar consonants → /d/ endings → consonant blends
+**Performance data informed:**
+- Excludes mastered words (dig, fig, pig, wig, bag, rag, bat, sat — all 100% accurate) to maintain appropriate challenge
+- Strategically excludes "cat" (33% accuracy, 1/3 correct) to build confidence before reintroduction
+- Includes "hat" replacement words ("hit," "lid") to work /a/ vs /i/ discrimination without repeating overworked items
+- Mixed vowels within each session prevent pattern-matching by vowel family
 
-**Clinical sequencing:**
-- Session 1: Establishes mixed-vowel concept with high-success consonants
-- Session 2: Reintroduces struggling /a/ words (hat, mat) supported by /i/ discrimination practice  
-- Session 3: Adds /x/ blend complexity while maintaining three-sound segmentation focus
+**Wilson Reading System progression:**
+- Dual-task structure: segmentation first (auditory processing), then decoding (visual processing) of identical words
+- Track separately: segmentation accuracy vs decoding accuracy are different skills
+- Progressive complexity: Session 1 establishes mixed-vowel concept → Session 2 adds consonant variety → Session 3 introduces /x/ ending pattern
 
 ## Success Looks Like
 Elli should observe:
-- **Complete three-sound production**: First/middle/last sounds identified without reverting to middle-sound-only responses from previous sessions
-- **True vowel discrimination**: Accurate /a/ vs /i/ identification when alternated within same session (not vowel-family grouping)
-- **80%+ accuracy target** across 15 attempts over 3 sessions
-- **Maintained self-advocacy**: Continues requesting challenge ("can i get more") indicating appropriate difficulty level
-- **Processing fluency**: 5-10 second response time per complete segmentation
-- **Transfer evidence**: Success on "hat" and "mat" in mixed-vowel context after previous 67-71% accuracy in /a/-only sessions
+- **Consistent three-phoneme segmentation** without reverting to middle-sound-only responses from earlier sessions
+- **True vowel discrimination**: Accurate /a/ vs /i/ identification when alternated (not grouped by vowel)
+- **Segmentation-to-decoding transfer**: Successfully reads displayed words aloud after segmenting same words auditorily
+- **Target performance**: 80%+ segmentation accuracy, 70%+ decoding accuracy (visual processing adds cognitive load)
+- **Engagement indicators**: Self-advocates for challenge, completes tasks without fatigue signs
+- **Processing fluency**: Segmentation under 10 seconds, decoding attempts under 5 seconds per word

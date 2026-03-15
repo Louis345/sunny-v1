@@ -22,6 +22,23 @@ function parseMeta(md: string, key: string): string {
   return match ? match[1].trim() : "";
 }
 
+function getLastTwoSessions(contextPath: string): string {
+  const fullPath = path.resolve(DIR, contextPath);
+  if (!fs.existsSync(fullPath)) return "";
+  const lines = fs.readFileSync(fullPath, "utf-8").trim().split("\n");
+  const sessions: string[] = [];
+  let current: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith("## Session") && current.length > 0) {
+      sessions.push(current.join("\n"));
+      current = [];
+    }
+    current.push(line);
+  }
+  if (current.length > 0) sessions.push(current.join("\n"));
+  return sessions.slice(-2).join("\n\n");
+}
+
 function getTimeBasedGreeting(childName: string): string {
   const now = new Date();
   const hour = now.getHours();
@@ -91,7 +108,6 @@ function loadCompanion(
 ): CompanionConfig {
   const companionMd = read(companionFile);
   const soul = read(soulFile);
-  const context = read(contextFile);
   const curriculum = read(curriculumFile);
 
   const name = parseMeta(companionMd, "Name");
@@ -104,15 +120,23 @@ function loadCompanion(
   const sessionStructure = parseField(companionMd, "Session Structure");
   const canvas = parseField(companionMd, "Canvas");
   const sessionEnding = parseField(companionMd, "Session Ending");
-  const isFirstSession =
-    context.trim().length === 0 || context.includes("(empty");
+
+  const probeFile =
+    childName === "Ila" ? "elli_probe_targets.md" : "matilda_probe_targets.md";
+  const probePath = path.resolve(DIR, "companions", probeFile);
+  const probeTargets = fs.existsSync(probePath)
+    ? fs.readFileSync(probePath, "utf-8")
+    : "• Follow the child's lead this session.";
+
+  const lastTwoSessionSummaries = getLastTwoSessions(contextFile);
+  const isFirstSession = lastTwoSessionSummaries.trim().length === 0;
 
   const openingLine = isFirstSession
     ? parseField(companionMd, "Opening Line")
     : getTimeBasedGreeting(childName);
   const goodbye = parseField(companionMd, "Goodbye");
 
-  const basePrompt =
+  const companionPersona =
     `ABSOLUTE RULE: NEVER write *anything in asterisks*. ` +
     `Not *laughs*, not *grins*, not *excited*, not *gently* — NEVER. ` +
     `The text-to-speech engine reads every character out loud literally. ` +
@@ -124,12 +148,31 @@ function loadCompanion(
       ? `SESSION STRUCTURE (follow this every session):\n${sessionStructure}\n\n`
       : "") +
     (canvas ? `CANVAS:\n${canvas}\n\n` : "") +
-    (sessionEnding ? `SESSION ENDING:\n${sessionEnding}\n\n` : "") +
-    `CURRICULUM:\n\n${curriculum}\n\n` +
-    `${childName.toUpperCase()}'S SOUL FILE (read this carefully — this is who they are):\n\n${soul}\n\n` +
-    `SESSION CONTEXT:\n\n${context}`;
+    (sessionEnding ? `SESSION ENDING:\n${sessionEnding}\n\n` : "");
+
+  const basePrompt =
+    `=== WHO YOU ARE ===
+${companionPersona}
+
+=== WHO ${childName.toUpperCase()} IS ===
+${soul}
+
+=== WHAT TO WORK ON TODAY ===
+${curriculum}
+
+=== NATURAL THINGS TO TRY THIS SESSION ===
+${probeTargets}
+
+=== ORIENTATION ONLY — NEVER READ ALOUD OR REFERENCE DIRECTLY ===
+The following is background context so you understand ${childName}'s history.
+Do NOT speak in clinical language. Do NOT use third person about ${childName}.
+Do NOT reference any of this directly. It is orientation only.
+You are ${name}. You are talking TO ${childName}. Stay in character.
+${lastTwoSessionSummaries}
+=== END ORIENTATION ===`.trim();
 
   const matildaLimit =
+    "For Math Mode: After mathProblem logs, call showCanvas with the NEXT problem, then speak it. Canvas shows what you're about to say.\n" +
     "ABSOLUTE RULE: ONE question per turn. Never ask two questions in the same response.\n" +
     "HARD LIMIT: 2 sentences maximum per response. One sentence is often better.\n" +
     "In Math Mode: the entire turn is the problem. 'Okay Reina — 7 plus 5. Go.' That's it. Stop.\n" +

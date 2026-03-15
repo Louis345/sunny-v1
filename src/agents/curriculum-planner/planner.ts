@@ -6,28 +6,35 @@ import "dotenv/config";
 import { CURRICULUM_PLANNER_PROMPT } from "../prompts";
 import { loadAttemptHistory } from "../../utils/attempts";
 
-export async function curriculumPlanner(): Promise<void> {
+export async function curriculumPlanner(
+  childName: "Ila" | "Reina" = "Ila"
+): Promise<void> {
   const { generateText } = await import("ai");
   const { anthropic } = await import("@ai-sdk/anthropic");
 
-  const ilaContext = fs.readFileSync(
-    path.resolve(process.cwd(), "src/context/ila_context.md"),
-    "utf-8",
+  const contextFile =
+    childName === "Reina" ? "reina_context.md" : "ila_context.md";
+  const curriculumFile =
+    childName === "Reina" ? "reina_curriculum.md" : "ila_curriculum.md";
+
+  const contextPath = path.resolve(process.cwd(), "src", "context", contextFile);
+  const curriculumPath = path.resolve(
+    process.cwd(),
+    "src",
+    "curriculum",
+    curriculumFile,
   );
 
-  const ilaCurriculum = fs.readFileSync(
-    path.resolve(process.cwd(), "src/curriculum/ila_curriculum.md"),
-    "utf-8",
-  );
+  const context = fs.readFileSync(contextPath, "utf-8");
+  const curriculum = fs.readFileSync(curriculumPath, "utf-8");
+  const attemptHistory = loadAttemptHistory(childName);
 
-  const attemptHistory = loadAttemptHistory("Ila");
-
-  const { text: curriculum } = await generateText({
+  const { text: updatedCurriculum } = await generateText({
     model: anthropic("claude-sonnet-4-20250514"),
     system: CURRICULUM_PLANNER_PROMPT,
     prompt: `
 Current session notes:
-${ilaContext}
+${context}
 
 Word attempt history (correct vs incorrect per word):
 ${attemptHistory}
@@ -35,22 +42,20 @@ ${attemptHistory}
 Do not repeat words with 3+ correct attempts. Focus new sessions on words with errors or no attempts yet.
 
 Current curriculum:
-${ilaCurriculum}
+${curriculum}
 
 Generate the updated curriculum plan.
     `,
     maxOutputTokens: 1000,
   });
 
-  const filePath = path.resolve(
-    process.cwd(),
-    "src/curriculum/ila_curriculum.md",
-  );
-  await fs.promises.writeFile(filePath, curriculum, "utf-8");
-  console.log("✅ Curriculum updated → src/curriculum/ila_curriculum.md");
+  await fs.promises.writeFile(curriculumPath, updatedCurriculum, "utf-8");
+  console.log(`✅ Curriculum updated → src/curriculum/${curriculumFile}`);
 }
 
 // Entry point when run directly (not when imported)
 if (require.main === module) {
-  curriculumPlanner().catch(console.error);
+  const childArg = process.argv[2]?.toLowerCase();
+  const childName = childArg === "reina" ? "Reina" : "Ila";
+  curriculumPlanner(childName).catch(console.error);
 }

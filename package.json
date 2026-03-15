@@ -12,14 +12,16 @@
     "plan-ila": "npx tsx src/agents/curriculum-planner/planner.ts ila",
     "plan-reina": "npx tsx src/agents/curriculum-planner/planner.ts reina",
     "ingest": "npx tsx src/agents/ingester/ingest.ts",
+    "convert-pdfs": "npx tsx src/scripts/convert-pdfs-to-txt.ts",
     "voice-showdown": "npx tsx src/voice-showdown.ts",
     "test:psychologist": "npx tsx src/scripts/test-psychologist.ts",
     "test:latency": "npx tsx src/scripts/test-latency.ts",
     "test:tools": "npx tsx src/tests/test-tools.ts",
+    "test:canvas": "npx tsx src/scripts/test-canvas.ts",
     "server": "npx tsx src/server.ts",
     "web": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
-    "sunny": "npx tsx src/scripts/launch-kiosk.ts"
+    "sunny": "cd web && npm run build && cd .. && npx tsx src/scripts/launch-kiosk.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -30,6 +32,7 @@
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
+    "unpdf": "^1.4.0",
     "ws": "^8.19.0"
   },
   "devDependencies": {

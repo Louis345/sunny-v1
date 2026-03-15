@@ -14,6 +14,7 @@ interface CompanionConfig {
 interface RewardEvent {
   rewardStyle: "flash" | "takeover" | "none";
   svg?: string;
+  lottieData?: Record<string, unknown>;
   label?: string;
   displayDuration_ms: number;
 }
@@ -21,6 +22,7 @@ interface RewardEvent {
 interface CanvasState {
   mode: "idle" | "teaching" | "reward" | "riddle" | "championship";
   svg?: string;
+  lottieData?: Record<string, unknown>;
   label?: string;
   content?: string;
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
@@ -37,6 +39,7 @@ interface SessionState {
   canvas: CanvasState;
   correctStreak: number;
   sessionPhase: string;
+  sessionState: string;
   reward: RewardEvent | null;
   error: string | null;
 }
@@ -59,6 +62,7 @@ export function useSession() {
     canvas: { mode: "idle" },
     correctStreak: 0,
     sessionPhase: "warmup",
+    sessionState: "IDLE",
     reward: null,
     error: null,
   });
@@ -163,10 +167,11 @@ export function useSession() {
 
         // Canvas tool — data may be in result.output, result, or args
         if (toolName === "showCanvas" || toolName === "show_canvas") {
+          const rawOutput = result?.output ?? result ?? args;
           const data = (
-            result?.output ??
-            result ??
-            args
+            typeof rawOutput === "string"
+              ? JSON.parse(rawOutput)
+              : rawOutput
           ) as Record<string, unknown>;
 
           const mode = data.mode as CanvasState["mode"];
@@ -182,11 +187,13 @@ export function useSession() {
             canvas: {
               mode: mode && validModes.includes(mode) ? mode : "idle",
               svg: data.svg as string | undefined,
+              lottieData: data.lottieData as Record<string, unknown> | undefined,
               label: data.label as string | undefined,
               content: data.content as string | undefined,
               phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
             },
           }));
+          // canvas_done sent by Canvas when animation completes
         }
 
         // logAttempt streak tracking
@@ -218,12 +225,40 @@ export function useSession() {
         }));
         break;
 
+      case "session_state": {
+        const state = msg.state as string;
+        setStateRef.current((s) => ({ ...s, sessionState: state ?? s.sessionState }));
+        break;
+      }
+
+      case "canvas_draw": {
+        const mode = (msg.mode ?? (msg.args as Record<string, unknown>)?.mode) as CanvasState["mode"];
+        const content = (msg.content ?? (msg.args as Record<string, unknown>)?.content) as string | undefined;
+        const label = (msg.label ?? (msg.args as Record<string, unknown>)?.label) as string | undefined;
+        const validModes: CanvasState["mode"][] = ["idle", "teaching", "reward", "riddle", "championship"];
+        if (mode && validModes.includes(mode)) {
+          const data = (msg.args ?? msg) as Record<string, unknown>;
+          setStateRef.current((s) => ({
+            ...s,
+            canvas: {
+              mode,
+              content,
+              label,
+              svg: data.svg as string | undefined,
+              lottieData: data.lottieData as Record<string, unknown> | undefined,
+            },
+          }));
+        }
+        break;
+      }
+
       case "session_ended":
         setStateRef.current((s) => ({
           ...s,
           phase: "ended",
           canvas: { mode: "idle" },
           reward: null,
+          sessionState: "IDLE",
         }));
         stopMicRef.current();
         break;
@@ -380,6 +415,7 @@ export function useSession() {
       canvas: { mode: "idle" },
       correctStreak: 0,
       sessionPhase: "warmup",
+      sessionState: "IDLE",
       reward: null,
       error: null,
     });
@@ -399,12 +435,18 @@ export function useSession() {
     };
   }, [stopMic]);
 
+  const sendCanvasDone = useCallback(() => {
+    sendMessage("canvas_done");
+  }, [sendMessage]);
+
   return {
     state,
     startSession,
     bargeIn,
     endSession,
     resetToPicker,
+    sendCanvasDone,
+    sendMessage,
   };
 }
 

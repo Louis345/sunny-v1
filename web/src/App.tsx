@@ -1,11 +1,31 @@
+import { useEffect } from "react";
 import { useSession } from "./hooks/useSession";
 import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
+import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 
 function App() {
-  const { state, startSession, bargeIn, endSession, resetToPicker } =
-    useSession();
+  const {
+    state,
+    startSession,
+    bargeIn,
+    endSession,
+    resetToPicker,
+    sendCanvasDone,
+    sendMessage,
+  } = useSession();
+
+  // Auto-start session when on /test/canvas so the canvas test page works directly
+  useEffect(() => {
+    if (
+      state.phase === "picker" &&
+      window.location.pathname === "/test/canvas" &&
+      window.location.port === "3002"
+    ) {
+      startSession("Ila");
+    }
+  }, [state.phase, startSession]);
 
   if (state.phase === "picker") {
     return (
@@ -33,7 +53,8 @@ function App() {
 
   if (state.phase === "active") {
     return (
-      <div className="w-screen h-screen overflow-hidden">
+      <div className="w-screen h-screen overflow-hidden relative">
+        <CanvasTestOverlay sendMessage={sendMessage} />
         <SessionScreen
           childName={state.childName ?? ""}
           companion={state.companion}
@@ -43,8 +64,10 @@ function App() {
           canvas={state.canvas}
           reward={state.reward}
           sessionPhase={state.sessionPhase}
+          sessionState={state.sessionState}
           onBargeIn={bargeIn}
           onEndSession={endSession}
+          onCanvasDone={sendCanvasDone}
         />
       </div>
     );

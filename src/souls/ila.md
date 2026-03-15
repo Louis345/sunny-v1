@@ -132,3 +132,33 @@ Every session is also a discovery session.
 - Loves designing and imagining — named Elli "Elli Blessed Taylor"
 - Wants to teach Elli Japanese
 - Planning to visit Japan in June 2026
+
+
+---
+
+## IEP Updates
+
+### Initial Psychoeducational Evaluation — February 24, 2026
+**Evaluator**: Carolyn Delaney, MS, CAS (School Psychologist)
+**Purpose**: Initial evaluation for special education eligibility following IEE
+
+**Key Findings**:
+- Confirmed diagnoses from IEE: ADHD Combined Type, Dyslexia, Specific Learning Disorders in Reading and Written Expression
+- **WIAT-4 Academic Results**:
+  - Total Reading: 81 (10th percentile) — Below Average
+  - Word Reading: 82 (12th percentile) — Below Average  
+  - Reading Comprehension: 85 (16th percentile) — Low Average
+  - Mathematics: 95 (37th percentile) — Average (strength area)
+  - Numerical Operations: 107 (68th percentile) — Average
+  - Spelling: 102 (55th percentile) — Average (when isolated)
+
+**Behavioral Observations**: Significant impulsivity, rushes through tasks, requires frequent redirection to slow down, responds well to praise
+
+**Recommendations**: 
+- Multisensory reading approach (already using Wilson)
+- Visual aids and manipulatives for math
+- Executive functioning supports (slow-down cues, task breakdown, preferential seating)
+- Testing accommodations (1.5x time, minimal distractions)
+- Sensory breaks for ADHD management
+
+**Status**: Evaluation submitted to CSE for eligibility determination

@@ -43,6 +43,11 @@ export class WsTtsBridge {
     this.apiKey = key;
   }
 
+  /** Call this as soon as the session starts — before first token */
+  async prime(): Promise<void> {
+    return this.connect();
+  }
+
   async connect(): Promise<void> {
     if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
       this.elevenWs.close();
@@ -98,6 +103,7 @@ export class WsTtsBridge {
     if (!this.buffer || this.stopped || !this.elevenWs) return;
     if (this.elevenWs.readyState !== WebSocket.OPEN) return;
     const toSend = normalizeForTTS(this.buffer) + " ";
+    console.log(`  🔊 TTS: "${toSend.trim()}"`);
     this.elevenWs.send(
       JSON.stringify({
         text: toSend,

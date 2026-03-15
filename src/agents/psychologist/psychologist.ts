@@ -5,6 +5,7 @@ import { loadChildFiles } from "../../utils/loadChildFiles";
 import { appendToContext } from "../../utils/appendToContext";
 import { querySessions, flagGap } from "./tools";
 import { curriculumPlanner } from "../curriculum-planner/planner";
+import { runTranslator } from "../translator/translator";
 
 export async function runPsychologist(
   childName: "Ila" | "Reina",
@@ -45,9 +46,10 @@ export async function runPsychologist(
     console.log("\n--- End Report ---\n");
   } else {
     await appendToContext(childName, "Psychologist Report", text);
+    await runTranslator(childName, text);
   }
 
   if (text.includes("ADVANCE") && !dryRun) {
-    await curriculumPlanner();
+    await curriculumPlanner(childName);
   }
 }
