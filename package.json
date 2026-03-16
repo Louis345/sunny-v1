@@ -21,7 +21,8 @@
     "server": "npx tsx src/server.ts",
     "web": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
-    "sunny": "cd web && npm run build && cd .. && npx tsx src/scripts/launch-kiosk.ts"
+    "sunny": "cd web && npm run build && cd .. && npx tsx src/scripts/launch-kiosk.ts",
+    "sunny:test": "SUNNY_TEST_MODE=true npx tsx src/server.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

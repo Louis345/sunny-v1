@@ -1,5 +1,6 @@
 import type { WebSocket } from "ws";
 import { ELLI, MATILDA, type CompanionConfig } from "../companions/loader";
+import { TEST_MODE_PROMPT } from "../agents/prompts";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
 import { connectFlux, type FluxHandle } from "../deepgram-turn";
@@ -83,6 +84,15 @@ export class SessionManager {
     this.ws = ws;
     this.childName = childName;
     this.companion = childName === "Ila" ? ELLI : MATILDA;
+
+    if (process.env.SUNNY_TEST_MODE === "true") {
+      this.companion = {
+        ...this.companion,
+        systemPrompt: TEST_MODE_PROMPT(childName),
+        openingLine: `[TEST MODE] Diagnostic session for ${childName}. Ready. Give me a tool call to verify.`,
+      };
+      console.log(`  🧪 TEST MODE active — diagnostic prompt loaded for ${childName}`);
+    }
     this.turnSM = new TurnStateMachine(
       (text) => this.ttsBridge?.sendText(text),
       (msg) => console.log(msg),

@@ -3,9 +3,9 @@ import { z } from "zod";
 
 const showCanvasSchema = z.object({
   mode: z
-    .enum(["teaching", "reward", "riddle", "championship"])
+    .enum(["teaching", "reward", "riddle", "championship", "place_value"])
     .describe(
-      "Canvas display mode. teaching = show word/problem. reward = celebration drawing. riddle = riddle text. championship = level-up ceremony."
+      "Canvas display mode. teaching = show word/problem. reward = celebration drawing. riddle = riddle text. championship = level-up ceremony. place_value = hundreds/tens/ones table for multi-digit addition or subtraction."
     ),
   svg: z
     .string()
@@ -40,6 +40,39 @@ const showCanvasSchema = z.object({
   lottieData: z.record(z.string(), z.unknown()).optional().describe(
     "Pre-parsed Lottie animation JSON. Used by test panel for celebration preset. Agent should use svg instead."
   ),
+  placeValueData: z
+    .object({
+      operandA: z.number().describe("First number, e.g. 743"),
+      operandB: z.number().describe("Second number, e.g. 124"),
+      operation: z
+        .enum(["addition", "subtraction"])
+        .optional()
+        .describe("Default: addition"),
+      layout: z
+        .enum(["expanded", "column"])
+        .optional()
+        .describe(
+          "expanded = break-apart rows (700+40+3). column = stacked digits with dividers. Default: column."
+        ),
+      activeColumn: z
+        .enum(["hundreds", "tens", "ones"])
+        .optional()
+        .describe("Which column to highlight in amber — the one currently being asked about."),
+      scaffoldLevel: z
+        .enum(["full", "partial", "minimal", "hint"])
+        .optional()
+        .describe(
+          "full = labels + dividers + highlight (Ila starting state). partial = dividers + highlight, no labels. minimal = just numbers, no labels or dividers (Reina default). hint = full scaffold shown after a wrong answer."
+        ),
+      revealedColumns: z
+        .array(z.enum(["hundreds", "tens", "ones"]))
+        .optional()
+        .describe("Columns already answered correctly — show their sum values filled in."),
+    })
+    .optional()
+    .describe(
+      "Use with mode=place_value. Renders a hundreds/tens/ones table for multi-digit addition or subtraction homework."
+    ),
 });
 
 export type ShowCanvasArgs = z.infer<typeof showCanvasSchema>;
@@ -71,6 +104,7 @@ export const showCanvas = tool({
       label: input.label,
       phonemeBoxes,
       lottieData: input.lottieData,
+      placeValueData: input.placeValueData,
     };
   },
 });

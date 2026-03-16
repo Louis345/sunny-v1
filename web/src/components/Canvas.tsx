@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import LottieRaw from "lottie-react";
@@ -14,8 +14,18 @@ function unescapeSvg(svg: string | undefined): string {
     .replace(/&#39;/g, "'");
 }
 
+interface PlaceValueData {
+  operandA: number;
+  operandB: number;
+  operation?: "addition" | "subtraction";
+  layout?: "expanded" | "column";
+  activeColumn?: "hundreds" | "tens" | "ones";
+  scaffoldLevel?: "full" | "partial" | "minimal" | "hint";
+  revealedColumns?: Array<"hundreds" | "tens" | "ones">;
+}
+
 interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -23,6 +33,7 @@ interface CanvasState {
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
   pendingAnswer?: string;
   animationKey?: number;
+  placeValueData?: PlaceValueData;
 }
 
 interface RewardEvent {
@@ -119,6 +130,194 @@ function spokenToNumber(text: string): number | null {
     }
   }
   return result;
+}
+
+function decompose(n: number) {
+  const h = Math.floor(n / 100) * 100;
+  const t = Math.floor((n % 100) / 10) * 10;
+  const o = n % 10;
+  return { h, t, o };
+}
+
+function PlaceValueContent({ data }: { data: PlaceValueData }) {
+  const nunito = { fontFamily: "'Nunito', sans-serif", fontWeight: 900 };
+  const layout = data.layout ?? "column";
+  const op = data.operation ?? "addition";
+  const scaffold = data.scaffoldLevel ?? "full";
+  const revealed = data.revealedColumns ?? [];
+  const active = data.activeColumn;
+
+  const showLabels = scaffold === "full" || scaffold === "hint";
+  const showDividers = scaffold !== "minimal";
+
+  const aD = decompose(data.operandA);
+  const bD = decompose(data.operandB);
+  const sumH = aD.h + bD.h * (op === "subtraction" ? -1 : 1);
+  const sumT = aD.t + bD.t * (op === "subtraction" ? -1 : 1);
+  const sumO = aD.o + bD.o * (op === "subtraction" ? -1 : 1);
+
+  const COLS: Array<{ key: "hundreds" | "tens" | "ones"; label: string }> = [
+    { key: "hundreds", label: "Hundreds" },
+    { key: "tens", label: "Tens" },
+    { key: "ones", label: "Ones" },
+  ];
+
+  const isActive = (col: "hundreds" | "tens" | "ones") => col === active;
+  const isRevealed = (col: "hundreds" | "tens" | "ones") => revealed.includes(col);
+
+  const colStyle = (col: "hundreds" | "tens" | "ones"): React.CSSProperties => ({
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    padding: "8px 4px",
+    borderRadius: 12,
+    background: isActive(col) ? "#FFF9F0" : "transparent",
+    border: isActive(col) ? "3px solid #EF9F27" : showDividers ? "3px solid #E2E8F0" : "3px solid transparent",
+    transform: isActive(col) ? "scale(1.06)" : "scale(1)",
+    transition: "all 0.25s ease",
+    minWidth: 90,
+  });
+
+  const cellStyle: React.CSSProperties = {
+    ...nunito,
+    fontSize: "3.5rem",
+    lineHeight: 1.1,
+    color: "#1a1a2e",
+    textAlign: "center",
+  };
+
+  const opColor = "#6366f1";
+
+  if (layout === "expanded") {
+    const aVals = { hundreds: aD.h, tens: aD.t, ones: aD.o };
+    const bVals = { hundreds: bD.h, tens: bD.t, ones: bD.o };
+    const sVals = { hundreds: sumH, tens: sumT, ones: sumO };
+
+    return (
+      <div className="canvas-content w-full max-w-xl" style={{ ...nunito }}>
+        {showLabels && (
+          <div className="flex gap-2 mb-2">
+            {COLS.map(({ key, label }) => (
+              <div key={key} style={{ ...colStyle(key), paddingBottom: 4 }}>
+                <span style={{ fontSize: "0.9rem", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2 items-center mb-1">
+          {COLS.map(({ key }, i) => (
+            <div key={key} style={colStyle(key)}>
+              <span style={cellStyle}>{aVals[key]}</span>
+              {i < 2 && <span style={{ ...cellStyle, fontSize: "2rem", color: opColor, position: "absolute", right: -16 }}>+</span>}
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center mb-3" style={{ paddingLeft: 28 }}>
+          <span style={{ ...cellStyle, fontSize: "2.5rem", color: opColor, marginRight: 8 }}>{op === "addition" ? "+" : "−"}</span>
+          {COLS.map(({ key }) => (
+            <div key={key} style={colStyle(key)}>
+              <span style={cellStyle}>{bVals[key]}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ height: 3, background: "#CBD5E1", borderRadius: 2, marginBottom: 8 }} />
+        <div className="flex gap-2 items-center">
+          {COLS.map(({ key }) => (
+            <div key={key} style={colStyle(key)}>
+              {isRevealed(key) ? (
+                <span style={{ ...cellStyle, color: "#16a34a" }}>{sVals[key]}</span>
+              ) : (
+                <span className={isActive(key) ? "q-pulse" : ""} style={{ ...cellStyle, color: "#EF9F27" }}>?</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Column layout — stacked digit-by-digit, like the worksheet
+  const aDigits = { hundreds: Math.floor(data.operandA / 100) % 10, tens: Math.floor(data.operandA / 10) % 10, ones: data.operandA % 10 };
+  const bDigits = { hundreds: Math.floor(data.operandB / 100) % 10, tens: Math.floor(data.operandB / 10) % 10, ones: data.operandB % 10 };
+  const sumDigits = { hundreds: Math.floor((data.operandA + data.operandB) / 100) % 10, tens: Math.floor((data.operandA + data.operandB) / 10) % 10, ones: (data.operandA + data.operandB) % 10 };
+
+  return (
+    <div className="canvas-content" style={{ ...nunito, width: "100%", maxWidth: 380 }}>
+      {showLabels && (
+        <div className="flex gap-2 mb-1">
+          {COLS.map(({ key, label }) => (
+            <div key={key} style={{ flex: 1, textAlign: "center" }}>
+              <span style={{ fontSize: "0.85rem", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ border: "3px solid #E2E8F0", borderRadius: 16, overflow: "hidden" }}>
+        {/* Row A */}
+        <div className="flex">
+          {COLS.map(({ key }, i) => (
+            <div key={key} style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "8px 4px",
+              background: isActive(key) ? "#FFF9F0" : "transparent",
+              borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
+              borderBottom: "3px solid #E2E8F0",
+            }}>
+              <span style={{ ...cellStyle, fontSize: "4rem" }}>{aDigits[key]}</span>
+            </div>
+          ))}
+        </div>
+        {/* Row B with operator */}
+        <div className="flex items-center" style={{ borderTop: `3px solid #E2E8F0` }}>
+          <span style={{ ...cellStyle, fontSize: "2.5rem", color: opColor, paddingLeft: 8, paddingRight: 4, minWidth: 32 }}>
+            {op === "addition" ? "+" : "−"}
+          </span>
+          {COLS.map(({ key }, i) => (
+            <div key={key} style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "8px 4px",
+              background: isActive(key) ? "#FFF9F0" : "transparent",
+              borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
+            }}>
+              <span style={{ ...cellStyle, fontSize: "4rem" }}>{bDigits[key]}</span>
+            </div>
+          ))}
+        </div>
+        {/* Sum row */}
+        <div className="flex" style={{ borderTop: `4px double #CBD5E1`, background: "#F8FAFC" }}>
+          <div style={{ minWidth: 40 }} />
+          {COLS.map(({ key }, i) => (
+            <div key={key} style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "10px 4px",
+              background: isActive(key) ? "#FFF9F0" : "transparent",
+              borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
+            }}>
+              {isRevealed(key) ? (
+                <span style={{ ...cellStyle, fontSize: "4rem", color: "#16a34a" }}>{sumDigits[key]}</span>
+              ) : (
+                <span className={isActive(key) ? "q-pulse" : ""} style={{ ...cellStyle, fontSize: "4rem", color: "#EF9F27" }}>?</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function TeachingContent({
@@ -473,6 +672,22 @@ export function Canvas({
           });
           break;
         }
+        case "place_value": {
+          setDisplayMode("place_value");
+          setDisplayContent("");
+          setRiddleLabel("");
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              gsap.fromTo(
+                ".canvas-content",
+                { opacity: 0, y: 20 },
+                { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" },
+              );
+              onCanvasDone();
+            });
+          });
+          break;
+        }
         default:
           setDisplayContent("");
           setDisplayMode("idle");
@@ -486,6 +701,7 @@ export function Canvas({
     const hasContent =
       canvas.content ||
       canvas.label ||
+      canvas.placeValueData ||
       ((canvas.svg || canvas.lottieData) &&
         (canvas.mode === "reward" || canvas.mode === "championship"));
     if (
@@ -494,7 +710,8 @@ export function Canvas({
       (canvas.mode === "teaching" ||
         canvas.mode === "riddle" ||
         canvas.mode === "reward" ||
-        canvas.mode === "championship")
+        canvas.mode === "championship" ||
+        canvas.mode === "place_value")
     ) {
       runAnimation(canvas);
     } else if (canvas.mode === "idle") {
@@ -506,6 +723,7 @@ export function Canvas({
         typewriterRef.current = null;
       }
     }
+    
     return () => {
       if (typewriterRef.current) {
         clearInterval(typewriterRef.current);
@@ -517,7 +735,8 @@ export function Canvas({
     displayMode === "teaching" ||
     displayMode === "riddle" ||
     displayMode === "reward" ||
-    displayMode === "championship";
+    displayMode === "championship" ||
+    displayMode === "place_value";
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white overflow-hidden relative">
       <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; } @keyframes pendingDotPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } } .pending-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; animation: pendingDotPulse 1s ease-in-out infinite; margin-left: 4px; }`}</style>
@@ -563,7 +782,9 @@ export function Canvas({
           </div>
         )}
 
-        {displayMode === "teaching" &&
+        {displayMode === "place_value" && canvas.placeValueData ? (
+          <PlaceValueContent data={canvas.placeValueData} />
+        ) : displayMode === "teaching" &&
         (canvas.phonemeBoxes?.length || displayContent) ? (
           <TeachingContent
             content={displayContent}

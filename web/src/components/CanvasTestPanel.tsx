@@ -93,6 +93,49 @@ const KITSUNE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 15
 </svg>`;
 
 const PRESETS = [
+  // Place Value
+  {
+    btn: "PV: full scaffold",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 743, operandB: 124, operation: "addition" as const, layout: "column" as const, scaffoldLevel: "full" as const },
+  },
+  {
+    btn: "PV: hundreds",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 743, operandB: 124, operation: "addition" as const, layout: "column" as const, activeColumn: "hundreds" as const, scaffoldLevel: "full" as const },
+  },
+  {
+    btn: "PV: tens",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 743, operandB: 124, operation: "addition" as const, layout: "column" as const, activeColumn: "tens" as const, scaffoldLevel: "full" as const, revealedColumns: ["hundreds" as const] },
+  },
+  {
+    btn: "PV: ones",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 743, operandB: 124, operation: "addition" as const, layout: "column" as const, activeColumn: "ones" as const, scaffoldLevel: "full" as const, revealedColumns: ["hundreds" as const, "tens" as const] },
+  },
+  {
+    btn: "PV: hint",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 743, operandB: 124, operation: "addition" as const, layout: "column" as const, activeColumn: "ones" as const, scaffoldLevel: "hint" as const },
+  },
+  {
+    btn: "PV: minimal (Reina)",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 278, operandB: 465, operation: "addition" as const, layout: "column" as const, scaffoldLevel: "minimal" as const },
+  },
   // Teaching
   {
     btn: "8 + 5",
@@ -202,7 +245,7 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
     (typeof PRESETS)[0] | null
   >(null);
   const [mode, setMode] = useState<
-    "teaching" | "riddle" | "reward" | "championship"
+    "teaching" | "riddle" | "reward" | "championship" | "place_value"
   >("teaching");
   const [content, setContent] = useState("");
   const [label, setLabel] = useState("");
@@ -228,6 +271,7 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
     if ("svg" in p && p.svg) args.svg = p.svg;
     if ("lottieData" in p && p.lottieData) args.lottieData = p.lottieData;
     if ("phonemeBoxes" in p && p.phonemeBoxes) args.phonemeBoxes = p.phonemeBoxes;
+    if ("placeValueData" in p && p.placeValueData) args.placeValueData = p.placeValueData;
     sendMessage("tool_call", {
       tool: "showCanvas",
       args,
@@ -263,7 +307,7 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
       </div>
       <div className="space-y-2">
         <div className="flex gap-1 flex-wrap">
-          {(["teaching", "riddle", "reward", "championship"] as const).map(
+          {(["teaching", "riddle", "reward", "championship", "place_value"] as const).map(
             (m) => (
               <button
                 key={m}
