@@ -226,7 +226,8 @@ export function streamSpeak(
 
 export function createLiveStream(
   onFirstAudio?: () => void,
-  onTtsDiedWithoutAudio?: () => void
+  onTtsDiedWithoutAudio?: () => void,
+  previousText?: string
 ): LiveStreamHandle {
   const apiKey = process.env.ELEVENLABS_API_KEY!;
   const stoppedRef = { value: false };
@@ -281,6 +282,7 @@ export function createLiveStream(
         text: " ",
         voice_settings: { stability: 0.5, similarity_boost: 0.75 },
         xi_api_key: apiKey,
+        ...(previousText && { previous_text: previousText }),
         ...(locators && { pronunciation_dictionary_locators: locators }),
       })
     );

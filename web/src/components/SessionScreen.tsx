@@ -68,6 +68,7 @@ export function SessionScreen({
         companionText={companionText}
         interimTranscript={interimTranscript}
         correctStreak={correctStreak}
+        sessionState={sessionState}
         accentColor={color.accent}
         accentBg={color.bg}
         onBargeIn={onBargeIn}

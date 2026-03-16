@@ -26,6 +26,8 @@ interface CanvasState {
   label?: string;
   content?: string;
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
+  pendingAnswer?: string;
+  animationKey?: number;
 }
 
 type SessionPhase = "picker" | "connecting" | "active" | "ended";
@@ -44,6 +46,11 @@ interface SessionState {
   error: string | null;
 }
 
+function isMathCanvas(content: string | undefined): boolean {
+  if (!content) return false;
+  return /[\d]+\s*([+\-×÷])\s*[\d]+/.test(content);
+}
+
 export function useSession() {
   const wsRef = useRef<WebSocket | null>(null);
   const micContextRef = useRef<AudioContext | null>(null);
@@ -52,6 +59,7 @@ export function useSession() {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -141,6 +149,18 @@ export function useSession() {
         }));
         break;
 
+      case "echo_answer": {
+        const text = msg.text as string;
+        setStateRef.current((s) => ({
+          ...s,
+          canvas:
+            s.canvas.mode === "teaching" && isMathCanvas(s.canvas.content)
+              ? { ...s.canvas, pendingAnswer: text }
+              : s.canvas,
+        }));
+        break;
+      }
+
       case "response_text":
         setStateRef.current((s) => ({
           ...s,
@@ -191,6 +211,8 @@ export function useSession() {
               label: data.label as string | undefined,
               content: data.content as string | undefined,
               phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
+              pendingAnswer: undefined,
+              animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
           }));
           // canvas_done sent by Canvas when animation completes
@@ -204,6 +226,23 @@ export function useSession() {
             ...s,
             correctStreak: correct ? s.correctStreak + 1 : 0,
           }));
+        }
+
+        // mathProblem streak tracking (Reina math mode)
+        if (toolName === "mathProblem" || toolName === "math_problem") {
+          if (args?.childAnswer != null) {
+            const output = result?.output ?? result;
+            const parsed = typeof output === "string" ? JSON.parse(output) : output;
+            const correct = (parsed as Record<string, unknown>)?.correct === true;
+            setStateRef.current((s) => ({
+              ...s,
+              canvas:
+                s.canvas.mode === "teaching" && isMathCanvas(s.canvas.content)
+                  ? { ...s.canvas, pendingAnswer: String(args.childAnswer) }
+                  : s.canvas,
+              correctStreak: correct ? s.correctStreak + 1 : 0,
+            }));
+          }
         }
         break;
       }
@@ -246,6 +285,9 @@ export function useSession() {
               label,
               svg: data.svg as string | undefined,
               lottieData: data.lottieData as Record<string, unknown> | undefined,
+              phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
+              pendingAnswer: undefined,
+              animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
           }));
         }
@@ -296,6 +338,10 @@ export function useSession() {
         silence.gain.value = 0;
 
         processor.onaudioprocess = (e) => {
+          // Gate mic during playback — prevents Deepgram from transcribing
+          // Elli's own voice and treating it as child input.
+          if (isPlayingRef.current) return;
+
           const float32 = e.inputBuffer.getChannelData(0);
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
@@ -339,7 +385,9 @@ export function useSession() {
 
   async function playNextChunk() {
     if (audioQueueRef.current.length === 0) {
-      isPlayingRef.current = false;
+      // Brief grace period before re-opening the mic — lets residual room
+      // echo from the speakers dissipate so Deepgram doesn't pick it up.
+      setTimeout(() => { isPlayingRef.current = false; }, 150);
       return;
     }
 
@@ -357,7 +405,13 @@ export function useSession() {
       const source = playContextRef.current.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(playContextRef.current.destination);
-      source.onended = () => playNextChunk();
+      currentSourceRef.current = source;
+      source.onended = () => {
+        if (currentSourceRef.current === source) {
+          currentSourceRef.current = null;
+        }
+        playNextChunk();
+      };
       source.start();
     } catch (err) {
       console.error("PCM playback error:", err);
@@ -399,9 +453,21 @@ export function useSession() {
     sendMessage("barge_in");
     audioQueueRef.current = [];
     isPlayingRef.current = false;
+    if (currentSourceRef.current) {
+      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+      currentSourceRef.current = null;
+    }
   }, [sendMessage]);
 
   const endSession = useCallback(() => {
+    // Stop mic immediately — don't wait for the server session_ended round-trip.
+    stopMicRef.current();
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    if (currentSourceRef.current) {
+      try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+      currentSourceRef.current = null;
+    }
     sendMessage("end_session");
   }, [sendMessage]);
 

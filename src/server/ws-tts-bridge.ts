@@ -34,6 +34,7 @@ export class WsTtsBridge {
   private buffer = "";
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
+  private connectingPromise: Promise<void> | null = null;
 
   constructor(browserWs: WebSocket, voiceId: string) {
     this.browserWs = browserWs;
@@ -48,24 +49,51 @@ export class WsTtsBridge {
     return this.connect();
   }
 
-  async connect(): Promise<void> {
-    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
-      this.elevenWs.close();
-      this.elevenWs = null;
-      this.wsReady = false;
+  /**
+   * Connect (or reuse) the ElevenLabs WebSocket for this turn.
+   * Pass the last few turns of Elli's speech as previousText so ElevenLabs
+   * can adapt prosody and expressiveness based on conversation flow.
+   */
+  async connect(previousText?: string): Promise<void> {
+    this.stopped = false;
+    this.buffer = "";
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
     }
 
-    return new Promise((resolve, reject) => {
-      const url = buildWsUrl(this.voiceId);
-      this.elevenWs = new WebSocket(url);
+    if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
+      this.wsReady = true;
+      return;
+    }
 
-      this.elevenWs.on("open", () => {
+    // If a connection is already in progress, wait for it instead of opening a second one
+    if (this.connectingPromise) {
+      return this.connectingPromise;
+    }
+
+    this.elevenWs = null;
+    this.wsReady = false;
+
+    this.connectingPromise = new Promise<void>((resolve, reject) => {
+      const url = buildWsUrl(this.voiceId);
+      const ws = new WebSocket(url);
+      this.elevenWs = ws;
+
+      ws.on("open", () => {
+        this.connectingPromise = null;
+        if (this.elevenWs !== ws) {
+          ws.close();
+          resolve();
+          return;
+        }
         const locators = getPronunciationLocators();
-        this.elevenWs!.send(
+        ws.send(
           JSON.stringify({
             text: " ",
             voice_settings: { stability: 0.5, similarity_boost: 0.75 },
             xi_api_key: this.apiKey,
+            ...(previousText && { previous_text: previousText }),
             ...(locators && {
               pronunciation_dictionary_locators: locators,
             }),
@@ -78,7 +106,7 @@ export class WsTtsBridge {
         resolve();
       });
 
-      this.elevenWs.on("message", (data: Buffer) => {
+      ws.on("message", (data: Buffer) => {
         if (this.stopped) return;
         const msg = JSON.parse(data.toString());
         if (msg.audio && this.browserWs.readyState === this.browserWs.OPEN) {
@@ -92,11 +120,14 @@ export class WsTtsBridge {
         }
       });
 
-      this.elevenWs.on("error", (err) => {
+      ws.on("error", (err) => {
+        this.connectingPromise = null;
         console.error("  🔴 ElevenLabs TTS error:", err.message);
         reject(err);
       });
     });
+
+    return this.connectingPromise;
   }
 
   private flushBuffer(trigger: boolean): void {
@@ -146,11 +177,15 @@ export class WsTtsBridge {
     this.flushBuffer(true);
     if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
       this.elevenWs.send(JSON.stringify({ text: "" }));
+      // ElevenLabs closes the socket after receiving empty text.
+      // Mark as not ready so next connect() will open a fresh one.
+      this.wsReady = false;
     }
   }
 
   stop(): void {
     this.stopped = true;
+    this.connectingPromise = null;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;

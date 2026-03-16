@@ -46,8 +46,38 @@ export class SessionManager {
 
   private lastTranscript = "";
   private lastTranscriptTime = 0;
+  private speakingStartedAt = 0;
+  private lastCanvasWasMath = false;
+  private lastCanvasMode: string = "idle";
+  private toolCallsMadeThisTurn = 0;
+  private activeWord: string | null = null;
+  private wordShowCount: Map<string, number> = new Map();
 
   private turnSM: TurnStateMachine;
+
+  private isTeachingMathCanvas(args: Record<string, unknown>): boolean {
+    if (args.mode !== "teaching") return false;
+    const content = args.content;
+    return (
+      typeof content === "string" &&
+      /[\d]+\s*([+\-×÷])\s*[\d]+/.test(content)
+    );
+  }
+
+  /**
+   * Convert a math canvas string like "16 - 8" or "7 + 9" into spoken TTS form.
+   * The server speaks the problem — Claude only speaks feedback ("Nice!").
+   */
+  private mathContentToSpoken(content: string): string {
+    return content
+      .replace(/\s*\+\s*/g, " plus ")
+      .replace(/\s*-\s*/g, " minus ")
+      .replace(/\s*×\s*/g, " times ")
+      .replace(/\s*÷\s*/g, " divided by ")
+      .replace(/\s*=\s*$/, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
 
   constructor(ws: WebSocket, childName: ChildName) {
     this.ws = ws;
@@ -56,7 +86,14 @@ export class SessionManager {
     this.turnSM = new TurnStateMachine(
       (text) => this.ttsBridge?.sendText(text),
       (msg) => console.log(msg),
-      (state) => this.send("session_state", { state })
+      (state) => {
+        this.send("session_state", { state });
+        if (state === "SPEAKING") {
+          this.speakingStartedAt = Date.now();
+        } else if (state === "IDLE") {
+          this.speakingStartedAt = 0;
+        }
+      }
     );
   }
 
@@ -96,6 +133,7 @@ export class SessionManager {
     });
 
     resetMathProbeSession(this.childName);
+    this.wordShowCount.clear();
 
     this.ttsBridge = new WsTtsBridge(this.ws, this.companion.voiceId);
     await this.ttsBridge.prime();
@@ -178,7 +216,21 @@ export class SessionManager {
       onOpen: () => {
         console.log("  ✅ Deepgram Flux connected");
       },
-      onStartOfTurn: () => {},
+      onStartOfTurn: () => {
+        const MIN_SPEAK_MS = 1500;
+        if (
+          this.turnSM.getState() === "SPEAKING" &&
+          this.speakingStartedAt > 0 &&
+          Date.now() - this.speakingStartedAt >= MIN_SPEAK_MS
+        ) {
+          this.bargeIn();
+        }
+      },
+      onEagerEndOfTurn: (transcript: string) => {
+        if (this.turnSM.getState() === "IDLE") {
+          this.handleEndOfTurn(transcript).catch(console.error);
+        }
+      },
       onInterim: (text) => {
         this.send("interim", { text });
       },
@@ -192,16 +244,20 @@ export class SessionManager {
   }
 
   private shouldQueueTranscript(transcript: string): boolean {
-    const words = transcript.trim().split(/\s+/);
-    if (words.length < 4) {
-      const isCompleteShort = /^(yes|no|yeah|nope|\d+|one|two|three|four|five|six|seven|eight|nine|ten)$/i.test(
-        transcript.trim()
-      );
-      if (!isCompleteShort) {
-        console.log(`  🗑️  Transcript fragment discarded: "${transcript}"`);
-        return false;
-      }
+    const trimmed = transcript.trim();
+
+    // Only discard single non-alphabetic character (e.g. "?", ".", "-")
+    if (trimmed.length === 1 && !/^[a-zA-Z]$/.test(trimmed)) {
+      console.log(`  🗑️  Transcript fragment discarded: "${transcript}"`);
+      return false;
     }
+
+    // Only discard pure filler
+    if (/^(um+|uh+|hmm+|uhm+)$/i.test(trimmed)) {
+      console.log(`  🗑️  Transcript fragment discarded: "${transcript}"`);
+      return false;
+    }
+
     return true;
   }
 
@@ -240,10 +296,16 @@ export class SessionManager {
 
     this.turnSM.onEndOfTurn();
 
+    // Pre-connect TTS while we wait for Claude — saves ~200-400ms
+    if (this.ttsBridge) {
+      this.ttsBridge.connect().catch(() => {});
+    }
+
     const ts = new Date().toISOString();
     console.log(`  💬 [${ts}] ${this.childName}: "${transcript}"`);
 
     this.send("final", { text: transcript });
+    this.send("echo_answer", { text: transcript });
 
     if (checkUserGoodbye(transcript)) {
       console.log(`  👋 [${ts}] Goodbye detected`);
@@ -258,10 +320,19 @@ export class SessionManager {
   private async runCompanionResponse(userMessage: string): Promise<void> {
     this.currentAbort = new AbortController();
     let fullResponse = "";
+    this.toolCallsMadeThisTurn = 0;
 
-    // Reconnect TTS for this turn — ElevenLabs WS closes after each finish()
+    // TTS was pre-connected in handleEndOfTurn; ensure it's ready.
+    // Pass the last 3 Elli utterances so ElevenLabs can adapt prosody
+    // and expressiveness based on conversation flow (CSM-style context).
     if (this.ttsBridge) {
-      await this.ttsBridge.connect();
+      const previousText = this.conversationHistory
+        .filter((m) => m.role === "assistant")
+        .slice(-3)
+        .map((m) => (typeof m.content === "string" ? m.content : ""))
+        .filter(Boolean)
+        .join(" ");
+      await this.ttsBridge.connect(previousText || undefined);
     }
 
     const transitionToWorkPhase =
@@ -292,11 +363,18 @@ export class SessionManager {
             const tc = toolCalls[i];
             let toolName = tc.toolName ?? tc.name ?? "unknown";
             if (toolName === "show_canvas") toolName = "showCanvas";
+            if (toolName === "end_session") toolName = "endSession";
             const args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
             this.handleToolCall(toolName, args, result);
 
             if (toolName === "showCanvas") {
+              // If a new math problem is shown, any queued transcript belongs
+              // to the previous prompt and should not be replayed/scored.
+              if (this.isTeachingMathCanvas(args)) {
+                this.turnSM.clearPendingTranscript("new math problem shown");
+              }
+
               // Always send the draw event to the browser
               this.send("canvas_draw", { args, result });
 
@@ -315,6 +393,13 @@ export class SessionManager {
       if (!fullResponse.trim()) {
         console.warn(
           "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring"
+        );
+      }
+
+      // In math mode every turn should log an answer — warn if tools were skipped entirely
+      if (this.lastCanvasWasMath && this.toolCallsMadeThisTurn === 0) {
+        console.warn(
+          "  ⚠️  Math mode: agent completed with ZERO tool calls — canvas is out of sync"
         );
       }
 
@@ -370,13 +455,88 @@ export class SessionManager {
     args: Record<string, unknown>,
     result: unknown
   ): void {
+    this.toolCallsMadeThisTurn++;
     this.send("tool_call", { tool, args, result });
+
+    if (tool === "endSession") {
+      this.send("session_ended", {});
+      setTimeout(() => process.exit(0), 500);
+    }
 
     if (tool === "logAttempt") {
       this.processReward(args);
+
+      // Validate Elli's logAttempt references the active word on canvas
+      if (this.childName === "Ila" && this.activeWord) {
+        const loggedWord = (args.word as string | undefined)?.toLowerCase().trim();
+        const active = this.activeWord.toLowerCase().trim();
+        if (loggedWord && loggedWord !== active) {
+          console.warn(
+            `  ⚠️  activeWord mismatch: canvas="${active}" logAttempt.word="${loggedWord}"`
+          );
+        }
+      }
+    }
+
+    if (tool === "mathProblem" && args.childAnswer != null) {
+      try {
+        const raw = result as Record<string, unknown> | string | undefined;
+        const output = typeof raw === "string" ? raw : (raw?.output as string | undefined) ?? raw;
+        const parsed = typeof output === "string" ? JSON.parse(output) : output;
+        const correct = (parsed as Record<string, unknown>)?.correct === true;
+        this.processReward({ correct });
+      } catch {
+        console.error("  ⚠️  Could not parse mathProblem result for reward");
+      }
     }
 
     if (tool === "showCanvas") {
+      this.lastCanvasMode = (args.mode as string) ?? "idle";
+      this.lastCanvasWasMath = this.isTeachingMathCanvas(args);
+
+      // ── Reina: server-canonical problem announcement ──────────────────────
+      // When a math teaching canvas fires, convert the problem to speech and
+      // store it on the state machine. It will be appended to the TTS buffer
+      // in onCanvasDone() — AFTER the canvas animation — so the spoken problem
+      // is always derived from the canvas content, never from Claude's tokens.
+      if (this.childName === "Reina" && this.lastCanvasWasMath) {
+        const spoken = this.mathContentToSpoken(args.content as string);
+        this.turnSM.setCanonicalProblem(spoken);
+        console.log(`  📐 Canonical problem set: "${spoken}"`);
+      } else {
+        this.turnSM.setCanonicalProblem(null);
+      }
+
+      // ── Ila: track the active word, validate phonemeBoxes, count re-shows ──
+      if (this.childName === "Ila" && args.mode === "teaching") {
+        const word = (args.content as string | undefined)?.trim() ?? null;
+        this.activeWord = word;
+        if (word) console.log(`  📝 Active word set: "${word}"`);
+
+        // Warn if same word has been shown too many times this session
+        if (word) {
+          const count = (this.wordShowCount.get(word) ?? 0) + 1;
+          this.wordShowCount.set(word, count);
+          if (count >= 3) {
+            console.warn(
+              `  ⚠️  Word "${word}" shown ${count} times this session — Elli may be stuck`
+            );
+          }
+        }
+
+        // Validate phonemeBoxes — empty value strings leave blank tiles on screen
+        const boxes = args.phonemeBoxes as Array<{ position: string; value: string; highlighted: boolean }> | undefined;
+        if (boxes) {
+          const emptyBoxes = boxes.filter((b) => b.value === "" || b.value == null);
+          if (emptyBoxes.length > 0) {
+            const positions = emptyBoxes.map((b) => b.position).join(", ");
+            console.warn(
+              `  ⚠️  phonemeBoxes with empty value for word "${word ?? "?"}": [${positions}] — boxes will appear blank on screen`
+            );
+          }
+        }
+      }
+
       const r = (result ?? args) as {
         svg?: string;
         label?: string;
@@ -403,14 +563,12 @@ export class SessionManager {
     if (correct) {
       this.correctStreak++;
 
-      if (this.childName === "Ila") {
-        const { flash_ms } = getRewardDurations(this.childName);
-        this.send("reward", {
-          rewardStyle: "flash",
-          displayDuration_ms: flash_ms,
-        });
-        this.logRewardEvent("flash", flash_ms);
-      }
+      const { flash_ms } = getRewardDurations(this.childName);
+      this.send("reward", {
+        rewardStyle: "flash",
+        displayDuration_ms: flash_ms,
+      });
+      this.logRewardEvent("flash", flash_ms);
 
       if (this.correctStreak === 3) {
         this.send("phase", { phase: "riddle" });

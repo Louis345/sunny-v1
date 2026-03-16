@@ -6,6 +6,7 @@ interface Props {
   companionText: string;
   interimTranscript: string;
   correctStreak: number;
+  sessionState: string;
   accentColor: string;
   accentBg: string;
   onBargeIn: () => void;
@@ -18,11 +19,14 @@ export function CompanionStrip({
   companionText,
   interimTranscript,
   correctStreak,
+  sessionState,
   accentColor,
   accentBg,
   onBargeIn,
   onEndSession,
 }: Props) {
+  const isSpeaking = sessionState === "SPEAKING";
+  const isThinking = sessionState === "LOADING" || sessionState === "PROCESSING" || sessionState === "CANVAS_PENDING";
   return (
     <div className="w-[220px] h-full bg-gray-50 border-r border-gray-200 flex flex-col items-center p-5 gap-4 shrink-0">
       <div
@@ -33,11 +37,51 @@ export function CompanionStrip({
       </div>
       <div className="text-sm font-medium text-gray-900">{companionName}</div>
 
-      <div className="w-full bg-white border border-gray-200 rounded-lg p-3 min-h-[80px] max-h-[420px] overflow-y-auto">
-        <div className="text-xs text-gray-500 mb-1">{companionName} says:</div>
-        <div className="text-sm text-gray-900 leading-relaxed break-words">
-          {companionText || "..."}
-        </div>
+      <div className="w-full bg-white border border-gray-200 rounded-lg p-3 min-h-[80px] max-h-[420px] overflow-y-auto flex flex-col justify-center">
+        {isSpeaking ? (
+          // Speaking: show animated waveform — text will appear after audio finishes
+          <div className="flex items-center justify-center gap-1 py-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <motion.div
+                key={i}
+                className="w-1 rounded-full"
+                style={{ backgroundColor: accentColor }}
+                animate={{ height: ["6px", "20px", "6px"] }}
+                transition={{
+                  duration: 0.7,
+                  repeat: Infinity,
+                  delay: i * 0.1,
+                  ease: "easeInOut",
+                }}
+              />
+            ))}
+          </div>
+        ) : isThinking ? (
+          // Thinking: subtle pulsing dots
+          <div className="flex items-center justify-center gap-1.5 py-3">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full bg-gray-300"
+                animate={{ opacity: [0.3, 1, 0.3] }}
+                transition={{
+                  duration: 1,
+                  repeat: Infinity,
+                  delay: i * 0.2,
+                  ease: "easeInOut",
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          // Idle: show last completed response — text only appears after audio is done
+          <>
+            <div className="text-xs text-gray-500 mb-1">{companionName} says:</div>
+            <div className="text-sm text-gray-900 leading-relaxed break-words">
+              {companionText || "..."}
+            </div>
+          </>
+        )}
       </div>
 
       {interimTranscript && (

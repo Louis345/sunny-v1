@@ -1,1 +1,42 @@
-[]
+[
+  {
+    "timestamp": "2026-03-15T21:29:52.968Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-15T21:32:12.524Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-03-15T21:33:19.092Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
+  },
+  {
+    "timestamp": "2026-03-15T21:35:23.272Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 4
+  }
+]

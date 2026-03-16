@@ -46,6 +46,14 @@ async function streamAndSpeak(
   setState(State.PROCESSING);
   resetConsecutiveHits();
 
+  // Pass last 3 Elli utterances so ElevenLabs adapts prosody to conversation flow
+  const previousText = history
+    .filter((m) => m.role === "assistant")
+    .slice(-3)
+    .map((m) => (typeof m.content === "string" ? m.content : ""))
+    .filter(Boolean)
+    .join(" ") || undefined;
+
   const tts = createLiveStream(
     () => {
       console.log(
@@ -63,6 +71,7 @@ async function streamAndSpeak(
       );
       setState(State.LISTENING);
     },
+    previousText,
   );
 
   setCurrentPlayback(tts);

@@ -1,4 +1,5 @@
 export { startSession } from "./startSession";
+export { endSession } from "./endSession";
 export { transitionToWork } from "./transitionToWork";
 export { logAttempt } from "./logAttempt";
 export { dateTime } from "./dateTime";

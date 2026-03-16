@@ -3,6 +3,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
 import {
   dateTime,
+  endSession,
   logAttempt,
   startSession,
   transitionToWork,
@@ -42,6 +43,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     maxOutputTokens: 500,
     tools: {
       dateTime,
+      endSession,
       logAttempt,
       startSession,
       transitionToWork,

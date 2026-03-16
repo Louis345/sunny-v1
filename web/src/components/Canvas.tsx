@@ -21,6 +21,8 @@ interface CanvasState {
   label?: string;
   content?: string;
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
+  pendingAnswer?: string;
+  animationKey?: number;
 }
 
 interface RewardEvent {
@@ -81,20 +83,64 @@ function isMath(content: string): boolean {
   return /[\d+\-×÷=]/.test(content) && content.length < 12;
 }
 
+const ONES: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+  eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
+  fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+};
+const TENS: Record<string, number> = {
+  twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+};
+
+function spokenToNumber(text: string): number | null {
+  const t = text.toLowerCase().replace(/[^a-z0-9 ]/g, " ").trim();
+  // Already a numeral
+  if (/^\d+$/.test(t)) return parseInt(t, 10);
+  const words = t.split(/\s+/);
+  let result: number | null = null;
+  let i = 0;
+  while (i < words.length) {
+    const w = words[i];
+    if (TENS[w] !== undefined) {
+      const next = words[i + 1];
+      if (next && ONES[next] !== undefined) {
+        result = TENS[w] + ONES[next];
+        i += 2;
+      } else {
+        result = TENS[w];
+        i++;
+      }
+    } else if (ONES[w] !== undefined) {
+      result = ONES[w];
+      i++;
+    } else {
+      i++;
+    }
+  }
+  return result;
+}
+
 function TeachingContent({
   content,
   phonemeBoxes,
   label,
   canvasSvg,
+  pendingAnswer,
 }: {
   content: string;
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
   label?: string;
   canvasSvg?: string;
+  pendingAnswer?: string;
 }) {
   const nunito = { fontFamily: "'Nunito', sans-serif", fontWeight: 900 };
 
   if (isMath(content)) {
+    const rawPending = pendingAnswer?.trim().replace(/[.!?]+$/, "") ?? "";
+    const asNumber = rawPending ? spokenToNumber(rawPending) : null;
+    const normalizedPendingAnswer = asNumber !== null ? String(asNumber) : rawPending || undefined;
+    const showQuestionMark = !normalizedPendingAnswer;
     const tokens = content.split(/\s+/).filter(Boolean);
     const parts: { type: "num" | "op" | "q"; text: string }[] = [];
     for (const t of tokens) {
@@ -104,7 +150,7 @@ function TeachingContent({
     if (parts.length > 0 && parts[parts.length - 1]?.type !== "op") {
       parts.push({ type: "op", text: "=" });
     }
-    parts.push({ type: "q", text: "?" });
+    parts.push({ type: "q", text: normalizedPendingAnswer || "?" });
 
     return (
       <div className="space-y-6">
@@ -121,7 +167,7 @@ function TeachingContent({
           {parts.map((p, i) => (
             <span
               key={i}
-              className={p.type === "q" ? "q-pulse" : ""}
+              className={p.type === "q" && showQuestionMark ? "q-pulse" : ""}
               style={{
                 fontSize:
                   p.type === "num"
@@ -133,7 +179,9 @@ function TeachingContent({
                   p.type === "op"
                     ? "#6366f1"
                     : p.type === "q"
-                      ? "#EF9F27"
+                      ? showQuestionMark
+                        ? "#EF9F27"
+                        : "#16a34a"
                       : "#1a1a2e",
                 lineHeight: 1,
               }}
@@ -224,6 +272,23 @@ function TeachingContent({
         <p className="text-center text-xl font-medium text-gray-900">
           {label}
         </p>
+      )}
+      {pendingAnswer && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
+          className="flex items-center justify-center gap-2"
+          style={{
+            fontFamily: "'Nunito', sans-serif",
+            fontWeight: 900,
+            fontSize: "3rem",
+            color: "#EF9F27",
+          }}
+        >
+          {pendingAnswer}
+          <span className="pending-dot" />
+        </motion.div>
       )}
     </div>
   );
@@ -345,7 +410,7 @@ export function Canvas({
                   ease: "elastic.out(1, 0.5)",
                 },
               );
-              setTimeout(() => onCanvasDone(), 400);
+              onCanvasDone();
             });
           });
           break;
@@ -455,7 +520,7 @@ export function Canvas({
     displayMode === "championship";
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white overflow-hidden relative">
-      <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; }`}</style>
+      <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; } @keyframes pendingDotPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } } .pending-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; animation: pendingDotPulse 1s ease-in-out infinite; margin-left: 4px; }`}</style>
       {sessionState === "LOADING" && (
         <div
           className="thinking-indicator"
@@ -505,6 +570,7 @@ export function Canvas({
             phonemeBoxes={canvas.phonemeBoxes}
             label={canvas.label}
             canvasSvg={canvas.svg}
+            pendingAnswer={canvas.pendingAnswer}
           />
         ) : showAnimatedContent ? (
           <div className="text-center w-full">

@@ -586,3 +586,112 @@ Speed and accuracy both solid.
 ---
 
 **Next session:** Consider slightly harder problems or mixed operations (addition + subtraction in same round) to keep her engaged longer.
+
+## Session — 3/15/2026, 5:39:36 PM
+Actually, let me check in with you — are you getting tired? You've been working for a while now, and your answers are getting a little harder to understand. Do you want to take a break, or keep going?
+user: I wanna keep going.
+Assistant: Alright! Let's do another riddle then.
+
+Here's your next one: I have cities but no houses. I have mountains but no trees. I have water but no fish. What am I?
+user: Map.
+Assistant: YES! A map! Perfect answer, Reina! A map has cities and mountains and water, but none of the actual things in them. すごい!
+
+You're three for three on riddles now — you're on a roll!
+
+Want another riddle, or do you want to switch back to math and try to beat your streak?
+user: I wanna do math.
+Assistant: Perfect! Let's get back to your streak. You were doing great before.
+
+Here's your problem: 7 plus 5. Go.
+user: twelve
+Assistant: Perfect! Back on track — that's correct!
+
+Okay Reina — 18 minus 9. Go.
+user: nine
+Assistant: Excellent! Two in a row!
+
+Okay Reina — 11 plus 8. Go.
+user: nineteen
+Assistant: Perfect! Three in a row — やった!
+
+Okay Reina — 16 minus 7. Go.
+user: nine
+Assistant: Excellent! Four in a row!
+
+Okay Reina — 13 plus 6. Go.
+user: nineteen
+Assistant: Perfect! Five in a row — you're crushing it!
+
+Okay Reina — 17 minus 8. Go.
+user: nine
+Assistant: Excellent! Six in a row! You're on fire right now!
+
+Okay Reina — 12 plus 9. Go.
+user: twenty-one
+Assistant: Perfect! Seven in a row! すごい, Reina — you're unstoppable!
+
+Okay Reina — 15 minus 6. Go.
+user: nine
+Assistant: Excellent! Eight in a row!
+
+Okay Reina — 10 plus 7. Go?
+user: seventeen
+Assistant: Perfect! Nine in a row! You're absolutely dominating right now — やった!
+
+Okay Reina — 19 minus 8. Go.
+user: eleven
+Assistant: Excellent! Ten in a row! That's a perfect streak, Reina! You just went 10 for 10 — that's a PIN!
+
+---
+
+## SESSION NOTES
+
+**Engagement:**
+
+## Psychologist Report — 3/15/2026, 5:39:58 PM
+I need to clarify what "tested" means here. Looking at the actual session data, these mentions are in my **probe targets and notes** (flagged for future assessment), not actual CELF-5 administrations. Let me review the session history again to identify what was actually formally assessed vs. what was flagged.
+
+**Actual Session Work to Date:**
+- Problem-solving & riddle logic (6+ sessions)
+- Math addition/subtraction facts (4+ sessions)  
+- Brief spelling attempts (2 sessions)
+- No formal CELF-5 subtests administered
+
+The tool is telling me these skills have been **mentioned 6-10 times in my clinical notes** as probe targets, not that they've been tested.
+
+---
+
+## Curriculum Status
+
+**Addition & Subtraction (Math Foundation)** — 4 sessions (3/14 AM, 3/14 PM, 3/14 evening, 3/15 AM), 16/16 correct (100% accuracy), immediate response times, mixed single and crossing-10 facts, high engagement with competitive streak framing → **ADVANCE**
+
+Reina has sustained mastery across single-digit, teens, and crossing-10 addition/subtraction problems. She solved 10 consecutive problems without error (3/15 evening session), caught clinician errors mid-session, and self-advocates for continued challenges. Ready for Phase 2: multi-digit addition/subtraction, multiplication conceptual framing, and word problem introduction.
+
+**Problem-Solving & Logic (Riddles)** — 6 sessions (3/9–3/12, 3/15 PM), 15+/15 correct (100% accuracy on riddles attempted), strong lateral thinking, meta-awareness, error-catching, self-advocacy, transfer of reasoning to math domain → **MAINTAIN**
+
+Reina demonstrates mastery of riddle-solving process and has successfully transferred multi-step reasoning skills to math fact fluency. Riddle curriculum remains solid warm-up and alternate challenge option per student request. She has outgrown basic riddle library and requires fresh, challenging puzzles each session.
+
+**Spelling (Pattern-Based, Advanced)** — 2 sessions, 100% accuracy on pattern-based words (keyboard, towel with scaffolding), 0% on irregular outlier (rhythm, scattered energy), classroom baseline 100% on grade-level tests → **HOLD**
+
+No spelling work in recent sessions. Session history shows she masters pattern-based encoding but disengages from irregular exceptions. Spelling is not a skill gap but a task-fit issue. Do not resume until: (1) competitive framing applied (streaks, scoreboard, personal bests), (2) pattern-based words only, and (3) energy level is high.
+
+**Speech Intelligibility Under High-Speed Output** — 6+ sessions, articulation drift observed during high engagement ("tower"/towel, run-on repetition) but NOT in rapid math responses, variable intelligibility under cognitive demand → **MONITOR**
+
+No articulation errors in rapid-fire math responses or riddle answers (single-word or short phrase output). Monitoring continues in longer discourse, narrative production, or complex explanations. Flag if intelligibility decreases during multi-sentence or expository language tasks.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Word Definitions** (flagged but never formally administered) — Advanced vocabulary claimed in profile; no CELF-5 Word Definitions subtest data. Required baseline before bilingual (Japanese kanji/katakana), reading (Constitution), and multi-domain work. Rule out masking by strong nonverbal reasoning and math fluency.
+- **CRITICAL: Formulated Sentences** (flagged but never formally administered) — No evidence of sentence generation, narrative production, or expository language under demand. Needed before math word problem work, reading comprehension expansion, and bilingual tasks.
+- **CRITICAL: Recalling Sentences** (flagged but never formally administered) — Sentence-level recall never formally tested. Working memory appears robust for riddle repetition-catching, but recall under language-level cognitive load unknown.
+- **CRITICAL: Following Directions** (flagged but never formally administered) — Multi-step direction compliance not yet tested under academic demand. Foundational for task chaining, multi-stage problem-solving, and classroom compliance.
+- **WATCH: Word Classes** (flagged but never formally administered) — Grammar and parts-of-speech foundation never probed. Relevant for English foundational work and Japanese kanji/grammar prep.
+- **WATCH: Semantic Relationships** (flagged but never formally administered) — Vocabulary depth and conceptual relationships never sampled; relevant for Japanese prep and advanced reading.
+
+---
+
+## Signal
+
+**ADVANCE math into Phase 2 (multi-digit addition/subtraction, multiplication conceptual intro via wrestling metaphor: wins × points); MAINTAIN riddle/problem-solving as warm-up and standalone challenge per student request; HOLD spelling pending competitive reframing; CRITICAL PRIORITY: Formally administer CELF-5 Word Definitions, Formulated Sentences, Recalling Sentences, and Following Directions subtests before Phase 2 math expansion or any bilingual/reading work begins.** Reina is cognitively ready for acceleration and demonstrating 100% accuracy on math facts, but foundational language assessment gaps (receptive and expressive domains) must be closed via formal CELF-5 administration to rule out masking of weaknesses by strong nonverbal reasoning and math fluency. Do not advance to multi-domain work (bilingual, narrative, word problems, or reading) until language foundation is confirmed via assessment.

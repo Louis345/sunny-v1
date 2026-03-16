@@ -58,12 +58,18 @@ export const showCanvas = tool({
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'");
     }
+    // Guard: empty phonemeBox values render as blank on screen — replace with "?"
+    // so the child always has something to look at.
+    const phonemeBoxes = input.phonemeBoxes?.map((box) => ({
+      ...box,
+      value: box.value.trim() === "" ? "?" : box.value,
+    }));
     return {
       mode: input.mode,
       content: input.content,
       svg: input.svg,
       label: input.label,
-      phonemeBoxes: input.phonemeBoxes,
+      phonemeBoxes,
       lottieData: input.lottieData,
     };
   },

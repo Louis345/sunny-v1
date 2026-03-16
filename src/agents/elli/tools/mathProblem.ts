@@ -11,7 +11,7 @@ export function resetMathProbeSession(childName: "Ila" | "Reina"): void {
 
 export const mathProblem = tool({
   description:
-    "Call this after every math attempt to log the result and get context for the next problem. Also call at session start to get the opening problem.",
+    "Call this after every math attempt to log the result and get the next problem suggestion. The tool auto-computes whether the answer is correct from the operands — you do NOT need to judge correctness. Pass the EXACT operandA, operandB, and operation from the problem on screen. Also call at session start with childAnswer: null to get the opening problem.",
   inputSchema: z.object({
     childName: z.enum(["Ila", "Reina"]),
     operation: z.enum(["addition", "subtraction"]),
@@ -21,7 +21,6 @@ export const mathProblem = tool({
       .number()
       .nullable()
       .describe("null if this is the opening call to get first problem"),
-    correct: z.boolean().nullable().describe("null if this is the opening call"),
   }),
   execute: async ({
     childName,
@@ -29,8 +28,12 @@ export const mathProblem = tool({
     operandA,
     operandB,
     childAnswer,
-    correct,
   }) => {
+    const correctAnswer =
+      operation === "addition" ? operandA + operandB : operandA - operandB;
+    const correct =
+      childAnswer !== null ? childAnswer === correctAnswer : null;
+
     if (childAnswer === null && correct === null) {
       const key = `${childName}-probe`;
       if (probeCalledThisSession.has(key)) {
@@ -119,8 +122,10 @@ export const mathProblem = tool({
     return JSON.stringify({
       logged:
         correct !== null
-          ? `${operandA} ${operation === "addition" ? "+" : "-"} ${operandB} = ${childAnswer} (${correct ? "✅" : "❌"})`
+          ? `${operandA} ${operation === "addition" ? "+" : "-"} ${operandB} = ${childAnswer} (${correct ? "✅" : "❌"}) [answer: ${correctAnswer}]`
           : "session start",
+      correct,
+      correctAnswer: childAnswer !== null ? correctAnswer : undefined,
       weakSpot,
       accuracyByBucket: buckets,
       suggestion,
