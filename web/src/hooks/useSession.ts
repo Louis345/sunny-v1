@@ -19,8 +19,18 @@ interface RewardEvent {
   displayDuration_ms: number;
 }
 
+interface PlaceValueData {
+  operandA: number;
+  operandB: number;
+  operation?: "addition" | "subtraction";
+  layout?: "expanded" | "column";
+  activeColumn?: "hundreds" | "tens" | "ones";
+  scaffoldLevel?: "full" | "partial" | "minimal" | "hint";
+  revealedColumns?: Array<"hundreds" | "tens" | "ones">;
+}
+
 interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -28,6 +38,7 @@ interface CanvasState {
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
   pendingAnswer?: string;
   animationKey?: number;
+  placeValueData?: PlaceValueData;
 }
 
 type SessionPhase = "picker" | "connecting" | "active" | "ended";
@@ -201,6 +212,7 @@ export function useSession() {
             "reward",
             "riddle",
             "championship",
+            "place_value",
           ];
           setStateRef.current((s) => ({
             ...s,
@@ -211,6 +223,7 @@ export function useSession() {
               label: data.label as string | undefined,
               content: data.content as string | undefined,
               phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
+              placeValueData: data.placeValueData as PlaceValueData | undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -274,7 +287,7 @@ export function useSession() {
         const mode = (msg.mode ?? (msg.args as Record<string, unknown>)?.mode) as CanvasState["mode"];
         const content = (msg.content ?? (msg.args as Record<string, unknown>)?.content) as string | undefined;
         const label = (msg.label ?? (msg.args as Record<string, unknown>)?.label) as string | undefined;
-        const validModes: CanvasState["mode"][] = ["idle", "teaching", "reward", "riddle", "championship"];
+        const validModes: CanvasState["mode"][] = ["idle", "teaching", "reward", "riddle", "championship", "place_value"];
         if (mode && validModes.includes(mode)) {
           const data = (msg.args ?? msg) as Record<string, unknown>;
           setStateRef.current((s) => ({
@@ -286,6 +299,7 @@ export function useSession() {
               svg: data.svg as string | undefined,
               lottieData: data.lottieData as Record<string, unknown> | undefined,
               phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
+              placeValueData: data.placeValueData as PlaceValueData | undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },

@@ -95,6 +95,13 @@ const KITSUNE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 15
 const PRESETS = [
   // Place Value
   {
+    btn: "PV: Ila worksheet",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 743, operandB: 124, operation: "addition" as const, layout: "expanded" as const, scaffoldLevel: "full" as const },
+  },
+  {
     btn: "PV: full scaffold",
     mode: "place_value" as const,
     content: "",
