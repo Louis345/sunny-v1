@@ -251,7 +251,8 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
   const [label, setLabel] = useState("");
   const [fired, setFired] = useState(false);
 
-  if (window.location.port !== "3002") return null;
+  const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  if (!isDev) return null;
 
   const fire = () => {
     sendMessage("tool_call", {
