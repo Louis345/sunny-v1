@@ -15,3 +15,9 @@ src/intake/reina/*.txt
 src/intake/reina/*.md
 src/intake/reina/*.json
 src/intake/processed/
+
+# Session metrics logs — raw data stays local, never committed
+logs/sessions/*
+!logs/sessions/.gitkeep
+logs/reports/*
+!logs/reports/.gitkeep

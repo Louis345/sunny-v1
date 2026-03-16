@@ -21,7 +21,10 @@
     "server": "npx tsx src/server.ts",
     "web": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
-    "sunny": "cd web && npm run build && cd .. && npx tsx src/scripts/launch-kiosk.ts"
+    "sunny": "cd web && npm run build && cd .. && npx tsx src/scripts/launch-kiosk.ts",
+    "sunny:test": "SUNNY_TEST_MODE=true npx tsx src/scripts/launch-kiosk.ts --no-browser",
+    "metrics": "SUNNY_ENABLE_METRICS=true npx tsx src/scripts/metrics.ts",
+    "metrics:quick": "SUNNY_ENABLE_METRICS=true npx tsx src/scripts/metrics.ts --no-scout"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

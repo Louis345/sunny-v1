@@ -14,6 +14,12 @@ import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { resetMathProbeSession } from "../agents/elli/tools/mathProblem";
 import type { ModelMessage } from "ai";
 import { TurnStateMachine } from "./session-state";
+import {
+  initLogger,
+  logEvent,
+  logLatency,
+  closeLogger,
+} from "./session-logger";
 
 type ChildName = "Ila" | "Reina";
 
@@ -52,6 +58,10 @@ export class SessionManager {
   private toolCallsMadeThisTurn = 0;
   private activeWord: string | null = null;
   private wordShowCount: Map<string, number> = new Map();
+
+  // Latency timing
+  private turnStartedAt = 0;
+  private ttftRecorded = false;
 
   private turnSM: TurnStateMachine;
 
@@ -116,6 +126,9 @@ export class SessionManager {
       `  🌟 [${ts}] Starting session: ${this.childName} with ${this.companion.name}`
     );
 
+    initLogger(this.childName);
+    logEvent("session_start", { companion: this.companion.name });
+
     this.send("session_started", {
       child: this.childName,
       childName: this.childName,
@@ -152,6 +165,7 @@ export class SessionManager {
   bargeIn(): void {
     const ts = new Date().toISOString();
     console.log(`  🛑 [${ts}] Barge-in received`);
+    logEvent("barge_in");
 
     this.turnSM.onInterrupt();
 
@@ -200,9 +214,12 @@ export class SessionManager {
 
       appendRewardLog(this.childName, this.rewardLog);
 
+      const durationMs = Date.now() - this.sessionStartTime;
+      closeLogger(durationMs, this.roundNumber);
+
       this.send("session_ended", {
         summary: `Session ended. ${this.conversationHistory.length} turns.`,
-        duration_ms: Date.now() - this.sessionStartTime,
+        duration_ms: durationMs,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -304,6 +321,10 @@ export class SessionManager {
     const ts = new Date().toISOString();
     console.log(`  💬 [${ts}] ${this.childName}: "${transcript}"`);
 
+    this.turnStartedAt = Date.now();
+    this.ttftRecorded = false;
+    logEvent("child_turn", { transcript });
+
     this.send("final", { text: transcript });
     this.send("echo_answer", { text: transcript });
 
@@ -347,6 +368,10 @@ export class SessionManager {
           fullResponse += chunk;
           this.send("response_text", { chunk });
           console.log(`  📝 token(${chunk.length}): "${chunk.slice(0, 30).replace(/\n/g, "↵")}"`);
+          if (!this.ttftRecorded && this.turnStartedAt > 0) {
+            this.ttftRecorded = true;
+            logLatency("ttft", Date.now() - this.turnStartedAt);
+          }
           this.turnSM.onToken(chunk);
         },
         signal: this.currentAbort?.signal,
@@ -420,6 +445,12 @@ export class SessionManager {
       this.send("audio_done");
       this.turnSM.onSpeakingDone();
 
+      if (this.turnStartedAt > 0) {
+        logLatency("turn_complete", Date.now() - this.turnStartedAt, {
+          tool_calls: this.toolCallsMadeThisTurn,
+        });
+      }
+
       // After agent completes and TTS flushes, check for queued transcript
       const pending = this.turnSM.consumePendingTranscript();
       if (pending) {
@@ -457,6 +488,7 @@ export class SessionManager {
   ): void {
     this.toolCallsMadeThisTurn++;
     this.send("tool_call", { tool, args, result });
+    logEvent("tool_call", { tool });
 
     if (tool === "endSession") {
       this.send("session_ended", {});
@@ -521,6 +553,12 @@ export class SessionManager {
             console.warn(
               `  ⚠️  Word "${word}" shown ${count} times this session — Elli may be stuck`
             );
+            logEvent("tool_call", {
+              tool: "showCanvas",
+              word_show_anomaly: true,
+              word,
+              show_count: count,
+            });
           }
         }
 
