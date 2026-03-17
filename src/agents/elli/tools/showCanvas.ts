@@ -71,9 +71,12 @@ const showCanvasSchema = z.object({
     })
     .optional()
     .describe(
-      "Use with mode=place_value. Renders a hundreds/tens/ones table for multi-digit addition or subtraction homework."
+      "REQUIRED when mode=place_value. Renders a hundreds/tens/ones table for multi-digit addition or subtraction homework. All fields (operandA, operandB, etc.) go INSIDE this object, not as top-level params."
     ),
-});
+}).refine(
+  (data) => data.mode !== "place_value" || data.placeValueData !== undefined,
+  { message: "placeValueData is required when mode is 'place_value'. Put operandA, operandB, operation, layout, scaffoldLevel, activeColumn, and revealedColumns inside placeValueData.", path: ["placeValueData"] }
+);
 
 export type ShowCanvasArgs = z.infer<typeof showCanvasSchema>;
 

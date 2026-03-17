@@ -138,13 +138,16 @@ Nothing else. No greeting. No explanation. No filler.
 
 export function PSYCHOLOGIST_CONTEXT(context: string, attempts: string, curriculum: string): string {
   return `
-## Session Notes
+## Background — Clinical Notes
 ${context}
 
-## Word Attempt History
+## Background — Raw Attempt Log
+These are attempt records from the session logger. Use querySessions for structured, counted analysis.
 ${attempts}
 
-## Current Curriculum
+## Background — Previous Curriculum Plan (REFERENCE ONLY)
+This is what was taught before. Do NOT endorse or re-output this plan.
+Your job is to decide what should be taught NEXT based on evidence from your tool calls.
 ${curriculum}
   `.trim();
 }
@@ -171,8 +174,9 @@ For every skill below the 10th percentile, call flagGap("${childName}", skillNam
 Do not skip any. Do not estimate. Call the tool and get the hard count.
 
 Step 3 — Analyze attempt accuracy
-Review the Word Attempt History already provided in your context.
+Use the results from querySessions (Step 1) and your flagGap calls (Step 2).
 Identify words with 3+ correct attempts (mastered), words with repeated errors (stalling), words never attempted (gaps).
+Do not repeat back the previous curriculum plan — write a new one.
 
 Step 4 — Write your report
 Only after completing Steps 1-3.
@@ -190,9 +194,13 @@ Only after completing Steps 1-3.
 ADVANCE / HOLD / CHANGE METHOD
 [one sentence reason]
 
-After all tool calls are complete, write the full report.
-Do not summarize your process. Do not announce next steps.
-Output ONLY the report in the exact format specified above.
-Nothing before ## Curriculum Status. Nothing after the Signal line.
+CRITICAL RULES:
+- You MUST call querySessions and flagGap before writing anything. No exceptions.
+- NEVER ask the developer for clarification. You have everything you need — use your tools.
+- NEVER re-output or endorse the previous curriculum plan from context.
+- NEVER ask "which option do you want?" — you are the decision-maker.
+- After all tool calls are complete, write the full report.
+- Output ONLY the report in the exact format specified above.
+- Nothing before ## Curriculum Status. Nothing after the Signal line.
 `.trim();
 }

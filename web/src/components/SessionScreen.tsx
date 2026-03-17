@@ -8,7 +8,7 @@ interface CompanionConfig {
 }
 
 interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;

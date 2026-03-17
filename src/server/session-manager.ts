@@ -1,6 +1,7 @@
 import type { WebSocket } from "ws";
 import { ELLI, MATILDA, type CompanionConfig } from "../companions/loader";
 import { TEST_MODE_PROMPT } from "../agents/prompts";
+import { loadHomework, homeworkToPrompt } from "../utils/loadHomework";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
 import { connectFlux, type FluxHandle } from "../deepgram-turn";
@@ -92,7 +93,23 @@ export class SessionManager {
         openingLine: `[TEST MODE] Diagnostic session for ${childName}. Ready. Give me a tool call to verify.`,
       };
       console.log(`  🧪 TEST MODE active — diagnostic prompt loaded for ${childName}`);
+    } else {
+      // Check for homework — if present it overrides the standard curriculum
+      const homework = loadHomework(childName);
+      if (homework) {
+        const hwPrompt = homeworkToPrompt(homework);
+        // Replace the "WHAT TO WORK ON TODAY" section with the homework override
+        this.companion = {
+          ...this.companion,
+          systemPrompt: this.companion.systemPrompt.replace(
+            /=== WHAT TO WORK ON TODAY ===([\s\S]*?)=== NATURAL THINGS/,
+            `=== WHAT TO WORK ON TODAY ===\n${hwPrompt}\n\n=== NATURAL THINGS`
+          ),
+        };
+        console.log(`  📚 Homework override active for ${childName}: ${homework.id}`);
+      }
     }
+
     this.turnSM = new TurnStateMachine(
       (text) => this.ttsBridge?.sendText(text),
       (msg) => console.log(msg),
@@ -206,9 +223,12 @@ export class SessionManager {
     this.turnSM.onInterrupt();
 
     try {
-      await recordSession(this.conversationHistory, this.childName);
-
-      appendRewardLog(this.childName, this.rewardLog);
+      if (process.env.SUNNY_TEST_MODE === "true") {
+        console.log("  🧪 Test mode — skipping session recording, psychologist, and reward log.");
+      } else {
+        await recordSession(this.conversationHistory, this.childName);
+        appendRewardLog(this.childName, this.rewardLog);
+      }
 
       this.send("session_ended", {
         summary: `Session ended. ${this.conversationHistory.length} turns.`,
@@ -385,12 +405,16 @@ export class SessionManager {
                 this.turnSM.clearPendingTranscript("new math problem shown");
               }
 
+              const hasRenderableContent =
+                args.mode !== "place_value" || args.placeValueData != null;
+
               // Always send the draw event to the browser
               this.send("canvas_draw", { args, result });
 
-              // Only gate TTS on it if we're still in the processing phase
+              // Only gate TTS on canvas if there's actually something to render
+              // and we're still in the processing phase
               const s = this.turnSM.getState();
-              if (s === "PROCESSING") {
+              if (s === "PROCESSING" && hasRenderableContent) {
                 this.turnSM.onShowCanvas();
               }
             }

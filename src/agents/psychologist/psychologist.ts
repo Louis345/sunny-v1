@@ -20,7 +20,7 @@ export async function runPsychologist(
   console.log("Tools registered:", Object.keys(tools));
 
   const { text, steps } = await generateText({
-    model: anthropic("claude-haiku-4-5-20251001"),
+    model: anthropic("claude-sonnet-4-5"),
     system: PSYCHOLOGIST_PROMPT(childName),
     prompt,
     tools,

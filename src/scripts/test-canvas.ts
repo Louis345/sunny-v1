@@ -112,42 +112,13 @@ app.post("/test/state", (req, res) => {
   res.json({ sent: true });
 });
 
-server.listen(3002, () => {
+const PORT = parseInt(process.env.PORT ?? "3002", 10);
+
+server.listen(PORT, () => {
   console.log(`
   🎨 Canvas Test Harness
   ─────────────────────────────────────────
-  Open: http://localhost:3002
-  
-  Test commands (run in another terminal):
-
-  # Teaching mode
-  curl -X POST http://localhost:3002/test/canvas \\
-    -H "Content-Type: application/json" \\
-    -d '{"mode":"teaching","content":"8 + 5"}'
-
-  # Riddle mode  
-  curl -X POST http://localhost:3002/test/canvas \\
-    -H "Content-Type: application/json" \\
-    -d '{"mode":"riddle","content":"I get shorter the more I work. What am I?","label":"Championship Riddle"}'
-
-  # Reward mode
-  curl -X POST http://localhost:3002/test/canvas \\
-    -H "Content-Type: application/json" \\
-    -d '{"mode":"reward","label":"3 in a row!"}'
-
-  # Championship mode
-  curl -X POST http://localhost:3002/test/canvas \\
-    -H "Content-Type: application/json" \\
-    -d '{"mode":"championship","label":"CHAMPION!"}'
-
-  # Loading state (thinking dots)
-  curl -X POST http://localhost:3002/test/state \\
-    -H "Content-Type: application/json" \\
-    -d '{"state":"LOADING"}'
-
-  # Picture/emoji mode
-  curl -X POST http://localhost:3002/test/canvas \\
-    -H "Content-Type: application/json" \\
-    -d '{"mode":"teaching","content":"🐕\\nWoof!"}'
+  Open: http://localhost:${PORT === 3001 ? 5173 : PORT}
+  (no AI — zero tokens burned)
   `);
 });

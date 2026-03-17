@@ -1,0 +1,59 @@
+{
+  "id": "math-place-value-2026-03-18",
+  "child": "Ila",
+  "subject": "math",
+  "topic": "3_digit_subtraction",
+  "due_date": "2026-03-18",
+  "urgency": "high",
+  "source": "Go Math Grade 2 — Chapter 10 Lesson 6",
+  "problems": [
+    {
+      "type": "simple_math",
+      "operandA": 8,
+      "operandB": 5,
+      "operation": "addition",
+      "label": "Warm-up"
+    },
+    {
+      "type": "simple_math",
+      "operandA": 12,
+      "operandB": 7,
+      "operation": "subtraction",
+      "label": "Warm-up"
+    },
+    {
+      "type": "place_value",
+      "operandA": 770,
+      "operandB": 120,
+      "operation": "subtraction",
+      "label": "Problem 1 — snack shop people"
+    },
+    {
+      "type": "place_value",
+      "operandA": 395,
+      "operandB": 77,
+      "operation": "subtraction",
+      "label": "Problem 2 — lemon ice cups"
+    },
+    {
+      "type": "place_value",
+      "operandA": 576,
+      "operandB": 480,
+      "operation": "subtraction",
+      "label": "Problem 3 — water bottles"
+    },
+    {
+      "type": "place_value",
+      "operandA": 405,
+      "operandB": 23,
+      "operation": "subtraction",
+      "label": "Problem 4 — Write Math"
+    }
+  ],
+  "notes": "3-digit subtraction. Start with 2 warm-up problems to build confidence before the worksheet. Go slow on hundreds column — she may struggle. scaffoldLevel=full throughout. Praise every column, not just the full answer.",
+  "status": "active",
+  "sessions_practiced": 0,
+  "completed": false,
+  "completed_by": null,
+  "completed_at": null
+}

@@ -143,7 +143,20 @@ const PRESETS = [
     canvasLabel: "",
     placeValueData: { operandA: 278, operandB: 465, operation: "addition" as const, layout: "column" as const, scaffoldLevel: "minimal" as const },
   },
+  {
+    btn: "PV: revealed",
+    mode: "place_value" as const,
+    content: "",
+    canvasLabel: "",
+    placeValueData: { operandA: 743, operandB: 124, operation: "addition" as const, layout: "column" as const, scaffoldLevel: "full" as const, revealedColumns: ["hundreds" as const, "tens" as const, "ones" as const] },
+  },
   // Teaching
+  {
+    btn: "743 + 124",
+    mode: "teaching" as const,
+    content: "743 + 124",
+    canvasLabel: "Solve it!",
+  },
   {
     btn: "8 + 5",
     mode: "teaching" as const,

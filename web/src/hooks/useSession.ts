@@ -62,6 +62,16 @@ function isMathCanvas(content: string | undefined): boolean {
   return /[\d]+\s*([+\-×÷])\s*[\d]+/.test(content);
 }
 
+// Only show a transcript as a pending answer if it looks like a number.
+// Prevents random speech ("of told me a little bit") from rendering
+// as green text on the math canvas at 8rem.
+function looksLikeNumber(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (/^\d+$/.test(t)) return true;
+  const numberWords = /^(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|and|\s)+$/i;
+  return numberWords.test(t);
+}
+
 export function useSession() {
   const wsRef = useRef<WebSocket | null>(null);
   const micContextRef = useRef<AudioContext | null>(null);
@@ -162,13 +172,17 @@ export function useSession() {
 
       case "echo_answer": {
         const text = msg.text as string;
-        setStateRef.current((s) => ({
-          ...s,
-          canvas:
-            s.canvas.mode === "teaching" && isMathCanvas(s.canvas.content)
-              ? { ...s.canvas, pendingAnswer: text }
-              : s.canvas,
-        }));
+        // Only update pendingAnswer when the transcript is actually a number —
+        // non-numeric speech ("of told me a little bit") must never appear on canvas.
+        if (looksLikeNumber(text)) {
+          setStateRef.current((s) => ({
+            ...s,
+            canvas:
+              s.canvas.mode === "teaching" && isMathCanvas(s.canvas.content)
+                ? { ...s.canvas, pendingAnswer: text }
+                : s.canvas,
+          }));
+        }
         break;
       }
 
@@ -352,11 +366,28 @@ export function useSession() {
         silence.gain.value = 0;
 
         processor.onaudioprocess = (e) => {
-          // Gate mic during playback — prevents Deepgram from transcribing
-          // Elli's own voice and treating it as child input.
-          if (isPlayingRef.current) return;
-
           const float32 = e.inputBuffer.getChannelData(0);
+
+          // While Elli is speaking, check if the child is talking over her.
+          // Compute RMS volume — if it crosses the speech threshold, fire
+          // bargeIn() directly from the browser without going through Deepgram
+          // (Deepgram is still gated below to prevent echo transcription).
+          if (isPlayingRef.current) {
+            let sum = 0;
+            for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
+            const rms = Math.sqrt(sum / float32.length);
+            // ~0.04 RMS ≈ clearly audible speech; below that is room noise / breath
+            if (rms > 0.04) {
+              sendMessageRef.current("barge_in");
+              audioQueueRef.current = [];
+              isPlayingRef.current = false;
+              if (currentSourceRef.current) {
+                try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+                currentSourceRef.current = null;
+              }
+            }
+            return; // still gate Deepgram — don't send audio while playing
+          }
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
             int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));

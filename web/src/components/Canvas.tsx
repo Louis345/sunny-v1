@@ -165,20 +165,6 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
   const isActive = (col: "hundreds" | "tens" | "ones") => col === active;
   const isRevealed = (col: "hundreds" | "tens" | "ones") => revealed.includes(col);
 
-  const colStyle = (col: "hundreds" | "tens" | "ones"): React.CSSProperties => ({
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    padding: "8px 4px",
-    borderRadius: 12,
-    background: isActive(col) ? "#FFF9F0" : "transparent",
-    border: isActive(col) ? "3px solid #EF9F27" : showDividers ? "3px solid #E2E8F0" : "3px solid transparent",
-    transform: isActive(col) ? "scale(1.06)" : "scale(1)",
-    transition: "all 0.25s ease",
-    minWidth: 90,
-  });
-
   const cellStyle: React.CSSProperties = {
     ...nunito,
     fontSize: "3.5rem",
@@ -194,46 +180,97 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
     const bVals = { hundreds: bD.h, tens: bD.t, ones: bD.o };
     const sVals = { hundreds: sumH, tens: sumT, ones: sumO };
 
+    const gridBase: React.CSSProperties = {
+      display: "grid",
+      gridTemplateColumns: "2rem 1fr 2rem 1fr 2rem 1fr",
+      alignItems: "center",
+      gap: "4px 0",
+      width: "100%",
+    };
+
+    const valCellStyle = (col: "hundreds" | "tens" | "ones"): React.CSSProperties => ({
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "clamp(6px, 2vw, 12px) clamp(4px, 1vw, 8px)",
+      borderRadius: 12,
+      background: isActive(col) ? "#FFF9F0" : "transparent",
+      border: isActive(col) ? "3px solid #EF9F27" : showDividers ? "3px solid #E2E8F0" : "3px solid transparent",
+      transform: isActive(col) ? "scale(1.06)" : "scale(1)",
+      transition: "all 0.25s ease",
+    });
+
+    const sepStyle: React.CSSProperties = {
+      ...nunito,
+      fontSize: "clamp(1rem, 3vw, 1.5rem)",
+      color: opColor,
+      textAlign: "center",
+      lineHeight: 1,
+    };
+
+    const responsiveCellStyle: React.CSSProperties = {
+      ...cellStyle,
+      fontSize: "clamp(1.8rem, 6vw, 3.5rem)",
+    };
+
     return (
-      <div className="canvas-content w-full max-w-xl" style={{ ...nunito }}>
+      <div className="canvas-content w-full" style={{ ...nunito, maxWidth: 560, margin: "0 auto" }}>
         {showLabels && (
-          <div className="flex gap-2 mb-2">
+          <div style={{ ...gridBase, marginBottom: 8 }}>
             {COLS.map(({ key, label }) => (
-              <div key={key} style={{ ...colStyle(key), paddingBottom: 4 }}>
-                <span style={{ fontSize: "0.9rem", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
-                  {label}
-                </span>
-              </div>
+              <React.Fragment key={key}>
+                <div />
+                <div style={{ textAlign: "center" }}>
+                  <span style={{ fontSize: "clamp(0.65rem, 2vw, 0.9rem)", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+                    {label}
+                  </span>
+                </div>
+              </React.Fragment>
             ))}
           </div>
         )}
-        <div className="flex gap-2 items-center mb-1">
-          {COLS.map(({ key }, i) => (
-            <div key={key} style={colStyle(key)}>
-              <span style={cellStyle}>{aVals[key]}</span>
-              {i < 2 && <span style={{ ...cellStyle, fontSize: "2rem", color: opColor, position: "absolute", right: -16 }}>+</span>}
-            </div>
-          ))}
+        <div style={gridBase}>
+          <div />
+          <div style={valCellStyle("hundreds")}><span style={responsiveCellStyle}>{aVals.hundreds}</span></div>
+          <span style={sepStyle}>+</span>
+          <div style={valCellStyle("tens")}><span style={responsiveCellStyle}>{aVals.tens}</span></div>
+          <span style={sepStyle}>+</span>
+          <div style={valCellStyle("ones")}><span style={responsiveCellStyle}>{aVals.ones}</span></div>
         </div>
-        <div className="flex gap-2 items-center mb-3" style={{ paddingLeft: 28 }}>
-          <span style={{ ...cellStyle, fontSize: "2.5rem", color: opColor, marginRight: 8 }}>{op === "addition" ? "+" : "−"}</span>
-          {COLS.map(({ key }) => (
-            <div key={key} style={colStyle(key)}>
-              <span style={cellStyle}>{bVals[key]}</span>
-            </div>
-          ))}
+        <div style={{ ...gridBase, marginTop: 4 }}>
+          <span style={sepStyle}>{op === "addition" ? "+" : "−"}</span>
+          <div style={valCellStyle("hundreds")}><span style={responsiveCellStyle}>{bVals.hundreds}</span></div>
+          <span style={sepStyle} />
+          <div style={valCellStyle("tens")}><span style={responsiveCellStyle}>{bVals.tens}</span></div>
+          <span style={sepStyle} />
+          <div style={valCellStyle("ones")}><span style={responsiveCellStyle}>{bVals.ones}</span></div>
         </div>
-        <div style={{ height: 3, background: "#CBD5E1", borderRadius: 2, marginBottom: 8 }} />
-        <div className="flex gap-2 items-center">
-          {COLS.map(({ key }) => (
-            <div key={key} style={colStyle(key)}>
-              {isRevealed(key) ? (
-                <span style={{ ...cellStyle, color: "#16a34a" }}>{sVals[key]}</span>
-              ) : (
-                <span className={isActive(key) ? "q-pulse" : ""} style={{ ...cellStyle, color: "#EF9F27" }}>?</span>
-              )}
-            </div>
-          ))}
+        <div style={{ height: 3, background: "#CBD5E1", borderRadius: 2, margin: "10px 0" }} />
+        <div style={gridBase}>
+          <div />
+          <div style={valCellStyle("hundreds")}>
+            {isRevealed("hundreds") ? (
+              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>{sVals.hundreds}</span>
+            ) : (
+              <span className={isActive("hundreds") ? "q-pulse" : ""} style={{ ...responsiveCellStyle, color: "#EF9F27" }}>?</span>
+            )}
+          </div>
+          <span style={sepStyle} />
+          <div style={valCellStyle("tens")}>
+            {isRevealed("tens") ? (
+              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>{sVals.tens}</span>
+            ) : (
+              <span className={isActive("tens") ? "q-pulse" : ""} style={{ ...responsiveCellStyle, color: "#EF9F27" }}>?</span>
+            )}
+          </div>
+          <span style={sepStyle} />
+          <div style={valCellStyle("ones")}>
+            {isRevealed("ones") ? (
+              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>{sVals.ones}</span>
+            ) : (
+              <span className={isActive("ones") ? "q-pulse" : ""} style={{ ...responsiveCellStyle, color: "#EF9F27" }}>?</span>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -242,15 +279,29 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
   // Column layout — stacked digit-by-digit, like the worksheet
   const aDigits = { hundreds: Math.floor(data.operandA / 100) % 10, tens: Math.floor(data.operandA / 10) % 10, ones: data.operandA % 10 };
   const bDigits = { hundreds: Math.floor(data.operandB / 100) % 10, tens: Math.floor(data.operandB / 10) % 10, ones: data.operandB % 10 };
-  const sumDigits = { hundreds: Math.floor((data.operandA + data.operandB) / 100) % 10, tens: Math.floor((data.operandA + data.operandB) / 10) % 10, ones: (data.operandA + data.operandB) % 10 };
+  const result = op === "subtraction" ? data.operandA - data.operandB : data.operandA + data.operandB;
+  const sumDigits = { hundreds: Math.floor(result / 100) % 10, tens: Math.floor(result / 10) % 10, ones: result % 10 };
+
+  const colGridStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "2.5rem 1fr 1fr 1fr",
+    alignItems: "center",
+    width: "100%",
+  };
+
+  const colCellFont: React.CSSProperties = {
+    ...cellStyle,
+    fontSize: "clamp(2rem, 8vw, 4rem)",
+  };
 
   return (
-    <div className="canvas-content" style={{ ...nunito, width: "100%", maxWidth: 380 }}>
+    <div className="canvas-content" style={{ ...nunito, width: "100%", maxWidth: 420 }}>
       {showLabels && (
-        <div className="flex gap-2 mb-1">
+        <div style={{ ...colGridStyle, marginBottom: 4 }}>
+          <div />
           {COLS.map(({ key, label }) => (
-            <div key={key} style={{ flex: 1, textAlign: "center" }}>
-              <span style={{ fontSize: "0.85rem", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+            <div key={key} style={{ textAlign: "center" }}>
+              <span style={{ fontSize: "clamp(0.65rem, 2vw, 0.85rem)", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
                 {label}
               </span>
             </div>
@@ -259,63 +310,73 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
       )}
       <div style={{ border: "3px solid #E2E8F0", borderRadius: 16, overflow: "hidden" }}>
         {/* Row A */}
-        <div className="flex">
+        <div style={{ ...colGridStyle, borderBottom: "3px solid #E2E8F0" }}>
+          <div />
           {COLS.map(({ key }, i) => (
             <div key={key} style={{
-              flex: 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "8px 4px",
+              padding: "clamp(6px, 2vw, 10px) 4px",
               background: isActive(key) ? "#FFF9F0" : "transparent",
               borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
-              borderBottom: "3px solid #E2E8F0",
             }}>
-              <span style={{ ...cellStyle, fontSize: "4rem" }}>{aDigits[key]}</span>
+              <span style={colCellFont}>{aDigits[key]}</span>
             </div>
           ))}
         </div>
         {/* Row B with operator */}
-        <div className="flex items-center" style={{ borderTop: `3px solid #E2E8F0` }}>
-          <span style={{ ...cellStyle, fontSize: "2.5rem", color: opColor, paddingLeft: 8, paddingRight: 4, minWidth: 32 }}>
+        <div style={colGridStyle}>
+          <span style={{ ...nunito, fontSize: "clamp(1.4rem, 5vw, 2.5rem)", color: opColor, textAlign: "center", lineHeight: 1 }}>
             {op === "addition" ? "+" : "−"}
           </span>
           {COLS.map(({ key }, i) => (
             <div key={key} style={{
-              flex: 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "8px 4px",
+              padding: "clamp(6px, 2vw, 10px) 4px",
               background: isActive(key) ? "#FFF9F0" : "transparent",
               borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
             }}>
-              <span style={{ ...cellStyle, fontSize: "4rem" }}>{bDigits[key]}</span>
+              <span style={colCellFont}>{bDigits[key]}</span>
             </div>
           ))}
         </div>
         {/* Sum row */}
-        <div className="flex" style={{ borderTop: `4px double #CBD5E1`, background: "#F8FAFC" }}>
-          <div style={{ minWidth: 40 }} />
+        <div style={{ ...colGridStyle, borderTop: "4px double #CBD5E1", background: "#F8FAFC" }}>
+          <div />
           {COLS.map(({ key }, i) => (
             <div key={key} style={{
-              flex: 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "10px 4px",
+              padding: "clamp(8px, 2vw, 12px) 4px",
               background: isActive(key) ? "#FFF9F0" : "transparent",
               borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
             }}>
               {isRevealed(key) ? (
-                <span style={{ ...cellStyle, fontSize: "4rem", color: "#16a34a" }}>{sumDigits[key]}</span>
+                <span style={{ ...colCellFont, color: "#16a34a" }}>{sumDigits[key]}</span>
               ) : (
-                <span className={isActive(key) ? "q-pulse" : ""} style={{ ...cellStyle, fontSize: "4rem", color: "#EF9F27" }}>?</span>
+                <span className={isActive(key) ? "q-pulse" : ""} style={{ ...colCellFont, color: "#EF9F27" }}>?</span>
               )}
             </div>
           ))}
         </div>
       </div>
+
+      {active && (
+        <div style={{ textAlign: "center", marginTop: 20, ...nunito }}>
+          <span style={{ fontSize: "2rem", color: "#EF9F27" }}>{aDigits[active]}</span>
+          <span style={{ fontSize: "1.4rem", color: opColor }}> {op === "addition" ? "+" : "−"} </span>
+          <span style={{ fontSize: "2rem", color: "#EF9F27" }}>{bDigits[active]}</span>
+          <span style={{ fontSize: "1.4rem", color: "#64748b" }}> in the </span>
+          <span style={{ fontSize: "1.6rem", color: "#EF9F27" }}>
+            {active.charAt(0).toUpperCase() + active.slice(1)}
+          </span>
+          <span style={{ fontSize: "1.4rem", color: "#64748b" }}> place</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -676,6 +737,10 @@ export function Canvas({
           setDisplayMode("place_value");
           setDisplayContent("");
           setRiddleLabel("");
+          if (!payload.placeValueData) {
+            onCanvasDone();
+            break;
+          }
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               gsap.fromTo(
