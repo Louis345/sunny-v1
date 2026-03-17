@@ -36,7 +36,7 @@ jobs:
           PAYLOAD=$(jq -n \
             --arg diff "$PR_DIFF" \
             '{
-              model: "claude-sonnet-4-5-20250514",
+              model: "claude-sonnet-4-5",
               max_tokens: 1024,
               system: "You are reviewing PRs for Sunny, a voice AI tutoring app for children. Flag: latency regressions, state machine risks, session-manager.ts changes that could break Ila or Reina'\''s sessions, prompt changes in companions/, and missing error handling. Be concise and specific — cite file names and line context where relevant. Use markdown formatting for your response.",
               messages: [
