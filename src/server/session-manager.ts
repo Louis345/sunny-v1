@@ -1,7 +1,8 @@
 import type { WebSocket } from "ws";
 import { ELLI, MATILDA, type CompanionConfig } from "../companions/loader";
 import { TEST_MODE_PROMPT } from "../agents/prompts";
-import { loadHomework, homeworkToPrompt } from "../utils/loadHomework";
+import { loadHomework } from "../utils/loadHomework";
+import { buildLessonPlan, lessonPlanToPrompt } from "../agents/math-planner/planner";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
 import { connectFlux, type FluxHandle } from "../deepgram-turn";
@@ -97,8 +98,9 @@ export class SessionManager {
       // Check for homework — if present it overrides the standard curriculum
       const homework = loadHomework(childName);
       if (homework) {
-        const hwPrompt = homeworkToPrompt(homework);
-        // Replace the "WHAT TO WORK ON TODAY" section with the homework override
+        const lessonPlan = buildLessonPlan(homework);
+        const hwPrompt = lessonPlanToPrompt(lessonPlan);
+        // Replace the "WHAT TO WORK ON TODAY" section with the math planner lesson plan
         this.companion = {
           ...this.companion,
           systemPrompt: this.companion.systemPrompt.replace(
@@ -106,7 +108,10 @@ export class SessionManager {
             `=== WHAT TO WORK ON TODAY ===\n${hwPrompt}\n\n=== NATURAL THINGS`
           ),
         };
-        console.log(`  📚 Homework override active for ${childName}: ${homework.id}`);
+        const borrowingProblems = lessonPlan.steps.filter(
+          (s) => s.type === "place_value" && s.columnSteps?.some((c) => c.requiresBorrowing)
+        ).length;
+        console.log(`  📚 Lesson plan active for ${childName}: ${homework.id} (${lessonPlan.steps.length} steps, ${borrowingProblems} borrowing problems)`);
       }
     }
 
