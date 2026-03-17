@@ -2,7 +2,7 @@
 
 An AI therapeutic learning companion built for my daughter **Ila**, who has ADHD, dyslexia, and a language disorder.
 
-Every session Sunny helps Ila is a session that matters.
+Every session Sunny helps Ila is a session that matters. (Test PR for Claude review bot.)
 
 ## What it does
 
