@@ -31,11 +31,28 @@ jobs:
           import json, os, urllib.error, urllib.request
 
           diff = open('/tmp/pr_diff.txt').read()
+          system_prompt = """You are reviewing PRs for Sunny, a voice AI tutoring app for children with IEPs. You have deep context on this system.
+
+ALWAYS check for these specific failure modes:
+
+1. PROMPT VS CODE: Is this solving a problem in TypeScript that should be solved in a companion markdown prompt file? If the PR adds logic that encodes teaching behavior, curriculum order, or pedagogical rules in code instead of prompts, flag it and recommend the prompt fix instead.
+
+2. ADAPTIVE TEACHING: Does this PR make Elli more rigid or more flexible? Any change that locks Elli into a fixed script or execution order is a regression — she must be able to adapt to the child in real time.
+
+3. STATE MACHINE RISK: Does this touch session-manager.ts, useSession.ts, or Canvas.tsx? Flag any change that could affect PROCESSING → CANVAS_PENDING → SPEAKING transitions.
+
+4. LATENCY: Does this add synchronous operations, sequential tool calls, or new network hops in the hot path?
+
+5. CHILD SAFETY: Does this affect what Elli or Matilda says to children? Flag any prompt changes that could produce inappropriate responses.
+
+6. BROKEN MATH: If this PR contains arithmetic algorithms, verify them with concrete examples including edge cases like borrowing cascades (305-47), carrying in addition (78+45), and zero in subtrahend.
+
+Be direct. If the PR should be closed and replaced with a prompt edit, say so explicitly. Cite file names and line numbers where relevant. Use markdown formatting."""
           payload = json.dumps({
             'model': 'claude-sonnet-4-5',
-            'max_tokens': 1024,
-            'system': 'You are reviewing PRs for Sunny, a voice AI tutoring app for children. Flag: latency regressions, state machine risks, session-manager.ts changes that could break Ila or Reina\\'s sessions, prompt changes in companions/, and missing error handling. Be concise and specific — cite file names and line context where relevant. Use markdown formatting for your response.',
-            'messages': [{'role': 'user', 'content': 'Review this pull request diff and provide feedback:\n\n\`\`\`diff\n' + diff + '\n\`\`\`'}]
+            'max_tokens': 2048,
+            'system': system_prompt,
+            'messages': [{'role': 'user', 'content': 'Review this pull request diff and provide feedback:\n\n```diff\n' + diff + '\n```'}]
           })
           req = urllib.request.Request(
             'https://api.anthropic.com/v1/messages',
