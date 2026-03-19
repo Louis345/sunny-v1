@@ -81,6 +81,10 @@ export function useSession() {
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const serverDoneRef = useRef(false);
+  const bargeInConsecutiveRef = useRef(0);
+  const rollingBufferRef = useRef<string[]>([]);
+  const finalizePlaybackRef = useRef<() => void>(() => {});
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -112,6 +116,20 @@ export function useSession() {
   }, []);
 
   sendMessageRef.current = sendMessage;
+  finalizePlaybackRef.current = () => {
+    if (!serverDoneRef.current) return;
+    if (isPlayingRef.current) return;
+    if (audioQueueRef.current.length > 0) return;
+    if (currentSourceRef.current) return;
+
+    serverDoneRef.current = false;
+    sendMessageRef.current("playback_done");
+    for (const frame of rollingBufferRef.current) {
+      sendMessageRef.current("audio", { data: frame });
+    }
+    rollingBufferRef.current = [];
+    bargeInConsecutiveRef.current = 0;
+  };
 
   const connect = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -203,6 +221,8 @@ export function useSession() {
       }
 
       case "audio_done":
+        serverDoneRef.current = true;
+        finalizePlaybackRef.current();
         break;
 
       case "tool_call": {
@@ -378,13 +398,26 @@ export function useSession() {
             const rms = Math.sqrt(sum / float32.length);
             // ~0.04 RMS ≈ clearly audible speech; below that is room noise / breath
             if (rms > 0.04) {
-              sendMessageRef.current("barge_in");
-              audioQueueRef.current = [];
-              isPlayingRef.current = false;
-              if (currentSourceRef.current) {
-                try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-                currentSourceRef.current = null;
+              // While assistant audio is still audible, speech is always treated
+              // as a barge-in candidate. The server re-opens turn-taking only
+              // after the browser confirms playback has actually finished.
+              bargeInConsecutiveRef.current++;
+              if (bargeInConsecutiveRef.current >= 3) {
+                sendMessageRef.current("barge_in");
+                serverDoneRef.current = false;
+                audioQueueRef.current = [];
+                isPlayingRef.current = false;
+                if (currentSourceRef.current) {
+                  try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+                  currentSourceRef.current = null;
+                }
+                for (const frame of rollingBufferRef.current) {
+                  sendMessageRef.current("audio", { data: frame });
+                }
+                rollingBufferRef.current = [];
+                bargeInConsecutiveRef.current = 0;
               }
+              return;
             }
             return; // still gate Deepgram — don't send audio while playing
           }
@@ -432,7 +465,10 @@ export function useSession() {
     if (audioQueueRef.current.length === 0) {
       // Brief grace period before re-opening the mic — lets residual room
       // echo from the speakers dissipate so Deepgram doesn't pick it up.
-      setTimeout(() => { isPlayingRef.current = false; }, 150);
+      setTimeout(() => {
+        isPlayingRef.current = false;
+        finalizePlaybackRef.current();
+      }, 150);
       return;
     }
 
@@ -496,6 +532,7 @@ export function useSession() {
 
   const bargeIn = useCallback(() => {
     sendMessage("barge_in");
+    serverDoneRef.current = false;
     audioQueueRef.current = [];
     isPlayingRef.current = false;
     if (currentSourceRef.current) {
@@ -509,6 +546,7 @@ export function useSession() {
     stopMicRef.current();
     audioQueueRef.current = [];
     isPlayingRef.current = false;
+    serverDoneRef.current = false;
     if (currentSourceRef.current) {
       try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
       currentSourceRef.current = null;

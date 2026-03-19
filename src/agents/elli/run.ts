@@ -2,10 +2,8 @@ import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
 import {
-  dateTime,
   endSession,
   logAttempt,
-  startSession,
   transitionToWork,
   mathProblem,
   riddleTracker,
@@ -22,10 +20,33 @@ export interface RunAgentOptions {
   quiet?: boolean;
   /** When true, append instruction to redirect to learning (called after 3 turns) */
   transitionToWorkPhase?: boolean;
+  allowTransitionToWork?: boolean;
+}
+
+export function buildAgentTools(opts: { allowTransitionToWork?: boolean } = {}) {
+  const { allowTransitionToWork = true } = opts;
+  return {
+    endSession,
+    logAttempt,
+    ...(allowTransitionToWork ? { transitionToWork } : {}),
+    mathProblem,
+    riddleTracker,
+    showCanvas,
+  };
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<string> {
-  const { history, userMessage, profile, onToken, signal, onStepFinish, quiet, transitionToWorkPhase } = opts;
+  const {
+    history,
+    userMessage,
+    profile,
+    onToken,
+    signal,
+    onStepFinish,
+    quiet,
+    transitionToWorkPhase,
+    allowTransitionToWork,
+  } = opts;
 
   let fullText = "";
   const systemPrompt = transitionToWorkPhase
@@ -41,16 +62,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       { role: "user", content: userMessage }
     ],
     maxOutputTokens: 500,
-    tools: {
-      dateTime,
-      endSession,
-      logAttempt,
-      startSession,
-      transitionToWork,
-      mathProblem,
-      riddleTracker,
-      showCanvas,
-    },
+    tools: buildAgentTools({ allowTransitionToWork }),
     stopWhen: stepCountIs(8),
     abortSignal: signal,
     onStepFinish: (step) => {

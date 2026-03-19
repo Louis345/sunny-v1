@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import LottieRaw from "lottie-react";
+import { canvasHasRenderableContent } from "../../../src/shared/canvasRenderability";
 const Lottie = (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
 
 function unescapeSvg(svg: string | undefined): string {
@@ -763,12 +764,7 @@ export function Canvas({
   );
 
   useEffect(() => {
-    const hasContent =
-      canvas.content ||
-      canvas.label ||
-      canvas.placeValueData ||
-      ((canvas.svg || canvas.lottieData) &&
-        (canvas.mode === "reward" || canvas.mode === "championship"));
+    const hasContent = canvasHasRenderableContent(canvas);
     if (
       canvas.mode !== "idle" &&
       hasContent &&
