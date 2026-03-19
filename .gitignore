@@ -7,6 +7,12 @@ src/**/*.js
 # Reference repo for AI Agents course (Frontend Masters)
 _reference/
 
+# Auto-generated at startup
+CANVAS_CAPABILITIES.md
+
+# Homework — runtime data, never committed (repo root only; not src/tests/fixtures/homework)
+/homework/
+
 # Document ingester — private documents not committed
 src/intake/ila/*.txt
 src/intake/ila/*.md

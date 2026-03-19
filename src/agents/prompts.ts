@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 
 const ilaSoul = fs.readFileSync(
   path.resolve(process.cwd(), "src/souls/ila.md"),
@@ -161,6 +162,20 @@ You decide what gets taught. The companion does not make curriculum decisions â€
 
 Here is ${childName}'s complete evaluation profile:
 ${soul}
+
+## Canvas Capabilities
+The following canvas modes are available for Elli to use.
+Recommend specific modes by name in your lesson plan.
+${getCanvasCapabilities()}
+
+## Homework Processing
+If homework content is present in the session context:
+- Identify the subject from the content
+- Recommend appropriate canvas modes for that subject
+- Suggest pacing based on the child's profile
+- Note any parent notes about due dates or priorities
+- Do NOT generate a rigid execution script
+- DO give Elli clear context and let her adapt
 
 ## Your Process â€” Follow This Every Time
 
