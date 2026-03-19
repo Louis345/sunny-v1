@@ -71,6 +71,12 @@ export function handleWsConnection(
         break;
       }
 
+      case "playback_done": {
+        if (!session) return;
+        session.playbackDone();
+        break;
+      }
+
       default:
         ws.send(
           JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })

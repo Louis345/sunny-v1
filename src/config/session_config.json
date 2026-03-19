@@ -2,7 +2,7 @@
   "maxDurationMinutes": 15,
   "ila": {
     "maxDurationMinutes": 15,
-    "rewardFlashDuration_ms": 1500,
+    "rewardFlashDuration_ms": 400,
     "rewardTakeoverDuration_ms": 3000
   },
   "reina": {

@@ -32,9 +32,14 @@ function test(name: string, fn: () => void | Promise<void>) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { showCanvas } from "../agents/elli/tools/showCanvas";
+import { buildAgentTools } from "../agents/elli/run";
+import { canvasHasRenderableContent } from "../shared/canvasRenderability";
 
 async function testShowCanvasEmptyPhonemeBoxes() {
-  const result = await showCanvas.execute(
+  const execute = showCanvas.execute;
+  assert.ok(execute, "showCanvas.execute should exist");
+
+  const result = await execute(
     {
       mode: "teaching",
       content: "bad",
@@ -45,7 +50,9 @@ async function testShowCanvasEmptyPhonemeBoxes() {
       ],
     },
     { toolCallId: "test-1", messages: [] }
-  );
+  ) as Awaited<ReturnType<NonNullable<typeof showCanvas.execute>>> & {
+    phonemeBoxes?: Array<{ position: string; value: string; highlighted: boolean }>;
+  };
 
   assert.ok(result.phonemeBoxes, "phonemeBoxes should exist in result");
   for (const box of result.phonemeBoxes!) {
@@ -62,11 +69,45 @@ async function testShowCanvasEmptyPhonemeBoxes() {
   }
 }
 
+async function testShowCanvasSpellingMode() {
+  const execute = showCanvas.execute;
+  assert.ok(execute, "showCanvas.execute should exist");
+
+  const result = await execute(
+    {
+      mode: "spelling",
+      spellingWord: "railroad",
+      spellingRevealed: ["r", "a"],
+      showWord: "hidden",
+      compoundBreak: 4,
+      streakCount: 2,
+      personalBest: 5,
+    },
+    { toolCallId: "test-spelling", messages: [] }
+  ) as Awaited<ReturnType<NonNullable<typeof showCanvas.execute>>> & {
+    spellingWord?: string;
+    spellingRevealed?: string[];
+    showWord?: "hidden" | "hint" | "always";
+    compoundBreak?: number;
+    streakCount?: number;
+    personalBest?: number;
+  };
+
+  assert.equal(result.spellingWord, "railroad");
+  assert.deepEqual(result.spellingRevealed, ["r", "a"]);
+  assert.equal(result.showWord, "hidden");
+  assert.equal(result.compoundBreak, 4);
+  assert.equal(result.streakCount, 2);
+  assert.equal(result.personalBest, 5);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Bug 5 — TurnStateMachine: second barge-in should not silently drop the first
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { TurnStateMachine } from "../server/session-state";
+import { SessionManager, shouldTriggerTransitionToWorkPhase } from "../server/session-manager";
+import { transitionToWork, resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
 
 function testMultiBargeInNotDropped() {
   const logs: string[] = [];
@@ -105,7 +146,7 @@ function testMultiBargeInNotDropped() {
 // sanitizeForTTS is not exported, so we test it indirectly via TurnStateMachine:
 // feed tokens that produce "us.Perfect" in the buffer and verify the flushed
 // string has a space inserted.
-function testSanitizeSpaceAfterPunctuation() {
+async function testSanitizeSpaceAfterPunctuation() {
   const flushed: string[] = [];
   const machine = new TurnStateMachine(
     (text) => flushed.push(text),
@@ -114,8 +155,9 @@ function testSanitizeSpaceAfterPunctuation() {
   );
 
   // Simulate agent completing with a buffer that has "us.Perfect" joined
+  machine.onEndOfTurn();
+  await new Promise<void>((resolve) => setImmediate(resolve));
   machine["ttsBuffer"] = "get everything set up for us.Perfect! How are you feeling today?";
-  machine["state"] = "PROCESSING" as never;
   machine.onAgentComplete();
 
   assert.ok(flushed.length > 0, "expected at least one flush");
@@ -175,6 +217,153 @@ async function testNoEagerFlushDuringProcessing() {
   );
 }
 
+async function testSpeakingPersistsUntilPlaybackComplete() {
+  const machine = new TurnStateMachine(
+    () => {},
+    () => {},
+    () => {}
+  );
+
+  machine.onEndOfTurn();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  machine.onAgentComplete();
+  assert.equal(
+    machine.getState(),
+    "SPEAKING",
+    "Agent completion should move turn into SPEAKING"
+  );
+
+  assert.equal(
+    machine.getState(),
+    "SPEAKING",
+    "Turn should remain SPEAKING until browser playback completes"
+  );
+
+  machine.onPlaybackComplete();
+  assert.equal(
+    machine.getState(),
+    "IDLE",
+    "Turn should return to IDLE only after playback completion"
+  );
+}
+
+async function testNoTranscriptReplayDuringAssistantTurn() {
+  const fakeWs = {
+    OPEN: 1,
+    readyState: 1,
+    send: () => {},
+  };
+
+  const manager = new SessionManager(fakeWs as never, "Ila") as unknown as {
+    handleEndOfTurn: (transcript: string, isReplay?: boolean) => Promise<void>;
+    turnSM: TurnStateMachine;
+  };
+
+  manager.turnSM.onEndOfTurn();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  manager.turnSM.onAgentComplete();
+  assert.equal(manager.turnSM.getState(), "SPEAKING");
+
+  await manager.handleEndOfTurn("let's do spelling");
+
+  assert.equal(
+    manager.turnSM.consumePendingTranscript(),
+    null,
+    "Transcript captured during assistant-owned turn should be discarded, not queued for replay"
+  );
+  assert.equal(
+    manager.turnSM.getState(),
+    "SPEAKING",
+    "Assistant-owned turn should remain SPEAKING after stray transcript is ignored"
+  );
+}
+
+async function testTransitionToWorkOnlyOncePerSession() {
+  resetTransitionToWork();
+  const execute = transitionToWork.execute;
+  assert.ok(execute, "transitionToWork.execute should exist");
+
+  const first = await execute(
+    { childName: "Ila" },
+    { toolCallId: "transition-1", messages: [] }
+  );
+  const second = await execute(
+    { childName: "Ila" },
+    { toolCallId: "transition-2", messages: [] }
+  );
+
+  assert.match(String(first), /transitioned to work/i);
+  assert.match(String(second), /already transitioned to work/i);
+}
+
+function testAgentToolsHideSessionStartAndConditionalTransition() {
+  const defaultTools = buildAgentTools();
+  assert.ok(!("startSession" in defaultTools), "startSession should not be exposed to the model");
+  assert.ok(!("dateTime" in defaultTools), "dateTime should not be exposed to the model");
+  assert.ok("transitionToWork" in defaultTools, "transitionToWork should be available when allowed");
+
+  const learningTools = buildAgentTools({ allowTransitionToWork: false });
+  assert.ok(!("transitionToWork" in learningTools), "transitionToWork should be hidden after learning has started");
+}
+
+function testMathCanvasDoesNotBecomeActiveWord() {
+  const fakeWs = {
+    OPEN: 1,
+    readyState: 1,
+    send: () => {},
+  };
+
+  const manager = new SessionManager(fakeWs as never, "Ila") as unknown as {
+    handleToolCall: (tool: string, args: Record<string, unknown>, result: unknown) => void;
+    activeWord: string | null;
+  };
+
+  manager.handleToolCall(
+    "showCanvas",
+    { mode: "teaching", content: "5 + 3 = ?" },
+    { mode: "teaching", content: "5 + 3 = ?" }
+  );
+
+  assert.equal(
+    manager.activeWord,
+    null,
+    "Math teaching canvases should not overwrite the active word tracker"
+  );
+}
+
+function testPhonemeBoxesCountAsRenderableCanvasContent() {
+  assert.equal(
+    canvasHasRenderableContent({
+      mode: "teaching",
+      phonemeBoxes: [
+        { position: "first", value: "s", highlighted: true },
+        { position: "middle", value: "a", highlighted: false },
+        { position: "last", value: "d", highlighted: false },
+      ],
+    }),
+    true,
+    "Teaching canvases with phonemeBoxes should count as renderable content"
+  );
+}
+
+function testTransitionPromptStopsAfterLearningStarts() {
+  assert.equal(
+    shouldTriggerTransitionToWorkPhase(5, "Ila", false),
+    true,
+    "Ila should get the transition prompt at turn 5 before learning starts"
+  );
+  assert.equal(
+    shouldTriggerTransitionToWorkPhase(6, "Ila", true),
+    false,
+    "Transition prompt should stop once learning has already started"
+  );
+  assert.equal(
+    shouldTriggerTransitionToWorkPhase(8, "Reina", false),
+    false,
+    "Transition prompt is Ila-specific"
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Run all tests
 // ─────────────────────────────────────────────────────────────────────────────
@@ -183,9 +372,17 @@ async function main() {
   console.log("\nRunning session bug tests...\n");
 
   await test("showCanvas: empty phonemeBox values replaced with '?'", testShowCanvasEmptyPhonemeBoxes);
+  await test("showCanvas: spelling mode returns spelling fields", testShowCanvasSpellingMode);
   await test("TurnStateMachine: multiple barge-ins preserved (not overwritten)", testMultiBargeInNotDropped);
   await test("sanitizeForTTS: space inserted between sentence-end punct and next word", testSanitizeSpaceAfterPunctuation);
   await test("hold-until-complete: no eager flush during PROCESSING, full response on onAgentComplete", testNoEagerFlushDuringProcessing);
+  await test("turn stays SPEAKING until playback completes", testSpeakingPersistsUntilPlaybackComplete);
+  await test("transcripts during assistant-owned turn are ignored, not replayed", testNoTranscriptReplayDuringAssistantTurn);
+  await test("transitionToWork only succeeds once per session", testTransitionToWorkOnlyOncePerSession);
+  await test("agent tools hide session-start tools and conditionally hide transitionToWork", testAgentToolsHideSessionStartAndConditionalTransition);
+  await test("math teaching canvas does not become activeWord", testMathCanvasDoesNotBecomeActiveWord);
+  await test("phonemeBoxes-only teaching canvas counts as renderable content", testPhonemeBoxesCountAsRenderableCanvasContent);
+  await test("transition prompt stops after learning starts", testTransitionPromptStopsAfterLearningStarts);
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
   if (failed > 0) process.exit(1);

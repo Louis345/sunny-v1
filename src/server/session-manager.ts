@@ -14,10 +14,20 @@ import {
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { resetMathProbeSession } from "../agents/elli/tools/mathProblem";
+import { resetSessionStart } from "../agents/elli/tools/startSession";
+import { resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
 import type { ModelMessage } from "ai";
 import { TurnStateMachine } from "./session-state";
 
 type ChildName = "Ila" | "Reina";
+
+export function shouldTriggerTransitionToWorkPhase(
+  roundNumber: number,
+  childName: ChildName,
+  transitionedToWork: boolean
+): boolean {
+  return roundNumber >= 5 && childName === "Ila" && !transitionedToWork;
+}
 
 interface RewardEvent {
   timestamp: string;
@@ -48,12 +58,16 @@ export class SessionManager {
 
   private lastTranscript = "";
   private lastTranscriptTime = 0;
+  private lastEagerTranscript = "";
+  private lastEagerTranscriptTime = 0;
   private speakingStartedAt = 0;
   private lastCanvasWasMath = false;
   private lastCanvasMode: string = "idle";
   private toolCallsMadeThisTurn = 0;
   private activeWord: string | null = null;
   private wordShowCount: Map<string, number> = new Map();
+  private sessionStartedToolCalled = false;
+  private transitionedToWork = false;
 
   private turnSM: TurnStateMachine;
 
@@ -64,6 +78,13 @@ export class SessionManager {
       typeof content === "string" &&
       /[\d]+\s*([+\-×÷])\s*[\d]+/.test(content)
     );
+  }
+
+  private isWordTeachingCanvas(args: Record<string, unknown>): boolean {
+    if (args.mode !== "teaching") return false;
+    if (this.isTeachingMathCanvas(args)) return false;
+    const content = args.content;
+    return typeof content === "string" && /[a-z]/i.test(content);
   }
 
   /**
@@ -166,7 +187,11 @@ export class SessionManager {
     });
 
     resetMathProbeSession(this.childName);
+    resetSessionStart();
+    resetTransitionToWork();
     this.wordShowCount.clear();
+    this.sessionStartedToolCalled = false;
+    this.transitionedToWork = false;
 
     this.ttsBridge = new WsTtsBridge(this.ws, this.companion.voiceId);
     await this.ttsBridge.prime();
@@ -202,6 +227,10 @@ export class SessionManager {
 
   canvasDone(): void {
     this.turnSM.onCanvasDone();
+  }
+
+  playbackDone(): void {
+    this.turnSM.onPlaybackComplete();
   }
 
   async end(): Promise<void> {
@@ -263,15 +292,13 @@ export class SessionManager {
         }
       },
       onEagerEndOfTurn: (transcript: string) => {
-        if (this.turnSM.getState() === "IDLE") {
-          this.handleEndOfTurn(transcript).catch(console.error);
-        }
+        this.handleFluxEndOfTurn(transcript, "eager");
       },
       onInterim: (text) => {
         this.send("interim", { text });
       },
       onEndOfTurn: (transcript) => {
-        this.handleEndOfTurn(transcript).catch(console.error);
+        this.handleFluxEndOfTurn(transcript, "final");
       },
       onError: (err) => {
         console.error("  🔴 Deepgram error:", err.message);
@@ -279,7 +306,33 @@ export class SessionManager {
     });
   }
 
-  private shouldQueueTranscript(transcript: string): boolean {
+  private handleFluxEndOfTurn(
+    transcript: string,
+    source: "eager" | "final"
+  ): void {
+    const normalized = transcript.toLowerCase().trim();
+    if (!normalized) return;
+
+    if (source === "eager") {
+      this.lastEagerTranscript = normalized;
+      this.lastEagerTranscriptTime = Date.now();
+      if (this.turnSM.getState() === "IDLE") {
+        this.handleEndOfTurn(transcript).catch(console.error);
+      }
+      return;
+    }
+
+    if (
+      normalized === this.lastEagerTranscript &&
+      Date.now() - this.lastEagerTranscriptTime < 3000
+    ) {
+      return;
+    }
+
+    this.handleEndOfTurn(transcript).catch(console.error);
+  }
+
+  private shouldAcceptInterruptedTranscript(transcript: string): boolean {
     const trimmed = transcript.trim();
 
     // Only discard single non-alphabetic character (e.g. "?", ".", "-")
@@ -324,9 +377,8 @@ export class SessionManager {
       state === "CANVAS_PENDING" ||
       state === "SPEAKING"
     ) {
-      if (!this.shouldQueueTranscript(transcript)) return;
-      console.log(`  📥 Queued transcript (${state}): "${transcript}"`);
-      this.turnSM.setPendingTranscript(transcript);
+      if (!this.shouldAcceptInterruptedTranscript(transcript)) return;
+      console.log(`  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`);
       return;
     }
 
@@ -371,8 +423,11 @@ export class SessionManager {
       await this.ttsBridge.connect(previousText || undefined);
     }
 
-    const transitionToWorkPhase =
-      this.roundNumber >= 5 && this.childName === "Ila";
+    const transitionToWorkPhase = shouldTriggerTransitionToWorkPhase(
+      this.roundNumber,
+      this.childName,
+      this.transitionedToWork
+    );
 
     try {
       await runAgent({
@@ -387,6 +442,7 @@ export class SessionManager {
         },
         signal: this.currentAbort?.signal,
         transitionToWorkPhase,
+        allowTransitionToWork: !this.transitionedToWork,
         onStepFinish: (step) => {
           const toolCalls = (step.toolCalls ?? []) as Array<{
             toolName?: string;
@@ -458,14 +514,6 @@ export class SessionManager {
         await this.ttsBridge.finish();
       }
       this.send("audio_done");
-      this.turnSM.onSpeakingDone();
-
-      // After agent completes and TTS flushes, check for queued transcript
-      const pending = this.turnSM.consumePendingTranscript();
-      if (pending) {
-        console.log(`  ▶️  Replaying queued transcript: "${pending}"`);
-        setTimeout(() => this.handleEndOfTurn(pending, true), 50);
-      }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
         console.log("  ⚡ Agent aborted (barge-in)");
@@ -492,7 +540,6 @@ export class SessionManager {
       await this.ttsBridge.finish();
     }
     this.send("audio_done");
-    this.turnSM.onSpeakingDone();
   }
 
   handleToolCall(
@@ -506,6 +553,22 @@ export class SessionManager {
     if (tool === "endSession") {
       this.send("session_ended", {});
       setTimeout(() => process.exit(0), 500);
+    }
+
+    if (tool === "startSession") {
+      if (this.sessionStartedToolCalled) {
+        console.warn("  ⚠️  Duplicate startSession tool call ignored");
+        return;
+      }
+      this.sessionStartedToolCalled = true;
+    }
+
+    if (tool === "transitionToWork") {
+      if (this.transitionedToWork) {
+        console.warn("  ⚠️  Duplicate transitionToWork tool call ignored");
+        return;
+      }
+      this.transitionedToWork = true;
     }
 
     if (tool === "logAttempt") {
@@ -553,8 +616,14 @@ export class SessionManager {
       }
 
       // ── Ila: track the active word, validate phonemeBoxes, count re-shows ──
-      if (this.childName === "Ila" && args.mode === "teaching") {
-        const word = (args.content as string | undefined)?.trim() ?? null;
+      if (
+        this.childName === "Ila" &&
+        (this.isWordTeachingCanvas(args) || args.mode === "spelling")
+      ) {
+        const word =
+          args.mode === "spelling"
+            ? ((args.spellingWord as string | undefined)?.trim() ?? null)
+            : ((args.content as string | undefined)?.trim() ?? null);
         this.activeWord = word;
         if (word) console.log(`  📝 Active word set: "${word}"`);
 
@@ -580,6 +649,8 @@ export class SessionManager {
             );
           }
         }
+      } else if (this.childName === "Ila") {
+        this.activeWord = null;
       }
 
       const r = (result ?? args) as {
