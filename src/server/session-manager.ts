@@ -1,7 +1,7 @@
 import type { WebSocket } from "ws";
 import { ELLI, MATILDA, type CompanionConfig } from "../companions/loader";
 import { TEST_MODE_PROMPT } from "../agents/prompts";
-import { loadHomework, homeworkToPrompt } from "../utils/loadHomework";
+import { loadHomeworkPayload } from "../utils/loadHomeworkFolder";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
 import { connectFlux, type FluxHandle } from "../deepgram-turn";
@@ -93,21 +93,6 @@ export class SessionManager {
         openingLine: `[TEST MODE] Diagnostic session for ${childName}. Ready. Give me a tool call to verify.`,
       };
       console.log(`  🧪 TEST MODE active — diagnostic prompt loaded for ${childName}`);
-    } else {
-      // Check for homework — if present it overrides the standard curriculum
-      const homework = loadHomework(childName);
-      if (homework) {
-        const hwPrompt = homeworkToPrompt(homework);
-        // Replace the "WHAT TO WORK ON TODAY" section with the homework override
-        this.companion = {
-          ...this.companion,
-          systemPrompt: this.companion.systemPrompt.replace(
-            /=== WHAT TO WORK ON TODAY ===([\s\S]*?)=== NATURAL THINGS/,
-            `=== WHAT TO WORK ON TODAY ===\n${hwPrompt}\n\n=== NATURAL THINGS`
-          ),
-        };
-        console.log(`  📚 Homework override active for ${childName}: ${homework.id}`);
-      }
     }
 
     this.turnSM = new TurnStateMachine(
@@ -142,6 +127,27 @@ export class SessionManager {
     console.log(
       `  🌟 [${ts}] Starting session: ${this.childName} with ${this.companion.name}`
     );
+
+    // Folder-based homework (images) — inject at session startup
+    if (process.env.SUNNY_TEST_MODE !== "true") {
+      const homeworkPayload = await loadHomeworkPayload(this.childName);
+      if (homeworkPayload) {
+        this.companion = {
+          ...this.companion,
+          systemPrompt: this.companion.systemPrompt.replace(
+            /=== WHAT TO WORK ON TODAY ===([\s\S]*?)=== NATURAL THINGS/,
+            `=== WHAT TO WORK ON TODAY ===\n` +
+              `HOMEWORK ACTIVE (${homeworkPayload.date}):\n` +
+              `${homeworkPayload.rawContent}\n\n` +
+              `=== NATURAL THINGS`
+          ),
+        };
+        console.log(
+          `  📚 Homework injected for ${this.childName}: ` +
+            `${homeworkPayload.fileCount} pages`
+        );
+      }
+    }
 
     this.send("session_started", {
       child: this.childName,
@@ -458,7 +464,7 @@ export class SessionManager {
       const pending = this.turnSM.consumePendingTranscript();
       if (pending) {
         console.log(`  ▶️  Replaying queued transcript: "${pending}"`);
-        setTimeout(() => this.handleEndOfTurn(pending, true), 300);
+        setTimeout(() => this.handleEndOfTurn(pending, true), 50);
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -476,12 +482,17 @@ export class SessionManager {
   }
 
   private async handleCompanionTurn(text: string): Promise<void> {
+    this.turnSM.onEndOfTurn();
+    // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    this.turnSM.onAgentComplete();
     this.send("response_text", { chunk: text });
     if (this.ttsBridge) {
       this.ttsBridge.sendText(text);
       await this.ttsBridge.finish();
     }
     this.send("audio_done");
+    this.turnSM.onSpeakingDone();
   }
 
   handleToolCall(

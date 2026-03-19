@@ -30,7 +30,7 @@ interface PlaceValueData {
 }
 
 interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -39,6 +39,12 @@ interface CanvasState {
   pendingAnswer?: string;
   animationKey?: number;
   placeValueData?: PlaceValueData;
+  spellingWord?: string;
+  spellingRevealed?: string[];
+  showWord?: "hidden" | "hint" | "always";
+  compoundBreak?: number;
+  streakCount?: number;
+  personalBest?: number;
 }
 
 type SessionPhase = "picker" | "connecting" | "active" | "ended";
@@ -81,6 +87,9 @@ export function useSession() {
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const serverDoneRef = useRef(false);
+  const bargeInConsecutiveRef = useRef(0);
+  const rollingBufferRef = useRef<string[]>([]);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -194,6 +203,7 @@ export function useSession() {
         break;
 
       case "audio": {
+        serverDoneRef.current = false;
         const audioData = base64ToArrayBuffer((msg.data as string) ?? "");
         audioQueueRef.current.push(audioData);
         if (!isPlayingRef.current) {
@@ -203,6 +213,7 @@ export function useSession() {
       }
 
       case "audio_done":
+        serverDoneRef.current = true;
         break;
 
       case "tool_call": {
@@ -227,7 +238,9 @@ export function useSession() {
             "riddle",
             "championship",
             "place_value",
+            "spelling",
           ];
+          const isSpelling = mode === "spelling";
           setStateRef.current((s) => ({
             ...s,
             canvas: {
@@ -238,6 +251,12 @@ export function useSession() {
               content: data.content as string | undefined,
               phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
               placeValueData: data.placeValueData as PlaceValueData | undefined,
+              spellingWord: isSpelling ? (data.spellingWord as string | undefined) : undefined,
+              spellingRevealed: isSpelling ? (data.spellingRevealed as string[] | undefined) : undefined,
+              compoundBreak: isSpelling ? (data.compoundBreak as number | undefined) : undefined,
+              streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
+              personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
+              showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -301,9 +320,10 @@ export function useSession() {
         const mode = (msg.mode ?? (msg.args as Record<string, unknown>)?.mode) as CanvasState["mode"];
         const content = (msg.content ?? (msg.args as Record<string, unknown>)?.content) as string | undefined;
         const label = (msg.label ?? (msg.args as Record<string, unknown>)?.label) as string | undefined;
-        const validModes: CanvasState["mode"][] = ["idle", "teaching", "reward", "riddle", "championship", "place_value"];
+        const validModes: CanvasState["mode"][] = ["idle", "teaching", "reward", "riddle", "championship", "place_value", "spelling"];
         if (mode && validModes.includes(mode)) {
           const data = (msg.args ?? msg) as Record<string, unknown>;
+          const isSpelling = mode === "spelling";
           setStateRef.current((s) => ({
             ...s,
             canvas: {
@@ -314,6 +334,12 @@ export function useSession() {
               lottieData: data.lottieData as Record<string, unknown> | undefined,
               phonemeBoxes: data.phonemeBoxes as CanvasState["phonemeBoxes"],
               placeValueData: data.placeValueData as PlaceValueData | undefined,
+              spellingWord: isSpelling ? (data.spellingWord as string | undefined) : undefined,
+              spellingRevealed: isSpelling ? (data.spellingRevealed as string[] | undefined) : undefined,
+              compoundBreak: isSpelling ? (data.compoundBreak as number | undefined) : undefined,
+              streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
+              personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
+              showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -368,31 +394,66 @@ export function useSession() {
         processor.onaudioprocess = (e) => {
           const float32 = e.inputBuffer.getChannelData(0);
 
-          // While Elli is speaking, check if the child is talking over her.
-          // Compute RMS volume — if it crosses the speech threshold, fire
-          // bargeIn() directly from the browser without going through Deepgram
-          // (Deepgram is still gated below to prevent echo transcription).
-          if (isPlayingRef.current) {
-            let sum = 0;
-            for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
-            const rms = Math.sqrt(sum / float32.length);
-            // ~0.04 RMS ≈ clearly audible speech; below that is room noise / breath
-            if (rms > 0.04) {
-              sendMessageRef.current("barge_in");
-              audioQueueRef.current = [];
-              isPlayingRef.current = false;
-              if (currentSourceRef.current) {
-                try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
-                currentSourceRef.current = null;
-              }
-            }
-            return; // still gate Deepgram — don't send audio while playing
-          }
+          // Always convert — needed for both rolling buffer and Deepgram send
           const int16 = new Int16Array(float32.length);
           for (let i = 0; i < float32.length; i++) {
             int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
           }
           const base64 = arrayBufferToBase64(int16.buffer);
+
+          // Keep a ~1s rolling buffer so Deepgram gets a head start when
+          // transitioning from gated (TTS playing) to ungated.
+          rollingBufferRef.current.push(base64);
+          if (rollingBufferRef.current.length > 4) {
+            rollingBufferRef.current.shift();
+          }
+
+          if (isPlayingRef.current) {
+            let sum = 0;
+            for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
+            const rms = Math.sqrt(sum / float32.length);
+
+            if (rms > 0.04) {
+              if (serverDoneRef.current) {
+                // Server finished sending audio — normal turn-taking, not a
+                // barge-in. Stop remaining playback and resume Deepgram.
+                audioQueueRef.current = [];
+                isPlayingRef.current = false;
+                if (currentSourceRef.current) {
+                  try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+                  currentSourceRef.current = null;
+                }
+                for (const frame of rollingBufferRef.current) {
+                  sendMessageRef.current("audio", { data: frame });
+                }
+                rollingBufferRef.current = [];
+                bargeInConsecutiveRef.current = 0;
+                return;
+              }
+
+              // True barge-in — require 3 consecutive frames to confirm
+              bargeInConsecutiveRef.current++;
+              if (bargeInConsecutiveRef.current >= 3) {
+                sendMessageRef.current("barge_in");
+                audioQueueRef.current = [];
+                isPlayingRef.current = false;
+                if (currentSourceRef.current) {
+                  try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
+                  currentSourceRef.current = null;
+                }
+                for (const frame of rollingBufferRef.current) {
+                  sendMessageRef.current("audio", { data: frame });
+                }
+                rollingBufferRef.current = [];
+                bargeInConsecutiveRef.current = 0;
+              }
+              return;
+            }
+
+            bargeInConsecutiveRef.current = 0;
+            return;
+          }
+
           sendMessageRef.current("audio", { data: base64 });
         };
 
@@ -502,6 +563,11 @@ export function useSession() {
       try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
       currentSourceRef.current = null;
     }
+    for (const frame of rollingBufferRef.current) {
+      sendMessage("audio", { data: frame });
+    }
+    rollingBufferRef.current = [];
+    bargeInConsecutiveRef.current = 0;
   }, [sendMessage]);
 
   const endSession = useCallback(() => {
