@@ -102,8 +102,8 @@ ${notes ? `Parent notes: ${notes.content}` : ""}`,
   });
 
   return response.content
-    .filter((b): b is { type: "text"; text: string } => b.type === "text")
-    .map((b) => b.text)
+    .filter((block) => block.type === "text")
+    .map((block) => ("text" in block ? block.text : ""))
     .join("\n");
 }
 

@@ -37,7 +37,8 @@
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "unpdf": "^1.4.0",
-    "ws": "^8.19.0"
+    "ws": "^8.19.0",
+    "xstate": "^5.28.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

@@ -3,6 +3,10 @@ import { z } from "zod";
 
 let sessionStarted = false;
 
+export function resetSessionStart(): void {
+  sessionStarted = false;
+}
+
 /** Call once at session start — not exposed as a tool to Claude (avoids per-turn latency). */
 export async function recordSessionStart(
   childName: "Ila" | "Reina",

@@ -96,7 +96,12 @@ export interface CompanionConfig {
   systemPrompt: string;
   openingLine: string;
   goodbye: string;
+  tracksActiveWord?: boolean;
+  transitionToWorkAfterRounds?: number;
+  usesCanonicalMathProblem?: boolean;
 }
+
+export type ChildName = "Ila" | "Reina";
 
 function loadCompanion(
   companionFile: string,
@@ -105,6 +110,10 @@ function loadCompanion(
   curriculumFile: string,
   voiceEnvKey: string,
   voiceFallback: string,
+  behavior: Pick<
+    CompanionConfig,
+    "tracksActiveWord" | "transitionToWorkAfterRounds" | "usesCanonicalMathProblem"
+  > = {},
 ): CompanionConfig {
   const companionMd = read(companionFile);
   const soul = read(soulFile);
@@ -215,6 +224,7 @@ ${lastTwoSessionSummaries}
     systemPrompt,
     openingLine,
     goodbye,
+    ...behavior,
   };
 }
 
@@ -225,6 +235,11 @@ export const ELLI = loadCompanion(
   "curriculum/ila_curriculum.md",
   "ELEVENLABS_VOICE_ID_ILA",
   "MF3mGyEYCl7XYWbV9V6O",
+  {
+    tracksActiveWord: true,
+    transitionToWorkAfterRounds: 5,
+    usesCanonicalMathProblem: false,
+  },
 );
 
 export const MATILDA = loadCompanion(
@@ -234,4 +249,18 @@ export const MATILDA = loadCompanion(
   "curriculum/reina_curriculum.md",
   "ELEVENLABS_VOICE_ID_REINA",
   "XrExE9yKIg1WjnnlVkGX",
+  {
+    tracksActiveWord: false,
+    transitionToWorkAfterRounds: undefined,
+    usesCanonicalMathProblem: true,
+  },
 );
+
+export const COMPANIONS_BY_CHILD: Record<ChildName, CompanionConfig> = {
+  Ila: ELLI,
+  Reina: MATILDA,
+};
+
+export function getCompanionConfig(childName: ChildName): CompanionConfig {
+  return COMPANIONS_BY_CHILD[childName];
+}
