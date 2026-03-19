@@ -3,9 +3,9 @@ import { z } from "zod";
 
 const showCanvasSchema = z.object({
   mode: z
-    .enum(["teaching", "reward", "riddle", "championship", "place_value"])
+    .enum(["teaching", "reward", "riddle", "championship", "place_value", "spelling"])
     .describe(
-      "Canvas display mode. teaching = show word/problem. reward = celebration drawing. riddle = riddle text. championship = level-up ceremony. place_value = hundreds/tens/ones table for multi-digit addition or subtraction."
+      "Canvas display mode. teaching = show word/problem. reward = celebration drawing. riddle = riddle text. championship = level-up ceremony. place_value = hundreds/tens/ones table for multi-digit addition or subtraction. spelling = letter-by-letter spelling practice."
     ),
   svg: z
     .string()
@@ -73,16 +73,46 @@ const showCanvasSchema = z.object({
     .describe(
       "REQUIRED when mode=place_value. Renders a hundreds/tens/ones table for multi-digit addition or subtraction homework. All fields (operandA, operandB, etc.) go INSIDE this object, not as top-level params."
     ),
+  spellingWord: z
+    .string()
+    .optional()
+    .describe("REQUIRED when mode=spelling. The full target word the child is spelling."),
+  spellingRevealed: z
+    .array(z.string())
+    .optional()
+    .describe("Letters confirmed so far in order for spelling mode."),
+  showWord: z
+    .enum(["hidden", "hint", "always"])
+    .optional()
+    .describe("Controls whether the full spelling word is hidden, hinted, or always visible."),
+  compoundBreak: z
+    .number()
+    .int()
+    .optional()
+    .describe("Optional tile index where a compound word visually splits in spelling mode."),
+  streakCount: z
+    .number()
+    .int()
+    .optional()
+    .describe("Optional current correct streak shown in spelling mode."),
+  personalBest: z
+    .number()
+    .int()
+    .optional()
+    .describe("Optional personal-best streak shown in spelling mode."),
 }).refine(
   (data) => data.mode !== "place_value" || data.placeValueData !== undefined,
   { message: "placeValueData is required when mode is 'place_value'. Put operandA, operandB, operation, layout, scaffoldLevel, activeColumn, and revealedColumns inside placeValueData.", path: ["placeValueData"] }
+).refine(
+  (data) => data.mode !== "spelling" || !!data.spellingWord,
+  { message: "spellingWord is required when mode is 'spelling'.", path: ["spellingWord"] }
 );
 
 export type ShowCanvasArgs = z.infer<typeof showCanvasSchema>;
 
 export const showCanvas = tool({
   description:
-    "Draw on the child's screen. Call this tool immediately and in parallel with other tools. Never wait for logAttempt or mathProblem to resolve first. Use 'teaching' mode to display words, phonemes, or math problems. Use 'reward' mode after correct answers to draw something fun and unique (the child sees your SVG). Use 'riddle' mode at 3 correct to show a riddle. Use 'championship' mode at 5 correct for a level-up ceremony. For reward/championship: generate a unique, fun SVG drawing related to the conversation — animals, rockets, silly faces, anything the child would love. Never draw the same thing twice. Keep SVG under 2000 characters.",
+    "Draw on the child's screen. Call this tool immediately and in parallel with other tools. Never wait for logAttempt or mathProblem to resolve first. Use 'teaching' mode to display words, phonemes, or math problems. Use 'spelling' mode for letter-by-letter spelling practice. Use 'reward' mode after correct answers to draw something fun and unique (the child sees your SVG). Use 'riddle' mode at 3 correct to show a riddle. Use 'championship' mode at 5 correct for a level-up ceremony. For reward/championship: generate a unique, fun SVG drawing related to the conversation — animals, rockets, silly faces, anything the child would love. Never draw the same thing twice. Keep SVG under 2000 characters.",
   inputSchema: showCanvasSchema,
   execute: async (args) => {
     const input = { ...args };
@@ -108,6 +138,12 @@ export const showCanvas = tool({
       phonemeBoxes,
       lottieData: input.lottieData,
       placeValueData: input.placeValueData,
+      spellingWord: input.spellingWord,
+      spellingRevealed: input.spellingRevealed,
+      showWord: input.showWord,
+      compoundBreak: input.compoundBreak,
+      streakCount: input.streakCount,
+      personalBest: input.personalBest,
     };
   },
 });
