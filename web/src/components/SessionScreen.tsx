@@ -1,19 +1,10 @@
 import { CompanionStrip } from "./CompanionStrip";
-import { Canvas } from "./Canvas";
+import { Canvas, type CanvasState } from "./Canvas";
 
 interface CompanionConfig {
   childName: string;
   companionName: string;
   emoji: string;
-}
-
-interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value";
-  svg?: string;
-  lottieData?: Record<string, unknown>;
-  label?: string;
-  content?: string;
-  phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
 }
 
 interface RewardEvent {

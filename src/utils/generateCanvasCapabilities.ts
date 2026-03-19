@@ -9,10 +9,22 @@ export const CANVAS_CAPABILITIES = {
     example: '{ mode: "teaching", content: "railroad" }',
   },
   spelling: {
-    description: "Word displayed as blank tiles revealed letter by letter",
-    useFor: ["spelling practice", "confirming letters as child spells aloud"],
-    props: ["spellingWord: string", "spellingRevealed: string[]"],
-    example: '{ mode: "spelling", spellingWord: "railroad", spellingRevealed: ["r","a"] }',
+    description: "Blank tiles revealed letter by letter as child spells aloud. Word hidden by default.",
+    useFor: [
+      "spelling practice",
+      "spelling tests",
+      "compound word morpheme work",
+      "competitive streak spelling",
+    ],
+    props: [
+      "spellingWord: string — the full word to spell",
+      "spellingRevealed: string[] — letters confirmed so far",
+      "showWord: 'hidden' | 'hint' | 'always' — default hidden",
+      "compoundBreak?: number — tile index where compound word splits",
+      "streakCount?: number — current streak (competitive mode)",
+      "personalBest?: number — session personal best (competitive mode)",
+    ],
+    example: '{ mode: "spelling", spellingWord: "railroad", spellingRevealed: ["r","a"], showWord: "hidden", compoundBreak: 3 }',
   },
   place_value: {
     description: "Column layout showing hundreds, tens, ones with active column highlight",
