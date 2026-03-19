@@ -1,5 +1,9 @@
 import type { WebSocket } from "ws";
-import { ELLI, MATILDA, type CompanionConfig } from "../companions/loader";
+import {
+  getCompanionConfig,
+  type ChildName,
+  type CompanionConfig,
+} from "../companions/loader";
 import { TEST_MODE_PROMPT } from "../agents/prompts";
 import { loadHomework, homeworkToPrompt } from "../utils/loadHomework";
 import { runAgent } from "../agents/elli/run";
@@ -19,14 +23,17 @@ import { resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
 import type { ModelMessage } from "ai";
 import { TurnStateMachine } from "./session-state";
 
-type ChildName = "Ila" | "Reina";
-
 export function shouldTriggerTransitionToWorkPhase(
   roundNumber: number,
   childName: ChildName,
   transitionedToWork: boolean
 ): boolean {
-  return roundNumber >= 5 && childName === "Ila" && !transitionedToWork;
+  const companion = getCompanionConfig(childName);
+  return (
+    companion.transitionToWorkAfterRounds != null &&
+    roundNumber >= companion.transitionToWorkAfterRounds &&
+    !transitionedToWork
+  );
 }
 
 interface RewardEvent {
@@ -105,7 +112,7 @@ export class SessionManager {
   constructor(ws: WebSocket, childName: ChildName) {
     this.ws = ws;
     this.childName = childName;
-    this.companion = childName === "Ila" ? ELLI : MATILDA;
+    this.companion = getCompanionConfig(childName);
 
     if (process.env.SUNNY_TEST_MODE === "true") {
       this.companion = {
@@ -565,7 +572,7 @@ export class SessionManager {
       this.processReward(args);
 
       // Validate Elli's logAttempt references the active word on canvas
-      if (this.childName === "Ila" && this.activeWord) {
+      if (this.companion.tracksActiveWord && this.activeWord) {
         const loggedWord = (args.word as string | undefined)?.toLowerCase().trim();
         const active = this.activeWord.toLowerCase().trim();
         if (loggedWord && loggedWord !== active) {
@@ -597,7 +604,7 @@ export class SessionManager {
       // store it on the state machine. It will be appended to the TTS buffer
       // in onCanvasDone() — AFTER the canvas animation — so the spoken problem
       // is always derived from the canvas content, never from Claude's tokens.
-      if (this.childName === "Reina" && this.lastCanvasWasMath) {
+      if (this.companion.usesCanonicalMathProblem && this.lastCanvasWasMath) {
         const spoken = this.mathContentToSpoken(args.content as string);
         this.turnSM.setCanonicalProblem(spoken);
         console.log(`  📐 Canonical problem set: "${spoken}"`);
@@ -606,7 +613,7 @@ export class SessionManager {
       }
 
       // ── Ila: track the active word, validate phonemeBoxes, count re-shows ──
-      if (this.childName === "Ila" && this.isWordTeachingCanvas(args)) {
+      if (this.companion.tracksActiveWord && this.isWordTeachingCanvas(args)) {
         const word = (args.content as string | undefined)?.trim() ?? null;
         this.activeWord = word;
         if (word) console.log(`  📝 Active word set: "${word}"`);
@@ -633,7 +640,7 @@ export class SessionManager {
             );
           }
         }
-      } else if (this.childName === "Ila") {
+      } else if (this.companion.tracksActiveWord) {
         this.activeWord = null;
       }
 
