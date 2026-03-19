@@ -24,8 +24,8 @@ interface PlaceValueData {
   revealedColumns?: Array<"hundreds" | "tens" | "ones">;
 }
 
-interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value";
+export interface CanvasState {
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -34,6 +34,12 @@ interface CanvasState {
   pendingAnswer?: string;
   animationKey?: number;
   placeValueData?: PlaceValueData;
+  spellingWord?: string;
+  spellingRevealed?: string[];
+  showWord?: "hidden" | "hint" | "always";
+  compoundBreak?: number;
+  streakCount?: number;
+  personalBest?: number;
 }
 
 interface RewardEvent {
@@ -377,6 +383,155 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
           <span style={{ fontSize: "1.4rem", color: "#64748b" }}> place</span>
         </div>
       )}
+    </div>
+  );
+}
+
+function SpellingContent({
+  spellingWord,
+  spellingRevealed,
+  showWord = "hidden",
+  compoundBreak,
+  streakCount,
+  personalBest,
+}: {
+  spellingWord: string;
+  spellingRevealed: string[];
+  showWord?: "hidden" | "hint" | "always";
+  compoundBreak?: number;
+  streakCount?: number;
+  personalBest?: number;
+}) {
+  const nunito = { fontFamily: "'Nunito', sans-serif" };
+  const nunito900 = { ...nunito, fontWeight: 900 };
+
+  if (!spellingWord || spellingWord.length === 0) return null;
+
+  const letters = spellingWord.split("");
+  const revealed = spellingRevealed ?? [];
+  const isFullySpelled = revealed.length === letters.length;
+  const hintShown = false;
+  const showWordHidden = showWord === "hidden" && isFullySpelled;
+  const showWordHint = showWord === "hint" && hintShown;
+  const showWordAlways = showWord === "always";
+  const wordVisible = showWordHidden || showWordHint || showWordAlways;
+  const wordColor = showWordHidden ? "#22C55E" : showWordHint ? "#EF9F27" : "#64748B";
+
+  return (
+    <div
+      className="canvas-content flex flex-col items-center justify-center w-full flex-1"
+      style={{ ...nunito }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "16px",
+        }}
+      >
+      {streakCount != null && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            width: "100%",
+          }}
+        >
+          <div style={{ textAlign: "right" }}>
+            <div
+              style={{
+                fontSize: "1.5rem",
+                fontWeight: 700,
+                color: "#EF9F27",
+              }}
+            >
+              🔥 {streakCount}
+            </div>
+            {personalBest != null && (
+              <div
+                style={{
+                  fontSize: "1rem",
+                  fontWeight: 400,
+                  color: "#94A3B8",
+                }}
+              >
+                Best: {personalBest}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {wordVisible && (
+        <div
+          style={{
+            fontSize: "2rem",
+            fontWeight: 900,
+            color: wordColor,
+          }}
+        >
+          {spellingWord}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          flexWrap: "nowrap",
+          alignItems: "center",
+          gap: "8px",
+        }}
+      >
+        {letters.map((_, index) => (
+          <React.Fragment key={index}>
+            {compoundBreak != null && index === compoundBreak && (
+              <div
+                style={{
+                  width: 18,
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <div
+                  style={{
+                    width: 2,
+                    height: "60%",
+                    backgroundColor: "#CBD5E1",
+                  }}
+                />
+              </div>
+            )}
+
+            <div
+              style={{
+                width: "clamp(48px, 12vw, 80px)",
+                height: "clamp(48px, 12vw, 80px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: "12px",
+                border:
+                  index === revealed.length - 1
+                    ? "2px solid #EF9F27"
+                    : "1.5px solid #CBD5E1",
+                backgroundColor:
+                  index === revealed.length - 1 ? "#FFF9F0" : "white",
+                flexShrink: 0,
+                ...nunito900,
+                fontSize: "clamp(1.2rem, 4vw, 2rem)",
+                color: revealed[index] ? "#1E293B" : "#CBD5E1",
+              }}
+            >
+              {revealed[index] ?? "_"}
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+      </div>
     </div>
   );
 }
@@ -753,6 +908,17 @@ export function Canvas({
           });
           break;
         }
+        case "spelling": {
+          setDisplayMode("spelling");
+          setDisplayContent("");
+          setRiddleLabel("");
+          if (!payload.spellingWord) {
+            onCanvasDone();
+            break;
+          }
+          onCanvasDone();
+          break;
+        }
         default:
           setDisplayContent("");
           setDisplayMode("idle");
@@ -767,6 +933,7 @@ export function Canvas({
       canvas.content ||
       canvas.label ||
       canvas.placeValueData ||
+      canvas.spellingWord ||
       ((canvas.svg || canvas.lottieData) &&
         (canvas.mode === "reward" || canvas.mode === "championship"));
     if (
@@ -776,7 +943,8 @@ export function Canvas({
         canvas.mode === "riddle" ||
         canvas.mode === "reward" ||
         canvas.mode === "championship" ||
-        canvas.mode === "place_value")
+        canvas.mode === "place_value" ||
+        canvas.mode === "spelling")
     ) {
       runAnimation(canvas);
     } else if (canvas.mode === "idle") {
@@ -801,7 +969,8 @@ export function Canvas({
     displayMode === "riddle" ||
     displayMode === "reward" ||
     displayMode === "championship" ||
-    displayMode === "place_value";
+    displayMode === "place_value" ||
+    displayMode === "spelling";
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white overflow-hidden relative">
       <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; } @keyframes pendingDotPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } } .pending-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; animation: pendingDotPulse 1s ease-in-out infinite; margin-left: 4px; }`}</style>
@@ -849,6 +1018,15 @@ export function Canvas({
 
         {displayMode === "place_value" && canvas.placeValueData ? (
           <PlaceValueContent data={canvas.placeValueData} />
+        ) : displayMode === "spelling" && canvas.spellingWord ? (
+          <SpellingContent
+            spellingWord={canvas.spellingWord}
+            spellingRevealed={canvas.spellingRevealed ?? []}
+            compoundBreak={canvas.compoundBreak}
+            streakCount={canvas.streakCount}
+            personalBest={canvas.personalBest}
+            showWord={canvas.showWord}
+          />
         ) : displayMode === "teaching" &&
         (canvas.phonemeBoxes?.length || displayContent) ? (
           <TeachingContent

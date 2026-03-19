@@ -175,6 +175,28 @@ const PRESETS = [
     content: "cat",
     canvasLabel: "Sound it out!",
   },
+  // Spelling
+  {
+    btn: "railroad (hidden)",
+    mode: "spelling" as const,
+    content: "",
+    canvasLabel: "",
+    spellingWord: "railroad",
+    spellingRevealed: ["r", "a", "i"],
+    showWord: "hidden" as const,
+    compoundBreak: 4,
+  },
+  {
+    btn: "honeycomb (streak)",
+    mode: "spelling" as const,
+    content: "",
+    canvasLabel: "",
+    spellingWord: "honeycomb",
+    spellingRevealed: ["h", "o", "n"],
+    showWord: "hidden" as const,
+    streakCount: 4,
+    personalBest: 6,
+  },
   {
     btn: "h-i-t",
     mode: "teaching" as const,
@@ -265,7 +287,7 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
     (typeof PRESETS)[0] | null
   >(null);
   const [mode, setMode] = useState<
-    "teaching" | "riddle" | "reward" | "championship" | "place_value"
+    "teaching" | "riddle" | "reward" | "championship" | "place_value" | "spelling"
   >("teaching");
   const [content, setContent] = useState("");
   const [label, setLabel] = useState("");
@@ -275,9 +297,14 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
   if (!isDev) return null;
 
   const fire = () => {
+    const args: Record<string, unknown> = { mode, content, label };
+    if (mode === "spelling" && content) {
+      args.spellingWord = content;
+      args.spellingRevealed = [];
+    }
     sendMessage("tool_call", {
       tool: "showCanvas",
-      args: { mode, content, label },
+      args,
     });
     setFired(true);
     setTimeout(() => setFired(false), 800);
@@ -293,6 +320,14 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
     if ("lottieData" in p && p.lottieData) args.lottieData = p.lottieData;
     if ("phonemeBoxes" in p && p.phonemeBoxes) args.phonemeBoxes = p.phonemeBoxes;
     if ("placeValueData" in p && p.placeValueData) args.placeValueData = p.placeValueData;
+    if ("spellingWord" in p && p.spellingWord) {
+      args.spellingWord = p.spellingWord;
+      args.spellingRevealed = (p as { spellingRevealed?: string[] }).spellingRevealed ?? [];
+      if ("compoundBreak" in p) args.compoundBreak = (p as { compoundBreak?: number }).compoundBreak;
+      if ("streakCount" in p) args.streakCount = (p as { streakCount?: number }).streakCount;
+      if ("personalBest" in p) args.personalBest = (p as { personalBest?: number }).personalBest;
+      if ("showWord" in p) args.showWord = (p as { showWord?: "hidden" | "hint" | "always" }).showWord;
+    }
     sendMessage("tool_call", {
       tool: "showCanvas",
       args,
@@ -328,7 +363,7 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
       </div>
       <div className="space-y-2">
         <div className="flex gap-1 flex-wrap">
-          {(["teaching", "riddle", "reward", "championship", "place_value"] as const).map(
+          {(["teaching", "riddle", "reward", "championship", "place_value", "spelling"] as const).map(
             (m) => (
               <button
                 key={m}
