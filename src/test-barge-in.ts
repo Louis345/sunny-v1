@@ -1,7 +1,7 @@
 import "dotenv/config";
-import Anthropic from "@anthropic-ai/sdk";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { spawn, ChildProcess } from "child_process";
+import type { ModelMessage } from "ai";
 import { setStreamVoiceId, createLiveStream, PlaybackHandle } from "./stream-speak";
 import { runAgent } from "./agents/elli/run";
 import type { Profile } from "./profiles";
@@ -55,7 +55,7 @@ let calibrated = false;
 const elevenlabs = new ElevenLabsClient({
   apiKey: process.env.ELEVENLABS_API_KEY,
 });
-const history: Anthropic.MessageParam[] = [];
+const history: ModelMessage[] = [];
 
 function ts(): string {
   return new Date().toISOString().slice(11, 23);

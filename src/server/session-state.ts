@@ -1,3 +1,5 @@
+import { createActor, setup } from "xstate";
+
 function sanitizeForTTS(text: string): string {
   return text
     .replace(/\*[^*\n]+\*/g, "")
@@ -37,14 +39,55 @@ export type SessionTurnState =
   | "CANVAS_PENDING"
   | "SPEAKING";
 
-// Legal transitions — anything not listed is illegal and will throw
-const TRANSITIONS: Record<SessionTurnState, SessionTurnState[]> = {
-  IDLE: ["LOADING"],
-  LOADING: ["PROCESSING", "IDLE"],
-  PROCESSING: ["CANVAS_PENDING", "SPEAKING", "IDLE"],
-  CANVAS_PENDING: ["SPEAKING", "IDLE"],
-  SPEAKING: ["IDLE"],
-};
+type TurnMachineEvent =
+  | { type: "START_TURN" }
+  | { type: "BEGIN_PROCESSING" }
+  | { type: "SHOW_CANVAS" }
+  | { type: "CANVAS_DONE" }
+  | { type: "AGENT_COMPLETE" }
+  | { type: "PLAYBACK_COMPLETE" }
+  | { type: "INTERRUPT" };
+
+const turnMachine = setup({
+  types: {
+    events: {} as TurnMachineEvent,
+  },
+}).createMachine({
+  id: "sessionTurn",
+  initial: "IDLE",
+  states: {
+    IDLE: {
+      on: {
+        START_TURN: "LOADING",
+      },
+    },
+    LOADING: {
+      on: {
+        BEGIN_PROCESSING: "PROCESSING",
+        INTERRUPT: "IDLE",
+      },
+    },
+    PROCESSING: {
+      on: {
+        SHOW_CANVAS: "CANVAS_PENDING",
+        AGENT_COMPLETE: "SPEAKING",
+        INTERRUPT: "IDLE",
+      },
+    },
+    CANVAS_PENDING: {
+      on: {
+        CANVAS_DONE: "SPEAKING",
+        INTERRUPT: "IDLE",
+      },
+    },
+    SPEAKING: {
+      on: {
+        PLAYBACK_COMPLETE: "IDLE",
+        INTERRUPT: "IDLE",
+      },
+    },
+  },
+});
 
 export class TurnStateMachine {
   private state: SessionTurnState = "IDLE";
@@ -53,6 +96,7 @@ export class TurnStateMachine {
   private readonly CANVAS_TIMEOUT_MS = 2000;
   private pendingTranscript: string | null = null;
   private canonicalProblemText: string | null = null;
+  private actor = createActor(turnMachine);
 
   private onFlush: (text: string) => void;
   private onLog: (msg: string) => void;
@@ -66,6 +110,14 @@ export class TurnStateMachine {
     this.onFlush = onFlush;
     this.onLog = onLog;
     this.onStateChange = onStateChange;
+    this.actor.subscribe((snapshot) => {
+      const next = snapshot.value as SessionTurnState;
+      if (next === this.state) return;
+      this.onLog(`  🔄 Session state: ${this.state} → ${next}`);
+      this.state = next;
+      this.onStateChange(next);
+    });
+    this.actor.start();
   }
 
   getState(): SessionTurnState {
@@ -111,15 +163,15 @@ export class TurnStateMachine {
     this.pendingTranscript = null;
   }
 
-  private transition(next: SessionTurnState): void {
-    const allowed = TRANSITIONS[this.state];
-    if (!allowed.includes(next)) {
-      this.onLog(`  ⚠️  Illegal state transition: ${this.state} → ${next} (ignored)`);
-      return;
+  private send(event: TurnMachineEvent): void {
+    this.actor.send(event);
+  }
+
+  private clearCanvasTimeout(): void {
+    if (this.canvasTimeout) {
+      clearTimeout(this.canvasTimeout);
+      this.canvasTimeout = null;
     }
-    this.onLog(`  🔄 Session state: ${this.state} → ${next}`);
-    this.state = next;
-    this.onStateChange(next);
   }
 
   // ── Public events ─────────────────────────────────────────────────────────
@@ -127,8 +179,8 @@ export class TurnStateMachine {
   /** Child spoke — start processing */
   onEndOfTurn(): void {
     this.canonicalProblemText = null;
-    this.transition("LOADING");
-    setImmediate(() => this.transition("PROCESSING"));
+    this.send({ type: "START_TURN" });
+    setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
   }
 
   /**
@@ -157,7 +209,7 @@ export class TurnStateMachine {
   /** showCanvas tool fired in this step */
   onShowCanvas(): void {
     if (this.state !== "PROCESSING") return;
-    this.transition("CANVAS_PENDING");
+    this.send({ type: "SHOW_CANVAS" });
 
     // Hard timeout — if canvas_done never arrives, release after 2s
     this.canvasTimeout = setTimeout(() => {
@@ -170,10 +222,7 @@ export class TurnStateMachine {
   onCanvasDone(): void {
     if (this.state !== "CANVAS_PENDING") return;
 
-    if (this.canvasTimeout) {
-      clearTimeout(this.canvasTimeout);
-      this.canvasTimeout = null;
-    }
+    this.clearCanvasTimeout();
 
     // Append the server-canonical problem text BEFORE flushing the buffer.
     // This guarantees the spoken problem always matches the canvas — Claude
@@ -184,7 +233,7 @@ export class TurnStateMachine {
       this.canonicalProblemText = null;
     }
 
-    this.transition("SPEAKING");
+    this.send({ type: "CANVAS_DONE" });
     this._flushBuffer();
   }
 
@@ -193,7 +242,7 @@ export class TurnStateMachine {
     this.onLog(`  🔍 onAgentComplete — state: ${this.state}, buffer: "${this.ttsBuffer.slice(0, 60)}"`);
 
     if (this.state === "PROCESSING") {
-      this.transition("SPEAKING");
+      this.send({ type: "AGENT_COMPLETE" });
       this._flushBuffer(); // flush buffered content from PROCESSING
     }
     // Drain any trailing fragment left in SPEAKING state
@@ -210,23 +259,23 @@ export class TurnStateMachine {
 
   /** Barge-in or session end — drop everything */
   onInterrupt(): void {
-    if (this.canvasTimeout) {
-      clearTimeout(this.canvasTimeout);
-      this.canvasTimeout = null;
-    }
+    this.clearCanvasTimeout();
     this.ttsBuffer = "";
     this.pendingTranscript = null;
     this.canonicalProblemText = null;
-    if (this.state !== "IDLE") {
-      this.transition("IDLE");
+    this.send({ type: "INTERRUPT" });
+  }
+
+  /** Browser finished playing the current assistant audio */
+  onPlaybackComplete(): void {
+    if (this.state === "SPEAKING") {
+      this.send({ type: "PLAYBACK_COMPLETE" });
     }
   }
 
-  /** TTS finished speaking */
+  /** Backwards-compatible alias while callers migrate to playback terminology */
   onSpeakingDone(): void {
-    if (this.state === "SPEAKING") {
-      this.transition("IDLE");
-    }
+    this.onPlaybackComplete();
   }
 
   // ── Private ───────────────────────────────────────────────────────────────

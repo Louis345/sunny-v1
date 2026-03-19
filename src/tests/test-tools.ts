@@ -1,15 +1,22 @@
 import { dateTime, startSession, logAttempt } from "../agents/elli/tools";
 
 async function main() {
-  console.log(await dateTime.execute({}, { toolCallId: "", messages: [] }));
+  const dateTimeExecute = dateTime.execute;
+  const startSessionExecute = startSession.execute;
+  const logAttemptExecute = logAttempt.execute;
+  if (!dateTimeExecute || !startSessionExecute || !logAttemptExecute) {
+    throw new Error("Expected tool execute functions to be defined");
+  }
+
+  console.log(await dateTimeExecute({}, { toolCallId: "", messages: [] }));
   console.log(
-    await startSession.execute(
+    await startSessionExecute(
       { childName: "Ila", timestamp: new Date().toISOString() },
       { toolCallId: "", messages: [] },
     ),
   );
   console.log(
-    await logAttempt.execute(
+    await logAttemptExecute(
       { childName: "Ila", word: "cat", correct: true },
       { toolCallId: "", messages: [] },
     ),
