@@ -176,9 +176,16 @@ export class WsTtsBridge {
     }
     this.flushBuffer(true);
     if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
-      this.elevenWs.send(JSON.stringify({ text: "" }));
-      // ElevenLabs closes the socket after receiving empty text.
-      // Mark as not ready so next connect() will open a fresh one.
+      const ws = this.elevenWs;
+      ws.send(JSON.stringify({ text: "" }));
+
+      // Wait for ElevenLabs to close the socket (all audio chunks sent)
+      // before signaling audio_done to the browser.
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, 3000);
+        ws.on("close", () => { clearTimeout(timeout); resolve(); });
+      });
+
       this.wsReady = false;
     }
   }

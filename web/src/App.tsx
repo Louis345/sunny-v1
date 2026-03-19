@@ -21,7 +21,7 @@ function App() {
     if (
       state.phase === "picker" &&
       window.location.pathname === "/test/canvas" &&
-      window.location.port === "3002"
+      (window.location.port === "3002" || window.location.port === "5173")
     ) {
       startSession("Ila");
     }
