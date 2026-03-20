@@ -1,10 +1,11 @@
 import { createActor, setup } from "xstate";
 
-function sanitizeForTTS(text: string): string {
+/** Strips markdown / noise before ElevenLabs. Bold must run before single-`*` rules. */
+export function sanitizeForTTS(text: string): string {
   return text
-    .replace(/\*[^*\n]+\*/g, "")
-    .replace(/\*\*(.*?)\*\*/gs, "$1")
-    .replace(/\*(.*?)\*/gs, "$1")
+    .replace(/\*\*([^*\n]+)\*\*/gs, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/\*[^*\n]*\*+/g, "")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/#{1,6}\s/g, "")
     .replace(/\*+/g, "")
