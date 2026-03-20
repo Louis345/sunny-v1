@@ -192,14 +192,28 @@ export class WsTtsBridge {
 
   stop(): void {
     this.stopped = true;
+    this.wsReady = false;
     this.connectingPromise = null;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
     if (this.elevenWs) {
-      this.elevenWs.close();
+      const ws = this.elevenWs;
       this.elevenWs = null;
+      try {
+        // `close()` while CONNECTING throws in some runtimes; `terminate()` is
+        // safe for barge-in teardown on in-flight sockets.
+        if (
+          ws.readyState === WebSocket.CONNECTING ||
+          ws.readyState === WebSocket.OPEN
+        ) {
+          ws.terminate();
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("  🔴 ElevenLabs TTS WebSocket terminate:", msg);
+      }
     }
   }
 

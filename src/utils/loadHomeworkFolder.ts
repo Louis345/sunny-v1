@@ -2,6 +2,36 @@ import fs from "fs";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 
+/**
+ * Parse homework date folder names. Accepts:
+ * - ISO: 2026-03-19
+ * - US-style: 3-19-2026, 03-19-2026
+ * Returns UTC ms for sorting (newest first), or null if unrecognized.
+ */
+function parseHomeworkDateFolderName(name: string): number | null {
+  const parts = name.split("-");
+  if (parts.length !== 3) return null;
+
+  const [a, b, c] = parts;
+  // ISO: YYYY-MM-DD
+  if (/^\d{4}$/.test(a) && /^\d{2}$/.test(b) && /^\d{2}$/.test(c)) {
+    const y = parseInt(a, 10);
+    const mo = parseInt(b, 10);
+    const d = parseInt(c, 10);
+    const t = Date.UTC(y, mo - 1, d);
+    return Number.isNaN(t) ? null : t;
+  }
+  // US: M-D-YYYY
+  if (/^\d{1,2}$/.test(a) && /^\d{1,2}$/.test(b) && /^\d{4}$/.test(c)) {
+    const mo = parseInt(a, 10);
+    const d = parseInt(b, 10);
+    const y = parseInt(c, 10);
+    const t = Date.UTC(y, mo - 1, d);
+    return Number.isNaN(t) ? null : t;
+  }
+  return null;
+}
+
 export function findLatestHomeworkFolder(
   childName: "Ila" | "Reina"
 ): string | null {
@@ -15,11 +45,16 @@ export function findLatestHomeworkFolder(
 
   const folders = fs
     .readdirSync(base)
-    .filter((f) => /^\d{4}-\d{2}-\d{2}$/.test(f))
-    .sort()
-    .reverse();
+    .map((name) => {
+      const full = path.join(base, name);
+      if (!fs.statSync(full).isDirectory()) return null;
+      const ts = parseHomeworkDateFolderName(name);
+      return ts !== null ? { name, ts } : null;
+    })
+    .filter((x): x is { name: string; ts: number } => x !== null)
+    .sort((x, y) => y.ts - x.ts);
 
-  return folders.length > 0 ? path.join(base, folders[0]) : null;
+  return folders.length > 0 ? path.join(base, folders[0].name) : null;
 }
 
 export interface HomeworkFile {

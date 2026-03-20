@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useStaggeredReveal } from "../hooks/useStaggeredReveal";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import LottieRaw from "lottie-react";
@@ -146,13 +147,21 @@ function decompose(n: number) {
   return { h, t, o };
 }
 
+const PLACE_VALUE_REVEAL_ORDER = ["hundreds", "tens", "ones"] as const;
+
 function PlaceValueContent({ data }: { data: PlaceValueData }) {
   const nunito = { fontFamily: "'Nunito', sans-serif", fontWeight: 900 };
   const layout = data.layout ?? "column";
   const op = data.operation ?? "addition";
   const scaffold = data.scaffoldLevel ?? "full";
-  const revealed = data.revealedColumns ?? [];
   const active = data.activeColumn;
+
+  const problemKey = `${data.operandA}|${data.operandB}|${op}|${layout}`;
+  const targetRevealed = data.revealedColumns ?? [];
+  const orderedTarget = PLACE_VALUE_REVEAL_ORDER.filter((k) =>
+    targetRevealed.includes(k)
+  );
+  const revealed = useStaggeredReveal(problemKey, orderedTarget, 125);
 
   const showLabels = scaffold === "full" || scaffold === "hint";
   const showDividers = scaffold !== "minimal";

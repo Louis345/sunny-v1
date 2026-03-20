@@ -47,6 +47,13 @@ interface CanvasState {
   personalBest?: number;
 }
 
+interface TurnPolicy {
+  id: "short_expected_response" | "open_response" | "narration" | "listen_only";
+  expectedResponse: "short" | "open" | "none";
+  allowCaptureDuringPlayback: boolean;
+  interruptible: boolean;
+}
+
 type SessionPhase = "picker" | "connecting" | "active" | "ended";
 
 interface SessionState {
@@ -78,6 +85,27 @@ function looksLikeNumber(text: string): boolean {
   return numberWords.test(t);
 }
 
+function getPlaybackCaptureConfig(policy: TurnPolicy) {
+  if (policy.id === "short_expected_response") {
+    return {
+      rmsThreshold: 0.02,
+      consecutiveFrames: 1,
+    };
+  }
+
+  return {
+    rmsThreshold: 0.04,
+    consecutiveFrames: 3,
+  };
+}
+
+const DEFAULT_TURN_POLICY: TurnPolicy = {
+  id: "open_response",
+  expectedResponse: "open",
+  allowCaptureDuringPlayback: false,
+  interruptible: true,
+};
+
 export function useSession() {
   const wsRef = useRef<WebSocket | null>(null);
   const micContextRef = useRef<AudioContext | null>(null);
@@ -91,6 +119,7 @@ export function useSession() {
   const bargeInConsecutiveRef = useRef(0);
   const rollingBufferRef = useRef<string[]>([]);
   const finalizePlaybackRef = useRef<() => void>(() => {});
+  const turnPolicyRef = useRef<TurnPolicy>(DEFAULT_TURN_POLICY);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -166,6 +195,7 @@ export function useSession() {
     switch (msg.type) {
       case "session_started": {
         const m = msg as Record<string, string>;
+        turnPolicyRef.current = DEFAULT_TURN_POLICY;
         setStateRef.current((s) => ({
           ...s,
           phase: "active",
@@ -181,6 +211,23 @@ export function useSession() {
         }));
         break;
       }
+
+      case "turn_policy":
+        turnPolicyRef.current = {
+          id:
+            (msg.id as TurnPolicy["id"] | undefined) ??
+            DEFAULT_TURN_POLICY.id,
+          expectedResponse:
+            (msg.expectedResponse as TurnPolicy["expectedResponse"] | undefined) ??
+            DEFAULT_TURN_POLICY.expectedResponse,
+          allowCaptureDuringPlayback:
+            (msg.allowCaptureDuringPlayback as boolean | undefined) ??
+            DEFAULT_TURN_POLICY.allowCaptureDuringPlayback,
+          interruptible:
+            (msg.interruptible as boolean | undefined) ??
+            DEFAULT_TURN_POLICY.interruptible,
+        };
+        break;
 
       case "interim":
         setStateRef.current((s) => ({ ...s, interimTranscript: (msg.text as string) ?? "" }));
@@ -365,6 +412,7 @@ export function useSession() {
       }
 
       case "session_ended":
+        turnPolicyRef.current = DEFAULT_TURN_POLICY;
         setStateRef.current((s) => ({
           ...s,
           phase: "ended",
@@ -428,13 +476,18 @@ export function useSession() {
             let sum = 0;
             for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
             const rms = Math.sqrt(sum / float32.length);
+            const turnPolicy = turnPolicyRef.current;
+            const playbackCapture = getPlaybackCaptureConfig(turnPolicy);
 
-            if (rms > 0.04) {
+            if (turnPolicy.interruptible && rms > playbackCapture.rmsThreshold) {
               // While assistant audio is still audible, speech is always treated
               // as a barge-in candidate. The server re-opens turn-taking only
               // after the browser confirms playback has actually finished.
               bargeInConsecutiveRef.current++;
-              if (bargeInConsecutiveRef.current >= 3) {
+              if (
+                bargeInConsecutiveRef.current >=
+                playbackCapture.consecutiveFrames
+              ) {
                 sendMessageRef.current("barge_in");
                 serverDoneRef.current = false;
                 audioQueueRef.current = [];
@@ -590,6 +643,7 @@ export function useSession() {
   }, [sendMessage]);
 
   const resetToPicker = useCallback(() => {
+    turnPolicyRef.current = DEFAULT_TURN_POLICY;
     setState({
       phase: "picker",
       childName: null,
