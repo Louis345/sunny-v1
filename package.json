@@ -18,6 +18,7 @@
     "test:latency": "npx tsx src/scripts/test-latency.ts",
     "test:tools": "npx tsx src/tests/test-tools.ts",
     "test:canvas": "npx tsx src/scripts/test-canvas.ts",
+    "test:pipeline": "npx tsx src/scripts/test-pipeline.ts",
     "server": "npx tsx src/server.ts",
     "web": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
