@@ -208,6 +208,11 @@ export class SessionManager {
     await this.handleCompanionTurn(this.companion.openingLine);
   }
 
+  /** Inject a transcript directly — used by test harness to bypass Deepgram */
+  injectTranscript(text: string): void {
+    this.handleEndOfTurn(text).catch(console.error);
+  }
+
   receiveAudio(pcm: Buffer): void {
     if (this.fluxHandle) {
       this.fluxHandle.sendAudio(pcm);
@@ -417,9 +422,9 @@ export class SessionManager {
     let fullResponse = "";
     this.toolCallsMadeThisTurn = 0;
 
-    // TTS was pre-connected in handleEndOfTurn; ensure it's ready.
-    // Pass the last 3 Elli utterances so ElevenLabs can adapt prosody
-    // and expressiveness based on conversation flow (CSM-style context).
+    // TTS connect and Claude run in parallel — don't serialize the handshake.
+    // Fire-and-forget the TTS connect; it'll be ready by the time the first
+    // sentence flushes from PROCESSING.
     if (this.ttsBridge) {
       const previousText = this.conversationHistory
         .filter((m) => m.role === "assistant")
@@ -427,7 +432,7 @@ export class SessionManager {
         .map((m) => (typeof m.content === "string" ? m.content : ""))
         .filter(Boolean)
         .join(" ");
-      await this.ttsBridge.connect(previousText || undefined);
+      this.ttsBridge.connect(previousText || undefined).catch(() => {});
     }
 
     const transitionToWorkPhase = shouldTriggerTransitionToWorkPhase(
@@ -437,8 +442,15 @@ export class SessionManager {
     );
 
     try {
+      // Window the history to reduce Claude's input size and improve TTFT.
+      // Keep the last 6 messages (3 turns) — enough for conversational context
+      // without ballooning latency on later turns.
+      const recentHistory = this.conversationHistory.length > 6
+        ? this.conversationHistory.slice(-6)
+        : this.conversationHistory;
+
       await runAgent({
-        history: this.conversationHistory,
+        history: recentHistory,
         userMessage,
         profile: this.companion,
         onToken: (chunk) => {
