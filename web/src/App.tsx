@@ -62,6 +62,7 @@ function App() {
           interimTranscript={state.interimTranscript}
           correctStreak={state.correctStreak}
           canvas={state.canvas}
+          blackboard={state.blackboard}
           reward={state.reward}
           sessionPhase={state.sessionPhase}
           sessionState={state.sessionState}

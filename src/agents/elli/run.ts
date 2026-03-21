@@ -1,14 +1,7 @@
 import { stepCountIs, streamText, type ModelMessage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import type { Profile } from "../../profiles";
-import {
-  endSession,
-  logAttempt,
-  transitionToWork,
-  mathProblem,
-  riddleTracker,
-  showCanvas,
-} from "./tools";
+import { ALL_TOOLS } from "./tools/generateToolDocs";
 
 export interface RunAgentOptions {
   history: ModelMessage[];
@@ -25,14 +18,11 @@ export interface RunAgentOptions {
 
 export function buildAgentTools(opts: { allowTransitionToWork?: boolean } = {}) {
   const { allowTransitionToWork = true } = opts;
-  return {
-    endSession,
-    logAttempt,
-    ...(allowTransitionToWork ? { transitionToWork } : {}),
-    mathProblem,
-    riddleTracker,
-    showCanvas,
-  };
+  if (allowTransitionToWork) {
+    return { ...ALL_TOOLS };
+  }
+  const { transitionToWork: _omit, ...rest } = ALL_TOOLS;
+  return rest;
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<string> {

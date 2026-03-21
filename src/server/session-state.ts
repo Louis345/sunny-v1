@@ -18,9 +18,26 @@ export function sanitizeForTTS(text: string): string {
     // Ensure a space between sentence-ending punctuation and the next word —
     // prevents "us.Perfect!" artifacts when two buffer halves are concatenated.
     .replace(/([.!?])([A-Za-z])/g, "$1 $2")
-    .replace(/\n{2,}/g, " ")
+    .replace(/\n+/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+/**
+ * Whether a TTS buffer should be flushed to ElevenLabs.
+ *
+ * Flushes on . ? , : — at any buffer length.
+ * Flushes on ! only when the buffer is 11+ chars — prevents short excited
+ * fragments like "Hey!" or "Cool!" from being flushed as orphaned chunks.
+ * Falls back to a 200-char safety valve for punctuation-free text.
+ *
+ * Exported for unit testing.
+ */
+export function shouldFlush(buffer: string): boolean {
+  if (/[.?,:\u2014](\s|$)/.test(buffer)) return true;
+  if (buffer.length >= 11 && /!(\s|$)/.test(buffer)) return true;
+  if (buffer.length >= 200) return true;
+  return false;
 }
 
 /**
@@ -198,12 +215,12 @@ export class TurnStateMachine {
   onToken(chunk: string): void {
     this.ttsBuffer += chunk;
 
-    // During PROCESSING: stream tokens directly to TTS bridge so its own
-    // clause-level flushing (commas, colons, 150ms timer) starts audio ASAP.
-    // Once SHOW_CANVAS fires, we stop early-streaming (gate on canvas).
     if (this.state === "PROCESSING") {
-      this.onFlush(chunk);
-      this.ttsBuffer = "";
+      if (shouldFlush(this.ttsBuffer)) {
+        const clean = sanitizeForTTS(this.ttsBuffer);
+        if (clean) this.onFlush(clean);
+        this.ttsBuffer = "";
+      }
       return;
     }
 
@@ -289,6 +306,10 @@ export class TurnStateMachine {
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
+
+  private _hasClauseBoundary(buffer: string): boolean {
+    return shouldFlush(buffer);
+  }
 
   private _hasCompleteSentence(buffer: string): boolean {
     const trimmed = buffer.trim();

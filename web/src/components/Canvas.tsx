@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import gsap from "gsap";
 import LottieRaw from "lottie-react";
 import { canvasHasRenderableContent } from "../../../src/shared/canvasRenderability";
+import type { BlackboardState } from "../hooks/useSession";
+import { BlackboardContent } from "./BlackboardContent";
 const Lottie = (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
 
 function unescapeSvg(svg: string | undefined): string {
@@ -54,6 +56,7 @@ interface RewardEvent {
 
 interface Props {
   canvas: CanvasState;
+  blackboard: BlackboardState;
   reward: RewardEvent | null;
   sessionPhase: string;
   sessionState: string;
@@ -790,6 +793,7 @@ function spawnParticles(
 
 export function Canvas({
   canvas,
+  blackboard,
   reward,
   sessionPhase,
   sessionState,
@@ -805,6 +809,11 @@ export function Canvas({
   const showReward =
     reward?.rewardStyle === "takeover" && (reward.svg || reward.lottieData);
   const showFlash = reward?.rewardStyle === "flash";
+
+  const showBlackboard =
+    blackboard.gesture !== null &&
+    blackboard.gesture !== "clear" &&
+    canvas.mode === "idle";
 
   const runAnimation = useCallback(
     (payload: CanvasState) => {
@@ -1008,6 +1017,14 @@ export function Canvas({
         style={{ position: "relative", minHeight: 200 }}
         data-mode={displayMode}
       >
+        {showBlackboard && (
+          <div
+            className="absolute inset-0 z-[25] flex items-center justify-center bg-white/95 px-4"
+            aria-hidden
+          >
+            <BlackboardContent blackboard={blackboard} />
+          </div>
+        )}
         {canvas.mode === "idle" && !showAnimatedContent && (
           <div
             className="flex flex-col items-center justify-center gap-4 select-none"

@@ -219,6 +219,223 @@ async function waitForSessionReady(ws: WebSocket): Promise<void> {
   await new Promise((r) => setTimeout(r, 500));
 }
 
+// ── Behavioral turn ───────────────────────────────────────────────────────────
+// Keywords a child uses to signal they want to change the current word/topic
+const CORRECTION_KEYWORDS = ["homework", "that word", "different word", "move on"];
+
+interface BehavioralTurn {
+  transcript: string;
+  responseText: string;
+  wordShown: string | null;   // content from showCanvas (word only, not math)
+  toolCallNames: string[];
+  isCorrection: boolean;       // transcript matched a correction keyword
+}
+
+function runBehavioralTurn(
+  ws: WebSocket,
+  transcript: string,
+  wordHistory: Map<string, number>,
+  activeWordRef: { value: string | null },
+): Promise<BehavioralTurn> {
+  return new Promise((resolve) => {
+    let responseText = "";
+    let wordShown: string | null = null;
+    const toolCallNames: string[] = [];
+    const lower = transcript.toLowerCase();
+    const isCorrection = CORRECTION_KEYWORDS.some((k) => lower.includes(k));
+
+    const handler = (data: Buffer | string) => {
+      let msg: Record<string, unknown>;
+      try { msg = JSON.parse(data.toString()); } catch { return; }
+
+      switch (msg.type) {
+        case "response_text":
+          responseText += String((msg as Record<string, string>).chunk ?? "");
+          break;
+
+        case "tool_call": {
+          const tool = String(msg.tool ?? "");
+          const args = (msg.args ?? {}) as Record<string, unknown>;
+          toolCallNames.push(tool);
+
+          if (tool === "showCanvas" && args.mode === "teaching") {
+            const content = String(args.content ?? "").trim();
+            // Only track single-word content; exclude math, word lists, multi-line
+            if (content && !content.includes("\n") && !content.includes(" ") && !/[\d+\-×÷=]/.test(content)) {
+              wordShown = content;
+              activeWordRef.value = content;
+              wordHistory.set(content, (wordHistory.get(content) ?? 0) + 1);
+            }
+          }
+          break;
+        }
+
+        case "canvas_draw":
+          ws.send(JSON.stringify({ type: "canvas_done" }));
+          break;
+
+        case "audio_done":
+          cleanup();
+          break;
+
+        case "session_ended":
+          cleanup();
+          break;
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      console.warn(`  ⚠️  Behavioral turn timed out: "${transcript}"`);
+      cleanup();
+    }, 30_000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      ws.removeListener("message", handler);
+      resolve({ transcript, responseText, wordShown, toolCallNames, isCorrection });
+    }
+
+    ws.on("message", handler);
+    ws.send(JSON.stringify({ type: "test_transcript", text: transcript }));
+  });
+}
+
+// ── Behavioral test session ───────────────────────────────────────────────────
+// Script: establish a word → ask for corrections → repeat a word 3 times
+// Uses the real Elli session (no test mode) so word-tracking logic is live.
+const BEHAVIORAL_SCRIPT = [
+  "show me the word cowboy",
+  "different word please",               // correction #1
+  "that word is too hard",               // correction #2
+  "show me the word railroad",
+  "move on",                             // correction #3
+  "show me the word sunshine",
+  "show me the word sunshine",           // 2nd time
+  "show me the word sunshine",           // 3rd time → word repetition trap
+  "homework",                            // correction #4
+  "show me the word birthday",
+];
+
+async function runBehavioralTests(
+  httpServer: ReturnType<typeof createServer>,
+): Promise<{ correctionOk: boolean; repetitionOk: boolean }> {
+  console.log("\n  ── Behavioral Tests ──────────────────────────────────");
+  console.log("  Starting behavioral session (real Elli prompt)...\n");
+
+  const ws2 = new WebSocket(`ws://localhost:${PORT}/ws`);
+  await new Promise<void>((resolve, reject) => {
+    ws2.on("open", resolve);
+    ws2.on("error", reject);
+  });
+
+  ws2.send(JSON.stringify({ type: "start_session", child: "Ila" }));
+  await waitForMessage(ws2, "session_started", 30_000);
+  await waitForMessage(ws2, "audio_done", 30_000);
+  ws2.send(JSON.stringify({ type: "playback_done" }));
+  await new Promise((r) => setTimeout(r, 500));
+
+  const wordHistory = new Map<string, number>();
+  const activeWordRef = { value: null as string | null };
+  const turns: BehavioralTurn[] = [];
+
+  for (const transcript of BEHAVIORAL_SCRIPT) {
+    console.log(`  > "${transcript}"`);
+    const t = await runBehavioralTurn(ws2, transcript, wordHistory, activeWordRef);
+    turns.push(t);
+    console.log(
+      `    tools: [${t.toolCallNames.join(", ") || "none"}]` +
+      (t.wordShown ? `  word: "${t.wordShown}"` : ""),
+    );
+    ws2.send(JSON.stringify({ type: "playback_done" }));
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+
+  ws2.send(JSON.stringify({ type: "end_session" }));
+  await new Promise((r) => setTimeout(r, 500));
+  ws2.close();
+
+  const correctionOk = testChildCorrectionDetection(turns);
+  const repetitionOk = testWordRepetitionLimit(wordHistory);
+
+  return { correctionOk, repetitionOk };
+}
+
+// ── TEST: Child correction detection ─────────────────────────────────────────
+function testChildCorrectionDetection(turns: BehavioralTurn[]): boolean {
+  console.log("\n  ── TEST: Child Correction Detection ─────────────────");
+
+  let passed = true;
+  let checked = 0;
+
+  for (let i = 0; i < turns.length - 1; i++) {
+    const curr = turns[i];
+    if (!curr.isCorrection) continue;
+
+    const wordBefore = turns
+      .slice(0, i)
+      .map((t) => t.wordShown)
+      .filter(Boolean)
+      .at(-1) ?? null;
+
+    const next = turns[i + 1];
+    checked++;
+
+    // Elli changed topic if she showed a DIFFERENT word, or showed no word at all
+    // (conversational acknowledgment counts — she's not ignoring the correction)
+    const showedSameWord =
+      next.wordShown !== null &&
+      wordBefore !== null &&
+      next.wordShown.toLowerCase() === wordBefore.toLowerCase();
+
+    if (showedSameWord) {
+      passed = false;
+      console.log(
+        `  ❌ Correction ignored: "${curr.transcript}"\n` +
+        `     Word before: "${wordBefore}"  |  Word after: "${next.wordShown}" (unchanged)`,
+      );
+    } else {
+      const action = next.wordShown
+        ? `changed to "${next.wordShown}"`
+        : "no word (conversational response)";
+      console.log(`  ✅ "${curr.transcript}" → ${action}`);
+    }
+  }
+
+  if (checked === 0) {
+    console.log("  ℹ️  No correction turns with a word context — SKIPPED");
+    return true;
+  }
+
+  if (passed) console.log(`  ✅ All ${checked} correction requests led to topic change`);
+  else console.log(`  ❌ Some correction requests were ignored`);
+
+  return passed;
+}
+
+// ── TEST: Word repetition limit ───────────────────────────────────────────────
+function testWordRepetitionLimit(wordHistory: Map<string, number>): boolean {
+  console.log("\n  ── TEST: Word Repetition Limit ───────────────────────");
+
+  if (wordHistory.size === 0) {
+    console.log("  ℹ️  No words tracked this session — SKIPPED");
+    return true;
+  }
+
+  let passed = true;
+  const sorted = [...wordHistory.entries()].sort((a, b) => b[1] - a[1]);
+
+  for (const [word, count] of sorted) {
+    const mark = count >= 3 ? "❌" : "✅";
+    console.log(`  ${mark} "${word}": shown ${count}x`);
+    if (count >= 3) passed = false;
+  }
+
+  if (passed) console.log("  ✅ No word shown 3+ times");
+  else console.log("  ❌ At least one word shown 3+ times — Elli may be stuck");
+
+  return passed;
+}
+
 // ── Analysis ────────────────────────────────────────────────────────────────
 function analyze(turns: TurnTimings[]): boolean {
   const stages: Record<string, number[]> = {
@@ -332,15 +549,25 @@ async function main(): Promise<void> {
     }
   }
 
-  const passed = analyze(results);
+  const latencyPassed = analyze(results);
 
-  // Cleanup
+  // Latency session cleanup
   ws.send(JSON.stringify({ type: "end_session" }));
   await new Promise((r) => setTimeout(r, 1000));
   ws.close();
-  httpServer.close();
 
-  process.exit(passed ? 0 : 1);
+  // Behavioral tests — separate session, no test mode
+  delete process.env.SUNNY_TEST_MODE;
+  const { correctionOk, repetitionOk } = await runBehavioralTests(httpServer);
+
+  const allPassed = latencyPassed && correctionOk && repetitionOk;
+
+  console.log("\n  ─────────────────────────────────────────────────────");
+  if (allPassed) console.log("  ✅ ALL TESTS PASSED\n");
+  else console.log("  ❌ SOME TESTS FAILED — see above\n");
+
+  httpServer.close();
+  process.exit(allPassed ? 0 : 1);
 }
 
 main().catch((err) => {

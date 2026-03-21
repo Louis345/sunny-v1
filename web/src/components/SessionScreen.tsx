@@ -1,5 +1,6 @@
 import { CompanionStrip } from "./CompanionStrip";
 import { Canvas, type CanvasState } from "./Canvas";
+import type { BlackboardState } from "../hooks/useSession";
 
 interface CompanionConfig {
   childName: string;
@@ -22,6 +23,7 @@ interface Props {
   interimTranscript: string;
   correctStreak: number;
   canvas: CanvasState;
+  blackboard: BlackboardState;
   reward: RewardEvent | null;
   sessionPhase: string;
   sessionState: string;
@@ -42,6 +44,7 @@ export function SessionScreen({
   interimTranscript,
   correctStreak,
   canvas,
+  blackboard,
   reward,
   sessionPhase,
   sessionState,
@@ -67,6 +70,7 @@ export function SessionScreen({
       />
       <Canvas
         canvas={canvas}
+        blackboard={blackboard}
         reward={reward}
         sessionPhase={sessionPhase}
         sessionState={sessionState}

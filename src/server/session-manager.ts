@@ -4,7 +4,7 @@ import {
   type ChildName,
   type CompanionConfig,
 } from "../companions/loader";
-import { TEST_MODE_PROMPT } from "../agents/prompts";
+import { TEST_MODE_PROMPT, buildSessionPrompt } from "../agents/prompts";
 import { loadHomeworkPayload } from "../utils/loadHomeworkFolder";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
@@ -72,7 +72,7 @@ export class SessionManager {
   private lastCanvasMode: string = "idle";
   private toolCallsMadeThisTurn = 0;
   private activeWord: string | null = null;
-  private wordShowCount: Map<string, number> = new Map();
+  private isSpellingSession = false;
   private sessionStartedToolCalled = false;
   private transitionedToWork = false;
 
@@ -160,20 +160,22 @@ export class SessionManager {
     if (process.env.SUNNY_TEST_MODE !== "true") {
       const homeworkPayload = await loadHomeworkPayload(this.childName);
       if (homeworkPayload) {
-        this.companion = {
-          ...this.companion,
-          systemPrompt: this.companion.systemPrompt.replace(
-            /=== WHAT TO WORK ON TODAY ===([\s\S]*?)=== NATURAL THINGS/,
-            `=== WHAT TO WORK ON TODAY ===\n` +
-              `HOMEWORK ACTIVE (${homeworkPayload.date}):\n` +
-              `${homeworkPayload.rawContent}\n\n` +
-              `=== NATURAL THINGS`
-          ),
-        };
         console.log(
-          `  📚 Homework injected for ${this.childName}: ` +
+          `  📚 Homework loaded for ${this.childName}: ` +
             `${homeworkPayload.fileCount} pages`
         );
+        console.log("  🧠 Psychologist building session prompt...");
+        const sessionPrompt = await buildSessionPrompt(
+          this.childName,
+          this.companion.markdownPath,
+          homeworkPayload.rawContent,
+        );
+        this.companion = { ...this.companion, systemPrompt: sessionPrompt };
+        console.log(
+          `  ✅ Session prompt ready (${sessionPrompt.length} chars)`
+        );
+        this.isSpellingSession = true;
+        console.log("  📝 Spelling session mode active");
       }
     }
 
@@ -196,7 +198,7 @@ export class SessionManager {
     resetMathProbeSession(this.childName);
     resetSessionStart();
     resetTransitionToWork();
-    this.wordShowCount.clear();
+    this.isSpellingSession = false;
     this.sessionStartedToolCalled = false;
     this.transitionedToWork = false;
 
@@ -248,6 +250,7 @@ export class SessionManager {
   async end(): Promise<void> {
     if (this.isEnding) return;
     this.isEnding = true;
+    this.isSpellingSession = false;
 
     const ts = new Date().toISOString();
     console.log(`  🏁 [${ts}] Ending session for ${this.childName}`);
@@ -414,7 +417,21 @@ export class SessionManager {
     }
 
     this.roundNumber++;
-    await this.runCompanionResponse(transcript);
+
+    let userMessage = transcript;
+    if (this.isSpellingSession && this.activeWord) {
+      const ev = this.evaluateSpelling(transcript, this.activeWord);
+      console.log(
+        `  🔤 Spelling eval: "${transcript}" vs "${this.activeWord}" → ` +
+          `${ev.correct ? "✅" : "❌"} (${ev.note})`
+      );
+      userMessage =
+        `[Spelling verdict: Ila said "${transcript}" for "${this.activeWord}" — ` +
+        `${ev.correct ? "this is CORRECT, celebrate and move on" : "this is INCORRECT, encourage and give a hint"}]\n\n` +
+        transcript;
+    }
+
+    await this.runCompanionResponse(userMessage);
   }
 
   private async runCompanionResponse(userMessage: string): Promise<void> {
@@ -641,17 +658,6 @@ export class SessionManager {
         this.activeWord = word;
         if (word) console.log(`  📝 Active word set: "${word}"`);
 
-        // Warn if same word has been shown too many times this session
-        if (word) {
-          const count = (this.wordShowCount.get(word) ?? 0) + 1;
-          this.wordShowCount.set(word, count);
-          if (count >= 3) {
-            console.warn(
-              `  ⚠️  Word "${word}" shown ${count} times this session — Elli may be stuck`
-            );
-          }
-        }
-
         // Validate phonemeBoxes — empty value strings leave blank tiles on screen
         const boxes = args.phonemeBoxes as Array<{ position: string; value: string; highlighted: boolean }> | undefined;
         if (boxes) {
@@ -685,6 +691,35 @@ export class SessionManager {
         this.logRewardEvent("takeover", takeover_ms);
       }
     }
+  }
+
+  private evaluateSpelling(
+    transcript: string,
+    targetWord: string
+  ): { correct: boolean; note: string } {
+    const raw = transcript.toLowerCase().replace(/[^a-z]/g, "").trim();
+    const target = targetWord.toLowerCase().trim();
+    if (raw === target) return { correct: true, note: "exact match" };
+    const dist = this.levenshtein(raw, target);
+    if (dist <= 1) return { correct: true, note: `close match (dist=${dist})` };
+    return { correct: false, note: `dist=${dist}` };
+  }
+
+  private levenshtein(a: string, b: string): number {
+    const m = a.length;
+    const n = b.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+      Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+    );
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] =
+          a[i - 1] === b[j - 1]
+            ? dp[i - 1][j - 1]
+            : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[m][n];
   }
 
   private processReward(attemptArgs: Record<string, unknown>): void {

@@ -1,4 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  applyBlackboardMessage,
+  clearedBlackboardState,
+} from "../../../src/shared/canvasBlackboardSync";
 
 // --- Types ---
 
@@ -27,6 +31,14 @@ interface PlaceValueData {
   activeColumn?: "hundreds" | "tens" | "ones";
   scaffoldLevel?: "full" | "partial" | "minimal" | "hint";
   revealedColumns?: Array<"hundreds" | "tens" | "ones">;
+}
+
+export interface BlackboardState {
+  gesture: "flash" | "reveal" | "mask" | "clear" | null;
+  word?: string;
+  maskedWord?: string;
+  duration?: number;
+  flashKey?: number;
 }
 
 interface CanvasState {
@@ -63,6 +75,7 @@ interface SessionState {
   companionText: string;
   interimTranscript: string;
   canvas: CanvasState;
+  blackboard: BlackboardState;
   correctStreak: number;
   sessionPhase: string;
   sessionState: string;
@@ -128,6 +141,7 @@ export function useSession() {
     companionText: "",
     interimTranscript: "",
     canvas: { mode: "idle" },
+    blackboard: { gesture: null },
     correctStreak: 0,
     sessionPhase: "warmup",
     sessionState: "IDLE",
@@ -279,6 +293,20 @@ export function useSession() {
         finalizePlaybackRef.current();
         break;
 
+      case "blackboard": {
+        const b = msg as Record<string, unknown>;
+        setStateRef.current((s) => {
+          const { canvasIdle, blackboard } = applyBlackboardMessage(s.blackboard, {
+            gesture: String(b.gesture ?? "clear"),
+            word: b.word as string | undefined,
+            maskedWord: b.maskedWord as string | undefined,
+            duration: b.duration as number | undefined,
+          });
+          return { ...s, canvas: canvasIdle, blackboard };
+        });
+        break;
+      }
+
       case "tool_call": {
         const toolName = msg.tool as string;
         const result = msg.result as Record<string, unknown> | undefined;
@@ -306,6 +334,7 @@ export function useSession() {
           const isSpelling = mode === "spelling";
           setStateRef.current((s) => ({
             ...s,
+            blackboard: clearedBlackboardState(),
             canvas: {
               mode: mode && validModes.includes(mode) ? mode : "idle",
               svg: data.svg as string | undefined,
@@ -325,6 +354,18 @@ export function useSession() {
             },
           }));
           // canvas_done sent by Canvas when animation completes
+        }
+
+        if (toolName === "blackboard") {
+          setStateRef.current((s) => {
+            const { canvasIdle, blackboard } = applyBlackboardMessage(s.blackboard, {
+              gesture: String(args.gesture ?? "clear"),
+              word: args.word as string | undefined,
+              maskedWord: args.maskedWord as string | undefined,
+              duration: args.duration as number | undefined,
+            });
+            return { ...s, canvas: canvasIdle, blackboard };
+          });
         }
 
         // logAttempt streak tracking
@@ -389,6 +430,7 @@ export function useSession() {
           const isSpelling = mode === "spelling";
           setStateRef.current((s) => ({
             ...s,
+            blackboard: clearedBlackboardState(),
             canvas: {
               mode,
               content,
@@ -417,6 +459,7 @@ export function useSession() {
           ...s,
           phase: "ended",
           canvas: { mode: "idle" },
+          blackboard: { gesture: null },
           reward: null,
           sessionState: "IDLE",
         }));
@@ -651,6 +694,7 @@ export function useSession() {
       companionText: "",
       interimTranscript: "",
       canvas: { mode: "idle" },
+      blackboard: { gesture: null },
       correctStreak: 0,
       sessionPhase: "warmup",
       sessionState: "IDLE",

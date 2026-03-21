@@ -30,6 +30,8 @@ export class WsTtsBridge {
   private voiceId: string;
   private elevenWs: WebSocket | null = null;
   private apiKey: string;
+  /** When true, skip ElevenLabs — console-only TTS lines; no audio to browser. */
+  private readonly disabled: boolean;
   private wsReady = false;
   private buffer = "";
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,9 +42,15 @@ export class WsTtsBridge {
   constructor(browserWs: WebSocket, voiceId: string) {
     this.browserWs = browserWs;
     this.voiceId = voiceId;
-    const key = process.env.ELEVENLABS_API_KEY;
-    if (!key) throw new Error("ELEVENLABS_API_KEY not set in .env");
-    this.apiKey = key;
+    this.disabled = process.env.TTS_ENABLED === "false";
+    if (this.disabled) {
+      this.apiKey = "";
+      console.log("  🔇 TTS disabled (TTS_ENABLED=false) — no ElevenLabs");
+    } else {
+      const key = process.env.ELEVENLABS_API_KEY;
+      if (!key) throw new Error("ELEVENLABS_API_KEY not set in .env");
+      this.apiKey = key;
+    }
   }
 
   /** Call this as soon as the session starts — before first token */
@@ -62,6 +70,13 @@ export class WsTtsBridge {
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
+    }
+
+    if (this.disabled) {
+      this.wsReady = true;
+      this.connectingPromise = null;
+      this.elevenWs = null;
+      return;
     }
 
     if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
@@ -134,10 +149,17 @@ export class WsTtsBridge {
   }
 
   private flushBuffer(trigger: boolean): void {
-    if (!this.buffer || this.stopped || !this.elevenWs) return;
-    if (this.elevenWs.readyState !== WebSocket.OPEN) return;
+    if (!this.buffer || this.stopped) return;
     const toSend = normalizeForTTS(this.buffer) + " ";
-    console.log(`  🔊 TTS: "${toSend.trim()}"`);
+    const trimmed = toSend.trim();
+    if (this.disabled) {
+      console.log(`  🔊 TTS (disabled): "${trimmed}"`);
+      this.buffer = "";
+      this.hasFlushedThisTurn = true;
+      return;
+    }
+    if (!this.elevenWs || this.elevenWs.readyState !== WebSocket.OPEN) return;
+    console.log(`  🔊 TTS: "${trimmed}"`);
     this.elevenWs.send(
       JSON.stringify({
         text: toSend,
@@ -159,6 +181,22 @@ export class WsTtsBridge {
   sendText(chunk: string): void {
     if (this.stopped) return;
     this.buffer += chunk;
+
+    if (this.disabled) {
+      if (/[.!?,;:\n]/.test(chunk)) {
+        if (this.flushTimer) {
+          clearTimeout(this.flushTimer);
+          this.flushTimer = null;
+        }
+        this.flushBuffer(true);
+      } else if (!this.hasFlushedThisTurn && this.buffer.length >= 10) {
+        this.flushBuffer(true);
+      } else {
+        this.scheduleFlush();
+      }
+      return;
+    }
+
     if (!this.wsReady || !this.elevenWs) return;
 
     if (/[.!?,;:\n]/.test(chunk)) {
@@ -183,6 +221,9 @@ export class WsTtsBridge {
       this.flushTimer = null;
     }
     this.flushBuffer(true);
+    if (this.disabled) {
+      return;
+    }
     if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
       const ws = this.elevenWs;
       // Send empty text to signal end-of-generation.

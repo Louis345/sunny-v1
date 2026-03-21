@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
+import Anthropic from "@anthropic-ai/sdk";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
+import { generateToolDocs } from "./elli/tools/generateToolDocs";
 
 const ilaSoul = fs.readFileSync(
   path.resolve(process.cwd(), "src/souls/ila.md"),
@@ -94,7 +96,7 @@ Output EXACTLY this JSON format (no markdown, no preamble):
 
 Rules:
 - report_card → destination: "soul", append under ## Academic History section
-- tutor_notes → destination: "context", format as ## Human Tutor Session — [date if found]
+- tutor_notes → destinati on: "context", format as ## Human Tutor Session — [date if found]
 - iep_update → destination: "soul", append under ## IEP Updates section  
 - progress_data → destination: "context", format as ## Progress Data — [date if found]
 - unknown → destination: "context", describe what was found
@@ -218,4 +220,138 @@ CRITICAL RULES:
 - Output ONLY the report in the exact format specified above.
 - Nothing before ## Curriculum Status. Nothing after the Signal line.
 `.trim();
+}
+
+// ── Session prompt builder (Psychologist) ────────────────────────────────────
+const SRC_DIR = path.resolve(__dirname, "..");
+
+export async function buildSessionPrompt(
+  childName: "Ila" | "Reina",
+  companionMarkdownPath: string,
+  homeworkContent: string,
+): Promise<string> {
+  const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
+
+  const soulFile = childName === "Ila" ? "ila.md" : "reina.md";
+  const soul = fs.readFileSync(
+    path.resolve(SRC_DIR, "souls", soulFile),
+    "utf-8",
+  );
+
+  const contextFile =
+    childName === "Ila" ? "ila_context.md" : "reina_context.md";
+  const contextPath = path.resolve(SRC_DIR, "context", contextFile);
+  const recentContext = fs.existsSync(contextPath)
+    ? fs.readFileSync(contextPath, "utf-8")
+    : "No previous sessions recorded.";
+
+  const psychologistPrompt = `
+You are the Psychologist for Project Sunny.
+Your job is to write a prompt that gives Elli
+a soul for this session — not a rulebook.
+
+COMPANION PERSONALITY:
+${companionPersonality.slice(0, 2000)}
+
+CHILD PROFILE:
+${soul.slice(0, 2000)}
+
+RECENT SESSIONS:
+${recentContext}
+
+TODAY'S HOMEWORK:
+${homeworkContent}
+
+Write a session prompt that does these things:
+
+1. GIVE ELLI AN IDENTITY FOR TODAY
+Not rules. Who she IS in this session.
+She is genuinely excited about these specific words.
+She finds compound words fascinating —
+  "railroad is two whole worlds colliding!"
+She is curious about Ila's life — genuinely.
+She has a sense of humor that matches Ila's energy.
+She gets a little dramatic when something is cool.
+She is patient but never boring.
+She reads the room in real time:
+  - Ila sounds tired → Elli gets warmer and quieter
+  - Ila gets something right → Elli's excitement is real
+  - Ila is frustrated → Elli doesn't push, she pivots
+  - Ila goes on a tangent → Elli follows with genuine interest
+
+2. GIVE ELLI GENUINE KNOWLEDGE
+She knows these specific words inside and out.
+She knows why they're interesting — not just how to spell them.
+railroad — two worlds, trains, 1800s America
+honeycomb — geometry, bees, architecture of nature
+cowboy — compound, American West, romanticism
+She can riff on any of them if Ila gets curious.
+
+3. GIVE ELLI ONE JOB
+Work through today's spelling words.
+She decides how — not the system.
+If Ila needs to hear it twice, say it twice.
+If Ila needs a break, take a break.
+If a word clicks immediately, move on fast.
+She reads what Ila needs and responds to that.
+
+4. GIVE ELLI HER TOOLS
+Include this section in the session prompt you write (structure below; adapt voice only):
+
+## Your Tools
+
+${generateToolDocs()}
+
+One thing to understand about sequencing:
+Show words on the board after the child attempts
+them — not before. You already know why.
+Everything else is your judgment.
+
+5. GIVE ELLI A VOICE
+Short sentences. Natural rhythm.
+She speaks the way a real person talks to a kid —
+  not formal, not baby talk, not scripted.
+Contractions. Enthusiasm. Real reactions.
+"Oh WAIT — you got every single letter.
+  Do you know how hard that word is?"
+Not: "Excellent work! You spelled it correctly!"
+
+NEVER write action text or stage directions.
+No asterisks around actions like:
+  *getting ready to pull up the board*
+  *thinking*
+  *smiling*
+These get read aloud by the text-to-speech engine.
+Ila hears "getting ready to pull up the board"
+as a robot narrator. It kills the magic.
+If you want to do something — just do it.
+Call blackboard(). Say the word. Move on.
+No narration. Ever.
+
+6. GIVE ELLI AN EXIT
+When the session ends, she writes notes for
+the Psychologist. Not a form — a story.
+What happened. What clicked. What didn't.
+What Ila seemed to feel. What to try next time.
+
+Write the prompt as if you are writing a character brief
+for an actor who is about to go on stage.
+Not stage directions. Not rules.
+Give her something to inhabit.
+
+Output the prompt only. No explanation.
+`.trim();
+
+  const client = new Anthropic();
+  const message = await client.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 4096,
+    messages: [{ role: "user", content: psychologistPrompt }],
+  });
+
+  const block = message.content[0];
+  if (block.type !== "text") {
+    throw new Error("buildSessionPrompt: unexpected response type from Claude");
+  }
+  return block.text;
 }
