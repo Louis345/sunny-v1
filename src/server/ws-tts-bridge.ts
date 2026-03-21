@@ -82,6 +82,7 @@ export class WsTtsBridge {
 
       ws.on("open", () => {
         this.connectingPromise = null;
+        console.log("  🔊 TTS model: eleven_flash_v2_5");
         if (this.elevenWs !== ws) {
           ws.close();
           resolve();
