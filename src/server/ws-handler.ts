@@ -77,6 +77,13 @@ export function handleWsConnection(
         break;
       }
 
+      case "test_transcript": {
+        if (!session) return;
+        const text = (msg as Record<string, string>).text;
+        if (text) session.injectTranscript(text);
+        break;
+      }
+
       default:
         ws.send(
           JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })
