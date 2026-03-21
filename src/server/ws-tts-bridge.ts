@@ -1,7 +1,7 @@
 import WebSocket from "ws";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
-const FLUSH_INTERVAL_MS = 150;
+const FLUSH_INTERVAL_MS = 50;
 
 function normalizeForTTS(text: string): string {
   return text.replace(/\bIla\b/gi, "EYE-lah");
@@ -35,6 +35,7 @@ export class WsTtsBridge {
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
   private connectingPromise: Promise<void> | null = null;
+  private hasFlushedThisTurn = false;
 
   constructor(browserWs: WebSocket, voiceId: string) {
     this.browserWs = browserWs;
@@ -57,6 +58,7 @@ export class WsTtsBridge {
   async connect(previousText?: string): Promise<void> {
     this.stopped = false;
     this.buffer = "";
+    this.hasFlushedThisTurn = false;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
@@ -143,6 +145,7 @@ export class WsTtsBridge {
       })
     );
     this.buffer = "";
+    this.hasFlushedThisTurn = true;
   }
 
   private scheduleFlush(): void {
@@ -164,6 +167,10 @@ export class WsTtsBridge {
         this.flushTimer = null;
       }
       this.flushBuffer(true);
+    } else if (!this.hasFlushedThisTurn && this.buffer.length >= 10) {
+      // Prime the ElevenLabs pipeline with the first text fragment
+      // so audio generation starts ASAP — no timer delay.
+      this.flushBuffer(true);
     } else {
       this.scheduleFlush();
     }
@@ -178,16 +185,20 @@ export class WsTtsBridge {
     this.flushBuffer(true);
     if (this.elevenWs && this.elevenWs.readyState === WebSocket.OPEN) {
       const ws = this.elevenWs;
+      // Send empty text to signal end-of-generation.
+      // ElevenLabs flushes remaining audio then sends a close frame.
       ws.send(JSON.stringify({ text: "" }));
 
-      // Wait for ElevenLabs to close the socket (all audio chunks sent)
-      // before signaling audio_done to the browser.
+      // Wait for all audio chunks to arrive before signaling audio_done.
+      // The socket will close after ElevenLabs sends the last chunk —
+      // we detect that to know when to proceed, then reopen on next turn.
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(resolve, 3000);
         ws.on("close", () => { clearTimeout(timeout); resolve(); });
       });
 
       this.wsReady = false;
+      this.elevenWs = null;
     }
   }
 

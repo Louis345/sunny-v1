@@ -197,6 +197,15 @@ export class TurnStateMachine {
   onToken(chunk: string): void {
     this.ttsBuffer += chunk;
 
+    // During PROCESSING: stream tokens directly to TTS bridge so its own
+    // clause-level flushing (commas, colons, 150ms timer) starts audio ASAP.
+    // Once SHOW_CANVAS fires, we stop early-streaming (gate on canvas).
+    if (this.state === "PROCESSING") {
+      this.onFlush(chunk);
+      this.ttsBuffer = "";
+      return;
+    }
+
     if (this.state === "SPEAKING") {
       if (this._shouldFlush(this.ttsBuffer)) {
         const clean = sanitizeForTTS(this.ttsBuffer);
@@ -279,6 +288,12 @@ export class TurnStateMachine {
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
+
+  private _hasCompleteSentence(buffer: string): boolean {
+    const trimmed = buffer.trim();
+    if (trimmed.length < 10) return false;
+    return /[.!?]["']?\s*$/.test(trimmed);
+  }
 
   private _shouldFlush(buffer: string): boolean {
     const trimmed = buffer.trim();
