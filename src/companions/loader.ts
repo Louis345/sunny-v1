@@ -96,6 +96,7 @@ export interface CompanionConfig {
   systemPrompt: string;
   openingLine: string;
   goodbye: string;
+  markdownPath: string;
   tracksActiveWord?: boolean;
   transitionToWorkAfterRounds?: number;
   usesCanonicalMathProblem?: boolean;
@@ -115,6 +116,7 @@ function loadCompanion(
     "tracksActiveWord" | "transitionToWorkAfterRounds" | "usesCanonicalMathProblem"
   > = {},
 ): CompanionConfig {
+  const markdownPath = path.resolve(DIR, companionFile);
   const companionMd = read(companionFile);
   const soul = read(soulFile);
   const curriculum = read(curriculumFile);
@@ -224,6 +226,7 @@ ${lastTwoSessionSummaries}
     systemPrompt,
     openingLine,
     goodbye,
+    markdownPath,
     ...behavior,
   };
 }
