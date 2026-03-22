@@ -1,33 +1,42 @@
+Based on Ila's comprehensive evaluation data and session history, I can see she's made significant progress in phonemic awareness. Let me analyze her current status and create the curriculum plan.
+
 ## Focus Area
-Wilson Step 2: Mixed-vowel three-phoneme segmentation with transition to visual decoding. Ila has mastered isolated middle-sound identification (87% accuracy across /a/ and /i/ words) and achieved 100% on full segmentation of "sit." Ready to advance to mixed-vowel discrimination and introduce reading CVC words from visual display. This addresses her documented visual dependency (Word Classes: 100% with pictures vs 37.5% without) while building toward independent decoding skills.
+Wilson Step 2: Three-phoneme segmentation with mixed-vowel discrimination and decoding integration. Ila has mastered isolated middle-sound identification (10/13 target words at 77%+ accuracy, with all /i/ words at 100%) and demonstrated successful three-phoneme segmentation on "sit" with visual support. Priority now is establishing true vowel discrimination through alternating /a/ and /i/ words within sessions, plus introducing the critical segmentation-to-decoding bridge that transfers phonemic awareness to actual reading fluency.
 
 ## Words for Next 3 Sessions
-**Session 1:** hit, sad, bit, bad, win  
-**Session 2:** lid, tan, did, pan, pin  
-**Session 3:** mix, wax, six, tax, fix
+**Session 1:** hit, sad, win, tan, lid  
+**Session 2:** bit, bad, pin, pan, did  
+**Session 3:** win, wax, six, tan, fix
 
 ## Clinical Reasoning
-**Addresses CELF-5 profile needs:**
-- Visual support essential (Word Classes split 100%/37.5%) — all words displayed on canvas during decoding phase
-- Single-step instructions (Following Directions 2nd percentile) — one sound at a time with clear "ready/go" signals
-- Leverages Sentence Comprehension strength (63rd percentile) — concrete, imageable CVC words
+**CELF-5 Profile Alignment:**
+- Leverages her Sentence Comprehension strength (63rd percentile) by using concrete, semantically meaningful CVC words
+- Accommodates Following Directions deficit (2nd percentile) with single-step instructions and clear "ready/go" signals per her documented need
+- Addresses Word Classes visual dependency (100% with pictures vs 37.5% without) by providing written word display during decoding phase
+- Avoids sentence-level complexity until phonemic foundation solidifies, respecting her Recalling Sentences weakness (5th percentile)
 
-**Performance data informed:**
-- Excludes mastered words (dig, fig, pig, wig, bag, rag, bat, sat — all 100% accurate) to maintain appropriate challenge
-- Strategically excludes "cat" (33% accuracy, 1/3 correct) to build confidence before reintroduction
-- Includes "hat" replacement words ("hit," "lid") to work /a/ vs /i/ discrimination without repeating overworked items
-- Mixed vowels within each session prevent pattern-matching by vowel family
+**Performance Data Integration:**
+- Excludes mastered words (dig, fig, pig, wig, bat, sat, bag, rag - all 100% accuracy) to maintain appropriate challenge
+- Strategic inclusion of new /a/ words (sad, tan, bad, pan) and /i/ words (hit, win, bit, pin, lid, did) for broader vowel discrimination
+- Deliberately avoids "cat" (33% accuracy) until confidence builds with similar patterns
+- Introduces /x/ ending complexity (wax, six, fix) as progression marker
 
-**Wilson Reading System progression:**
-- Dual-task structure: segmentation first (auditory processing), then decoding (visual processing) of identical words
-- Track separately: segmentation accuracy vs decoding accuracy are different skills
-- Progressive complexity: Session 1 establishes mixed-vowel concept → Session 2 adds consonant variety → Session 3 introduces /x/ ending pattern
+**Wilson Methodology:**
+- Dual-task structure: auditory segmentation first (hear → identify sounds), then visual decoding (see → read aloud)  
+- Mixed-vowel presentation prevents pattern-matching and ensures true phonemic discrimination
+- Visual support provided during decoding phase matches her processing strengths
+
+**ADHD Accommodations:**
+- Five-word sessions prevent cognitive overload
+- Alternating vowels require sustained attention
+- Built-in visual supports match her documented needs
 
 ## Success Looks Like
 Elli should observe:
-- **Consistent three-phoneme segmentation** without reverting to middle-sound-only responses from earlier sessions
-- **True vowel discrimination**: Accurate /a/ vs /i/ identification when alternated (not grouped by vowel)
-- **Segmentation-to-decoding transfer**: Successfully reads displayed words aloud after segmenting same words auditorily
-- **Target performance**: 80%+ segmentation accuracy, 70%+ decoding accuracy (visual processing adds cognitive load)
-- **Engagement indicators**: Self-advocates for challenge, completes tasks without fatigue signs
-- **Processing fluency**: Segmentation under 10 seconds, decoding attempts under 5 seconds per word
+- **Segmentation accuracy**: 80%+ on three-phoneme breakdown without reverting to middle-sound-only responses
+- **Mixed-vowel discrimination**: Accurate /a/ vs /i/ identification when words alternate within the same session
+- **Transfer skill**: Successfully reads displayed words aloud after completing auditory segmentation of identical words  
+- **Processing speed**: Segmentation responses within 10 seconds, decoding within 8 seconds per word
+- **Sustained engagement**: Completes 5-word sessions without fatigue, may request additional challenge
+- **Visual-phonemic integration**: Demonstrates connection between segmented sounds and written letters during decoding
+- **Error self-correction**: Catches and fixes vowel confusions independently, maintains consonant accuracy

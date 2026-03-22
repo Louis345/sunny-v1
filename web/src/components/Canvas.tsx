@@ -29,7 +29,7 @@ interface PlaceValueData {
 }
 
 export interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -44,6 +44,11 @@ export interface CanvasState {
   compoundBreak?: number;
   streakCount?: number;
   personalBest?: number;
+  gameUrl?: string;
+  gameWord?: string;
+  gamePlayerName?: string;
+  wordBuilderRound?: number;
+  wordBuilderMode?: string;
 }
 
 interface RewardEvent {
@@ -1013,10 +1018,40 @@ export function Canvas({
       )}
 
       <div
-        className="canvas-wrapper w-full max-w-2xl flex flex-col items-center justify-center"
+        className={
+          canvas.mode === "word-builder"
+            ? "canvas-wrapper w-full max-w-none flex flex-col items-stretch justify-center"
+            : "canvas-wrapper w-full max-w-2xl flex flex-col items-center justify-center"
+        }
         style={{ position: "relative", minHeight: 200 }}
         data-mode={displayMode}
       >
+        {canvas.mode === "word-builder" && canvas.gameUrl && (
+          <iframe
+            title="Sunny Word Builder"
+            src={canvas.gameUrl}
+            style={{
+              width: "100%",
+              height: "min(90vh, 720px)",
+              border: "none",
+              borderRadius: "8px",
+              background: "#121213",
+            }}
+            onLoad={(e) => {
+              onCanvasDone();
+              e.currentTarget.contentWindow?.postMessage(
+                {
+                  type: "start",
+                  word: canvas.gameWord ?? "",
+                  mode: canvas.wordBuilderMode ?? "fill_blanks",
+                  round: canvas.wordBuilderRound ?? 1,
+                  playerName: canvas.gamePlayerName ?? "Ila",
+                },
+                "*"
+              );
+            }}
+          />
+        )}
         {showBlackboard && (
           <div
             className="absolute inset-0 z-[25] flex items-center justify-center bg-white/95 px-4"

@@ -1,8 +1,27 @@
+import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 import { generateToolDocs } from "./elli/tools/generateToolDocs";
+
+const TEMPLATE_VERSION = "v5"; // bump this when prompt changes
+
+/** Extract a spelling word list from raw homework OCR content. */
+export function extractWordsFromHomework(content: string): string[] {
+  const lines = content.split(/\n/).map(l => l.trim()).filter(Boolean);
+  const words: string[] = [];
+  for (const line of lines) {
+    const cleaned = line
+      .replace(/^[\d]+[.)]\s*/, "")
+      .replace(/^[-*•]\s*/, "")
+      .trim();
+    if (/^[a-zA-Z]+(-[a-zA-Z]+)*$/.test(cleaned)) {
+      words.push(cleaned.toLowerCase());
+    }
+  }
+  return words;
+}
 
 const ilaSoul = fs.readFileSync(
   path.resolve(process.cwd(), "src/souls/ila.md"),
@@ -78,6 +97,25 @@ Why these words based on her CELF-5 and WIAT-4 scores
 What Elli should observe to know Ila is getting it
 `;
 
+/** Fill-blanks word-builder — companion reactions (Ila plays; server advances rounds). */
+export function WORD_BUILDER_ROUND_COMPLETE(
+  round: number,
+  word: string,
+  attempts: number
+): string {
+  if (round >= 4) {
+    return `[System: Ila completed the final round (4/4) of fill-in-the-blanks for "${word}" in ${attempts} attempt(s). Celebrate — she finished the whole word-builder game!]`;
+  }
+  return `[System: Ila completed fill-in-the-blanks round ${round}/4 for "${word}" in ${attempts} attempt(s). Celebrate briefly; the next round will use a harder blank pattern.]`;
+}
+
+export function WORD_BUILDER_ROUND_FAILED(round: number, word: string): string {
+  if (round >= 4) {
+    return `[System: Ila used all 3 attempts on the final round. The word was "${word}". Be warm and supportive; the game is done.]`;
+  }
+  return `[System: Ila used all 3 attempts on fill-in-the-blanks round ${round}/4. The answer was "${word}". Encourage her — the next round is coming.]`;
+}
+
 export function INTAKE_PROMPT(child: "Ila" | "Reina", soulContent: string): string {
   return `You are a clinical document processor for a child's learning profile.
 
@@ -89,7 +127,7 @@ ${soulContent.slice(0, 3000)}
 
 Output EXACTLY this JSON format (no markdown, no preamble):
 {
-  "type": "report_card" | "tutor_notes" | "iep_update" | "progress_data" | "unknown",
+  "type": "report_card" | "tutor_notes" | "iep_update" | "progress_data" | "zoom_transcript" | "unknown",
   "destination": "soul" | "context",
   "formatted": "The formatted text to append, written in the existing file's style"
 }
@@ -99,6 +137,24 @@ Rules:
 - tutor_notes → destinati on: "context", format as ## Human Tutor Session — [date if found]
 - iep_update → destination: "soul", append under ## IEP Updates section  
 - progress_data → destination: "context", format as ## Progress Data — [date if found]
+- zoom_transcript → destination: "context", format as ## Zoom Session — [date from filename or first timestamp found]
+
+  Extract from the dialogue:
+  - Teaching techniques Natalie used that worked
+  - Words Ila struggled with and how she recovered
+  - Words Ila got right — note confidence level
+  - Behavioral observations (attention, mood, engagement)
+  - Reward structure used (what followed successful work)
+  - Any patterns in how Ila learns best
+  - Direct quotes from Ila that reveal her thinking
+
+  CRITICAL:
+  - Speaker "Class 18" or "Ila" = the child
+  - Speaker "Natalie" = the human tutor
+  - Strip filler/off-topic conversation
+  - Preserve clinical observations only
+  - Never invent data not in the transcript
+
 - unknown → destination: "context", describe what was found
 - For tutor notes: preserve specific observations, accuracy data, behavioral notes
 - For report cards: extract subject grades, teacher comments, date
@@ -229,6 +285,7 @@ export async function buildSessionPrompt(
   childName: "Ila" | "Reina",
   companionMarkdownPath: string,
   homeworkContent: string,
+  wordList: string[] = [],
 ): Promise<string> {
   const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
 
@@ -264,6 +321,44 @@ ${homeworkContent}
 
 Write a session prompt that does these things:
 
+RESPONSE LENGTH AND EXPLANATION RULES:
+
+After a CORRECT answer:
+  1 sentence maximum. Celebrate and move on.
+  Example: "Perfect! Next word?"
+  Never explain the word after a correct answer.
+  The child knows it. Move on.
+
+After an INCORRECT answer:
+  1 sentence of encouragement.
+  1 sentence of the specific hint.
+  Use blackboard tool — let the visual do the work.
+  Do not over-explain. The board shows the answer.
+
+Explanations:
+  Only explain a word when:
+    - Child asks "what does that mean?"
+    - Child asks "why?"
+    - First time introducing the word
+  Never explain unprompted.
+  Never explain after a correct answer.
+
+Warmup:
+  1 sentence. Wait. Listen.
+  Match child's energy and length exactly.
+
+Elli's personality lives in SHORT reactions:
+  'YES!', 'Oh no!', 'So close!', 'Got it!'
+  Not in paragraphs.
+  Bubbly means quick and warm, not long.
+${wordList.length > 0 ? `
+SPELLING WORDS FOR THIS SESSION — USE ONLY THESE:
+${wordList.join(", ")}
+
+CRITICAL: Never use any word not on this list.
+Never invent compound words. Never use examples.
+Only the words above.
+` : ""}
 1. GIVE ELLI AN IDENTITY FOR TODAY
 Not rules. Who she IS in this session.
 She is genuinely excited about these specific words.
@@ -302,10 +397,39 @@ Include this section in the session prompt you write (structure below; adapt voi
 
 ${generateToolDocs()}
 
-One thing to understand about sequencing:
-Show words on the board after the child attempts
-them — not before. You already know why.
-Everything else is your judgment.
+CANVAS BEFORE ATTEMPT — ABSOLUTE RULE:
+Never call showCanvas(teaching) before the child attempts the word.
+Never. Not as warmup. Not as a hint. Never.
+
+If you find yourself about to call showCanvas before logAttempt has fired — stop. Don't do it.
+
+The only correct sequence:
+  1. Say the word
+  2. Wait for child to spell it
+  3. logAttempt fires
+  4. If correct → blackboard(flash)
+  5. If incorrect → blackboard(mask) first
+  6. If incorrect 3 times → showCanvas(teaching)
+
+Supporting detail (when teaching canvas is allowed, after attempt 3+):
+Before a spelling attempt: canvas stays blank.
+Never show the target word before the child tries.
+
+Correct sequence (expanded):
+  1. Say the word aloud, ask child to spell it
+  2. Canvas: blank (do nothing)
+  3. Child spells → logAttempt fires
+  4. Correct → blackboard(flash, word) only
+  5. Incorrect attempt 1 → blackboard(mask, maskedWord)
+     Show correct letters, underscore the wrong/missing ones.
+     Example: child says "bathooom" for "bathroom"
+     They got bath right, missed r, then oom — maskedWord = "bath__om"
+     The mask shows progress. Child sees the gap. Not the answer.
+  6. Incorrect attempt 2 → blackboard(reveal, word)
+  7. Incorrect attempt 3+ → showCanvas(teaching, word)
+
+Do NOT use reveal on first mistake — that gives the answer away.
+Use reveal only on 2nd mistake. Use showCanvas(teaching) on 3rd+.
 
 5. GIVE ELLI A VOICE
 Short sentences. Natural rhythm.
@@ -316,17 +440,22 @@ Contractions. Enthusiasm. Real reactions.
   Do you know how hard that word is?"
 Not: "Excellent work! You spelled it correctly!"
 
-NEVER write action text or stage directions.
-No asterisks around actions like:
-  *getting ready to pull up the board*
-  *thinking*
-  *smiling*
-These get read aloud by the text-to-speech engine.
-Ila hears "getting ready to pull up the board"
-as a robot narrator. It kills the magic.
-If you want to do something — just do it.
+ABSOLUTE RULE — NO EXCEPTIONS:
+Never write text between asterisks.
+*like this* or *dramatically throws hands up*
+These characters are read aloud by the voice engine.
+Ila hears "asterisk dramatically throws hands up asterisk"
+It breaks immersion completely.
+
+If you want to express an action or emotion:
+Just say it in words.
+Not: *gasps* — Say: "Oh wow!"
+Not: *dramatically defeated* — Say: "Okay okay you win!"
+Never. Use. Asterisks. Ever.
+
+If you want to do something in the flow — just do it.
 Call blackboard(). Say the word. Move on.
-No narration. Ever.
+No stage-direction narration.
 
 6. GIVE ELLI AN EXIT
 When the session ends, she writes notes for
@@ -342,6 +471,36 @@ Give her something to inhabit.
 Output the prompt only. No explanation.
 `.trim();
 
+  const cacheKey = crypto
+    .createHash("md5")
+    .update(companionMarkdownPath + homeworkContent + TEMPLATE_VERSION)
+    .digest("hex")
+    .slice(0, 8);
+
+  const cacheDir = path.join(process.cwd(), ".prompt-cache");
+  const cacheFile = path.join(cacheDir, `${cacheKey}.txt`);
+
+  // Prepended to every generated prompt regardless of cache — not stored in
+  // cache so it stays current even if childName changes between runs.
+  const namePrefix = [
+    `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
+    `Their name is ${childName}.`,
+    childName === "Ila" ? "Pronounce it EYE-lah." : "",
+    childName === "Reina" ? "Pronounce it RAY-nah." : "",
+    "You already know their name.",
+    "NEVER ask them their name.",
+    "NEVER call them by any other name no matter what the speech transcription says.",
+    "",
+  ].filter(l => l !== undefined).join("\n");
+
+  if (fs.existsSync(cacheFile)) {
+    const age = Date.now() - fs.statSync(cacheFile).mtimeMs;
+    if (age < 24 * 60 * 60 * 1000) {
+      console.log(`  ⚡ Session prompt cached (${cacheKey})`);
+      return namePrefix + fs.readFileSync(cacheFile, "utf-8");
+    }
+  }
+
   const client = new Anthropic();
   const message = await client.messages.create({
     model: "claude-sonnet-4-20250514",
@@ -353,5 +512,10 @@ Output the prompt only. No explanation.
   if (block.type !== "text") {
     throw new Error("buildSessionPrompt: unexpected response type from Claude");
   }
-  return block.text;
+  const promptText = block.text;
+
+  fs.mkdirSync(cacheDir, { recursive: true });
+  fs.writeFileSync(cacheFile, promptText, "utf-8");
+
+  return namePrefix + promptText;
 }

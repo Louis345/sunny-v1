@@ -84,6 +84,16 @@ export function handleWsConnection(
         break;
       }
 
+      case "game_event": {
+        if (!session) return;
+        const raw = msg as { event?: unknown };
+        const ev = raw.event;
+        if (ev && typeof ev === "object") {
+          session.handleGameEvent(ev as Record<string, unknown>);
+        }
+        break;
+      }
+
       default:
         ws.send(
           JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })

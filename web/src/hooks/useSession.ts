@@ -42,7 +42,7 @@ export interface BlackboardState {
 }
 
 interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -57,6 +57,11 @@ interface CanvasState {
   compoundBreak?: number;
   streakCount?: number;
   personalBest?: number;
+  gameUrl?: string;
+  gameWord?: string;
+  gamePlayerName?: string;
+  wordBuilderRound?: number;
+  wordBuilderMode?: string;
 }
 
 interface TurnPolicy {
@@ -330,8 +335,10 @@ export function useSession() {
             "championship",
             "place_value",
             "spelling",
+            "word-builder",
           ];
           const isSpelling = mode === "spelling";
+          const isWordBuilder = mode === "word-builder";
           setStateRef.current((s) => ({
             ...s,
             blackboard: clearedBlackboardState(),
@@ -349,6 +356,13 @@ export function useSession() {
               streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
               personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
               showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
+              gameUrl: isWordBuilder ? (data.gameUrl as string | undefined) : undefined,
+              gameWord: isWordBuilder ? (data.gameWord as string | undefined) : undefined,
+              gamePlayerName: isWordBuilder
+                ? (data.gamePlayerName as string | undefined)
+                : undefined,
+              wordBuilderRound: isWordBuilder ? (data.wordBuilderRound as number | undefined) : undefined,
+              wordBuilderMode: isWordBuilder ? (data.wordBuilderMode as string | undefined) : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -424,10 +438,20 @@ export function useSession() {
         const mode = (msg.mode ?? (msg.args as Record<string, unknown>)?.mode) as CanvasState["mode"];
         const content = (msg.content ?? (msg.args as Record<string, unknown>)?.content) as string | undefined;
         const label = (msg.label ?? (msg.args as Record<string, unknown>)?.label) as string | undefined;
-        const validModes: CanvasState["mode"][] = ["idle", "teaching", "reward", "riddle", "championship", "place_value", "spelling"];
+        const validModes: CanvasState["mode"][] = [
+          "idle",
+          "teaching",
+          "reward",
+          "riddle",
+          "championship",
+          "place_value",
+          "spelling",
+          "word-builder",
+        ];
         if (mode && validModes.includes(mode)) {
           const data = (msg.args ?? msg) as Record<string, unknown>;
           const isSpelling = mode === "spelling";
+          const isWordBuilder = mode === "word-builder";
           setStateRef.current((s) => ({
             ...s,
             blackboard: clearedBlackboardState(),
@@ -445,10 +469,27 @@ export function useSession() {
               streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
               personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
               showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
+              gameUrl: isWordBuilder ? (data.gameUrl as string | undefined) : undefined,
+              gameWord: isWordBuilder ? (data.gameWord as string | undefined) : undefined,
+              gamePlayerName: isWordBuilder
+                ? (data.gamePlayerName as string | undefined)
+                : undefined,
+              wordBuilderRound: isWordBuilder ? (data.wordBuilderRound as number | undefined) : undefined,
+              wordBuilderMode: isWordBuilder ? (data.wordBuilderMode as string | undefined) : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
           }));
+        }
+        break;
+      }
+
+      case "game_message": {
+        const forward = msg.forward as Record<string, unknown> | undefined;
+        if (forward) {
+          document.querySelectorAll("iframe").forEach((f) => {
+            f.contentWindow?.postMessage(forward, "*");
+          });
         }
         break;
       }
@@ -705,6 +746,27 @@ export function useSession() {
     wsRef.current = null;
     stopMic();
   }, [stopMic]);
+
+  useEffect(() => {
+    function handleGameMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || typeof data !== "object") return;
+      const t = (data as { type?: string }).type;
+      if (
+        t &&
+        [
+          "ready",
+          "round_complete",
+          "round_failed",
+          "game_complete",
+        ].includes(t)
+      ) {
+        sendMessageRef.current("game_event", { event: data });
+      }
+    }
+    window.addEventListener("message", handleGameMessage);
+    return () => window.removeEventListener("message", handleGameMessage);
+  }, []);
 
   useEffect(() => {
     return () => {

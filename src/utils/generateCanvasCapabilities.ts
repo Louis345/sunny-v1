@@ -44,6 +44,20 @@ export const CANVAS_CAPABILITIES = {
     props: ["score?: number"],
     example: '{ mode: "championship", score: 8 }',
   },
+  "word-builder": {
+    description:
+      "Fill-in-the-blanks spelling game. Child completes the word with decreasing visual support across 4 rounds. Tap letters on keyboard.",
+    useFor: ["reward after a correct spelling", "decoding practice"],
+    props: [
+      "gameUrl: string (static page)",
+      "gameWord: string",
+      "gamePlayerName?: string",
+      "wordBuilderRound?: number",
+      "wordBuilderMode?: \"fill_blanks\"",
+    ],
+    example:
+      '{ mode: "word-builder", gameUrl: "/games/wordd-builder.html", gameWord: "cowboy", wordBuilderRound: 1, wordBuilderMode: "fill_blanks" }',
+  },
 } as const;
 
 export function generateCanvasCapabilities(): string {

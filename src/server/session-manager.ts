@@ -4,7 +4,13 @@ import {
   type ChildName,
   type CompanionConfig,
 } from "../companions/loader";
-import { TEST_MODE_PROMPT, buildSessionPrompt } from "../agents/prompts";
+import {
+  TEST_MODE_PROMPT,
+  WORD_BUILDER_ROUND_COMPLETE,
+  WORD_BUILDER_ROUND_FAILED,
+  buildSessionPrompt,
+  extractWordsFromHomework,
+} from "../agents/prompts";
 import { loadHomeworkPayload } from "../utils/loadHomeworkFolder";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
@@ -75,6 +81,11 @@ export class SessionManager {
   private isSpellingSession = false;
   private sessionStartedToolCalled = false;
   private transitionedToWork = false;
+
+  private activeWordBuilderWord = "";
+  private wordBuilderSessionActive = false;
+  private activeWordContext: string = "";
+  private wordAttemptCounts: Map<string, number> = new Map();
 
   private turnSM: TurnStateMachine;
 
@@ -165,10 +176,15 @@ export class SessionManager {
             `${homeworkPayload.fileCount} pages`
         );
         console.log("  🧠 Psychologist building session prompt...");
+        const wordList = extractWordsFromHomework(homeworkPayload.rawContent);
+        if (wordList.length > 0) {
+          console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
+        }
         const sessionPrompt = await buildSessionPrompt(
           this.childName,
           this.companion.markdownPath,
           homeworkPayload.rawContent,
+          wordList,
         );
         this.companion = { ...this.companion, systemPrompt: sessionPrompt };
         console.log(
@@ -239,6 +255,68 @@ export class SessionManager {
     this.send("audio_done");
   }
 
+  /** Iframe game events (word-builder fill-blanks) forwarded from the browser. */
+  handleGameEvent(event: Record<string, unknown>): void {
+    const type = event.type as string;
+    if (type === "ready") {
+      return;
+    }
+    if (type === "round_complete") {
+      const round = Number(event.round) || 1;
+      const word = String(event.word ?? this.activeWordBuilderWord);
+      const attempts = Number(event.attempts) || 1;
+      void this.runCompanionResponse(
+        WORD_BUILDER_ROUND_COMPLETE(round, word, attempts)
+      ).then(() => {
+        if (
+          round < 4 &&
+          this.wordBuilderSessionActive &&
+          this.activeWordBuilderWord
+        ) {
+          this.send("game_message", {
+            forward: {
+              type: "next_round",
+              round: round + 1,
+              word: this.activeWordBuilderWord,
+            },
+          });
+        }
+      });
+      return;
+    }
+    if (type === "round_failed") {
+      const round = Number(event.round) || 1;
+      const word = String(event.word ?? this.activeWordBuilderWord);
+      void this.runCompanionResponse(WORD_BUILDER_ROUND_FAILED(round, word)).then(
+        () => {
+          if (
+            round < 4 &&
+            this.wordBuilderSessionActive &&
+            this.activeWordBuilderWord
+          ) {
+            this.send("game_message", {
+              forward: {
+                type: "next_round",
+                round: round + 1,
+                word: this.activeWordBuilderWord,
+              },
+            });
+          } else if (round >= 4) {
+            this.wordBuilderSessionActive = false;
+            this.activeWordBuilderWord = "";
+            this.send("canvas_draw", { mode: "idle" });
+          }
+        }
+      );
+      return;
+    }
+    if (type === "game_complete") {
+      this.wordBuilderSessionActive = false;
+      this.activeWordBuilderWord = "";
+      this.send("canvas_draw", { mode: "idle" });
+    }
+  }
+
   canvasDone(): void {
     this.turnSM.onCanvasDone();
   }
@@ -269,6 +347,11 @@ export class SessionManager {
       this.ttsBridge.close();
       this.ttsBridge = null;
     }
+
+    this.wordBuilderSessionActive = false;
+    this.activeWordBuilderWord = "";
+    this.activeWordContext = "";
+    this.wordAttemptCounts.clear();
 
     this.turnSM.onInterrupt();
 
@@ -332,6 +415,12 @@ export class SessionManager {
       this.lastEagerTranscript = normalized;
       this.lastEagerTranscriptTime = Date.now();
       if (this.turnSM.getState() === "IDLE") {
+        // Letter-by-letter spelling (spaces between single letters). Not the
+        // naive /^([a-zA-Z]\s?)+$/ — that matches normal words like "I want".
+        const isSpelling = /^([a-zA-Z]\s+)+[a-zA-Z]$/i.test(transcript.trim());
+        if (isSpelling) {
+          return;
+        }
         this.handleEndOfTurn(transcript).catch(console.error);
       }
       return;
@@ -460,14 +549,20 @@ export class SessionManager {
 
     try {
       // Window the history to reduce Claude's input size and improve TTFT.
-      // Keep the last 6 messages (3 turns) — enough for conversational context
-      // without ballooning latency on later turns.
-      const recentHistory = this.conversationHistory.length > 6
-        ? this.conversationHistory.slice(-6)
+      // Keep the last 10 messages (5 turns) — wide enough to retain active-word
+      // context across barge-ins while keeping latency acceptable.
+      const recentHistory = this.conversationHistory.length > 10
+        ? this.conversationHistory.slice(-10)
         : this.conversationHistory;
 
+      // Pin the active word context as the first message so it always survives
+      // history truncation, even after a barge-in wipes mid-session turns.
+      const historyWithPin: typeof recentHistory = this.activeWordContext
+        ? [{ role: "user", content: this.activeWordContext }, ...recentHistory]
+        : recentHistory;
+
       await runAgent({
-        history: recentHistory,
+        history: historyWithPin,
         userMessage,
         profile: this.companion,
         onToken: (chunk) => {
@@ -495,6 +590,11 @@ export class SessionManager {
             const args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
             this.handleToolCall(toolName, args, result);
+
+            if (toolName === "startWordBuilder") {
+              // Do not trigger CANVAS_PENDING — the iframe loads independently
+              // and does not send canvas_done. State machine stays PROCESSING → SPEAKING.
+            }
 
             if (toolName === "showCanvas") {
               // If a new math problem is shown, any queued transcript belongs
@@ -608,8 +708,43 @@ export class SessionManager {
       this.transitionedToWork = true;
     }
 
+    if (tool === "startWordBuilder") {
+      const word = String(args.word ?? "").toLowerCase().trim();
+      if (word.length < 4) {
+        console.warn("  ⚠️  startWordBuilder: word must be at least 4 letters");
+        return;
+      }
+      this.activeWordBuilderWord = word;
+      this.wordBuilderSessionActive = true;
+      console.log(`  🎮 Word-builder (fill-blanks) started — word: ${word}`);
+      this.send("canvas_draw", {
+        mode: "word-builder",
+        gameUrl: "/games/wordd-builder.html",
+        gameWord: word,
+        gamePlayerName: this.childName,
+        wordBuilderRound: 1,
+        wordBuilderMode: "fill_blanks",
+      });
+      return;
+    }
+
     if (tool === "logAttempt") {
       this.processReward(args);
+
+      // Update active word context pin for history injection
+      const loggedWordKey = (args.word as string | undefined)?.toLowerCase().trim() ?? "";
+      if (loggedWordKey) {
+        const count = (this.wordAttemptCounts.get(loggedWordKey) ?? 0) + 1;
+        this.wordAttemptCounts.set(loggedWordKey, count);
+        const correct = args.correct === true;
+        const lastAttempt = this.lastTranscript || "unknown";
+        this.activeWordContext =
+          `[Active word: "${loggedWordKey}". ` +
+          `Attempts this word: ${count}. ` +
+          `Last attempt: "${lastAttempt}" — ` +
+          `${correct ? "correct" : "incorrect"}.]`;
+        console.log(`  📌 activeWordContext: ${this.activeWordContext}`);
+      }
 
       // Validate Elli's logAttempt references the active word on canvas
       if (this.companion.tracksActiveWord && this.activeWord) {

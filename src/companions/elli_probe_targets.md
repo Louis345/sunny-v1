@@ -1,13 +1,13 @@
 # Elli Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-03-17T01:13:44.384Z*
+*Updated: 2026-03-22T00:53:00.601Z*
 
-• When we do sound games, mix up the /a/ and /i/ words—sit, sad, bit, bad, hit, cat—right in a row to keep it tricky
+• Play a spelling game where I show Ila picture cards of "rail" and "road" separately, then put them together to make "railroad"
 
-• Ask her to do two things in one go: "Touch the red circle, then clap your hands" and see how she does
+• Mix up short words like "sit," "sat," "hit," "hat" in a row and ask her to tell me each sound slowly—switching vowels keeps it tricky!
 
-• After she says a word, ask her to tell me a sentence using that word, like "Tell me a sentence with 'cat'"
+• When Ila spells a word, ask "What two words hide inside that one?" to see if she can figure it out by herself
 
-• Read her a longer sentence and ask her to say it back to me—start short, then try longer ones with more words
+• Give her two things to do in a row: "Touch the blue circle, then clap twice" and see how she does
 
-• When she nails something, ask what the word means or try it without showing the picture to see if she still knows it
+• Ask her to repeat back a sentence I say, like "The dog ran fast," then try a longer one to see what sticks

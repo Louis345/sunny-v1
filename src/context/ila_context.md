@@ -938,3 +938,224 @@ Document appears to be empty or contains only whitespace. No extractable informa
 ## Unknown Document — Scanned Document.txt
 
 Received empty document with filename 'Scanned Document.txt'. No content available to process or classify.
+
+---
+
+## Zoom Session — March 18, 2026
+
+**Duration**: ~90 minutes (technical difficulties caused late start)
+**Human Tutor**: Natalie
+**Focus**: Compound words spelling + reading fluency
+
+### Compound Words Lesson
+
+**Words practiced**: railroad, honeycomb, cowboy, bathroom, toothbrush, birthday, doorknob, seashell, snowball, starfish
+
+**Ila's performance**:
+- **Mastered easily**: railroad, cowboy, bathroom, toothbrush, birthday, snowball, starfish
+- **Struggled significantly**: honeycomb (comb = C-O-M-B), doorknob (silent K + double O in door)
+- **Minor issues**: seashell (SH/CH confusion, self-corrected)
+
+**Teaching technique**: Natalie broke compound words into component parts ("spell honey, then comb") which worked well for Ila.
+
+**Notable quotes from Ila**:
+- "Like, catfish?" (when asked about compound words - good conceptual understanding)
+- "Cow, and a boy" (correctly identified parts of cowboy)
+- "C-O-M-V" → "C-O-M-B" (needed multiple practice rounds for irregular spelling)
+
+### Letter Reversal Support
+
+**Issue**: Ila wrote backwards D's and B's in "doorknob"
+
+**Intervention**: Natalie taught the "bed" trick - write B-E-D to remember letter orientations ("like a little bed with headboard and footboard")
+
+**Ila's response**: Engaged positively, understood the visual concept
+
+### Reading Fluency (1-minute timed)
+
+**Text**: Passage about worms
+**Words attempted**: ~31 words
+**Issues observed**:
+- Skipped words rather than misreading them
+- Dropped plural endings ("worm" instead of "worms")
+- Had gum in mouth initially, affecting clarity
+
+**Natalie's feedback**: "More about skipping words than saying them incorrectly"
+
+### Difficult Word Practice
+
+**Words**: laugh, enough, bead, done, follow, learn
+**Performance**: 
+- Struggled with "enough" (GH = F sound)
+- Needed support with vowel teams (EA = long E)
+- Successfully read "follow" and "learn"
+
+### Behavioral Observations
+
+**Attention/Engagement**:
+- High energy, playful mood
+- Easily distracted by drawing tools and technology
+- Responded well to structured timer system
+- Negotiated for game time as reward
+
+**Notable behaviors**:
+- "Don't take over!" (wanted control of digital tools)
+- Excited about earning 10 minutes of game time
+- Mentioned completing a math test that day ("Great. I think... Right.")
+
+**Reward structure**: 10-minute gaming session at end (Roblox-type building game)
+
+### Learning Patterns Identified
+
+1. **Visual-kinesthetic preference**: Wanted to write/draw rather than just listen
+2. **Component analysis works**: Breaking compound words into parts was highly effective
+3. **Memory tricks needed**: Required mnemonics for irregular spellings ("comb-a" to remember the B)
+4. **Reading fluency**: Comprehension seems intact, but word skipping indicates rushed processing
+5. **Self-correction ability**: Caught and fixed SH/CH confusion independently
+
+### Follow-up Recommendations
+
+**Continue practicing**: honeycomb (C-O-M-B), doorknob (silent K + double O)
+**Reinforce**: "bed" trick for B/D orientation
+**Monitor**: Reading pace vs accuracy balance
+
+---
+
+## Zoom Session — March 21, 2026
+
+**Duration**: ~45 minutes (tutoring + 10 min reward time)
+**Tutor**: Natalie
+**Student**: Ila (referred to as "Class 18" in transcript)
+
+### Reading Comprehension Work
+
+**Text Topic**: Trains (bullet trains vs cargo trains)
+
+**Ila's Performance**:
+- **Bullet train comprehension**: Initially said "they can push people because they're fast and they're long" → with prompting, corrected to "move people fast"
+- **Sentence construction**: Started answers well using part of the question stem, showing good comprehension strategy
+- **Inference skills**: When asked why cargo trains don't move fast, correctly reasoned "because they hold things" without explicit text support
+- **Reading fluency**: Some minor stumbles ("bullet chain" for "bullet train") but self-corrected
+
+**Teaching Techniques That Worked**:
+- Prompting Ila to start sentences using the question stem
+- Providing word choice corrections ("move" vs "push") with explanation
+- Allowing thinking time before expecting responses
+- Breaking down complex questions into smaller parts
+
+### Coin Recognition Review
+
+**Ila's Accuracy**:
+- Penny (1 cent): ✓ Correct immediately
+- Nickel (5 cents): Initial incorrect response "Corner" → corrected with phonetic prompt "starts with N" → "Nickel" ✓
+- Dime (10 cents): ✓ Correct with minimal prompt
+- Quarter (25 cents): Not explicitly tested in transcript
+
+### Phonics/Word Work
+
+**Target Word**: "enough"
+- Natalie emphasized pronunciation practice
+- Ila appeared to need repeated modeling
+- Note: This aligns with her documented struggles with irregular sight words
+
+### Behavioral Observations
+
+**Engagement**: High throughout session, especially during reward time
+**Attention**: Good task focus during academic work, appropriate transition to play
+**Social interaction**: Playful, teasing dynamic with tutor; comfortable asking questions
+**Reward structure**: 10-minute game time following work completion - highly motivating
+
+**Notable Quote**: Ila took on teacher role during game time: "You're gonna give her a random book. She's gonna read to you" - shows metacognitive awareness of reading instruction
+
+### Session Notes
+
+- Ila completed all assigned work before reward time
+- Strong comprehension when text is present and discussed
+- Benefits from immediate feedback and gentle corrections
+- Highly motivated by structured reward time
+- Comfortable relationship with tutor allows for effective learning
+
+## Session — 3/21/2026, 8:52:09 PM
+Let me capture what happened in this session:
+
+---
+
+## SOAP Note — Ila
+
+**Date:** [Session Date]  
+**Time:** [Session Duration]  
+**Clinician:** [Your Name]
+
+### **S (Subjective)**
+Ila reported having "a payday with my best friend" and stated "I'm so happy." During the session, there was ambient noise/interruptions from her environment ("god. Just go downstairs. I'm trying to work"), suggesting she was not in an ideal therapy setting.
+
+### **O (Objective)**
+**Task: Compound Word Spelling — "Railroad"**
+
+*Round 1 (Spelling from Auditory Prompt):*
+- Target word: "railroad" (r-a-i-l-r-o-a-d)
+- Ila's response: "r-i-l-r-o-a-d"
+- Error: Omitted "a" in first syllable ("rail"), producing "ril" instead
+- Attempted second attempt after visual model was presented; did not complete
+
+*Round 2 (Interactive Spelling with Visual Support):*
+- Clinician broke word into two parts: "rail" + "road"
+- Ila spelled "r-a" independently ✓
+- Ila spelled "i-l" independently ✓
+- Ila required prompt for second word; responded "o"
+- Ila required prompt for final letter; responded "a" (as in apple)
+- Did not complete final letter independently
+
+*Round 3 (Fill-in-the-Blanks Game — Word Builder):*
+- Ila engaged with interactive game format
+- Attempted experimental clicking ("trying to make a mistake") to understand game mechanics
+- **Round 1/4 completed successfully in 1 attempt**
+
+### **A (Assessment)**
+- Ila demonstrates difficulty with multisyllabic compound word spelling from auditory input alone
+- Accuracy improves significantly with visual support and task breakdown into single-step components
+- Engages more readily with game-based, interactive format versus traditional spelling prompts
+- Environmental distractions present during session
+- Requires scaffolding and prompting to complete longer words
+
+### **P (Plan)**
+- Continue Word Builder game rounds; monitor performance as complexity increases
+- Maintain visual support and single-step instruction format
+- Consider session environment adjustments to minimize interruptions for future sessions
+
+## Psychologist Report — 3/21/2026, 8:52:57 PM
+Now I'll analyze the word attempt data and session patterns to write my curriculum decision:
+
+---
+
+## Curriculum Status
+
+**Compound word spelling (railroad, cowboy) — 2 sessions, 67% accuracy with scaffolding** → **CHANGE METHOD**
+
+Ila achieved success on compound words only when: (1) word was broken into components ("rail" + "road"), (2) visual support provided, (3) game-based format used (Word Builder). Raw attempt log shows railroad at 4 correct / 2 incorrect (67%), but Natalie's 3/18 Zoom session reveals the pattern—Ila mastered 7 of 10 compound words easily (railroad, cowboy, bathroom, toothbrush, birthday, snowball, starfish) but struggled with irregular spellings (honeycomb C-O-M-B, doorknob silent K). The 3/21 session with Sunny shows she cannot spell compound words from auditory prompt alone; she omitted "a" in "rail" producing "r-i-l-r-o-a-d." This is not a phonemic awareness breakdown—it's visual memory collapse without written reference. Her dyslexia profile demands orthographic support, not repeated auditory drilling.
+
+**CVC phoneme segmentation (/a/ and /i/ mixed vowels) — 3 sessions since 3/14, 100% on "sit" only** → **HOLD**
+
+Ila completed full three-phoneme segmentation on "sit" with 100% accuracy on 3/14. However, raw attempt log shows new CVC words attempted since: hit (3 correct, 0 incorrect), sad (1 correct, 0 incorrect), bit (1 correct, 0 incorrect), bad (1 correct, 0 incorrect). These represent single attempts per word with no mixed-vowel discrimination probes. The previous curriculum plan called for alternating /a/ and /i/ words within sessions (e.g., "sit" then "sat" then "hit" then "hat")—this has not occurred. She has not been tested on whether she can discriminate vowels when they change unpredictably. Without mixed-vowel data, I cannot confirm true phonemic awareness vs. pattern-matching.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Mixed-vowel discrimination in three-phoneme segmentation** — Ila has 100% accuracy on isolated /i/ and /a/ words, but has never segmented alternating vowels in same session. Must probe: "sit" → "sat" → "hit" → "hat" → "bit" → "bat" in sequence to confirm she discriminates vowels independently, not by recognizing word family patterns.
+
+- **CRITICAL: Compound word component analysis WITHOUT scaffolding** — Natalie's method (breaking into parts) worked, but Ila was prompted each time. Must probe: "Spell cowboy. What two words make cowboy?" to assess whether she can independently analyze compounds or requires adult segmentation every time.
+
+- **CRITICAL: Letter orientation (B/D reversal)** — Natalie noted Ila wrote backwards B's and D's in "doorknob" on 3/18. Natalie taught "bed" trick but follow-up data is missing. Must probe: write "bed," "bad," "big," "dog" to assess whether mnemonic transferred or if reversals persist. This is a dyslexia red flag requiring immediate documentation.
+
+- **CRITICAL: Following Directions (2nd percentile)** — flagGap shows 13 "mentions" but querySessions reveals zero formal multi-step probes. All directions in sessions are single-step ("spell this word," "tell me the sounds"). CELF-5 documents she fails with 2+ steps and modifiers. Must formally probe: "Touch the big blue circle, then tap your head twice" (2-step with modifiers). Baseline data required for IEP progress monitoring.
+
+- **CRITICAL: Recalling Sentences (5th percentile)** — flagGap shows 13 "mentions" but querySessions shows zero sentence repetition tasks. All work is discrete phoneme or word-level. CELF-5 documents 5th percentile auditory memory. Must probe: repeat "The dog ran fast" (4 words), then "When the cat jumped over the fence, he saw a bird" (11 words). Essential baseline missing.
+
+- **WATCH: Word Structure morphology** — flagGap shows 12 "mentions" but actual elicitation is limited. Natalie's session showed Ila understands compound semantics ("cow and a boy" for cowboy), but CELF-5 documents errors on irregular plurals, future tense, pronouns. Must probe: "One mouse, two ___" (irregular plural), "The cat will ___" (future tense), "___is running" (pronoun substitution).
+
+---
+
+## Signal
+
+**CHANGE METHOD on compound words; HOLD on CVC segmentation pending mixed-vowel discrimination probe.** Ila's dyslexia profile requires orthographic anchoring—she cannot spell multisyllabic words from auditory input alone. Compound word instruction must shift to visual component cards (show "rail" + "road" = "railroad") with gradual fading of visual support, not repeated auditory spelling drills. For CVC work, immediately probe mixed-vowel sequences (sit/sat/hit/hat alternating) before advancing complexity. Most urgent: conduct formal baseline probes on Following Directions and Recalling Sentences this week—these are 2nd and 5th percentile CELF-5 gaps with 13 planning "mentions" but zero documented performance data. IEP compliance requires actual baseline scores, not planning references.

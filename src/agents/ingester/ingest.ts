@@ -24,12 +24,62 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { INTAKE_PROMPT } from "../prompts";
 
 const INTAKE_DIR = path.resolve(process.cwd(), "src", "intake");
-const SUPPORTED_EXTENSIONS = [".txt", ".md", ".json"];
+const SUPPORTED_EXTENSIONS = [".txt", ".md", ".json", ".vtt"];
+
+/** Which child owns this path — derived only from `src/intake/ila/` vs `src/intake/reina/`. */
+function childFromIntakePath(filePath: string): "Ila" | "Reina" {
+  const abs = path.resolve(filePath);
+  const ilaRoot = path.resolve(INTAKE_DIR, "ila");
+  const reinaRoot = path.resolve(INTAKE_DIR, "reina");
+  const under =
+    (root: string) => abs === root || abs.startsWith(root + path.sep);
+  if (under(ilaRoot)) return "Ila";
+  if (under(reinaRoot)) return "Reina";
+  throw new Error(`Intake file outside src/intake/ila or src/intake/reina: ${filePath}`);
+}
+
+/** All supported files under `dir` (recursive). */
+function collectIntakeFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const name of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, name.name);
+    if (name.isDirectory()) {
+      out.push(...collectIntakeFiles(full));
+    } else if (
+      SUPPORTED_EXTENSIONS.includes(path.extname(name.name).toLowerCase()) &&
+      !name.name.startsWith(".")
+    ) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+function parseVtt(content: string): string {
+  return content
+    .split("\n")
+    .filter((line) => {
+      if (!line.trim()) return false;
+      if (line.trim() === "WEBVTT") return false;
+      if (/^\d+$/.test(line.trim())) return false;
+      if (/-->/i.test(line)) return false;
+      return true;
+    })
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+}
 
 interface IngestResult {
   file: string;
   child: "Ila" | "Reina";
-  type: "report_card" | "tutor_notes" | "iep_update" | "progress_data" | "unknown";
+  type:
+    | "report_card"
+    | "tutor_notes"
+    | "iep_update"
+    | "progress_data"
+    | "zoom_transcript"
+    | "unknown";
   destination: "soul" | "context" | "curriculum";
   summary: string;
 }
@@ -69,13 +119,27 @@ Classify and extract this document.`,
   }
 }
 
-async function processFile(filePath: string, child: "Ila" | "Reina"): Promise<IngestResult> {
+async function processFile(filePath: string): Promise<IngestResult> {
+  const child = childFromIntakePath(filePath);
   const filename = path.basename(filePath);
   const content = fs.readFileSync(filePath, "utf-8");
 
+  let processedContent = content;
+  if (filename.endsWith(".vtt")) {
+    processedContent = parseVtt(content);
+    console.log(
+      `  📝 Parsed VTT: ${content.split("\n").length} lines → ` +
+        `${processedContent.split("\n").length} dialogue lines`
+    );
+  }
+
   console.log(`  📄 Processing: ${filename} for ${child}...`);
 
-  const { type, destination, formatted } = await classifyAndExtract(content, filename, child);
+  const { type, destination, formatted } = await classifyAndExtract(
+    processedContent,
+    filename,
+    child
+  );
 
   const targetFile =
     destination === "soul"
@@ -106,6 +170,7 @@ async function main(): Promise<void> {
   // Ensure intake directories exist
   ["ila", "reina"].forEach((name) => {
     fs.mkdirSync(path.resolve(INTAKE_DIR, name), { recursive: true });
+    fs.mkdirSync(path.resolve(INTAKE_DIR, name, "zoom-sessions"), { recursive: true });
   });
 
   const results: IngestResult[] = [];
@@ -114,12 +179,7 @@ async function main(): Promise<void> {
     const childDir = path.resolve(INTAKE_DIR, child.toLowerCase());
     if (!fs.existsSync(childDir)) continue;
 
-    const files = fs
-      .readdirSync(childDir)
-      .filter(
-        (f) =>
-          SUPPORTED_EXTENSIONS.includes(path.extname(f).toLowerCase()) && !f.startsWith(".")
-      );
+    const files = collectIntakeFiles(childDir);
 
     if (files.length === 0) {
       console.log(`  ℹ️  No files in src/intake/${child.toLowerCase()}/`);
@@ -127,7 +187,7 @@ async function main(): Promise<void> {
     }
 
     for (const file of files) {
-      const result = await processFile(path.resolve(childDir, file), child);
+      const result = await processFile(file);
       results.push(result);
     }
   }

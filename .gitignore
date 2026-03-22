@@ -12,6 +12,9 @@ _reference/
 # Auto-generated at startup
 CANVAS_CAPABILITIES.md
 
+# Session prompt cache (buildSessionPrompt, 24h TTL)
+.prompt-cache/
+
 # Homework — runtime data, never committed (repo root only; not src/tests/fixtures/homework)
 /homework/
 

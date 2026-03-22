@@ -1,6 +1,7 @@
 import { useState } from "react";
 import LottieRaw from "lottie-react";
 import celebrationData from "../assets/celebrations.json";
+import { CANVAS_TEST_PRESETS } from "../../../src/scripts/canvas-test-presets";
 
 const Lottie =
   (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
@@ -287,7 +288,13 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
     (typeof PRESETS)[0] | null
   >(null);
   const [mode, setMode] = useState<
-    "teaching" | "riddle" | "reward" | "championship" | "place_value" | "spelling"
+    | "teaching"
+    | "riddle"
+    | "reward"
+    | "championship"
+    | "place_value"
+    | "spelling"
+    | "word-builder"
   >("teaching");
   const [content, setContent] = useState("");
   const [label, setLabel] = useState("");
@@ -306,6 +313,22 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
       tool: "showCanvas",
       args,
     });
+    setFired(true);
+    setTimeout(() => setFired(false), 800);
+  };
+
+  const fireCanvasHarnessPreset = (
+    state: (typeof CANVAS_TEST_PRESETS)[number]["state"]
+  ) => {
+    sendMessage("canvas_draw", {
+      mode: state.mode,
+      gameUrl: state.gameUrl,
+      gameWord: state.gameWord,
+      gamePlayerName: state.gamePlayerName,
+      wordBuilderRound: state.wordBuilderRound,
+      wordBuilderMode: state.wordBuilderMode,
+    });
+    setMode(state.mode);
     setFired(true);
     setTimeout(() => setFired(false), 800);
   };
@@ -416,6 +439,21 @@ export function CanvasTestOverlay({ sendMessage }: Props) {
           ) : (
             <span className="text-xs text-gray-300">hover a character</span>
           )}
+        </div>
+        <div className="flex gap-1 flex-wrap pt-1 border-t border-gray-100">
+          <span className="text-[10px] text-gray-500 w-full uppercase tracking-wide">
+            Harness (no AI)
+          </span>
+          {CANVAS_TEST_PRESETS.map((p) => (
+            <button
+              key={p.name}
+              type="button"
+              onClick={() => fireCanvasHarnessPreset(p.state)}
+              className="px-2 py-1 text-xs bg-emerald-100 text-emerald-900 rounded hover:bg-emerald-200"
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
         <div className="flex gap-1 flex-wrap pt-1 border-t border-gray-100">
           {PRESETS.map((p) => (
