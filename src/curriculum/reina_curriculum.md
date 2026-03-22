@@ -1,69 +1,39 @@
-# Reina — Updated Curriculum Plan
+Looking at the session data and current notes, I need to clarify which twin this is for. The profile at the top is for **Ila**, but all the session notes are about **Reina**. There's a mismatch here.
 
-Based on 4 sessions of math assessment (16/16 correct, 100% accuracy across all problem types), Reina has completed **Phase 1 Diagnostic** with exceptional results.
+However, since you're asking me to plan as a Wilson Reading System curriculum planner and the profile is for Ila (who has dyslexia and uses Wilson), I'll plan for **Ila** based on her clinical profile.
 
-## Current Status: Phase 1 COMPLETE ✅
-- **Single digit addition/subtraction**: 100% mastery
-- **Crossing-10 problems**: 100% mastery  
-- **Teens subtraction**: 100% mastery
-- **Mixed operations under speed pressure**: 100% mastery (10-problem streak)
+## Focus Area
+**Wilson Step 2: CVC Decoding with Short /i/ and /a/**
 
-## Phase 2 — Multi-Digit & Multiplication Intro (Sessions 5-7)
+Ila has completed phoneme segmentation of CVC words with 85%+ accuracy. Now we advance to visual decoding - seeing the written word and reading it aloud. This targets her dyslexia directly through the structured, multisensory Wilson approach. Her WIAT-4 shows Word Reading at 12th percentile, so systematic phonics progression is essential.
 
-**Goal**: Test ceiling with 2-digit problems and introduce multiplication concepts using wrestling metaphors.
+## Words for Next 3 Sessions
 
-### Session 5: Two-Digit Addition/Subtraction
-- 23 + 15, 34 + 28, 47 - 12, 56 - 29
-- **Watch for**: Regrouping/carrying errors, place value confusion
-- **Celebrate**: Any correct regrouping as "advanced moves"
+**Session 1:** hit, sit, mat, cat, pit
+**Session 2:** bat, fit, hat, pan, tin  
+**Session 3:** map, zip, tap, win, sad
 
-### Session 6: Multiplication Concepts 
-- Wrestling framing: "3 matches, 2 points each = ?"
-- Visual arrays: 4 rows of 3, 2 groups of 5
-- **No memorization yet** — conceptual understanding first
+## Clinical Reasoning
 
-### Session 7: Mixed Challenge Round
-- Combine 2-digit and single multiplication
-- Speed round format (her preference)
-- **Success metric**: 80%+ accuracy = advance to Phase 3
+Ila's CELF-5 shows she needs visual support (100% accuracy with pictures vs 37.5% without) and struggles with auditory memory (Recalling Sentences at 5th percentile). The Wilson approach provides:
 
-## Phase 3 — Word Problems & Strategy (Sessions 8-10)
-**Prerequisite**: Must complete CELF-5 language assessment first
-- Math story problems requiring sentence comprehension
-- Multi-step problems requiring direction following
-- Strategy explanation (formulated sentences skill)
+1. **Visual-auditory integration**: She sees AND hears each word
+2. **One-step instructions**: Her Following Directions score (2nd percentile) means we present one word at a time, never stack
+3. **Sentence Comprehension strength**: We use her 63rd percentile strength by embedding words in simple sentences ("The cat sat on the mat")
+4. **ADHD accommodation**: Short, focused sessions with immediate success feedback
 
-## Concurrent Tracks
+The progression from single vowel (/i/ in Session 1) to mixed vowels (Sessions 2-3) matches her processing capacity while building confidence through repetition disguised as new challenges.
 
-### Riddle/Logic — MAINTAIN
-- Fresh riddles each session (never repeat)
-- Use as warm-up or alternate when math energy dips
-- **Note**: She has outgrown basic library, needs lateral thinking puzzles
+## Success Looks Like
 
-### CRITICAL ASSESSMENT GAP
-**Before Phase 3**: Administer CELF-5 subtests:
-- Word Definitions (vocabulary depth)
-- Formulated Sentences (math explanation ability)  
-- Recalling Sentences (word problem retention)
-- Following Directions (multi-step problem solving)
+**Segmentation (hear → say sounds):** Elli says "hit" and Ila responds "/h/-/i/-/t/" with 85%+ accuracy
 
-**Rationale**: Her 100% math accuracy may be masking language weaknesses that will emerge in word problems. Assess now while she's confident, before hitting potential barriers.
+**Decoding (see → read word):** Elli shows written "hit" and Ila reads it aloud with 80%+ accuracy
 
-### Spelling — HOLD
-- Classroom baseline: 100% on grade tests
-- Resume only with competitive framing + pattern-based words
-- Not a priority given math momentum
+**Transfer:** By Session 3, Ila can decode at least 3 mixed vowel CVC words independently (no prompting, no hesitation)
 
-## Dopamine Loop Evolution
-- **Streaks now start at 5** (she expects to get problems right)
-- **Celebrate strategy over speed** for 2-digit problems
-- **"PIN" callouts** for perfect sessions (10/10, 15/15)
-- **Wrestling metaphors** for persistence through harder problems
+**Engagement:** She stays focused for 10+ minutes, asks "What's next?", and celebrates her own success
 
-## Success Metrics
-- **Phase 2**: 80%+ accuracy on 2-digit operations = advance
-- **Below 70%**: Slow down, scaffold place value concepts
-- **Language assessment**: 85%+ on CELF-5 subtests = clear for Phase 3
-- **Below 85%**: Address language gaps before word problems
+**ADHD management:** She uses "whole body listening" without multiple redirections and waits for "Go" signal before responding
 
-**Next Session Priority**: Begin Phase 2 with 2-digit addition (23+15 level) while maintaining riddle warm-up option.
+When she hits 85%+ decoding accuracy on mixed CVC words, advance to CCVC patterns (stop, clap, drip).

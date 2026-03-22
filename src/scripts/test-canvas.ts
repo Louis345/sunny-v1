@@ -4,6 +4,8 @@ import { createServer } from "http";
 import path from "path";
 import { ELLI, MATILDA } from "../companions/loader";
 
+export { CANVAS_TEST_PRESETS } from "./canvas-test-presets";
+
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
@@ -50,7 +52,7 @@ wss.on("connection", (ws) => {
       if (msg.type === "canvas_draw") {
         ws.send(JSON.stringify(msg));
         console.log(
-          `  🎨 canvas_draw echoed: mode="${msg.mode}" content="${msg.content ?? ""}"`
+          `  🎨 canvas_draw echoed: mode="${msg.mode}" content="${msg.content ?? ""}" gameUrl="${(msg as { gameUrl?: string }).gameUrl ?? ""}"`
         );
       }
       if (msg.type === "tool_call" && (msg.tool === "showCanvas" || msg.tool === "show_canvas")) {

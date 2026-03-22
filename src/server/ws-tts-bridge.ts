@@ -255,6 +255,9 @@ export class WsTtsBridge {
       const ws = this.elevenWs;
       this.elevenWs = null;
       try {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "clear" }));
+        }
         // `close()` while CONNECTING throws in some runtimes; `terminate()` is
         // safe for barge-in teardown on in-flight sockets.
         if (

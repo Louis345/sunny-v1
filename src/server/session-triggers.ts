@@ -75,6 +75,8 @@ export function getRewardDurations(childName: ChildName): RewardDurations {
 
 /**
  * Trigger 1: User says goodbye.
+ * When true, session-manager ends the session immediately — the transcript never
+ * reaches Claude, so the model cannot misfire endSession.
  */
 export function checkUserGoodbye(transcript: string): boolean {
   return isGoodbye(transcript);

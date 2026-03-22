@@ -2,8 +2,14 @@ import { tool } from "ai";
 import { z } from "zod";
 
 export const endSession = tool({
-  description:
-    "End the session when the child says they want to stop, says goodbye, or clearly indicates they are done. Call this immediately — do not ask for confirmation, do not say anything after calling this tool.",
+  description: `End the session ONLY when the child or parent says the exact phrase 'end session' or 'end the session'.
+
+Nothing else triggers this tool.
+Not 'stop', not 'bye', not 'I'm done', not 'goodbye', not 'I have to go', not 'we're done'.
+
+ONLY: 'end session' or 'end the session'.
+
+If they say anything else, stay in session.`,
   inputSchema: z.object({
     childName: z.string(),
     reason: z.enum(["child_requested", "session_complete", "goodbye"]),

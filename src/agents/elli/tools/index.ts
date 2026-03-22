@@ -7,3 +7,4 @@ export { mathProblem } from "./mathProblem";
 export { riddleTracker } from "./riddleTracker";
 export { showCanvas } from "./showCanvas";
 export { blackboard } from "./blackboard";
+export { startWordBuilder } from "./startWordBuilder";

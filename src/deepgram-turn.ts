@@ -16,6 +16,16 @@ export interface FluxHandle {
   close: () => void;
 }
 
+/** Exported for tests and tuning visibility — keep in sync with connectFlux(). */
+export const FLUX_LISTEN_OPTIONS = {
+  model: "flux-general-en",
+  encoding: "linear16" as const,
+  sample_rate: 16000,
+  eot_threshold: 0.8,
+  eager_eot_threshold: 0.65,
+  eot_timeout_ms: 5000,
+} as const;
+
 export async function connectFlux(callbacks: FluxCallbacks): Promise<FluxHandle> {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) throw new Error("DEEPGRAM_API_KEY not set in .env");
@@ -23,12 +33,7 @@ export async function connectFlux(callbacks: FluxCallbacks): Promise<FluxHandle>
   const client = new DeepgramClient({ apiKey });
 
   const socket = await client.listen.v2.connect({
-    model: "flux-general-en",
-    encoding: "linear16",
-    sample_rate: 16000,
-    eot_threshold: 0.6,
-    eager_eot_threshold: 0.45,
-    eot_timeout_ms: 3000,
+    ...FLUX_LISTEN_OPTIONS,
     Authorization: `Token ${apiKey}`,
   });
 
