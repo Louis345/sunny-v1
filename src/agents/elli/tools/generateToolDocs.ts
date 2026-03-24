@@ -8,6 +8,7 @@ import { riddleTracker } from "./riddleTracker";
 import { showCanvas } from "./showCanvas";
 import { blackboard } from "./blackboard";
 import { startWordBuilder } from "./startWordBuilder";
+import { startSpellCheck } from "./startSpellCheck";
 
 /** Every `tool()` exposed to Elli — single registry for runtime + docs. */
 export const ALL_TOOLS = {
@@ -20,6 +21,7 @@ export const ALL_TOOLS = {
   showCanvas,
   blackboard,
   startWordBuilder,
+  startSpellCheck,
 } as const;
 
 function getDescription(t: Tool): string {

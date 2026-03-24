@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { sanitizeForTTS } from "./session-state";
 
 const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
@@ -150,7 +151,7 @@ export class WsTtsBridge {
 
   private flushBuffer(trigger: boolean): void {
     if (!this.buffer || this.stopped) return;
-    const toSend = normalizeForTTS(this.buffer) + " ";
+    const toSend = sanitizeForTTS(normalizeForTTS(this.buffer)) + " ";
     const trimmed = toSend.trim();
     if (this.disabled) {
       console.log(`  🔊 TTS (disabled): "${trimmed}"`);
@@ -180,7 +181,14 @@ export class WsTtsBridge {
 
   sendText(chunk: string): void {
     if (this.stopped) return;
-    this.buffer += chunk;
+    let piece = chunk;
+    const bufTrim = this.buffer.trimEnd();
+    if (bufTrim.length > 0 && piece.trim().length > 0) {
+      if (!/[.!?]["']?\s*$/.test(bufTrim)) {
+        piece = ". " + piece.replace(/^\s+/, "");
+      }
+    }
+    this.buffer += piece;
 
     if (this.disabled) {
       if (/[.!?,;:\n]/.test(chunk)) {

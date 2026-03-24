@@ -8,3 +8,4 @@ export { riddleTracker } from "./riddleTracker";
 export { showCanvas } from "./showCanvas";
 export { blackboard } from "./blackboard";
 export { startWordBuilder } from "./startWordBuilder";
+export { startSpellCheck } from "./startSpellCheck";

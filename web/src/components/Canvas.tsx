@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, createRef } from "react";
+
+/** Stable module-level ref so useSession can post messages without a DOM scan */
+export const gameIframeRef = createRef<HTMLIFrameElement>();
 import { useStaggeredReveal } from "../hooks/useStaggeredReveal";
 import { motion } from "framer-motion";
 import gsap from "gsap";
@@ -29,7 +32,7 @@ interface PlaceValueData {
 }
 
 export interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder" | "spell-check";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -107,7 +110,35 @@ function RewardTakeover({
 }
 
 function isMath(content: string): boolean {
-  return /[\d+\-×÷=]/.test(content) && content.length < 12;
+  if (!/[\d+\-×÷=]/.test(content)) return false;
+  if (content.includes("\n")) return true;
+  return content.length < 12;
+}
+
+const MATH_MONO: React.CSSProperties = {
+  fontFamily:
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
+  fontWeight: 900,
+};
+
+function buildTeachingMathParts(
+  line: string,
+  options: { isLastLine: boolean; normalizedPendingAnswer?: string },
+): { type: "num" | "op" | "q"; text: string }[] {
+  const tokens = line.split(/\s+/).filter(Boolean);
+  const parts: { type: "num" | "op" | "q"; text: string }[] = [];
+  for (const t of tokens) {
+    if (/^[\d]+$/.test(t)) parts.push({ type: "num", text: t });
+    else if (/^[+\-×÷=]$/.test(t)) parts.push({ type: "op", text: t });
+  }
+  const { isLastLine, normalizedPendingAnswer } = options;
+  if (isLastLine && parts.length > 0 && parts[parts.length - 1]?.type !== "op") {
+    parts.push({ type: "op", text: "=" });
+  }
+  if (isLastLine) {
+    parts.push({ type: "q", text: normalizedPendingAnswer || "?" });
+  }
+  return parts;
 }
 
 const ONES: Record<string, number> = {
@@ -574,16 +605,109 @@ function TeachingContent({
     const asNumber = rawPending ? spokenToNumber(rawPending) : null;
     const normalizedPendingAnswer = asNumber !== null ? String(asNumber) : rawPending || undefined;
     const showQuestionMark = !normalizedPendingAnswer;
-    const tokens = content.split(/\s+/).filter(Boolean);
-    const parts: { type: "num" | "op" | "q"; text: string }[] = [];
-    for (const t of tokens) {
-      if (/^[\d]+$/.test(t)) parts.push({ type: "num", text: t });
-      else if (/^[+\-×÷=]$/.test(t)) parts.push({ type: "op", text: t });
+
+    const renderMathSpans = (
+      parts: { type: "num" | "op" | "q"; text: string }[],
+      keyPrefix: string,
+    ) =>
+      parts.map((p, i) => (
+        <span
+          key={`${keyPrefix}-${i}`}
+          className={p.type === "q" && showQuestionMark ? "q-pulse" : ""}
+          style={{
+            ...MATH_MONO,
+            fontSize:
+              p.type === "num"
+                ? "10rem"
+                : p.type === "op"
+                  ? "7rem"
+                  : "8rem",
+            color:
+              p.type === "op"
+                ? "#6366f1"
+                : p.type === "q"
+                  ? showQuestionMark
+                    ? "#EF9F27"
+                    : "#16a34a"
+                  : "#1a1a2e",
+            lineHeight: 1,
+          }}
+        >
+          {p.text}
+        </span>
+      ));
+
+    const rawLines = content.split("\n");
+    const lastLineIndex = rawLines.length - 1;
+
+    if (content.includes("\n")) {
+      return (
+        <div className="space-y-6">
+          {canvasSvg && (
+            <div
+              className="mx-auto max-w-md"
+              dangerouslySetInnerHTML={{ __html: unescapeSvg(canvasSvg) }}
+            />
+          )}
+          <div
+            className="canvas-content flex flex-col items-stretch w-full max-w-3xl mx-auto"
+            style={MATH_MONO}
+          >
+            {rawLines.map((line, lineIdx) => {
+              const trimmed = line.trim();
+              const isLastLine = lineIdx === lastLineIndex;
+              const parts = buildTeachingMathParts(trimmed, {
+                isLastLine,
+                normalizedPendingAnswer,
+              });
+              return (
+                <div
+                  key={`math-line-${lineIdx}`}
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    flexWrap: "wrap",
+                    gap: "1rem",
+                    marginTop: lineIdx > 0 ? "1.2em" : 0,
+                    width: "100%",
+                  }}
+                >
+                  {parts.length > 0
+                    ? renderMathSpans(parts, `v-${lineIdx}`)
+                    : trimmed
+                      ? (
+                          <span
+                            style={{
+                              ...MATH_MONO,
+                              fontSize: "3rem",
+                              color: "#1a1a2e",
+                              lineHeight: 1,
+                              textAlign: "right",
+                            }}
+                          >
+                            {trimmed}
+                          </span>
+                        )
+                      : null}
+                </div>
+              );
+            })}
+          </div>
+          {label && (
+            <p className="text-center text-xl font-medium text-gray-900">
+              {label}
+            </p>
+          )}
+        </div>
+      );
     }
-    if (parts.length > 0 && parts[parts.length - 1]?.type !== "op") {
-      parts.push({ type: "op", text: "=" });
-    }
-    parts.push({ type: "q", text: normalizedPendingAnswer || "?" });
+
+    const parts = buildTeachingMathParts(content.trim(), {
+      isLastLine: true,
+      normalizedPendingAnswer,
+    });
 
     return (
       <div className="space-y-6">
@@ -597,31 +721,7 @@ function TeachingContent({
           className="canvas-content flex flex-row items-center justify-center gap-4"
           style={nunito}
         >
-          {parts.map((p, i) => (
-            <span
-              key={i}
-              className={p.type === "q" && showQuestionMark ? "q-pulse" : ""}
-              style={{
-                fontSize:
-                  p.type === "num"
-                    ? "10rem"
-                    : p.type === "op"
-                      ? "7rem"
-                      : "8rem",
-                color:
-                  p.type === "op"
-                    ? "#6366f1"
-                    : p.type === "q"
-                      ? showQuestionMark
-                        ? "#EF9F27"
-                        : "#16a34a"
-                      : "#1a1a2e",
-                lineHeight: 1,
-              }}
-            >
-              {p.text}
-            </span>
-          ))}
+          {renderMathSpans(parts, "h")}
         </div>
         {label && (
           <p className="text-center text-xl font-medium text-gray-900">
@@ -833,9 +933,22 @@ export function Canvas({
 
       switch (mode) {
         case "teaching": {
+          if (!text.trim()) {
+            setDisplayContent("");
+            setDisplayMode("teaching");
+            setRiddleLabel("");
+            onCanvasDone();
+            return;
+          }
           setDisplayContent(text);
           setDisplayMode("teaching");
           setRiddleLabel("");
+          // Signal the server immediately — the canvas state is committed and
+          // the content is visible. GSAP runs as a cosmetic enhancement in the
+          // background; TTS must not wait for it. Firing inside rAF was the root
+          // cause of canvas_done timeouts when React rendering was slower than
+          // the 2 s server timeout (especially with TTS disabled in dev mode).
+          onCanvasDone();
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               gsap.fromTo(
@@ -849,7 +962,6 @@ export function Canvas({
                   ease: "elastic.out(1, 0.5)",
                 },
               );
-              onCanvasDone();
             });
           });
           break;
@@ -954,6 +1066,45 @@ export function Canvas({
 
   useEffect(() => {
     const hasContent = canvasHasRenderableContent(canvas);
+    // Game iframes do not use runAnimation; clear stale teaching/riddle display so
+    // we never show math/text alongside Word Builder / Spell Check (BUG-024).
+    if (canvas.mode === "word-builder" || canvas.mode === "spell-check") {
+      setDisplayContent("");
+      setDisplayMode("idle");
+      setRiddleLabel("");
+      if (typewriterRef.current) {
+        clearInterval(typewriterRef.current);
+        typewriterRef.current = null;
+      }
+      gsap.killTweensOf(".canvas-content");
+      return () => {
+        if (typewriterRef.current) {
+          clearInterval(typewriterRef.current);
+        }
+      };
+    }
+    if (canvas.mode === "teaching") {
+      const teachingText = (canvas.content ?? canvas.label ?? "").trim();
+      const hasTeachingVisual =
+        teachingText.length > 0 ||
+        (canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0);
+      if (!hasTeachingVisual) {
+        setDisplayContent("");
+        setDisplayMode("teaching");
+        setRiddleLabel("");
+        if (typewriterRef.current) {
+          clearInterval(typewriterRef.current);
+          typewriterRef.current = null;
+        }
+        gsap.killTweensOf(".canvas-content");
+        onCanvasDone();
+        return () => {
+          if (typewriterRef.current) {
+            clearInterval(typewriterRef.current);
+          }
+        };
+      }
+    }
     if (
       canvas.mode !== "idle" &&
       hasContent &&
@@ -974,7 +1125,7 @@ export function Canvas({
         typewriterRef.current = null;
       }
     }
-    
+
     return () => {
       if (typewriterRef.current) {
         clearInterval(typewriterRef.current);
@@ -1019,7 +1170,7 @@ export function Canvas({
 
       <div
         className={
-          canvas.mode === "word-builder"
+          canvas.mode === "word-builder" || canvas.mode === "spell-check"
             ? "canvas-wrapper w-full max-w-none flex flex-col items-stretch justify-center"
             : "canvas-wrapper w-full max-w-2xl flex flex-col items-center justify-center"
         }
@@ -1028,6 +1179,7 @@ export function Canvas({
       >
         {canvas.mode === "word-builder" && canvas.gameUrl && (
           <iframe
+            ref={gameIframeRef}
             title="Sunny Word Builder"
             src={canvas.gameUrl}
             style={{
@@ -1039,12 +1191,39 @@ export function Canvas({
             }}
             onLoad={(e) => {
               onCanvasDone();
+              // Round 1: Canvas sends "start" directly once the iframe DOM is ready.
+              // Subsequent rounds (2-4) are driven by the server via game_message next_round.
               e.currentTarget.contentWindow?.postMessage(
                 {
                   type: "start",
                   word: canvas.gameWord ?? "",
                   mode: canvas.wordBuilderMode ?? "fill_blanks",
-                  round: canvas.wordBuilderRound ?? 1,
+                  round: 1,
+                  playerName: canvas.gamePlayerName ?? "Ila",
+                  score: 0,
+                },
+                "*"
+              );
+            }}
+          />
+        )}
+        {canvas.mode === "spell-check" && canvas.gameUrl && (
+          <iframe
+            title="Sunny Spell Check"
+            src={canvas.gameUrl}
+            style={{
+              width: "100%",
+              height: "min(90vh, 720px)",
+              border: "none",
+              borderRadius: "8px",
+              background: "#12002e",
+            }}
+            onLoad={(e) => {
+              onCanvasDone();
+              e.currentTarget.contentWindow?.postMessage(
+                {
+                  type: "start",
+                  word: canvas.gameWord ?? "",
                   playerName: canvas.gamePlayerName ?? "Ila",
                 },
                 "*"
@@ -1084,6 +1263,7 @@ export function Canvas({
             showWord={canvas.showWord}
           />
         ) : displayMode === "teaching" &&
+        canvas.mode === "teaching" &&
         (canvas.phonemeBoxes?.length || displayContent) ? (
           <TeachingContent
             content={displayContent}

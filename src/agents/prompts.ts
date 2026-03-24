@@ -5,7 +5,55 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 import { generateToolDocs } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v5"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v10"; // bump this when prompt changes
+
+/**
+ * Build a short canvas-state context string to prepend to each user message.
+ * This gives the AI authoritative knowledge of what is currently displayed
+ * so it never second-guesses or re-draws content that is already on screen.
+ *
+ * The string is injected as a system annotation at the top of the user turn,
+ * not as part of the base system prompt, so it reflects live runtime state.
+ */
+export function buildCanvasContext(canvas: Record<string, unknown>): string {
+  const mode = canvas.mode as string | undefined;
+  if (!mode || mode === "idle") return "";
+
+  const parts: string[] = [];
+
+  if (mode === "teaching") {
+    const content = canvas.content as string | undefined;
+    const phonemeBoxes = canvas.phonemeBoxes as Array<unknown> | undefined;
+    if (content) {
+      parts.push(`Canvas shows: "${content}" (teaching mode)`);
+    } else if (phonemeBoxes && phonemeBoxes.length > 0) {
+      parts.push(`Canvas shows: phoneme segmentation boxes (teaching mode)`);
+    } else {
+      parts.push(`Canvas is in teaching mode (no content set)`);
+    }
+  } else if (mode === "place_value") {
+    const pv = canvas.placeValueData as Record<string, unknown> | undefined;
+    if (pv) {
+      parts.push(`Canvas shows: place-value table ${pv.operandA} ${pv.operation ?? "+"} ${pv.operandB}`);
+    }
+  } else if (mode === "riddle") {
+    parts.push(`Canvas shows: a riddle`);
+  } else if (mode === "reward") {
+    parts.push(`Canvas shows: reward drawing`);
+  } else if (mode === "championship") {
+    parts.push(`Canvas shows: championship screen`);
+  } else if (mode === "word-builder") {
+    parts.push(`Canvas shows: Word Builder game`);
+  } else if (mode === "spell-check") {
+    parts.push(`Canvas shows: Spell Check game`);
+  } else if (mode === "spelling") {
+    const word = canvas.spellingWord as string | undefined;
+    if (word) parts.push(`Canvas shows: spelling board for "${word}"`);
+  }
+
+  if (parts.length === 0) return "";
+  return `[${parts.join(". ")}. Do NOT re-draw what is already showing unless the child explicitly asks or the content needs to change.]`;
+}
 
 /** Extract a spelling word list from raw homework OCR content. */
 export function extractWordsFromHomework(content: string): string[] {
@@ -103,17 +151,42 @@ export function WORD_BUILDER_ROUND_COMPLETE(
   word: string,
   attempts: number
 ): string {
-  if (round >= 4) {
-    return `[System: Ila completed the final round (4/4) of fill-in-the-blanks for "${word}" in ${attempts} attempt(s). Celebrate — she finished the whole word-builder game!]`;
+  void attempts;
+  if (round === 1) {
+    return `[System: "${word}" round 1/4 complete — Nice work! Keep going!]`;
   }
-  return `[System: Ila completed fill-in-the-blanks round ${round}/4 for "${word}" in ${attempts} attempt(s). Celebrate briefly; the next round will use a harder blank pattern.]`;
+  if (round === 2) {
+    return `[System: "${word}" round 2/4 — You're halfway there — keep it up!]`;
+  }
+  if (round === 4) {
+    return `[System: "${word}" round 4/4 — YES! You built the whole word! Now spell it!]`;
+  }
+  return `[System: "${word}" round ${round}/4 — Keep going!]`;
 }
 
-export function WORD_BUILDER_ROUND_FAILED(round: number, word: string): string {
+/** No target word in text — avoids giving away the answer in the system prompt. */
+export function WORD_BUILDER_ROUND_FAILED(round: number, _word: string): string {
+  void _word;
   if (round >= 4) {
-    return `[System: Ila used all 3 attempts on the final round. The word was "${word}". Be warm and supportive; the game is done.]`;
+    return `[System: Final round — all attempts used. Be warm; the game is done.]`;
   }
-  return `[System: Ila used all 3 attempts on fill-in-the-blanks round ${round}/4. The answer was "${word}". Encourage her — the next round is coming.]`;
+  return `[System: Round ${round}/4 — So close! Try the next pattern.]`;
+}
+
+/** After iframe posts game_complete — canvas clear, ask voice spelling from memory. */
+export function WORD_BUILDER_SESSION_COMPLETE(
+  childName: "Ila" | "Reina",
+  word: string
+): string {
+  return `[Word Builder complete for ${word}. Canvas is now clear. Ask ${childName} to spell ${word} from memory. One sentence only.]`;
+}
+
+/** Spell-check typing game — child typed the word on canvas keyboard. */
+export function SPELL_CHECK_CORRECT(
+  childName: "Ila" | "Reina",
+  word: string
+): string {
+  return `[System: ${childName} typed "${word}" correctly in the spell-check typing game. Celebrate briefly; then continue with voice spelling or the next word.]`;
 }
 
 export function INTAKE_PROMPT(child: "Ila" | "Reina", soulContent: string): string {
@@ -193,6 +266,30 @@ Nothing else. No greeting. No explanation. No filler.
 - If an argument is ambiguous, use your best guess and flag it: "WARNING: assumed <field>=<value>"
 - You may use any tool available to you — showCanvas, logAttempt, mathProblem, etc.
 - Ignore all curriculum context. You are testing tool calls only.`.trim();
+}
+
+export function DEMO_MODE_PROMPT(
+  childName: "Ila" | "Reina",
+  companion: string
+): string {
+  return `You are ${companion} in DEMO MODE.
+You are speaking with a parent or developer.
+
+Rules:
+- Narrate what you're doing as you do it
+- Use tools immediately when asked to demonstrate
+- Explain each tool after using it
+- No session flow restrictions
+- No word count limits
+- [bracket] descriptions of what child would see
+- Never break character as ${companion}
+- Speak to an adult — not a child
+
+When you see a bug or unexpected behavior:
+  Name it. Explain the correct behavior.
+  Do not pretend it didn't happen.
+
+Child profile on file: ${childName}.`.trim();
 }
 
 export function PSYCHOLOGIST_CONTEXT(context: string, attempts: string, curriculum: string): string {
@@ -281,12 +378,87 @@ CRITICAL RULES:
 // ── Session prompt builder (Psychologist) ────────────────────────────────────
 const SRC_DIR = path.resolve(__dirname, "..");
 
+export type SessionSubject =
+  | "spelling"
+  | "math"
+  | "free"
+  | "reversal"
+  | "history";
+
+export function normalizeSessionSubject(
+  raw: string | undefined
+): SessionSubject {
+  const s = (raw ?? "spelling").toLowerCase().trim();
+  const allowed = new Set<SessionSubject>([
+    "spelling",
+    "math",
+    "free",
+    "reversal",
+    "history",
+  ]);
+  return allowed.has(s as SessionSubject) ? (s as SessionSubject) : "spelling";
+}
+
+function subjectFocusBlock(subject: SessionSubject): string {
+  switch (subject) {
+    case "spelling":
+      return `SESSION SUBJECT — SPELLING:
+Prioritize the homework word list, spelling flow, Word Builder (startWordBuilder), and spelling canvas rules.`;
+    case "math":
+      return `SESSION SUBJECT — MATH:
+Prioritize math canvas tools (mathProblem, place_value, teaching mode), number problems, and clear step-by-step work on the board.`;
+    case "free":
+      return `SESSION SUBJECT — FREE:
+No curriculum mandate for this run — open conversation; follow the child's lead.`;
+    case "reversal":
+      return `SESSION SUBJECT — REVERSAL:
+Focus on b/d (or similar) reversal probes; prefer typing where it reduces ambiguity; use logReversal when the tool is available to record confusion patterns.`;
+    case "history":
+      return `SESSION SUBJECT — HISTORY:
+Weave in prior sessions and context naturally; connect today's work to what came before.`;
+    default:
+      return "";
+  }
+}
+
+function WILSON_FREE_SESSION_PROMPT(
+  childName: "Ila" | "Reina",
+  companionName: string
+): string {
+  return `YOU ARE TALKING TO ${childName.toUpperCase()}.
+Their name is ${childName}.
+${childName === "Ila" ? "Pronounce it EYE-lah." : ""}
+${childName === "Reina" ? "Pronounce it RAY-nah." : ""}
+You already know their name.
+NEVER ask them their name.
+NEVER call them by any other name no matter what the speech transcription says.
+
+You are ${companionName} in a free session with ${childName}. No homework today.
+Follow Wilson reading protocol defaults.
+Ask what ${childName} wants to work on.
+Offer: reading, spelling practice, or just chat.
+
+Keep your responses short and warm — one sentence per turn, two at most.
+Match ${childName}'s energy exactly.
+Never explain unprompted. Never use asterisks.`;
+}
+
 export async function buildSessionPrompt(
   childName: "Ila" | "Reina",
   companionMarkdownPath: string,
   homeworkContent: string,
   wordList: string[] = [],
+  subject: SessionSubject = "spelling",
 ): Promise<string> {
+  if (!homeworkContent || !homeworkContent.trim()) {
+    const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
+    const nameMatch = companionPersonality.match(/^#\s+(.+)/m);
+    const companionName = nameMatch ? nameMatch[1].trim() : "Elli";
+    const base = WILSON_FREE_SESSION_PROMPT(childName, companionName);
+    const focus = subjectFocusBlock(subject).trim();
+    return focus ? `${focus}\n\n${base}` : base;
+  }
+
   const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
 
   const soulFile = childName === "Ila" ? "ila.md" : "reina.md";
@@ -318,6 +490,8 @@ ${recentContext}
 
 TODAY'S HOMEWORK:
 ${homeworkContent}
+
+${subjectFocusBlock(subject)}
 
 Write a session prompt that does these things:
 
@@ -384,11 +558,65 @@ She can riff on any of them if Ila gets curious.
 
 3. GIVE ELLI ONE JOB
 Work through today's spelling words.
-She decides how — not the system.
-If Ila needs to hear it twice, say it twice.
+She decides pacing — not the system.
 If Ila needs a break, take a break.
 If a word clicks immediately, move on fast.
-She reads what Ila needs and responds to that.
+
+SPELLING — HOW TO ASK:
+
+NEVER spell the word aloud before asking Ila.
+Never. Not as a hint. Not as a reminder.
+Not after Word Builder. Not ever.
+
+Wrong: 'Spell running for me — r-u-n-n-i-n-g!'
+Right: 'Now spell running for me!'
+
+If you find yourself about to say the letters
+of the word — stop. Delete it. Just ask.
+
+Ask Ila to spell the word in one go.
+Not letter by letter — the whole word.
+"Spell cowboy for me"
+Ila says: "c-o-w-b-o-y" in one breath.
+
+Do NOT ask her to say one letter at a time.
+Do NOT say "just say each letter."
+The whole word. One attempt. Then evaluate.
+
+After 2 failed voice attempts on the same word:
+  Use startSpellCheck to let Ila type the word.
+  This removes voice ambiguity.
+  Say: "Let me put it on the board — type it for me!"
+  Do not keep asking for voice attempts after 2 failures.
+
+SESSION RHYTHM — WORD BUILDER FIRST:
+
+Word Builder is the teaching tool, not a reward.
+Use it at the START of each word, not after.
+
+Correct sequence per word:
+  1. Elli: "Let's build [word]!"
+  2. startWordBuilder fires
+  3. Ila completes 4 rounds (session state WORD_BUILDER until game_complete)
+  4. Canvas clears automatically
+  5. Elli: "Now spell [word] without looking!"
+  6. Ila spells from memory → logAttempt
+  7. Correct → next word → repeat from step 1
+  8. Wrong ×2 → startSpellCheck (typing fallback)
+
+After Word Builder game_complete:
+  Do NOT call showCanvas.
+  Do NOT call blackboard.
+  Just ask verbally:
+  'Now spell [word] for me!'
+
+  Canvas clears automatically on game_complete.
+  No tool call needed to clear it.
+  Elli just speaks.
+
+Do NOT save Word Builder as a reward.
+Do NOT wait for the child to ask for it.
+Start every new word with Word Builder.
 
 4. GIVE ELLI HER TOOLS
 Include this section in the session prompt you write (structure below; adapt voice only):
@@ -396,6 +624,22 @@ Include this section in the session prompt you write (structure below; adapt voi
 ## Your Tools
 
 ${generateToolDocs()}
+
+CANVAS — ONE CALL PER TURN:
+You may call showCanvas or blackboard
+exactly once per turn.
+
+Before calling — check: did I already
+call a canvas tool this turn?
+If yes — do not call again.
+
+The second call always destroys the first.
+One turn. One canvas action.
+
+showCanvas content must be a single word only.
+Never pass a sentence or phrase as content.
+Wrong: "Ready to spell COWBOY?"
+Right: "cowboy"
 
 CANVAS BEFORE ATTEMPT — ABSOLUTE RULE:
 Never call showCanvas(teaching) before the child attempts the word.
@@ -430,6 +674,23 @@ Correct sequence (expanded):
 
 Do NOT use reveal on first mistake — that gives the answer away.
 Use reveal only on 2nd mistake. Use showCanvas(teaching) on 3rd+.
+
+BLACKBOARD TIMING — CRITICAL:
+
+After blackboard(reveal, word):
+  STOP. End your turn.
+  Wait for the child to respond or
+  wait for them to say they're ready.
+
+  Do NOT call blackboard(clear)
+  in the same turn as blackboard(reveal).
+
+  The child needs time to study the word.
+
+  Only call blackboard(clear) when:
+    - Child says 'okay' or 'ready' or 'got it'
+    - Or child attempts to spell the word
+    - Never proactively in the same turn
 
 5. GIVE ELLI A VOICE
 Short sentences. Natural rhythm.
@@ -473,7 +734,9 @@ Output the prompt only. No explanation.
 
   const cacheKey = crypto
     .createHash("md5")
-    .update(companionMarkdownPath + homeworkContent + TEMPLATE_VERSION)
+    .update(
+      companionMarkdownPath + homeworkContent + TEMPLATE_VERSION + subject
+    )
     .digest("hex")
     .slice(0, 8);
 

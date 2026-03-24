@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spell Check</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#12002e;font-family:'Nunito','Arial Rounded MT Bold',Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:12px 14px;gap:14px;overflow:hidden;position:relative}
+.starfield{position:absolute;inset:0;pointer-events:none;z-index:0}
+.s{position:absolute;border-radius:50%;background:#fff;animation:tw var(--d,2s) var(--dl,0s) infinite alternate ease-in-out}
+@keyframes tw{from{opacity:0.1;transform:scale(0.7)}to{opacity:0.9;transform:scale(1.3)}}
+.shooting{position:absolute;width:80px;height:2px;background:linear-gradient(90deg,transparent,#fff,transparent);border-radius:2px;animation:shoot 3.5s linear infinite;opacity:0}
+@keyframes shoot{0%{opacity:0;transform:translateX(-100px) translateY(0) rotate(-25deg)}10%{opacity:1}40%{opacity:0;transform:translateX(300px) translateY(80px) rotate(-25deg)}100%{opacity:0}}
+.wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:440px}
+.prompt{font-size:22px;font-weight:900;color:#FFD93D;text-align:center;text-shadow:0 2px 0 #8a6a00;line-height:1.2}
+.sub{color:#b89dff;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase}
+.tiles-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:64px;align-items:center;width:100%}
+.tile{width:44px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;text-transform:uppercase;background:#3C3489;border:3px solid #FFD93D;color:#FFD93D;transition:transform 0.12s,background 0.2s,border-color 0.2s}
+.tile.flash-ok{animation:flashOk 0.45s ease}
+@keyframes flashOk{0%,100%{background:#1D9E75;border-color:#9FE1CB;color:#fff;box-shadow:0 0 20px #1D9E75}50%{transform:scale(1.08)}}
+.wrap.shake{animation:shake 0.45s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.keyboard{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%}
+.kb-row{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+.key{height:48px!important;min-width:36px!important;border-radius:8px!important;border:none!important;font-size:16px!important;font-weight:900!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;text-transform:uppercase!important;padding:0 8px!important;font-family:inherit!important;position:relative!important;background:#ffffff!important;color:#12002e!important;box-shadow:0 4px 0 #888!important}
+.key:hover{filter:brightness(0.9)!important}
+.key:active{transform:translateY(3px)!important;box-shadow:0 1px 0 #888!important}
+.key.enter-key{background:#FFD93D!important;color:#12002e!important;min-width:88px!important;font-size:13px!important;font-weight:900!important;box-shadow:0 4px 0 #8a6a00!important}
+.key.del-key{background:#e74c3c!important;color:#fff!important;min-width:64px!important;font-size:12px!important;box-shadow:0 4px 0 #7a1f1f!important}
+</style>
+</head>
+<body>
+<div class="starfield" id="sf"></div>
+<div class="wrap" id="mainwrap">
+  <div class="prompt">How do you spell it?</div>
+  <div class="sub" id="player-line"></div>
+  <div class="tiles-row" id="tiles-row"></div>
+  <div class="keyboard" id="keyboard">
+    <div class="kb-row" id="kb0"></div>
+    <div class="kb-row" id="kb1"></div>
+    <div class="kb-row" id="kb2"></div>
+  </div>
+</div>
+<script>
+const sf=document.getElementById('sf');
+for(let i=0;i<55;i++){const s=document.createElement('div');s.className='s';const sz=Math.random()*3+1.5;s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;--d:${1.5+Math.random()*2.5}s;--dl:${Math.random()*3}s;opacity:${0.2+Math.random()*0.6}`;sf.appendChild(s)}
+for(let i=0;i<3;i++){const sh=document.createElement('div');sh.className='shooting';sh.style.cssText=`left:${Math.random()*60}%;top:${Math.random()*40}%;animation-delay:${i*1.2+Math.random()}s`;sf.appendChild(sh)}
+
+let secretWord='';
+let current='';
+let playerName='Student';
+
+function postToParent(data){window.parent.postMessage(data,'*')}
+
+window.addEventListener('message',e=>{
+  const msg=e.data;
+  if(!msg||msg.type!=='start')return;
+  secretWord=String(msg.word||'').toLowerCase().trim();
+  playerName=msg.playerName||'Student';
+  current='';
+  document.getElementById('player-line').textContent=playerName;
+  renderTiles();
+  postToParent({type:'ready'});
+});
+
+function renderTiles(){
+  const row=document.getElementById('tiles-row');
+  row.innerHTML='';
+  const chars=current.split('');
+  const small=chars.length>12;
+  chars.forEach(ch=>{
+    const t=document.createElement('div');
+    t.className='tile';
+    if(small){t.style.width='36px';t.style.height='44px';t.style.fontSize='18px'}
+    t.textContent=ch.toUpperCase();
+    row.appendChild(t);
+  });
+}
+
+const KB=[['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l'],['del','z','x','c','v','b','n','m','enter']];
+KB.forEach((row,ri)=>{
+  const el=document.getElementById('kb'+ri);
+  row.forEach(letter=>{
+    const btn=document.createElement('button');
+    btn.className='key';
+    if(letter==='enter')btn.classList.add('enter-key');
+    if(letter==='del')btn.classList.add('del-key');
+    btn.textContent=letter==='enter'?'ENTER':letter==='del'?'DEL':letter.toUpperCase();
+    btn.addEventListener('click',()=>handleKey(letter));
+    el.appendChild(btn);
+  });
+});
+
+function handleKey(l){
+  if(l==='del'){current=current.slice(0,-1);renderTiles();return}
+  if(l==='enter'){submit();return}
+  if(/^[a-z]$/i.test(l)&&current.length<32){current+=l.toLowerCase();renderTiles()}
+}
+
+function submit(){
+  if(!secretWord)return;
+  const guess=current.toLowerCase().trim();
+  const row=document.getElementById('tiles-row');
+  const wrap=document.getElementById('mainwrap');
+  if(guess===secretWord){
+    row.querySelectorAll('.tile').forEach(t=>t.classList.add('flash-ok'));
+    setTimeout(()=>postToParent({type:'correct',word:secretWord}),420);
+  }else{
+    wrap.classList.add('shake');
+    setTimeout(()=>{
+      wrap.classList.remove('shake');
+      current='';
+      renderTiles();
+    },450);
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Backspace'){e.preventDefault();handleKey('del');return}
+  if(e.key==='Enter'){e.preventDefault();submit();return}
+  if(/^[a-zA-Z]$/.test(e.key))handleKey(e.key.toLowerCase());
+});
+</script>
+</body>
+</html>

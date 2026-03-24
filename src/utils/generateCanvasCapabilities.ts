@@ -58,6 +58,21 @@ export const CANVAS_CAPABILITIES = {
     example:
       '{ mode: "word-builder", gameUrl: "/games/wordd-builder.html", gameWord: "cowboy", wordBuilderRound: 1, wordBuilderMode: "fill_blanks" }',
   },
+  "spell-check": {
+    description:
+      "Typing-only spelling check. Child types the full word on an on-screen keyboard; target word is never shown.",
+    useFor: [
+      "after repeated voice spelling failures",
+      "when ASR may be scrambling letter order",
+    ],
+    props: [
+      "gameUrl: string (static page)",
+      "gameWord: string",
+      "gamePlayerName?: string",
+    ],
+    example:
+      '{ mode: "spell-check", gameUrl: "/games/spell-check.html", gameWord: "bathroom", gamePlayerName: "Ila" }',
+  },
 } as const;
 
 export function generateCanvasCapabilities(): string {

@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import type { WebSocket } from "ws";
 import {
   getCompanionConfig,
@@ -5,13 +7,19 @@ import {
   type CompanionConfig,
 } from "../companions/loader";
 import {
+  DEMO_MODE_PROMPT,
   TEST_MODE_PROMPT,
   WORD_BUILDER_ROUND_COMPLETE,
   WORD_BUILDER_ROUND_FAILED,
+  WORD_BUILDER_SESSION_COMPLETE,
+  SPELL_CHECK_CORRECT,
   buildSessionPrompt,
+  buildCanvasContext,
   extractWordsFromHomework,
+  normalizeSessionSubject,
 } from "../agents/prompts";
 import { loadHomeworkPayload } from "../utils/loadHomeworkFolder";
+import { classifyAndRoute } from "../agents/classifier/classifier";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
 import { connectFlux, type FluxHandle } from "../deepgram-turn";
@@ -76,18 +84,52 @@ export class SessionManager {
   private speakingStartedAt = 0;
   private lastCanvasWasMath = false;
   private lastCanvasMode: string = "idle";
+  /** Server-canonical record of what is currently displayed on the canvas.
+   *  Updated every time showCanvas fires; cleared on barge-in and session end.
+   *  Injected into each user turn so the AI knows what's already on screen. */
+  private currentCanvasState: Record<string, unknown> | null = null;
   private toolCallsMadeThisTurn = 0;
   private activeWord: string | null = null;
   private isSpellingSession = false;
   private sessionStartedToolCalled = false;
   private transitionedToWork = false;
 
+  // ── Word Builder — server owns all round state ──────────────────────────
+  private wbWord: string = "";
+  private wbRound: number = 0;
+  private wbActive: boolean = false;
+  /** round_complete event that arrived while Elli was mid-speech; flushed on WORD_BUILDER re-entry */
+  private wbPendingEvent: Record<string, unknown> | null = null;
+  /** Safety: exit Word Builder if no round activity for this long */
+  private wbActivityTimeout: ReturnType<typeof setTimeout> | null = null;
+  private static readonly WB_ACTIVITY_MS = 90_000;
+  /** Dedup duplicate iframe round_complete for the same round number */
+  private wbLastProcessedRound = 0;
+  // ────────────────────────────────────────────────────────────────────────
+
+  // Legacy aliases kept for spell-check (different flow)
   private activeWordBuilderWord = "";
   private wordBuilderSessionActive = false;
+  private activeSpellCheckWord = "";
+  private spellCheckSessionActive = false;
   private activeWordContext: string = "";
   private wordAttemptCounts: Map<string, number> = new Map();
 
   private turnSM: TurnStateMachine;
+
+  /** Delete all files in .prompt-cache/ to force re-generation after new homework lands. */
+  private bustPromptCache(): void {
+    const cacheDir = path.join(process.cwd(), ".prompt-cache");
+    if (!fs.existsSync(cacheDir)) return;
+    for (const file of fs.readdirSync(cacheDir)) {
+      try {
+        fs.unlinkSync(path.join(cacheDir, file));
+      } catch {
+        // best-effort
+      }
+    }
+    console.log("  🗑️  Prompt cache cleared (new homework arrived)");
+  }
 
   private isTeachingMathCanvas(args: Record<string, unknown>): boolean {
     if (args.mode !== "teaching") return false;
@@ -141,6 +183,11 @@ export class SessionManager {
         this.send("session_state", { state });
         if (state === "SPEAKING") {
           this.speakingStartedAt = Date.now();
+        } else if (state === "WORD_BUILDER" && this.wbPendingEvent) {
+          const pending = this.wbPendingEvent;
+          this.wbPendingEvent = null;
+          console.log("  🎮 flushing buffered game event");
+          setImmediate(() => this.handleGameEvent(pending));
         } else if (state === "IDLE") {
           this.speakingStartedAt = 0;
         }
@@ -167,32 +214,72 @@ export class SessionManager {
       `  🌟 [${ts}] Starting session: ${this.childName} with ${this.companion.name}`
     );
 
-    // Folder-based homework (images) — inject at session startup
-    if (process.env.SUNNY_TEST_MODE !== "true") {
-      const homeworkPayload = await loadHomeworkPayload(this.childName);
-      if (homeworkPayload) {
-        console.log(
-          `  📚 Homework loaded for ${this.childName}: ` +
-            `${homeworkPayload.fileCount} pages`
-        );
-        console.log("  🧠 Psychologist building session prompt...");
-        const wordList = extractWordsFromHomework(homeworkPayload.rawContent);
-        if (wordList.length > 0) {
-          console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
-        }
-        const sessionPrompt = await buildSessionPrompt(
-          this.childName,
-          this.companion.markdownPath,
-          homeworkPayload.rawContent,
-          wordList,
-        );
-        this.companion = { ...this.companion, systemPrompt: sessionPrompt };
-        console.log(
-          `  ✅ Session prompt ready (${sessionPrompt.length} chars)`
-        );
-        this.isSpellingSession = true;
-        console.log("  📝 Spelling session mode active");
+    const subject = normalizeSessionSubject(process.env.SUNNY_SUBJECT);
+
+    // Check drop/ for new files and route them before loading homework
+    this.send("loading_status", { message: "Checking for new assignments..." });
+    try {
+      const { hasNewFiles, routed } = await classifyAndRoute(this.childName);
+      if (hasNewFiles) {
+        console.log("  📥 New files processed:");
+        routed.forEach((r) => console.log(`    ${r}`));
+        this.send("loading_status", {
+          message: `Loading ${this.childName}'s assignments...`,
+        });
+        this.bustPromptCache();
       }
+    } catch (err) {
+      console.warn("  ⚠️  Classifier failed:", err instanceof Error ? err.message : String(err));
+    }
+
+    // Folder-based homework (images) — inject at session startup
+    const homeworkPayload =
+      process.env.DEMO_MODE === "true"
+        ? null
+        : await loadHomeworkPayload(this.childName);
+
+    if (process.env.DEMO_MODE === "true") {
+      this.companion = {
+        ...this.companion,
+        systemPrompt: DEMO_MODE_PROMPT(this.childName, this.companion.name),
+        openingLine:
+          `Hello — I'm ${this.companion.name} in demo mode. ` +
+          "I'm ready to demonstrate my capabilities. " +
+          "What would you like to see?",
+      };
+      console.log(
+        `  🎭 Demo mode — parent/developer prompt active`
+      );
+      console.log(`  📚 Subject mode: ${subject}`);
+      this.send("loading_status", { message: "Starting demo session..." });
+    } else if (homeworkPayload) {
+      console.log(
+        `  📚 Homework loaded for ${this.childName}: ` +
+          `${homeworkPayload.fileCount} pages`
+      );
+      this.send("loading_status", { message: "Preparing session prompt..." });
+      console.log("  🧠 Psychologist building session prompt...");
+      const wordList = extractWordsFromHomework(homeworkPayload.rawContent);
+      if (wordList.length > 0) {
+        console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
+      }
+      const sessionPrompt = await buildSessionPrompt(
+        this.childName,
+        this.companion.markdownPath,
+        homeworkPayload.rawContent,
+        wordList,
+        subject,
+      );
+      this.companion = { ...this.companion, systemPrompt: sessionPrompt };
+      console.log(
+        `  ✅ Session prompt ready (${sessionPrompt.length} chars)`
+      );
+      this.isSpellingSession = true;
+      console.log("  📝 Spelling session mode active");
+      console.log(`  📚 Subject mode: ${subject}`);
+    } else {
+      this.send("loading_status", { message: "Starting free session..." });
+      console.log(`  📚 Subject mode: ${subject}`);
     }
 
     this.send("session_started", {
@@ -205,6 +292,12 @@ export class SessionManager {
       openingLine: this.companion.openingLine,
       goodbye: this.companion.goodbye,
     });
+
+    // Explicit blank-canvas signal at session start — the server owns canvas
+    // state, so we always declare the initial state rather than relying on
+    // the frontend's initial value.
+    this.currentCanvasState = null;
+    this.send("canvas_draw", { mode: "idle" });
 
     this.clearSessionTimer = startMaxDurationTimer(this.childName, () => {
       console.log("  ⏰ Session timeout reached (15 min)");
@@ -253,67 +346,182 @@ export class SessionManager {
     }
 
     this.send("audio_done");
+    // Reset canvas when child interrupts — any partial drawing is stale.
+    this.currentCanvasState = null;
+    this.send("canvas_draw", { mode: "idle" });
+  }
+
+  private clearWbActivityTimeout(): void {
+    if (this.wbActivityTimeout) {
+      clearTimeout(this.wbActivityTimeout);
+      this.wbActivityTimeout = null;
+    }
+  }
+
+  private armWbActivityTimeout(): void {
+    this.clearWbActivityTimeout();
+    this.wbActivityTimeout = setTimeout(() => {
+      this.wbActivityTimeout = null;
+      if (!this.wbActive) return;
+      console.warn("  ⚠️  Word Builder timeout — no activity in 90s; returning to IDLE");
+      this.wbEndCleanup();
+      this.turnSM.onWordBuilderEnd();
+      this.send("canvas_draw", { mode: "idle" });
+      this.send("game_message", { forward: { type: "clear" } });
+    }, SessionManager.WB_ACTIVITY_MS);
+  }
+
+  private wbEndCleanup(): void {
+    this.clearWbActivityTimeout();
+    this.wbActive = false;
+    this.wbRound = 0;
+    this.wbWord = "";
+    this.wbLastProcessedRound = 0;
+    this.wbPendingEvent = null;
+    // keep legacy alias in sync for handleToolCall guard
+    this.wordBuilderSessionActive = false;
+    this.activeWordBuilderWord = "";
+  }
+
+  /** Server drives rounds 2-4 via next_round.
+   *  Round 1 is started by the Canvas onLoad handler sending "start" directly. */
+  private wbSendRound(): void {
+    if (!this.wbActive || !this.wbWord || this.wbRound < 2) return;
+    console.log(`  🎮 → round ${this.wbRound} sent (word: ${this.wbWord})`);
+    this.send("game_message", {
+      forward: {
+        type: "next_round",
+        round: this.wbRound,
+        word: this.wbWord,
+        playerName: this.childName,
+      },
+    });
+    this.armWbActivityTimeout();
+  }
+
+  private wbAdvanceRound(): void {
+    this.wbRound++;
+    // Rounds 2–4 only: round 1 is iframe onLoad; server never mirrors round 1 via game_message.
+    if (this.wbActive && this.wbRound >= 2 && this.wbRound <= 4) {
+      this.wbSendRound();
+    }
   }
 
   /** Iframe game events (word-builder fill-blanks) forwarded from the browser. */
   handleGameEvent(event: Record<string, unknown>): void {
     const type = event.type as string;
+
     if (type === "ready") {
+      // Acknowledgment from iframe that it received "start" — no response needed.
+      // Round 1 is driven by Canvas onLoad; subsequent rounds by wbSendRound().
       return;
     }
-    if (type === "round_complete") {
-      const round = Number(event.round) || 1;
-      const word = String(event.word ?? this.activeWordBuilderWord);
-      const attempts = Number(event.attempts) || 1;
-      void this.runCompanionResponse(
-        WORD_BUILDER_ROUND_COMPLETE(round, word, attempts)
-      ).then(() => {
-        if (
-          round < 4 &&
-          this.wordBuilderSessionActive &&
-          this.activeWordBuilderWord
-        ) {
-          this.send("game_message", {
-            forward: {
-              type: "next_round",
-              round: round + 1,
-              word: this.activeWordBuilderWord,
-            },
-          });
-        }
-      });
-      return;
-    }
-    if (type === "round_failed") {
-      const round = Number(event.round) || 1;
-      const word = String(event.word ?? this.activeWordBuilderWord);
-      void this.runCompanionResponse(WORD_BUILDER_ROUND_FAILED(round, word)).then(
-        () => {
-          if (
-            round < 4 &&
-            this.wordBuilderSessionActive &&
-            this.activeWordBuilderWord
-          ) {
-            this.send("game_message", {
-              forward: {
-                type: "next_round",
-                round: round + 1,
-                word: this.activeWordBuilderWord,
-              },
-            });
-          } else if (round >= 4) {
-            this.wordBuilderSessionActive = false;
-            this.activeWordBuilderWord = "";
-            this.send("canvas_draw", { mode: "idle" });
-          }
-        }
-      );
-      return;
-    }
-    if (type === "game_complete") {
-      this.wordBuilderSessionActive = false;
-      this.activeWordBuilderWord = "";
+
+    if (type === "correct" && this.spellCheckSessionActive) {
+      const word = String(event.word ?? this.activeSpellCheckWord);
+      if (this.turnSM.getState() !== "IDLE") {
+        this.spellCheckSessionActive = false;
+        this.activeSpellCheckWord = "";
+        this.send("canvas_draw", { mode: "idle" });
+        return;
+      }
+      void this.runCompanionResponse(SPELL_CHECK_CORRECT(this.childName, word));
+      this.spellCheckSessionActive = false;
+      this.activeSpellCheckWord = "";
       this.send("canvas_draw", { mode: "idle" });
+      return;
+    }
+
+    if (type === "round_complete") {
+      if (!this.wbActive) return;
+      this.armWbActivityTimeout();
+
+      const state = this.turnSM.getState();
+
+      // Elli is mid-speech — buffer and handle when she returns to WORD_BUILDER
+      if (state === "SPEAKING" || state === "PROCESSING" || state === "LOADING" || state === "CANVAS_PENDING") {
+        console.log(`  🎮 round_complete buffered (state=${state})`);
+        this.wbPendingEvent = event;
+        return;
+      }
+
+      const er = Number(event.round);
+      const completedRound =
+        Number.isFinite(er) && er > 0 ? er : this.wbRound;
+
+      if (completedRound <= this.wbLastProcessedRound) {
+        return;
+      }
+      this.wbLastProcessedRound = completedRound;
+
+      const attempts = Number(event.attempts) || 1;
+      console.log(`  🎮 round_complete received — round ${completedRound} (wbRound ${this.wbRound})`);
+
+      // Round 3: silent advance only
+      if (completedRound === 3) {
+        this.wbAdvanceRound();
+        return;
+      }
+
+      // Round 4: celebrate — iframe sends game_complete next; do not advance server round
+      if (completedRound === 4) {
+        void this.runCompanionResponse(
+          WORD_BUILDER_ROUND_COMPLETE(4, this.wbWord, attempts)
+        ).catch((err) => {
+          console.error("  ❌ WB round 4 celebration failed:", err);
+        });
+        return;
+      }
+
+      // Rounds 1 & 2: praise then advance
+      if (completedRound === 1 || completedRound === 2) {
+        void this.runCompanionResponse(
+          WORD_BUILDER_ROUND_COMPLETE(completedRound, this.wbWord, attempts)
+        )
+          .then(() => this.wbAdvanceRound())
+          .catch((err) => {
+            console.error("  ❌ WB round response failed:", err);
+            this.wbAdvanceRound();
+          });
+        return;
+      }
+
+      this.wbAdvanceRound();
+      return;
+    }
+
+    if (type === "round_failed") {
+      if (!this.wbActive) return;
+      this.armWbActivityTimeout();
+
+      const state = this.turnSM.getState();
+      const word = this.wbWord;
+
+      if (state === "SPEAKING" || state === "PROCESSING" || state === "LOADING" || state === "CANVAS_PENDING") {
+        console.log(`  🎮 round_failed buffered (state=${state})`);
+        this.wbPendingEvent = event;
+        return;
+      }
+
+      console.log(`  🎮 round_failed — round ${this.wbRound}`);
+
+      void this.runCompanionResponse(WORD_BUILDER_ROUND_FAILED(this.wbRound, word))
+        .then(() => this.wbAdvanceRound())
+        .catch((err) => {
+          console.error("  ❌ WB fail response failed:", err);
+          this.wbAdvanceRound();
+        });
+      return;
+    }
+
+    if (type === "game_complete") {
+      const completedWord = this.wbWord;
+      this.wbEndCleanup();
+      this.turnSM.onWordBuilderEnd();
+      this.send("canvas_draw", { mode: "idle" });
+      void this.runCompanionResponse(
+        WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord)
+      ).catch(console.error);
     }
   }
 
@@ -338,6 +546,8 @@ export class SessionManager {
       this.clearSessionTimer = null;
     }
 
+    this.wbEndCleanup();
+
     if (this.fluxHandle) {
       this.fluxHandle.close();
       this.fluxHandle = null;
@@ -348,16 +558,21 @@ export class SessionManager {
       this.ttsBridge = null;
     }
 
-    this.wordBuilderSessionActive = false;
-    this.activeWordBuilderWord = "";
+    this.spellCheckSessionActive = false;
+    this.activeSpellCheckWord = "";
     this.activeWordContext = "";
     this.wordAttemptCounts.clear();
+    this.currentCanvasState = null;
 
     this.turnSM.onInterrupt();
 
     try {
-      if (process.env.SUNNY_TEST_MODE === "true") {
-        console.log("  🧪 Test mode — skipping session recording, psychologist, and reward log.");
+      const testMode =
+        process.env.SUNNY_TEST_MODE === "true" ||
+        process.env.TTS_ENABLED === "false";
+
+      if (testMode) {
+        console.log("  🔇 Test mode — skipping session recording and reward log.");
       } else {
         await recordSession(this.conversationHistory, this.childName);
         appendRewardLog(this.childName, this.rewardLog);
@@ -412,8 +627,6 @@ export class SessionManager {
     if (!normalized) return;
 
     if (source === "eager") {
-      this.lastEagerTranscript = normalized;
-      this.lastEagerTranscriptTime = Date.now();
       if (this.turnSM.getState() === "IDLE") {
         // Letter-by-letter spelling (spaces between single letters). Not the
         // naive /^([a-zA-Z]\s?)+$/ — that matches normal words like "I want".
@@ -421,6 +634,11 @@ export class SessionManager {
         if (isSpelling) {
           return;
         }
+        // Only stamp the dedup token when we actually process the eager transcript.
+        // If we stamp it without processing (e.g. during WORD_BUILDER), the
+        // subsequent final transcript would be silently dropped.
+        this.lastEagerTranscript = normalized;
+        this.lastEagerTranscriptTime = Date.now();
         this.handleEndOfTurn(transcript).catch(console.error);
       }
       return;
@@ -485,6 +703,9 @@ export class SessionManager {
       console.log(`  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`);
       return;
     }
+    // WORD_BUILDER: the child is filling in the game but can still speak.
+    // Let the transcript fall through — runCompanionResponse uses onCompanionRunFromWordBuilder()
+    // so the game stays visible while Elli responds verbally.
 
     this.turnSM.onEndOfTurn();
 
@@ -524,6 +745,13 @@ export class SessionManager {
   }
 
   private async runCompanionResponse(userMessage: string): Promise<void> {
+    const st = this.turnSM.getState();
+    if (st === "WORD_BUILDER") {
+      this.turnSM.onCompanionRunFromWordBuilder();
+    } else if (st === "IDLE") {
+      this.turnSM.onStartCompanionFromIdle();
+    }
+
     this.currentAbort = new AbortController();
     let fullResponse = "";
     this.toolCallsMadeThisTurn = 0;
@@ -561,9 +789,19 @@ export class SessionManager {
         ? [{ role: "user", content: this.activeWordContext }, ...recentHistory]
         : recentHistory;
 
+      // Prepend canvas state context so the AI always knows what is currently
+      // displayed — prevents duplicate showCanvas calls and enables intelligent
+      // decisions about whether to update or hold the current display.
+      const canvasCtx = this.currentCanvasState
+        ? buildCanvasContext(this.currentCanvasState)
+        : "";
+      const messageWithContext = canvasCtx
+        ? `${canvasCtx}\n\n${userMessage}`
+        : userMessage;
+
       await runAgent({
         history: historyWithPin,
-        userMessage,
+        userMessage: messageWithContext,
         profile: this.companion,
         onToken: (chunk) => {
           fullResponse += chunk;
@@ -587,33 +825,40 @@ export class SessionManager {
             let toolName = tc.toolName ?? tc.name ?? "unknown";
             if (toolName === "show_canvas") toolName = "showCanvas";
             if (toolName === "end_session") toolName = "endSession";
+            if (toolName === "start_spell_check") toolName = "startSpellCheck";
             const args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
             this.handleToolCall(toolName, args, result);
 
-            if (toolName === "startWordBuilder") {
+            if (toolName === "startWordBuilder" || toolName === "startSpellCheck") {
               // Do not trigger CANVAS_PENDING — the iframe loads independently
               // and does not send canvas_done. State machine stays PROCESSING → SPEAKING.
             }
 
             if (toolName === "showCanvas") {
-              // If a new math problem is shown, any queued transcript belongs
-              // to the previous prompt and should not be replayed/scored.
-              if (this.isTeachingMathCanvas(args)) {
-                this.turnSM.clearPendingTranscript("new math problem shown");
-              }
+              if (this.turnSM.getState() === "WORD_BUILDER") {
+                console.warn(
+                  "  ⚠️  showCanvas blocked during Word Builder — iframe owns canvas"
+                );
+              } else {
+                // If a new math problem is shown, any queued transcript belongs
+                // to the previous prompt and should not be replayed/scored.
+                if (this.isTeachingMathCanvas(args)) {
+                  this.turnSM.clearPendingTranscript("new math problem shown");
+                }
 
-              const hasRenderableContent =
-                args.mode !== "place_value" || args.placeValueData != null;
+                const hasRenderableContent =
+                  args.mode !== "place_value" || args.placeValueData != null;
 
-              // Always send the draw event to the browser
-              this.send("canvas_draw", { args, result });
+                // Always send the draw event to the browser
+                this.send("canvas_draw", { args, result });
 
-              // Only gate TTS on canvas if there's actually something to render
-              // and we're still in the processing phase
-              const s = this.turnSM.getState();
-              if (s === "PROCESSING" && hasRenderableContent) {
-                this.turnSM.onShowCanvas();
+                // Only gate TTS on canvas if there's actually something to render
+                // and we're still in the processing phase
+                const s = this.turnSM.getState();
+                if (s === "PROCESSING" && hasRenderableContent) {
+                  this.turnSM.onShowCanvas();
+                }
               }
             }
           }
@@ -665,6 +910,11 @@ export class SessionManager {
     }
   }
 
+  private normalizeToolName(tool: string): string {
+    if (tool === "start_spell_check") return "startSpellCheck";
+    return tool;
+  }
+
   private async handleCompanionTurn(text: string): Promise<void> {
     this.turnSM.onEndOfTurn();
     // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
@@ -684,6 +934,38 @@ export class SessionManager {
     args: Record<string, unknown>,
     result: unknown
   ): void {
+    tool = this.normalizeToolName(tool);
+
+    if (tool === "blackboard") {
+      const gesture = String(args.gesture ?? "");
+      if (this.turnSM.getState() === "WORD_BUILDER" && gesture !== "clear") {
+        console.warn(
+          "  ⚠️  blackboard blocked during Word Builder — only clear allowed"
+        );
+        return;
+      }
+    }
+
+    if (tool === "startWordBuilder") {
+      if (this.wordBuilderSessionActive) {
+        console.warn(
+          "  ⚠️  startWordBuilder blocked — Word Builder already active"
+        );
+        return;
+      }
+    }
+
+    if (tool === "showCanvas") {
+      const c = args.content as string | undefined;
+      if (c && c.includes(" ") && !this.isTeachingMathCanvas(args)) {
+        console.warn(
+          "  ⚠️  showCanvas rejected — content is not a word:",
+          c
+        );
+        args.content = "";
+      }
+    }
+
     this.toolCallsMadeThisTurn++;
     this.send("tool_call", { tool, args, result });
 
@@ -714,9 +996,18 @@ export class SessionManager {
         console.warn("  ⚠️  startWordBuilder: word must be at least 4 letters");
         return;
       }
+      // Server owns all round state from here
+      this.wbWord = word;
+      this.wbRound = 1;
+      this.wbActive = true;
+      this.wbLastProcessedRound = 0;
+      this.wbPendingEvent = null;
+      // Legacy aliases kept for the duplicate-call guard above
       this.activeWordBuilderWord = word;
       this.wordBuilderSessionActive = true;
-      console.log(`  🎮 Word-builder (fill-blanks) started — word: ${word}`);
+      this.turnSM.onWordBuilderStart();
+      console.log(`  🎮 Word-builder started — word: ${word}`);
+      // Canvas onLoad posts round 1 "start" to the iframe — do not wbSendRound here.
       this.send("canvas_draw", {
         mode: "word-builder",
         gameUrl: "/games/wordd-builder.html",
@@ -724,6 +1015,24 @@ export class SessionManager {
         gamePlayerName: this.childName,
         wordBuilderRound: 1,
         wordBuilderMode: "fill_blanks",
+      });
+      return;
+    }
+
+    if (tool === "startSpellCheck") {
+      const word = String(args.word ?? "").toLowerCase().trim();
+      if (word.length < 2) {
+        console.warn("  ⚠️  startSpellCheck: word must be at least 2 letters");
+        return;
+      }
+      this.activeSpellCheckWord = word;
+      this.spellCheckSessionActive = true;
+      console.log(`  ⌨️  Spell-check typing game started — word: ${word}`);
+      this.send("canvas_draw", {
+        mode: "spell-check",
+        gameUrl: "/games/spell-check.html",
+        gameWord: word,
+        gamePlayerName: this.childName,
       });
       return;
     }
@@ -771,8 +1080,18 @@ export class SessionManager {
     }
 
     if (tool === "showCanvas") {
+      if (String(args.mode ?? "") !== "word-builder") {
+        this.wbEndCleanup();
+        if (this.turnSM.getState() === "WORD_BUILDER") {
+          this.turnSM.onWordBuilderEnd();
+        }
+        console.log("  🎮 Word Builder cleared by canvas switch");
+      }
       this.lastCanvasMode = (args.mode as string) ?? "idle";
       this.lastCanvasWasMath = this.isTeachingMathCanvas(args);
+      // Track the authoritative canvas state so the AI knows what's on screen.
+      this.currentCanvasState = { ...args };
+      console.log(`  🖼️  [canvas] mode=${args.mode}, content=${args.content ?? "(none)"}`);
 
       // ── Reina: server-canonical problem announcement ──────────────────────
       // When a math teaching canvas fires, convert the problem to speech and
