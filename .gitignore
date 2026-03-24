@@ -26,6 +26,8 @@ src/intake/reina/*.txt
 src/intake/reina/*.md
 src/intake/reina/*.json
 src/intake/processed/
+# macOS / device screenshots dropped into intake (large binaries)
+src/intake/**/Screen Shot*.png
 
 # Drop folder — private documents not committed
 drop/*.png
