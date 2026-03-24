@@ -27,6 +27,7 @@
     "test:word-builder": "npx tsx src/tests/test-word-builder.ts",
     "test:word-builder-sync": "npx tsx src/tests/test-word-builder-sync.ts",
     "test:session-fixes": "npx tsx src/tests/test-session-fixes.ts",
+    "test:game-bridge": "npx tsx src/tests/test-game-bridge.ts",
     "server": "npx tsx src/server.ts",
     "web": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
