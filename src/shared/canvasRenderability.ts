@@ -6,13 +6,14 @@ export interface RenderableCanvasLike {
   spellingWord?: string;
   svg?: string;
   lottieData?: Record<string, unknown>;
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder" | "spell-check";
   gameUrl?: string;
 }
 
 export function canvasHasRenderableContent(canvas: RenderableCanvasLike): boolean {
   return Boolean(
-    (canvas.mode === "word-builder" && canvas.gameUrl) ||
+    ((canvas.mode === "word-builder" || canvas.mode === "spell-check") &&
+      canvas.gameUrl) ||
       canvas.content ||
       canvas.label ||
       (canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0) ||

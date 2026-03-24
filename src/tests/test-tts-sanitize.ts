@@ -19,9 +19,9 @@ test("strips bold markdown",
   "Railroad"
 );
 
-test("strips italic markdown",
-  sanitizeForTTS("*Railroad*"),
-  "Railroad"
+test("strips *asterisk* segments (actions)",
+  sanitizeForTTS("Hi *laughs* there"),
+  "Hi there"
 );
 
 test("strips headers",
@@ -37,6 +37,11 @@ test("replaces newlines with space",
 test("handles nested markdown",
   sanitizeForTTS("**The train** traveled"),
   "The train traveled"
+);
+
+test("strips bracket narration",
+  sanitizeForTTS("Look [child sees canvas] here"),
+  "Look here"
 );
 
 test("leaves clean text untouched",

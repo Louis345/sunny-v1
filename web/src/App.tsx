@@ -45,7 +45,9 @@ function App() {
       <div className="w-screen h-screen overflow-hidden flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-pulse text-2xl mb-2">🌟</div>
-          <p className="text-gray-600">Connecting...</p>
+          <p className="text-gray-600">
+            {state.loadingMessage ?? "Connecting..."}
+          </p>
         </div>
       </div>
     );

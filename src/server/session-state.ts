@@ -1,14 +1,16 @@
-import { createActor, setup } from "xstate";
+import { assign, createActor, setup } from "xstate";
 
 /** Strips markdown / noise before ElevenLabs. Bold must run before single-`*` rules. */
 export function sanitizeForTTS(text: string): string {
-  return text
+  const raw = text;
+  const out = text
     .replace(/\*\*([^*\n]+)\*\*/gs, "$1")
-    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/\*[^*]+\*/g, "")
     .replace(/\*[^*\n]*\*+/g, "")
     .replace(/`([^`]+)`/g, "$1")
     .replace(/#{1,6}\s/g, "")
     .replace(/\*+/g, "")
+    .replace(/\[[^\]]+\]/g, "")
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")
     .replace(/[\u2600-\u27BF]/g, "")
     .replace(/[\u3000-\u9FFF\uAC00-\uD7AF\u0600-\u06FF]/g, "")
@@ -19,8 +21,19 @@ export function sanitizeForTTS(text: string): string {
     // prevents "us.Perfect!" artifacts when two buffer halves are concatenated.
     .replace(/([.!?])([A-Za-z])/g, "$1 $2")
     .replace(/\n+/g, " ")
-    .replace(/\s{2,}/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
+  if (
+    raw !== out &&
+    raw.length > 0 &&
+    typeof process !== "undefined" &&
+    process.env.DEBUG_TTS === "true"
+  ) {
+    console.debug(
+      `  TTS sanitize: stripped → ${JSON.stringify(out.slice(0, 160))}${out.length > 160 ? "…" : ""}`
+    );
+  }
+  return out;
 }
 
 /**
@@ -48,6 +61,7 @@ export function shouldFlush(buffer: string): boolean {
  * PROCESSING     → runAgent is running, accumulating tokens
  * CANVAS_PENDING → showCanvas fired, holding TTS until canvas_done arrives
  * SPEAKING       → canvas confirmed (or no canvas), flushing TTS buffer
+ * WORD_BUILDER   → fill-blanks iframe owns canvas; companion may still run short reactions
  */
 
 export type SessionTurnState =
@@ -55,7 +69,8 @@ export type SessionTurnState =
   | "LOADING"
   | "PROCESSING"
   | "CANVAS_PENDING"
-  | "SPEAKING";
+  | "SPEAKING"
+  | "WORD_BUILDER";
 
 type TurnMachineEvent =
   | { type: "START_TURN" }
@@ -64,44 +79,83 @@ type TurnMachineEvent =
   | { type: "CANVAS_DONE" }
   | { type: "AGENT_COMPLETE" }
   | { type: "PLAYBACK_COMPLETE" }
-  | { type: "INTERRUPT" };
+  | { type: "INTERRUPT" }
+  | { type: "WORD_BUILDER_START" }
+  | { type: "WORD_BUILDER_END" }
+  | { type: "COMPANION_RUN" };
 
 const turnMachine = setup({
   types: {
+    context: {} as { wordBuilderActive: boolean },
     events: {} as TurnMachineEvent,
+  },
+  guards: {
+    wordBuilderReturn: ({ context }) => context.wordBuilderActive,
   },
 }).createMachine({
   id: "sessionTurn",
   initial: "IDLE",
+  context: { wordBuilderActive: false },
   states: {
     IDLE: {
       on: {
         START_TURN: "LOADING",
+        WORD_BUILDER_START: {
+          target: "WORD_BUILDER",
+          actions: assign({ wordBuilderActive: true }),
+        },
       },
     },
     LOADING: {
       on: {
         BEGIN_PROCESSING: "PROCESSING",
         INTERRUPT: "IDLE",
+        WORD_BUILDER_START: {
+          target: "WORD_BUILDER",
+          actions: assign({ wordBuilderActive: true }),
+        },
       },
     },
     PROCESSING: {
       on: {
         SHOW_CANVAS: "CANVAS_PENDING",
         AGENT_COMPLETE: "SPEAKING",
-        INTERRUPT: "IDLE",
+        INTERRUPT: { target: "IDLE", actions: assign({ wordBuilderActive: false }) },
+        WORD_BUILDER_START: {
+          target: "WORD_BUILDER",
+          actions: assign({ wordBuilderActive: true }),
+        },
       },
     },
     CANVAS_PENDING: {
       on: {
         CANVAS_DONE: "SPEAKING",
-        INTERRUPT: "IDLE",
+        INTERRUPT: { target: "IDLE", actions: assign({ wordBuilderActive: false }) },
+        WORD_BUILDER_START: {
+          target: "WORD_BUILDER",
+          actions: assign({ wordBuilderActive: true }),
+        },
+      },
+    },
+    WORD_BUILDER: {
+      on: {
+        AGENT_COMPLETE: "SPEAKING",
+        COMPANION_RUN: "PROCESSING",
+        INTERRUPT: { target: "IDLE", actions: assign({ wordBuilderActive: false }) },
+        WORD_BUILDER_END: { target: "IDLE", actions: assign({ wordBuilderActive: false }) },
       },
     },
     SPEAKING: {
       on: {
-        PLAYBACK_COMPLETE: "IDLE",
-        INTERRUPT: "IDLE",
+        PLAYBACK_COMPLETE: [
+          {
+            guard: "wordBuilderReturn",
+            target: "WORD_BUILDER",
+          },
+          { target: "IDLE" },
+        ],
+        INTERRUPT: { target: "IDLE", actions: assign({ wordBuilderActive: false }) },
+        WORD_BUILDER_END: { target: "IDLE", actions: assign({ wordBuilderActive: false }) },
       },
     },
   },
@@ -202,6 +256,31 @@ export class TurnStateMachine {
   }
 
   /**
+   * Companion response not tied to a user turn (e.g. game_complete) — enter
+   * LOADING → PROCESSING from IDLE.
+   */
+  onStartCompanionFromIdle(): void {
+    this.canonicalProblemText = null;
+    this.send({ type: "START_TURN" });
+    setImmediate(() => this.send({ type: "BEGIN_PROCESSING" }));
+  }
+
+  /** startWordBuilder tool — iframe owns canvas until WORD_BUILDER_END */
+  onWordBuilderStart(): void {
+    this.send({ type: "WORD_BUILDER_START" });
+  }
+
+  /** game_complete — exit Word Builder mode */
+  onWordBuilderEnd(): void {
+    this.send({ type: "WORD_BUILDER_END" });
+  }
+
+  /** runCompanionResponse while in WORD_BUILDER (between rounds) */
+  onCompanionRunFromWordBuilder(): void {
+    this.send({ type: "COMPANION_RUN" });
+  }
+
+  /**
    * Token arrived from Claude.
    *
    * During PROCESSING and CANVAS_PENDING: accumulate silently.
@@ -215,12 +294,13 @@ export class TurnStateMachine {
   onToken(chunk: string): void {
     this.ttsBuffer += chunk;
 
-    if (this.state === "PROCESSING") {
-      if (shouldFlush(this.ttsBuffer)) {
-        const clean = sanitizeForTTS(this.ttsBuffer);
-        if (clean) this.onFlush(clean);
-        this.ttsBuffer = "";
-      }
+    // PROCESSING / WORD_BUILDER / CANVAS_PENDING: accumulate only — full flush on
+    // onAgentComplete / onCanvasDone (see comment on onToken above).
+    if (
+      this.state === "PROCESSING" ||
+      this.state === "WORD_BUILDER" ||
+      this.state === "CANVAS_PENDING"
+    ) {
       return;
     }
 
@@ -268,9 +348,9 @@ export class TurnStateMachine {
   onAgentComplete(): void {
     this.onLog(`  🔍 onAgentComplete — state: ${this.state}, buffer: "${this.ttsBuffer.slice(0, 60)}"`);
 
-    if (this.state === "PROCESSING") {
+    if (this.state === "PROCESSING" || this.state === "WORD_BUILDER") {
       this.send({ type: "AGENT_COMPLETE" });
-      this._flushBuffer(); // flush buffered content from PROCESSING
+      this._flushBuffer(); // flush buffered content from PROCESSING / WORD_BUILDER intro
     }
     // Drain any trailing fragment left in SPEAKING state
     if (this.state === "SPEAKING" && this.ttsBuffer.trim()) {

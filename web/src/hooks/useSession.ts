@@ -3,6 +3,23 @@ import {
   applyBlackboardMessage,
   clearedBlackboardState,
 } from "../../../src/shared/canvasBlackboardSync";
+import { gameIframeRef } from "../components/Canvas";
+
+// --- Helpers ---
+
+/** Post a message to the Word Builder / game iframe via the stable module-level ref.
+ *  Falls back to a 500ms retry if the iframe hasn't mounted yet. */
+function sendToIframe(data: unknown): void {
+  const iframe = gameIframeRef?.current;
+  if (iframe?.contentWindow) {
+    iframe.contentWindow.postMessage(data, "*");
+    return;
+  }
+  // Retry once after 500ms if not mounted yet
+  setTimeout(() => {
+    gameIframeRef?.current?.contentWindow?.postMessage(data, "*");
+  }, 500);
+}
 
 // --- Types ---
 
@@ -42,7 +59,7 @@ export interface BlackboardState {
 }
 
 interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder";
+  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder" | "spell-check";
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -86,6 +103,7 @@ interface SessionState {
   sessionState: string;
   reward: RewardEvent | null;
   error: string | null;
+  loadingMessage: string | null;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -152,6 +170,7 @@ export function useSession() {
     sessionState: "IDLE",
     reward: null,
     error: null,
+    loadingMessage: null,
   });
 
   // --- Refs for handler to avoid stale closure ---
@@ -218,6 +237,7 @@ export function useSession() {
         setStateRef.current((s) => ({
           ...s,
           phase: "active",
+          loadingMessage: null,
           childName: m.childName ?? m.child ?? "",
           companion: {
             childName: m.childName ?? m.child ?? "",
@@ -336,9 +356,12 @@ export function useSession() {
             "place_value",
             "spelling",
             "word-builder",
+            "spell-check",
           ];
           const isSpelling = mode === "spelling";
           const isWordBuilder = mode === "word-builder";
+          const isSpellCheck = mode === "spell-check";
+          const isGameIframe = isWordBuilder || isSpellCheck;
           setStateRef.current((s) => ({
             ...s,
             blackboard: clearedBlackboardState(),
@@ -356,9 +379,9 @@ export function useSession() {
               streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
               personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
               showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
-              gameUrl: isWordBuilder ? (data.gameUrl as string | undefined) : undefined,
-              gameWord: isWordBuilder ? (data.gameWord as string | undefined) : undefined,
-              gamePlayerName: isWordBuilder
+              gameUrl: isGameIframe ? (data.gameUrl as string | undefined) : undefined,
+              gameWord: isGameIframe ? (data.gameWord as string | undefined) : undefined,
+              gamePlayerName: isGameIframe
                 ? (data.gamePlayerName as string | undefined)
                 : undefined,
               wordBuilderRound: isWordBuilder ? (data.wordBuilderRound as number | undefined) : undefined,
@@ -430,7 +453,15 @@ export function useSession() {
 
       case "session_state": {
         const state = msg.state as string;
-        setStateRef.current((s) => ({ ...s, sessionState: state ?? s.sessionState }));
+        setStateRef.current((s) => {
+          const next = state ?? s.sessionState;
+          // Canvas is NOT cleared here. IDLE means "waiting for the child's
+          // next input" — the math problem or word must remain visible so the
+          // child can look at it and answer. Canvas only resets when the server
+          // sends an explicit canvas_draw:idle message (session start, barge-in,
+          // or intentional clear).
+          return { ...s, sessionState: next };
+        });
         break;
       }
 
@@ -447,11 +478,14 @@ export function useSession() {
           "place_value",
           "spelling",
           "word-builder",
+          "spell-check",
         ];
         if (mode && validModes.includes(mode)) {
           const data = (msg.args ?? msg) as Record<string, unknown>;
           const isSpelling = mode === "spelling";
           const isWordBuilder = mode === "word-builder";
+          const isSpellCheck = mode === "spell-check";
+          const isGameIframe = isWordBuilder || isSpellCheck;
           setStateRef.current((s) => ({
             ...s,
             blackboard: clearedBlackboardState(),
@@ -469,9 +503,9 @@ export function useSession() {
               streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
               personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
               showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
-              gameUrl: isWordBuilder ? (data.gameUrl as string | undefined) : undefined,
-              gameWord: isWordBuilder ? (data.gameWord as string | undefined) : undefined,
-              gamePlayerName: isWordBuilder
+              gameUrl: isGameIframe ? (data.gameUrl as string | undefined) : undefined,
+              gameWord: isGameIframe ? (data.gameWord as string | undefined) : undefined,
+              gamePlayerName: isGameIframe
                 ? (data.gamePlayerName as string | undefined)
                 : undefined,
               wordBuilderRound: isWordBuilder ? (data.wordBuilderRound as number | undefined) : undefined,
@@ -487,9 +521,7 @@ export function useSession() {
       case "game_message": {
         const forward = msg.forward as Record<string, unknown> | undefined;
         if (forward) {
-          document.querySelectorAll("iframe").forEach((f) => {
-            f.contentWindow?.postMessage(forward, "*");
-          });
+          sendToIframe(forward);
         }
         break;
       }
@@ -505,6 +537,13 @@ export function useSession() {
           sessionState: "IDLE",
         }));
         stopMicRef.current();
+        break;
+
+      case "loading_status":
+        setStateRef.current((s) => ({
+          ...s,
+          loadingMessage: (msg.message as string) ?? null,
+        }));
         break;
 
       case "error":
@@ -741,6 +780,7 @@ export function useSession() {
       sessionState: "IDLE",
       reward: null,
       error: null,
+      loadingMessage: null,
     });
     wsRef.current?.close();
     wsRef.current = null;
@@ -756,11 +796,13 @@ export function useSession() {
         t &&
         [
           "ready",
+          "correct",
           "round_complete",
           "round_failed",
           "game_complete",
         ].includes(t)
       ) {
+        console.log(`  🎮 forwarded to server: ${t}`);
         sendMessageRef.current("game_event", { event: data });
       }
     }

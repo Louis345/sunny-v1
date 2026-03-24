@@ -26,3 +26,15 @@ src/intake/reina/*.txt
 src/intake/reina/*.md
 src/intake/reina/*.json
 src/intake/processed/
+
+# Drop folder — private documents not committed
+drop/*.png
+drop/*.jpg
+drop/*.jpeg
+drop/*.pdf
+drop/*.txt
+drop/*.md
+drop/*.vtt
+drop/processed/
+drop/ila/
+drop/reina/

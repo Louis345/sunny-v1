@@ -125,6 +125,60 @@ let blankedPositions=[],currentInput=[];
 const hints=['Look carefully — most letters are shown!','Some letters are hiding — can you find them?','Only the vowels are missing now!','You know this word — spell it from memory!'];
 const elliLines=['I have <strong>NO idea</strong> what this word is... do you?',"Hmm... I'm thinking... I can't figure it out!",'Wait... is it... no... help me out here!','You totally know this one. I am stumped.'];
 
+let wbAudioCtx=null;
+function playSound(type){
+  try{
+    if(!wbAudioCtx)wbAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=wbAudioCtx;
+    if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+    if(type==='key'){
+      const o=ctx.createOscillator();
+      const g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=300;
+      g.gain.setValueAtTime(0.08,ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.06);
+      o.start();o.stop(ctx.currentTime+0.06);
+    }
+    if(type==='correct'){
+      [523,659,784].forEach((freq,i)=>{
+        const o=ctx.createOscillator();
+        const g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.frequency.value=freq;
+        g.gain.setValueAtTime(0,ctx.currentTime+i*0.12);
+        g.gain.linearRampToValueAtTime(0.25,ctx.currentTime+i*0.12+0.04);
+        g.gain.linearRampToValueAtTime(0,ctx.currentTime+i*0.12+0.2);
+        o.start(ctx.currentTime+i*0.12);
+        o.stop(ctx.currentTime+i*0.12+0.2);
+      });
+    }
+    if(type==='wrong'){
+      const o=ctx.createOscillator();
+      const g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.type='sawtooth';
+      o.frequency.value=160;
+      g.gain.setValueAtTime(0.15,ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0,ctx.currentTime+0.3);
+      o.start();o.stop(ctx.currentTime+0.3);
+    }
+    if(type==='complete'){
+      [523,659,784,1047].forEach((freq,i)=>{
+        const o=ctx.createOscillator();
+        const g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);
+        o.frequency.value=freq;
+        g.gain.setValueAtTime(0,ctx.currentTime+i*0.15);
+        g.gain.linearRampToValueAtTime(0.3,ctx.currentTime+i*0.15+0.05);
+        g.gain.linearRampToValueAtTime(0,ctx.currentTime+i*0.15+0.3);
+        o.start(ctx.currentTime+i*0.15);
+        o.stop(ctx.currentTime+i*0.15+0.3);
+      });
+    }
+  }catch(e){}
+}
+
 function postToParent(data){window.parent.postMessage(data,'*')}
 
 window.addEventListener('message',e=>{
@@ -150,6 +204,18 @@ window.addEventListener('message',e=>{
   }
   if(msg.type==='elli_says'){
     document.getElementById('elli-bubble').innerHTML=msg.text||elliLines[round-1]||elliLines[0];
+  }
+  if(msg.type==='clear'){
+    secretWord='';
+    round=1;
+    document.getElementById('tiles-row').innerHTML='';
+    document.getElementById('score-num').textContent='0';
+    document.getElementById('level-num').textContent='1';
+    document.getElementById('pf').style.width='0%';
+    for(let i=0;i<4;i++){
+      const s=document.getElementById('star'+i);
+      if(s)s.className='pstar dim';
+    }
   }
 });
 
@@ -220,7 +286,7 @@ function buildKeyboard(){
   });
 }
 
-function handleKey(l){if(l==='del')deleteLast();else if(l==='enter')submit();else addLetter(l)}
+function handleKey(l){if(l==='del')deleteLast();else if(l==='enter')submit();else{playSound('key');addLetter(l)}}
 
 function addLetter(l){
   const ni=currentInput.findIndex(v=>v==='');
@@ -247,14 +313,20 @@ function submit(){
   blankedPositions.forEach((pos,idx)=>{if(currentInput[idx]!==secretWord[pos])ok=false});
   const tiles=[...document.querySelectorAll('[data-bi]')].sort((a,b)=>+a.dataset.bi-+b.dataset.bi);
   if(ok){
+    playSound('correct');
+    if(round===4)setTimeout(()=>playSound('complete'),220);
     tiles.forEach((t,i)=>setTimeout(()=>{t.className='tile correct'},i*100));
     score+=150;
     document.getElementById('score-num').textContent=score;
     const dim=document.querySelector('.pstar.dim');
     if(dim)dim.className='pstar lit';
     document.getElementById('pf').style.width=(round*25)+'%';
-    setTimeout(()=>postToParent({type:'round_complete',round,word:secretWord,score}),700);
+    setTimeout(()=>{
+      postToParent({type:'round_complete',round,word:secretWord,score});
+      if(round>=4)postToParent({type:'game_complete',word:secretWord});
+    },700);
   }else{
+    playSound('wrong');
     tiles.forEach(t=>{t.className='tile wrong'});
     setTimeout(()=>{
       tiles.forEach((t,i)=>{t.className='tile blank';t.textContent='';t.dataset.bi=i});

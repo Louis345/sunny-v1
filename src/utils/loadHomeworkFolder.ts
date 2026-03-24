@@ -59,7 +59,8 @@ export function findLatestHomeworkFolder(
 
 export interface HomeworkFile {
   filename: string;
-  type: "image" | "notes";
+  type: "image" | "notes" | "text";
+  /** Plain UTF-8 for notes/text; base64 for images */
   content: string;
   mimeType?: string;
 }
@@ -84,15 +85,23 @@ export function readHomeworkFolder(folderPath: string): HomeworkFile[] {
         content: base64,
         mimeType,
       });
-    } else if (file === "notes.txt") {
+    } else if (ext === ".txt") {
       const text = fs.readFileSync(filePath, "utf-8");
-      result.push({
-        filename: file,
-        type: "notes",
-        content: text,
-      });
+      if (file === "notes.txt") {
+        result.push({
+          filename: file,
+          type: "notes",
+          content: text,
+        });
+      } else {
+        result.push({
+          filename: file,
+          type: "text",
+          content: text,
+        });
+      }
     }
-    // All other file types (including .pdf) — skip silently
+    // .pdf and other types — skip (PDFs become spelling-words.txt via classifier)
   }
 
   return result;
@@ -101,12 +110,24 @@ export function readHomeworkFolder(folderPath: string): HomeworkFile[] {
 export async function extractHomeworkContent(
   files: HomeworkFile[]
 ): Promise<string> {
-  const client = new Anthropic();
-
   const imageFiles = files.filter((f) => f.type === "image");
+  const textPages = files.filter((f) => f.type === "text");
   const notes = files.find((f) => f.type === "notes");
 
-  if (imageFiles.length === 0) return "";
+  const textPagesSorted = [...textPages].sort((a, b) =>
+    a.filename.localeCompare(b.filename)
+  );
+  const textPagesBlock = textPagesSorted
+    .map((p) => `--- ${p.filename} ---\n${p.content}`)
+    .join("\n\n");
+
+  if (imageFiles.length === 0) {
+    if (textPages.length === 0) return "";
+    const body = textPagesBlock;
+    return notes ? `${body}\n\nParent notes: ${notes.content}` : body;
+  }
+
+  const client = new Anthropic();
 
   const content: Anthropic.MessageParam["content"] = [
     ...imageFiles.map((f) => ({
@@ -126,6 +147,7 @@ For each page identify:
 - All words, problems, or questions present
 - Any instructions visible on the page
 Return as plain text, one section per page.
+${textPagesBlock ? `\n\nPre-extracted text files:\n${textPagesBlock}` : ""}
 ${notes ? `Parent notes: ${notes.content}` : ""}`,
     },
   ];
@@ -159,13 +181,16 @@ export async function loadHomeworkPayload(
   const date = path.basename(folder);
   const files = readHomeworkFolder(folder);
 
-  if (files.filter((f) => f.type === "image").length === 0) {
+  const pageCount = files.filter(
+    (f) => f.type === "image" || f.type === "text"
+  ).length;
+  if (pageCount === 0) {
     return null;
   }
 
   console.log(
     `  📂 Homework folder found for ${childName}: ` +
-      `${date} (${files.length} files)`
+      `${date} (${pageCount} pages)`
   );
 
   const rawContent = await extractHomeworkContent(files);
@@ -174,7 +199,7 @@ export async function loadHomeworkPayload(
     childName,
     date,
     rawContent,
-    fileCount: files.filter((f) => f.type === "image").length,
+    fileCount: pageCount,
     hasNotes: files.some((f) => f.type === "notes"),
   };
 }

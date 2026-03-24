@@ -1159,3 +1159,91 @@ Ila completed full three-phoneme segmentation on "sit" with 100% accuracy on 3/1
 ## Signal
 
 **CHANGE METHOD on compound words; HOLD on CVC segmentation pending mixed-vowel discrimination probe.** Ila's dyslexia profile requires orthographic anchoring—she cannot spell multisyllabic words from auditory input alone. Compound word instruction must shift to visual component cards (show "rail" + "road" = "railroad") with gradual fading of visual support, not repeated auditory spelling drills. For CVC work, immediately probe mixed-vowel sequences (sit/sat/hit/hat alternating) before advancing complexity. Most urgent: conduct formal baseline probes on Following Directions and Recalling Sentences this week—these are 2nd and 5th percentile CELF-5 gaps with 13 planning "mentions" but zero documented performance data. IEP compliance requires actual baseline scores, not planning references.
+
+## Session — 3/23/2026, 9:08:15 PM
+---
+
+## **SOAP NOTE**
+
+**Client:** Ila (8y3m)  
+**Date:** [Session Date]  
+**Duration:** ~15 minutes  
+**SLP:** [Your Name]  
+**Companion:** Sunny (voice: Elli)
+
+---
+
+### **S — Subjective**
+
+Ila presented ready for spelling game session. Stated: "Game time? Yep. Spelling. Spelling. Jump flight in." Demonstrated high initial engagement and enthusiasm for Word Builder activities. Near end of session, Ila reported fatigue: "I'm gonna go to bed now." Requested to continue session Wednesday or Friday instead.
+
+---
+
+### **O — Objective**
+
+**Task Performance — Word Builder & Spelling from Memory:**
+
+| Word | Word Builder | Spelling from Memory |
+|------|--------------|----------------------|
+| running | Rounds 1-4: Complete ✓ | R-U-N-N-I-N-G ✓ |
+| hopped | Rounds 1-4: Complete ✓ | H-O-P-P-E-D ✓ |
+| sitting | Rounds 1-4: Complete ✓ | Did not complete (fatigue) |
+| making | Round 1: Partial | Did not complete (fatigue) |
+
+**Observations:**
+- Ila successfully identified and spelled three words with consonant doubling pattern (running, hopped, sitting) when completing Word Builder first.
+- Demonstrated accurate recall of double consonants in final position before -ING and -ED endings.
+- Spelling from memory was accurate for "running" and "hopped" after Word Builder support.
+- Speech rate remained rapid throughout; no self-correction attempts observed.
+- Near end of session, multiple false starts and topic shifts emerged ("What? Because she say that. What's the word again, Ali?"). Requested to stop task multiple times due to fatigue.
+- Impulse control: Ila interrupted to clarify word ("What's the word again, Ali?") rather than waiting for full prompt.
+- Engagement: High at session start; declined significantly in final 5 minutes.
+
+---
+
+### **A — Assessment**
+
+Ila demonstrated solid mastery of consonant doubling pattern in spelling when provided with Word Builder visual support and scaffolding. Accurate spelling from memory on first two trials suggests pattern recognition is emerging. Fatigue and reduced cognitive capacity in final third of session resulted in incomplete tasks and increased need for redirects. Word retrieval pause noted ("What's the word again?").
+
+---
+
+### **P — Plan**
+
+1. Continue Word Builder + spelling
+
+## Psychologist Report — 3/23/2026, 9:09:09 PM
+Now I'll analyze the actual session data and write my report:
+
+---
+
+## Curriculum Status
+
+**Consonant doubling + inflectional morphology (running, hopped, sitting) — 1 session, 100% Word Builder completion** → **ADVANCE with caution**
+
+Session 3/23 shows Ila completed Word Builder rounds 1-4 for "running," "hopped," and "sitting" with 100% accuracy. She then spelled "running" (R-U-N-N-I-N-G) and "hopped" (H-O-P-P-E-D) from memory correctly—demonstrating transfer from visual scaffolding to orthographic recall. However, fatigue hit hard in final third of session ("I'm gonna go to bed now"), preventing completion of "sitting" and "making" spelling-from-memory tasks. This is not a skill deficit—it's cognitive load management. Her ADHD profile means sustained attention collapses after ~10-15 minutes of effortful encoding.
+
+**Compound word spelling (railroad, cowboy, honeycomb, bathroom, toothbrush) — 3 sessions, 42% raw accuracy** → **CHANGE METHOD (already signaled 3/21)**
+
+Raw attempt log shows railroad at 5 correct/7 incorrect (42%), cowboy 2/4 (50%), honeycomb 2/3 (67%), bathroom 2/2 (100%), toothbrush 1/1 (100%). Pattern is clear: simple phonetically regular compounds (bathroom, toothbrush, snowball, birthday) are mastered; irregular orthography (railroad "ai" + "oa", honeycomb silent B, cowboy /oi/) requires repeated exposures. Natalie's 3/18 Zoom session showed Ila mastered 7 of 10 compound words but needed explicit component breakdown ("honey" + "comb") and mnemonics ("comb-a" to remember the B). The 3/21 session confirmed she cannot spell compounds from auditory prompt alone—she omitted "a" in "rail."
+
+**CVC three-phoneme segmentation with mixed vowels — 4 sessions since 3/14, limited vowel mixing data** → **HOLD (repeat 3/21 signal)**
+
+querySessions shows: "sit" 100% (3/14), then hit/sad/bit/bad single attempts with no errors. Raw attempt log confirms: hit 3/3, sad 1/1, bit 1/1, bad 1/1. **Critical gap remains: she has never been probed on alternating vowels within the same session.** Previous curriculum plan called for "sit → sat → hit → hat → bit → bat" sequences—this has not occurred. I cannot confirm true vowel discrimination vs. pattern-matching without mixed-vowel data.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Mixed-vowel discrimination in three-phoneme segmentation** — Ila shows 100% on /i/ words and /a/ words tested separately, but zero attempts at alternating vowels within sessions. Must probe immediately: "sit" → "sat" → "hit" → "hat" → "bit" → "bat" in rapid sequence to test true phonemic awareness vs. word-family pattern recognition.
+
+- **CRITICAL: Following Directions (2nd percentile)** — flagGap shows 15 "mentions" but querySessions reveals these are planning references in SOAP notes. Zero documented multi-step direction sequences in actual sessions. All instructions are single-step ("spell this word," "tell me the sounds," "complete the Word Builder game"). CELF-5 documents she requires prompting ("wait until I say Go") and fails with 2+ steps or multiple modifiers. Must formally probe NOW: "Touch the big blue circle, then tap your head twice" (2-step with size + color modifiers). This is an IEP-mandated baseline that is 9 sessions overdue.
+
+- **CRITICAL: Recalling Sentences (5th percentile)** — flagGap shows 15 "mentions" but querySessions confirms zero sentence repetition tasks across all sessions. All work is discrete phoneme-level, word-level, or compound word-level. CELF-5 documents 5th percentile auditory memory with breakdown at longer sentence length. Must probe: repeat "The dog ran fast" (4 words), then "The cat is sleeping on the chair" (7 words), then "When the boy went outside to play, he found a ball by the fence" (14 words). Essential IEP baseline missing.
+
+- **CRITICAL: Word Structure—morphological accuracy under demand (5th percentile)** — flagGap shows 13 "mentions" but querySessions shows limited formal elicitation. Session 3/23 targeted inflectional morphology (-ing, -ed) but only through Word Builder visual scaffolding and spelling-from-memory recall, not oral production probes. CELF-5 documents errors on irregular plurals (mice, children), future tense (will slide), pronouns (she, they), and copula verbs (it's, is eating). Must probe: "One mouse, two ___" (irregular plural), "The cat will ___" (future tense with verb provided), "Point to where ___ is running" (pronoun substitution he/she/they), "The dog ___ barking" (contractible copula).
+
+- **CRITICAL: B/D letter reversal persistence** — Natalie documented backwards B's and D's in "doorknob" on 3/18 and taught "bed" trick. Zero follow-up data on whether mnemonic transferred. Must probe: write "bed," "bad," "big," "dog," "bird," "dab" to assess reversal frequency. This is a dyslexia hallmark requiring IEP documentation and possible OT referral if persistent.
+
+- **WATCH: Fatigue onset timing in morphology work** — Session 3/23 shows engagement collapsed after ~10-15 minutes (completed 3 Word Builder rounds + 2 spelling-from-memory tasks, then requested to stop). This is predictable ADHD pattern. Morphology instruction must be front-loaded in sessions or broken into 2 shorter sessions per day rather than 1 extended session.
+
+- **WATCH: Compound word component analysis independence** — Natalie's scaffolding ("spell honey, then comb") was 100% effective but adult-prompted every time. Must probe: "Spell cowboy. First, tell me
