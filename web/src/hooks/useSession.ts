@@ -3,7 +3,34 @@ import {
   applyBlackboardMessage,
   clearedBlackboardState,
 } from "../../../src/shared/canvasBlackboardSync";
+import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry";
 import { gameIframeRef } from "../components/Canvas";
+
+type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
+
+const GAME_MODES = new Set<string>([
+  ...Object.keys(TEACHING_TOOLS),
+  ...Object.keys(REWARD_GAMES),
+]) as ReadonlySet<string>;
+
+const REWARD_GAME_MODES = new Set(Object.keys(REWARD_GAMES));
+
+const BASE_CANVAS_MODES = [
+  "idle",
+  "teaching",
+  "reward",
+  "riddle",
+  "championship",
+  "place_value",
+  "spelling",
+] as const;
+
+type CanvasStateMode = (typeof BASE_CANVAS_MODES)[number] | GameMode;
+
+const VALID_CANVAS_MODES: CanvasStateMode[] = [
+  ...BASE_CANVAS_MODES,
+  ...Array.from(GAME_MODES),
+] as CanvasStateMode[];
 
 // --- Helpers ---
 
@@ -59,7 +86,7 @@ export interface BlackboardState {
 }
 
 interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder" | "spell-check";
+  mode: CanvasStateMode;
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -172,6 +199,10 @@ export function useSession() {
     error: null,
     loadingMessage: null,
   });
+
+  const [micMuted, setMicMuted] = useState(false);
+  const micMutedRef = useRef(false);
+  micMutedRef.current = micMuted;
 
   // --- Refs for handler to avoid stale closure ---
   const setStateRef = useRef(setState);
@@ -347,26 +378,14 @@ export function useSession() {
           ) as Record<string, unknown>;
 
           const mode = data.mode as CanvasState["mode"];
-          const validModes: CanvasState["mode"][] = [
-            "idle",
-            "teaching",
-            "reward",
-            "riddle",
-            "championship",
-            "place_value",
-            "spelling",
-            "word-builder",
-            "spell-check",
-          ];
           const isSpelling = mode === "spelling";
           const isWordBuilder = mode === "word-builder";
-          const isSpellCheck = mode === "spell-check";
-          const isGameIframe = isWordBuilder || isSpellCheck;
+          const isGameMode = GAME_MODES.has(mode);
           setStateRef.current((s) => ({
             ...s,
             blackboard: clearedBlackboardState(),
             canvas: {
-              mode: mode && validModes.includes(mode) ? mode : "idle",
+              mode: mode && VALID_CANVAS_MODES.includes(mode) ? mode : "idle",
               svg: data.svg as string | undefined,
               lottieData: data.lottieData as Record<string, unknown> | undefined,
               label: data.label as string | undefined,
@@ -379,13 +398,16 @@ export function useSession() {
               streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
               personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
               showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
-              gameUrl: isGameIframe ? (data.gameUrl as string | undefined) : undefined,
-              gameWord: isGameIframe ? (data.gameWord as string | undefined) : undefined,
-              gamePlayerName: isGameIframe
+              gameUrl: isGameMode ? (data.gameUrl as string | undefined) : undefined,
+              gameWord: isGameMode ? (data.gameWord as string | undefined) : undefined,
+              gamePlayerName: isGameMode
                 ? (data.gamePlayerName as string | undefined)
                 : undefined,
               wordBuilderRound: isWordBuilder ? (data.wordBuilderRound as number | undefined) : undefined,
               wordBuilderMode: isWordBuilder ? (data.wordBuilderMode as string | undefined) : undefined,
+              rewardGameConfig: REWARD_GAME_MODES.has(mode)
+                ? (data.rewardGameConfig as Record<string, unknown> | undefined)
+                : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -469,23 +491,11 @@ export function useSession() {
         const mode = (msg.mode ?? (msg.args as Record<string, unknown>)?.mode) as CanvasState["mode"];
         const content = (msg.content ?? (msg.args as Record<string, unknown>)?.content) as string | undefined;
         const label = (msg.label ?? (msg.args as Record<string, unknown>)?.label) as string | undefined;
-        const validModes: CanvasState["mode"][] = [
-          "idle",
-          "teaching",
-          "reward",
-          "riddle",
-          "championship",
-          "place_value",
-          "spelling",
-          "word-builder",
-          "spell-check",
-        ];
-        if (mode && validModes.includes(mode)) {
+        if (mode && VALID_CANVAS_MODES.includes(mode)) {
           const data = (msg.args ?? msg) as Record<string, unknown>;
           const isSpelling = mode === "spelling";
           const isWordBuilder = mode === "word-builder";
-          const isSpellCheck = mode === "spell-check";
-          const isGameIframe = isWordBuilder || isSpellCheck;
+          const isGameMode = GAME_MODES.has(mode);
           setStateRef.current((s) => ({
             ...s,
             blackboard: clearedBlackboardState(),
@@ -503,13 +513,16 @@ export function useSession() {
               streakCount: isSpelling ? (data.streakCount as number | undefined) : undefined,
               personalBest: isSpelling ? (data.personalBest as number | undefined) : undefined,
               showWord: isSpelling ? (data.showWord as "hidden" | "hint" | "always" | undefined) : undefined,
-              gameUrl: isGameIframe ? (data.gameUrl as string | undefined) : undefined,
-              gameWord: isGameIframe ? (data.gameWord as string | undefined) : undefined,
-              gamePlayerName: isGameIframe
+              gameUrl: isGameMode ? (data.gameUrl as string | undefined) : undefined,
+              gameWord: isGameMode ? (data.gameWord as string | undefined) : undefined,
+              gamePlayerName: isGameMode
                 ? (data.gamePlayerName as string | undefined)
                 : undefined,
               wordBuilderRound: isWordBuilder ? (data.wordBuilderRound as number | undefined) : undefined,
               wordBuilderMode: isWordBuilder ? (data.wordBuilderMode as string | undefined) : undefined,
+              rewardGameConfig: REWARD_GAME_MODES.has(mode)
+                ? (data.rewardGameConfig as Record<string, unknown> | undefined)
+                : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -528,6 +541,7 @@ export function useSession() {
 
       case "session_ended":
         turnPolicyRef.current = DEFAULT_TURN_POLICY;
+        setMicMuted(false);
         setStateRef.current((s) => ({
           ...s,
           phase: "ended",
@@ -568,6 +582,10 @@ export function useSession() {
         });
 
         mediaStreamRef.current = stream;
+        stream.getAudioTracks().forEach((t) => {
+          t.enabled = !micMutedRef.current;
+        });
+
         const audioCtx = new AudioContext({ sampleRate: 16000 });
         micContextRef.current = audioCtx;
 
@@ -579,6 +597,8 @@ export function useSession() {
         silence.gain.value = 0;
 
         processor.onaudioprocess = (e) => {
+          if (micMutedRef.current) return;
+
           const float32 = e.inputBuffer.getChannelData(0);
 
           // Always convert — needed for both rolling buffer and Deepgram send
@@ -765,8 +785,19 @@ export function useSession() {
     sendMessage("end_session");
   }, [sendMessage]);
 
+  const toggleMicMute = useCallback(() => {
+    setMicMuted((m) => !m);
+  }, []);
+
+  useEffect(() => {
+    mediaStreamRef.current?.getAudioTracks().forEach((t) => {
+      t.enabled = !micMuted;
+    });
+  }, [micMuted]);
+
   const resetToPicker = useCallback(() => {
     turnPolicyRef.current = DEFAULT_TURN_POLICY;
+    setMicMuted(false);
     setState({
       phase: "picker",
       childName: null,
@@ -833,6 +864,8 @@ export function useSession() {
     resetToPicker,
     sendCanvasDone,
     sendMessage,
+    micMuted,
+    toggleMicMute,
   };
 }
 

@@ -43,8 +43,10 @@ class WordBuilderSyncHarness {
   wbWord = "";
   wbRound = 0;
   wbActive = false;
-  /** Mirrors session-manager wordBuilderSessionActive — must clear on game_complete for next startWordBuilder */
+  /** Mirrors session-manager wordBuilderSessionActive — cleared after post-game logAttempt for wbWord */
   wordBuilderSessionActive = false;
+  /** Mirrors session-manager wbAwaitingSpell */
+  wbAwaitingSpell = false;
   wbPendingEvent: Record<string, unknown> | null = null;
   wbLastProcessedRound = 0;
   turnState: WbTurnState = "WORD_BUILDER";
@@ -218,19 +220,29 @@ class WordBuilderSyncHarness {
     }
 
     if (type === "game_complete") {
-      /* Mirrors session-manager wbEndCleanup + game_complete */
-      this.clearWordBuilderSession();
+      /* Mirrors session-manager: defer wb cleanup until logAttempt for wbWord */
+      if (!this.wbActive) return;
+      this.wbAwaitingSpell = true;
     }
   }
 
   /** Same fields as SessionManager.wbEndCleanup */
   private clearWordBuilderSession(): void {
+    this.wbAwaitingSpell = false;
     this.wbActive = false;
     this.wbRound = 0;
     this.wbWord = "";
     this.wbLastProcessedRound = 0;
     this.wbPendingEvent = null;
     this.wordBuilderSessionActive = false;
+  }
+
+  /** Mirrors logAttempt branch that ends Word Builder after memory spell */
+  onLogAttempt(args: { word: string; correct: boolean }): void {
+    const key = args.word.toLowerCase().trim();
+    if (this.wbAwaitingSpell && key && key === this.wbWord.toLowerCase().trim()) {
+      this.clearWordBuilderSession();
+    }
   }
 }
 
@@ -460,7 +472,7 @@ async function test8(): Promise<void> {
   );
 }
 
-// ── Test 9 — wb / wordBuilderSession cleared after game_complete ───────────
+// ── Test 9 — session stays active until post-game logAttempt for wbWord ─────
 
 async function test9(): Promise<void> {
   const h = new WordBuilderSyncHarness();
@@ -475,18 +487,29 @@ async function test9(): Promise<void> {
   h.handleGameEvent({ type: "game_complete" });
   await flushAsync();
 
-  assert.equal(h.wbActive, false, "Test 9: wbActive false after game_complete");
+  assert.equal(h.wbActive, true, "Test 9: wbActive still true after game_complete");
   assert.equal(
     h.wordBuilderSessionActive,
-    false,
-    "Test 9: wordBuilderSessionActive false after game_complete"
+    true,
+    "Test 9: wordBuilderSessionActive still true until memory spell logAttempt"
   );
-  assert.equal(h.wbRound, 0, "Test 9: wbRound reset");
+  assert.ok(h.wbAwaitingSpell, "Test 9: wbAwaitingSpell after game_complete");
+  assert.equal(h.wbWord, "running", "Test 9: wbWord kept for spell-from-memory");
+
+  assert.equal(
+    h.startWordBuilder("hopped"),
+    false,
+    "Test 9: second startWordBuilder blocked until logAttempt for wbWord"
+  );
+
+  h.onLogAttempt({ word: "running", correct: true });
+  assert.equal(h.wbActive, false, "Test 9: wbActive false after logAttempt");
+  assert.equal(h.wordBuilderSessionActive, false, "Test 9: session cleared after logAttempt");
   assert.equal(h.wbWord, "", "Test 9: wbWord cleared");
 
   assert.ok(
     h.startWordBuilder("hopped"),
-    "Test 9: second startWordBuilder must not be blocked after cleanup"
+    "Test 9: second startWordBuilder allowed after cleanup"
   );
   assert.equal(h.wbWord, "hopped", "Test 9: new word active");
 }
@@ -503,7 +526,7 @@ const tests: Array<{ name: string; fn: () => Promise<void> }> = [
   { name: "Test 7: buffer while SPEAKING, flush on WORD_BUILDER", fn: test7 },
   { name: "Test 8: no double-speak on duplicate events", fn: test8 },
   {
-    name: "Test 9: game_complete clears session — second startWordBuilder allowed",
+    name: "Test 9: game_complete keeps session until logAttempt for wbWord",
     fn: test9,
   },
 ];

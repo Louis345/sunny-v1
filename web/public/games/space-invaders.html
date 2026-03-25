@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space Invaders — Project Sunny</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #12002e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    position: relative;
+  }
+
+  #starfield {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    animation: twinkle var(--d) var(--dl) infinite alternate ease-in-out;
+  }
+
+  @keyframes twinkle {
+    from { opacity: 0.1; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1.2); }
+  }
+
+  #game-wrapper {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+  }
+
+  #hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: min(600px, 100vw - 8px);
+    padding: 0 4px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .hud-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .hud-label {
+    font-size: 10px;
+    color: #7F77DD;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+  }
+
+  .hud-value {
+    font-size: clamp(14px, 4vw, 20px);
+    font-weight: 700;
+    color: #FFD93D;
+    text-shadow: 0 0 10px #FFD93D88;
+    letter-spacing: 0.1em;
+  }
+
+  .hud-value.lives {
+    color: #ff4466;
+    text-shadow: 0 0 10px #ff446688;
+  }
+
+  .hud-value.hi {
+    color: #9FE1CB;
+    text-shadow: 0 0 10px #9FE1CB88;
+  }
+
+  .hud-value.time {
+    color: #AFA9EC;
+  }
+
+  #canvas {
+    border: 2px solid #1a0848;
+    box-shadow: 0 0 40px #7F77DD33, 0 0 80px #7F77DD11;
+    display: block;
+    background: #050010;
+    max-width: 100%;
+    height: auto;
+    touch-action: none;
+  }
+
+  #elli-bubble {
+    width: min(600px, 100vw - 8px);
+    background: #1e0848;
+    border: 2px solid #534AB7;
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-size: 13px;
+    color: #d0b8ff;
+    font-style: italic;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: bubblePulse 4s ease-in-out infinite;
+  }
+
+  @keyframes bubblePulse {
+    0%,100% { border-color: #534AB7; }
+    50% { border-color: #7F77DD; }
+  }
+
+  .elli-name {
+    color: #FFD93D;
+    font-style: normal;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    flex-shrink: 0;
+  }
+
+  #controls-hint {
+    font-size: 10px;
+    color: #6a4aaa;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+    text-align: center;
+    max-width: 600px;
+    padding: 0 8px;
+  }
+</style>
+</head>
+<body>
+
+<div id="starfield"></div>
+
+<div id="game-wrapper">
+  <div id="hud">
+    <div class="hud-block">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-value" id="score-display">0</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label">BEST</div>
+      <div class="hud-value hi" id="hi-display">0</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label">LEVEL</div>
+      <div class="hud-value" id="level-display">1</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label">TIME</div>
+      <div class="hud-value time" id="time-display">—</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-label">LIVES</div>
+      <div class="hud-value lives" id="lives-display">♥♥♥</div>
+    </div>
+  </div>
+
+  <canvas id="canvas" width="600" height="500"></canvas>
+
+  <div id="elli-bubble">
+    <span class="elli-name">ELLI</span>
+    <span id="elli-text">Waiting for Sunny to start your reward… 🚀</span>
+  </div>
+
+  <div id="controls-hint">← → MOVE &nbsp;|&nbsp; SPACE SHOOT &nbsp;|&nbsp; TOUCH DRAG + LIFT TO SHOOT &nbsp;|&nbsp; HI SCORE: sunny_invaders_hi</div>
+</div>
+
+<script>
+(function () {
+  const HI_KEY = 'sunny_invaders_hi';
+
+  const sf = document.getElementById('starfield');
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.5 + 0.5;
+    s.style.cssText = 'width:' + sz + 'px;height:' + sz + 'px;left:' + (Math.random() * 100) + '%;top:' + (Math.random() * 100) + '%;--d:' + (1.5 + Math.random() * 3) + 's;--dl:' + (Math.random() * 3) + 's;opacity:' + (0.3 + Math.random() * 0.7);
+    sf.appendChild(s);
+  }
+
+  function postToParent(data) {
+    try { window.parent.postMessage(data, '*'); } catch (e) {}
+  }
+
+  let sessionChildName = 'friend';
+  let durationSeconds = 180;
+  let gameEndPosted = false;
+
+  function finishGame(reason) {
+    if (gameEndPosted) return;
+    gameEndPosted = true;
+    stopMusic();
+    if (reason === 'victory') {
+      gameState = 'victory';
+      setElli('victory');
+      playVictory();
+    } else {
+      gameState = 'gameover';
+    }
+    postToParent({ type: 'game_complete', score: score, level: level });
+  }
+
+  window.addEventListener('message', function (e) {
+    const msg = e.data;
+    if (!msg || msg.type !== 'start') return;
+    sessionChildName = msg.childName || 'friend';
+    const cfg = msg.config || {};
+    durationSeconds = typeof cfg.duration_seconds === 'number' ? cfg.duration_seconds : 180;
+    const startLevel = typeof cfg.level === 'number' ? cfg.level : 1;
+    gameEndPosted = false;
+    timeRemainingMs = durationSeconds * 1000;
+    document.getElementById('time-display').textContent = String(durationSeconds);
+    startGameFromSession(startLevel);
+  });
+
+  const AC = window.AudioContext || window.webkitAudioContext;
+  let ctx;
+  function getCtx() {
+    if (!ctx) ctx = new AC();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  function playTone(freq, type, dur, vol, delay) {
+    type = type || 'square';
+    dur = dur || 0.08;
+    vol = vol || 0.15;
+    delay = delay || 0;
+    try {
+      const c = getCtx();
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, c.currentTime + delay);
+      g.gain.linearRampToValueAtTime(vol, c.currentTime + delay + 0.01);
+      g.gain.linearRampToValueAtTime(0, c.currentTime + delay + dur);
+      o.start(c.currentTime + delay);
+      o.stop(c.currentTime + delay + dur + 0.01);
+    } catch (err) {}
+  }
+
+  function playShoot() {
+    playTone(880, 'square', 0.05, 0.1);
+    playTone(660, 'square', 0.05, 0.08, 0.03);
+  }
+
+  function playExplode() {
+    try {
+      const c = getCtx();
+      const buf = c.createBuffer(1, c.sampleRate * 0.3, c.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      const src = c.createBufferSource();
+      const g = c.createGain();
+      const filter = c.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 800;
+      src.buffer = buf;
+      src.connect(filter); filter.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(0.3, c.currentTime);
+      g.gain.linearRampToValueAtTime(0, c.currentTime + 0.3);
+      src.start();
+    } catch (err) {}
+  }
+
+  function playLevelUp() {
+    [523, 659, 784, 1047].forEach(function (f, i) { playTone(f, 'square', 0.15, 0.2, i * 0.1); });
+  }
+
+  function playDeath() {
+    [400, 350, 300, 250, 200].forEach(function (f, i) { playTone(f, 'sawtooth', 0.1, 0.25, i * 0.08); });
+  }
+
+  function playGameOver() {
+    [300, 280, 260, 220, 180].forEach(function (f, i) { playTone(f, 'sawtooth', 0.2, 0.3, i * 0.12); });
+  }
+
+  function playVictory() {
+    [523, 659, 784, 659, 784, 1047].forEach(function (f, i) { playTone(f, 'square', 0.18, 0.25, i * 0.12); });
+  }
+
+  let musicInterval = null;
+  const bassLine = [110, 110, 138, 110, 110, 138, 146, 138];
+  let bassIdx = 0;
+
+  function startMusic() {
+    stopMusic();
+    musicInterval = setInterval(function () {
+      if (gameState === 'playing') {
+        playTone(bassLine[bassIdx % bassLine.length], 'square', 0.12, 0.06);
+        bassIdx++;
+      }
+    }, 200);
+  }
+
+  function stopMusic() {
+    if (musicInterval) { clearInterval(musicInterval); musicInterval = null; }
+  }
+
+  const elliMessages = {
+    start: [
+      'You earned this — now blast those aliens! 🚀',
+      'Reward time! Show those aliens who is boss! 🌟',
+      'This is your celebration round — make it count! ⚡',
+    ],
+    shoot: ['Nice shot!', 'Get them!', 'YES!', 'Keep going!', 'FIRE!', 'Amazing!', 'Pew pew!', 'Do not stop!'],
+    levelup: [
+      'LEVEL UP! You are unstoppable! 🔥',
+      'They sent more? Bring it on! 💥',
+      'You are on fire! Next wave! ⚡',
+    ],
+    danger: [
+      'They are getting close — hurry! 😱',
+      'Watch out! 🚨',
+      'You have got this! 💪',
+    ],
+    gameover: [
+      'Great run! You did awesome! 🌟',
+      'That was exciting! Hero work! 🏆',
+    ],
+    victory: [
+      'Time is up — you crushed it! 🏆',
+      'What a score! Star speller! 💫',
+    ],
+    highscore: ['NEW HIGH SCORE! Legend! 🏆', 'Record broken! 💥'],
+  };
+
+  function setElli(category) {
+    const msgs = elliMessages[category];
+    if (!msgs) return;
+    const msg = msgs[Math.floor(Math.random() * msgs.length)];
+    document.getElementById('elli-text').textContent = msg;
+  }
+
+  function getHiScore() {
+    try { return parseInt(localStorage.getItem(HI_KEY) || '0', 10) || 0; } catch (e) { return 0; }
+  }
+  function saveHiScore(s) {
+    try { localStorage.setItem(HI_KEY, String(s)); } catch (e) {}
+  }
+
+  const canvas = document.getElementById('canvas');
+  const cx = canvas.getContext('2d');
+  const W = 600, H = 500;
+
+  let gameState = 'idle';
+  let score = 0, hiScore = getHiScore(), lives = 3, level = 1;
+  let lastDangerMsg = 0;
+  let timeRemainingMs = 0;
+
+  const PLAYER_W = 36, PLAYER_H = 20;
+  const player = { x: W / 2 - PLAYER_W / 2, y: H - 50, w: PLAYER_W, h: PLAYER_H, speed: 5 };
+
+  const bullets = [];
+  const BULLET_SPEED = 9;
+  let lastShot = 0;
+  const SHOT_COOLDOWN = 300;
+
+  const enemyBullets = [];
+  const ENEMY_BULLET_SPEED = 3;
+
+  let aliens = [];
+  let alienDir = 1;
+  let alienSpeed = 0.5;
+  let alienShootTimer = 0;
+
+  const particles = [];
+
+  const keys = {};
+  document.addEventListener('keydown', function (e) {
+    keys[e.code] = true;
+    if (e.code === 'Space') e.preventDefault();
+  });
+  document.addEventListener('keyup', function (e) { keys[e.code] = false; });
+
+  function makeAliens(lvl) {
+    aliens = [];
+    const rows = Math.min(3 + Math.floor(lvl / 2), 5);
+    const cols = 10;
+    const types = ['A', 'B', 'C', 'D', 'E'];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        aliens.push({
+          x: 50 + c * 52,
+          y: 60 + r * 40,
+          w: 32, h: 24,
+          type: types[Math.min(r, types.length - 1)],
+          alive: true,
+          animFrame: 0,
+          animTimer: 0,
+          points: (rows - r) * 10,
+        });
+      }
+    }
+    alienDir = 1;
+    alienSpeed = 0.4 + lvl * 0.15;
+  }
+
+  function startGameFromSession(startLevel) {
+    score = 0;
+    lives = 3;
+    level = Math.max(1, startLevel);
+    bullets.length = 0;
+    enemyBullets.length = 0;
+    particles.length = 0;
+    player.x = W / 2 - PLAYER_W / 2;
+    makeAliens(level);
+    gameState = 'playing';
+    setElli('start');
+    updateHUD();
+    startMusic();
+    hiScore = getHiScore();
+  }
+
+  function nextLevel() {
+    if (gameEndPosted) return;
+    level++;
+    bullets.length = 0;
+    enemyBullets.length = 0;
+    particles.length = 0;
+    player.x = W / 2 - PLAYER_W / 2;
+    makeAliens(level);
+    gameState = 'playing';
+    setElli('levelup');
+    playLevelUp();
+    updateHUD();
+  }
+
+  function updateHUD() {
+    document.getElementById('score-display').textContent = score;
+    document.getElementById('hi-display').textContent = hiScore;
+    document.getElementById('level-display').textContent = level;
+    const secs = Math.max(0, Math.ceil(timeRemainingMs / 1000));
+    document.getElementById('time-display').textContent = gameState === 'idle' ? '—' : String(secs);
+    const h = ['♥', '♥', '♥'].map(function (v, i) { return i < lives ? '♥' : '♡'; }).join('');
+    document.getElementById('lives-display').textContent = h;
+  }
+
+  function spawnParticles(x, y, color, count) {
+    count = count || 10;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+      const speed = 1.5 + Math.random() * 3;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        maxLife: 0.6 + Math.random() * 0.4,
+        color: color,
+        size: 2 + Math.random() * 3,
+      });
+    }
+  }
+
+  function drawPlayer() {
+    const x = player.x, y = player.y;
+    cx.fillStyle = '#7F77DD';
+    cx.fillRect(x + 8, y + 8, PLAYER_W - 16, PLAYER_H - 8);
+    cx.fillStyle = '#534AB7';
+    cx.fillRect(x, y + 12, 12, 8);
+    cx.fillRect(x + PLAYER_W - 12, y + 12, 12, 8);
+    cx.fillStyle = '#AFA9EC';
+    cx.fillRect(x + PLAYER_W / 2 - 3, y, 6, 12);
+    cx.shadowColor = '#7F77DD';
+    cx.shadowBlur = 8;
+    cx.fillStyle = '#7F77DD44';
+    cx.fillRect(x - 2, y - 2, PLAYER_W + 4, PLAYER_H + 4);
+    cx.shadowBlur = 0;
+  }
+
+  const alienColors = {
+    A: ['#ff4466', '#ff8899'],
+    B: ['#ff8800', '#ffbb44'],
+    C: ['#FFD93D', '#ffe788'],
+    D: ['#1D9E75', '#5DCAA5'],
+    E: ['#7F77DD', '#AFA9EC'],
+  };
+
+  function drawAlien(a) {
+    if (!a.alive) return;
+    const c1 = alienColors[a.type][0];
+    const c2 = alienColors[a.type][1];
+    const x = Math.round(a.x), y = Math.round(a.y);
+    const f = a.animFrame;
+
+    cx.shadowColor = c1;
+    cx.shadowBlur = 6;
+    cx.fillStyle = c1;
+
+    if (a.type === 'A') {
+      cx.fillRect(x + 8, y, 16, 6);
+      cx.fillRect(x + 4, y + 6, 24, 6);
+      cx.fillRect(x, y + 12, 32, 6);
+      cx.fillStyle = '#000';
+      cx.fillRect(x + 8 + f * 2, y + 14, 4, 4);
+      cx.fillRect(x + 20 - f * 2, y + 14, 4, 4);
+      cx.fillStyle = c2;
+      cx.fillRect(x + 2 + f * 4, y + 18, 4, 4);
+      cx.fillRect(x + 26 - f * 4, y + 18, 4, 4);
+    } else if (a.type === 'B') {
+      cx.fillRect(x + 4, y, 24, 4);
+      cx.fillRect(x, y + 4, 32, 8);
+      cx.fillRect(x + 4, y + 12, 8, 6);
+      cx.fillRect(x + 20, y + 12, 8, 6);
+      cx.fillStyle = '#000';
+      cx.fillRect(x + 8, y + 6, 6, 4);
+      cx.fillRect(x + 18, y + 6, 6, 4);
+      if (f) {
+        cx.fillStyle = c2;
+        cx.fillRect(x, y + 18, 8, 4);
+        cx.fillRect(x + 24, y + 18, 8, 4);
+      }
+    } else if (a.type === 'C') {
+      cx.fillRect(x + 12, y, 8, 4);
+      cx.fillRect(x + 4, y + 4, 24, 8);
+      cx.fillRect(x, y + 12, 32, 8);
+      cx.fillStyle = '#000';
+      cx.fillRect(x + 8, y + 8, 4, 4);
+      cx.fillRect(x + 20, y + 8, 4, 4);
+      cx.fillStyle = c2;
+      if (f) {
+        cx.fillRect(x, y + 20, 4, 4);
+        cx.fillRect(x + 28, y + 20, 4, 4);
+      } else {
+        cx.fillRect(x + 2, y + 18, 4, 4);
+        cx.fillRect(x + 26, y + 18, 4, 4);
+      }
+    } else if (a.type === 'D') {
+      cx.fillRect(x + 6, y + 2, 20, 4);
+      cx.fillRect(x + 2, y + 6, 28, 6);
+      cx.fillRect(x, y + 12, 32, 6);
+      cx.fillRect(x + 4, y + 18, 6, 4);
+      cx.fillRect(x + 22, y + 18, 6, 4);
+      cx.fillStyle = '#000';
+      cx.fillRect(x + 8, y + 8, 4, 4);
+      cx.fillRect(x + 20, y + 8, 4, 4);
+    } else {
+      cx.fillRect(x + 6, y, 20, 4);
+      cx.fillRect(x + 2, y + 4, 28, 4);
+      cx.fillRect(x, y + 8, 32, 8);
+      cx.fillRect(x + 4, y + 16, 8, 4);
+      cx.fillRect(x + 20, y + 16, 8, 4);
+      cx.fillStyle = '#000';
+      cx.fillRect(x + 10, y + 10, 4, 4);
+      cx.fillRect(x + 18, y + 10, 4, 4);
+      cx.fillStyle = c2;
+      if (f) {
+        cx.fillRect(x + 2, y + 4, 4, 4);
+        cx.fillRect(x + 26, y + 4, 4, 4);
+      }
+    }
+    cx.shadowBlur = 0;
+  }
+
+  function drawBullet(b) {
+    cx.shadowColor = '#FFD93D';
+    cx.shadowBlur = 8;
+    cx.fillStyle = '#FFD93D';
+    cx.fillRect(b.x - 2, b.y - 6, 4, 12);
+    cx.shadowBlur = 0;
+  }
+
+  function drawEnemyBullet(b) {
+    cx.shadowColor = '#ff4466';
+    cx.shadowBlur = 6;
+    cx.fillStyle = '#ff4466';
+    cx.fillRect(b.x - 2, b.y, 4, 8);
+    cx.shadowBlur = 0;
+  }
+
+  function drawParticle(p) {
+    cx.globalAlpha = p.life / p.maxLife;
+    cx.fillStyle = p.color;
+    cx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    cx.globalAlpha = 1;
+  }
+
+  function drawStarsBg() {
+    cx.fillStyle = 'rgba(255,255,255,0.4)';
+    for (let i = 0; i < 30; i++) {
+      const x = ((i * 137 + Date.now() * 0.01 * (i % 3 + 1)) % W);
+      const y = ((i * 97 + Date.now() * 0.02) % H);
+      cx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  function drawBarricade(bar) {
+    cx.fillStyle = '#1D9E75';
+    bar.blocks.forEach(function (bl) {
+      if (bl.hp > 0) {
+        cx.globalAlpha = bl.hp / 3;
+        cx.fillRect(bl.x, bl.y, 8, 8);
+      }
+    });
+    cx.globalAlpha = 1;
+  }
+
+  let barricades = [];
+  function makeBarricades() {
+    barricades = [];
+    [130, 270, 410].forEach(function (bx) {
+      const blocks = [];
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 6; c++) {
+          if (!(r === 0 && (c < 2 || c > 3))) {
+            blocks.push({ x: bx + c * 8, y: H - 120 + r * 8, hp: 3 });
+          }
+        }
+      }
+      barricades.push({ blocks: blocks });
+    });
+  }
+
+  let lastTime = 0;
+  let levelUpUntil = 0;
+
+  function update(dt) {
+    if (gameState !== 'playing') return;
+
+    timeRemainingMs -= dt;
+    if (timeRemainingMs <= 0) {
+      timeRemainingMs = 0;
+      updateHUD();
+      finishGame('victory');
+      return;
+    }
+    updateHUD();
+
+    const alive = aliens.filter(function (a) { return a.alive; });
+    aliens.forEach(function (a) {
+      a.animTimer++;
+      if (a.animTimer > 20) { a.animFrame = 1 - a.animFrame; a.animTimer = 0; }
+    });
+
+    if (keys['ArrowLeft'] || keys['KeyA']) player.x = Math.max(0, player.x - player.speed);
+    if (keys['ArrowRight'] || keys['KeyD']) player.x = Math.min(W - PLAYER_W, player.x + player.speed);
+
+    if ((keys['Space'] || keys['KeyX']) && Date.now() - lastShot > SHOT_COOLDOWN) {
+      bullets.push({ x: player.x + PLAYER_W / 2, y: player.y });
+      lastShot = Date.now();
+      playShoot();
+      setElli('shoot');
+    }
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      bullets[i].y -= BULLET_SPEED;
+      if (bullets[i].y < 0) bullets.splice(i, 1);
+    }
+
+    if (alive.length === 0) {
+      gameState = 'levelup';
+      stopMusic();
+      setElli('levelup');
+      playLevelUp();
+      levelUpUntil = Date.now() + 2000;
+      return;
+    }
+
+    let hitEdge = false;
+    alive.forEach(function (a) {
+      a.x += alienDir * alienSpeed;
+      if (a.x <= 0 || a.x + a.w >= W) hitEdge = true;
+    });
+
+    if (hitEdge) {
+      alienDir *= -1;
+      alive.forEach(function (a) { a.y += 20; });
+      alienSpeed = Math.min(alienSpeed + 0.05, 4);
+    }
+
+    alienShootTimer += dt;
+    const shootInterval = Math.max(800 - level * 80, 300);
+    if (alienShootTimer > shootInterval && alive.length > 0) {
+      alienShootTimer = 0;
+      const shooter = alive[Math.floor(Math.random() * alive.length)];
+      enemyBullets.push({ x: shooter.x + shooter.w / 2, y: shooter.y + shooter.h });
+    }
+
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      enemyBullets[i].y += ENEMY_BULLET_SPEED + level * 0.3;
+      if (enemyBullets[i].y > H) enemyBullets.splice(i, 1);
+    }
+
+    const lowestAlien = Math.max.apply(null, alive.map(function (a) { return a.y + a.h; }));
+    if (lowestAlien > H - 180 && Date.now() - lastDangerMsg > 4000) {
+      setElli('danger');
+      lastDangerMsg = Date.now();
+      playTone(220, 'sawtooth', 0.05, 0.1);
+    }
+
+    for (let bi = bullets.length - 1; bi >= 0; bi--) {
+      const b = bullets[bi];
+      let hit = false;
+      for (let ai = 0; ai < aliens.length; ai++) {
+        const a = aliens[ai];
+        if (!a.alive) continue;
+        if (b.x > a.x && b.x < a.x + a.w && b.y > a.y && b.y < a.y + a.h) {
+          a.alive = false;
+          score += a.points;
+          if (score > hiScore) {
+            hiScore = score;
+            saveHiScore(hiScore);
+            setElli('highscore');
+          }
+          spawnParticles(a.x + a.w / 2, a.y + a.h / 2, alienColors[a.type][0], 12);
+          playExplode();
+          bullets.splice(bi, 1);
+          hit = true;
+          updateHUD();
+          break;
+        }
+      }
+      if (!hit) {
+        barricades.forEach(function (bar) {
+          bar.blocks.forEach(function (bl) {
+            if (bl.hp > 0 && b.x > bl.x && b.x < bl.x + 8 && b.y > bl.y && b.y < bl.y + 8) {
+              bl.hp--;
+              if (!hit) { bullets.splice(bi, 1); hit = true; }
+            }
+          });
+        });
+      }
+    }
+
+    for (let i = enemyBullets.length - 1; i >= 0; i--) {
+      const b = enemyBullets[i];
+      if (b.x > player.x && b.x < player.x + PLAYER_W && b.y > player.y && b.y < player.y + PLAYER_H) {
+        enemyBullets.splice(i, 1);
+        lives--;
+        spawnParticles(player.x + PLAYER_W / 2, player.y + PLAYER_H / 2, '#7F77DD', 20);
+        playDeath();
+        updateHUD();
+        if (lives <= 0) {
+          gameState = 'gameover';
+          stopMusic();
+          setElli('gameover');
+          playGameOver();
+          finishGame('gameover');
+          return;
+        }
+        player.x = W / 2 - PLAYER_W / 2;
+        break;
+      }
+      barricades.forEach(function (bar) {
+        bar.blocks.forEach(function (bl) {
+          if (bl.hp > 0 && b.x > bl.x && b.x < bl.x + 8 && b.y > bl.y && b.y < bl.y + 8) {
+            bl.hp--;
+            enemyBullets.splice(i, 1);
+          }
+        });
+      });
+    }
+
+    if (alive.some(function (a) { return a.y + a.h >= player.y; })) {
+      gameState = 'gameover';
+      stopMusic();
+      setElli('gameover');
+      playGameOver();
+      finishGame('gameover');
+      return;
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05;
+      p.life -= 0.03;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+  }
+
+  function draw() {
+    cx.fillStyle = '#050010';
+    cx.fillRect(0, 0, W, H);
+    drawStarsBg();
+    barricades.forEach(drawBarricade);
+    aliens.forEach(drawAlien);
+    bullets.forEach(drawBullet);
+    enemyBullets.forEach(drawEnemyBullet);
+    if (gameState !== 'idle') drawPlayer();
+    particles.forEach(drawParticle);
+
+    cx.fillStyle = '#1a0848';
+    cx.fillRect(0, H - 30, W, 2);
+
+    if (gameState === 'idle') {
+      cx.fillStyle = 'rgba(0,0,0,0.75)';
+      cx.fillRect(0, 0, W, H);
+      cx.textAlign = 'center';
+      cx.fillStyle = '#FFD93D';
+      cx.font = 'bold 32px Courier New';
+      cx.shadowColor = '#FFD93D';
+      cx.shadowBlur = 16;
+      cx.fillText('SPACE INVADERS', W / 2, 200);
+      cx.shadowBlur = 0;
+      cx.fillStyle = '#9FE1CB';
+      cx.font = '14px Courier New';
+      cx.fillText('Reward game — waiting for Sunny…', W / 2, 240);
+      cx.fillStyle = '#d0b8ff';
+      cx.font = '12px Courier New';
+      cx.fillText('← → move · space shoot · touch drag', W / 2, 280);
+      cx.fillStyle = '#7F77DD';
+      cx.fillText('Hi: ' + hiScore, W / 2, 320);
+    }
+
+    if (gameState === 'gameover') {
+      cx.fillStyle = 'rgba(0,0,0,0.75)';
+      cx.fillRect(0, 0, W, H);
+      cx.textAlign = 'center';
+      cx.fillStyle = '#ff4466';
+      cx.font = 'bold 32px Courier New';
+      cx.fillText('GAME OVER', W / 2, 180);
+      cx.fillStyle = '#FFD93D';
+      cx.font = 'bold 20px Courier New';
+      cx.fillText('SCORE: ' + score, W / 2, 230);
+      cx.fillStyle = '#9FE1CB';
+      cx.font = '14px Courier New';
+      cx.fillText('BEST: ' + hiScore, W / 2, 265);
+    }
+
+    if (gameState === 'levelup') {
+      cx.fillStyle = 'rgba(0,0,0,0.6)';
+      cx.fillRect(0, 0, W, H);
+      cx.textAlign = 'center';
+      cx.fillStyle = '#FFD93D';
+      cx.font = 'bold 28px Courier New';
+      cx.fillText('WAVE CLEARED!', W / 2, 220);
+      cx.fillStyle = '#9FE1CB';
+      cx.font = '14px Courier New';
+      cx.fillText('SCORE: ' + score, W / 2, 260);
+    }
+
+    if (gameState === 'victory') {
+      cx.fillStyle = 'rgba(0,0,0,0.75)';
+      cx.fillRect(0, 0, W, H);
+      cx.textAlign = 'center';
+      cx.fillStyle = '#9FE1CB';
+      cx.font = 'bold 28px Courier New';
+      cx.fillText('TIME UP — GREAT JOB!', W / 2, 220);
+      cx.fillStyle = '#FFD93D';
+      cx.font = '18px Courier New';
+      cx.fillText('SCORE: ' + score, W / 2, 265);
+    }
+  }
+
+  function loop(ts) {
+    const dt = Math.min(ts - lastTime, 100);
+    lastTime = ts;
+
+    if (gameState === 'levelup' && Date.now() >= levelUpUntil) {
+      nextLevel();
+      startMusic();
+    }
+
+    if (gameState === 'playing') update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  hiScore = getHiScore();
+  makeBarricades();
+  updateHUD();
+  requestAnimationFrame(loop);
+
+  let touchStartX = 0;
+  canvas.addEventListener('touchstart', function (e) {
+    touchStartX = e.touches[0].clientX;
+    getCtx();
+  }, { passive: true });
+  canvas.addEventListener('touchmove', function (e) {
+    if (gameState !== 'playing') return;
+    e.preventDefault();
+    const dx = e.touches[0].clientX - touchStartX;
+    player.x = Math.max(0, Math.min(W - PLAYER_W, player.x + dx * 0.8));
+    touchStartX = e.touches[0].clientX;
+  }, { passive: false });
+  canvas.addEventListener('touchend', function () {
+    if (gameState !== 'playing') return;
+    if (Date.now() - lastShot > SHOT_COOLDOWN) {
+      bullets.push({ x: player.x + PLAYER_W / 2, y: player.y });
+      lastShot = Date.now();
+      playShoot();
+      setElli('shoot');
+    }
+  });
+})();
+</script>
+</body>
+</html>

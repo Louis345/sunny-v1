@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { REWARD_GAMES, TEACHING_TOOLS } from "../server/games/registry";
 
 export const CANVAS_CAPABILITIES = {
   teaching: {
@@ -82,6 +83,12 @@ export function generateCanvasCapabilities(): string {
     "Auto-generated at startup from src/utils/generateCanvasCapabilities.ts",
     "DO NOT EDIT MANUALLY — changes will be overwritten on next launch",
     "",
+    "## Game names",
+    "",
+    "- **Only use names that appear exactly** in this manifest under **Teaching Tools** and **Reward Games** (each `###` heading is a valid game id).",
+    "- If the request does not match exactly, choose the **closest** name in those sections **by meaning**—never guess a new slug.",
+    "- **Never invent** a game name that is not listed in this manifest.",
+    "",
     "## Available Modes",
     "",
   ];
@@ -94,6 +101,24 @@ export function generateCanvasCapabilities(): string {
       lines.push(`**Props:** ${info.props.join(", ")}`);
     }
     lines.push(`**Example:** \`${info.example}\``);
+    lines.push("");
+  }
+
+  lines.push("## Teaching Tools");
+  for (const [name, def] of Object.entries(TEACHING_TOOLS)) {
+    lines.push(`### ${name}`);
+    lines.push(`Launch: launchGame("${name}", "tool")`);
+    lines.push(`Voice enabled: ${def.voiceEnabled}`);
+    lines.push(`Default config: ${JSON.stringify(def.defaultConfig)}`);
+    lines.push("");
+  }
+
+  lines.push("## Reward Games");
+  for (const [name, def] of Object.entries(REWARD_GAMES)) {
+    lines.push(`### ${name}`);
+    lines.push(`Launch: launchGame("${name}", "reward")`);
+    lines.push(`Voice enabled: ${def.voiceEnabled}`);
+    lines.push(`Default config: ${JSON.stringify(def.defaultConfig)}`);
     lines.push("");
   }
 

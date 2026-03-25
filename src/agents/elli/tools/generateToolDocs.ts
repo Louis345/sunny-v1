@@ -9,6 +9,7 @@ import { showCanvas } from "./showCanvas";
 import { blackboard } from "./blackboard";
 import { startWordBuilder } from "./startWordBuilder";
 import { startSpellCheck } from "./startSpellCheck";
+import { launchGame } from "./launchGame";
 
 /** Every `tool()` exposed to Elli — single registry for runtime + docs. */
 export const ALL_TOOLS = {
@@ -22,6 +23,7 @@ export const ALL_TOOLS = {
   blackboard,
   startWordBuilder,
   startSpellCheck,
+  launchGame,
 } as const;
 
 function getDescription(t: Tool): string {

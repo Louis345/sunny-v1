@@ -695,3 +695,20 @@ No articulation errors in rapid-fire math responses or riddle answers (single-wo
 ## Signal
 
 **ADVANCE math into Phase 2 (multi-digit addition/subtraction, multiplication conceptual intro via wrestling metaphor: wins × points); MAINTAIN riddle/problem-solving as warm-up and standalone challenge per student request; HOLD spelling pending competitive reframing; CRITICAL PRIORITY: Formally administer CELF-5 Word Definitions, Formulated Sentences, Recalling Sentences, and Following Directions subtests before Phase 2 math expansion or any bilingual/reading work begins.** Reina is cognitively ready for acceleration and demonstrating 100% accuracy on math facts, but foundational language assessment gaps (receptive and expressive domains) must be closed via formal CELF-5 administration to rule out masking of weaknesses by strong nonverbal reasoning and math fluency. Do not advance to multi-domain work (bilingual, narrative, word problems, or reading) until language foundation is confirmed via assessment.
+
+## Ingested Document — 3/24/2026, 7:27:35 PM
+### unknown
+Could not classify document.
+
+# Spelling List - Week 2, Unit 7
+
+**Child:** Reina  
+**Document Type:** Homework/Spelling Assignment
+
+## Content Summary
+- **Topic:** Inflectional endings with spelling changes (e.g., running, hopped, sitting)
+- **High-frequency words:** Practice words including almost, animal, around, body, color, eye, form, high, light, story
+- **Curriculum:** Benchmark Advance Unit 7, Week 2
+
+## Educational Note
+Standard weekly spelling list focusing on verb tense changes and common sight words. No accommodations or clinical information provided in this document.

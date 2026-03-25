@@ -6,7 +6,11 @@ import { useStaggeredReveal } from "../hooks/useStaggeredReveal";
 import { motion } from "framer-motion";
 import gsap from "gsap";
 import LottieRaw from "lottie-react";
-import { canvasHasRenderableContent } from "../../../src/shared/canvasRenderability";
+import {
+  canvasHasRenderableContent,
+  type GameMode as RegistryGameMode,
+} from "../../../src/shared/canvasRenderability";
+import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry";
 import type { BlackboardState } from "../hooks/useSession";
 import { BlackboardContent } from "./BlackboardContent";
 const Lottie = (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
@@ -31,8 +35,30 @@ interface PlaceValueData {
   revealedColumns?: Array<"hundreds" | "tens" | "ones">;
 }
 
+type CanvasCoreMode =
+  | "idle"
+  | "teaching"
+  | "reward"
+  | "riddle"
+  | "championship"
+  | "place_value"
+  | "spelling";
+
+const GAME_MODES = new Set<string>([
+  ...Object.keys(TEACHING_TOOLS),
+  ...Object.keys(REWARD_GAMES),
+]) as ReadonlySet<string>;
+
+/** Per-game iframe chrome; new registry games fall back to default until styled. */
+const GAME_IFRAME_BACKGROUNDS: Partial<Record<RegistryGameMode, string>> = {
+  "word-builder": "#121213",
+  "spell-check": "#12002e",
+  "space-invaders": "#0a0a12",
+  "bd-reversal": "#12002e",
+};
+
 export interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship" | "place_value" | "spelling" | "word-builder" | "spell-check";
+  mode: CanvasCoreMode | RegistryGameMode;
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -52,6 +78,43 @@ export interface CanvasState {
   gamePlayerName?: string;
   wordBuilderRound?: number;
   wordBuilderMode?: string;
+  /** Reward iframe (e.g. Space Invaders) — forwarded as GameBridge { config } */
+  rewardGameConfig?: Record<string, unknown>;
+}
+
+function runGameIframeOnLoad(
+  iframe: HTMLIFrameElement,
+  canvas: Pick<
+    CanvasState,
+    "mode" | "gameWord" | "gamePlayerName" | "wordBuilderMode"
+  >,
+  onCanvasDone: () => void,
+): void {
+  onCanvasDone();
+  const w = iframe.contentWindow;
+  if (!w) return;
+  if (canvas.mode === "word-builder") {
+    w.postMessage(
+      {
+        type: "start",
+        word: canvas.gameWord ?? "",
+        mode: canvas.wordBuilderMode ?? "fill_blanks",
+        round: 1,
+        playerName: canvas.gamePlayerName ?? "Ila",
+        score: 0,
+      },
+      "*",
+    );
+  } else if (canvas.mode === "spell-check") {
+    w.postMessage(
+      {
+        type: "start",
+        word: canvas.gameWord ?? "",
+        playerName: canvas.gamePlayerName ?? "Ila",
+      },
+      "*",
+    );
+  }
 }
 
 interface RewardEvent {
@@ -1068,7 +1131,7 @@ export function Canvas({
     const hasContent = canvasHasRenderableContent(canvas);
     // Game iframes do not use runAnimation; clear stale teaching/riddle display so
     // we never show math/text alongside Word Builder / Spell Check (BUG-024).
-    if (canvas.mode === "word-builder" || canvas.mode === "spell-check") {
+    if (GAME_MODES.has(canvas.mode)) {
       setDisplayContent("");
       setDisplayMode("idle");
       setRiddleLabel("");
@@ -1170,64 +1233,29 @@ export function Canvas({
 
       <div
         className={
-          canvas.mode === "word-builder" || canvas.mode === "spell-check"
+          GAME_MODES.has(canvas.mode)
             ? "canvas-wrapper w-full max-w-none flex flex-col items-stretch justify-center"
             : "canvas-wrapper w-full max-w-2xl flex flex-col items-center justify-center"
         }
         style={{ position: "relative", minHeight: 200 }}
         data-mode={displayMode}
       >
-        {canvas.mode === "word-builder" && canvas.gameUrl && (
+        {GAME_MODES.has(canvas.mode) && canvas.gameUrl && (
           <iframe
             ref={gameIframeRef}
-            title="Sunny Word Builder"
+            title={`Sunny ${canvas.mode.replace(/-/g, " ")}`}
             src={canvas.gameUrl}
             style={{
               width: "100%",
               height: "min(90vh, 720px)",
               border: "none",
               borderRadius: "8px",
-              background: "#121213",
+              background:
+                GAME_IFRAME_BACKGROUNDS[canvas.mode as RegistryGameMode] ??
+                "#121213",
             }}
             onLoad={(e) => {
-              onCanvasDone();
-              // Round 1: Canvas sends "start" directly once the iframe DOM is ready.
-              // Subsequent rounds (2-4) are driven by the server via game_message next_round.
-              e.currentTarget.contentWindow?.postMessage(
-                {
-                  type: "start",
-                  word: canvas.gameWord ?? "",
-                  mode: canvas.wordBuilderMode ?? "fill_blanks",
-                  round: 1,
-                  playerName: canvas.gamePlayerName ?? "Ila",
-                  score: 0,
-                },
-                "*"
-              );
-            }}
-          />
-        )}
-        {canvas.mode === "spell-check" && canvas.gameUrl && (
-          <iframe
-            title="Sunny Spell Check"
-            src={canvas.gameUrl}
-            style={{
-              width: "100%",
-              height: "min(90vh, 720px)",
-              border: "none",
-              borderRadius: "8px",
-              background: "#12002e",
-            }}
-            onLoad={(e) => {
-              onCanvasDone();
-              e.currentTarget.contentWindow?.postMessage(
-                {
-                  type: "start",
-                  word: canvas.gameWord ?? "",
-                  playerName: canvas.gamePlayerName ?? "Ila",
-                },
-                "*"
-              );
+              runGameIframeOnLoad(e.currentTarget, canvas, onCanvasDone);
             }}
           />
         )}

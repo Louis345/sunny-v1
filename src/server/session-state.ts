@@ -335,7 +335,11 @@ export class TurnStateMachine {
     // This guarantees the spoken problem always matches the canvas — Claude
     // only provides the feedback prefix ("Nice!"), the server provides the problem.
     if (this.canonicalProblemText) {
-      this.ttsBuffer = this.ttsBuffer.trimEnd() + " " + this.canonicalProblemText;
+      let pre = this.ttsBuffer.trimEnd();
+      if (pre.length > 0 && !/[.!?]["']?\s*$/.test(pre)) {
+        pre += ". ";
+      }
+      this.ttsBuffer = pre + this.canonicalProblemText;
       this.onLog(`  📢 Canonical problem appended to TTS: "${this.canonicalProblemText}"`);
       this.canonicalProblemText = null;
     }
@@ -354,7 +358,11 @@ export class TurnStateMachine {
     }
     // Drain any trailing fragment left in SPEAKING state
     if (this.state === "SPEAKING" && this.ttsBuffer.trim()) {
-      const clean = sanitizeForTTS(this.ttsBuffer);
+      let drain = this.ttsBuffer.trimEnd();
+      if (drain.length > 0 && !/[.!?]["']?\s*$/.test(drain)) {
+        drain += ". ";
+      }
+      const clean = sanitizeForTTS(drain);
       if (clean) {
         this.onLog(`  🔊 Draining trailing fragment: "${clean}"`);
         this.onFlush(clean);
@@ -414,7 +422,11 @@ export class TurnStateMachine {
 
   private _flushBuffer(): void {
     if (this.ttsBuffer) {
-      const clean = sanitizeForTTS(this.ttsBuffer);
+      let buf = this.ttsBuffer.trimEnd();
+      if (buf.length > 0 && !/[.!?]["']?\s*$/.test(buf)) {
+        buf += ". ";
+      }
+      const clean = sanitizeForTTS(buf);
       if (clean) {
         this.onLog(`  🔊 Flushing TTS buffer (${clean.length} chars)`);
         this.onFlush(clean);

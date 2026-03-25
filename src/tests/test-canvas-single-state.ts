@@ -16,7 +16,8 @@ type CanvasMode =
   | "place_value"
   | "spelling"
   | "word-builder"
-  | "spell-check";
+  | "spell-check"
+  | "space-invaders";
 
 interface CanvasState {
   mode: CanvasMode;
@@ -56,6 +57,7 @@ const VALID_MODES: CanvasMode[] = [
   "spelling",
   "word-builder",
   "spell-check",
+  "space-invaders",
 ];
 
 /** Modes whose updates flow through runAnimation in Canvas.tsx */
@@ -90,7 +92,8 @@ function applyShowCanvasFromToolCall(
   const isSpelling = mode === "spelling";
   const isWordBuilder = mode === "word-builder";
   const isSpellCheck = mode === "spell-check";
-  const isGameIframe = isWordBuilder || isSpellCheck;
+  const isSpaceInvaders = mode === "space-invaders";
+  const isGameIframe = isWordBuilder || isSpellCheck || isSpaceInvaders;
 
   const canvas: CanvasState = {
     mode: mode && VALID_MODES.includes(mode) ? mode : "idle",
@@ -134,7 +137,8 @@ function applyCanvasDraw(
   const isSpelling = mode === "spelling";
   const isWordBuilder = mode === "word-builder";
   const isSpellCheck = mode === "spell-check";
-  const isGameIframe = isWordBuilder || isSpellCheck;
+  const isSpaceInvaders = mode === "space-invaders";
+  const isGameIframe = isWordBuilder || isSpellCheck || isSpaceInvaders;
 
   const canvas: CanvasState = {
     mode,
@@ -233,7 +237,11 @@ class CanvasDisplaySimulator {
 
   onCanvasChange(canvas: CanvasState): void {
     const hasContent = canvasHasRenderableContent(canvas);
-    if (canvas.mode === "word-builder" || canvas.mode === "spell-check") {
+    if (
+      canvas.mode === "word-builder" ||
+      canvas.mode === "spell-check" ||
+      canvas.mode === "space-invaders"
+    ) {
       this.displayContent = "";
       this.displayMode = "idle";
       this.riddleLabel = "";
