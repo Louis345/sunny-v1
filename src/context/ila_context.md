@@ -1246,4 +1246,168 @@ querySessions shows: "sit" 100% (3/14), then hit/sad/bit/bad single attempts wit
 
 - **WATCH: Fatigue onset timing in morphology work** — Session 3/23 shows engagement collapsed after ~10-15 minutes (completed 3 Word Builder rounds + 2 spelling-from-memory tasks, then requested to stop). This is predictable ADHD pattern. Morphology instruction must be front-loaded in sessions or broken into 2 shorter sessions per day rather than 1 extended session.
 
-- **WATCH: Compound word component analysis independence** — Natalie's scaffolding ("spell honey, then comb") was 100% effective but adult-prompted every time. Must probe: "Spell cowboy. First, tell me
+
+
+## Ingested Document — 3/24/2026, 7:10:15 PM
+### unknown
+Could not classify document.
+
+# Ila Taylor – Initial Special Education Eligibility & Prior Written Notice
+
+**Document type:** Prior Written Notice (Initial Eligibility), Consent for Services, and Request for Additional Assessment
+
+## Key Educational Flags
+
+- **Disability classification:** Other Health Impairment (OHI)
+- **Diagnoses (from outside evaluations):** ADHD, Dyslexia, Learning Disability
+- **Attention/Executive Functioning:** Low working memory, distractible, needs frequent redirection, rushes through work
+- **Reading/Language:** Below average reading, decoding impacts comprehension, guesses at words unless prompted to slow down, memorizes sight words but struggles generalizing, mild overall language delay, trouble with following directions, vocabulary, and grammar
+- **Math:** Strong calculations, place value confusion at times (73 for 37), struggles with word problems
+- **Writing:** Spelling strong in isolation but errors in paragraph writing, some sentence fragments, occasional letter reversals on classwork
+- **Emotional/Behavioral:** Anxiety, doesn't want to be wrong, wants to please, kind and respectful, positive attitude
+
+## Proposed Services (Initial IEP – 03/16/2026)
+
+- **Resource Room:** 5:1, 4x30 min/week (ELA), 4x30 min/week (Math)
+- **Consultant Teacher Services:** Direct 1x60 min/week, Indirect 1x30 min/week
+- **Speech/Language Therapy:** Small group, 6x30 min/month
+
+## Accommodations & Supports (noted during eligibility meeting)
+
+- Test read-aloud and scribing (or speech-to-text) recommended by ENL teacher
+- Benefits from proximity to teacher, small group instruction, pre-teaching vocabulary
+- Non-verbal cues and reminders to slow down helpful
+- Praise-motivated
+- Heavy work/sensory breaks before writing tasks (OT noted sensory seeker)
+- Eye exam follow-up needed (OT concern)
+
+## Goals & Needs
+
+- Close reading gap (currently receiving RtI reading with minimal gap closure)
+- Improve reading comprehension and skill generalization
+- Develop self-monitoring strategies for comprehension and pacing
+- Support word problem reasoning in math
+- Address organizational/executive functioning related to ADHD
+- **Pending:** Social work evaluation and assistive technology evaluation approved 03/16/2026
+
+## Ingested Document — 3/24/2026, 7:11:59 PM
+### unknown
+Could not classify document.
+
+# Ila Taylor – Initial Special Education Eligibility & Consent (3/16/2026)
+
+**Child:** Ila Taylor (DOB: 11/21/2017)  
+**Document Type:** Prior Written Notice for Initial Special Education Eligibility + Consent Forms
+
+---
+
+## Key Clinical/Educational Flags
+
+- **Proposed Classification:** Other Health Impairment (OHI)
+- **Outside Diagnoses:** ADHD, Dyslexia, Learning Disability
+- **Cognitive/Learning Profile:** Good foundational skills and background knowledge; low working memory; difficulties with attention, executive functioning, and generalizing learned skills
+- **Academic Concerns:** Reading (decoding impacts comprehension, may guess words), struggles with word problems in math, writing shows some sentence fragments
+- **Behavioral/Emotional:** Anxious about being wrong, wants to please, sensory seeker, needs breaks, rushes through work
+- **Strengths:** Calculations, oral skills, discussions, science/social studies, kind and respectful, hard-working
+
+---
+
+## Relevant Accommodations & Services
+
+**Proposed Special Education Services:**
+- Resource Room (5:1): 4x/week x 30 min (ELA and Math)
+- Consultant Teacher: 1x/week x 60 min direct, 1x/week x 30 min indirect
+- Speech/Language Therapy: Small group, 6x/month x 30 min
+
+**Accommodations Noted by Team:**
+- Test read-aloud and scribing (or speech-to-text)
+- Prompts to slow down
+- Small group instruction
+- Proximity to teacher, non-verbal cues, pre-teaching vocabulary
+
+---
+
+## Goals and Needs
+
+- Close reading comprehension gap; monitor own comprehension
+- Improve generalization of skills (sight words, decoding strategies)
+- Support for word problem solving in math
+- Manage attention/executive functioning challenges
+- **Pending Evaluations:** Social work and assistive technology assessments recommended
+
+---
+
+**Action Required:** Parent consent for initial special education services and additional evaluations.
+
+## Ingested Document — 3/24/2026, 7:12:04 PM
+### unknown
+Could not classify document.
+
+# Ila Taylor – Special Education Eligibility & Consent Documentation
+
+**Document Type:** Prior Written Notice (PWN) for initial special education eligibility + consent forms for services and additional evaluations (March 16, 2026)
+
+**School District:** Burnt Hills-Ballston Lake Central School District, Ballston Lake, NY
+
+---
+
+## Key Clinical/Educational Flags
+
+- **Proposed Disability Classification:** Other Health Impairment (OHI)
+- **Diagnoses:** ADHD, Dyslexia, Learning Disability (from outside evaluation)
+- **Current Concerns:** Reading comprehension, language processing ("gets lost in language"), working memory, attention/executive functioning, decoding impacts comprehension, word problems challenging, anxiety about being wrong
+
+---
+
+## Strengths & Profile
+
+- Caring, kind, respectful; pleasure to work with
+- Strong background knowledge; loves science, social studies, discussions
+- Math calculations solid; good spelling in isolation
+- Good conversationalist; does well orally; can memorize facts
+- Involved in sports; good strength, coordination, manual dexability
+- Hard-working; curious learner; benefits from small groups and praise
+
+---
+
+## Proposed Special Education Services
+
+**Programs:**
+- Resource Room (5:1): 4x/week, 30 min (ELA and Math)
+- Consultant Teacher Services: Direct 1x/week 60 min; Indirect 1x/week 30 min
+
+**Related Services:**
+- Speech/Language Therapy: Small group, 6x/month, 30 min
+
+---
+
+## Accommodations & Supports Needed
+
+- Test read-aloud and scribing (or speech-to-text)
+- Prompts to slow down and monitor comprehension
+- Preferential seating (close to teacher)
+- Redirection for distractibility
+- Non-verbal cues
+- Pre-teaching of vocabulary
+- Breaking down multi-step directions
+- Heavy work/sensory breaks (sensory seeker)
+- Eye exam follow-up recommended
+
+---
+
+## Pending Evaluations
+
+District requesting parental consent for:
+- **Social Work Evaluation** (social skills, behaviors, mental health)
+- **Assistive Technology Evaluation** (tools to access curriculum)
+
+---
+
+## Goals & Needs
+
+- Close reading gap (currently receiving RTI reading, ENL, AIS math)
+- Improve generalization of skills beyond memorization
+- Support language comprehension and vocabulary
+- Address working memory and executive functioning challenges
+- Build self-monitoring strategies for comprehension and accuracy
+- Manage ADHD impact on learning; address anxiety about performance

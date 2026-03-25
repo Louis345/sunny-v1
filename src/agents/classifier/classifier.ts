@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 /**
  * Drop-folder Classifier Agent
  *
@@ -170,6 +172,63 @@ async function ocrPdfWithClaude(
     .join("\n");
 }
 
+/** Filename-only routing before Claude. Context checked before homework. */
+function classifyFromFilename(filenameLower: string): ClassificationResult | null {
+  const contextPatterns: Array<{
+    keyword: string;
+    type: DocumentType;
+    summary: string;
+  }> = [
+    { keyword: "psychological", type: "iep_document", summary: "Psychological document (filename keyword)." },
+    { keyword: "evaluation", type: "iep_document", summary: "Evaluation document (filename keyword)." },
+    { keyword: "assessment", type: "iep_document", summary: "Assessment document (filename keyword)." },
+    { keyword: "eligibility", type: "iep_document", summary: "Eligibility document (filename keyword)." },
+    { keyword: "consent", type: "iep_document", summary: "Consent form (filename keyword)." },
+    { keyword: "iep", type: "iep_document", summary: "IEP-related document (filename keyword)." },
+    { keyword: "report", type: "report_card", summary: "School report (filename keyword)." },
+  ];
+
+  for (const { keyword, type, summary } of contextPatterns) {
+    if (filenameLower.includes(keyword)) {
+      return {
+        type,
+        destination: "context",
+        date: "unknown",
+        summary,
+      };
+    }
+  }
+
+  const homeworkPatterns: Array<{
+    keyword: string;
+    type: DocumentType;
+    summary: string;
+  }> = [
+    { keyword: "math", type: "math_homework", summary: "Math homework (filename keyword)." },
+    { keyword: "spelling", type: "spelling_homework", summary: "Spelling homework (filename keyword)." },
+    { keyword: "handwriting", type: "handwriting_sample", summary: "Handwriting (filename keyword)." },
+    { keyword: "reading", type: "reading_assignment", summary: "Reading (filename keyword)." },
+    { keyword: "fluency", type: "reading_assignment", summary: "Fluency (filename keyword)." },
+    { keyword: "homework", type: "spelling_homework", summary: "Homework (filename keyword)." },
+    { keyword: "worksheet", type: "spelling_homework", summary: "Worksheet (filename keyword)." },
+    { keyword: "unit", type: "spelling_homework", summary: "Unit work (filename keyword)." },
+    { keyword: "week", type: "spelling_homework", summary: "Weekly work (filename keyword)." },
+  ];
+
+  for (const { keyword, type, summary } of homeworkPatterns) {
+    if (filenameLower.includes(keyword)) {
+      return {
+        type,
+        destination: "homework",
+        date: "unknown",
+        summary,
+      };
+    }
+  }
+
+  return null;
+}
+
 async function classifyText(
   client: Anthropic,
   text: string
@@ -187,7 +246,10 @@ Return JSON only (no markdown, no code block):
 }
 
 homework destination = spelling_homework, math_homework, reading_assignment, handwriting_sample
-context destination = teacher_note, report_card, iep_document, tutoring_session, unknown`,
+context destination = teacher_note, report_card, iep_document, tutoring_session, unknown
+
+iep_document: Any Individualized Education Program, IEP eligibility notice, prior written notice from a school district, CSE meeting notes, evaluation reports, disability classification documents, special education consent forms.
+Keywords: IEP, CSE, CPSE, Resource Room, Special Education, disability classification, annual goals, present levels of performance, testing accommodations, related services.`,
     messages: [
       {
         role: "user",
@@ -211,6 +273,48 @@ context destination = teacher_note, report_card, iep_document, tutoring_session,
       summary: "Could not classify document.",
     };
   }
+}
+
+const CONTEXT_SUMMARY_MAX_CHARS = 120_000;
+
+async function summarizeForContext(
+  client: Anthropic,
+  rawText: string,
+  meta: { type: string; summary: string; childName: string }
+): Promise<string> {
+  const excerpt = rawText.slice(0, CONTEXT_SUMMARY_MAX_CHARS);
+  const truncated =
+    rawText.length > CONTEXT_SUMMARY_MAX_CHARS
+      ? "\n\n[Document truncated for summarization — only the beginning was sent.]"
+      : "";
+
+  const response = await client.messages.create({
+    model: "claude-sonnet-4-5",
+    max_tokens: 900,
+    system: `You write brief entries for a child's educational companion context file (markdown).
+
+Rules:
+- Maximum 200 words total.
+- Output structured markdown with short bullets or small headings: Child name, Document type, Key clinical/educational flags, Relevant accommodations, Goals and needs.
+- Summarize only; do NOT dump letter text, form boilerplate, or reproduce long policy language.
+- If the excerpt is a spelling list or homework, say so briefly and list only topic/theme, not every word.
+- If information is missing, omit that section rather than inventing.`,
+    messages: [
+      {
+        role: "user",
+        content:
+          `Classified type: ${meta.type}\nOne-line summary: ${meta.summary}\nDefault child (if not in doc): ${meta.childName}\n\n---\n\nDocument excerpt:\n${excerpt}${truncated}`,
+      },
+    ],
+  });
+
+  const out = response.content
+    .filter((b) => b.type === "text")
+    .map((b) => ("text" in b ? b.text : ""))
+    .join("\n")
+    .trim();
+
+  return out || `*(No summary produced — classification: ${meta.type})*`;
 }
 
 function collectDropFiles(): string[] {
@@ -328,17 +432,23 @@ export async function classifyAndRoute(
       continue;
     }
 
+    const lowerBase = path.basename(filePath).toLowerCase();
+    const fromFilename = classifyFromFilename(lowerBase);
     let result: ClassificationResult;
-    try {
-      result = await classifyText(client, rawText);
-    } catch (err) {
-      console.warn(`  ⚠️  Classification failed for ${filename}: ${String(err)}`);
-      result = {
-        type: "unknown",
-        destination: "context",
-        date: "unknown",
-        summary: "Classification failed.",
-      };
+    if (fromFilename) {
+      result = fromFilename;
+    } else {
+      try {
+        result = await classifyText(client, rawText);
+      } catch (err) {
+        console.warn(`  ⚠️  Classification failed for ${filename}: ${String(err)}`);
+        result = {
+          type: "unknown",
+          destination: "context",
+          date: "unknown",
+          summary: "Classification failed.",
+        };
+      }
     }
 
     const date =
@@ -365,7 +475,7 @@ export async function classifyAndRoute(
           );
           const destTxt = path.join(destDir, "spelling-words.txt");
           fs.writeFileSync(destTxt, homeworkText.trim() + "\n", "utf-8");
-          const msg = `📚 PDF OCR'd → homework/${child.toLowerCase()}/${date}/`;
+          const msg = `📚 ${result.type} → homework/${child.toLowerCase()}/${date}/`;
           console.log(`  ${msg}`);
           routed.push(msg);
         } catch (err) {
@@ -382,7 +492,23 @@ export async function classifyAndRoute(
         routed.push(msg);
       }
     } else {
-      appendToContext(child, `### ${result.type}\n${result.summary}\n\n${rawText}`);
+      let contextBody: string;
+      try {
+        contextBody = await summarizeForContext(client, rawText, {
+          type: result.type,
+          summary: result.summary,
+          childName: child,
+        });
+      } catch (err) {
+        console.warn(
+          `  ⚠️  Context summarization failed for ${filename}: ${String(err)}`
+        );
+        contextBody = `${result.summary}\n\n*(Full document text omitted — summarization failed.)*`;
+      }
+      appendToContext(
+        child,
+        `### ${result.type}\n${result.summary}\n\n${contextBody}`
+      );
       const msg = `🧠 ${result.type} → ${child}'s context`;
       console.log(`  ${msg}`);
       routed.push(msg);

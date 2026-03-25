@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { GameBridge } from "../server/game-bridge";
+import { getReward, getTool } from "../server/games/registry";
 
 let failures = 0;
 
@@ -93,8 +94,10 @@ function assertDeep(name: string, actual: unknown, expected: unknown): void {
   const bridge = new GameBridge((msg) => sent.push(msg));
   let err: Error | null = null;
   try {
-    bridge.startGame("/games/space-invaders.html", "Reina", { duration: 180 });
-    bridge.startGame("/games/spelling.html", "Ila", { word: "dog" });
+    const inv = getReward("space-invaders")!;
+    const sc = getTool("spell-check")!;
+    bridge.startGame(inv.url, "Reina", { ...inv.defaultConfig });
+    bridge.startGame(sc.url, "Ila", { word: "dog" });
   } catch (e) {
     err = e as Error;
   }

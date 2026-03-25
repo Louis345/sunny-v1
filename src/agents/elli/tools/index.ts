@@ -8,4 +8,5 @@ export { riddleTracker } from "./riddleTracker";
 export { showCanvas } from "./showCanvas";
 export { blackboard } from "./blackboard";
 export { startWordBuilder } from "./startWordBuilder";
+export { launchGame } from "./launchGame";
 export { startSpellCheck } from "./startSpellCheck";

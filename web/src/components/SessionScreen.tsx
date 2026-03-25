@@ -27,6 +27,8 @@ interface Props {
   reward: RewardEvent | null;
   sessionPhase: string;
   sessionState: string;
+  micMuted: boolean;
+  onToggleMicMute: () => void;
   onBargeIn: () => void;
   onEndSession: () => void;
   onCanvasDone: () => void;
@@ -48,6 +50,8 @@ export function SessionScreen({
   reward,
   sessionPhase,
   sessionState,
+  micMuted,
+  onToggleMicMute,
   onBargeIn,
   onEndSession,
   onCanvasDone,
@@ -65,6 +69,8 @@ export function SessionScreen({
         sessionState={sessionState}
         accentColor={color.accent}
         accentBg={color.bg}
+        micMuted={micMuted}
+        onToggleMicMute={onToggleMicMute}
         onBargeIn={onBargeIn}
         onEndSession={onEndSession}
       />

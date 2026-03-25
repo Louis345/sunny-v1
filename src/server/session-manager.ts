@@ -35,6 +35,8 @@ import { resetMathProbeSession } from "../agents/elli/tools/mathProblem";
 import { resetSessionStart } from "../agents/elli/tools/startSession";
 import { resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
 import type { ModelMessage } from "ai";
+import { GameBridge } from "./game-bridge";
+import { getReward, getTool } from "./games/registry";
 import { TurnStateMachine } from "./session-state";
 
 export function shouldTriggerTransitionToWorkPhase(
@@ -61,7 +63,49 @@ interface RewardEvent {
   correctStreakAtTime: number;
 }
 
+/** True only when the child is likely spelling the active word (not social chat). */
+export function isSpellingAttempt(text: string, word: string): boolean {
+  const w = word.toLowerCase().trim();
+  if (!w) return false;
+  const raw = text.trim();
+  const t = raw.toLowerCase();
+
+  const socialPhrases = [
+    "thank you",
+    "what's next",
+    "whats next",
+    "what next",
+    "got it",
+    "all right",
+  ];
+  if (socialPhrases.some((p) => t.includes(p))) {
+    return false;
+  }
+  // Word-boundary match avoids false positives (e.g. "notebook", "yesterday").
+  if (/\b(okay|ok|yes|no|alright|thanks)\b/i.test(t)) {
+    return false;
+  }
+
+  const compact = raw.replace(/\s+/g, " ").trim();
+  if (/^([a-z]\s*)+$/i.test(compact)) {
+    return true;
+  }
+
+  const lettersOnly = t.replace(/[^a-z]/g, "");
+  const wLetters = w.replace(/[^a-z]/g, "");
+  if (lettersOnly.length > 0 && lettersOnly === wLetters) {
+    return true;
+  }
+
+  const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const asWord = new RegExp(`(^|[^a-z])${escaped}([^a-z]|$)`, "i");
+  return asWord.test(t);
+}
+
 export class SessionManager {
+  /** When true, child speech is not sent to the companion (silent reward games). */
+  public suppressTranscripts: boolean = false;
+
   private ws: WebSocket;
   private childName: ChildName;
   private companion: CompanionConfig;
@@ -105,6 +149,8 @@ export class SessionManager {
   private static readonly WB_ACTIVITY_MS = 90_000;
   /** Dedup duplicate iframe round_complete for the same round number */
   private wbLastProcessedRound = 0;
+  /** After game_complete: block startWordBuilder until child spells wbWord (logAttempt). */
+  private wbAwaitingSpell = false;
   // ────────────────────────────────────────────────────────────────────────
 
   // Legacy aliases kept for spell-check (different flow)
@@ -116,6 +162,22 @@ export class SessionManager {
   private wordAttemptCounts: Map<string, number> = new Map();
 
   private turnSM: TurnStateMachine;
+
+  private readonly gameBridge = new GameBridge(
+    (payload) => this.send("game_message", { forward: payload }),
+    (voiceEnabled) => {
+      this.suppressTranscripts = !voiceEnabled;
+      console.log(
+        `  🎮 Voice: ${voiceEnabled ? "active" : "silent"}`
+      );
+    }
+  );
+
+  /** Homework spelling list (normalized) — when every word has a logAttempt, launch reward game */
+  private spellingHomeworkWordsByNorm: string[] = [];
+  private spellingWordsWithAttempt = new Set<string>();
+  private spaceInvadersRewardActive = false;
+  private spaceInvadersRewardLaunched = false;
 
   /** Delete all files in .prompt-cache/ to force re-generation after new homework lands. */
   private bustPromptCache(): void {
@@ -208,6 +270,11 @@ export class SessionManager {
   }
 
   async start(): Promise<void> {
+    this.spellingHomeworkWordsByNorm = [];
+    this.spellingWordsWithAttempt.clear();
+    this.spaceInvadersRewardLaunched = false;
+    this.spaceInvadersRewardActive = false;
+
     const ts = new Date().toISOString();
     this.sessionStartTime = Date.now();
     console.log(
@@ -219,14 +286,18 @@ export class SessionManager {
     // Check drop/ for new files and route them before loading homework
     this.send("loading_status", { message: "Checking for new assignments..." });
     try {
-      const { hasNewFiles, routed } = await classifyAndRoute(this.childName);
-      if (hasNewFiles) {
-        console.log("  📥 New files processed:");
-        routed.forEach((r) => console.log(`    ${r}`));
-        this.send("loading_status", {
-          message: `Loading ${this.childName}'s assignments...`,
-        });
-        this.bustPromptCache();
+      if (process.env.DEMO_MODE === "true") {
+        console.log("  🎭 Demo mode — skipping classifier");
+      } else {
+        const { hasNewFiles, routed } = await classifyAndRoute(this.childName);
+        if (hasNewFiles) {
+          console.log("  📥 New files processed:");
+          routed.forEach((r) => console.log(`    ${r}`));
+          this.send("loading_status", {
+            message: `Loading ${this.childName}'s assignments...`,
+          });
+          this.bustPromptCache();
+        }
       }
     } catch (err) {
       console.warn("  ⚠️  Classifier failed:", err instanceof Error ? err.message : String(err));
@@ -262,6 +333,13 @@ export class SessionManager {
       const wordList = extractWordsFromHomework(homeworkPayload.rawContent);
       if (wordList.length > 0) {
         console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
+        this.spellingHomeworkWordsByNorm = [
+          ...new Set(
+            wordList
+              .map((w) => String(w).toLowerCase().trim())
+              .filter(Boolean)
+          ),
+        ];
       }
       const sessionPrompt = await buildSessionPrompt(
         this.childName,
@@ -373,6 +451,7 @@ export class SessionManager {
 
   private wbEndCleanup(): void {
     this.clearWbActivityTimeout();
+    this.wbAwaitingSpell = false;
     this.wbActive = false;
     this.wbRound = 0;
     this.wbWord = "";
@@ -463,13 +542,9 @@ export class SessionManager {
         return;
       }
 
-      // Round 4: celebrate — iframe sends game_complete next; do not advance server round
+      // Round 4: silent handoff — iframe sends game_complete; one companion run
+      // (WORD_BUILDER_SESSION_COMPLETE) speaks there (avoids merged TTS e.g. "NowYES").
       if (completedRound === 4) {
-        void this.runCompanionResponse(
-          WORD_BUILDER_ROUND_COMPLETE(4, this.wbWord, attempts)
-        ).catch((err) => {
-          console.error("  ❌ WB round 4 celebration failed:", err);
-        });
         return;
       }
 
@@ -515,13 +590,23 @@ export class SessionManager {
     }
 
     if (type === "game_complete") {
-      const completedWord = this.wbWord;
-      this.wbEndCleanup();
-      this.turnSM.onWordBuilderEnd();
-      this.send("canvas_draw", { mode: "idle" });
-      void this.runCompanionResponse(
-        WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord)
-      ).catch(console.error);
+      if (this.wbActive) {
+        const completedWord = this.wbWord;
+        // Keep wbActive / wordBuilderSessionActive until Elli logs the post-game spell attempt
+        this.wbAwaitingSpell = true;
+        this.turnSM.onWordBuilderEnd();
+        this.send("canvas_draw", { mode: "idle" });
+        void this.runCompanionResponse(
+          WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord)
+        ).catch(console.error);
+        return;
+      }
+      if (this.spaceInvadersRewardActive) {
+        this.spaceInvadersRewardActive = false;
+        this.suppressTranscripts = false;
+        console.log("  🎮 Voice restored");
+        this.gameBridge.handleGameEvent(event);
+      }
     }
   }
 
@@ -547,6 +632,8 @@ export class SessionManager {
     }
 
     this.wbEndCleanup();
+    this.spaceInvadersRewardActive = false;
+    this.spaceInvadersRewardLaunched = false;
 
     if (this.fluxHandle) {
       this.fluxHandle.close();
@@ -729,7 +816,11 @@ export class SessionManager {
     this.roundNumber++;
 
     let userMessage = transcript;
-    if (this.isSpellingSession && this.activeWord) {
+    if (
+      this.isSpellingSession &&
+      this.activeWord &&
+      isSpellingAttempt(transcript, this.activeWord)
+    ) {
       const ev = this.evaluateSpelling(transcript, this.activeWord);
       console.log(
         `  🔤 Spelling eval: "${transcript}" vs "${this.activeWord}" → ` +
@@ -739,6 +830,14 @@ export class SessionManager {
         `[Spelling verdict: Ila said "${transcript}" for "${this.activeWord}" — ` +
         `${ev.correct ? "this is CORRECT, celebrate and move on" : "this is INCORRECT, encourage and give a hint"}]\n\n` +
         transcript;
+    }
+
+    if (this.suppressTranscripts) {
+      console.log(
+        "  🔇 Transcript suppressed — voice disabled"
+      );
+      this.turnSM.onInterrupt();
+      return;
     }
 
     await this.runCompanionResponse(userMessage);
@@ -826,16 +925,43 @@ export class SessionManager {
             if (toolName === "show_canvas") toolName = "showCanvas";
             if (toolName === "end_session") toolName = "endSession";
             if (toolName === "start_spell_check") toolName = "startSpellCheck";
-            const args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
+            if (toolName === "launch_game") toolName = "launchGame";
+            let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
+            const originalToolName = toolName;
+
+            if (
+              toolName === "showCanvas" &&
+              this.turnSM.getState() === "WORD_BUILDER"
+            ) {
+              const c = String(args.content ?? "").trim();
+              const isTeachingWord =
+                args.mode === "teaching" &&
+                c.length > 0 &&
+                !/\s/.test(c) &&
+                /[a-z]/i.test(c) &&
+                !this.isTeachingMathCanvas(args);
+              if (isTeachingWord) {
+                console.warn(
+                  "  ⚠️  showCanvas blocked — use blackboard after Word Builder"
+                );
+                toolName = "blackboard";
+                args = { gesture: "reveal", word: c };
+              }
+            }
+
             this.handleToolCall(toolName, args, result);
 
-            if (toolName === "startWordBuilder" || toolName === "startSpellCheck") {
+            if (
+              toolName === "startWordBuilder" ||
+              toolName === "startSpellCheck" ||
+              toolName === "launchGame"
+            ) {
               // Do not trigger CANVAS_PENDING — the iframe loads independently
               // and does not send canvas_done. State machine stays PROCESSING → SPEAKING.
             }
 
-            if (toolName === "showCanvas") {
+            if (originalToolName === "showCanvas" && toolName === "showCanvas") {
               if (this.turnSM.getState() === "WORD_BUILDER") {
                 console.warn(
                   "  ⚠️  showCanvas blocked during Word Builder — iframe owns canvas"
@@ -912,6 +1038,7 @@ export class SessionManager {
 
   private normalizeToolName(tool: string): string {
     if (tool === "start_spell_check") return "startSpellCheck";
+    if (tool === "launch_game") return "launchGame";
     return tool;
   }
 
@@ -938,9 +1065,13 @@ export class SessionManager {
 
     if (tool === "blackboard") {
       const gesture = String(args.gesture ?? "");
-      if (this.turnSM.getState() === "WORD_BUILDER" && gesture !== "clear") {
+      if (
+        this.turnSM.getState() === "WORD_BUILDER" &&
+        gesture !== "clear" &&
+        gesture !== "reveal"
+      ) {
         console.warn(
-          "  ⚠️  blackboard blocked during Word Builder — only clear allowed"
+          "  ⚠️  blackboard blocked during Word Builder — only clear and reveal allowed"
         );
         return;
       }
@@ -950,6 +1081,27 @@ export class SessionManager {
       if (this.wordBuilderSessionActive) {
         console.warn(
           "  ⚠️  startWordBuilder blocked — Word Builder already active"
+        );
+        return;
+      }
+    }
+
+    if (tool === "launchGame") {
+      const rawName = String(args.name ?? "").trim();
+      const gameName = rawName.toLowerCase().replace(/\s+/g, "-");
+      const gt = args.type;
+      if (gt !== "tool" && gt !== "reward") {
+        console.warn("  ⚠️  launchGame: type must be \"tool\" or \"reward\"");
+        return;
+      }
+      const entry = gt === "tool" ? getTool(gameName) : getReward(gameName);
+      if (!entry) {
+        console.warn(`  ⚠️  launchGame: unknown ${gt} game "${rawName}"`);
+        return;
+      }
+      if (gameName === "word-builder" || gameName === "spell-check") {
+        console.warn(
+          `  ⚠️  launchGame: use startWordBuilder or startSpellCheck with a word for "${gameName}"`
         );
         return;
       }
@@ -1037,6 +1189,46 @@ export class SessionManager {
       return;
     }
 
+    if (tool === "launchGame") {
+      const gameName = String(args.name ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-");
+      const gt = args.type as "tool" | "reward";
+
+      if (this.turnSM.getState() === "WORD_BUILDER") {
+        this.wbEndCleanup();
+        this.turnSM.onWordBuilderEnd();
+      }
+
+      const gameEntry = getTool(gameName) ?? getReward(gameName);
+
+      if (!gameEntry) {
+        console.warn(`  ⚠️  launchGame: unknown game "${gameName}"`);
+        return;
+      }
+
+      const canvasDraw: Record<string, unknown> = {
+        mode: gameName,
+        gameUrl: gameEntry.url,
+        gamePlayerName: this.childName,
+      };
+      if (gt === "reward") {
+        canvasDraw.rewardGameConfig = { ...gameEntry.defaultConfig };
+        this.spaceInvadersRewardActive = true;
+      }
+      this.send("canvas_draw", canvasDraw);
+
+      this.gameBridge.launchByName(gameName, gt, this.childName);
+      console.log(`  🎮 launchGame — ${gameName} (${gt})`);
+      this.currentCanvasState = {
+        mode: gameName,
+        gameUrl: gameEntry.url,
+        gamePlayerName: this.childName,
+      };
+      return;
+    }
+
     if (tool === "logAttempt") {
       this.processReward(args);
 
@@ -1064,6 +1256,54 @@ export class SessionManager {
             `  ⚠️  activeWord mismatch: canvas="${active}" logAttempt.word="${loggedWord}"`
           );
         }
+      }
+
+      if (
+        loggedWordKey &&
+        this.spellingHomeworkWordsByNorm.length > 0 &&
+        !this.spaceInvadersRewardLaunched
+      ) {
+        const norm = loggedWordKey.toLowerCase().trim();
+        if (this.spellingHomeworkWordsByNorm.includes(norm)) {
+          this.spellingWordsWithAttempt.add(norm);
+        }
+        if (
+          this.spellingWordsWithAttempt.size >=
+          this.spellingHomeworkWordsByNorm.length
+        ) {
+          this.spaceInvadersRewardLaunched = true;
+          this.spaceInvadersRewardActive = true;
+          const inv = getReward("space-invaders");
+          if (inv) {
+            this.send("canvas_draw", {
+              mode: "space-invaders",
+              gameUrl: inv.url,
+              gamePlayerName: this.childName,
+              rewardGameConfig: { ...inv.defaultConfig },
+            });
+          }
+          this.gameBridge.launchByName(
+            "space-invaders",
+            "reward",
+            this.childName
+          );
+          this.gameBridge.onComplete = () => {
+            this.send("canvas_draw", { mode: "idle" });
+            this.send("session_ended", {
+              summary: "Session complete.",
+              duration_ms: Date.now() - this.sessionStartTime,
+            });
+          };
+        }
+      }
+
+      if (
+        this.wbAwaitingSpell &&
+        loggedWordKey &&
+        loggedWordKey === this.wbWord
+      ) {
+        this.wbAwaitingSpell = false;
+        this.wbEndCleanup();
       }
     }
 

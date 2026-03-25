@@ -9,6 +9,8 @@ interface Props {
   sessionState: string;
   accentColor: string;
   accentBg: string;
+  micMuted: boolean;
+  onToggleMicMute: () => void;
   onBargeIn: () => void;
   onEndSession: () => void;
 }
@@ -22,6 +24,8 @@ export function CompanionStrip({
   sessionState,
   accentColor,
   accentBg,
+  micMuted,
+  onToggleMicMute,
   onBargeIn,
   onEndSession,
 }: Props) {
@@ -106,22 +110,26 @@ export function CompanionStrip({
         </motion.div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 items-center">
         <button
-          onClick={onBargeIn}
-          className="w-14 h-14 rounded-full bg-white border-2 border-blue-400 
-                     flex items-center justify-center hover:bg-blue-50 
-                     active:scale-95 transition-transform"
-          aria-label="Microphone / Interrupt"
+          type="button"
+          onClick={onToggleMicMute}
+          className={`w-14 h-14 rounded-full bg-white border-2 flex items-center justify-center
+                     active:scale-95 transition-transform ${
+                       micMuted
+                         ? "border-red-500 hover:bg-red-50"
+                         : "border-green-500 hover:bg-green-50"
+                     }`}
+          aria-label={micMuted ? "Microphone muted — tap to unmute" : "Microphone on — tap to mute"}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path
               d="M12 2C10.34 2 9 3.34 9 5V12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12V5C15 3.34 13.66 2 12 2Z"
-              fill="#378ADD"
+              fill={micMuted ? "#ef4444" : "#22c55e"}
             />
             <path
               d="M6 10V12C6 15.31 8.69 18 12 18C15.31 18 18 15.31 18 12V10"
-              stroke="#378ADD"
+              stroke={micMuted ? "#ef4444" : "#22c55e"}
               strokeWidth="1.5"
               fill="none"
             />
@@ -130,13 +138,33 @@ export function CompanionStrip({
               y1="18"
               x2="12"
               y2="22"
-              stroke="#378ADD"
+              stroke={micMuted ? "#ef4444" : "#22c55e"}
               strokeWidth="1.5"
             />
+            {micMuted && (
+              <line
+                x1="4"
+                y1="4"
+                x2="20"
+                y2="20"
+                stroke="#ef4444"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            )}
           </svg>
         </button>
 
         <button
+          type="button"
+          onClick={onBargeIn}
+          className="text-xs text-blue-600 hover:text-blue-800 underline"
+        >
+          Interrupt
+        </button>
+
+        <button
+          type="button"
           onClick={onEndSession}
           className="text-xs text-gray-500 hover:text-gray-700 underline"
         >

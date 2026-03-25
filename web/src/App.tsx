@@ -5,6 +5,11 @@ import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 
+const isCanvasTestMode =
+  import.meta.env.VITE_TEST_MODE === "true" ||
+  (typeof window !== "undefined" &&
+    window.location.search.includes("testmode"));
+
 function App() {
   const {
     state,
@@ -14,6 +19,8 @@ function App() {
     resetToPicker,
     sendCanvasDone,
     sendMessage,
+    micMuted,
+    toggleMicMute,
   } = useSession();
 
   // Auto-start session when on /test/canvas so the canvas test page works directly
@@ -56,7 +63,9 @@ function App() {
   if (state.phase === "active") {
     return (
       <div className="w-screen h-screen overflow-hidden relative">
-        <CanvasTestOverlay sendMessage={sendMessage} />
+        {isCanvasTestMode && (
+          <CanvasTestOverlay sendMessage={sendMessage} />
+        )}
         <SessionScreen
           childName={state.childName ?? ""}
           companion={state.companion}
@@ -68,6 +77,8 @@ function App() {
           reward={state.reward}
           sessionPhase={state.sessionPhase}
           sessionState={state.sessionState}
+          micMuted={micMuted}
+          onToggleMicMute={toggleMicMute}
           onBargeIn={bargeIn}
           onEndSession={endSession}
           onCanvasDone={sendCanvasDone}

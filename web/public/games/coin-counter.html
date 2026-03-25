@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coin Rain — Project Sunny</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg: #050010;
+  --purple: #7F77DD;
+  --purple-dark: #1e0848;
+  --purple-mid: #534AB7;
+  --gold: #FFD93D;
+  --green: #1D9E75;
+  --green-light: #9FE1CB;
+  --red: #ff4466;
+  --copper: #b87333;
+  --silver: #C0C0C0;
+  --text-dim: #d0b8ff;
+}
+body {
+  background: var(--bg);
+  font-family: 'Courier New', monospace;
+  overflow: hidden;
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center;
+  color: #fff;
+  position: relative;
+}
+
+/* Stars */
+#stars { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.star { position:absolute; background:#fff; border-radius:50%;
+  animation: tw var(--d) var(--dl) infinite alternate ease-in-out; }
+@keyframes tw { from{opacity:.1;transform:scale(.5)} to{opacity:.9;transform:scale(1.2)} }
+
+/* HUD */
+#hud {
+  position: relative; z-index:10;
+  display:flex; justify-content:space-between;
+  align-items:center; width:100%; max-width:700px;
+  padding: 12px 20px 0;
+}
+.hud-block { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.hud-label { font-size:10px; color:var(--purple); letter-spacing:.15em; font-weight:700; }
+.hud-value { font-size:22px; font-weight:900; color:var(--gold);
+  text-shadow: 0 0 10px #FFD93D88; }
+
+/* Target */
+#target-bar {
+  position:relative; z-index:10;
+  display:flex; align-items:center; gap:12px;
+  background: var(--purple-dark);
+  border: 2px solid var(--purple-mid);
+  border-radius:12px; padding: 8px 20px;
+  width:100%; max-width:700px; margin-top:10px;
+}
+#target-label { font-size:12px; color:var(--text-dim); letter-spacing:.1em; }
+#target-amount { font-size:28px; font-weight:900; color:var(--gold);
+  text-shadow:0 0 15px #FFD93D; }
+#current-amount { font-size:20px; font-weight:700; color:var(--green-light);
+  margin-left:auto; }
+
+/* Game area */
+#game-area {
+  position:relative; z-index:10;
+  width:100%; max-width:700px;
+  flex:1; overflow:hidden;
+  margin-top:8px;
+}
+
+/* Coins */
+.coin {
+  position:absolute;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900; cursor:pointer;
+  user-select:none;
+  transition: transform .08s;
+  box-shadow: 0 4px 15px rgba(0,0,0,.5), inset 0 -3px 6px rgba(0,0,0,.3);
+  animation: fall linear forwards;
+}
+.coin:active { transform: scale(0.9); }
+.coin.quarter {
+  width:72px; height:72px; font-size:15px;
+  background: radial-gradient(circle at 35% 35%, #e8e8e8, #a8a8a8);
+  border: 3px solid #888;
+  color: #444;
+  text-shadow: 0 1px 2px rgba(255,255,255,.5);
+}
+.coin.dime {
+  width:52px; height:52px; font-size:12px;
+  background: radial-gradient(circle at 35% 35%, #d4e8ff, #8ab0d0);
+  border: 2px solid #6090b0;
+  color: #2a4060;
+}
+.coin.nickel {
+  width:62px; height:62px; font-size:13px;
+  background: radial-gradient(circle at 35% 35%, #d0e0c0, #8aaa7a);
+  border: 3px solid #6a8a5a;
+  color: #2a4a1a;
+}
+.coin.penny {
+  width:58px; height:58px; font-size:13px;
+  background: radial-gradient(circle at 35% 35%, #e8a070, #b06030);
+  border: 3px solid #904820;
+  color: #3a1a00;
+}
+.coin.caught {
+  animation: none !important;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .3s;
+}
+
+@keyframes fall {
+  from { transform: translateY(-80px) rotate(0deg); }
+  to   { transform: translateY(110vh) rotate(720deg); }
+}
+@keyframes coinPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.4); }
+  100% { transform: scale(0) translateY(-40px); opacity:0; }
+}
+
+/* Piggy bank */
+#bank-area {
+  position:relative; z-index:10;
+  display:flex; align-items:center; gap:16px;
+  width:100%; max-width:700px;
+  padding: 0 20px;
+}
+#piggy-bank {
+  width:80px; height:80px;
+  background: var(--purple-dark);
+  border: 3px solid var(--purple-mid);
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:36px; cursor:pointer;
+  transition: all .15s;
+  box-shadow: 0 0 20px #7F77DD44;
+  flex-shrink:0;
+}
+#piggy-bank:hover { background:#2d0a60; transform:scale(1.05); }
+#piggy-bank:active { transform:scale(.95); }
+#piggy-bank.jiggle { animation: jiggle .4s ease; }
+@keyframes jiggle {
+  0%,100%{transform:rotate(0)}
+  20%{transform:rotate(-10deg)}
+  40%{transform:rotate(10deg)}
+  60%{transform:rotate(-8deg)}
+  80%{transform:rotate(8deg)}
+}
+#bank-label { font-size:11px; color:var(--text-dim); letter-spacing:.1em; flex:1; }
+#submit-btn {
+  padding:10px 24px;
+  background:var(--purple); border:none; border-radius:8px;
+  color:#fff; font-size:14px; font-weight:900;
+  font-family:'Courier New',monospace; letter-spacing:.1em;
+  cursor:pointer; transition:background .15s;
+  box-shadow:0 4px 0 #3C3489;
+}
+#submit-btn:hover { background:#AFA9EC; }
+#submit-btn:active { transform:translateY(2px); box-shadow:0 2px 0 #3C3489; }
+
+/* Coin stack display */
+#coin-stack {
+  display:flex; flex-wrap:wrap; gap:6px;
+  flex:1; align-items:center; min-height:40px;
+}
+.stack-coin {
+  width:32px; height:32px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:9px; font-weight:900;
+  animation: stackIn .2s ease;
+}
+@keyframes stackIn { from{transform:scale(0) rotate(-180deg)} to{transform:scale(1) rotate(0)} }
+.stack-coin.quarter { background:radial-gradient(circle at 35% 35%,#e8e8e8,#a8a8a8); color:#444; border:2px solid #888; }
+.stack-coin.dime    { background:radial-gradient(circle at 35% 35%,#d4e8ff,#8ab0d0); color:#2a4060; border:2px solid #6090b0; }
+.stack-coin.nickel  { background:radial-gradient(circle at 35% 35%,#d0e0c0,#8aaa7a); color:#2a4a1a; border:2px solid #6a8a5a; }
+.stack-coin.penny   { background:radial-gradient(circle at 35% 35%,#e8a070,#b06030); color:#3a1a00; border:2px solid #904820; }
+
+/* Matilda bubble */
+#matilda-bubble {
+  position:relative; z-index:10;
+  width:100%; max-width:700px;
+  background:var(--purple-dark);
+  border:2px solid var(--purple-mid);
+  border-radius:12px; padding:8px 16px;
+  font-size:13px; color:var(--text-dim);
+  font-style:italic; min-height:36px;
+  display:flex; align-items:center; gap:8px;
+  margin-top:6px;
+}
+.matilda-name { color:var(--gold); font-style:normal; font-weight:900; font-size:11px; letter-spacing:.1em; flex-shrink:0; }
+
+/* Overlay */
+#overlay {
+  position:fixed; inset:0; z-index:50;
+  background:rgba(0,0,0,.88);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:16px;
+}
+#overlay.hidden { display:none; }
+.overlay-title { font-size:32px; font-weight:900; color:var(--gold);
+  text-shadow:0 0 20px #FFD93D; text-align:center; }
+.overlay-sub { font-size:14px; color:var(--text-dim); text-align:center; line-height:1.6; max-width:380px; }
+.overlay-btn {
+  padding:14px 36px; background:var(--purple); border:none;
+  border-radius:8px; color:#fff; font-size:16px; font-weight:900;
+  font-family:'Courier New',monospace; letter-spacing:.1em;
+  cursor:pointer; transition:background .15s; box-shadow:0 4px 0 #3C3489;
+  margin-top:8px;
+}
+.overlay-btn:hover { background:#AFA9EC; }
+
+/* Confetti */
+.confetti {
+  position:fixed; pointer-events:none; z-index:60;
+  width:10px; height:10px; border-radius:2px;
+  animation: confettiFall 1.5s ease forwards;
+}
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotate(0); opacity:1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity:0; }
+}
+
+/* Score popup */
+.score-pop {
+  position:fixed; font-size:28px; font-weight:900;
+  color:var(--gold); pointer-events:none; z-index:40;
+  animation: scoreFloat 1s ease forwards;
+  text-shadow:0 0 10px #FFD93D;
+}
+@keyframes scoreFloat { from{opacity:1;transform:translateX(-50%) translateY(0)} to{opacity:0;transform:translateX(-50%) translateY(-60px)} }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div id="hud">
+  <div class="hud-block">
+    <div class="hud-label">ROUND</div>
+    <div class="hud-value" id="round-display">1/4</div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-label">SCORE</div>
+    <div class="hud-value" id="score-display">0</div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-label">STREAK</div>
+    <div class="hud-value" id="streak-display">0</div>
+  </div>
+</div>
+
+<div id="target-bar">
+  <div class="hud-label" id="target-label">COLLECT EXACTLY</div>
+  <div id="target-amount">$0.00</div>
+  <div id="current-amount">$0.00 in bank</div>
+</div>
+
+<div id="game-area"></div>
+
+<div id="bank-area">
+  <div id="piggy-bank" onclick="submitAnswer()">🐷</div>
+  <div id="coin-stack"></div>
+  <button type="button" id="submit-btn" onclick="submitAnswer()">CHECK IT! →</button>
+</div>
+
+<div id="matilda-bubble">
+  <span class="matilda-name">MATILDA</span>
+  <span id="matilda-text">Tap the coins to catch them, then check your total! 🪙</span>
+</div>
+
+<div id="overlay">
+  <div class="overlay-title">💰 Coin Rain! 🌧️</div>
+  <div class="overlay-sub" id="overlay-sub">Catch the right coins to match the target amount!<br>Tap coins to grab them, then tap the piggy bank to check!</div>
+  <button type="button" class="overlay-btn" onclick="startGame()">Let's Count! →</button>
+</div>
+
+<script>
+// ── Stars ──
+const sf = document.getElementById('stars');
+for(let i=0;i<100;i++){
+  const s=document.createElement('div'); s.className='star';
+  const sz=Math.random()*2+.5;
+  s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${1.5+Math.random()*3}s;--dl:${Math.random()*3}s`;
+  sf.appendChild(s);
+}
+
+// ── Audio ──
+let actx;
+function ac(){if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();return actx;}
+function tone(freq,type,dur,vol,delay){
+  type=type||'sine'; dur=dur||.1; if(vol===undefined)vol=0.2; delay=delay||0;
+  try{const c=ac(),o=c.createOscillator(),g=c.createGain();
+  o.connect(g);g.connect(c.destination);o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(0,c.currentTime+delay);
+  g.gain.linearRampToValueAtTime(vol,c.currentTime+delay+.01);
+  g.gain.linearRampToValueAtTime(0,c.currentTime+delay+dur);
+  o.start(c.currentTime+delay);o.stop(c.currentTime+delay+dur+.01);}catch(e){}
+}
+function playClink(){[800,1200].forEach(function(f,i){tone(f,'sine',.06,.15,i*.03);});}
+function playCorrect(){[523,659,784,1047].forEach(function(f,i){tone(f,'square',.15,.2,i*.1);});}
+function playWrong(){tone(200,'sawtooth',.3,.2);}
+function playComplete(){[523,659,784,1047,1319].forEach(function(f,i){tone(f,'square',.18,.25,i*.1);});}
+
+function postToParent(data){try{window.parent.postMessage(data,'*');}catch(e){}}
+
+// ── Game State ──
+const COINS = {
+  quarter: { value: 25, label: '25¢', class: 'quarter', size: 72 },
+  dime:    { value: 10, label: '10¢', class: 'dime',    size: 52 },
+  nickel:  { value:  5, label: '5¢',  class: 'nickel',  size: 62 },
+  penny:   { value:  1, label: '1¢',  class: 'penny',   size: 58 },
+};
+
+const ROUNDS = [
+  { coins: ['quarter','quarter'],
+    label: 'TWO COINS' },
+  { coins: ['quarter','dime','nickel'],
+    label: 'THREE COINS' },
+  { coins: ['quarter','dime','dime','penny'],
+    label: 'FOUR COINS' },
+  { coins: ['quarter','quarter','dime','nickel','penny'],
+    label: 'FIVE COINS — FAST!' },
+];
+
+let config = null;
+let childName = 'Reina';
+
+let currentRound = 0;
+let score = 0;
+let streak = 0;
+let correctRounds = 0;
+let bankCoins = [];
+let fallingCoins = [];
+let targetCents = 0;
+let roundActive = false;
+let fallInterval = null;
+
+const gameArea = document.getElementById('game-area');
+const matildaText = document.getElementById('matilda-text');
+const targetAmountEl = document.getElementById('target-amount');
+const currentAmountEl = document.getElementById('current-amount');
+const coinStack = document.getElementById('coin-stack');
+const overlay = document.getElementById('overlay');
+
+function setMatilda(msg){ matildaText.textContent = msg; }
+function updateHUD(){
+  document.getElementById('score-display').textContent = String(score);
+  document.getElementById('streak-display').textContent = streak + (streak >= 3 ? '🔥' : '');
+  document.getElementById('round-display').textContent = (currentRound+1)+'/4';
+}
+function centsToDisplay(c){ return '$'+(c/100).toFixed(2); }
+function updateCurrentAmount(){
+  const total = bankCoins.reduce(function(s,c){ return s+COINS[c].value; },0);
+  currentAmountEl.textContent = centsToDisplay(total)+' in bank';
+  const diff = total - targetCents;
+  if(diff===0) currentAmountEl.style.color='var(--green-light)';
+  else if(total>0) currentAmountEl.style.color='var(--gold)';
+  else currentAmountEl.style.color='var(--text-dim)';
+}
+
+// ── Coin Rain ──
+function spawnCoin(type){
+  const info = COINS[type];
+  const el = document.createElement('div');
+  el.className = 'coin '+info.class;
+  el.textContent = info.label;
+  const w = gameArea.offsetWidth || 400;
+  const x = Math.random()*(w - info.size - 20)+10;
+  const dur = 2.5 + Math.random()*2;
+  el.style.cssText = 'left:'+x+'px;top:-80px;width:'+info.size+'px;height:'+info.size+'px;animation-duration:'+dur+'s;';
+  el.dataset.type = type;
+  el.addEventListener('click', function(){ catchCoin(el, type); });
+  el.addEventListener('touchstart', function(e){ e.preventDefault(); catchCoin(el,type); }, {passive:false});
+  gameArea.appendChild(el);
+  fallingCoins.push(el);
+  setTimeout(function(){
+    if(el.parentNode) el.remove();
+    fallingCoins = fallingCoins.filter(function(c){ return c!==el; });
+  }, dur*1000+200);
+}
+
+function catchCoin(el, type){
+  if(!roundActive || el.classList.contains('caught')) return;
+  el.classList.add('caught');
+  playClink();
+  el.style.animation='coinPop .3s ease forwards';
+  setTimeout(function(){ el.remove(); },300);
+  bankCoins.push(type);
+  addStackCoin(type);
+  updateCurrentAmount();
+  const total=bankCoins.reduce(function(s,c){ return s+COINS[c].value; },0);
+  const diff=total-targetCents;
+  if(diff===0){
+    setMatilda('You have exactly '+centsToDisplay(total)+'! Tap the piggy bank! 🐷');
+  } else if(diff>0){
+    setMatilda('That\'s '+centsToDisplay(total)+' — a bit too much! Clear the bank with CHECK (wrong guess) or keep playing carefully. 😅');
+  } else {
+    const need = targetCents - total;
+    var encouraging = [
+      'You have '+centsToDisplay(total)+' so far... keep going!',
+      centsToDisplay(total)+' in the bank! '+centsToDisplay(need)+' more to go!',
+      'Nice catch! '+centsToDisplay(total)+' so far! 🪙'
+    ];
+    setMatilda(encouraging[Math.floor(Math.random()*encouraging.length)]);
+  }
+}
+
+function addStackCoin(type){
+  var info=COINS[type];
+  var el=document.createElement('div');
+  el.className='stack-coin '+info.class;
+  el.textContent=info.label;
+  coinStack.appendChild(el);
+}
+
+// ── Round ──
+function startRound(){
+  roundActive=true;
+  bankCoins=[];
+  coinStack.innerHTML='';
+  gameArea.innerHTML='';
+  fallingCoins=[];
+  if(fallInterval) clearInterval(fallInterval);
+
+  const round = ROUNDS[currentRound];
+  targetCents = round.coins.reduce(function(s,c){ return s+COINS[c].value; },0);
+  targetAmountEl.textContent = centsToDisplay(targetCents);
+  updateCurrentAmount();
+  updateHUD();
+
+  document.getElementById('target-label').textContent = round.label+' — COLLECT EXACTLY';
+
+  var matildaLines=[
+    'Catch coins that add up to '+centsToDisplay(targetCents)+'! 🪙',
+    'You need '+centsToDisplay(targetCents)+' exactly — catch the right coins!',
+    'Target: '+centsToDisplay(targetCents)+'! Tap coins to grab them!',
+  ];
+  setMatilda(matildaLines[Math.floor(Math.random()*matildaLines.length)]);
+
+  var targetCoins=round.coins.slice();
+  var allTypes=Object.keys(COINS);
+  var i;
+  for(i=0;i<3;i++) targetCoins.push(allTypes[Math.floor(Math.random()*allTypes.length)]);
+
+  var shuffled=targetCoins.slice().sort(function(){ return Math.random()-.5; });
+  shuffled.forEach(function(type,idx){
+    setTimeout(function(){ if(roundActive) spawnCoin(type); }, idx*800);
+  });
+
+  fallInterval=setInterval(function(){
+    if(roundActive){
+      var t=allTypes[Math.floor(Math.random()*allTypes.length)];
+      spawnCoin(t);
+    }
+  }, 1500+(currentRound===3?-500:0));
+}
+
+function submitAnswer(){
+  if(!roundActive) return;
+  var piggy=document.getElementById('piggy-bank');
+  piggy.classList.add('jiggle');
+  setTimeout(function(){ piggy.classList.remove('jiggle'); },400);
+
+  var total=bankCoins.reduce(function(s,c){ return s+COINS[c].value; },0);
+  var isCorrect=total===targetCents;
+
+  if(isCorrect){
+    roundActive=false;
+    if(fallInterval) clearInterval(fallInterval);
+    score += (streak>=3?20:10);
+    streak++;
+    correctRounds++;
+    playCorrect();
+    spawnConfetti();
+    setMatilda('YES! '+centsToDisplay(total)+' is exactly right! You\'re amazing! 🌟');
+    scorePopup(streak>=3?'+20 🔥':'+10');
+    updateHUD();
+    setTimeout(function(){
+      currentRound++;
+      if(currentRound>=4) endGame();
+      else startRound();
+    },2200);
+  } else {
+    streak=0;
+    playWrong();
+    updateHUD();
+    var diff=total-targetCents;
+    if(diff>0) setMatilda('Too much! You have '+centsToDisplay(total)+' but need '+centsToDisplay(targetCents)+'. Bank cleared — keep catching! 🐷');
+    else setMatilda('Not quite! You have '+centsToDisplay(total)+', need '+centsToDisplay(targetCents)+'. Keep catching coins! 🪙');
+    bankCoins=[];
+    coinStack.innerHTML='';
+    updateCurrentAmount();
+  }
+}
+
+function endGame(){
+  if(fallInterval) clearInterval(fallInterval);
+  roundActive=false;
+  playComplete();
+  var attempts = 4;
+  var accuracy = attempts > 0 ? (correctRounds / attempts) : 0;
+  overlay.classList.remove('hidden');
+  overlay.innerHTML =
+    '<div class="overlay-title">🏆 Amazing Job!</div>'+
+    '<div class="overlay-sub">'+
+      'You\'re a Coin Counting Champion!<br>'+
+      'Score: '+score+' points • Rounds correct: '+correctRounds+'/4'+
+    '</div>'+
+    '<button type="button" class="overlay-btn" onclick="restartGame()">Play Again! →</button>';
+  postToParent({
+    type: 'game_complete',
+    score: score,
+    correct: correctRounds,
+    attempts: attempts,
+    accuracy: accuracy,
+  });
+  setMatilda('WOW! You scored '+score+' points! You\'re a money master! 💰');
+}
+
+function startGame(){
+  overlay.classList.add('hidden');
+  currentRound=0;
+  score=0;
+  streak=0;
+  correctRounds=0;
+  startRound();
+}
+function restartGame(){ startGame(); }
+
+// ── Confetti ──
+function spawnConfetti(){
+  const colors=['#FFD93D','#7F77DD','#9FE1CB','#ff8844','#ff4466','#fff'];
+  for(let i=0;i<40;i++){
+    const el=document.createElement('div');
+    el.className='confetti';
+    el.style.cssText=
+      'left:'+Math.random()*100+'vw;'+
+      'top:-10px;'+
+      'background:'+colors[Math.floor(Math.random()*colors.length)]+';'+
+      'animation-duration:'+(1+Math.random()*1.5)+'s;'+
+      'animation-delay:'+Math.random()*.5+'s;'+
+      'transform:rotate('+Math.random()*360+'deg);';
+    document.body.appendChild(el);
+    setTimeout(function(){ el.remove(); },2500);
+  }
+}
+
+function scorePopup(text){
+  const el=document.createElement('div');
+  el.className='score-pop';
+  el.textContent=text;
+  el.style.cssText='left:50%;top:40%;transform:translateX(-50%)';
+  document.body.appendChild(el);
+  setTimeout(function(){ el.remove(); },1000);
+}
+
+// ── postMessage ──
+window.addEventListener('message',function(e){
+  var msg=e.data;
+  if(!msg || msg.type!=='start') return;
+  childName=msg.childName||'Reina';
+  config=msg.config||{};
+  var sub=document.getElementById('overlay-sub');
+  if(sub){
+    sub.innerHTML='Catch coins that add up to the target amount, '+childName+'!<br>Tap coins to grab them, then tap the piggy bank to check!';
+  }
+  setMatilda('Ready to count some coins, '+childName+'? Let\'s go! 🪙');
+  overlay.classList.add('hidden');
+  currentRound=0;
+  score=0;
+  streak=0;
+  correctRounds=0;
+  if(fallInterval){ clearInterval(fallInterval); fallInterval=null; }
+  startRound();
+});
+postToParent({ type:'ready' });
+</script>
+</body>
+</html>
