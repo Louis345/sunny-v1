@@ -130,6 +130,8 @@ interface SessionState {
   correctStreak: number;
   sessionPhase: string;
   sessionState: string;
+  sessionType: string;
+  canvasOwner: string;
   reward: RewardEvent | null;
   error: string | null;
   loadingMessage: string | null;
@@ -197,6 +199,8 @@ export function useSession() {
     correctStreak: 0,
     sessionPhase: "warmup",
     sessionState: "IDLE",
+    sessionType: "freeform",
+    canvasOwner: "companion",
     reward: null,
     error: null,
     loadingMessage: null,
@@ -494,6 +498,17 @@ export function useSession() {
           const companionText = next === "LOADING" ? "" : s.companionText;
           return { ...s, sessionState: next, companionText };
         });
+        break;
+      }
+
+      case "session_context": {
+        setStateRef.current((s) => ({
+          ...s,
+          sessionType: (msg.sessionType as string) ?? s.sessionType,
+          canvasOwner: (msg.canvasOwner as string) ?? s.canvasOwner,
+          correctStreak: typeof msg.correctStreak === "number" ? msg.correctStreak : s.correctStreak,
+          sessionPhase: (msg.sessionPhase as string) ?? s.sessionPhase,
+        }));
         break;
       }
 
@@ -830,6 +845,8 @@ export function useSession() {
       correctStreak: 0,
       sessionPhase: "warmup",
       sessionState: "IDLE",
+      sessionType: "freeform",
+      canvasOwner: "companion",
       reward: null,
       error: null,
       loadingMessage: null,

@@ -50,26 +50,93 @@ import {
   TEACHING_TOOLS,
 } from "./games/registry";
 import { TurnStateMachine } from "./session-state";
+import {
+  type SessionContext,
+  createSessionContext,
+  buildCanvasContextMessage,
+} from "./session-context";
+import {
+  getToolsForSessionType,
+  resolveSessionType,
+} from "./session-type-registry";
+
+/**
+ * Strip markdown fences from SVG output.
+ * Called at the rendering boundary, before SVG is sent to the browser.
+ * This is the canonical place for fence stripping — avoid duplicating elsewhere.
+ */
+export function stripSvgFences(raw: string): string {
+  let cleaned = raw.trim();
+  cleaned = cleaned.replace(/^```(?:svg|xml|html)?\s*\n?/i, "");
+  cleaned = cleaned.replace(/\n?```\s*$/i, "");
+  return cleaned.trim();
+}
+
+function stripSvgField(obj: Record<string, unknown>): void {
+  const svg = obj.svg;
+  if (typeof svg === "string") obj.svg = stripSvgFences(svg);
+}
+
+const QUESTION_PREFIXES = /^(circle|how much|how many|what|which|count|find|choose|select|pick|show|draw|look at|read)\b/i;
+
+/**
+ * Strip question/instruction framing from canvas_display text so the SVG
+ * generator receives a pure scene description, not a question to echo.
+ *
+ * "Circle how much money I need to buy these cookies." → "These cookies."
+ * "How many coins do I need to buy a peanut?" → "A peanut."
+ * "A cookie shop. Cookie 10¢, Peanut 5¢." → unchanged
+ */
+export function sanitizeCanvasDescription(raw: string): string {
+  let text = raw.trim();
+  if (!text) return text;
+
+  if (!QUESTION_PREFIXES.test(text)) return text;
+
+  text = text
+    .replace(/^(circle|count|find|choose|select|pick|show|draw|look at|read)\s+(the\s+)?/i, "")
+    .replace(/^(how much|how many)\s+\w+\s+(do\s+)?(i|you|we)\s+(need\s+to\s+|have\s+to\s+)?(buy|spend|pay|have|get)\s*/i, "")
+    .replace(/^(how much|how many)\s+\w+(\s+\w+)?\s+(to\s+)?(buy|spend|pay)\s*/i, "")
+    .replace(/^(what|which)\s+\w+\s+(do\s+)?(i|you|we)\s+(need|have|see)\s+(to\s+)?(buy|spend|pay|get)?\s*/i, "")
+    .replace(/^\s*[?.!]\s*/, "")
+    .trim();
+
+  if (!text || text.length < 3) return raw.trim();
+
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  return text;
+}
 
 async function generateWorksheetSVG(description: string): Promise<string | null> {
   try {
     const { text } = await generateText({
       model: anthropic("claude-haiku-4-5-20251001"),
-      system: `Generate a colorful educational SVG 
-for an 8-year-old child.
-Requirements:
-- width="500" height="300"  
-- Bright cheerful colors, warm background (#FFF9E6)
-- Coins: gold radial gradient circles with ¢ labels
-- Drop shadows for depth
-- Font size minimum 16px, friendly rounded style
-CRITICAL: Never show the answer in the SVG.
-Show only the visual context that helps the child think about the problem.
-For cookie/peanut problems: show price tags only (Cookie 10¢, Peanut 5¢). Do NOT show the total or the solution.
-For coin counting: show coin images to count. Do NOT show the sum equation.
-The child must figure out the answer themselves.
-- Return ONLY the raw <svg> tag, nothing else
-- No markdown, no explanation, no code fences`,
+      system: `Generate a clean, colorful educational SVG scene for an 8-year-old child.
+
+LAYOUT (strict):
+- width="500" height="300", viewBox="0 0 500 300"
+- Warm background: large rounded rect fill="#FFF9E6"
+- Items centered horizontally with generous spacing
+- Each item: a large colorful illustration on top, item name below in bold friendly font, price in a rounded-rect tag below the name (e.g. orange fill, white text "10¢")
+- If the problem involves a total cost, show a "Total Spent:" box on the right side — rounded-rect with light blue fill, coin icon, bold price text, vertically centered with the items
+- Font: minimum 18px, bold, friendly rounded style (sans-serif)
+- Drop shadows on items for depth
+
+WHAT TO SHOW:
+- The SCENE only: the items being bought/counted with their prices
+- For buying problems: show each item with its price tag. Show "Total Spent: X¢" if the total is given in the problem
+- For coin counting: show the coins to count as large gold circles with ¢ denominations
+- For comparison: show both sets of items side by side
+
+NEVER DO THESE:
+- NEVER show the question text — the tutor speaks it aloud
+- NEVER show multiple choice options or a row of coins to choose from
+- NEVER show "Coin Options", "Choose", "Circle", or any selection UI
+- NEVER show the answer or solution
+- NEVER show equations or sum totals the child must compute (that's the answer)
+- NEVER add interactive-looking elements (buttons, checkboxes, circles to select)
+
+Return ONLY the raw <svg> tag. No markdown, no explanation, no code fences.`,
       prompt: description,
     });
     const rawText = text.trim();
@@ -269,6 +336,11 @@ export class SessionManager {
   private worksheetSubjectLabel = "";
   /** Defer worksheet index/canvas advance until after Matilda's response TTS completes. */
   private pendingWorksheetLog: { ok: boolean } | null = null;
+  /** Defer first worksheet problem until after the transitionToWork response finishes. */
+  private pendingWorksheetStart = false;
+
+  /** Canonical session state — drives tool filtering, canvas ownership, context injection. */
+  private ctx: SessionContext | null = null;
 
   /** Delete all files in .prompt-cache/ to force re-generation after new homework lands. */
   private bustPromptCache(): void {
@@ -533,6 +605,23 @@ export class SessionManager {
       console.log(`  📚 Subject mode: ${subject}`);
     }
 
+    // ── Resolve session type and create canonical SessionContext ──
+    const hasHomeworkManifest = this.worksheetMode;
+    const hasSpellingWords = this.spellingHomeworkWordsByNorm.length > 0;
+    const sessionType = resolveSessionType({
+      childName: this.childName,
+      hasHomeworkManifest,
+      hasSpellingWords,
+    });
+    this.ctx = createSessionContext({
+      childName: this.childName,
+      sessionType,
+      companionName: this.companion.name,
+    });
+    console.log(
+      `  📋 Session type: ${sessionType}, canvas owner: ${this.ctx.canvas.owner}`
+    );
+
     this.send("session_started", {
       child: this.childName,
       childName: this.childName,
@@ -543,6 +632,7 @@ export class SessionManager {
       openingLine: this.companion.openingLine,
       goodbye: this.companion.goodbye,
     });
+    this.broadcastContext();
 
     // Explicit blank-canvas signal at session start — the server owns canvas
     // state, so we always declare the initial state rather than relying on
@@ -570,10 +660,6 @@ export class SessionManager {
     await this.connectDeepgram();
 
     await this.handleCompanionTurn(this.companion.openingLine);
-
-    if (this.worksheetProblems.length > 0) {
-      await this.presentCurrentWorksheetProblem();
-    }
   }
 
   /** Inject a transcript directly — used by test harness to bypass Deepgram */
@@ -1075,17 +1161,24 @@ export class SessionManager {
       // Prepend canvas state context so the AI always knows what is currently
       // displayed — prevents duplicate showCanvas calls and enables intelligent
       // decisions about whether to update or hold the current display.
-      const canvasCtx = this.currentCanvasState
-        ? buildCanvasContext(this.currentCanvasState)
-        : "";
+      const canvasCtx = this.ctx
+        ? buildCanvasContextMessage(this.ctx)
+        : this.currentCanvasState
+          ? buildCanvasContext(this.currentCanvasState)
+          : "";
       const messageWithContext = canvasCtx
-        ? `${canvasCtx}\n\n${userMessage}`
+        ? `${userMessage}\n\n${canvasCtx}`
         : userMessage;
+
+      const dynamicTools = this.ctx
+        ? getToolsForSessionType(this.ctx.sessionType)
+        : undefined;
 
       await runAgent({
         history: historyWithPin,
         userMessage: messageWithContext,
         profile: this.companion,
+        tools: dynamicTools,
         onToken: (chunk) => {
           fullResponse += chunk;
           this.send("response_text", { chunk });
@@ -1148,7 +1241,11 @@ export class SessionManager {
             }
 
             if (originalToolName === "showCanvas" && toolName === "showCanvas") {
-              if (this.turnSM.getState() === "WORD_BUILDER") {
+              if (this.ctx && !this.ctx.isToolCallAllowed("showCanvas")) {
+                console.log(
+                  `  🚫 BLOCKED canvas_draw: showCanvas — ${this.ctx.canvas.owner}-owned ${this.ctx.sessionType} session`
+                );
+              } else if (this.turnSM.getState() === "WORD_BUILDER") {
                 console.warn(
                   "  ⚠️  showCanvas blocked during Word Builder — iframe owns canvas"
                 );
@@ -1162,8 +1259,11 @@ export class SessionManager {
                 const hasRenderableContent =
                   args.mode !== "place_value" || args.placeValueData != null;
 
+                const drawPayload = { ...args } as Record<string, unknown>;
+                stripSvgField(drawPayload);
+
                 // Always send the draw event to the browser
-                this.send("canvas_draw", { args, result });
+                this.send("canvas_draw", { args: drawPayload, result });
 
                 // Only gate TTS on canvas if there's actually something to render
                 // and we're still in the processing phase
@@ -1209,7 +1309,10 @@ export class SessionManager {
       }
       this.send("audio_done");
 
-      if (this.pendingWorksheetLog != null && this.worksheetMode) {
+      if (this.pendingWorksheetStart) {
+        this.pendingWorksheetStart = false;
+        await this.presentCurrentWorksheetProblem();
+      } else if (this.pendingWorksheetLog != null && this.worksheetMode) {
         const pl = this.pendingWorksheetLog;
         this.pendingWorksheetLog = null;
         await this.advanceWorksheetAfterLogAttempt(pl.ok);
@@ -1316,8 +1419,12 @@ export class SessionManager {
     );
     console.log("📋 [worksheet] instructions (not spoken):", p.instructions);
 
-    const description = (p.canvas_display ?? "").trim() || p.question;
-    const svg = await generateWorksheetSVG(description);
+    const rawDisplay = (p.canvas_display ?? "").trim() || p.question;
+    const description = sanitizeCanvasDescription(rawDisplay);
+    let svg = await generateWorksheetSVG(description);
+    if (svg) {
+      svg = stripSvgFences(svg);
+    }
     const args: Record<string, unknown> = {
       mode: "teaching",
       content: svg ? "" : description,
@@ -1337,12 +1444,23 @@ export class SessionManager {
     this.activeWord = null;
     this.turnSM.setCanonicalProblem(null);
 
+    if (this.ctx) {
+      this.ctx.updateCanvas({
+        mode: "teaching",
+        content: p.question,
+        svg: svg ?? undefined,
+      });
+      this.broadcastContext();
+    }
+
     const previewSource = svg || description;
     const preview = previewSource.slice(0, 90);
     console.log(
       `  🖼️  [worksheet canvas] ${preview}${previewSource.length > 90 ? "…" : ""}`
     );
-    this.send("canvas_draw", { args, result: args });
+    const worksheetDraw = { ...args } as Record<string, unknown>;
+    stripSvgField(worksheetDraw);
+    this.send("canvas_draw", { args: worksheetDraw, result: worksheetDraw });
 
     await this.handleCompanionTurn(p.question);
     this.worksheetReadyForAnswers = true;
@@ -1446,12 +1564,31 @@ export class SessionManager {
     this.turnSM.onSpeakingDone();
   }
 
+  private broadcastContext(): void {
+    if (this.ctx) {
+      this.send("session_context", { ...this.ctx.serialize() } as Record<string, unknown>);
+    }
+  }
+
   handleToolCall(
     tool: string,
     args: Record<string, unknown>,
     result: unknown
   ): void {
     tool = this.normalizeToolName(tool);
+
+    // ─── Canvas Ownership Gate ───
+    // NOTE: We cannot prevent Claude from calling showCanvas — the AI SDK executes
+    // the tool function. But we CAN prevent the RESULT from reaching the browser
+    // (no tool_call / canvas_draw). The browser canvas stays untouched. On the next
+    // turn, canvas context injection reminds Claude that canvas is server-driven.
+    if (this.ctx && !this.ctx.isToolCallAllowed(tool)) {
+      console.log(
+        `  🚫 BLOCKED: ${tool} — canvas is ${this.ctx.canvas.owner}-owned in ${this.ctx.sessionType} session`
+      );
+      return;
+    }
+
     let launchGameResolvedEntry: GameDefinition | null = null;
 
     if (tool === "blackboard") {
@@ -1509,6 +1646,7 @@ export class SessionManager {
         );
         args.content = "";
       }
+      stripSvgField(args);
     }
 
     this.toolCallsMadeThisTurn++;
@@ -1533,6 +1671,9 @@ export class SessionManager {
         return;
       }
       this.transitionedToWork = true;
+      if (this.worksheetMode && this.worksheetProblems.length > 0) {
+        this.pendingWorksheetStart = true;
+      }
     }
 
     if (tool === "startWordBuilder") {
@@ -1702,9 +1843,9 @@ export class SessionManager {
     }
 
     if (tool === "logWorksheetAttempt") {
-      if (!this.worksheetMode || !this.worksheetReadyForAnswers) {
+      if (!this.worksheetMode) {
         console.warn(
-          "  ⚠️  logWorksheetAttempt ignored — worksheet not awaiting answers",
+          "  ⚠️  logWorksheetAttempt ignored — not in worksheet mode",
         );
         return;
       }
@@ -1722,9 +1863,8 @@ export class SessionManager {
       }
       if (String(args.problemId ?? "") !== String(wp.id)) {
         console.warn(
-          `  ⚠️  logWorksheetAttempt problemId mismatch: ${String(args.problemId)} vs ${wp.id}`,
+          `  ⚠️  logWorksheetAttempt problemId mismatch: ${String(args.problemId)} vs ${wp.id} — using server's current problem`,
         );
-        return;
       }
       const ok = args.correct === true;
       this.processReward({ correct: ok });
@@ -1755,6 +1895,14 @@ export class SessionManager {
       this.lastCanvasWasMath = this.isTeachingMathCanvas(args);
       // Track the authoritative canvas state so the AI knows what's on screen.
       this.currentCanvasState = { ...args };
+      if (this.ctx) {
+        this.ctx.updateCanvas({
+          mode: (args.mode as any) ?? "idle",
+          svg: args.svg as string | undefined,
+          label: args.label as string | undefined,
+          content: args.content as string | undefined,
+        });
+      }
       console.log(`  🖼️  [canvas] mode=${args.mode}, content=${args.content ?? "(none)"}`);
 
       // ── Reina: server-canonical problem announcement ──────────────────────
@@ -1799,15 +1947,19 @@ export class SessionManager {
       };
       if (r?.mode === "reward" || r?.mode === "championship") {
         const { takeover_ms } = getRewardDurations(this.childName);
+        const rewardSvg =
+          typeof r?.svg === "string" ? stripSvgFences(r.svg) : r?.svg;
         this.send("reward", {
           rewardStyle: "takeover",
-          svg: r?.svg,
+          svg: rewardSvg,
           label: r?.label,
           lottieData: r?.lottieData,
           displayDuration_ms: takeover_ms,
         });
         this.logRewardEvent("takeover", takeover_ms);
       }
+
+      if (this.ctx) this.broadcastContext();
     }
   }
 

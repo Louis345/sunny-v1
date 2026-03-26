@@ -59,6 +59,22 @@ The **server** owns:
 
 ---
 
+## Law 2a: Tool Lists Are Infrastructure
+
+The set of tools available to Claude is an infrastructure decision, not a pedagogy decision.
+
+The **server** decides which tools exist for a given session type.
+**Claude** decides when and how to use the tools she's given.
+
+Removing `showCanvas` during a worksheet session is not constraining Claude's teaching.
+It is enforcing canvas ownership — the same way a classroom projector has one controller at a time.
+
+**VIOLATION:** Giving Claude a tool and then asking her not to use it in a prompt  
+**VIOLATION:** Hardcoding the same tool set for all session types  
+**VIOLATION:** Claude calling infrastructure tools (showCanvas, blackboard) that conflict with server-driven UI
+
+---
+
 ## Law 3: Dynamic Over Static
 
 If a human has to update two files when adding one feature, the architecture is wrong.
