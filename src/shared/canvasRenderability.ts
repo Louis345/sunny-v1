@@ -38,6 +38,8 @@ export function canvasHasRenderableContent(canvas: RenderableCanvasLike): boolea
       canvas.placeValueData ||
       canvas.spellingWord ||
       ((canvas.svg || canvas.lottieData) &&
-        (canvas.mode === "reward" || canvas.mode === "championship"))
+        (canvas.mode === "reward" ||
+          canvas.mode === "championship" ||
+          canvas.mode === "teaching"))
   );
 }

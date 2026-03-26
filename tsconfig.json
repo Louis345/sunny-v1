@@ -13,5 +13,10 @@
     "declaration": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/tests/test-canvas-overflow.ts",
+    "src/tests/test-canvas-svg-render.ts"
+  ]
 }

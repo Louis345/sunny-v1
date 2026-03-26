@@ -5,6 +5,7 @@ import {
 } from "../../../src/shared/canvasBlackboardSync";
 import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry";
 import { gameIframeRef } from "../components/Canvas";
+import { shouldRenderTeachingContent } from "../utils/canvasLayout";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -106,6 +107,7 @@ interface CanvasState {
   gamePlayerName?: string;
   wordBuilderRound?: number;
   wordBuilderMode?: string;
+  rewardGameConfig?: Record<string, unknown>;
 }
 
 interface TurnPolicy {
@@ -427,8 +429,13 @@ export function useSession() {
           });
         }
 
-        // logAttempt streak tracking
-        if (toolName === "logAttempt" || toolName === "log_attempt") {
+        // logAttempt / worksheet attempt streak tracking
+        if (
+          toolName === "logAttempt" ||
+          toolName === "log_attempt" ||
+          toolName === "logWorksheetAttempt" ||
+          toolName === "log_worksheet_attempt"
+        ) {
           const correct =
             result?.correct === true || args?.correct === true;
           setStateRef.current((s) => ({
@@ -482,7 +489,10 @@ export function useSession() {
           // child can look at it and answer. Canvas only resets when the server
           // sends an explicit canvas_draw:idle message (session start, barge-in,
           // or intentional clear).
-          return { ...s, sessionState: next };
+          // LOADING = new assistant turn — reset bubble so response_text chunks
+          // replace the prior line (never append server-driven lines onto old text).
+          const companionText = next === "LOADING" ? "" : s.companionText;
+          return { ...s, sessionState: next, companionText };
         });
         break;
       }
@@ -496,10 +506,8 @@ export function useSession() {
           const isSpelling = mode === "spelling";
           const isWordBuilder = mode === "word-builder";
           const isGameMode = GAME_MODES.has(mode);
-          setStateRef.current((s) => ({
-            ...s,
-            blackboard: clearedBlackboardState(),
-            canvas: {
+          setStateRef.current((s) => {
+            const nextCanvas: CanvasState = {
               mode,
               content,
               label,
@@ -525,8 +533,21 @@ export function useSession() {
                 : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
-            },
-          }));
+            };
+            console.log("[canvas_draw] received:", {
+              mode: nextCanvas.mode,
+              hasSvg: !!nextCanvas.svg,
+              svgLength: nextCanvas.svg?.length ?? 0,
+              hasContent: !!nextCanvas.content,
+              contentPreview: nextCanvas.content?.slice(0, 40),
+              willRender: shouldRenderTeachingContent(nextCanvas),
+            });
+            return {
+              ...s,
+              blackboard: clearedBlackboardState(),
+              canvas: nextCanvas,
+            };
+          });
         }
         break;
       }

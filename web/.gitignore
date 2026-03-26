@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Never commit tsc emit next to sources (pollutes ESM resolution)
+src/**/*.js
+src/**/*.d.ts
