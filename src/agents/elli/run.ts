@@ -14,6 +14,8 @@ export interface RunAgentOptions {
   /** When true, append instruction to redirect to learning (called after 3 turns) */
   transitionToWorkPhase?: boolean;
   allowTransitionToWork?: boolean;
+  /** Dynamic tool set — if not provided, falls back to buildAgentTools (ALL_TOOLS) */
+  tools?: Record<string, any>;
 }
 
 export function buildAgentTools(opts: { allowTransitionToWork?: boolean } = {}) {
@@ -52,7 +54,7 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
       { role: "user", content: userMessage }
     ],
     maxOutputTokens: 500,
-    tools: buildAgentTools({ allowTransitionToWork }),
+    tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
     stopWhen: stepCountIs(8),
     abortSignal: signal,
     onStepFinish: (step) => {

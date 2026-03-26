@@ -17,6 +17,14 @@
     "node_modules",
     "dist",
     "src/tests/test-canvas-overflow.ts",
-    "src/tests/test-canvas-svg-render.ts"
+    "src/tests/test-canvas-svg-render.ts",
+    "src/tests/test-tool-filtering.ts",
+    "src/tests/test-canvas-ownership.ts",
+    "src/tests/test-context-injection.ts",
+    "src/tests/test-session-type-resolution.ts",
+    "src/tests/test-assignment-manifest.ts",
+    "src/tests/test-svg-strip.ts",
+    "src/tests/test-canvas-description-sanitizer.ts",
+    "vitest.config.ts"
   ]
 }
