@@ -609,7 +609,11 @@ export class SessionManager {
           `  - If correct (even if phrased differently): praise them, call logWorksheetAttempt(correct=true)\n` +
           `  - If incorrect: give a hint, call logWorksheetAttempt(correct=false)\n` +
           `  - If asking a question or confused: answer them naturally. Do NOT call logWorksheetAttempt.\n` +
+          `  - If reading or repeating the question back: this is NOT an answer. Help them understand it. Do NOT call logWorksheetAttempt.\n` +
           `  - After 3 incorrect attempts: reveal the answer warmly, call logWorksheetAttempt(correct=false)\n\n` +
+          `IMPORTANT: The [Canvas State] block in each message tells you what the child sees on screen RIGHT NOW.\n` +
+          `It includes the scene description, the correct answer, and a hint. Use these — do NOT ask the child to describe what they see. You already know.\n` +
+          `Reference the visual content directly: "I can see the cookies cost 10¢ and 15¢" instead of "What do you see on the price tag?"\n\n` +
           `You are the tutor. You decide what counts as correct.\n` +
           `The server trusts your judgment.\n` +
           `Use logWorksheetAttempt with childName="${homeworkChild}", problemId matching the current problem id (as string), childSaid and expectedAnswer from the worksheet.`;
@@ -1489,6 +1493,9 @@ export class SessionManager {
         mode: "teaching",
         content: p.question,
         svg: svg ?? undefined,
+        sceneDescription: (p.canvas_display ?? "").trim() || undefined,
+        problemAnswer: (p.answer ?? "").trim() || undefined,
+        problemHint: (p.hint ?? "").trim() || undefined,
       });
       this.broadcastContext();
     }
@@ -1965,6 +1972,9 @@ export class SessionManager {
           svg: args.svg as string | undefined,
           label: args.label as string | undefined,
           content: args.content as string | undefined,
+          sceneDescription: undefined,
+          problemAnswer: undefined,
+          problemHint: undefined,
         });
       }
       console.log(`  🖼️  [canvas] mode=${args.mode}, content=${args.content ?? "(none)"}`);
