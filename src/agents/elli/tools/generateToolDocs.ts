@@ -2,6 +2,7 @@ import type { Tool } from "ai";
 import { endSession } from "./endSession";
 import { transitionToWork } from "./transitionToWork";
 import { logAttempt } from "./logAttempt";
+import { logWorksheetAttempt } from "./logWorksheetAttempt";
 import { dateTime } from "./dateTime";
 import { mathProblem } from "./mathProblem";
 import { riddleTracker } from "./riddleTracker";
@@ -16,6 +17,7 @@ export const ALL_TOOLS = {
   endSession,
   transitionToWork,
   logAttempt,
+  logWorksheetAttempt,
   dateTime,
   mathProblem,
   riddleTracker,

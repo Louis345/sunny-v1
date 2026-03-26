@@ -10,6 +10,11 @@ import {
   canvasHasRenderableContent,
   type GameMode as RegistryGameMode,
 } from "../../../src/shared/canvasRenderability";
+import {
+  computeTeachingFontSize,
+  remToCss,
+  shouldRenderTeachingContent,
+} from "../utils/canvasLayout";
 import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry";
 import type { BlackboardState } from "../hooks/useSession";
 import { BlackboardContent } from "./BlackboardContent";
@@ -578,9 +583,14 @@ function SpellingContent({
       {wordVisible && (
         <div
           style={{
-            fontSize: "2rem",
+            fontSize: remToCss(computeTeachingFontSize(spellingWord.length)),
             fontWeight: 900,
             color: wordColor,
+            maxWidth: "100%",
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+            overflow: "hidden",
+            whiteSpace: "pre-wrap",
           }}
         >
           {spellingWord}
@@ -708,7 +718,8 @@ function TeachingContent({
         <div className="space-y-6">
           {canvasSvg && (
             <div
-              className="mx-auto max-w-md"
+              className="mx-auto max-w-md w-full"
+              style={{ minHeight: "200px" }}
               dangerouslySetInnerHTML={{ __html: unescapeSvg(canvasSvg) }}
             />
           )}
@@ -744,10 +755,17 @@ function TeachingContent({
                           <span
                             style={{
                               ...MATH_MONO,
-                              fontSize: "3rem",
+                              fontSize: remToCss(
+                                computeTeachingFontSize(trimmed.length),
+                              ),
                               color: "#1a1a2e",
                               lineHeight: 1,
                               textAlign: "right",
+                              maxWidth: "100%",
+                              wordBreak: "break-word",
+                              overflowWrap: "break-word",
+                              overflow: "hidden",
+                              whiteSpace: "pre-wrap",
                             }}
                           >
                             {trimmed}
@@ -759,7 +777,14 @@ function TeachingContent({
             })}
           </div>
           {label && (
-            <p className="text-center text-xl font-medium text-gray-900">
+            <p
+              className="text-center text-xl font-medium text-gray-900"
+              style={{
+                maxWidth: "100%",
+                wordBreak: "break-word",
+                overflow: "hidden",
+              }}
+            >
               {label}
             </p>
           )}
@@ -776,7 +801,8 @@ function TeachingContent({
       <div className="space-y-6">
         {canvasSvg && (
           <div
-            className="mx-auto max-w-md"
+            className="mx-auto max-w-md w-full"
+            style={{ minHeight: "200px" }}
             dangerouslySetInnerHTML={{ __html: unescapeSvg(canvasSvg) }}
           />
         )}
@@ -787,7 +813,14 @@ function TeachingContent({
           {renderMathSpans(parts, "h")}
         </div>
         {label && (
-          <p className="text-center text-xl font-medium text-gray-900">
+          <p
+            className="text-center text-xl font-medium text-gray-900"
+            style={{
+              maxWidth: "100%",
+              wordBreak: "break-word",
+              overflow: "hidden",
+            }}
+          >
             {label}
           </p>
         )}
@@ -802,7 +835,8 @@ function TeachingContent({
     <div className="space-y-6">
       {canvasSvg && (
         <div
-          className="mx-auto max-w-md"
+          className="mx-auto max-w-md w-full"
+          style={{ minHeight: "200px" }}
           dangerouslySetInnerHTML={{ __html: unescapeSvg(canvasSvg) }}
         />
       )}
@@ -830,7 +864,10 @@ function TeachingContent({
           ))}
         </div>
       ) : (
-        <div className="canvas-content flex justify-center items-end gap-1">
+        <div
+          className="canvas-content flex justify-center items-end gap-1"
+          style={{ flexWrap: "wrap" }}
+        >
           {letters.map((letter, i) => {
             const activeBox = boxes.find((b) => b.highlighted);
             const activeIndex = activeBox
@@ -846,7 +883,9 @@ function TeachingContent({
                 key={i}
                 className="letter-bounce"
                 style={{
-                  fontSize: "9rem",
+                  fontSize: remToCss(
+                    computeTeachingFontSize(content.length),
+                  ),
                   lineHeight: 1,
                   color: isActive ? "#EF9F27" : "#1a1a2e",
                   borderBottom: isActive
@@ -865,7 +904,14 @@ function TeachingContent({
         </div>
       )}
       {label && (
-        <p className="text-center text-xl font-medium text-gray-900">
+        <p
+          className="text-center text-xl font-medium text-gray-900"
+          style={{
+            maxWidth: "100%",
+            wordBreak: "break-word",
+            overflow: "hidden",
+          }}
+        >
           {label}
         </p>
       )}
@@ -968,6 +1014,11 @@ export function Canvas({
   accentColor = "#854F0B",
   onCanvasDone,
 }: Props) {
+  console.log("[Canvas] render:", {
+    mode: canvas.mode,
+    hasSvg: !!canvas.svg,
+    willRender: shouldRenderTeachingContent(canvas),
+  });
   const [displayContent, setDisplayContent] = useState("");
   const [riddleLabel, setRiddleLabel] = useState("");
   const [displayMode, setDisplayMode] = useState<CanvasState["mode"]>("idle");
@@ -1148,9 +1199,12 @@ export function Canvas({
     }
     if (canvas.mode === "teaching") {
       const teachingText = (canvas.content ?? canvas.label ?? "").trim();
-      const hasTeachingVisual =
-        teachingText.length > 0 ||
-        (canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0);
+      const hasTeachingVisual = shouldRenderTeachingContent({
+        mode: canvas.mode,
+        svg: canvas.svg,
+        content: teachingText,
+        phonemeBoxes: canvas.phonemeBoxes,
+      });
       if (!hasTeachingVisual) {
         setDisplayContent("");
         setDisplayMode("teaching");
@@ -1204,7 +1258,10 @@ export function Canvas({
     displayMode === "place_value" ||
     displayMode === "spelling";
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-white overflow-hidden relative">
+    <div
+      className="flex-1 flex flex-col items-center justify-center p-8 bg-white relative"
+      style={{ overflow: "hidden" }}
+    >
       <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; } @keyframes pendingDotPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } } .pending-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; animation: pendingDotPulse 1s ease-in-out infinite; margin-left: 4px; }`}</style>
       {sessionState === "LOADING" && (
         <div
@@ -1291,8 +1348,12 @@ export function Canvas({
             showWord={canvas.showWord}
           />
         ) : displayMode === "teaching" &&
-        canvas.mode === "teaching" &&
-        (canvas.phonemeBoxes?.length || displayContent) ? (
+        shouldRenderTeachingContent({
+          mode: canvas.mode,
+          svg: canvas.svg,
+          content: displayContent,
+          phonemeBoxes: canvas.phonemeBoxes,
+        }) ? (
           <TeachingContent
             content={displayContent}
             phonemeBoxes={canvas.phonemeBoxes}
