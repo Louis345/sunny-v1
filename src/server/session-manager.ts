@@ -87,6 +87,23 @@ const QUESTION_PREFIXES = /^(circle|how much|how many|what|which|count|find|choo
  * "How many coins do I need to buy a peanut?" → "A peanut."
  * "A cookie shop. Cookie 10¢, Peanut 5¢." → unchanged
  */
+/**
+ * Check whether Claude's claimed childSaid has meaningful overlap with
+ * what the child actually said (the transcript). Prevents stale/hallucinated
+ * childSaid from a previous problem being accepted against the current one.
+ */
+export function hasContentOverlap(claimed: string, actual: string): boolean {
+  if (!claimed || !actual) return false;
+  const a = claimed.toLowerCase().trim();
+  const b = actual.toLowerCase().trim();
+  if (a === b) return true;
+  if (a.includes(b) || b.includes(a)) return true;
+  const wordsA = a.split(/\W+/).filter(w => w.length >= 3);
+  const wordsB = new Set(b.split(/\W+/).filter(w => w.length >= 3));
+  if (wordsA.length === 0) return false;
+  return wordsA.some(w => wordsB.has(w));
+}
+
 export function sanitizeCanvasDescription(raw: string): string {
   let text = raw.trim();
   if (!text) return text;
@@ -338,6 +355,12 @@ export class SessionManager {
   private pendingWorksheetLog: { ok: boolean } | null = null;
   /** Defer first worksheet problem until after the transitionToWork response finishes. */
   private pendingWorksheetStart = false;
+  /** Actual child transcript for the current worksheet turn — validates logWorksheetAttempt childSaid. */
+  private worksheetTurnTranscript = "";
+  /** True while advancing to next problem (SVG gen + question speak) — blocks concurrent agent runs. */
+  private worksheetAdvancing = false;
+  /** Transcript that arrived during worksheet advancement — replayed after advance completes. */
+  private worksheetBufferedTranscript: string | null = null;
 
   /** Canonical session state — drives tool filtering, canvas ownership, context injection. */
   private ctx: SessionContext | null = null;
@@ -1059,6 +1082,12 @@ export class SessionManager {
     // Let the transcript fall through — runCompanionResponse uses onCompanionRunFromWordBuilder()
     // so the game stays visible while Elli responds verbally.
 
+    if (this.worksheetAdvancing) {
+      console.log(`  ⏳ Buffering transcript during worksheet advance: "${transcript}"`);
+      this.worksheetBufferedTranscript = transcript;
+      return;
+    }
+
     this.turnSM.onEndOfTurn();
 
     // Pre-connect TTS while we wait for Claude — saves ~200-400ms
@@ -1079,6 +1108,10 @@ export class SessionManager {
     }
 
     this.roundNumber++;
+
+    if (this.worksheetMode) {
+      this.worksheetTurnTranscript = transcript;
+    }
 
     if (await this.tryConsumeWorksheetTurn(transcript)) {
       return;
@@ -1311,11 +1344,17 @@ export class SessionManager {
 
       if (this.pendingWorksheetStart) {
         this.pendingWorksheetStart = false;
+        this.worksheetAdvancing = true;
         await this.presentCurrentWorksheetProblem();
+        this.worksheetAdvancing = false;
+        await this.drainWorksheetBuffer();
       } else if (this.pendingWorksheetLog != null && this.worksheetMode) {
         const pl = this.pendingWorksheetLog;
         this.pendingWorksheetLog = null;
+        this.worksheetAdvancing = true;
         await this.advanceWorksheetAfterLogAttempt(pl.ok);
+        this.worksheetAdvancing = false;
+        await this.drainWorksheetBuffer();
       } else if (
         this.worksheetMode &&
         this.worksheetProblemIndex < this.worksheetProblems.length &&
@@ -1413,6 +1452,7 @@ export class SessionManager {
 
     this.worksheetReadyForAnswers = false;
     this.worksheetWrongForCurrent = 0;
+    this.worksheetTurnTranscript = "";
 
     console.log(
       `  🎮 [worksheet] Problem ${this.worksheetProblemIndex + 1}/${this.worksheetProblems.length} (id ${p.id})`
@@ -1562,6 +1602,15 @@ export class SessionManager {
     }
     this.send("audio_done");
     this.turnSM.onSpeakingDone();
+  }
+
+  private async drainWorksheetBuffer(): Promise<void> {
+    if (this.worksheetBufferedTranscript) {
+      const buffered = this.worksheetBufferedTranscript;
+      this.worksheetBufferedTranscript = null;
+      console.log(`  ▶️  Replaying buffered transcript: "${buffered}"`);
+      await this.handleEndOfTurn(buffered, true);
+    }
   }
 
   private broadcastContext(): void {
@@ -1865,6 +1914,21 @@ export class SessionManager {
         console.warn(
           `  ⚠️  logWorksheetAttempt problemId mismatch: ${String(args.problemId)} vs ${wp.id} — using server's current problem`,
         );
+      }
+      const childSaid = String(args.childSaid ?? "");
+      if (childSaid && this.worksheetTurnTranscript && !hasContentOverlap(childSaid, this.worksheetTurnTranscript)) {
+        console.warn(
+          `  🚫 logWorksheetAttempt BLOCKED — childSaid doesn't match transcript`,
+        );
+        console.warn(`       childSaid: "${childSaid}"`);
+        console.warn(`       transcript: "${this.worksheetTurnTranscript}"`);
+        return;
+      }
+      if (!this.worksheetTurnTranscript) {
+        console.warn(
+          `  🚫 logWorksheetAttempt BLOCKED — no child transcript for current problem`,
+        );
+        return;
       }
       const ok = args.correct === true;
       this.processReward({ correct: ok });

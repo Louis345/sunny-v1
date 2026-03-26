@@ -41,6 +41,7 @@
     "test:session-type-resolution": "vitest run src/tests/test-session-type-resolution.ts",
     "test:assignment-manifest": "vitest run src/tests/test-assignment-manifest.ts",
     "test:canvas-description": "npx tsx src/tests/test-canvas-description-sanitizer.ts",
+    "test:stale-answer": "npx tsx src/tests/test-worksheet-stale-answer.ts",
     "test:svg-strip": "vitest run src/tests/test-svg-strip.ts",
     "test:system": "vitest run src/tests/test-tool-filtering.ts src/tests/test-canvas-ownership.ts src/tests/test-context-injection.ts src/tests/test-session-type-resolution.ts src/tests/test-assignment-manifest.ts",
     "server": "npx tsx src/server.ts",

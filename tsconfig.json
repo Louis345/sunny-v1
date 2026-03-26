@@ -25,6 +25,7 @@
     "src/tests/test-assignment-manifest.ts",
     "src/tests/test-svg-strip.ts",
     "src/tests/test-canvas-description-sanitizer.ts",
+    "src/tests/test-worksheet-stale-answer.ts",
     "vitest.config.ts"
   ]
 }
