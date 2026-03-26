@@ -51,4 +51,64 @@ describe("canvas context injection", () => {
     const injection = buildCanvasContextMessage(ctx);
     expect(injection).toContain("Question 2 of 2");
   });
+
+  it("includes scene description so companion knows what child sees", () => {
+    const ctx = createSessionContext({ childName: "Reina", sessionType: "worksheet" });
+    ctx.updateCanvas({
+      mode: "teaching",
+      content: "How much money do I need to buy these cookies?",
+      sceneDescription: "Cookie shop. Oatmeal cookie 10¢, Chocolate chip cookie 15¢, Sugar cookie 10¢.",
+      svg: "<svg>...</svg>",
+    });
+    const injection = buildCanvasContextMessage(ctx);
+    expect(injection).toContain("Cookie shop");
+    expect(injection).toContain("Oatmeal cookie 10¢");
+    expect(injection).toContain("Scene on screen");
+  });
+
+  it("includes answer and hint so companion can grade and help", () => {
+    const ctx = createSessionContext({ childName: "Reina", sessionType: "worksheet" });
+    ctx.updateCanvas({
+      mode: "teaching",
+      content: "How much money do I need to buy these cookies?",
+      sceneDescription: "Cookie shop. Oatmeal 10¢, Chocolate chip 15¢.",
+      problemAnswer: "25 cents",
+      problemHint: "Add the price of the oatmeal cookie and the chocolate chip cookie.",
+    });
+    const injection = buildCanvasContextMessage(ctx);
+    expect(injection).toContain("Correct answer: 25 cents");
+    expect(injection).toContain("Hint");
+    expect(injection).toContain("Add the price");
+  });
+
+  it("scene description is absent when canvas has no scene set", () => {
+    const ctx = createSessionContext({ childName: "Ila", sessionType: "freeform" });
+    ctx.updateCanvas({ mode: "teaching", content: "cat" });
+    const injection = buildCanvasContextMessage(ctx);
+    expect(injection).not.toContain("Scene on screen");
+    expect(injection).not.toContain("Correct answer");
+  });
+
+  it("showCanvas from companion clears problem-specific fields", () => {
+    const ctx = createSessionContext({ childName: "Reina", sessionType: "worksheet" });
+    ctx.updateCanvas({
+      mode: "teaching",
+      content: "Old question",
+      sceneDescription: "Old scene",
+      problemAnswer: "Old answer",
+      problemHint: "Old hint",
+    });
+    // Companion-driven canvas update clears problem fields
+    ctx.updateCanvas({
+      mode: "teaching",
+      content: "New content",
+      sceneDescription: undefined,
+      problemAnswer: undefined,
+      problemHint: undefined,
+    });
+    const injection = buildCanvasContextMessage(ctx);
+    expect(injection).not.toContain("Old scene");
+    expect(injection).not.toContain("Old answer");
+    expect(injection).not.toContain("Old hint");
+  });
 });

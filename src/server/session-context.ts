@@ -9,6 +9,12 @@ export interface CanvasState {
   label?: string;
   content?: string;
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
+  /** Plain-text description of the visual scene the child sees (e.g. "Cookie shop. Oatmeal 10¢, Chocolate chip 15¢, Sugar 10¢.") */
+  sceneDescription?: string;
+  /** The correct answer for the current problem — so the companion knows what to grade toward. */
+  problemAnswer?: string;
+  /** A hint to offer when the child is stuck. */
+  problemHint?: string;
 }
 
 export interface AssignmentQuestion {
@@ -147,21 +153,35 @@ export function createSessionContext(opts: {
 /**
  * Build a context injection string that tells Claude what's on the canvas.
  * Appended to the user message on every turn so Claude stays in sync.
+ *
+ * This is THE hook that keeps the companion aware of what the child sees.
+ * Every canvas-relevant field (scene, answer, hint) must flow through here.
  */
 export function buildCanvasContextMessage(ctx: SessionContext): string {
   const lines: string[] = [];
+  const c = ctx.canvas.current;
 
   lines.push("[Canvas State]");
-  lines.push(`Mode: ${ctx.canvas.current.mode}`);
+  lines.push(`Mode: ${c.mode}`);
 
-  if (ctx.canvas.current.content) {
-    lines.push(`Content: ${ctx.canvas.current.content}`);
+  if (c.sceneDescription) {
+    lines.push(`Scene on screen: ${c.sceneDescription}`);
   }
-  if (ctx.canvas.current.label) {
-    lines.push(`Label: ${ctx.canvas.current.label}`);
+  if (c.content) {
+    lines.push(`Question: ${c.content}`);
   }
-  if (ctx.canvas.current.svg) {
-    lines.push("SVG: (rendered on screen)");
+  if (c.label) {
+    lines.push(`Label: ${c.label}`);
+  }
+  if (c.svg) {
+    lines.push("SVG: (visual rendered on screen — the child can see the scene described above)");
+  }
+
+  if (c.problemAnswer) {
+    lines.push(`Correct answer: ${c.problemAnswer}`);
+  }
+  if (c.problemHint) {
+    lines.push(`Hint (if child is stuck): ${c.problemHint}`);
   }
 
   lines.push(`Canvas control: ${ctx.canvas.owner === "server" ? "server-driven" : "companion-driven"}`);
