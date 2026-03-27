@@ -1,6 +1,28 @@
 import fs from "fs";
 import path from "path";
-import { shouldLoadPersistedHistory } from "./runtimeMode";
+import { shouldLoadPersistedHistory, shouldPersistSessionData } from "./runtimeMode";
+
+/** Append one worksheet attempt line after server-side validation (not in tool execute). */
+export async function appendWorksheetAttemptLine(input: {
+  childName: "Ila" | "Reina";
+  problemId: string;
+  correct: boolean;
+}): Promise<void> {
+  if (!shouldPersistSessionData()) return;
+  const logsDir = path.resolve(process.cwd(), "src", "logs");
+  await fs.promises.mkdir(logsDir, { recursive: true });
+  const fileName =
+    input.childName === "Ila" ? "ila_attempts.json" : "reina_attempts.json";
+  const filePath = path.join(logsDir, fileName);
+  const timestamp = new Date().toISOString();
+  const word = `worksheet-q${input.problemId}-${timestamp.slice(11, 23)}`;
+  const entry =
+    JSON.stringify({ timestamp, word, correct: input.correct }) + "\n";
+  await fs.promises.appendFile(filePath, entry, "utf-8");
+  console.log(
+    `  🎮 [worksheet] logWorksheetAttempt persisted ${input.correct ? "correct" : "incorrect"} q${input.problemId}`,
+  );
+}
 
 export function loadAttemptHistory(childName: "Ila" | "Reina"): string {
   if (!shouldLoadPersistedHistory()) return "(stateless run — no persisted attempt history)";

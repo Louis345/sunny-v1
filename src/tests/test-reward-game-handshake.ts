@@ -1060,13 +1060,17 @@ async function testInstructionalGameCompletionAsksFollowupsBeforeReward(): Promi
   });
   inner.worksheetProblemIndex = 0;
 
+  (manager as unknown as { rebuildWorksheetTruthMap: () => void }).rebuildWorksheetTruthMap();
+
   const prompts: string[] = [];
+  const modelMessages: string[] = [];
   let modelRuns = 0;
   inner.handleCompanionTurn = async (text: string) => {
     prompts.push(text);
   };
-  inner.runCompanionResponse = async () => {
+  inner.runCompanionResponse = async (msg: string) => {
     modelRuns++;
+    modelMessages.push(msg);
   };
 
   await inner.advanceWorksheetAfterLogAttempt(true);
@@ -1077,10 +1081,28 @@ async function testInstructionalGameCompletionAsksFollowupsBeforeReward(): Promi
 
   const launchedReward = sent.some((msg) => msg.type === "canvas_draw" && msg.mode === "space-invaders");
 
-  assert.equal(modelRuns, 0, "server-owned follow-up questions should not fall back to freeform model replies");
-  assert.equal(prompts.length >= 4, true, "arc should include completion, game follow-up prompts, and reward handoff");
-  assert.match(prompts[1] ?? "", /store game|money/i, "first post-game prompt should stay tied to the instructional game");
-  assert.match(prompts[2] ?? "", /bigger|compare|price/i, "second follow-up should reinforce the worksheet concept");
+  assert.equal(modelRuns, 2, "post-game follow-ups should use model turns with injected worksheet facts");
+  assert.match(
+    modelMessages[0] ?? "",
+    /instructional|store|money|Trusted|follow-up/i,
+    "first model turn should anchor the store-game follow-up",
+  );
+  assert.match(
+    modelMessages[1] ?? "",
+    /child said|follow-up|Trusted/i,
+    "second model turn should reference the child's reply and facts",
+  );
+  assert.equal(prompts.length >= 2, true, "direct TTS should cover store transition + reward handoff");
+  assert.match(
+    prompts[0] ?? "",
+    /nice work|money thinking|store/i,
+    "transition line should introduce the instructional store game",
+  );
+  assert.match(
+    prompts[prompts.length - 1] ?? "",
+    /Space Invaders/i,
+    "reward handoff should name the reward game",
+  );
   assert.equal(launchedReward, true, "reward should launch after the instructional follow-up questions");
 }
 

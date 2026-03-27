@@ -86,6 +86,15 @@ import {
   type CanonicalWorksheetProblem,
 } from "./worksheet-problem";
 import {
+  buildSanitizedStorePool,
+  buildTruthForCanonicalProblem,
+  detectWorksheetDomain,
+  formatTrustedAmountsSummaryForLearningArc,
+  validateLogWorksheetAttempt,
+  type WorksheetProblemTruth,
+} from "./worksheet-truth";
+import { appendWorksheetAttemptLine } from "../utils/attempts";
+import {
   isDemoMode,
   isHomeworkMode,
   isSunnyTestMode,
@@ -133,9 +142,9 @@ type WorksheetTurnOutcome = {
 
 type WorksheetLearningArcState = {
   gameName: string;
-  prompts: string[];
-  promptIndex: number;
   phase: "instructional_game" | "followup";
+  /** 0 = awaiting first child reply after post-game model follow-up; 1 = awaiting second reply before reward */
+  followupRound: number;
 };
 
 /**
@@ -225,18 +234,6 @@ function normalizeTranscriptForGuards(text: string): string {
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ");
-}
-
-function formatMoneyAmountForSpeech(cents: number): string {
-  if (cents >= 100) {
-    const dollars = Math.floor(cents / 100);
-    const remainder = cents % 100;
-    if (remainder === 0) {
-      return `${dollars} dollar${dollars === 1 ? "" : "s"}`;
-    }
-    return `${dollars} dollar${dollars === 1 ? "" : "s"} ${remainder} cents`;
-  }
-  return `${cents} cents`;
 }
 
 /**
@@ -532,6 +529,8 @@ export class SessionManager {
   private worksheetTurnsWithoutAttempt = 0;
   private worksheetRewardAfterN = 5;
   private worksheetSubjectLabel = "";
+  /** Per-problem trusted/suspect cents and reveal eligibility — single source for pool + reveals. */
+  private worksheetTruthById: Map<string, WorksheetProblemTruth> = new Map();
   /** Actual worksheet PDF/image bytes — pinned into conversation so the model sees the real worksheet */
   private worksheetPageFile: { data: Buffer; mimeType: string } | null = null;
   /** Defer worksheet index/canvas advance until after Matilda's response TTS completes. */
@@ -1132,6 +1131,7 @@ export class SessionManager {
       // ────────────────────────────────────────────────────────────────────────
 
       this.worksheetProblems = this.selectWorksheetProblems(extraction);
+      this.rebuildWorksheetTruthMap();
       this.worksheetProblemIndex = 0;
       this.worksheetWrongForCurrent = 0;
       this.worksheetReadyForAnswers = false;
@@ -1471,12 +1471,44 @@ export class SessionManager {
     );
   }
 
-  private buildWorksheetRevealPrompt(problem: CanonicalWorksheetProblem): string {
-    if (problem.kind === "compare_amounts") {
-      const larger = Math.max(problem.leftAmountCents, problem.rightAmountCents);
-      return `Let's slow down and stay on this same problem. The bigger amount here is ${formatMoneyAmountForSpeech(larger)}. Take another look and tell me which amount is bigger when you're ready.`;
+  private rebuildWorksheetTruthMap(): void {
+    this.worksheetTruthById.clear();
+    const domain = detectWorksheetDomain(this.worksheetSubjectLabel);
+    for (const p of this.worksheetProblems) {
+      const t = buildTruthForCanonicalProblem(p, domain);
+      if (!t) continue;
+      this.worksheetTruthById.set(String(p.id), t);
+      if (!t.usableForReveal) {
+        console.warn(
+          `  ⚠️  [worksheet-truth] problem ${p.id}: extracted amounts suspect for coin domain — reveal/store pool skip bad cents`,
+        );
+      }
     }
-    return `Let's slow down and stay on this same problem. The answer here is ${problem.canonicalAnswer}. Tell me how many ${problem.itemLabel.toLowerCase()}s there are when you're ready.`;
+  }
+
+  private buildWorksheetArcFirstFollowupContext(): string {
+    const gameName = this.worksheetLearningArc?.gameName ?? "the game";
+    const facts = formatTrustedAmountsSummaryForLearningArc(
+      this.worksheetProblems,
+      this.worksheetTruthById,
+    );
+    return (
+      `[System: The instructional ${gameName.replace(/-/g, " ")} just ended. The canvas is idle. ` +
+      `Ask a brief, warm follow-up: what was one money decision you made in the game? ` +
+      `Trusted extracted cent amounts (if any):\n${facts}]`
+    );
+  }
+
+  private buildWorksheetArcSecondFollowupContext(childTranscript: string): string {
+    const facts = formatTrustedAmountsSummaryForLearningArc(
+      this.worksheetProblems,
+      this.worksheetTruthById,
+    );
+    return (
+      `[System: The child said: "${childTranscript}". ` +
+      `Ask one more short follow-up connecting the game to the worksheet's money ideas. ` +
+      `Trusted amounts only:\n${facts}]`
+    );
   }
 
   private getWorksheetInstructionalGameName(): string | null {
@@ -1501,26 +1533,6 @@ export class SessionManager {
       }
     }
     return null;
-  }
-
-  private buildWorksheetLearningArcPrompts(): string[] {
-    const current = this.worksheetProblems[Math.max(0, this.worksheetProblemIndex - 1)];
-    if (current?.kind === "compare_amounts") {
-      return [
-        "Nice work in the store game. What was one money decision you had to make there?",
-        `One more quick check: if you compare ${formatMoneyAmountForSpeech(current.leftAmountCents)} and ${formatMoneyAmountForSpeech(current.rightAmountCents)}, which amount is bigger and how do you know?`,
-      ];
-    }
-    if (current?.kind === "money_count") {
-      return [
-        "Nice work in the store game. What did you have to count or buy?",
-        `One more quick check: if each ${current.itemLabel.toLowerCase()} costs ${formatMoneyAmountForSpeech(current.itemPriceCents)} and you spend ${formatMoneyAmountForSpeech(current.totalSpentCents)} total, how do you figure out how many there are?`,
-      ];
-    }
-    return [
-      "Nice work in the game. What did you notice while you were playing?",
-      "One more quick check: what helped you solve those money problems today?",
-    ];
   }
 
   private launchStructuredGame(
@@ -1551,9 +1563,8 @@ export class SessionManager {
     this.retireWorksheetSession();
     this.worksheetLearningArc = {
       gameName,
-      prompts: this.buildWorksheetLearningArcPrompts(),
-      promptIndex: 0,
       phase: "instructional_game",
+      followupRound: 0,
     };
     await this.handleCompanionTurn(
       `You got them all! Nice work. Now let's use that same money thinking in the ${gameName.replace(/-/g, " ")}.`,
@@ -1568,23 +1579,25 @@ export class SessionManager {
     if (!this.worksheetLearningArc || this.worksheetLearningArc.phase !== "followup") {
       return false;
     }
-    const currentPrompt = this.worksheetLearningArc.prompts[this.worksheetLearningArc.promptIndex];
-    if (this.worksheetLearningArc.promptIndex < this.worksheetLearningArc.prompts.length - 1) {
+    if (this.worksheetLearningArc.followupRound === 0) {
+      await this.runCompanionResponse(
+        this.buildWorksheetArcSecondFollowupContext(transcript),
+      );
       this.worksheetLearningArc = {
         ...this.worksheetLearningArc,
-        promptIndex: this.worksheetLearningArc.promptIndex + 1,
+        followupRound: 1,
       };
-      await this.handleCompanionTurn(
-        `Nice. ${this.worksheetLearningArc.prompts[this.worksheetLearningArc.promptIndex] ?? currentPrompt}`,
-      );
       return true;
     }
-    this.worksheetLearningArc = null;
-    await this.handleCompanionTurn(
-      "That was great thinking. You've earned your reward, so now it's time for Space Invaders.",
-    );
-    this.launchWorksheetCompletionReward();
-    return true;
+    if (this.worksheetLearningArc.followupRound === 1) {
+      this.worksheetLearningArc = null;
+      await this.handleCompanionTurn(
+        "That was great thinking. You've earned your reward, so now it's time for Space Invaders.",
+      );
+      this.launchWorksheetCompletionReward();
+      return true;
+    }
+    return false;
   }
 
   private recordWorksheetAttempt(transcript: string, correct: boolean): void {
@@ -1960,9 +1973,11 @@ export class SessionManager {
         this.worksheetLearningArc = {
           ...this.worksheetLearningArc,
           phase: "followup",
-          promptIndex: 0,
+          followupRound: 0,
         };
-        void this.handleCompanionTurn(this.worksheetLearningArc.prompts[0] ?? "Nice work in the game.");
+        void this.runCompanionResponse(
+          this.buildWorksheetArcFirstFollowupContext(),
+        ).catch(console.error);
         return;
       }
       if (this.wbActive) {
@@ -2402,9 +2417,20 @@ export class SessionManager {
         : this.currentCanvasState
           ? buildCanvasContext(this.currentCanvasState)
           : "";
-      const messageWithContext = canvasCtx
-        ? `${userMessage}\n\n${canvasCtx}`
-        : userMessage;
+      let truthCtx = "";
+      if (
+        this.worksheetMode &&
+        this.worksheetProblems[this.worksheetProblemIndex]
+      ) {
+        const pid = String(this.worksheetProblems[this.worksheetProblemIndex].id);
+        const truth = this.worksheetTruthById.get(pid);
+        if (truth) {
+          truthCtx = truth.toContextInjection();
+        }
+      }
+      const messageWithContext = [userMessage, canvasCtx, truthCtx]
+        .filter(Boolean)
+        .join("\n\n");
 
       const dynamicTools = this.ctx
         ? getToolsForSessionType(this.ctx.sessionType)
@@ -2643,52 +2669,6 @@ export class SessionManager {
     if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
     if (tool === "request_resume_activity") return "requestResumeActivity";
     return tool;
-  }
-
-  /**
-   * Build a store-game itemPool from the amounts practiced in the current worksheet.
-   * Each unique cent-amount becomes a purchasable item so the child keeps working
-   * with the exact numbers they just compared/counted.
-   *
-   * Returns null if no usable amounts are found (falls back to the game's built-in pool).
-   */
-  private buildWorksheetItemPool(): Array<{ emoji: string; name: string; price: number }> | null {
-    if (!this.worksheetProblems.length) return null;
-
-    // Collect every cent-amount that appeared in the worksheet
-    const cents = new Set<number>();
-    for (const p of this.worksheetProblems) {
-      if (p.kind === "compare_amounts") {
-        if (p.leftAmountCents > 0)  cents.add(p.leftAmountCents);
-        if (p.rightAmountCents > 0) cents.add(p.rightAmountCents);
-      } else if (p.kind === "money_count") {
-        if (p.itemPriceCents > 0) cents.add(p.itemPriceCents);
-        if (p.totalSpentCents > 0) cents.add(p.totalSpentCents);
-      }
-    }
-
-    if (!cents.size) return null;
-
-    // Assign a stable emoji+name to each amount using a small deterministic map
-    const STORE_ITEMS: Array<{ emoji: string; name: string }> = [
-      { emoji: "🎈", name: "Balloon" },
-      { emoji: "🍎", name: "Apple" },
-      { emoji: "🍬", name: "Candy" },
-      { emoji: "🪀", name: "Yo-Yo" },
-      { emoji: "🖍️", name: "Crayons" },
-      { emoji: "🍩", name: "Donut" },
-      { emoji: "🌟", name: "Star Badge" },
-      { emoji: "🧃", name: "Juice Box" },
-      { emoji: "🍭", name: "Lollipop" },
-      { emoji: "🚀", name: "Rocket Toy" },
-    ];
-
-    // Sort amounts so the assignment is deterministic each session
-    const sorted = [...cents].sort((a, b) => a - b);
-    return sorted.map((price, i) => ({
-      ...STORE_ITEMS[i % STORE_ITEMS.length],
-      price,
-    }));
   }
 
   private sendLaunchGameRegistryError(
@@ -2948,7 +2928,20 @@ export class SessionManager {
     if (this.worksheetWrongForCurrent >= 3) {
       if (this.worksheetInteractionMode === "review") {
         this.worksheetWrongForCurrent = 0;
-        await this.handleCompanionTurn(this.buildWorksheetRevealPrompt(p));
+        const truth = this.worksheetTruthById.get(String(p.id));
+        const revealFacts = truth?.getRevealFacts();
+        if (revealFacts) {
+          await this.runCompanionResponse(
+            `[System: The child has struggled with this problem. ` +
+            `Verified facts: correctAnswer="${revealFacts.correctAnswer}". Hint: ${revealFacts.hint}. ` +
+            `Help them understand warmly — do not contradict these amounts with different cent values.]`,
+          );
+        } else {
+          await this.runCompanionResponse(
+            `[System: The child has struggled with this problem. ` +
+            `Extracted cent values may be unreliable (OCR). Use the worksheet image; be honest if you cannot read a value clearly.]`,
+          );
+        }
         this.worksheetReadyForAnswers = true;
         return;
       }
@@ -3168,11 +3161,88 @@ export class SessionManager {
       canvasRevision = this.issueCanvasRevision();
     }
 
+    let logWorksheetWireResult: unknown | undefined;
+    let logWorksheetAccepted:
+      | false
+      | { ok: boolean; effectiveChildSaid: string; wp: CanonicalWorksheetProblem } = false;
+
+    if (tool === "logWorksheetAttempt") {
+      const base =
+        typeof result === "object" && result !== null && !Array.isArray(result)
+          ? { ...(result as Record<string, unknown>) }
+          : {};
+      if (this.activeCanvasActivity.pauseState === "paused_for_checkin") {
+        logWorksheetWireResult = {
+          ...base,
+          logged: false,
+          rejected: true,
+          reason: "paused_for_checkin",
+        };
+      } else if (!this.worksheetMode) {
+        logWorksheetWireResult = {
+          ...base,
+          logged: false,
+          rejected: true,
+          reason: "not_in_worksheet_mode",
+        };
+      } else {
+        const wp = this.worksheetProblems[this.worksheetProblemIndex];
+        if (!wp) {
+          logWorksheetWireResult = {
+            ...base,
+            logged: false,
+            rejected: true,
+            reason: "no_current_problem",
+          };
+        } else if ((args.childName as string | undefined) !== this.childName) {
+          logWorksheetWireResult = {
+            ...base,
+            logged: false,
+            rejected: true,
+            reason: "childName_mismatch",
+          };
+        } else {
+          const validation = validateLogWorksheetAttempt({
+            modelChildSaid: String(args.childSaid ?? ""),
+            actualTranscript: this.worksheetTurnTranscript,
+            modelProblemId: String(args.problemId ?? ""),
+            serverProblemId: String(wp.id),
+          });
+          if (!validation.valid) {
+            console.warn(
+              `  🚫 logWorksheetAttempt rejected: ${validation.reason}`,
+            );
+            logWorksheetWireResult = {
+              ...base,
+              logged: false,
+              rejected: true,
+              reason: validation.reason,
+            };
+          } else {
+            if (validation.warning) {
+              console.warn(`  ⚠️  logWorksheetAttempt: ${validation.warning}`);
+            }
+            logWorksheetWireResult = {
+              ...base,
+              effectiveChildSaid: validation.effectiveChildSaid,
+            };
+            logWorksheetAccepted = {
+              ok: args.correct === true,
+              effectiveChildSaid: validation.effectiveChildSaid,
+              wp,
+            };
+          }
+        }
+      }
+    }
+
+    const wireToolResult = logWorksheetWireResult ?? result;
+
     this.toolCallsMadeThisTurn++;
     this.send("tool_call", {
       tool,
       args,
-      result,
+      result: wireToolResult,
       ...(canvasRevision ? { canvasRevision } : {}),
     });
 
@@ -3334,15 +3404,31 @@ export class SessionManager {
       // For store-game: override itemPool with amounts from the current worksheet
       // so the child practices with the exact values they just worked through.
       if (gameName === "store-game") {
-        const worksheetPool = this.buildWorksheetItemPool();
-        if (worksheetPool && worksheetPool.length > 0) {
+        const domain = detectWorksheetDomain(this.worksheetSubjectLabel);
+        const allAmounts: number[] = [];
+        for (const prob of this.worksheetProblems) {
+          if (prob.kind === "compare_amounts") {
+            if (prob.leftAmountCents > 0) allAmounts.push(prob.leftAmountCents);
+            if (prob.rightAmountCents > 0) allAmounts.push(prob.rightAmountCents);
+          } else if (prob.kind === "money_count") {
+            if (prob.itemPriceCents > 0) allAmounts.push(prob.itemPriceCents);
+            if (prob.totalSpentCents > 0) allAmounts.push(prob.totalSpentCents);
+          }
+        }
+        const worksheetPool = buildSanitizedStorePool({
+          worksheetDomain: domain,
+          amounts: allAmounts,
+        });
+        if (worksheetPool.length > 0) {
           launchConfig.itemPool = worksheetPool;
           console.log(
-            `  🎮 [store-game] worksheet itemPool: ` +
-            worksheetPool.map(i => `${i.emoji} ${i.name} ${i.price}¢`).join(", ")
+            `  🎮 [store-game] sanitized worksheet itemPool: ` +
+            worksheetPool.map((i) => `${i.emoji} ${i.name} ${i.price}¢`).join(", "),
           );
         } else {
-          console.log(`  🎮 [store-game] no worksheet amounts found — using built-in item pool`);
+          console.log(
+            `  🎮 [store-game] no trusted worksheet amounts — using built-in item pool`,
+          );
         }
       }
 
@@ -3472,50 +3558,35 @@ export class SessionManager {
     }
 
     if (tool === "logWorksheetAttempt") {
-      if (this.activeCanvasActivity.pauseState === "paused_for_checkin") {
+      if (!logWorksheetAccepted) {
         this.lastWorksheetTurnOutcome = "blocked_stale";
-        console.warn(
-          "  ⚠️  logWorksheetAttempt ignored — activity is paused for child check-in",
-        );
         return;
       }
-      if (!this.worksheetMode) {
-        console.warn(
-          "  ⚠️  logWorksheetAttempt ignored — not in worksheet mode",
-        );
-        return;
-      }
-      const wp = this.worksheetProblems[this.worksheetProblemIndex];
-      if (!wp) {
-        console.warn("  ⚠️  logWorksheetAttempt ignored — no current problem");
-        return;
-      }
-      const cn = args.childName as string | undefined;
-      if (cn !== this.childName) {
-        console.warn(
-          `  ⚠️  logWorksheetAttempt childName mismatch: ${cn} vs ${this.childName}`,
-        );
-        return;
-      }
-      if (String(args.problemId ?? "") !== String(wp.id)) {
-        console.warn(
-          `  ⚠️  logWorksheetAttempt problemId mismatch: ${String(args.problemId)} vs ${wp.id} — using server's current problem`,
-        );
-      }
-      const ok = args.correct === true;
-      const childSaid = String(args.childSaid ?? "");
+      const { ok, effectiveChildSaid, wp } = logWorksheetAccepted;
       console.log(
-        `  🎮 [worksheet] model graded — ${ok ? "correct" : "incorrect"} (childSaid: "${childSaid}")`,
+        `  🎮 [worksheet] model graded — ${ok ? "correct" : "incorrect"} (childSaid: "${effectiveChildSaid}")`,
       );
       this.lastWorksheetTurnOutcome = ok
         ? "accepted_correct"
         : "accepted_incorrect";
       this.worksheetTurnsWithoutAttempt = 0;
       this.processReward({ correct: ok });
-      this.recordWorksheetAttempt(this.worksheetTurnTranscript || childSaid, ok);
-      this.rememberWorksheetSubmission(String(wp.id), this.worksheetTurnTranscript || childSaid);
+      this.recordWorksheetAttempt(effectiveChildSaid, ok);
+      this.rememberWorksheetSubmission(String(wp.id), effectiveChildSaid);
       if (ok) {
-        this.rememberWorksheetAcceptedTranscript(this.worksheetTurnTranscript || childSaid);
+        this.rememberWorksheetAcceptedTranscript(effectiveChildSaid);
+      }
+      if (shouldPersistSessionData()) {
+        void appendWorksheetAttemptLine({
+          childName: this.childName,
+          problemId: String(wp.id),
+          correct: ok,
+        }).catch((e) =>
+          console.warn(
+            "  ⚠️  appendWorksheetAttemptLine failed:",
+            e instanceof Error ? e.message : String(e),
+          ),
+        );
       }
       this.pendingWorksheetLog = { ok };
     }
