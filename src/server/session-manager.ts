@@ -96,6 +96,7 @@ import {
   buildSanitizedGamePool,
   clearEarnedReward,
   createWorksheetSession as createWSSession,
+  detectWorksheetDomain as detectWorksheetDomainForGamePool,
   saveEarnedReward,
   type WorksheetSession,
 } from "./worksheet-tools";
@@ -3565,12 +3566,11 @@ export class SessionManager {
       // For store-game: override itemPool with amounts from the current worksheet
       // so the child practices with the exact values they just worked through.
       if (gameName === "store-game") {
-        const domain = detectWorksheetDomain(this.worksheetSubjectLabel);
+        const domain = detectWorksheetDomainForGamePool(this.worksheetSubjectLabel);
         const allAmounts: number[] = [];
         for (const prob of this.worksheetProblems) {
           if (prob.kind === "compare_amounts") {
-            if (prob.leftAmountCents > 0) allAmounts.push(prob.leftAmountCents);
-            if (prob.rightAmountCents > 0) allAmounts.push(prob.rightAmountCents);
+            allAmounts.push(prob.leftAmountCents, prob.rightAmountCents);
           } else if (prob.kind === "money_count") {
             if (prob.itemPriceCents > 0) allAmounts.push(prob.itemPriceCents);
             if (prob.totalSpentCents > 0) allAmounts.push(prob.totalSpentCents);
