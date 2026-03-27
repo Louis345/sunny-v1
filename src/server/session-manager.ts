@@ -86,13 +86,28 @@ import {
   type CanonicalWorksheetProblem,
 } from "./worksheet-problem";
 import {
-  buildSanitizedStorePool,
   buildTruthForCanonicalProblem,
   detectWorksheetDomain,
   formatTrustedAmountsSummaryForLearningArc,
   validateLogWorksheetAttempt,
   type WorksheetProblemTruth,
 } from "./worksheet-truth";
+import {
+  buildSanitizedGamePool,
+  clearEarnedReward,
+  createWorksheetSession as createWSSession,
+  saveEarnedReward,
+  type WorksheetSession,
+} from "./worksheet-tools";
+import {
+  createClearCanvasTool,
+  createGetNextProblemTool,
+  createGetSessionStatusTool,
+  createLaunchGameTool,
+  createSubmitAnswerTool,
+} from "../agents/elli/tools/worksheetTools";
+import { buildWorksheetToolPrompt } from "../agents/prompts/worksheetSessionPrompt";
+import { classifyWorksheetNonAnswerTranscript } from "./worksheet-turn-guards";
 import { appendWorksheetAttemptLine } from "../utils/attempts";
 import {
   isDemoMode,
@@ -516,6 +531,9 @@ export class SessionManager {
   private spaceInvadersRewardActive = false;
   private spaceInvadersRewardLaunched = false;
   private endAfterReward = false;
+
+  /** Option C worksheet session — pure state, Claude calls tools */
+  private worksheetSession: WorksheetSession | null = null;
 
   /** Canonical worksheet loop — server validates, renders, and grades from one source of truth. */
   private worksheetMode = false;
@@ -1283,48 +1301,56 @@ export class SessionManager {
         subject,
       );
       if (this.worksheetMode) {
-        sessionPrompt +=
-          "\n\n## Worksheet session (server-driven)\n" +
-          `The server shows each problem on the canvas (SVG generated from a short plain-text scene description, plus board text when needed) and asks using the problem's question field. ` +
-          `You are ${this.companion.name}: stay in character for short reactions if a free-form turn runs between problems. ` +
-          `Subject label (informational): ${this.worksheetSubjectLabel}.\n\n` +
-          `IMPORTANT: The server controls the canvas during worksheet sessions. Each problem is already displayed ` +
-          `on screen before you speak. Do NOT call showCanvas during worksheet problems — it will wipe what is ` +
-          `already there and confuse the child.\n` +
-          `If the child asks to hide the screen, pause the activity, or says they need to talk about something personal or important, call requestPauseForCheckIn instead of explaining that you cannot control the canvas.\n` +
-          `When the child says they are ready to continue OR asks to see the worksheet, call requestResumeActivity. After calling it, say something like "Let me get that up for you!" — do NOT say "it should be on your screen now" or claim the screen changed. The server handles it; you just narrate warmly.\n` +
-          `Your job: speak the question, react to answers, give hints. The canvas is handled for you.\n\n` +
-          `YOU are the grader. You can see the actual worksheet image pinned in the conversation.\n` +
-          `ALWAYS verify amounts and answers against what you SEE in the worksheet image — the extracted text can have OCR errors.\n` +
-          `Use your natural reasoning to determine if the child's spoken answer is correct — even if phrased differently, in words instead of numbers, or using context clues.\n` +
-          `When stating amounts, use ONLY values you can see in the worksheet image. Never invent or combine values.\n\n` +
-          (this.worksheetInteractionMode === "review"
-            ? `REVIEW MODE: The child has ALREADY completed this worksheet. Their handwritten answers are in the boxes.\n` +
-              `There are TWO separate jobs for each problem — keep them separate:\n\n` +
-              `JOB 1 — VERIFY THE COIN COUNT (image-dependent, be honest about confidence):\n` +
-              `  - Try to count the coins in the image yourself.\n` +
-              `  - If you can count clearly: state your count and compare to what the child wrote.\n` +
-              `    Example: "I count a quarter, two dimes, and a penny — that's 46¢. You wrote 51¢, so there's a difference. Can you recount?"\n` +
-              `  - If the image is too grainy or coins are ambiguous: be honest and invite the child to recount.\n` +
-              `    Example: "I can make out what looks like 4 or 5 coins but the scan is a bit grainy — can you count them again and tell me what you get?"\n` +
-              `  - Never pretend to be certain when you are not. Honest uncertainty is better than a confident wrong answer.\n\n` +
-              `JOB 2 — ANSWER THE COMPARISON QUESTION (always reliable — use the written numbers):\n` +
-              `  - The written amounts in the boxes are always clearly readable even when the coins are not.\n` +
-              `  - Use the written numbers to definitively answer "who has more?" — you can always read these with certainty.\n` +
-              `  - State this confidently: "You wrote $0.62 and $0.52 — 62 is bigger, so the first student has more money."\n` +
-              `  - Do NOT second-guess the comparison even if you couldn't verify the coin count precisely.\n\n` +
-              `IMPORTANT: Keep these two jobs separate in your response. Don't let uncertainty about coin counting bleed into uncertainty about the comparison.\n\n`
-            : `When the child answers a problem:\n` +
-              `  - If correct (even if phrased differently): praise them, call logWorksheetAttempt(correct=true)\n` +
-              `  - If incorrect: give a hint, call logWorksheetAttempt(correct=false)\n` +
-              `  - If asking a question or confused: answer them naturally. Do NOT call logWorksheetAttempt.\n` +
-              `  - If reading or repeating the question back: this is NOT an answer. Help them understand it. Do NOT call logWorksheetAttempt.\n` +
-              `  - After 3 incorrect attempts: reveal the answer warmly, call logWorksheetAttempt(correct=false)\n\n` +
-              `IMPORTANT: The [Canvas State] block includes the correct answer and a hint. Use these — do NOT ask the child to describe what they see. You already know.\n`) +
-          `Reference the visual content directly: "I can see the cookies cost 10¢ and 15¢" instead of "What do you see on the price tag?"\n\n` +
-          `Do not invent worksheet facts that are not in the current problem or canvas state.\n` +
-          `ALWAYS call logWorksheetAttempt after the child gives an answer attempt. The server uses this to advance to the next problem.\n` +
-          `Use logWorksheetAttempt with childName="${homeworkChild}", problemId matching the current problem id (as string), childSaid and expectedAnswer from the canonical worksheet facts in context.`;
+        if (this.worksheetProblems.length > 0) {
+          this.worksheetSession = createWSSession({
+            childName: homeworkChild,
+            companionName: this.companion.name,
+            problems: this.worksheetProblems.map((p) => ({
+              id: String(p.id),
+              question: p.question,
+              canonicalAnswer: p.canonicalAnswer,
+              hint: p.hint,
+              facts: {
+                leftCents: p.kind === "compare_amounts" ? p.leftAmountCents : 0,
+                rightCents: p.kind === "compare_amounts" ? p.rightAmountCents : 0,
+              },
+            })),
+            rewardThreshold: this.worksheetRewardAfterN,
+            rewardGame: "space-invaders",
+          });
+          const wsStatus = this.worksheetSession.getSessionStatus();
+          if (wsStatus.pendingRewardFromLastSession) {
+            console.log(
+              `  🎁 Pending reward from last session: ${wsStatus.pendingRewardFromLastSession}`,
+            );
+          }
+          sessionPrompt +=
+            "\n\n" +
+            buildWorksheetToolPrompt({
+              childName: homeworkChild,
+              companionName: this.companion.name,
+              subjectLabel: this.worksheetSubjectLabel,
+              problemCount: this.worksheetProblems.length,
+              rewardThreshold: this.worksheetRewardAfterN,
+              rewardGame: "space-invaders",
+              pendingRewardFromLastSession: wsStatus.pendingRewardFromLastSession,
+              interactionMode: this.worksheetInteractionMode,
+            });
+          sessionPrompt +=
+            "\n\n## Worksheet session (canvas + check-ins)\n" +
+            `Subject label (informational): ${this.worksheetSubjectLabel}.\n` +
+            `If the child asks to hide the screen, pause the activity, or needs a personal check-in, call requestPauseForCheckIn. ` +
+            `When they are ready to continue, call requestResumeActivity — do not claim the canvas changed; stay warm and brief.\n` +
+            `Use getNextProblem to show worksheet pages on the canvas. Do NOT call showCanvas for worksheet PDF flow — it can conflict with the structured homework view.\n`;
+          console.log(
+            `  📋 Worksheet tool prompt appended (Option C — ${this.worksheetProblems.length} problems)`,
+          );
+        } else {
+          sessionPrompt +=
+            "\n\n## Worksheet session (visual-only)\n" +
+            `The worksheet image is available for discussion. There is no structured problem queue this session. ` +
+            `Help ${homeworkChild} using the image. Subject: ${this.worksheetSubjectLabel}.\n`;
+        }
       }
       this.companion = { ...this.companion, systemPrompt: sessionPrompt };
       console.log(
@@ -1371,6 +1397,16 @@ export class SessionManager {
           }
         : undefined,
     });
+    if (this.worksheetSession && this.ctx) {
+      this.ctx.availableToolNames = [
+        ...this.ctx.availableToolNames.filter((n) => n !== "logWorksheetAttempt"),
+        "getSessionStatus",
+        "getNextProblem",
+        "submitAnswer",
+        "launchGame",
+        "clearCanvas",
+      ];
+    }
     console.log(
       `  📋 Session type: ${sessionType}, canvas owner: ${this.ctx.canvas.owner}`
     );
@@ -1395,7 +1431,9 @@ export class SessionManager {
     this.send("canvas_draw", { mode: "idle" });
 
     this.clearSessionTimer = startMaxDurationTimer(this.childName, () => {
-      console.log("  ⏰ Session timeout reached (15 min)");
+      console.log(
+        `  ⏰ Session timeout reached (${Math.round((Date.now() - this.sessionStartTime) / 60000)} min wall)`,
+      );
       this.end();
     });
 
@@ -2287,8 +2325,8 @@ export class SessionManager {
           console.log("  ⚠️  [worksheet] stuck guard — nudging model to evaluate answer");
           userMessage =
             `${transcript}\n\n[System: The child has been on problem ${wp.id} for several turns. ` +
-            `Evaluate whether their response answers the question. If it does, call logWorksheetAttempt. ` +
-            `If they seem confused, give a clear hint and re-state the question simply.]`;
+            `If their last turn sounds like a real answer (even informal), call logWorksheetAttempt. ` +
+            `If they repeated the question or only asked for clarification, do not log — give a short, kind hint and restate the question simply.]`;
           this.worksheetTurnsWithoutAttempt = 0;
         }
       }
@@ -2432,15 +2470,32 @@ export class SessionManager {
         .filter(Boolean)
         .join("\n\n");
 
-      const dynamicTools = this.ctx
+      const baseTools = this.ctx
         ? getToolsForSessionType(this.ctx.sessionType)
         : undefined;
+      let finalTools: Record<string, unknown> | undefined = baseTools as
+        | Record<string, unknown>
+        | undefined;
+      if (this.worksheetSession && this.worksheetMode && baseTools) {
+        const { logWorksheetAttempt: _omit, ...rest } = baseTools as Record<
+          string,
+          unknown
+        >;
+        finalTools = {
+          ...rest,
+          getSessionStatus: createGetSessionStatusTool(this.worksheetSession),
+          getNextProblem: createGetNextProblemTool(this.worksheetSession),
+          submitAnswer: createSubmitAnswerTool(this.worksheetSession),
+          launchGame: createLaunchGameTool(this.worksheetSession),
+          clearCanvas: createClearCanvasTool(this.worksheetSession),
+        };
+      }
 
       await runAgent({
         history: historyWithPin,
         userMessage: messageWithContext,
         profile: this.companion,
-        tools: dynamicTools,
+        tools: finalTools,
         onToken: (chunk) => {
           fullResponse += chunk;
           this.send("response_text", { chunk });
@@ -2467,6 +2522,10 @@ export class SessionManager {
             if (toolName === "launch_game") toolName = "launchGame";
             if (toolName === "log_worksheet_attempt")
               toolName = "logWorksheetAttempt";
+            if (toolName === "get_session_status") toolName = "getSessionStatus";
+            if (toolName === "get_next_problem") toolName = "getNextProblem";
+            if (toolName === "submit_answer") toolName = "submitAnswer";
+            if (toolName === "clear_canvas") toolName = "clearCanvas";
             let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
             const originalToolName = toolName;
@@ -2571,13 +2630,17 @@ export class SessionManager {
       }
       this.send("audio_done");
 
-      if (this.pendingWorksheetStart) {
+      if (this.pendingWorksheetStart && !this.worksheetSession) {
         this.pendingWorksheetStart = false;
         this.worksheetAdvancing = true;
         await this.presentCurrentWorksheetProblem();
         this.worksheetAdvancing = false;
         await this.drainWorksheetBuffer();
-      } else if (this.pendingWorksheetLog != null && this.worksheetMode) {
+      } else if (
+        this.pendingWorksheetLog != null &&
+        this.worksheetMode &&
+        !this.worksheetSession
+      ) {
         const pl = this.pendingWorksheetLog;
         this.pendingWorksheetLog = null;
         this.worksheetAdvancing = true;
@@ -2634,7 +2697,7 @@ export class SessionManager {
         }
         // If the overload hit before the first worksheet problem was presented,
         // re-queue it so the canvas isn't permanently orphaned.
-        if (this.pendingWorksheetStart) {
+        if (this.pendingWorksheetStart && !this.worksheetSession) {
           console.log("  🔄 [worksheet] re-queuing pendingWorksheetStart after overload");
           this.pendingWorksheetStart = false;
           this.worksheetAdvancing = true;
@@ -2666,6 +2729,10 @@ export class SessionManager {
     if (tool === "start_spell_check") return "startSpellCheck";
     if (tool === "launch_game") return "launchGame";
     if (tool === "log_worksheet_attempt") return "logWorksheetAttempt";
+    if (tool === "get_session_status") return "getSessionStatus";
+    if (tool === "get_next_problem") return "getNextProblem";
+    if (tool === "submit_answer") return "submitAnswer";
+    if (tool === "clear_canvas") return "clearCanvas";
     if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
     if (tool === "request_resume_activity") return "requestResumeActivity";
     return tool;
@@ -2727,6 +2794,12 @@ export class SessionManager {
   }
 
   private async presentCurrentWorksheetProblem(): Promise<void> {
+    if (this.worksheetSession) {
+      console.log(
+        "  ℹ️  [option-c] Skipping server-driven presentCurrentWorksheetProblem — Claude calls getNextProblem",
+      );
+      return;
+    }
     const p = this.worksheetProblems[this.worksheetProblemIndex];
     if (!p) return;
 
@@ -2871,10 +2944,13 @@ export class SessionManager {
   }
 
   /**
-   * Worksheet turn gate — only blocks exact duplicate submissions.
-   * All real grading is delegated to the AI model via logWorksheetAttempt.
+   * Worksheet turn gate — swallows duplicate typed/spoken answers, clarification-only
+   * turns (server re-anchor), or returns false so the transcript becomes the model turn.
    */
   private async tryConsumeWorksheetTurn(transcript: string): Promise<boolean> {
+    if (this.worksheetSession) {
+      return false;
+    }
     if (
       !this.worksheetMode ||
       !this.worksheetReadyForAnswers ||
@@ -2896,6 +2972,37 @@ export class SessionManager {
       console.log("  🔁 worksheet transcript ignored — duplicate recent submission");
       return true;
     }
+    if (
+      currentProblemId &&
+      this.matchesPendingOverlaySubmission(currentProblemId, t)
+    ) {
+      console.log(
+        "  🔁 worksheet transcript ignored — matches pending typed overlay submission",
+      );
+      return true;
+    }
+
+    const worksheetCount = extractWorksheetTurnCount(t);
+    /** "Which two girls?" — the word "two" is not a cent answer; don't skip clarification handling. */
+    const numericAnswer =
+      worksheetCount != null && !/\bwhich two\b/i.test(t);
+    if (numericAnswer) {
+      this.worksheetTurnTranscript = t;
+      return false;
+    }
+    if (WORKSHEET_CLARIFICATION_PATTERNS.some((p) => p.test(t))) {
+      const amountLine =
+        problem.kind === "compare_amounts"
+          ? `${problem.leftAmountCents}¢ and ${problem.rightAmountCents}¢`
+          : `item ${problem.itemPriceCents}¢, total spent ${problem.totalSpentCents}¢`;
+      const reanchor =
+        `[Worksheet clarification] The child said: "${t}". ` +
+        `Re-anchor warmly: we're still on this problem — ${amountLine} — ` +
+        `then repeat the question in simple words: ${problem.question}`;
+      console.log("  💬 [worksheet] clarification turn — server re-anchor (no model grading)");
+      await this.handleCompanionTurn(reanchor);
+      return true;
+    }
 
     this.worksheetTurnTranscript = t;
     return false;
@@ -2905,6 +3012,12 @@ export class SessionManager {
    * Worksheet progression after Matilda calls logWorksheetAttempt (tool execute already logged to file).
    */
   private async advanceWorksheetAfterLogAttempt(ok: boolean): Promise<void> {
+    if (this.worksheetSession) {
+      console.log(
+        "  ℹ️  [option-c] Skipping server-driven advance — Claude calls getNextProblem",
+      );
+      return;
+    }
     const p = this.worksheetProblems[this.worksheetProblemIndex];
     if (!p) return;
 
@@ -3111,6 +3224,13 @@ export class SessionManager {
     }
 
     if (tool === "launchGame") {
+      const sessionLaunch = result as { ok?: boolean; error?: string } | undefined;
+      if (this.worksheetSession && sessionLaunch && sessionLaunch.ok === false) {
+        console.warn(
+          `  ⚠️  launchGame: worksheet session rejected — ${sessionLaunch.error ?? "unknown"}`,
+        );
+        return;
+      }
       const rawName = String(args.name ?? "").trim();
       const gt = args.type;
       if (gt !== "tool" && gt !== "reward") {
@@ -3171,7 +3291,17 @@ export class SessionManager {
         typeof result === "object" && result !== null && !Array.isArray(result)
           ? { ...(result as Record<string, unknown>) }
           : {};
-      if (this.activeCanvasActivity.pauseState === "paused_for_checkin") {
+      if (this.worksheetSession) {
+        console.log(
+          "  ℹ️  [option-c] logWorksheetAttempt ignored — use submitAnswer tool instead",
+        );
+        logWorksheetWireResult = {
+          ...base,
+          logged: false,
+          rejected: true,
+          reason: "option_c_use_submitAnswer",
+        };
+      } else if (this.activeCanvasActivity.pauseState === "paused_for_checkin") {
         logWorksheetWireResult = {
           ...base,
           logged: false,
@@ -3212,25 +3342,52 @@ export class SessionManager {
             console.warn(
               `  🚫 logWorksheetAttempt rejected: ${validation.reason}`,
             );
+            const problemIdMismatch =
+              typeof validation.reason === "string" &&
+              validation.reason.includes("problemId mismatch");
             logWorksheetWireResult = {
               ...base,
               logged: false,
               rejected: true,
               reason: validation.reason,
+              ...(problemIdMismatch
+                ? {
+                    serverCurrentProblemId: String(wp.id),
+                    gentleHint:
+                      "The screen is on a different row than the problemId you used. Reassure the child their thinking can still be right. Only log the active problem (id in canvas state). If they were answering an earlier row, acknowledge warmly and invite them to answer the problem showing now, or restate that row in plain language without logging the wrong id.",
+                  }
+                : {}),
             };
           } else {
             if (validation.warning) {
               console.warn(`  ⚠️  logWorksheetAttempt: ${validation.warning}`);
             }
-            logWorksheetWireResult = {
-              ...base,
-              effectiveChildSaid: validation.effectiveChildSaid,
-            };
-            logWorksheetAccepted = {
-              ok: args.correct === true,
-              effectiveChildSaid: validation.effectiveChildSaid,
-              wp,
-            };
+            const effectiveChildSaid = validation.effectiveChildSaid;
+            const na = classifyWorksheetNonAnswerTranscript(
+              effectiveChildSaid,
+              wp.question,
+            );
+            if (na.nonAnswer) {
+              console.warn(
+                `  🚫 logWorksheetAttempt rejected: ${na.reason} (transcript not treated as answer attempt)`,
+              );
+              logWorksheetWireResult = {
+                ...base,
+                logged: false,
+                rejected: true,
+                reason: na.reason,
+              };
+            } else {
+              logWorksheetWireResult = {
+                ...base,
+                effectiveChildSaid,
+              };
+              logWorksheetAccepted = {
+                ok: args.correct === true,
+                effectiveChildSaid,
+                wp,
+              };
+            }
           }
         }
       }
@@ -3265,7 +3422,11 @@ export class SessionManager {
         return;
       }
       this.transitionedToWork = true;
-      if (this.worksheetMode && this.worksheetProblems.length > 0) {
+      if (
+        this.worksheetMode &&
+        this.worksheetProblems.length > 0 &&
+        !this.worksheetSession
+      ) {
         this.pendingWorksheetStart = true;
       }
     }
@@ -3415,8 +3576,8 @@ export class SessionManager {
             if (prob.totalSpentCents > 0) allAmounts.push(prob.totalSpentCents);
           }
         }
-        const worksheetPool = buildSanitizedStorePool({
-          worksheetDomain: domain,
+        const worksheetPool = buildSanitizedGamePool({
+          domain,
           amounts: allAmounts,
         });
         if (worksheetPool.length > 0) {
@@ -3445,6 +3606,9 @@ export class SessionManager {
         launchConfig,
         this.companion.name,
       );
+      if (this.worksheetSession && gt === "reward") {
+        clearEarnedReward(this.childName);
+      }
       console.log(`  🎮 launchGame — ${gameName} (${gt})`);
       this.currentCanvasState = { ...revisedCanvasDraw };
       if (this.ctx) {
@@ -3469,6 +3633,147 @@ export class SessionManager {
           worksheetResumeSnapshot != null ? "worksheet_instructional_game" : undefined,
         snapshot: worksheetResumeSnapshot,
       });
+      return;
+    }
+
+    if (tool === "getNextProblem") {
+      const res = result as {
+        ok?: boolean;
+        canvasRendered?: boolean;
+        problemId?: string;
+      };
+      if (res?.ok && res?.canvasRendered && res.problemId && this.assignmentManifest && this.worksheetPlayerState) {
+        const problemId = res.problemId;
+        const problem = this.worksheetProblems.find((p) => String(p.id) === problemId);
+        const idx = this.worksheetProblems.findIndex((p) => String(p.id) === problemId);
+        if (idx >= 0) {
+          this.worksheetProblemIndex = idx;
+          if (this.ctx?.assignment) {
+            this.ctx.assignment.currentIndex = idx;
+          }
+        }
+        const assignmentProblem = this.assignmentManifest.problems.find(
+          (entry) => entry.problemId === problemId,
+        );
+        if (problem && assignmentProblem) {
+          this.worksheetPlayerState = resumeAssignmentProblem(this.assignmentManifest, {
+            activeProblemId: problemId,
+            currentPage: this.worksheetPlayerState.currentPage ?? 1,
+            activeFieldId: this.worksheetPlayerState.activeFieldId,
+            interactionMode:
+              this.worksheetPlayerState.interactionMode ?? this.worksheetInteractionMode,
+          });
+          const worksheetPdfDraw = this.withCanvasRevision({
+            mode: "worksheet_pdf",
+            content: problem.question,
+            pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
+            pdfPage: assignmentProblem.page,
+            pdfPageWidth:
+              this.assignmentManifest.pages.find((pg) => pg.page === assignmentProblem.page)
+                ?.width ?? 1000,
+            pdfPageHeight:
+              this.assignmentManifest.pages.find((pg) => pg.page === assignmentProblem.page)
+                ?.height ?? 1400,
+            activeProblemId: this.worksheetPlayerState.activeProblemId,
+            activeFieldId: this.worksheetPlayerState.activeFieldId,
+            overlayFields: this.worksheetPlayerState.overlayFields,
+            interactionMode: this.worksheetPlayerState.interactionMode,
+            problemAnswer: problem.canonicalAnswer,
+            problemHint: problem.hint.trim() || undefined,
+          });
+          this.currentCanvasState = { ...worksheetPdfDraw };
+          this.setActiveCanvasActivity("worksheet");
+          if (this.ctx) {
+            this.ctx.updateCanvas({
+              mode: "worksheet_pdf",
+              content: problem.question,
+              pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
+              pdfPage: assignmentProblem.page,
+              pdfPageWidth:
+                this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
+                  ?.width ?? 1000,
+              pdfPageHeight:
+                this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
+                  ?.height ?? 1400,
+              activeProblemId: this.worksheetPlayerState.activeProblemId,
+              activeFieldId: this.worksheetPlayerState.activeFieldId,
+              overlayFields: this.worksheetPlayerState.overlayFields,
+              interactionMode: this.worksheetPlayerState.interactionMode,
+              problemAnswer: problem.canonicalAnswer || undefined,
+              problemHint: problem.hint.trim() || undefined,
+              sceneDescription:
+                "The child sees the exact worksheet page with a server-owned answer box overlay.",
+            });
+            this.broadcastContext();
+          }
+          this.send("canvas_draw", worksheetPdfDraw);
+          console.log(`  🖼️  [worksheet] Canvas rendered for problem ${problemId} (Option C)`);
+        }
+      }
+      if (res?.ok) {
+        this.worksheetReadyForAnswers = true;
+      }
+      return;
+    }
+
+    if (tool === "submitAnswer") {
+      const res = result as {
+        ok?: boolean;
+        rewardEarned?: boolean;
+        rewardGame?: string;
+      };
+      if (res?.ok) {
+        const problemId = String(args.problemId ?? "");
+        const idx = this.worksheetProblems.findIndex((p) => String(p.id) === problemId);
+        const correct = args.correct === true;
+        if (idx >= 0) {
+          this.worksheetProblemIndex = idx;
+          if (this.ctx?.assignment) {
+            this.ctx.assignment.currentIndex = idx;
+          }
+          this.processReward({ correct });
+          this.recordWorksheetAttempt(String(args.childSaid ?? ""), correct);
+          this.rememberWorksheetSubmission(problemId, String(args.childSaid ?? ""));
+          if (correct) {
+            this.rememberWorksheetAcceptedTranscript(String(args.childSaid ?? ""));
+          }
+          if (shouldPersistSessionData()) {
+            void appendWorksheetAttemptLine({
+              childName: this.childName,
+              problemId,
+              correct,
+            }).catch((e) =>
+              console.warn(
+                "  ⚠️  appendWorksheetAttemptLine failed:",
+                e instanceof Error ? e.message : String(e),
+              ),
+            );
+          }
+          if (correct) {
+            this.worksheetProblemIndex =
+              idx + 1 < this.worksheetProblems.length ? idx + 1 : idx;
+            if (this.ctx?.assignment) {
+              this.ctx.assignment.currentIndex = this.worksheetProblemIndex;
+            }
+          }
+        }
+        if (res.rewardEarned && res.rewardGame) {
+          saveEarnedReward(this.childName, res.rewardGame);
+          console.log(`  🎁 Reward earned and saved: ${res.rewardGame}`);
+        }
+      }
+      return;
+    }
+
+    if (tool === "clearCanvas") {
+      this.currentCanvasState = null;
+      if (this.ctx) {
+        this.ctx.updateCanvas({ mode: "idle" });
+        this.broadcastContext();
+      }
+      this.send("canvas_draw", { mode: "idle" });
+      this.clearActiveCanvasActivity();
+      console.log(`  🖼️  [worksheet] Canvas cleared by companion (Option C)`);
       return;
     }
 
@@ -3603,7 +3908,12 @@ export class SessionManager {
         void (async () => {
           // First try the formal resume path (only works if explicitly paused)
           const resumed = await this.resumeActiveCanvasActivity(false).catch(() => false);
-          if (!resumed && this.worksheetMode && this.worksheetProblems[this.worksheetProblemIndex]) {
+          if (
+            !resumed &&
+            this.worksheetMode &&
+            this.worksheetProblems[this.worksheetProblemIndex] &&
+            !this.worksheetSession
+          ) {
             // Activity was never formally paused (e.g. session interrupted by overload before
             // the first problem was ever presented) — present the current problem directly.
             console.log("  🔄 [worksheet] requestResumeActivity fallback — presenting current problem");
