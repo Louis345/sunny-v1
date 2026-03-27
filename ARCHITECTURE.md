@@ -130,6 +130,18 @@ Give Claude:
 
 ---
 
+## Law 5a: Server Facts vs Model Speech (Worksheets)
+
+The **server** provides structured facts (amounts, confidence, canonical answers from extraction) and gates tools. It must not assert **numeric or worksheet-specific correctness** in hardcoded strings the child hears from TTS when those numbers come from OCR that may be wrong.
+
+**OK:** Short non-numeric `handleCompanionTurn` lines (celebrations, transitions, opening line, reading `p.question`).
+
+**Not OK:** Server-built sentences that state dollar/cent amounts or “the bigger amount is …” from extracted cents without passing the worksheet-truth sanity layer — use `[System: …]` + `runCompanionResponse` so the model speaks, with facts injected from `worksheet-truth.ts`.
+
+See `src/server/worksheet-truth.ts` and `npm run test:accuracy`.
+
+---
+
 ## Law 6: One Branch Per Concern
 
 - `feat/blackboard-spelling` → spelling UX changes
