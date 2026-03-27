@@ -10,6 +10,7 @@ const GAME_MODES = new Set<string>([
 export type RenderableCanvasMode =
   | "idle"
   | "teaching"
+  | "worksheet_pdf"
   | "reward"
   | "riddle"
   | "championship"
@@ -27,11 +28,13 @@ export interface RenderableCanvasLike {
   lottieData?: Record<string, unknown>;
   mode: RenderableCanvasMode;
   gameUrl?: string;
+  pdfAssetUrl?: string;
 }
 
 export function canvasHasRenderableContent(canvas: RenderableCanvasLike): boolean {
   return Boolean(
     (GAME_MODES.has(canvas.mode) && canvas.gameUrl) ||
+      (canvas.mode === "worksheet_pdf" && canvas.pdfAssetUrl) ||
       canvas.content ||
       canvas.label ||
       (canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0) ||

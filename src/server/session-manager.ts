@@ -1,5 +1,7 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
+import { execSync } from "child_process";
 import type { WebSocket } from "ws";
 import {
   getCompanionConfig,
@@ -8,6 +10,7 @@ import {
 } from "../companions/loader";
 import {
   DEMO_MODE_PROMPT,
+  HOMEWORK_MODE_PROMPT,
   TEST_MODE_PROMPT,
   WORD_BUILDER_ROUND_COMPLETE,
   WORD_BUILDER_ROUND_FAILED,
@@ -39,7 +42,6 @@ import { anthropic } from "@ai-sdk/anthropic";
 import {
   extractHomeworkProblems,
   type HomeworkExtractionResult,
-  type HomeworkProblemItem,
 } from "../agents/psychologist/psychologist";
 import { GameBridge } from "./game-bridge";
 import type { GameDefinition } from "./games/registry";
@@ -49,16 +51,92 @@ import {
   REWARD_GAMES,
   TEACHING_TOOLS,
 } from "./games/registry";
+import { resolveLaunchGameRequest } from "./games/resolveLaunchGameRequest";
 import { TurnStateMachine } from "./session-state";
 import {
+  type ActivityMode,
+  type ActivityPauseState,
   type SessionContext,
   createSessionContext,
   buildCanvasContextMessage,
 } from "./session-context";
 import {
+  getSessionTypeConfig,
   getToolsForSessionType,
   resolveSessionType,
 } from "./session-type-registry";
+import {
+  deriveWorksheetCanvasModel,
+  renderWorksheetCanvasModelSvg,
+  summarizeWorksheetCanvasModel,
+} from "./worksheet-canvas-model";
+import {
+  buildAssignmentManifestFromWorksheetProblems,
+  buildWorksheetPlayerState,
+  detectWorksheetInteractionMode,
+  resumeAssignmentProblem,
+  type AssignmentManifest,
+  type WorksheetInteractionMode,
+  type WorksheetPlayerState,
+} from "./assignment-player";
+import {
+  normalizeWorksheetProblem,
+  toWorksheetCanvasSource,
+  toWorksheetPromptProblem,
+  type CanonicalWorksheetProblem,
+} from "./worksheet-problem";
+import {
+  isDemoMode,
+  isHomeworkMode,
+  isSunnyTestMode,
+  shouldPersistSessionData,
+} from "../utils/runtimeMode";
+
+type CanvasActivitySnapshot = {
+  mode: ActivityMode;
+  canvasState: Record<string, unknown> | null;
+  contextCanvas?: Record<string, unknown>;
+  worksheet?: {
+    problemIndex: number;
+    wrongForCurrent: number;
+    question: string;
+  };
+  wordBuilder?: {
+    word: string;
+    round: number;
+  };
+  spellCheck?: {
+    word: string;
+  };
+};
+
+type PendingGameStart = {
+  gameUrl: string;
+  childName: string;
+  companionName: string;
+  config: Record<string, unknown>;
+};
+
+type WorksheetTurnOutcomeKind =
+  | "accepted_correct"
+  | "accepted_incorrect"
+  | "clarification_only"
+  | "blocked_stale";
+
+/** @deprecated — kept for type compatibility; grading is now model-owned */
+type WorksheetTurnOutcome = {
+  kind: WorksheetTurnOutcomeKind;
+  prompt: string;
+  correct?: boolean;
+  recordAttempt?: boolean;
+};
+
+type WorksheetLearningArcState = {
+  gameName: string;
+  prompts: string[];
+  promptIndex: number;
+  phase: "instructional_game" | "followup";
+};
 
 /**
  * Strip markdown fences from SVG output.
@@ -78,6 +156,88 @@ function stripSvgField(obj: Record<string, unknown>): void {
 }
 
 const QUESTION_PREFIXES = /^(circle|how much|how many|what|which|count|find|choose|select|pick|show|draw|look at|read)\b/i;
+const WORKSHEET_CLARIFICATION_PATTERNS = [
+  /\bwhich one\b/i,
+  /\bwhich two\b/i,
+  /\bwho are we talking about\b/i,
+  /\bwhat do you mean\b/i,
+  /\bwhich (girl|student|child)\b/i,
+  /\bwhat('?s| is) next\b/i,
+  /\bi'?m ready\b/i,
+  /\blet'?s go\b/i,
+  /^(yeah|yep|yes|okay|ok|sense)\b/i,
+];
+const WORKSHEET_CARRYOVER_LEADERS = /^(than|then|and|or|is|was|were|bigger|smaller|more|less)\b/i;
+const INSTRUCTIONAL_GAME_COMPLETION_CLAIM =
+  /\b(i did it|i did|i won|i finished|finished it|i'm done|im done|all done|completed it|i beat it|i got it)\b/i;
+const WORKSHEET_NUMBER_WORDS: Record<string, number> = {
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
+};
+
+function extractWorksheetTurnCount(text: string): number | null {
+  const cleaned = String(text ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, " ");
+  const numeric = cleaned.match(/\b(\d+)\b/);
+  if (numeric) return Number(numeric[1]);
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  for (let i = 0; i < words.length; i++) {
+    const first = words[i];
+    const value = WORKSHEET_NUMBER_WORDS[first];
+    if (value == null) continue;
+    const next = words[i + 1];
+    if (value >= 20 && next && WORKSHEET_NUMBER_WORDS[next] != null && WORKSHEET_NUMBER_WORDS[next] < 10) {
+      return value + WORKSHEET_NUMBER_WORDS[next];
+    }
+    return value;
+  }
+  return null;
+}
+
+function normalizeTranscriptForGuards(text: string): string {
+  return String(text ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function formatMoneyAmountForSpeech(cents: number): string {
+  if (cents >= 100) {
+    const dollars = Math.floor(cents / 100);
+    const remainder = cents % 100;
+    if (remainder === 0) {
+      return `${dollars} dollar${dollars === 1 ? "" : "s"}`;
+    }
+    return `${dollars} dollar${dollars === 1 ? "" : "s"} ${remainder} cents`;
+  }
+  return `${cents} cents`;
+}
 
 /**
  * Strip question/instruction framing from canvas_display text so the SVG
@@ -96,12 +256,39 @@ export function hasContentOverlap(claimed: string, actual: string): boolean {
   if (!claimed || !actual) return false;
   const a = claimed.toLowerCase().trim();
   const b = actual.toLowerCase().trim();
+  if (/^(who|what|which)\b/i.test(b) || WORKSHEET_CLARIFICATION_PATTERNS.some((pattern) => pattern.test(b))) {
+    return false;
+  }
   if (a === b) return true;
   if (a.includes(b) || b.includes(a)) return true;
-  const wordsA = a.split(/\W+/).filter(w => w.length >= 3);
-  const wordsB = new Set(b.split(/\W+/).filter(w => w.length >= 3));
+  const countA = extractWorksheetTurnCount(a);
+  const countB = extractWorksheetTurnCount(b);
+  if (countA != null || countB != null) {
+    return countA != null && countB != null && countA === countB;
+  }
+  const ignoredWords = new Set([
+    ...Object.keys(WORKSHEET_NUMBER_WORDS),
+    "the",
+    "this",
+    "that",
+    "these",
+    "those",
+    "girl",
+    "girls",
+    "student",
+    "students",
+    "child",
+    "children",
+    "money",
+    "amount",
+    "amounts",
+  ]);
+  const wordsA = a.split(/\W+/).filter((w) => w.length >= 3 && !ignoredWords.has(w));
+  const wordsB = new Set(
+    b.split(/\W+/).filter((w) => w.length >= 3 && !ignoredWords.has(w)),
+  );
   if (wordsA.length === 0) return false;
-  return wordsA.some(w => wordsB.has(w));
+  return wordsA.some((w) => wordsB.has(w));
 }
 
 export function sanitizeCanvasDescription(raw: string): string {
@@ -177,22 +364,9 @@ Return ONLY the raw <svg> tag. No markdown, no explanation, no code fences.`,
 
 /** Omit raw worksheet directions from the session prompt — never expose instructions to the tutor LLM. */
 function problemsForWorksheetSessionPrompt(
-  problems: HomeworkProblemItem[],
-): Array<
-  Pick<
-    HomeworkProblemItem,
-    "id" | "question" | "answer" | "hint" | "canvas_display"
-  >
-> {
-  return problems.map(
-    ({ id, question, answer, hint, canvas_display }) => ({
-      id,
-      question,
-      answer,
-      hint,
-      canvas_display,
-    }),
-  );
+  problems: CanonicalWorksheetProblem[],
+): Array<ReturnType<typeof toWorksheetPromptProblem>> {
+  return problems.map((problem) => toWorksheetPromptProblem(problem));
 }
 
 /** Homework + classifier path: SUNNY_CHILD=reina|ila overrides WebSocket session child. */
@@ -296,6 +470,7 @@ export class SessionManager {
    *  Updated every time showCanvas fires; cleared on barge-in and session end.
    *  Injected into each user turn so the AI knows what's already on screen. */
   private currentCanvasState: Record<string, unknown> | null = null;
+  private currentCanvasRevision = 0;
   private toolCallsMadeThisTurn = 0;
   private activeWord: string | null = null;
   private isSpellingSession = false;
@@ -324,6 +499,7 @@ export class SessionManager {
   private spellCheckSessionActive = false;
   private activeWordContext: string = "";
   private wordAttemptCounts: Map<string, number> = new Map();
+  private pendingGameStart: PendingGameStart | null = null;
 
   private turnSM: TurnStateMachine;
 
@@ -342,25 +518,63 @@ export class SessionManager {
   private spellingWordsWithAttempt = new Set<string>();
   private spaceInvadersRewardActive = false;
   private spaceInvadersRewardLaunched = false;
+  private endAfterReward = false;
 
-  /** Generic worksheet loop (Psychologist extractHomeworkProblems) — server drives canvas + questions. */
+  /** Canonical worksheet loop — server validates, renders, and grades from one source of truth. */
   private worksheetMode = false;
   private worksheetReadyForAnswers = false;
-  private worksheetProblems: HomeworkProblemItem[] = [];
+  private worksheetProblems: CanonicalWorksheetProblem[] = [];
+  private assignmentManifest: AssignmentManifest | null = null;
+  private worksheetPlayerState: WorksheetPlayerState | null = null;
+  private worksheetInteractionMode: WorksheetInteractionMode = "answer_entry";
   private worksheetProblemIndex = 0;
   private worksheetWrongForCurrent = 0;
+  private worksheetTurnsWithoutAttempt = 0;
   private worksheetRewardAfterN = 5;
   private worksheetSubjectLabel = "";
+  /** Actual worksheet PDF/image bytes — pinned into conversation so the model sees the real worksheet */
+  private worksheetPageFile: { data: Buffer; mimeType: string } | null = null;
   /** Defer worksheet index/canvas advance until after Matilda's response TTS completes. */
   private pendingWorksheetLog: { ok: boolean } | null = null;
   /** Defer first worksheet problem until after the transitionToWork response finishes. */
   private pendingWorksheetStart = false;
+  private pendingEndSessionReward = false;
   /** Actual child transcript for the current worksheet turn — validates logWorksheetAttempt childSaid. */
   private worksheetTurnTranscript = "";
   /** True while advancing to next problem (SVG gen + question speak) — blocks concurrent agent runs. */
   private worksheetAdvancing = false;
   /** Transcript that arrived during worksheet advancement — replayed after advance completes. */
   private worksheetBufferedTranscript: string | null = null;
+  private worksheetRecentSubmission: {
+    problemId: string;
+    normalizedValue: string;
+    expiresAt: number;
+  } | null = null;
+  private worksheetPendingOverlaySubmission: {
+    problemId: string;
+    normalizedValue: string;
+  } | null = null;
+  private lastWorksheetTurnOutcome: WorksheetTurnOutcomeKind | null = null;
+  private recentWorksheetAcceptedTranscript: {
+    normalizedValue: string;
+    expiresAt: number;
+  } | null = null;
+  private pendingInstructionalGameCompletion: {
+    gameName: string;
+  } | null = null;
+  private worksheetLearningArc: WorksheetLearningArcState | null = null;
+  private activeCanvasActivity: {
+    mode: ActivityMode;
+    pauseState: ActivityPauseState;
+    resumable: boolean;
+    snapshot: CanvasActivitySnapshot | null;
+    reason?: string;
+  } = {
+    mode: "none",
+    pauseState: "active",
+    resumable: false,
+    snapshot: null,
+  };
 
   /** Canonical session state — drives tool filtering, canvas ownership, context injection. */
   private ctx: SessionContext | null = null;
@@ -395,6 +609,243 @@ export class SessionManager {
     return typeof content === "string" && /[a-z]/i.test(content);
   }
 
+  private syncActivityContext(): void {
+    if (!this.ctx) return;
+    this.ctx.updateActivity({
+      mode: this.activeCanvasActivity.mode,
+      pauseState: this.activeCanvasActivity.pauseState,
+      hidden: this.activeCanvasActivity.pauseState === "paused_for_checkin",
+      reason: this.activeCanvasActivity.reason,
+    });
+  }
+
+  private setActiveCanvasActivity(
+    mode: ActivityMode,
+    opts: {
+      resumable?: boolean;
+      reason?: string;
+      snapshot?: CanvasActivitySnapshot | null;
+    } = {}
+  ): void {
+    this.activeCanvasActivity = {
+      mode,
+      pauseState: "active",
+      resumable: opts.resumable ?? mode !== "none",
+      snapshot: opts.snapshot ?? null,
+      reason: opts.reason,
+    };
+    this.syncActivityContext();
+  }
+
+  private clearActiveCanvasActivity(): void {
+    this.pendingGameStart = null;
+    this.pendingInstructionalGameCompletion = null;
+    this.activeCanvasActivity = {
+      mode: "none",
+      pauseState: "active",
+      resumable: false,
+      snapshot: null,
+    };
+    this.syncActivityContext();
+  }
+
+  private isPauseForCheckInRequest(transcript: string): boolean {
+    const t = transcript.toLowerCase().trim();
+    if (!t) return false;
+    if (/(clear|hide|turn off).*(canvas|screen)/i.test(t)) return true;
+    if (
+      /(talk about my day|tell you about my day|tell you something|need to talk|bad experience)/i.test(t) &&
+      /(can i|can we|i want to|i need to|could we|just|really quickly|before)/i.test(t)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private isResumeActivityRequest(transcript: string): boolean {
+    const t = transcript.toLowerCase().trim();
+    if (!t) return false;
+    return /(\bi'?m ready\b|\blet'?s go back\b|\bgo back to\b|\bresume\b|\bcontinue\b|\bback to (math|the problem|the worksheet)\b)/i.test(
+      t
+    );
+  }
+
+  private captureActiveCanvasSnapshot(): CanvasActivitySnapshot | null {
+    const mode = this.activeCanvasActivity.mode;
+    if (mode === "none") return null;
+    const canvasState = this.currentCanvasState
+      ? { ...this.currentCanvasState }
+      : null;
+    const contextCanvas = this.ctx
+      ? ({ ...this.ctx.canvas.current } as Record<string, unknown>)
+      : undefined;
+
+    if (mode === "worksheet") {
+      const p = this.worksheetProblems[this.worksheetProblemIndex];
+      return {
+        mode,
+        canvasState,
+        contextCanvas,
+        worksheet: {
+          problemIndex: this.worksheetProblemIndex,
+          wrongForCurrent: this.worksheetWrongForCurrent,
+          question: p?.question ?? "",
+        },
+      };
+    }
+
+    if (mode === "word-builder") {
+      return {
+        mode,
+        canvasState,
+        contextCanvas,
+        wordBuilder: {
+          word: this.wbWord,
+          round: this.wbRound,
+        },
+      };
+    }
+
+    if (mode === "spell-check") {
+      return {
+        mode,
+        canvasState,
+        contextCanvas,
+        spellCheck: {
+          word: this.activeSpellCheckWord,
+        },
+      };
+    }
+
+    return {
+      mode,
+      canvasState,
+      contextCanvas,
+    };
+  }
+
+  private async pauseActiveCanvasForCheckIn(reason: string): Promise<boolean> {
+    if (
+      this.activeCanvasActivity.mode === "none" ||
+      !this.activeCanvasActivity.resumable ||
+      this.activeCanvasActivity.pauseState === "paused_for_checkin"
+    ) {
+      return false;
+    }
+
+    const snapshot = this.captureActiveCanvasSnapshot();
+    if (!snapshot) return false;
+
+    this.activeCanvasActivity = {
+      ...this.activeCanvasActivity,
+      pauseState: "paused_for_checkin",
+      snapshot,
+      reason,
+    };
+    this.syncActivityContext();
+    this.worksheetReadyForAnswers = false;
+    this.currentCanvasState = null;
+    if (this.ctx) {
+      this.ctx.updateCanvas({
+        mode: "idle",
+        svg: undefined,
+        label: undefined,
+        content: undefined,
+        sceneDescription: undefined,
+        problemAnswer: undefined,
+        problemHint: undefined,
+      });
+    }
+    this.broadcastContext();
+    this.send("canvas_draw", { mode: "idle" });
+    return true;
+  }
+
+  private async resumeActiveCanvasActivity(
+    replayQuestion = true
+  ): Promise<boolean> {
+    if (this.activeCanvasActivity.pauseState !== "paused_for_checkin") {
+      return false;
+    }
+
+    const snapshot = this.activeCanvasActivity.snapshot;
+    if (!snapshot) return false;
+
+    this.activeCanvasActivity = {
+      ...this.activeCanvasActivity,
+      pauseState: "resuming",
+    };
+    this.syncActivityContext();
+
+    if (snapshot.mode === "worksheet" && snapshot.worksheet) {
+      this.worksheetProblemIndex = snapshot.worksheet.problemIndex;
+      this.worksheetWrongForCurrent = snapshot.worksheet.wrongForCurrent;
+      this.worksheetReadyForAnswers = false;
+      this.worksheetAdvancing = true;
+      if (snapshot.canvasState) {
+        this.currentCanvasState = { ...snapshot.canvasState };
+      }
+      if (this.ctx && snapshot.contextCanvas) {
+        this.ctx.updateCanvas(snapshot.contextCanvas as any);
+      }
+      this.broadcastContext();
+      if (snapshot.canvasState) {
+        this.send("canvas_draw", {
+          args: snapshot.canvasState,
+          result: snapshot.canvasState,
+        });
+      }
+      if (replayQuestion) {
+        await this.handleCompanionTurn(snapshot.worksheet.question);
+      }
+      this.worksheetReadyForAnswers = true;
+      this.worksheetAdvancing = false;
+      this.activeCanvasActivity = {
+        ...this.activeCanvasActivity,
+        pauseState: "active",
+        snapshot: null,
+        reason: undefined,
+      };
+      this.syncActivityContext();
+      this.broadcastContext();
+      await this.drainWorksheetBuffer();
+      return true;
+    }
+
+    if (snapshot.canvasState) {
+      this.currentCanvasState = { ...snapshot.canvasState };
+      if (this.ctx && snapshot.contextCanvas) {
+        this.ctx.updateCanvas(snapshot.contextCanvas as any);
+      }
+      this.send("canvas_draw", snapshot.canvasState);
+    }
+    this.activeCanvasActivity = {
+      ...this.activeCanvasActivity,
+      pauseState: "active",
+      snapshot: null,
+      reason: undefined,
+    };
+    this.syncActivityContext();
+    this.broadcastContext();
+    return true;
+  }
+
+  private async resumeWorksheetAfterInstructionalGame(
+    snapshot: CanvasActivitySnapshot
+  ): Promise<void> {
+    if (!snapshot.worksheet) return;
+    this.worksheetProblemIndex = snapshot.worksheet.problemIndex;
+    this.worksheetWrongForCurrent = snapshot.worksheet.wrongForCurrent;
+    this.worksheetReadyForAnswers = false;
+    this.worksheetAdvancing = true;
+    this.clearActiveCanvasActivity();
+    try {
+      await this.presentCurrentWorksheetProblem();
+    } finally {
+      this.worksheetAdvancing = false;
+    }
+  }
+
   /**
    * Convert a math canvas string like "16 - 8" or "7 + 9" into spoken TTS form.
    * The server speaks the problem — Claude only speaks feedback ("Nice!").
@@ -415,7 +866,7 @@ export class SessionManager {
     this.childName = childName;
     this.companion = getCompanionConfig(childName);
 
-    if (process.env.SUNNY_TEST_MODE === "true") {
+    if (isSunnyTestMode()) {
       this.companion = {
         ...this.companion,
         systemPrompt: TEST_MODE_PROMPT(childName),
@@ -477,8 +928,8 @@ export class SessionManager {
     // Check drop/ for new files and route them before loading homework
     this.send("loading_status", { message: "Checking for new assignments..." });
     try {
-      if (process.env.DEMO_MODE === "true") {
-        console.log("  🎭 Demo mode — skipping classifier");
+      if (isDemoMode() || isHomeworkMode()) {
+        console.log("  🎭 Demo/homework mode — skipping classifier");
       } else {
         const { hasNewFiles, routed } = await classifyAndRoute(homeworkChild);
         if (hasNewFiles) {
@@ -496,11 +947,100 @@ export class SessionManager {
 
     // Folder-based homework (images) — inject at session startup
     const homeworkPayload =
-      process.env.DEMO_MODE === "true"
-        ? null
-        : await loadHomeworkPayload(homeworkChild);
+      isDemoMode() ? null : await loadHomeworkPayload(homeworkChild);
 
-    if (process.env.DEMO_MODE === "true") {
+    if (isHomeworkMode() && homeworkPayload) {
+      // HOMEWORK MODE: loads real homework but uses parent-facing prompt (no progression loop)
+      console.log(
+        `  📚 Homework loaded for ${homeworkChild}: ${homeworkPayload.fileCount} pages`
+      );
+      this.send("loading_status", { message: "Preparing homework review..." });
+
+      let extraction: HomeworkExtractionResult = { subject: "", problems: [] };
+      try {
+        console.log("  🧠 Psychologist extracting worksheet problems...");
+        this.send("loading_status", { message: "Reading worksheet questions..." });
+        extraction = await extractHomeworkProblems({
+          rawText: homeworkPayload.rawContent,
+          pageAssets: homeworkPayload.pageAssets,
+        });
+        console.log(
+          `  🎮 [worksheet] extraction — subject: "${extraction.subject}", ` +
+            `problems: ${extraction.problems.length}`
+        );
+      } catch (err) {
+        console.warn("  ⚠️  Extraction failed:", err instanceof Error ? err.message : String(err));
+      }
+
+      // Load worksheet PDF as canvas + pin image for vision — same as normal mode
+      const pdfFilename = homeworkPayload.assetFilenames.find((n) =>
+        n.toLowerCase().endsWith(".pdf")
+      );
+      if (pdfFilename) {
+        const pdfAssetUrl = `/api/homework/${homeworkPayload.childName}/${homeworkPayload.date}/${encodeURIComponent(pdfFilename)}`;
+        // Show PDF on canvas
+        this.currentCanvasState = {
+          mode: "worksheet_pdf",
+          pdfAssetUrl,
+          pdfPage: 1,
+          overlayFields: [],
+        };
+        this.send("canvas_draw", this.currentCanvasState);
+        // Convert PDF → PNG for companion vision
+        try {
+          const pdfPath = path.join(homeworkPayload.folderPath, pdfFilename);
+          const tmpDir = os.tmpdir();
+          const pdfBase = path.basename(pdfPath);
+          execSync(
+            `/usr/bin/qlmanage -t -s 2000 -o "${tmpDir}" "${pdfPath}"`,
+            { stdio: "pipe" },
+          );
+          const pngPath = path.join(tmpDir, `${pdfBase}.png`);
+          this.worksheetPageFile = {
+            data: fs.readFileSync(pngPath),
+            mimeType: "image/png",
+          };
+          try { fs.unlinkSync(pngPath); } catch { /* cleanup best-effort */ }
+          console.log(
+            `  👁️  [worksheet] loaded PDF PNG for homework review (${(this.worksheetPageFile.data.length / 1024).toFixed(0)} KB)`
+          );
+        } catch (e) {
+          // Fall back to page asset
+          if (!this.worksheetPageFile && homeworkPayload.pageAssets.length > 0) {
+            const asset = homeworkPayload.pageAssets[0];
+            this.worksheetPageFile = {
+              data: Buffer.from(asset.data, "base64"),
+              mimeType: asset.mediaType,
+            };
+          }
+          console.warn("  ⚠️  PDF→PNG conversion failed:", e instanceof Error ? e.message : String(e));
+        }
+      } else if (homeworkPayload.pageAssets.length > 0) {
+        const asset = homeworkPayload.pageAssets[0];
+        this.worksheetPageFile = {
+          data: Buffer.from(asset.data, "base64"),
+          mimeType: asset.mediaType,
+        };
+      }
+
+      this.worksheetSubjectLabel = extraction.subject.trim() || "worksheet";
+
+      this.companion = {
+        ...this.companion,
+        systemPrompt: HOMEWORK_MODE_PROMPT(
+          this.childName,
+          this.companion.name,
+          extraction.subject,
+        ),
+        openingLine:
+          `Hello — I'm ${this.companion.name} in homework review mode. ` +
+          `I've loaded ${homeworkChild}'s worksheet on ${extraction.subject || "homework"}. ` +
+          "What would you like to review?",
+      };
+      console.log(`  📋 Homework mode — parent/developer review prompt active`);
+      console.log(`  📚 Subject: ${extraction.subject || subject}`);
+      this.send("loading_status", { message: "Ready for review..." });
+    } else if (isDemoMode()) {
       this.companion = {
         ...this.companion,
         systemPrompt: DEMO_MODE_PROMPT(this.childName, this.companion.name),
@@ -521,26 +1061,75 @@ export class SessionManager {
       );
       this.send("loading_status", { message: "Preparing session prompt..." });
 
+      // ── Extraction cache ────────────────────────────────────────────────────
+      // extraction.json lives alongside the PDF. Once written, all future
+      // sessions load instantly with zero tokens and no overload risk.
+      const cacheFile = path.join(homeworkPayload.folderPath, "extraction.json");
+
       let extraction: HomeworkExtractionResult = {
         subject: "",
         problems: [],
       };
-      try {
-        console.log("  🧠 Psychologist extracting worksheet problems...");
-        this.send("loading_status", {
-          message: "Reading worksheet questions...",
-        });
-        extraction = await extractHomeworkProblems(homeworkPayload.rawContent);
-        console.log(
-          `  🎮 [worksheet] extraction — subject: "${extraction.subject}", ` +
-            `problems: ${extraction.problems.length}`
-        );
-      } catch (err) {
-        console.warn(
-          "  ⚠️  Worksheet extraction failed:",
-          err instanceof Error ? err.message : String(err)
-        );
+
+      // Try loading from cache first
+      let loadedFromCache = false;
+      if (fs.existsSync(cacheFile)) {
+        try {
+          const cached = JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as HomeworkExtractionResult;
+          if (cached.subject && cached.problems.length > 0) {
+            extraction = cached;
+            loadedFromCache = true;
+            console.log(
+              `  ⚡ [worksheet] loaded extraction from cache — subject: "${extraction.subject}", ` +
+                `problems: ${extraction.problems.length}`
+            );
+          }
+        } catch (e) {
+          console.warn("  ⚠️  extraction.json corrupt — re-extracting:", e instanceof Error ? e.message : String(e));
+        }
       }
+
+      if (!loadedFromCache) {
+        try {
+          console.log("  🧠 Psychologist extracting worksheet problems...");
+          this.send("loading_status", {
+            message: "Reading worksheet questions...",
+          });
+          extraction = await extractHomeworkProblems({
+            rawText: homeworkPayload.rawContent,
+            pageAssets: homeworkPayload.pageAssets,
+          });
+          console.log(
+            `  🎮 [worksheet] extraction — subject: "${extraction.subject}", ` +
+              `problems: ${extraction.problems.length}`
+          );
+          // Persist to cache so next session is instant
+          if (extraction.subject && extraction.problems.length > 0) {
+            try {
+              fs.writeFileSync(cacheFile, JSON.stringify(extraction, null, 2), "utf-8");
+              console.log(`  💾 [worksheet] extraction cached → extraction.json`);
+            } catch (e) {
+              console.warn("  ⚠️  Could not write extraction.json:", e instanceof Error ? e.message : String(e));
+            }
+          }
+        } catch (err) {
+          console.warn(
+            "  ⚠️  Worksheet extraction failed:",
+            err instanceof Error ? err.message : String(err)
+          );
+          // Stale cache is better than nothing — check once more
+          if (fs.existsSync(cacheFile)) {
+            try {
+              const stale = JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as HomeworkExtractionResult;
+              if (stale.subject) {
+                extraction = stale;
+                console.warn("  ⚠️  Using stale extraction.json as fallback");
+              }
+            } catch { /* ignore */ }
+          }
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────────
 
       this.worksheetProblems = this.selectWorksheetProblems(extraction);
       this.worksheetProblemIndex = 0;
@@ -550,6 +1139,105 @@ export class SessionManager {
         extraction.session_directives?.reward_after ?? 5;
       this.worksheetSubjectLabel = extraction.subject.trim() || "worksheet";
       this.worksheetMode = this.worksheetProblems.length > 0;
+      this.worksheetInteractionMode = this.worksheetMode
+        ? extraction.session_directives?.interaction_mode ??
+          detectWorksheetInteractionMode({
+            rawContent: homeworkPayload.rawContent,
+            problems: this.worksheetProblems,
+          })
+        : "answer_entry";
+      this.assignmentManifest = null;
+      this.worksheetPlayerState = null;
+
+      // ── PDF + vision loading ─────────────────────────────────────────────────
+      // Always load the PDF and convert to PNG regardless of whether extraction
+      // succeeded — the child should always be able to see their worksheet, and
+      // the companion needs vision even in visual-only fallback mode.
+      const pdfFilename = homeworkPayload.assetFilenames.find((name) =>
+        name.toLowerCase().endsWith(".pdf"),
+      );
+      if (pdfFilename) {
+        const pdfAssetUrl = `/api/homework/${homeworkPayload.childName}/${homeworkPayload.date}/${encodeURIComponent(pdfFilename)}`;
+        const pdfPath = path.join(homeworkPayload.folderPath, pdfFilename);
+
+        // Convert PDF → PNG for companion vision (always — not gated on worksheetMode)
+        try {
+          const tmpDir = os.tmpdir();
+          const pdfBase = path.basename(pdfPath);
+          execSync(
+            `/usr/bin/qlmanage -t -s 2000 -o "${tmpDir}" "${pdfPath}"`,
+            { stdio: "pipe" },
+          );
+          const pngPath = path.join(tmpDir, `${pdfBase}.png`);
+          this.worksheetPageFile = {
+            data: fs.readFileSync(pngPath),
+            mimeType: "image/png",
+          };
+          try { fs.unlinkSync(pngPath); } catch { /* cleanup best-effort */ }
+          console.log(
+            `  👁️  [worksheet] converted PDF → PNG for companion vision (${(this.worksheetPageFile.data.length / 1024).toFixed(0)} KB)`,
+          );
+        } catch (e) {
+          console.warn(
+            "  ⚠️  Could not convert worksheet PDF for companion vision:",
+            e instanceof Error ? e.message : String(e),
+          );
+        }
+
+        if (this.worksheetMode) {
+          try {
+            this.assignmentManifest = buildAssignmentManifestFromWorksheetProblems({
+              assignmentId: `${homeworkPayload.childName.toLowerCase()}-${homeworkPayload.date}`,
+              childName: homeworkPayload.childName,
+              title: `${this.companion.name} worksheet`,
+              createdAt: new Date().toISOString(),
+              pdfAssetUrl,
+              problems: this.worksheetProblems,
+            });
+            this.worksheetPlayerState = buildWorksheetPlayerState(
+              this.assignmentManifest,
+              this.worksheetInteractionMode,
+            );
+            console.log(
+              `  📄 [worksheet] worksheet_pdf enabled — using asset ${pdfAssetUrl} (${this.worksheetInteractionMode})`
+            );
+          } catch (err) {
+            console.warn(
+              "  ⚠️  Worksheet player manifest build failed:",
+              err instanceof Error ? err.message : String(err),
+            );
+          }
+        } else {
+          // Extraction failed or produced no usable problems — show the PDF on canvas
+          // anyway so the child can see it and the companion can tutor from vision.
+          this.currentCanvasState = {
+            mode: "worksheet_pdf" as const,
+            pdfAssetUrl,
+            pdfPage: 1,
+            overlayFields: [],
+          };
+          this.send("canvas_draw", this.currentCanvasState);
+          console.log(
+            `  📄 [worksheet] visual-only fallback — PDF visible, no structured problem queue`
+          );
+        }
+      } else {
+        console.warn(
+          `  ⚠️  [worksheet] no PDF found in homework/${homeworkPayload.childName.toLowerCase()}/${homeworkPayload.date}/`
+        );
+      }
+
+      if (!this.worksheetPageFile && homeworkPayload.pageAssets.length > 0) {
+        const asset = homeworkPayload.pageAssets[0];
+        this.worksheetPageFile = {
+          data: Buffer.from(asset.data, "base64"),
+          mimeType: asset.mediaType,
+        };
+        console.log(
+          `  👁️  [worksheet] loaded worksheet image for companion vision (${(this.worksheetPageFile.data.length / 1024).toFixed(0)} KB)`,
+        );
+      }
+      // ────────────────────────────────────────────────────────────────────────
 
       console.log("  🧠 Psychologist building session prompt...");
       const wordList = this.worksheetMode
@@ -573,12 +1261,12 @@ export class SessionManager {
       }
 
       const homeworkForPrompt =
-        this.worksheetMode && extraction.problems.length > 0
-          ? `## Worksheet extraction (generic; server presents problems in order)\n${JSON.stringify(
+        this.worksheetMode && this.worksheetProblems.length > 0
+          ? `## Worksheet extraction (validated; server presents only canonical supported problems)\n${JSON.stringify(
               {
                 subject: extraction.subject,
                 problems: problemsForWorksheetSessionPrompt(
-                  extraction.problems,
+                  this.worksheetProblems,
                 ),
                 session_directives: extraction.session_directives,
               },
@@ -603,20 +1291,40 @@ export class SessionManager {
           `IMPORTANT: The server controls the canvas during worksheet sessions. Each problem is already displayed ` +
           `on screen before you speak. Do NOT call showCanvas during worksheet problems — it will wipe what is ` +
           `already there and confuse the child.\n` +
+          `If the child asks to hide the screen, pause the activity, or says they need to talk about something personal or important, call requestPauseForCheckIn instead of explaining that you cannot control the canvas.\n` +
+          `When the child says they are ready to continue OR asks to see the worksheet, call requestResumeActivity. After calling it, say something like "Let me get that up for you!" — do NOT say "it should be on your screen now" or claim the screen changed. The server handles it; you just narrate warmly.\n` +
           `Your job: speak the question, react to answers, give hints. The canvas is handled for you.\n\n` +
-          `You grade worksheet answers yourself.\n` +
-          `When the child answers a problem:\n` +
-          `  - If correct (even if phrased differently): praise them, call logWorksheetAttempt(correct=true)\n` +
-          `  - If incorrect: give a hint, call logWorksheetAttempt(correct=false)\n` +
-          `  - If asking a question or confused: answer them naturally. Do NOT call logWorksheetAttempt.\n` +
-          `  - If reading or repeating the question back: this is NOT an answer. Help them understand it. Do NOT call logWorksheetAttempt.\n` +
-          `  - After 3 incorrect attempts: reveal the answer warmly, call logWorksheetAttempt(correct=false)\n\n` +
-          `IMPORTANT: The [Canvas State] block in each message tells you what the child sees on screen RIGHT NOW.\n` +
-          `It includes the scene description, the correct answer, and a hint. Use these — do NOT ask the child to describe what they see. You already know.\n` +
+          `YOU are the grader. You can see the actual worksheet image pinned in the conversation.\n` +
+          `ALWAYS verify amounts and answers against what you SEE in the worksheet image — the extracted text can have OCR errors.\n` +
+          `Use your natural reasoning to determine if the child's spoken answer is correct — even if phrased differently, in words instead of numbers, or using context clues.\n` +
+          `When stating amounts, use ONLY values you can see in the worksheet image. Never invent or combine values.\n\n` +
+          (this.worksheetInteractionMode === "review"
+            ? `REVIEW MODE: The child has ALREADY completed this worksheet. Their handwritten answers are in the boxes.\n` +
+              `There are TWO separate jobs for each problem — keep them separate:\n\n` +
+              `JOB 1 — VERIFY THE COIN COUNT (image-dependent, be honest about confidence):\n` +
+              `  - Try to count the coins in the image yourself.\n` +
+              `  - If you can count clearly: state your count and compare to what the child wrote.\n` +
+              `    Example: "I count a quarter, two dimes, and a penny — that's 46¢. You wrote 51¢, so there's a difference. Can you recount?"\n` +
+              `  - If the image is too grainy or coins are ambiguous: be honest and invite the child to recount.\n` +
+              `    Example: "I can make out what looks like 4 or 5 coins but the scan is a bit grainy — can you count them again and tell me what you get?"\n` +
+              `  - Never pretend to be certain when you are not. Honest uncertainty is better than a confident wrong answer.\n\n` +
+              `JOB 2 — ANSWER THE COMPARISON QUESTION (always reliable — use the written numbers):\n` +
+              `  - The written amounts in the boxes are always clearly readable even when the coins are not.\n` +
+              `  - Use the written numbers to definitively answer "who has more?" — you can always read these with certainty.\n` +
+              `  - State this confidently: "You wrote $0.62 and $0.52 — 62 is bigger, so the first student has more money."\n` +
+              `  - Do NOT second-guess the comparison even if you couldn't verify the coin count precisely.\n\n` +
+              `IMPORTANT: Keep these two jobs separate in your response. Don't let uncertainty about coin counting bleed into uncertainty about the comparison.\n\n`
+            : `When the child answers a problem:\n` +
+              `  - If correct (even if phrased differently): praise them, call logWorksheetAttempt(correct=true)\n` +
+              `  - If incorrect: give a hint, call logWorksheetAttempt(correct=false)\n` +
+              `  - If asking a question or confused: answer them naturally. Do NOT call logWorksheetAttempt.\n` +
+              `  - If reading or repeating the question back: this is NOT an answer. Help them understand it. Do NOT call logWorksheetAttempt.\n` +
+              `  - After 3 incorrect attempts: reveal the answer warmly, call logWorksheetAttempt(correct=false)\n\n` +
+              `IMPORTANT: The [Canvas State] block includes the correct answer and a hint. Use these — do NOT ask the child to describe what they see. You already know.\n`) +
           `Reference the visual content directly: "I can see the cookies cost 10¢ and 15¢" instead of "What do you see on the price tag?"\n\n` +
-          `You are the tutor. You decide what counts as correct.\n` +
-          `The server trusts your judgment.\n` +
-          `Use logWorksheetAttempt with childName="${homeworkChild}", problemId matching the current problem id (as string), childSaid and expectedAnswer from the worksheet.`;
+          `Do not invent worksheet facts that are not in the current problem or canvas state.\n` +
+          `ALWAYS call logWorksheetAttempt after the child gives an answer attempt. The server uses this to advance to the next problem.\n` +
+          `Use logWorksheetAttempt with childName="${homeworkChild}", problemId matching the current problem id (as string), childSaid and expectedAnswer from the canonical worksheet facts in context.`;
       }
       this.companion = { ...this.companion, systemPrompt: sessionPrompt };
       console.log(
@@ -644,6 +1352,24 @@ export class SessionManager {
       childName: this.childName,
       sessionType,
       companionName: this.companion.name,
+      assignment: this.assignmentManifest
+        ? {
+            childName: this.childName,
+            title: this.assignmentManifest.title,
+            source: this.assignmentManifest.source,
+            createdAt: this.assignmentManifest.createdAt,
+            questions: this.assignmentManifest.problems.map((problem, index) => ({
+              index,
+              text: problem.prompt,
+              answerType: problem.gradingMode === "choice" ? "multiple_choice" : "numeric",
+              correctAnswer: problem.canonicalAnswer,
+              options:
+                problem.gradingMode === "choice"
+                  ? problem.overlayFields[0]?.options
+                  : undefined,
+            })),
+          }
+        : undefined,
     });
     console.log(
       `  📋 Session type: ${sessionType}, canvas owner: ${this.ctx.canvas.owner}`
@@ -665,6 +1391,7 @@ export class SessionManager {
     // state, so we always declare the initial state rather than relying on
     // the frontend's initial value.
     this.currentCanvasState = null;
+    this.clearActiveCanvasActivity();
     this.send("canvas_draw", { mode: "idle" });
 
     this.clearSessionTimer = startMaxDurationTimer(this.childName, () => {
@@ -692,6 +1419,312 @@ export class SessionManager {
   /** Inject a transcript directly — used by test harness to bypass Deepgram */
   injectTranscript(text: string): void {
     this.handleEndOfTurn(text).catch(console.error);
+  }
+
+  private normalizeWorksheetSubmissionValue(text: string): string {
+    return String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  private rememberWorksheetAcceptedTranscript(text: string): void {
+    const normalizedValue = normalizeTranscriptForGuards(text);
+    if (!normalizedValue) return;
+    this.recentWorksheetAcceptedTranscript = {
+      normalizedValue,
+      expiresAt: Date.now() + 2500,
+    };
+  }
+
+  private shouldIgnoreWorksheetCarryoverTranscript(text: string): boolean {
+    if (!this.recentWorksheetAcceptedTranscript) return false;
+    if (Date.now() > this.recentWorksheetAcceptedTranscript.expiresAt) {
+      this.recentWorksheetAcceptedTranscript = null;
+      return false;
+    }
+    const normalized = normalizeTranscriptForGuards(text);
+    if (!normalized) return false;
+    const previous = this.recentWorksheetAcceptedTranscript.normalizedValue;
+    if (
+      normalized === previous ||
+      previous.includes(normalized) ||
+      normalized.includes(previous) ||
+      WORKSHEET_CARRYOVER_LEADERS.test(normalized)
+    ) {
+      console.log(`  🗑️  Worksheet carryover transcript ignored: "${text}"`);
+      return true;
+    }
+    return false;
+  }
+
+  private shouldInterceptInstructionalGameCompletionClaim(
+    transcript: string,
+  ): boolean {
+    return (
+      this.pendingInstructionalGameCompletion != null &&
+      INSTRUCTIONAL_GAME_COMPLETION_CLAIM.test(transcript)
+    );
+  }
+
+  private async handleInstructionalGameCompletionClaim(): Promise<void> {
+    const gameName = this.pendingInstructionalGameCompletion?.gameName ?? "the game";
+    await this.handleCompanionTurn(
+      `Tell me when ${gameName} shows that you're finished, and I'll count it. If it doesn't say complete yet, keep going and I can help.`,
+    );
+  }
+
+  private buildWorksheetRevealPrompt(problem: CanonicalWorksheetProblem): string {
+    if (problem.kind === "compare_amounts") {
+      const larger = Math.max(problem.leftAmountCents, problem.rightAmountCents);
+      return `Let's slow down and stay on this same problem. The bigger amount here is ${formatMoneyAmountForSpeech(larger)}. Take another look and tell me which amount is bigger when you're ready.`;
+    }
+    return `Let's slow down and stay on this same problem. The answer here is ${problem.canonicalAnswer}. Tell me how many ${problem.itemLabel.toLowerCase()}s there are when you're ready.`;
+  }
+
+  private getWorksheetInstructionalGameName(): string | null {
+    const linkedGames = new Set<string>();
+    for (const problem of this.assignmentManifest?.problems ?? []) {
+      for (const game of problem.linkedGames) {
+        linkedGames.add(game);
+      }
+    }
+    if (
+      /money|coin|count|compare/i.test(this.worksheetSubjectLabel) &&
+      getTool("store-game")
+    ) {
+      return "store-game";
+    }
+    if (linkedGames.has("store-game") && getTool("store-game")) {
+      return "store-game";
+    }
+    for (const candidate of linkedGames) {
+      if (getTool(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private buildWorksheetLearningArcPrompts(): string[] {
+    const current = this.worksheetProblems[Math.max(0, this.worksheetProblemIndex - 1)];
+    if (current?.kind === "compare_amounts") {
+      return [
+        "Nice work in the store game. What was one money decision you had to make there?",
+        `One more quick check: if you compare ${formatMoneyAmountForSpeech(current.leftAmountCents)} and ${formatMoneyAmountForSpeech(current.rightAmountCents)}, which amount is bigger and how do you know?`,
+      ];
+    }
+    if (current?.kind === "money_count") {
+      return [
+        "Nice work in the store game. What did you have to count or buy?",
+        `One more quick check: if each ${current.itemLabel.toLowerCase()} costs ${formatMoneyAmountForSpeech(current.itemPriceCents)} and you spend ${formatMoneyAmountForSpeech(current.totalSpentCents)} total, how do you figure out how many there are?`,
+      ];
+    }
+    return [
+      "Nice work in the game. What did you notice while you were playing?",
+      "One more quick check: what helped you solve those money problems today?",
+    ];
+  }
+
+  private launchStructuredGame(
+    gameName: string,
+    type: "tool" | "reward",
+  ): void {
+    this.handleToolCall(
+      "launchGame",
+      { name: gameName, type },
+      {
+        ok: true,
+        requestedName: gameName,
+        canonicalName: gameName,
+        type,
+        availableGames:
+          type === "tool"
+            ? Object.keys(TEACHING_TOOLS)
+            : Object.keys(REWARD_GAMES),
+      },
+    );
+  }
+
+  private async startWorksheetLearningArc(): Promise<boolean> {
+    const gameName = this.getWorksheetInstructionalGameName();
+    if (!gameName) {
+      return false;
+    }
+    this.retireWorksheetSession();
+    this.worksheetLearningArc = {
+      gameName,
+      prompts: this.buildWorksheetLearningArcPrompts(),
+      promptIndex: 0,
+      phase: "instructional_game",
+    };
+    await this.handleCompanionTurn(
+      `You got them all! Nice work. Now let's use that same money thinking in the ${gameName.replace(/-/g, " ")}.`,
+    );
+    this.launchStructuredGame(gameName, "tool");
+    return true;
+  }
+
+  private async handleWorksheetLearningArcFollowup(
+    transcript: string,
+  ): Promise<boolean> {
+    if (!this.worksheetLearningArc || this.worksheetLearningArc.phase !== "followup") {
+      return false;
+    }
+    const currentPrompt = this.worksheetLearningArc.prompts[this.worksheetLearningArc.promptIndex];
+    if (this.worksheetLearningArc.promptIndex < this.worksheetLearningArc.prompts.length - 1) {
+      this.worksheetLearningArc = {
+        ...this.worksheetLearningArc,
+        promptIndex: this.worksheetLearningArc.promptIndex + 1,
+      };
+      await this.handleCompanionTurn(
+        `Nice. ${this.worksheetLearningArc.prompts[this.worksheetLearningArc.promptIndex] ?? currentPrompt}`,
+      );
+      return true;
+    }
+    this.worksheetLearningArc = null;
+    await this.handleCompanionTurn(
+      "That was great thinking. You've earned your reward, so now it's time for Space Invaders.",
+    );
+    this.launchWorksheetCompletionReward();
+    return true;
+  }
+
+  private recordWorksheetAttempt(transcript: string, correct: boolean): void {
+    if (!this.ctx?.assignment) return;
+    this.ctx.assignment.attempts.push({
+      questionIndex: this.worksheetProblemIndex,
+      answer: transcript,
+      correct,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  private rememberWorksheetSubmission(problemId: string, value: string): void {
+    const normalizedValue = this.normalizeWorksheetSubmissionValue(value);
+    if (!normalizedValue) return;
+    this.worksheetRecentSubmission = {
+      problemId,
+      normalizedValue,
+      expiresAt: Date.now() + 2500,
+    };
+  }
+
+  private isDuplicateWorksheetSubmission(problemId: string, value: string): boolean {
+    if (!this.worksheetRecentSubmission) return false;
+    if (Date.now() > this.worksheetRecentSubmission.expiresAt) {
+      this.worksheetRecentSubmission = null;
+      return false;
+    }
+    return (
+      this.worksheetRecentSubmission.problemId === problemId &&
+      this.worksheetRecentSubmission.normalizedValue ===
+        this.normalizeWorksheetSubmissionValue(value)
+    );
+  }
+
+  private matchesPendingOverlaySubmission(
+    problemId: string,
+    value: string,
+  ): boolean {
+    if (!this.worksheetPendingOverlaySubmission) return false;
+    return (
+      this.worksheetPendingOverlaySubmission.problemId === problemId &&
+      this.worksheetPendingOverlaySubmission.normalizedValue ===
+        this.normalizeWorksheetSubmissionValue(value)
+    );
+  }
+
+  private retireWorksheetSession(): void {
+    this.worksheetMode = false;
+    this.worksheetReadyForAnswers = false;
+    this.pendingWorksheetLog = null;
+    this.worksheetTurnTranscript = "";
+    this.worksheetBufferedTranscript = null;
+    this.worksheetRecentSubmission = null;
+    this.worksheetPendingOverlaySubmission = null;
+    this.lastWorksheetTurnOutcome = null;
+    this.worksheetPlayerState = null;
+    this.worksheetPageFile = null;
+    this.currentCanvasState = null;
+    this.clearActiveCanvasActivity();
+    this.send("canvas_draw", { mode: "idle" });
+    if (this.ctx) {
+      const freeformConfig = getSessionTypeConfig("freeform");
+      this.ctx.sessionType = "freeform";
+      this.ctx.availableToolNames = Object.keys(freeformConfig.tools);
+      this.ctx.canvas.owner = freeformConfig.canvasOwner;
+      this.ctx.canvas.locked = false;
+      if (this.ctx.assignment) {
+        this.ctx.assignment.currentIndex = this.ctx.assignment.questions.length;
+      }
+      this.ctx.updateCanvas({
+        mode: "idle",
+        content: undefined,
+        label: undefined,
+        svg: undefined,
+        sceneDescription: undefined,
+        problemAnswer: undefined,
+        problemHint: undefined,
+        pdfAssetUrl: undefined,
+        pdfPage: undefined,
+        pdfPageWidth: undefined,
+        pdfPageHeight: undefined,
+        activeProblemId: undefined,
+        activeFieldId: undefined,
+        overlayFields: undefined,
+        interactionMode: undefined,
+      });
+      this.broadcastContext();
+    }
+  }
+
+  receiveWorksheetAnswer(payload: {
+    problemId?: string;
+    fieldId?: string;
+    value?: string;
+  }): void {
+    const value = String(payload.value ?? "").trim();
+    if (!value || !this.assignmentManifest || !this.worksheetPlayerState) return;
+    if (
+      this.isDuplicateWorksheetSubmission(
+        this.worksheetPlayerState.activeProblemId,
+        value,
+      )
+    ) {
+      this.lastWorksheetTurnOutcome = "blocked_stale";
+      console.log("  🔁 worksheet_answer ignored — duplicate recent submission");
+      return;
+    }
+    if (
+      this.matchesPendingOverlaySubmission(
+        this.worksheetPlayerState.activeProblemId,
+        value,
+      )
+    ) {
+      this.lastWorksheetTurnOutcome = "blocked_stale";
+      console.log("  🔁 worksheet_answer ignored — duplicate pending overlay submission");
+      return;
+    }
+    if (
+      payload.problemId &&
+      String(payload.problemId) !== this.worksheetPlayerState.activeProblemId
+    ) {
+      this.lastWorksheetTurnOutcome = "blocked_stale";
+      console.warn(
+        `  ⚠️  worksheet_answer ignored — stale problem ${String(payload.problemId)} vs ${this.worksheetPlayerState.activeProblemId}`,
+      );
+      return;
+    }
+    if (payload.fieldId) {
+      this.worksheetPlayerState = {
+        ...this.worksheetPlayerState,
+        activeFieldId: String(payload.fieldId),
+      };
+    }
+    this.worksheetPendingOverlaySubmission = {
+      problemId: this.worksheetPlayerState.activeProblemId,
+      normalizedValue: this.normalizeWorksheetSubmissionValue(value),
+    };
+    this.send("echo_answer", { text: value });
+    this.handleEndOfTurn(value).catch(console.error);
   }
 
   receiveAudio(pcm: Buffer): void {
@@ -783,8 +1816,26 @@ export class SessionManager {
     const type = event.type as string;
 
     if (type === "ready") {
-      // Acknowledgment from iframe that it received "start" — no response needed.
-      // Round 1 is driven by Canvas onLoad; subsequent rounds by wbSendRound().
+      if (this.pendingGameStart) {
+        this.gameBridge.startGame(
+          this.pendingGameStart.gameUrl,
+          this.pendingGameStart.childName,
+          this.pendingGameStart.config,
+          this.pendingGameStart.companionName,
+        );
+        console.log(
+          `  🎮 resend start after ready — ${this.ctx?.canvas.current.mode ?? "game"}`
+        );
+        this.pendingGameStart = null;
+      }
+      if (this.ctx) {
+        this.ctx.markCanvasRendered(this.currentCanvasRevision);
+        this.ctx.markGameReady(this.currentCanvasRevision);
+        console.log(
+          `  🖼️  Browser confirmed game ready for revision ${this.currentCanvasRevision} (${this.ctx.canvas.current.mode})`
+        );
+        this.broadcastContext();
+      }
       return;
     }
 
@@ -793,12 +1844,14 @@ export class SessionManager {
       if (this.turnSM.getState() !== "IDLE") {
         this.spellCheckSessionActive = false;
         this.activeSpellCheckWord = "";
+        this.clearActiveCanvasActivity();
         this.send("canvas_draw", { mode: "idle" });
         return;
       }
       void this.runCompanionResponse(SPELL_CHECK_CORRECT(this.childName, word));
       this.spellCheckSessionActive = false;
       this.activeSpellCheckWord = "";
+      this.clearActiveCanvasActivity();
       this.send("canvas_draw", { mode: "idle" });
       return;
     }
@@ -882,27 +1935,79 @@ export class SessionManager {
     }
 
     if (type === "game_complete") {
+      if (this.pendingInstructionalGameCompletion) {
+        console.log(
+          `  🎮 instructional game completed — ${this.pendingInstructionalGameCompletion.gameName}`
+        );
+        this.pendingInstructionalGameCompletion = null;
+      }
+      if (this.worksheetLearningArc?.phase === "instructional_game") {
+        this.currentCanvasState = null;
+        this.clearActiveCanvasActivity();
+        this.send("canvas_draw", { mode: "idle" });
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "idle",
+            content: undefined,
+            label: undefined,
+            svg: undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.worksheetLearningArc = {
+          ...this.worksheetLearningArc,
+          phase: "followup",
+          promptIndex: 0,
+        };
+        void this.handleCompanionTurn(this.worksheetLearningArc.prompts[0] ?? "Nice work in the game.");
+        return;
+      }
       if (this.wbActive) {
         const completedWord = this.wbWord;
         // Keep wbActive / wordBuilderSessionActive until Elli logs the post-game spell attempt
         this.wbAwaitingSpell = true;
         this.turnSM.onWordBuilderEnd();
+        this.clearActiveCanvasActivity();
         this.send("canvas_draw", { mode: "idle" });
         void this.runCompanionResponse(
           WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord)
         ).catch(console.error);
         return;
       }
+      if (this.activeCanvasActivity.snapshot?.worksheet) {
+        const snapshot = this.activeCanvasActivity.snapshot;
+        void this.resumeWorksheetAfterInstructionalGame(snapshot).catch(console.error);
+        return;
+      }
       if (this.spaceInvadersRewardActive) {
         this.spaceInvadersRewardActive = false;
         this.suppressTranscripts = false;
-        console.log("  🎮 Voice restored");
+        console.log("  🎮 reward game ended — transcript capture normal");
         this.gameBridge.handleGameEvent(event);
+        if (this.endAfterReward) {
+          this.endAfterReward = false;
+          void this.end().catch(console.error);
+        }
       }
     }
   }
 
-  canvasDone(): void {
+  canvasDone(payload?: Record<string, unknown>): void {
+    const revision = Number(payload?.canvasRevision);
+    const resolvedRevision =
+      Number.isFinite(revision) && revision > 0
+        ? revision
+        : this.currentCanvasRevision;
+    if (this.ctx && resolvedRevision > 0) {
+      this.ctx.markCanvasRendered(resolvedRevision);
+      console.log(
+        `  🖼️  Browser confirmed canvas revision ${resolvedRevision} (${this.ctx.canvas.current.mode})`
+      );
+      this.broadcastContext();
+    }
     this.turnSM.onCanvasDone();
   }
 
@@ -911,6 +2016,12 @@ export class SessionManager {
   }
 
   async end(): Promise<void> {
+    if (this.pendingEndSessionReward && !this.spaceInvadersRewardLaunched) {
+      this.pendingEndSessionReward = false;
+      this.endAfterReward = true;
+      this.launchWorksheetCompletionReward();
+      return;
+    }
     if (this.isEnding) return;
     this.isEnding = true;
     this.isSpellingSession = false;
@@ -926,6 +2037,8 @@ export class SessionManager {
     this.wbEndCleanup();
     this.spaceInvadersRewardActive = false;
     this.spaceInvadersRewardLaunched = false;
+    this.endAfterReward = false;
+    this.clearActiveCanvasActivity();
 
     if (this.fluxHandle) {
       this.fluxHandle.close();
@@ -942,16 +2055,13 @@ export class SessionManager {
     this.activeWordContext = "";
     this.wordAttemptCounts.clear();
     this.currentCanvasState = null;
+    this.pendingGameStart = null;
 
     this.turnSM.onInterrupt();
 
     try {
-      const testMode =
-        process.env.SUNNY_TEST_MODE === "true" ||
-        process.env.TTS_ENABLED === "false";
-
-      if (testMode) {
-        console.log("  🔇 Test mode — skipping session recording and reward log.");
+      if (!shouldPersistSessionData()) {
+        console.log("  🔇 Stateless run — skipping session recording and reward log.");
       } else {
         await recordSession(this.conversationHistory, this.childName);
         appendRewardLog(this.childName, this.rewardLog);
@@ -1082,6 +2192,10 @@ export class SessionManager {
       console.log(`  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`);
       return;
     }
+
+    if (this.shouldIgnoreWorksheetCarryoverTranscript(transcript)) {
+      return;
+    }
     // WORD_BUILDER: the child is filling in the game but can still speak.
     // Let the transcript fall through — runCompanionResponse uses onCompanionRunFromWordBuilder()
     // so the game stays visible while Elli responds verbally.
@@ -1113,6 +2227,24 @@ export class SessionManager {
 
     this.roundNumber++;
 
+    if (this.activeCanvasActivity.pauseState === "paused_for_checkin") {
+      if (this.isResumeActivityRequest(transcript)) {
+        await this.resumeActiveCanvasActivity();
+        return;
+      }
+      await this.runCompanionResponse(transcript);
+      return;
+    }
+
+    if (
+      this.isPauseForCheckInRequest(transcript) &&
+      this.activeCanvasActivity.mode !== "none"
+    ) {
+      await this.pauseActiveCanvasForCheckIn("child_request");
+      await this.runCompanionResponse(transcript);
+      return;
+    }
+
     if (this.worksheetMode) {
       this.worksheetTurnTranscript = transcript;
     }
@@ -1121,7 +2253,31 @@ export class SessionManager {
       return;
     }
 
+    if (this.shouldInterceptInstructionalGameCompletionClaim(transcript)) {
+      await this.handleInstructionalGameCompletionClaim();
+      return;
+    }
+
+    if (await this.handleWorksheetLearningArcFollowup(transcript)) {
+      return;
+    }
+
     let userMessage = transcript;
+
+    if (this.worksheetMode && this.worksheetReadyForAnswers) {
+      this.worksheetTurnsWithoutAttempt++;
+      if (this.worksheetTurnsWithoutAttempt >= 5) {
+        const wp = this.worksheetProblems[this.worksheetProblemIndex];
+        if (wp) {
+          console.log("  ⚠️  [worksheet] stuck guard — nudging model to evaluate answer");
+          userMessage =
+            `${transcript}\n\n[System: The child has been on problem ${wp.id} for several turns. ` +
+            `Evaluate whether their response answers the question. If it does, call logWorksheetAttempt. ` +
+            `If they seem confused, give a clear hint and re-state the question simply.]`;
+          this.worksheetTurnsWithoutAttempt = 0;
+        }
+      }
+    }
     if (
       this.isSpellingSession &&
       !this.worksheetMode &&
@@ -1189,11 +2345,54 @@ export class SessionManager {
         ? this.conversationHistory.slice(-10)
         : this.conversationHistory;
 
-      // Pin the active word context as the first message so it always survives
-      // history truncation, even after a barge-in wipes mid-session turns.
-      const historyWithPin: typeof recentHistory = this.activeWordContext
-        ? [{ role: "user", content: this.activeWordContext }, ...recentHistory]
-        : recentHistory;
+      // Pin context messages at the front so they survive history truncation.
+      const pins: ModelMessage[] = [];
+      if (this.worksheetPageFile && (this.worksheetMode || isHomeworkMode())) {
+        const isCoinWorksheet = /money|coin|count/i.test(this.worksheetSubjectLabel);
+        const isReview = this.worksheetInteractionMode === "review";
+        let imageCaption =
+          "[Worksheet Image] This is the ACTUAL worksheet the child is working on. " +
+          "Use what you SEE in this image as the source of truth for all amounts, values, and problem layout. " +
+          "The extracted text descriptions may contain OCR errors — always verify against this image.";
+        if (isReview) {
+          imageCaption +=
+            "\nREVIEW MODE: The child has already filled in answers on this worksheet. " +
+            "The handwritten values in the boxes are the CHILD'S answers — they may contain mistakes. " +
+            "Your job is to CHECK their work. For each problem, independently examine the actual items " +
+            "(coins, objects, numbers) shown in the image, calculate the correct answer yourself, " +
+            "and compare it to what the child wrote. Catch any errors the child made.";
+        }
+        if (isCoinWorksheet) {
+          imageCaption +=
+            "\nHANDWRITING WARNING: The child's handwritten '$0.' can look like '$1.' because the " +
+            "decimal dot merges with the zero. If you read $1.xx from a handwritten box, the actual " +
+            "value is $0.xx. This is an elementary coin-counting worksheet — all amounts come from " +
+            "pennies, nickels, dimes, and quarters, so every value is under $1.00.";
+          if (isReview) {
+            imageCaption +=
+              "\nTo verify each answer: count the individual coins visible in the image for each student. " +
+              "Quarters=25¢, dimes=10¢, nickels=5¢, pennies=1¢. Add them up and compare to what the child wrote.";
+          }
+        }
+        pins.push({
+          role: "user",
+          content: [
+            {
+              type: "image" as const,
+              image: this.worksheetPageFile.data,
+            },
+            {
+              type: "text" as const,
+              text: imageCaption,
+            },
+          ],
+        } as ModelMessage);
+      }
+      if (this.activeWordContext) {
+        pins.push({ role: "user", content: this.activeWordContext });
+      }
+      const historyWithPin: typeof recentHistory =
+        pins.length > 0 ? [...pins, ...recentHistory] : recentHistory;
 
       // Prepend canvas state context so the AI always knows what is currently
       // displayed — prevents duplicate showCanvas calls and enables intelligent
@@ -1379,8 +2578,51 @@ export class SessionManager {
         }
         return;
       }
+
+      // Detect Anthropic 529 "overloaded" error — speak a friendly retry message
+      // instead of going silent. The AI SDK wraps this as AI_RetryError → AI_APICallError.
+      const isOverloaded = (() => {
+        const e = err as Record<string, unknown>;
+        // Check the error itself or its lastError for a 529 status or overloaded body
+        const check = (x: unknown): boolean => {
+          if (!x || typeof x !== "object") return false;
+          const obj = x as Record<string, unknown>;
+          if (obj.statusCode === 529) return true;
+          if (typeof obj.responseBody === "string" && obj.responseBody.includes("overloaded_error")) return true;
+          if (obj.lastError) return check(obj.lastError);
+          return false;
+        };
+        return check(e);
+      })();
+
       this.turnSM.onInterrupt();
       const message = err instanceof Error ? err.message : String(err);
+
+      if (isOverloaded) {
+        console.warn("  ⚠️  Anthropic overloaded (529) — speaking fallback");
+        const fallback = `Hmm, my brain is a little busy right now — give me a second and say that again!`;
+        this.send("response_text", { chunk: fallback });
+        if (this.ttsBridge) {
+          this.ttsBridge.sendText(fallback);
+          await this.ttsBridge.finish().catch(() => {});
+        }
+        // If the overload hit before the first worksheet problem was presented,
+        // re-queue it so the canvas isn't permanently orphaned.
+        if (this.pendingWorksheetStart) {
+          console.log("  🔄 [worksheet] re-queuing pendingWorksheetStart after overload");
+          this.pendingWorksheetStart = false;
+          this.worksheetAdvancing = true;
+          await this.presentCurrentWorksheetProblem().catch(console.error);
+          this.worksheetAdvancing = false;
+        } else if (
+          this.worksheetMode &&
+          this.worksheetProblems[this.worksheetProblemIndex]
+        ) {
+          this.worksheetReadyForAnswers = true;
+        }
+        return;
+      }
+
       console.error("  🔴 Agent error:", message);
       this.send("error", { message: "Companion response failed" });
       if (
@@ -1398,7 +2640,55 @@ export class SessionManager {
     if (tool === "start_spell_check") return "startSpellCheck";
     if (tool === "launch_game") return "launchGame";
     if (tool === "log_worksheet_attempt") return "logWorksheetAttempt";
+    if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
+    if (tool === "request_resume_activity") return "requestResumeActivity";
     return tool;
+  }
+
+  /**
+   * Build a store-game itemPool from the amounts practiced in the current worksheet.
+   * Each unique cent-amount becomes a purchasable item so the child keeps working
+   * with the exact numbers they just compared/counted.
+   *
+   * Returns null if no usable amounts are found (falls back to the game's built-in pool).
+   */
+  private buildWorksheetItemPool(): Array<{ emoji: string; name: string; price: number }> | null {
+    if (!this.worksheetProblems.length) return null;
+
+    // Collect every cent-amount that appeared in the worksheet
+    const cents = new Set<number>();
+    for (const p of this.worksheetProblems) {
+      if (p.kind === "compare_amounts") {
+        if (p.leftAmountCents > 0)  cents.add(p.leftAmountCents);
+        if (p.rightAmountCents > 0) cents.add(p.rightAmountCents);
+      } else if (p.kind === "money_count") {
+        if (p.itemPriceCents > 0) cents.add(p.itemPriceCents);
+        if (p.totalSpentCents > 0) cents.add(p.totalSpentCents);
+      }
+    }
+
+    if (!cents.size) return null;
+
+    // Assign a stable emoji+name to each amount using a small deterministic map
+    const STORE_ITEMS: Array<{ emoji: string; name: string }> = [
+      { emoji: "🎈", name: "Balloon" },
+      { emoji: "🍎", name: "Apple" },
+      { emoji: "🍬", name: "Candy" },
+      { emoji: "🪀", name: "Yo-Yo" },
+      { emoji: "🖍️", name: "Crayons" },
+      { emoji: "🍩", name: "Donut" },
+      { emoji: "🌟", name: "Star Badge" },
+      { emoji: "🧃", name: "Juice Box" },
+      { emoji: "🍭", name: "Lollipop" },
+      { emoji: "🚀", name: "Rocket Toy" },
+    ];
+
+    // Sort amounts so the assignment is deterministic each session
+    const sorted = [...cents].sort((a, b) => a - b);
+    return sorted.map((price, i) => ({
+      ...STORE_ITEMS[i % STORE_ITEMS.length],
+      price,
+    }));
   }
 
   private sendLaunchGameRegistryError(
@@ -1420,11 +2710,17 @@ export class SessionManager {
 
   private selectWorksheetProblems(
     extraction: HomeworkExtractionResult,
-  ): HomeworkProblemItem[] {
-    const byId = new Map<number, HomeworkProblemItem>();
+  ): CanonicalWorksheetProblem[] {
+    const byId = new Map<number, CanonicalWorksheetProblem>();
     for (const p of extraction.problems) {
-      if (!p.question?.trim() || !p.answer?.trim()) continue;
-      byId.set(p.id, { ...p });
+      const normalized = normalizeWorksheetProblem(p);
+      if (!normalized.ok) {
+        console.warn(
+          `  ⚠️  [worksheet] skipping problem ${String(p.id)}: ${normalized.reason}${normalized.detail ? ` (${normalized.detail})` : ""}`,
+        );
+        continue;
+      }
+      byId.set(p.id, normalized.problem);
     }
     if (byId.size === 0) return [];
 
@@ -1436,7 +2732,7 @@ export class SessionManager {
           ? dir.teaching_order
           : null;
 
-    let ordered: HomeworkProblemItem[] = [];
+    let ordered: CanonicalWorksheetProblem[] = [];
     if (preferredOrder) {
       for (const id of preferredOrder) {
         const item = byId.get(id);
@@ -1456,16 +2752,93 @@ export class SessionManager {
 
     this.worksheetReadyForAnswers = false;
     this.worksheetWrongForCurrent = 0;
+    this.worksheetTurnsWithoutAttempt = 0;
     this.worksheetTurnTranscript = "";
+    this.worksheetPendingOverlaySubmission = null;
+    this.lastWorksheetTurnOutcome = null;
 
     console.log(
       `  🎮 [worksheet] Problem ${this.worksheetProblemIndex + 1}/${this.worksheetProblems.length} (id ${p.id})`
     );
     console.log("📋 [worksheet] instructions (not spoken):", p.instructions);
 
-    const rawDisplay = (p.canvas_display ?? "").trim() || p.question;
-    const description = sanitizeCanvasDescription(rawDisplay);
-    let svg = await generateWorksheetSVG(description);
+    if (this.assignmentManifest) {
+      this.worksheetPlayerState = resumeAssignmentProblem(this.assignmentManifest, {
+        activeProblemId: String(p.id),
+        currentPage: this.worksheetPlayerState?.currentPage ?? 1,
+        activeFieldId: this.worksheetPlayerState?.activeFieldId,
+        interactionMode: this.worksheetPlayerState?.interactionMode ?? this.worksheetInteractionMode,
+      });
+      const assignmentProblem = this.assignmentManifest.problems.find(
+        (entry) => entry.problemId === String(p.id),
+      );
+      if (assignmentProblem && this.worksheetPlayerState) {
+        const worksheetPdfDraw = this.withCanvasRevision({
+          mode: "worksheet_pdf",
+          content: p.question,
+          pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
+          pdfPage: assignmentProblem.page,
+          pdfPageWidth:
+            this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
+              ?.width ?? 1000,
+          pdfPageHeight:
+            this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
+              ?.height ?? 1400,
+          activeProblemId: this.worksheetPlayerState.activeProblemId,
+          activeFieldId: this.worksheetPlayerState.activeFieldId,
+          overlayFields: this.worksheetPlayerState.overlayFields,
+          interactionMode: this.worksheetPlayerState.interactionMode,
+          problemAnswer: p.canonicalAnswer,
+          problemHint: p.hint.trim() || undefined,
+        });
+        this.currentCanvasState = { ...worksheetPdfDraw };
+        this.setActiveCanvasActivity("worksheet");
+        this.activeWord = null;
+        this.turnSM.setCanonicalProblem(null);
+        if (this.ctx) {
+          if (this.ctx.assignment) {
+            this.ctx.assignment.currentIndex = this.worksheetProblemIndex;
+          }
+          this.ctx.updateCanvas({
+            mode: "worksheet_pdf",
+            content: p.question,
+            pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
+            pdfPage: assignmentProblem.page,
+            pdfPageWidth:
+              this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
+                ?.width ?? 1000,
+            pdfPageHeight:
+              this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
+                ?.height ?? 1400,
+            activeProblemId: this.worksheetPlayerState.activeProblemId,
+            activeFieldId: this.worksheetPlayerState.activeFieldId,
+            overlayFields: this.worksheetPlayerState.overlayFields,
+            interactionMode: this.worksheetPlayerState.interactionMode,
+            problemAnswer: p.canonicalAnswer || undefined,
+            problemHint: p.hint.trim() || undefined,
+            sceneDescription: "The child sees the exact worksheet page with a server-owned answer box overlay.",
+          });
+          this.broadcastContext();
+        }
+        this.send("canvas_draw", worksheetPdfDraw);
+        await this.handleCompanionTurn(p.question);
+        this.worksheetReadyForAnswers = true;
+        return;
+      }
+      console.warn(
+        `  ⚠️  [worksheet] worksheet_pdf unavailable for problem ${String(p.id)} — falling back to svg because no matching assignment problem was found`,
+      );
+    }
+
+    const canvasSource = toWorksheetCanvasSource(p);
+    const rawDisplay = canvasSource.canvas_display.trim() || p.question;
+    const structuredCanvas = deriveWorksheetCanvasModel(canvasSource);
+    const description = structuredCanvas
+      ? summarizeWorksheetCanvasModel(structuredCanvas)
+      : rawDisplay;
+    let svg = structuredCanvas
+      ? renderWorksheetCanvasModelSvg(structuredCanvas)
+      : null;
     if (svg) {
       svg = stripSvgFences(svg);
     }
@@ -1485,17 +2858,21 @@ export class SessionManager {
     this.lastCanvasMode = "teaching";
     this.lastCanvasWasMath = this.isTeachingMathCanvas(args);
     this.currentCanvasState = { ...args };
+    this.setActiveCanvasActivity("worksheet");
     this.activeWord = null;
     this.turnSM.setCanonicalProblem(null);
 
     if (this.ctx) {
+      if (this.ctx.assignment) {
+        this.ctx.assignment.currentIndex = this.worksheetProblemIndex;
+      }
       this.ctx.updateCanvas({
         mode: "teaching",
         content: p.question,
         svg: svg ?? undefined,
-        sceneDescription: (p.canvas_display ?? "").trim() || undefined,
-        problemAnswer: (p.answer ?? "").trim() || undefined,
-        problemHint: (p.hint ?? "").trim() || undefined,
+        sceneDescription: description || undefined,
+        problemAnswer: p.canonicalAnswer || undefined,
+        problemHint: p.hint.trim() || undefined,
       });
       this.broadcastContext();
     }
@@ -1513,6 +2890,10 @@ export class SessionManager {
     this.worksheetReadyForAnswers = true;
   }
 
+  /**
+   * Worksheet turn gate — only blocks exact duplicate submissions.
+   * All real grading is delegated to the AI model via logWorksheetAttempt.
+   */
   private async tryConsumeWorksheetTurn(transcript: string): Promise<boolean> {
     if (
       !this.worksheetMode ||
@@ -1521,17 +2902,23 @@ export class SessionManager {
     ) {
       return false;
     }
-
-    if (!this.worksheetProblems[this.worksheetProblemIndex]) return false;
+    const problem = this.worksheetProblems[this.worksheetProblemIndex];
+    if (!problem) return false;
 
     const t = transcript.trim();
-    if (!t) {
-      return false;
+    if (!t) return false;
+
+    const currentProblemId = String(problem.id ?? "");
+    if (
+      currentProblemId &&
+      this.isDuplicateWorksheetSubmission(currentProblemId, t)
+    ) {
+      console.log("  🔁 worksheet transcript ignored — duplicate recent submission");
+      return true;
     }
 
-    this.worksheetReadyForAnswers = false;
-    await this.runCompanionResponse(transcript);
-    return true;
+    this.worksheetTurnTranscript = t;
+    return false;
   }
 
   /**
@@ -1545,10 +2932,12 @@ export class SessionManager {
       this.worksheetWrongForCurrent = 0;
       this.worksheetProblemIndex++;
       if (this.worksheetProblemIndex >= this.worksheetProblems.length) {
-        await this.handleCompanionTurn("You got them all! Amazing work!");
-        this.launchWorksheetCompletionReward();
-        this.worksheetMode = false;
-        this.worksheetReadyForAnswers = false;
+        if (await this.startWorksheetLearningArc()) {
+          return;
+        }
+        await this.handleCompanionTurn("You got them all! Amazing work! We'll save your reward for the end of session.");
+        this.pendingEndSessionReward = true;
+        this.retireWorksheetSession();
         return;
       }
       await this.presentCurrentWorksheetProblem();
@@ -1557,13 +2946,21 @@ export class SessionManager {
 
     this.worksheetWrongForCurrent++;
     if (this.worksheetWrongForCurrent >= 3) {
+      if (this.worksheetInteractionMode === "review") {
+        this.worksheetWrongForCurrent = 0;
+        await this.handleCompanionTurn(this.buildWorksheetRevealPrompt(p));
+        this.worksheetReadyForAnswers = true;
+        return;
+      }
       this.worksheetWrongForCurrent = 0;
       this.worksheetProblemIndex++;
       if (this.worksheetProblemIndex >= this.worksheetProblems.length) {
-        await this.handleCompanionTurn("That's everything — great effort!");
-        this.launchWorksheetCompletionReward();
-        this.worksheetMode = false;
-        this.worksheetReadyForAnswers = false;
+        if (await this.startWorksheetLearningArc()) {
+          return;
+        }
+        await this.handleCompanionTurn("That's everything — great effort! We'll save your reward for the end of session.");
+        this.pendingEndSessionReward = true;
+        this.retireWorksheetSession();
         return;
       }
       await this.presentCurrentWorksheetProblem();
@@ -1579,16 +2976,48 @@ export class SessionManager {
     this.spaceInvadersRewardActive = true;
     const inv = getReward("space-invaders");
     if (inv) {
-      this.send("canvas_draw", {
+      const rewardDraw = this.withCanvasRevision({
         mode: "space-invaders",
         gameUrl: inv.url,
         gamePlayerName: this.childName,
+        gameCompanionName: this.companion.name,
         rewardGameConfig: { ...inv.defaultConfig },
       });
+      this.send("canvas_draw", rewardDraw);
+      this.currentCanvasState = { ...rewardDraw };
+      this.pendingGameStart = {
+        gameUrl: inv.url,
+        childName: this.childName,
+        companionName: this.companion.name,
+        config: { ...inv.defaultConfig },
+      };
+      if (this.ctx) {
+        this.ctx.updateCanvas({
+          mode: "space-invaders",
+          gameUrl: inv.url,
+          gamePlayerName: this.childName,
+          rewardGameConfig: { ...inv.defaultConfig },
+          content: undefined,
+          label: undefined,
+          svg: undefined,
+          sceneDescription: undefined,
+          problemAnswer: undefined,
+          problemHint: undefined,
+        });
+        this.broadcastContext();
+      }
     }
-    this.gameBridge.launchByName("space-invaders", "reward", this.childName);
+    this.gameBridge.launchByName(
+      "space-invaders",
+      "reward",
+      this.childName,
+      undefined,
+      this.companion.name,
+    );
     console.log("  🎮 [worksheet] completion reward — space-invaders");
+    this.setActiveCanvasActivity("reward-game");
     this.gameBridge.onComplete = () => {
+      this.clearActiveCanvasActivity();
       this.send("canvas_draw", { mode: "idle" });
       this.send("session_ended", {
         summary: "Session complete.",
@@ -1604,6 +3033,7 @@ export class SessionManager {
     this.turnSM.onAgentComplete();
     this.send("response_text", { chunk: text });
     if (this.ttsBridge) {
+      await this.ttsBridge.connect().catch(() => {});
       this.ttsBridge.sendText(text);
       await this.ttsBridge.finish();
     }
@@ -1626,6 +3056,21 @@ export class SessionManager {
     }
   }
 
+  private issueCanvasRevision(): number {
+    this.currentCanvasRevision += 1;
+    if (this.ctx) {
+      this.ctx.markCanvasIssued(this.currentCanvasRevision);
+    }
+    return this.currentCanvasRevision;
+  }
+
+  private withCanvasRevision<T extends Record<string, unknown>>(payload: T): T & { canvasRevision: number } {
+    return {
+      ...payload,
+      canvasRevision: this.issueCanvasRevision(),
+    };
+  }
+
   handleToolCall(
     tool: string,
     args: Record<string, unknown>,
@@ -1646,6 +3091,8 @@ export class SessionManager {
     }
 
     let launchGameResolvedEntry: GameDefinition | null = null;
+    let launchGameCanonicalName: string | null = null;
+    let canvasRevision: number | undefined;
 
     if (tool === "blackboard") {
       const gesture = String(args.gesture ?? "");
@@ -1672,25 +3119,40 @@ export class SessionManager {
 
     if (tool === "launchGame") {
       const rawName = String(args.name ?? "").trim();
-      const gameName = rawName.toLowerCase().replace(/\s+/g, "-");
       const gt = args.type;
       if (gt !== "tool" && gt !== "reward") {
         console.warn("  ⚠️  launchGame: type must be \"tool\" or \"reward\"");
         return;
       }
-      const entry = gt === "tool" ? getTool(gameName) : getReward(gameName);
-      if (!entry) {
+      const resolved = resolveLaunchGameRequest({
+        name: rawName,
+        type: gt,
+      });
+      if (!resolved.ok || !resolved.canonicalName) {
         console.warn(`  ⚠️  launchGame: unknown ${gt} game "${rawName}"`);
-        this.sendLaunchGameRegistryError(tool, args, gameName);
+        this.sendLaunchGameRegistryError(tool, args, rawName);
         return;
       }
-      if (gameName === "word-builder" || gameName === "spell-check") {
+      const entry =
+        gt === "tool"
+          ? getTool(resolved.canonicalName)
+          : getReward(resolved.canonicalName);
+      if (!entry) {
+        console.warn(`  ⚠️  launchGame: missing live registry entry "${resolved.canonicalName}"`);
+        this.sendLaunchGameRegistryError(tool, args, rawName);
+        return;
+      }
+      if (
+        resolved.canonicalName === "word-builder" ||
+        resolved.canonicalName === "spell-check"
+      ) {
         console.warn(
-          `  ⚠️  launchGame: use startWordBuilder or startSpellCheck with a word for "${gameName}"`
+          `  ⚠️  launchGame: use startWordBuilder or startSpellCheck with a word for "${resolved.canonicalName}"`
         );
         return;
       }
       launchGameResolvedEntry = entry;
+      launchGameCanonicalName = resolved.canonicalName;
     }
 
     if (tool === "showCanvas") {
@@ -1703,10 +3165,16 @@ export class SessionManager {
         args.content = "";
       }
       stripSvgField(args);
+      canvasRevision = this.issueCanvasRevision();
     }
 
     this.toolCallsMadeThisTurn++;
-    this.send("tool_call", { tool, args, result });
+    this.send("tool_call", {
+      tool,
+      args,
+      result,
+      ...(canvasRevision ? { canvasRevision } : {}),
+    });
 
     if (tool === "endSession") {
       this.send("session_ended", {});
@@ -1733,6 +3201,7 @@ export class SessionManager {
     }
 
     if (tool === "startWordBuilder") {
+      this.pendingGameStart = null;
       const word = String(args.word ?? "").toLowerCase().trim();
       if (word.length < 4) {
         console.warn("  ⚠️  startWordBuilder: word must be at least 4 letters");
@@ -1750,18 +3219,38 @@ export class SessionManager {
       this.turnSM.onWordBuilderStart();
       console.log(`  🎮 Word-builder started — word: ${word}`);
       // Canvas onLoad posts round 1 "start" to the iframe — do not wbSendRound here.
-      this.send("canvas_draw", {
+      const wordBuilderCanvas = {
         mode: "word-builder",
         gameUrl: "/games/wordd-builder.html",
         gameWord: word,
         gamePlayerName: this.childName,
         wordBuilderRound: 1,
         wordBuilderMode: "fill_blanks",
-      });
+      };
+      const wordBuilderDraw = this.withCanvasRevision(wordBuilderCanvas);
+      this.currentCanvasState = { ...wordBuilderDraw };
+      if (this.ctx) {
+        this.ctx.updateCanvas({
+          mode: "word-builder",
+          gameUrl: wordBuilderCanvas.gameUrl,
+          gameWord: wordBuilderCanvas.gameWord,
+          gamePlayerName: wordBuilderCanvas.gamePlayerName,
+          content: undefined,
+          label: undefined,
+          svg: undefined,
+          sceneDescription: undefined,
+          problemAnswer: undefined,
+          problemHint: undefined,
+        });
+        this.broadcastContext();
+      }
+      this.setActiveCanvasActivity("word-builder");
+      this.send("canvas_draw", wordBuilderDraw);
       return;
     }
 
     if (tool === "startSpellCheck") {
+      this.pendingGameStart = null;
       const word = String(args.word ?? "").toLowerCase().trim();
       if (word.length < 2) {
         console.warn("  ⚠️  startSpellCheck: word must be at least 2 letters");
@@ -1770,21 +3259,44 @@ export class SessionManager {
       this.activeSpellCheckWord = word;
       this.spellCheckSessionActive = true;
       console.log(`  ⌨️  Spell-check typing game started — word: ${word}`);
-      this.send("canvas_draw", {
+      const spellCheckCanvas = {
         mode: "spell-check",
         gameUrl: "/games/spell-check.html",
         gameWord: word,
         gamePlayerName: this.childName,
-      });
+      };
+      const spellCheckDraw = this.withCanvasRevision(spellCheckCanvas);
+      this.currentCanvasState = { ...spellCheckDraw };
+      if (this.ctx) {
+        this.ctx.updateCanvas({
+          mode: "spell-check",
+          gameUrl: spellCheckCanvas.gameUrl,
+          gameWord: spellCheckCanvas.gameWord,
+          gamePlayerName: spellCheckCanvas.gamePlayerName,
+          content: undefined,
+          label: undefined,
+          svg: undefined,
+          sceneDescription: undefined,
+          problemAnswer: undefined,
+          problemHint: undefined,
+        });
+        this.broadcastContext();
+      }
+      this.setActiveCanvasActivity("spell-check");
+      this.send("canvas_draw", spellCheckDraw);
       return;
     }
 
     if (tool === "launchGame") {
-      const gameName = String(args.name ?? "")
+      const gameName = launchGameCanonicalName ?? String(args.name ?? "")
         .trim()
         .toLowerCase()
         .replace(/\s+/g, "-");
       const gt = args.type as "tool" | "reward";
+      const worksheetResumeSnapshot =
+        gt === "tool" && this.activeCanvasActivity.mode === "worksheet"
+          ? this.captureActiveCanvasSnapshot()
+          : null;
 
       if (this.turnSM.getState() === "WORD_BUILDER") {
         this.wbEndCleanup();
@@ -1803,20 +3315,74 @@ export class SessionManager {
         mode: gameName,
         gameUrl: gameEntry.url,
         gamePlayerName: this.childName,
+        gameCompanionName: this.companion.name,
       };
       if (gt === "reward") {
         canvasDraw.rewardGameConfig = { ...gameEntry.defaultConfig };
         this.spaceInvadersRewardActive = true;
+        this.pendingInstructionalGameCompletion = null;
+      } else {
+        this.pendingInstructionalGameCompletion = {
+          gameName,
+        };
       }
-      this.send("canvas_draw", canvasDraw);
+      const revisedCanvasDraw = this.withCanvasRevision(canvasDraw);
+      this.send("canvas_draw", revisedCanvasDraw);
 
-      this.gameBridge.launchByName(gameName, gt, this.childName);
-      console.log(`  🎮 launchGame — ${gameName} (${gt})`);
-      this.currentCanvasState = {
-        mode: gameName,
+      const launchConfig = { ...gameEntry.defaultConfig };
+
+      // For store-game: override itemPool with amounts from the current worksheet
+      // so the child practices with the exact values they just worked through.
+      if (gameName === "store-game") {
+        const worksheetPool = this.buildWorksheetItemPool();
+        if (worksheetPool && worksheetPool.length > 0) {
+          launchConfig.itemPool = worksheetPool;
+          console.log(
+            `  🎮 [store-game] worksheet itemPool: ` +
+            worksheetPool.map(i => `${i.emoji} ${i.name} ${i.price}¢`).join(", ")
+          );
+        } else {
+          console.log(`  🎮 [store-game] no worksheet amounts found — using built-in item pool`);
+        }
+      }
+
+      this.pendingGameStart = {
         gameUrl: gameEntry.url,
-        gamePlayerName: this.childName,
+        childName: this.childName,
+        companionName: this.companion.name,
+        config: launchConfig,
       };
+      this.gameBridge.launchByName(
+        gameName,
+        gt,
+        this.childName,
+        launchConfig,
+        this.companion.name,
+      );
+      console.log(`  🎮 launchGame — ${gameName} (${gt})`);
+      this.currentCanvasState = { ...revisedCanvasDraw };
+      if (this.ctx) {
+        this.ctx.updateCanvas({
+          mode: gameName as any,
+          gameUrl: gameEntry.url,
+          gamePlayerName: this.childName,
+          rewardGameConfig:
+            gt === "reward" ? { ...gameEntry.defaultConfig } : undefined,
+          content: undefined,
+          label: undefined,
+          svg: undefined,
+          sceneDescription: undefined,
+          problemAnswer: undefined,
+          problemHint: undefined,
+        });
+        this.broadcastContext();
+      }
+      this.setActiveCanvasActivity("reward-game", {
+        resumable: worksheetResumeSnapshot != null,
+        reason:
+          worksheetResumeSnapshot != null ? "worksheet_instructional_game" : undefined,
+        snapshot: worksheetResumeSnapshot,
+      });
       return;
     }
 
@@ -1878,7 +3444,14 @@ export class SessionManager {
             "reward",
             this.childName
           );
+          this.currentCanvasState = {
+            mode: "space-invaders",
+            gameUrl: inv?.url,
+            gamePlayerName: this.childName,
+          };
+          this.setActiveCanvasActivity("reward-game");
           this.gameBridge.onComplete = () => {
+            this.clearActiveCanvasActivity();
             this.send("canvas_draw", { mode: "idle" });
             this.send("session_ended", {
               summary: "Session complete.",
@@ -1899,6 +3472,13 @@ export class SessionManager {
     }
 
     if (tool === "logWorksheetAttempt") {
+      if (this.activeCanvasActivity.pauseState === "paused_for_checkin") {
+        this.lastWorksheetTurnOutcome = "blocked_stale";
+        console.warn(
+          "  ⚠️  logWorksheetAttempt ignored — activity is paused for child check-in",
+        );
+        return;
+      }
       if (!this.worksheetMode) {
         console.warn(
           "  ⚠️  logWorksheetAttempt ignored — not in worksheet mode",
@@ -1922,24 +3502,47 @@ export class SessionManager {
           `  ⚠️  logWorksheetAttempt problemId mismatch: ${String(args.problemId)} vs ${wp.id} — using server's current problem`,
         );
       }
-      const childSaid = String(args.childSaid ?? "");
-      if (childSaid && this.worksheetTurnTranscript && !hasContentOverlap(childSaid, this.worksheetTurnTranscript)) {
-        console.warn(
-          `  🚫 logWorksheetAttempt BLOCKED — childSaid doesn't match transcript`,
-        );
-        console.warn(`       childSaid: "${childSaid}"`);
-        console.warn(`       transcript: "${this.worksheetTurnTranscript}"`);
-        return;
-      }
-      if (!this.worksheetTurnTranscript) {
-        console.warn(
-          `  🚫 logWorksheetAttempt BLOCKED — no child transcript for current problem`,
-        );
-        return;
-      }
       const ok = args.correct === true;
+      const childSaid = String(args.childSaid ?? "");
+      console.log(
+        `  🎮 [worksheet] model graded — ${ok ? "correct" : "incorrect"} (childSaid: "${childSaid}")`,
+      );
+      this.lastWorksheetTurnOutcome = ok
+        ? "accepted_correct"
+        : "accepted_incorrect";
+      this.worksheetTurnsWithoutAttempt = 0;
       this.processReward({ correct: ok });
+      this.recordWorksheetAttempt(this.worksheetTurnTranscript || childSaid, ok);
+      this.rememberWorksheetSubmission(String(wp.id), this.worksheetTurnTranscript || childSaid);
+      if (ok) {
+        this.rememberWorksheetAcceptedTranscript(this.worksheetTurnTranscript || childSaid);
+      }
       this.pendingWorksheetLog = { ok };
+    }
+
+    if (tool === "requestPauseForCheckIn") {
+      void this.pauseActiveCanvasForCheckIn(
+        String(args.reason ?? "checkin_request")
+      ).catch(console.error);
+      return;
+    }
+
+    if (tool === "requestResumeActivity") {
+      if (args.childConfirmedReady === true) {
+        void (async () => {
+          // First try the formal resume path (only works if explicitly paused)
+          const resumed = await this.resumeActiveCanvasActivity(false).catch(() => false);
+          if (!resumed && this.worksheetMode && this.worksheetProblems[this.worksheetProblemIndex]) {
+            // Activity was never formally paused (e.g. session interrupted by overload before
+            // the first problem was ever presented) — present the current problem directly.
+            console.log("  🔄 [worksheet] requestResumeActivity fallback — presenting current problem");
+            this.worksheetAdvancing = true;
+            await this.presentCurrentWorksheetProblem().catch(console.error);
+            this.worksheetAdvancing = false;
+          }
+        })().catch(console.error);
+      }
+      return;
     }
 
     if (tool === "mathProblem" && args.childAnswer != null) {
@@ -1955,6 +3558,7 @@ export class SessionManager {
     }
 
     if (tool === "showCanvas") {
+      this.pendingGameStart = null;
       if (String(args.mode ?? "") !== "word-builder") {
         this.wbEndCleanup();
         if (this.turnSM.getState() === "WORD_BUILDER") {
@@ -1977,6 +3581,7 @@ export class SessionManager {
           problemHint: undefined,
         });
       }
+      this.clearActiveCanvasActivity();
       console.log(`  🖼️  [canvas] mode=${args.mode}, content=${args.content ?? "(none)"}`);
 
       // ── Reina: server-canonical problem announcement ──────────────────────

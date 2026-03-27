@@ -11,6 +11,8 @@ import { blackboard } from "./blackboard";
 import { startWordBuilder } from "./startWordBuilder";
 import { startSpellCheck } from "./startSpellCheck";
 import { launchGame } from "./launchGame";
+import { requestPauseForCheckIn } from "./requestPauseForCheckIn";
+import { requestResumeActivity } from "./requestResumeActivity";
 
 /** Every `tool()` exposed to Elli — single registry for runtime + docs. */
 export const ALL_TOOLS = {
@@ -26,6 +28,8 @@ export const ALL_TOOLS = {
   startWordBuilder,
   startSpellCheck,
   launchGame,
+  requestPauseForCheckIn,
+  requestResumeActivity,
 } as const;
 
 function getDescription(t: Tool): string {

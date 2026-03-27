@@ -51,6 +51,14 @@ ok(
     sessionManagerSrc.includes('tool === "logWorksheetAttempt"'),
 );
 ok(
+  "session-manager does not server-grade worksheet transcripts (Matilda via logWorksheetAttempt only)",
+  !sessionManagerSrc.includes("gradeWorksheetTranscript("),
+);
+ok(
+  "session-manager normalizes worksheet rows before queuing",
+  sessionManagerSrc.includes("normalizeWorksheetProblem("),
+);
+ok(
   "runCompanionResponse flushes pending worksheet log after audio_done",
   /audio_done[\s\S]*pendingWorksheetLog[\s\S]*advanceWorksheetAfterLogAttempt/.test(
     sessionManagerSrc,

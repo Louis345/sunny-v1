@@ -2,6 +2,7 @@ import { tool } from "ai";
 import fs from "fs";
 import path from "path";
 import { z } from "zod";
+import { shouldPersistSessionData } from "../../../utils/runtimeMode";
 
 export const logWorksheetAttempt = tool({
   description: `Call this after EVERY worksheet problem attempt — correct or incorrect.
@@ -16,6 +17,10 @@ Only call when the child has genuinely attempted an answer.`,
     expectedAnswer: z.string(),
   }),
   execute: async (args) => {
+    if (!shouldPersistSessionData()) {
+      return { logged: false, correct: args.correct, skipped: "stateless demo/test mode" };
+    }
+
     const timestamp = new Date().toISOString();
     const logsDir = path.resolve(process.cwd(), "src", "logs");
     await fs.promises.mkdir(logsDir, { recursive: true });

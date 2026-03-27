@@ -67,7 +67,7 @@ export function handleWsConnection(
 
       case "canvas_done": {
         if (!session) return;
-        session.canvasDone();
+        session.canvasDone(msg as unknown as Record<string, unknown>);
         break;
       }
 
@@ -81,6 +81,18 @@ export function handleWsConnection(
         if (!session) return;
         const text = (msg as Record<string, string>).text;
         if (text) session.injectTranscript(text);
+        break;
+      }
+
+      case "worksheet_answer": {
+        if (!session) return;
+        session.receiveWorksheetAnswer(
+          msg as unknown as {
+            problemId?: string;
+            fieldId?: string;
+            value?: string;
+          },
+        );
         break;
       }
 

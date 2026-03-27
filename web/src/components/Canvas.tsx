@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, createRef } from "react";
+import { useForm } from "react-hook-form";
+import { Document, Page, pdfjs } from "react-pdf";
+import type {
+  OverlayField,
+  WorksheetInteractionMode,
+} from "../../../src/server/assignment-player";
 
 /** Stable module-level ref so useSession can post messages without a DOM scan */
 export const gameIframeRef = createRef<HTMLIFrameElement>();
@@ -19,6 +25,10 @@ import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry
 import type { BlackboardState } from "../hooks/useSession";
 import { BlackboardContent } from "./BlackboardContent";
 const Lottie = (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 
 function unescapeSvg(svg: string | undefined): string {
   if (!svg) return "";
@@ -43,6 +53,7 @@ interface PlaceValueData {
 type CanvasCoreMode =
   | "idle"
   | "teaching"
+  | "worksheet_pdf"
   | "reward"
   | "riddle"
   | "championship"
@@ -85,6 +96,14 @@ export interface CanvasState {
   wordBuilderMode?: string;
   /** Reward iframe (e.g. Space Invaders) — forwarded as GameBridge { config } */
   rewardGameConfig?: Record<string, unknown>;
+  pdfAssetUrl?: string;
+  pdfPage?: number;
+  pdfPageWidth?: number;
+  pdfPageHeight?: number;
+  activeProblemId?: string;
+  activeFieldId?: string;
+  overlayFields?: OverlayField[];
+  interactionMode?: WorksheetInteractionMode;
 }
 
 function runGameIframeOnLoad(
@@ -138,6 +157,321 @@ interface Props {
   sessionState: string;
   accentColor?: string;
   onCanvasDone: () => void;
+  onWorksheetAnswer: (payload: {
+    problemId: string;
+    fieldId: string;
+    value: string;
+  }) => void;
+  onOverlayFieldChange?: (payload: {
+    problemId: string;
+    field: OverlayField;
+    fields: OverlayField[];
+    pageWidth: number;
+    pageHeight: number;
+  }) => void;
+}
+
+function normalizeOverlayDraft(
+  field: OverlayField,
+  pageWidth: number,
+  pageHeight: number,
+): OverlayField {
+  const minSize = 24;
+  const width = Math.max(minSize, Math.min(pageWidth, Math.round(field.width)));
+  const height = Math.max(minSize, Math.min(pageHeight, Math.round(field.height)));
+  return {
+    ...field,
+    x: Math.max(0, Math.min(pageWidth - width, Math.round(field.x))),
+    y: Math.max(0, Math.min(pageHeight - height, Math.round(field.y))),
+    width,
+    height,
+  };
+}
+
+function WorksheetPdfContent({
+  canvas,
+  onReady,
+  onWorksheetAnswer,
+  onOverlayFieldChange,
+}: {
+  canvas: CanvasState;
+  onReady: () => void;
+  onWorksheetAnswer: Props["onWorksheetAnswer"];
+  onOverlayFieldChange?: Props["onOverlayFieldChange"];
+}) {
+  const { register, handleSubmit, reset } = useForm<Record<string, string>>();
+  const displayWidth = 720;
+  const pageWidth = canvas.pdfPageWidth ?? 1000;
+  const pageHeight = canvas.pdfPageHeight ?? 1400;
+  const displayHeight = displayWidth * (pageHeight / pageWidth);
+  const isReviewMode = canvas.interactionMode === "review";
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [draftFields, setDraftFields] = useState<OverlayField[]>(
+    () => canvas.overlayFields ?? [],
+  );
+  const draftFieldsRef = useRef<OverlayField[]>(canvas.overlayFields ?? []);
+  const [showOverlayDebug, setShowOverlayDebug] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.location.search.includes("overlayDebug=1");
+  });
+  const [activeEdit, setActiveEdit] = useState<{
+    fieldId: string;
+    mode: "drag" | "resize";
+    startClientX: number;
+    startClientY: number;
+    originField: OverlayField;
+  } | null>(null);
+
+  useEffect(() => {
+    reset({});
+    const next = canvas.overlayFields ?? [];
+    setDraftFields(next);
+    draftFieldsRef.current = next;
+  }, [canvas.activeProblemId, canvas.overlayFields, reset]);
+
+  const updateDraftField = useCallback(
+    (fieldId: string, transform: (field: OverlayField) => OverlayField) => {
+      setDraftFields((prev) => {
+        const next = prev.map((field) =>
+          field.fieldId === fieldId
+            ? normalizeOverlayDraft(transform(field), pageWidth, pageHeight)
+            : field,
+        );
+        draftFieldsRef.current = next;
+        return next;
+      });
+    },
+    [pageHeight, pageWidth],
+  );
+
+  const emitOverlayFieldChange = useCallback(
+    (fieldId: string) => {
+      if (!canvas.activeProblemId || !onOverlayFieldChange) return;
+      const next = draftFieldsRef.current;
+      const field = next.find((entry) => entry.fieldId === fieldId);
+      if (!field) return;
+      onOverlayFieldChange({
+        problemId: canvas.activeProblemId,
+        field,
+        fields: next,
+        pageWidth,
+        pageHeight,
+      });
+    },
+    [canvas.activeProblemId, onOverlayFieldChange, pageHeight, pageWidth],
+  );
+
+  useEffect(() => {
+    if (!activeEdit) return;
+    const handlePointerMove = (event: PointerEvent) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+      const dx = ((event.clientX - activeEdit.startClientX) / rect.width) * pageWidth;
+      const dy = ((event.clientY - activeEdit.startClientY) / rect.height) * pageHeight;
+      updateDraftField(activeEdit.fieldId, (field) => {
+        if (activeEdit.mode === "drag") {
+          return {
+            ...field,
+            x: activeEdit.originField.x + dx,
+            y: activeEdit.originField.y + dy,
+          };
+        }
+        return {
+          ...field,
+          width: activeEdit.originField.width + dx,
+          height: activeEdit.originField.height + dy,
+        };
+      });
+    };
+
+    const handlePointerUp = () => {
+      emitOverlayFieldChange(activeEdit.fieldId);
+      setActiveEdit(null);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp, { once: true });
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [activeEdit, emitOverlayFieldChange, pageHeight, pageWidth, updateDraftField]);
+
+  const copyOverlayDebugJson = useCallback(async () => {
+    const payload = JSON.stringify(draftFieldsRef.current, null, 2);
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+    }
+    console.log("[worksheet overlay debug]", payload);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <div className="flex items-center gap-3 self-stretch justify-center">
+        {isReviewMode ? (
+          <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm">
+            Review mode
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className={`rounded-full px-4 py-2 text-sm font-semibold shadow ${
+            showOverlayDebug
+              ? "bg-amber-500 text-white"
+              : "bg-slate-100 text-slate-700"
+          }`}
+          onClick={() => setShowOverlayDebug((value) => !value)}
+        >
+          {showOverlayDebug ? "Hide Overlay Debug" : "Show Overlay Debug"}
+        </button>
+        {showOverlayDebug ? (
+          <button
+            type="button"
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow"
+            onClick={() => void copyOverlayDebugJson()}
+          >
+            Copy Overlay JSON
+          </button>
+        ) : null}
+      </div>
+      <div
+        ref={containerRef}
+        className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow"
+        style={{ width: displayWidth, height: displayHeight }}
+      >
+        {canvas.pdfAssetUrl ? (
+          <Document
+            file={canvas.pdfAssetUrl}
+            loading={
+              <div className="flex h-full items-center justify-center p-6 text-sm text-gray-500">
+                Loading worksheet...
+              </div>
+            }
+            error={
+              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                <div className="text-4xl">📄</div>
+                <p className="text-base font-semibold text-gray-700">Worksheet couldn't load</p>
+                <p className="text-sm text-gray-500">Ask a grown-up to check the connection, then refresh the page.</p>
+              </div>
+            }
+            onLoadError={(err) => {
+              console.error("[WorksheetPdf] failed to load PDF:", canvas.pdfAssetUrl, err);
+              onReady();
+            }}
+          >
+            <Page
+              pageNumber={canvas.pdfPage ?? 1}
+              width={displayWidth}
+              renderAnnotationLayer={false}
+              renderTextLayer={false}
+              onRenderSuccess={onReady}
+              onRenderError={(err) => {
+                console.error("[WorksheetPdf] failed to render page:", err);
+                onReady();
+              }}
+            />
+          </Document>
+        ) : null}
+        {(!isReviewMode || showOverlayDebug ? draftFields : []).map((field) => (
+          <form
+            key={field.fieldId}
+            onSubmit={handleSubmit((values) => {
+              onWorksheetAnswer({
+                problemId: canvas.activeProblemId ?? "",
+                fieldId: field.fieldId,
+                value: values[field.fieldId] ?? "",
+              });
+            })}
+            className="absolute"
+            style={{
+              left: `${(field.x / pageWidth) * 100}%`,
+              top: `${(field.y / pageHeight) * 100}%`,
+              width: `${(field.width / pageWidth) * 100}%`,
+              height: `${(field.height / pageHeight) * 100}%`,
+            }}
+          >
+            {showOverlayDebug ? (
+              <>
+                <button
+                  type="button"
+                  className="absolute -top-8 left-0 rounded-md bg-amber-500 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    setActiveEdit({
+                      fieldId: field.fieldId,
+                      mode: "drag",
+                      startClientX: event.clientX,
+                      startClientY: event.clientY,
+                      originField: field,
+                    });
+                  }}
+                >
+                  overlay debug: {field.fieldId}
+                </button>
+                <div className="pointer-events-none absolute inset-0 rounded-lg border-2 border-dashed border-amber-500 bg-amber-200/20" />
+              </>
+            ) : null}
+            <input
+              {...register(field.fieldId)}
+              aria-label={field.fieldId}
+              placeholder={field.placeholder ?? ""}
+              className={`h-full w-full rounded-lg bg-white/90 px-3 text-lg font-bold text-slate-900 shadow ${
+                showOverlayDebug
+                  ? "border-2 border-amber-500"
+                  : "border-2 border-blue-500"
+              }`}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handleSubmit((values) => {
+                    onWorksheetAnswer({
+                      problemId: canvas.activeProblemId ?? "",
+                      fieldId: field.fieldId,
+                      value: values[field.fieldId] ?? "",
+                    });
+                  })();
+                }
+              }}
+            />
+            {showOverlayDebug ? (
+              <button
+                type="button"
+                aria-label={`resize-${field.fieldId}`}
+                className="absolute -bottom-2 -right-2 h-5 w-5 rounded-full border-2 border-white bg-slate-900 shadow"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  setActiveEdit({
+                    fieldId: field.fieldId,
+                    mode: "resize",
+                    startClientX: event.clientX,
+                    startClientY: event.clientY,
+                    originField: field,
+                  });
+                }}
+              />
+            ) : null}
+          </form>
+        ))}
+      </div>
+      {showOverlayDebug ? (
+        <div className="w-full max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-slate-700 shadow-sm">
+          <div className="mb-2 font-bold text-amber-900">Overlay debug</div>
+          <div className="space-y-2">
+            {draftFields.map((field) => (
+              <div key={field.fieldId} className="rounded-md bg-white px-3 py-2 font-mono text-xs shadow-sm">
+                {field.fieldId} x={field.x} y={field.y} w={field.width} h={field.height}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {canvas.content ? (
+        <div className="max-w-3xl text-center text-lg font-semibold text-slate-700">
+          {canvas.content}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function RewardTakeover({
@@ -1013,6 +1347,8 @@ export function Canvas({
   sessionState,
   accentColor = "#854F0B",
   onCanvasDone,
+  onWorksheetAnswer,
+  onOverlayFieldChange,
 }: Props) {
   console.log("[Canvas] render:", {
     mode: canvas.mode,
@@ -1078,6 +1414,13 @@ export function Canvas({
               );
             });
           });
+          break;
+        }
+        case "worksheet_pdf": {
+          setDisplayContent("");
+          setDisplayMode("worksheet_pdf");
+          setRiddleLabel("");
+          onCanvasDone();
           break;
         }
         case "riddle": {
@@ -1226,6 +1569,7 @@ export function Canvas({
       canvas.mode !== "idle" &&
       hasContent &&
       (canvas.mode === "teaching" ||
+        canvas.mode === "worksheet_pdf" ||
         canvas.mode === "riddle" ||
         canvas.mode === "reward" ||
         canvas.mode === "championship" ||
@@ -1252,6 +1596,7 @@ export function Canvas({
 
   const showAnimatedContent =
     displayMode === "teaching" ||
+    displayMode === "worksheet_pdf" ||
     displayMode === "riddle" ||
     displayMode === "reward" ||
     displayMode === "championship" ||
@@ -1336,7 +1681,14 @@ export function Canvas({
           </div>
         )}
 
-        {displayMode === "place_value" && canvas.placeValueData ? (
+        {displayMode === "worksheet_pdf" && canvas.pdfAssetUrl ? (
+          <WorksheetPdfContent
+            canvas={canvas}
+            onReady={onCanvasDone}
+            onWorksheetAnswer={onWorksheetAnswer}
+            onOverlayFieldChange={onOverlayFieldChange}
+          />
+        ) : displayMode === "place_value" && canvas.placeValueData ? (
           <PlaceValueContent data={canvas.placeValueData} />
         ) : displayMode === "spelling" && canvas.spellingWord ? (
           <SpellingContent

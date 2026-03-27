@@ -160,7 +160,7 @@
   </div>
 
   <div class="elli-bubble" id="elli">
-    <strong>ELLI</strong> — Waiting for Sunny to start…
+    <strong id="companion-name">SUNNY</strong> — Waiting for Sunny to start…
   </div>
 </div>
 
@@ -235,6 +235,7 @@
   }
 
   let childName = 'friend';
+  let companionName = 'Sunny';
   let probeWords = ['bed', 'dog', 'big', 'duck', 'bird', 'dab', 'bad', 'dig'];
   let bdWords = [];
 
@@ -271,8 +272,13 @@
     timerFill: document.getElementById('timer-fill'),
   };
 
+  function setCompanionName(name) {
+    companionName = String(name || 'Sunny');
+    document.getElementById('companion-name').textContent = companionName.toUpperCase();
+  }
+
   function setElli(html) {
-    el.elli.innerHTML = '<strong>ELLI</strong> — ' + html;
+    el.elli.innerHTML = '<strong id="companion-name">' + companionName.toUpperCase() + '</strong> — ' + html;
   }
 
   function filterBdWords(words) {
@@ -290,6 +296,7 @@
     const msg = e.data;
     if (!msg || msg.type !== 'start') return;
     childName = msg.childName || 'friend';
+    setCompanionName(msg.companionName || 'Sunny');
     const cfg = msg.config || {};
     if (Array.isArray(cfg.probeWords) && cfg.probeWords.length) {
       probeWords = cfg.probeWords.map(function (w) { return String(w); });

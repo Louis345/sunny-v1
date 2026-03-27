@@ -1,6 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+function isTeachingMathContent(content: string | undefined): boolean {
+  if (!content) return false;
+  return /[\d]+\s*([+\-×÷])\s*[\d]+/.test(content);
+}
+
 const showCanvasSchema = z.object({
   mode: z
     .enum(["teaching", "reward", "riddle", "championship", "place_value"])
@@ -86,6 +91,14 @@ export const showCanvas = tool({
   inputSchema: showCanvasSchema,
   execute: async (args) => {
     const input = { ...args };
+    if (
+      input.mode === "teaching" &&
+      input.content &&
+      input.content.includes(" ") &&
+      !isTeachingMathContent(input.content)
+    ) {
+      input.content = "";
+    }
     if (input.svg) {
       input.svg = input.svg
         .replace(/&lt;/g, "<")

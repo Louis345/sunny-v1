@@ -154,6 +154,64 @@ async function main(): Promise<void> {
     );
   }
 
+  console.log("\nSuite 5 — structured worksheet contract is preserved");
+  const structuredText = JSON.stringify({
+    subject: "money counting and comparison",
+    problems: [
+      {
+        id: 1,
+        question: "Which student has more money?",
+        instructions: ["Circle the student with the most money."],
+        answer: "155",
+        hint: "Compare the two amounts.",
+        canvas_display: "Two students with $1.18 and $1.55.",
+        page: 1,
+        promptVisible: "Which student has more money, the one with $1.18 or the one with $1.55?",
+        promptSpoken: "Which student has more money, the one with $1.18 or the one with $1.55?",
+        linkedGames: ["store-game"],
+        evidence: ["left amount is $1.18", "right amount is $1.55"],
+        confidence: 0.99,
+        structured: {
+          page: 1,
+          promptVisible: "Which student has more money, the one with $1.18 or the one with $1.55?",
+          promptSpoken: "Which student has more money, the one with $1.18 or the one with $1.55?",
+          problemType: "compare_amounts",
+          answerKind: "numeric",
+          canonicalAnswer: "155",
+          visibleFacts: {
+            kind: "compare_amounts",
+            leftAmountCents: 118,
+            rightAmountCents: 155,
+            askVisual: "greater",
+          },
+          evidence: ["left amount is $1.18", "right amount is $1.55"],
+          confidence: 0.99,
+          linkedGames: ["store-game"],
+          overlayTargets: [],
+        },
+      },
+    ],
+    session_directives: {
+      problems_today: [1],
+      teaching_order: [1],
+      reward_after: 4,
+      interaction_mode: "review",
+    },
+  });
+  const structuredOut = parseHomeworkExtractionModelText(structuredText);
+  ok(
+    "structured extraction keeps compare_amounts visible facts",
+    structuredOut.problems[0]?.structured?.visibleFacts.kind === "compare_amounts" &&
+      structuredOut.problems[0]?.structured?.visibleFacts.leftAmountCents === 118 &&
+      structuredOut.problems[0]?.structured?.visibleFacts.rightAmountCents === 155,
+    JSON.stringify(structuredOut),
+  );
+  ok(
+    "structured extraction preserves interaction mode directive",
+    structuredOut.session_directives?.interaction_mode === "review",
+    JSON.stringify(structuredOut),
+  );
+
   console.log("\n--- Summary ---");
   if (failures > 0) {
     console.log(`  ${failures} assertion(s) failed`);

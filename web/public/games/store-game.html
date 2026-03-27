@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sunny's Corner Store — Project Sunny</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #12002e;
+  min-height: 100vh;
+  font-family: 'Nunito', 'Arial Rounded MT Bold', Arial, sans-serif;
+  color: #d0b8ff;
+  overflow-x: hidden;
+  position: relative;
+  user-select: none;
+}
+
+#starfield { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.star {
+  position: absolute; border-radius: 50%; background: #fff;
+  animation: tw var(--d,2s) var(--dl,0s) infinite alternate ease-in-out;
+}
+@keyframes tw { from{opacity:.15;transform:scale(.7)} to{opacity:.9;transform:scale(1.2)} }
+
+.wrap {
+  position: relative; z-index: 1;
+  max-width: 560px; margin: 0 auto;
+  padding: 12px 14px 30px;
+  display: flex; flex-direction: column; gap: 11px; align-items: center;
+}
+
+/* ── HUD ── */
+.title {
+  font-size: 22px; font-weight: 900; color: #FFD93D;
+  text-shadow: 0 2px 0 #8a6a00; letter-spacing:.05em; text-align:center;
+}
+.level-badge {
+  display: inline-block;
+  background: #534AB7; color: #FFD93D;
+  font-size: 11px; font-weight: 900;
+  padding: 2px 10px; border-radius: 20px;
+  letter-spacing: .08em; text-transform: uppercase;
+  margin-left: 8px;
+}
+.hud {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%;
+  background: #1e0848; border: 2px solid #534AB7; border-radius: 12px;
+  padding: 7px 16px;
+}
+.hud span { font-size: 12px; font-weight: 800; color: #FFD93D; }
+
+/* ── Level indicator ── */
+.level-track {
+  display: flex; gap: 6px; width: 100%; justify-content: center;
+}
+.level-pip {
+  height: 6px; flex: 1; border-radius: 3px;
+  background: #2a0a5e; transition: background .4s;
+}
+.level-pip.done  { background: #9FE1CB; }
+.level-pip.active{ background: #FFD93D; }
+
+/* ── Shelf — single or multi-item ── */
+.shelf {
+  width: 100%;
+  background: #0d001f;
+  border: 2px solid #2a0a5e;
+  border-radius: 18px;
+  padding: 16px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.shelf-items {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Product card — looks like a store shelf display */
+.shelf-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(127,119,221,.35), 0 0 0 2px #534AB7;
+  background: linear-gradient(160deg, #1e0848 0%, #0d001f 100%);
+  min-width: 110px;
+}
+
+/* Image area */
+.item-img {
+  width: 100%;
+  background: radial-gradient(ellipse at 50% 60%, #2a0a5e 0%, #12002e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 16px 14px;
+  position: relative;
+}
+.item-img::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #534AB7, transparent);
+}
+
+.item-emoji {
+  font-size: 5rem; line-height: 1;
+  filter: drop-shadow(0 8px 16px rgba(127,119,221,.6));
+  animation: float 3s ease-in-out infinite;
+  display: block;
+}
+.item-emoji.sm { font-size: 3.8rem; }
+
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+/* Info area below the image */
+.item-info {
+  width: 100%;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: #1e0848;
+}
+
+.price-tag {
+  background: #FFD93D; color: #12002e;
+  font-weight: 900; font-size: 1.25rem;
+  padding: 5px 18px; border-radius: 30px;
+  box-shadow: 0 3px 0 #8a6a00;
+  letter-spacing: .02em;
+}
+.item-label {
+  font-size: 11px; font-weight: 800;
+  color: #9f8fdd; letter-spacing:.06em; text-transform:uppercase;
+}
+
+/* Total you need */
+.total-needed {
+  background: #1e0848;
+  border: 2px solid #534AB7;
+  border-radius: 12px;
+  padding: 8px 20px;
+  text-align: center;
+  width: 100%;
+}
+.total-label {
+  font-size: 10px; font-weight: 800;
+  color: #534AB7; letter-spacing:.12em; text-transform:uppercase; margin-bottom:2px;
+}
+.total-amount {
+  font-size: 1.8rem; font-weight: 900; color: #FFD93D;
+  text-shadow: 0 0 16px #FFD93D44; letter-spacing:.04em;
+}
+
+/* ── Selected coins ── */
+.selected-section {
+  width: 100%;
+  background: #1e0848;
+  border: 2px solid #534AB7;
+  border-radius: 16px;
+  padding: 11px 14px;
+  min-height: 70px;
+}
+.selected-label {
+  font-size: 10px; font-weight: 800; letter-spacing:.12em;
+  text-transform: uppercase; color: #534AB7; margin-bottom:8px;
+}
+.selected-coins {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  min-height: 44px; align-items: center;
+}
+.sel-coin {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-weight: 900; cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0,0,0,.4);
+  border: 2px solid rgba(255,255,255,.15);
+  transition: transform .1s;
+  position: relative; overflow: hidden;
+  animation: selIn .18s ease;
+}
+@keyframes selIn {
+  from{transform:scale(0) rotate(-20deg);opacity:0}
+  to  {transform:scale(1) rotate(0deg);opacity:1}
+}
+.sel-coin::before {
+  content:''; position:absolute; top:3px; left:6px;
+  width:10px; height:6px;
+  background:rgba(255,255,255,.22); border-radius:50%;
+  transform:rotate(-35deg);
+}
+.sel-coin:hover  { transform:scale(1.12); }
+.sel-coin:active { transform:scale(.9); }
+.sel-coin .sv { font-size:11px; line-height:1; color:rgba(0,0,0,.65); }
+.sel-coin .sl { font-size:8px; color:rgba(0,0,0,.45); font-weight:800; }
+.sel-empty { font-size:12px; color:#2a0a5e; font-weight:700; width:100%; text-align:center; }
+
+/* ── Coin purse ── */
+.coins-section {
+  width: 100%;
+  background: #0d001f;
+  border: 2px solid #2a0a5e;
+  border-radius: 18px;
+  padding: 14px 12px;
+}
+.coins-label {
+  font-size: 10px; font-weight: 800; letter-spacing:.12em;
+  text-transform: uppercase; color: #534AB7;
+  margin-bottom: 12px; text-align:center;
+}
+.coins-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  justify-items: center;
+}
+.coin-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; }
+
+/* ── Coin ── */
+.coin {
+  border-radius: 50%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; font-weight: 900;
+  box-shadow: 0 6px 0 rgba(0,0,0,.45);
+  border: 3px solid rgba(255,255,255,.18);
+  transition: transform .12s, box-shadow .12s, opacity .2s;
+  position: relative; overflow: hidden;
+}
+.coin::before {
+  content:''; position:absolute; top:5px; left:10px;
+  width:16px; height:9px;
+  background:rgba(255,255,255,.25); border-radius:50%;
+  transform:rotate(-35deg);
+}
+.coin:active { transform:translateY(5px) scale(.96); box-shadow:0 2px 0 rgba(0,0,0,.45); }
+.coin.tapped  { animation: bounce .22s ease-out; }
+@keyframes bounce { 0%{transform:scale(1.28) rotate(-5deg)} 100%{transform:scale(1) rotate(0)} }
+.coin.depleted { opacity:.25; pointer-events:none; }
+
+.coin .cv { line-height:1; color:rgba(0,0,0,.68); font-weight:900; }
+.coin .cl { color:rgba(0,0,0,.45); font-weight:800; text-transform:uppercase; }
+
+.quarter { width:72px; height:72px; background:radial-gradient(circle at 35% 32%,#f0f0e8,#a8a8a0); }
+.quarter .cv { font-size:17px; } .quarter .cl { font-size:9px; margin-top:1px; }
+
+.dime    { width:56px; height:56px; background:radial-gradient(circle at 35% 32%,#d8e8f8,#88a8c8); }
+.dime .cv { font-size:14px; } .dime .cl { font-size:8px; margin-top:1px; }
+
+.nickel  { width:64px; height:64px; background:radial-gradient(circle at 35% 32%,#ddecd8,#90b080); }
+.nickel .cv { font-size:16px; } .nickel .cl { font-size:9px; margin-top:1px; }
+
+.penny   { width:60px; height:60px; background:radial-gradient(circle at 35% 32%,#f0c880,#c07030); }
+.penny .cv { font-size:15px; } .penny .cl { font-size:9px; margin-top:1px; }
+
+.coin-count { font-size:10px; font-weight:800; color:#534AB7; transition:color .2s; }
+.coin-count.low { color:#E74C3C; }
+
+/* ── Buttons ── */
+.btn-row { display:flex; gap:10px; width:100%; }
+.pay-btn {
+  flex:1; padding:14px;
+  background:#FFD93D; color:#12002e;
+  border:none; border-radius:14px;
+  font-weight:900; font-size:16px; cursor:pointer;
+  box-shadow:0 5px 0 #8a6a00; letter-spacing:.05em;
+  transition:transform .1s, box-shadow .1s;
+}
+.pay-btn:active { transform:translateY(4px); box-shadow:0 1px 0 #8a6a00; }
+.clear-btn {
+  padding:14px 18px;
+  background:transparent; color:#E74C3C;
+  border:2px solid #E74C3C; border-radius:14px;
+  font-weight:900; font-size:14px; cursor:pointer;
+  transition:background .15s;
+}
+.clear-btn:hover { background:rgba(231,76,60,.1); }
+
+/* ── Matilda ── */
+.bubble {
+  width:100%;
+  background:#1e0848; border:2px solid #534AB7; border-radius:14px;
+  padding:11px 14px; font-size:13px; font-style:italic;
+  min-height:48px; line-height:1.5;
+  animation:bp 4s ease-in-out infinite;
+}
+@keyframes bp { 0%,100%{border-color:#534AB7} 50%{border-color:#7F77DD} }
+.bubble strong { color:#FFD93D; font-style:normal; }
+
+/* ── Overlay ── */
+.overlay {
+  position:fixed; inset:0; z-index:50;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,0,.78);
+  opacity:0; pointer-events:none; transition:opacity .3s;
+}
+.overlay.show { opacity:1; pointer-events:all; }
+.card {
+  background:#1e0848; border:3px solid #7F77DD;
+  border-radius:26px; padding:36px 44px;
+  text-align:center; max-width:380px; width:90%;
+  transform:scale(.85); transition:transform .3s;
+  box-shadow:0 0 60px #7F77DD44;
+}
+.overlay.show .card { transform:scale(1); }
+.res-emoji { font-size:4.5rem; margin-bottom:12px; display:block; }
+.res-title { font-size:1.9rem; font-weight:900; color:#FFD93D; margin-bottom:8px; text-shadow:0 2px 0 #8a6a00; }
+.res-sub   { font-size:.95rem; color:#9f8fdd; margin-bottom:24px; line-height:1.6; }
+.res-btn {
+  padding:12px 34px; background:#FFD93D; color:#12002e;
+  border:none; border-radius:30px;
+  font-weight:900; font-size:15px; cursor:pointer;
+  box-shadow:0 4px 0 #8a6a00;
+}
+
+/* ── Confetti ── */
+.bit {
+  position:fixed; width:9px; height:9px;
+  top:-10px; border-radius:2px;
+  animation:fall linear forwards;
+  pointer-events:none; z-index:200;
+}
+@keyframes fall { to{transform:translateY(105vh) rotate(720deg);opacity:0} }
+</style>
+</head>
+<body>
+<div id="starfield"></div>
+
+<div class="wrap">
+  <div class="title">🏪 Sunny's Corner Store <span class="level-badge" id="level-badge">Level 1</span></div>
+
+  <div class="hud">
+    <span>Round <b id="rnum">1</b>/5</span>
+    <span>⭐ <b id="pts">0</b></span>
+    <span>✅ <b id="corr">0</b> correct</span>
+  </div>
+
+  <div class="level-track" id="level-track">
+    <!-- pips built by JS -->
+  </div>
+
+  <!-- Shelf -->
+  <div class="shelf">
+    <div class="shelf-items" id="shelf-items">
+      <!-- built by JS -->
+    </div>
+    <div class="total-needed" id="total-needed" style="display:none">
+      <div class="total-label">Total to pay</div>
+      <div class="total-amount" id="total-amount">0¢</div>
+    </div>
+  </div>
+
+  <!-- Selected -->
+  <div class="selected-section">
+    <div class="selected-label">Coins you picked — tap to put back</div>
+    <div class="selected-coins" id="selected-coins">
+      <div class="sel-empty">Tap coins below to add them!</div>
+    </div>
+  </div>
+
+  <!-- Coin purse -->
+  <div class="coins-section">
+    <div class="coins-label">Your coin purse — tap to pay</div>
+    <div class="coins-grid" id="coin-grid"></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="pay-btn" onclick="pay()">💰 Pay!</button>
+    <button class="clear-btn" onclick="clearAll()">🗑️ Clear</button>
+  </div>
+
+  <div class="bubble" id="bubble">
+    <strong>MATILDA</strong> — Loading the store…
+  </div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay">
+  <div class="card">
+    <span class="res-emoji" id="res-emoji">🎉</span>
+    <div class="res-title" id="res-title">Correct!</div>
+    <div class="res-sub" id="res-sub"></div>
+    <button class="res-btn" id="res-btn">Next →</button>
+  </div>
+</div>
+
+<script>
+// ─── Audio ────────────────────────────────────────────────────
+let _ac;
+const ac = () => {
+  if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (_ac.state === "suspended") _ac.resume();
+  return _ac;
+};
+const tone = (f, t, d, v, dl = 0) => {
+  try {
+    const c = ac();
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.connect(g);
+    g.connect(c.destination);
+    o.type = t || "sine";
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0, c.currentTime + dl);
+    g.gain.linearRampToValueAtTime(v || 0.2, c.currentTime + dl + 0.01);
+    g.gain.linearRampToValueAtTime(0, c.currentTime + dl + d);
+    o.start(c.currentTime + dl);
+    o.stop(c.currentTime + dl + d + 0.02);
+  } catch (e) {}
+};
+const sndCoin = () => {
+  tone(800, "sine", 0.06, 0.22);
+  tone(1100, "sine", 0.05, 0.16, 0.05);
+};
+const sndRemove = () => tone(400, "sine", 0.08, 0.15);
+const sndClear = () => {
+  tone(330, "sine", 0.18, 0.15);
+  tone(240, "sine", 0.14, 0.1, 0.12);
+};
+const sndCorrect = () => {
+  [523, 659, 784, 1047].forEach((f, i) => tone(f, "square", 0.15, 0.28, i * 0.08));
+  setTimeout(
+    () => [1047, 1319, 1568].forEach((f, i) => tone(f, "sine", 0.2, 0.22, i * 0.07)),
+    480,
+  );
+};
+const sndWrong = () => {
+  tone(280, "sawtooth", 0.3, 0.3);
+  tone(220, "sawtooth", 0.25, 0.2, 0.18);
+};
+const sndLevelUp = () => {
+  [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, "square", 0.18, 0.3, i * 0.1));
+};
+const jingle = () => {
+  [523, 523, 659, 523, 784, 740, 523, 659].forEach((f, i) => tone(f, "sine", 0.22, 0.28, i * 0.27));
+};
+setTimeout(jingle, 500);
+
+// ─── Item Pool ───────────────────────────────────────────────
+const ITEMS = [
+  { emoji: "🧸", name: "Teddy Bear", price: 75 },
+  { emoji: "🍎", name: "Red Apple", price: 35 },
+  { emoji: "🎈", name: "Balloon", price: 50 },
+  { emoji: "🍫", name: "Chocolate", price: 26 },
+  { emoji: "🪁", name: "Yo-Yo", price: 55 },
+  { emoji: "🍬", name: "Candy", price: 15 },
+  { emoji: "🧃", name: "Juice Box", price: 45 },
+  { emoji: "🖍️", name: "Crayons", price: 30 },
+  { emoji: "🎯", name: "Frisbee", price: 65 },
+  { emoji: "🪀", name: "Spinning Top", price: 20 },
+  { emoji: "🍭", name: "Lollipop", price: 10 },
+  { emoji: "🎁", name: "Gift Box", price: 85 },
+  { emoji: "🦄", name: "Unicorn Toy", price: 95 },
+  { emoji: "🚀", name: "Rocket Toy", price: 60 },
+  { emoji: "🌈", name: "Rainbow Kite", price: 40 },
+  { emoji: "🍩", name: "Donut", price: 25 },
+  { emoji: "🎮", name: "Game Card", price: 80 },
+  { emoji: "🐠", name: "Fish Sticker", price: 5 },
+  { emoji: "🎵", name: "Music Box", price: 70 },
+  { emoji: "🌟", name: "Star Badge", price: 15 },
+];
+
+// ─── Level Config ────────────────────────────────────────────
+const LEVELS = [
+  {
+    name: "Level 1",
+    itemCount: 1,
+    coinMult: 1.0,
+    hint: (items, total) => `The ${items[0].name} costs ${fmt(total)}. Pick the right coins!`,
+  },
+  {
+    name: "Level 2",
+    itemCount: 1,
+    coinMult: 1.0,
+    hint: (items, total) => `${items[0].name} is ${fmt(total)}. Tricky amount — think carefully!`,
+  },
+  {
+    name: "Level 3",
+    itemCount: 2,
+    coinMult: 1.2,
+    hint: (items, total) =>
+      `You're buying a ${items[0].name} AND a ${items[1].name}. Add them up — the total is ${fmt(total)}!`,
+  },
+  {
+    name: "Level 4",
+    itemCount: 2,
+    coinMult: 1.3,
+    hint: (items, total) => `Two items this time! ${items[0].name} + ${items[1].name} = ${fmt(total)} total.`,
+  },
+  {
+    name: "Level 5",
+    itemCount: 3,
+    coinMult: 1.5,
+    hint: (items, total) =>
+      `Three items! ${items.map((i) => i.name).join(", ")}. Add them all — total is ${fmt(total)}. Big brain time! 🧠`,
+  },
+];
+
+const ROUNDS_PER_LEVEL = 5;
+
+// ─── Coin Types ──────────────────────────────────────────────
+const COIN_TYPES = [
+  { label: "Quarter", value: 25, cls: "quarter", display: "25¢", base: 4 },
+  { label: "Dime", value: 10, cls: "dime", display: "10¢", base: 6 },
+  { label: "Nickel", value: 5, cls: "nickel", display: "5¢", base: 6 },
+  { label: "Penny", value: 1, cls: "penny", display: "1¢", base: 8 },
+];
+
+// ─── State ───────────────────────────────────────────────────
+let G = {
+  round: 0,
+  score: 0,
+  correct: 0,
+  basket: [],
+  coinPool: {},
+  idSeq: 0,
+  currentItems: [],
+  currentTotal: 0,
+  usedItemIndices: new Set(),
+};
+
+// ─── Helpers ─────────────────────────────────────────────────
+const fmt = (c) => (c >= 100 ? `$${(c / 100).toFixed(2)}` : `${c}¢`);
+const total = () => G.basket.reduce((s, c) => s + c.value, 0);
+const setM = (html) =>
+  (document.getElementById("bubble").innerHTML = `<strong>MATILDA</strong> — ${html}`);
+const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+
+function pickItems(count) {
+  const available = ITEMS.filter((_, i) => !G.usedItemIndices.has(i));
+  const pool = shuffle(available.length >= count * 2 ? available : ITEMS);
+  const picked = [];
+  const seen = new Set();
+  for (const item of pool) {
+    if (picked.length >= count) break;
+    if (!seen.has(item.emoji)) {
+      seen.add(item.emoji);
+      picked.push(item);
+    }
+  }
+  picked.forEach((p) => {
+    const i = ITEMS.findIndex((x) => x.emoji === p.emoji);
+    G.usedItemIndices.add(i);
+    if (G.usedItemIndices.size > 8) G.usedItemIndices.clear();
+  });
+  return picked;
+}
+
+// ─── Level pips ──────────────────────────────────────────────
+function renderPips() {
+  const track = document.getElementById("level-track");
+  track.innerHTML = "";
+  LEVELS.forEach((_, i) => {
+    const pip = document.createElement("div");
+    pip.className = `level-pip${i < G.round ? " done" : i === G.round ? " active" : ""}`;
+    track.appendChild(pip);
+  });
+}
+
+// ─── Load round ──────────────────────────────────────────────
+function loadRound() {
+  const lvl = LEVELS[G.round];
+  G.basket = [];
+  G.coinPool = {};
+
+  G.currentItems = pickItems(lvl.itemCount);
+  G.currentTotal = G.currentItems.reduce((s, i) => s + i.price, 0);
+
+  COIN_TYPES.forEach((ct) => {
+    G.coinPool[ct.label] = Math.ceil(ct.base * lvl.coinMult);
+  });
+
+  document.getElementById("level-badge").textContent = lvl.name;
+  document.getElementById("rnum").textContent = G.round + 1;
+  renderPips();
+
+  renderShelf();
+  setM(lvl.hint(G.currentItems, G.currentTotal));
+  renderGrid();
+  renderSelected();
+}
+
+function renderShelf() {
+  const shelf = document.getElementById("shelf-items");
+  shelf.innerHTML = "";
+  const multi = G.currentItems.length > 1;
+
+  G.currentItems.forEach((item, idx) => {
+    const div = document.createElement("div");
+    div.className = "shelf-item";
+    div.style.animationDelay = `${idx * 0.4}s`;
+    div.innerHTML = `
+      <div class="item-img">
+        <div class="item-emoji${multi ? " sm" : ""}" style="animation-delay:${idx * 0.5}s">${item.emoji}</div>
+      </div>
+      <div class="item-info">
+        <div class="price-tag">${fmt(item.price)}</div>
+        <div class="item-label">${item.name}</div>
+      </div>`;
+    shelf.appendChild(div);
+
+    if (idx < G.currentItems.length - 1) {
+      const plus = document.createElement("div");
+      plus.style.cssText =
+        "font-size:2rem;font-weight:900;color:#534AB7;align-self:center;";
+      plus.textContent = "+";
+      shelf.appendChild(plus);
+    }
+  });
+
+  const totalBox = document.getElementById("total-needed");
+  if (multi) {
+    totalBox.style.display = "block";
+    document.getElementById("total-amount").textContent = fmt(G.currentTotal);
+  } else {
+    totalBox.style.display = "none";
+  }
+}
+
+// ─── Coin grid ───────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById("coin-grid");
+  grid.innerHTML = "";
+  COIN_TYPES.forEach((ct) => {
+    const avail = G.coinPool[ct.label];
+    const wrap = document.createElement("div");
+    wrap.className = "coin-wrap";
+    wrap.id = `wrap-${ct.label}`;
+
+    const coin = document.createElement("div");
+    coin.className = `coin ${ct.cls}${avail === 0 ? " depleted" : ""}`;
+    coin.id = `coin-${ct.label}`;
+    coin.innerHTML = `<div class="cv">${ct.display}</div><div class="cl">${ct.label}</div>`;
+    coin.onclick = () => addCoin(ct);
+
+    const badge = document.createElement("div");
+    badge.className = `coin-count${avail <= 1 ? " low" : ""}`;
+    badge.id = `badge-${ct.label}`;
+    badge.textContent = `×${avail}`;
+
+    wrap.appendChild(coin);
+    wrap.appendChild(badge);
+    grid.appendChild(wrap);
+  });
+}
+
+// ─── Add / remove coins ──────────────────────────────────────
+function addCoin(ct) {
+  if (G.coinPool[ct.label] <= 0) return;
+
+  if (total() + ct.value > G.currentTotal + 99) {
+    setM(`Whoa — that's too much! The total is ${fmt(G.currentTotal)}. Think about what coins fit!`);
+    return;
+  }
+
+  G.coinPool[ct.label]--;
+  G.basket.push({ id: G.idSeq++, label: ct.label, value: ct.value, display: ct.display, cls: ct.cls });
+  sndCoin();
+
+  const el = document.getElementById(`coin-${ct.label}`);
+  el.classList.remove("tapped");
+  void el.offsetWidth;
+  el.classList.add("tapped");
+  if (G.coinPool[ct.label] === 0) el.classList.add("depleted");
+
+  const badge = document.getElementById(`badge-${ct.label}`);
+  badge.textContent = `×${G.coinPool[ct.label]}`;
+  badge.className = `coin-count${G.coinPool[ct.label] <= 1 ? " low" : ""}`;
+
+  renderSelected();
+
+  const n = G.basket.length;
+  const tgt = G.currentTotal;
+  if (n === 1) setM(`Good start! Keep adding — total to reach is <strong>${fmt(tgt)}</strong>.`);
+  else if (n === 3) setM(`Three coins in. Do you think that's <strong>${fmt(tgt)}</strong>? Count in your head!`);
+  else if (n === 5) setM(`Five coins — are you close? The total is <strong>${fmt(tgt)}</strong>.`);
+}
+
+function removeCoin(id) {
+  const idx = G.basket.findIndex((c) => c.id === id);
+  if (idx === -1) return;
+  const item = G.basket.splice(idx, 1)[0];
+  G.coinPool[item.label]++;
+  sndRemove();
+
+  const el = document.getElementById(`coin-${item.label}`);
+  if (el) el.classList.remove("depleted");
+  const badge = document.getElementById(`badge-${item.label}`);
+  if (badge) {
+    badge.textContent = `×${G.coinPool[item.label]}`;
+    badge.className = `coin-count${G.coinPool[item.label] <= 1 ? " low" : ""}`;
+  }
+
+  renderSelected();
+  setM(`Removed a ${item.label}. Total needed: <strong>${fmt(G.currentTotal)}</strong>.`);
+}
+
+function clearAll() {
+  G.basket = [];
+  COIN_TYPES.forEach((ct) => {
+    G.coinPool[ct.label] = Math.ceil(ct.base * LEVELS[G.round].coinMult);
+  });
+  sndClear();
+  renderGrid();
+  renderSelected();
+  setM(`Cleared! The total is <strong>${fmt(G.currentTotal)}</strong>. Start over!`);
+}
+
+function renderSelected() {
+  const box = document.getElementById("selected-coins");
+  box.innerHTML = "";
+  if (!G.basket.length) {
+    box.innerHTML = '<div class="sel-empty">Tap coins below to add them!</div>';
+    return;
+  }
+  G.basket.forEach((item) => {
+    const sc = document.createElement("div");
+    sc.className = `sel-coin ${item.cls}`;
+    sc.innerHTML = `<div class="sv">${item.display}</div><div class="sl">${item.label[0]}</div>`;
+    sc.title = "Tap to remove";
+    sc.onclick = () => removeCoin(item.id);
+    box.appendChild(sc);
+  });
+}
+
+// ─── Pay ─────────────────────────────────────────────────────
+function pay() {
+  if (!G.basket.length) {
+    setM("You haven't added any coins yet!");
+    return;
+  }
+  const t = total();
+  const tgt = G.currentTotal;
+  const exact = t === tgt;
+  const over = t > tgt;
+
+  const ov = document.getElementById("overlay");
+  const em = document.getElementById("res-emoji");
+  const ti = document.getElementById("res-title");
+  const su = document.getElementById("res-sub");
+  const bn = document.getElementById("res-btn");
+
+  if (exact) {
+    sndCorrect();
+    spawnConfetti();
+    G.score += 100 + G.round * 25;
+    G.correct++;
+    document.getElementById("pts").textContent = G.score;
+    document.getElementById("corr").textContent = G.correct;
+    em.textContent = "🎉";
+    ti.textContent = "EXACT CHANGE!";
+    ti.style.color = "#FFD93D";
+    const bonus = G.round > 0 ? ` (+${G.round * 25} level bonus!)` : "";
+    su.innerHTML = `You paid exactly <strong>${fmt(tgt)}</strong>${
+      G.currentItems.length > 1 ? " for all the items" : ""
+    }!<br>You did that math in your head! 🌟${bonus}`;
+    const last = G.round >= LEVELS.length - 1;
+    bn.textContent = last ? "🏆 Finish!" : "Next level →";
+    bn.onclick = last
+      ? finishGame
+      : () => {
+          ov.classList.remove("show");
+          G.round++;
+          sndLevelUp();
+          loadRound();
+        };
+  } else {
+    sndWrong();
+    const diff = Math.abs(t - tgt);
+    em.textContent = over ? "💸" : "🤔";
+    ti.textContent = over ? "Too much!" : "Not enough!";
+    ti.style.color = over ? "#E74C3C" : "#9FE1CB";
+    su.innerHTML = over
+      ? `You put in <strong>${fmt(t)}</strong> but total is <strong>${fmt(tgt)}</strong>.<br>That's <strong>${fmt(diff)}</strong> too much. Try again!`
+      : `You put in <strong>${fmt(t)}</strong> — you need <strong>${fmt(tgt)}</strong>.<br>You're <strong>${fmt(diff)}</strong> short. Try again!`;
+    bn.textContent = "Try Again";
+    bn.onclick = () => {
+      ov.classList.remove("show");
+      clearAll();
+    };
+  }
+  ov.classList.add("show");
+}
+
+function finishGame() {
+  const ov = document.getElementById("overlay");
+  const em = document.getElementById("res-emoji");
+  const ti = document.getElementById("res-title");
+  const su = document.getElementById("res-sub");
+  const bn = document.getElementById("res-btn");
+
+  spawnConfetti();
+  em.textContent = "🏆";
+  ti.textContent = "Store Closed!";
+  ti.style.color = "#FFD93D";
+  const pct = Math.round((G.correct / LEVELS.length) * 100);
+  su.innerHTML = `Final score: <strong>${G.score} pts</strong><br>${G.correct} of ${LEVELS.length} correct (${pct}%)<br>${
+    G.correct === LEVELS.length
+      ? "🌟 PERFECT CASHIER! 🌟"
+      : "Great counting — play again to beat your score!"
+  }`;
+  bn.textContent = "🔄 Play Again";
+  bn.onclick = () => {
+    ov.classList.remove("show");
+    G = {
+      round: 0,
+      score: 0,
+      correct: 0,
+      basket: [],
+      coinPool: {},
+      idSeq: 0,
+      currentItems: [],
+      currentTotal: 0,
+      usedItemIndices: new Set(),
+    };
+    document.getElementById("pts").textContent = 0;
+    document.getElementById("corr").textContent = 0;
+    loadRound();
+    jingle();
+  };
+  ov.classList.add("show");
+
+  window.parent?.postMessage(
+    { type: "game_complete", score: G.score, correct: G.correct, attempts: LEVELS.length, accuracy: pct },
+    "*",
+  );
+}
+
+// ─── Confetti ────────────────────────────────────────────────
+const CC = ["#FFD93D", "#7F77DD", "#9FE1CB", "#E74C3C", "#3498DB", "#FF8C00", "#DDA0DD", "#98FB98"];
+function spawnConfetti() {
+  for (let i = 0; i < 65; i++) {
+    const el = document.createElement("div");
+    el.className = "bit";
+    el.style.cssText = `left:${Math.random() * 100}vw;background:${CC[~~(Math.random() * CC.length)]};animation-duration:${
+      1.4 + Math.random() * 2
+    }s;animation-delay:${Math.random() * 0.9}s;transform:rotate(${Math.random() * 360}deg);width:${
+      7 + ~~(Math.random() * 8)
+    }px;height:${7 + ~~(Math.random() * 8)}px;border-radius:${Math.random() > 0.5 ? "50%" : "3px"}`;
+    document.body.appendChild(el);
+    el.addEventListener("animationend", () => el.remove());
+  }
+}
+
+// ─── Stars ───────────────────────────────────────────────────
+const sf = document.getElementById("starfield");
+for (let i = 0; i < 80; i++) {
+  const s = document.createElement("div");
+  s.className = "star";
+  const z = Math.random() * 2.5 + 0.8;
+  s.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;width:${z}px;height:${z}px;--d:${
+    1.5 + Math.random() * 2.5
+  }s;--dl:${Math.random() * 2}s`;
+  sf.appendChild(s);
+}
+
+// ─── postMessage ─────────────────────────────────────────────
+window.addEventListener("message", (e) => {
+  const m = e.data;
+  if (!m || m.type !== "start") return;
+  if (m.childName) {
+    document.querySelector(".title").innerHTML =
+      `🏪 ${m.childName}'s Store <span class="level-badge" id="level-badge">Level 1</span>`;
+  }
+  if (m.config?.itemPool) ITEMS.splice(0, ITEMS.length, ...m.config.itemPool);
+  loadRound();
+});
+
+// ─── Boot ────────────────────────────────────────────────────
+loadRound();
+</script>
+</body>
+</html>

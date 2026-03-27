@@ -2,6 +2,7 @@ import { tool } from "ai";
 import path from "path";
 import { z } from "zod";
 import fs from "fs";
+import { shouldPersistSessionData } from "../../../utils/runtimeMode";
 
 const seenThisSession: Record<"Ila" | "Reina", Set<string>> = {
   Ila: new Set(),
@@ -16,6 +17,10 @@ export const logAttempt = tool({
     correct: z.boolean(),
   }),
   execute: async ({ childName, word, correct }) => {
+    if (!shouldPersistSessionData()) {
+      return `${childName} attempted "${word}" — stateless demo/test mode, not writing attempt log.`;
+    }
+
     const seenSet = seenThisSession[childName];
     if (seenSet.has(word)) {
       return `${childName} already attempted "${word}" in this session; not logging duplicate.`;

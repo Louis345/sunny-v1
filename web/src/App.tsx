@@ -18,6 +18,8 @@ function App() {
     endSession,
     resetToPicker,
     sendCanvasDone,
+    submitWorksheetAnswer,
+    handleOverlayFieldChange,
     sendMessage,
     micMuted,
     toggleMicMute,
@@ -82,6 +84,8 @@ function App() {
           onBargeIn={bargeIn}
           onEndSession={endSession}
           onCanvasDone={sendCanvasDone}
+          onWorksheetAnswer={submitWorksheetAnswer}
+          onOverlayFieldChange={handleOverlayFieldChange}
         />
       </div>
     );

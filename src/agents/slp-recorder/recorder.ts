@@ -2,11 +2,17 @@ import type { ModelMessage } from "ai";
 import { SLP_PROMPT, REINA_LEARNING_PROMPT } from "../prompts";
 import { appendToContext } from "../../utils/appendToContext";
 import { runPsychologist } from "../psychologist/psychologist";
+import { shouldPersistSessionData } from "../../utils/runtimeMode";
 
 export async function recordSession(
   history: ModelMessage[],
   childName: "Ila" | "Reina",
 ): Promise<void> {
+  if (!shouldPersistSessionData()) {
+    console.log("\n  💾 Stateless run — skipping session memory save.");
+    return;
+  }
+
   console.log("\n  💾 Saving session memory...");
 
   const { generateText } = await import("ai");
