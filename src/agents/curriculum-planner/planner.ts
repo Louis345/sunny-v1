@@ -5,6 +5,7 @@ import path from "path";
 import "dotenv/config";
 import { CURRICULUM_PLANNER_PROMPT } from "../prompts";
 import { loadAttemptHistory } from "../../utils/attempts";
+import { shouldLoadPersistedHistory } from "../../utils/runtimeMode";
 
 export async function curriculumPlanner(
   childName: "Ila" | "Reina" = "Ila"
@@ -25,7 +26,9 @@ export async function curriculumPlanner(
     curriculumFile,
   );
 
-  const context = fs.readFileSync(contextPath, "utf-8");
+  const context = shouldLoadPersistedHistory()
+    ? fs.readFileSync(contextPath, "utf-8")
+    : "(stateless run — persisted context not loaded)";
   const curriculum = fs.readFileSync(curriculumPath, "utf-8");
   const attemptHistory = loadAttemptHistory(childName);
 

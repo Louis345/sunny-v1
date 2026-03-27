@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { shouldPersistSessionData } from "../../../utils/runtimeMode";
 
 export interface RewardEvent {
   timestamp: string;
@@ -16,6 +17,8 @@ export function appendRewardLog(
   childName: "Ila" | "Reina",
   events: RewardEvent[]
 ): void {
+  if (!shouldPersistSessionData()) return;
+
   const logDir = path.resolve(process.cwd(), "src", "logs");
   const logFile = path.join(
     logDir,

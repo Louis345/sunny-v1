@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { shouldLoadPersistedHistory } from "../utils/runtimeMode";
 import Anthropic from "@anthropic-ai/sdk";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 import { generateToolDocs } from "./elli/tools/generateToolDocs";
@@ -292,6 +293,30 @@ When you see a bug or unexpected behavior:
 Child profile on file: ${childName}.`.trim();
 }
 
+export function HOMEWORK_MODE_PROMPT(
+  childName: "Ila" | "Reina",
+  companion: string,
+  subject: string,
+): string {
+  return `You are ${companion} in HOMEWORK REVIEW MODE.
+You are speaking with a parent or developer reviewing ${childName}'s homework.
+
+The actual worksheet is pinned as an image in this conversation. The homework has already been loaded and processed.
+
+Your job:
+- Answer questions about the worksheet honestly — what you can and cannot see
+- Walk through problems when asked ("can you check problem 2?")
+- Explain how you would tutor ${childName} on any given problem
+- Flag any issues you notice (wrong answers, unclear handwriting, ambiguous coins, etc.)
+- Be conversational — this is a parent reviewing, not a child learning
+
+If asked to demo the tutor flow: narrate exactly what you would say to ${childName} and why.
+If the image is unclear on something: say so directly rather than guessing.
+
+Subject on file: ${subject || "general homework"}.
+Child profile on file: ${childName}.`.trim();
+}
+
 export function PSYCHOLOGIST_CONTEXT(context: string, attempts: string, curriculum: string): string {
   return `
 ## Background — Clinical Notes
@@ -470,9 +495,11 @@ export async function buildSessionPrompt(
   const contextFile =
     childName === "Ila" ? "ila_context.md" : "reina_context.md";
   const contextPath = path.resolve(SRC_DIR, "context", contextFile);
-  const recentContext = fs.existsSync(contextPath)
-    ? fs.readFileSync(contextPath, "utf-8")
-    : "No previous sessions recorded.";
+  const recentContext = shouldLoadPersistedHistory()
+    ? fs.existsSync(contextPath)
+      ? fs.readFileSync(contextPath, "utf-8")
+      : "No previous sessions recorded."
+    : "Stateless run — do not use previous sessions.";
 
   const psychologistPrompt = `
 You are the Psychologist for Project Sunny.

@@ -1,13 +1,34 @@
 import { getSessionTypeConfig } from "./session-type-registry";
+import { REWARD_GAMES, TEACHING_TOOLS } from "./games/registry";
+import type { OverlayField, WorksheetInteractionMode } from "./assignment-player";
 
 export type SessionType = "freeform" | "worksheet" | "spelling" | "wordle" | "game";
 export type CanvasOwner = "server" | "companion";
+export type ActivityMode =
+  | "none"
+  | "worksheet"
+  | "word-builder"
+  | "spell-check"
+  | "reward-game";
+export type ActivityPauseState = "active" | "paused_for_checkin" | "resuming";
 
 export interface CanvasState {
-  mode: "idle" | "teaching" | "reward" | "riddle" | "championship";
+  mode:
+    | "idle"
+    | "teaching"
+    | "worksheet_pdf"
+    | "reward"
+    | "riddle"
+    | "championship"
+    | keyof typeof TEACHING_TOOLS
+    | keyof typeof REWARD_GAMES;
   svg?: string;
   label?: string;
   content?: string;
+  gameUrl?: string;
+  gameWord?: string;
+  gamePlayerName?: string;
+  rewardGameConfig?: Record<string, unknown>;
   phonemeBoxes?: { position: string; value: string; highlighted: boolean }[];
   /** Plain-text description of the visual scene the child sees (e.g. "Cookie shop. Oatmeal 10¢, Chocolate chip 15¢, Sugar 10¢.") */
   sceneDescription?: string;
@@ -15,6 +36,14 @@ export interface CanvasState {
   problemAnswer?: string;
   /** A hint to offer when the child is stuck. */
   problemHint?: string;
+  pdfAssetUrl?: string;
+  pdfPage?: number;
+  pdfPageWidth?: number;
+  pdfPageHeight?: number;
+  activeProblemId?: string;
+  activeFieldId?: string;
+  overlayFields?: OverlayField[];
+  interactionMode?: WorksheetInteractionMode;
 }
 
 export interface AssignmentQuestion {
@@ -49,6 +78,10 @@ export interface SessionContext {
     owner: CanvasOwner;
     current: CanvasState;
     locked: boolean;
+    revision: number;
+    browserRevision: number;
+    browserVisible: boolean;
+    gameReadyRevision: number;
   };
 
   assignment?: {
@@ -61,9 +94,21 @@ export interface SessionContext {
   sessionPhase: string;
   roundNumber: number;
   availableToolNames: string[];
+  activity: {
+    mode: ActivityMode;
+    pauseState: ActivityPauseState;
+    hidden: boolean;
+    reason?: string;
+  };
 
   isToolCallAllowed: (toolName: string) => boolean;
   updateCanvas: (state: Partial<CanvasState>) => void;
+  markCanvasIssued: (revision: number) => void;
+  markCanvasRendered: (revision: number) => void;
+  markGameReady: (revision: number) => void;
+  updateActivity: (
+    state: Partial<SessionContext["activity"]>
+  ) => void;
   serialize: () => SerializedSessionContext;
 }
 
@@ -75,6 +120,14 @@ export interface SerializedSessionContext {
   correctStreak: number;
   sessionPhase: string;
   roundNumber: number;
+  activityMode: ActivityMode;
+  activityPauseState: ActivityPauseState;
+  activityHidden: boolean;
+  activityReason?: string;
+  canvasRevision: number;
+  browserRevision: number;
+  browserVisible: boolean;
+  gameReadyRevision: number;
   assignmentProgress?: { currentIndex: number; total: number; completed: number };
 }
 
@@ -96,6 +149,10 @@ export function createSessionContext(opts: {
     owner: canvasOwner,
     current: { mode: "idle" },
     locked: canvasOwner === "server",
+    revision: 0,
+    browserRevision: 0,
+    browserVisible: false,
+    gameReadyRevision: 0,
   };
 
   const ctx: SessionContext = {
@@ -107,6 +164,11 @@ export function createSessionContext(opts: {
     sessionPhase: "warmup",
     roundNumber: 0,
     availableToolNames,
+    activity: {
+      mode: "none",
+      pauseState: "active",
+      hidden: false,
+    },
 
     isToolCallAllowed(toolName: string): boolean {
       if (this.canvas.locked && (toolName === "showCanvas" || toolName === "show_canvas")) {
@@ -119,6 +181,27 @@ export function createSessionContext(opts: {
       this.canvas.current = { ...this.canvas.current, ...state };
     },
 
+    markCanvasIssued(revision: number): void {
+      this.canvas.revision = revision;
+      this.canvas.browserVisible = false;
+      this.canvas.gameReadyRevision = 0;
+    },
+
+    markCanvasRendered(revision: number): void {
+      if (revision !== this.canvas.revision) return;
+      this.canvas.browserRevision = revision;
+      this.canvas.browserVisible = true;
+    },
+
+    markGameReady(revision: number): void {
+      if (revision !== this.canvas.revision) return;
+      this.canvas.gameReadyRevision = revision;
+    },
+
+    updateActivity(state: Partial<SessionContext["activity"]>): void {
+      this.activity = { ...this.activity, ...state };
+    },
+
     serialize(): SerializedSessionContext {
       return {
         childName: this.childName,
@@ -128,6 +211,14 @@ export function createSessionContext(opts: {
         correctStreak: this.correctStreak,
         sessionPhase: this.sessionPhase,
         roundNumber: this.roundNumber,
+        activityMode: this.activity.mode,
+        activityPauseState: this.activity.pauseState,
+        activityHidden: this.activity.hidden,
+        activityReason: this.activity.reason,
+        canvasRevision: this.canvas.revision,
+        browserRevision: this.canvas.browserRevision,
+        browserVisible: this.canvas.browserVisible,
+        gameReadyRevision: this.canvas.gameReadyRevision,
         assignmentProgress: this.assignment
           ? {
               currentIndex: this.assignment.currentIndex,
@@ -160,28 +251,57 @@ export function createSessionContext(opts: {
 export function buildCanvasContextMessage(ctx: SessionContext): string {
   const lines: string[] = [];
   const c = ctx.canvas.current;
+  const activityPaused = ctx.activity.pauseState === "paused_for_checkin";
 
   lines.push("[Canvas State]");
   lines.push(`Mode: ${c.mode}`);
+  lines.push(`Active activity: ${ctx.activity.mode}`);
+  lines.push(`Activity pause state: ${ctx.activity.pauseState}`);
+  lines.push(
+    `Browser render: ${
+      ctx.canvas.browserVisible && ctx.canvas.browserRevision === ctx.canvas.revision
+        ? "confirmed for current canvas"
+        : "pending for current canvas"
+    }`
+  );
 
-  if (c.sceneDescription) {
+  if (c.sceneDescription && !activityPaused) {
     lines.push(`Scene on screen: ${c.sceneDescription}`);
   }
-  if (c.content) {
+  if (c.pdfAssetUrl && !activityPaused) {
+    lines.push(`Worksheet PDF: visible`);
+  }
+  if (c.pdfPage && !activityPaused) {
+    lines.push(`Worksheet page: ${c.pdfPage}`);
+  }
+  if (c.activeProblemId && !activityPaused) {
+    lines.push(`Active worksheet problem id: ${c.activeProblemId}`);
+  }
+  if (c.interactionMode && !activityPaused) {
+    lines.push(`Worksheet interaction mode: ${c.interactionMode}`);
+  }
+  if (c.content && !activityPaused) {
     lines.push(`Question: ${c.content}`);
   }
-  if (c.label) {
+  if (c.label && !activityPaused) {
     lines.push(`Label: ${c.label}`);
   }
-  if (c.svg) {
+  if (c.svg && !activityPaused) {
     lines.push("SVG: (visual rendered on screen — the child can see the scene described above)");
   }
 
-  if (c.problemAnswer) {
-    lines.push(`Correct answer: ${c.problemAnswer}`);
+  if (c.problemAnswer && !activityPaused) {
+    if (c.interactionMode === "review") {
+      lines.push(`Child's written answer: ${c.problemAnswer} (VERIFY this — the child may have miscounted)`);
+    } else {
+      lines.push(`Correct answer: ${c.problemAnswer}`);
+    }
   }
-  if (c.problemHint) {
+  if (c.problemHint && !activityPaused) {
     lines.push(`Hint (if child is stuck): ${c.problemHint}`);
+  }
+  if (c.overlayFields && c.overlayFields.length > 0 && !activityPaused) {
+    lines.push(`Worksheet input fields: ${c.overlayFields.length}`);
   }
 
   lines.push(`Canvas control: ${ctx.canvas.owner === "server" ? "server-driven" : "companion-driven"}`);
@@ -192,12 +312,40 @@ export function buildCanvasContextMessage(ctx: SessionContext): string {
     );
   }
 
+  if (ctx.availableToolNames.includes("launchGame")) {
+    lines.push(`Available teaching games: ${Object.keys(TEACHING_TOOLS).sort().join(", ")}`);
+    lines.push(`Available reward games: ${Object.keys(REWARD_GAMES).sort().join(", ")}`);
+  }
+
+  if (c.mode in TEACHING_TOOLS || c.mode in REWARD_GAMES) {
+    lines.push(
+      `Game startup: ${
+        ctx.canvas.gameReadyRevision === ctx.canvas.revision
+          ? "confirmed by browser"
+          : "waiting for browser confirmation"
+      }`
+    );
+  }
+
+  if (activityPaused) {
+    lines.push(
+      `IMPORTANT: The active ${ctx.activity.mode} activity is paused for child check-in and hidden from the child right now.`
+    );
+    lines.push(
+      "Do not grade or progress the hidden activity while paused. Stay in relationship mode until the child is ready to resume."
+    );
+  }
+
   if (ctx.assignment) {
     const { currentIndex, questions, attempts } = ctx.assignment;
     const total = questions.length;
     const completed = attempts.filter((a) => a.correct).length;
-    lines.push(`Assignment: Question ${currentIndex + 1} of ${total} (${completed} correct so far)`);
-    if (questions[currentIndex]) {
+    if (currentIndex >= total) {
+      lines.push(`Assignment: complete (${completed} correct out of ${total})`);
+    } else {
+      lines.push(`Assignment: Question ${currentIndex + 1} of ${total} (${completed} correct so far)`);
+    }
+    if (questions[currentIndex] && currentIndex < total && !activityPaused) {
       lines.push(`Current question: ${questions[currentIndex].text}`);
     }
   }

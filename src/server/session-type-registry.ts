@@ -12,6 +12,8 @@ import {
   startWordBuilder,
   startSpellCheck,
   launchGame,
+  requestPauseForCheckIn,
+  requestResumeActivity,
 } from "../agents/elli/tools";
 import type { SessionType, CanvasOwner } from "./session-context";
 
@@ -40,6 +42,8 @@ const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
       startWordBuilder,
       startSpellCheck,
       launchGame,
+      requestPauseForCheckIn,
+      requestResumeActivity,
     },
     canvasOwner: "companion",
     description: "Open session — companion drives canvas and chooses activities",
@@ -51,6 +55,8 @@ const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
       dateTime,
       logWorksheetAttempt,
       transitionToWork,
+      requestPauseForCheckIn,
+      requestResumeActivity,
     },
     canvasOwner: "server",
     description: "Homework worksheet — server renders questions, companion grades answers",
@@ -65,6 +71,8 @@ const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
       transitionToWork,
       startWordBuilder,
       startSpellCheck,
+      requestPauseForCheckIn,
+      requestResumeActivity,
     },
     canvasOwner: "companion",
     description: "Spelling practice — companion uses blackboard for words",
@@ -75,6 +83,8 @@ const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
       endSession,
       dateTime,
       transitionToWork,
+      requestPauseForCheckIn,
+      requestResumeActivity,
     },
     canvasOwner: "server",
     description: "Wordle game — server drives the game canvas",
@@ -84,6 +94,8 @@ const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
     tools: {
       endSession,
       dateTime,
+      requestPauseForCheckIn,
+      requestResumeActivity,
     },
     canvasOwner: "server",
     description: "Reward game (Space Invaders etc) — server drives iframe",

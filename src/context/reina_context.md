@@ -712,3 +712,79 @@ Could not classify document.
 
 ## Educational Note
 Standard weekly spelling list focusing on verb tense changes and common sight words. No accommodations or clinical information provided in this document.
+
+## Ingested Document — 3/25/2026, 3:39:36 PM
+### unknown
+Could not classify document.
+
+# Educational Companion Context
+
+**Child:** Reina Taylor
+
+**Document Type:** Social Studies Worksheet (Community Types)
+
+## Academic Content
+- **Topic:** Urban, Suburban, and Rural Communities
+- **Task:** Identifying community types based on workplace/lifestyle clues
+- **Skills:** Reading comprehension, geography concepts, critical thinking
+
+## Instructional Notes
+- Standard elementary social studies curriculum
+- Five short scenarios requiring classification
+- Visual support included (landscape illustration showing three community types)
+- Age-appropriate vocabulary and context clues
+
+## Educational Value
+Builds understanding of:
+- Community characteristics and differences
+- Geographic classification
+- Real-world application of social studies concepts
+- Context-based reasoning skills
+
+## Ingested Document — 3/26/2026, 5:43:35 PM
+### unknown
+Could not classify document.
+
+# Educational Companion Entry
+
+**Child:** Reina
+
+**Document Type:** Math and Social Studies Homework Worksheets
+
+**Academic Focus Areas:**
+- **Math:** Money counting and comparison skills (coins: pennies, nickels, dimes, quarters)
+- **Social Studies:** Community types (urban, suburban, rural characteristics)
+
+**Skills Being Practiced:**
+- Counting mixed coin combinations up to ~$1.55
+- Comparing monetary values
+- Reading comprehension about community features
+- Classifying environments based on context clues
+
+**Educational Notes:**
+- Grade-level appears to be early elementary (1st-2nd grade range)
+- Multi-subject homework indicating typical general education curriculum
+- Money math involves both visual coin identification and value computation
+- Social studies requires inference skills and vocabulary understanding
+
+**No accommodations, clinical flags, or IEP information visible in this assignment.**
+
+## Session — 3/26/2026, 8:10:38 PM
+I'm ready to document your session with Reina! 
+
+I have her complete profile loaded and I understand:
+
+✅ **Who she is:** 8-year-old, academically advanced, bilingual (English + Japanese), competitive wrestler, loves strategy and challenge
+
+✅ **What works:** Push her hard, use competition framing, wrestling metaphors, acknowledge her strengths, match her fast pace, celebrate in Japanese
+
+✅ **What doesn't work:** Going slow, baby talk, ignoring her competitive nature, underselling her intelligence
+
+✅ **Her goals:** Master subtraction/multiplication/division, learn kanji/katakana before Japan trip, chess, piano, wrestling strategy
+
+I'm set to document in this format:
+- **Engagement** (How she showed up, energy level, focus)
+- **Wins** (What she nailed, breakthroughs, moments of growth)
+- **Watch** (Patterns to notice, next moves, things to adjust)
+
+Ready when you are! What's happening in today's session?

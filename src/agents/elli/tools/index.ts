@@ -11,3 +11,5 @@ export { blackboard } from "./blackboard";
 export { startWordBuilder } from "./startWordBuilder";
 export { launchGame } from "./launchGame";
 export { startSpellCheck } from "./startSpellCheck";
+export { requestPauseForCheckIn } from "./requestPauseForCheckIn";
+export { requestResumeActivity } from "./requestResumeActivity";

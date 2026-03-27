@@ -34,6 +34,13 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "store-game": {
+    "url": "/games/store-game.html",
+    "defaultConfig": {
+      "itemPool": []
+    },
+    "voiceEnabled": true
+  },
   "word-builder": {
     "url": "/games/wordd-builder.html",
     "defaultConfig": {},

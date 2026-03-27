@@ -17,10 +17,12 @@ export class GameBridge {
     _gameUrl: string,
     childName: string,
     config: Record<string, unknown>,
+    companionName?: string,
   ): void {
     this.postMessage?.({
       type: "start",
       childName,
+      companionName,
       config,
     });
   }
@@ -33,13 +35,14 @@ export class GameBridge {
     type: "tool" | "reward",
     childName: string,
     config?: Record<string, unknown>,
+    companionName?: string,
   ): void {
     const entry: GameDefinition | null =
       type === "tool" ? getTool(name) : getReward(name);
     if (!entry) return;
     this.onVoiceFromGame?.(entry.voiceEnabled);
     const merged = { ...entry.defaultConfig, ...(config ?? {}) };
-    this.startGame(entry.url, childName, merged);
+    this.startGame(entry.url, childName, merged, companionName);
   }
 
   sendToGame(type: string, data: Record<string, unknown>): void {

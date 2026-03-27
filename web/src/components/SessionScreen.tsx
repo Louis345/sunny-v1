@@ -1,5 +1,6 @@
 import { CompanionStrip } from "./CompanionStrip";
 import { Canvas, type CanvasState } from "./Canvas";
+import type { OverlayField } from "../../../src/server/assignment-player";
 import type { BlackboardState } from "../hooks/useSession";
 
 interface CompanionConfig {
@@ -32,6 +33,18 @@ interface Props {
   onBargeIn: () => void;
   onEndSession: () => void;
   onCanvasDone: () => void;
+  onWorksheetAnswer: (payload: {
+    problemId: string;
+    fieldId: string;
+    value: string;
+  }) => void;
+  onOverlayFieldChange?: (payload: {
+    problemId: string;
+    field: OverlayField;
+    fields: OverlayField[];
+    pageWidth: number;
+    pageHeight: number;
+  }) => void;
 }
 
 const colors: Record<string, { accent: string; bg: string }> = {
@@ -55,6 +68,8 @@ export function SessionScreen({
   onBargeIn,
   onEndSession,
   onCanvasDone,
+  onWorksheetAnswer,
+  onOverlayFieldChange,
 }: Props) {
   const color = colors[childName] ?? colors.Ila;
 
@@ -82,6 +97,8 @@ export function SessionScreen({
         sessionState={sessionState}
         accentColor={color.accent}
         onCanvasDone={onCanvasDone}
+        onWorksheetAnswer={onWorksheetAnswer}
+        onOverlayFieldChange={onOverlayFieldChange}
       />
     </div>
   );

@@ -27,13 +27,14 @@ function assertDeep(name: string, actual: unknown, expected: unknown): void {
   const bridge = new GameBridge((msg) => {
     sent.push(msg);
   });
-  bridge.startGame("/games/test.html", "Ila", { word: "running" });
+  bridge.startGame("/games/test.html", "Ila", { word: "running" }, "Elli");
   assertDeep(
-    "Test 1: startGame sends { type, childName, config }",
+    "Test 1: startGame sends { type, childName, companionName, config }",
     sent[0],
     {
       type: "start",
       childName: "Ila",
+      companionName: "Elli",
       config: { word: "running" },
     },
   );
@@ -96,8 +97,8 @@ function assertDeep(name: string, actual: unknown, expected: unknown): void {
   try {
     const inv = getReward("space-invaders")!;
     const sc = getTool("spell-check")!;
-    bridge.startGame(inv.url, "Reina", { ...inv.defaultConfig });
-    bridge.startGame(sc.url, "Ila", { word: "dog" });
+    bridge.startGame(inv.url, "Reina", { ...inv.defaultConfig }, "Matilda");
+    bridge.startGame(sc.url, "Ila", { word: "dog" }, "Elli");
   } catch (e) {
     err = e as Error;
   }

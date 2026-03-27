@@ -3,6 +3,10 @@ import {
   applyBlackboardMessage,
   clearedBlackboardState,
 } from "../../../src/shared/canvasBlackboardSync";
+import type {
+  OverlayField,
+  WorksheetInteractionMode,
+} from "../../../src/server/assignment-player";
 import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry";
 import { gameIframeRef } from "../components/Canvas";
 import { shouldRenderTeachingContent } from "../utils/canvasLayout";
@@ -19,6 +23,7 @@ const REWARD_GAME_MODES = new Set(Object.keys(REWARD_GAMES));
 const BASE_CANVAS_MODES = [
   "idle",
   "teaching",
+  "worksheet_pdf",
   "reward",
   "riddle",
   "championship",
@@ -88,6 +93,7 @@ export interface BlackboardState {
 
 interface CanvasState {
   mode: CanvasStateMode;
+  canvasRevision?: number;
   svg?: string;
   lottieData?: Record<string, unknown>;
   label?: string;
@@ -108,6 +114,14 @@ interface CanvasState {
   wordBuilderRound?: number;
   wordBuilderMode?: string;
   rewardGameConfig?: Record<string, unknown>;
+  pdfAssetUrl?: string;
+  pdfPage?: number;
+  pdfPageWidth?: number;
+  pdfPageHeight?: number;
+  activeProblemId?: string;
+  activeFieldId?: string;
+  overlayFields?: OverlayField[];
+  interactionMode?: WorksheetInteractionMode;
 }
 
 interface TurnPolicy {
@@ -392,6 +406,10 @@ export function useSession() {
             blackboard: clearedBlackboardState(),
             canvas: {
               mode: mode && VALID_CANVAS_MODES.includes(mode) ? mode : "idle",
+              canvasRevision:
+                typeof msg.canvasRevision === "number"
+                  ? (msg.canvasRevision as number)
+                  : undefined,
               svg: data.svg as string | undefined,
               lottieData: data.lottieData as Record<string, unknown> | undefined,
               label: data.label as string | undefined,
@@ -414,6 +432,15 @@ export function useSession() {
               rewardGameConfig: REWARD_GAME_MODES.has(mode)
                 ? (data.rewardGameConfig as Record<string, unknown> | undefined)
                 : undefined,
+              pdfAssetUrl: data.pdfAssetUrl as string | undefined,
+              pdfPage: data.pdfPage as number | undefined,
+              pdfPageWidth: data.pdfPageWidth as number | undefined,
+              pdfPageHeight: data.pdfPageHeight as number | undefined,
+              activeProblemId: data.activeProblemId as string | undefined,
+              activeFieldId: data.activeFieldId as string | undefined,
+              overlayFields: data.overlayFields as OverlayField[] | undefined,
+              interactionMode:
+                data.interactionMode as WorksheetInteractionMode | undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -524,6 +551,12 @@ export function useSession() {
           setStateRef.current((s) => {
             const nextCanvas: CanvasState = {
               mode,
+              canvasRevision:
+                typeof msg.canvasRevision === "number"
+                  ? (msg.canvasRevision as number)
+                  : typeof data.canvasRevision === "number"
+                    ? (data.canvasRevision as number)
+                    : undefined,
               content,
               label,
               svg: data.svg as string | undefined,
@@ -546,6 +579,15 @@ export function useSession() {
               rewardGameConfig: REWARD_GAME_MODES.has(mode)
                 ? (data.rewardGameConfig as Record<string, unknown> | undefined)
                 : undefined,
+              pdfAssetUrl: data.pdfAssetUrl as string | undefined,
+              pdfPage: data.pdfPage as number | undefined,
+              pdfPageWidth: data.pdfPageWidth as number | undefined,
+              pdfPageHeight: data.pdfPageHeight as number | undefined,
+              activeProblemId: data.activeProblemId as string | undefined,
+              activeFieldId: data.activeFieldId as string | undefined,
+              overlayFields: data.overlayFields as OverlayField[] | undefined,
+              interactionMode:
+                data.interactionMode as WorksheetInteractionMode | undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             };
@@ -891,8 +933,43 @@ export function useSession() {
   }, [stopMic]);
 
   const sendCanvasDone = useCallback(() => {
-    sendMessage("canvas_done");
-  }, [sendMessage]);
+    console.log("  🖼️  sending canvas_done", {
+      canvasRevision: state.canvas.canvasRevision,
+      mode: state.canvas.mode,
+    });
+    sendMessage("canvas_done", {
+      canvasRevision: state.canvas.canvasRevision,
+      mode: state.canvas.mode,
+    });
+  }, [sendMessage, state.canvas.canvasRevision, state.canvas.mode]);
+
+  const submitWorksheetAnswer = useCallback(
+    (payload: { problemId: string; fieldId: string; value: string }) => {
+      sendMessage("worksheet_answer", payload);
+    },
+    [sendMessage],
+  );
+
+  const handleOverlayFieldChange = useCallback(
+    (payload: {
+      problemId: string;
+      field: OverlayField;
+      fields: OverlayField[];
+      pageWidth: number;
+      pageHeight: number;
+    }) => {
+      console.log("[overlay-authoring]", payload);
+      if (typeof window === "undefined") return;
+      const overlayWindow = window as Window & {
+        __sunnyOverlayDrafts?: Record<string, unknown>;
+      };
+      overlayWindow.__sunnyOverlayDrafts = {
+        ...(overlayWindow.__sunnyOverlayDrafts ?? {}),
+        [payload.problemId]: payload,
+      };
+    },
+    [],
+  );
 
   return {
     state,
@@ -901,6 +978,8 @@ export function useSession() {
     endSession,
     resetToPicker,
     sendCanvasDone,
+    submitWorksheetAnswer,
+    handleOverlayFieldChange,
     sendMessage,
     micMuted,
     toggleMicMute,

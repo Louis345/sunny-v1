@@ -165,11 +165,18 @@ ${notes ? `Parent notes: ${notes.content}` : ""}`,
 }
 
 export interface HomeworkPayload {
-  childName: string;
+  childName: "Ila" | "Reina";
   date: string;
   rawContent: string;
   fileCount: number;
   hasNotes: boolean;
+  folderPath: string;
+  assetFilenames: string[];
+  pageAssets: Array<{
+    filename: string;
+    mediaType: "image/jpeg" | "image/png";
+    data: string;
+  }>;
 }
 
 export async function loadHomeworkPayload(
@@ -201,5 +208,20 @@ export async function loadHomeworkPayload(
     rawContent,
     fileCount: pageCount,
     hasNotes: files.some((f) => f.type === "notes"),
+    folderPath: folder,
+    assetFilenames: fs
+      .readdirSync(folder)
+      .filter((name) => /\.(pdf|png|jpe?g)$/i.test(name))
+      .sort((a, b) => a.localeCompare(b)),
+    pageAssets: files
+      .filter((file): file is HomeworkFile & { type: "image"; mimeType: "image/jpeg" | "image/png" } =>
+        file.type === "image" &&
+        (file.mimeType === "image/jpeg" || file.mimeType === "image/png"),
+      )
+      .map((file) => ({
+        filename: file.filename,
+        mediaType: file.mimeType,
+        data: file.content,
+      })),
   };
 }

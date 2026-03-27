@@ -176,7 +176,7 @@
   <canvas id="canvas" width="600" height="500"></canvas>
 
   <div id="elli-bubble">
-    <span class="elli-name">ELLI</span>
+    <span class="elli-name" id="companion-name">SUNNY</span>
     <span id="elli-text">Waiting for Sunny to start your reward… 🚀</span>
   </div>
 
@@ -201,8 +201,24 @@
   }
 
   let sessionChildName = 'friend';
+  let companionName = 'Sunny';
   let durationSeconds = 180;
   let gameEndPosted = false;
+  let readyPosted = false;
+
+  function setCompanionName(name) {
+    companionName = String(name || 'Sunny');
+    document.getElementById('companion-name').textContent = companionName.toUpperCase();
+  }
+
+  function postReadyOnce() {
+    if (readyPosted) return;
+    readyPosted = true;
+    console.log('[space-invaders] posting ready');
+    postToParent({ type: 'ready' });
+  }
+
+  postReadyOnce();
 
   function finishGame(reason) {
     if (gameEndPosted) return;
@@ -222,6 +238,7 @@
     const msg = e.data;
     if (!msg || msg.type !== 'start') return;
     sessionChildName = msg.childName || 'friend';
+    setCompanionName(msg.companionName || 'Sunny');
     const cfg = msg.config || {};
     durationSeconds = typeof cfg.duration_seconds === 'number' ? cfg.duration_seconds : 180;
     const startLevel = typeof cfg.level === 'number' ? cfg.level : 1;

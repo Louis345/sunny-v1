@@ -43,6 +43,16 @@ assertDeep(
   assert("getTool bd-reversal includes probeWords", Array.isArray(pw));
 }
 assert("getTool unknown → null", getTool("not-a-game") === null);
+assertDeep(
+  "getTool store-game defaultConfig",
+  getTool("store-game")?.defaultConfig,
+  { itemPool: [] },
+);
+assertDeep(
+  "getTool store-game voiceEnabled",
+  getTool("store-game")?.voiceEnabled,
+  true,
+);
 
 assertDeep(
   "getReward space-invaders defaultConfig",

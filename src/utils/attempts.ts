@@ -1,7 +1,10 @@
 import fs from "fs";
 import path from "path";
+import { shouldLoadPersistedHistory } from "./runtimeMode";
 
 export function loadAttemptHistory(childName: "Ila" | "Reina"): string {
+  if (!shouldLoadPersistedHistory()) return "(stateless run — no persisted attempt history)";
+
   const fileName = childName === "Ila" ? "ila_attempts.json" : "reina_attempts.json";
   const attemptsPath = path.resolve(process.cwd(), "src", "logs", fileName);
   if (!fs.existsSync(attemptsPath)) return "(no attempt history yet)";
