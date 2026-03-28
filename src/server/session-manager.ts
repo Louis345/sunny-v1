@@ -61,8 +61,8 @@ import {
   buildCanvasContextMessage,
 } from "./session-context";
 import {
+  CANONICAL_AGENT_TOOL_KEYS,
   getSessionTypeConfig,
-  getToolsForSessionType,
   resolveSessionType,
 } from "./session-type-registry";
 import {
@@ -100,13 +100,10 @@ import {
   saveEarnedReward,
   type WorksheetSession,
 } from "./worksheet-tools";
-import {
-  createClearCanvasTool,
-  createGetNextProblemTool,
-  createGetSessionStatusTool,
-  createLaunchGameTool,
-  createSubmitAnswerTool,
-} from "../agents/elli/tools/worksheetTools";
+import { createLaunchGameTool } from "../agents/elli/tools/worksheetTools";
+import { createSixTools } from "../agents/tools/six-tools";
+import { launchGame } from "../agents/elli/tools/launchGame";
+import { dateTime } from "../agents/elli/tools/dateTime";
 import { buildWorksheetToolPrompt } from "../agents/prompts/worksheetSessionPrompt";
 import { classifyWorksheetNonAnswerTranscript } from "./worksheet-turn-guards";
 import { appendWorksheetAttemptLine } from "../utils/attempts";
@@ -1450,11 +1447,12 @@ export class SessionManager {
               interactionMode: this.worksheetInteractionMode,
             });
           sessionPrompt +=
-            "\n\n## Worksheet session (canvas + check-ins)\n" +
+            "\n\n## Worksheet session (canvas)\n" +
             `Subject label (informational): ${this.worksheetSubjectLabel}.\n` +
-            `If the child asks to hide the screen, pause the activity, or needs a personal check-in, call requestPauseForCheckIn. ` +
-            `When they are ready to continue, call requestResumeActivity — do not claim the canvas changed; stay warm and brief.\n` +
-            `Use getNextProblem to show worksheet pages on the canvas. Do NOT call showCanvas for worksheet PDF flow — it can conflict with the structured homework view.\n`;
+            `Use **canvasShow** with type "worksheet" and the correct problemId to show each page. ` +
+            `Use **sessionLog** to record graded answers (correct + what the child said). ` +
+            `Use **canvasClear** when switching away from the worksheet. ` +
+            `Use **sessionStatus** / **canvasStatus** when you need state.\n`;
           console.log(
             `  📋 Worksheet tool prompt appended (Option C — ${this.worksheetProblems.length} problems)`,
           );
@@ -1511,14 +1509,7 @@ export class SessionManager {
         : undefined,
     });
     if (this.worksheetSession && this.ctx) {
-      this.ctx.availableToolNames = [
-        ...this.ctx.availableToolNames.filter((n) => n !== "logWorksheetAttempt"),
-        "getSessionStatus",
-        "getNextProblem",
-        "submitAnswer",
-        "launchGame",
-        "clearCanvas",
-      ];
+      this.ctx.availableToolNames = [...CANONICAL_AGENT_TOOL_KEYS];
     }
     console.log(
       `  📋 Session type: ${sessionType}, canvas owner: ${this.ctx.canvas.owner}`
@@ -2583,26 +2574,7 @@ export class SessionManager {
         .filter(Boolean)
         .join("\n\n");
 
-      const baseTools = this.ctx
-        ? getToolsForSessionType(this.ctx.sessionType)
-        : undefined;
-      let finalTools: Record<string, unknown> | undefined = baseTools as
-        | Record<string, unknown>
-        | undefined;
-      if (this.worksheetSession && this.worksheetMode && baseTools) {
-        const { logWorksheetAttempt: _omit, ...rest } = baseTools as Record<
-          string,
-          unknown
-        >;
-        finalTools = {
-          ...rest,
-          getSessionStatus: createGetSessionStatusTool(this.worksheetSession),
-          getNextProblem: createGetNextProblemTool(this.worksheetSession),
-          submitAnswer: createSubmitAnswerTool(this.worksheetSession),
-          launchGame: createLaunchGameTool(this.worksheetSession),
-          clearCanvas: createClearCanvasTool(this.worksheetSession),
-        };
-      }
+      const finalTools = this.buildAgentToolkit();
 
       await runAgent({
         history: historyWithPin,
@@ -2639,6 +2611,12 @@ export class SessionManager {
             if (toolName === "get_next_problem") toolName = "getNextProblem";
             if (toolName === "submit_answer") toolName = "submitAnswer";
             if (toolName === "clear_canvas") toolName = "clearCanvas";
+            if (toolName === "canvas_show") toolName = "canvasShow";
+            if (toolName === "canvas_clear") toolName = "canvasClear";
+            if (toolName === "canvas_status") toolName = "canvasStatus";
+            if (toolName === "session_log") toolName = "sessionLog";
+            if (toolName === "session_status") toolName = "sessionStatus";
+            if (toolName === "session_end") toolName = "sessionEnd";
             let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
             const originalToolName = toolName;
@@ -2665,6 +2643,28 @@ export class SessionManager {
 
             this.handleToolCall(toolName, args, result);
 
+            if (toolName === "canvasShow") {
+              const ct = String(args.type ?? "");
+              if (ct === "text" || ct === "svg") {
+                const drawPayload =
+                  ct === "text"
+                    ? { mode: "teaching", content: args.content }
+                    : {
+                        mode: "teaching",
+                        svg: args.svg,
+                        label: args.label,
+                      };
+                this.send("canvas_draw", {
+                  args: drawPayload as Record<string, unknown>,
+                  result,
+                });
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              }
+            }
+
             if (
               toolName === "startWordBuilder" ||
               toolName === "startSpellCheck" ||
@@ -2675,11 +2675,7 @@ export class SessionManager {
             }
 
             if (originalToolName === "showCanvas" && toolName === "showCanvas") {
-              if (this.ctx && !this.ctx.isToolCallAllowed("showCanvas")) {
-                console.log(
-                  `  🚫 BLOCKED canvas_draw: showCanvas — ${this.ctx.canvas.owner}-owned ${this.ctx.sessionType} session`
-                );
-              } else if (this.turnSM.getState() === "WORD_BUILDER") {
+              if (this.turnSM.getState() === "WORD_BUILDER") {
                 console.warn(
                   "  ⚠️  showCanvas blocked during Word Builder — iframe owns canvas"
                 );
@@ -2838,6 +2834,100 @@ export class SessionManager {
     }
   }
 
+  private buildAgentToolkit(): Record<string, unknown> {
+    const six = createSixTools({
+      canvasShow: (a) => this.hostCanvasShow(a),
+      canvasClear: () => this.hostCanvasClear(),
+      canvasStatus: () => this.hostCanvasStatus(),
+      sessionLog: (a) => this.hostSessionLog(a),
+      sessionStatus: () => this.hostSessionStatus(),
+      sessionEnd: (a) => this.hostSessionEnd(a),
+    });
+    if (this.worksheetSession && this.worksheetMode) {
+      return {
+        ...six,
+        launchGame: createLaunchGameTool(this.worksheetSession),
+        dateTime,
+      };
+    }
+    return { ...six, launchGame, dateTime };
+  }
+
+  private async hostCanvasShow(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const type = String(args.type ?? "");
+    if (type === "worksheet" && this.worksheetSession) {
+      const pid = String(args.problemId ?? "");
+      const res = this.worksheetSession.showProblemById(pid);
+      return {
+        rendered: res.ok === true,
+        canvasShowing: "worksheet",
+        ...res,
+      };
+    }
+    if (type === "text") {
+      return { rendered: true, canvasShowing: "text" };
+    }
+    if (type === "svg") {
+      return { rendered: true, canvasShowing: "svg" };
+    }
+    if (type === "game") {
+      return { rendered: true, canvasShowing: "game", name: args.name };
+    }
+    return { rendered: false, canvasShowing: "idle" };
+  }
+
+  private async hostCanvasClear(): Promise<{ canvasShowing: "idle"; ok?: boolean }> {
+    if (this.worksheetSession) {
+      return this.worksheetSession.clearCanvas();
+    }
+    return { canvasShowing: "idle", ok: true };
+  }
+
+  private async hostCanvasStatus(): Promise<Record<string, unknown>> {
+    return {
+      mode: this.ctx?.canvas.current.mode ?? "idle",
+      revision: this.ctx?.canvas.revision ?? 0,
+      browserVisible: this.ctx?.canvas.browserVisible ?? false,
+    };
+  }
+
+  private async hostSessionLog(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    if (this.worksheetSession) {
+      const wp = this.worksheetProblems[this.worksheetProblemIndex];
+      if (!wp) {
+        return { logged: false, error: "no_active_problem" };
+      }
+      const res = this.worksheetSession.submitAnswer({
+        problemId: String(wp.id),
+        correct: args.correct === true,
+        childSaid: String(args.childSaid ?? ""),
+      });
+      return { logged: res.ok === true, ...res };
+    }
+    this.processReward({ correct: args.correct === true });
+    return { logged: true };
+  }
+
+  private async hostSessionStatus(): Promise<Record<string, unknown>> {
+    if (this.worksheetSession) {
+      return { ...(this.worksheetSession.getSessionStatus() as object) } as Record<
+        string,
+        unknown
+      >;
+    }
+    return { ...(this.ctx?.serialize() ?? { ok: true }) } as Record<string, unknown>;
+  }
+
+  private async hostSessionEnd(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return { ended: true, childName: args.childName };
+  }
+
   private normalizeToolName(tool: string): string {
     if (tool === "start_spell_check") return "startSpellCheck";
     if (tool === "launch_game") return "launchGame";
@@ -2846,6 +2936,12 @@ export class SessionManager {
     if (tool === "get_next_problem") return "getNextProblem";
     if (tool === "submit_answer") return "submitAnswer";
     if (tool === "clear_canvas") return "clearCanvas";
+    if (tool === "canvas_show") return "canvasShow";
+    if (tool === "canvas_clear") return "canvasClear";
+    if (tool === "canvas_status") return "canvasStatus";
+    if (tool === "session_log") return "sessionLog";
+    if (tool === "session_status") return "sessionStatus";
+    if (tool === "session_end") return "sessionEnd";
     if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
     if (tool === "request_resume_activity") return "requestResumeActivity";
     return tool;
@@ -3340,18 +3436,6 @@ export class SessionManager {
   ): void {
     tool = this.normalizeToolName(tool);
 
-    // ─── Canvas Ownership Gate ───
-    // NOTE: We cannot prevent Claude from calling showCanvas — the AI SDK executes
-    // the tool function. But we CAN prevent the RESULT from reaching the browser
-    // (no tool_call / canvas_draw). The browser canvas stays untouched. On the next
-    // turn, canvas context injection reminds Claude that canvas is server-driven.
-    if (this.ctx && !this.ctx.isToolCallAllowed(tool)) {
-      console.log(
-        `  🚫 BLOCKED: ${tool} — canvas is ${this.ctx.canvas.owner}-owned in ${this.ctx.sessionType} session`
-      );
-      return;
-    }
-
     let launchGameResolvedEntry: GameDefinition | null = null;
     let launchGameCanonicalName: string | null = null;
     let canvasRevision: number | undefined;
@@ -3564,7 +3648,7 @@ export class SessionManager {
       ...(canvasRevision ? { canvasRevision } : {}),
     });
 
-    if (tool === "endSession") {
+    if (tool === "endSession" || tool === "sessionEnd") {
       this.send("session_ended", {});
       setTimeout(() => process.exit(0), 500);
     }
@@ -3796,7 +3880,10 @@ export class SessionManager {
       return;
     }
 
-    if (tool === "getNextProblem") {
+    if (
+      tool === "getNextProblem" ||
+      (tool === "canvasShow" && String(args.type) === "worksheet")
+    ) {
       const res = unwrapToolResult(result) as {
         ok?: boolean;
         canvasRendered?: boolean;
@@ -3876,7 +3963,18 @@ export class SessionManager {
       return;
     }
 
-    if (tool === "submitAnswer") {
+    if (tool === "submitAnswer" || (tool === "sessionLog" && this.worksheetSession)) {
+      if (tool === "sessionLog" && this.worksheetSession) {
+        const wp = this.worksheetProblems[this.worksheetProblemIndex];
+        if (wp) {
+          args = {
+            ...args,
+            problemId: String(wp.id),
+            childSaid: String(args.childSaid ?? ""),
+            correct: args.correct === true,
+          };
+        }
+      }
       const res = unwrapToolResult(result) as {
         ok?: boolean;
         rewardEarned?: boolean;
@@ -3925,7 +4023,7 @@ export class SessionManager {
       return;
     }
 
-    if (tool === "clearCanvas") {
+    if (tool === "clearCanvas" || tool === "canvasClear") {
       const res = unwrapToolResult(result) as { ok?: boolean };
       if (res && typeof res === "object" && res.ok === false) {
         return;
@@ -4099,6 +4197,33 @@ export class SessionManager {
         this.processReward({ correct });
       } catch {
         console.error("  ⚠️  Could not parse mathProblem result for reward");
+      }
+    }
+
+    if (tool === "canvasShow") {
+      const ct = String(args.type ?? "");
+      if (ct === "text" || ct === "svg") {
+        this.pendingGameStart = null;
+        this.currentCanvasState = {
+          mode: "teaching",
+          content: args.content as string | undefined,
+          svg: args.svg as string | undefined,
+          label: args.label as string | undefined,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "teaching",
+            content: args.content as string | undefined,
+            svg: args.svg as string | undefined,
+            label: args.label as string | undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=${ct}`);
       }
     }
 

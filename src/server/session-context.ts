@@ -101,7 +101,6 @@ export interface SessionContext {
     reason?: string;
   };
 
-  isToolCallAllowed: (toolName: string) => boolean;
   updateCanvas: (state: Partial<CanvasState>) => void;
   markCanvasIssued: (revision: number) => void;
   markCanvasRendered: (revision: number) => void;
@@ -168,13 +167,6 @@ export function createSessionContext(opts: {
       mode: "none",
       pauseState: "active",
       hidden: false,
-    },
-
-    isToolCallAllowed(toolName: string): boolean {
-      if (this.canvas.locked && (toolName === "showCanvas" || toolName === "show_canvas")) {
-        return false;
-      }
-      return this.availableToolNames.includes(toolName);
     },
 
     updateCanvas(state: Partial<CanvasState>): void {

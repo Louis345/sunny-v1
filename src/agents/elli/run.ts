@@ -18,13 +18,8 @@ export interface RunAgentOptions {
   tools?: Record<string, any>;
 }
 
-export function buildAgentTools(opts: { allowTransitionToWork?: boolean } = {}) {
-  const { allowTransitionToWork = true } = opts;
-  if (allowTransitionToWork) {
-    return { ...ALL_TOOLS };
-  }
-  const { transitionToWork: _omit, ...rest } = ALL_TOOLS;
-  return rest;
+export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
+  return { ...ALL_TOOLS };
 }
 
 export async function runAgent(opts: RunAgentOptions): Promise<string> {

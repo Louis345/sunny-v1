@@ -1,13 +1,9 @@
 # Matilda Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-03-15T21:40:01.166Z*
+*Updated: 2026-03-27T23:53:20.480Z*
 
-• Ask Reina what words mean when she uses them—"What does that word mean? Can you tell me?"
-
-• Give her a two-step direction naturally during our game: "Do this first, then tell me the answer."
-
-• When she explains her thinking, ask her to say it in a full sentence, not just one word.
-
-• Slip a tricky sentence into our riddle game and ask her to repeat it back exactly.
-
-• Challenge her with new, harder riddles each time—she's ready for tougher ones now.
+• Start with a quick riddle or speed round of adding/subtracting to warm up, since you love winning those
+• Try a wrestling scenario: "If one wrestler gets 2 points per match and does 3 matches, how many points total?"
+• Play a pretend store game where you're buying stuff together—way more fun than worksheets
+• See if you can solve a tricky two-digit addition problem with me (like 27 + 15) using blocks or drawings, not just writing
+• Ask you to tell me a story about the wrestlers or the store to hear how you explain math ideas out loud
