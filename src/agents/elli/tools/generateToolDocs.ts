@@ -1,35 +1,18 @@
 import type { Tool } from "ai";
-import { endSession } from "./endSession";
-import { transitionToWork } from "./transitionToWork";
-import { logAttempt } from "./logAttempt";
-import { logWorksheetAttempt } from "./logWorksheetAttempt";
-import { dateTime } from "./dateTime";
-import { mathProblem } from "./mathProblem";
-import { riddleTracker } from "./riddleTracker";
-import { showCanvas } from "./showCanvas";
-import { blackboard } from "./blackboard";
-import { startWordBuilder } from "./startWordBuilder";
-import { startSpellCheck } from "./startSpellCheck";
 import { launchGame } from "./launchGame";
-import { requestPauseForCheckIn } from "./requestPauseForCheckIn";
-import { requestResumeActivity } from "./requestResumeActivity";
+import { dateTime } from "./dateTime";
+import { createSixTools } from "../../tools/six-tools";
+import { SixToolsMemoryHarness } from "../../tools/six-tools-apply";
+
+/** Default host for docs + rare CLI paths (single-session). */
+const _defaultSixHost = new SixToolsMemoryHarness();
+const _six = createSixTools(_defaultSixHost);
 
 /** Every `tool()` exposed to Elli — single registry for runtime + docs. */
 export const ALL_TOOLS = {
-  endSession,
-  transitionToWork,
-  logAttempt,
-  logWorksheetAttempt,
-  dateTime,
-  mathProblem,
-  riddleTracker,
-  showCanvas,
-  blackboard,
-  startWordBuilder,
-  startSpellCheck,
+  ..._six,
   launchGame,
-  requestPauseForCheckIn,
-  requestResumeActivity,
+  dateTime,
 } as const;
 
 function getDescription(t: Tool): string {

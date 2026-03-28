@@ -111,6 +111,8 @@ export interface GamePoolItem {
 export interface WorksheetSession {
   getSessionStatus(): SessionStatus;
   getNextProblem(): GetNextProblemResult;
+  /** Present a specific problem by id (canvasShow worksheet / tests). */
+  showProblemById(problemId: string): GetNextProblemResult;
   submitAnswer(input: SubmitAnswerInput): SubmitAnswerResult;
   clearCanvas(): ClearCanvasResult;
   launchGame(input: LaunchGameInput): LaunchGameResult;
@@ -307,6 +309,20 @@ export function createWorksheetSession(
       }
 
       return presentProblemAt(nextProblemIndex);
+    },
+
+    showProblemById(problemId: string): GetNextProblemResult {
+      if (canvasState !== "idle" && canvasState !== "worksheet_pdf") {
+        return {
+          ok: false,
+          error: `canvas occupied by ${canvasState}, call clearCanvas first`,
+        };
+      }
+      const idx = problems.findIndex((p) => p.id === problemId);
+      if (idx < 0) {
+        return { ok: false, error: `unknown problem id ${problemId}` };
+      }
+      return presentProblemAt(idx);
     },
 
     submitAnswer(input: SubmitAnswerInput): SubmitAnswerResult {

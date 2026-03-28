@@ -1,104 +1,57 @@
-import {
-  endSession,
-  transitionToWork,
-  logAttempt,
-  logWorksheetAttempt,
-  dateTime,
-  mathProblem,
-  riddleTracker,
-  showCanvas,
-  blackboard,
-  startSession,
-  startWordBuilder,
-  startSpellCheck,
-  launchGame,
-  requestPauseForCheckIn,
-  requestResumeActivity,
-} from "../agents/elli/tools";
 import type { SessionType, CanvasOwner } from "./session-context";
 
 export interface SessionTypeConfig {
+  /** Placeholder map so `Object.keys` yields allowed tool names; real tools come from SessionManager. */
   tools: Record<string, unknown>;
   canvasOwner: CanvasOwner;
   description: string;
 }
 
-/**
- * THE REGISTRY. One entry per session type.
- * Adding a new session type = one object here.
- */
+/** Tool names aligned with `generateToolDocs` / SessionManager.buildAgentToolkit. */
+export const CANONICAL_AGENT_TOOL_KEYS = [
+  "canvasShow",
+  "canvasClear",
+  "canvasStatus",
+  "sessionLog",
+  "sessionStatus",
+  "sessionEnd",
+  "launchGame",
+  "dateTime",
+] as const;
+
+function placeholderTools(): Record<string, unknown> {
+  return Object.fromEntries(CANONICAL_AGENT_TOOL_KEYS.map((k) => [k, {}]));
+}
+
 const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
   freeform: {
-    tools: {
-      endSession,
-      dateTime,
-      logAttempt,
-      startSession,
-      transitionToWork,
-      mathProblem,
-      riddleTracker,
-      showCanvas,
-      blackboard,
-      startWordBuilder,
-      startSpellCheck,
-      launchGame,
-      requestPauseForCheckIn,
-      requestResumeActivity,
-    },
+    tools: placeholderTools(),
     canvasOwner: "companion",
-    description: "Open session — companion drives canvas and chooses activities",
+    description: "Open session — Claude drives canvas via six tools",
   },
 
   worksheet: {
-    tools: {
-      endSession,
-      dateTime,
-      logWorksheetAttempt,
-      transitionToWork,
-      requestPauseForCheckIn,
-      requestResumeActivity,
-    },
+    tools: placeholderTools(),
     canvasOwner: "server",
-    description: "Homework worksheet — server renders questions, companion grades answers",
+    description: "Homework worksheet — Claude drives presentation via canvasShow",
   },
 
   spelling: {
-    tools: {
-      endSession,
-      dateTime,
-      logAttempt,
-      blackboard,
-      transitionToWork,
-      startWordBuilder,
-      startSpellCheck,
-      requestPauseForCheckIn,
-      requestResumeActivity,
-    },
+    tools: placeholderTools(),
     canvasOwner: "companion",
-    description: "Spelling practice — companion uses blackboard for words",
+    description: "Spelling practice",
   },
 
   wordle: {
-    tools: {
-      endSession,
-      dateTime,
-      transitionToWork,
-      requestPauseForCheckIn,
-      requestResumeActivity,
-    },
+    tools: placeholderTools(),
     canvasOwner: "server",
-    description: "Wordle game — server drives the game canvas",
+    description: "Wordle game",
   },
 
   game: {
-    tools: {
-      endSession,
-      dateTime,
-      requestPauseForCheckIn,
-      requestResumeActivity,
-    },
+    tools: placeholderTools(),
     canvasOwner: "server",
-    description: "Reward game (Space Invaders etc) — server drives iframe",
+    description: "Reward game",
   },
 };
 
@@ -114,10 +67,6 @@ export function getToolsForSessionType(sessionType: SessionType | string): Recor
   return config.tools;
 }
 
-/**
- * Resolve what session type to use based on available inputs.
- * Called at session start. Pure function — no side effects.
- */
 export function resolveSessionType(opts: {
   childName: string;
   hasHomeworkManifest: boolean;
