@@ -514,10 +514,14 @@ async function testWorksheetCorrectTurnUsesServerOwnedOutcome(): Promise<void> {
 
   const consumed = await inner.tryConsumeWorksheetTurn("Seventy five cents");
 
-  assert.equal(consumed, true, "spoken worksheet answer should be consumed");
-  assert.equal(modelRuns, 0, "worksheet answer should not depend on model logWorksheetAttempt");
-  assert.equal(inner.worksheetProblemIndex, 1, "server-owned worksheet outcome should advance after a correct answer");
-  assert.equal(nextProblemShown, 1, "server should present the next problem directly");
+  assert.equal(
+    consumed,
+    false,
+    "numeric spoken answers pass through to the model; progression is via logWorksheetAttempt, not tryConsumeWorksheetTurn",
+  );
+  assert.equal(modelRuns, 0, "tryConsumeWorksheetTurn alone does not run the companion");
+  assert.equal(inner.worksheetProblemIndex, 0, "STT alone does not advance the worksheet index");
+  assert.equal(nextProblemShown, 0, "tryConsumeWorksheetTurn does not call presentCurrentWorksheetProblem");
 }
 
 function testBlockedStaleWorksheetToolCallDoesNotQueueProgress(): void {

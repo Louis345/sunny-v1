@@ -294,7 +294,12 @@ export function buildAssignmentManifestFromWorksheetProblems(args: {
   createdAt: string;
   pdfAssetUrl: string;
   problems: CanonicalWorksheetProblem[];
+  /** Page coordinate space (default 1000×1400 — PDF-ish). Use real pixel size for raster worksheets. */
+  pageWidth?: number;
+  pageHeight?: number;
 }): AssignmentManifest {
+  const pageWidth = args.pageWidth ?? 1000;
+  const pageHeight = args.pageHeight ?? 1400;
   const problems: AssignmentProblem[] = args.problems.map((problem, index) => ({
     problemId: String(problem.id),
     page: problem.page ?? 1,
@@ -312,14 +317,26 @@ export function buildAssignmentManifestFromWorksheetProblems(args: {
         field: {
           fieldId: `${problem.id}-answer`,
           kind: "number",
-          x: 620,
-          y: 260 + index * 150,
-          width: 140,
-          height: 60,
+          x:
+            pageWidth === 1000 && pageHeight === 1400
+              ? 620
+              : Math.round(pageWidth * 0.62),
+          y:
+            pageWidth === 1000 && pageHeight === 1400
+              ? 260 + index * 150
+              : Math.round(pageHeight * (0.186 + index * 0.107)),
+          width:
+            pageWidth === 1000 && pageHeight === 1400
+              ? 140
+              : Math.round(pageWidth * 0.14),
+          height:
+            pageWidth === 1000 && pageHeight === 1400
+              ? 60
+              : Math.round(pageHeight * 0.043),
           placeholder: "?",
         },
-        pageWidth: 1000,
-        pageHeight: 1400,
+        pageWidth,
+        pageHeight,
       }),
     ],
   }));
@@ -331,7 +348,7 @@ export function buildAssignmentManifestFromWorksheetProblems(args: {
     source: "worksheet_pdf" as const,
     createdAt: args.createdAt,
     pdfAssetUrl: args.pdfAssetUrl,
-    pages: [{ page: 1, width: 1000, height: 1400 }],
+    pages: [{ page: 1, width: pageWidth, height: pageHeight }],
     problems,
   };
   const normalized = normalizeAssignmentManifest(manifest);

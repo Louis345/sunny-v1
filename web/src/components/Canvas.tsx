@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, createRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  createRef,
+} from "react";
 import { useForm } from "react-hook-form";
 import { Document, Page, pdfjs } from "react-pdf";
 import type {
@@ -21,10 +27,14 @@ import {
   remToCss,
   shouldRenderTeachingContent,
 } from "../utils/canvasLayout";
-import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry";
+import {
+  TEACHING_TOOLS,
+  REWARD_GAMES,
+} from "../../../src/server/games/registry";
 import type { BlackboardState } from "../hooks/useSession";
 import { BlackboardContent } from "./BlackboardContent";
-const Lottie = (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
+const Lottie =
+  (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url,
@@ -171,6 +181,13 @@ interface Props {
   }) => void;
 }
 
+/** Worksheet asset URL points at a raster image (not a PDF) — use <img>, not react-pdf. */
+function isWorksheetRasterImageUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  const pathOnly = (url.split("?")[0] ?? "").toLowerCase();
+  return /\.(png|jpe?g|gif|webp)$/i.test(pathOnly);
+}
+
 function normalizeOverlayDraft(
   field: OverlayField,
   pageWidth: number,
@@ -178,7 +195,10 @@ function normalizeOverlayDraft(
 ): OverlayField {
   const minSize = 24;
   const width = Math.max(minSize, Math.min(pageWidth, Math.round(field.width)));
-  const height = Math.max(minSize, Math.min(pageHeight, Math.round(field.height)));
+  const height = Math.max(
+    minSize,
+    Math.min(pageHeight, Math.round(field.height)),
+  );
   return {
     ...field,
     x: Math.max(0, Math.min(pageWidth - width, Math.round(field.x))),
@@ -266,8 +286,10 @@ function WorksheetPdfContent({
     const handlePointerMove = (event: PointerEvent) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect || rect.width <= 0 || rect.height <= 0) return;
-      const dx = ((event.clientX - activeEdit.startClientX) / rect.width) * pageWidth;
-      const dy = ((event.clientY - activeEdit.startClientY) / rect.height) * pageHeight;
+      const dx =
+        ((event.clientX - activeEdit.startClientX) / rect.width) * pageWidth;
+      const dy =
+        ((event.clientY - activeEdit.startClientY) / rect.height) * pageHeight;
       updateDraftField(activeEdit.fieldId, (field) => {
         if (activeEdit.mode === "drag") {
           return {
@@ -295,7 +317,13 @@ function WorksheetPdfContent({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [activeEdit, emitOverlayFieldChange, pageHeight, pageWidth, updateDraftField]);
+  }, [
+    activeEdit,
+    emitOverlayFieldChange,
+    pageHeight,
+    pageWidth,
+    updateDraftField,
+  ]);
 
   const copyOverlayDebugJson = useCallback(async () => {
     const payload = JSON.stringify(draftFieldsRef.current, null, 2);
@@ -336,41 +364,72 @@ function WorksheetPdfContent({
       </div>
       <div
         ref={containerRef}
-        className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow"
+        className="relative overflow-hidden rounded-xl border border-gray-200 bg-slate-50 shadow"
         style={{ width: displayWidth, height: displayHeight }}
       >
         {canvas.pdfAssetUrl ? (
-          <Document
-            file={canvas.pdfAssetUrl}
-            loading={
-              <div className="flex h-full items-center justify-center p-6 text-sm text-gray-500">
-                Loading worksheet...
-              </div>
-            }
-            error={
-              <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-                <div className="text-4xl">📄</div>
-                <p className="text-base font-semibold text-gray-700">Worksheet couldn't load</p>
-                <p className="text-sm text-gray-500">Ask a grown-up to check the connection, then refresh the page.</p>
-              </div>
-            }
-            onLoadError={(err) => {
-              console.error("[WorksheetPdf] failed to load PDF:", canvas.pdfAssetUrl, err);
-              onReady();
-            }}
-          >
-            <Page
-              pageNumber={canvas.pdfPage ?? 1}
-              width={displayWidth}
-              renderAnnotationLayer={false}
-              renderTextLayer={false}
-              onRenderSuccess={onReady}
-              onRenderError={(err) => {
-                console.error("[WorksheetPdf] failed to render page:", err);
+          isWorksheetRasterImageUrl(canvas.pdfAssetUrl) ? (
+            <img
+              src={canvas.pdfAssetUrl}
+              alt="Worksheet"
+              className="absolute inset-0 m-auto h-full w-full object-contain object-center"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+              }}
+              decoding="async"
+              onLoad={() => onReady()}
+              onError={() => {
+                console.error(
+                  "[WorksheetImage] failed to load:",
+                  canvas.pdfAssetUrl,
+                );
                 onReady();
               }}
             />
-          </Document>
+          ) : (
+            <Document
+              file={canvas.pdfAssetUrl}
+              loading={
+                <div className="flex h-full items-center justify-center p-6 text-sm text-gray-500">
+                  Loading worksheet...
+                </div>
+              }
+              error={
+                <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                  <div className="text-4xl">📄</div>
+                  <p className="text-base font-semibold text-gray-700">
+                    Worksheet couldn't load
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Ask a grown-up to check the connection, then refresh the
+                    page.
+                  </p>
+                </div>
+              }
+              onLoadError={(err) => {
+                console.error(
+                  "[WorksheetPdf] failed to load PDF:",
+                  canvas.pdfAssetUrl,
+                  err,
+                );
+                onReady();
+              }}
+            >
+              <Page
+                pageNumber={canvas.pdfPage ?? 1}
+                width={displayWidth}
+                renderAnnotationLayer={false}
+                renderTextLayer={false}
+                onRenderSuccess={onReady}
+                onRenderError={(err) => {
+                  console.error("[WorksheetPdf] failed to render page:", err);
+                  onReady();
+                }}
+              />
+            </Document>
+          )
         ) : null}
         {(!isReviewMode || showOverlayDebug ? draftFields : []).map((field) => (
           <form
@@ -458,8 +517,12 @@ function WorksheetPdfContent({
           <div className="mb-2 font-bold text-amber-900">Overlay debug</div>
           <div className="space-y-2">
             {draftFields.map((field) => (
-              <div key={field.fieldId} className="rounded-md bg-white px-3 py-2 font-mono text-xs shadow-sm">
-                {field.fieldId} x={field.x} y={field.y} w={field.width} h={field.height}
+              <div
+                key={field.fieldId}
+                className="rounded-md bg-white px-3 py-2 font-mono text-xs shadow-sm"
+              >
+                {field.fieldId} x={field.x} y={field.y} w={field.width} h=
+                {field.height}
               </div>
             ))}
           </div>
@@ -477,7 +540,11 @@ function WorksheetPdfContent({
 function RewardTakeover({
   reward,
 }: {
-  reward: RewardEvent & { svg?: string; lottieData?: Record<string, unknown>; label?: string };
+  reward: RewardEvent & {
+    svg?: string;
+    lottieData?: Record<string, unknown>;
+    label?: string;
+  };
 }) {
   const showContent = reward?.lottieData || reward?.svg;
   if (!showContent) return null;
@@ -534,7 +601,11 @@ function buildTeachingMathParts(
     else if (/^[+\-×÷=]$/.test(t)) parts.push({ type: "op", text: t });
   }
   const { isLastLine, normalizedPendingAnswer } = options;
-  if (isLastLine && parts.length > 0 && parts[parts.length - 1]?.type !== "op") {
+  if (
+    isLastLine &&
+    parts.length > 0 &&
+    parts[parts.length - 1]?.type !== "op"
+  ) {
     parts.push({ type: "op", text: "=" });
   }
   if (isLastLine) {
@@ -544,17 +615,43 @@ function buildTeachingMathParts(
 }
 
 const ONES: Record<string, number> = {
-  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
-  eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13,
-  fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  thirteen: 13,
+  fourteen: 14,
+  fifteen: 15,
+  sixteen: 16,
+  seventeen: 17,
+  eighteen: 18,
+  nineteen: 19,
 };
 const TENS: Record<string, number> = {
-  twenty: 20, thirty: 30, forty: 40, fifty: 50,
-  sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  twenty: 20,
+  thirty: 30,
+  forty: 40,
+  fifty: 50,
+  sixty: 60,
+  seventy: 70,
+  eighty: 80,
+  ninety: 90,
 };
 
 function spokenToNumber(text: string): number | null {
-  const t = text.toLowerCase().replace(/[^a-z0-9 ]/g, " ").trim();
+  const t = text
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ")
+    .trim();
   // Already a numeral
   if (/^\d+$/.test(t)) return parseInt(t, 10);
   const words = t.split(/\s+/);
@@ -600,7 +697,7 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
   const problemKey = `${data.operandA}|${data.operandB}|${op}|${layout}`;
   const targetRevealed = data.revealedColumns ?? [];
   const orderedTarget = PLACE_VALUE_REVEAL_ORDER.filter((k) =>
-    targetRevealed.includes(k)
+    targetRevealed.includes(k),
   );
   const revealed = useStaggeredReveal(problemKey, orderedTarget, 125);
 
@@ -620,7 +717,8 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
   ];
 
   const isActive = (col: "hundreds" | "tens" | "ones") => col === active;
-  const isRevealed = (col: "hundreds" | "tens" | "ones") => revealed.includes(col);
+  const isRevealed = (col: "hundreds" | "tens" | "ones") =>
+    revealed.includes(col);
 
   const cellStyle: React.CSSProperties = {
     ...nunito,
@@ -645,14 +743,20 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
       width: "100%",
     };
 
-    const valCellStyle = (col: "hundreds" | "tens" | "ones"): React.CSSProperties => ({
+    const valCellStyle = (
+      col: "hundreds" | "tens" | "ones",
+    ): React.CSSProperties => ({
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       padding: "clamp(6px, 2vw, 12px) clamp(4px, 1vw, 8px)",
       borderRadius: 12,
       background: isActive(col) ? "#FFF9F0" : "transparent",
-      border: isActive(col) ? "3px solid #EF9F27" : showDividers ? "3px solid #E2E8F0" : "3px solid transparent",
+      border: isActive(col)
+        ? "3px solid #EF9F27"
+        : showDividers
+          ? "3px solid #E2E8F0"
+          : "3px solid transparent",
       transform: isActive(col) ? "scale(1.06)" : "scale(1)",
       transition: "all 0.25s ease",
     });
@@ -671,14 +775,25 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
     };
 
     return (
-      <div className="canvas-content w-full" style={{ ...nunito, maxWidth: 560, margin: "0 auto" }}>
+      <div
+        className="canvas-content w-full"
+        style={{ ...nunito, maxWidth: 560, margin: "0 auto" }}
+      >
         {showLabels && (
           <div style={{ ...gridBase, marginBottom: 8 }}>
             {COLS.map(({ key, label }) => (
               <React.Fragment key={key}>
                 <div />
                 <div style={{ textAlign: "center" }}>
-                  <span style={{ fontSize: "clamp(0.65rem, 2vw, 0.9rem)", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+                  <span
+                    style={{
+                      fontSize: "clamp(0.65rem, 2vw, 0.9rem)",
+                      color: isActive(key) ? "#EF9F27" : "#94a3b8",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                    }}
+                  >
                     {label}
                   </span>
                 </div>
@@ -688,44 +803,84 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
         )}
         <div style={gridBase}>
           <div />
-          <div style={valCellStyle("hundreds")}><span style={responsiveCellStyle}>{aVals.hundreds}</span></div>
+          <div style={valCellStyle("hundreds")}>
+            <span style={responsiveCellStyle}>{aVals.hundreds}</span>
+          </div>
           <span style={sepStyle}>+</span>
-          <div style={valCellStyle("tens")}><span style={responsiveCellStyle}>{aVals.tens}</span></div>
+          <div style={valCellStyle("tens")}>
+            <span style={responsiveCellStyle}>{aVals.tens}</span>
+          </div>
           <span style={sepStyle}>+</span>
-          <div style={valCellStyle("ones")}><span style={responsiveCellStyle}>{aVals.ones}</span></div>
+          <div style={valCellStyle("ones")}>
+            <span style={responsiveCellStyle}>{aVals.ones}</span>
+          </div>
         </div>
         <div style={{ ...gridBase, marginTop: 4 }}>
           <span style={sepStyle}>{op === "addition" ? "+" : "−"}</span>
-          <div style={valCellStyle("hundreds")}><span style={responsiveCellStyle}>{bVals.hundreds}</span></div>
+          <div style={valCellStyle("hundreds")}>
+            <span style={responsiveCellStyle}>{bVals.hundreds}</span>
+          </div>
           <span style={sepStyle} />
-          <div style={valCellStyle("tens")}><span style={responsiveCellStyle}>{bVals.tens}</span></div>
+          <div style={valCellStyle("tens")}>
+            <span style={responsiveCellStyle}>{bVals.tens}</span>
+          </div>
           <span style={sepStyle} />
-          <div style={valCellStyle("ones")}><span style={responsiveCellStyle}>{bVals.ones}</span></div>
+          <div style={valCellStyle("ones")}>
+            <span style={responsiveCellStyle}>{bVals.ones}</span>
+          </div>
         </div>
-        <div style={{ height: 3, background: "#CBD5E1", borderRadius: 2, margin: "10px 0" }} />
+        <div
+          style={{
+            height: 3,
+            background: "#CBD5E1",
+            borderRadius: 2,
+            margin: "10px 0",
+          }}
+        />
         <div style={gridBase}>
           <div />
           <div style={valCellStyle("hundreds")}>
             {isRevealed("hundreds") ? (
-              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>{sVals.hundreds}</span>
+              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>
+                {sVals.hundreds}
+              </span>
             ) : (
-              <span className={isActive("hundreds") ? "q-pulse" : ""} style={{ ...responsiveCellStyle, color: "#EF9F27" }}>?</span>
+              <span
+                className={isActive("hundreds") ? "q-pulse" : ""}
+                style={{ ...responsiveCellStyle, color: "#EF9F27" }}
+              >
+                ?
+              </span>
             )}
           </div>
           <span style={sepStyle} />
           <div style={valCellStyle("tens")}>
             {isRevealed("tens") ? (
-              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>{sVals.tens}</span>
+              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>
+                {sVals.tens}
+              </span>
             ) : (
-              <span className={isActive("tens") ? "q-pulse" : ""} style={{ ...responsiveCellStyle, color: "#EF9F27" }}>?</span>
+              <span
+                className={isActive("tens") ? "q-pulse" : ""}
+                style={{ ...responsiveCellStyle, color: "#EF9F27" }}
+              >
+                ?
+              </span>
             )}
           </div>
           <span style={sepStyle} />
           <div style={valCellStyle("ones")}>
             {isRevealed("ones") ? (
-              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>{sVals.ones}</span>
+              <span style={{ ...responsiveCellStyle, color: "#16a34a" }}>
+                {sVals.ones}
+              </span>
             ) : (
-              <span className={isActive("ones") ? "q-pulse" : ""} style={{ ...responsiveCellStyle, color: "#EF9F27" }}>?</span>
+              <span
+                className={isActive("ones") ? "q-pulse" : ""}
+                style={{ ...responsiveCellStyle, color: "#EF9F27" }}
+              >
+                ?
+              </span>
             )}
           </div>
         </div>
@@ -734,10 +889,25 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
   }
 
   // Column layout — stacked digit-by-digit, like the worksheet
-  const aDigits = { hundreds: Math.floor(data.operandA / 100) % 10, tens: Math.floor(data.operandA / 10) % 10, ones: data.operandA % 10 };
-  const bDigits = { hundreds: Math.floor(data.operandB / 100) % 10, tens: Math.floor(data.operandB / 10) % 10, ones: data.operandB % 10 };
-  const result = op === "subtraction" ? data.operandA - data.operandB : data.operandA + data.operandB;
-  const sumDigits = { hundreds: Math.floor(result / 100) % 10, tens: Math.floor(result / 10) % 10, ones: result % 10 };
+  const aDigits = {
+    hundreds: Math.floor(data.operandA / 100) % 10,
+    tens: Math.floor(data.operandA / 10) % 10,
+    ones: data.operandA % 10,
+  };
+  const bDigits = {
+    hundreds: Math.floor(data.operandB / 100) % 10,
+    tens: Math.floor(data.operandB / 10) % 10,
+    ones: data.operandB % 10,
+  };
+  const result =
+    op === "subtraction"
+      ? data.operandA - data.operandB
+      : data.operandA + data.operandB;
+  const sumDigits = {
+    hundreds: Math.floor(result / 100) % 10,
+    tens: Math.floor(result / 10) % 10,
+    ones: result % 10,
+  };
 
   const colGridStyle: React.CSSProperties = {
     display: "grid",
@@ -752,70 +922,120 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
   };
 
   return (
-    <div className="canvas-content" style={{ ...nunito, width: "100%", maxWidth: 420 }}>
+    <div
+      className="canvas-content"
+      style={{ ...nunito, width: "100%", maxWidth: 420 }}
+    >
       {showLabels && (
         <div style={{ ...colGridStyle, marginBottom: 4 }}>
           <div />
           {COLS.map(({ key, label }) => (
             <div key={key} style={{ textAlign: "center" }}>
-              <span style={{ fontSize: "clamp(0.65rem, 2vw, 0.85rem)", color: isActive(key) ? "#EF9F27" : "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+              <span
+                style={{
+                  fontSize: "clamp(0.65rem, 2vw, 0.85rem)",
+                  color: isActive(key) ? "#EF9F27" : "#94a3b8",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                }}
+              >
                 {label}
               </span>
             </div>
           ))}
         </div>
       )}
-      <div style={{ border: "3px solid #E2E8F0", borderRadius: 16, overflow: "hidden" }}>
+      <div
+        style={{
+          border: "3px solid #E2E8F0",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
         {/* Row A */}
         <div style={{ ...colGridStyle, borderBottom: "3px solid #E2E8F0" }}>
           <div />
           {COLS.map(({ key }, i) => (
-            <div key={key} style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "clamp(6px, 2vw, 10px) 4px",
-              background: isActive(key) ? "#FFF9F0" : "transparent",
-              borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
-            }}>
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "clamp(6px, 2vw, 10px) 4px",
+                background: isActive(key) ? "#FFF9F0" : "transparent",
+                borderLeft:
+                  i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
+              }}
+            >
               <span style={colCellFont}>{aDigits[key]}</span>
             </div>
           ))}
         </div>
         {/* Row B with operator */}
         <div style={colGridStyle}>
-          <span style={{ ...nunito, fontSize: "clamp(1.4rem, 5vw, 2.5rem)", color: opColor, textAlign: "center", lineHeight: 1 }}>
+          <span
+            style={{
+              ...nunito,
+              fontSize: "clamp(1.4rem, 5vw, 2.5rem)",
+              color: opColor,
+              textAlign: "center",
+              lineHeight: 1,
+            }}
+          >
             {op === "addition" ? "+" : "−"}
           </span>
           {COLS.map(({ key }, i) => (
-            <div key={key} style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "clamp(6px, 2vw, 10px) 4px",
-              background: isActive(key) ? "#FFF9F0" : "transparent",
-              borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
-            }}>
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "clamp(6px, 2vw, 10px) 4px",
+                background: isActive(key) ? "#FFF9F0" : "transparent",
+                borderLeft:
+                  i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
+              }}
+            >
               <span style={colCellFont}>{bDigits[key]}</span>
             </div>
           ))}
         </div>
         {/* Sum row */}
-        <div style={{ ...colGridStyle, borderTop: "4px double #CBD5E1", background: "#F8FAFC" }}>
+        <div
+          style={{
+            ...colGridStyle,
+            borderTop: "4px double #CBD5E1",
+            background: "#F8FAFC",
+          }}
+        >
           <div />
           {COLS.map(({ key }, i) => (
-            <div key={key} style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "clamp(8px, 2vw, 12px) 4px",
-              background: isActive(key) ? "#FFF9F0" : "transparent",
-              borderLeft: i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
-            }}>
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "clamp(8px, 2vw, 12px) 4px",
+                background: isActive(key) ? "#FFF9F0" : "transparent",
+                borderLeft:
+                  i > 0 && showDividers ? "3px solid #E2E8F0" : "none",
+              }}
+            >
               {isRevealed(key) ? (
-                <span style={{ ...colCellFont, color: "#16a34a" }}>{sumDigits[key]}</span>
+                <span style={{ ...colCellFont, color: "#16a34a" }}>
+                  {sumDigits[key]}
+                </span>
               ) : (
-                <span className={isActive(key) ? "q-pulse" : ""} style={{ ...colCellFont, color: "#EF9F27" }}>?</span>
+                <span
+                  className={isActive(key) ? "q-pulse" : ""}
+                  style={{ ...colCellFont, color: "#EF9F27" }}
+                >
+                  ?
+                </span>
               )}
             </div>
           ))}
@@ -824,9 +1044,16 @@ function PlaceValueContent({ data }: { data: PlaceValueData }) {
 
       {active && (
         <div style={{ textAlign: "center", marginTop: 20, ...nunito }}>
-          <span style={{ fontSize: "2rem", color: "#EF9F27" }}>{aDigits[active]}</span>
-          <span style={{ fontSize: "1.4rem", color: opColor }}> {op === "addition" ? "+" : "−"} </span>
-          <span style={{ fontSize: "2rem", color: "#EF9F27" }}>{bDigits[active]}</span>
+          <span style={{ fontSize: "2rem", color: "#EF9F27" }}>
+            {aDigits[active]}
+          </span>
+          <span style={{ fontSize: "1.4rem", color: opColor }}>
+            {" "}
+            {op === "addition" ? "+" : "−"}{" "}
+          </span>
+          <span style={{ fontSize: "2rem", color: "#EF9F27" }}>
+            {bDigits[active]}
+          </span>
           <span style={{ fontSize: "1.4rem", color: "#64748b" }}> in the </span>
           <span style={{ fontSize: "1.6rem", color: "#EF9F27" }}>
             {active.charAt(0).toUpperCase() + active.slice(1)}
@@ -866,7 +1093,11 @@ function SpellingContent({
   const showWordHint = showWord === "hint" && hintShown;
   const showWordAlways = showWord === "always";
   const wordVisible = showWordHidden || showWordHint || showWordAlways;
-  const wordColor = showWordHidden ? "#22C55E" : showWordHint ? "#EF9F27" : "#64748B";
+  const wordColor = showWordHidden
+    ? "#22C55E"
+    : showWordHint
+      ? "#EF9F27"
+      : "#64748B";
 
   return (
     <div
@@ -881,112 +1112,112 @@ function SpellingContent({
           gap: "16px",
         }}
       >
-      {streakCount != null && (
+        {streakCount != null && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <div style={{ textAlign: "right" }}>
+              <div
+                style={{
+                  fontSize: "1.5rem",
+                  fontWeight: 700,
+                  color: "#EF9F27",
+                }}
+              >
+                🔥 {streakCount}
+              </div>
+              {personalBest != null && (
+                <div
+                  style={{
+                    fontSize: "1rem",
+                    fontWeight: 400,
+                    color: "#94A3B8",
+                  }}
+                >
+                  Best: {personalBest}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {wordVisible && (
+          <div
+            style={{
+              fontSize: remToCss(computeTeachingFontSize(spellingWord.length)),
+              fontWeight: 900,
+              color: wordColor,
+              maxWidth: "100%",
+              wordBreak: "break-word",
+              overflowWrap: "break-word",
+              overflow: "hidden",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {spellingWord}
+          </div>
+        )}
+
         <div
           style={{
             display: "flex",
-            justifyContent: "center",
-            width: "100%",
+            flexDirection: "row",
+            flexWrap: "nowrap",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
-          <div style={{ textAlign: "right" }}>
-            <div
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: 700,
-                color: "#EF9F27",
-              }}
-            >
-              🔥 {streakCount}
-            </div>
-            {personalBest != null && (
+          {letters.map((_, index) => (
+            <React.Fragment key={index}>
+              {compoundBreak != null && index === compoundBreak && (
+                <div
+                  style={{
+                    width: 18,
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 2,
+                      height: "60%",
+                      backgroundColor: "#CBD5E1",
+                    }}
+                  />
+                </div>
+              )}
+
               <div
                 style={{
-                  fontSize: "1rem",
-                  fontWeight: 400,
-                  color: "#94A3B8",
-                }}
-              >
-                Best: {personalBest}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {wordVisible && (
-        <div
-          style={{
-            fontSize: remToCss(computeTeachingFontSize(spellingWord.length)),
-            fontWeight: 900,
-            color: wordColor,
-            maxWidth: "100%",
-            wordBreak: "break-word",
-            overflowWrap: "break-word",
-            overflow: "hidden",
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {spellingWord}
-        </div>
-      )}
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          flexWrap: "nowrap",
-          alignItems: "center",
-          gap: "8px",
-        }}
-      >
-        {letters.map((_, index) => (
-          <React.Fragment key={index}>
-            {compoundBreak != null && index === compoundBreak && (
-              <div
-                style={{
-                  width: 18,
-                  flexShrink: 0,
+                  width: "clamp(48px, 12vw, 80px)",
+                  height: "clamp(48px, 12vw, 80px)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  borderRadius: "12px",
+                  border:
+                    index === revealed.length - 1
+                      ? "2px solid #EF9F27"
+                      : "1.5px solid #CBD5E1",
+                  backgroundColor:
+                    index === revealed.length - 1 ? "#FFF9F0" : "white",
+                  flexShrink: 0,
+                  ...nunito900,
+                  fontSize: "clamp(1.2rem, 4vw, 2rem)",
+                  color: revealed[index] ? "#1E293B" : "#CBD5E1",
                 }}
               >
-                <div
-                  style={{
-                    width: 2,
-                    height: "60%",
-                    backgroundColor: "#CBD5E1",
-                  }}
-                />
+                {revealed[index] ?? "_"}
               </div>
-            )}
-
-            <div
-              style={{
-                width: "clamp(48px, 12vw, 80px)",
-                height: "clamp(48px, 12vw, 80px)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: "12px",
-                border:
-                  index === revealed.length - 1
-                    ? "2px solid #EF9F27"
-                    : "1.5px solid #CBD5E1",
-                backgroundColor:
-                  index === revealed.length - 1 ? "#FFF9F0" : "white",
-                flexShrink: 0,
-                ...nunito900,
-                fontSize: "clamp(1.2rem, 4vw, 2rem)",
-                color: revealed[index] ? "#1E293B" : "#CBD5E1",
-              }}
-            >
-              {revealed[index] ?? "_"}
-            </div>
-          </React.Fragment>
-        ))}
-      </div>
+            </React.Fragment>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1010,7 +1241,8 @@ function TeachingContent({
   if (isMath(content)) {
     const rawPending = pendingAnswer?.trim().replace(/[.!?]+$/, "") ?? "";
     const asNumber = rawPending ? spokenToNumber(rawPending) : null;
-    const normalizedPendingAnswer = asNumber !== null ? String(asNumber) : rawPending || undefined;
+    const normalizedPendingAnswer =
+      asNumber !== null ? String(asNumber) : rawPending || undefined;
     const showQuestionMark = !normalizedPendingAnswer;
 
     const renderMathSpans = (
@@ -1024,11 +1256,7 @@ function TeachingContent({
           style={{
             ...MATH_MONO,
             fontSize:
-              p.type === "num"
-                ? "10rem"
-                : p.type === "op"
-                  ? "7rem"
-                  : "8rem",
+              p.type === "num" ? "10rem" : p.type === "op" ? "7rem" : "8rem",
             color:
               p.type === "op"
                 ? "#6366f1"
@@ -1082,30 +1310,28 @@ function TeachingContent({
                     width: "100%",
                   }}
                 >
-                  {parts.length > 0
-                    ? renderMathSpans(parts, `v-${lineIdx}`)
-                    : trimmed
-                      ? (
-                          <span
-                            style={{
-                              ...MATH_MONO,
-                              fontSize: remToCss(
-                                computeTeachingFontSize(trimmed.length),
-                              ),
-                              color: "#1a1a2e",
-                              lineHeight: 1,
-                              textAlign: "right",
-                              maxWidth: "100%",
-                              wordBreak: "break-word",
-                              overflowWrap: "break-word",
-                              overflow: "hidden",
-                              whiteSpace: "pre-wrap",
-                            }}
-                          >
-                            {trimmed}
-                          </span>
-                        )
-                      : null}
+                  {parts.length > 0 ? (
+                    renderMathSpans(parts, `v-${lineIdx}`)
+                  ) : trimmed ? (
+                    <span
+                      style={{
+                        ...MATH_MONO,
+                        fontSize: remToCss(
+                          computeTeachingFontSize(trimmed.length),
+                        ),
+                        color: "#1a1a2e",
+                        lineHeight: 1,
+                        textAlign: "right",
+                        maxWidth: "100%",
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
+                        overflow: "hidden",
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
+                      {trimmed}
+                    </span>
+                  ) : null}
                 </div>
               );
             })}
@@ -1217,9 +1443,7 @@ function TeachingContent({
                 key={i}
                 className="letter-bounce"
                 style={{
-                  fontSize: remToCss(
-                    computeTeachingFontSize(content.length),
-                  ),
+                  fontSize: remToCss(computeTeachingFontSize(content.length)),
                   lineHeight: 1,
                   color: isActive ? "#EF9F27" : "#1a1a2e",
                   borderBottom: isActive
@@ -1629,9 +1853,7 @@ export function Canvas({
         </motion.div>
       )}
 
-      {showReward && reward && (
-        <RewardTakeover reward={reward} />
-      )}
+      {showReward && reward && <RewardTakeover reward={reward} />}
 
       <div
         className={
@@ -1682,12 +1904,25 @@ export function Canvas({
         )}
 
         {displayMode === "worksheet_pdf" && canvas.pdfAssetUrl ? (
-          <WorksheetPdfContent
-            canvas={canvas}
-            onReady={onCanvasDone}
-            onWorksheetAnswer={onWorksheetAnswer}
-            onOverlayFieldChange={onOverlayFieldChange}
-          />
+          /\.(png|jpe?g|gif|webp)$/i.test(canvas.pdfAssetUrl) ? (
+            <img
+              src={canvas.pdfAssetUrl}
+              alt="Worksheet"
+              onLoad={() => onCanvasDone()}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+              }}
+            />
+          ) : (
+            <WorksheetPdfContent
+              canvas={canvas}
+              onReady={onCanvasDone}
+              onWorksheetAnswer={onWorksheetAnswer}
+              onOverlayFieldChange={onOverlayFieldChange}
+            />
+          )
         ) : displayMode === "place_value" && canvas.placeValueData ? (
           <PlaceValueContent data={canvas.placeValueData} />
         ) : displayMode === "spelling" && canvas.spellingWord ? (
@@ -1700,12 +1935,12 @@ export function Canvas({
             showWord={canvas.showWord}
           />
         ) : displayMode === "teaching" &&
-        shouldRenderTeachingContent({
-          mode: canvas.mode,
-          svg: canvas.svg,
-          content: displayContent,
-          phonemeBoxes: canvas.phonemeBoxes,
-        }) ? (
+          shouldRenderTeachingContent({
+            mode: canvas.mode,
+            svg: canvas.svg,
+            content: displayContent,
+            phonemeBoxes: canvas.phonemeBoxes,
+          }) ? (
           <TeachingContent
             content={displayContent}
             phonemeBoxes={canvas.phonemeBoxes}

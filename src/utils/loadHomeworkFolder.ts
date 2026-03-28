@@ -211,7 +211,7 @@ export async function loadHomeworkPayload(
     folderPath: folder,
     assetFilenames: fs
       .readdirSync(folder)
-      .filter((name) => /\.(pdf|png|jpe?g)$/i.test(name))
+      .filter((name) => /\.(pdf|png|jpe?g|gif|webp)$/i.test(name))
       .sort((a, b) => a.localeCompare(b)),
     pageAssets: files
       .filter((file): file is HomeworkFile & { type: "image"; mimeType: "image/jpeg" | "image/png" } =>

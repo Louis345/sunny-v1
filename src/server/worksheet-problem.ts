@@ -147,10 +147,14 @@ function normalizeStructuredProblem(
   structured: StructuredWorksheetContract,
 ): WorksheetProblemNormalizationResult {
   if (structured.problemType === "money_count" && structured.visibleFacts.kind === "money_count") {
+    const price = structured.visibleFacts.itemPriceCents;
+    const total = structured.visibleFacts.totalSpentCents;
+    // totalSpentCents is the canonical answer. itemPriceCents may be 0 for "count all
+    // coins in the box" problems with no per-item unit price.
     if (
       !structured.visibleFacts.itemLabel ||
-      structured.visibleFacts.itemPriceCents <= 0 ||
-      structured.visibleFacts.totalSpentCents <= 0
+      price < 0 ||
+      total <= 0
     ) {
       return {
         ok: false,
@@ -309,13 +313,17 @@ export function toWorksheetCanvasSource(
   problem: CanonicalWorksheetProblem,
 ): WorksheetPromptProblem {
   if (problem.kind === "money_count") {
+    const priceLine =
+      problem.itemPriceCents > 0
+        ? `${problem.itemLabel} ${problem.itemPriceCents}¢. Total spent ${problem.totalSpentCents}¢.`
+        : `${problem.itemLabel}. Total ${problem.totalSpentCents}¢ (count the coins).`;
     return {
       id: problem.id,
       question: problem.question,
       instructions: problem.instructions,
       answer: problem.canonicalAnswer,
       hint: problem.hint,
-      canvas_display: `Cookie shop. ${problem.itemLabel} ${problem.itemPriceCents}¢. Total spent ${problem.totalSpentCents}¢.`,
+      canvas_display: `Cookie shop. ${priceLine}`,
     };
   }
 

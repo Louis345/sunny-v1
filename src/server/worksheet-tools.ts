@@ -15,7 +15,8 @@ export interface ProblemInput {
   question: string;
   canonicalAnswer: string;
   hint: string;
-  facts: { leftCents: number; rightCents: number };
+  /** Per-problem extracted facts — compare_amounts: leftCents/rightCents; money_count: totalCents, etc. */
+  facts: Record<string, number>;
 }
 
 export interface WorksheetSessionOptions {
@@ -43,7 +44,7 @@ export interface GetNextProblemResult {
   problemId?: string;
   question?: string;
   hint?: string;
-  facts?: { leftCents: number; rightCents: number };
+  facts?: Record<string, number>;
   canvasRendered?: boolean;
   error?: string;
   completed?: boolean;

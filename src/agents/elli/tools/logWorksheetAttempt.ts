@@ -4,10 +4,10 @@ import { shouldPersistSessionData } from "../../../utils/runtimeMode";
 
 /** Persistence runs in session-manager after validation — execute only returns intent. */
 export const logWorksheetAttempt = tool({
-  description: `Call this after EVERY worksheet problem attempt — correct or incorrect.
+  description: `Call this after a genuine worksheet answer attempt — correct or incorrect.
 You decide if the child answered correctly based on what they said. Be generous — if the meaning matches, it is correct.
-Do NOT call this if the child is asking a question, expressing confusion, or asking for help.
-Only call when the child has genuinely attempted an answer.`,
+Do NOT call if they only repeat the spoken question, only ask for clarification ("which one?", "which problem?"), or give meta talk without an answer — respond helpfully and wait for their next try.
+Do NOT call if the child is only expressing confusion or asking for help without attempting an answer.`,
   inputSchema: z.object({
     childName: z.enum(["Ila", "Reina"]),
     problemId: z.string(),
