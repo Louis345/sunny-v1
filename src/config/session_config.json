@@ -6,7 +6,7 @@
     "rewardTakeoverDuration_ms": 3000
   },
   "reina": {
-    "maxDurationMinutes": 15,
+    "maxDurationMinutes": 35,
     "rewardFlashDuration_ms": 2000,
     "rewardTakeoverDuration_ms": 6000
   }

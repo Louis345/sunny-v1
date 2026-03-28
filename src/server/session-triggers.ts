@@ -51,6 +51,10 @@ function loadConfig(): SessionConfig {
 }
 
 function getMaxDurationMs(childName: ChildName): number {
+  const env = process.env.SUNNY_SESSION_MAX_MINUTES?.trim();
+  if (env && /^\d+$/.test(env)) {
+    return Math.min(120, Math.max(5, parseInt(env, 10))) * 60 * 1000;
+  }
   const config = loadConfig();
   const childConfig =
     childName === "Ila" ? config.ila : config.reina;

@@ -116,6 +116,7 @@ import {
   isSunnyTestMode,
   shouldPersistSessionData,
 } from "../utils/runtimeMode";
+import { readRasterDimensionsFromFile } from "../utils/rasterDimensions";
 
 type CanvasActivitySnapshot = {
   mode: ActivityMode;
@@ -451,6 +452,14 @@ export function isSpellingAttempt(text: string, word: string): boolean {
   const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const asWord = new RegExp(`(^|[^a-z])${escaped}([^a-z]|$)`, "i");
   return asWord.test(t);
+}
+
+/** Unwrap AI SDK tool result wrapper. The SDK wraps execute() return in { output: ... }. */
+function unwrapToolResult(result: unknown): unknown {
+  if (result && typeof result === "object" && "output" in result) {
+    return (result as { output: unknown }).output;
+  }
+  return result;
 }
 
 export class SessionManager {
@@ -1165,6 +1174,12 @@ export class SessionManager {
             problems: this.worksheetProblems,
           })
         : "answer_entry";
+      if (this.worksheetMode) {
+        this.worksheetInteractionMode = this.maybeRelaxMisdetectedReviewMode(
+          extraction,
+          this.worksheetInteractionMode,
+        );
+      }
       this.assignmentManifest = null;
       this.worksheetPlayerState = null;
 
@@ -1241,9 +1256,98 @@ export class SessionManager {
           );
         }
       } else {
-        console.warn(
-          `  ⚠️  [worksheet] no PDF found in homework/${homeworkPayload.childName.toLowerCase()}/${homeworkPayload.date}/`
-        );
+        const imageFilename = homeworkPayload.assetFilenames.find((name) => {
+          const lower = name.toLowerCase();
+          return (
+            lower.endsWith(".png") ||
+            lower.endsWith(".jpg") ||
+            lower.endsWith(".jpeg") ||
+            lower.endsWith(".gif") ||
+            lower.endsWith(".webp")
+          );
+        });
+
+        if (imageFilename) {
+          const imageAssetUrl = `/api/homework/${homeworkPayload.childName}/${homeworkPayload.date}/${encodeURIComponent(imageFilename)}`;
+          console.log(`  📄 [worksheet] using image asset: ${imageAssetUrl}`);
+          const imagePath = path.join(homeworkPayload.folderPath, imageFilename);
+          let rasterPageW = 800;
+          let rasterPageH = 1000;
+          const rasterDims = readRasterDimensionsFromFile(imagePath);
+          if (rasterDims) {
+            rasterPageW = rasterDims.width;
+            rasterPageH = rasterDims.height;
+            console.log(
+              `  📐 [worksheet] raster page size ${rasterPageW}×${rasterPageH} (from file)`,
+            );
+          } else {
+            console.log(
+              `  📐 [worksheet] raster page size ${rasterPageW}×${rasterPageH} (default — could not read headers)`,
+            );
+          }
+
+          if (this.worksheetMode) {
+            try {
+              this.assignmentManifest = buildAssignmentManifestFromWorksheetProblems({
+                assignmentId: `${homeworkPayload.childName.toLowerCase()}-${homeworkPayload.date}`,
+                childName: homeworkPayload.childName,
+                title: `${this.companion.name} worksheet`,
+                createdAt: new Date().toISOString(),
+                pdfAssetUrl: imageAssetUrl,
+                problems: this.worksheetProblems,
+                pageWidth: rasterPageW,
+                pageHeight: rasterPageH,
+              });
+              this.worksheetPlayerState = buildWorksheetPlayerState(
+                this.assignmentManifest,
+                this.worksheetInteractionMode,
+              );
+              console.log(
+                `  📄 [worksheet] worksheet_pdf enabled via image — ${imageAssetUrl} (${this.worksheetInteractionMode})`,
+              );
+            } catch (err) {
+              console.warn(
+                "  ⚠️  Worksheet player manifest build failed:",
+                err instanceof Error ? err.message : String(err),
+              );
+            }
+          } else {
+            this.currentCanvasState = {
+              mode: "worksheet_pdf" as const,
+              pdfAssetUrl: imageAssetUrl,
+              pdfPage: 1,
+              overlayFields: [],
+            };
+            this.send("canvas_draw", this.currentCanvasState);
+            console.log(
+              `  📄 [worksheet] visual-only fallback — image visible, no structured problem queue`,
+            );
+          }
+
+          if (!this.worksheetPageFile) {
+            if (fs.existsSync(imagePath)) {
+              const lower = imageFilename.toLowerCase();
+              const mimeType = lower.endsWith(".png")
+                ? "image/png"
+                : lower.endsWith(".webp")
+                  ? "image/webp"
+                  : lower.endsWith(".gif")
+                    ? "image/gif"
+                    : "image/jpeg";
+              this.worksheetPageFile = {
+                data: fs.readFileSync(imagePath),
+                mimeType,
+              };
+              console.log(
+                `  👁️  [worksheet] loaded image for companion vision (${(this.worksheetPageFile.data.length / 1024).toFixed(0)} KB)`,
+              );
+            }
+          }
+        } else {
+          console.warn(
+            `  ⚠️  [worksheet] no PDF or image found in homework/${homeworkPayload.childName.toLowerCase()}/${homeworkPayload.date}/`,
+          );
+        }
       }
 
       if (!this.worksheetPageFile && homeworkPayload.pageAssets.length > 0) {
@@ -1306,16 +1410,24 @@ export class SessionManager {
           this.worksheetSession = createWSSession({
             childName: homeworkChild,
             companionName: this.companion.name,
-            problems: this.worksheetProblems.map((p) => ({
-              id: String(p.id),
-              question: p.question,
-              canonicalAnswer: p.canonicalAnswer,
-              hint: p.hint,
-              facts: {
-                leftCents: p.kind === "compare_amounts" ? p.leftAmountCents : 0,
-                rightCents: p.kind === "compare_amounts" ? p.rightAmountCents : 0,
-              },
-            })),
+            problems: this.worksheetProblems.map((p) => {
+              const facts: Record<string, number> =
+                p.kind === "compare_amounts"
+                  ? {
+                      leftCents: p.leftAmountCents,
+                      rightCents: p.rightAmountCents,
+                    }
+                  : p.kind === "money_count"
+                    ? { totalCents: p.totalSpentCents }
+                    : {};
+              return {
+                id: String(p.id),
+                question: p.question,
+                canonicalAnswer: p.canonicalAnswer,
+                hint: p.hint,
+                facts,
+              };
+            }),
             rewardThreshold: this.worksheetRewardAfterN,
             rewardGame: "space-invaders",
           });
@@ -2756,6 +2868,42 @@ export class SessionManager {
     });
   }
 
+  /**
+   * Extraction sometimes marks "review" when the sheet is actually blank.
+   * If nothing in extraction hints at handwritten/filled answers, prefer answer_entry.
+   */
+  private maybeRelaxMisdetectedReviewMode(
+    extraction: HomeworkExtractionResult,
+    mode: WorksheetInteractionMode,
+  ): WorksheetInteractionMode {
+    if (mode !== "review") return mode;
+    const problems = extraction.problems;
+    if (problems.length === 0) return mode;
+
+    const handwritingHint =
+      /\b(handwrit|filled in|student wrote|their answer|answers in the box|already completed|wrote in|pencil)\b/i;
+    const anyHandwritingEvidence = problems.some((p) =>
+      (p.structured?.evidence ?? []).some((line) => handwritingHint.test(line)),
+    );
+    if (anyHandwritingEvidence) return mode;
+
+    const anyOverlayFilled = problems.some((p) => {
+      const targets = p.structured?.overlayTargets;
+      if (!targets?.length) return false;
+      return targets.some((t) => {
+        const o = t as Record<string, unknown>;
+        const v = o.value ?? o.filledValue ?? o.childAnswer ?? o.text;
+        return v != null && String(v).trim() !== "";
+      });
+    });
+    if (anyOverlayFilled) return mode;
+
+    console.log(
+      "  ℹ️  [worksheet] review → answer_entry (no handwriting / filled-overlay signals in extraction)",
+    );
+    return "answer_entry";
+  }
+
   private selectWorksheetProblems(
     extraction: HomeworkExtractionResult,
   ): CanonicalWorksheetProblem[] {
@@ -2773,12 +2921,19 @@ export class SessionManager {
     if (byId.size === 0) return [];
 
     const dir = extraction.session_directives;
+    // teaching_order defines presentation sequence. problems_today defines which problems to include.
+    // If both exist: filter teaching_order to only include IDs from problems_today.
+    // If only problems_today: use that order.
+    // If only teaching_order: use that order.
+    const problemsToInclude = dir?.problems_today?.length
+      ? new Set(dir.problems_today)
+      : null;
     const preferredOrder =
-      dir?.problems_today != null && dir.problems_today.length > 0
-        ? dir.problems_today
-        : dir?.teaching_order != null && dir.teaching_order.length > 0
-          ? dir.teaching_order
-          : null;
+      dir?.teaching_order != null && dir.teaching_order.length > 0
+        ? problemsToInclude
+          ? dir.teaching_order.filter((id) => problemsToInclude.has(id))
+          : dir.teaching_order
+        : (dir?.problems_today ?? null);
 
     let ordered: CanonicalWorksheetProblem[] = [];
     if (preferredOrder) {
@@ -3225,7 +3380,9 @@ export class SessionManager {
     }
 
     if (tool === "launchGame") {
-      const sessionLaunch = result as { ok?: boolean; error?: string } | undefined;
+      const sessionLaunch = unwrapToolResult(result) as
+        | { ok?: boolean; error?: string }
+        | undefined;
       if (this.worksheetSession && sessionLaunch && sessionLaunch.ok === false) {
         console.warn(
           `  ⚠️  launchGame: worksheet session rejected — ${sessionLaunch.error ?? "unknown"}`,
@@ -3288,9 +3445,12 @@ export class SessionManager {
       | { ok: boolean; effectiveChildSaid: string; wp: CanonicalWorksheetProblem } = false;
 
     if (tool === "logWorksheetAttempt") {
+      const unwrappedForLog = unwrapToolResult(result);
       const base =
-        typeof result === "object" && result !== null && !Array.isArray(result)
-          ? { ...(result as Record<string, unknown>) }
+        typeof unwrappedForLog === "object" &&
+        unwrappedForLog !== null &&
+        !Array.isArray(unwrappedForLog)
+          ? { ...(unwrappedForLog as Record<string, unknown>) }
           : {};
       if (this.worksheetSession) {
         console.log(
@@ -3637,7 +3797,7 @@ export class SessionManager {
     }
 
     if (tool === "getNextProblem") {
-      const res = result as {
+      const res = unwrapToolResult(result) as {
         ok?: boolean;
         canvasRendered?: boolean;
         problemId?: string;
@@ -3717,7 +3877,7 @@ export class SessionManager {
     }
 
     if (tool === "submitAnswer") {
-      const res = result as {
+      const res = unwrapToolResult(result) as {
         ok?: boolean;
         rewardEarned?: boolean;
         rewardGame?: string;
@@ -3766,6 +3926,10 @@ export class SessionManager {
     }
 
     if (tool === "clearCanvas") {
+      const res = unwrapToolResult(result) as { ok?: boolean };
+      if (res && typeof res === "object" && res.ok === false) {
+        return;
+      }
       this.currentCanvasState = null;
       if (this.ctx) {
         this.ctx.updateCanvas({ mode: "idle" });
@@ -3928,7 +4092,7 @@ export class SessionManager {
 
     if (tool === "mathProblem" && args.childAnswer != null) {
       try {
-        const raw = result as Record<string, unknown> | string | undefined;
+        const raw = unwrapToolResult(result) as Record<string, unknown> | string | undefined;
         const output = typeof raw === "string" ? raw : (raw?.output as string | undefined) ?? raw;
         const parsed = typeof output === "string" ? JSON.parse(output) : output;
         const correct = (parsed as Record<string, unknown>)?.correct === true;
