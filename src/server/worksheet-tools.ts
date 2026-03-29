@@ -8,15 +8,12 @@ import path from "path";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
-export type WorksheetDomain = "coin_counting" | "general_math";
-
 export interface ProblemInput {
   id: string;
   question: string;
-  canonicalAnswer: string;
   hint: string;
-  /** Per-problem extracted facts — compare_amounts: leftCents/rightCents; money_count: totalCents, etc. */
-  facts: Record<string, number>;
+  page: number;
+  linkedGames: string[];
 }
 
 export interface WorksheetSessionOptions {
@@ -44,7 +41,6 @@ export interface GetNextProblemResult {
   problemId?: string;
   question?: string;
   hint?: string;
-  facts?: Record<string, number>;
   canvasRendered?: boolean;
   error?: string;
   completed?: boolean;
@@ -93,19 +89,6 @@ export interface EarnedReward {
   childName: string;
   earned: boolean;
   timestamp: string;
-}
-
-export interface AmountValidationResult {
-  allValid: boolean;
-  valid: number[];
-  flagged: number[];
-  candidates: Array<{ original: number; candidate: number }>;
-}
-
-export interface GamePoolItem {
-  emoji: string;
-  name: string;
-  price: number;
 }
 
 export interface WorksheetSession {
@@ -157,80 +140,6 @@ export function clearEarnedReward(childName: string): void {
   if (fs.existsSync(p)) fs.unlinkSync(p);
 }
 
-// ── Extraction / domain ─────────────────────────────────────────────────────
-
-export function detectWorksheetDomain(subject: string): WorksheetDomain {
-  if (/\b(coin|money|cent|quarter|dime|nickel|penny|pennies)\b/i.test(subject)) {
-    return "coin_counting";
-  }
-  return "general_math";
-}
-
-export function validateExtractionAmounts(opts: {
-  domain: WorksheetDomain;
-  amounts: number[];
-}): AmountValidationResult {
-  const { domain, amounts } = opts;
-  if (domain !== "coin_counting") {
-    return {
-      allValid: true,
-      valid: [...amounts],
-      flagged: [],
-      candidates: [],
-    };
-  }
-
-  const valid: number[] = [];
-  const flagged: number[] = [];
-  const candidates: Array<{ original: number; candidate: number }> = [];
-
-  for (const amt of amounts) {
-    if (amt > 100) {
-      flagged.push(amt);
-      if (amt > 100 && amt < 200) {
-        candidates.push({ original: amt, candidate: amt - 100 });
-      }
-    } else {
-      valid.push(amt);
-    }
-  }
-
-  return {
-    allValid: flagged.length === 0,
-    valid,
-    flagged,
-    candidates,
-  };
-}
-
-const STORE_ITEMS: Array<{ emoji: string; name: string }> = [
-  { emoji: "🎈", name: "Balloon" },
-  { emoji: "🍎", name: "Apple" },
-  { emoji: "🍬", name: "Candy" },
-  { emoji: "🪀", name: "Yo-Yo" },
-  { emoji: "🖍️", name: "Crayons" },
-  { emoji: "🍩", name: "Donut" },
-  { emoji: "🌟", name: "Star Badge" },
-  { emoji: "🧃", name: "Juice Box" },
-  { emoji: "🍭", name: "Lollipop" },
-  { emoji: "🚀", name: "Rocket Toy" },
-];
-
-export function buildSanitizedGamePool(opts: {
-  domain: WorksheetDomain;
-  amounts: number[];
-}): GamePoolItem[] {
-  const validation = validateExtractionAmounts({
-    domain: opts.domain,
-    amounts: opts.amounts,
-  });
-  const unique = [...new Set(validation.valid)].sort((a, b) => a - b);
-  return unique.map((price, i) => ({
-    ...STORE_ITEMS[i % STORE_ITEMS.length],
-    price,
-  }));
-}
-
 // ── Session factory ───────────────────────────────────────────────────────
 
 type CanvasState = "idle" | "worksheet_pdf" | string;
@@ -277,7 +186,6 @@ export function createWorksheetSession(
       problemId: p.id,
       question: p.question,
       hint: p.hint,
-      facts: { ...p.facts },
       canvasRendered: true,
     };
   }

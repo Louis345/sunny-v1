@@ -149,6 +149,8 @@ interface SessionState {
   reward: RewardEvent | null;
   error: string | null;
   loadingMessage: string | null;
+  /** Server sets true when DEBUG_CLAUDE — show canvas test overlay off localhost if needed */
+  debugMode: boolean;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -187,6 +189,15 @@ const DEFAULT_TURN_POLICY: TurnPolicy = {
   interruptible: true,
 };
 
+function urlWantsBrowserTts(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URLSearchParams(window.location.search).get("tts") === "browser";
+  } catch {
+    return false;
+  }
+}
+
 export function useSession() {
   const wsRef = useRef<WebSocket | null>(null);
   const micContextRef = useRef<AudioContext | null>(null);
@@ -201,6 +212,9 @@ export function useSession() {
   const rollingBufferRef = useRef<string[]>([]);
   const finalizePlaybackRef = useRef<() => void>(() => {});
   const turnPolicyRef = useRef<TurnPolicy>(DEFAULT_TURN_POLICY);
+  const debugBrowserTtsRef = useRef(false);
+  const browserTtsAccumRef = useRef("");
+  const browserTtsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -218,6 +232,7 @@ export function useSession() {
     reward: null,
     error: null,
     loadingMessage: null,
+    debugMode: false,
   });
 
   const [micMuted, setMicMuted] = useState(false);
@@ -284,12 +299,18 @@ export function useSession() {
     switch (msg.type) {
       case "session_started": {
         const m = msg as Record<string, string>;
+        debugBrowserTtsRef.current =
+          (msg as Record<string, unknown>).debugBrowserTts === true ||
+          urlWantsBrowserTts();
         turnPolicyRef.current = DEFAULT_TURN_POLICY;
+        const debugMode =
+          (msg as Record<string, unknown>).debugMode === true;
         setStateRef.current((s) => ({
           ...s,
           phase: "active",
           loadingMessage: null,
           childName: m.childName ?? m.child ?? "",
+          debugMode,
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -324,6 +345,11 @@ export function useSession() {
         break;
 
       case "final":
+        browserTtsAccumRef.current = "";
+        if (browserTtsDebounceRef.current) {
+          clearTimeout(browserTtsDebounceRef.current);
+          browserTtsDebounceRef.current = null;
+        }
         setStateRef.current((s) => ({
           ...s,
           interimTranscript: "",
@@ -347,12 +373,32 @@ export function useSession() {
         break;
       }
 
-      case "response_text":
+      case "response_text": {
+        const chunk = (msg.chunk as string) ?? "";
         setStateRef.current((s) => ({
           ...s,
-          companionText: s.companionText + ((msg.chunk as string) ?? ""),
+          companionText: s.companionText + chunk,
         }));
+        const useBrowserTts = debugBrowserTtsRef.current || urlWantsBrowserTts();
+        if (useBrowserTts && chunk && typeof window !== "undefined" && window.speechSynthesis) {
+          browserTtsAccumRef.current += chunk;
+          if (browserTtsDebounceRef.current) {
+            clearTimeout(browserTtsDebounceRef.current);
+          }
+          browserTtsDebounceRef.current = setTimeout(() => {
+            browserTtsDebounceRef.current = null;
+            const text = browserTtsAccumRef.current.trim();
+            browserTtsAccumRef.current = "";
+            if (!text) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.rate = 0.9;
+            u.pitch = 1.1;
+            window.speechSynthesis.speak(u);
+          }, 400);
+        }
         break;
+      }
 
       case "audio": {
         serverDoneRef.current = false;
@@ -504,6 +550,11 @@ export function useSession() {
       }
 
       case "phase":
+        browserTtsAccumRef.current = "";
+        if (browserTtsDebounceRef.current) {
+          clearTimeout(browserTtsDebounceRef.current);
+          browserTtsDebounceRef.current = null;
+        }
         setStateRef.current((s) => ({
           ...s,
           sessionPhase: (msg.phase as string) ?? s.sessionPhase,
@@ -513,6 +564,13 @@ export function useSession() {
 
       case "session_state": {
         const state = msg.state as string;
+        if (state === "LOADING") {
+          browserTtsAccumRef.current = "";
+          if (browserTtsDebounceRef.current) {
+            clearTimeout(browserTtsDebounceRef.current);
+            browserTtsDebounceRef.current = null;
+          }
+        }
         setStateRef.current((s) => {
           const next = state ?? s.sessionState;
           // Canvas is NOT cleared here. IDLE means "waiting for the child's
@@ -828,6 +886,7 @@ export function useSession() {
           ...s,
           error: "Connection timeout",
           phase: "picker",
+          debugMode: false,
         }));
       }, 10000);
     },
@@ -892,6 +951,7 @@ export function useSession() {
       reward: null,
       error: null,
       loadingMessage: null,
+      debugMode: false,
     });
     wsRef.current?.close();
     wsRef.current = null;

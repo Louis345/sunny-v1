@@ -24,6 +24,9 @@ export function isHomeworkMode(env: RuntimeEnv = process.env): boolean {
   return env.HOMEWORK_MODE === "true";
 }
 
+/** Log full Claude turn input + tool I/O to the terminal (homework / kiosk debugging). */
+export const isDebugClaude = () => process.env.DEBUG_CLAUDE === "true";
+
 export function shouldLoadPersistedHistory(env: RuntimeEnv = process.env): boolean {
   return !isStatelessRun(env);
 }

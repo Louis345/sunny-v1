@@ -4,6 +4,7 @@ import path from "path";
 import { shouldLoadPersistedHistory } from "../utils/runtimeMode";
 import Anthropic from "@anthropic-ai/sdk";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
+import { generateCanvasCapabilitiesManifest } from "../server/canvas/registry";
 import { generateToolDocs } from "./elli/tools/generateToolDocs";
 
 const TEMPLATE_VERSION = "v10"; // bump this when prompt changes
@@ -481,7 +482,8 @@ export async function buildSessionPrompt(
     const companionName = nameMatch ? nameMatch[1].trim() : "Elli";
     const base = WILSON_FREE_SESSION_PROMPT(childName, companionName);
     const focus = subjectFocusBlock(subject).trim();
-    return focus ? `${focus}\n\n${base}` : base;
+    const body = focus ? `${focus}\n\n${base}` : base;
+    return `${body}\n\n${generateCanvasCapabilitiesManifest()}`;
   }
 
   const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
@@ -787,7 +789,12 @@ Output the prompt only. No explanation.
     const age = Date.now() - fs.statSync(cacheFile).mtimeMs;
     if (age < 24 * 60 * 60 * 1000) {
       console.log(`  ⚡ Session prompt cached (${cacheKey})`);
-      return namePrefix + fs.readFileSync(cacheFile, "utf-8");
+      return (
+        namePrefix +
+        fs.readFileSync(cacheFile, "utf-8") +
+        "\n\n" +
+        generateCanvasCapabilitiesManifest()
+      );
     }
   }
 
@@ -807,5 +814,44 @@ Output the prompt only. No explanation.
   fs.mkdirSync(cacheDir, { recursive: true });
   fs.writeFileSync(cacheFile, promptText, "utf-8");
 
-  return namePrefix + promptText;
+  return (
+    namePrefix + promptText + "\n\n" + generateCanvasCapabilitiesManifest()
+  );
+}
+
+/** DEBUG_CLAUDE — replaces the normal psychologist session prompt (see SessionManager.start). */
+export function buildDebugPrompt(
+  _childName: string,
+  companionName: string,
+  canvasManifest: string,
+  toolDocs: string,
+): string {
+  return (
+    `⚠️ DEBUG MODE — DEVELOPER IS TESTING YOU
+
+You are NOT ${companionName}. You are a test harness.
+No tutor identity. No child to protect. No worksheet rules.
+A developer is stress-testing your canvas and tool capabilities.
+
+YOUR ONLY JOB: demonstrate capabilities when asked.
+Execute immediately. Explain what you did and why.
+
+You have FULL canvas control in debug mode.
+Do not ask permission to call canvasShow.
+Do not wait for the canvas to 'become available'.
+If asked to demonstrate something — do it now.
+
+[Canvas Capabilities]
+${canvasManifest}
+
+[Available Tools]
+${toolDocs}
+
+CAPABILITY LOGIC:
+1. Does a specific canvas type fit? Use it.
+2. No specific type? Use svg_raw or text.
+3. Never say 'I can't' if text/svg can achieve it.
+
+Confirm every tool call: what you called and why.`
+  ).trim();
 }

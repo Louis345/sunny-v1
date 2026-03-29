@@ -11,7 +11,7 @@ export function createGetNextProblemTool(session: WorksheetSession) {
     description:
       "Present the next worksheet problem on the canvas. The server renders " +
       "the problem visually — you speak the question to the child. " +
-      "Returns the question text, hint, and factual data about the problem. " +
+      "Returns the question text and hint (grade from the worksheet image, not from the server). " +
       "Call this when the child is ready for the next problem. " +
       "Do NOT call this during a conversation or when the child is talking about something else. " +
       "If the canvas is occupied by a game, call clearCanvas first.",

@@ -5,6 +5,16 @@
 
 export type CanvasShowingKind = "idle" | "text" | "svg" | "worksheet" | "game" | string;
 
+export interface PlaceValueDrawData {
+  operandA: number;
+  operandB: number;
+  operation: "addition" | "subtraction";
+  layout?: "expanded" | "column";
+  activeColumn?: "hundreds" | "tens" | "ones";
+  scaffoldLevel?: "full" | "partial" | "minimal" | "hint";
+  revealedColumns?: Array<"hundreds" | "tens" | "ones">;
+}
+
 export interface SixToolDrawState {
   mode: string;
   content?: string;
@@ -12,6 +22,9 @@ export interface SixToolDrawState {
   label?: string;
   gameUrl?: string;
   activeProblemId?: string;
+  placeValueData?: PlaceValueDrawData;
+  spellingWord?: string;
+  spellingRevealed?: string[];
   revision: number;
 }
 
@@ -40,7 +53,7 @@ export function applyCanvasShow(
       result: { rendered: true, canvasShowing: "text", canvasState: state },
     };
   }
-  if (type === "svg") {
+  if (type === "svg" || type === "svg_raw") {
     const svg = String(args.svg ?? "");
     const state: SixToolDrawState = {
       mode: "teaching",
@@ -75,6 +88,62 @@ export function applyCanvasShow(
     return {
       state,
       result: { rendered: true, canvasShowing: "game", canvasState: state },
+    };
+  }
+  if (type === "place_value") {
+    const placeValueData: PlaceValueDrawData = {
+      operandA: Number(args.operandA),
+      operandB: Number(args.operandB),
+      operation:
+        args.operation === "subtraction" ? "subtraction" : "addition",
+      layout:
+        args.layout === "expanded" || args.layout === "column"
+          ? args.layout
+          : "column",
+      ...(args.activeColumn != null
+        ? { activeColumn: args.activeColumn as PlaceValueDrawData["activeColumn"] }
+        : {}),
+      ...(args.scaffoldLevel != null
+        ? { scaffoldLevel: args.scaffoldLevel as PlaceValueDrawData["scaffoldLevel"] }
+        : {}),
+      ...(Array.isArray(args.revealedColumns)
+        ? {
+            revealedColumns: args.revealedColumns as PlaceValueDrawData["revealedColumns"],
+          }
+        : {}),
+    };
+    const state: SixToolDrawState = {
+      mode: "place_value",
+      placeValueData,
+      revision: nextRev,
+    };
+    return {
+      state,
+      result: {
+        rendered: true,
+        canvasShowing: "place_value",
+        canvasState: state,
+      },
+    };
+  }
+  if (type === "spelling") {
+    const spellingWord = String(args.spellingWord ?? args.word ?? "");
+    const spellingRevealed = Array.isArray(args.spellingRevealed)
+      ? (args.spellingRevealed as string[])
+      : undefined;
+    const state: SixToolDrawState = {
+      mode: "spelling",
+      spellingWord,
+      spellingRevealed,
+      revision: nextRev,
+    };
+    return {
+      state,
+      result: {
+        rendered: spellingWord.length > 0,
+        canvasShowing: "spelling",
+        canvasState: state,
+      },
     };
   }
   const state: SixToolDrawState = { mode: "idle", revision: nextRev };

@@ -65,8 +65,11 @@ function App() {
   if (state.phase === "active") {
     return (
       <div className="w-screen h-screen overflow-hidden relative">
-        {isCanvasTestMode && (
-          <CanvasTestOverlay sendMessage={sendMessage} />
+        {(isCanvasTestMode || state.debugMode) && (
+          <CanvasTestOverlay
+            sendMessage={sendMessage}
+            forceVisible={state.debugMode}
+          />
         )}
         <SessionScreen
           childName={state.childName ?? ""}
