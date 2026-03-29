@@ -1563,6 +1563,42 @@ function spawnParticles(
   }
 }
 
+function CanvasLoader() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 16,
+      }}
+    >
+      <div
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: "50%",
+          border: "5px solid #f0f0f0",
+          borderTopColor: "#EF9F27",
+          animation: "canvasSpin 0.7s linear infinite",
+        }}
+      />
+      <div
+        style={{
+          fontFamily: "'Nunito', sans-serif",
+          fontWeight: 800,
+          fontSize: 14,
+          color: "#94a3b8",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+        }}
+      >
+        Loading...
+      </div>
+    </div>
+  );
+}
+
 export function Canvas({
   canvas,
   blackboard,
@@ -1582,8 +1618,18 @@ export function Canvas({
   const [displayContent, setDisplayContent] = useState("");
   const [riddleLabel, setRiddleLabel] = useState("");
   const [displayMode, setDisplayMode] = useState<CanvasState["mode"]>("idle");
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const particlesRef = useRef<HTMLDivElement>(null);
+  const prevModeRef = useRef<string>(canvas.mode);
+  const transitionFromRef = useRef<string>(canvas.mode);
+
+  const handleCanvasDone = useCallback(() => {
+    onCanvasDone();
+    requestAnimationFrame(() => {
+      setIsTransitioning(false);
+    });
+  }, [onCanvasDone]);
 
   const showReward =
     reward?.rewardStyle === "takeover" && (reward.svg || reward.lottieData);
@@ -1611,7 +1657,7 @@ export function Canvas({
             setDisplayContent("");
             setDisplayMode("teaching");
             setRiddleLabel("");
-            onCanvasDone();
+            handleCanvasDone();
             return;
           }
           setDisplayContent(text);
@@ -1622,7 +1668,7 @@ export function Canvas({
           // background; TTS must not wait for it. Firing inside rAF was the root
           // cause of canvas_done timeouts when React rendering was slower than
           // the 2 s server timeout (especially with TTS disabled in dev mode).
-          onCanvasDone();
+          handleCanvasDone();
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               gsap.fromTo(
@@ -1644,7 +1690,7 @@ export function Canvas({
           setDisplayContent("");
           setDisplayMode("worksheet_pdf");
           setRiddleLabel("");
-          onCanvasDone();
+          handleCanvasDone();
           break;
         }
         case "riddle": {
@@ -1660,7 +1706,7 @@ export function Canvas({
                 clearInterval(typewriterRef.current);
                 typewriterRef.current = null;
               }
-              onCanvasDone();
+              handleCanvasDone();
             }
           }, 18);
           break;
@@ -1677,7 +1723,7 @@ export function Canvas({
                 { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(2)" },
               );
               spawnParticles(particlesRef.current, 12, "#FFD700");
-              setTimeout(() => onCanvasDone(), 800);
+              setTimeout(() => handleCanvasDone(), 800);
             });
           });
           break;
@@ -1700,7 +1746,7 @@ export function Canvas({
                 },
               );
               spawnParticles(particlesRef.current, 20, "#FFD700");
-              setTimeout(() => onCanvasDone(), 1200);
+              setTimeout(() => handleCanvasDone(), 1200);
             });
           });
           break;
@@ -1710,7 +1756,7 @@ export function Canvas({
           setDisplayContent("");
           setRiddleLabel("");
           if (!payload.placeValueData) {
-            onCanvasDone();
+            handleCanvasDone();
             break;
           }
           requestAnimationFrame(() => {
@@ -1720,7 +1766,7 @@ export function Canvas({
                 { opacity: 0, y: 20 },
                 { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" },
               );
-              onCanvasDone();
+              handleCanvasDone();
             });
           });
           break;
@@ -1730,10 +1776,10 @@ export function Canvas({
           setDisplayContent("");
           setRiddleLabel("");
           if (!payload.spellingWord) {
-            onCanvasDone();
+            handleCanvasDone();
             break;
           }
-          onCanvasDone();
+          handleCanvasDone();
           break;
         }
         default:
@@ -1742,10 +1788,28 @@ export function Canvas({
           setRiddleLabel("");
       }
     },
-    [onCanvasDone],
+    [handleCanvasDone],
   );
 
   useEffect(() => {
+    const prevMode = prevModeRef.current;
+    transitionFromRef.current = prevMode;
+
+    if (canvas.mode === "idle") {
+      setIsTransitioning(false);
+    }
+    // Skip overlay: first paint (idle → *), clear (* → idle), enter game (iframe loads itself).
+    // Do NOT skip worksheet_pdf ↔ teaching or other non-game mode changes.
+    const skipLoader =
+      prevMode === "idle" ||
+      canvas.mode === "idle" ||
+      GAME_MODES.has(canvas.mode);
+
+    if (!skipLoader && canvas.mode !== prevMode) {
+      setIsTransitioning(true);
+    }
+    prevModeRef.current = canvas.mode;
+
     const hasContent = canvasHasRenderableContent(canvas);
     // Game iframes do not use runAnimation; clear stale teaching/riddle display so
     // we never show math/text alongside Word Builder / Spell Check (BUG-024).
@@ -1781,7 +1845,7 @@ export function Canvas({
           typewriterRef.current = null;
         }
         gsap.killTweensOf(".canvas-content");
-        onCanvasDone();
+        handleCanvasDone();
         return () => {
           if (typewriterRef.current) {
             clearInterval(typewriterRef.current);
@@ -1816,7 +1880,17 @@ export function Canvas({
         clearInterval(typewriterRef.current);
       }
     };
-  }, [canvas, runAnimation]);
+  }, [canvas, runAnimation, handleCanvasDone]);
+
+  useEffect(() => {
+    console.log(
+      "[Canvas] transitioning:",
+      isTransitioning,
+      transitionFromRef.current,
+      "→",
+      canvas.mode,
+    );
+  }, [isTransitioning, canvas.mode]);
 
   const showAnimatedContent =
     displayMode === "teaching" ||
@@ -1831,7 +1905,7 @@ export function Canvas({
       className="flex-1 flex flex-col items-center justify-center p-8 bg-white relative"
       style={{ overflow: "hidden" }}
     >
-      <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; } @keyframes pendingDotPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } } .pending-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; animation: pendingDotPulse 1s ease-in-out infinite; margin-left: 4px; }`}</style>
+      <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; } @keyframes pendingDotPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } } .pending-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; animation: pendingDotPulse 1s ease-in-out infinite; margin-left: 4px; } @keyframes canvasSpin { to { transform: rotate(360deg); } }`}</style>
       {sessionState === "LOADING" && (
         <div
           className="thinking-indicator"
@@ -1864,6 +1938,23 @@ export function Canvas({
         style={{ position: "relative", minHeight: 200 }}
         data-mode={displayMode}
       >
+        {isTransitioning && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255,255,255,0.85)",
+              backdropFilter: "blur(4px)",
+              zIndex: 40,
+              borderRadius: "inherit",
+            }}
+          >
+            <CanvasLoader />
+          </div>
+        )}
         {GAME_MODES.has(canvas.mode) && canvas.gameUrl && (
           <iframe
             ref={gameIframeRef}
@@ -1879,7 +1970,7 @@ export function Canvas({
                 "#121213",
             }}
             onLoad={(e) => {
-              runGameIframeOnLoad(e.currentTarget, canvas, onCanvasDone);
+              runGameIframeOnLoad(e.currentTarget, canvas, handleCanvasDone);
             }}
           />
         )}
@@ -1908,7 +1999,7 @@ export function Canvas({
             <img
               src={canvas.pdfAssetUrl}
               alt="Worksheet"
-              onLoad={() => onCanvasDone()}
+              onLoad={() => handleCanvasDone()}
               style={{
                 maxWidth: "100%",
                 maxHeight: "100%",
@@ -1918,7 +2009,7 @@ export function Canvas({
           ) : (
             <WorksheetPdfContent
               canvas={canvas}
-              onReady={onCanvasDone}
+              onReady={handleCanvasDone}
               onWorksheetAnswer={onWorksheetAnswer}
               onOverlayFieldChange={onOverlayFieldChange}
             />

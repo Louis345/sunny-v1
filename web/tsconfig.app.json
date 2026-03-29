@@ -24,5 +24,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "../src/scripts/canvas-test-presets.ts"]
+  "include": [
+    "src",
+    "../src/scripts/canvas-test-presets.ts",
+    "../src/server/canvas/registry.ts"
+  ]
 }

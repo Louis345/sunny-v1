@@ -16,6 +16,7 @@ import {
   WORD_BUILDER_ROUND_FAILED,
   WORD_BUILDER_SESSION_COMPLETE,
   SPELL_CHECK_CORRECT,
+  buildDebugPrompt,
   buildSessionPrompt,
   buildCanvasContext,
   extractWordsFromHomework,
@@ -37,8 +38,7 @@ import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { resetMathProbeSession } from "../agents/elli/tools/mathProblem";
 import { resetSessionStart } from "../agents/elli/tools/startSession";
 import { resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
-import { generateText, type ModelMessage } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { type ModelMessage } from "ai";
 import {
   extractHomeworkProblems,
   type HomeworkExtractionResult,
@@ -56,6 +56,8 @@ import { TurnStateMachine } from "./session-state";
 import {
   type ActivityMode,
   type ActivityPauseState,
+  type CanvasOwner,
+  type CanvasState,
   type SessionContext,
   createSessionContext,
   buildCanvasContextMessage,
@@ -65,11 +67,6 @@ import {
   getSessionTypeConfig,
   resolveSessionType,
 } from "./session-type-registry";
-import {
-  deriveWorksheetCanvasModel,
-  renderWorksheetCanvasModelSvg,
-  summarizeWorksheetCanvasModel,
-} from "./worksheet-canvas-model";
 import {
   buildAssignmentManifestFromWorksheetProblems,
   buildWorksheetPlayerState,
@@ -81,22 +78,17 @@ import {
 } from "./assignment-player";
 import {
   normalizeWorksheetProblem,
-  toWorksheetCanvasSource,
   toWorksheetPromptProblem,
   type CanonicalWorksheetProblem,
 } from "./worksheet-problem";
 import {
   buildTruthForCanonicalProblem,
   detectWorksheetDomain,
-  formatTrustedAmountsSummaryForLearningArc,
-  validateLogWorksheetAttempt,
   type WorksheetProblemTruth,
 } from "./worksheet-truth";
 import {
-  buildSanitizedGamePool,
   clearEarnedReward,
   createWorksheetSession as createWSSession,
-  detectWorksheetDomain as detectWorksheetDomainForGamePool,
   saveEarnedReward,
   type WorksheetSession,
 } from "./worksheet-tools";
@@ -105,15 +97,20 @@ import { createSixTools } from "../agents/tools/six-tools";
 import { launchGame } from "../agents/elli/tools/launchGame";
 import { dateTime } from "../agents/elli/tools/dateTime";
 import { buildWorksheetToolPrompt } from "../agents/prompts/worksheetSessionPrompt";
-import { classifyWorksheetNonAnswerTranscript } from "./worksheet-turn-guards";
 import { appendWorksheetAttemptLine } from "../utils/attempts";
 import {
+  isDebugClaude,
   isDemoMode,
   isHomeworkMode,
   isSunnyTestMode,
   shouldPersistSessionData,
 } from "../utils/runtimeMode";
 import { readRasterDimensionsFromFile } from "../utils/rasterDimensions";
+import {
+  REWARD_CHARACTER_SVG,
+  generateCanvasCapabilitiesManifest,
+} from "./canvas/registry";
+import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
 
 type CanvasActivitySnapshot = {
   mode: ActivityMode;
@@ -140,27 +137,6 @@ type PendingGameStart = {
   config: Record<string, unknown>;
 };
 
-type WorksheetTurnOutcomeKind =
-  | "accepted_correct"
-  | "accepted_incorrect"
-  | "clarification_only"
-  | "blocked_stale";
-
-/** @deprecated — kept for type compatibility; grading is now model-owned */
-type WorksheetTurnOutcome = {
-  kind: WorksheetTurnOutcomeKind;
-  prompt: string;
-  correct?: boolean;
-  recordAttempt?: boolean;
-};
-
-type WorksheetLearningArcState = {
-  gameName: string;
-  phase: "instructional_game" | "followup";
-  /** 0 = awaiting first child reply after post-game model follow-up; 1 = awaiting second reply before reward */
-  followupRound: number;
-};
-
 /**
  * Strip markdown fences from SVG output.
  * Called at the rendering boundary, before SVG is sent to the browser.
@@ -176,201 +152,6 @@ export function stripSvgFences(raw: string): string {
 function stripSvgField(obj: Record<string, unknown>): void {
   const svg = obj.svg;
   if (typeof svg === "string") obj.svg = stripSvgFences(svg);
-}
-
-const QUESTION_PREFIXES = /^(circle|how much|how many|what|which|count|find|choose|select|pick|show|draw|look at|read)\b/i;
-const WORKSHEET_CLARIFICATION_PATTERNS = [
-  /\bwhich one\b/i,
-  /\bwhich two\b/i,
-  /\bwho are we talking about\b/i,
-  /\bwhat do you mean\b/i,
-  /\bwhich (girl|student|child)\b/i,
-  /\bwhat('?s| is) next\b/i,
-  /\bi'?m ready\b/i,
-  /\blet'?s go\b/i,
-  /^(yeah|yep|yes|okay|ok|sense)\b/i,
-];
-const WORKSHEET_CARRYOVER_LEADERS = /^(than|then|and|or|is|was|were|bigger|smaller|more|less)\b/i;
-const INSTRUCTIONAL_GAME_COMPLETION_CLAIM =
-  /\b(i did it|i did|i won|i finished|finished it|i'm done|im done|all done|completed it|i beat it|i got it)\b/i;
-const WORKSHEET_NUMBER_WORDS: Record<string, number> = {
-  zero: 0,
-  one: 1,
-  two: 2,
-  three: 3,
-  four: 4,
-  five: 5,
-  six: 6,
-  seven: 7,
-  eight: 8,
-  nine: 9,
-  ten: 10,
-  eleven: 11,
-  twelve: 12,
-  thirteen: 13,
-  fourteen: 14,
-  fifteen: 15,
-  sixteen: 16,
-  seventeen: 17,
-  eighteen: 18,
-  nineteen: 19,
-  twenty: 20,
-  thirty: 30,
-  forty: 40,
-  fifty: 50,
-  sixty: 60,
-  seventy: 70,
-  eighty: 80,
-  ninety: 90,
-};
-
-function extractWorksheetTurnCount(text: string): number | null {
-  const cleaned = String(text ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, " ");
-  const numeric = cleaned.match(/\b(\d+)\b/);
-  if (numeric) return Number(numeric[1]);
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  for (let i = 0; i < words.length; i++) {
-    const first = words[i];
-    const value = WORKSHEET_NUMBER_WORDS[first];
-    if (value == null) continue;
-    const next = words[i + 1];
-    if (value >= 20 && next && WORKSHEET_NUMBER_WORDS[next] != null && WORKSHEET_NUMBER_WORDS[next] < 10) {
-      return value + WORKSHEET_NUMBER_WORDS[next];
-    }
-    return value;
-  }
-  return null;
-}
-
-function normalizeTranscriptForGuards(text: string): string {
-  return String(text ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-/**
- * Strip question/instruction framing from canvas_display text so the SVG
- * generator receives a pure scene description, not a question to echo.
- *
- * "Circle how much money I need to buy these cookies." → "These cookies."
- * "How many coins do I need to buy a peanut?" → "A peanut."
- * "A cookie shop. Cookie 10¢, Peanut 5¢." → unchanged
- */
-/**
- * Check whether Claude's claimed childSaid has meaningful overlap with
- * what the child actually said (the transcript). Prevents stale/hallucinated
- * childSaid from a previous problem being accepted against the current one.
- */
-export function hasContentOverlap(claimed: string, actual: string): boolean {
-  if (!claimed || !actual) return false;
-  const a = claimed.toLowerCase().trim();
-  const b = actual.toLowerCase().trim();
-  if (/^(who|what|which)\b/i.test(b) || WORKSHEET_CLARIFICATION_PATTERNS.some((pattern) => pattern.test(b))) {
-    return false;
-  }
-  if (a === b) return true;
-  if (a.includes(b) || b.includes(a)) return true;
-  const countA = extractWorksheetTurnCount(a);
-  const countB = extractWorksheetTurnCount(b);
-  if (countA != null || countB != null) {
-    return countA != null && countB != null && countA === countB;
-  }
-  const ignoredWords = new Set([
-    ...Object.keys(WORKSHEET_NUMBER_WORDS),
-    "the",
-    "this",
-    "that",
-    "these",
-    "those",
-    "girl",
-    "girls",
-    "student",
-    "students",
-    "child",
-    "children",
-    "money",
-    "amount",
-    "amounts",
-  ]);
-  const wordsA = a.split(/\W+/).filter((w) => w.length >= 3 && !ignoredWords.has(w));
-  const wordsB = new Set(
-    b.split(/\W+/).filter((w) => w.length >= 3 && !ignoredWords.has(w)),
-  );
-  if (wordsA.length === 0) return false;
-  return wordsA.some((w) => wordsB.has(w));
-}
-
-export function sanitizeCanvasDescription(raw: string): string {
-  let text = raw.trim();
-  if (!text) return text;
-
-  if (!QUESTION_PREFIXES.test(text)) return text;
-
-  text = text
-    .replace(/^(circle|count|find|choose|select|pick|show|draw|look at|read)\s+(the\s+)?/i, "")
-    .replace(/^(how much|how many)\s+\w+\s+(do\s+)?(i|you|we)\s+(need\s+to\s+|have\s+to\s+)?(buy|spend|pay|have|get)\s*/i, "")
-    .replace(/^(how much|how many)\s+\w+(\s+\w+)?\s+(to\s+)?(buy|spend|pay)\s*/i, "")
-    .replace(/^(what|which)\s+\w+\s+(do\s+)?(i|you|we)\s+(need|have|see)\s+(to\s+)?(buy|spend|pay|get)?\s*/i, "")
-    .replace(/^\s*[?.!]\s*/, "")
-    .trim();
-
-  if (!text || text.length < 3) return raw.trim();
-
-  text = text.charAt(0).toUpperCase() + text.slice(1);
-  return text;
-}
-
-async function generateWorksheetSVG(description: string): Promise<string | null> {
-  try {
-    const { text } = await generateText({
-      model: anthropic("claude-haiku-4-5-20251001"),
-      system: `Generate a clean, colorful educational SVG scene for an 8-year-old child.
-
-LAYOUT (strict):
-- width="500" height="300", viewBox="0 0 500 300"
-- Warm background: large rounded rect fill="#FFF9E6"
-- Items centered horizontally with generous spacing
-- Each item: a large colorful illustration on top, item name below in bold friendly font, price in a rounded-rect tag below the name (e.g. orange fill, white text "10¢")
-- If the problem involves a total cost, show a "Total Spent:" box on the right side — rounded-rect with light blue fill, coin icon, bold price text, vertically centered with the items
-- Font: minimum 18px, bold, friendly rounded style (sans-serif)
-- Drop shadows on items for depth
-
-WHAT TO SHOW:
-- The SCENE only: the items being bought/counted with their prices
-- For buying problems: show each item with its price tag. Show "Total Spent: X¢" if the total is given in the problem
-- For coin counting: show the coins to count as large gold circles with ¢ denominations
-- For comparison: show both sets of items side by side
-
-NEVER DO THESE:
-- NEVER show the question text — the tutor speaks it aloud
-- NEVER show multiple choice options or a row of coins to choose from
-- NEVER show "Coin Options", "Choose", "Circle", or any selection UI
-- NEVER show the answer or solution
-- NEVER show equations or sum totals the child must compute (that's the answer)
-- NEVER add interactive-looking elements (buttons, checkboxes, circles to select)
-
-Return ONLY the raw <svg> tag. No markdown, no explanation, no code fences.`,
-      prompt: description,
-    });
-    const rawText = text.trim();
-    console.log(
-      "🎨 [svg-gen]",
-      rawText.toLowerCase().includes("<svg")
-        ? `✅ ${rawText.length} chars`
-        : `❌ no svg tag — got: ${rawText.slice(0, 60)}`,
-    );
-    const svg = rawText;
-    const lower = svg.toLowerCase();
-    const svgStart = lower.indexOf("<svg");
-    if (svgStart === -1) return null;
-    return svg.slice(svgStart);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn("🎨 [svg-gen] failed:", msg);
-    return null;
-  }
 }
 
 /** Omit raw worksheet directions from the session prompt — never expose instructions to the tutor LLM. */
@@ -391,7 +172,7 @@ function parseSunnyChildEnv(): ChildName | null {
 export function shouldTriggerTransitionToWorkPhase(
   roundNumber: number,
   childName: ChildName,
-  transitionedToWork: boolean
+  transitionedToWork: boolean,
 ): boolean {
   const companion = getCompanionConfig(childName);
   return (
@@ -526,10 +307,8 @@ export class SessionManager {
     (payload) => this.send("game_message", { forward: payload }),
     (voiceEnabled) => {
       this.suppressTranscripts = !voiceEnabled;
-      console.log(
-        `  🎮 Voice: ${voiceEnabled ? "active" : "silent"}`
-      );
-    }
+      console.log(`  🎮 Voice: ${voiceEnabled ? "active" : "silent"}`);
+    },
   );
 
   /** Homework spelling list (normalized) — when every word has a logAttempt, launch reward game */
@@ -537,56 +316,23 @@ export class SessionManager {
   private spellingWordsWithAttempt = new Set<string>();
   private spaceInvadersRewardActive = false;
   private spaceInvadersRewardLaunched = false;
-  private endAfterReward = false;
 
   /** Option C worksheet session — pure state, Claude calls tools */
   private worksheetSession: WorksheetSession | null = null;
 
-  /** Canonical worksheet loop — server validates, renders, and grades from one source of truth. */
+  /** Worksheet mode — companion prompt + canvas context for assignment flow */
   private worksheetMode = false;
-  private worksheetReadyForAnswers = false;
   private worksheetProblems: CanonicalWorksheetProblem[] = [];
   private assignmentManifest: AssignmentManifest | null = null;
   private worksheetPlayerState: WorksheetPlayerState | null = null;
   private worksheetInteractionMode: WorksheetInteractionMode = "answer_entry";
   private worksheetProblemIndex = 0;
-  private worksheetWrongForCurrent = 0;
-  private worksheetTurnsWithoutAttempt = 0;
   private worksheetRewardAfterN = 5;
   private worksheetSubjectLabel = "";
   /** Per-problem trusted/suspect cents and reveal eligibility — single source for pool + reveals. */
   private worksheetTruthById: Map<string, WorksheetProblemTruth> = new Map();
   /** Actual worksheet PDF/image bytes — pinned into conversation so the model sees the real worksheet */
   private worksheetPageFile: { data: Buffer; mimeType: string } | null = null;
-  /** Defer worksheet index/canvas advance until after Matilda's response TTS completes. */
-  private pendingWorksheetLog: { ok: boolean } | null = null;
-  /** Defer first worksheet problem until after the transitionToWork response finishes. */
-  private pendingWorksheetStart = false;
-  private pendingEndSessionReward = false;
-  /** Actual child transcript for the current worksheet turn — validates logWorksheetAttempt childSaid. */
-  private worksheetTurnTranscript = "";
-  /** True while advancing to next problem (SVG gen + question speak) — blocks concurrent agent runs. */
-  private worksheetAdvancing = false;
-  /** Transcript that arrived during worksheet advancement — replayed after advance completes. */
-  private worksheetBufferedTranscript: string | null = null;
-  private worksheetRecentSubmission: {
-    problemId: string;
-    normalizedValue: string;
-    expiresAt: number;
-  } | null = null;
-  private worksheetPendingOverlaySubmission: {
-    problemId: string;
-    normalizedValue: string;
-  } | null = null;
-  private lastWorksheetTurnOutcome: WorksheetTurnOutcomeKind | null = null;
-  private recentWorksheetAcceptedTranscript: {
-    normalizedValue: string;
-    expiresAt: number;
-  } | null = null;
-  private pendingInstructionalGameCompletion: {
-    gameName: string;
-  } | null = null;
-  private worksheetLearningArc: WorksheetLearningArcState | null = null;
   private activeCanvasActivity: {
     mode: ActivityMode;
     pauseState: ActivityPauseState;
@@ -621,8 +367,7 @@ export class SessionManager {
     if (args.mode !== "teaching") return false;
     const content = args.content;
     return (
-      typeof content === "string" &&
-      /[\d]+\s*([+\-×÷])\s*[\d]+/.test(content)
+      typeof content === "string" && /[\d]+\s*([+\-×÷])\s*[\d]+/.test(content)
     );
   }
 
@@ -649,7 +394,7 @@ export class SessionManager {
       resumable?: boolean;
       reason?: string;
       snapshot?: CanvasActivitySnapshot | null;
-    } = {}
+    } = {},
   ): void {
     this.activeCanvasActivity = {
       mode,
@@ -663,7 +408,6 @@ export class SessionManager {
 
   private clearActiveCanvasActivity(): void {
     this.pendingGameStart = null;
-    this.pendingInstructionalGameCompletion = null;
     this.activeCanvasActivity = {
       mode: "none",
       pauseState: "active",
@@ -678,8 +422,12 @@ export class SessionManager {
     if (!t) return false;
     if (/(clear|hide|turn off).*(canvas|screen)/i.test(t)) return true;
     if (
-      /(talk about my day|tell you about my day|tell you something|need to talk|bad experience)/i.test(t) &&
-      /(can i|can we|i want to|i need to|could we|just|really quickly|before)/i.test(t)
+      /(talk about my day|tell you about my day|tell you something|need to talk|bad experience)/i.test(
+        t,
+      ) &&
+      /(can i|can we|i want to|i need to|could we|just|really quickly|before)/i.test(
+        t,
+      )
     ) {
       return true;
     }
@@ -690,7 +438,7 @@ export class SessionManager {
     const t = transcript.toLowerCase().trim();
     if (!t) return false;
     return /(\bi'?m ready\b|\blet'?s go back\b|\bgo back to\b|\bresume\b|\bcontinue\b|\bback to (math|the problem|the worksheet)\b)/i.test(
-      t
+      t,
     );
   }
 
@@ -712,7 +460,7 @@ export class SessionManager {
         contextCanvas,
         worksheet: {
           problemIndex: this.worksheetProblemIndex,
-          wrongForCurrent: this.worksheetWrongForCurrent,
+          wrongForCurrent: 0,
           question: p?.question ?? "",
         },
       };
@@ -767,7 +515,6 @@ export class SessionManager {
       reason,
     };
     this.syncActivityContext();
-    this.worksheetReadyForAnswers = false;
     this.currentCanvasState = null;
     if (this.ctx) {
       this.ctx.updateCanvas({
@@ -786,7 +533,7 @@ export class SessionManager {
   }
 
   private async resumeActiveCanvasActivity(
-    replayQuestion = true
+    replayQuestion = true,
   ): Promise<boolean> {
     if (this.activeCanvasActivity.pauseState !== "paused_for_checkin") {
       return false;
@@ -803,9 +550,6 @@ export class SessionManager {
 
     if (snapshot.mode === "worksheet" && snapshot.worksheet) {
       this.worksheetProblemIndex = snapshot.worksheet.problemIndex;
-      this.worksheetWrongForCurrent = snapshot.worksheet.wrongForCurrent;
-      this.worksheetReadyForAnswers = false;
-      this.worksheetAdvancing = true;
       if (snapshot.canvasState) {
         this.currentCanvasState = { ...snapshot.canvasState };
       }
@@ -822,8 +566,6 @@ export class SessionManager {
       if (replayQuestion) {
         await this.handleCompanionTurn(snapshot.worksheet.question);
       }
-      this.worksheetReadyForAnswers = true;
-      this.worksheetAdvancing = false;
       this.activeCanvasActivity = {
         ...this.activeCanvasActivity,
         pauseState: "active",
@@ -832,7 +574,6 @@ export class SessionManager {
       };
       this.syncActivityContext();
       this.broadcastContext();
-      await this.drainWorksheetBuffer();
       return true;
     }
 
@@ -852,22 +593,6 @@ export class SessionManager {
     this.syncActivityContext();
     this.broadcastContext();
     return true;
-  }
-
-  private async resumeWorksheetAfterInstructionalGame(
-    snapshot: CanvasActivitySnapshot
-  ): Promise<void> {
-    if (!snapshot.worksheet) return;
-    this.worksheetProblemIndex = snapshot.worksheet.problemIndex;
-    this.worksheetWrongForCurrent = snapshot.worksheet.wrongForCurrent;
-    this.worksheetReadyForAnswers = false;
-    this.worksheetAdvancing = true;
-    this.clearActiveCanvasActivity();
-    try {
-      await this.presentCurrentWorksheetProblem();
-    } finally {
-      this.worksheetAdvancing = false;
-    }
   }
 
   /**
@@ -893,10 +618,20 @@ export class SessionManager {
     if (isSunnyTestMode()) {
       this.companion = {
         ...this.companion,
-        systemPrompt: TEST_MODE_PROMPT(childName),
+        systemPrompt: this.prependDebugClaudeToPrompt(
+          TEST_MODE_PROMPT(childName),
+        ),
         openingLine: `[TEST MODE] Diagnostic session for ${childName}. Ready. Give me a tool call to verify.`,
       };
-      console.log(`  🧪 TEST MODE active — diagnostic prompt loaded for ${childName}`);
+      if (isDebugClaude()) {
+        this.companion = {
+          ...this.companion,
+          openingLine: this.debugCreatorOpeningLine(),
+        };
+      }
+      console.log(
+        `  🧪 TEST MODE active — diagnostic prompt loaded for ${childName}`,
+      );
     }
 
     this.turnSM = new TurnStateMachine(
@@ -914,7 +649,7 @@ export class SessionManager {
         } else if (state === "IDLE") {
           this.speakingStartedAt = 0;
         }
-      }
+      },
     );
   }
 
@@ -925,7 +660,7 @@ export class SessionManager {
           type,
           timestamp: new Date().toISOString(),
           ...payload,
-        })
+        }),
       );
     }
   }
@@ -939,14 +674,13 @@ export class SessionManager {
     const ts = new Date().toISOString();
     this.sessionStartTime = Date.now();
     console.log(
-      `  🌟 [${ts}] Starting session: ${this.childName} with ${this.companion.name}`
+      `  🌟 [${ts}] Starting session: ${this.childName} with ${this.companion.name}`,
     );
 
     const subject = normalizeSessionSubject(process.env.SUNNY_SUBJECT);
 
     const detectedChild = this.childName;
-    const homeworkChild =
-      parseSunnyChildEnv() ?? detectedChild ?? "Ila";
+    const homeworkChild = parseSunnyChildEnv() ?? detectedChild ?? "Ila";
     console.log(`  👤 Child override: ${homeworkChild}`);
 
     // Check drop/ for new files and route them before loading homework
@@ -966,39 +700,46 @@ export class SessionManager {
         }
       }
     } catch (err) {
-      console.warn("  ⚠️  Classifier failed:", err instanceof Error ? err.message : String(err));
+      console.warn(
+        "  ⚠️  Classifier failed:",
+        err instanceof Error ? err.message : String(err),
+      );
     }
 
-    // Folder-based homework (images) — inject at session startup
-    const homeworkPayload =
-      isDemoMode() ? null : await loadHomeworkPayload(homeworkChild);
+    // Folder-based homework — load in demo too when a folder exists (worksheet + vision)
+    const homeworkPayload = await loadHomeworkPayload(homeworkChild);
 
     if (isHomeworkMode() && homeworkPayload) {
       // HOMEWORK MODE: loads real homework but uses parent-facing prompt (no progression loop)
       console.log(
-        `  📚 Homework loaded for ${homeworkChild}: ${homeworkPayload.fileCount} pages`
+        `  📚 Homework loaded for ${homeworkChild}: ${homeworkPayload.fileCount} pages`,
       );
       this.send("loading_status", { message: "Preparing homework review..." });
 
       let extraction: HomeworkExtractionResult = { subject: "", problems: [] };
       try {
         console.log("  🧠 Psychologist extracting worksheet problems...");
-        this.send("loading_status", { message: "Reading worksheet questions..." });
+        this.send("loading_status", {
+          message: "Reading worksheet questions...",
+        });
         extraction = await extractHomeworkProblems({
           rawText: homeworkPayload.rawContent,
           pageAssets: homeworkPayload.pageAssets,
         });
         console.log(
           `  🎮 [worksheet] extraction — subject: "${extraction.subject}", ` +
-            `problems: ${extraction.problems.length}`
+            `problems: ${extraction.problems.length}`,
         );
       } catch (err) {
-        console.warn("  ⚠️  Extraction failed:", err instanceof Error ? err.message : String(err));
+        console.warn(
+          "  ⚠️  Extraction failed:",
+          err instanceof Error ? err.message : String(err),
+        );
       }
 
       // Load worksheet PDF as canvas + pin image for vision — same as normal mode
       const pdfFilename = homeworkPayload.assetFilenames.find((n) =>
-        n.toLowerCase().endsWith(".pdf")
+        n.toLowerCase().endsWith(".pdf"),
       );
       if (pdfFilename) {
         const pdfAssetUrl = `/api/homework/${homeworkPayload.childName}/${homeworkPayload.date}/${encodeURIComponent(pdfFilename)}`;
@@ -1015,29 +756,38 @@ export class SessionManager {
           const pdfPath = path.join(homeworkPayload.folderPath, pdfFilename);
           const tmpDir = os.tmpdir();
           const pdfBase = path.basename(pdfPath);
-          execSync(
-            `/usr/bin/qlmanage -t -s 2000 -o "${tmpDir}" "${pdfPath}"`,
-            { stdio: "pipe" },
-          );
+          execSync(`/usr/bin/qlmanage -t -s 2000 -o "${tmpDir}" "${pdfPath}"`, {
+            stdio: "pipe",
+          });
           const pngPath = path.join(tmpDir, `${pdfBase}.png`);
           this.worksheetPageFile = {
             data: fs.readFileSync(pngPath),
             mimeType: "image/png",
           };
-          try { fs.unlinkSync(pngPath); } catch { /* cleanup best-effort */ }
+          try {
+            fs.unlinkSync(pngPath);
+          } catch {
+            /* cleanup best-effort */
+          }
           console.log(
-            `  👁️  [worksheet] loaded PDF PNG for homework review (${(this.worksheetPageFile.data.length / 1024).toFixed(0)} KB)`
+            `  👁️  [worksheet] loaded PDF PNG for homework review (${(this.worksheetPageFile.data.length / 1024).toFixed(0)} KB)`,
           );
         } catch (e) {
           // Fall back to page asset
-          if (!this.worksheetPageFile && homeworkPayload.pageAssets.length > 0) {
+          if (
+            !this.worksheetPageFile &&
+            homeworkPayload.pageAssets.length > 0
+          ) {
             const asset = homeworkPayload.pageAssets[0];
             this.worksheetPageFile = {
               data: Buffer.from(asset.data, "base64"),
               mimeType: asset.mediaType,
             };
           }
-          console.warn("  ⚠️  PDF→PNG conversion failed:", e instanceof Error ? e.message : String(e));
+          console.warn(
+            "  ⚠️  PDF→PNG conversion failed:",
+            e instanceof Error ? e.message : String(e),
+          );
         }
       } else if (homeworkPayload.pageAssets.length > 0) {
         const asset = homeworkPayload.pageAssets[0];
@@ -1051,10 +801,12 @@ export class SessionManager {
 
       this.companion = {
         ...this.companion,
-        systemPrompt: HOMEWORK_MODE_PROMPT(
-          this.childName,
-          this.companion.name,
-          extraction.subject,
+        systemPrompt: this.prependDebugClaudeToPrompt(
+          HOMEWORK_MODE_PROMPT(
+            this.childName,
+            this.companion.name,
+            extraction.subject,
+          ),
         ),
         openingLine:
           `Hello — I'm ${this.companion.name} in homework review mode. ` +
@@ -1064,31 +816,36 @@ export class SessionManager {
       console.log(`  📋 Homework mode — parent/developer review prompt active`);
       console.log(`  📚 Subject: ${extraction.subject || subject}`);
       this.send("loading_status", { message: "Ready for review..." });
-    } else if (isDemoMode()) {
+    } else if (isDemoMode() && !homeworkPayload) {
       this.companion = {
         ...this.companion,
-        systemPrompt: DEMO_MODE_PROMPT(this.childName, this.companion.name),
+        systemPrompt: this.prependDebugClaudeToPrompt(
+          DEMO_MODE_PROMPT(this.childName, this.companion.name),
+        ),
         openingLine:
           `Hello — I'm ${this.companion.name} in demo mode. ` +
           "I'm ready to demonstrate my capabilities. " +
           "What would you like to see?",
       };
       console.log(
-        `  🎭 Demo mode — parent/developer prompt active`
+        `  🎭 Demo mode — parent/developer prompt (no homework folder for ${homeworkChild})`,
       );
       console.log(`  📚 Subject mode: ${subject}`);
       this.send("loading_status", { message: "Starting demo session..." });
     } else if (homeworkPayload) {
       console.log(
         `  📚 Homework loaded for ${homeworkChild}: ` +
-          `${homeworkPayload.fileCount} pages`
+          `${homeworkPayload.fileCount} pages`,
       );
       this.send("loading_status", { message: "Preparing session prompt..." });
 
       // ── Extraction cache ────────────────────────────────────────────────────
       // extraction.json lives alongside the PDF. Once written, all future
       // sessions load instantly with zero tokens and no overload risk.
-      const cacheFile = path.join(homeworkPayload.folderPath, "extraction.json");
+      const cacheFile = path.join(
+        homeworkPayload.folderPath,
+        "extraction.json",
+      );
 
       let extraction: HomeworkExtractionResult = {
         subject: "",
@@ -1099,17 +856,22 @@ export class SessionManager {
       let loadedFromCache = false;
       if (fs.existsSync(cacheFile)) {
         try {
-          const cached = JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as HomeworkExtractionResult;
+          const cached = JSON.parse(
+            fs.readFileSync(cacheFile, "utf-8"),
+          ) as HomeworkExtractionResult;
           if (cached.subject && cached.problems.length > 0) {
             extraction = cached;
             loadedFromCache = true;
             console.log(
               `  ⚡ [worksheet] loaded extraction from cache — subject: "${extraction.subject}", ` +
-                `problems: ${extraction.problems.length}`
+                `problems: ${extraction.problems.length}`,
             );
           }
         } catch (e) {
-          console.warn("  ⚠️  extraction.json corrupt — re-extracting:", e instanceof Error ? e.message : String(e));
+          console.warn(
+            "  ⚠️  extraction.json corrupt — re-extracting:",
+            e instanceof Error ? e.message : String(e),
+          );
         }
       }
 
@@ -1125,31 +887,44 @@ export class SessionManager {
           });
           console.log(
             `  🎮 [worksheet] extraction — subject: "${extraction.subject}", ` +
-              `problems: ${extraction.problems.length}`
+              `problems: ${extraction.problems.length}`,
           );
           // Persist to cache so next session is instant
           if (extraction.subject && extraction.problems.length > 0) {
             try {
-              fs.writeFileSync(cacheFile, JSON.stringify(extraction, null, 2), "utf-8");
-              console.log(`  💾 [worksheet] extraction cached → extraction.json`);
+              fs.writeFileSync(
+                cacheFile,
+                JSON.stringify(extraction, null, 2),
+                "utf-8",
+              );
+              console.log(
+                `  💾 [worksheet] extraction cached → extraction.json`,
+              );
             } catch (e) {
-              console.warn("  ⚠️  Could not write extraction.json:", e instanceof Error ? e.message : String(e));
+              console.warn(
+                "  ⚠️  Could not write extraction.json:",
+                e instanceof Error ? e.message : String(e),
+              );
             }
           }
         } catch (err) {
           console.warn(
             "  ⚠️  Worksheet extraction failed:",
-            err instanceof Error ? err.message : String(err)
+            err instanceof Error ? err.message : String(err),
           );
           // Stale cache is better than nothing — check once more
           if (fs.existsSync(cacheFile)) {
             try {
-              const stale = JSON.parse(fs.readFileSync(cacheFile, "utf-8")) as HomeworkExtractionResult;
+              const stale = JSON.parse(
+                fs.readFileSync(cacheFile, "utf-8"),
+              ) as HomeworkExtractionResult;
               if (stale.subject) {
                 extraction = stale;
                 console.warn("  ⚠️  Using stale extraction.json as fallback");
               }
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
           }
         }
       }
@@ -1158,18 +933,16 @@ export class SessionManager {
       this.worksheetProblems = this.selectWorksheetProblems(extraction);
       this.rebuildWorksheetTruthMap();
       this.worksheetProblemIndex = 0;
-      this.worksheetWrongForCurrent = 0;
-      this.worksheetReadyForAnswers = false;
       this.worksheetRewardAfterN =
         extraction.session_directives?.reward_after ?? 5;
       this.worksheetSubjectLabel = extraction.subject.trim() || "worksheet";
       this.worksheetMode = this.worksheetProblems.length > 0;
       this.worksheetInteractionMode = this.worksheetMode
-        ? extraction.session_directives?.interaction_mode ??
+        ? (extraction.session_directives?.interaction_mode ??
           detectWorksheetInteractionMode({
             rawContent: homeworkPayload.rawContent,
             problems: this.worksheetProblems,
-          })
+          }))
         : "answer_entry";
       if (this.worksheetMode) {
         this.worksheetInteractionMode = this.maybeRelaxMisdetectedReviewMode(
@@ -1195,16 +968,19 @@ export class SessionManager {
         try {
           const tmpDir = os.tmpdir();
           const pdfBase = path.basename(pdfPath);
-          execSync(
-            `/usr/bin/qlmanage -t -s 2000 -o "${tmpDir}" "${pdfPath}"`,
-            { stdio: "pipe" },
-          );
+          execSync(`/usr/bin/qlmanage -t -s 2000 -o "${tmpDir}" "${pdfPath}"`, {
+            stdio: "pipe",
+          });
           const pngPath = path.join(tmpDir, `${pdfBase}.png`);
           this.worksheetPageFile = {
             data: fs.readFileSync(pngPath),
             mimeType: "image/png",
           };
-          try { fs.unlinkSync(pngPath); } catch { /* cleanup best-effort */ }
+          try {
+            fs.unlinkSync(pngPath);
+          } catch {
+            /* cleanup best-effort */
+          }
           console.log(
             `  👁️  [worksheet] converted PDF → PNG for companion vision (${(this.worksheetPageFile.data.length / 1024).toFixed(0)} KB)`,
           );
@@ -1217,20 +993,21 @@ export class SessionManager {
 
         if (this.worksheetMode) {
           try {
-            this.assignmentManifest = buildAssignmentManifestFromWorksheetProblems({
-              assignmentId: `${homeworkPayload.childName.toLowerCase()}-${homeworkPayload.date}`,
-              childName: homeworkPayload.childName,
-              title: `${this.companion.name} worksheet`,
-              createdAt: new Date().toISOString(),
-              pdfAssetUrl,
-              problems: this.worksheetProblems,
-            });
+            this.assignmentManifest =
+              buildAssignmentManifestFromWorksheetProblems({
+                assignmentId: `${homeworkPayload.childName.toLowerCase()}-${homeworkPayload.date}`,
+                childName: homeworkPayload.childName,
+                title: `${this.companion.name} worksheet`,
+                createdAt: new Date().toISOString(),
+                pdfAssetUrl,
+                problems: this.worksheetProblems,
+              });
             this.worksheetPlayerState = buildWorksheetPlayerState(
               this.assignmentManifest,
               this.worksheetInteractionMode,
             );
             console.log(
-              `  📄 [worksheet] worksheet_pdf enabled — using asset ${pdfAssetUrl} (${this.worksheetInteractionMode})`
+              `  📄 [worksheet] worksheet_pdf enabled — using asset ${pdfAssetUrl} (${this.worksheetInteractionMode})`,
             );
           } catch (err) {
             console.warn(
@@ -1249,7 +1026,7 @@ export class SessionManager {
           };
           this.send("canvas_draw", this.currentCanvasState);
           console.log(
-            `  📄 [worksheet] visual-only fallback — PDF visible, no structured problem queue`
+            `  📄 [worksheet] visual-only fallback — PDF visible, no structured problem queue`,
           );
         }
       } else {
@@ -1267,7 +1044,10 @@ export class SessionManager {
         if (imageFilename) {
           const imageAssetUrl = `/api/homework/${homeworkPayload.childName}/${homeworkPayload.date}/${encodeURIComponent(imageFilename)}`;
           console.log(`  📄 [worksheet] using image asset: ${imageAssetUrl}`);
-          const imagePath = path.join(homeworkPayload.folderPath, imageFilename);
+          const imagePath = path.join(
+            homeworkPayload.folderPath,
+            imageFilename,
+          );
           let rasterPageW = 800;
           let rasterPageH = 1000;
           const rasterDims = readRasterDimensionsFromFile(imagePath);
@@ -1285,16 +1065,17 @@ export class SessionManager {
 
           if (this.worksheetMode) {
             try {
-              this.assignmentManifest = buildAssignmentManifestFromWorksheetProblems({
-                assignmentId: `${homeworkPayload.childName.toLowerCase()}-${homeworkPayload.date}`,
-                childName: homeworkPayload.childName,
-                title: `${this.companion.name} worksheet`,
-                createdAt: new Date().toISOString(),
-                pdfAssetUrl: imageAssetUrl,
-                problems: this.worksheetProblems,
-                pageWidth: rasterPageW,
-                pageHeight: rasterPageH,
-              });
+              this.assignmentManifest =
+                buildAssignmentManifestFromWorksheetProblems({
+                  assignmentId: `${homeworkPayload.childName.toLowerCase()}-${homeworkPayload.date}`,
+                  childName: homeworkPayload.childName,
+                  title: `${this.companion.name} worksheet`,
+                  createdAt: new Date().toISOString(),
+                  pdfAssetUrl: imageAssetUrl,
+                  problems: this.worksheetProblems,
+                  pageWidth: rasterPageW,
+                  pageHeight: rasterPageH,
+                });
               this.worksheetPlayerState = buildWorksheetPlayerState(
                 this.assignmentManifest,
                 this.worksheetInteractionMode,
@@ -1367,16 +1148,14 @@ export class SessionManager {
         console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
         this.spellingHomeworkWordsByNorm = [
           ...new Set(
-            wordList
-              .map((w) => String(w).toLowerCase().trim())
-              .filter(Boolean)
+            wordList.map((w) => String(w).toLowerCase().trim()).filter(Boolean),
           ),
         ];
       } else if (this.worksheetMode) {
         this.spellingHomeworkWordsByNorm = [];
         console.log(
           `  🎮 [worksheet] ${this.worksheetProblems.length} problem(s) queued; ` +
-            `reward_after=${this.worksheetRewardAfterN}`
+            `reward_after=${this.worksheetRewardAfterN}`,
         );
       }
 
@@ -1391,40 +1170,40 @@ export class SessionManager {
                 session_directives: extraction.session_directives,
               },
               null,
-              2
+              2,
             )}\n\n--- ORIGINAL HOMEWORK ---\n${homeworkPayload.rawContent}`
           : homeworkPayload.rawContent;
 
-      let sessionPrompt = await buildSessionPrompt(
-        homeworkChild,
-        this.companion.markdownPath,
-        homeworkForPrompt,
-        wordList,
-        subject,
-      );
+      let sessionPrompt: string;
+      if (isDebugClaude()) {
+        sessionPrompt = buildDebugPrompt(
+          homeworkChild,
+          this.companion.name,
+          generateCanvasCapabilitiesManifest(),
+          generateToolDocs(),
+        );
+      } else {
+        sessionPrompt = await buildSessionPrompt(
+          homeworkChild,
+          this.companion.markdownPath,
+          homeworkForPrompt,
+          wordList,
+          subject,
+        );
+      }
+      // Option C worksheet session + tool instructions — same for debug and normal (debug only swaps base prompt above).
       if (this.worksheetMode) {
         if (this.worksheetProblems.length > 0) {
           this.worksheetSession = createWSSession({
             childName: homeworkChild,
             companionName: this.companion.name,
-            problems: this.worksheetProblems.map((p) => {
-              const facts: Record<string, number> =
-                p.kind === "compare_amounts"
-                  ? {
-                      leftCents: p.leftAmountCents,
-                      rightCents: p.rightAmountCents,
-                    }
-                  : p.kind === "money_count"
-                    ? { totalCents: p.totalSpentCents }
-                    : {};
-              return {
-                id: String(p.id),
-                question: p.question,
-                canonicalAnswer: p.canonicalAnswer,
-                hint: p.hint,
-                facts,
-              };
-            }),
+            problems: this.worksheetProblems.map((p) => ({
+              id: String(p.id),
+              question: p.question,
+              hint: p.hint,
+              page: p.page ?? 1,
+              linkedGames: p.linkedGames ?? [],
+            })),
             rewardThreshold: this.worksheetRewardAfterN,
             rewardGame: "space-invaders",
           });
@@ -1443,7 +1222,8 @@ export class SessionManager {
               problemCount: this.worksheetProblems.length,
               rewardThreshold: this.worksheetRewardAfterN,
               rewardGame: "space-invaders",
-              pendingRewardFromLastSession: wsStatus.pendingRewardFromLastSession,
+              pendingRewardFromLastSession:
+                wsStatus.pendingRewardFromLastSession,
               interactionMode: this.worksheetInteractionMode,
             });
           sessionPrompt +=
@@ -1463,10 +1243,13 @@ export class SessionManager {
             `Help ${homeworkChild} using the image. Subject: ${this.worksheetSubjectLabel}.\n`;
         }
       }
-      this.companion = { ...this.companion, systemPrompt: sessionPrompt };
-      console.log(
-        `  ✅ Session prompt ready (${sessionPrompt.length} chars)`
-      );
+      this.companion = {
+        ...this.companion,
+        systemPrompt: isDebugClaude()
+          ? sessionPrompt
+          : this.prependDebugClaudeToPrompt(sessionPrompt),
+      };
+      console.log(`  ✅ Session prompt ready (${sessionPrompt.length} chars)`);
       this.isSpellingSession = !this.worksheetMode;
       if (this.isSpellingSession) {
         console.log("  📝 Spelling session mode active");
@@ -1495,25 +1278,36 @@ export class SessionManager {
             title: this.assignmentManifest.title,
             source: this.assignmentManifest.source,
             createdAt: this.assignmentManifest.createdAt,
-            questions: this.assignmentManifest.problems.map((problem, index) => ({
-              index,
-              text: problem.prompt,
-              answerType: problem.gradingMode === "choice" ? "multiple_choice" : "numeric",
-              correctAnswer: problem.canonicalAnswer,
-              options:
-                problem.gradingMode === "choice"
-                  ? problem.overlayFields[0]?.options
-                  : undefined,
-            })),
+            questions: this.assignmentManifest.problems.map(
+              (problem, index) => ({
+                index,
+                text: problem.prompt,
+                answerType:
+                  problem.gradingMode === "choice"
+                    ? "multiple_choice"
+                    : "numeric",
+                correctAnswer: problem.canonicalAnswer,
+                options:
+                  problem.gradingMode === "choice"
+                    ? problem.overlayFields[0]?.options
+                    : undefined,
+              }),
+            ),
           }
         : undefined,
     });
+    if (this.ctx && isDebugClaude() && sessionType === "worksheet") {
+      this.ctx.canvas.owner = "claude" as CanvasOwner;
+      this.ctx.canvas.locked = false;
+    }
     if (this.worksheetSession && this.ctx) {
       this.ctx.availableToolNames = [...CANONICAL_AGENT_TOOL_KEYS];
     }
     console.log(
-      `  📋 Session type: ${sessionType}, canvas owner: ${this.ctx.canvas.owner}`
+      `  📋 Session type: ${sessionType}, canvas owner: ${this.ctx.canvas.owner}`,
     );
+
+    this.applyDebugClaudeOpeningLine();
 
     this.send("session_started", {
       child: this.childName,
@@ -1524,6 +1318,8 @@ export class SessionManager {
       voiceId: this.companion.voiceId,
       openingLine: this.companion.openingLine,
       goodbye: this.companion.goodbye,
+      debugBrowserTts: process.env.DEBUG_BROWSER_TTS === "true",
+      debugMode: isDebugClaude(),
     });
     this.broadcastContext();
 
@@ -1563,56 +1359,6 @@ export class SessionManager {
     this.handleEndOfTurn(text).catch(console.error);
   }
 
-  private normalizeWorksheetSubmissionValue(text: string): string {
-    return String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-  }
-
-  private rememberWorksheetAcceptedTranscript(text: string): void {
-    const normalizedValue = normalizeTranscriptForGuards(text);
-    if (!normalizedValue) return;
-    this.recentWorksheetAcceptedTranscript = {
-      normalizedValue,
-      expiresAt: Date.now() + 2500,
-    };
-  }
-
-  private shouldIgnoreWorksheetCarryoverTranscript(text: string): boolean {
-    if (!this.recentWorksheetAcceptedTranscript) return false;
-    if (Date.now() > this.recentWorksheetAcceptedTranscript.expiresAt) {
-      this.recentWorksheetAcceptedTranscript = null;
-      return false;
-    }
-    const normalized = normalizeTranscriptForGuards(text);
-    if (!normalized) return false;
-    const previous = this.recentWorksheetAcceptedTranscript.normalizedValue;
-    if (
-      normalized === previous ||
-      previous.includes(normalized) ||
-      normalized.includes(previous) ||
-      WORKSHEET_CARRYOVER_LEADERS.test(normalized)
-    ) {
-      console.log(`  🗑️  Worksheet carryover transcript ignored: "${text}"`);
-      return true;
-    }
-    return false;
-  }
-
-  private shouldInterceptInstructionalGameCompletionClaim(
-    transcript: string,
-  ): boolean {
-    return (
-      this.pendingInstructionalGameCompletion != null &&
-      INSTRUCTIONAL_GAME_COMPLETION_CLAIM.test(transcript)
-    );
-  }
-
-  private async handleInstructionalGameCompletionClaim(): Promise<void> {
-    const gameName = this.pendingInstructionalGameCompletion?.gameName ?? "the game";
-    await this.handleCompanionTurn(
-      `Tell me when ${gameName} shows that you're finished, and I'll count it. If it doesn't say complete yet, keep going and I can help.`,
-    );
-  }
-
   private rebuildWorksheetTruthMap(): void {
     this.worksheetTruthById.clear();
     const domain = detectWorksheetDomain(this.worksheetSubjectLabel);
@@ -1628,120 +1374,6 @@ export class SessionManager {
     }
   }
 
-  private buildWorksheetArcFirstFollowupContext(): string {
-    const gameName = this.worksheetLearningArc?.gameName ?? "the game";
-    const facts = formatTrustedAmountsSummaryForLearningArc(
-      this.worksheetProblems,
-      this.worksheetTruthById,
-    );
-    return (
-      `[System: The instructional ${gameName.replace(/-/g, " ")} just ended. The canvas is idle. ` +
-      `Ask a brief, warm follow-up: what was one money decision you made in the game? ` +
-      `Trusted extracted cent amounts (if any):\n${facts}]`
-    );
-  }
-
-  private buildWorksheetArcSecondFollowupContext(childTranscript: string): string {
-    const facts = formatTrustedAmountsSummaryForLearningArc(
-      this.worksheetProblems,
-      this.worksheetTruthById,
-    );
-    return (
-      `[System: The child said: "${childTranscript}". ` +
-      `Ask one more short follow-up connecting the game to the worksheet's money ideas. ` +
-      `Trusted amounts only:\n${facts}]`
-    );
-  }
-
-  private getWorksheetInstructionalGameName(): string | null {
-    const linkedGames = new Set<string>();
-    for (const problem of this.assignmentManifest?.problems ?? []) {
-      for (const game of problem.linkedGames) {
-        linkedGames.add(game);
-      }
-    }
-    if (
-      /money|coin|count|compare/i.test(this.worksheetSubjectLabel) &&
-      getTool("store-game")
-    ) {
-      return "store-game";
-    }
-    if (linkedGames.has("store-game") && getTool("store-game")) {
-      return "store-game";
-    }
-    for (const candidate of linkedGames) {
-      if (getTool(candidate)) {
-        return candidate;
-      }
-    }
-    return null;
-  }
-
-  private launchStructuredGame(
-    gameName: string,
-    type: "tool" | "reward",
-  ): void {
-    this.handleToolCall(
-      "launchGame",
-      { name: gameName, type },
-      {
-        ok: true,
-        requestedName: gameName,
-        canonicalName: gameName,
-        type,
-        availableGames:
-          type === "tool"
-            ? Object.keys(TEACHING_TOOLS)
-            : Object.keys(REWARD_GAMES),
-      },
-    );
-  }
-
-  private async startWorksheetLearningArc(): Promise<boolean> {
-    const gameName = this.getWorksheetInstructionalGameName();
-    if (!gameName) {
-      return false;
-    }
-    this.retireWorksheetSession();
-    this.worksheetLearningArc = {
-      gameName,
-      phase: "instructional_game",
-      followupRound: 0,
-    };
-    await this.handleCompanionTurn(
-      `You got them all! Nice work. Now let's use that same money thinking in the ${gameName.replace(/-/g, " ")}.`,
-    );
-    this.launchStructuredGame(gameName, "tool");
-    return true;
-  }
-
-  private async handleWorksheetLearningArcFollowup(
-    transcript: string,
-  ): Promise<boolean> {
-    if (!this.worksheetLearningArc || this.worksheetLearningArc.phase !== "followup") {
-      return false;
-    }
-    if (this.worksheetLearningArc.followupRound === 0) {
-      await this.runCompanionResponse(
-        this.buildWorksheetArcSecondFollowupContext(transcript),
-      );
-      this.worksheetLearningArc = {
-        ...this.worksheetLearningArc,
-        followupRound: 1,
-      };
-      return true;
-    }
-    if (this.worksheetLearningArc.followupRound === 1) {
-      this.worksheetLearningArc = null;
-      await this.handleCompanionTurn(
-        "That was great thinking. You've earned your reward, so now it's time for Space Invaders.",
-      );
-      this.launchWorksheetCompletionReward();
-      return true;
-    }
-    return false;
-  }
-
   private recordWorksheetAttempt(transcript: string, correct: boolean): void {
     if (!this.ctx?.assignment) return;
     this.ctx.assignment.attempts.push({
@@ -1752,50 +1384,8 @@ export class SessionManager {
     });
   }
 
-  private rememberWorksheetSubmission(problemId: string, value: string): void {
-    const normalizedValue = this.normalizeWorksheetSubmissionValue(value);
-    if (!normalizedValue) return;
-    this.worksheetRecentSubmission = {
-      problemId,
-      normalizedValue,
-      expiresAt: Date.now() + 2500,
-    };
-  }
-
-  private isDuplicateWorksheetSubmission(problemId: string, value: string): boolean {
-    if (!this.worksheetRecentSubmission) return false;
-    if (Date.now() > this.worksheetRecentSubmission.expiresAt) {
-      this.worksheetRecentSubmission = null;
-      return false;
-    }
-    return (
-      this.worksheetRecentSubmission.problemId === problemId &&
-      this.worksheetRecentSubmission.normalizedValue ===
-        this.normalizeWorksheetSubmissionValue(value)
-    );
-  }
-
-  private matchesPendingOverlaySubmission(
-    problemId: string,
-    value: string,
-  ): boolean {
-    if (!this.worksheetPendingOverlaySubmission) return false;
-    return (
-      this.worksheetPendingOverlaySubmission.problemId === problemId &&
-      this.worksheetPendingOverlaySubmission.normalizedValue ===
-        this.normalizeWorksheetSubmissionValue(value)
-    );
-  }
-
   private retireWorksheetSession(): void {
     this.worksheetMode = false;
-    this.worksheetReadyForAnswers = false;
-    this.pendingWorksheetLog = null;
-    this.worksheetTurnTranscript = "";
-    this.worksheetBufferedTranscript = null;
-    this.worksheetRecentSubmission = null;
-    this.worksheetPendingOverlaySubmission = null;
-    this.lastWorksheetTurnOutcome = null;
     this.worksheetPlayerState = null;
     this.worksheetPageFile = null;
     this.currentCanvasState = null;
@@ -1837,32 +1427,12 @@ export class SessionManager {
     value?: string;
   }): void {
     const value = String(payload.value ?? "").trim();
-    if (!value || !this.assignmentManifest || !this.worksheetPlayerState) return;
-    if (
-      this.isDuplicateWorksheetSubmission(
-        this.worksheetPlayerState.activeProblemId,
-        value,
-      )
-    ) {
-      this.lastWorksheetTurnOutcome = "blocked_stale";
-      console.log("  🔁 worksheet_answer ignored — duplicate recent submission");
+    if (!value || !this.assignmentManifest || !this.worksheetPlayerState)
       return;
-    }
-    if (
-      this.matchesPendingOverlaySubmission(
-        this.worksheetPlayerState.activeProblemId,
-        value,
-      )
-    ) {
-      this.lastWorksheetTurnOutcome = "blocked_stale";
-      console.log("  🔁 worksheet_answer ignored — duplicate pending overlay submission");
-      return;
-    }
     if (
       payload.problemId &&
       String(payload.problemId) !== this.worksheetPlayerState.activeProblemId
     ) {
-      this.lastWorksheetTurnOutcome = "blocked_stale";
       console.warn(
         `  ⚠️  worksheet_answer ignored — stale problem ${String(payload.problemId)} vs ${this.worksheetPlayerState.activeProblemId}`,
       );
@@ -1874,10 +1444,6 @@ export class SessionManager {
         activeFieldId: String(payload.fieldId),
       };
     }
-    this.worksheetPendingOverlaySubmission = {
-      problemId: this.worksheetPlayerState.activeProblemId,
-      normalizedValue: this.normalizeWorksheetSubmissionValue(value),
-    };
     this.send("echo_answer", { text: value });
     this.handleEndOfTurn(value).catch(console.error);
   }
@@ -1905,7 +1471,7 @@ export class SessionManager {
 
     this.send("audio_done");
     // Reset canvas when child interrupts — any partial drawing is stale.
-    this.currentCanvasState = null;
+
     this.send("canvas_draw", { mode: "idle" });
   }
 
@@ -1921,7 +1487,9 @@ export class SessionManager {
     this.wbActivityTimeout = setTimeout(() => {
       this.wbActivityTimeout = null;
       if (!this.wbActive) return;
-      console.warn("  ⚠️  Word Builder timeout — no activity in 90s; returning to IDLE");
+      console.warn(
+        "  ⚠️  Word Builder timeout — no activity in 90s; returning to IDLE",
+      );
       this.wbEndCleanup();
       this.turnSM.onWordBuilderEnd();
       this.send("canvas_draw", { mode: "idle" });
@@ -1979,7 +1547,7 @@ export class SessionManager {
           this.pendingGameStart.companionName,
         );
         console.log(
-          `  🎮 resend start after ready — ${this.ctx?.canvas.current.mode ?? "game"}`
+          `  🎮 resend start after ready — ${this.ctx?.canvas.current.mode ?? "game"}`,
         );
         this.pendingGameStart = null;
       }
@@ -1987,7 +1555,7 @@ export class SessionManager {
         this.ctx.markCanvasRendered(this.currentCanvasRevision);
         this.ctx.markGameReady(this.currentCanvasRevision);
         console.log(
-          `  🖼️  Browser confirmed game ready for revision ${this.currentCanvasRevision} (${this.ctx.canvas.current.mode})`
+          `  🖼️  Browser confirmed game ready for revision ${this.currentCanvasRevision} (${this.ctx.canvas.current.mode})`,
         );
         this.broadcastContext();
       }
@@ -2018,15 +1586,19 @@ export class SessionManager {
       const state = this.turnSM.getState();
 
       // Elli is mid-speech — buffer and handle when she returns to WORD_BUILDER
-      if (state === "SPEAKING" || state === "PROCESSING" || state === "LOADING" || state === "CANVAS_PENDING") {
+      if (
+        state === "SPEAKING" ||
+        state === "PROCESSING" ||
+        state === "LOADING" ||
+        state === "CANVAS_PENDING"
+      ) {
         console.log(`  🎮 round_complete buffered (state=${state})`);
         this.wbPendingEvent = event;
         return;
       }
 
       const er = Number(event.round);
-      const completedRound =
-        Number.isFinite(er) && er > 0 ? er : this.wbRound;
+      const completedRound = Number.isFinite(er) && er > 0 ? er : this.wbRound;
 
       if (completedRound <= this.wbLastProcessedRound) {
         return;
@@ -2034,7 +1606,9 @@ export class SessionManager {
       this.wbLastProcessedRound = completedRound;
 
       const attempts = Number(event.attempts) || 1;
-      console.log(`  🎮 round_complete received — round ${completedRound} (wbRound ${this.wbRound})`);
+      console.log(
+        `  🎮 round_complete received — round ${completedRound} (wbRound ${this.wbRound})`,
+      );
 
       // Round 3: silent advance only
       if (completedRound === 3) {
@@ -2051,7 +1625,7 @@ export class SessionManager {
       // Rounds 1 & 2: praise then advance
       if (completedRound === 1 || completedRound === 2) {
         void this.runCompanionResponse(
-          WORD_BUILDER_ROUND_COMPLETE(completedRound, this.wbWord, attempts)
+          WORD_BUILDER_ROUND_COMPLETE(completedRound, this.wbWord, attempts),
         )
           .then(() => this.wbAdvanceRound())
           .catch((err) => {
@@ -2072,7 +1646,12 @@ export class SessionManager {
       const state = this.turnSM.getState();
       const word = this.wbWord;
 
-      if (state === "SPEAKING" || state === "PROCESSING" || state === "LOADING" || state === "CANVAS_PENDING") {
+      if (
+        state === "SPEAKING" ||
+        state === "PROCESSING" ||
+        state === "LOADING" ||
+        state === "CANVAS_PENDING"
+      ) {
         console.log(`  🎮 round_failed buffered (state=${state})`);
         this.wbPendingEvent = event;
         return;
@@ -2080,7 +1659,9 @@ export class SessionManager {
 
       console.log(`  🎮 round_failed — round ${this.wbRound}`);
 
-      void this.runCompanionResponse(WORD_BUILDER_ROUND_FAILED(this.wbRound, word))
+      void this.runCompanionResponse(
+        WORD_BUILDER_ROUND_FAILED(this.wbRound, word),
+      )
         .then(() => this.wbAdvanceRound())
         .catch((err) => {
           console.error("  ❌ WB fail response failed:", err);
@@ -2090,38 +1671,6 @@ export class SessionManager {
     }
 
     if (type === "game_complete") {
-      if (this.pendingInstructionalGameCompletion) {
-        console.log(
-          `  🎮 instructional game completed — ${this.pendingInstructionalGameCompletion.gameName}`
-        );
-        this.pendingInstructionalGameCompletion = null;
-      }
-      if (this.worksheetLearningArc?.phase === "instructional_game") {
-        this.currentCanvasState = null;
-        this.clearActiveCanvasActivity();
-        this.send("canvas_draw", { mode: "idle" });
-        if (this.ctx) {
-          this.ctx.updateCanvas({
-            mode: "idle",
-            content: undefined,
-            label: undefined,
-            svg: undefined,
-            sceneDescription: undefined,
-            problemAnswer: undefined,
-            problemHint: undefined,
-          });
-          this.broadcastContext();
-        }
-        this.worksheetLearningArc = {
-          ...this.worksheetLearningArc,
-          phase: "followup",
-          followupRound: 0,
-        };
-        void this.runCompanionResponse(
-          this.buildWorksheetArcFirstFollowupContext(),
-        ).catch(console.error);
-        return;
-      }
       if (this.wbActive) {
         const completedWord = this.wbWord;
         // Keep wbActive / wordBuilderSessionActive until Elli logs the post-game spell attempt
@@ -2130,13 +1679,31 @@ export class SessionManager {
         this.clearActiveCanvasActivity();
         this.send("canvas_draw", { mode: "idle" });
         void this.runCompanionResponse(
-          WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord)
+          WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord),
         ).catch(console.error);
         return;
       }
       if (this.activeCanvasActivity.snapshot?.worksheet) {
         const snapshot = this.activeCanvasActivity.snapshot;
-        void this.resumeWorksheetAfterInstructionalGame(snapshot).catch(console.error);
+        const ws = snapshot.worksheet;
+        if (ws) {
+          this.worksheetProblemIndex = ws.problemIndex;
+          if (snapshot.canvasState) {
+            this.currentCanvasState = { ...snapshot.canvasState };
+          }
+          if (this.ctx && snapshot.contextCanvas) {
+            this.ctx.updateCanvas(snapshot.contextCanvas as any);
+          }
+          this.clearActiveCanvasActivity();
+          this.setActiveCanvasActivity("worksheet");
+          if (snapshot.canvasState) {
+            this.send("canvas_draw", {
+              args: snapshot.canvasState,
+              result: snapshot.canvasState,
+            });
+          }
+          this.broadcastContext();
+        }
         return;
       }
       if (this.spaceInvadersRewardActive) {
@@ -2144,10 +1711,6 @@ export class SessionManager {
         this.suppressTranscripts = false;
         console.log("  🎮 reward game ended — transcript capture normal");
         this.gameBridge.handleGameEvent(event);
-        if (this.endAfterReward) {
-          this.endAfterReward = false;
-          void this.end().catch(console.error);
-        }
       }
     }
   }
@@ -2161,7 +1724,7 @@ export class SessionManager {
     if (this.ctx && resolvedRevision > 0) {
       this.ctx.markCanvasRendered(resolvedRevision);
       console.log(
-        `  🖼️  Browser confirmed canvas revision ${resolvedRevision} (${this.ctx.canvas.current.mode})`
+        `  🖼️  Browser confirmed canvas revision ${resolvedRevision} (${this.ctx.canvas.current.mode})`,
       );
       this.broadcastContext();
     }
@@ -2173,12 +1736,6 @@ export class SessionManager {
   }
 
   async end(): Promise<void> {
-    if (this.pendingEndSessionReward && !this.spaceInvadersRewardLaunched) {
-      this.pendingEndSessionReward = false;
-      this.endAfterReward = true;
-      this.launchWorksheetCompletionReward();
-      return;
-    }
     if (this.isEnding) return;
     this.isEnding = true;
     this.isSpellingSession = false;
@@ -2194,7 +1751,6 @@ export class SessionManager {
     this.wbEndCleanup();
     this.spaceInvadersRewardActive = false;
     this.spaceInvadersRewardLaunched = false;
-    this.endAfterReward = false;
     this.clearActiveCanvasActivity();
 
     if (this.fluxHandle) {
@@ -2218,7 +1774,9 @@ export class SessionManager {
 
     try {
       if (!shouldPersistSessionData()) {
-        console.log("  🔇 Stateless run — skipping session recording and reward log.");
+        console.log(
+          "  🔇 Stateless run — skipping session recording and reward log.",
+        );
       } else {
         await recordSession(this.conversationHistory, this.childName);
         appendRewardLog(this.childName, this.rewardLog);
@@ -2267,7 +1825,7 @@ export class SessionManager {
 
   private handleFluxEndOfTurn(
     transcript: string,
-    source: "eager" | "final"
+    source: "eager" | "final",
   ): void {
     const normalized = transcript.toLowerCase().trim();
     if (!normalized) return;
@@ -2320,7 +1878,7 @@ export class SessionManager {
 
   private async handleEndOfTurn(
     transcript: string,
-    isReplay = false
+    isReplay = false,
   ): Promise<void> {
     if (!isReplay) {
       const now = Date.now();
@@ -2329,9 +1887,7 @@ export class SessionManager {
         normalized === this.lastTranscript &&
         now - this.lastTranscriptTime < 3000
       ) {
-        console.log(
-          `  ⚠️  Duplicate transcript suppressed: "${transcript}"`
-        );
+        console.log(`  ⚠️  Duplicate transcript suppressed: "${transcript}"`);
         return;
       }
       this.lastTranscript = normalized;
@@ -2346,22 +1902,15 @@ export class SessionManager {
       state === "SPEAKING"
     ) {
       if (!this.shouldAcceptInterruptedTranscript(transcript)) return;
-      console.log(`  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`);
+      console.log(
+        `  🗑️  Ignoring transcript while assistant owns turn (${state}): "${transcript}"`,
+      );
       return;
     }
 
-    if (this.shouldIgnoreWorksheetCarryoverTranscript(transcript)) {
-      return;
-    }
     // WORD_BUILDER: the child is filling in the game but can still speak.
     // Let the transcript fall through — runCompanionResponse uses onCompanionRunFromWordBuilder()
     // so the game stays visible while Elli responds verbally.
-
-    if (this.worksheetAdvancing) {
-      console.log(`  ⏳ Buffering transcript during worksheet advance: "${transcript}"`);
-      this.worksheetBufferedTranscript = transcript;
-      return;
-    }
 
     this.turnSM.onEndOfTurn();
 
@@ -2402,39 +1951,8 @@ export class SessionManager {
       return;
     }
 
-    if (this.worksheetMode) {
-      this.worksheetTurnTranscript = transcript;
-    }
-
-    if (await this.tryConsumeWorksheetTurn(transcript)) {
-      return;
-    }
-
-    if (this.shouldInterceptInstructionalGameCompletionClaim(transcript)) {
-      await this.handleInstructionalGameCompletionClaim();
-      return;
-    }
-
-    if (await this.handleWorksheetLearningArcFollowup(transcript)) {
-      return;
-    }
-
     let userMessage = transcript;
 
-    if (this.worksheetMode && this.worksheetReadyForAnswers) {
-      this.worksheetTurnsWithoutAttempt++;
-      if (this.worksheetTurnsWithoutAttempt >= 5) {
-        const wp = this.worksheetProblems[this.worksheetProblemIndex];
-        if (wp) {
-          console.log("  ⚠️  [worksheet] stuck guard — nudging model to evaluate answer");
-          userMessage =
-            `${transcript}\n\n[System: The child has been on problem ${wp.id} for several turns. ` +
-            `If their last turn sounds like a real answer (even informal), call logWorksheetAttempt. ` +
-            `If they repeated the question or only asked for clarification, do not log — give a short, kind hint and restate the question simply.]`;
-          this.worksheetTurnsWithoutAttempt = 0;
-        }
-      }
-    }
     if (
       this.isSpellingSession &&
       !this.worksheetMode &&
@@ -2444,7 +1962,7 @@ export class SessionManager {
       const ev = this.evaluateSpelling(transcript, this.activeWord);
       console.log(
         `  🔤 Spelling eval: "${transcript}" vs "${this.activeWord}" → ` +
-          `${ev.correct ? "✅" : "❌"} (${ev.note})`
+          `${ev.correct ? "✅" : "❌"} (${ev.note})`,
       );
       userMessage =
         `[Spelling verdict: Ila said "${transcript}" for "${this.activeWord}" — ` +
@@ -2453,9 +1971,7 @@ export class SessionManager {
     }
 
     if (this.suppressTranscripts) {
-      console.log(
-        "  🔇 Transcript suppressed — voice disabled"
-      );
+      console.log("  🔇 Transcript suppressed — voice disabled");
       this.turnSM.onInterrupt();
       return;
     }
@@ -2491,46 +2007,23 @@ export class SessionManager {
     const transitionToWorkPhase = shouldTriggerTransitionToWorkPhase(
       this.roundNumber,
       this.childName,
-      this.transitionedToWork
+      this.transitionedToWork,
     );
 
     try {
       // Window the history to reduce Claude's input size and improve TTFT.
       // Keep the last 10 messages (5 turns) — wide enough to retain active-word
       // context across barge-ins while keeping latency acceptable.
-      const recentHistory = this.conversationHistory.length > 10
-        ? this.conversationHistory.slice(-10)
-        : this.conversationHistory;
+      const recentHistory =
+        this.conversationHistory.length > 10
+          ? this.conversationHistory.slice(-10)
+          : this.conversationHistory;
 
       // Pin context messages at the front so they survive history truncation.
       const pins: ModelMessage[] = [];
       if (this.worksheetPageFile && (this.worksheetMode || isHomeworkMode())) {
-        const isCoinWorksheet = /money|coin|count/i.test(this.worksheetSubjectLabel);
-        const isReview = this.worksheetInteractionMode === "review";
-        let imageCaption =
-          "[Worksheet Image] This is the ACTUAL worksheet the child is working on. " +
-          "Use what you SEE in this image as the source of truth for all amounts, values, and problem layout. " +
-          "The extracted text descriptions may contain OCR errors — always verify against this image.";
-        if (isReview) {
-          imageCaption +=
-            "\nREVIEW MODE: The child has already filled in answers on this worksheet. " +
-            "The handwritten values in the boxes are the CHILD'S answers — they may contain mistakes. " +
-            "Your job is to CHECK their work. For each problem, independently examine the actual items " +
-            "(coins, objects, numbers) shown in the image, calculate the correct answer yourself, " +
-            "and compare it to what the child wrote. Catch any errors the child made.";
-        }
-        if (isCoinWorksheet) {
-          imageCaption +=
-            "\nHANDWRITING WARNING: The child's handwritten '$0.' can look like '$1.' because the " +
-            "decimal dot merges with the zero. If you read $1.xx from a handwritten box, the actual " +
-            "value is $0.xx. This is an elementary coin-counting worksheet — all amounts come from " +
-            "pennies, nickels, dimes, and quarters, so every value is under $1.00.";
-          if (isReview) {
-            imageCaption +=
-              "\nTo verify each answer: count the individual coins visible in the image for each student. " +
-              "Quarters=25¢, dimes=10¢, nickels=5¢, pennies=1¢. Add them up and compare to what the child wrote.";
-          }
-        }
+        const imageCaption =
+          "This is the worksheet. Grade from what you see in this image.";
         pins.push({
           role: "user",
           content: [
@@ -2564,7 +2057,9 @@ export class SessionManager {
         this.worksheetMode &&
         this.worksheetProblems[this.worksheetProblemIndex]
       ) {
-        const pid = String(this.worksheetProblems[this.worksheetProblemIndex].id);
+        const pid = String(
+          this.worksheetProblems[this.worksheetProblemIndex].id,
+        );
         const truth = this.worksheetTruthById.get(pid);
         if (truth) {
           truthCtx = truth.toContextInjection();
@@ -2576,6 +2071,8 @@ export class SessionManager {
 
       const finalTools = this.buildAgentToolkit();
 
+      this.debugPrintClaudePreRun(userMessage);
+
       await runAgent({
         history: historyWithPin,
         userMessage: messageWithContext,
@@ -2584,7 +2081,9 @@ export class SessionManager {
         onToken: (chunk) => {
           fullResponse += chunk;
           this.send("response_text", { chunk });
-          console.log(`  📝 token(${chunk.length}): "${chunk.slice(0, 30).replace(/\n/g, "↵")}"`);
+          console.log(
+            `  📝 token(${chunk.length}): "${chunk.slice(0, 30).replace(/\n/g, "↵")}"`,
+          );
           this.turnSM.onToken(chunk);
         },
         signal: this.currentAbort?.signal,
@@ -2607,7 +2106,8 @@ export class SessionManager {
             if (toolName === "launch_game") toolName = "launchGame";
             if (toolName === "log_worksheet_attempt")
               toolName = "logWorksheetAttempt";
-            if (toolName === "get_session_status") toolName = "getSessionStatus";
+            if (toolName === "get_session_status")
+              toolName = "getSessionStatus";
             if (toolName === "get_next_problem") toolName = "getNextProblem";
             if (toolName === "submit_answer") toolName = "submitAnswer";
             if (toolName === "clear_canvas") toolName = "clearCanvas";
@@ -2620,6 +2120,10 @@ export class SessionManager {
             let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
             const originalToolName = toolName;
+
+            if (toolName === "canvasShow") {
+              args = this.normalizeCanvasShowArgs(args);
+            }
 
             if (
               toolName === "showCanvas" &&
@@ -2634,18 +2138,20 @@ export class SessionManager {
                 !this.isTeachingMathCanvas(args);
               if (isTeachingWord) {
                 console.warn(
-                  "  ⚠️  showCanvas blocked — use blackboard after Word Builder"
+                  "  ⚠️  showCanvas blocked — use blackboard after Word Builder",
                 );
                 toolName = "blackboard";
                 args = { gesture: "reveal", word: c };
               }
             }
 
+            this.debugLogToolCall(toolName, args, result);
+
             this.handleToolCall(toolName, args, result);
 
             if (toolName === "canvasShow") {
               const ct = String(args.type ?? "");
-              if (ct === "text" || ct === "svg") {
+              if (ct === "text" || ct === "svg" || ct === "svg_raw") {
                 const drawPayload =
                   ct === "text"
                     ? { mode: "teaching", content: args.content }
@@ -2662,6 +2168,142 @@ export class SessionManager {
                 if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
                 }
+              } else if (ct === "place_value") {
+                const placeValueData: Record<string, unknown> = {
+                  operandA: Number(args.operandA),
+                  operandB: Number(args.operandB),
+                  operation: args.operation,
+                  layout: args.layout ?? "column",
+                };
+                if (args.activeColumn != null) {
+                  placeValueData.activeColumn = args.activeColumn;
+                }
+                if (args.scaffoldLevel != null) {
+                  placeValueData.scaffoldLevel = args.scaffoldLevel;
+                }
+                if (args.revealedColumns != null) {
+                  placeValueData.revealedColumns = args.revealedColumns;
+                }
+                const drawPayload = {
+                  mode: "place_value" as const,
+                  placeValueData,
+                };
+                this.send("canvas_draw", {
+                  args: drawPayload as Record<string, unknown>,
+                  result,
+                });
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "spelling") {
+                const word = String(args.spellingWord ?? "");
+                const drawPayload: Record<string, unknown> = {
+                  mode: "spelling",
+                  spellingWord: word,
+                };
+                if (args.spellingRevealed != null) {
+                  drawPayload.spellingRevealed = Array.isArray(
+                    args.spellingRevealed,
+                  )
+                    ? [...(args.spellingRevealed as string[])]
+                    : args.spellingRevealed;
+                }
+                if (args.compoundBreak != null) {
+                  drawPayload.compoundBreak = args.compoundBreak;
+                }
+                if (args.showWord != null) {
+                  drawPayload.showWord = args.showWord;
+                }
+                if (args.streakCount != null) {
+                  drawPayload.streakCount = args.streakCount;
+                }
+                if (args.personalBest != null) {
+                  drawPayload.personalBest = args.personalBest;
+                }
+                this.send("canvas_draw", {
+                  args: drawPayload,
+                  result,
+                });
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING" && word.length > 0) {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "riddle") {
+                const drawPayload = {
+                  mode: "riddle" as const,
+                  content: args.text,
+                  label: args.label ?? "Riddle",
+                };
+                this.send("canvas_draw", {
+                  args: drawPayload as Record<string, unknown>,
+                  result,
+                });
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "math_inline") {
+                const drawPayload = {
+                  mode: "teaching" as const,
+                  content: args.expression,
+                  label: args.label,
+                };
+                this.send("canvas_draw", {
+                  args: drawPayload as Record<string, unknown>,
+                  result,
+                });
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "reward") {
+                const drawPayload: Record<string, unknown> = {
+                  mode: "reward",
+                  content: "",
+                  label: args.label,
+                  svg: args.svg,
+                };
+                if (args.lottieData != null) {
+                  drawPayload.lottieData = args.lottieData;
+                }
+                this.send("canvas_draw", { args: drawPayload, result });
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "championship") {
+                const drawPayload: Record<string, unknown> = {
+                  mode: "championship",
+                  content: args.content ?? "",
+                  label: args.label,
+                  svg: args.svg,
+                };
+                this.send("canvas_draw", { args: drawPayload, result });
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "game") {
+                const rawName = String(args.name ?? "").trim();
+                const entry = getTool(rawName);
+                if (entry) {
+                  const drawPayload: Record<string, unknown> = {
+                    mode: rawName,
+                    gameUrl: entry.url,
+                    gameWord: args.gameWord,
+                    gamePlayerName: args.gamePlayerName,
+                  };
+                  this.send("canvas_draw", { args: drawPayload, result });
+                  const st = this.turnSM.getState();
+                  if (st === "PROCESSING") {
+                    this.turnSM.onShowCanvas();
+                  }
+                } else {
+                  console.warn(
+                    `  ⚠️  canvasShow game: unknown teaching tool "${rawName}"`,
+                  );
+                }
               }
             }
 
@@ -2674,10 +2316,13 @@ export class SessionManager {
               // and does not send canvas_done. State machine stays PROCESSING → SPEAKING.
             }
 
-            if (originalToolName === "showCanvas" && toolName === "showCanvas") {
+            if (
+              originalToolName === "showCanvas" &&
+              toolName === "showCanvas"
+            ) {
               if (this.turnSM.getState() === "WORD_BUILDER") {
                 console.warn(
-                  "  ⚠️  showCanvas blocked during Word Builder — iframe owns canvas"
+                  "  ⚠️  showCanvas blocked during Word Builder — iframe owns canvas",
                 );
               } else {
                 // If a new math problem is shown, any queued transcript belongs
@@ -2711,24 +2356,23 @@ export class SessionManager {
 
       if (!fullResponse.trim()) {
         console.warn(
-          "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring"
+          "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring",
         );
       }
 
       // In math mode every turn should log an answer — warn if tools were skipped entirely
       if (this.lastCanvasWasMath && this.toolCallsMadeThisTurn === 0) {
         console.warn(
-          "  ⚠️  Math mode: agent completed with ZERO tool calls — canvas is out of sync"
+          "  ⚠️  Math mode: agent completed with ZERO tool calls — canvas is out of sync",
         );
       }
 
       this.conversationHistory.push(
         { role: "user", content: userMessage },
-        { role: "assistant", content: fullResponse }
+        { role: "assistant", content: fullResponse },
       );
 
       if (checkAssistantGoodbye(fullResponse)) {
-        this.pendingWorksheetLog = null;
         console.log("  👋 Companion said goodbye");
         await this.end();
         return;
@@ -2738,42 +2382,10 @@ export class SessionManager {
         await this.ttsBridge.finish();
       }
       this.send("audio_done");
-
-      if (this.pendingWorksheetStart && !this.worksheetSession) {
-        this.pendingWorksheetStart = false;
-        this.worksheetAdvancing = true;
-        await this.presentCurrentWorksheetProblem();
-        this.worksheetAdvancing = false;
-        await this.drainWorksheetBuffer();
-      } else if (
-        this.pendingWorksheetLog != null &&
-        this.worksheetMode &&
-        !this.worksheetSession
-      ) {
-        const pl = this.pendingWorksheetLog;
-        this.pendingWorksheetLog = null;
-        this.worksheetAdvancing = true;
-        await this.advanceWorksheetAfterLogAttempt(pl.ok);
-        this.worksheetAdvancing = false;
-        await this.drainWorksheetBuffer();
-      } else if (
-        this.worksheetMode &&
-        this.worksheetProblemIndex < this.worksheetProblems.length &&
-        this.worksheetProblems[this.worksheetProblemIndex]
-      ) {
-        this.worksheetReadyForAnswers = true;
-      }
     } catch (err: unknown) {
-      this.pendingWorksheetLog = null;
       if (err instanceof Error && err.name === "AbortError") {
         console.log("  ⚡ Agent aborted (barge-in)");
         this.turnSM.onInterrupt();
-        if (
-          this.worksheetMode &&
-          this.worksheetProblems[this.worksheetProblemIndex]
-        ) {
-          this.worksheetReadyForAnswers = true;
-        }
         return;
       }
 
@@ -2786,7 +2398,11 @@ export class SessionManager {
           if (!x || typeof x !== "object") return false;
           const obj = x as Record<string, unknown>;
           if (obj.statusCode === 529) return true;
-          if (typeof obj.responseBody === "string" && obj.responseBody.includes("overloaded_error")) return true;
+          if (
+            typeof obj.responseBody === "string" &&
+            obj.responseBody.includes("overloaded_error")
+          )
+            return true;
           if (obj.lastError) return check(obj.lastError);
           return false;
         };
@@ -2804,34 +2420,163 @@ export class SessionManager {
           this.ttsBridge.sendText(fallback);
           await this.ttsBridge.finish().catch(() => {});
         }
-        // If the overload hit before the first worksheet problem was presented,
-        // re-queue it so the canvas isn't permanently orphaned.
-        if (this.pendingWorksheetStart && !this.worksheetSession) {
-          console.log("  🔄 [worksheet] re-queuing pendingWorksheetStart after overload");
-          this.pendingWorksheetStart = false;
-          this.worksheetAdvancing = true;
-          await this.presentCurrentWorksheetProblem().catch(console.error);
-          this.worksheetAdvancing = false;
-        } else if (
-          this.worksheetMode &&
-          this.worksheetProblems[this.worksheetProblemIndex]
-        ) {
-          this.worksheetReadyForAnswers = true;
-        }
         return;
       }
 
       console.error("  🔴 Agent error:", message);
       this.send("error", { message: "Companion response failed" });
-      if (
-        this.worksheetMode &&
-        this.worksheetProblems[this.worksheetProblemIndex]
-      ) {
-        this.worksheetReadyForAnswers = true;
-      }
     } finally {
       this.currentAbort = null;
     }
+  }
+
+  private debugSafeJson(value: unknown, maxLen = 4000): string {
+    try {
+      const s =
+        typeof value === "string"
+          ? JSON.stringify(value)
+          : JSON.stringify(value, (_k, v) =>
+              typeof v === "bigint" ? String(v) : v,
+            );
+      return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
+    } catch {
+      return JSON.stringify(String(value));
+    }
+  }
+
+  /** When DEBUG_CLAUDE=true, log the turn input right before the model runs. */
+  private debugPrintClaudePreRun(rawUserMessage: string): void {
+    if (!isDebugClaude()) return;
+    const c = this.ctx?.canvas.current;
+    const modeStr = String(
+      c?.mode ??
+        (this.currentCanvasState as { mode?: string } | null)?.mode ??
+        "idle",
+    );
+    let showing = "(idle)";
+    if (modeStr === "worksheet_pdf" && c?.activeProblemId) {
+      showing = `problem ${c.activeProblemId} image`;
+    } else if (modeStr === "teaching" && c?.content) {
+      const full = String(c.content);
+      const t = full.replace(/\s+/g, " ").slice(0, 80);
+      showing = t.length < full.length ? `${t}…` : t;
+    } else if (modeStr !== "idle") {
+      showing = modeStr;
+    }
+
+    const lines: string[] = [
+      "═══════════════════════════════",
+      "CLAUDE SEES THIS:",
+      "───────────────────────────────",
+      "[Canvas State]",
+      `Mode: ${modeStr}`,
+      `Showing: ${showing}`,
+      `canvasShowing: ${modeStr}`,
+      "",
+      "[Session State]",
+    ];
+
+    if (this.worksheetSession) {
+      const st = this.worksheetSession.getSessionStatus();
+      lines.push(
+        `Problems: ${st.problemsCompleted}/${st.problemsTotal} complete`,
+      );
+      lines.push(`Reward threshold: ${st.rewardThreshold}`);
+    } else if (this.ctx?.assignment) {
+      const a = this.ctx.assignment;
+      const done = a.attempts.filter((x) => x.correct).length;
+      lines.push(
+        `Problems: ${done}/${a.questions.length} correct (q index ${a.currentIndex})`,
+      );
+      lines.push(`Reward threshold: —`);
+    } else {
+      lines.push("Problems: —");
+      lines.push(
+        `Reward threshold: ${this.worksheetMode ? String(this.worksheetRewardAfterN) : "—"}`,
+      );
+    }
+
+    const elapsedMin =
+      this.sessionStartTime > 0
+        ? Math.max(0, Math.round((Date.now() - this.sessionStartTime) / 60000))
+        : 0;
+    lines.push(
+      `Elapsed: ${this.sessionStartTime > 0 ? `${elapsedMin} min` : "—"}`,
+    );
+    lines.push("");
+    lines.push("[User said]");
+    lines.push(JSON.stringify(rawUserMessage));
+    lines.push("═══════════════════════════════");
+    console.log(lines.join("\n"));
+  }
+
+  private debugLogToolCall(
+    toolName: string,
+    args: Record<string, unknown>,
+    result: unknown,
+  ): void {
+    if (!isDebugClaude()) return;
+    const argStr = this.debugSafeJson(args, 3000);
+    const resStr = this.debugSafeJson(
+      result === undefined ? "(undefined)" : result,
+      3000,
+    );
+    console.log(`→ TOOL: ${toolName}(${argStr})`);
+    console.log(`← RESULT: ${resStr}`);
+  }
+
+  /** First spoken line when DEBUG_CLAUDE=true (scripted; not from Claude). */
+  private debugCreatorOpeningLine(): string {
+    const name = this.companion.name;
+    const child = this.childName;
+    const worksheetBit = this.worksheetMode
+      ? " Worksheet is loaded — grade from the pinned image, and drive canvasShow, sessionLog, canvasClear, sessionStatus, and launchGame."
+      : "";
+    return (
+      `Hi creator — ${name} here, DEBUG session.${worksheetBit} ` +
+      `I'm not running a normal kid session with ${child}; you're stress-testing reasoning and tool use. ` +
+      `Tell me what to verify first and I'll say what I'm doing and why.`
+    );
+  }
+
+  /** Swap opening line for developer diagnostic runs only. */
+  private applyDebugClaudeOpeningLine(): void {
+    if (!isDebugClaude()) return;
+    this.companion = {
+      ...this.companion,
+      openingLine: this.debugCreatorOpeningLine(),
+    };
+  }
+
+  /** Prepends developer-testing instructions when DEBUG_CLAUDE=true. */
+  private prependDebugClaudeToPrompt(prompt: string): string {
+    if (!isDebugClaude()) return prompt;
+    return (
+      `⚠️  DEBUG MODE — DEVELOPER IS TESTING YOU\n\n` +
+      `You are NOT tutoring a child. You are a test harness.\n` +
+      `A developer is verifying your capabilities and reasoning.\n\n` +
+      `YOUR ONLY JOB:\n` +
+      `- Demonstrate capabilities when asked\n` +
+      `- Show what you can and cannot do\n` +
+      `- Be direct about what tools you have\n` +
+      `- Execute requests immediately — no redirecting\n\n` +
+      `RULES:\n` +
+      `- If asked to show a riddle → show it using canvasShow with the best available type\n` +
+      `- If asked to show math → show it\n` +
+      `- If asked to clear → clear it\n` +
+      `- Do NOT say 'but we should do the worksheet first'\n` +
+      `- Do NOT redirect to homework unprompted\n` +
+      `- Do NOT act like a tutor\n\n` +
+      `CAPABILITY LOGIC:\n` +
+      `When asked to display something:\n` +
+      `  1. Check if a specific canvas type fits (riddle, place_value, spelling, etc.)\n` +
+      `  2. If yes → use it\n` +
+      `  3. If no dedicated type → use svg_raw or text\n` +
+      `  4. Never say 'I can't' if text or svg can achieve it\n\n` +
+      `The worksheet is present but irrelevant unless the developer specifically asks about it.\n` +
+      `Confirm every tool call you make and why.\n\n` +
+      prompt
+    );
   }
 
   private buildAgentToolkit(): Record<string, unknown> {
@@ -2875,10 +2620,35 @@ export class SessionManager {
     if (type === "game") {
       return { rendered: true, canvasShowing: "game", name: args.name };
     }
+    if (type === "place_value") {
+      return { rendered: true, canvasShowing: "place_value" };
+    }
+    if (type === "spelling") {
+      const w = String(args.spellingWord ?? args.word ?? "");
+      return { rendered: w.length > 0, canvasShowing: "spelling" };
+    }
+    if (type === "riddle") {
+      return { rendered: true, canvasShowing: "riddle" };
+    }
+    if (type === "math_inline") {
+      return { rendered: true, canvasShowing: "text" };
+    }
+    if (type === "svg_raw") {
+      return { rendered: true, canvasShowing: "svg" };
+    }
+    if (type === "reward") {
+      return { rendered: true, canvasShowing: "reward" };
+    }
+    if (type === "championship") {
+      return { rendered: true, canvasShowing: "championship" };
+    }
     return { rendered: false, canvasShowing: "idle" };
   }
 
-  private async hostCanvasClear(): Promise<{ canvasShowing: "idle"; ok?: boolean }> {
+  private async hostCanvasClear(): Promise<{
+    canvasShowing: "idle";
+    ok?: boolean;
+  }> {
     if (this.worksheetSession) {
       return this.worksheetSession.clearCanvas();
     }
@@ -2914,12 +2684,14 @@ export class SessionManager {
 
   private async hostSessionStatus(): Promise<Record<string, unknown>> {
     if (this.worksheetSession) {
-      return { ...(this.worksheetSession.getSessionStatus() as object) } as Record<
-        string,
-        unknown
-      >;
+      return {
+        ...(this.worksheetSession.getSessionStatus() as object),
+      } as Record<string, unknown>;
     }
-    return { ...(this.ctx?.serialize() ?? { ok: true }) } as Record<string, unknown>;
+    return { ...(this.ctx?.serialize() ?? { ok: true }) } as Record<
+      string,
+      unknown
+    >;
   }
 
   private async hostSessionEnd(
@@ -2950,7 +2722,7 @@ export class SessionManager {
   private sendLaunchGameRegistryError(
     tool: string,
     args: Record<string, unknown>,
-    gameName: string
+    gameName: string,
   ): void {
     this.toolCallsMadeThisTurn++;
     this.send("tool_call", {
@@ -3045,345 +2817,6 @@ export class SessionManager {
     return ordered.slice(0, 5);
   }
 
-  private async presentCurrentWorksheetProblem(): Promise<void> {
-    if (this.worksheetSession) {
-      console.log(
-        "  ℹ️  [option-c] Skipping server-driven presentCurrentWorksheetProblem — Claude calls getNextProblem",
-      );
-      return;
-    }
-    const p = this.worksheetProblems[this.worksheetProblemIndex];
-    if (!p) return;
-
-    this.worksheetReadyForAnswers = false;
-    this.worksheetWrongForCurrent = 0;
-    this.worksheetTurnsWithoutAttempt = 0;
-    this.worksheetTurnTranscript = "";
-    this.worksheetPendingOverlaySubmission = null;
-    this.lastWorksheetTurnOutcome = null;
-
-    console.log(
-      `  🎮 [worksheet] Problem ${this.worksheetProblemIndex + 1}/${this.worksheetProblems.length} (id ${p.id})`
-    );
-    console.log("📋 [worksheet] instructions (not spoken):", p.instructions);
-
-    if (this.assignmentManifest) {
-      this.worksheetPlayerState = resumeAssignmentProblem(this.assignmentManifest, {
-        activeProblemId: String(p.id),
-        currentPage: this.worksheetPlayerState?.currentPage ?? 1,
-        activeFieldId: this.worksheetPlayerState?.activeFieldId,
-        interactionMode: this.worksheetPlayerState?.interactionMode ?? this.worksheetInteractionMode,
-      });
-      const assignmentProblem = this.assignmentManifest.problems.find(
-        (entry) => entry.problemId === String(p.id),
-      );
-      if (assignmentProblem && this.worksheetPlayerState) {
-        const worksheetPdfDraw = this.withCanvasRevision({
-          mode: "worksheet_pdf",
-          content: p.question,
-          pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
-          pdfPage: assignmentProblem.page,
-          pdfPageWidth:
-            this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
-              ?.width ?? 1000,
-          pdfPageHeight:
-            this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
-              ?.height ?? 1400,
-          activeProblemId: this.worksheetPlayerState.activeProblemId,
-          activeFieldId: this.worksheetPlayerState.activeFieldId,
-          overlayFields: this.worksheetPlayerState.overlayFields,
-          interactionMode: this.worksheetPlayerState.interactionMode,
-          problemAnswer: p.canonicalAnswer,
-          problemHint: p.hint.trim() || undefined,
-        });
-        this.currentCanvasState = { ...worksheetPdfDraw };
-        this.setActiveCanvasActivity("worksheet");
-        this.activeWord = null;
-        this.turnSM.setCanonicalProblem(null);
-        if (this.ctx) {
-          if (this.ctx.assignment) {
-            this.ctx.assignment.currentIndex = this.worksheetProblemIndex;
-          }
-          this.ctx.updateCanvas({
-            mode: "worksheet_pdf",
-            content: p.question,
-            pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
-            pdfPage: assignmentProblem.page,
-            pdfPageWidth:
-              this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
-                ?.width ?? 1000,
-            pdfPageHeight:
-              this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
-                ?.height ?? 1400,
-            activeProblemId: this.worksheetPlayerState.activeProblemId,
-            activeFieldId: this.worksheetPlayerState.activeFieldId,
-            overlayFields: this.worksheetPlayerState.overlayFields,
-            interactionMode: this.worksheetPlayerState.interactionMode,
-            problemAnswer: p.canonicalAnswer || undefined,
-            problemHint: p.hint.trim() || undefined,
-            sceneDescription: "The child sees the exact worksheet page with a server-owned answer box overlay.",
-          });
-          this.broadcastContext();
-        }
-        this.send("canvas_draw", worksheetPdfDraw);
-        await this.handleCompanionTurn(p.question);
-        this.worksheetReadyForAnswers = true;
-        return;
-      }
-      console.warn(
-        `  ⚠️  [worksheet] worksheet_pdf unavailable for problem ${String(p.id)} — falling back to svg because no matching assignment problem was found`,
-      );
-    }
-
-    const canvasSource = toWorksheetCanvasSource(p);
-    const rawDisplay = canvasSource.canvas_display.trim() || p.question;
-    const structuredCanvas = deriveWorksheetCanvasModel(canvasSource);
-    const description = structuredCanvas
-      ? summarizeWorksheetCanvasModel(structuredCanvas)
-      : rawDisplay;
-    let svg = structuredCanvas
-      ? renderWorksheetCanvasModelSvg(structuredCanvas)
-      : null;
-    if (svg) {
-      svg = stripSvgFences(svg);
-    }
-    const args: Record<string, unknown> = {
-      mode: "teaching",
-      content: svg ? "" : description,
-    };
-    if (svg) {
-      args.svg = svg;
-    }
-
-    this.wbEndCleanup();
-    if (this.turnSM.getState() === "WORD_BUILDER") {
-      this.turnSM.onWordBuilderEnd();
-    }
-
-    this.lastCanvasMode = "teaching";
-    this.lastCanvasWasMath = this.isTeachingMathCanvas(args);
-    this.currentCanvasState = { ...args };
-    this.setActiveCanvasActivity("worksheet");
-    this.activeWord = null;
-    this.turnSM.setCanonicalProblem(null);
-
-    if (this.ctx) {
-      if (this.ctx.assignment) {
-        this.ctx.assignment.currentIndex = this.worksheetProblemIndex;
-      }
-      this.ctx.updateCanvas({
-        mode: "teaching",
-        content: p.question,
-        svg: svg ?? undefined,
-        sceneDescription: description || undefined,
-        problemAnswer: p.canonicalAnswer || undefined,
-        problemHint: p.hint.trim() || undefined,
-      });
-      this.broadcastContext();
-    }
-
-    const previewSource = svg || description;
-    const preview = previewSource.slice(0, 90);
-    console.log(
-      `  🖼️  [worksheet canvas] ${preview}${previewSource.length > 90 ? "…" : ""}`
-    );
-    const worksheetDraw = { ...args } as Record<string, unknown>;
-    stripSvgField(worksheetDraw);
-    this.send("canvas_draw", { args: worksheetDraw, result: worksheetDraw });
-
-    await this.handleCompanionTurn(p.question);
-    this.worksheetReadyForAnswers = true;
-  }
-
-  /**
-   * Worksheet turn gate — swallows duplicate typed/spoken answers, clarification-only
-   * turns (server re-anchor), or returns false so the transcript becomes the model turn.
-   */
-  private async tryConsumeWorksheetTurn(transcript: string): Promise<boolean> {
-    if (this.worksheetSession) {
-      return false;
-    }
-    if (
-      !this.worksheetMode ||
-      !this.worksheetReadyForAnswers ||
-      this.worksheetProblemIndex >= this.worksheetProblems.length
-    ) {
-      return false;
-    }
-    const problem = this.worksheetProblems[this.worksheetProblemIndex];
-    if (!problem) return false;
-
-    const t = transcript.trim();
-    if (!t) return false;
-
-    const currentProblemId = String(problem.id ?? "");
-    if (
-      currentProblemId &&
-      this.isDuplicateWorksheetSubmission(currentProblemId, t)
-    ) {
-      console.log("  🔁 worksheet transcript ignored — duplicate recent submission");
-      return true;
-    }
-    if (
-      currentProblemId &&
-      this.matchesPendingOverlaySubmission(currentProblemId, t)
-    ) {
-      console.log(
-        "  🔁 worksheet transcript ignored — matches pending typed overlay submission",
-      );
-      return true;
-    }
-
-    const worksheetCount = extractWorksheetTurnCount(t);
-    /** "Which two girls?" — the word "two" is not a cent answer; don't skip clarification handling. */
-    const numericAnswer =
-      worksheetCount != null && !/\bwhich two\b/i.test(t);
-    if (numericAnswer) {
-      this.worksheetTurnTranscript = t;
-      return false;
-    }
-    if (WORKSHEET_CLARIFICATION_PATTERNS.some((p) => p.test(t))) {
-      const amountLine =
-        problem.kind === "compare_amounts"
-          ? `${problem.leftAmountCents}¢ and ${problem.rightAmountCents}¢`
-          : `item ${problem.itemPriceCents}¢, total spent ${problem.totalSpentCents}¢`;
-      const reanchor =
-        `[Worksheet clarification] The child said: "${t}". ` +
-        `Re-anchor warmly: we're still on this problem — ${amountLine} — ` +
-        `then repeat the question in simple words: ${problem.question}`;
-      console.log("  💬 [worksheet] clarification turn — server re-anchor (no model grading)");
-      await this.handleCompanionTurn(reanchor);
-      return true;
-    }
-
-    this.worksheetTurnTranscript = t;
-    return false;
-  }
-
-  /**
-   * Worksheet progression after Matilda calls logWorksheetAttempt (tool execute already logged to file).
-   */
-  private async advanceWorksheetAfterLogAttempt(ok: boolean): Promise<void> {
-    if (this.worksheetSession) {
-      console.log(
-        "  ℹ️  [option-c] Skipping server-driven advance — Claude calls getNextProblem",
-      );
-      return;
-    }
-    const p = this.worksheetProblems[this.worksheetProblemIndex];
-    if (!p) return;
-
-    if (ok) {
-      this.worksheetWrongForCurrent = 0;
-      this.worksheetProblemIndex++;
-      if (this.worksheetProblemIndex >= this.worksheetProblems.length) {
-        if (await this.startWorksheetLearningArc()) {
-          return;
-        }
-        await this.handleCompanionTurn("You got them all! Amazing work! We'll save your reward for the end of session.");
-        this.pendingEndSessionReward = true;
-        this.retireWorksheetSession();
-        return;
-      }
-      await this.presentCurrentWorksheetProblem();
-      return;
-    }
-
-    this.worksheetWrongForCurrent++;
-    if (this.worksheetWrongForCurrent >= 3) {
-      if (this.worksheetInteractionMode === "review") {
-        this.worksheetWrongForCurrent = 0;
-        const truth = this.worksheetTruthById.get(String(p.id));
-        const revealFacts = truth?.getRevealFacts();
-        if (revealFacts) {
-          await this.runCompanionResponse(
-            `[System: The child has struggled with this problem. ` +
-            `Verified facts: correctAnswer="${revealFacts.correctAnswer}". Hint: ${revealFacts.hint}. ` +
-            `Help them understand warmly — do not contradict these amounts with different cent values.]`,
-          );
-        } else {
-          await this.runCompanionResponse(
-            `[System: The child has struggled with this problem. ` +
-            `Extracted cent values may be unreliable (OCR). Use the worksheet image; be honest if you cannot read a value clearly.]`,
-          );
-        }
-        this.worksheetReadyForAnswers = true;
-        return;
-      }
-      this.worksheetWrongForCurrent = 0;
-      this.worksheetProblemIndex++;
-      if (this.worksheetProblemIndex >= this.worksheetProblems.length) {
-        if (await this.startWorksheetLearningArc()) {
-          return;
-        }
-        await this.handleCompanionTurn("That's everything — great effort! We'll save your reward for the end of session.");
-        this.pendingEndSessionReward = true;
-        this.retireWorksheetSession();
-        return;
-      }
-      await this.presentCurrentWorksheetProblem();
-      return;
-    }
-  }
-
-  private launchWorksheetCompletionReward(): void {
-    if (this.spaceInvadersRewardLaunched) {
-      return;
-    }
-    this.spaceInvadersRewardLaunched = true;
-    this.spaceInvadersRewardActive = true;
-    const inv = getReward("space-invaders");
-    if (inv) {
-      const rewardDraw = this.withCanvasRevision({
-        mode: "space-invaders",
-        gameUrl: inv.url,
-        gamePlayerName: this.childName,
-        gameCompanionName: this.companion.name,
-        rewardGameConfig: { ...inv.defaultConfig },
-      });
-      this.send("canvas_draw", rewardDraw);
-      this.currentCanvasState = { ...rewardDraw };
-      this.pendingGameStart = {
-        gameUrl: inv.url,
-        childName: this.childName,
-        companionName: this.companion.name,
-        config: { ...inv.defaultConfig },
-      };
-      if (this.ctx) {
-        this.ctx.updateCanvas({
-          mode: "space-invaders",
-          gameUrl: inv.url,
-          gamePlayerName: this.childName,
-          rewardGameConfig: { ...inv.defaultConfig },
-          content: undefined,
-          label: undefined,
-          svg: undefined,
-          sceneDescription: undefined,
-          problemAnswer: undefined,
-          problemHint: undefined,
-        });
-        this.broadcastContext();
-      }
-    }
-    this.gameBridge.launchByName(
-      "space-invaders",
-      "reward",
-      this.childName,
-      undefined,
-      this.companion.name,
-    );
-    console.log("  🎮 [worksheet] completion reward — space-invaders");
-    this.setActiveCanvasActivity("reward-game");
-    this.gameBridge.onComplete = () => {
-      this.clearActiveCanvasActivity();
-      this.send("canvas_draw", { mode: "idle" });
-      this.send("session_ended", {
-        summary: "Session complete.",
-        duration_ms: Date.now() - this.sessionStartTime,
-      });
-    };
-  }
-
   private async handleCompanionTurn(text: string): Promise<void> {
     this.turnSM.onEndOfTurn();
     // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
@@ -3399,18 +2832,12 @@ export class SessionManager {
     this.turnSM.onSpeakingDone();
   }
 
-  private async drainWorksheetBuffer(): Promise<void> {
-    if (this.worksheetBufferedTranscript) {
-      const buffered = this.worksheetBufferedTranscript;
-      this.worksheetBufferedTranscript = null;
-      console.log(`  ▶️  Replaying buffered transcript: "${buffered}"`);
-      await this.handleEndOfTurn(buffered, true);
-    }
-  }
-
   private broadcastContext(): void {
     if (this.ctx) {
-      this.send("session_context", { ...this.ctx.serialize() } as Record<string, unknown>);
+      this.send("session_context", { ...this.ctx.serialize() } as Record<
+        string,
+        unknown
+      >);
     }
   }
 
@@ -3422,17 +2849,59 @@ export class SessionManager {
     return this.currentCanvasRevision;
   }
 
-  private withCanvasRevision<T extends Record<string, unknown>>(payload: T): T & { canvasRevision: number } {
+  private withCanvasRevision<T extends Record<string, unknown>>(
+    payload: T,
+  ): T & { canvasRevision: number } {
     return {
       ...payload,
       canvasRevision: this.issueCanvasRevision(),
     };
   }
 
+  /** Aliases for canvasShow from registry (word/revealed, reward character → svg). */
+  private normalizeCanvasShowArgs(
+    args: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const a = { ...args };
+    if (String(a.type) === "spelling") {
+      if (a.spellingWord == null && a.word != null) {
+        a.spellingWord = a.word;
+      }
+      if (a.spellingRevealed == null && a.revealed != null) {
+        a.spellingRevealed = Array.isArray(a.revealed)
+          ? [...(a.revealed as string[])]
+          : a.revealed;
+      } else if (Array.isArray(a.spellingRevealed)) {
+        a.spellingRevealed = [...(a.spellingRevealed as string[])];
+      }
+    }
+    if (String(a.type) === "reward") {
+      const svgStr = typeof a.svg === "string" ? a.svg.trim() : "";
+      const ch = typeof a.character === "string" ? a.character.trim() : "";
+      if (!svgStr && ch && REWARD_CHARACTER_SVG[ch]) {
+        a.svg = REWARD_CHARACTER_SVG[ch];
+      }
+    }
+    return a;
+  }
+
+  /** Browser test overlay — run tool handler and push canvas_draw. */
+  applyClientToolCall(tool: string, args: Record<string, unknown>): void {
+    const t = this.normalizeToolName(tool);
+    this.handleToolCall(t, args, {});
+    if ((t === "canvasShow" || t === "showCanvas") && this.currentCanvasState) {
+      const payload = { ...this.currentCanvasState };
+      if (t === "showCanvas") {
+        stripSvgField(payload);
+      }
+      this.send("canvas_draw", this.withCanvasRevision(payload));
+    }
+  }
+
   handleToolCall(
     tool: string,
     args: Record<string, unknown>,
-    result: unknown
+    result: unknown,
   ): void {
     tool = this.normalizeToolName(tool);
 
@@ -3448,7 +2917,7 @@ export class SessionManager {
         gesture !== "reveal"
       ) {
         console.warn(
-          "  ⚠️  blackboard blocked during Word Builder — only clear and reveal allowed"
+          "  ⚠️  blackboard blocked during Word Builder — only clear and reveal allowed",
         );
         return;
       }
@@ -3457,7 +2926,7 @@ export class SessionManager {
     if (tool === "startWordBuilder") {
       if (this.wordBuilderSessionActive) {
         console.warn(
-          "  ⚠️  startWordBuilder blocked — Word Builder already active"
+          "  ⚠️  startWordBuilder blocked — Word Builder already active",
         );
         return;
       }
@@ -3467,7 +2936,11 @@ export class SessionManager {
       const sessionLaunch = unwrapToolResult(result) as
         | { ok?: boolean; error?: string }
         | undefined;
-      if (this.worksheetSession && sessionLaunch && sessionLaunch.ok === false) {
+      if (
+        this.worksheetSession &&
+        sessionLaunch &&
+        sessionLaunch.ok === false
+      ) {
         console.warn(
           `  ⚠️  launchGame: worksheet session rejected — ${sessionLaunch.error ?? "unknown"}`,
         );
@@ -3476,7 +2949,7 @@ export class SessionManager {
       const rawName = String(args.name ?? "").trim();
       const gt = args.type;
       if (gt !== "tool" && gt !== "reward") {
-        console.warn("  ⚠️  launchGame: type must be \"tool\" or \"reward\"");
+        console.warn('  ⚠️  launchGame: type must be "tool" or "reward"');
         return;
       }
       const resolved = resolveLaunchGameRequest({
@@ -3493,7 +2966,9 @@ export class SessionManager {
           ? getTool(resolved.canonicalName)
           : getReward(resolved.canonicalName);
       if (!entry) {
-        console.warn(`  ⚠️  launchGame: missing live registry entry "${resolved.canonicalName}"`);
+        console.warn(
+          `  ⚠️  launchGame: missing live registry entry "${resolved.canonicalName}"`,
+        );
         this.sendLaunchGameRegistryError(tool, args, rawName);
         return;
       }
@@ -3502,7 +2977,7 @@ export class SessionManager {
         resolved.canonicalName === "spell-check"
       ) {
         console.warn(
-          `  ⚠️  launchGame: use startWordBuilder or startSpellCheck with a word for "${resolved.canonicalName}"`
+          `  ⚠️  launchGame: use startWordBuilder or startSpellCheck with a word for "${resolved.canonicalName}"`,
         );
         return;
       }
@@ -3513,10 +2988,7 @@ export class SessionManager {
     if (tool === "showCanvas") {
       const c = args.content as string | undefined;
       if (c && c.includes(" ") && !this.isTeachingMathCanvas(args)) {
-        console.warn(
-          "  ⚠️  showCanvas rejected — content is not a word:",
-          c
-        );
+        console.warn("  ⚠️  showCanvas rejected — content is not a word:", c);
         args.content = "";
       }
       stripSvgField(args);
@@ -3524,10 +2996,6 @@ export class SessionManager {
     }
 
     let logWorksheetWireResult: unknown | undefined;
-    let logWorksheetAccepted:
-      | false
-      | { ok: boolean; effectiveChildSaid: string; wp: CanonicalWorksheetProblem } = false;
-
     if (tool === "logWorksheetAttempt") {
       const unwrappedForLog = unwrapToolResult(result);
       const base =
@@ -3536,106 +3004,15 @@ export class SessionManager {
         !Array.isArray(unwrappedForLog)
           ? { ...(unwrappedForLog as Record<string, unknown>) }
           : {};
-      if (this.worksheetSession) {
-        console.log(
-          "  ℹ️  [option-c] logWorksheetAttempt ignored — use submitAnswer tool instead",
-        );
-        logWorksheetWireResult = {
-          ...base,
-          logged: false,
-          rejected: true,
-          reason: "option_c_use_submitAnswer",
-        };
-      } else if (this.activeCanvasActivity.pauseState === "paused_for_checkin") {
-        logWorksheetWireResult = {
-          ...base,
-          logged: false,
-          rejected: true,
-          reason: "paused_for_checkin",
-        };
-      } else if (!this.worksheetMode) {
-        logWorksheetWireResult = {
-          ...base,
-          logged: false,
-          rejected: true,
-          reason: "not_in_worksheet_mode",
-        };
-      } else {
-        const wp = this.worksheetProblems[this.worksheetProblemIndex];
-        if (!wp) {
-          logWorksheetWireResult = {
-            ...base,
-            logged: false,
-            rejected: true,
-            reason: "no_current_problem",
-          };
-        } else if ((args.childName as string | undefined) !== this.childName) {
-          logWorksheetWireResult = {
-            ...base,
-            logged: false,
-            rejected: true,
-            reason: "childName_mismatch",
-          };
-        } else {
-          const validation = validateLogWorksheetAttempt({
-            modelChildSaid: String(args.childSaid ?? ""),
-            actualTranscript: this.worksheetTurnTranscript,
-            modelProblemId: String(args.problemId ?? ""),
-            serverProblemId: String(wp.id),
-          });
-          if (!validation.valid) {
-            console.warn(
-              `  🚫 logWorksheetAttempt rejected: ${validation.reason}`,
-            );
-            const problemIdMismatch =
-              typeof validation.reason === "string" &&
-              validation.reason.includes("problemId mismatch");
-            logWorksheetWireResult = {
-              ...base,
-              logged: false,
-              rejected: true,
-              reason: validation.reason,
-              ...(problemIdMismatch
-                ? {
-                    serverCurrentProblemId: String(wp.id),
-                    gentleHint:
-                      "The screen is on a different row than the problemId you used. Reassure the child their thinking can still be right. Only log the active problem (id in canvas state). If they were answering an earlier row, acknowledge warmly and invite them to answer the problem showing now, or restate that row in plain language without logging the wrong id.",
-                  }
-                : {}),
-            };
-          } else {
-            if (validation.warning) {
-              console.warn(`  ⚠️  logWorksheetAttempt: ${validation.warning}`);
-            }
-            const effectiveChildSaid = validation.effectiveChildSaid;
-            const na = classifyWorksheetNonAnswerTranscript(
-              effectiveChildSaid,
-              wp.question,
-            );
-            if (na.nonAnswer) {
-              console.warn(
-                `  🚫 logWorksheetAttempt rejected: ${na.reason} (transcript not treated as answer attempt)`,
-              );
-              logWorksheetWireResult = {
-                ...base,
-                logged: false,
-                rejected: true,
-                reason: na.reason,
-              };
-            } else {
-              logWorksheetWireResult = {
-                ...base,
-                effectiveChildSaid,
-              };
-              logWorksheetAccepted = {
-                ok: args.correct === true,
-                effectiveChildSaid,
-                wp,
-              };
-            }
-          }
-        }
-      }
+      console.log(
+        "  ℹ️  logWorksheetAttempt retired — use sessionLog / submitAnswer (Option C)",
+      );
+      logWorksheetWireResult = {
+        ...base,
+        logged: false,
+        rejected: true,
+        reason: "option_c_use_submitAnswer",
+      };
     }
 
     const wireToolResult = logWorksheetWireResult ?? result;
@@ -3667,18 +3044,13 @@ export class SessionManager {
         return;
       }
       this.transitionedToWork = true;
-      if (
-        this.worksheetMode &&
-        this.worksheetProblems.length > 0 &&
-        !this.worksheetSession
-      ) {
-        this.pendingWorksheetStart = true;
-      }
     }
 
     if (tool === "startWordBuilder") {
       this.pendingGameStart = null;
-      const word = String(args.word ?? "").toLowerCase().trim();
+      const word = String(args.word ?? "")
+        .toLowerCase()
+        .trim();
       if (word.length < 4) {
         console.warn("  ⚠️  startWordBuilder: word must be at least 4 letters");
         return;
@@ -3727,7 +3099,9 @@ export class SessionManager {
 
     if (tool === "startSpellCheck") {
       this.pendingGameStart = null;
-      const word = String(args.word ?? "").toLowerCase().trim();
+      const word = String(args.word ?? "")
+        .toLowerCase()
+        .trim();
       if (word.length < 2) {
         console.warn("  ⚠️  startSpellCheck: word must be at least 2 letters");
         return;
@@ -3764,10 +3138,12 @@ export class SessionManager {
     }
 
     if (tool === "launchGame") {
-      const gameName = launchGameCanonicalName ?? String(args.name ?? "")
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, "-");
+      const gameName =
+        launchGameCanonicalName ??
+        String(args.name ?? "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "-");
       const gt = args.type as "tool" | "reward";
       const worksheetResumeSnapshot =
         gt === "tool" && this.activeCanvasActivity.mode === "worksheet"
@@ -3782,7 +3158,7 @@ export class SessionManager {
       const gameEntry = launchGameResolvedEntry;
       if (!gameEntry) {
         console.error(
-          "  ❌ launchGame: invariant — missing resolved entry after validate"
+          "  ❌ launchGame: invariant — missing resolved entry after validate",
         );
         return;
       }
@@ -3796,45 +3172,16 @@ export class SessionManager {
       if (gt === "reward") {
         canvasDraw.rewardGameConfig = { ...gameEntry.defaultConfig };
         this.spaceInvadersRewardActive = true;
-        this.pendingInstructionalGameCompletion = null;
-      } else {
-        this.pendingInstructionalGameCompletion = {
-          gameName,
-        };
       }
       const revisedCanvasDraw = this.withCanvasRevision(canvasDraw);
       this.send("canvas_draw", revisedCanvasDraw);
 
       const launchConfig = { ...gameEntry.defaultConfig };
 
-      // For store-game: override itemPool with amounts from the current worksheet
-      // so the child practices with the exact values they just worked through.
       if (gameName === "store-game") {
-        const domain = detectWorksheetDomainForGamePool(this.worksheetSubjectLabel);
-        const allAmounts: number[] = [];
-        for (const prob of this.worksheetProblems) {
-          if (prob.kind === "compare_amounts") {
-            allAmounts.push(prob.leftAmountCents, prob.rightAmountCents);
-          } else if (prob.kind === "money_count") {
-            if (prob.itemPriceCents > 0) allAmounts.push(prob.itemPriceCents);
-            if (prob.totalSpentCents > 0) allAmounts.push(prob.totalSpentCents);
-          }
-        }
-        const worksheetPool = buildSanitizedGamePool({
-          domain,
-          amounts: allAmounts,
-        });
-        if (worksheetPool.length > 0) {
-          launchConfig.itemPool = worksheetPool;
-          console.log(
-            `  🎮 [store-game] sanitized worksheet itemPool: ` +
-            worksheetPool.map((i) => `${i.emoji} ${i.name} ${i.price}¢`).join(", "),
-          );
-        } else {
-          console.log(
-            `  🎮 [store-game] no trusted worksheet amounts — using built-in item pool`,
-          );
-        }
+        console.log(
+          `  🎮 [store-game] using built-in item pool from game config (no worksheet-derived amounts)`,
+        );
       }
 
       this.pendingGameStart = {
@@ -3874,7 +3221,9 @@ export class SessionManager {
       this.setActiveCanvasActivity("reward-game", {
         resumable: worksheetResumeSnapshot != null,
         reason:
-          worksheetResumeSnapshot != null ? "worksheet_instructional_game" : undefined,
+          worksheetResumeSnapshot != null
+            ? "worksheet_instructional_game"
+            : undefined,
         snapshot: worksheetResumeSnapshot,
       });
       return;
@@ -3889,10 +3238,20 @@ export class SessionManager {
         canvasRendered?: boolean;
         problemId?: string;
       };
-      if (res?.ok && res?.canvasRendered && res.problemId && this.assignmentManifest && this.worksheetPlayerState) {
+      if (
+        res?.ok &&
+        res?.canvasRendered &&
+        res.problemId &&
+        this.assignmentManifest &&
+        this.worksheetPlayerState
+      ) {
         const problemId = res.problemId;
-        const problem = this.worksheetProblems.find((p) => String(p.id) === problemId);
-        const idx = this.worksheetProblems.findIndex((p) => String(p.id) === problemId);
+        const problem = this.worksheetProblems.find(
+          (p) => String(p.id) === problemId,
+        );
+        const idx = this.worksheetProblems.findIndex(
+          (p) => String(p.id) === problemId,
+        );
         if (idx >= 0) {
           this.worksheetProblemIndex = idx;
           if (this.ctx?.assignment) {
@@ -3903,24 +3262,30 @@ export class SessionManager {
           (entry) => entry.problemId === problemId,
         );
         if (problem && assignmentProblem) {
-          this.worksheetPlayerState = resumeAssignmentProblem(this.assignmentManifest, {
-            activeProblemId: problemId,
-            currentPage: this.worksheetPlayerState.currentPage ?? 1,
-            activeFieldId: this.worksheetPlayerState.activeFieldId,
-            interactionMode:
-              this.worksheetPlayerState.interactionMode ?? this.worksheetInteractionMode,
-          });
+          this.worksheetPlayerState = resumeAssignmentProblem(
+            this.assignmentManifest,
+            {
+              activeProblemId: problemId,
+              currentPage: this.worksheetPlayerState.currentPage ?? 1,
+              activeFieldId: this.worksheetPlayerState.activeFieldId,
+              interactionMode:
+                this.worksheetPlayerState.interactionMode ??
+                this.worksheetInteractionMode,
+            },
+          );
           const worksheetPdfDraw = this.withCanvasRevision({
             mode: "worksheet_pdf",
             content: problem.question,
             pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
             pdfPage: assignmentProblem.page,
             pdfPageWidth:
-              this.assignmentManifest.pages.find((pg) => pg.page === assignmentProblem.page)
-                ?.width ?? 1000,
+              this.assignmentManifest.pages.find(
+                (pg) => pg.page === assignmentProblem.page,
+              )?.width ?? 1000,
             pdfPageHeight:
-              this.assignmentManifest.pages.find((pg) => pg.page === assignmentProblem.page)
-                ?.height ?? 1400,
+              this.assignmentManifest.pages.find(
+                (pg) => pg.page === assignmentProblem.page,
+              )?.height ?? 1400,
             activeProblemId: this.worksheetPlayerState.activeProblemId,
             activeFieldId: this.worksheetPlayerState.activeFieldId,
             overlayFields: this.worksheetPlayerState.overlayFields,
@@ -3937,11 +3302,13 @@ export class SessionManager {
               pdfAssetUrl: this.assignmentManifest.pdfAssetUrl,
               pdfPage: assignmentProblem.page,
               pdfPageWidth:
-                this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
-                  ?.width ?? 1000,
+                this.assignmentManifest.pages.find(
+                  (page) => page.page === assignmentProblem.page,
+                )?.width ?? 1000,
               pdfPageHeight:
-                this.assignmentManifest.pages.find((page) => page.page === assignmentProblem.page)
-                  ?.height ?? 1400,
+                this.assignmentManifest.pages.find(
+                  (page) => page.page === assignmentProblem.page,
+                )?.height ?? 1400,
               activeProblemId: this.worksheetPlayerState.activeProblemId,
               activeFieldId: this.worksheetPlayerState.activeFieldId,
               overlayFields: this.worksheetPlayerState.overlayFields,
@@ -3954,16 +3321,18 @@ export class SessionManager {
             this.broadcastContext();
           }
           this.send("canvas_draw", worksheetPdfDraw);
-          console.log(`  🖼️  [worksheet] Canvas rendered for problem ${problemId} (Option C)`);
+          console.log(
+            `  🖼️  [worksheet] Canvas rendered for problem ${problemId} (Option C)`,
+          );
         }
-      }
-      if (res?.ok) {
-        this.worksheetReadyForAnswers = true;
       }
       return;
     }
 
-    if (tool === "submitAnswer" || (tool === "sessionLog" && this.worksheetSession)) {
+    if (
+      tool === "submitAnswer" ||
+      (tool === "sessionLog" && this.worksheetSession)
+    ) {
       if (tool === "sessionLog" && this.worksheetSession) {
         const wp = this.worksheetProblems[this.worksheetProblemIndex];
         if (wp) {
@@ -3982,7 +3351,9 @@ export class SessionManager {
       };
       if (res?.ok) {
         const problemId = String(args.problemId ?? "");
-        const idx = this.worksheetProblems.findIndex((p) => String(p.id) === problemId);
+        const idx = this.worksheetProblems.findIndex(
+          (p) => String(p.id) === problemId,
+        );
         const correct = args.correct === true;
         if (idx >= 0) {
           this.worksheetProblemIndex = idx;
@@ -3991,10 +3362,6 @@ export class SessionManager {
           }
           this.processReward({ correct });
           this.recordWorksheetAttempt(String(args.childSaid ?? ""), correct);
-          this.rememberWorksheetSubmission(problemId, String(args.childSaid ?? ""));
-          if (correct) {
-            this.rememberWorksheetAcceptedTranscript(String(args.childSaid ?? ""));
-          }
           if (shouldPersistSessionData()) {
             void appendWorksheetAttemptLine({
               childName: this.childName,
@@ -4043,7 +3410,8 @@ export class SessionManager {
       this.processReward(args);
 
       // Update active word context pin for history injection
-      const loggedWordKey = (args.word as string | undefined)?.toLowerCase().trim() ?? "";
+      const loggedWordKey =
+        (args.word as string | undefined)?.toLowerCase().trim() ?? "";
       if (loggedWordKey) {
         const count = (this.wordAttemptCounts.get(loggedWordKey) ?? 0) + 1;
         this.wordAttemptCounts.set(loggedWordKey, count);
@@ -4059,11 +3427,13 @@ export class SessionManager {
 
       // Validate Elli's logAttempt references the active word on canvas
       if (this.companion.tracksActiveWord && this.activeWord) {
-        const loggedWord = (args.word as string | undefined)?.toLowerCase().trim();
+        const loggedWord = (args.word as string | undefined)
+          ?.toLowerCase()
+          .trim();
         const active = this.activeWord.toLowerCase().trim();
         if (loggedWord && loggedWord !== active) {
           console.warn(
-            `  ⚠️  activeWord mismatch: canvas="${active}" logAttempt.word="${loggedWord}"`
+            `  ⚠️  activeWord mismatch: canvas="${active}" logAttempt.word="${loggedWord}"`,
           );
         }
       }
@@ -4095,7 +3465,7 @@ export class SessionManager {
           this.gameBridge.launchByName(
             "space-invaders",
             "reward",
-            this.childName
+            this.childName,
           );
           this.currentCanvasState = {
             mode: "space-invaders",
@@ -4124,74 +3494,30 @@ export class SessionManager {
       }
     }
 
-    if (tool === "logWorksheetAttempt") {
-      if (!logWorksheetAccepted) {
-        this.lastWorksheetTurnOutcome = "blocked_stale";
-        return;
-      }
-      const { ok, effectiveChildSaid, wp } = logWorksheetAccepted;
-      console.log(
-        `  🎮 [worksheet] model graded — ${ok ? "correct" : "incorrect"} (childSaid: "${effectiveChildSaid}")`,
-      );
-      this.lastWorksheetTurnOutcome = ok
-        ? "accepted_correct"
-        : "accepted_incorrect";
-      this.worksheetTurnsWithoutAttempt = 0;
-      this.processReward({ correct: ok });
-      this.recordWorksheetAttempt(effectiveChildSaid, ok);
-      this.rememberWorksheetSubmission(String(wp.id), effectiveChildSaid);
-      if (ok) {
-        this.rememberWorksheetAcceptedTranscript(effectiveChildSaid);
-      }
-      if (shouldPersistSessionData()) {
-        void appendWorksheetAttemptLine({
-          childName: this.childName,
-          problemId: String(wp.id),
-          correct: ok,
-        }).catch((e) =>
-          console.warn(
-            "  ⚠️  appendWorksheetAttemptLine failed:",
-            e instanceof Error ? e.message : String(e),
-          ),
-        );
-      }
-      this.pendingWorksheetLog = { ok };
-    }
-
     if (tool === "requestPauseForCheckIn") {
       void this.pauseActiveCanvasForCheckIn(
-        String(args.reason ?? "checkin_request")
+        String(args.reason ?? "checkin_request"),
       ).catch(console.error);
       return;
     }
 
     if (tool === "requestResumeActivity") {
       if (args.childConfirmedReady === true) {
-        void (async () => {
-          // First try the formal resume path (only works if explicitly paused)
-          const resumed = await this.resumeActiveCanvasActivity(false).catch(() => false);
-          if (
-            !resumed &&
-            this.worksheetMode &&
-            this.worksheetProblems[this.worksheetProblemIndex] &&
-            !this.worksheetSession
-          ) {
-            // Activity was never formally paused (e.g. session interrupted by overload before
-            // the first problem was ever presented) — present the current problem directly.
-            console.log("  🔄 [worksheet] requestResumeActivity fallback — presenting current problem");
-            this.worksheetAdvancing = true;
-            await this.presentCurrentWorksheetProblem().catch(console.error);
-            this.worksheetAdvancing = false;
-          }
-        })().catch(console.error);
+        void this.resumeActiveCanvasActivity(false).catch(console.error);
       }
       return;
     }
 
     if (tool === "mathProblem" && args.childAnswer != null) {
       try {
-        const raw = unwrapToolResult(result) as Record<string, unknown> | string | undefined;
-        const output = typeof raw === "string" ? raw : (raw?.output as string | undefined) ?? raw;
+        const raw = unwrapToolResult(result) as
+          | Record<string, unknown>
+          | string
+          | undefined;
+        const output =
+          typeof raw === "string"
+            ? raw
+            : ((raw?.output as string | undefined) ?? raw);
         const parsed = typeof output === "string" ? JSON.parse(output) : output;
         const correct = (parsed as Record<string, unknown>)?.correct === true;
         this.processReward({ correct });
@@ -4201,8 +3527,9 @@ export class SessionManager {
     }
 
     if (tool === "canvasShow") {
+      args = this.normalizeCanvasShowArgs(args);
       const ct = String(args.type ?? "");
-      if (ct === "text" || ct === "svg") {
+      if (ct === "text" || ct === "svg" || ct === "svg_raw") {
         this.pendingGameStart = null;
         this.currentCanvasState = {
           mode: "teaching",
@@ -4224,6 +3551,201 @@ export class SessionManager {
         }
         this.clearActiveCanvasActivity();
         console.log(`  🖼️  [canvas] canvasShow type=${ct}`);
+      } else if (ct === "place_value") {
+        this.pendingGameStart = null;
+        const placeValueData: Record<string, unknown> = {
+          operandA: Number(args.operandA),
+          operandB: Number(args.operandB),
+          operation: args.operation,
+          layout: args.layout ?? "column",
+        };
+        if (args.activeColumn != null) {
+          placeValueData.activeColumn = args.activeColumn;
+        }
+        if (args.scaffoldLevel != null) {
+          placeValueData.scaffoldLevel = args.scaffoldLevel;
+        }
+        if (args.revealedColumns != null) {
+          placeValueData.revealedColumns = args.revealedColumns;
+        }
+        this.currentCanvasState = {
+          mode: "place_value",
+          placeValueData,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "place_value" as CanvasState["mode"],
+            content: undefined,
+            svg: undefined,
+            label: undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(
+          `  🖼️  [canvas] canvasShow type=place_value a=${placeValueData.operandA} b=${placeValueData.operandB}`,
+        );
+      } else if (ct === "spelling") {
+        this.pendingGameStart = null;
+        const spellingWord = String(args.spellingWord ?? "");
+        const nextState: Record<string, unknown> = {
+          mode: "spelling",
+          spellingWord,
+        };
+        if (args.spellingRevealed != null) {
+          nextState.spellingRevealed = Array.isArray(args.spellingRevealed)
+            ? [...(args.spellingRevealed as string[])]
+            : args.spellingRevealed;
+        }
+        if (args.compoundBreak != null) {
+          nextState.compoundBreak = args.compoundBreak;
+        }
+        if (args.showWord != null) {
+          nextState.showWord = args.showWord;
+        }
+        if (args.streakCount != null) {
+          nextState.streakCount = args.streakCount;
+        }
+        if (args.personalBest != null) {
+          nextState.personalBest = args.personalBest;
+        }
+        this.currentCanvasState = nextState;
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "spelling" as CanvasState["mode"],
+            content: spellingWord || undefined,
+            svg: undefined,
+            label: undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(
+          `  🖼️  [canvas] canvasShow type=spelling word=${spellingWord || "(empty)"}`,
+        );
+      } else if (ct === "riddle") {
+        this.pendingGameStart = null;
+        this.currentCanvasState = {
+          mode: "riddle",
+          content: args.text as string | undefined,
+          label: (args.label as string | undefined) ?? "Riddle",
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "riddle" as CanvasState["mode"],
+            content: args.text as string | undefined,
+            label: (args.label as string | undefined) ?? "Riddle",
+            svg: undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=riddle`);
+      } else if (ct === "math_inline") {
+        this.pendingGameStart = null;
+        this.currentCanvasState = {
+          mode: "teaching",
+          content: args.expression as string | undefined,
+          label: args.label as string | undefined,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "teaching",
+            content: args.expression as string | undefined,
+            label: args.label as string | undefined,
+            svg: undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=math_inline`);
+      } else if (ct === "reward") {
+        this.pendingGameStart = null;
+        this.currentCanvasState = {
+          mode: "reward",
+          content: "",
+          label: args.label as string | undefined,
+          svg: args.svg as string | undefined,
+          lottieData: args.lottieData as Record<string, unknown> | undefined,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "reward" as CanvasState["mode"],
+            content: "",
+            label: args.label as string | undefined,
+            svg: args.svg as string | undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=reward`);
+      } else if (ct === "championship") {
+        this.pendingGameStart = null;
+        this.currentCanvasState = {
+          mode: "championship",
+          content: (args.content as string | undefined) ?? "",
+          label: args.label as string | undefined,
+          svg: args.svg as string | undefined,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "championship" as CanvasState["mode"],
+            content: (args.content as string | undefined) ?? "",
+            label: args.label as string | undefined,
+            svg: args.svg as string | undefined,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=championship`);
+      } else if (ct === "game") {
+        this.pendingGameStart = null;
+        const rawName = String(args.name ?? "").trim();
+        const entry = getTool(rawName);
+        if (entry) {
+          this.currentCanvasState = {
+            mode: rawName,
+            gameUrl: entry.url,
+            gameWord: args.gameWord,
+            gamePlayerName: args.gamePlayerName,
+          };
+          if (this.ctx) {
+            this.ctx.updateCanvas({
+              mode: rawName as CanvasState["mode"],
+              content: undefined,
+              svg: undefined,
+              label: undefined,
+              sceneDescription: undefined,
+              problemAnswer: undefined,
+              problemHint: undefined,
+            });
+            this.broadcastContext();
+          }
+          this.clearActiveCanvasActivity();
+          console.log(`  🖼️  [canvas] canvasShow type=game name=${rawName}`);
+        } else {
+          console.warn(
+            `  ⚠️  canvasShow game: unknown teaching tool "${rawName}"`,
+          );
+        }
       }
     }
 
@@ -4252,7 +3774,9 @@ export class SessionManager {
         });
       }
       this.clearActiveCanvasActivity();
-      console.log(`  🖼️  [canvas] mode=${args.mode}, content=${args.content ?? "(none)"}`);
+      console.log(
+        `  🖼️  [canvas] mode=${args.mode}, content=${args.content ?? "(none)"}`,
+      );
 
       // ── Reina: server-canonical problem announcement ──────────────────────
       // When a math teaching canvas fires, convert the problem to speech and
@@ -4274,13 +3798,17 @@ export class SessionManager {
         if (word) console.log(`  📝 Active word set: "${word}"`);
 
         // Validate phonemeBoxes — empty value strings leave blank tiles on screen
-        const boxes = args.phonemeBoxes as Array<{ position: string; value: string; highlighted: boolean }> | undefined;
+        const boxes = args.phonemeBoxes as
+          | Array<{ position: string; value: string; highlighted: boolean }>
+          | undefined;
         if (boxes) {
-          const emptyBoxes = boxes.filter((b) => b.value === "" || b.value == null);
+          const emptyBoxes = boxes.filter(
+            (b) => b.value === "" || b.value == null,
+          );
           if (emptyBoxes.length > 0) {
             const positions = emptyBoxes.map((b) => b.position).join(", ");
             console.warn(
-              `  ⚠️  phonemeBoxes with empty value for word "${word ?? "?"}": [${positions}] — boxes will appear blank on screen`
+              `  ⚠️  phonemeBoxes with empty value for word "${word ?? "?"}": [${positions}] — boxes will appear blank on screen`,
             );
           }
         }
@@ -4314,9 +3842,12 @@ export class SessionManager {
 
   private evaluateSpelling(
     transcript: string,
-    targetWord: string
+    targetWord: string,
   ): { correct: boolean; note: string } {
-    const raw = transcript.toLowerCase().replace(/[^a-z]/g, "").trim();
+    const raw = transcript
+      .toLowerCase()
+      .replace(/[^a-z]/g, "")
+      .trim();
     const target = targetWord.toLowerCase().trim();
     if (raw === target) return { correct: true, note: "exact match" };
     const dist = this.levenshtein(raw, target);
@@ -4328,7 +3859,7 @@ export class SessionManager {
     const m = a.length;
     const n = b.length;
     const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
-      Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+      Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
     );
     for (let i = 1; i <= m; i++) {
       for (let j = 1; j <= n; j++) {

@@ -106,6 +106,15 @@ export function handleWsConnection(
         break;
       }
 
+      case "tool_call": {
+        if (!session) return;
+        const m = msg as Record<string, unknown>;
+        const tool = String(m.tool ?? "");
+        const args = (m.args ?? {}) as Record<string, unknown>;
+        session.applyClientToolCall(tool, args);
+        break;
+      }
+
       default:
         ws.send(
           JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })

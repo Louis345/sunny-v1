@@ -1,0 +1,177 @@
+{
+  "subject": "Counting Money",
+  "problems": [
+    {
+      "id": 1,
+      "question": "How much money is in the first box?",
+      "instructions": [],
+      "answer": "37 cents",
+      "hint": "Count each coin carefully—dimes are worth 10 cents, nickels are 5 cents, and pennies are 1 cent.",
+      "canvas_display": "Seven coins scattered on a table: a dime, a penny, another dime, a nickel, another nickel, another penny, and a third nickel.",
+      "page": 1,
+      "promptVisible": "Count the coins in the first box and write the total amount",
+      "promptSpoken": "How much money is in the first box?",
+      "linkedGames": [
+        "coin-counter",
+        "store-game"
+      ],
+      "confidence": 0.95,
+      "structured": {
+        "page": 1,
+        "promptVisible": "Count the coins in the first box and write the total amount",
+        "promptSpoken": "How much money is in the first box?",
+        "problemType": "money_count",
+        "answerKind": "numeric",
+        "canonicalAnswer": "37",
+        "visibleFacts": {
+          "kind": "money_count",
+          "itemLabel": "coins in first box",
+          "itemPriceCents": 0,
+          "totalSpentCents": 37
+        },
+        "evidence": [
+          "first box contains 2 dimes (20¢), 3 nickels (15¢), and 2 pennies (2¢)"
+        ],
+        "confidence": 0.95,
+        "linkedGames": [
+          "coin-counter",
+          "store-game"
+        ],
+        "overlayTargets": []
+      }
+    },
+    {
+      "id": 2,
+      "question": "How much money is in the second box?",
+      "instructions": [],
+      "answer": "70 cents",
+      "hint": "Quarters are worth 25 cents each and dimes are worth 10 cents each.",
+      "canvas_display": "Four coins on a table: two quarters and two dimes.",
+      "page": 1,
+      "promptVisible": "Count the coins in the second box and write the total amount",
+      "promptSpoken": "How much money is in the second box?",
+      "linkedGames": [
+        "coin-counter",
+        "store-game"
+      ],
+      "confidence": 0.98,
+      "structured": {
+        "page": 1,
+        "promptVisible": "Count the coins in the second box and write the total amount",
+        "promptSpoken": "How much money is in the second box?",
+        "problemType": "money_count",
+        "answerKind": "numeric",
+        "canonicalAnswer": "70",
+        "visibleFacts": {
+          "kind": "money_count",
+          "itemLabel": "coins in second box",
+          "itemPriceCents": 0,
+          "totalSpentCents": 70
+        },
+        "evidence": [
+          "second box contains 2 quarters (50¢) and 2 dimes (20¢)"
+        ],
+        "confidence": 0.98,
+        "linkedGames": [
+          "coin-counter",
+          "store-game"
+        ],
+        "overlayTargets": []
+      }
+    },
+    {
+      "id": 3,
+      "question": "How much money is in the third box?",
+      "instructions": [],
+      "answer": "41 cents",
+      "hint": "Start with the quarter, then add the dime, nickel, and penny.",
+      "canvas_display": "Four coins on a table: a penny, a nickel, a dime, and a quarter.",
+      "page": 1,
+      "promptVisible": "Count the coins in the third box and write the total amount",
+      "promptSpoken": "How much money is in the third box?",
+      "linkedGames": [
+        "coin-counter",
+        "store-game"
+      ],
+      "confidence": 0.98,
+      "structured": {
+        "page": 1,
+        "promptVisible": "Count the coins in the third box and write the total amount",
+        "promptSpoken": "How much money is in the third box?",
+        "problemType": "money_count",
+        "answerKind": "numeric",
+        "canonicalAnswer": "41",
+        "visibleFacts": {
+          "kind": "money_count",
+          "itemLabel": "coins in third box",
+          "itemPriceCents": 0,
+          "totalSpentCents": 41
+        },
+        "evidence": [
+          "third box contains 1 quarter (25¢), 1 dime (10¢), 1 nickel (5¢), and 1 penny (1¢)"
+        ],
+        "confidence": 0.98,
+        "linkedGames": [
+          "coin-counter",
+          "store-game"
+        ],
+        "overlayTargets": []
+      }
+    },
+    {
+      "id": 4,
+      "question": "How much money is in the fourth box?",
+      "instructions": [],
+      "answer": "36 cents",
+      "hint": "Count the quarter first, then the two nickels, and finally the penny.",
+      "canvas_display": "Four coins on a table: a penny, a quarter, and two nickels.",
+      "page": 1,
+      "promptVisible": "Count the coins in the fourth box and write the total amount",
+      "promptSpoken": "How much money is in the fourth box?",
+      "linkedGames": [
+        "coin-counter",
+        "store-game"
+      ],
+      "confidence": 0.98,
+      "structured": {
+        "page": 1,
+        "promptVisible": "Count the coins in the fourth box and write the total amount",
+        "promptSpoken": "How much money is in the fourth box?",
+        "problemType": "money_count",
+        "answerKind": "numeric",
+        "canonicalAnswer": "36",
+        "visibleFacts": {
+          "kind": "money_count",
+          "itemLabel": "coins in fourth box",
+          "itemPriceCents": 0,
+          "totalSpentCents": 36
+        },
+        "evidence": [
+          "fourth box contains 1 quarter (25¢), 2 nickels (10¢), and 1 penny (1¢)"
+        ],
+        "confidence": 0.98,
+        "linkedGames": [
+          "coin-counter",
+          "store-game"
+        ],
+        "overlayTargets": []
+      }
+    }
+  ],
+  "session_directives": {
+    "problems_today": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "teaching_order": [
+      3,
+      4,
+      1,
+      2
+    ],
+    "reward_after": 4,
+    "interaction_mode": "review"
+  }
+}

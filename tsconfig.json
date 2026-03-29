@@ -26,6 +26,7 @@
     "src/tests/test-svg-strip.ts",
     "src/tests/test-canvas-description-sanitizer.ts",
     "src/tests/test-worksheet-stale-answer.ts",
+    "src/tests/test-role-separation.ts",
     "vitest.config.ts"
   ]
 }
