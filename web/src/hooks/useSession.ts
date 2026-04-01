@@ -575,9 +575,9 @@ export function useSession() {
           const next = state ?? s.sessionState;
           // Canvas is NOT cleared here. IDLE means "waiting for the child's
           // next input" — the math problem or word must remain visible so the
-          // child can look at it and answer. Canvas only resets when the server
-          // sends an explicit canvas_draw:idle message (session start, barge-in,
-          // or intentional clear).
+          // child can look at it and answer. Canvas resets when the server sends
+          // canvas_draw:idle (session start, barge-in for ephemeral modes only,
+          // or intentional clear). Worksheet / games stay up on barge-in.
           // LOADING = new assistant turn — reset bubble so response_text chunks
           // replace the prior line (never append server-driven lines onto old text).
           const companionText = next === "LOADING" ? "" : s.companionText;

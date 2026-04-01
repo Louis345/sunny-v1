@@ -318,8 +318,16 @@ Subject on file: ${subject || "general homework"}.
 Child profile on file: ${childName}.`.trim();
 }
 
-export function PSYCHOLOGIST_CONTEXT(context: string, attempts: string, curriculum: string): string {
+export function PSYCHOLOGIST_CONTEXT(
+  childName: "Ila" | "Reina",
+  context: string,
+  attempts: string,
+  curriculum: string,
+): string {
   return `
+## SESSION SUBJECT (AUTHORITATIVE)
+You are writing for **${childName}** only. Session notes or attempt logs below may mention another child due to copy-paste or file mix-ups — **ignore other names** and do not ask which child this is. Ground every conclusion in ${childName}'s evaluation profile (system prompt), tool results for ${childName}, and the evidence blocks below.
+
 ## Background — Clinical Notes
 ${context}
 

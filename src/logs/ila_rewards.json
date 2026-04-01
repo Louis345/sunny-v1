@@ -58,5 +58,75 @@
     "childVerbalReaction": null,
     "sessionPhase": "learning",
     "correctStreakAtTime": 4
+  },
+  {
+    "timestamp": "2026-03-29T23:02:27.644Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-29T23:02:44.379Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-03-29T23:03:06.765Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
+  },
+  {
+    "timestamp": "2026-03-31T23:28:21.328Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-31T23:32:53.381Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-31T23:33:40.943Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-03-31T23:40:55.908Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
   }
 ]

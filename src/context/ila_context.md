@@ -1411,3 +1411,131 @@ District requesting parental consent for:
 - Address working memory and executive functioning challenges
 - Build self-monitoring strategies for comprehension and accuracy
 - Manage ADHD impact on learning; address anxiety about performance
+
+## Session — 3/29/2026, 7:07:50 PM
+I need to pause and write a SOAP note based on this session transcript.
+
+---
+
+## SOAP NOTE
+
+**Student:** Ila (8y3m, 2nd grade)  
+**Date:** [Session Date]  
+**Duration:** ~15 minutes (coins + games + word work initiation)  
+**Clinician:** [Your name]
+
+---
+
+### **S — Subjective**
+
+Ila arrived cooperative and willing. Reported day going well. Expressed interest in continuing reward games beyond agreed-upon limit ("Can we play the game one more time?" and "Can I play one more game? I like it. I'm gonna kinda compete right now."). Asked meta-questions about game scores and inquired whether Sunny/Elli knows about her school and Space Invaders.
+
+---
+
+### **O — Objective**
+
+**Coin Counting Task (Math/Language Integration)**
+- Problem 1: Identified quarter + 3 pennies correctly. Stated answer "twenty eight" without prompting. Accurate.
+- Problem 2: Identified coins as "twenty five cents and twenty five cents and ten cents and ten cents" (2 quarters, 2 dimes). Demonstrated multi-step mental math: stated "twenty five plus twenty five, it cost fifty" and "ten plus ten equals twenty," then self-initiated final step ("then we just have to do fifty plus [paused]"). Required minimal prompt to complete ("50 + 20 = ?"). Final answer: 70 cents. Accurate.
+- Math performance: Average to above average. No decoding or reading required.
+- Self-correction: When clinician acknowledged task completion prematurely, Ila stated "I didn't even answer it" — accurate self-monitoring; she had not yet stated the final sum aloud.
+
+**Impulse Control & Task Boundaries**
+- Requested continuation of reward games beyond predetermined limit (3 rounds completed; requested 4th).
+- Interrupted transition to spelling task ("Can I play one more game?").
+- Accepted boundary-setting when stated ("Alright, one more round and then it's word time").
+- Responded to transition signal with topic shift attempt: asked Sunny about school/Space Invaders knowledge rather than engaging with compound word task.
+
+**Language Observations**
+- Sentence length: Maintained 4–8 word utterances throughout.
+- Word retrieval: Demonstrated one brief pause ("um") when asking Sunny a question.
+- Articulation: Clear, intelligible speech throughout.
+- Following directions: Complied with one-step directional prompts ("Left" during game; task transitions).
+
+**Compound Word Introduction (
+
+## Psychologist Report — 3/29/2026, 7:08:45 PM
+Now I'll analyze the data from querySessions and the flagGap results, cross-reference with the raw attempt log, and write my final report:
+
+---
+
+## Curriculum Status
+
+**Coin counting with multi-digit mental math — 1 session, 100% accuracy** → **MAINTAIN/MONITOR**
+
+Session 3/29 shows Ila solved two multi-step coin-counting problems with 100% accuracy: (1) quarter + 3 pennies = 28 cents (immediate); (2) 2 quarters + 2 dimes = 70 cents (self-initiated decomposition: 25+25=50, 10+10=20, then 50+20=70). She demonstrated strong mental math, self-monitoring ("I didn't even answer it"), and multi-step reasoning without external prompts. This aligns with WIAT-4 Numerical Operations at 68th percentile (her documented strength). **No language decoding required—this is pure computation.** Continue embedding coin work as confidence-building anchor activity, but this is not her area of need.
+
+**Compound word spelling (railroad, cowboy, honeycomb) — 4 sessions, 46% raw accuracy** → **CHANGE METHOD (consistent with 3/21 and 3/23 signals)**
+
+Raw attempt log shows: railroad 6/13 (46%), cowboy 2/6 (33%), honeycomb 2/3 (67%), bathroom 2/2 (100%), toothbrush 1/2 (50%). Pattern persists: phonetically regular compounds (bathroom) are mastered; irregular orthography (railroad "ai"+"oa", honeycomb silent B, cowboy /oi/) fails repeatedly. Natalie's 3/18 Zoom required explicit component breakdown and mnemonics. Session 3/21 confirmed she cannot spell from auditory input alone (omitted "a" in "rail"). **Dyslexia profile demands visual orthographic anchoring, not repeated auditory spelling drills.** Method change is overdue.
+
+**Consonant doubling + inflectional morphology (running, hopped, sitting) — 2 sessions, 100% Word Builder, 67% spelling from memory** → **ADVANCE with session length adjustment**
+
+Session 3/23: Word Builder rounds 1-4 completed for "running," "hopped," "sitting" with 100% accuracy. Spelling from memory: running ✓, hopped ✓, sitting and making incomplete due to fatigue. Raw log confirms: running 3/4 (75%), hopped 4/4 (100%), sitting 2/2 (100%), making 1/2 (50%). The pattern is clear—she masters the orthographic rule (consonant doubling before -ing/-ed) with visual scaffolding and transfers to memory encoding, **but ADHD-driven fatigue hits at 10-15 minutes.** This is not a skill gap; it's sustained attention collapse. Front-load morphology work or split into two 8-minute sessions daily.
+
+**CVC three-phoneme segmentation with mixed vowels — 5 sessions since 3/14, STILL no mixed-vowel data** → **HOLD (repeat 3/21 and 3/23 signals)**
+
+querySessions confirms: "sit" 100% (3/14), then hit/sad/bit/bad as isolated attempts with no errors. Raw log: hit 3/3, sad 1/1, bit 1/1, bad 1/1, sit 1/2 (50% but only 2 attempts). **Critical gap persists: zero documented alternating-vowel sequences within sessions.** Curriculum plan has called for "sit→sat→hit→hat→bit→bat" since 3/14 (15 days ago). This has not occurred. I cannot confirm true vowel discrimination vs. word-family pattern recognition without this data. **This probe must happen immediately before any further phoneme advancement.**
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Mixed-vowel discrimination in three-phoneme segmentation (URGENT—15 days overdue)** — Ila shows 100% on /i/ and /a/ words tested in isolation but has NEVER been probed on alternating vowels within the same session across 5 sessions since 3/14. Must probe NOW: "sit" → "sat" → "hit" → "hat" → "bit" → "bat" in rapid sequence to test true phonemic awareness vs. word-family pattern matching. This is the foundation for decoding transfer—without it, all other reading work is built on unconfirmed skill.
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, IEP-mandated)** — flagGap shows 18 "mentions" (up from 15 on 3/23), but querySessions review confirms these remain planning references in SOAP notes. Session 3/29 shows single-step compliance only ("left" during game, task transitions). Zero documented 2-step or 3-step sequences with modifiers. CELF-5: 2nd percentile, requires "wait until I say Go" prompting, fails with multi-step directions. **Must formally probe THIS WEEK:** (1) "Touch the big blue circle, then tap your head twice" (2-step + modifiers), (2) "Pick up the red pen, put it on the book, then clap your hands" (3-step). IEP progress monitoring cannot proceed without actual baseline performance data.
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, IEP-mandated)** — flagGap shows 16 "mentions" (up from 15), but querySessions confirms zero sentence repetition tasks across ALL sessions. All work remains discrete phoneme, word, or coin-counting level. CELF-5: 5th percentile with breakdown at longer sentence length. **Must probe THIS WEEK:** (1) "The dog ran fast" (4 words), (2) "The cat is sleeping on the chair" (7 words), (3) "When the boy went outside to play, he found a ball by the fence" (14 words with embedded clause). Essential IEP baseline is missing after 16 sessions.
+
+- **CRITICAL: Word Structure—morphological accuracy under demand (5th percentile)** — flagGap shows 14 "mentions" (up from 13), but querySessions shows limited oral production probes. Session 3/23 
+
+## Session — 3/31/2026, 7:41:19 PM
+**SOAP NOTE**
+
+**S (Subjective):**
+Student reported wanting to take a break during spelling practice. Requested to skip "question" from spelling list and focus on "forgotten" instead. Expressed interest in game-based learning (Word Builder, Space Frogger, Space Invaders).
+
+**O (Objective):**
+- Spelling task: "addition" — spelled correctly orally (A-D-D-I-T-I-O-N)
+- Spelling task: "forgotten" — initial attempt typed as "S-O-R-G-O-T-T-E-N"; after visual model and repeated attempts, eventually typed/spelled correctly as F-O-R-G-O-T-T-E-N
+- Completed Word Builder activity for "forgotten" (4/4 rounds)
+- Spelling "forgotten" from memory after Word Builder: F-O-R-G-O-T-T-E-N — 100% correct
+- Microphone interference occurred mid-session (repeated "you" and "stop"); switched to typing format
+- Multiple task redirections and negotiation regarding game breaks before returning to spelling
+
+**A (Assessment):**
+Ila demonstrated solid phonetic recall of both "addition" and "forgotten," with accurate spelling of double consonants (DD, TT) when given visual support and/or multisensory Word Builder practice. Initial attempts at "forgotten" showed letter sequencing errors (extra F-O at start, S substitution), but error pattern resolved with model and visual reference. Performance improved markedly after game-based reinforcement and break. Impulse control observed: negotiated for game play before completing memory task; required redirection to return to spelling work. No articulation errors noted.
+
+**P (Plan):**
+Continue using visual supports and Word Builder for morphologically complex words. Consider brief game breaks as effective motivational tool within session structure. Monitor for attention shifts and provide one-task-at-a-time redirection as needed per ADHD profile.
+
+## Psychologist Report — 3/31/2026, 7:42:07 PM
+Now I'll analyze the complete data set and write my final report:
+
+---
+
+## Curriculum Status
+
+**Consonant doubling + inflectional morphology (addition, forgotten, running, hopped) — 2 sessions, 100% accuracy with visual scaffolding** → **ADVANCE**
+
+Session 3/31 demonstrates mastery transfer: Ila spelled "addition" correctly on first oral attempt (A-D-D-I-T-I-O-N). For "forgotten," initial typed attempt showed sequencing errors (S-O-R-G-O-T-T-E-N), but after Word Builder visual scaffolding (4/4 rounds), she spelled from memory with 100% accuracy (F-O-R-G-O-T-T-E-N). Raw attempt log confirms consistent pattern: hopped 4/4 (100%), sitting 2/2 (100%), running 3/4 (75%). **She has internalized the consonant doubling rule** and transfers it to multisyllabic words (forgotten = 3 syllables, double T before -EN). This is orthographic pattern mastery, not rote memorization. Session 3/23 fatigue pattern did not repeat on 3/31—she completed both "addition" and "forgotten" despite negotiating for game breaks. Ready for more complex morphological patterns (-tion/-sion, -ful/-less).
+
+**CVC three-phoneme segmentation with mixed vowels — 5 sessions since 3/14, ZERO mixed-vowel discrimination data** → **HOLD (17-day overdue)**
+
+querySessions confirms persistent gap: "sit" 100% (3/14), hit/sad/bit/bad as isolated attempts. Raw log: hit 3/3, sad 1/1, bit 1/1, bad 1/1, sit 1/2. **For 17 days, curriculum plan has called for alternating vowel probes ("sit→sat→hit→hat→bit→bat"). This has NEVER occurred.** I cannot confirm true vowel discrimination vs. word-family pattern matching. All phoneme work remains vowel-siloed. This foundational skill must be tested before advancing to CCVC or blends—without it, decoding instruction is built on unverified assumptions.
+
+**Compound word spelling — 4 sessions, 46% accuracy, method unchanged** → **CHANGE METHOD OVERDUE**
+
+Raw log shows no improvement: railroad 6/13 (46%), cowboy 2/6 (33%), honeycomb 2/3 (67%). Phonetically regular compounds succeed (bathroom 2/2, sitting 2/2), but irregular orthography fails repeatedly. Natalie's 3/18 Zoom showed she needs visual component cards + mnemonics. Session 3/21 confirmed auditory spelling drills fail (omitted "a" in "rail"). **Dyslexia profile demands method change—this was signaled 3/21, confirmed 3/23, repeated 3/29. Instruction has not adapted.** Continued auditory drilling on railroad/cowboy without visual orthographic support is ineffective repetition, not skill-building.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Mixed-vowel discrimination in three-phoneme segmentation (17 DAYS OVERDUE—URGENT)** — Ila has 100% on /i/ and /a/ words in isolation but has NEVER been probed on alternating vowels within a single session across 5 sessions. Must probe IMMEDIATELY: "sit" → "sat" → "hit" → "hat" → "bit" → "bat" in rapid sequence. This is the diagnostic test for true phonemic awareness vs. word-family pattern recognition. Without this data, I cannot determine if she discriminates vowels independently or relies on contextual cues. **This is the foundation for all decoding work—do not advance to blends, CCVC, or long vowels until this baseline exists.**
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, IEP-mandated, NEVER FORMALLY PROBED)** — flagGap shows 19 "mentions" (increased from 18), but querySessions review confirms ALL are planning references in SOAP note "Plan" sections. Zero documented 2-step or 3-step sequences with modifiers have been executed in actual sessions. CELF-5: 2nd percentile, requires "wait until I say Go" prompting, documented failure with multi-step directions and multiple modifiers. **Must formally probe THIS WEEK:** (1) "Touch the big red circle, then tap your head twice" (2-step + size/color modifiers), (2) "Pick up the blue pen, put it on the book, then stand up and clap your hands" (3-step + modifier). IEP progress monitoring REQUIRES actual baseline performance data, not planning intentions.
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, IEP-mandated, NEVER TESTED)** — flagGap shows 17 "mentions" (increased from 16), but querySessions confirms zero sentence repetition tasks across ALL 17+ sessions. Every task is discrete phoneme-level (sit/sat), word-level (addition, forgotten), or coin-counting (non-linguistic math). CELF-5: 5th percentile auditory memory with documented breakdown at longer sentence length. **Must probe THIS WEEK:** (1) "The dog ran fast" (4 words), (2) "The cat is sleeping on the blue chair" (7 words + modifier), (3) "When the boy went outside to play after lunch, he found a red ball by the fence" (17 words, embedded clause, modifier). This is an essential IEP baseline missing after 17+ sessions.
+
+- **CRITICAL: Word Structure—morphological accuracy under oral demand (5th percentile, limited elicitation data)** — flagGap shows 15 "mentions" (increased from 14). Session 3/31 targeted -DD and -TT doubling via spelling, but CELF-5 documents oral production errors on irregular plurals, future tense, pronouns, and copula verbs. querySessions shows no formal oral elicitation probes ("One mouse, two ___"). **Must probe THIS WEEK:** (1) Irregular plurals: "One mouse, two ___" / "One child, three ___", (2) Future tense: "The cat will ___" (with verb card: eat

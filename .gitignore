@@ -15,6 +15,9 @@ CANVAS_CAPABILITIES.md
 # Session prompt cache (buildSessionPrompt, 24h TTL)
 .prompt-cache/
 
+# Runtime server audit logs (local only; may contain transcripts)
+logs/sessions/
+
 # Homework — runtime data, never committed (repo root only; not src/tests/fixtures/homework)
 /homework/
 

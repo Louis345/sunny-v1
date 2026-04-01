@@ -540,7 +540,7 @@ export async function runPsychologist(
   console.log("runPsychologist called with dryRun:", dryRun);
   const { context, curriculum, attempts } = loadChildFiles(childName);
 
-  const prompt = PSYCHOLOGIST_CONTEXT(context, attempts, curriculum);
+  const prompt = PSYCHOLOGIST_CONTEXT(childName, context, attempts, curriculum);
 
   const tools = { querySessions, flagGap };
   console.log("Tools registered:", Object.keys(tools));

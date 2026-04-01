@@ -144,6 +144,10 @@ export function clearEarnedReward(childName: string): void {
 
 type CanvasState = "idle" | "worksheet_pdf" | string;
 
+function normalizeChildSaidForCompare(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function createWorksheetSession(
   opts: WorksheetSessionOptions,
 ): WorksheetSession {
@@ -158,6 +162,7 @@ export function createWorksheetSession(
   let completedCount = 0;
   let sessionRewardEarned = false;
   const attempts: AttemptRecord[] = [];
+  const completedProblemIds = new Set<string>();
 
   function problemsRemaining(): number {
     return problems.length - completedCount;
@@ -234,14 +239,49 @@ export function createWorksheetSession(
     },
 
     submitAnswer(input: SubmitAnswerInput): SubmitAnswerResult {
+      /**
+       * After a correct answer, activeProblemId is cleared until canvasShow runs again.
+       * The model sometimes calls sessionLog before the next canvasShow; the host already
+       * points at the next problem via worksheetProblemIndex. Accept grading for
+       * problems[nextProblemIndex] when canvas still allows worksheet context.
+       */
       if (activeProblemId === null) {
-        return { ok: false, error: "no active problem" };
+        if (canvasState !== "idle" && canvasState !== "worksheet_pdf") {
+          return {
+            ok: false,
+            error: `cannot log worksheet answer while canvas shows ${canvasState}`,
+          };
+        }
+        const pending = problems[nextProblemIndex];
+        if (!pending || input.problemId !== pending.id) {
+          return { ok: false, error: "no active problem" };
+        }
+        const last = attempts.length > 0 ? attempts[attempts.length - 1] : null;
+        if (
+          last &&
+          last.problemId !== pending.id &&
+          input.correct === true &&
+          normalizeChildSaidForCompare(input.childSaid) ===
+            normalizeChildSaidForCompare(last.childSaid)
+        ) {
+          return {
+            ok: false,
+            logged: false,
+            error:
+              "childSaid matches prior problem's logged reply — use the child's words for this box or canvasShow first",
+          };
+        }
+        activeProblemId = pending.id;
       }
       if (input.problemId !== activeProblemId) {
         return {
           ok: false,
           error: `problemId mismatch: expected ${activeProblemId}, got ${input.problemId}`,
         };
+      }
+
+      if (input.correct === true && completedProblemIds.has(input.problemId)) {
+        return { ok: false, logged: false, error: "already completed" };
       }
 
       const rec: AttemptRecord = {
@@ -263,6 +303,15 @@ export function createWorksheetSession(
         };
       }
 
+      if (completedCount >= problems.length) {
+        return {
+          ok: false,
+          logged: false,
+          error: "worksheet already finished",
+        };
+      }
+
+      completedProblemIds.add(input.problemId);
       completedCount++;
       activeProblemId = null;
       nextProblemIndex++;

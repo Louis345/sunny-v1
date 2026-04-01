@@ -12,7 +12,6 @@ import "dotenv/config";
  *
  * Usage (manual):
  *   npm run drop
- *   npm run learn
  *
  * Usage (automatic):
  *   Called by session-manager.ts at the start of every session.

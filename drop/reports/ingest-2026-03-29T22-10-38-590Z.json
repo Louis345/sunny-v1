@@ -1,0 +1,47 @@
+{
+  "createdAt": "2026-03-29T22:10:38.590Z",
+  "totalFiles": 1,
+  "routedCount": 1,
+  "failedCount": 0,
+  "reports": [
+    {
+      "filename": "Screen Shot 2026-03-29 at 6.10.15 PM.png",
+      "sourcePath": "drop/reina/2026-03-29/Screen Shot 2026-03-29 at 6.10.15 PM.png",
+      "childName": "Reina",
+      "status": "routed",
+      "plannedSteps": [
+        "Read file",
+        "OCR/text extraction",
+        "AI classification",
+        "Server guardrail check",
+        "Preserve original asset",
+        "Route side effects",
+        "Move to processed"
+      ],
+      "detectedBy": "model",
+      "initialClassification": {
+        "type": "unknown",
+        "destination": "context",
+        "summary": "Could not classify document."
+      },
+      "finalClassification": {
+        "type": "math_homework",
+        "destination": "homework",
+        "summary": "Likely homework/worksheet content detected by server guardrail."
+      },
+      "guardrailPromoted": true,
+      "extractedText": true,
+      "preservedAsset": true,
+      "outputPaths": [
+        "homework/reina/2026-03-29/Screen Shot 2026-03-29 at 6.10.15 PM.png"
+      ],
+      "updatedFiles": [],
+      "processedPath": "drop/processed/Screen Shot 2026-03-29 at 6.10.15 PM.png",
+      "warnings": [],
+      "notes": [
+        "Server guardrail promoted context/unknown to homework/math_homework.",
+        "Preserved original routed asset in homework storage."
+      ]
+    }
+  ]
+}

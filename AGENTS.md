@@ -104,3 +104,24 @@ After every change:
 npm run build — must pass
 npm run test:[relevant] — must pass
 Never submit a failing build.
+
+### Law 8: Agent-Assisted PR Review (Solo Maintainer Safeguard)
+
+**Mechanical gate:** GitHub Actions workflow `.github/workflows/ci.yml` runs on PRs and pushes to `main`/`master`: root `npm run build`, `vitest run`, and `web` build. That enforces **Law 7** (and any behavior covered by tests). It does not interpret Laws 1–6 by itself.
+
+**Narrative flags:** `.github/workflows/claude-review.yml` posts a PR comment from Claude using a checklist aligned with these laws (requires `ANTHROPIC_API_KEY` secret).
+
+When the human cannot review every line closely, treat a **second agent pass** as part of the merge gate:
+
+1. After the implementing agent finishes, run a **readonly review** (another chat or Agent) with the **diff** and: *“Check this against AGENTS.md Laws 1–7: scope creep, missing tests, silent failures, unrelated files.”*
+2. **Block merge** if new behavior has **no test**, or the diff **exceeds the stated goal** (fix one bug, don’t refactor three modules).
+3. Prefer **revert** over **stacking** patches when a merge introduced regressions.
+
+This does not replace Law 6 — it catches what fatigue misses.
+
+---
+
+## Maintainability (Guidelines, Not Laws)
+
+- **Broad rules beat narrow branches:** Prefer one clear **product rule** (e.g. in prompts or a single invariant) over many special cases scattered in code — easier to reason about when you’re one person.
+- **Every guard in code should have a test** that would fail if the guard were removed.

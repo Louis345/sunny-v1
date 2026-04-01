@@ -41,6 +41,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     },
     "voiceEnabled": true
   },
+  "vault-cracker": {
+    "url": "/games/vault-cracker.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "word-builder": {
     "url": "/games/wordd-builder.html",
     "defaultConfig": {},
@@ -49,6 +54,14 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
 };
 
 export const REWARD_GAMES: Record<string, GameDefinition> = {
+  "space-frogger": {
+    "url": "/games/space-frogger.html",
+    "defaultConfig": {
+      "duration_seconds": 180,
+      "level": 1
+    },
+    "voiceEnabled": true
+  },
   "space-invaders": {
     "url": "/games/space-invaders.html",
     "defaultConfig": {

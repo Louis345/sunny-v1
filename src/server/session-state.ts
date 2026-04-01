@@ -206,15 +206,10 @@ export class TurnStateMachine {
     this.canonicalProblemText = text;
   }
 
+  /** Last write wins — newer child utterance replaces an older queued one mid-turn. */
   setPendingTranscript(t: string): void {
-    if (this.pendingTranscript !== null) {
-      // A barge-in already queued — concatenate rather than silently drop the first.
-      this.pendingTranscript = `${this.pendingTranscript} ${t}`;
-      this.onLog(`  📥 Pending transcript appended: "${t}" → "${this.pendingTranscript}"`);
-    } else {
-      this.pendingTranscript = t;
-      this.onLog(`  📥 Pending transcript saved: "${t}"`);
-    }
+    this.pendingTranscript = t;
+    this.onLog(`  📥 Pending transcript saved: "${t}"`);
   }
 
   /** Returns and clears pending transcript if one was queued mid-turn */

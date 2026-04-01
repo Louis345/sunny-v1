@@ -101,10 +101,26 @@ export function readHomeworkFolder(folderPath: string): HomeworkFile[] {
         });
       }
     }
-    // .pdf and other types — skip (PDFs become spelling-words.txt via classifier)
+    // .pdf — not in HomeworkFile[] (no base64 multimodal row); counted separately for load gate + /api/homework
   }
 
   return result;
+}
+
+/** PDFs in a date folder (files only). Used so PDF-only homework still loads. */
+export function countPdfFilesInFolder(folderPath: string): number {
+  if (!fs.existsSync(folderPath)) return 0;
+  let n = 0;
+  for (const name of fs.readdirSync(folderPath)) {
+    const full = path.join(folderPath, name);
+    try {
+      if (!fs.statSync(full).isFile()) continue;
+    } catch {
+      continue;
+    }
+    if (/\.pdf$/i.test(name)) n++;
+  }
+  return n;
 }
 
 export async function extractHomeworkContent(
@@ -191,13 +207,15 @@ export async function loadHomeworkPayload(
   const pageCount = files.filter(
     (f) => f.type === "image" || f.type === "text"
   ).length;
-  if (pageCount === 0) {
+  const pdfCount = countPdfFilesInFolder(folder);
+  const assetPages = pageCount + pdfCount;
+  if (assetPages === 0) {
     return null;
   }
 
   console.log(
     `  📂 Homework folder found for ${childName}: ` +
-      `${date} (${pageCount} pages)`
+      `${date} (${assetPages} pages)`,
   );
 
   const rawContent = await extractHomeworkContent(files);
@@ -206,7 +224,7 @@ export async function loadHomeworkPayload(
     childName,
     date,
     rawContent,
-    fileCount: pageCount,
+    fileCount: assetPages,
     hasNotes: files.some((f) => f.type === "notes"),
     folderPath: folder,
     assetFilenames: fs

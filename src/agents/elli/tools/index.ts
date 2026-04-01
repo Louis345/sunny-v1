@@ -8,8 +8,17 @@ export { mathProblem } from "./mathProblem";
 export { riddleTracker } from "./riddleTracker";
 export { showCanvas } from "./showCanvas";
 export { blackboard } from "./blackboard";
-export { startWordBuilder } from "./startWordBuilder";
+export {
+  createStartWordBuilderTool,
+  WB_ALREADY_ACTIVE,
+  WB_WORD_TOO_SHORT,
+} from "./startWordBuilder";
 export { launchGame } from "./launchGame";
-export { startSpellCheck } from "./startSpellCheck";
+export {
+  startSpellCheck,
+  createStartSpellCheckTool,
+  SC_ALREADY_ACTIVE,
+  SC_WORD_TOO_SHORT,
+} from "./startSpellCheck";
 export { requestPauseForCheckIn } from "./requestPauseForCheckIn";
 export { requestResumeActivity } from "./requestResumeActivity";

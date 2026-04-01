@@ -7,6 +7,24 @@ const GAME_MODES = new Set<string>([
   ...Object.keys(REWARD_GAMES),
 ]) as ReadonlySet<string>;
 
+/** Modes where barge-in must not send canvas_draw:idle — stable activity surface, not ephemeral assistant art. */
+const BARGE_IN_PRESERVE_CANVAS_MODES = new Set<string>([
+  "worksheet_pdf",
+  "word-builder",
+  "spell-check",
+  ...Object.keys(TEACHING_TOOLS),
+  ...Object.keys(REWARD_GAMES),
+]);
+
+/** True when the server should keep the current canvas after barge-in (skip idle reset). */
+export function canvasStatePersistsThroughBargeIn(
+  state: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!state) return false;
+  const mode = state.mode;
+  return typeof mode === "string" && BARGE_IN_PRESERVE_CANVAS_MODES.has(mode);
+}
+
 export type RenderableCanvasMode =
   | "idle"
   | "teaching"

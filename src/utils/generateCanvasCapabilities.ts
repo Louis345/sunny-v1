@@ -107,7 +107,17 @@ export function generateCanvasCapabilities(): string {
   lines.push("## Teaching Tools");
   for (const [name, def] of Object.entries(TEACHING_TOOLS)) {
     lines.push(`### ${name}`);
-    lines.push(`Launch: launchGame("${name}", "tool")`);
+    if (name === "word-builder") {
+      lines.push(
+        `Launch: **startWordBuilder** tool with \`{ word: "<homework word>" }\` — do **not** use launchGame for word-builder (it cannot pass a word).`,
+      );
+    } else if (name === "spell-check") {
+      lines.push(
+        `Launch: **startSpellCheck** tool with \`{ word: "<homework word>" }\` — do **not** use launchGame for spell-check.`,
+      );
+    } else {
+      lines.push(`Launch: launchGame("${name}", "tool")`);
+    }
     lines.push(`Voice enabled: ${def.voiceEnabled}`);
     lines.push(`Default config: ${JSON.stringify(def.defaultConfig)}`);
     lines.push("");

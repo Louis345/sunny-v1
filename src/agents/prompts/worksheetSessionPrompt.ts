@@ -54,7 +54,7 @@ export function buildWorksheetToolPrompt(opts: {
     `- **canvasShow** type **worksheet** + **problemId** — Show a worksheet problem on the canvas. Only when moving to that problem — do NOT call again to "refresh" the same problem. If the child can't see the sheet, it's a display issue; reassure them, don't spam this tool.`,
   );
   lines.push(
-    `- **sessionLog** — Log the child's answer. Call ONCE per answer attempt with correct + childSaid. Not for "okay" or "hold on." YOU grade using the worksheet image.`,
+    `- **sessionLog** — Log the child's answer. Call ONCE per answer attempt with correct + childSaid. Not for "okay" or "hold on." YOU grade using the worksheet image. childSaid must reflect what the child just said about this specific problem — not a prior answer. Agreement words are not answers.`,
   );
   lines.push(
     `- **launchGame** — Reward or teaching game on the canvas (type "reward" or "tool").`,
@@ -147,6 +147,10 @@ export function buildWorksheetToolPrompt(opts: {
   lines.push(``);
   lines.push(
     `If you are uncertain about what you see in the image, say so honestly. Ask the child to describe what they see. Do not guess.`,
+  );
+  lines.push(``);
+  lines.push(
+    `IRREVERSIBLE GRADING: sessionLog (especially correct: false) commits your verdict. Do not call it while you and ${childName} might still be looking at the problem differently — different items on the page, labels, or how a picture should be read. If their answer only makes sense under a different reading than yours, ask one short clarifying question and align first; then log. This applies to any visual homework, not only coins.`,
   );
   lines.push(``);
 
