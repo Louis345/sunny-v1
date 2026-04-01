@@ -570,12 +570,23 @@ export async function runPsychologist(
     console.log("\n--- Psychologist Report (dry run) ---\n");
     console.log(text);
     console.log("\n--- End Report ---\n");
-  } else {
-    await appendToContext(childName, "Psychologist Report", text);
-    await runTranslator(childName, text);
+    return;
   }
 
-  if (text.includes("ADVANCE") && !dryRun) {
+  // Guard: a valid psychologist report must include a Signal line.
+  // A missing Signal means the model stalled before completing its analysis.
+  if (!text.includes("## Signal")) {
+    console.error(
+      `  🔴 [runPsychologist] Report for ${childName} is missing "## Signal" section — model likely stalled. Skipping appendToContext.`,
+    );
+    console.error(`  🔴 Output snippet: "${text.slice(0, 300)}"`);
+    return;
+  }
+
+  await appendToContext(childName, "Psychologist Report", text);
+  await runTranslator(childName, text);
+
+  if (text.includes("ADVANCE")) {
     await curriculumPlanner(childName);
   }
 }
