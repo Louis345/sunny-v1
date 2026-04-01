@@ -506,8 +506,10 @@ export function useSession() {
           });
         }
 
-        // logAttempt / worksheet attempt streak tracking
+        // sessionLog (and legacy names) streak tracking
         if (
+          toolName === "sessionLog" ||
+          toolName === "session_log" ||
           toolName === "logAttempt" ||
           toolName === "log_attempt" ||
           toolName === "logWorksheetAttempt" ||

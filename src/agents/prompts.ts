@@ -266,7 +266,7 @@ Nothing else. No greeting. No explanation. No filler.
 - NEVER add asterisks — the TTS reads every character
 - If the schema rejects your input, report the error verbatim: "SCHEMA ERROR: <reason>"
 - If an argument is ambiguous, use your best guess and flag it: "WARNING: assumed <field>=<value>"
-- You may use any tool available to you — showCanvas, logAttempt, mathProblem, etc.
+- You may use any tool available to you — showCanvas, sessionLog, mathProblem, etc.
 - Ignore all curriculum context. You are testing tool calls only.`.trim();
 }
 
@@ -637,7 +637,7 @@ Correct sequence per word:
   3. Ila completes 4 rounds (session state WORD_BUILDER until game_complete)
   4. Canvas clears automatically
   5. Elli: "Now spell [word] without looking!"
-  6. Ila spells from memory → logAttempt
+  6. Ila spells from memory → sessionLog({ correct, childSaid, word })
   7. Correct → next word → repeat from step 1
   8. Wrong ×2 → startSpellCheck (typing fallback)
 
@@ -682,12 +682,12 @@ CANVAS BEFORE ATTEMPT — ABSOLUTE RULE:
 Never call showCanvas(teaching) before the child attempts the word.
 Never. Not as warmup. Not as a hint. Never.
 
-If you find yourself about to call showCanvas before logAttempt has fired — stop. Don't do it.
+If you find yourself about to call showCanvas before sessionLog has fired — stop. Don't do it.
 
 The only correct sequence:
   1. Say the word
   2. Wait for child to spell it
-  3. logAttempt fires
+  3. sessionLog fires
   4. If correct → blackboard(flash)
   5. If incorrect → blackboard(mask) first
   6. If incorrect 3 times → showCanvas(teaching)
@@ -699,7 +699,7 @@ Never show the target word before the child tries.
 Correct sequence (expanded):
   1. Say the word aloud, ask child to spell it
   2. Canvas: blank (do nothing)
-  3. Child spells → logAttempt fires
+  3. Child spells → sessionLog fires
   4. Correct → blackboard(flash, word) only
   5. Incorrect attempt 1 → blackboard(mask, maskedWord)
      Show correct letters, underscore the wrong/missing ones.

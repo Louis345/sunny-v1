@@ -290,7 +290,7 @@ export class SessionManager {
   private static readonly WB_ACTIVITY_MS = 90_000;
   /** Dedup duplicate iframe round_complete for the same round number */
   private wbLastProcessedRound = 0;
-  /** After game_complete: block startWordBuilder until child spells wbWord (logAttempt). */
+  /** After game_complete: block startWordBuilder until child spells wbWord (sessionLog). */
   private wbAwaitingSpell = false;
   /** Prevents two ok:true startWordBuilder executes in one agent step before handleToolCall runs. */
   private wbToolExecuteClaimed = false;
@@ -317,7 +317,7 @@ export class SessionManager {
     },
   );
 
-  /** Homework spelling list (normalized) — when every word has a logAttempt, launch reward game */
+  /** Homework spelling list (normalized) — sessionStatus spellingWordsCompleted tracks words with sessionLog(word) */
   private spellingHomeworkWordsByNorm: string[] = [];
   private spellingHomeworkGate: SpellingHomeworkGate =
     createSpellingHomeworkGate([]);
@@ -2184,8 +2184,6 @@ export class SessionManager {
             if (toolName === "end_session") toolName = "endSession";
             if (toolName === "start_spell_check") toolName = "startSpellCheck";
             if (toolName === "launch_game") toolName = "launchGame";
-            if (toolName === "log_worksheet_attempt")
-              toolName = "logWorksheetAttempt";
             if (toolName === "get_session_status")
               toolName = "getSessionStatus";
             if (toolName === "get_next_problem") toolName = "getNextProblem";
@@ -2823,6 +2821,84 @@ export class SessionManager {
       return { logged: res.ok === true, ...res };
     }
     this.processReward({ correct: args.correct === true });
+
+    const loggedWordKey =
+      (args.word as string | undefined)?.toLowerCase().trim() ?? "";
+    if (loggedWordKey) {
+      const count = (this.wordAttemptCounts.get(loggedWordKey) ?? 0) + 1;
+      this.wordAttemptCounts.set(loggedWordKey, count);
+      const correct = args.correct === true;
+      const lastAttempt =
+        this.lastTranscript?.trim() ||
+        String(args.childSaid ?? "").trim() ||
+        "unknown";
+      this.activeWordContext =
+        `[Active word: "${loggedWordKey}". ` +
+        `Attempts this word: ${count}. ` +
+        `Last attempt: "${lastAttempt}" — ` +
+        `${correct ? "correct" : "incorrect"}.]`;
+      console.log(`  📌 activeWordContext: ${this.activeWordContext}`);
+
+      if (this.companion.tracksActiveWord && this.activeWord) {
+        const active = this.activeWord.toLowerCase().trim();
+        if (loggedWordKey !== active) {
+          console.warn(
+            `  ⚠️  activeWord mismatch: canvas="${active}" sessionLog.word="${loggedWordKey}"`,
+          );
+        }
+      }
+
+      if (
+        this.spellingHomeworkWordsByNorm.length > 0 &&
+        !this.spaceInvadersRewardLaunched
+      ) {
+        if (this.spellingHomeworkWordsByNorm.includes(loggedWordKey)) {
+          this.spellingWordsWithAttempt.add(loggedWordKey);
+        }
+        if (
+          this.spellingWordsWithAttempt.size >=
+          this.spellingHomeworkWordsByNorm.length
+        ) {
+          this.spaceInvadersRewardLaunched = true;
+          this.spaceInvadersRewardActive = true;
+          const inv = getReward("space-invaders");
+          if (inv) {
+            this.send("canvas_draw", {
+              mode: "space-invaders",
+              gameUrl: inv.url,
+              gamePlayerName: this.childName,
+              rewardGameConfig: { ...inv.defaultConfig },
+            });
+          }
+          this.gameBridge.launchByName(
+            "space-invaders",
+            "reward",
+            this.childName,
+          );
+          this.currentCanvasState = {
+            mode: "space-invaders",
+            gameUrl: inv?.url,
+            gamePlayerName: this.childName,
+          };
+          this.setActiveCanvasActivity("reward-game");
+          this.gameBridge.onComplete = () => {
+            this.clearActiveCanvasActivity();
+            this.send("canvas_draw", { mode: "idle" });
+            this.send("session_ended", {
+              summary: "Session complete.",
+              duration_ms: Date.now() - this.sessionStartTime,
+            });
+          };
+        }
+      }
+
+      const wbNorm = this.wbWord.toLowerCase().trim();
+      if (this.wbAwaitingSpell && loggedWordKey === wbNorm) {
+        this.wbAwaitingSpell = false;
+        this.wbEndCleanup();
+      }
+    }
+
     return { logged: true };
   }
 
@@ -2847,7 +2923,6 @@ export class SessionManager {
   private normalizeToolName(tool: string): string {
     if (tool === "start_spell_check") return "startSpellCheck";
     if (tool === "launch_game") return "launchGame";
-    if (tool === "log_worksheet_attempt") return "logWorksheetAttempt";
     if (tool === "get_session_status") return "getSessionStatus";
     if (tool === "get_next_problem") return "getNextProblem";
     if (tool === "submit_answer") return "submitAnswer";
@@ -3130,27 +3205,7 @@ export class SessionManager {
       canvasRevision = this.issueCanvasRevision();
     }
 
-    let logWorksheetWireResult: unknown | undefined;
-    if (tool === "logWorksheetAttempt") {
-      const unwrappedForLog = unwrapToolResult(result);
-      const base =
-        typeof unwrappedForLog === "object" &&
-        unwrappedForLog !== null &&
-        !Array.isArray(unwrappedForLog)
-          ? { ...(unwrappedForLog as Record<string, unknown>) }
-          : {};
-      console.log(
-        "  ℹ️  logWorksheetAttempt retired — use sessionLog / submitAnswer (Option C)",
-      );
-      logWorksheetWireResult = {
-        ...base,
-        logged: false,
-        rejected: true,
-        reason: "option_c_use_submitAnswer",
-      };
-    }
-
-    let wireToolResult: unknown = logWorksheetWireResult ?? result;
+    let wireToolResult: unknown = result;
     if (tool === "startWordBuilder") {
       const out = unwrapToolResult(wireToolResult) as { ok?: boolean } | undefined;
       if (this.wordBuilderSessionActive && out?.ok === true) {
@@ -3629,94 +3684,6 @@ export class SessionManager {
       this.clearActiveCanvasActivity();
       console.log(`  🖼️  [worksheet] Canvas cleared by companion (Option C)`);
       return;
-    }
-
-    if (tool === "logAttempt") {
-      this.processReward(args);
-
-      // Update active word context pin for history injection
-      const loggedWordKey =
-        (args.word as string | undefined)?.toLowerCase().trim() ?? "";
-      if (loggedWordKey) {
-        const count = (this.wordAttemptCounts.get(loggedWordKey) ?? 0) + 1;
-        this.wordAttemptCounts.set(loggedWordKey, count);
-        const correct = args.correct === true;
-        const lastAttempt = this.lastTranscript || "unknown";
-        this.activeWordContext =
-          `[Active word: "${loggedWordKey}". ` +
-          `Attempts this word: ${count}. ` +
-          `Last attempt: "${lastAttempt}" — ` +
-          `${correct ? "correct" : "incorrect"}.]`;
-        console.log(`  📌 activeWordContext: ${this.activeWordContext}`);
-      }
-
-      // Validate Elli's logAttempt references the active word on canvas
-      if (this.companion.tracksActiveWord && this.activeWord) {
-        const loggedWord = (args.word as string | undefined)
-          ?.toLowerCase()
-          .trim();
-        const active = this.activeWord.toLowerCase().trim();
-        if (loggedWord && loggedWord !== active) {
-          console.warn(
-            `  ⚠️  activeWord mismatch: canvas="${active}" logAttempt.word="${loggedWord}"`,
-          );
-        }
-      }
-
-      if (
-        loggedWordKey &&
-        this.spellingHomeworkWordsByNorm.length > 0 &&
-        !this.spaceInvadersRewardLaunched
-      ) {
-        const norm = loggedWordKey.toLowerCase().trim();
-        if (this.spellingHomeworkWordsByNorm.includes(norm)) {
-          this.spellingWordsWithAttempt.add(norm);
-        }
-        if (
-          this.spellingWordsWithAttempt.size >=
-          this.spellingHomeworkWordsByNorm.length
-        ) {
-          this.spaceInvadersRewardLaunched = true;
-          this.spaceInvadersRewardActive = true;
-          const inv = getReward("space-invaders");
-          if (inv) {
-            this.send("canvas_draw", {
-              mode: "space-invaders",
-              gameUrl: inv.url,
-              gamePlayerName: this.childName,
-              rewardGameConfig: { ...inv.defaultConfig },
-            });
-          }
-          this.gameBridge.launchByName(
-            "space-invaders",
-            "reward",
-            this.childName,
-          );
-          this.currentCanvasState = {
-            mode: "space-invaders",
-            gameUrl: inv?.url,
-            gamePlayerName: this.childName,
-          };
-          this.setActiveCanvasActivity("reward-game");
-          this.gameBridge.onComplete = () => {
-            this.clearActiveCanvasActivity();
-            this.send("canvas_draw", { mode: "idle" });
-            this.send("session_ended", {
-              summary: "Session complete.",
-              duration_ms: Date.now() - this.sessionStartTime,
-            });
-          };
-        }
-      }
-
-      if (
-        this.wbAwaitingSpell &&
-        loggedWordKey &&
-        loggedWordKey === this.wbWord
-      ) {
-        this.wbAwaitingSpell = false;
-        this.wbEndCleanup();
-      }
     }
 
     if (tool === "requestPauseForCheckIn") {
