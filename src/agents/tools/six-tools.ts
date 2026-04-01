@@ -220,10 +220,16 @@ export function createSixTools(host: SixToolsHost) {
     }),
     sessionLog: tool({
       description:
-        "Log a graded interaction (worksheet answer or observation). For worksheets, server maps this to the active problem.",
+        "Log a graded interaction (worksheet answer or observation). For worksheets, server maps this to the active problem. For spelling homework or post–Word Builder dictation, pass word (normalized on server) so progress and rewards stay in sync with sessionStatus.",
       inputSchema: z.object({
         correct: z.boolean(),
         childSaid: z.string(),
+        word: z
+          .string()
+          .optional()
+          .describe(
+            "Spelling: the word being graded (must match the word on canvas when applicable).",
+          ),
         observation: z.string().optional(),
       }),
       execute: async (args) =>

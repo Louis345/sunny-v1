@@ -87,7 +87,7 @@ export type ShowCanvasArgs = z.infer<typeof showCanvasSchema>;
 
 export const showCanvas = tool({
   description:
-    "Draw on the child's screen. Call this tool immediately and in parallel with other tools. Never wait for logAttempt or mathProblem to resolve first. Use 'teaching' mode to display words, phonemes, or math problems. Use 'reward' mode after correct answers to draw something fun and unique (the child sees your SVG). Use 'riddle' mode at 3 correct to show a riddle. Use 'championship' mode at 5 correct for a level-up ceremony. For reward/championship: generate a unique, fun SVG drawing related to the conversation — animals, rockets, silly faces, anything the child would love. Never draw the same thing twice. Keep SVG under 2000 characters.",
+    "Draw on the child's screen. Call this tool immediately and in parallel with other tools. Never wait for sessionLog or mathProblem to resolve first. Use 'teaching' mode to display words, phonemes, or math problems. Use 'reward' mode after correct answers to draw something fun and unique (the child sees your SVG). Use 'riddle' mode at 3 correct to show a riddle. Use 'championship' mode at 5 correct for a level-up ceremony. For reward/championship: generate a unique, fun SVG drawing related to the conversation — animals, rockets, silly faces, anything the child would love. Never draw the same thing twice. Keep SVG under 2000 characters.",
   inputSchema: showCanvasSchema,
   execute: async (args) => {
     const input = { ...args };
