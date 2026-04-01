@@ -125,3 +125,9 @@ This does not replace Law 6 — it catches what fatigue misses.
 
 - **Broad rules beat narrow branches:** Prefer one clear **product rule** (e.g. in prompts or a single invariant) over many special cases scattered in code — easier to reason about when you’re one person.
 - **Every guard in code should have a test** that would fail if the guard were removed.
+
+---
+
+## Fix Protocol
+
+Every fix should state **what lines change** (fix) vs **what lines go away** (delete). Net line count on hot paths (for example `session-manager.ts`) should trend **down** over time. **Pure additions** need a short justification (new invariant, new test-only file, or user-requested doc). Prefer one product rule in one place over scattered special cases.
