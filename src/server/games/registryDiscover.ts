@@ -35,12 +35,18 @@ export const GAME_META: Record<string, GameMetaEntry> = {
   },
   "spell-check": { type: "tool", voiceEnabled: true },
   "coin-counter": { type: "tool", voiceEnabled: true },
+  "vault-cracker": { type: "tool", voiceEnabled: true },
   "store-game": {
     type: "tool",
     voiceEnabled: true,
     defaultConfig: { itemPool: [] },
   },
   "space-invaders": {
+    type: "reward",
+    voiceEnabled: true,
+    defaultConfig: { duration_seconds: 180, level: 1 },
+  },
+  "space-frogger": {
     type: "reward",
     voiceEnabled: true,
     defaultConfig: { duration_seconds: 180, level: 1 },

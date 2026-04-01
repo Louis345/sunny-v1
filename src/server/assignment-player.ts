@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { HomeworkProblemItem } from "../agents/psychologist/psychologist";
 import type { CanonicalWorksheetProblem } from "./worksheet-problem";
 
 const OVERLAY_FIELD_SCHEMA = z.object({
@@ -22,7 +23,8 @@ const PROBLEM_SCHEMA = z.object({
   problemId: z.string().min(1),
   page: z.number().int().positive(),
   prompt: z.string().min(1),
-  canonicalAnswer: z.string().min(1),
+  /** Legacy manifest field — vision grades; kept empty for schema compatibility. */
+  canonicalAnswer: z.string().default(""),
   gradingMode: z.enum(["numeric", "exact", "choice"]),
   linkedGames: z.array(z.string().min(1)).default([]),
   overlayFields: z.array(OVERLAY_FIELD_SCHEMA).min(1),
@@ -46,12 +48,6 @@ export type AssignmentManifest = z.infer<typeof MANIFEST_SCHEMA>;
 export type AssignmentManifestInput = AssignmentManifest;
 export type WorksheetInteractionMode = "answer_entry" | "review";
 
-export type AssignmentAnswerInput = {
-  problemId: string;
-  fieldId: string;
-  value: string;
-};
-
 export type WorksheetResumePoint = {
   activeProblemId: string;
   currentPage: number;
@@ -67,80 +63,6 @@ export type WorksheetPlayerState = WorksheetResumePoint & {
 type NormalizeResult =
   | { ok: true; manifest: AssignmentManifest }
   | { ok: false; reason: string; detail?: string };
-
-function parseIntegerWords(text: string): number | null {
-  const cleaned = text.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
-  const numeric = cleaned.match(/\b(\d+)\b/);
-  if (numeric) return Number(numeric[1]);
-
-  const ones: Record<string, number> = {
-    zero: 0,
-    one: 1,
-    two: 2,
-    three: 3,
-    four: 4,
-    five: 5,
-    six: 6,
-    seven: 7,
-    eight: 8,
-    nine: 9,
-    ten: 10,
-    eleven: 11,
-    twelve: 12,
-    thirteen: 13,
-    fourteen: 14,
-    fifteen: 15,
-    sixteen: 16,
-    seventeen: 17,
-    eighteen: 18,
-    nineteen: 19,
-  };
-  const tens: Record<string, number> = {
-    twenty: 20,
-    thirty: 30,
-    forty: 40,
-    fifty: 50,
-    sixty: 60,
-    seventy: 70,
-    eighty: 80,
-    ninety: 90,
-  };
-
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  for (let i = 0; i < words.length; i++) {
-    const first = words[i];
-    if (tens[first] != null) {
-      const next = words[i + 1];
-      return tens[first] + (next && ones[next] != null ? ones[next] : 0);
-    }
-    if (ones[first] != null) return ones[first];
-  }
-  return null;
-}
-
-function parseMoneyAmount(text: string): number | null {
-  const raw = String(text ?? "").toLowerCase();
-  const dollarNumeric = raw.match(/\$\s*(\d+)(?:\.(\d{1,2}))?/);
-  if (dollarNumeric) {
-    const dollars = Number(dollarNumeric[1]);
-    const cents = Number((dollarNumeric[2] ?? "0").padEnd(2, "0"));
-    return dollars * 100 + cents;
-  }
-  const cleaned = raw.replace(/[^a-z0-9$ ]/g, " ");
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  const dollarIndex = words.findIndex((word) => word === "dollar" || word === "dollars");
-  if (dollarIndex >= 0) {
-    const dollars = parseIntegerWords(words.slice(0, dollarIndex).join(" "));
-    if (dollars == null) return null;
-    const centIndex = words.findIndex((word, index) => index > dollarIndex && (word === "cent" || word === "cents"));
-    const cents =
-      centIndex > dollarIndex
-        ? parseIntegerWords(words.slice(dollarIndex + 1, centIndex).join(" "))
-        : 0;
-    return dollars * 100 + Math.max(0, cents ?? 0);
-  }
-  return null;
-}
 
 export function normalizeOverlayField(args: {
   field: OverlayField;
@@ -197,17 +119,21 @@ function hasMoneyAmount(text: string, cents: number): boolean {
 
 export function detectWorksheetInteractionMode(args: {
   rawContent: string;
-  problems: CanonicalWorksheetProblem[];
+  extractionProblems: HomeworkProblemItem[];
 }): WorksheetInteractionMode {
   const raw = String(args.rawContent ?? "").toLowerCase();
   if (!raw.trim()) return "answer_entry";
-  for (const problem of args.problems) {
+  for (const problem of args.extractionProblems) {
+    const s = problem.structured;
     if (
-      problem.kind === "compare_amounts" &&
-      hasMoneyAmount(raw, problem.leftAmountCents) &&
-      hasMoneyAmount(raw, problem.rightAmountCents)
+      s?.problemType === "compare_amounts" &&
+      s.visibleFacts?.kind === "compare_amounts"
     ) {
-      return "review";
+      const left = s.visibleFacts.leftAmountCents;
+      const right = s.visibleFacts.rightAmountCents;
+      if (hasMoneyAmount(raw, left) && hasMoneyAmount(raw, right)) {
+        return "review";
+      }
     }
   }
   return "answer_entry";
@@ -225,45 +151,6 @@ export function buildWorksheetPlayerState(
     interactionMode,
     pdfAssetUrl: manifest.pdfAssetUrl,
     overlayFields: firstProblem.overlayFields,
-  };
-}
-
-export function gradeAssignmentAnswer(
-  manifest: AssignmentManifest,
-  answer: AssignmentAnswerInput,
-): { correct: boolean; expectedAnswer: string; problemId: string } {
-  const problem = manifest.problems.find((entry) => entry.problemId === answer.problemId);
-  if (!problem) {
-    return {
-      correct: false,
-      expectedAnswer: "",
-      problemId: answer.problemId,
-    };
-  }
-  const field = problem.overlayFields.find((entry) => entry.fieldId === answer.fieldId);
-  if (!field) {
-    return {
-      correct: false,
-      expectedAnswer: problem.canonicalAnswer,
-      problemId: problem.problemId,
-    };
-  }
-
-  const rawValue = String(answer.value ?? "").trim();
-  let correct = false;
-  if (problem.gradingMode === "numeric") {
-    const parsedValue = parseMoneyAmount(rawValue) ?? parseIntegerWords(rawValue);
-    const parsedExpected =
-      parseMoneyAmount(problem.canonicalAnswer) ?? parseIntegerWords(problem.canonicalAnswer);
-    correct = parsedValue != null && parsedExpected != null && parsedValue === parsedExpected;
-  } else {
-    correct = rawValue.toLowerCase() === problem.canonicalAnswer.toLowerCase();
-  }
-
-  return {
-    correct,
-    expectedAnswer: problem.canonicalAnswer,
-    problemId: problem.problemId,
   };
 }
 
@@ -303,15 +190,13 @@ export function buildAssignmentManifestFromWorksheetProblems(args: {
   const problems: AssignmentProblem[] = args.problems.map((problem, index) => ({
     problemId: String(problem.id),
     page: problem.page ?? 1,
-    prompt: problem.promptVisible ?? problem.question,
-    canonicalAnswer: problem.canonicalAnswer,
-    gradingMode: "numeric",
+    prompt: problem.question,
+    canonicalAnswer: "",
+    gradingMode: "numeric" as const,
     linkedGames:
-      problem.linkedGames && problem.linkedGames.length > 0
+      problem.linkedGames.length > 0
         ? [...problem.linkedGames]
-        : problem.kind === "money_count"
-          ? ["store-game", "coin-counter"]
-          : ["coin-counter"],
+        : ["coin-counter"],
     overlayFields: [
       normalizeOverlayField({
         field: {

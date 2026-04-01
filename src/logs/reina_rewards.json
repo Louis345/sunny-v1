@@ -38,5 +38,85 @@
     "childVerbalReaction": null,
     "sessionPhase": "learning",
     "correctStreakAtTime": 4
+  },
+  {
+    "timestamp": "2026-03-28T23:13:01.726Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-28T23:13:19.309Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-03-28T23:15:14.656Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-28T23:15:40.390Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-03-28T23:16:33.194Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
+  },
+  {
+    "timestamp": "2026-03-31T00:09:01.380Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-03-31T00:12:48.026Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-03-31T00:15:11.417Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
   }
 ]

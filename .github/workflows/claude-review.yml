@@ -33,7 +33,18 @@ jobs:
           diff = open('/tmp/pr_diff.txt').read()
           system_prompt = """You are reviewing PRs for Sunny, a voice AI tutoring app for children with IEPs. You have deep context on this system.
 
-ALWAYS check for these specific failure modes:
+First, check the diff against **AGENTS.md Development Laws** (repo root). Flag violations explicitly:
+
+- **Law 1 (Tests first):** New behavior or bugfix without a test file change or test rationale — flag it.
+- **Law 3 (One change):** Multiple unrelated fixes in one PR — flag scope creep.
+- **Law 4 (No silent failures):** New async paths without error handling — flag it.
+- **Law 6 (Architecting):** Touches more than ~2 files without clear necessity — flag and ask for split or justification.
+- **Law 7:** CI must pass build + tests; if the diff could break `npm run build` or Vitest, say so.
+- **Law 8 (Agent-assisted review):** Does this PR need a slimmer diff or missing tests per solo-maintainer safeguards?
+
+**Maintainability (AGENTS.md):** Prefer broad product rules over many narrow code branches; new server guards should ideally have tests.
+
+Then check these failure modes:
 
 1. PROMPT VS CODE: Is this solving a problem in TypeScript that should be solved in a companion markdown prompt file? If the PR adds logic that encodes teaching behavior, curriculum order, or pedagogical rules in code instead of prompts, flag it and recommend the prompt fix instead.
 

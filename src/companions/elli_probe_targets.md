@@ -1,13 +1,13 @@
 # Elli Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-03-24T01:09:11.859Z*
+*Updated: 2026-03-31T23:42:09.680Z*
 
-• When we spell words, mix up the vowels—try "sit," then "sat," then "hit," then "hat" back-to-back to see if she notices the changes
+• When Ila spells words, try mixing up the vowels—like "sit," then "sat," then "hit," then "hat" back-to-back to see if she notices the sounds change
 
-• Ask her to do two things in a row: "Touch the blue circle, then tap your head twice" and watch what she remembers
+• Give her a two-step direction with colors or sizes mixed in: "Touch the big red circle, then tap your head twice"
 
-• Say a sentence and ask her to say it back to me—start short like "The dog ran" and see how long she can repeat
+• Say a sentence and ask her to repeat it back—start short like "The dog ran fast," then try longer ones
 
-• When she spells a word with b or d, have her draw it and check if the letters face the right way, then remind her the "bed" trick
+• When practicing compound words like "railroad," use picture cards she can see while spelling, not just listening
 
-• Keep spelling and word games short—switch activities after 10-15 minutes so her brain stays fresh and playful
+• Ask her to fill in the blank: "One mouse, two ___" or "One child, three ___" to hear how she makes plurals

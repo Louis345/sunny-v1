@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault Cracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0014;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 8%  12%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 22% 45%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 8%,  #fff 0%, transparent 100%),
+      radial-gradient(2px 2px at 75% 65%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 88% 20%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 80%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 65% 90%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 12% 70%, #fff 0%, transparent 100%),
+      radial-gradient(1px 1px at 42% 35%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 95% 80%, #fff 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #game {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 520px;
+    padding: 20px;
+  }
+
+  #vault-container {
+    position: relative;
+    width: 220px;
+    height: 220px;
+  }
+
+  #vault {
+    width: 220px;
+    height: 220px;
+    background: linear-gradient(145deg, #2a1040, #1a0a2e);
+    border: 4px solid #6a0dad;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px #6a0dad50, inset 0 0 30px #0a001440;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  #vault.shake {
+    animation: shake 0.4s ease;
+  }
+
+  #vault.open {
+    border-color: #EF9F27;
+    box-shadow: 0 0 60px #EF9F27, inset 0 0 40px #EF9F2720;
+    background: linear-gradient(145deg, #2a1a00, #1a0e00);
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%      { transform: translateX(-8px) rotate(-2deg); }
+    40%      { transform: translateX(8px) rotate(2deg); }
+    60%      { transform: translateX(-6px) rotate(-1deg); }
+    80%      { transform: translateX(6px) rotate(1deg); }
+  }
+
+  #vault-icon {
+    font-size: 4rem;
+    transition: all 0.3s;
+  }
+
+  #vault-label {
+    font-size: 0.75rem;
+    color: #6a4090;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  #dial {
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    background: radial-gradient(circle at 35% 35%, #888, #333);
+    border: 3px solid #555;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px #000;
+    transition: transform 0.3s;
+  }
+
+  #dial::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 12px;
+    background: #EF9F27;
+    border-radius: 2px;
+  }
+
+  #target-area {
+    text-align: center;
+  }
+
+  #target-label {
+    font-size: 0.75rem;
+    color: #6a4090;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  #target-amount {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #EF9F27;
+    text-shadow: 0 0 20px #EF9F2780;
+    letter-spacing: 2px;
+  }
+
+  #progress-container {
+    width: 100%;
+    height: 12px;
+    background: #1a0a2e;
+    border-radius: 6px;
+    border: 1px solid #3a1060;
+    overflow: hidden;
+  }
+
+  #progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6a0dad, #EF9F27);
+    border-radius: 6px;
+    width: 0%;
+    transition: width 0.2s, background 0.2s;
+  }
+
+  #progress-bar.over {
+    background: linear-gradient(90deg, #ff4444, #ff8800);
+  }
+
+  #total-display {
+    text-align: center;
+  }
+
+  #total-label {
+    font-size: 0.7rem;
+    color: #6a4090;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  #total-amount {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #4FC3F7;
+    text-shadow: 0 0 12px #4FC3F740;
+    transition: color 0.2s;
+  }
+
+  #total-amount.over {
+    color: #ff4444;
+    text-shadow: 0 0 12px #ff444440;
+  }
+
+  #coins-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+
+  .coin-btn {
+    background: linear-gradient(145deg, #2a1040, #1e0a30);
+    border: 2px solid #3a1060;
+    border-radius: 12px;
+    padding: 12px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .coin-btn:hover {
+    border-color: #EF9F27;
+    background: linear-gradient(145deg, #3a1a50, #2e1040);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px #EF9F2740;
+  }
+
+  .coin-btn:active {
+    transform: scale(0.95);
+  }
+
+  .coin-emoji {
+    font-size: 1.8rem;
+  }
+
+  .coin-value {
+    font-size: 0.8rem;
+    font-weight: 900;
+    color: #EF9F27;
+    letter-spacing: 1px;
+  }
+
+  .coin-name {
+    font-size: 0.6rem;
+    color: #6a4090;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  #reset-btn {
+    background: transparent;
+    border: 2px solid #3a1060;
+    color: #6a4090;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  #reset-btn:hover {
+    border-color: #ff4444;
+    color: #ff4444;
+  }
+
+  #level-info {
+    font-size: 0.7rem;
+    color: #3a1060;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  #win-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10,0,20,0.9);
+    backdrop-filter: blur(6px);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  #win-overlay h1 {
+    font-size: 3rem;
+    color: #EF9F27;
+    text-shadow: 0 0 40px #EF9F27;
+    letter-spacing: 4px;
+    margin-bottom: 12px;
+    animation: pulse 0.8s ease infinite alternate;
+  }
+
+  @keyframes pulse {
+    from { text-shadow: 0 0 20px #EF9F27; }
+    to   { text-shadow: 0 0 60px #EF9F27, 0 0 100px #EF9F2760; }
+  }
+
+  #win-overlay p {
+    color: #4FC3F7;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+  }
+
+  #next-btn {
+    background: linear-gradient(135deg, #6a0dad, #3a1060);
+    border: 2px solid #EF9F27;
+    color: #EF9F27;
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: 3px;
+    padding: 12px 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  #next-btn:hover {
+    background: #EF9F27;
+    color: #1a0a2e;
+    box-shadow: 0 0 30px #EF9F27;
+  }
+
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    z-index: 200;
+    animation: particleFly 1s ease-out forwards;
+  }
+
+  @keyframes particleFly {
+    from { opacity: 1; transform: translate(0,0) scale(1); }
+    to   { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <div id="level-info">LEVEL <span id="level-num">1</span> — CRACK THE VAULT</div>
+
+  <div id="vault-container">
+    <div id="vault">
+      <div id="vault-icon">🔒</div>
+      <div id="vault-label">LOCKED</div>
+    </div>
+    <div id="dial"></div>
+  </div>
+
+  <div id="target-area">
+    <div id="target-label">TARGET AMOUNT</div>
+    <div id="target-amount">—</div>
+  </div>
+
+  <div id="progress-container">
+    <div id="progress-bar"></div>
+  </div>
+
+  <div id="total-display">
+    <div id="total-label">YOUR TOTAL</div>
+    <div id="total-amount">0¢</div>
+  </div>
+
+  <div id="coins-grid">
+    <button class="coin-btn" data-cents="25" onclick="addCoin(25)">
+      <span class="coin-emoji">🪙</span>
+      <span class="coin-value">25¢</span>
+      <span class="coin-name">quarter</span>
+    </button>
+    <button class="coin-btn" data-cents="10" onclick="addCoin(10)">
+      <span class="coin-emoji">💿</span>
+      <span class="coin-value">10¢</span>
+      <span class="coin-name">dime</span>
+    </button>
+    <button class="coin-btn" data-cents="5" onclick="addCoin(5)">
+      <span class="coin-emoji">🔵</span>
+      <span class="coin-value">5¢</span>
+      <span class="coin-name">nickel</span>
+    </button>
+    <button class="coin-btn" data-cents="1" onclick="addCoin(1)">
+      <span class="coin-emoji">🟤</span>
+      <span class="coin-value">1¢</span>
+      <span class="coin-name">penny</span>
+    </button>
+    <button class="coin-btn" data-cents="100" onclick="addCoin(100)" style="grid-column: span 2;">
+      <span class="coin-emoji">💵</span>
+      <span class="coin-value">$1.00</span>
+      <span class="coin-name">dollar</span>
+    </button>
+    <button class="coin-btn" data-cents="500" onclick="addCoin(500)" style="grid-column: span 2;">
+      <span class="coin-emoji">💴</span>
+      <span class="coin-value">$5.00</span>
+      <span class="coin-name">five</span>
+    </button>
+  </div>
+
+  <button id="reset-btn" onclick="resetCurrent()">↩ CLEAR</button>
+</div>
+
+<div id="win-overlay">
+  <h1>🔓 CRACKED!</h1>
+  <p id="win-sub">LEVEL 1 COMPLETE</p>
+  <button id="next-btn" onclick="nextLevel()">NEXT VAULT →</button>
+</div>
+
+<script>
+window.addEventListener('message', (e) => {
+  if (e.data?.type === 'start') initGame();
+});
+window.parent.postMessage({ type: 'ready' }, '*');
+
+const LEVELS = [
+  { target: 36,  label: '36¢' },
+  { target: 41,  label: '41¢' },
+  { target: 61,  label: '61¢' },
+  { target: 75,  label: '75¢' },
+  { target: 100, label: '$1.00' },
+  { target: 87,  label: '87¢' },
+  { target: 150, label: '$1.50' },
+  { target: 237, label: '$2.37' },
+];
+
+let currentLevel = 0;
+let currentTotal = 0;
+let totalScore = 0;
+let dialAngle = 0;
+
+function getTarget() {
+  return LEVELS[Math.min(currentLevel, LEVELS.length - 1)].target;
+}
+
+function formatCents(c) {
+  if (c >= 100) {
+    const dollars = Math.floor(c / 100);
+    const cents = c % 100;
+    return cents > 0 ? `$${dollars}.${String(cents).padStart(2,'0')}` : `$${dollars}.00`;
+  }
+  return `${c}¢`;
+}
+
+function initGame() {
+  currentLevel = 0;
+  totalScore = 0;
+  currentTotal = 0;
+  renderLevel();
+}
+
+function renderLevel() {
+  currentTotal = 0;
+  const target = getTarget();
+
+  document.getElementById('level-num').textContent = currentLevel + 1;
+  document.getElementById('target-amount').textContent = formatCents(target);
+  document.getElementById('total-amount').textContent = '0¢';
+  document.getElementById('total-amount').classList.remove('over');
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('progress-bar').classList.remove('over');
+  document.getElementById('vault').classList.remove('open', 'shake');
+  document.getElementById('vault-icon').textContent = '🔒';
+  document.getElementById('vault-label').textContent = 'LOCKED';
+  document.getElementById('win-overlay').style.display = 'none';
+
+  const billBtns = document.querySelectorAll('[data-cents="100"],[data-cents="500"]');
+  billBtns.forEach(btn => {
+    btn.style.display = target >= 100 ? '' : 'none';
+  });
+}
+
+function addCoin(cents) {
+  const target = getTarget();
+  const newTotal = currentTotal + cents;
+
+  dialAngle += cents * 3.6;
+  document.getElementById('dial').style.transform =
+    `translateY(-50%) rotate(${dialAngle}deg)`;
+
+  if (newTotal > target) {
+    currentTotal = newTotal;
+    updateDisplay(currentTotal, target, true);
+    const vault = document.getElementById('vault');
+    vault.classList.add('shake');
+    setTimeout(() => {
+      vault.classList.remove('shake');
+      resetCurrent();
+    }, 500);
+    return;
+  }
+
+  currentTotal = newTotal;
+  updateDisplay(currentTotal, target, false);
+
+  if (currentTotal === target) {
+    setTimeout(() => crackVault(), 200);
+  }
+}
+
+function updateDisplay(total, target, over) {
+  const pct = Math.min(100, (total / target) * 100);
+  document.getElementById('total-amount').textContent = formatCents(total);
+  document.getElementById('total-amount').classList.toggle('over', over);
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-bar').classList.toggle('over', over);
+}
+
+function resetCurrent() {
+  currentTotal = 0;
+  const target = getTarget();
+  updateDisplay(0, target, false);
+}
+
+function crackVault() {
+  const vault = document.getElementById('vault');
+  vault.classList.add('open');
+  document.getElementById('vault-icon').textContent = '🔓';
+  document.getElementById('vault-label').textContent = 'CRACKED!';
+
+  spawnParticles();
+
+  totalScore += 100 + (currentLevel * 50);
+
+  setTimeout(() => {
+    const overlay = document.getElementById('win-overlay');
+    document.getElementById('win-sub').textContent =
+      `LEVEL ${currentLevel + 1} CRACKED! SCORE: ${totalScore}`;
+
+    if (currentLevel >= LEVELS.length - 1) {
+      document.getElementById('next-btn').textContent = 'FINISH! 🏆';
+      document.getElementById('next-btn').onclick = finishGame;
+    } else {
+      document.getElementById('next-btn').textContent = 'NEXT VAULT →';
+      document.getElementById('next-btn').onclick = nextLevel;
+    }
+
+    overlay.style.display = 'flex';
+  }, 800);
+}
+
+function nextLevel() {
+  currentLevel++;
+  renderLevel();
+}
+
+function finishGame() {
+  document.getElementById('win-overlay').style.display = 'none';
+  window.parent.postMessage({
+    type: 'game_complete',
+    score: totalScore,
+    levelsCompleted: currentLevel + 1,
+    won: true,
+  }, '*');
+
+  document.getElementById('vault-icon').textContent = '🏆';
+  document.getElementById('vault-label').textContent = 'CHAMPION!';
+  document.getElementById('target-amount').textContent = '🎉';
+  document.getElementById('total-amount').textContent = `${totalScore} pts`;
+}
+
+function spawnParticles() {
+  const colors = ['#EF9F27', '#4FC3F7', '#a855f7', '#ff6b35', '#ffffff'];
+  const vault = document.getElementById('vault');
+  const rect = vault.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+
+  for (let i = 0; i < 24; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 6 + Math.random() * 8;
+    const angle = (i / 24) * Math.PI * 2;
+    const dist = 80 + Math.random() * 80;
+    p.style.cssText = `
+      width: ${size}px;
+      height: ${size}px;
+      background: ${colors[i % colors.length]};
+      left: ${cx}px;
+      top: ${cy}px;
+      --tx: ${Math.cos(angle) * dist}px;
+      --ty: ${Math.sin(angle) * dist}px;
+      animation-delay: ${Math.random() * 0.2}s;
+      animation-duration: ${0.6 + Math.random() * 0.4}s;
+    `;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+}
+
+initGame();
+</script>
+</body>
+</html>

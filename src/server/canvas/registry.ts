@@ -223,7 +223,7 @@ export const CANVAS_REGISTRY: Record<string, CanvasCapabilityEntry> = {
     params: { name: "string — must match a registered game name" },
     example: { type: "game", params: { name: "store-game" } },
     preview: {
-      text: "🎮 Launch game\nstore-game · word-builder · space-invaders · bd-reversal",
+      text: "🎮 Launch game\nstore-game · word-builder · space-invaders · space-frogger · bd-reversal",
     },
   },
   reward: {
