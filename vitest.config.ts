@@ -16,6 +16,7 @@ export default defineConfig({
       "src/tests/test-spelling-homework-gate.ts",
       "src/tests/test-psychologist-context.ts",
       "src/tests/test-audit-log.ts",
+      "src/tests/test-web-toolkit-no-logAttempt.ts",
     ],
   },
 });
