@@ -33,6 +33,7 @@ import {
 } from "../../../src/server/games/registry";
 import type { BlackboardState } from "../hooks/useSession";
 import { BlackboardContent } from "./BlackboardContent";
+import { CreatureLayer } from "./CreatureLayer";
 const Lottie =
   (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -1974,6 +1975,7 @@ export function Canvas({
             }}
           />
         )}
+        <CreatureLayer />
         {showBlackboard && (
           <div
             className="absolute inset-0 z-[25] flex items-center justify-center bg-white/95 px-4"
