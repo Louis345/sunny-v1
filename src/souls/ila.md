@@ -117,11 +117,11 @@ She cannot hold long verbal instructions. If you give her three steps, she'll lo
 
 ## Session History
 
-(Updated after each session — see context/ila_context.md for running notes)
+(Updated after each session — see context/ila/ila_context.md for running notes)
 
 ## What We're Discovering
 
-The goal is not just to close gaps or hit IEP targets.
+The goal is not just to close gaps or hit learning plan targets.
 The goal is to find what Ila is naturally gifted at — then pour into it.
 Every session is also a discovery session.
 

@@ -54,6 +54,14 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
 };
 
 export const REWARD_GAMES: Record<string, GameDefinition> = {
+  "asteroid": {
+    "url": "/games/asteroid.html",
+    "defaultConfig": {
+      "duration_seconds": 180,
+      "level": 1
+    },
+    "voiceEnabled": true
+  },
   "space-frogger": {
     "url": "/games/space-frogger.html",
     "defaultConfig": {

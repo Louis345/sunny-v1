@@ -51,6 +51,11 @@ export const GAME_META: Record<string, GameMetaEntry> = {
     voiceEnabled: true,
     defaultConfig: { duration_seconds: 180, level: 1 },
   },
+  asteroid: {
+    type: "reward",
+    voiceEnabled: true,
+    defaultConfig: { duration_seconds: 180, level: 1 },
+  },
 };
 
 export function discoverGames(): {

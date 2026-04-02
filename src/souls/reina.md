@@ -51,7 +51,7 @@
 
 ## Session History
 
-(Updated after each session — see context/reina_context.md for running notes)
+(Updated after each session — see context/reina/reina_context.md for running notes)
 
 ## What We're Discovering
 

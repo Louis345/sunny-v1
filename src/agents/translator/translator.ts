@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
-import path from "path";
+import { resolveProbeTargetsPath } from "../../utils/childContextPaths";
 
 const client = new Anthropic();
 
@@ -9,14 +9,7 @@ export async function runTranslator(
   psychologistReport: string
 ): Promise<void> {
   const companionName = childName === "Ila" ? "Elli" : "Matilda";
-  const fileName =
-    childName === "Ila" ? "elli_probe_targets.md" : "matilda_probe_targets.md";
-  const outputPath = path.resolve(
-    process.cwd(),
-    "src",
-    "companions",
-    fileName
-  );
+  const outputPath = resolveProbeTargetsPath(childName);
 
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
@@ -68,5 +61,5 @@ ${content.text.trim()}
 `;
 
   await fs.promises.writeFile(outputPath, output, "utf-8");
-  console.log(`  ✅ Translator → ${fileName}`);
+  console.log(`  ✅ Translator → ${outputPath}`);
 }

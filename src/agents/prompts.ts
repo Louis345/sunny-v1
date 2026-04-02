@@ -2,12 +2,45 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { shouldLoadPersistedHistory } from "../utils/runtimeMode";
+import { childContextFolder, contextFileSegments } from "../utils/childContextPaths";
+import { getTodaysPlanInjectionSuffix } from "../utils/sessionPlanInjection";
+import type { PsychologistStructuredOutput } from "./psychologist/today-plan";
+import { buildCarePlanSection } from "./prompts/buildCarePlanSection";
 import Anthropic from "@anthropic-ai/sdk";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 import { generateCanvasCapabilitiesManifest } from "../server/canvas/registry";
 import { generateToolDocs } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v10"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v11"; // bump this when prompt changes
+
+export type BuildSessionPromptOptions = {
+  /** Explicit plan for tests; `null` skips injection; omit reads persisted plan. */
+  carePlan?: PsychologistStructuredOutput | null;
+};
+
+function resolveCarePlanSuffix(
+  childName: "Ila" | "Reina",
+  options?: BuildSessionPromptOptions,
+): string {
+  if (options?.carePlan === null) return "";
+  if (options?.carePlan) return buildCarePlanSection(options.carePlan);
+  return getTodaysPlanInjectionSuffix(childName);
+}
+
+function logSessionPromptLengths(
+  beforeCareChars: number,
+  careSuffix: string,
+): void {
+  if (careSuffix) {
+    console.log(
+      `  📋 Session prompt: ${beforeCareChars} chars before care plan + ${careSuffix.length} chars care = ${beforeCareChars + 2 + careSuffix.length} chars (before manifest)`,
+    );
+  } else {
+    console.log(
+      `  📋 Session prompt: ${beforeCareChars} chars (no care plan section, before manifest)`,
+    );
+  }
+}
 
 /**
  * Build a short canvas-state context string to prepend to each user message.
@@ -342,8 +375,24 @@ ${curriculum}
   `.trim();
 }
 
-export function PSYCHOLOGIST_PROMPT(childName: "Ila" | "Reina"): string {
+export function PSYCHOLOGIST_PROMPT(
+  childName: "Ila" | "Reina",
+  hasNatalieNotes = false,
+): string {
   const soul = childName === "Ila" ? ilaSoul : reinaSoul;
+
+  const natalieBlock = hasNatalieNotes
+    ? `
+
+## Licensed SLP session notes (natalie/)
+The user prompt may include a "Clinical Sessions (Licensed SLP)" block from notes in src/context/${childContextFolder(childName)}/natalie/.
+When generating recommendations and any structured plan:
+1. Adopt methods Natalie validated where they apply.
+2. Flag contradictions between those notes and your own observations.
+3. Reference the note source in any per-activity method field when you relied on them.
+4. Her clinical judgment overrides your inference on this child's targets relative to those notes.
+`
+    : "";
 
   return `
 You are the School Psychologist on ${childName}'s IEP team.
@@ -351,6 +400,7 @@ You decide what gets taught. The companion does not make curriculum decisions �
 
 Here is ${childName}'s complete evaluation profile:
 ${soul}
+${natalieBlock}
 
 ## Canvas Capabilities
 The following canvas modes are available for Elli to use.
@@ -483,6 +533,7 @@ export async function buildSessionPrompt(
   homeworkContent: string,
   wordList: string[] = [],
   subject: SessionSubject = "spelling",
+  options?: BuildSessionPromptOptions,
 ): Promise<string> {
   if (!homeworkContent || !homeworkContent.trim()) {
     const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
@@ -491,7 +542,13 @@ export async function buildSessionPrompt(
     const base = WILSON_FREE_SESSION_PROMPT(childName, companionName);
     const focus = subjectFocusBlock(subject).trim();
     const body = focus ? `${focus}\n\n${base}` : base;
-    return `${body}\n\n${generateCanvasCapabilitiesManifest()}`;
+    const careSuffix = resolveCarePlanSuffix(childName, options);
+    const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+    const beforeCare = `${body}${manifest}`;
+    logSessionPromptLengths(beforeCare.length, careSuffix);
+    return `${body}${
+      careSuffix ? `\n\n${careSuffix}` : ""
+    }${manifest}`;
   }
 
   const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
@@ -502,9 +559,7 @@ export async function buildSessionPrompt(
     "utf-8",
   );
 
-  const contextFile =
-    childName === "Ila" ? "ila_context.md" : "reina_context.md";
-  const contextPath = path.resolve(SRC_DIR, "context", contextFile);
+  const contextPath = path.resolve(SRC_DIR, ...contextFileSegments(childName));
   const recentContext = shouldLoadPersistedHistory()
     ? fs.existsSync(contextPath)
       ? fs.readFileSync(contextPath, "utf-8")
@@ -797,11 +852,15 @@ Output the prompt only. No explanation.
     const age = Date.now() - fs.statSync(cacheFile).mtimeMs;
     if (age < 24 * 60 * 60 * 1000) {
       console.log(`  ⚡ Session prompt cached (${cacheKey})`);
+      const cachedBody = namePrefix + fs.readFileSync(cacheFile, "utf-8");
+      const careSuffix = resolveCarePlanSuffix(childName, options);
+      const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+      const beforeCare = `${cachedBody}${manifest}`;
+      logSessionPromptLengths(beforeCare.length, careSuffix);
       return (
-        namePrefix +
-        fs.readFileSync(cacheFile, "utf-8") +
-        "\n\n" +
-        generateCanvasCapabilitiesManifest()
+        cachedBody +
+        (careSuffix ? `\n\n${careSuffix}` : "") +
+        manifest
       );
     }
   }
@@ -822,8 +881,15 @@ Output the prompt only. No explanation.
   fs.mkdirSync(cacheDir, { recursive: true });
   fs.writeFileSync(cacheFile, promptText, "utf-8");
 
+  const generatedCore = namePrefix + promptText;
+  const careSuffix = resolveCarePlanSuffix(childName, options);
+  const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+  const beforeCare = `${generatedCore}${manifest}`;
+  logSessionPromptLengths(beforeCare.length, careSuffix);
   return (
-    namePrefix + promptText + "\n\n" + generateCanvasCapabilitiesManifest()
+    generatedCore +
+    (careSuffix ? `\n\n${careSuffix}` : "") +
+    manifest
   );
 }
 

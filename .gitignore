@@ -43,3 +43,6 @@ drop/*.vtt
 drop/processed/
 drop/ila/
 drop/reina/
+
+# Local Rive explorer (HTML + character.riv); delete when done
+rive-demo/

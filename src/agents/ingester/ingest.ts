@@ -2,7 +2,8 @@
  * Document Ingester Agent
  *
  * Drop files into src/intake/{ila|reina}/ and run:
- *   npm run ingest
+ *   npx tsx src/agents/ingester/ingest.ts
+ *   or: npm run sunny:ingest / npm run sunny:sync
  *
  * Supported document types:
  *   - Report cards (grades, teacher comments)
@@ -12,13 +13,15 @@
  *
  * Output:
  *   - Report cards → appended to souls/ila.md or souls/reina.md
- *   - Session notes → appended to context/ila_context.md or reina_context.md
+ *   - Session notes → appended to context/ila/ila_context.md or context/reina/reina_context.md
  *   - IEP updates → merged into soul file under ## Evaluation Updates
  */
 
 import fs from "fs";
 import path from "path";
 import "dotenv/config";
+import { resolveContextFilePath } from "../../utils/childContextPaths";
+import type { ChildName } from "../../utils/childContextPaths";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { INTAKE_PROMPT } from "../prompts";
@@ -144,12 +147,7 @@ async function processFile(filePath: string): Promise<IngestResult> {
   const targetFile =
     destination === "soul"
       ? path.resolve(process.cwd(), "src", "souls", child === "Ila" ? "ila.md" : "reina.md")
-      : path.resolve(
-          process.cwd(),
-          "src",
-          "context",
-          child === "Ila" ? "ila_context.md" : "reina_context.md"
-        );
+      : resolveContextFilePath(child as ChildName);
 
   const separator = "\n\n---\n\n";
   fs.appendFileSync(targetFile, separator + formatted, "utf-8");
@@ -164,7 +162,8 @@ async function processFile(filePath: string): Promise<IngestResult> {
   return { file: filename, child, type, destination, summary: formatted.slice(0, 100) };
 }
 
-async function main(): Promise<void> {
+/** Exported for orchestration (e.g. src/scripts/sync.ts). Scans both ila and reina intake trees. */
+export async function runIngest(): Promise<void> {
   console.log("\n  📥 Document Ingester — scanning src/intake/\n");
 
   // Ensure intake directories exist
@@ -219,4 +218,6 @@ async function main(): Promise<void> {
   console.log("\n  ✅ Ingestion complete. Processed files moved to src/intake/processed/\n");
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  runIngest().catch(console.error);
+}

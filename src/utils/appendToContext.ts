@@ -1,5 +1,5 @@
 import fs from "fs";
-import path from "path";
+import { contextMarkdownBasename, resolveContextFilePath } from "./childContextPaths";
 
 /**
  * Patterns that signal the model stalled or got confused.
@@ -68,9 +68,30 @@ export async function appendToContext(
   const timestamp = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
   });
-  const fileName = childName === "Ila" ? "ila_context.md" : "reina_context.md";
-  const filePath = path.resolve(process.cwd(), "src", "context", fileName);
+  const fileName = contextMarkdownBasename(childName);
+  const filePath = resolveContextFilePath(childName);
   const entry = `\n\n## ${heading} — ${timestamp}\n${content}`;
   await fs.promises.appendFile(filePath, entry, "utf-8");
   console.log(`  ✅ Appended to ${fileName}`);
+}
+
+/**
+ * Append a deferred-activity line for the psychologist on the next run.
+ * @param filePathOverride — for tests only; production uses the child's context path.
+ */
+export async function appendDeferredActivity(
+  childName: "Ila" | "Reina",
+  activity: string,
+  reason: string,
+  filePathOverride?: string,
+): Promise<void> {
+  const filePath = filePathOverride ?? resolveContextFilePath(childName);
+  const date = new Date().toISOString().slice(0, 10);
+  const entry =
+    `\n\n## Deferred Activities\n` +
+    `- ${activity} deferred ${date}\n` +
+    `  reason: ${reason}\n` +
+    `  reschedule: next session\n`;
+  await fs.promises.appendFile(filePath, entry, "utf-8");
+  console.log(`  🎮 [sessionLog] deferred "${activity}" → context`);
 }

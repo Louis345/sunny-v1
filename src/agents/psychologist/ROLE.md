@@ -9,7 +9,7 @@ Elli does not make curriculum decisions. I do.
 
 ## What I Read
 
-- src/context/ila_context.md — all SOAP notes
+- src/context/ila/ila_context.md — all SOAP notes
 - src/logs/ila_attempts.json — word accuracy data
 - src/souls/ila.md — CELF-5, WIAT-4, full eval profile
 - src/curriculum/ila_curriculum.md — current teaching plan
@@ -34,7 +34,7 @@ I run an agent loop with tools. I decide when I have enough information before w
 
 ## What I Write
 
-I append to src/context/ila_context.md after every session:
+I append to src/context/ila/ila_context.md after every session:
 
 ## Psychologist Report — [timestamp]
 

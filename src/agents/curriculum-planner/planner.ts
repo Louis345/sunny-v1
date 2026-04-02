@@ -6,6 +6,7 @@ import "dotenv/config";
 import { CURRICULUM_PLANNER_PROMPT } from "../prompts";
 import { loadAttemptHistory } from "../../utils/attempts";
 import { shouldLoadPersistedHistory } from "../../utils/runtimeMode";
+import { resolveContextFilePath } from "../../utils/childContextPaths";
 
 export async function curriculumPlanner(
   childName: "Ila" | "Reina" = "Ila"
@@ -13,12 +14,10 @@ export async function curriculumPlanner(
   const { generateText } = await import("ai");
   const { anthropic } = await import("@ai-sdk/anthropic");
 
-  const contextFile =
-    childName === "Reina" ? "reina_context.md" : "ila_context.md";
   const curriculumFile =
     childName === "Reina" ? "reina_curriculum.md" : "ila_curriculum.md";
 
-  const contextPath = path.resolve(process.cwd(), "src", "context", contextFile);
+  const contextPath = resolveContextFilePath(childName);
   const curriculumPath = path.resolve(
     process.cwd(),
     "src",

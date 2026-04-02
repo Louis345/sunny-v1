@@ -35,6 +35,9 @@ function candidateNames(name: string): string[] {
   if (withoutSuffix === "space-invaders") {
     candidates.push("space-invaders");
   }
+  if (withoutSuffix === "asteroids") {
+    candidates.push("asteroid");
+  }
 
   return Array.from(new Set(candidates.filter(Boolean)));
 }

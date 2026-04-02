@@ -15,8 +15,11 @@ export default defineConfig({
       "src/tests/test-word-builder-tool-slot.ts",
       "src/tests/test-spelling-homework-gate.ts",
       "src/tests/test-psychologist-context.ts",
+      "src/tests/test-today-plan.ts",
+      "src/tests/test-session-plan-injection.ts",
       "src/tests/test-audit-log.ts",
       "src/tests/test-web-toolkit-no-logAttempt.ts",
+      "src/tests/test-canvas-voice-sync.ts",
     ],
   },
 });

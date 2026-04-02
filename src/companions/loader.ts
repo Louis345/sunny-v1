@@ -1,5 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
+import {
+  contextFileRelativeFromSrc,
+  probeTargetsRelativeFromSrc,
+} from "../utils/childContextPaths";
+import type { ChildName as ContextChildName } from "../utils/childContextPaths";
+import { getTodaysPlanInjectionSuffix } from "../utils/sessionPlanInjection";
 
 const DIR = path.resolve(__dirname, "..");
 
@@ -132,9 +138,8 @@ function loadCompanion(
   const canvas = parseField(companionMd, "Canvas");
   const sessionEnding = parseField(companionMd, "Session Ending");
 
-  const probeFile =
-    childName === "Ila" ? "elli_probe_targets.md" : "matilda_probe_targets.md";
-  const probePath = path.resolve(DIR, "companions", probeFile);
+  const probeRel = probeTargetsRelativeFromSrc(childName as ContextChildName);
+  const probePath = path.resolve(DIR, probeRel);
   const probeTargets = fs.existsSync(probePath)
     ? fs.readFileSync(probePath, "utf-8")
     : "• Follow the child's lead this session.";
@@ -146,6 +151,15 @@ function loadCompanion(
     ? parseField(companionMd, "Opening Line")
     : getTimeBasedGreeting(childName);
   const goodbye = parseField(companionMd, "Goodbye");
+
+  const childKey: ContextChildName | null =
+    childName.trim() === "Ila"
+      ? "Ila"
+      : childName.trim() === "Reina"
+        ? "Reina"
+        : null;
+  const todaysPlanBlock =
+    childKey != null ? getTodaysPlanInjectionSuffix(childKey) : "";
 
   const companionPersona =
     `ABSOLUTE RULE: NEVER write *anything in asterisks*. ` +
@@ -170,7 +184,7 @@ ${soul}
 
 === WHAT TO WORK ON TODAY ===
 ${curriculum}
-
+${todaysPlanBlock ? `\n${todaysPlanBlock}\n` : ""}
 === NATURAL THINGS TO TRY THIS SESSION ===
 ${probeTargets}
 
@@ -235,7 +249,7 @@ ${lastTwoSessionSummaries}
 export const ELLI = loadCompanion(
   "companions/elli.md",
   "souls/ila.md",
-  "context/ila_context.md",
+  contextFileRelativeFromSrc("Ila"),
   "curriculum/ila_curriculum.md",
   "ELEVENLABS_VOICE_ID_ILA",
   "MF3mGyEYCl7XYWbV9V6O",
@@ -249,7 +263,7 @@ export const ELLI = loadCompanion(
 export const MATILDA = loadCompanion(
   "companions/matilda.md",
   "souls/reina.md",
-  "context/reina_context.md",
+  contextFileRelativeFromSrc("Reina"),
   "curriculum/reina_curriculum.md",
   "ELEVENLABS_VOICE_ID_REINA",
   "XrExE9yKIg1WjnnlVkGX",

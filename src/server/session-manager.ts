@@ -23,6 +23,7 @@ import {
   normalizeSessionSubject,
 } from "../agents/prompts";
 import { loadHomeworkPayload } from "../utils/loadHomeworkFolder";
+import { appendDeferredActivity } from "../utils/appendToContext";
 import { classifyAndRoute } from "../agents/classifier/classifier";
 import { runAgent } from "../agents/elli/run";
 import { recordSession } from "../agents/slp-recorder/recorder";
@@ -283,8 +284,11 @@ export class SessionManager {
   private wbWord: string = "";
   private wbRound: number = 0;
   private wbActive: boolean = false;
-  /** round_complete event that arrived while Elli was mid-speech; flushed on WORD_BUILDER re-entry */
-  private wbPendingEvent: Record<string, unknown> | null = null;
+  /** round_* iframe events while SPEAKING or PROCESSING — flushed after playback or agent step */
+  private pendingRoundComplete: Record<string, unknown> | null = null;
+  /** Hold agent TTS until browser posts `ready` for this canvas revision */
+  private gamePendingRevision: number | null = null;
+  private gameTtsFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   /** Safety: exit Word Builder if no round activity for this long */
   private wbActivityTimeout: ReturnType<typeof setTimeout> | null = null;
   private static readonly WB_ACTIVITY_MS = 90_000;
@@ -648,11 +652,6 @@ export class SessionManager {
         this.send("session_state", { state });
         if (state === "SPEAKING") {
           this.speakingStartedAt = Date.now();
-        } else if (state === "WORD_BUILDER" && this.wbPendingEvent) {
-          const pending = this.wbPendingEvent;
-          this.wbPendingEvent = null;
-          console.log("  🎮 flushing buffered game event");
-          setImmediate(() => this.handleGameEvent(pending));
         } else if (state === "IDLE") {
           this.speakingStartedAt = 0;
         }
@@ -1461,6 +1460,9 @@ export class SessionManager {
     const ts = new Date().toISOString();
     console.log(`  🛑 [${ts}] Barge-in received`);
 
+    this.pendingRoundComplete = null;
+    this.abortGameTtsGate();
+
     const stateBefore = this.turnSM.getState();
     this.turnSM.onInterrupt();
     auditLog("turn", {
@@ -1525,10 +1527,61 @@ export class SessionManager {
     this.wbRound = 0;
     this.wbWord = "";
     this.wbLastProcessedRound = 0;
-    this.wbPendingEvent = null;
-    // keep legacy alias in sync for handleToolCall guard
+    this.pendingRoundComplete = null;
+    this.abortGameTtsGate();
     this.wordBuilderSessionActive = false;
     this.activeWordBuilderWord = "";
+  }
+
+  private clearGameTtsFallbackTimer(): void {
+    if (this.gameTtsFallbackTimer) {
+      clearTimeout(this.gameTtsFallbackTimer);
+      this.gameTtsFallbackTimer = null;
+    }
+  }
+
+  /** Drop iframe TTS gate without speaking (barge-in / cleanup). */
+  private abortGameTtsGate(): void {
+    this.gamePendingRevision = null;
+    this.clearGameTtsFallbackTimer();
+    this.turnSM.clearGameTtsHold();
+  }
+
+  private armGameTtsGate(revision: number): void {
+    this.clearGameTtsFallbackTimer();
+    this.gamePendingRevision = revision;
+    this.turnSM.armGameTtsHold();
+    this.gameTtsFallbackTimer = setTimeout(() => {
+      this.gameTtsFallbackTimer = null;
+      if (this.gamePendingRevision !== revision) return;
+      console.warn("  ⏱️  game `ready` TTS gate timeout — releasing buffer");
+      this.releaseGameTtsFlush();
+    }, 5000);
+  }
+
+  private releaseGameTtsFlush(): void {
+    if (this.gamePendingRevision === null) return;
+    this.gamePendingRevision = null;
+    this.clearGameTtsFallbackTimer();
+    this.turnSM.releaseDeferredTts();
+  }
+
+  flushPendingRoundComplete(): void {
+    const ev = this.pendingRoundComplete;
+    if (!ev) return;
+    this.pendingRoundComplete = null;
+    this.handleGameEvent(ev, true);
+  }
+
+  private finalizeWordBuilderSessionFromIframe(completedWord: string): void {
+    this.wbAwaitingSpell = true;
+    this.clearWbActivityTimeout();
+    this.turnSM.onWordBuilderEnd();
+    this.clearActiveCanvasActivity();
+    this.send("canvas_draw", { mode: "idle" });
+    void this.runCompanionResponse(
+      WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord),
+    ).catch(console.error);
   }
 
   /** Server drives rounds 2-4 via next_round.
@@ -1556,7 +1609,7 @@ export class SessionManager {
   }
 
   /** Iframe game events (word-builder fill-blanks) forwarded from the browser. */
-  handleGameEvent(event: Record<string, unknown>): void {
+  handleGameEvent(event: Record<string, unknown>, fromPendingFlush = false): void {
     const type = event.type as string;
 
     if (type === "ready") {
@@ -1579,6 +1632,12 @@ export class SessionManager {
           `  🖼️  Browser confirmed game ready for revision ${this.currentCanvasRevision} (${this.ctx.canvas.current.mode})`,
         );
         this.broadcastContext();
+        if (
+          this.gamePendingRevision !== null &&
+          this.currentCanvasRevision === this.gamePendingRevision
+        ) {
+          this.releaseGameTtsFlush();
+        }
       }
       return;
     }
@@ -1605,16 +1664,9 @@ export class SessionManager {
       this.armWbActivityTimeout();
 
       const state = this.turnSM.getState();
-
-      // Elli is mid-speech — buffer and handle when she returns to WORD_BUILDER
-      if (
-        state === "SPEAKING" ||
-        state === "PROCESSING" ||
-        state === "LOADING" ||
-        state === "CANVAS_PENDING"
-      ) {
-        console.log(`  🎮 round_complete buffered (state=${state})`);
-        this.wbPendingEvent = event;
+      if (!fromPendingFlush && (state === "SPEAKING" || state === "PROCESSING")) {
+        console.log(`  🎮 round_complete deferred (state=${state})`);
+        this.pendingRoundComplete = { ...event };
         return;
       }
 
@@ -1631,19 +1683,14 @@ export class SessionManager {
         `  🎮 round_complete received — round ${completedRound} (wbRound ${this.wbRound})`,
       );
 
-      // Round 3: silent advance only
+      if (completedRound === 4) {
+        this.finalizeWordBuilderSessionFromIframe(this.wbWord);
+        return;
+      }
       if (completedRound === 3) {
         this.wbAdvanceRound();
         return;
       }
-
-      // Round 4: silent handoff — iframe sends game_complete; one companion run
-      // (WORD_BUILDER_SESSION_COMPLETE) speaks there (avoids merged TTS e.g. "NowYES").
-      if (completedRound === 4) {
-        return;
-      }
-
-      // Rounds 1 & 2: praise then advance
       if (completedRound === 1 || completedRound === 2) {
         void this.runCompanionResponse(
           WORD_BUILDER_ROUND_COMPLETE(completedRound, this.wbWord, attempts),
@@ -1667,14 +1714,9 @@ export class SessionManager {
       const state = this.turnSM.getState();
       const word = this.wbWord;
 
-      if (
-        state === "SPEAKING" ||
-        state === "PROCESSING" ||
-        state === "LOADING" ||
-        state === "CANVAS_PENDING"
-      ) {
-        console.log(`  🎮 round_failed buffered (state=${state})`);
-        this.wbPendingEvent = event;
+      if (!fromPendingFlush && (state === "SPEAKING" || state === "PROCESSING")) {
+        console.log(`  🎮 round_failed deferred (state=${state})`);
+        this.pendingRoundComplete = { ...event };
         return;
       }
 
@@ -1693,16 +1735,13 @@ export class SessionManager {
 
     if (type === "game_complete") {
       if (this.wbActive) {
-        const completedWord = this.wbWord;
-        // Keep wbActive / wordBuilderSessionActive until Elli logs the post-game spell attempt
-        this.wbAwaitingSpell = true;
-        this.clearWbActivityTimeout();
-        this.turnSM.onWordBuilderEnd();
-        this.clearActiveCanvasActivity();
-        this.send("canvas_draw", { mode: "idle" });
-        void this.runCompanionResponse(
-          WORD_BUILDER_SESSION_COMPLETE(this.childName, completedWord),
-        ).catch(console.error);
+        if (this.wbLastProcessedRound >= 4) {
+          console.log(
+            "  🎮 game_complete ignored (Word Builder already ended at round 4)",
+          );
+          return;
+        }
+        this.finalizeWordBuilderSessionFromIframe(this.wbWord);
         return;
       }
       if (this.activeCanvasActivity.snapshot?.worksheet) {
@@ -1755,6 +1794,7 @@ export class SessionManager {
 
   playbackDone(): void {
     this.turnSM.onPlaybackComplete();
+    this.flushPendingRoundComplete();
     const pending = this.turnSM.consumePendingTranscript();
     if (pending) {
       void this.handleEndOfTurn(pending, true);
@@ -2444,6 +2484,7 @@ export class SessionManager {
       });
 
       this.turnSM.onAgentComplete();
+      this.flushPendingRoundComplete();
 
       if (!fullResponse.trim()) {
         console.warn(
@@ -2802,6 +2843,21 @@ export class SessionManager {
   private async hostSessionLog(
     args: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
+    if (args.skipped === true) {
+      const reason = String(args.reason ?? "").trim();
+      if (!reason) {
+        return { logged: false, error: "reason_required_when_skipped" };
+      }
+      const activityRaw =
+        (args.activity as string | undefined)?.trim() ||
+        (args.observation as string | undefined)?.trim() ||
+        (args.word as string | undefined)?.trim() ||
+        "";
+      const activity = activityRaw || "Activity";
+      await appendDeferredActivity(this.childName, activity, reason);
+      return { logged: true, deferred: true };
+    }
+
     if (this.worksheetSession) {
       const wp = this.worksheetProblems[this.worksheetProblemIndex];
       if (!wp) {
@@ -3308,7 +3364,7 @@ export class SessionManager {
       this.wbRound = 1;
       this.wbActive = true;
       this.wbLastProcessedRound = 0;
-      this.wbPendingEvent = null;
+      this.pendingRoundComplete = null;
       this.activeWordBuilderWord = word;
       this.wordBuilderSessionActive = true;
       this.turnSM.onWordBuilderStart();
@@ -3341,6 +3397,7 @@ export class SessionManager {
       }
       this.setActiveCanvasActivity("word-builder");
       this.send("canvas_draw", wordBuilderDraw);
+      this.armGameTtsGate(wordBuilderDraw.canvasRevision);
       return;
     }
 
@@ -3409,6 +3466,7 @@ export class SessionManager {
       }
       this.setActiveCanvasActivity("spell-check");
       this.send("canvas_draw", spellCheckDraw);
+      this.armGameTtsGate(spellCheckDraw.canvasRevision);
       return;
     }
 
@@ -3501,6 +3559,7 @@ export class SessionManager {
             : undefined,
         snapshot: worksheetResumeSnapshot,
       });
+      this.armGameTtsGate(revisedCanvasDraw.canvasRevision);
       return;
     }
 
@@ -3926,15 +3985,22 @@ export class SessionManager {
         const rawName = String(args.name ?? "").trim();
         const entry = getTool(rawName);
         if (entry) {
-          this.currentCanvasState = {
+          const gameCanvas = {
             mode: rawName,
             gameUrl: entry.url,
             gameWord: args.gameWord,
             gamePlayerName: args.gamePlayerName,
           };
+          const draw = this.withCanvasRevision(
+            gameCanvas as Record<string, unknown>,
+          );
+          this.currentCanvasState = { ...draw };
           if (this.ctx) {
             this.ctx.updateCanvas({
               mode: rawName as CanvasState["mode"],
+              gameUrl: entry.url,
+              gameWord: args.gameWord as string | undefined,
+              gamePlayerName: args.gamePlayerName as string | undefined,
               content: undefined,
               svg: undefined,
               label: undefined,
@@ -3945,6 +4011,8 @@ export class SessionManager {
             this.broadcastContext();
           }
           this.clearActiveCanvasActivity();
+          this.send("canvas_draw", draw);
+          this.armGameTtsGate(draw.canvasRevision);
           console.log(`  🖼️  [canvas] canvasShow type=game name=${rawName}`);
         } else {
           console.warn(

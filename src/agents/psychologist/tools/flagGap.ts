@@ -1,6 +1,6 @@
 import { tool } from "ai";
-import path from "path";
 import fs from "fs";
+import { resolveContextFilePath } from "../../../utils/childContextPaths";
 import { z } from "zod";
 
 export const flagGap = tool({
@@ -11,8 +11,7 @@ export const flagGap = tool({
     skill: z.string().describe("The skill name to search for (e.g. Following Directions)"),
   }),
   execute: async ({ childName, skill }) => {
-    const fileName = childName === "Ila" ? "ila_context.md" : "reina_context.md";
-    const filePath = path.resolve(process.cwd(), "src", "context", fileName);
+    const filePath = resolveContextFilePath(childName);
 
     if (!fs.existsSync(filePath)) {
       return JSON.stringify({ skill, mentions: 0, verdict: "NEVER TESTED" as const });
