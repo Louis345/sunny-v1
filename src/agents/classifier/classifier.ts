@@ -6,7 +6,7 @@ import "dotenv/config";
  * Scans drop/ (and drop/ila/, drop/reina/) for new files.
  * Classifies each file and routes to:
  *   - homework/<child>/<date>/   — spelling/math/reading/handwriting
- *   - src/context/<child>_context.md — everything else
+ *   - src/context/<child>/<child>_context.md — everything else
  *
  * Move originals to drop/processed/ after handling.
  *
@@ -20,6 +20,7 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
+import { resolveContextFilePath } from "../../utils/childContextPaths";
 
 const ROOT = process.cwd();
 const DROP_DIR = path.join(ROOT, "drop");
@@ -603,9 +604,7 @@ function moveToProcessed(filePath: string): string {
 }
 
 function appendToContext(childName: "Ila" | "Reina", text: string): string {
-  const fileName =
-    childName === "Ila" ? "ila_context.md" : "reina_context.md";
-  const filePath = path.join(ROOT, "src", "context", fileName);
+  const filePath = resolveContextFilePath(childName);
   const timestamp = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
   });

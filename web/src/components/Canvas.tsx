@@ -80,6 +80,8 @@ const GAME_IFRAME_BACKGROUNDS: Partial<Record<RegistryGameMode, string>> = {
   "word-builder": "#121213",
   "spell-check": "#12002e",
   "space-invaders": "#0a0a12",
+  "space-frogger": "#0a0a12",
+  asteroid: "#000000",
   "bd-reversal": "#12002e",
 };
 

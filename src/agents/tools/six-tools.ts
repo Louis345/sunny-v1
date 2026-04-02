@@ -220,18 +220,54 @@ export function createSixTools(host: SixToolsHost) {
     }),
     sessionLog: tool({
       description:
-        "Log a graded interaction (worksheet answer or observation). For worksheets, server maps this to the active problem. For spelling homework or post–Word Builder dictation, pass word (normalized on server) so progress and rewards stay in sync with sessionStatus.",
-      inputSchema: z.object({
-        correct: z.boolean(),
-        childSaid: z.string(),
-        word: z
-          .string()
-          .optional()
-          .describe(
-            "Spelling: the word being graded (must match the word on canvas when applicable).",
-          ),
-        observation: z.string().optional(),
-      }),
+        "Log a graded interaction (worksheet answer or observation). For worksheets, server maps this to the active problem. For spelling homework or post–Word Builder dictation, pass word (normalized on server) so progress and rewards stay in sync with sessionStatus. When an activity is skipped due to child state, call sessionLog({ skipped: true, reason: '...', activity?: '...' }) so the Psychologist knows what happened and why. Do not skip logging — even skips are data.",
+      inputSchema: z
+        .object({
+          skipped: z
+            .boolean()
+            .optional()
+            .describe("When true, record a deferral for the psychologist (no correct/incorrect)."),
+          reason: z.string().optional().describe("Required when skipped is true."),
+          activity: z
+            .string()
+            .optional()
+            .describe("Short label for what was deferred (optional; defaults if omitted)."),
+          correct: z.boolean().optional(),
+          childSaid: z.string().optional(),
+          word: z
+            .string()
+            .optional()
+            .describe(
+              "Spelling: the word being graded (must match the word on canvas when applicable).",
+            ),
+          observation: z.string().optional(),
+        })
+        .superRefine((data, ctx) => {
+          if (data.skipped === true) {
+            if (!data.reason?.trim()) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "reason is required when skipped is true",
+                path: ["reason"],
+              });
+            }
+            return;
+          }
+          if (data.correct !== true && data.correct !== false) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "correct is required unless skipped is true",
+              path: ["correct"],
+            });
+          }
+          if (typeof data.childSaid !== "string") {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "childSaid is required unless skipped is true",
+              path: ["childSaid"],
+            });
+          }
+        }),
       execute: async (args) =>
         host.sessionLog(args as Record<string, unknown>),
     }),

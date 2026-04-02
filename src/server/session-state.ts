@@ -164,6 +164,8 @@ const turnMachine = setup({
 export class TurnStateMachine {
   private state: SessionTurnState = "IDLE";
   private ttsBuffer = "";
+  /** When true, TTS stays buffered until iframe game `ready` (see releaseDeferredTts). */
+  private gameTtsHold = false;
   private canvasTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly CANVAS_TIMEOUT_MS = 2000;
   private pendingTranscript: string | null = null;
@@ -300,6 +302,7 @@ export class TurnStateMachine {
     }
 
     if (this.state === "SPEAKING") {
+      if (this.gameTtsHold) return;
       if (this._shouldFlush(this.ttsBuffer)) {
         const clean = sanitizeForTTS(this.ttsBuffer);
         if (clean) this.onFlush(clean);
@@ -344,15 +347,18 @@ export class TurnStateMachine {
   }
 
   /** runAgent completed — if no canvas was pending, go straight to speaking */
-  onAgentComplete(): void {
+  onAgentComplete(deferFlush = false): void {
     this.onLog(`  🔍 onAgentComplete — state: ${this.state}, buffer: "${this.ttsBuffer.slice(0, 60)}"`);
+    const defer = deferFlush || this.gameTtsHold;
 
     if (this.state === "PROCESSING" || this.state === "WORD_BUILDER") {
       this.send({ type: "AGENT_COMPLETE" });
-      this._flushBuffer(); // flush buffered content from PROCESSING / WORD_BUILDER intro
+      if (!defer) {
+        this._flushBuffer();
+      }
     }
     // Drain any trailing fragment left in SPEAKING state
-    if (this.state === "SPEAKING" && this.ttsBuffer.trim()) {
+    if (this.state === "SPEAKING" && this.ttsBuffer.trim() && !this.gameTtsHold) {
       let drain = this.ttsBuffer.trimEnd();
       if (drain.length > 0 && !/[.!?]["']?\s*$/.test(drain)) {
         drain += ". ";
@@ -365,6 +371,22 @@ export class TurnStateMachine {
       this.ttsBuffer = "";
     }
     // If CANVAS_PENDING — wait for onCanvasDone to flush
+  }
+
+  /** Flush TTS accumulated while game iframe was not ready yet. */
+  releaseDeferredTts(): void {
+    this.gameTtsHold = false;
+    if (this.ttsBuffer.trim()) {
+      this._flushBuffer();
+    }
+  }
+
+  armGameTtsHold(): void {
+    this.gameTtsHold = true;
+  }
+
+  clearGameTtsHold(): void {
+    this.gameTtsHold = false;
   }
 
   /** Barge-in or session end — drop everything */

@@ -1,10 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { generateText, stepCountIs } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { PSYCHOLOGIST_PROMPT, PSYCHOLOGIST_CONTEXT } from "../prompts";
-import { loadChildFiles } from "../../utils/loadChildFiles";
+import { PSYCHOLOGIST_PROMPT } from "../prompts";
 import { appendToContext } from "../../utils/appendToContext";
 import { querySessions, flagGap } from "./tools";
+import {
+  buildPsychologistContext,
+  readNatalieContext,
+} from "./natalie-context";
 import { curriculumPlanner } from "../curriculum-planner/planner";
 import { runTranslator } from "../translator/translator";
 
@@ -538,16 +541,16 @@ export async function runPsychologist(
   dryRun = false,
 ): Promise<void> {
   console.log("runPsychologist called with dryRun:", dryRun);
-  const { context, curriculum, attempts } = loadChildFiles(childName);
-
-  const prompt = PSYCHOLOGIST_CONTEXT(childName, context, attempts, curriculum);
+  const slug = childName === "Ila" ? "ila" : "reina";
+  const hasNatalie = readNatalieContext(slug) !== null;
+  const prompt = buildPsychologistContext(slug);
 
   const tools = { querySessions, flagGap };
   console.log("Tools registered:", Object.keys(tools));
 
   const { text, steps } = await generateText({
     model: anthropic("claude-sonnet-4-5"),
-    system: PSYCHOLOGIST_PROMPT(childName),
+    system: PSYCHOLOGIST_PROMPT(childName, hasNatalie),
     prompt,
     tools,
     stopWhen: stepCountIs(10),
@@ -590,3 +593,14 @@ export async function runPsychologist(
     await curriculumPlanner(childName);
   }
 }
+
+export {
+  psychologistStructuredOutputSchema,
+  todaysPlanActivitySchema,
+  assertTodaysPlanInvariants,
+  buildTodaysPlan,
+  readPersistedTodaysPlan,
+  writePersistedTodaysPlan,
+  type PsychologistStructuredOutput,
+  type TodaysPlanActivity,
+} from "./today-plan";

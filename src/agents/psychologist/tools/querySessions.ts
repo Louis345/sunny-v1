@@ -1,6 +1,6 @@
 import { tool } from "ai";
-import path from "path";
 import fs from "fs";
+import { resolveContextFilePath } from "../../../utils/childContextPaths";
 import { z } from "zod";
 
 export const querySessions = tool({
@@ -11,8 +11,7 @@ export const querySessions = tool({
     count: z.number().describe("How many recent sessions to return"),
   }),
   execute: async ({ childName, count }) => {
-    const fileName = childName === "Ila" ? "ila_context.md" : "reina_context.md";
-    const filePath = path.resolve(process.cwd(), "src", "context", fileName);
+    const filePath = resolveContextFilePath(childName);
 
     if (!fs.existsSync(filePath)) return "(no sessions yet)";
 
