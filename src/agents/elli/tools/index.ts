@@ -9,16 +9,15 @@ export { riddleTracker } from "./riddleTracker";
 export { showCanvas } from "./showCanvas";
 export { blackboard } from "./blackboard";
 export {
-  createStartWordBuilderTool,
+  buildLaunchGameTool,
+  executeLaunchGame,
+  launchGame,
   WB_ALREADY_ACTIVE,
   WB_WORD_TOO_SHORT,
-} from "./startWordBuilder";
-export { launchGame } from "./launchGame";
-export {
-  startSpellCheck,
-  createStartSpellCheckTool,
   SC_ALREADY_ACTIVE,
   SC_WORD_TOO_SHORT,
-} from "./startSpellCheck";
+  type LaunchGameSpellingOptions,
+  type LaunchGameExecuteResult,
+} from "./launchGame";
 export { requestPauseForCheckIn } from "./requestPauseForCheckIn";
 export { requestResumeActivity } from "./requestResumeActivity";

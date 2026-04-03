@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createSpellingHomeworkGate } from "../server/spelling-homework-gate";
-import {
-  createStartWordBuilderTool,
-} from "../agents/elli/tools/startWordBuilder";
-import { createStartSpellCheckTool } from "../agents/elli/tools/startSpellCheck";
+import { buildLaunchGameTool } from "../agents/elli/tools/launchGame";
 
 describe("createSpellingHomeworkGate", () => {
   it("is permissive when allowlist is empty", () => {
@@ -28,32 +25,52 @@ describe("createSpellingHomeworkGate", () => {
   });
 });
 
-describe("homework gate in tools (model-visible execute)", () => {
-  it("startWordBuilder rejects word not on list", async () => {
+describe("homework gate in launchGame (model-visible execute)", () => {
+  it("launchGame(word-builder) rejects word not on list", async () => {
     const gate = createSpellingHomeworkGate(["only"]);
-    const t = createStartWordBuilderTool({
+    const t = buildLaunchGameTool({
       isWordBuilderSessionActive: () => false,
       tryClaimWordBuilderToolSlot: () => true,
-      isHomeworkSpellingWordAllowed: (w) => gate.allows(w),
-      getHomeworkSpellingRejectMessage: (w) => gate.explainReject(w),
-    });
-    const exec = t.execute as (a: { word: string }) => Promise<unknown>;
-    const r = (await exec({ word: "other" })) as Record<string, unknown>;
-    expect(r.ok).toBe(false);
-    expect(r.launched).toBe(false);
-    expect(String(r.error)).toContain("not on today's extracted");
-  });
-
-  it("startSpellCheck rejects word not on list", async () => {
-    const gate = createSpellingHomeworkGate(["zip"]);
-    const t = createStartSpellCheckTool({
       isSpellCheckSessionActive: () => false,
       tryClaimSpellCheckToolSlot: () => true,
       isHomeworkSpellingWordAllowed: (w) => gate.allows(w),
       getHomeworkSpellingRejectMessage: (w) => gate.explainReject(w),
     });
-    const exec = t.execute as (a: { word: string }) => Promise<unknown>;
-    const r = (await exec({ word: "zap" })) as Record<string, unknown>;
+    const exec = t.execute as (a: {
+      name: string;
+      type: "tool" | "reward";
+      word?: string;
+    }) => Promise<unknown>;
+    const r = (await exec({
+      name: "word-builder",
+      type: "tool",
+      word: "other",
+    })) as Record<string, unknown>;
+    expect(r.ok).toBe(false);
+    expect(r.launched).toBe(false);
+    expect(String(r.error)).toContain("not on today's extracted");
+  });
+
+  it("launchGame(spell-check) rejects word not on list", async () => {
+    const gate = createSpellingHomeworkGate(["zip"]);
+    const t = buildLaunchGameTool({
+      isWordBuilderSessionActive: () => false,
+      tryClaimWordBuilderToolSlot: () => true,
+      isSpellCheckSessionActive: () => false,
+      tryClaimSpellCheckToolSlot: () => true,
+      isHomeworkSpellingWordAllowed: (w) => gate.allows(w),
+      getHomeworkSpellingRejectMessage: (w) => gate.explainReject(w),
+    });
+    const exec = t.execute as (a: {
+      name: string;
+      type: "tool" | "reward";
+      word?: string;
+    }) => Promise<unknown>;
+    const r = (await exec({
+      name: "spell-check",
+      type: "tool",
+      word: "zap",
+    })) as Record<string, unknown>;
     expect(r.ok).toBe(false);
     expect(String(r.error)).toContain("not on today's extracted");
   });

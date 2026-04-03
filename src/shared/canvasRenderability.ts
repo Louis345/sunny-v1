@@ -34,6 +34,10 @@ export type RenderableCanvasMode =
   | "championship"
   | "place_value"
   | "spelling"
+  | "karaoke"
+  | "sound_box"
+  | "clock"
+  | "score_meter"
   | GameMode;
 
 export interface RenderableCanvasLike {

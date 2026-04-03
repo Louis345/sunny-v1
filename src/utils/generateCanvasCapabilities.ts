@@ -109,11 +109,11 @@ export function generateCanvasCapabilities(): string {
     lines.push(`### ${name}`);
     if (name === "word-builder") {
       lines.push(
-        `Launch: **startWordBuilder** tool with \`{ word: "<homework word>" }\` — do **not** use launchGame for word-builder (it cannot pass a word).`,
+        `Launch: **launchGame** with \`{ name: "word-builder", type: "tool", word: "<homework word>" }\`.`,
       );
     } else if (name === "spell-check") {
       lines.push(
-        `Launch: **startSpellCheck** tool with \`{ word: "<homework word>" }\` — do **not** use launchGame for spell-check.`,
+        `Launch: **launchGame** with \`{ name: "spell-check", type: "tool", word: "<homework word>" }\`.`,
       );
     } else {
       lines.push(`Launch: launchGame("${name}", "tool")`);

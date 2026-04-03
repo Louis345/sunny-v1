@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import WebSocket from "ws";
-import { createStartWordBuilderTool } from "../agents/elli/tools/startWordBuilder";
+import { buildLaunchGameTool } from "../agents/elli/tools/launchGame";
 
 vi.mock("../agents/elli/run", () => ({
   runAgent: vi.fn().mockResolvedValue(""),
@@ -50,34 +50,48 @@ function getSentMessages(sm: SessionManager): Array<Record<string, unknown>> {
   );
 }
 
-// ── Suite 1: startWordBuilder.execute() honest return ──────────────────────
+// ── Suite 1: launchGame(word-builder) execute honest return (spelling tool) ─
 
-describe("startWordBuilder.execute honest return", () => {
+describe("launchGame(word-builder) execute honest return", () => {
   function freshTool() {
     let claimed = false;
-    return createStartWordBuilderTool({
+    return buildLaunchGameTool({
       isWordBuilderSessionActive: () => false,
       tryClaimWordBuilderToolSlot: () => {
         if (claimed) return false;
         claimed = true;
         return true;
       },
+      isSpellCheckSessionActive: () => false,
+      tryClaimSpellCheckToolSlot: () => true,
     });
   }
 
   it("returns ok:true and launched:true with the word", async () => {
     const t = freshTool();
     const result = await (
-      t as unknown as { execute: (a: { word: string }) => Promise<unknown> }
-    ).execute({ word: "add" });
-    expect(result).toEqual({ ok: true, word: "add", launched: true });
+      t as unknown as {
+        execute: (a: {
+          name: string;
+          type: "tool" | "reward";
+          word?: string;
+        }) => Promise<unknown>;
+      }
+    ).execute({ name: "word-builder", type: "tool", word: "add" });
+    expect(result).toMatchObject({ ok: true, word: "add", launched: true });
   });
 
   it("returns normalized word (lowercase trim)", async () => {
     const t = freshTool();
     const result = await (
-      t as unknown as { execute: (a: { word: string }) => Promise<unknown> }
-    ).execute({ word: "  Moving " });
+      t as unknown as {
+        execute: (a: {
+          name: string;
+          type: "tool" | "reward";
+          word?: string;
+        }) => Promise<unknown>;
+      }
+    ).execute({ name: "word-builder", type: "tool", word: "  Moving " });
     const r = result as Record<string, unknown>;
     expect(r.ok).toBe(true);
     expect(r.launched).toBe(true);
@@ -85,9 +99,9 @@ describe("startWordBuilder.execute honest return", () => {
   });
 });
 
-// ── Suite 2: blocked startWordBuilder returns ok:false to client ───────────
+// ── Suite 2: blocked word-builder returns ok:false to client ────────────────
 
-describe("startWordBuilder blocked → ok:false wire result", () => {
+describe("launchGame(word-builder) blocked → ok:false wire result", () => {
   it("when WB already active, tool_call sent to browser has ok:false (wire correction)", () => {
     const sm = new SessionManager(mockWs(), "Ila");
     const turnSM = getTurnSM(sm);
@@ -98,8 +112,21 @@ describe("startWordBuilder blocked → ok:false wire result", () => {
     (sm as unknown as { wbActive: boolean }).wbActive = true;
     turnSM.onWordBuilderStart();
 
-    const fakeResult = { ok: true, word: "add", launched: true };
-    callHandleToolCall(sm, "startWordBuilder", { word: "add" }, fakeResult);
+    const fakeResult = {
+      ok: true,
+      word: "add",
+      launched: true,
+      canonicalName: "word-builder",
+      type: "tool" as const,
+      requestedName: "word-builder",
+      availableGames: [],
+    };
+    callHandleToolCall(
+      sm,
+      "launchGame",
+      { name: "word-builder", type: "tool", word: "add" },
+      fakeResult,
+    );
 
     const sent = getSentMessages(sm);
     const toolCallMsg = sent.find((m) => m.type === "tool_call");
@@ -122,7 +149,12 @@ describe("startWordBuilder blocked → ok:false wire result", () => {
       error: "Word Builder is already active. Call canvasClear first if you want to restart it.",
       launched: false,
     };
-    callHandleToolCall(sm, "startWordBuilder", { word: "add" }, failResult);
+    callHandleToolCall(
+      sm,
+      "launchGame",
+      { name: "word-builder", type: "tool", word: "add" },
+      { ...failResult, canonicalName: "word-builder", type: "tool" as const, requestedName: "word-builder", availableGames: [] },
+    );
 
     const sent = getSentMessages(sm);
     const toolCallMsg = sent.find((m) => m.type === "tool_call");
@@ -168,7 +200,7 @@ describe("canvasClear ends Word Builder session", () => {
     expect(turnSM.getState()).not.toBe("WORD_BUILDER");
   });
 
-  it("startWordBuilder is no longer blocked after canvasClear ends WB session", () => {
+  it("launchGame(word-builder) is no longer blocked after canvasClear ends WB session", () => {
     const sm = new SessionManager(mockWs(), "Ila");
     const turnSM = getTurnSM(sm);
 
@@ -179,7 +211,7 @@ describe("canvasClear ends Word Builder session", () => {
 
     callHandleToolCall(sm, "canvasClear", {}, { canvasShowing: "idle", ok: true });
 
-    // After clear, a new startWordBuilder should go through (not blocked)
+    // After clear, a new word-builder launch should go through (not blocked)
     // Drive state to PROCESSING so WB start is valid
     turnSM.onWordBuilderEnd();
 

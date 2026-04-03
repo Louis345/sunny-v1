@@ -20,6 +20,10 @@ export interface CanvasState {
     | "reward"
     | "riddle"
     | "championship"
+    | "karaoke"
+    | "sound_box"
+    | "clock"
+    | "score_meter"
     | keyof typeof TEACHING_TOOLS
     | keyof typeof REWARD_GAMES;
   svg?: string;
@@ -108,7 +112,25 @@ export interface SessionContext {
   updateActivity: (
     state: Partial<SessionContext["activity"]>
   ) => void;
+  /** Karaoke / reading mode — browser sends reading_progress; cleared when leaving reading. */
+  readingProgress: ReadingProgressSnapshot | null;
+  setReadingProgress: (p: ReadingProgressSnapshot | null) => void;
   serialize: () => SerializedSessionContext;
+}
+
+export interface ReadingProgressSnapshot {
+  wordIndex: number;
+  totalWords: number;
+  accuracy: number;
+  flaggedWords: string[];
+  event?: string;
+}
+
+export interface SessionContextMessageExtras {
+  turnState?: string;
+  lastChildUtterance?: string | null;
+  wordBuilderRound?: number | null;
+  activeWord?: string | null;
 }
 
 export interface SerializedSessionContext {
@@ -127,6 +149,9 @@ export interface SerializedSessionContext {
   browserRevision: number;
   browserVisible: boolean;
   gameReadyRevision: number;
+  /** True when browser has confirmed the current canvas revision. */
+  canvasReady: boolean;
+  readingProgress: ReadingProgressSnapshot | null;
   assignmentProgress?: { currentIndex: number; total: number; completed: number };
 }
 
@@ -168,6 +193,11 @@ export function createSessionContext(opts: {
       pauseState: "active",
       hidden: false,
     },
+    readingProgress: null as ReadingProgressSnapshot | null,
+
+    setReadingProgress(p: ReadingProgressSnapshot | null): void {
+      this.readingProgress = p;
+    },
 
     updateCanvas(state: Partial<CanvasState>): void {
       this.canvas.current = { ...this.canvas.current, ...state };
@@ -195,6 +225,10 @@ export function createSessionContext(opts: {
     },
 
     serialize(): SerializedSessionContext {
+      const canvasReady =
+        this.canvas.revision > 0 &&
+        this.canvas.browserVisible &&
+        this.canvas.browserRevision === this.canvas.revision;
       return {
         childName: this.childName,
         sessionType: this.sessionType,
@@ -211,6 +245,8 @@ export function createSessionContext(opts: {
         browserRevision: this.canvas.browserRevision,
         browserVisible: this.canvas.browserVisible,
         gameReadyRevision: this.canvas.gameReadyRevision,
+        canvasReady,
+        readingProgress: this.readingProgress,
         assignmentProgress: this.assignment
           ? {
               currentIndex: this.assignment.currentIndex,
@@ -240,13 +276,30 @@ export function createSessionContext(opts: {
  * This is THE hook that keeps the companion aware of what the child sees.
  * Every canvas-relevant field (scene, answer, hint) must flow through here.
  */
-export function buildCanvasContextMessage(ctx: SessionContext): string {
+export function buildCanvasContextMessage(
+  ctx: SessionContext,
+  extras?: SessionContextMessageExtras,
+): string {
   const lines: string[] = [];
   const c = ctx.canvas.current;
   const activityPaused = ctx.activity.pauseState === "paused_for_checkin";
+  const snap = ctx.serialize();
 
   lines.push("[Canvas State]");
   lines.push(`Mode: ${c.mode}`);
+  lines.push(`Canvas ready (browser confirmed current revision): ${snap.canvasReady ? "yes" : "no"}`);
+  if (extras?.turnState) {
+    lines.push(`Turn state (server): ${extras.turnState}`);
+  }
+  if (extras?.activeWord != null && extras.activeWord !== "") {
+    lines.push(`Active word (session): ${extras.activeWord}`);
+  }
+  if (extras?.wordBuilderRound != null && extras.wordBuilderRound > 0) {
+    lines.push(`Word Builder round: ${extras.wordBuilderRound}`);
+  }
+  if (extras?.lastChildUtterance != null && extras.lastChildUtterance.trim() !== "") {
+    lines.push(`Last child utterance: ${extras.lastChildUtterance.trim()}`);
+  }
   lines.push(`Active activity: ${ctx.activity.mode}`);
   lines.push(`Activity pause state: ${ctx.activity.pauseState}`);
   lines.push(
@@ -254,8 +307,16 @@ export function buildCanvasContextMessage(ctx: SessionContext): string {
       ctx.canvas.browserVisible && ctx.canvas.browserRevision === ctx.canvas.revision
         ? "confirmed for current canvas"
         : "pending for current canvas"
-    }`
+    }`,
   );
+
+  if (ctx.readingProgress) {
+    const rp = ctx.readingProgress;
+    lines.push(
+      `[Reading progress] word ${rp.wordIndex + 1}/${rp.totalWords}, accuracy ${rp.accuracy}%, flagged: ${rp.flaggedWords.join(", ") || "none"}`,
+    );
+    if (rp.event) lines.push(`Reading event: ${rp.event}`);
+  }
 
   if (c.sceneDescription && !activityPaused) {
     lines.push(`Scene on screen: ${c.sceneDescription}`);

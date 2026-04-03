@@ -29,6 +29,10 @@ const BASE_CANVAS_MODES = [
   "championship",
   "place_value",
   "spelling",
+  "karaoke",
+  "sound_box",
+  "clock",
+  "score_meter",
 ] as const;
 
 type CanvasStateMode = (typeof BASE_CANVAS_MODES)[number] | GameMode;

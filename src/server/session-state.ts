@@ -167,7 +167,7 @@ export class TurnStateMachine {
   /** When true, TTS stays buffered until iframe game `ready` (see releaseDeferredTts). */
   private gameTtsHold = false;
   private canvasTimeout: ReturnType<typeof setTimeout> | null = null;
-  private readonly CANVAS_TIMEOUT_MS = 2000;
+  private readonly CANVAS_TIMEOUT_MS = 4000;
   private pendingTranscript: string | null = null;
   private canonicalProblemText: string | null = null;
   private actor = createActor(turnMachine);
