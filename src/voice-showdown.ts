@@ -31,6 +31,12 @@ const getShortSample = (voiceName: string, childName: string): string => {
     Thomas: `${childName}, you're gonna level up today. I can feel it!`,
     Liam: `Hey ${childName}! Every question is a bullseye. Let's aim for greatness!`,
     Matilda: `${childName}, being smart is the coolest superpower. And you've totally got it!`,
+    Gigi: `Hey ${childName}! Wanna learn something with silly faces and jazz hands? I'm in!`,
+    Mimi: `${childName}, you're awesome—did you know that? Let's do one more tiny challenge together!`,
+    Grace: `Well hey ${childName}, come sit with me a minute—learning's easier with a friend, right?`,
+    Serena: `Hi ${childName}! I'm right here with you. We'll go slow, we'll go fast—whatever feels good.`,
+    Rachel: `Okay ${childName}, here's my plan: we learn one cool thing, then we high-five. Deal?`,
+    Glinda: `${childName}, ready for a sprinkle of magic on this next part? You've got this!`,
   };
   return samples[voiceName] ?? `Hey ${childName}! I'm ${voiceName}. Ready to learn together?`;
 };
@@ -64,6 +70,18 @@ const GLAD_YOU_SHOWED_INTEREST: Record<string, (childName: string) => string> = 
     `${n}, I'm so glad you're considering me! Pick me and let's aim for greatness!`,
   Matilda: (n) =>
     `${n}, glad you showed interest! Pick me and I'll keep things exciting, tricky, and always fun. Deal?`,
+  Gigi: (n) =>
+    `${n}, you picked my button! I literally cannot sit still I'm so happy—pick me for nonstop fun!`,
+  Mimi: (n) =>
+    `${n}, I'm doing a happy dance! Choose me and I'll cheer for every single tiny win you get!`,
+  Grace: (n) =>
+    `${n}, I'm so glad you listened—pick me and I'll wrap you in the friendliest voice on the list!`,
+  Serena: (n) =>
+    `${n}, you sound like someone who deserves patience AND high-fives—I'm your voice, promise!`,
+  Rachel: (n) =>
+    `${n}, we're gonna sound so good together. Pick me and I'll make every line feel smooth and easy!`,
+  Glinda: (n) =>
+    `${n}, the magic wand chooses YOU! Pick Glinda and we'll make studying feel like an adventure!`,
 };
 
 async function playText(voiceId: string, text: string): Promise<void> {

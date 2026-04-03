@@ -16,6 +16,8 @@
     "sunny:ingest": "npx tsx src/scripts/sync.ts --quick",
     "convert-pdfs": "npx tsx src/scripts/convert-pdfs-to-txt.ts",
     "voice-showdown": "npx tsx src/voice-showdown.ts",
+    "voice-showdown:reina": "npx tsx src/voice-showdown.ts Reina reina",
+    "matilda-victory": "npx tsx src/matilda-victory.ts",
     "test:role-separation": "vitest run src/tests/test-role-separation.ts",
     "test:pending-transcript": "vitest run src/tests/test-pending-transcript.ts",
     "test:word-builder-feedback": "vitest run src/tests/test-word-builder-feedback.ts",
