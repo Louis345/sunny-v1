@@ -12,8 +12,8 @@ function getPronunciationLocators() {
   return [{ pronunciationDictionaryId: dictId, versionId }];
 }
 
-/** Matilda voice — Reina's pick (reminds her of the movie) */
-const MATILDA_ID = "XrExE9yKIg1WjnnlVkGX";
+/** Premade Gigi — default TTS for Matilda/Reina sessions (was premade Matilda voice id). */
+const MATILDA_ID = "jBpfuIE2acCO8z3wKNLl";
 
 /**
  * Victory message for Reina: Matilda celebrates being chosen.

@@ -163,6 +163,54 @@ export const reinaVoices: VoiceAudition[] = [
       "Pick me and I'll keep things exciting, tricky, and always fun. " +
       "No boring stuff allowed. Deal?",
   },
+  {
+    name: "Gigi",
+    id: "jBpfuIE2acCO8z3wKNLl",
+    emoji: "🎀",
+    pitch:
+      "Hi Reina! I'm Gigi! My voice is super bouncy and silly in the best way—like your favorite cartoon. " +
+      "I'll make every word feel like playtime. Pick me and I promise giggles between lessons!",
+  },
+  {
+    name: "Mimi",
+    id: "zrHiDhphv9ZnVXBqCLjz",
+    emoji: "🌈",
+    pitch:
+      "Reina! I'm Mimi! I'm bright, a little extra, and I cheer LOUD when you get something right. " +
+      "Learning with me feels like a mini party. Please pick me—we'll have so much fun!",
+  },
+  {
+    name: "Grace",
+    id: "oWAxZDx7w5VEj9dCyTzz",
+    emoji: "☀️",
+    pitch:
+      "Hey sweet pea, I'm Grace! Warm, smiley, and never ever scary—just like a big sister on the porch swing. " +
+      "I'll hype you up when it's hard and celebrate when it's easy. Pick me for cozy good vibes!",
+  },
+  {
+    name: "Serena",
+    id: "pMsXgVXv3BLzUgSXRplE",
+    emoji: "💫",
+    pitch:
+      "Hi Reina! I'm Serena—friendly, clear, and easy to listen to for a long time. " +
+      "I sound like the nice teacher everyone wishes they had. Pick me and we'll take everything one happy step at a time!",
+  },
+  {
+    name: "Rachel",
+    id: "21m00Tcm4TlvDq8ikWAM",
+    emoji: "🎧",
+    pitch:
+      "Hey Reina! I'm Rachel—smooth, upbeat, and I make boring stuff sound kinda cool. " +
+      "If you want a voice that feels like your favorite podcast host cheering you on, that's me!",
+  },
+  {
+    name: "Glinda",
+    id: "z9fAnlkpzviPz146aGWa",
+    emoji: "✨",
+    pitch:
+      "Reina! Glinda here—sparkly, magical energy without being too serious. " +
+      "Every lesson can feel a little bit like stepping into a storybook. Pick me for sparkle and fun!",
+  },
 ];
 
 async function playAudition(

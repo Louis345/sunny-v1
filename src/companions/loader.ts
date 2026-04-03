@@ -266,7 +266,8 @@ export const MATILDA = loadCompanion(
   contextFileRelativeFromSrc("Reina"),
   "curriculum/reina_curriculum.md",
   "ELEVENLABS_VOICE_ID_REINA",
-  "XrExE9yKIg1WjnnlVkGX",
+  // Default: Gigi (premade) — bubbly/animation; override with ELEVENLABS_VOICE_ID_REINA
+  "jBpfuIE2acCO8z3wKNLl",
   {
     tracksActiveWord: false,
     transitionToWorkAfterRounds: undefined,

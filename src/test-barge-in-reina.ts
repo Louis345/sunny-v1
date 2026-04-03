@@ -8,7 +8,7 @@ import type { Profile } from "./profiles";
 
 const REINA_PROFILE: Profile = {
   name: "Reina",
-  voiceId: process.env.ELEVENLABS_VOICE_ID_REINA || "XrExE9yKIg1WjnnlVkGX",
+  voiceId: process.env.ELEVENLABS_VOICE_ID_REINA || "jBpfuIE2acCO8z3wKNLl",
   systemPrompt:
     "You are Matilda, Reina's learning companion. " +
     "Reina's father built you specifically for her because she loves the movie Matilda — " +
