@@ -57,7 +57,7 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
     vi.clearAllMocks();
   });
 
-  it("startWordBuilder: no TTS until game ready for revision", async () => {
+  it("launchGame(word-builder): no TTS until game ready for revision", async () => {
     const sm = new SessionManager(mockWs(), "Ila");
     attachMinimalSession(sm);
     (sm as unknown as { spellingHomeworkWordsByNorm: string[] }).spellingHomeworkWordsByNorm =
@@ -71,11 +71,20 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
     getTurnSM(sm).onStartCompanionFromIdle();
     await new Promise<void>((r) => setImmediate(r));
 
-    callHandleToolCall(sm, "startWordBuilder", { word: "add" }, {
-      ok: true,
-      word: "add",
-      launched: true,
-    });
+    callHandleToolCall(
+      sm,
+      "launchGame",
+      { name: "word-builder", type: "tool", word: "add" },
+      {
+        ok: true,
+        canonicalName: "word-builder",
+        word: "add",
+        launched: true,
+        type: "tool",
+        requestedName: "word-builder",
+        availableGames: [],
+      },
+    );
 
     getTurnSM(sm).onToken("Fill in the word on the board please.");
     getTurnSM(sm).onAgentComplete();
@@ -89,7 +98,7 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
     expect(sendText).toHaveBeenCalled();
   });
 
-  it("startSpellCheck: no TTS until game ready", async () => {
+  it("launchGame(spell-check): no TTS until game ready", async () => {
     const sm = new SessionManager(mockWs(), "Ila");
     attachMinimalSession(sm);
     (sm as unknown as { spellingHomeworkWordsByNorm: string[] }).spellingHomeworkWordsByNorm =
@@ -103,11 +112,20 @@ describe("Suite 1 — TTS gate (Word Builder / Spell Check / Launch / canvasShow
     getTurnSM(sm).onStartCompanionFromIdle();
     await new Promise<void>((r) => setImmediate(r));
 
-    callHandleToolCall(sm, "startSpellCheck", { word: "go" }, {
-      ok: true,
-      word: "go",
-      launched: true,
-    });
+    callHandleToolCall(
+      sm,
+      "launchGame",
+      { name: "spell-check", type: "tool", word: "go" },
+      {
+        ok: true,
+        canonicalName: "spell-check",
+        word: "go",
+        launched: true,
+        type: "tool",
+        requestedName: "spell-check",
+        availableGames: [],
+      },
+    );
 
     getTurnSM(sm).onToken("Type the word on the keyboard.");
     getTurnSM(sm).onAgentComplete();
@@ -265,11 +283,20 @@ describe("Suite 4 — round 4 forces IDLE; game_complete ignored", () => {
 
     getTurnSM(sm).onStartCompanionFromIdle();
     await new Promise<void>((r) => setImmediate(r));
-    callHandleToolCall(sm, "startWordBuilder", { word: "add" }, {
-      ok: true,
-      word: "add",
-      launched: true,
-    });
+    callHandleToolCall(
+      sm,
+      "launchGame",
+      { name: "word-builder", type: "tool", word: "add" },
+      {
+        ok: true,
+        canonicalName: "word-builder",
+        word: "add",
+        launched: true,
+        type: "tool",
+        requestedName: "word-builder",
+        availableGames: [],
+      },
+    );
 
     const turn = getTurnSM(sm);
     const endSpy = vi.spyOn(turn, "onWordBuilderEnd");

@@ -115,6 +115,12 @@ export function handleWsConnection(
         break;
       }
 
+      case "reading_progress": {
+        if (!session) return;
+        session.receiveReadingProgress(msg as Record<string, unknown>);
+        break;
+      }
+
       default:
         ws.send(
           JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })

@@ -33,8 +33,23 @@ const canvasShowSchema = z
       "math_inline",
       "reward",
       "championship",
+      "blackboard",
+      "karaoke",
+      "sound_box",
+      "clock",
+      "score_meter",
     ]),
     content: z.string().optional().describe("type=text: text to display."),
+    phonemeBoxes: z
+      .array(
+        z.object({
+          position: z.string(),
+          value: z.string(),
+          highlighted: z.boolean(),
+        }),
+      )
+      .optional()
+      .describe("type=text: optional phoneme tiles for spelling."),
     text: z.string().optional().describe("type=riddle: riddle body."),
     expression: z
       .string()
@@ -85,6 +100,38 @@ const canvasShowSchema = z
     personalBest: z.number().optional(),
     lottieData: z.record(z.string(), z.any()).optional(),
     style: z.record(z.string(), z.any()).optional(),
+    riveAction: z
+      .string()
+      .optional()
+      .describe("Optional Rive state machine trigger name (e.g. celebrate)."),
+    gesture: z
+      .enum(["flash", "reveal", "mask", "clear"])
+      .optional()
+      .describe("type=blackboard: gesture."),
+    maskedWord: z.string().optional().describe("type=blackboard: masked display."),
+    duration: z.number().optional().describe("type=blackboard: gesture duration ms."),
+    storyText: z.string().optional().describe("type=karaoke: full story text."),
+    words: z.array(z.string()).optional().describe("type=karaoke: ordered words for highlighting."),
+    fontSize: z.number().optional().describe("type=karaoke: optional font size."),
+    targetWord: z.string().optional().describe("type=sound_box: word being decomposed."),
+    phonemes: z
+      .array(
+        z.object({
+          label: z.string(),
+          sound: z.string(),
+        }),
+      )
+      .optional()
+      .describe("type=sound_box: phoneme boxes."),
+    highlightIndex: z.number().optional().describe("type=sound_box: highlighted box index."),
+    hour: z.number().optional().describe("type=clock: hour 1–12."),
+    minute: z.number().optional().describe("type=clock: minute 0–59."),
+    display: z
+      .enum(["analog", "digital", "both"])
+      .optional()
+      .describe("type=clock: display mode."),
+    score: z.number().optional().describe("type=score_meter: current score."),
+    max: z.number().optional().describe("type=score_meter: max score."),
   })
   .superRefine((data, ctx) => {
     if (data.type === "place_value") {
@@ -177,6 +224,57 @@ const canvasShowSchema = z
           code: z.ZodIssueCode.custom,
           message: "label is required when type is championship",
           path: ["label"],
+        });
+      }
+    }
+    if (data.type === "blackboard") {
+      if (!data.gesture) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "gesture is required when type is blackboard",
+          path: ["gesture"],
+        });
+      }
+    }
+    if (data.type === "karaoke") {
+      const st = data.storyText?.trim() ?? "";
+      if (st.length === 0 || !data.words || data.words.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "storyText and non-empty words are required for karaoke",
+          path: ["storyText"],
+        });
+      }
+    }
+    if (data.type === "sound_box") {
+      const tw = data.targetWord?.trim() ?? "";
+      if (tw.length === 0 || !data.phonemes || data.phonemes.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "targetWord and non-empty phonemes are required for sound_box",
+          path: ["targetWord"],
+        });
+      }
+    }
+    if (data.type === "clock") {
+      if (
+        typeof data.hour !== "number" ||
+        typeof data.minute !== "number" ||
+        !data.display
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "hour, minute, and display are required for clock",
+          path: ["hour"],
+        });
+      }
+    }
+    if (data.type === "score_meter") {
+      if (typeof data.score !== "number" || typeof data.max !== "number" || !data.label?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "score, max, and label are required for score_meter",
+          path: ["score"],
         });
       }
     }

@@ -68,7 +68,11 @@ type CanvasCoreMode =
   | "riddle"
   | "championship"
   | "place_value"
-  | "spelling";
+  | "spelling"
+  | "karaoke"
+  | "sound_box"
+  | "clock"
+  | "score_meter";
 
 const GAME_MODES = new Set<string>([
   ...Object.keys(TEACHING_TOOLS),
@@ -1089,17 +1093,11 @@ function SpellingContent({
 
   const letters = spellingWord.split("");
   const revealed = spellingRevealed ?? [];
-  const isFullySpelled = revealed.length === letters.length;
-  const hintShown = false;
-  const showWordHidden = showWord === "hidden" && isFullySpelled;
-  const showWordHint = showWord === "hint" && hintShown;
-  const showWordAlways = showWord === "always";
-  const wordVisible = showWordHidden || showWordHint || showWordAlways;
-  const wordColor = showWordHidden
-    ? "#22C55E"
-    : showWordHint
-      ? "#EF9F27"
-      : "#64748B";
+  /** hidden: no word above, empty tiles until revealed | hint: no word above, partial in tiles | always: word above + full letters in tiles */
+  const showWordAbove = showWord === "always";
+  const wordColor = "#64748B";
+  const tileChar = (index: number) =>
+    showWord === "always" ? letters[index] : (revealed[index] ?? "");
 
   return (
     <div
@@ -1147,7 +1145,7 @@ function SpellingContent({
           </div>
         )}
 
-        {wordVisible && (
+        {showWordAbove && (
           <div
             style={{
               fontSize: remToCss(computeTeachingFontSize(spellingWord.length)),
@@ -1212,10 +1210,10 @@ function SpellingContent({
                   flexShrink: 0,
                   ...nunito900,
                   fontSize: "clamp(1.2rem, 4vw, 2rem)",
-                  color: revealed[index] ? "#1E293B" : "#CBD5E1",
+                  color: tileChar(index) ? "#1E293B" : "#CBD5E1",
                 }}
               >
-                {revealed[index] ?? "_"}
+                {tileChar(index)}
               </div>
             </React.Fragment>
           ))}
@@ -1686,6 +1684,20 @@ export function Canvas({
               );
             });
           });
+          break;
+        }
+        case "karaoke":
+        case "sound_box":
+        case "clock":
+        case "score_meter": {
+          const line =
+            mode === "score_meter" && label
+              ? `${label}: ${text}`
+              : text || label || "";
+          setDisplayContent(line);
+          setDisplayMode("teaching");
+          setRiddleLabel("");
+          handleCanvasDone();
           break;
         }
         case "worksheet_pdf": {

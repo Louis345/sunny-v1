@@ -29,7 +29,7 @@ export interface SixToolDrawState {
 }
 
 export interface SixToolsApplyResult {
-  rendered?: boolean;
+  dispatched?: boolean;
   canvasShowing?: CanvasShowingKind;
   logged?: boolean;
   canvasState?: SixToolDrawState;
@@ -50,7 +50,7 @@ export function applyCanvasShow(
     };
     return {
       state,
-      result: { rendered: true, canvasShowing: "text", canvasState: state },
+      result: { dispatched: true, canvasShowing: "text", canvasState: state },
     };
   }
   if (type === "svg" || type === "svg_raw") {
@@ -63,7 +63,7 @@ export function applyCanvasShow(
     };
     return {
       state,
-      result: { rendered: true, canvasShowing: "svg", canvasState: state },
+      result: { dispatched: true, canvasShowing: "svg", canvasState: state },
     };
   }
   if (type === "worksheet") {
@@ -75,7 +75,7 @@ export function applyCanvasShow(
     };
     return {
       state,
-      result: { rendered: true, canvasShowing: "worksheet", canvasState: state },
+      result: { dispatched: true, canvasShowing: "worksheet", canvasState: state },
     };
   }
   if (type === "game") {
@@ -87,7 +87,7 @@ export function applyCanvasShow(
     };
     return {
       state,
-      result: { rendered: true, canvasShowing: "game", canvasState: state },
+      result: { dispatched: true, canvasShowing: "game", canvasState: state },
     };
   }
   if (type === "place_value") {
@@ -120,7 +120,7 @@ export function applyCanvasShow(
     return {
       state,
       result: {
-        rendered: true,
+        dispatched: true,
         canvasShowing: "place_value",
         canvasState: state,
       },
@@ -140,7 +140,7 @@ export function applyCanvasShow(
     return {
       state,
       result: {
-        rendered: spellingWord.length > 0,
+        dispatched: spellingWord.length > 0,
         canvasShowing: "spelling",
         canvasState: state,
       },
@@ -149,7 +149,7 @@ export function applyCanvasShow(
   const state: SixToolDrawState = { mode: "idle", revision: nextRev };
   return {
     state,
-    result: { rendered: false, canvasShowing: "idle", canvasState: state },
+    result: { dispatched: false, canvasShowing: "idle", canvasState: state },
   };
 }
 

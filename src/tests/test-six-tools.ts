@@ -5,10 +5,10 @@ import { describe, it, expect } from "vitest";
 import { SixToolsMemoryHarness } from "../agents/tools/six-tools-apply";
 
 describe("six tools (harness)", () => {
-  it("canvas.show text renders and returns rendered: true", async () => {
+  it("canvas.show text returns dispatched: true", async () => {
     const h = new SixToolsMemoryHarness();
     const r = await h.canvasShow({ type: "text", content: "NICKEL" });
-    expect(r.rendered).toBe(true);
+    expect(r.dispatched).toBe(true);
     expect(r.canvasShowing).toBe("text");
     expect(h.draw.mode).toBe("teaching");
     expect(h.draw.content).toBe("NICKEL");
@@ -17,7 +17,7 @@ describe("six tools (harness)", () => {
   it("canvas.show worksheet marks worksheet mode", async () => {
     const h = new SixToolsMemoryHarness();
     const r = await h.canvasShow({ type: "worksheet", problemId: "1" });
-    expect(r.rendered).toBe(true);
+    expect(r.dispatched).toBe(true);
     expect(r.canvasShowing).toBe("worksheet");
     expect(h.draw.mode).toBe("worksheet_pdf");
     expect(h.draw.activeProblemId).toBe("1");
@@ -26,7 +26,7 @@ describe("six tools (harness)", () => {
   it("canvas.show game sets game slot in harness", async () => {
     const h = new SixToolsMemoryHarness();
     const r = await h.canvasShow({ type: "game", name: "store-game" });
-    expect(r.rendered).toBe(true);
+    expect(r.dispatched).toBe(true);
     expect(r.canvasShowing).toBe("game");
     expect(h.draw.content).toBe("store-game");
   });

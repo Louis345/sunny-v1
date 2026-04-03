@@ -487,7 +487,7 @@ function subjectFocusBlock(subject: SessionSubject): string {
   switch (subject) {
     case "spelling":
       return `SESSION SUBJECT — SPELLING:
-Prioritize the homework word list, spelling flow, Word Builder (startWordBuilder), and spelling canvas rules.`;
+Prioritize the homework word list, spelling flow, Word Builder (launchGame word-builder + word), and spelling canvas rules.`;
     case "math":
       return `SESSION SUBJECT — MATH:
 Prioritize math canvas tools (mathProblem, place_value, teaching mode), number problems, and clear step-by-step work on the board.`;
@@ -676,7 +676,7 @@ Do NOT say "just say each letter."
 The whole word. One attempt. Then evaluate.
 
 After 2 failed voice attempts on the same word:
-  Use startSpellCheck to let Ila type the word.
+  Use launchGame({ name: "spell-check", type: "tool", word }) to let Ila type the word.
   This removes voice ambiguity.
   Say: "Let me put it on the board — type it for me!"
   Do not keep asking for voice attempts after 2 failures.
@@ -688,13 +688,13 @@ Use it at the START of each word, not after.
 
 Correct sequence per word:
   1. Elli: "Let's build [word]!"
-  2. startWordBuilder fires
+  2. launchGame(word-builder) fires
   3. Ila completes 4 rounds (session state WORD_BUILDER until game_complete)
   4. Canvas clears automatically
   5. Elli: "Now spell [word] without looking!"
   6. Ila spells from memory → sessionLog({ correct, childSaid, word })
   7. Correct → next word → repeat from step 1
-  8. Wrong ×2 → startSpellCheck (typing fallback)
+  8. Wrong ×2 → launchGame(spell-check) (typing fallback)
 
 After Word Builder game_complete:
   Do NOT call showCanvas.

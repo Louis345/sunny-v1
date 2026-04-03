@@ -89,15 +89,12 @@ import {
 } from "./worksheet-tools";
 import { createLaunchGameTool } from "../agents/elli/tools/worksheetTools";
 import { createSixTools } from "../agents/tools/six-tools";
-import { launchGame } from "../agents/elli/tools/launchGame";
 import {
-  createStartSpellCheckTool,
+  buildLaunchGameTool,
+  launchGame,
   SC_ALREADY_ACTIVE,
-} from "../agents/elli/tools/startSpellCheck";
-import {
-  createStartWordBuilderTool,
   WB_ALREADY_ACTIVE,
-} from "../agents/elli/tools/startWordBuilder";
+} from "../agents/elli/tools/launchGame";
 import { dateTime } from "../agents/elli/tools/dateTime";
 import { buildWorksheetToolPrompt } from "../agents/prompts/worksheetSessionPrompt";
 import { appendWorksheetAttemptLine } from "../utils/attempts";
@@ -288,6 +285,8 @@ export class SessionManager {
   private pendingRoundComplete: Record<string, unknown> | null = null;
   /** Hold agent TTS until browser posts `ready` for this canvas revision */
   private gamePendingRevision: number | null = null;
+  /** When true, defer ttsBridge.finish + audio_done until canvas_done or game ready */
+  private deferredTtsFinish = false;
   private gameTtsFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   /** Safety: exit Word Builder if no round activity for this long */
   private wbActivityTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -387,6 +386,101 @@ export class SessionManager {
     if (this.isTeachingMathCanvas(args)) return false;
     const content = args.content;
     return typeof content === "string" && /[a-z]/i.test(content);
+  }
+
+  /** Map canvasShow args to legacy showCanvas shape for math/word/reward sync. */
+  private showCanvasShapeFromCanvasShowArgs(
+    args: Record<string, unknown>,
+  ): Record<string, unknown> | null {
+    const t = String(args.type ?? "");
+    if (t === "text") {
+      return {
+        mode: "teaching",
+        content: args.content,
+        phonemeBoxes: args.phonemeBoxes,
+      };
+    }
+    if (t === "math_inline") {
+      return {
+        mode: "teaching",
+        content: args.expression,
+        label: args.label,
+      };
+    }
+    if (t === "spelling") {
+      const w = String(args.spellingWord ?? args.word ?? "").trim();
+      return { mode: "spelling", content: w, spellingWord: w };
+    }
+    if (t === "reward" || t === "championship") {
+      return {
+        mode: t,
+        content: args.content,
+        label: args.label,
+        svg: args.svg,
+        lottieData: args.lottieData,
+      };
+    }
+    return null;
+  }
+
+  /** Canonical math TTS, active word, reward takeover — shared by canvasShow surface types. */
+  private applyCompanionCanvasSurfaceSync(legacyArgs: Record<string, unknown>): void {
+    this.lastCanvasMode = (legacyArgs.mode as string) ?? "idle";
+    this.lastCanvasWasMath = this.isTeachingMathCanvas(legacyArgs);
+    if (this.companion.usesCanonicalMathProblem && this.lastCanvasWasMath) {
+      const spoken = this.mathContentToSpoken(legacyArgs.content as string);
+      this.turnSM.setCanonicalProblem(spoken);
+      console.log(`  📐 Canonical problem set: "${spoken}"`);
+    } else {
+      this.turnSM.setCanonicalProblem(null);
+    }
+    if (this.companion.tracksActiveWord && this.isWordTeachingCanvas(legacyArgs)) {
+      const word = (legacyArgs.content as string | undefined)?.trim() ?? null;
+      this.activeWord = word;
+      if (word) console.log(`  📝 Active word set: "${word}"`);
+      const boxes = legacyArgs.phonemeBoxes as
+        | Array<{ position: string; value: string; highlighted: boolean }>
+        | undefined;
+      if (boxes) {
+        const emptyBoxes = boxes.filter(
+          (b) => b.value === "" || b.value == null,
+        );
+        if (emptyBoxes.length > 0) {
+          const positions = emptyBoxes.map((b) => b.position).join(", ");
+          console.warn(
+            `  ⚠️  phonemeBoxes with empty value for word "${word ?? "?"}": [${positions}] — boxes will appear blank on screen`,
+          );
+        }
+      }
+    } else if (this.companion.tracksActiveWord) {
+      if (legacyArgs.mode === "spelling") {
+        const w = String(
+          legacyArgs.spellingWord ?? legacyArgs.content ?? "",
+        ).trim();
+        this.activeWord = w || null;
+      } else {
+        this.activeWord = null;
+      }
+    }
+    const mode = legacyArgs.mode as string;
+    if (mode === "reward" || mode === "championship") {
+      const { takeover_ms } = getRewardDurations(this.childName);
+      const rewardSvg =
+        typeof legacyArgs.svg === "string"
+          ? stripSvgFences(legacyArgs.svg)
+          : legacyArgs.svg;
+      this.send("reward", {
+        rewardStyle: "takeover",
+        svg: rewardSvg as string | undefined,
+        label: legacyArgs.label as string | undefined,
+        lottieData: legacyArgs.lottieData as
+          | Record<string, unknown>
+          | undefined,
+        displayDuration_ms: takeover_ms,
+      });
+      this.logRewardEvent("takeover", takeover_ms);
+    }
+    if (this.ctx) this.broadcastContext();
   }
 
   private syncActivityContext(): void {
@@ -1462,6 +1556,7 @@ export class SessionManager {
 
     this.pendingRoundComplete = null;
     this.abortGameTtsGate();
+    this.deferredTtsFinish = false;
 
     const stateBefore = this.turnSM.getState();
     this.turnSM.onInterrupt();
@@ -1564,6 +1659,22 @@ export class SessionManager {
     this.gamePendingRevision = null;
     this.clearGameTtsFallbackTimer();
     this.turnSM.releaseDeferredTts();
+    void this.tryCompleteTtsTurnAsync();
+  }
+
+  /**
+   * Close ElevenLabs for this turn only after pending canvas / iframe gates clear.
+   * Prevents sendText from being dropped when finish() ran before canvas_done / game ready.
+   */
+  private async tryCompleteTtsTurnAsync(): Promise<void> {
+    if (!this.deferredTtsFinish) return;
+    if (this.turnSM.getState() === "CANVAS_PENDING") return;
+    if (this.gamePendingRevision !== null) return;
+    this.deferredTtsFinish = false;
+    if (this.ttsBridge) {
+      await this.ttsBridge.finish();
+    }
+    this.send("audio_done");
   }
 
   flushPendingRoundComplete(): void {
@@ -1790,6 +1901,7 @@ export class SessionManager {
       this.broadcastContext();
     }
     this.turnSM.onCanvasDone();
+    void this.tryCompleteTtsTurnAsync();
   }
 
   playbackDone(): void {
@@ -2181,7 +2293,13 @@ export class SessionManager {
       // displayed — prevents duplicate showCanvas calls and enables intelligent
       // decisions about whether to update or hold the current display.
       const canvasCtx = this.ctx
-        ? buildCanvasContextMessage(this.ctx)
+        ? buildCanvasContextMessage(this.ctx, {
+            turnState: this.turnSM.getState(),
+            lastChildUtterance: this.lastTranscript || null,
+            wordBuilderRound:
+              this.wbActive && this.wbRound > 0 ? this.wbRound : null,
+            activeWord: this.activeWord,
+          })
         : this.currentCanvasState
           ? buildCanvasContext(this.currentCanvasState)
           : "";
@@ -2222,7 +2340,6 @@ export class SessionManager {
             let toolName = tc.toolName ?? tc.name ?? "unknown";
             if (toolName === "show_canvas") toolName = "showCanvas";
             if (toolName === "end_session") toolName = "endSession";
-            if (toolName === "start_spell_check") toolName = "startSpellCheck";
             if (toolName === "launch_game") toolName = "launchGame";
             if (toolName === "get_session_status")
               toolName = "getSessionStatus";
@@ -2237,26 +2354,28 @@ export class SessionManager {
             if (toolName === "session_end") toolName = "sessionEnd";
             let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
-            const originalToolName = toolName;
 
             if (toolName === "canvasShow") {
               args = this.normalizeCanvasShowArgs(args);
             }
 
             if (
-              toolName === "showCanvas" &&
+              toolName === "canvasShow" &&
               this.turnSM.getState() === "WORD_BUILDER"
             ) {
               const c = String(args.content ?? "").trim();
               const isTeachingWord =
-                args.mode === "teaching" &&
+                args.type === "text" &&
                 c.length > 0 &&
                 !/\s/.test(c) &&
                 /[a-z]/i.test(c) &&
-                !this.isTeachingMathCanvas(args);
+                !this.isTeachingMathCanvas({
+                  mode: "teaching",
+                  content: c,
+                });
               if (isTeachingWord) {
                 console.warn(
-                  "  ⚠️  showCanvas blocked — use blackboard after Word Builder",
+                  "  ⚠️  canvasShow(text) blocked during Word Builder — use canvasShow(blackboard) or blackboard",
                 );
                 toolName = "blackboard";
                 args = { gesture: "reveal", word: c };
@@ -2272,16 +2391,23 @@ export class SessionManager {
               if (ct === "text" || ct === "svg" || ct === "svg_raw") {
                 const drawPayload =
                   ct === "text"
-                    ? { mode: "teaching", content: args.content }
+                    ? {
+                        mode: "teaching",
+                        content: args.content,
+                        phonemeBoxes: args.phonemeBoxes,
+                      }
                     : {
                         mode: "teaching",
                         svg: args.svg,
                         label: args.label,
                       };
-                this.send("canvas_draw", {
-                  args: drawPayload as Record<string, unknown>,
-                  result,
-                });
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
+                );
                 const st = this.turnSM.getState();
                 if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
@@ -2306,10 +2432,13 @@ export class SessionManager {
                   mode: "place_value" as const,
                   placeValueData,
                 };
-                this.send("canvas_draw", {
-                  args: drawPayload as Record<string, unknown>,
-                  result,
-                });
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
+                );
                 const st = this.turnSM.getState();
                 if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
@@ -2351,10 +2480,13 @@ export class SessionManager {
                   if (args.personalBest != null) {
                     drawPayload.personalBest = args.personalBest;
                   }
-                  this.send("canvas_draw", {
-                    args: drawPayload,
-                    result,
-                  });
+                  this.send(
+                    "canvas_draw",
+                    this.withCanvasRevision({
+                      args: drawPayload,
+                      result,
+                    }),
+                  );
                   const st = this.turnSM.getState();
                   if (st === "PROCESSING" && word.length > 0) {
                     this.turnSM.onShowCanvas();
@@ -2366,10 +2498,13 @@ export class SessionManager {
                   content: args.text,
                   label: args.label ?? "Riddle",
                 };
-                this.send("canvas_draw", {
-                  args: drawPayload as Record<string, unknown>,
-                  result,
-                });
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
+                );
                 const st = this.turnSM.getState();
                 if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
@@ -2380,10 +2515,13 @@ export class SessionManager {
                   content: args.expression,
                   label: args.label,
                 };
-                this.send("canvas_draw", {
-                  args: drawPayload as Record<string, unknown>,
-                  result,
-                });
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
+                );
                 const st = this.turnSM.getState();
                 if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
@@ -2398,7 +2536,10 @@ export class SessionManager {
                 if (args.lottieData != null) {
                   drawPayload.lottieData = args.lottieData;
                 }
-                this.send("canvas_draw", { args: drawPayload, result });
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({ args: drawPayload, result }),
+                );
                 const st = this.turnSM.getState();
                 if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
@@ -2410,7 +2551,10 @@ export class SessionManager {
                   label: args.label,
                   svg: args.svg,
                 };
-                this.send("canvas_draw", { args: drawPayload, result });
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({ args: drawPayload, result }),
+                );
                 const st = this.turnSM.getState();
                 if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
@@ -2425,7 +2569,10 @@ export class SessionManager {
                     gameWord: args.gameWord,
                     gamePlayerName: args.gamePlayerName,
                   };
-                  this.send("canvas_draw", { args: drawPayload, result });
+                  this.send(
+                    "canvas_draw",
+                    this.withCanvasRevision({ args: drawPayload, result }),
+                  );
                   const st = this.turnSM.getState();
                   if (st === "PROCESSING") {
                     this.turnSM.onShowCanvas();
@@ -2435,49 +2582,81 @@ export class SessionManager {
                     `  ⚠️  canvasShow game: unknown teaching tool "${rawName}"`,
                   );
                 }
-              }
-            }
-
-            if (
-              toolName === "startWordBuilder" ||
-              toolName === "startSpellCheck" ||
-              toolName === "launchGame"
-            ) {
-              // Do not trigger CANVAS_PENDING — the iframe loads independently
-              // and does not send canvas_done. State machine stays PROCESSING → SPEAKING.
-            }
-
-            if (
-              originalToolName === "showCanvas" &&
-              toolName === "showCanvas"
-            ) {
-              if (this.turnSM.getState() === "WORD_BUILDER") {
-                console.warn(
-                  "  ⚠️  showCanvas blocked during Word Builder — iframe owns canvas",
+              } else if (ct === "blackboard") {
+                // handleToolCall already sent `blackboard` — no canvas_draw
+              } else if (ct === "karaoke") {
+                const words = (args.words as string[]) ?? [];
+                const drawPayload = {
+                  mode: "karaoke" as const,
+                  content: args.storyText,
+                  label: words.join(" "),
+                };
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
                 );
-              } else {
-                // If a new math problem is shown, any queued transcript belongs
-                // to the previous prompt and should not be replayed/scored.
-                if (this.isTeachingMathCanvas(args)) {
-                  this.turnSM.clearPendingTranscript("new math problem shown");
-                }
-
-                const hasRenderableContent =
-                  args.mode !== "place_value" || args.placeValueData != null;
-
-                const drawPayload = { ...args } as Record<string, unknown>;
-                stripSvgField(drawPayload);
-
-                // Always send the draw event to the browser
-                this.send("canvas_draw", { args: drawPayload, result });
-
-                // Only gate TTS on canvas if there's actually something to render
-                // and we're still in the processing phase
-                const s = this.turnSM.getState();
-                if (s === "PROCESSING" && hasRenderableContent) {
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
                   this.turnSM.onShowCanvas();
                 }
+              } else if (ct === "sound_box") {
+                const tw = String(args.targetWord ?? "");
+                const drawPayload = {
+                  mode: "sound_box" as const,
+                  content: tw,
+                  label: JSON.stringify(args.phonemes ?? []),
+                };
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
+                );
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "clock") {
+                const m = Number(args.minute) || 0;
+                const label = `${args.hour}:${String(m).padStart(2, "0")} (${args.display})`;
+                const drawPayload = {
+                  mode: "clock" as const,
+                  content: label,
+                  label,
+                };
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
+                );
+                const st = this.turnSM.getState();
+                if (st === "PROCESSING") {
+                  this.turnSM.onShowCanvas();
+                }
+              } else if (ct === "score_meter") {
+                const drawPayload = {
+                  mode: "score_meter" as const,
+                  content: `${args.score}/${args.max}`,
+                  label: args.label,
+                };
+                this.send(
+                  "canvas_draw",
+                  this.withCanvasRevision({
+                    args: drawPayload as Record<string, unknown>,
+                    result,
+                  }),
+                );
               }
+            }
+
+            if (toolName === "launchGame") {
+              // Do not trigger CANVAS_PENDING — iframe games use game TTS gate, not canvas_done.
             }
           }
         },
@@ -2510,10 +2689,16 @@ export class SessionManager {
         return;
       }
 
-      if (this.ttsBridge) {
-        await this.ttsBridge.finish();
+      const pendingCanvas = this.turnSM.getState() === "CANVAS_PENDING";
+      const pendingGame = this.gamePendingRevision !== null;
+      if (pendingCanvas || pendingGame) {
+        this.deferredTtsFinish = true;
+      } else {
+        if (this.ttsBridge) {
+          await this.ttsBridge.finish();
+        }
+        this.send("audio_done");
       }
-      this.send("audio_done");
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
         console.log("  ⚡ Agent aborted (barge-in)");
@@ -2730,19 +2915,13 @@ export class SessionManager {
     if (this.isSpellingSession) {
       return {
         ...six,
-        launchGame,
-        startWordBuilder: createStartWordBuilderTool({
+        launchGame: buildLaunchGameTool({
           isWordBuilderSessionActive: () => this.wordBuilderSessionActive,
           tryClaimWordBuilderToolSlot: () => {
             if (this.wbToolExecuteClaimed) return false;
             this.wbToolExecuteClaimed = true;
             return true;
           },
-          isHomeworkSpellingWordAllowed: (w) => this.spellingHomeworkGate.allows(w),
-          getHomeworkSpellingRejectMessage: (w) =>
-            this.spellingHomeworkGate.explainReject(w),
-        }),
-        startSpellCheck: createStartSpellCheckTool({
           isSpellCheckSessionActive: () => this.spellCheckSessionActive,
           tryClaimSpellCheckToolSlot: () => {
             if (this.spellCheckToolExecuteClaimed) return false;
@@ -2767,58 +2946,73 @@ export class SessionManager {
       const pid = String(args.problemId ?? "");
       const res = this.worksheetSession.showProblemById(pid);
       return {
-        rendered: res.ok === true,
+        dispatched: res.ok === true,
         canvasShowing: "worksheet",
         ...res,
       };
     }
     if (type === "text") {
-      return { rendered: true, canvasShowing: "text" };
+      return { dispatched: true, canvasShowing: "text" };
     }
     if (type === "svg") {
-      return { rendered: true, canvasShowing: "svg" };
+      return { dispatched: true, canvasShowing: "svg" };
     }
     if (type === "game") {
-      return { rendered: true, canvasShowing: "game", name: args.name };
+      return { dispatched: true, canvasShowing: "game", name: args.name };
     }
     if (type === "place_value") {
-      return { rendered: true, canvasShowing: "place_value" };
+      return { dispatched: true, canvasShowing: "place_value" };
     }
     if (type === "spelling") {
       const w = String(args.spellingWord ?? args.word ?? "").trim();
       if (!w) {
         return {
-          rendered: false,
+          dispatched: false,
           canvasShowing: "idle",
           reason: "empty_word",
         };
       }
       if (!this.spellingHomeworkGate.allows(w)) {
         return {
-          rendered: false,
+          dispatched: false,
           canvasShowing: "idle",
           reason: "not_on_homework_list",
           message: this.spellingHomeworkGate.explainReject(w),
         };
       }
-      return { rendered: true, canvasShowing: "spelling" };
+      return { dispatched: true, canvasShowing: "spelling" };
     }
     if (type === "riddle") {
-      return { rendered: true, canvasShowing: "riddle" };
+      return { dispatched: true, canvasShowing: "riddle" };
     }
     if (type === "math_inline") {
-      return { rendered: true, canvasShowing: "text" };
+      return { dispatched: true, canvasShowing: "text" };
     }
     if (type === "svg_raw") {
-      return { rendered: true, canvasShowing: "svg" };
+      return { dispatched: true, canvasShowing: "svg" };
     }
     if (type === "reward") {
-      return { rendered: true, canvasShowing: "reward" };
+      return { dispatched: true, canvasShowing: "reward" };
     }
     if (type === "championship") {
-      return { rendered: true, canvasShowing: "championship" };
+      return { dispatched: true, canvasShowing: "championship" };
     }
-    return { rendered: false, canvasShowing: "idle" };
+    if (type === "blackboard") {
+      return { dispatched: true, canvasShowing: "blackboard" };
+    }
+    if (type === "karaoke") {
+      return { dispatched: true, canvasShowing: "karaoke" };
+    }
+    if (type === "sound_box") {
+      return { dispatched: true, canvasShowing: "sound_box" };
+    }
+    if (type === "clock") {
+      return { dispatched: true, canvasShowing: "clock" };
+    }
+    if (type === "score_meter") {
+      return { dispatched: true, canvasShowing: "score_meter" };
+    }
+    return { dispatched: false, canvasShowing: "idle" };
   }
 
   private async hostCanvasClear(): Promise<{
@@ -2964,10 +3158,17 @@ export class SessionManager {
         ...(this.worksheetSession.getSessionStatus() as object),
       } as Record<string, unknown>;
     }
-    return { ...(this.ctx?.serialize() ?? { ok: true }) } as Record<
+    const base = { ...(this.ctx?.serialize() ?? { ok: true }) } as Record<
       string,
       unknown
     >;
+    return {
+      ...base,
+      turnState: this.turnSM.getState(),
+      activeWord: this.activeWord,
+      wordBuilderRound: this.wbActive && this.wbRound > 0 ? this.wbRound : null,
+      lastChildUtterance: this.lastTranscript || null,
+    };
   }
 
   private async hostSessionEnd(
@@ -3164,11 +3365,8 @@ export class SessionManager {
   applyClientToolCall(tool: string, args: Record<string, unknown>): void {
     const t = this.normalizeToolName(tool);
     this.handleToolCall(t, args, {});
-    if ((t === "canvasShow" || t === "showCanvas") && this.currentCanvasState) {
+    if (t === "canvasShow" && this.currentCanvasState) {
       const payload = { ...this.currentCanvasState };
-      if (t === "showCanvas") {
-        stripSvgField(payload);
-      }
       this.send("canvas_draw", this.withCanvasRevision(payload));
     }
   }
@@ -3184,18 +3382,22 @@ export class SessionManager {
     let launchGameCanonicalName: string | null = null;
     let canvasRevision: number | undefined;
 
-    if (tool === "blackboard") {
-      const gesture = String(args.gesture ?? "");
-      if (
-        this.turnSM.getState() === "WORD_BUILDER" &&
-        gesture !== "clear" &&
-        gesture !== "reveal"
-      ) {
-        console.warn(
-          "  ⚠️  blackboard blocked during Word Builder — only clear and reveal allowed",
-        );
-        return;
-      }
+    const bbGesture =
+      tool === "blackboard"
+        ? String(args.gesture ?? "")
+        : tool === "canvasShow" && String(args.type) === "blackboard"
+          ? String(args.gesture ?? "")
+          : null;
+    if (
+      bbGesture &&
+      this.turnSM.getState() === "WORD_BUILDER" &&
+      bbGesture !== "clear" &&
+      bbGesture !== "reveal"
+    ) {
+      console.warn(
+        "  ⚠️  blackboard blocked during Word Builder — only clear and reveal allowed",
+      );
+      return;
     }
 
     if (tool === "launchGame") {
@@ -3238,31 +3440,12 @@ export class SessionManager {
         this.sendLaunchGameRegistryError(tool, args, rawName);
         return;
       }
-      if (
-        resolved.canonicalName === "word-builder" ||
-        resolved.canonicalName === "spell-check"
-      ) {
-        console.warn(
-          `  ⚠️  launchGame: use startWordBuilder or startSpellCheck with a word for "${resolved.canonicalName}"`,
-        );
-        return;
-      }
       launchGameResolvedEntry = entry;
       launchGameCanonicalName = resolved.canonicalName;
     }
 
-    if (tool === "showCanvas") {
-      const c = args.content as string | undefined;
-      if (c && c.includes(" ") && !this.isTeachingMathCanvas(args)) {
-        console.warn("  ⚠️  showCanvas rejected — content is not a word:", c);
-        args.content = "";
-      }
-      stripSvgField(args);
-      canvasRevision = this.issueCanvasRevision();
-    }
-
     let wireToolResult: unknown = result;
-    if (tool === "startWordBuilder") {
+    if (tool === "launchGame" && launchGameCanonicalName === "word-builder") {
       const out = unwrapToolResult(wireToolResult) as { ok?: boolean } | undefined;
       if (this.wordBuilderSessionActive && out?.ok === true) {
         auditLog("word_builder", {
@@ -3277,7 +3460,7 @@ export class SessionManager {
         };
       }
     }
-    if (tool === "startSpellCheck") {
+    if (tool === "launchGame" && launchGameCanonicalName === "spell-check") {
       const out = unwrapToolResult(wireToolResult) as { ok?: boolean } | undefined;
       if (this.spellCheckSessionActive && out?.ok === true) {
         auditLog("spell_check", {
@@ -3322,7 +3505,7 @@ export class SessionManager {
       this.transitionedToWork = true;
     }
 
-    if (tool === "startWordBuilder") {
+    if (tool === "launchGame" && launchGameCanonicalName === "word-builder") {
       this.wbToolExecuteClaimed = false;
       const wbRes = unwrapToolResult(wireToolResult) as {
         ok?: boolean;
@@ -3336,7 +3519,7 @@ export class SessionManager {
           childName: this.childName,
         });
         console.warn(
-          `  ⚠️  startWordBuilder rejected — ${String(wbRes?.error ?? "not_launched")}`,
+          `  ⚠️  launchGame(word-builder) rejected — ${String(wbRes?.error ?? "not_launched")}`,
         );
         return;
       }
@@ -3345,7 +3528,7 @@ export class SessionManager {
         .toLowerCase()
         .trim();
       if (word.length < 3) {
-        console.warn("  ⚠️  startWordBuilder: word must be at least 3 letters");
+        console.warn("  ⚠️  launchGame(word-builder): word must be at least 3 letters");
         return;
       }
       if (!this.spellingHomeworkGate.allows(word)) {
@@ -3355,7 +3538,7 @@ export class SessionManager {
           childName: this.childName,
         });
         console.warn(
-          `  ⚠️  startWordBuilder blocked — not on homework list: "${word}"`,
+          `  ⚠️  launchGame(word-builder) blocked — not on homework list: "${word}"`,
         );
         return;
       }
@@ -3401,7 +3584,7 @@ export class SessionManager {
       return;
     }
 
-    if (tool === "startSpellCheck") {
+    if (tool === "launchGame" && launchGameCanonicalName === "spell-check") {
       this.spellCheckToolExecuteClaimed = false;
       const scRes = unwrapToolResult(wireToolResult) as {
         ok?: boolean;
@@ -3415,7 +3598,7 @@ export class SessionManager {
           childName: this.childName,
         });
         console.warn(
-          `  ⚠️  startSpellCheck rejected — ${String(scRes?.error ?? "not_launched")}`,
+          `  ⚠️  launchGame(spell-check) rejected — ${String(scRes?.error ?? "not_launched")}`,
         );
         return;
       }
@@ -3424,7 +3607,7 @@ export class SessionManager {
         .toLowerCase()
         .trim();
       if (word.length < 2) {
-        console.warn("  ⚠️  startSpellCheck: word must be at least 2 letters");
+        console.warn("  ⚠️  launchGame(spell-check): word must be at least 2 letters");
         return;
       }
       if (!this.spellingHomeworkGate.allows(word)) {
@@ -3434,7 +3617,7 @@ export class SessionManager {
           childName: this.childName,
         });
         console.warn(
-          `  ⚠️  startSpellCheck blocked — not on homework list: "${word}"`,
+          `  ⚠️  launchGame(spell-check) blocked — not on homework list: "${word}"`,
         );
         return;
       }
@@ -3780,13 +3963,27 @@ export class SessionManager {
     if (tool === "canvasShow") {
       args = this.normalizeCanvasShowArgs(args);
       const ct = String(args.type ?? "");
+      const isWbGame =
+        ct === "game" && String(args.name ?? "").trim() === "word-builder";
+      if (!isWbGame && (this.wbActive || this.turnSM.getState() === "WORD_BUILDER")) {
+        this.pendingGameStart = null;
+        this.wbEndCleanup();
+        if (this.turnSM.getState() === "WORD_BUILDER") {
+          this.turnSM.onWordBuilderEnd();
+        }
+        console.log("  🎮 Word Builder cleared by canvasShow switch");
+      }
       if (ct === "text" || ct === "svg" || ct === "svg_raw") {
         this.pendingGameStart = null;
+        const phonemeBoxes = args.phonemeBoxes as
+          | CanvasState["phonemeBoxes"]
+          | undefined;
         this.currentCanvasState = {
           mode: "teaching",
           content: args.content as string | undefined,
           svg: args.svg as string | undefined,
           label: args.label as string | undefined,
+          phonemeBoxes,
         };
         if (this.ctx) {
           this.ctx.updateCanvas({
@@ -3794,6 +3991,7 @@ export class SessionManager {
             content: args.content as string | undefined,
             svg: args.svg as string | undefined,
             label: args.label as string | undefined,
+            phonemeBoxes,
             sceneDescription: undefined,
             problemAnswer: undefined,
             problemHint: undefined,
@@ -4019,98 +4217,134 @@ export class SessionManager {
             `  ⚠️  canvasShow game: unknown teaching tool "${rawName}"`,
           );
         }
+      } else if (ct === "blackboard") {
+        this.send("blackboard", {
+          gesture: String(args.gesture ?? "clear"),
+          word: args.word as string | undefined,
+          maskedWord: args.maskedWord as string | undefined,
+          duration: args.duration as number | undefined,
+        });
+        console.log(`  🖼️  [canvas] canvasShow type=blackboard`);
+      } else if (ct === "karaoke") {
+        this.pendingGameStart = null;
+        const words = (args.words as string[]) ?? [];
+        this.currentCanvasState = {
+          mode: "karaoke",
+          content: args.storyText as string,
+          label: words.join(" "),
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "karaoke",
+            content: args.storyText as string,
+            label: words.join(" "),
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=karaoke`);
+      } else if (ct === "sound_box") {
+        this.pendingGameStart = null;
+        const tw = String(args.targetWord ?? "");
+        this.currentCanvasState = {
+          mode: "sound_box",
+          content: tw,
+          label: JSON.stringify(args.phonemes ?? []),
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "sound_box",
+            content: tw,
+            label: JSON.stringify(args.phonemes ?? []),
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=sound_box`);
+      } else if (ct === "clock") {
+        this.pendingGameStart = null;
+        const label = `${args.hour}:${String(args.minute).padStart(2, "0")} (${args.display})`;
+        this.currentCanvasState = {
+          mode: "clock",
+          content: label,
+          label,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "clock",
+            content: label,
+            label,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=clock`);
+      } else if (ct === "score_meter") {
+        this.pendingGameStart = null;
+        const label = String(args.label ?? "");
+        const content = `${args.score}/${args.max}`;
+        this.currentCanvasState = {
+          mode: "score_meter",
+          content,
+          label,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "score_meter",
+            content,
+            label,
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=score_meter`);
+      }
+
+      const legacy = this.showCanvasShapeFromCanvasShowArgs(args);
+      if (legacy) {
+        this.applyCompanionCanvasSurfaceSync(legacy);
       }
     }
+  }
 
-    if (tool === "showCanvas") {
-      this.pendingGameStart = null;
-      if (String(args.mode ?? "") !== "word-builder") {
-        this.wbEndCleanup();
-        if (this.turnSM.getState() === "WORD_BUILDER") {
-          this.turnSM.onWordBuilderEnd();
-        }
-        console.log("  🎮 Word Builder cleared by canvas switch");
-      }
-      this.lastCanvasMode = (args.mode as string) ?? "idle";
-      this.lastCanvasWasMath = this.isTeachingMathCanvas(args);
-      // Track the authoritative canvas state so the AI knows what's on screen.
-      this.currentCanvasState = { ...args };
-      if (this.ctx) {
-        this.ctx.updateCanvas({
-          mode: (args.mode as any) ?? "idle",
-          svg: args.svg as string | undefined,
-          label: args.label as string | undefined,
-          content: args.content as string | undefined,
-          sceneDescription: undefined,
-          problemAnswer: undefined,
-          problemHint: undefined,
-        });
-      }
-      this.clearActiveCanvasActivity();
-      console.log(
-        `  🖼️  [canvas] mode=${args.mode}, content=${args.content ?? "(none)"}`,
-      );
-
-      // ── Reina: server-canonical problem announcement ──────────────────────
-      // When a math teaching canvas fires, convert the problem to speech and
-      // store it on the state machine. It will be appended to the TTS buffer
-      // in onCanvasDone() — AFTER the canvas animation — so the spoken problem
-      // is always derived from the canvas content, never from Claude's tokens.
-      if (this.companion.usesCanonicalMathProblem && this.lastCanvasWasMath) {
-        const spoken = this.mathContentToSpoken(args.content as string);
-        this.turnSM.setCanonicalProblem(spoken);
-        console.log(`  📐 Canonical problem set: "${spoken}"`);
-      } else {
-        this.turnSM.setCanonicalProblem(null);
-      }
-
-      // ── Ila: track the active word, validate phonemeBoxes, count re-shows ──
-      if (this.companion.tracksActiveWord && this.isWordTeachingCanvas(args)) {
-        const word = (args.content as string | undefined)?.trim() ?? null;
-        this.activeWord = word;
-        if (word) console.log(`  📝 Active word set: "${word}"`);
-
-        // Validate phonemeBoxes — empty value strings leave blank tiles on screen
-        const boxes = args.phonemeBoxes as
-          | Array<{ position: string; value: string; highlighted: boolean }>
-          | undefined;
-        if (boxes) {
-          const emptyBoxes = boxes.filter(
-            (b) => b.value === "" || b.value == null,
-          );
-          if (emptyBoxes.length > 0) {
-            const positions = emptyBoxes.map((b) => b.position).join(", ");
-            console.warn(
-              `  ⚠️  phonemeBoxes with empty value for word "${word ?? "?"}": [${positions}] — boxes will appear blank on screen`,
-            );
-          }
-        }
-      } else if (this.companion.tracksActiveWord) {
-        this.activeWord = null;
-      }
-
-      const r = (result ?? args) as {
-        svg?: string;
-        label?: string;
-        mode?: string;
-        lottieData?: Record<string, unknown>;
-      };
-      if (r?.mode === "reward" || r?.mode === "championship") {
-        const { takeover_ms } = getRewardDurations(this.childName);
-        const rewardSvg =
-          typeof r?.svg === "string" ? stripSvgFences(r.svg) : r?.svg;
-        this.send("reward", {
-          rewardStyle: "takeover",
-          svg: rewardSvg,
-          label: r?.label,
-          lottieData: r?.lottieData,
-          displayDuration_ms: takeover_ms,
-        });
-        this.logRewardEvent("takeover", takeover_ms);
-      }
-
-      if (this.ctx) this.broadcastContext();
+  /** Browser karaoke / reading tracker — updates session context for the next turn. */
+  receiveReadingProgress(payload: Record<string, unknown>): void {
+    if (!this.ctx) return;
+    const wordIndex = Number(payload.wordIndex);
+    const totalWords = Number(payload.totalWords);
+    const accuracy = Number(payload.accuracy);
+    const flaggedWords = Array.isArray(payload.flaggedWords)
+      ? (payload.flaggedWords as string[])
+      : [];
+    const event =
+      typeof payload.event === "string" ? payload.event : undefined;
+    if (!Number.isFinite(wordIndex) || !Number.isFinite(totalWords)) {
+      console.warn("  ⚠️  reading_progress: invalid wordIndex/totalWords");
+      return;
     }
+    this.ctx.setReadingProgress({
+      wordIndex,
+      totalWords,
+      accuracy: Number.isFinite(accuracy) ? accuracy : 0,
+      flaggedWords,
+      event,
+    });
+    this.broadcastContext();
+    console.log(
+      `  📖 reading_progress: ${wordIndex + 1}/${totalWords} acc=${accuracy}`,
+    );
   }
 
   private evaluateSpelling(
