@@ -2,6 +2,8 @@ import { tool } from "ai";
 import fs from "fs";
 import path from "path";
 import { z } from "zod";
+import { recordAttempt, childIdFromName } from "../../../engine/learningEngine";
+import type { AttemptInput } from "../../../algorithms/types";
 
 const probeCalledThisSession = new Set<string>();
 
@@ -65,6 +67,20 @@ export const mathProblem = tool({
           correct,
         }) + "\n";
       await fs.promises.appendFile(filePath, entry, "utf-8");
+
+      try {
+        const childId = childIdFromName(childName);
+        const mathAttempt: AttemptInput = {
+          word: `${operandA}${operation === "addition" ? "+" : "-"}${operandB}`,
+          domain: "math",
+          correct,
+          quality: correct ? 5 : 0,
+          scaffoldLevel: 0,
+        };
+        recordAttempt(childId, mathAttempt);
+      } catch (e) {
+        console.error("  🎮 [mathProblem] engine error (non-fatal):", e);
+      }
     }
 
     // Load history to find weak spots

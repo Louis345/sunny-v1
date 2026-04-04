@@ -69,10 +69,24 @@ const inputSchema = z.object({
     .describe(
       "Required when name is word-builder (min 3 letters) or spell-check (min 2 letters) in spelling sessions.",
     ),
+  hour: z
+    .number()
+    .optional()
+    .describe("For clock-game: target hour on the clock face (1–12)."),
+  minute: z
+    .number()
+    .optional()
+    .describe("For clock-game: target minute (0–59)."),
 });
 
 export async function executeLaunchGame(
-  args: { name: string; type: "tool" | "reward"; word?: string },
+  args: {
+    name: string;
+    type: "tool" | "reward";
+    word?: string;
+    hour?: number;
+    minute?: number;
+  },
   spelling?: LaunchGameSpellingOptions,
 ): Promise<LaunchGameExecuteResult> {
   if (!spelling) {
@@ -176,6 +190,8 @@ export function buildLaunchGameTool(spelling?: LaunchGameSpellingOptions) {
       name: string;
       type: "tool" | "reward";
       word?: string;
+      hour?: number;
+      minute?: number;
     }) => executeLaunchGame(args, spelling),
   });
 }

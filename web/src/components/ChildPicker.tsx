@@ -97,12 +97,18 @@ export function ChildPicker({ onSelect }: Props) {
                          flex flex-col items-center justify-center gap-3
                          hover:border-blue-400 transition-colors"
             >
-              <div
-                className="w-24 h-24 rounded-full flex items-center justify-center text-4xl"
-                style={{ backgroundColor: color.bg }}
-              >
-                {c.emoji ?? "🌟"}
-              </div>
+              <img
+                src={`/characters/${c.childName.toLowerCase()}.png`}
+                alt=""
+                onError={(e) => {
+                  e.currentTarget.src = "/characters/star.png";
+                }}
+                className="w-24 h-24 rounded-full object-cover"
+                style={{
+                  border: `3px solid ${color.badge}`,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                }}
+              />
 
               <div className="text-center">
                 <div className="text-2xl font-medium text-gray-900">

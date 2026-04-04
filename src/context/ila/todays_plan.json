@@ -1,12 +1,13 @@
 {
   "todaysPlan": [
     {
-      "activity": "Mixed-vowel discrimination diagnostic probe (sit, sat, hit, hat, bit)",
+      "activity": "Mixed-vowel CVC phoneme segmentation diagnostic (sit, sat, hit, hat, bit)",
       "priority": 1,
       "required": true,
-      "reason": "After 18 days since first three-phoneme segmentation success on 3/14, Ila has NEVER been tested on alternating /a/ vs /i/ vowels within a single session. Raw attempt log shows sit 1/2, hit 3/3, sat 3/0, hat 5/2, bit 1/1 all tested in vowel-siloed sessions. This is the foundational diagnostic that determines true phonemic awareness vs. word-family pattern recognition. CELF-5 Sentence Comprehension (63rd percentile) is her strength—use narrative framing. Word Classes shows 100% accuracy with visual support—provide sound boxes. Following Directions (2nd percentile) demands single-step only. 80%+ accuracy confirms vowel discrimination; <60% requires return to single-vowel work.",
-      "timeboxMinutes": 12,
-      "method": "Three-phoneme segmentation with visual sound boxes. Present words in strict alternating /i/a/i/a/i/ sequence. Single-step directions: 'Tell me all three sounds in sit. Ready? Go!' Use sound boxes with one box per phoneme highlighted as child responds. Narrative frame: 'We're playing vowel detective—you have to catch the sneaky vowel that keeps changing!' Do NOT allow middle-sound-only responses; require all three sounds in sequence.",
+      "reason": "19 days overdue since 3/14. Critical gate-keeper assessment determining true phonemic awareness vs word-family pattern recognition. All decoding instruction depends on this baseline. Zero mixed-vowel data exists despite 100% accuracy on isolated /a/ and /i/ words. Must execute before any phoneme advancement.",
+      "timeboxMinutes": 8,
+      "method": "Sound boxes with three highlighted boxes per word. Present words in alternating /i/→/a/→/i/→/a/→/i/ sequence. Single-step directions only: 'Tell me all three sounds in [word]. Ready? Go!' Record exact phoneme production for each position (initial/medial/final). Success = 80%+ accuracy (4/5 words).",
+      "source": "CELF-5 profile (Sentence Comprehension 63rd percentile = use narrative framing; Word Classes 100% with visuals = provide sound boxes; Following Directions 2nd percentile = single-step only). Wilson methodology requires segmentation before decoding.",
       "words": [
         "sit",
         "sat",
@@ -15,102 +16,76 @@
         "bit"
       ],
       "probeSequence": [
-        "Say all three sounds in 'sit' (expect /s/ /i/ /t/)",
-        "Say all three sounds in 'sat' (expect /s/ /a/ /t/)",
-        "Say all three sounds in 'hit' (expect /h/ /i/ /t/)",
-        "Say all three sounds in 'hat' (expect /h/ /a/ /t/)",
-        "Say all three sounds in 'bit' (expect /b/ /i/ /t/)"
+        "Present 'sit' with three sound boxes",
+        "Ila segments /s/ /i/ /t/",
+        "Present 'sat' immediately after (vowel changes to /a/)",
+        "Ila segments /s/ /a/ /t/",
+        "Repeat for hit, hat, bit in rapid sequence"
       ],
       "minimumWords": 5
     },
     {
-      "activity": "Following Directions formal multi-step baseline (2-step with modifiers)",
+      "activity": "Following Directions formal 2-step baseline probe",
       "priority": 2,
       "required": true,
-      "reason": "IEP compliance requirement. CELF-5: 2nd percentile, documented failure with multi-step directions and multiple modifiers. flagGap shows 20 'mentions' but querySessions confirms ALL are planning references—zero actual execution across 18+ sessions. Every session uses single-step instructions only. Natalie's 4/1 Zoom notes confirm 'needed repeated reminders to slow down' and 'rushed through without reading full questions' consistent with Following Directions deficit. IEP progress monitoring legally requires actual baseline performance data. Must probe: 2-step directions with size/color modifiers.",
-      "timeboxMinutes": 8,
-      "method": "Present two-step directions with modifiers using concrete objects. Use 'wait until I say Go' protocol from CELF-5 documentation. Start with visual reference (objects on screen), progress to auditory-only if successful. Observe for impulse control (does she wait for 'Go'?), sequencing accuracy (correct order of steps), and modifier retention (touches the BIG red circle, not the small one).",
-      "probeSequence": [
-        "'When I say Go, touch the big red circle, then tap your head. Wait… Ready? Go!' (2-step + size/color modifiers)",
-        "'When I say Go, pick up the blue pen, then put it on the book. Wait… Ready? Go!' (2-step + color modifier + object)",
-        "'When I say Go, point to the small yellow star, then clap your hands twice. Wait… Ready? Go!' (2-step + size/color modifiers + quantity)"
-      ],
-      "minimumWords": 3
+      "reason": "CELF-5 2nd percentile. IEP-mandated baseline. 29 planning mentions but zero documented execution across 20+ sessions. Legal compliance requirement—progress monitoring cannot occur without actual performance data.",
+      "timeboxMinutes": 5,
+      "method": "Present two-step directions with modifiers in natural session context. (1) 'Touch the big red circle on the screen, then clap your hands twice.' (2) 'Pick up the blue marker, then put it next to the book.' Record: completed fully / completed partially (which step) / did not complete. Use 'wait until I say Go' prompt before each direction.",
+      "source": "CELF-5 Following Directions subtest protocol. Natalie's 4/1 Zoom noted 'needed repeated reminders to slow down'—consistent with documented deficit but no formal baseline exists."
     },
     {
-      "activity": "Recalling Sentences formal auditory memory baseline (4-word, 7-word progression)",
+      "activity": "Recalling Sentences formal auditory memory baseline probe",
       "priority": 3,
       "required": true,
-      "reason": "IEP compliance requirement. CELF-5: 5th percentile auditory memory with documented breakdown at longer sentence length. flagGap shows 18 'mentions' but querySessions confirms zero sentence repetition tasks across ALL 18+ sessions. Every task is discrete phoneme-level, word-level, or math. This is essential IEP baseline missing after 18+ sessions. Must establish baseline: start with 4-word sentences, progress to 7-word sentences with modifiers to document breakdown point.",
-      "timeboxMinutes": 10,
-      "method": "Sentence repetition task. Say sentence once at normal pace. Ask 'Can you say that back to me exactly how I said it?' Do NOT provide visual support—this is auditory memory assessment. Record errors: word omissions, word substitutions, word order changes, or requests for repetition. If she succeeds on 4-word, advance to 7-word. If she fails 4-word, document and stop.",
-      "probeSequence": [
-        "'The dog ran fast.' (4 words) — expect exact repetition",
-        "'The cat is sleeping on the chair.' (7 words + preposition) — watch for word omissions or order changes",
-        "'The boy found a red ball outside.' (7 words + color modifier + location) — watch for modifier retention"
-      ],
-      "minimumWords": 3
+      "reason": "CELF-5 5th percentile. IEP-mandated baseline. 25 planning mentions but zero sentence repetition tasks across all sessions. Essential for progress monitoring; auditory memory breakdown impacts all language learning.",
+      "timeboxMinutes": 5,
+      "method": "Present sentences for immediate repetition. (1) 'The dog ran fast' (4 words). (2) 'The big cat is sleeping on the soft chair' (9 words, 2 modifiers). (3) 'When the boy came home from school, he found his red ball by the fence' (15 words, embedded clause). Record verbatim responses; note omissions, substitutions, word order errors.",
+      "source": "CELF-5 Recalling Sentences subtest protocol. Evaluator noted breakdown with increasing sentence length/complexity."
     },
     {
-      "activity": "Word Structure morphology—oral production probe (irregular plurals, future tense)",
+      "activity": "Word Structure oral morphology probe (irregular plurals, present progressive, past tense)",
       "priority": 4,
-      "required": false,
-      "reason": "CELF-5: 5th percentile. flagGap shows 16 'mentions' increased from 15. Session 3/31 targeted consonant doubling via SPELLING but CELF-5 documents ORAL PRODUCTION errors on irregular plurals (mice/mouses, children/childs), future tense (will slide), pronouns (she/they), copula verbs (it's, is eating). Must probe oral accuracy under demand to establish baseline. This is not urgent like Following Directions or Recalling Sentences but addresses documented gap.",
-      "timeboxMinutes": 8,
-      "method": "Oral cloze task with visual supports (pictures). Present sentence stem with target morpheme missing. Show picture of referent. For irregular plurals: show one mouse, then two mice. Say 'This is one mouse. These are two ___.' For future tense: show picture of cat, card with 'eat.' Say 'The cat will ___ the food.' Accept any morphologically correct response; document errors (overregularization, omission, substitution).",
-      "words": [
-        "mice (irregular plural from mouse)",
-        "children (irregular plural from child)",
-        "eat (future tense: will eat)",
-        "run (future tense: will run)"
-      ],
-      "probeSequence": [
-        "'One mouse, two ___' (expect 'mice')",
-        "'One child, three ___' (expect 'children')",
-        "Show picture of cat + card 'eat': 'The cat will ___ the food.' (expect 'eat')",
-        "Show picture of dog + card 'run': 'The dog will ___ fast.' (expect 'run')"
-      ],
-      "skipConditions": [
-        "Skip if child shows fatigue after Recalling Sentences task (3 tasks already completed)",
-        "Skip if mixed-vowel diagnostic takes longer than 12 minutes (priority 1 overrun)",
-        "Skip if child requests break after Following Directions baseline"
-      ],
-      "minimumWords": 4
+      "required": true,
+      "reason": "CELF-5 5th percentile. 21 planning mentions but only spelling tested (addition, forgotten, work/worked)—CELF-5 documents oral production errors. Must assess morphological accuracy under demand, not just orthographic recall.",
+      "timeboxMinutes": 6,
+      "method": "Elicit oral responses with visual prompts. (1) Show picture of one mouse, then two mice: 'Here is one mouse. Here are two ___.' (2) Show picture of cat eating: 'The cat is ___.' (3) Show picture of completed action + card 'jump': 'Yesterday the cat ___.' (4) Show picture of girl running: '___ is running.' Record exact verbal responses.",
+      "source": "CELF-5 Word Structure subtest protocol. Documented errors: irregular plurals (mice→mouses, children→childs), present progressive (-ing inconsistent), subjective pronouns (she/they)."
     },
     {
-      "activity": "Consonant doubling + morphology extension (-tion words: addition, subtraction)",
+      "activity": "Consonant doubling + complex suffix spelling (careful, fearful, helpless)",
       "priority": 5,
       "required": false,
-      "reason": "Session 3/31 demonstrated mastery transfer: spelled 'addition' correctly on first oral attempt, 'forgotten' 100% after Word Builder scaffolding. Raw log: hopped 4/4 (100%), sitting 2/2 (100%), running 3/4 (75%). Ready for complex morphological patterns (-tion/-sion). However this is advancement work—only proceed if all 4 required baseline probes are completed.",
+      "reason": "Ila mastered consonant doubling (hopped, sitting, running 86% accuracy) and base+suffix transformations (move/movers/moving, work/worked). Ready for -ful/-less suffix patterns—these are high-frequency and morphologically productive.",
       "timeboxMinutes": 10,
-      "method": "Word Builder scaffolding followed by spelling from memory. Use -tion pattern family (addition, subtraction, fraction). Break into syllables visually (ad-di-tion). Highlight consonant doubling (DD) and -tion ending. Complete Word Builder 4 rounds, then spell from memory. Compare to 3/31 'forgotten' success pattern.",
+      "method": "Word Builder rounds 1-4 for each word, then spell from memory. Use typing if voice spelling shows errors (as with 'moving' on 4/1). Break into base + suffix explicitly: 'care + ful = careful.' Provide visual model after first attempt if needed.",
       "words": [
-        "addition",
-        "subtraction",
-        "fraction"
+        "careful",
+        "fearful",
+        "helpless"
       ],
       "skipConditions": [
-        "Skip if any required probe (priorities 1-3) is incomplete",
-        "Skip if session time exceeds 45 minutes (ADHD fatigue pattern from 3/23)",
-        "Skip if child requests to stop after baseline probes completed"
+        "If mixed-vowel probe shows <60% accuracy and requires extended re-teaching",
+        "If Following Directions or Recalling Sentences probes reveal severe deficits requiring immediate intervention planning",
+        "If Ila shows fatigue after required probes (has occurred before at 10-15 minute mark)"
       ],
       "minimumWords": 2
     },
     {
-      "activity": "Reward game time (Space Invaders, Space Frogger, or Word Builder)",
+      "activity": "Formulated Sentences probe (demand-based, not self-generated)",
       "priority": 6,
       "required": false,
-      "reason": "Session 3/29 shows Ila highly motivated by game-based learning. Natalie's 4/1 Zoom notes confirm 'earned break time' and 'gaming privilege' as effective motivators. Ila requested 'one more game' multiple times on 3/29. Use as positive reinforcement for completing required baseline probes, especially the challenging Following Directions and Recalling Sentences tasks. ADHD profile benefits from structured reward system.",
-      "timeboxMinutes": 8,
-      "method": "Offer choice of Space Invaders, Space Frogger, or Word Builder after completing all required tasks. Use as explicit reward: 'Great work on those tricky sentence games! Now you get to pick your game.' Set timer for 8 minutes. Give 2-minute warning before transition. Frame as earned privilege, not automatic entitlement.",
+      "reason": "CELF-5 16th percentile. 8 planning mentions but never formally probed. All sentences in sessions are self-generated narratives ('A man tucked a wig...')—CELF-5 documents dropped stimulus words and subject-verb agreement errors under demand.",
+      "timeboxMinutes": 5,
+      "method": "Provide constraints and elicit sentence generation. (1) 'Make a sentence with the word cat.' (2) Show action picture: 'Make a sentence about what you see.' (3) 'Make a sentence using the words dog and run.' Record exact sentences; note grammatical errors, dropped words, incomplete formulations.",
+      "source": "CELF-5 Formulated Sentences subtest protocol. Evaluator noted errors like 'my cat and my dog is playing' (subject-verb agreement).",
       "skipConditions": [
-        "Skip if session runs long and baseline probes are incomplete (priorities 1-3 take precedence)",
-        "Skip if child is too fatigued to engage meaningfully (respect 'I'm gonna go to bed now' cues from 3/23)"
-      ],
-      "minimumWords": 0
+        "If required probes consume >20 minutes (attention limit)",
+        "If Ila requests break or shows shutdown behaviors",
+        "If session must end due to external time constraint (school, meal)"
+      ]
     }
   ],
-  "childProfile": "Ila is an 8-year-old with ADHD combined type and dyslexia who learns best with visual support, narrative framing, and single-step instructions. Her strength is Sentence Comprehension (63rd percentile)—use storytelling and visual anchors to engage her. She collapses without pictures (Word Classes: 100% with visuals, 37% without) so always provide sound boxes, visual models, or concrete objects. Following Directions is severely impaired (2nd percentile)—never stack instructions; use 'wait until I say Go' protocol and confirm each step before proceeding. She has low auditory memory (Recalling Sentences 5th percentile) so avoid long verbal explanations. She rushes through tasks due to impulse control challenges—use timers, one-task-at-a-time structure, and praise effort over speed. She is friendly, willing, and motivated by games/rewards but fatigues after 10-15 minutes of effortful encoding (ADHD pattern). She self-advocates when confused ('What's the word again?') and responds well to gentle redirection. Never compare her to her twin Reina. Celebrate attempts, not just accuracy—she shuts down when she feels wrong. She thrives on structure, visual clarity, and knowing what comes next.",
-  "stopAfter": "Stop after 45-50 minutes total or when Ila shows fatigue signs (requests to stop, multiple false starts, topic shifts, 'I'm gonna go to bed now' statements). Front-load the required baseline probes (priorities 1-3) in first 30 minutes when attention is strongest. If she completes all required tasks before fatigue, offer reward game as positive closure. If fatigue hits early, complete priority 1 diagnostic probe at minimum and reschedule priorities 2-4 for next session. Respect her self-advocacy—if she says she needs to stop, honor it and document where session ended. ADHD profile means cognitive load management is as important as skill instruction.",
-  "rewardPolicy": "Ila is highly motivated by game-based learning (Space Invaders, Space Frogger, Word Builder) and responds well to structured reward systems. Use games as explicit positive reinforcement AFTER completing required baseline probes, not before. Session 3/29 shows she will negotiate for more game time ('Can I play one more game?')—set clear boundaries ('One more round and then it's word time') and follow through. Natalie's 4/1 Zoom confirms 'earned break time' and '10-minute gaming session at end' as effective motivators. Frame rewards as earned privileges tied to effort, not just accuracy. Praise her attempts ('Great job waiting for Go!') even if the response is incorrect. Avoid comparing her performance to previous sessions or to her twin—focus on what she accomplished today. If she completes all required tasks, she has genuinely earned game time. If fatigue prevents task completion, offer brief game break (3-5 minutes) mid-session to reset attention, then return to work. Do not withhold rewards punitively—use them to build positive associations with effortful learning tasks."
+  "childProfile": "Ila is an 8-year-old with ADHD (combined type) and dyslexia. Her brain works best with visuals—she scored 100% on language tasks when pictures were present but only 37.5% without them. She understands sentences well (63rd percentile) but struggles to follow multi-step directions (2nd percentile) and remember sentences she hears (5th percentile). Her working memory is low, so instructions must be broken into single steps with a clear 'Ready? Go!' signal. She rushes when anxious and shuts down if she feels wrong, so praise effort over accuracy. She's friendly, willing, and lights up with encouragement. Use sound boxes, visual anchors, and narrative framing ('We're playing vowel detective!'). Keep sessions under 15 minutes before fatigue hits. Never compare her to her twin Reina—they learn differently.",
+  "stopAfter": "After 25-30 minutes total, or when Ila shows fatigue signs (requests to stop, multiple false starts, off-topic questions), or after completing the required probes (mixed-vowel segmentation, Following Directions, Recalling Sentences, Word Structure oral) if attention remains high.",
+  "rewardPolicy": "Ila is motivated by structured game time (Word Builder, Space Invaders, magic tricks) but negotiates boundaries. Offer brief game breaks (2-3 minutes) after completing 2-3 required probes, not before word work. If she asks for games before tasks, redirect gently: 'First we do [task], then we play.' Use games as rewards for effort, not just accuracy—she needs to feel successful even when learning is hard. Avoid extended gaming (>5 minutes) mid-session; save longer play for end-of-session reward if all required work is complete."
 }

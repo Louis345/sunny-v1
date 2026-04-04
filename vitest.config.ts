@@ -20,6 +20,7 @@ export default defineConfig({
       "src/tests/test-audit-log.ts",
       "src/tests/test-web-toolkit-no-logAttempt.ts",
       "src/tests/test-canvas-voice-sync.ts",
+      "src/algorithms/*.test.ts",
     ],
   },
 });

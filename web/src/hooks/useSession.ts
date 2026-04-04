@@ -8,6 +8,10 @@ import type {
   WorksheetInteractionMode,
 } from "../../../src/server/assignment-player";
 import { TEACHING_TOOLS, REWARD_GAMES } from "../../../src/server/games/registry";
+import {
+  DEFAULT_READING_CANVAS_PREFERENCES,
+  type ReadingCanvasPreferences,
+} from "../../../src/shared/readingCanvasPreferences";
 import { gameIframeRef } from "../components/Canvas";
 import { shouldRenderTeachingContent } from "../utils/canvasLayout";
 
@@ -126,6 +130,11 @@ interface CanvasState {
   activeFieldId?: string;
   overlayFields?: OverlayField[];
   interactionMode?: WorksheetInteractionMode;
+  clockHour?: number;
+  clockMinute?: number;
+  clockDisplay?: string;
+  /** Reading / karaoke — ordered tokens for highlight UI */
+  karaokeWords?: string[];
 }
 
 interface TurnPolicy {
@@ -155,6 +164,8 @@ interface SessionState {
   loadingMessage: string | null;
   /** Server sets true when DEBUG_CLAUDE — show canvas test overlay off localhost if needed */
   debugMode: boolean;
+  /** Karaoke / reading UI — from session_context + learning_profile */
+  readingCanvas: ReadingCanvasPreferences;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -237,6 +248,7 @@ export function useSession() {
     error: null,
     loadingMessage: null,
     debugMode: false,
+    readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
   });
 
   const [micMuted, setMicMuted] = useState(false);
@@ -451,6 +463,7 @@ export function useSession() {
           const isSpelling = mode === "spelling";
           const isWordBuilder = mode === "word-builder";
           const isGameMode = GAME_MODES.has(mode);
+          const isKaraoke = mode === "karaoke";
           setStateRef.current((s) => ({
             ...s,
             blackboard: clearedBlackboardState(),
@@ -491,6 +504,18 @@ export function useSession() {
               overlayFields: data.overlayFields as OverlayField[] | undefined,
               interactionMode:
                 data.interactionMode as WorksheetInteractionMode | undefined,
+              clockHour: typeof data.clockHour === "number" ? data.clockHour : undefined,
+              clockMinute:
+                typeof data.clockMinute === "number" ? data.clockMinute : undefined,
+              clockDisplay:
+                typeof data.clockDisplay === "string" ? data.clockDisplay : undefined,
+              karaokeWords: isKaraoke
+                ? Array.isArray(data.karaokeWords)
+                  ? (data.karaokeWords as string[])
+                  : Array.isArray(data.words)
+                    ? (data.words as string[])
+                    : undefined
+                : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             },
@@ -593,13 +618,23 @@ export function useSession() {
       }
 
       case "session_context": {
-        setStateRef.current((s) => ({
-          ...s,
-          sessionType: (msg.sessionType as string) ?? s.sessionType,
-          canvasOwner: (msg.canvasOwner as string) ?? s.canvasOwner,
-          correctStreak: typeof msg.correctStreak === "number" ? msg.correctStreak : s.correctStreak,
-          sessionPhase: (msg.sessionPhase as string) ?? s.sessionPhase,
-        }));
+        setStateRef.current((s) => {
+          const rc = msg.readingCanvas as ReadingCanvasPreferences | undefined;
+          const readingCanvas =
+            rc &&
+            typeof rc.fontSize === "number" &&
+            typeof rc.wordsPerLine === "number"
+              ? rc
+              : s.readingCanvas;
+          return {
+            ...s,
+            sessionType: (msg.sessionType as string) ?? s.sessionType,
+            canvasOwner: (msg.canvasOwner as string) ?? s.canvasOwner,
+            correctStreak: typeof msg.correctStreak === "number" ? msg.correctStreak : s.correctStreak,
+            sessionPhase: (msg.sessionPhase as string) ?? s.sessionPhase,
+            readingCanvas,
+          };
+        });
         break;
       }
 
@@ -612,6 +647,7 @@ export function useSession() {
           const isSpelling = mode === "spelling";
           const isWordBuilder = mode === "word-builder";
           const isGameMode = GAME_MODES.has(mode);
+          const isKaraoke = mode === "karaoke";
           setStateRef.current((s) => {
             const nextCanvas: CanvasState = {
               mode,
@@ -652,6 +688,18 @@ export function useSession() {
               overlayFields: data.overlayFields as OverlayField[] | undefined,
               interactionMode:
                 data.interactionMode as WorksheetInteractionMode | undefined,
+              clockHour: typeof data.clockHour === "number" ? data.clockHour : undefined,
+              clockMinute:
+                typeof data.clockMinute === "number" ? data.clockMinute : undefined,
+              clockDisplay:
+                typeof data.clockDisplay === "string" ? data.clockDisplay : undefined,
+              karaokeWords: isKaraoke
+                ? Array.isArray(data.karaokeWords)
+                  ? (data.karaokeWords as string[])
+                  : Array.isArray(data.words)
+                    ? (data.words as string[])
+                    : undefined
+                : undefined,
               pendingAnswer: undefined,
               animationKey: (s.canvas.animationKey ?? 0) + 1,
             };
@@ -691,6 +739,7 @@ export function useSession() {
           blackboard: { gesture: null },
           reward: null,
           sessionState: "IDLE",
+          readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
         }));
         stopMicRef.current();
         break;
@@ -958,6 +1007,7 @@ export function useSession() {
       error: null,
       loadingMessage: null,
       debugMode: false,
+      readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
     });
     wsRef.current?.close();
     wsRef.current = null;
