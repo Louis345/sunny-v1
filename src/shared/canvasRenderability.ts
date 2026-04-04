@@ -51,12 +51,23 @@ export interface RenderableCanvasLike {
   mode: RenderableCanvasMode;
   gameUrl?: string;
   pdfAssetUrl?: string;
+  clockHour?: number;
+  clockMinute?: number;
+  karaokeWords?: string[];
 }
 
 export function canvasHasRenderableContent(canvas: RenderableCanvasLike): boolean {
   return Boolean(
     (GAME_MODES.has(canvas.mode) && canvas.gameUrl) ||
       (canvas.mode === "worksheet_pdf" && canvas.pdfAssetUrl) ||
+      (canvas.mode === "clock" &&
+        typeof canvas.clockHour === "number" &&
+        typeof canvas.clockMinute === "number") ||
+      (canvas.mode === "karaoke" &&
+        ((Array.isArray(canvas.karaokeWords) &&
+          canvas.karaokeWords.length > 0) ||
+          Boolean(canvas.content?.trim()) ||
+          Boolean(canvas.label?.trim()))) ||
       canvas.content ||
       canvas.label ||
       (canvas.phonemeBoxes && canvas.phonemeBoxes.length > 0) ||

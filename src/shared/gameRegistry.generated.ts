@@ -24,6 +24,14 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     },
     "voiceEnabled": true
   },
+  "clock-game": {
+    "url": "/games/clock-game.html",
+    "defaultConfig": {
+      "hour": 3,
+      "minute": 0
+    },
+    "voiceEnabled": true
+  },
   "coin-counter": {
     "url": "/games/coin-counter.html",
     "defaultConfig": {},

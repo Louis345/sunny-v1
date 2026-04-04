@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+.thinking-with-avatar {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
 .thinking-indicator {
   position: absolute;
   bottom: 1.5rem;
@@ -9,6 +20,37 @@
   transform: translateX(-50%);
   display: flex;
   gap: 6px;
+}
+.thinking-indicator.thinking-indicator--stacked {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  transform: none;
+}
+.star-bounce {
+  animation: star-bounce 1.2s ease-in-out infinite;
+}
+@keyframes star-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.star-glow {
+  box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.55), 0 8px 24px rgba(255, 193, 7, 0.35);
+  animation: star-glow-pulse 2s ease-in-out infinite;
+}
+@keyframes star-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.45), 0 8px 20px rgba(255, 193, 7, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px 6px rgba(255, 215, 0, 0.5), 0 10px 28px rgba(255, 193, 7, 0.45);
+  }
 }
 .thinking-indicator span {
   width: 10px;

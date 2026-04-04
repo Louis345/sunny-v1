@@ -41,6 +41,11 @@ export const GAME_META: Record<string, GameMetaEntry> = {
     voiceEnabled: true,
     defaultConfig: { itemPool: [] },
   },
+  "clock-game": {
+    type: "tool",
+    voiceEnabled: true,
+    defaultConfig: { hour: 3, minute: 0 },
+  },
   "space-invaders": {
     type: "reward",
     voiceEnabled: true,

@@ -1,8 +1,26 @@
 import { getSessionTypeConfig } from "./session-type-registry";
 import { REWARD_GAMES, TEACHING_TOOLS } from "./games/registry";
 import type { OverlayField, WorksheetInteractionMode } from "./assignment-player";
+import {
+  getSessionDifficultySignal,
+  getSessionRewardState,
+  type SessionPlan,
+} from "../engine/learningEngine";
+import { readLearningProfile } from "../utils/learningProfileIO";
+import { getReadingCanvasPreferences } from "../shared/readingCanvasPreferences";
 
-export type SessionType = "freeform" | "worksheet" | "spelling" | "wordle" | "game";
+export type SessionType =
+  | "freeform"
+  | "worksheet"
+  | "spelling"
+  | "wordle"
+  | "game"
+  | "reading"
+  | "clocks"
+  | "math"
+  | "homework"
+  | "pronunciation"
+  | "wilson";
 export type CanvasOwner = "server" | "companion";
 export type ActivityMode =
   | "none"
@@ -116,6 +134,8 @@ export interface SessionContext {
   readingProgress: ReadingProgressSnapshot | null;
   setReadingProgress: (p: ReadingProgressSnapshot | null) => void;
   serialize: () => SerializedSessionContext;
+  /** Spelling plan from learning engine — injected each turn in canvas context (not cached in system prompt). */
+  enginePlan?: SessionPlan;
 }
 
 export interface ReadingProgressSnapshot {
@@ -312,8 +332,12 @@ export function buildCanvasContextMessage(
 
   if (ctx.readingProgress) {
     const rp = ctx.readingProgress;
+    const accPct =
+      rp.accuracy <= 1 && rp.accuracy >= 0
+        ? Math.round(rp.accuracy * 100)
+        : Math.round(rp.accuracy);
     lines.push(
-      `[Reading progress] word ${rp.wordIndex + 1}/${rp.totalWords}, accuracy ${rp.accuracy}%, flagged: ${rp.flaggedWords.join(", ") || "none"}`,
+      `[Reading progress] wordIndex ${rp.wordIndex}/${rp.totalWords} (0-based next slot; equals total when finished), accuracy ${accPct}%, flagged: ${rp.flaggedWords.join(", ") || "none"}`,
     );
     if (rp.event) lines.push(`Reading event: ${rp.event}`);
   }
@@ -400,6 +424,80 @@ export function buildCanvasContextMessage(
     }
     if (questions[currentIndex] && currentIndex < total && !activityPaused) {
       lines.push(`Current question: ${questions[currentIndex].text}`);
+    }
+  }
+
+  // Adaptive learning engine — per-turn only (not part of cached buildSessionPrompt).
+  console.log("[learning-state] injecting into context message");
+  const childId = ctx.childName.toLowerCase();
+  const diffSignal = getSessionDifficultySignal(childId);
+  const rewardState = getSessionRewardState(childId);
+
+  let wilsonStep: number;
+  let moodAdjustment: boolean;
+  if (ctx.enginePlan) {
+    wilsonStep = ctx.enginePlan.wilsonStep;
+    moodAdjustment = ctx.enginePlan.moodAdjustment;
+  } else {
+    const prof = readLearningProfile(childId);
+    wilsonStep =
+      prof?.sessionStats.currentWilsonStep ?? (childId === "ila" ? 4 : 1);
+    moodAdjustment = prof?.moodAdjustment ?? false;
+  }
+
+  lines.push(`[Learning State]`);
+  lines.push(`Difficulty zone: ${diffSignal?.zone ?? "optimal"}`);
+  lines.push(
+    diffSignal
+      ? `Session accuracy (recent window): ${Math.round(diffSignal.currentAccuracy * 100)}%`
+      : `Session accuracy (recent window): n/a (no attempts yet)`,
+  );
+  lines.push(`Current Wilson step: ${wilsonStep}`);
+  lines.push(`Mood adjustment active: ${moodAdjustment ? "yes" : "no"}`);
+  if (rewardState) {
+    lines.push(`Current streak: ${rewardState.correctStreak}`);
+  }
+
+  {
+    const profReading = readLearningProfile(childId);
+    const rc = getReadingCanvasPreferences(profReading?.readingProfile);
+    lines.push("");
+    lines.push(`[Reading Profile]`);
+    lines.push(`fontSize: ${rc.fontSize}`);
+    lines.push(`wordsPerLine: ${rc.wordsPerLine}`);
+    lines.push(`dyslexiaMode: ${rc.dyslexiaMode}`);
+    lines.push(`background: ${rc.background}`);
+  }
+
+  if (ctx.enginePlan) {
+    const st = ctx.sessionType;
+    if (st === "reading") {
+      lines.push("");
+      lines.push(`[Reading Mode]`);
+      lines.push(
+        `Do not run spelling drills. Do not launch Word Builder for spelling. Follow the reading session flow exactly:`,
+      );
+      lines.push(`Phase 1: sound_box for target words`);
+      lines.push(`Phase 2: ask child what to read about`);
+      lines.push(`Phase 3: generate story → canvasShow karaoke`);
+      lines.push(`Phase 4: child reads aloud`);
+      lines.push(`Phase 5: comprehension questions`);
+    } else if (st === "spelling" || st === "homework") {
+      const p = ctx.enginePlan;
+      const review =
+        p.reviewWords.length > 0 ? p.reviewWords.join(", ") : "none";
+      const novel = p.newWords.length > 0 ? p.newWords.join(", ") : "none";
+      const total = p.reviewWords.length + p.newWords.length;
+      lines.push("");
+      lines.push(`[Today's Focus Words]`);
+      lines.push(
+        `The learning engine selected these words for this session. Work through ONLY these words today — not the full homework list.`,
+      );
+      lines.push(`Review words (seen before, due today): ${review}`);
+      lines.push(`New words (introducing today): ${novel}`);
+      lines.push(
+        `Total: ${total} words. Quality over quantity. When these are done the session academic goals are complete.`,
+      );
     }
   }
 

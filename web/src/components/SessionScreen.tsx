@@ -2,6 +2,7 @@ import { CompanionStrip } from "./CompanionStrip";
 import { Canvas, type CanvasState } from "./Canvas";
 import type { OverlayField } from "../../../src/server/assignment-player";
 import type { BlackboardState } from "../hooks/useSession";
+import type { ReadingCanvasPreferences } from "../../../src/shared/readingCanvasPreferences";
 
 interface CompanionConfig {
   childName: string;
@@ -45,6 +46,8 @@ interface Props {
     pageWidth: number;
     pageHeight: number;
   }) => void;
+  sendMessage?: (type: string, payload?: Record<string, unknown>) => void;
+  readingCanvas: ReadingCanvasPreferences;
 }
 
 const colors: Record<string, { accent: string; bg: string }> = {
@@ -70,8 +73,11 @@ export function SessionScreen({
   onCanvasDone,
   onWorksheetAnswer,
   onOverlayFieldChange,
+  sendMessage,
+  readingCanvas,
 }: Props) {
   const color = colors[childName] ?? colors.Ila;
+  const childId = childName.toLowerCase();
 
   return (
     <div className="w-full h-full flex">
@@ -89,17 +95,41 @@ export function SessionScreen({
         onBargeIn={onBargeIn}
         onEndSession={onEndSession}
       />
-      <Canvas
-        canvas={canvas}
-        blackboard={blackboard}
-        reward={reward}
-        sessionPhase={sessionPhase}
-        sessionState={sessionState}
-        accentColor={color.accent}
-        onCanvasDone={onCanvasDone}
-        onWorksheetAnswer={onWorksheetAnswer}
-        onOverlayFieldChange={onOverlayFieldChange}
-      />
+      <div className="flex-1 relative min-w-0 flex flex-col">
+        <img
+          src={`/characters/${childId}.png`}
+          alt=""
+          onError={(e) => {
+            e.currentTarget.src = "/characters/star.png";
+          }}
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            width: 60,
+            height: 60,
+            borderRadius: "50%",
+            objectFit: "cover",
+            border: "3px solid #FFD700",
+            zIndex: 10,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          }}
+        />
+        <Canvas
+          canvas={canvas}
+          blackboard={blackboard}
+          reward={reward}
+          sessionPhase={sessionPhase}
+          sessionState={sessionState}
+          accentColor={color.accent}
+          onCanvasDone={onCanvasDone}
+          onWorksheetAnswer={onWorksheetAnswer}
+          onOverlayFieldChange={onOverlayFieldChange}
+          interimTranscript={interimTranscript}
+          sendMessage={sendMessage}
+          readingCanvas={readingCanvas}
+        />
+      </div>
     </div>
   );
 }

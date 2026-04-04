@@ -23,6 +23,7 @@ import {
   normalizeSessionSubject,
 } from "../agents/prompts";
 import { loadHomeworkPayload } from "../utils/loadHomeworkFolder";
+import { getReadingCanvasPreferencesForChild } from "../utils/learningProfileIO";
 import { appendDeferredActivity } from "../utils/appendToContext";
 import { classifyAndRoute } from "../agents/classifier/classifier";
 import { runAgent } from "../agents/elli/run";
@@ -39,6 +40,7 @@ import { appendRewardLog } from "../agents/elli/tools/logReward";
 import { resetMathProbeSession } from "../agents/elli/tools/mathProblem";
 import { resetSessionStart } from "../agents/elli/tools/startSession";
 import { resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
+import { planSession } from "../engine/learningEngine";
 import { type ModelMessage } from "ai";
 import {
   extractHomeworkProblems,
@@ -67,6 +69,7 @@ import {
   CANONICAL_AGENT_TOOL_KEYS,
   getSessionTypeConfig,
   resolveSessionType,
+  sessionTypeFromSubject,
 } from "./session-type-registry";
 import {
   buildAssignmentManifestFromWorksheetProblems,
@@ -1247,10 +1250,14 @@ export class SessionManager {
       // ────────────────────────────────────────────────────────────────────────
 
       console.log("  🧠 Psychologist building session prompt...");
-      const wordList = this.worksheetMode
-        ? []
-        : extractWordsFromHomework(homeworkPayload.rawContent);
-      if (!this.worksheetMode && wordList.length > 0) {
+      const extractSpellingWords =
+        !this.worksheetMode &&
+        (subject === "spelling" || subject === "homework");
+      const wordList =
+        this.worksheetMode || !extractSpellingWords
+          ? []
+          : extractWordsFromHomework(homeworkPayload.rawContent);
+      if (!this.worksheetMode && extractSpellingWords && wordList.length > 0) {
         console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
         this.spellingHomeworkWordsByNorm = [
           ...new Set(
@@ -1265,6 +1272,9 @@ export class SessionManager {
           `  🎮 [worksheet] ${this.worksheetProblems.length} problem(s) queued; ` +
             `reward_after=${this.worksheetRewardAfterN}`,
         );
+      } else {
+        this.spellingHomeworkWordsByNorm = [];
+        this.refreshSpellingHomeworkGate();
       }
 
       const homeworkForPrompt =
@@ -1361,7 +1371,9 @@ export class SessionManager {
           : this.prependDebugClaudeToPrompt(sessionPrompt),
       };
       console.log(`  ✅ Session prompt ready (${sessionPrompt.length} chars)`);
-      this.isSpellingSession = !this.worksheetMode;
+      this.isSpellingSession =
+        !this.worksheetMode &&
+        (subject === "spelling" || subject === "homework");
       if (this.isSpellingSession) {
         console.log("  📝 Spelling session mode active");
       }
@@ -1378,6 +1390,7 @@ export class SessionManager {
       childName: this.childName,
       hasHomeworkManifest,
       hasSpellingWords,
+      explicitType: sessionTypeFromSubject(subject),
     });
     this.ctx = createSessionContext({
       childName: this.childName,
@@ -1417,6 +1430,38 @@ export class SessionManager {
     console.log(
       `  📋 Session type: ${sessionType}, canvas owner: ${this.ctx.canvas.owner}`,
     );
+
+    if (
+      this.isSpellingSession &&
+      subject === "spelling" &&
+      !this.worksheetMode &&
+      sessionType === "spelling"
+    ) {
+      const childId = this.childName.toLowerCase();
+      const wbPath = path.resolve(
+        process.cwd(),
+        "src",
+        "context",
+        childId,
+        "word_bank.json",
+      );
+      let enginePlan = planSession(childId, "spelling");
+      const selected =
+        enginePlan.reviewWords.length + enginePlan.newWords.length;
+      if (selected === 0 && this.spellingHomeworkWordsByNorm.length > 0) {
+        if (!fs.existsSync(wbPath)) {
+          console.log("[engine] no word bank found, using homework fallback");
+        }
+        const fb = this.spellingHomeworkWordsByNorm.slice(0, 5);
+        enginePlan = {
+          ...enginePlan,
+          reviewWords: [],
+          newWords: fb,
+          totalWordCount: fb.length,
+        };
+      }
+      this.ctx.enginePlan = enginePlan;
+    }
 
     this.applyDebugClaudeOpeningLine();
 
@@ -1876,6 +1921,21 @@ export class SessionManager {
           }
           this.broadcastContext();
         }
+        return;
+      }
+      if (
+        this.ctx &&
+        String(this.ctx.canvas.current.mode) === "clock-game"
+      ) {
+        this.clearActiveCanvasActivity();
+        this.send("canvas_draw", { mode: "idle" });
+        if (this.ctx) {
+          this.ctx.updateCanvas({ mode: "idle" });
+          this.broadcastContext();
+        }
+        console.log(
+          `  🎮 clock-game complete — correct=${String(event.correct)}`,
+        );
         return;
       }
       if (this.spaceInvadersRewardActive) {
@@ -2590,6 +2650,7 @@ export class SessionManager {
                   mode: "karaoke" as const,
                   content: args.storyText,
                   label: words.join(" "),
+                  karaokeWords: words,
                 };
                 this.send(
                   "canvas_draw",
@@ -2622,9 +2683,14 @@ export class SessionManager {
                 }
               } else if (ct === "clock") {
                 const m = Number(args.minute) || 0;
-                const label = `${args.hour}:${String(m).padStart(2, "0")} (${args.display})`;
+                const h = Number(args.hour) || 3;
+                const disp = String(args.display ?? "analog");
+                const label = `${h}:${String(m).padStart(2, "0")} (${disp})`;
                 const drawPayload = {
                   mode: "clock" as const,
+                  clockHour: h,
+                  clockMinute: m,
+                  clockDisplay: disp,
                   content: label,
                   label,
                 };
@@ -3310,10 +3376,13 @@ export class SessionManager {
 
   private broadcastContext(): void {
     if (this.ctx) {
-      this.send("session_context", { ...this.ctx.serialize() } as Record<
-        string,
-        unknown
-      >);
+      const payload = {
+        ...(this.ctx.serialize() as unknown as Record<string, unknown>),
+      };
+      payload.readingCanvas = getReadingCanvasPreferencesForChild(
+        this.childName.toLowerCase(),
+      );
+      this.send("session_context", payload);
     }
   }
 
@@ -3692,7 +3761,15 @@ export class SessionManager {
       const revisedCanvasDraw = this.withCanvasRevision(canvasDraw);
       this.send("canvas_draw", revisedCanvasDraw);
 
-      const launchConfig = { ...gameEntry.defaultConfig };
+      const launchConfig: Record<string, unknown> = {
+        ...gameEntry.defaultConfig,
+      };
+      if (typeof args.hour === "number" && Number.isFinite(args.hour)) {
+        launchConfig.hour = args.hour;
+      }
+      if (typeof args.minute === "number" && Number.isFinite(args.minute)) {
+        launchConfig.minute = args.minute;
+      }
 
       if (gameName === "store-game") {
         console.log(
@@ -4232,6 +4309,7 @@ export class SessionManager {
           mode: "karaoke",
           content: args.storyText as string,
           label: words.join(" "),
+          karaokeWords: words,
         };
         if (this.ctx) {
           this.ctx.updateCanvas({
@@ -4343,7 +4421,7 @@ export class SessionManager {
     });
     this.broadcastContext();
     console.log(
-      `  📖 reading_progress: ${wordIndex + 1}/${totalWords} acc=${accuracy}`,
+      `  📖 reading_progress: idx ${wordIndex}/${totalWords} acc=${Number.isFinite(accuracy) && accuracy <= 1 ? Math.round(accuracy * 100) : accuracy}% event=${event ?? "—"}`,
     );
   }
 

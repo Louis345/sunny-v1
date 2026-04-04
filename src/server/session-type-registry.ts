@@ -1,4 +1,5 @@
 import type { SessionType, CanvasOwner } from "./session-context";
+import type { SessionSubject } from "../agents/prompts";
 
 export interface SessionTypeConfig {
   /** Placeholder map so `Object.keys` yields allowed tool names; real tools come from SessionManager. */
@@ -53,6 +54,42 @@ const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
     canvasOwner: "server",
     description: "Reward game",
   },
+
+  reading: {
+    tools: placeholderTools(),
+    canvasOwner: "companion",
+    description: "Reading / karaoke session",
+  },
+
+  clocks: {
+    tools: placeholderTools(),
+    canvasOwner: "companion",
+    description: "Clock / time-telling session",
+  },
+
+  math: {
+    tools: placeholderTools(),
+    canvasOwner: "companion",
+    description: "Math session",
+  },
+
+  homework: {
+    tools: placeholderTools(),
+    canvasOwner: "companion",
+    description: "Homework-aligned session (folder + care plan)",
+  },
+
+  pronunciation: {
+    tools: placeholderTools(),
+    canvasOwner: "companion",
+    description: "Pronunciation calibration session",
+  },
+
+  wilson: {
+    tools: placeholderTools(),
+    canvasOwner: "companion",
+    description: "Wilson phonics session",
+  },
 };
 
 const DEFAULT_SESSION_TYPE: SessionType = "freeform";
@@ -73,10 +110,30 @@ export function resolveSessionType(opts: {
   hasSpellingWords: boolean;
   explicitType?: SessionType;
 }): SessionType {
+  if (opts.hasHomeworkManifest) return "worksheet";
   if (opts.explicitType && SESSION_TYPE_REGISTRY[opts.explicitType]) {
     return opts.explicitType;
   }
-  if (opts.hasHomeworkManifest) return "worksheet";
   if (opts.hasSpellingWords) return "spelling";
   return "freeform";
+}
+
+/** Maps SUNNY_SUBJECT (after normalize) to a concrete session type when not driven by spelling word list. */
+export function sessionTypeFromSubject(subject: SessionSubject): SessionType | undefined {
+  switch (subject) {
+    case "clocks":
+    case "reading":
+    case "math":
+    case "homework":
+    case "pronunciation":
+    case "wilson":
+      return subject;
+    case "free":
+    case "reversal":
+    case "history":
+      return "freeform";
+    case "spelling":
+    default:
+      return undefined;
+  }
 }

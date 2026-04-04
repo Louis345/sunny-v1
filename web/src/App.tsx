@@ -89,6 +89,8 @@ function App() {
           onCanvasDone={sendCanvasDone}
           onWorksheetAnswer={submitWorksheetAnswer}
           onOverlayFieldChange={handleOverlayFieldChange}
+          sendMessage={sendMessage}
+          readingCanvas={state.readingCanvas}
         />
       </div>
     );

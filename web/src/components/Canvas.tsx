@@ -31,7 +31,13 @@ import {
   TEACHING_TOOLS,
   REWARD_GAMES,
 } from "../../../src/server/games/registry";
+import Clock from "react-clock";
+import "react-clock/dist/Clock.css";
 import type { BlackboardState } from "../hooks/useSession";
+import {
+  DEFAULT_READING_CANVAS_PREFERENCES,
+  type ReadingCanvasPreferences,
+} from "../../../src/shared/readingCanvasPreferences";
 import { BlackboardContent } from "./BlackboardContent";
 const Lottie =
   (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
@@ -87,6 +93,7 @@ const GAME_IFRAME_BACKGROUNDS: Partial<Record<RegistryGameMode, string>> = {
   "space-frogger": "#0a0a12",
   asteroid: "#000000",
   "bd-reversal": "#12002e",
+  "clock-game": "#fff0f5",
 };
 
 export interface CanvasState {
@@ -120,6 +127,353 @@ export interface CanvasState {
   activeFieldId?: string;
   overlayFields?: OverlayField[];
   interactionMode?: WorksheetInteractionMode;
+  clockHour?: number;
+  clockMinute?: number;
+  clockDisplay?: string;
+  karaokeWords?: string[];
+}
+
+function matchWord(heard: string, expected: string): boolean {
+  const h = heard.toLowerCase().replace(/[^a-z]/g, "");
+  const e = expected.toLowerCase().replace(/[^a-z]/g, "");
+  if (h === e) return true;
+  if (Math.abs(h.length - e.length) > 2) return false;
+  let diff = 0;
+  for (let i = 0; i < Math.min(h.length, e.length); i++) {
+    if (h[i] !== e[i]) diff++;
+  }
+  return diff <= 1;
+}
+
+const KARAOKE_FLAGGED_PLACEHOLDER: string[] = [];
+
+function chunkWordsIntoLines(words: string[], wordsPerLine: number): string[][] {
+  if (words.length === 0) return [];
+  const lines: string[][] = [];
+  const wpl = Math.max(4, Math.min(16, wordsPerLine));
+  for (let i = 0; i < words.length; i += wpl) {
+    lines.push(words.slice(i, i + wpl));
+  }
+  return lines;
+}
+
+/** Map global word index → line + column; past end → last line, col after last word. */
+function locateWordInLines(
+  lines: string[][],
+  globalIdx: number,
+): { lineIdx: number; colIdx: number } {
+  let g = 0;
+  for (let li = 0; li < lines.length; li++) {
+    const row = lines[li];
+    for (let ci = 0; ci < row.length; ci++) {
+      if (g === globalIdx) return { lineIdx: li, colIdx: ci };
+      g++;
+    }
+  }
+  const lastLi = Math.max(0, lines.length - 1);
+  const lastRow = lines[lastLi] ?? [];
+  return { lineIdx: lastLi, colIdx: lastRow.length };
+}
+
+function KaraokeReadingCanvas(props: {
+  words: string[];
+  interimTranscript: string;
+  sendMessage: (type: string, payload?: Record<string, unknown>) => void;
+  onCanvasDone: () => void;
+  readingCanvas: ReadingCanvasPreferences;
+}): React.ReactElement {
+  const { words, interimTranscript, sendMessage, onCanvasDone, readingCanvas } =
+    props;
+  const p = readingCanvas;
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const lastInterimRef = useRef("");
+  const indexRef = useRef(0);
+  const completeRef = useRef(false);
+  const wordsKey = words.join("|");
+
+  indexRef.current = currentWordIndex;
+
+  const lines = React.useMemo(
+    () => chunkWordsIntoLines(words, p.wordsPerLine),
+    [words, p.wordsPerLine],
+  );
+
+  useEffect(() => {
+    onCanvasDone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setCurrentWordIndex(0);
+    lastInterimRef.current = "";
+    completeRef.current = false;
+  }, [wordsKey]);
+
+  useEffect(() => {
+    if (completeRef.current || words.length === 0) return;
+    const t = interimTranscript.trim();
+    if (t === lastInterimRef.current) return;
+    lastInterimRef.current = t;
+    const heardWords = t.split(/\s+/).filter(Boolean);
+    const lastWord = heardWords[heardWords.length - 1] ?? "";
+    setCurrentWordIndex((prev) => {
+      if (prev >= words.length) return prev;
+      const expected = words[prev];
+      if (!expected || !matchWord(lastWord, expected)) return prev;
+      const next = prev + 1;
+      if (next >= words.length) {
+        completeRef.current = true;
+        sendMessage("reading_progress", {
+          wordIndex: next,
+          totalWords: words.length,
+          accuracy:
+            (words.length - KARAOKE_FLAGGED_PLACEHOLDER.length) /
+            Math.max(words.length, 1),
+          flaggedWords: [...KARAOKE_FLAGGED_PLACEHOLDER],
+          event: "complete",
+        });
+      }
+      return next;
+    });
+  }, [interimTranscript, words, sendMessage]);
+
+  useEffect(() => {
+    if (words.length === 0) return;
+    const id = window.setInterval(() => {
+      if (completeRef.current) return;
+      const idx = indexRef.current;
+      const total = words.length;
+      sendMessage("reading_progress", {
+        wordIndex: idx,
+        totalWords: total,
+        accuracy:
+          (total - KARAOKE_FLAGGED_PLACEHOLDER.length) / Math.max(total, 1),
+        flaggedWords: [...KARAOKE_FLAGGED_PLACEHOLDER],
+        event: "progress",
+      });
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [wordsKey, words.length, sendMessage]);
+
+  const done = currentWordIndex >= words.length;
+  const { lineIdx, colIdx } = done
+    ? locateWordInLines(lines, words.length)
+    : locateWordInLines(lines, currentWordIndex);
+
+  const prevLine = lineIdx > 0 ? lines[lineIdx - 1] : null;
+  const curLine = lines[lineIdx] ?? [];
+  const nextLine = lineIdx < lines.length - 1 ? lines[lineIdx + 1] : null;
+
+  const fsHighlight = p.fontSize;
+  const fsLineOther = Math.max(24, p.fontSize - 6);
+  const fsPrevNext = Math.max(22, Math.round(p.fontSize * 0.67));
+
+  const maxDots = Math.min(words.length, 40);
+  const filledDots =
+    words.length === 0 ? 0 : Math.round((currentWordIndex / words.length) * maxDots);
+
+  const displayWordNum = Math.min(currentWordIndex + (done ? 0 : 1), words.length);
+
+  return (
+    <div
+      style={{
+        padding: 48,
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        minHeight: "100%",
+        width: "100%",
+        background: p.background,
+        fontFamily: p.fontFamilyCss,
+      }}
+    >
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          maxWidth: 900,
+        }}
+      >
+        {prevLine ? (
+          <div
+            style={{
+              fontSize: fsPrevNext,
+              fontWeight: 400,
+              color: "#9ca3af",
+              opacity: 0.6,
+              lineHeight: p.lineHeight,
+              marginBottom: 24,
+              textAlign: "center",
+              width: "100%",
+            }}
+          >
+            {prevLine.join(" ")}
+          </div>
+        ) : (
+          <div style={{ marginBottom: 8 }} />
+        )}
+
+        <div
+          style={{
+            lineHeight: p.lineHeight,
+            marginBottom: 24,
+            textAlign: "center",
+            width: "100%",
+          }}
+        >
+          {curLine.map((word, ci) => {
+            const readInLine = done || ci < colIdx;
+            const isCurrent = !done && ci === colIdx;
+            return (
+              <span
+                key={`${lineIdx}-${ci}-${word}`}
+                style={{
+                  display: "inline",
+                  marginRight: "0.35em",
+                  transition: "all 0.2s ease",
+                  letterSpacing: "0.05em",
+                  ...(isCurrent
+                    ? {
+                        fontSize: fsHighlight,
+                        fontWeight: 800,
+                        color: p.highlightColor,
+                        backgroundColor: p.highlightBackground,
+                        borderRadius: 8,
+                        padding: "4px 8px",
+                      }
+                    : readInLine
+                      ? {
+                          fontSize: fsPrevNext,
+                          fontWeight: 400,
+                          color: "#9ca3af",
+                          opacity: 0.75,
+                        }
+                      : {
+                          fontSize: fsLineOther,
+                          fontWeight: 600,
+                          color: "#1f2937",
+                        }),
+                }}
+              >
+                {word}
+              </span>
+            );
+          })}
+        </div>
+
+        {nextLine ? (
+          <div
+            style={{
+              fontSize: fsPrevNext,
+              fontWeight: 400,
+              color: "#d1d5db",
+              opacity: 0.3,
+              lineHeight: p.lineHeight,
+              textAlign: "center",
+              width: "100%",
+            }}
+          >
+            {nextLine.join(" ")}
+          </div>
+        ) : null}
+      </div>
+
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          paddingTop: 16,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: 6,
+            fontSize: 12,
+            color: "#FFD700",
+            letterSpacing: 2,
+          }}
+          aria-hidden
+        >
+          {Array.from({ length: maxDots }, (_, i) => (
+            <span key={i}>{i < filledDots ? "●" : "○"}</span>
+          ))}
+        </div>
+        <div style={{ fontSize: 14, color: "#9ca3af" }}>
+          Word {words.length === 0 ? 0 : displayWordNum} of {words.length}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClockAnalogCanvas(props: {
+  hour: number;
+  minute: number;
+  display: string;
+  onPainted: () => void;
+}): React.ReactElement {
+  const { hour, minute, display, onPainted } = props;
+  useEffect(() => {
+    const id = window.setTimeout(() => onPainted(), 50);
+    return () => window.clearTimeout(id);
+  }, [hour, minute, display, onPainted]);
+
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  const showDigital = display === "both" || display === "digital";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        gap: 24,
+        background: "linear-gradient(135deg, #667eea22, #764ba222)",
+      }}
+    >
+      <Clock
+        value={d}
+        size={300}
+        renderNumbers
+        hourHandLength={50}
+        hourHandWidth={8}
+        minuteHandLength={70}
+        minuteHandWidth={5}
+        renderSecondHand={false}
+        hourHandOppositeLength={0}
+        minuteHandOppositeLength={0}
+      />
+      {showDigital && (
+        <div
+          style={{
+            fontSize: 48,
+            fontWeight: 800,
+            color: "#2d3748",
+            fontFamily: "system-ui",
+            letterSpacing: "2px",
+          }}
+        >
+          {String(hour).padStart(2, "0")}:{String(minute).padStart(2, "0")}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function runGameIframeOnLoad(
@@ -170,8 +524,10 @@ interface Props {
   blackboard: BlackboardState;
   reward: RewardEvent | null;
   sessionPhase: string;
-  sessionState: string;
+  /** Used for minimal canvas loading dots (no avatar). */
+  sessionState?: string;
   accentColor?: string;
+  readingCanvas?: ReadingCanvasPreferences;
   onCanvasDone: () => void;
   onWorksheetAnswer: (payload: {
     problemId: string;
@@ -185,6 +541,8 @@ interface Props {
     pageWidth: number;
     pageHeight: number;
   }) => void;
+  interimTranscript?: string;
+  sendMessage?: (type: string, payload?: Record<string, unknown>) => void;
 }
 
 /** Worksheet asset URL points at a raster image (not a PDF) — use <img>, not react-pdf. */
@@ -1605,10 +1963,13 @@ export function Canvas({
   reward,
   sessionPhase,
   sessionState,
-  accentColor = "#854F0B",
+  accentColor = "#94a3b8",
+  readingCanvas = DEFAULT_READING_CANVAS_PREFERENCES,
   onCanvasDone,
   onWorksheetAnswer,
   onOverlayFieldChange,
+  interimTranscript = "",
+  sendMessage = () => {},
 }: Props) {
   console.log("[Canvas] render:", {
     mode: canvas.mode,
@@ -1686,9 +2047,13 @@ export function Canvas({
           });
           break;
         }
-        case "karaoke":
+        case "karaoke": {
+          setDisplayMode("karaoke");
+          setDisplayContent(text);
+          setRiddleLabel("");
+          break;
+        }
         case "sound_box":
-        case "clock":
         case "score_meter": {
           const line =
             mode === "score_meter" && label
@@ -1698,6 +2063,12 @@ export function Canvas({
           setDisplayMode("teaching");
           setRiddleLabel("");
           handleCanvasDone();
+          break;
+        }
+        case "clock": {
+          setDisplayMode("clock");
+          setDisplayContent("");
+          setRiddleLabel("");
           break;
         }
         case "worksheet_pdf": {
@@ -1876,7 +2247,11 @@ export function Canvas({
         canvas.mode === "reward" ||
         canvas.mode === "championship" ||
         canvas.mode === "place_value" ||
-        canvas.mode === "spelling")
+        canvas.mode === "spelling" ||
+        canvas.mode === "karaoke" ||
+        canvas.mode === "sound_box" ||
+        canvas.mode === "clock" ||
+        canvas.mode === "score_meter")
     ) {
       runAnimation(canvas);
     } else if (canvas.mode === "idle") {
@@ -1913,7 +2288,17 @@ export function Canvas({
     displayMode === "reward" ||
     displayMode === "championship" ||
     displayMode === "place_value" ||
-    displayMode === "spelling";
+    displayMode === "spelling" ||
+    displayMode === "clock" ||
+    displayMode === "karaoke";
+
+  const karaokeWordsForRender =
+    canvas.karaokeWords && canvas.karaokeWords.length > 0
+      ? canvas.karaokeWords
+      : canvas.label?.trim()
+        ? canvas.label.split(/\s+/).filter(Boolean)
+        : [];
+
   return (
     <div
       className="flex-1 flex flex-col items-center justify-center p-8 bg-white relative"
@@ -1922,12 +2307,18 @@ export function Canvas({
       <style>{`@keyframes letterBounce { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } .letter-bounce { animation: letterBounce 0.3s ease-out backwards; } @keyframes qPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } } .q-pulse { animation: qPulse 1.5s ease-in-out infinite; } @keyframes riddleTilt { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .riddle-emoji { animation: riddleTilt 2s ease-in-out infinite; } @keyframes pendingDotPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } } .pending-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #EF9F27; animation: pendingDotPulse 1s ease-in-out infinite; margin-left: 4px; } @keyframes canvasSpin { to { transform: rotate(360deg); } }`}</style>
       {sessionState === "LOADING" && (
         <div
-          className="thinking-indicator"
-          style={{ ["--accent" as string]: accentColor }}
+          className="absolute inset-0 flex items-center justify-center z-[15] pointer-events-none"
+          aria-busy="true"
+          aria-label="Loading"
         >
-          <span />
-          <span />
-          <span />
+          <div
+            className="thinking-indicator thinking-indicator--stacked"
+            style={{ ["--accent" as string]: accentColor }}
+          >
+            <span />
+            <span />
+            <span />
+          </div>
         </div>
       )}
       {showFlash && (
@@ -1996,17 +2387,34 @@ export function Canvas({
             <BlackboardContent blackboard={blackboard} />
           </div>
         )}
-        {canvas.mode === "idle" && !showAnimatedContent && (
-          <div
-            className="flex flex-col items-center justify-center gap-4 select-none"
-            style={{ fontFamily: "'Nunito', sans-serif" }}
-          >
-            <div className="text-8xl">🌟</div>
-            <div className="text-xl font-medium text-gray-400 tracking-wide">
-              Ready when you are
-            </div>
-          </div>
-        )}
+        {canvas.mode === "idle" && !showAnimatedContent ? (
+          <div className="w-full min-h-[200px] bg-white" aria-hidden />
+        ) : null}
+
+        {displayMode === "clock" &&
+        canvas.mode === "clock" &&
+        typeof canvas.clockHour === "number" &&
+        typeof canvas.clockMinute === "number" ? (
+          <ClockAnalogCanvas
+            hour={canvas.clockHour}
+            minute={canvas.clockMinute}
+            display={canvas.clockDisplay ?? "analog"}
+            onPainted={handleCanvasDone}
+          />
+        ) : null}
+
+        {displayMode === "karaoke" &&
+        canvas.mode === "karaoke" &&
+        karaokeWordsForRender.length > 0 ? (
+          <KaraokeReadingCanvas
+            key={canvas.animationKey ?? 0}
+            words={karaokeWordsForRender}
+            interimTranscript={interimTranscript}
+            sendMessage={sendMessage}
+            onCanvasDone={handleCanvasDone}
+            readingCanvas={readingCanvas}
+          />
+        ) : null}
 
         {displayMode === "worksheet_pdf" && canvas.pdfAssetUrl ? (
           /\.(png|jpe?g|gif|webp)$/i.test(canvas.pdfAssetUrl) ? (

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clock Match — Project Sunny</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  min-height: 100vh;
+  background: linear-gradient(160deg, #fff5fb 0%, #ffe8f4 40%, #f0e6ff 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px 24px;
+  color: #2d1b35;
+}
+#question {
+  margin-top: 8px;
+  font-size: clamp(18px, 4vw, 26px);
+  font-weight: 700;
+  text-align: center;
+  color: #5b3a5c;
+}
+#target-time {
+  margin-top: 12px;
+  font-size: clamp(42px, 10vw, 72px);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #e91e8c;
+  text-shadow: 0 3px 0 #ff9ec9, 0 6px 24px rgba(233, 30, 140, 0.35);
+  text-align: center;
+}
+#clocks-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(12px, 3vw, 28px);
+  margin-top: 28px;
+  max-width: 1100px;
+}
+.clock-card {
+  cursor: pointer;
+  border-radius: 20px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 8px 28px rgba(91, 58, 92, 0.12);
+  border: 4px solid transparent;
+  transition: box-shadow 0.25s, border-color 0.25s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.clock-card:active { transform: scale(0.97); }
+.clock-card.correct-glow {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.45), 0 12px 32px rgba(34, 197, 94, 0.25);
+}
+.clock-card.shake {
+  animation: shake 0.45s ease;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-8px); }
+  80% { transform: translateX(8px); }
+}
+#mascot {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  font-size: 56px;
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,.12));
+  transition: transform 0.2s;
+}
+#mascot.bounce { animation: bounce 0.5s ease; }
+@keyframes bounce {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  60% { transform: scale(0.95); }
+}
+</style>
+</head>
+<body>
+<div id="question"></div>
+<div id="target-time">—:—</div>
+<div id="clocks-row"></div>
+<div id="mascot" aria-hidden="true">😊</div>
+<script>
+(function () {
+  function postToParent(data) {
+    try { window.parent.postMessage(data, "*"); } catch (e) {}
+  }
+
+  /** 1–12 hour for labels; accepts any integer hour */
+  function hourOnFace(h) {
+    var x = h % 12;
+    if (x <= 0) x += 12;
+    return x;
+  }
+
+  function formatPrompt(h, m) {
+    return hourOnFace(h) + ":" + String(m | 0).padStart(2, "0");
+  }
+
+  /**
+   * Pure math SVG — returns complete clock SVG string.
+   * minuteAngle / hourAngle in degrees from 12 o'clock, clockwise.
+   */
+  function drawClock(hour, minute, size) {
+    var cx = size / 2;
+    var cy = size / 2;
+    var r = size * 0.42;
+    var minuteAngle = (minute / 60) * 360;
+    var hourAngle = ((hour % 12) / 12) * 360 + (minute / 60) * 30;
+    var ticks = "";
+    var i;
+    for (i = 0; i < 12; i++) {
+      var a = (i / 12) * 360;
+      var rad = (a - 90) * Math.PI / 180;
+      var x1 = cx + (r - 8) * Math.cos(rad);
+      var y1 = cy + (r - 8) * Math.sin(rad);
+      var x2 = cx + r * Math.cos(rad);
+      var y2 = cy + r * Math.sin(rad);
+      ticks += '<line x1="' + x1.toFixed(2) + '" y1="' + y1.toFixed(2) + '" x2="' + x2.toFixed(2) + '" y2="' + y2.toFixed(2) + '" stroke="#8b7a8f" stroke-width="' + (i % 3 === 0 ? 3 : 1.5) + '" stroke-linecap="round"/>';
+    }
+    var nums = "";
+    for (i = 1; i <= 12; i++) {
+      var na = (i / 12) * 360 - 90;
+      var nr = (na * Math.PI) / 180;
+      var nx = cx + (r - 22) * Math.cos(nr);
+      var ny = cy + (r - 22) * Math.sin(nr);
+      nums += '<text x="' + nx.toFixed(2) + '" y="' + ny.toFixed(2) + '" text-anchor="middle" dominant-baseline="middle" fill="#4a3d52" font-size="' + Math.round(size * 0.09) + '" font-weight="700" font-family="system-ui,sans-serif">' + i + "</text>";
+    }
+    var mh = size * 0.32;
+    var hh = size * 0.22;
+    return (
+      '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + " " + size + '">' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r + 6) + '" fill="#fffdf9" stroke="#d4c4d8" stroke-width="' + Math.max(2, size * 0.02) + '"/>' +
+      ticks +
+      nums +
+      '<g transform="rotate(' + hourAngle + " " + cx + " " + cy + ')">' +
+      '<line x1="' + cx + '" y1="' + cy + '" x2="' + cx + '" y2="' + (cy - hh) + '" stroke="#3d2d45" stroke-width="' + Math.max(6, size * 0.04) + '" stroke-linecap="round"/>' +
+      "</g>" +
+      '<g transform="rotate(' + minuteAngle + " " + cx + " " + cy + ')">' +
+      '<line x1="' + cx + '" y1="' + cy + '" x2="' + cx + '" y2="' + (cy - mh) + '" stroke="#e91e8c" stroke-width="' + Math.max(4, size * 0.028) + '" stroke-linecap="round"/>' +
+      "</g>" +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + Math.max(5, size * 0.03) + '" fill="#3d2d45"/>' +
+      "</svg>"
+    );
+  }
+
+  function shuffle(arr) {
+    var a = arr.slice();
+    var j, t, i;
+    for (i = a.length - 1; i > 0; i--) {
+      j = Math.floor(Math.random() * (i + 1));
+      t = a[i];
+      a[i] = a[j];
+      a[j] = t;
+    }
+    return a;
+  }
+
+  function buildWrongHours(targetH) {
+    var cand = [
+      targetH + 1,
+      targetH - 1,
+      targetH + 2,
+      targetH - 2,
+    ];
+    var seen = {};
+    var uniq = [];
+    var i, h12, k;
+    for (i = 0; i < cand.length; i++) {
+      h12 = hourOnFace(cand[i]);
+      k = String(h12);
+      if (!seen[k]) {
+        seen[k] = 1;
+        uniq.push(h12);
+      }
+    }
+    while (uniq.length < 2) {
+      h12 = hourOnFace(targetH + 3 + uniq.length);
+      k = String(h12);
+      if (!seen[k]) {
+        seen[k] = 1;
+        uniq.push(h12);
+      }
+    }
+    return [uniq[0], uniq[1]];
+  }
+
+  var clocksRow = document.getElementById("clocks-row");
+  var questionEl = document.getElementById("question");
+  var targetEl = document.getElementById("target-time");
+  var mascot = document.getElementById("mascot");
+  var wrongTaps = 0;
+  var ended = false;
+  var targetHour = 3;
+  var targetMinute = 0;
+
+  function setMascot(emoji, bounce) {
+    mascot.textContent = emoji;
+    if (bounce) {
+      mascot.classList.remove("bounce");
+      void mascot.offsetWidth;
+      mascot.classList.add("bounce");
+    }
+  }
+
+  function finish(correct) {
+    if (ended) return;
+    ended = true;
+    postToParent({ type: "game_complete", correct: !!correct });
+  }
+
+  function startRound() {
+    ended = false;
+    wrongTaps = 0;
+    clocksRow.innerHTML = "";
+    var th = hourOnFace(targetHour);
+    var tm = Math.max(0, Math.min(59, targetMinute | 0));
+    var label = formatPrompt(targetHour, tm);
+    questionEl.textContent = "What clock shows " + label + "?";
+    targetEl.textContent = label;
+
+    var wrongPair = buildWrongHours(th);
+    var options = shuffle([
+      { h: th, correct: true },
+      { h: wrongPair[0], correct: false },
+      { h: wrongPair[1], correct: false },
+    ]);
+
+    var size = Math.min(200, Math.floor((window.innerWidth - 48) / 3.2));
+    if (size < 120) size = 120;
+
+    options.forEach(function (opt) {
+      var card = document.createElement("div");
+      card.className = "clock-card";
+      card.innerHTML = drawClock(opt.h, tm, size);
+      card.addEventListener("click", function () { onPick(card, opt.correct); });
+      card.addEventListener(
+        "touchstart",
+        function (e) {
+          e.preventDefault();
+          onPick(card, opt.correct);
+        },
+        { passive: false },
+      );
+      clocksRow.appendChild(card);
+    });
+    setMascot("😊", false);
+  }
+
+  function onPick(card, isCorrect) {
+    if (ended) return;
+    if (isCorrect) {
+      card.classList.add("correct-glow");
+      setMascot("🎉", true);
+      setTimeout(function () { finish(true); }, 800);
+      return;
+    }
+    wrongTaps += 1;
+    card.classList.remove("shake");
+    void card.offsetWidth;
+    card.classList.add("shake");
+    setMascot("😢", true);
+    if (wrongTaps >= 2) {
+      setTimeout(function () { finish(false); }, 500);
+    }
+  }
+
+  window.addEventListener("message", function (e) {
+    var msg = e.data;
+    if (!msg || msg.type !== "start") return;
+    var cfg = msg.config || {};
+    var h = cfg.hour;
+    var m = cfg.minute;
+    targetHour = typeof h === "number" && isFinite(h) ? h : 3;
+    targetMinute = typeof m === "number" && isFinite(m) ? m : 0;
+    startRound();
+  });
+
+  postToParent({ type: "ready" });
+})();
+</script>
+</body>
+</html>

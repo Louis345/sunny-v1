@@ -448,6 +448,19 @@ Only after completing Steps 1-3.
 ADVANCE / HOLD / CHANGE METHOD
 [one sentence reason]
 
+## Adaptive Learning Engine Data
+If the user prompt includes a "## Latest Session Algorithm Data" section, use it:
+- SM-2 intervals and easiness factors indicate memory strength per word
+- Difficulty zone (optimal/too_easy/too_hard/break_needed) shows session-level state
+- Regressions are words that were mastered then failed — flag these clinically
+- Mood signals help you detect fatigue patterns across sessions
+- Reward events show what motivated the child
+
+When writing IEP compliance notes:
+- Check if any probe targets have not been tested in > 7 days
+- Flag COMPLIANCE ALERT for probes overdue > 14 days
+- Reference specific CELF-5 percentiles when flagging gaps
+
 CRITICAL RULES:
 - You MUST call querySessions and flagGap before writing anything. No exceptions.
 - NEVER ask the developer for clarification. You have everything you need — use your tools.
@@ -467,7 +480,12 @@ export type SessionSubject =
   | "math"
   | "free"
   | "reversal"
-  | "history";
+  | "history"
+  | "reading"
+  | "clocks"
+  | "homework"
+  | "pronunciation"
+  | "wilson";
 
 export function normalizeSessionSubject(
   raw: string | undefined
@@ -479,6 +497,11 @@ export function normalizeSessionSubject(
     "free",
     "reversal",
     "history",
+    "reading",
+    "clocks",
+    "homework",
+    "pronunciation",
+    "wilson",
   ]);
   return allowed.has(s as SessionSubject) ? (s as SessionSubject) : "spelling";
 }
@@ -500,6 +523,88 @@ Focus on b/d (or similar) reversal probes; prefer typing where it reduces ambigu
     case "history":
       return `SESSION SUBJECT — HISTORY:
 Weave in prior sessions and context naturally; connect today's work to what came before.`;
+    case "clocks":
+      return `SESSION SUBJECT — CLOCKS:
+Focus entirely on telling time with analog clocks.
+Start with o'clock times only.
+Use canvasShow type=clock for every problem.
+Always wait for canvas confirmation before asking.
+Progress: o'clock → half past → quarter past → quarter to.
+Use sessionLog to record every attempt.`;
+    case "reading":
+      return `SESSION SUBJECT — READING:
+CRITICAL: You are in READING MODE.
+Do NOT launch Word Builder.
+Do NOT drill spelling words.
+Do NOT ask the child to spell anything.
+Your ONLY job is reading mode.
+Start by asking what they want to read about.
+
+You are in reading mode.
+
+READING SESSION FLOW:
+
+Phase 1 — Word introduction (2-3 minutes):
+Pick 3-5 target words from homework vocabulary or decodable words in context (not a spelling list drill).
+Use canvasShow type=sound_box for each word.
+Sound out the word together.
+Say something like: "Let's look at this word before we read."
+
+Phase 2 — Story generation:
+Ask the child: "What do you want to read about?"
+Generate a short story (50-80 words) using ONLY:
+- Target words you introduced in Phase 1, plus vocabulary from the homework file when helpful
+- Common sight words: the, a, an, is, was, are, to, of, in, it, he, she, they, and, but, on
+Each target word must appear at least once.
+Topic comes from the child's answer.
+
+Then call:
+canvasShow({
+  type: "karaoke",
+  storyText: fullStory,
+  words: fullStory
+    .replace(/[.,!?]/g, "")
+    .split(" ")
+    .filter((w) => w.length > 0),
+})
+
+Phase 3 — Child reads aloud:
+Say: "Here's your story. Read it out loud, one word at a time. Take your time."
+Then LISTEN. Do not speak.
+The canvas tracks their reading automatically.
+
+Only speak when:
+- Child pauses more than 5 seconds: "Take your time — what's that next word?"
+- A word is flagged 2+ times: gently decode it together using sound_box
+- reading_progress event=complete fires: "Amazing reading! Now let me ask you some questions about the story."
+
+Phase 4 — Comprehension (3 questions):
+Literal: "Who was in the story?"
+Inferential: "Why did [character] [action]?"
+Personal: "What would YOU do if [situation]?"
+Use sessionLog for each correct answer.
+
+Phase 5 — Word review:
+Any flagged words: practice again with sound_box.
+sessionLog each attempt.`;
+    case "homework":
+      return `SESSION SUBJECT — HOMEWORK:
+Follow the homework folder exactly.
+Work through whatever subject the homework covers.
+Do not skip to spelling unless homework is spelling.
+Use the Psychologist care plan as your guide.`;
+    case "pronunciation":
+      return `SESSION SUBJECT — PRONUNCIATION:
+This is a pronunciation test mode for system calibration.
+Read words from the spelling list clearly and naturally.
+Do not run academic activities.
+Just demonstrate how each word sounds when spoken.`;
+    case "wilson":
+      return `SESSION SUBJECT — WILSON:
+Focus on Wilson Reading System phonics.
+Use the child's current Wilson step from context.
+Sound out words using sound_box canvas.
+Build from phoneme → word → word family.`;
     default:
       return "";
   }
@@ -565,6 +670,63 @@ export async function buildSessionPrompt(
       ? fs.readFileSync(contextPath, "utf-8")
       : "No previous sessions recorded."
     : "Stateless run — do not use previous sessions.";
+
+  if (subject === "reading") {
+    const nameMatch = companionPersonality.match(/^#\s+(.+)/m);
+    const companionName = nameMatch ? nameMatch[1].trim() : "Elli";
+    const namePrefix = [
+      `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
+      `Their name is ${childName}.`,
+      childName === "Ila" ? "Pronounce it EYE-lah." : "",
+      childName === "Reina" ? "Pronounce it RAY-nah." : "",
+      "You already know their name.",
+      "NEVER ask them their name.",
+      "NEVER call them by any other name no matter what the speech transcription says.",
+      "",
+    ]
+      .filter((l) => l !== "")
+      .join("\n");
+    const focus = subjectFocusBlock("reading").trim();
+    const homeworkCap =
+      homeworkContent.length > 14000
+        ? `${homeworkContent.slice(0, 14000)}\n\n[... homework truncated for prompt size ...]`
+        : homeworkContent;
+    const body = `${focus}
+
+## You are ${companionName}
+${companionPersonality.slice(0, 4500)}
+
+## Child profile (brief)
+${soul.slice(0, 2000)}
+
+## Recent sessions
+${recentContext.slice(0, 3000)}
+
+## Homework file (vocabulary reference only)
+Use this to choose decodable target words and to build reading stories.
+Do NOT launch Word Builder. Do NOT run spelling drills. Do NOT ask the child to spell words.
+
+${homeworkCap}
+
+## Tools and canvas
+Use canvasShow (sound_box, karaoke, etc.) per the session subject block above.
+
+${generateToolDocs()}
+`;
+    const careSuffix = resolveCarePlanSuffix(childName, options);
+    const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+    const generatedCore = `${namePrefix}\n\n${body}`;
+    const beforeCare = `${generatedCore}${manifest}`;
+    logSessionPromptLengths(beforeCare.length, careSuffix);
+    console.log(
+      "  📖 Reading mode: static session prompt (spelling psychologist brief skipped)",
+    );
+    return (
+      generatedCore +
+      (careSuffix ? `\n\n${careSuffix}` : "") +
+      manifest
+    );
+  }
 
   const psychologistPrompt = `
 You are the Psychologist for Project Sunny.

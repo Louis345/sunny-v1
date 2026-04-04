@@ -1698,3 +1698,45 @@ flagGap shows Following Directions 25 mentions, Recalling Sentences 22 mentions,
 ## Signal
 
 **EMERGENCY PROBE OVERDUE: Mixed-vowel discrimination must be tested immediately—19 days past due.** This is the foundational diagnostic that
+
+## Psychologist Report — 4/3/2026, 5:23:28 PM
+---
+
+## Curriculum Status
+
+**Consonant doubling + inflectional morphology (addition, forgotten, move/movers/moving, work/worked/forgot) — 3 sessions, 86% accuracy with visual scaffolding** → ADVANCE
+
+Session 4/1 demonstrates orthographic rule mastery: Ila completed Word Builder for 7 words and spelled 6/7 correctly from memory on first attempt (addition required 2nd attempt, moving required typing support but succeeded). Raw log confirms pattern: hopped 4/0, sitting 2/0, running 3/1, forgot added. She has internalized consonant doubling AND base word + suffix transformations (move→movers→moving, work→worked, forget→forgot). This is not rote memorization—it's morphological pattern application across contexts. Ready for complex suffixes (-tion/-sion, -able/-ible, comparative/superlative -er/-est/-ing).
+
+**Mixed-vowel three-phoneme segmentation — 19 DAYS OVERDUE since 3/14, ZERO baseline data** → EMERGENCY PROBE REQUIRED
+
+querySessions confirms critical gap unchanged: "sit" 100% on 3/14, then hit/sad/bit/bad tested in vowel-siloed sessions with no mixed-vowel sequences. Raw log: hit 3/0, sit 1/1, bit 1/0, bad 1/0, sad 1/0. For 19 consecutive days the curriculum plan has specified alternating /a/ and /i/ probes ("sit→sat→hit→hat→bit→bat"). This has NEVER occurred. All spelling work (addition, forgotten, move, work) bypasses phoneme segmentation entirely—these are whole-word orthographic tasks. Without mixed-vowel discrimination baseline, I cannot verify phonemic awareness foundation for decoding transfer to novel CVC words.
+
+**Compound word spelling (railroad, cowboy, honeycomb) — 5 sessions, 46% accuracy, method unchanged** → CHANGE METHOD OVERDUE (signaled 3/21, 3/23, 3/29, 4/1)
+
+Raw log unchanged: railroad 6/7 (46%), cowboy 2/4 (33%), honeycomb 2/3 (67%), bathroom 2/2 (100%). Pattern persists: phonetically regular compounds succeed; irregular orthography fails repeatedly. Method change signaled 4 times across 11 days with zero instructional adaptation. Dyslexia profile demands visual component cards + gradual fading, not repeated auditory drills.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Mixed-vowel discrimination diagnostic (19 DAYS OVERDUE—HIGHEST PRIORITY)** — Must execute IMMEDIATELY: "sit"→"sat"→"hit"→"hat"→"bit"→"bat" in rapid alternating sequence. This is the foundational gate-keeper determining true phonemic awareness vs. word-family pattern recognition. 80%+ accuracy = advance to CCVC; <60% = return to isolated vowel work. All decoding instruction depends on this baseline—do not delay further.
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, IEP-mandated, 29 mentions but never executed)** — flagGap shows 29 "mentions" but querySessions confirms these are planning references only. Must probe THIS WEEK: (1) "Touch the big red circle, then clap twice" (2-step + modifiers), (2) "Pick up the blue pen, put it next to the book, then stand up" (3-step). Record exact performance for IEP documentation.
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, IEP-mandated, 25 mentions but never tested)** — flagGap shows 25 "mentions" but querySessions confirms zero sentence repetition tasks. Must probe THIS WEEK: (1) "The dog ran fast" (4 words), (2) "The big cat is sleeping on the soft chair" (9 words), (3) "When the boy came home from school, he found his red ball by the fence" (15 words, embedded clause). Record verbatim responses.
+
+- **CRITICAL: Word Structure—oral morphological accuracy (5th percentile, 21 mentions but spelling tested only, not oral production)** — Sessions tested spelling (addition, forgotten, work, worked) but CELF-5 documents **oral production** errors. Must probe orally THIS WEEK: (1) "One mouse, two ___" (irregular plural), (2) [Show picture] "The cat is ___" (present progressive), (3) "Yesterday the cat ___" [show card: jump] (past tense), (4) "___ is running" (subjective pronoun).
+
+- **CRITICAL: Formulated Sentences (16th percentile, 8 mentions, never formally probed)** — All sentences in sessions are self-generated narratives, not demand-based formulation. Must probe: (1) "Make a sentence with the word 'cat'", (2) "Make a sentence about this picture" [show action scene], (3) "Make a sentence using 'dog' and 'run'".
+
+---
+
+## Signal
+
+EMERGENCY PROBE OVERDUE: Mixed-vowel discrimination must be tested immediately—19 days past due. This is the foundational diagnostic determining whether Ila can decode novel CVC words or relies on visual whole-word recognition. Simultaneously, conduct formal baseline probes on Following Directions, Recalling Sentences, and Word Structure (oral production) THIS WEEK—these are IEP-mandated assessments with 29, 25, and 21 planning mentions but zero documented execution. IEP compliance and curriculum decisions both require actual performance data, not planning intentions.
+
+## Deferred Activities
+- word introduction deferred 2026-04-03
+  reason: Child requested to skip word introduction phase and go directly to reading
+  reschedule: next session
