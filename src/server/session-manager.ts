@@ -8,6 +8,8 @@ import {
   type ChildName,
   type CompanionConfig,
 } from "../companions/loader";
+import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
+import { generateStoryImage } from "../utils/generateStoryImage";
 import {
   DEMO_MODE_PROMPT,
   HOMEWORK_MODE_PROMPT,
@@ -37,10 +39,19 @@ import {
 } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
 import { appendRewardLog } from "../agents/elli/tools/logReward";
-import { resetMathProbeSession } from "../agents/elli/tools/mathProblem";
+import { mathProblem, resetMathProbeSession } from "../agents/elli/tools/mathProblem";
 import { resetSessionStart } from "../agents/elli/tools/startSession";
 import { resetTransitionToWork } from "../agents/elli/tools/transitionToWork";
-import { planSession } from "../engine/learningEngine";
+import {
+  planSession,
+  recordAttempt,
+  finalizeSession,
+  childIdFromName,
+} from "../engine/learningEngine";
+import { computeProgression } from "../engine/progression";
+import { recordClockAttempt, finalizeClockSession } from "../engine/clockTracker";
+import { computeQualityFromAttempt } from "../algorithms/spacedRepetition";
+import type { AttemptInput, ScaffoldLevel } from "../algorithms/types";
 import { type ModelMessage } from "ai";
 import {
   extractHomeworkProblems,
@@ -64,6 +75,7 @@ import {
   type SessionContext,
   createSessionContext,
   buildCanvasContextMessage,
+  type WordScaffoldSessionState,
 } from "./session-context";
 import {
   CANONICAL_AGENT_TOOL_KEYS,
@@ -94,13 +106,15 @@ import { createLaunchGameTool } from "../agents/elli/tools/worksheetTools";
 import { createSixTools } from "../agents/tools/six-tools";
 import {
   buildLaunchGameTool,
-  launchGame,
   SC_ALREADY_ACTIVE,
   WB_ALREADY_ACTIVE,
 } from "../agents/elli/tools/launchGame";
-import { dateTime } from "../agents/elli/tools/dateTime";
+import {
+  dateTime,
+  formatDateTimeEastern,
+} from "../agents/elli/tools/dateTime";
 import { buildWorksheetToolPrompt } from "../agents/prompts/worksheetSessionPrompt";
-import { appendWorksheetAttemptLine } from "../utils/attempts";
+import { appendWorksheetAttemptLine, appendAttemptLine } from "../utils/attempts";
 import {
   isDebugClaude,
   isDemoMode,
@@ -168,6 +182,7 @@ function parseSunnyChildEnv(): ChildName | null {
   const v = process.env.SUNNY_CHILD?.trim().toLowerCase();
   if (v === "ila") return "Ila";
   if (v === "reina") return "Reina";
+  if (v === "creator") return "creator";
   return null;
 }
 
@@ -268,6 +283,63 @@ export class SessionManager {
   private speakingStartedAt = 0;
   private lastCanvasWasMath = false;
   private lastCanvasMode: string = "idle";
+  /** Latest karaoke story body from canvasShow — used for optional story illustration after reading complete. */
+  private lastKaraokeStoryText = "";
+  /** While true, block canvasShow so the client can show the Grok illustration without karaoke redraw. */
+  private storyImagePending = false;
+  /** One automatic illustration per karaoke story; reset when story text changes. Explicit sessionLog generate_image always allowed. */
+  private storyImageGeneratedThisStory = false;
+  /** After reading_progress event=complete, allow STT through while karaoke canvas may still be visible. */
+  private karaokeReadingComplete = false;
+
+  /** Karaoke on screen and reader has not finished (no reading_progress complete yet). */
+  private karaokeReadingInProgress(): boolean {
+    if ((this.currentCanvasState as { mode?: string } | null)?.mode !== "karaoke") {
+      return false;
+    }
+    const rp = this.ctx?.readingProgress;
+    if (!rp || rp.totalWords <= 0) return false;
+    if (rp.event === "complete") return false;
+    return rp.wordIndex < rp.totalWords;
+  }
+
+  /** Block a second canvasShow karaoke while the child is mid-story (after first word advance). */
+  private shouldBlockKaraokeCanvasRefresh(): boolean {
+    if ((this.currentCanvasState as { mode?: string } | null)?.mode !== "karaoke") {
+      return false;
+    }
+    const rp = this.ctx?.readingProgress;
+    if (!rp || rp.totalWords <= 0) return false;
+    if (rp.event === "complete") return false;
+    return rp.wordIndex > 0;
+  }
+
+  /**
+   * Reading mode: child STT is for local word match only — do not run Claude per word.
+   * Diag: suppress unless utterance looks like a command to the assistant.
+   */
+  private shouldSuppressTranscriptDuringKaraoke(transcript: string): boolean {
+    const mode = (this.currentCanvasState as { mode?: string } | null)?.mode;
+    if (mode !== "karaoke" || this.karaokeReadingComplete) return false;
+    const st = this.ctx?.sessionType;
+    if (st === "reading") {
+      console.log("  📖 [reading] transcript suppressed during karaoke");
+      return true;
+    }
+    if (st === "diag") {
+      const t = transcript.trim();
+      const words = t.split(/\s+/).filter(Boolean);
+      const looksLikeCommand =
+        t.includes("?") ||
+        /^(hey|charlotte|stop|clear)\b/i.test(t) ||
+        words.length > 8;
+      if (!looksLikeCommand) {
+        console.log("  📖 [diag-reading] transcript suppressed");
+        return true;
+      }
+    }
+    return false;
+  }
   /** Server-canonical record of what is currently displayed on the canvas.
    *  Updated when the canvas changes; cleared on session end and when the client
    *  is reset to idle (barge-in only does that for ephemeral modes — worksheet/games persist).
@@ -311,6 +383,7 @@ export class SessionManager {
   private spellCheckSessionActive = false;
   private activeWordContext: string = "";
   private wordAttemptCounts: Map<string, number> = new Map();
+  private wordScaffoldState = new Map<string, WordScaffoldSessionState>();
   private pendingGameStart: PendingGameStart | null = null;
 
   private turnSM: TurnStateMachine;
@@ -718,7 +791,14 @@ export class SessionManager {
       .trim();
   }
 
-  constructor(ws: WebSocket, childName: ChildName) {
+  /**
+   * @param diagKioskFast — picker "Creator / Diag": skip homework load, classifier, extraction, care plan.
+   */
+  constructor(
+    ws: WebSocket,
+    childName: ChildName,
+    private readonly diagKioskFast = false,
+  ) {
     this.ws = ws;
     this.childName = childName;
     this.companion = getCompanionConfig(childName);
@@ -787,37 +867,51 @@ export class SessionManager {
       `  🌟 [${ts}] Starting session: ${this.childName} with ${this.companion.name}`,
     );
 
-    const subject = normalizeSessionSubject(process.env.SUNNY_SUBJECT);
+    const envSubject = normalizeSessionSubject(process.env.SUNNY_SUBJECT);
+    const subject = this.diagKioskFast ? "diag" : envSubject;
 
     const detectedChild = this.childName;
-    const homeworkChild = parseSunnyChildEnv() ?? detectedChild ?? "Ila";
+    const homeworkChild = this.diagKioskFast
+      ? this.childName
+      : (parseSunnyChildEnv() ?? detectedChild ?? "Ila");
     console.log(`  👤 Child override: ${homeworkChild}`);
 
-    // Check drop/ for new files and route them before loading homework
-    this.send("loading_status", { message: "Checking for new assignments..." });
-    try {
-      if (isDemoMode() || isHomeworkMode()) {
-        console.log("  🎭 Demo/homework mode — skipping classifier");
-      } else {
-        const { hasNewFiles, routed } = await classifyAndRoute(homeworkChild);
-        if (hasNewFiles) {
-          console.log("  📥 New files processed:");
-          routed.forEach((r) => console.log(`    ${r}`));
-          this.send("loading_status", {
-            message: `Loading ${homeworkChild}'s assignments...`,
-          });
-          this.bustPromptCache();
+    let homeworkPayload: Awaited<ReturnType<typeof loadHomeworkPayload>> | null =
+      null;
+
+    if (!this.diagKioskFast) {
+      // Check drop/ for new files and route them before loading homework
+      this.send("loading_status", {
+        message: "Checking for new assignments...",
+      });
+      try {
+        if (isDemoMode() || isHomeworkMode()) {
+          console.log("  🎭 Demo/homework mode — skipping classifier");
+        } else {
+          const { hasNewFiles, routed } = await classifyAndRoute(homeworkChild);
+          if (hasNewFiles) {
+            console.log("  📥 New files processed:");
+            routed.forEach((r) => console.log(`    ${r}`));
+            this.send("loading_status", {
+              message: `Loading ${homeworkChild}'s assignments...`,
+            });
+            this.bustPromptCache();
+          }
         }
+      } catch (err) {
+        console.warn(
+          "  ⚠️  Classifier failed:",
+          err instanceof Error ? err.message : String(err),
+        );
       }
-    } catch (err) {
-      console.warn(
-        "  ⚠️  Classifier failed:",
-        err instanceof Error ? err.message : String(err),
+
+      // Folder-based homework — load in demo too when a folder exists (worksheet + vision)
+      homeworkPayload = await loadHomeworkPayload(homeworkChild);
+    } else {
+      console.log(
+        "  ⚡ [diag-kiosk] fast path — no classifier, no homework folder, no extraction",
       );
     }
-
-    // Folder-based homework — load in demo too when a folder exists (worksheet + vision)
-    const homeworkPayload = await loadHomeworkPayload(homeworkChild);
 
     if (isHomeworkMode() && homeworkPayload) {
       // HOMEWORK MODE: loads real homework but uses parent-facing prompt (no progression loop)
@@ -926,6 +1020,35 @@ export class SessionManager {
       console.log(`  📋 Homework mode — parent/developer review prompt active`);
       console.log(`  📚 Subject: ${extraction.subject || subject}`);
       this.send("loading_status", { message: "Ready for review..." });
+    } else if (subject === "diag" && !homeworkPayload) {
+      this.send("loading_status", { message: "Preparing diagnostic session..." });
+      console.log(
+        `  🎮 [diag] no homework folder — diagnostic prompt (${homeworkChild})`,
+      );
+      const sessionPrompt = isDebugClaude()
+        ? buildDebugPrompt(
+            homeworkChild,
+            this.companion.name,
+            generateCanvasCapabilitiesManifest(),
+            generateToolDocs(),
+          )
+        : await buildSessionPrompt(
+            homeworkChild,
+            this.companion.markdownPath,
+            "",
+            [],
+            "diag",
+            { carePlan: null },
+          );
+      this.companion = {
+        ...this.companion,
+        systemPrompt: isDebugClaude()
+          ? sessionPrompt
+          : this.prependDebugClaudeToPrompt(sessionPrompt),
+      };
+      this.isSpellingSession = false;
+      console.log(`  ✅ Session prompt ready (${sessionPrompt.length} chars)`);
+      console.log(`  📚 Subject mode: ${subject}`);
     } else if (isDemoMode() && !homeworkPayload) {
       this.companion = {
         ...this.companion,
@@ -1313,7 +1436,7 @@ export class SessionManager {
         );
       }
       // Option C worksheet session + tool instructions — same for debug and normal (debug only swaps base prompt above).
-      if (this.worksheetMode) {
+      if (this.worksheetMode && subject !== "diag") {
         if (this.worksheetProblems.length > 0) {
           this.worksheetSession = createWSSession({
             childName: homeworkChild,
@@ -1438,29 +1561,39 @@ export class SessionManager {
       sessionType === "spelling"
     ) {
       const childId = this.childName.toLowerCase();
-      const wbPath = path.resolve(
-        process.cwd(),
-        "src",
-        "context",
-        childId,
-        "word_bank.json",
-      );
       let enginePlan = planSession(childId, "spelling");
       const selected =
         enginePlan.reviewWords.length + enginePlan.newWords.length;
       if (selected === 0 && this.spellingHomeworkWordsByNorm.length > 0) {
-        if (!fs.existsSync(wbPath)) {
-          console.log("[engine] no word bank found, using homework fallback");
-        }
-        const fb = this.spellingHomeworkWordsByNorm.slice(0, 5);
-        enginePlan = {
-          ...enginePlan,
-          reviewWords: [],
-          newWords: fb,
-          totalWordCount: fb.length,
-        };
+        enginePlan = planSession(childId, "spelling", {
+          homeworkFallbackWords: this.spellingHomeworkWordsByNorm,
+        });
       }
       this.ctx.enginePlan = enginePlan;
+    }
+
+    if (sessionType === "reading" && subject === "reading" && this.ctx) {
+      const childId = this.childName.toLowerCase();
+      const enginePlan = planSession(childId, "reading");
+      this.ctx.enginePlan = enginePlan;
+      console.log(
+        `  🎮 [engine] reading session plan — focusWords: ${enginePlan.focusWords.length ? enginePlan.focusWords.join(", ") : "none"}`,
+      );
+    }
+
+    if (subject === "diag") {
+      const diagVoice = process.env.ELEVENLABS_VOICE_ID_DIAG?.trim();
+      this.companion = {
+        ...this.companion,
+        voiceId:
+          diagVoice ||
+          CHARLOTTE_DIAG_DEFAULT_VOICE_ID ||
+          this.companion.voiceId,
+        openingLine: "",
+      };
+      console.log(
+        "  🎮 [diag] voice: ELEVENLABS_VOICE_ID_DIAG → Charlotte premade (diag-only) → companion default",
+      );
     }
 
     this.applyDebugClaudeOpeningLine();
@@ -1476,7 +1609,18 @@ export class SessionManager {
       goodbye: this.companion.goodbye,
       debugBrowserTts: process.env.DEBUG_BROWSER_TTS === "true",
       debugMode: isDebugClaude(),
+      diagKiosk: this.diagKioskFast,
     });
+    try {
+      const progression = computeProgression(childIdFromName(this.childName));
+      this.send("progression", { ...progression } as Record<string, unknown>);
+      console.log(
+        `  🎮 [engine] progression: level ${progression.level}, ` +
+          `${progression.totalXP} XP, ${progression.wordsMastered} words mastered`,
+      );
+    } catch (err) {
+      console.error("[engine] progression failed:", err);
+    }
     this.broadcastContext();
 
     // Explicit blank-canvas signal at session start — the server owns canvas
@@ -1507,7 +1651,19 @@ export class SessionManager {
 
     await this.connectDeepgram();
 
-    await this.handleCompanionTurn(this.companion.openingLine);
+    if (subject === "diag") {
+      const sessionTime = formatDateTimeEastern();
+      await this.handleEndOfTurn(
+        `[Session started at: ${sessionTime}]\n\n` +
+          "[Session start — diagnostics] The current time is above. " +
+          "dateTime has already been resolved for this session — do not call the dateTime tool unless Jamal explicitly asks for the time or date again.\n\n" +
+          "At most two short sentences: (1) greet Jamal as your creator using the time of day naturally, (2) ask who is with him. " +
+          "Stop — do not list capabilities or canvas modes unless he asks.",
+        true,
+      );
+    } else {
+      await this.handleCompanionTurn(this.companion.openingLine);
+    }
   }
 
   /** Inject a transcript directly — used by test harness to bypass Deepgram */
@@ -1768,6 +1924,16 @@ export class SessionManager {
   handleGameEvent(event: Record<string, unknown>, fromPendingFlush = false): void {
     const type = event.type as string;
 
+    if (type === "clock_answer") {
+      recordClockAttempt(
+        childIdFromName(this.childName),
+        event.correct === true,
+        Number(event.hour),
+        Number(event.minute),
+      );
+      return;
+    }
+
     if (type === "ready") {
       if (this.pendingGameStart) {
         this.gameBridge.startGame(
@@ -2005,6 +2171,12 @@ export class SessionManager {
     this.activeSpellCheckWord = "";
     this.activeWordContext = "";
     this.wordAttemptCounts.clear();
+    try {
+      finalizeClockSession(childIdFromName(this.childName));
+    } catch (err) {
+      console.error("  [engine] finalizeClockSession failed:", err);
+    }
+    this.wordScaffoldState.clear();
     this.currentCanvasState = null;
     this.pendingGameStart = null;
 
@@ -2016,6 +2188,24 @@ export class SessionManager {
           "  🔇 Stateless run — skipping session recording and reward log.",
         );
       } else {
+        const childId = childIdFromName(this.childName);
+        try {
+          const summary = finalizeSession(childId);
+          console.log(
+            `  🎮 [engine] session finalized: ${summary.totalAttempts} attempts, ` +
+              `${Math.round(summary.accuracy * 100)}% accuracy`,
+          );
+        } catch (err) {
+          console.error("  [engine] finalizeSession failed:", err);
+        }
+        try {
+          const endProgression = computeProgression(childId);
+          this.send("progression_end", {
+            ...endProgression,
+          } as Record<string, unknown>);
+        } catch {
+          // Silent
+        }
         await recordSession(this.conversationHistory, this.childName);
         appendRewardLog(this.childName, this.rewardLog);
       }
@@ -2117,6 +2307,7 @@ export class SessionManager {
   private async handleEndOfTurn(
     transcript: string,
     isReplay = false,
+    opts?: { fromReadingComplete?: boolean },
   ): Promise<void> {
     const tts = ttsLogLabel();
     const auditRound = this.roundNumber;
@@ -2151,6 +2342,14 @@ export class SessionManager {
       }
       this.lastTranscript = normalized;
       this.lastTranscriptTime = now;
+    }
+
+    if (
+      !opts?.fromReadingComplete &&
+      this.turnSM.getState() === "IDLE" &&
+      this.shouldSuppressTranscriptDuringKaraoke(transcript)
+    ) {
+      return;
     }
 
     const state = this.turnSM.getState();
@@ -2343,7 +2542,7 @@ export class SessionManager {
           ],
         } as ModelMessage);
       }
-      if (this.activeWordContext) {
+      if (this.activeWordContext && this.ctx?.sessionType !== "diag") {
         pins.push({ role: "user", content: this.activeWordContext });
       }
       const historyWithPin: typeof recentHistory =
@@ -2359,6 +2558,7 @@ export class SessionManager {
             wordBuilderRound:
               this.wbActive && this.wbRound > 0 ? this.wbRound : null,
             activeWord: this.activeWord,
+            wordScaffoldState: this.wordScaffoldState,
           })
         : this.currentCanvasState
           ? buildCanvasContext(this.currentCanvasState)
@@ -2446,7 +2646,7 @@ export class SessionManager {
 
             this.handleToolCall(toolName, args, result);
 
-            if (toolName === "canvasShow") {
+            if (toolName === "canvasShow" && !this.storyImagePending) {
               const ct = String(args.type ?? "");
               if (ct === "text" || ct === "svg" || ct === "svg_raw") {
                 const drawPayload =
@@ -2645,23 +2845,40 @@ export class SessionManager {
               } else if (ct === "blackboard") {
                 // handleToolCall already sent `blackboard` — no canvas_draw
               } else if (ct === "karaoke") {
-                const words = (args.words as string[]) ?? [];
-                const drawPayload = {
-                  mode: "karaoke" as const,
-                  content: args.storyText,
-                  label: words.join(" "),
-                  karaokeWords: words,
-                };
-                this.send(
-                  "canvas_draw",
-                  this.withCanvasRevision({
-                    args: drawPayload as Record<string, unknown>,
-                    result,
-                  }),
-                );
-                const st = this.turnSM.getState();
-                if (st === "PROCESSING") {
-                  this.turnSM.onShowCanvas();
+                const karaokeHost = unwrapToolResult(result) as
+                  | { dispatched?: boolean }
+                  | undefined;
+                if (karaokeHost?.dispatched === false) {
+                  console.log(
+                    "  📖 [canvas] canvas_draw skipped — karaoke refresh blocked during reading",
+                  );
+                } else {
+                  const words = (args.words as string[]) ?? [];
+                  const storyRaw = args.storyText;
+                  if (typeof storyRaw === "string" && storyRaw.trim()) {
+                    const trimmed = storyRaw.trim();
+                    if (trimmed !== this.lastKaraokeStoryText) {
+                      this.storyImageGeneratedThisStory = false;
+                    }
+                    this.lastKaraokeStoryText = trimmed;
+                  }
+                  const drawPayload = {
+                    mode: "karaoke" as const,
+                    content: args.storyText,
+                    label: words.join(" "),
+                    karaokeWords: words,
+                  };
+                  this.send(
+                    "canvas_draw",
+                    this.withCanvasRevision({
+                      args: drawPayload as Record<string, unknown>,
+                      result,
+                    }),
+                  );
+                  const st = this.turnSM.getState();
+                  if (st === "PROCESSING") {
+                    this.turnSM.onShowCanvas(6000);
+                  }
                 }
               } else if (ct === "sound_box") {
                 const tw = String(args.targetWord ?? "");
@@ -2978,36 +3195,71 @@ export class SessionManager {
         dateTime,
       };
     }
-    if (this.isSpellingSession) {
+    const launchGameKaraokeGuard = {
+      blockDuringKaraokeReading: () => this.karaokeReadingInProgress(),
+    };
+    if (this.ctx?.sessionType === "math") {
       return {
         ...six,
-        launchGame: buildLaunchGameTool({
-          isWordBuilderSessionActive: () => this.wordBuilderSessionActive,
-          tryClaimWordBuilderToolSlot: () => {
-            if (this.wbToolExecuteClaimed) return false;
-            this.wbToolExecuteClaimed = true;
-            return true;
-          },
-          isSpellCheckSessionActive: () => this.spellCheckSessionActive,
-          tryClaimSpellCheckToolSlot: () => {
-            if (this.spellCheckToolExecuteClaimed) return false;
-            this.spellCheckToolExecuteClaimed = true;
-            return true;
-          },
-          isHomeworkSpellingWordAllowed: (w) => this.spellingHomeworkGate.allows(w),
-          getHomeworkSpellingRejectMessage: (w) =>
-            this.spellingHomeworkGate.explainReject(w),
-        }),
+        mathProblem,
+        launchGame: buildLaunchGameTool(undefined, launchGameKaraokeGuard),
         dateTime,
       };
     }
-    return { ...six, launchGame, dateTime };
+    if (this.isSpellingSession) {
+      return {
+        ...six,
+        launchGame: buildLaunchGameTool(
+          {
+            isWordBuilderSessionActive: () => this.wordBuilderSessionActive,
+            tryClaimWordBuilderToolSlot: () => {
+              if (this.wbToolExecuteClaimed) return false;
+              this.wbToolExecuteClaimed = true;
+              return true;
+            },
+            isSpellCheckSessionActive: () => this.spellCheckSessionActive,
+            tryClaimSpellCheckToolSlot: () => {
+              if (this.spellCheckToolExecuteClaimed) return false;
+              this.spellCheckToolExecuteClaimed = true;
+              return true;
+            },
+            isHomeworkSpellingWordAllowed: (w) => this.spellingHomeworkGate.allows(w),
+            getHomeworkSpellingRejectMessage: (w) =>
+              this.spellingHomeworkGate.explainReject(w),
+          },
+          launchGameKaraokeGuard,
+        ),
+        dateTime,
+      };
+    }
+    return {
+      ...six,
+      launchGame: buildLaunchGameTool(undefined, launchGameKaraokeGuard),
+      dateTime,
+    };
   }
 
   private async hostCanvasShow(
     args: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
+    if (this.storyImagePending) {
+      return {
+        dispatched: false,
+        canvasShowing: "idle",
+        message:
+          "Story image is rendering. Wait for the image to appear before calling canvasShow again.",
+      };
+    }
     const type = String(args.type ?? "");
+    if (type === "karaoke" && this.shouldBlockKaraokeCanvasRefresh()) {
+      return {
+        ok: false,
+        dispatched: false,
+        canvasShowing: "karaoke",
+        message:
+          "Reading in progress. Do not call canvasShow during active reading. Wait for reading_progress event=complete.",
+      };
+    }
     if (type === "worksheet" && this.worksheetSession) {
       const pid = String(args.problemId ?? "");
       const res = this.worksheetSession.showProblemById(pid);
@@ -3103,6 +3355,32 @@ export class SessionManager {
   private async hostSessionLog(
     args: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
+    const action = String(args.action ?? "").trim();
+    if (action === "generate_image") {
+      const scene = String(
+        args.observation ?? args.scene ?? args.childSaid ?? "",
+      ).trim();
+      if (!scene) {
+        return { logged: false, error: "generate_image_requires_observation" };
+      }
+      console.log(
+        `  🎮 [story-image] explicit request via sessionLog scene="${scene.slice(0, 120)}${scene.length > 120 ? "…" : ""}"`,
+      );
+      this.storyImagePending = true;
+      this.send("story_image_loading", {});
+      void generateStoryImage(scene, { useDirectScene: true })
+        .then((url) => {
+          this.send("story_image", { url: url ?? null });
+        })
+        .catch(() => {
+          this.send("story_image", { url: null });
+        })
+        .finally(() => {
+          this.storyImagePending = false;
+        });
+      return { logged: true, imageGeneration: "queued" };
+    }
+
     if (args.skipped === true) {
       const reason = String(args.reason ?? "").trim();
       if (!reason) {
@@ -3141,6 +3419,50 @@ export class SessionManager {
     const loggedWordKey =
       (args.word as string | undefined)?.toLowerCase().trim() ?? "";
     if (loggedWordKey) {
+      const domain =
+        this.ctx?.sessionType === "reading" ? "reading" : "spelling";
+      const scaffoldLevel = (
+        typeof args.scaffoldLevel === "number" ? args.scaffoldLevel : 0
+      ) as ScaffoldLevel;
+      const attempt: AttemptInput = {
+        word: loggedWordKey,
+        domain,
+        correct: args.correct === true,
+        quality: computeQualityFromAttempt({
+          word: loggedWordKey,
+          domain,
+          correct: args.correct === true,
+          quality: 0,
+          scaffoldLevel,
+        }),
+        scaffoldLevel,
+      };
+      try {
+        recordAttempt(childIdFromName(this.childName), attempt);
+        console.log(
+          `  🎮 [engine] recordAttempt: "${loggedWordKey}" ${args.correct ? "correct" : "incorrect"} (${domain})`,
+        );
+      } catch (err) {
+        console.error("  [engine] recordAttempt failed:", err);
+      }
+      appendAttemptLine(this.childName, {
+        word: loggedWordKey,
+        correct: args.correct === true,
+      });
+
+      const scaffoldState =
+        this.wordScaffoldState.get(loggedWordKey) ?? {
+          word: loggedWordKey,
+          domain,
+          lastCorrect: null,
+          lastScaffoldLevel: 0 as ScaffoldLevel,
+          attemptCount: 0,
+        };
+      scaffoldState.lastCorrect = args.correct === true;
+      scaffoldState.lastScaffoldLevel = scaffoldLevel;
+      scaffoldState.attemptCount++;
+      this.wordScaffoldState.set(loggedWordKey, scaffoldState);
+
       const count = (this.wordAttemptCounts.get(loggedWordKey) ?? 0) + 1;
       this.wordAttemptCounts.set(loggedWordKey, count);
       const correct = args.correct === true;
@@ -4038,8 +4360,20 @@ export class SessionManager {
     }
 
     if (tool === "canvasShow") {
+      if (this.storyImagePending) {
+        console.log(
+          "  🖼️  [canvas] canvasShow skipped in handleToolCall — story image pending",
+        );
+        return;
+      }
       args = this.normalizeCanvasShowArgs(args);
       const ct = String(args.type ?? "");
+      if (ct === "karaoke" && this.shouldBlockKaraokeCanvasRefresh()) {
+        console.log(
+          "  📖 [canvas] canvasShow karaoke skipped — reading in progress",
+        );
+        return;
+      }
       const isWbGame =
         ct === "game" && String(args.name ?? "").trim() === "word-builder";
       if (!isWbGame && (this.wbActive || this.turnSM.getState() === "WORD_BUILDER")) {
@@ -4303,8 +4637,17 @@ export class SessionManager {
         });
         console.log(`  🖼️  [canvas] canvasShow type=blackboard`);
       } else if (ct === "karaoke") {
+        this.karaokeReadingComplete = false;
         this.pendingGameStart = null;
         const words = (args.words as string[]) ?? [];
+        const st = args.storyText;
+        if (typeof st === "string" && st.trim()) {
+          const trimmed = st.trim();
+          if (trimmed !== this.lastKaraokeStoryText) {
+            this.storyImageGeneratedThisStory = false;
+          }
+          this.lastKaraokeStoryText = trimmed;
+        }
         this.currentCanvasState = {
           mode: "karaoke",
           content: args.storyText as string,
@@ -4403,8 +4746,13 @@ export class SessionManager {
     const wordIndex = Number(payload.wordIndex);
     const totalWords = Number(payload.totalWords);
     const accuracy = Number(payload.accuracy);
+    const hesitationsRaw = Number(payload.hesitations);
+    const hesitations = Number.isFinite(hesitationsRaw) ? hesitationsRaw : 0;
     const flaggedWords = Array.isArray(payload.flaggedWords)
       ? (payload.flaggedWords as string[])
+      : [];
+    const spelledWords = Array.isArray(payload.spelledWords)
+      ? (payload.spelledWords as string[])
       : [];
     const event =
       typeof payload.event === "string" ? payload.event : undefined;
@@ -4416,13 +4764,99 @@ export class SessionManager {
       wordIndex,
       totalWords,
       accuracy: Number.isFinite(accuracy) ? accuracy : 0,
+      hesitations,
       flaggedWords,
+      spelledWords,
       event,
     });
     this.broadcastContext();
+    const accPct =
+      Number.isFinite(accuracy) && accuracy <= 1 && accuracy >= 0
+        ? Math.round(accuracy * 100)
+        : accuracy;
     console.log(
-      `  📖 reading_progress: idx ${wordIndex}/${totalWords} acc=${Number.isFinite(accuracy) && accuracy <= 1 ? Math.round(accuracy * 100) : accuracy}% event=${event ?? "—"}`,
+      `  📖 reading_progress: idx ${wordIndex}/${totalWords} acc=${accPct}% hesitations=${hesitations} event=${event ?? "—"}`,
     );
+
+    if (event === "complete") {
+      this.karaokeReadingComplete = true;
+      console.log("  📖 [reading] suppression lifted — story complete");
+      const childId = childIdFromName(this.childName);
+      const flagged = this.ctx?.readingProgress?.flaggedWords ?? [];
+      for (const word of flagged) {
+        try {
+          recordAttempt(childId, {
+            word: word.toLowerCase().trim(),
+            domain: "reading",
+            correct: false,
+            quality: 1,
+            scaffoldLevel: 0,
+          });
+        } catch (err) {
+          console.error(
+            `  [engine] reading flaggedWord failed for "${word}":`,
+            err,
+          );
+        }
+      }
+      for (const word of spelledWords) {
+        const w = word.toLowerCase().trim();
+        if (!w) continue;
+        try {
+          recordAttempt(childId, {
+            word: w,
+            domain: "reading",
+            correct: true,
+            quality: 5,
+            scaffoldLevel: 0,
+          });
+        } catch (err) {
+          console.error(
+            `  [engine] reading spelledWord failed for "${word}":`,
+            err,
+          );
+        }
+      }
+      console.log(
+        `  🎮 [engine] reading complete: ${flagged.length} flagged → word bank, ${spelledWords.length} spelled → word bank (${childId})`,
+      );
+
+      void this.handleEndOfTurn(
+        "[reading_progress] event=complete — the reader finished the karaoke story. Reply with exactly one short sentence acknowledging the reading. Do not call canvasShow or refresh karaoke unless the child or Jamal explicitly asks for something new.",
+        true,
+        { fromReadingComplete: true },
+      ).catch((err) => console.error(err));
+
+      const fromCanvas =
+        this.currentCanvasState &&
+        typeof (this.currentCanvasState as { content?: unknown }).content ===
+          "string"
+          ? String((this.currentCanvasState as { content: string }).content).trim()
+          : "";
+      const storyText =
+        this.lastKaraokeStoryText.trim() || fromCanvas;
+      if (storyText.length > 0) {
+        if (this.storyImageGeneratedThisStory) {
+          console.log(
+            "  🖼️  [story-image] skip auto after reading complete — already generated for this story",
+          );
+        } else {
+          this.storyImageGeneratedThisStory = true;
+          this.storyImagePending = true;
+          this.send("story_image_loading", {});
+          void generateStoryImage(storyText)
+            .then((url) => {
+              this.send("story_image", { url: url ?? null });
+            })
+            .catch(() => {
+              this.send("story_image", { url: null });
+            })
+            .finally(() => {
+              this.storyImagePending = false;
+            });
+        }
+      }
+    }
   }
 
   private evaluateSpelling(

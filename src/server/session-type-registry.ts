@@ -90,6 +90,12 @@ const SESSION_TYPE_REGISTRY: Record<SessionType, SessionTypeConfig> = {
     canvasOwner: "companion",
     description: "Wilson phonics session",
   },
+
+  diag: {
+    tools: placeholderTools(),
+    canvasOwner: "companion",
+    description: "Diagnostics / demo for the creator (manifest-driven canvas)",
+  },
 };
 
 const DEFAULT_SESSION_TYPE: SessionType = "freeform";
@@ -110,6 +116,7 @@ export function resolveSessionType(opts: {
   hasSpellingWords: boolean;
   explicitType?: SessionType;
 }): SessionType {
+  if (opts.explicitType === "diag") return "diag";
   if (opts.hasHomeworkManifest) return "worksheet";
   if (opts.explicitType && SESSION_TYPE_REGISTRY[opts.explicitType]) {
     return opts.explicitType;
@@ -127,6 +134,7 @@ export function sessionTypeFromSubject(subject: SessionSubject): SessionType | u
     case "homework":
     case "pronunciation":
     case "wilson":
+    case "diag":
       return subject;
     case "free":
     case "reversal":

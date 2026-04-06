@@ -10,7 +10,7 @@ import path from "path";
 import fs from "fs";
 import { isGoodbye, isAssistantGoodbye } from "../utils/goodbye";
 
-export type ChildName = "Ila" | "Reina";
+export type ChildName = "Ila" | "Reina" | "creator";
 
 export interface SessionConfig {
   maxDurationMinutes: number;
@@ -57,7 +57,9 @@ function getMaxDurationMs(childName: ChildName): number {
   }
   const config = loadConfig();
   const childConfig =
-    childName === "Ila" ? config.ila : config.reina;
+    childName === "Ila" || childName === "creator"
+      ? config.ila
+      : config.reina;
   const minutes =
     childConfig?.maxDurationMinutes ?? config.maxDurationMinutes;
   return minutes * 60 * 1000;
@@ -70,10 +72,14 @@ export interface RewardDurations {
 
 export function getRewardDurations(childName: ChildName): RewardDurations {
   const config = loadConfig();
-  const childConfig = childName === "Ila" ? config.ila : config.reina;
+  const childConfig =
+    childName === "Ila" || childName === "creator"
+      ? config.ila
+      : config.reina;
+  const ilaLike = childName === "Ila" || childName === "creator";
   return {
-    flash_ms: childConfig?.rewardFlashDuration_ms ?? (childName === "Ila" ? 1500 : 2000),
-    takeover_ms: childConfig?.rewardTakeoverDuration_ms ?? (childName === "Ila" ? 3000 : 6000),
+    flash_ms: childConfig?.rewardFlashDuration_ms ?? (ilaLike ? 1500 : 2000),
+    takeover_ms: childConfig?.rewardTakeoverDuration_ms ?? (ilaLike ? 3000 : 6000),
   };
 }
 

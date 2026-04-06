@@ -1,39 +1,43 @@
-Looking at the session data and current notes, I need to clarify which twin this is for. The profile at the top is for **Ila**, but all the session notes are about **Reina**. There's a mismatch here.
+Looking at the session history and word attempt data, I can see this is actually about **Reina** (all sessions show advanced math, riddles, reading comprehension), but you're asking me to plan Wilson Reading curriculum for **Ila** based on the profile provided.
 
-However, since you're asking me to plan as a Wilson Reading System curriculum planner and the profile is for Ila (who has dyslexia and uses Wilson), I'll plan for **Ila** based on her clinical profile.
+I'll plan for **Ila** as requested, since that's whose profile is loaded and who needs Wilson Reading support.
 
 ## Focus Area
 **Wilson Step 2: CVC Decoding with Short /i/ and /a/**
 
-Ila has completed phoneme segmentation of CVC words with 85%+ accuracy. Now we advance to visual decoding - seeing the written word and reading it aloud. This targets her dyslexia directly through the structured, multisensory Wilson approach. Her WIAT-4 shows Word Reading at 12th percentile, so systematic phonics progression is essential.
+Ila has completed phoneme segmentation of CVC words with 85%+ accuracy. Now we advance to visual decoding - seeing the written word and reading it aloud. This targets her dyslexia directly through the structured, multisensory Wilson approach. Her WIAT-4 shows Word Reading at 12th percentile and CELF-5 shows dramatic visual dependence (100% accuracy with pictures vs 37.5% without), making systematic phonics progression essential.
 
 ## Words for Next 3 Sessions
 
-**Session 1:** hit, sit, mat, cat, pit
+**Session 1:** hit, sit, mat, cat, pit  
 **Session 2:** bat, fit, hat, pan, tin  
 **Session 3:** map, zip, tap, win, sad
 
 ## Clinical Reasoning
 
-Ila's CELF-5 shows she needs visual support (100% accuracy with pictures vs 37.5% without) and struggles with auditory memory (Recalling Sentences at 5th percentile). The Wilson approach provides:
+Ila's CELF-5 profile drives every decision:
 
-1. **Visual-auditory integration**: She sees AND hears each word
-2. **One-step instructions**: Her Following Directions score (2nd percentile) means we present one word at a time, never stack
-3. **Sentence Comprehension strength**: We use her 63rd percentile strength by embedding words in simple sentences ("The cat sat on the mat")
-4. **ADHD accommodation**: Short, focused sessions with immediate success feedback
+- **Visual support dependency** (Word Classes: 100% with pictures, 37.5% without) → Always show written word while saying it
+- **Following Directions weakness** (2nd percentile) → One word at a time, never stack instructions, clear "ready...go" signal
+- **Auditory memory deficit** (Recalling Sentences 5th percentile) → Immediate visual reinforcement, not auditory-only presentation
+- **Sentence Comprehension strength** (63rd percentile) → Embed words in simple sentences: "The cat hit the mat"
+- **ADHD combined type** → Short bursts (10-12 minutes max), immediate success feedback, movement breaks
+- **Morphological awareness delay** (Word Structure 5th percentile) → Pure CVC first, no inflections yet
 
-The progression from single vowel (/i/ in Session 1) to mixed vowels (Sessions 2-3) matches her processing capacity while building confidence through repetition disguised as new challenges.
+Sessions progress from single vowel focus (/i/ words Session 1) to mixed vowels (Sessions 2-3) while maintaining visual-auditory integration throughout.
 
 ## Success Looks Like
 
-**Segmentation (hear → say sounds):** Elli says "hit" and Ila responds "/h/-/i/-/t/" with 85%+ accuracy
+**Segmentation (auditory → phonemic):** Elli says "hit" → Ila responds "/h/-/i/-/t/" with 85%+ accuracy
 
-**Decoding (see → read word):** Elli shows written "hit" and Ila reads it aloud with 80%+ accuracy
+**Decoding (visual → reading):** Elli shows written "hit" → Ila reads it aloud with 80%+ accuracy  
 
-**Transfer:** By Session 3, Ila can decode at least 3 mixed vowel CVC words independently (no prompting, no hesitation)
+**Transfer indicator:** By Session 3, Ila decodes 3+ mixed CVC words with no prompting or hesitation
 
-**Engagement:** She stays focused for 10+ minutes, asks "What's next?", and celebrates her own success
+**Engagement markers:** 
+- Uses "whole body listening" without multiple redirections
+- Waits for "Go" signal before responding  
+- Stays focused 10+ minutes
+- Self-celebrates success ("I got it!")
 
-**ADHD management:** She uses "whole body listening" without multiple redirections and waits for "Go" signal before responding
-
-When she hits 85%+ decoding accuracy on mixed CVC words, advance to CCVC patterns (stop, clap, drip).
+When she achieves 85%+ decoding accuracy on mixed CVC words, advance to CCVC patterns (stop, clap, drip).

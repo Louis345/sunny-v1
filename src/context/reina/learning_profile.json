@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-04-04T00:00:00.000Z",
+  "lastUpdated": "2026-04-04T23:53:44.866Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -46,7 +46,16 @@
     "lastBondQuality": "moderate",
     "topicFrequency": {}
   },
-  "moodHistory": [],
+  "moodHistory": [
+    {
+      "date": "2026-04-04T23:53:44.860Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0.925,
+      "notableSignals": []
+    }
+  ],
   "moodTrend": "stable",
   "moodAdjustment": false,
   "iepTargets": [],
@@ -66,14 +75,14 @@
     "dyslexiaMode": false
   },
   "sessionStats": {
-    "totalSessions": 0,
-    "averageAccuracy": 0,
+    "totalSessions": 1,
+    "averageAccuracy": 0.925,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
-    "streakRecord": 0,
+    "streakRecord": 37,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": ""
+    "lastSessionDate": "2026-04-04T23:53:44.860Z"
   },
   "rewardPreferences": {
     "favoriteGames": [],

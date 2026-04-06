@@ -1,3 +1,5 @@
+import { determineScaffoldLevel } from "../algorithms/retrievalPractice";
+import type { Domain, ScaffoldLevel } from "../algorithms/types";
 import { getSessionTypeConfig } from "./session-type-registry";
 import { REWARD_GAMES, TEACHING_TOOLS } from "./games/registry";
 import type { OverlayField, WorksheetInteractionMode } from "./assignment-player";
@@ -20,7 +22,8 @@ export type SessionType =
   | "math"
   | "homework"
   | "pronunciation"
-  | "wilson";
+  | "wilson"
+  | "diag";
 export type CanvasOwner = "server" | "companion";
 export type ActivityMode =
   | "none"
@@ -142,8 +145,21 @@ export interface ReadingProgressSnapshot {
   wordIndex: number;
   totalWords: number;
   accuracy: number;
+  /** Karaoke phrase restarts (interim shrank) — struggle signal, separate from accuracy. */
+  hesitations: number;
   flaggedWords: string[];
+  /** Words successfully matched in order during karaoke (browser-driven). */
+  spelledWords?: string[];
   event?: string;
+}
+
+/** Per-word retrieval scaffold state for the active spelling session (session-manager owned). */
+export interface WordScaffoldSessionState {
+  word: string;
+  domain: Domain;
+  lastCorrect: boolean | null;
+  lastScaffoldLevel: ScaffoldLevel;
+  attemptCount: number;
 }
 
 export interface SessionContextMessageExtras {
@@ -151,6 +167,7 @@ export interface SessionContextMessageExtras {
   lastChildUtterance?: string | null;
   wordBuilderRound?: number | null;
   activeWord?: string | null;
+  wordScaffoldState?: Map<string, WordScaffoldSessionState>;
 }
 
 export interface SerializedSessionContext {
@@ -201,7 +218,13 @@ export function createSessionContext(opts: {
 
   const ctx: SessionContext = {
     childName: opts.childName,
-    companionName: opts.companionName ?? (opts.childName === "Ila" ? "Elli" : "Matilda"),
+    companionName:
+      opts.companionName ??
+      (opts.childName === "Ila"
+        ? "Elli"
+        : opts.childName === "creator"
+          ? "Charlotte"
+          : "Matilda"),
     sessionType: opts.sessionType,
     canvas,
     correctStreak: 0,
@@ -289,6 +312,229 @@ export function createSessionContext(opts: {
   return ctx;
 }
 
+/** Per-turn injections below: first line of each function gates diagnostic sessions. */
+
+export function getSessionPhaseBlock(ctx: SessionContext): string {
+  if (ctx.sessionType === "diag") return "";
+  return `[Session Phase] ${ctx.sessionPhase}`;
+}
+
+export function getWordBankBlock(ctx: SessionContext): string {
+  if (ctx.sessionType === "diag") return "";
+  return "";
+}
+
+export function getSLPBlock(ctx: SessionContext): string {
+  if (ctx.sessionType === "diag") return "";
+  return "";
+}
+
+export function getLearningStateBlock(ctx: SessionContext): string {
+  if (ctx.sessionType === "diag") return "";
+  console.log("[learning-state] injecting into context message");
+  const childId = ctx.childName.toLowerCase();
+  const diffSignal = getSessionDifficultySignal(childId);
+  const rewardState = getSessionRewardState(childId);
+  const lines: string[] = [];
+  lines.push(`[Learning State]`);
+  lines.push(`Difficulty zone: ${diffSignal?.zone ?? "optimal"}`);
+  lines.push(
+    diffSignal
+      ? `Session accuracy (recent window): ${Math.round(diffSignal.currentAccuracy * 100)}%`
+      : `Session accuracy (recent window): n/a (no attempts yet)`,
+  );
+  if (rewardState) {
+    lines.push(`Current streak: ${rewardState.correctStreak}`);
+  }
+  return lines.join("\n");
+}
+
+export function getWilsonBlock(ctx: SessionContext): string {
+  if (ctx.sessionType === "diag") return "";
+  const childId = ctx.childName.toLowerCase();
+  let wilsonStep: number;
+  let moodAdjustment: boolean;
+  if (ctx.enginePlan) {
+    wilsonStep = ctx.enginePlan.wilsonStep;
+    moodAdjustment = ctx.enginePlan.moodAdjustment;
+  } else {
+    const prof = readLearningProfile(childId);
+    wilsonStep =
+      prof?.sessionStats.currentWilsonStep ?? (childId === "ila" ? 4 : 1);
+    moodAdjustment = prof?.moodAdjustment ?? false;
+  }
+  return [
+    `Current Wilson step: ${wilsonStep}`,
+    `Mood adjustment active: ${moodAdjustment ? "yes" : "no"}`,
+  ].join("\n");
+}
+
+export function getReadingProfileBlock(ctx: SessionContext): string {
+  if (ctx.sessionType === "diag") return "";
+  const childId = ctx.childName.toLowerCase();
+  const profReading = readLearningProfile(childId);
+  const rc = getReadingCanvasPreferences(profReading?.readingProfile);
+  const lines: string[] = [`[Reading Profile]`];
+  lines.push(`fontSize: ${rc.fontSize}`);
+  lines.push(`wordsPerLine: ${rc.wordsPerLine}`);
+  lines.push(`dyslexiaMode: ${rc.dyslexiaMode}`);
+  lines.push(`background: ${rc.background}`);
+  return lines.join("\n");
+}
+
+export function getFocusWordsBlock(ctx: SessionContext): string {
+  if (ctx.sessionType === "diag") return "";
+  const st = ctx.sessionType;
+
+  if (st === "reading") {
+    const lines: string[] = [];
+    lines.push(`[Reading Mode]`);
+    lines.push(
+      `Do not run spelling drills. Do not launch Word Builder for spelling. Follow the reading session flow exactly:`,
+    );
+    lines.push(`Phase 1: sound_box for target words`);
+    lines.push(`Phase 2: ask child what to read about`);
+    lines.push(`Phase 3: generate story → canvasShow karaoke`);
+    lines.push(`Phase 4: child reads aloud`);
+    lines.push(`Phase 5: comprehension questions`);
+    if (ctx.enginePlan) {
+      const p = ctx.enginePlan;
+      const review =
+        p.reviewWords.length > 0 ? p.reviewWords.join(", ") : "none";
+      const novel = p.newWords.length > 0 ? p.newWords.join(", ") : "none";
+      const storyPool =
+        p.focusWords.length > 0 ? p.focusWords.join(", ") : "none";
+      lines.push(`[Today's Focus Words]`);
+      lines.push(
+        `Reading-domain vocabulary from the word bank (spaced repetition). Weave 3–5 of these into karaoke stories when they fit the child's topic — invisibly for SR; never present them as a spelling list.`,
+      );
+      lines.push(`Review words (due today): ${review}`);
+      lines.push(`New words (introducing today): ${novel}`);
+      lines.push(`Story emphasis pool (prefer when natural): ${storyPool}`);
+    }
+    return lines.join("\n");
+  }
+
+  if (!ctx.enginePlan) return "";
+  if (st === "spelling" || st === "homework") {
+    const lines: string[] = [];
+    const p = ctx.enginePlan;
+    const review =
+      p.reviewWords.length > 0 ? p.reviewWords.join(", ") : "none";
+    const novel = p.newWords.length > 0 ? p.newWords.join(", ") : "none";
+    const focus =
+      p.focusWords.length > 0 ? p.focusWords.join(", ") : "none";
+    const total = p.focusWords.length;
+    lines.push(`[Today's Focus Words]`);
+    lines.push(
+      `Primary session list (SM-2 schedule — new first, then reviews). Work through ONLY this list in order — not the full homework extraction.`,
+    );
+    lines.push(`Focus order: ${focus}`);
+    lines.push(`Review words (due today): ${review}`);
+    lines.push(`New words (introducing today): ${novel}`);
+    lines.push(
+      `Total scheduled: ${total} words. Quality over quantity. When these are done the session academic goals are complete.`,
+    );
+    if (p.sessionRecommendation && total === 0) {
+      lines.push(
+        `No spelling items scheduled — consider shifting toward ${p.sessionRecommendation} or another light activity.`,
+      );
+    }
+    return lines.join("\n");
+  }
+  return "";
+}
+
+/** Minimal per-turn canvas snapshot for creator diagnostic sessions — no learning engine or child-session fields. */
+function buildDiagCanvasContextMessage(
+  ctx: SessionContext,
+  extras?: SessionContextMessageExtras,
+): string {
+  const lines: string[] = [];
+  const c = ctx.canvas.current;
+  const snap = ctx.serialize();
+
+  lines.push("[Diagnostic session — canvas snapshot]");
+  lines.push(`Mode: ${c.mode}`);
+  lines.push(
+    `Canvas ready (browser confirmed current revision): ${snap.canvasReady ? "yes" : "no"}`,
+  );
+  if (extras?.turnState) {
+    lines.push(`Turn state (server): ${extras.turnState}`);
+  }
+  lines.push(`Active activity: ${ctx.activity.mode}`);
+
+  if (ctx.readingProgress) {
+    const rp = ctx.readingProgress;
+    const accPct =
+      rp.accuracy <= 1 && rp.accuracy >= 0
+        ? Math.round(rp.accuracy * 100)
+        : Math.round(rp.accuracy);
+    lines.push(
+      `[Reading progress] wordIndex ${rp.wordIndex}/${rp.totalWords} (browser-driven; do not refresh karaoke).`,
+    );
+    lines.push(
+      `Accuracy ${accPct}% (progress through story), hesitations: ${rp.hesitations}, flagged: ${rp.flaggedWords.join(", ") || "none"}, spelled: ${(rp.spelledWords ?? []).length} words`,
+    );
+    if (rp.event) lines.push(`Reading event: ${rp.event}`);
+  }
+
+  if (c.mode === "karaoke" && c.content) {
+    lines.push(
+      "Karaoke story is already on screen; highlighting follows Jamal's speech.",
+    );
+  } else if (c.content) {
+    const t = String(c.content);
+    lines.push(
+      `On-screen text: ${t.slice(0, 200)}${t.length > 200 ? "…" : ""}`,
+    );
+  }
+  if (c.label && c.mode === "karaoke") {
+    lines.push(`Line / label: ${c.label}`);
+  }
+
+  lines.push(
+    `Canvas control: ${ctx.canvas.owner === "server" ? "server-driven" : "companion-driven"}`,
+  );
+
+  if (ctx.availableToolNames.includes("launchGame")) {
+    lines.push(
+      `Available teaching games: ${Object.keys(TEACHING_TOOLS).sort().join(", ")}`,
+    );
+    lines.push(
+      `Available reward games: ${Object.keys(REWARD_GAMES).sort().join(", ")}`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+export function getScaffoldBlock(
+  activeWord: string | null | undefined,
+  scaffoldMap: Map<string, WordScaffoldSessionState>,
+): string {
+  if (!activeWord || scaffoldMap.size === 0) return "";
+  const state = scaffoldMap.get(activeWord);
+  if (!state || state.lastCorrect !== false) return "";
+  const result = determineScaffoldLevel({
+    track: null as unknown as import("../algorithms/types").SM2Track,
+    isNewWord: false,
+    previousAttemptThisSession: {
+      correct: false,
+      scaffoldLevel: state.lastScaffoldLevel,
+    },
+  });
+  if (result.scaffoldLevel === 0) return "";
+  return (
+    `[Scaffold Recommendation]\n` +
+    `Active word: ${activeWord}\n` +
+    `Recommend scaffold level ${result.scaffoldLevel}: ${result.scaffoldType}\n` +
+    (result.canvasMode !== "none"
+      ? `Show canvasShow type=${result.canvasMode} before re-testing.`
+      : "Give a phonemic hint verbally.")
+  );
+}
+
 /**
  * Build a context injection string that tells Claude what's on the canvas.
  * Appended to the user message on every turn so Claude stays in sync.
@@ -300,6 +546,10 @@ export function buildCanvasContextMessage(
   ctx: SessionContext,
   extras?: SessionContextMessageExtras,
 ): string {
+  if (ctx.sessionType === "diag") {
+    return buildDiagCanvasContextMessage(ctx, extras);
+  }
+
   const lines: string[] = [];
   const c = ctx.canvas.current;
   const activityPaused = ctx.activity.pauseState === "paused_for_checkin";
@@ -337,7 +587,7 @@ export function buildCanvasContextMessage(
         ? Math.round(rp.accuracy * 100)
         : Math.round(rp.accuracy);
     lines.push(
-      `[Reading progress] wordIndex ${rp.wordIndex}/${rp.totalWords} (0-based next slot; equals total when finished), accuracy ${accPct}%, flagged: ${rp.flaggedWords.join(", ") || "none"}`,
+      `[Reading progress] wordIndex ${rp.wordIndex}/${rp.totalWords} (0-based next slot; equals total when finished), accuracy ${accPct}% (progress), hesitations: ${rp.hesitations}, flagged: ${rp.flaggedWords.join(", ") || "none"}, spelled count: ${(rp.spelledWords ?? []).length}`,
     );
     if (rp.event) lines.push(`Reading event: ${rp.event}`);
   }
@@ -427,78 +677,21 @@ export function buildCanvasContextMessage(
     }
   }
 
-  // Adaptive learning engine — per-turn only (not part of cached buildSessionPrompt).
-  console.log("[learning-state] injecting into context message");
-  const childId = ctx.childName.toLowerCase();
-  const diffSignal = getSessionDifficultySignal(childId);
-  const rewardState = getSessionRewardState(childId);
-
-  let wilsonStep: number;
-  let moodAdjustment: boolean;
-  if (ctx.enginePlan) {
-    wilsonStep = ctx.enginePlan.wilsonStep;
-    moodAdjustment = ctx.enginePlan.moodAdjustment;
-  } else {
-    const prof = readLearningProfile(childId);
-    wilsonStep =
-      prof?.sessionStats.currentWilsonStep ?? (childId === "ila" ? 4 : 1);
-    moodAdjustment = prof?.moodAdjustment ?? false;
-  }
-
-  lines.push(`[Learning State]`);
-  lines.push(`Difficulty zone: ${diffSignal?.zone ?? "optimal"}`);
-  lines.push(
-    diffSignal
-      ? `Session accuracy (recent window): ${Math.round(diffSignal.currentAccuracy * 100)}%`
-      : `Session accuracy (recent window): n/a (no attempts yet)`,
-  );
-  lines.push(`Current Wilson step: ${wilsonStep}`);
-  lines.push(`Mood adjustment active: ${moodAdjustment ? "yes" : "no"}`);
-  if (rewardState) {
-    lines.push(`Current streak: ${rewardState.correctStreak}`);
-  }
-
-  {
-    const profReading = readLearningProfile(childId);
-    const rc = getReadingCanvasPreferences(profReading?.readingProfile);
+  const tailBlocks = [
+    getSessionPhaseBlock(ctx),
+    getWordBankBlock(ctx),
+    getSLPBlock(ctx),
+    getLearningStateBlock(ctx),
+    getWilsonBlock(ctx),
+    getReadingProfileBlock(ctx),
+    getFocusWordsBlock(ctx),
+    getScaffoldBlock(extras?.activeWord ?? null, extras?.wordScaffoldState ?? new Map()),
+  ]
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (tailBlocks.length > 0) {
     lines.push("");
-    lines.push(`[Reading Profile]`);
-    lines.push(`fontSize: ${rc.fontSize}`);
-    lines.push(`wordsPerLine: ${rc.wordsPerLine}`);
-    lines.push(`dyslexiaMode: ${rc.dyslexiaMode}`);
-    lines.push(`background: ${rc.background}`);
-  }
-
-  if (ctx.enginePlan) {
-    const st = ctx.sessionType;
-    if (st === "reading") {
-      lines.push("");
-      lines.push(`[Reading Mode]`);
-      lines.push(
-        `Do not run spelling drills. Do not launch Word Builder for spelling. Follow the reading session flow exactly:`,
-      );
-      lines.push(`Phase 1: sound_box for target words`);
-      lines.push(`Phase 2: ask child what to read about`);
-      lines.push(`Phase 3: generate story → canvasShow karaoke`);
-      lines.push(`Phase 4: child reads aloud`);
-      lines.push(`Phase 5: comprehension questions`);
-    } else if (st === "spelling" || st === "homework") {
-      const p = ctx.enginePlan;
-      const review =
-        p.reviewWords.length > 0 ? p.reviewWords.join(", ") : "none";
-      const novel = p.newWords.length > 0 ? p.newWords.join(", ") : "none";
-      const total = p.reviewWords.length + p.newWords.length;
-      lines.push("");
-      lines.push(`[Today's Focus Words]`);
-      lines.push(
-        `The learning engine selected these words for this session. Work through ONLY these words today — not the full homework list.`,
-      );
-      lines.push(`Review words (seen before, due today): ${review}`);
-      lines.push(`New words (introducing today): ${novel}`);
-      lines.push(
-        `Total: ${total} words. Quality over quantity. When these are done the session academic goals are complete.`,
-      );
-    }
+    lines.push(tailBlocks.join("\n\n"));
   }
 
   return lines.join("\n");

@@ -17,9 +17,12 @@ export function formatTodaysPlanInjection(
  * Suffix to append to companion / session system prompts when a persisted plan exists.
  */
 export function getTodaysPlanInjectionSuffix(
-  childName: "Ila" | "Reina",
+  childName: "Ila" | "Reina" | "creator",
   planFilePath?: string,
 ): string {
+  if (childName === "creator") {
+    return "";
+  }
   if (!planFilePath && !shouldLoadPersistedHistory()) {
     return "";
   }

@@ -321,6 +321,16 @@ export function createSixTools(host: SixToolsHost) {
         "Log a graded interaction (worksheet answer or observation). For worksheets, server maps this to the active problem. For spelling homework or post–Word Builder dictation, pass word (normalized on server) so progress and rewards stay in sync with sessionStatus. When an activity is skipped due to child state, call sessionLog({ skipped: true, reason: '...', activity?: '...' }) so the Psychologist knows what happened and why. Do not skip logging — even skips are data.",
       inputSchema: z
         .object({
+          action: z
+            .string()
+            .optional()
+            .describe(
+              'Diagnostic image: use "generate_image" with observation = full scene to illustrate.',
+            ),
+          scene: z
+            .string()
+            .optional()
+            .describe("Alias for observation when action is generate_image."),
           skipped: z
             .boolean()
             .optional()
@@ -341,6 +351,18 @@ export function createSixTools(host: SixToolsHost) {
           observation: z.string().optional(),
         })
         .superRefine((data, ctx) => {
+          if (data.action === "generate_image") {
+            const scene = (data.observation ?? data.scene ?? "").trim();
+            if (!scene) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message:
+                  "observation or scene is required when action is generate_image",
+                path: ["observation"],
+              });
+            }
+            return;
+          }
           if (data.skipped === true) {
             if (!data.reason?.trim()) {
               ctx.addIssue({

@@ -91,6 +91,8 @@ function App() {
           onOverlayFieldChange={handleOverlayFieldChange}
           sendMessage={sendMessage}
           readingCanvas={state.readingCanvas}
+          storyImageLoading={state.storyImageLoading}
+          storyImageUrl={state.storyImageUrl}
         />
       </div>
     );

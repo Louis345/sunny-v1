@@ -167,7 +167,8 @@ export class TurnStateMachine {
   /** When true, TTS stays buffered until iframe game `ready` (see releaseDeferredTts). */
   private gameTtsHold = false;
   private canvasTimeout: ReturnType<typeof setTimeout> | null = null;
-  private readonly CANVAS_TIMEOUT_MS = 4000;
+  private readonly CANVAS_TIMEOUT_DEFAULT_MS = 2000;
+  private readonly CANVAS_TIMEOUT_KARAOKE_MS = 6000;
   private pendingTranscript: string | null = null;
   private canonicalProblemText: string | null = null;
   private actor = createActor(turnMachine);
@@ -311,16 +312,16 @@ export class TurnStateMachine {
     }
   }
 
-  /** showCanvas tool fired in this step */
-  onShowCanvas(): void {
+  /** showCanvas tool fired in this step — karaoke needs longer for first paint + layout */
+  onShowCanvas(canvasTimeoutMs?: number): void {
     if (this.state !== "PROCESSING") return;
     this.send({ type: "SHOW_CANVAS" });
 
-    // Hard timeout — if canvas_done never arrives, release after 2s
+    const ms = canvasTimeoutMs ?? this.CANVAS_TIMEOUT_DEFAULT_MS;
     this.canvasTimeout = setTimeout(() => {
       this.onLog("  ⚠️  canvas_done timed out — releasing TTS buffer");
       this.onCanvasDone();
-    }, this.CANVAS_TIMEOUT_MS);
+    }, ms);
   }
 
   /** Browser confirmed canvas animation complete */

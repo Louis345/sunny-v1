@@ -2,12 +2,16 @@ import { tool } from "ai";
 import fs from "fs";
 import path from "path";
 import { z } from "zod";
+import { selectNextProblemType } from "../../../algorithms/interleaving";
+import type { AttemptInput, MathProblemType } from "../../../algorithms/types";
 import { recordAttempt, childIdFromName } from "../../../engine/learningEngine";
-import type { AttemptInput } from "../../../algorithms/types";
+import { readLearningProfile } from "../../../utils/learningProfileIO";
 
 const probeCalledThisSession = new Set<string>();
 
-export function resetMathProbeSession(childName: "Ila" | "Reina"): void {
+export function resetMathProbeSession(
+  childName: "Ila" | "Reina" | "creator",
+): void {
   probeCalledThisSession.delete(`${childName}-probe`);
 }
 
@@ -15,7 +19,7 @@ export const mathProblem = tool({
   description:
     "Call this after every math attempt to log the result and get the next problem suggestion. The tool auto-computes whether the answer is correct from the operands — you do NOT need to judge correctness. Pass the EXACT operandA, operandB, and operation from the problem on screen. Also call at session start with childAnswer: null to get the opening problem.",
   inputSchema: z.object({
-    childName: z.enum(["Ila", "Reina"]),
+    childName: z.enum(["Ila", "Reina", "creator"]),
     operation: z.enum(["addition", "subtraction"]),
     operandA: z.number(),
     operandB: z.number(),
@@ -135,6 +139,43 @@ export const mathProblem = tool({
       ? `Focus next problems on the ${weakSpot} range. Accuracy there: ${Math.round((buckets[weakSpot as keyof typeof buckets].correct / Math.max(buckets[weakSpot as keyof typeof buckets].total, 1)) * 100)}%`
       : "No history — start at 6-10 range as default floor.";
 
+    let nextRecommendation: MathProblemType = "addition";
+    try {
+      const profile = readLearningProfile(childIdFromName(childName));
+      const perfByType: Record<string, { correct: number; total: number }> = {
+        addition: { correct: 0, total: 0 },
+        subtraction: { correct: 0, total: 0 },
+      };
+      for (const h of history) {
+        const k = h.operation === "subtraction" ? "subtraction" : "addition";
+        perfByType[k].total++;
+        if (h.correct) perfByType[k].correct++;
+      }
+      const recentHistoryFromLog = [...history]
+        .reverse()
+        .map((h) => ({
+          type: (h.operation === "subtraction"
+            ? "subtraction"
+            : "addition") as MathProblemType,
+          correct: h.correct,
+        }));
+      const interleavingResult = selectNextProblemType({
+        availableTypes: ["addition", "subtraction"],
+        recentHistory: recentHistoryFromLog,
+        performanceByType: perfByType,
+        params:
+          profile?.algorithmParams?.interleaving ?? {
+            weakestWeight: 0.5,
+            secondWeight: 0.3,
+            randomWeight: 0.2,
+            minTypeExposure: 0.15,
+          },
+      });
+      nextRecommendation = interleavingResult.nextType;
+    } catch {
+      // Silent fallback
+    }
+
     return JSON.stringify({
       logged:
         correct !== null
@@ -145,6 +186,7 @@ export const mathProblem = tool({
       weakSpot,
       accuracyByBucket: buckets,
       suggestion,
+      nextRecommendation,
     });
   },
 });

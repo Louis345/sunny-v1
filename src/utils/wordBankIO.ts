@@ -4,7 +4,7 @@ import type { WordEntry, Domain, SM2Track } from "../algorithms/types";
 import type { WordBankFile } from "../context/schemas/wordBank";
 import { createEmptyWordBank, createFreshSM2Track } from "../context/schemas/wordBank";
 
-function resolveWordBankPath(childId: string): string {
+export function resolveWordBankPath(childId: string): string {
   return path.resolve(process.cwd(), "src", "context", childId, "word_bank.json");
 }
 

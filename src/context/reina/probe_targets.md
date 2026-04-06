@@ -1,25 +1,11 @@
 # Matilda Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-03-31T00:18:26.066Z*
+*Updated: 2026-04-04T23:54:27.615Z*
 
-I appreciate you catching this, but I need to pause here too.
+• When Reina tells me about a ninja or wrestler story, ask "Why did they do that?" and "What would happen if they didn't jump?"
 
-**I don't have a psychologist report in your message.** 
+• Try a wrestling word problem together: "If 3 wrestlers each score 2 points, how many points total?" Then make up more with her favorite characters.
 
-What you've sent me is:
-- A clarification question about which child (Reina vs. Ila)
-- Instructions for how I should work
-- An example output format
+• Ask Reina what tricky words mean when she uses them—like "outsmart" or "sneaky"—and see what she already knows.
 
-But there's **no actual clinical report with probe targets and clinical goals** for me to translate.
-
-**To proceed, I need you to provide:**
-
-1. **Confirmation: Which child?** (Reina or Ila)
-2. **The actual psychologist report** with:
-   - Probe targets (the specific things the psychologist flagged)
-   - Clinical goals (what needs to improve)
-
-Once you paste those, I'll translate them into 3-5 natural, warm Matilda actions—no clinical language, no jargon, just what she'd naturally try during play.
-
-Ready when you are. 👋
+• When she describes something cool, ask her to tell me the whole thing in a sentence, like a wrestling play-by-play.

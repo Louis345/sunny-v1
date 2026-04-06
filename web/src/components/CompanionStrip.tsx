@@ -37,7 +37,7 @@ export function CompanionStrip({
         className="w-20 h-20 rounded-full flex items-center justify-center text-3xl"
         style={{ backgroundColor: accentBg }}
       >
-        {childName === "Ila" ? "🌟" : "📚"}
+        {childName === "Ila" || childName === "creator" ? "🌟" : "📚"}
       </div>
       <div className="text-sm font-medium text-gray-900">{companionName}</div>
 

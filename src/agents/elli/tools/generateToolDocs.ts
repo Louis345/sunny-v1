@@ -26,3 +26,10 @@ export function generateToolDocs(): string {
     .map(([name, tool]) => `### ${name}\n${getDescription(tool as Tool)}`)
     .join("\n\n");
 }
+
+/** Comma-separated tool keys — for compact prompts (e.g. diagnostic mode). */
+export function generateToolNamesLine(): string {
+  return Object.keys(ALL_TOOLS)
+    .sort()
+    .join(", ");
+}

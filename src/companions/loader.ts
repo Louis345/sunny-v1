@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   contextFileRelativeFromSrc,
+  curriculumRelativeFromSrc,
   probeTargetsRelativeFromSrc,
 } from "../utils/childContextPaths";
 import type { ChildName as ContextChildName } from "../utils/childContextPaths";
@@ -108,7 +109,7 @@ export interface CompanionConfig {
   usesCanonicalMathProblem?: boolean;
 }
 
-export type ChildName = "Ila" | "Reina";
+export type ChildName = "Ila" | "Reina" | "creator";
 
 function loadCompanion(
   companionFile: string,
@@ -157,7 +158,9 @@ function loadCompanion(
       ? "Ila"
       : childName.trim() === "Reina"
         ? "Reina"
-        : null;
+        : childName.trim().toLowerCase() === "creator"
+          ? "creator"
+          : null;
   const todaysPlanBlock =
     childKey != null ? getTodaysPlanInjectionSuffix(childKey) : "";
 
@@ -250,7 +253,7 @@ export const ELLI = loadCompanion(
   "companions/elli.md",
   "souls/ila.md",
   contextFileRelativeFromSrc("Ila"),
-  "curriculum/ila_curriculum.md",
+  curriculumRelativeFromSrc("Ila"),
   "ELEVENLABS_VOICE_ID_ILA",
   "MF3mGyEYCl7XYWbV9V6O",
   {
@@ -264,7 +267,7 @@ export const MATILDA = loadCompanion(
   "companions/matilda.md",
   "souls/reina.md",
   contextFileRelativeFromSrc("Reina"),
-  "curriculum/reina_curriculum.md",
+  curriculumRelativeFromSrc("Reina"),
   "ELEVENLABS_VOICE_ID_REINA",
   // Default: Gigi (premade) — bubbly/animation; override with ELEVENLABS_VOICE_ID_REINA
   "jBpfuIE2acCO8z3wKNLl",
@@ -275,9 +278,18 @@ export const MATILDA = loadCompanion(
   },
 );
 
+/** Diagnostics / creator kiosk — Elli-class tools, Charlotte label + voice (diag TTS path). */
+export const CHARLOTTE_CREATOR: CompanionConfig = {
+  ...ELLI,
+  name: "Charlotte",
+  childName: "creator",
+  tracksActiveWord: false,
+};
+
 export const COMPANIONS_BY_CHILD: Record<ChildName, CompanionConfig> = {
   Ila: ELLI,
   Reina: MATILDA,
+  creator: CHARLOTTE_CREATOR,
 };
 
 export function getCompanionConfig(childName: ChildName): CompanionConfig {

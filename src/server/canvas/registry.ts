@@ -270,6 +270,40 @@ export const CANVAS_REGISTRY: Record<string, CanvasCapabilityEntry> = {
       },
     ],
   },
+  blackboard: {
+    description:
+      "Spelling feedback on the side board — mask/reveal/flash/clear (paired with sessionLog flow)",
+    params: { gesture: "flash | mask | reveal | clear", word: "string" },
+    example: { type: "blackboard", params: { gesture: "mask", word: "story" } },
+  },
+  clock: {
+    description: "Analog clock practice — child reads the time",
+    params: {
+      hour: "number",
+      minute: "number",
+      display: "analog | digital | both (optional)",
+    },
+    example: { type: "clock", params: { hour: 3, minute: 0, display: "analog" } },
+  },
+  karaoke: {
+    description:
+      "Reading mode: story text with word-by-word karaoke tracking (use words[] tokenized from story)",
+    params: { storyText: "string", words: "string[]" },
+    example: {
+      type: "karaoke",
+      params: { storyText: "The cat sat.", words: ["The", "cat", "sat"] },
+    },
+  },
+  score_meter: {
+    description: "Score or streak meter on canvas",
+    params: { score: "number (optional)", label: "string (optional)" },
+    example: { type: "score_meter", params: { score: 5 } },
+  },
+  sound_box: {
+    description: "Sound/phoneme boxes for a target word before reading",
+    params: { word: "string" },
+    example: { type: "sound_box", params: { word: "ship" } },
+  },
 };
 
 export type CanvasCapabilityType = keyof typeof CANVAS_REGISTRY;
@@ -286,4 +320,14 @@ export function generateCanvasCapabilitiesManifest(): string {
     lines.push("");
   }
   return lines.join("\n");
+}
+
+/** One block listing canvasShow type keys — for compact system prompts (diagnostic mode). */
+export function generateCanvasCapabilitiesManifestCompact(): string {
+  const keys = Object.keys(CANVAS_REGISTRY).sort();
+  return (
+    "[Canvas Capabilities]\n" +
+      "Use canvasShow with a type from this set; parameters are validated when you call.\n" +
+      `Types: ${keys.join(", ")}.`
+  );
 }

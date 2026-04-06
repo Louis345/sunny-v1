@@ -1,17 +1,18 @@
-import path from "path";
 import fs from "fs";
 import { loadAttemptHistory } from "./attempts";
 import { shouldLoadPersistedHistory } from "./runtimeMode";
-import { resolveContextFilePath } from "./childContextPaths";
+import {
+  resolveContextFilePath,
+  resolveCurriculumFilePath,
+} from "./childContextPaths";
 
 export function loadChildFiles(childName: "Ila" | "Reina"): {
   context: string;
   curriculum: string;
   attempts: string;
 } {
-  const curriculumFile = childName === "Ila" ? "ila_curriculum.md" : "reina_curriculum.md";
   const curriculum = fs.readFileSync(
-    path.resolve(process.cwd(), "src", "curriculum", curriculumFile),
+    resolveCurriculumFilePath(childName),
     "utf-8",
   );
   if (!shouldLoadPersistedHistory()) {

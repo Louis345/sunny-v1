@@ -1,0 +1,1828 @@
+{
+  "childId": "ila",
+  "version": 1,
+  "lastUpdated": "2026-04-05T19:46:19.847Z",
+  "words": [
+    {
+      "word": "4+1",
+      "addedAt": "2026-04-04T18:24:06.452Z",
+      "source": "session",
+      "tracks": {
+        "math": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-05",
+          "lastReviewDate": "2026-04-04",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "with",
+      "addedAt": "2026-04-04T22:35:13.772Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.0000000000000004,
+          "interval": 8,
+          "repetition": 3,
+          "nextReviewDate": "2026-04-13",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "the",
+      "addedAt": "2026-04-04T22:35:13.774Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 3.2000000000000006,
+          "interval": 60,
+          "repetition": 7,
+          "nextReviewDate": "2026-06-04",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-04-05",
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "cat",
+      "addedAt": "2026-04-04T22:35:13.775Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-08",
+          "lastReviewDate": "2026-04-04",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "sat",
+      "addedAt": "2026-04-04T22:35:13.776Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "on",
+      "addedAt": "2026-04-04T22:35:13.777Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-08",
+          "lastReviewDate": "2026-04-04",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "a",
+      "addedAt": "2026-04-04T22:35:13.778Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.9000000000000004,
+          "interval": 32,
+          "repetition": 4,
+          "nextReviewDate": "2026-05-07",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-04-05",
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "big",
+      "addedAt": "2026-04-04T22:35:13.779Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.8000000000000003,
+          "interval": 11,
+          "repetition": 3,
+          "nextReviewDate": "2026-04-16",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "mat",
+      "addedAt": "2026-04-04T22:35:13.781Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.8000000000000003,
+          "interval": 11,
+          "repetition": 3,
+          "nextReviewDate": "2026-04-15",
+          "lastReviewDate": "2026-04-04",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "it",
+      "addedAt": "2026-04-04T22:35:13.782Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "was",
+      "addedAt": "2026-04-04T22:35:13.784Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "red",
+      "addedAt": "2026-04-04T22:35:13.786Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "dots",
+      "addedAt": "2026-04-04T22:35:13.791Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-05",
+          "lastReviewDate": "2026-04-04",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "felt",
+      "addedAt": "2026-04-04T22:35:13.793Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "happy",
+      "addedAt": "2026-04-04T22:35:13.794Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-05",
+          "lastReviewDate": "2026-04-04",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "soft",
+      "addedAt": "2026-04-04T22:35:13.797Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-04",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "forgotten",
+      "addedAt": "2026-04-05T18:44:54.980Z",
+      "source": "session",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        },
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "add",
+      "addedAt": "2026-04-05T19:25:30.787Z",
+      "source": "session",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        },
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "addition",
+      "addedAt": "2026-04-05T19:31:16.183Z",
+      "source": "session",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "ila",
+      "addedAt": "2026-04-05T19:46:19.782Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 1.8000000000000003,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "moss.",
+      "addedAt": "2026-04-05T19:46:19.785Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 1.8000000000000003,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "to",
+      "addedAt": "2026-04-05T19:46:19.787Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 1.9000000000000004,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "ila.",
+      "addedAt": "2026-04-05T19:46:19.789Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 1.8000000000000003,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "adventure",
+      "addedAt": "2026-04-05T19:46:19.790Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 1.8000000000000003,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "smiles.",
+      "addedAt": "2026-04-05T19:46:19.792Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 1.8000000000000003,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "and",
+      "addedAt": "2026-04-05T19:46:19.795Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "natalie",
+      "addedAt": "2026-04-05T19:46:19.797Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "ran",
+      "addedAt": "2026-04-05T19:46:19.798Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "into",
+      "addedAt": "2026-04-05T19:46:19.799Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "forest.",
+      "addedAt": "2026-04-05T19:46:19.802Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "they",
+      "addedAt": "2026-04-05T19:46:19.803Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 3.0000000000000004,
+          "interval": 60,
+          "repetition": 5,
+          "nextReviewDate": "2026-06-04",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-04-05",
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "by",
+      "addedAt": "2026-04-05T19:46:19.804Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "tree",
+      "addedAt": "2026-04-05T19:46:19.805Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "so",
+      "addedAt": "2026-04-05T19:46:19.808Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "quiet",
+      "addedAt": "2026-04-05T19:46:19.808Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "happy.",
+      "addedAt": "2026-04-05T19:46:19.810Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "then",
+      "addedAt": "2026-04-05T19:46:19.810Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "saw",
+      "addedAt": "2026-04-05T19:46:19.811Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "magic",
+      "addedAt": "2026-04-05T19:46:19.812Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "door",
+      "addedAt": "2026-04-05T19:46:19.813Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "that",
+      "addedAt": "2026-04-05T19:46:19.813Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "had",
+      "addedAt": "2026-04-05T19:46:19.814Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.7,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-04-09",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "stay",
+      "addedAt": "2026-04-05T19:46:19.816Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "hidden.",
+      "addedAt": "2026-04-05T19:46:19.816Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "let's",
+      "addedAt": "2026-04-05T19:46:19.817Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "some",
+      "addedAt": "2026-04-05T19:46:19.818Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "our",
+      "addedAt": "2026-04-05T19:46:19.820Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "day!",
+      "addedAt": "2026-04-05T19:46:19.820Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "said",
+      "addedAt": "2026-04-05T19:46:19.821Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "fairy",
+      "addedAt": "2026-04-05T19:46:19.832Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "opened",
+      "addedAt": "2026-04-05T19:46:19.833Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "best",
+      "addedAt": "2026-04-05T19:46:19.837Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "ever.",
+      "addedAt": "2026-04-05T19:46:19.838Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "after",
+      "addedAt": "2026-04-05T19:46:19.839Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "all",
+      "addedAt": "2026-04-05T19:46:19.840Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "fun,",
+      "addedAt": "2026-04-05T19:46:19.841Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "went",
+      "addedAt": "2026-04-05T19:46:19.842Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "back",
+      "addedAt": "2026-04-05T19:46:19.843Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    },
+    {
+      "word": "home",
+      "addedAt": "2026-04-05T19:46:19.844Z",
+      "source": "session",
+      "tracks": {
+        "reading": {
+          "quality": 5,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-06",
+          "lastReviewDate": "2026-04-05",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-04-05",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      }
+    }
+  ]
+}

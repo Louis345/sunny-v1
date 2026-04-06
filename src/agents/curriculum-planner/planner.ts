@@ -3,10 +3,13 @@
 import fs from "fs";
 import path from "path";
 import "dotenv/config";
-import { CURRICULUM_PLANNER_PROMPT } from "../prompts";
+import { buildCurriculumPlannerPrompt } from "../prompts";
 import { loadAttemptHistory } from "../../utils/attempts";
 import { shouldLoadPersistedHistory } from "../../utils/runtimeMode";
-import { resolveContextFilePath } from "../../utils/childContextPaths";
+import {
+  resolveContextFilePath,
+  resolveCurriculumFilePath,
+} from "../../utils/childContextPaths";
 
 export async function curriculumPlanner(
   childName: "Ila" | "Reina" = "Ila"
@@ -14,16 +17,8 @@ export async function curriculumPlanner(
   const { generateText } = await import("ai");
   const { anthropic } = await import("@ai-sdk/anthropic");
 
-  const curriculumFile =
-    childName === "Reina" ? "reina_curriculum.md" : "ila_curriculum.md";
-
   const contextPath = resolveContextFilePath(childName);
-  const curriculumPath = path.resolve(
-    process.cwd(),
-    "src",
-    "curriculum",
-    curriculumFile,
-  );
+  const curriculumPath = resolveCurriculumFilePath(childName);
 
   const context = shouldLoadPersistedHistory()
     ? fs.readFileSync(contextPath, "utf-8")
@@ -33,7 +28,7 @@ export async function curriculumPlanner(
 
   const { text: updatedCurriculum } = await generateText({
     model: anthropic("claude-sonnet-4-20250514"),
-    system: CURRICULUM_PLANNER_PROMPT,
+    system: buildCurriculumPlannerPrompt(childName),
     prompt: `
 Current session notes:
 ${context}
@@ -52,7 +47,9 @@ Generate the updated curriculum plan.
   });
 
   await fs.promises.writeFile(curriculumPath, updatedCurriculum, "utf-8");
-  console.log(`✅ Curriculum updated → src/curriculum/${curriculumFile}`);
+  console.log(
+    `✅ Curriculum updated → ${path.relative(process.cwd(), curriculumPath)}`,
+  );
 }
 
 // Entry point when run directly (not when imported)

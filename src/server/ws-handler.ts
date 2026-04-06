@@ -24,10 +24,28 @@ export function handleWsConnection(
 
     switch (msg.type) {
       case "start_session": {
-        const child = msg.child;
-        if (child !== "Ila" && child !== "Reina") {
+        const raw = msg as {
+          child?: string;
+          diagKiosk?: boolean;
+        };
+        const child = raw.child;
+        const diagKiosk = raw.diagKiosk === true;
+        const validChild =
+          child === "Ila" ||
+          child === "Reina" ||
+          (child === "creator" && diagKiosk);
+        if (!validChild) {
           ws.send(
             JSON.stringify({ type: "error", message: "Invalid child name" })
+          );
+          return;
+        }
+        if (diagKiosk && child !== "creator") {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              message: "Creator / Diag kiosk requires child=creator (Charlotte + diagnostic prompt)",
+            })
           );
           return;
         }
@@ -40,7 +58,7 @@ export function handleWsConnection(
           );
           return;
         }
-        session = new SessionManager(ws, child);
+        session = new SessionManager(ws, child, diagKiosk);
         await session.start();
         break;
       }

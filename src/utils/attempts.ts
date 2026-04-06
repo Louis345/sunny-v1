@@ -1,10 +1,11 @@
 import fs from "fs";
 import path from "path";
 import { shouldLoadPersistedHistory, shouldPersistSessionData } from "./runtimeMode";
+import type { ChildName } from "./childContextPaths";
 
 /** Append one worksheet attempt line after server-side validation (not in tool execute). */
 export async function appendWorksheetAttemptLine(input: {
-  childName: "Ila" | "Reina";
+  childName: ChildName;
   problemId: string;
   correct: boolean;
 }): Promise<void> {
@@ -12,7 +13,11 @@ export async function appendWorksheetAttemptLine(input: {
   const logsDir = path.resolve(process.cwd(), "src", "logs");
   await fs.promises.mkdir(logsDir, { recursive: true });
   const fileName =
-    input.childName === "Ila" ? "ila_attempts.json" : "reina_attempts.json";
+    input.childName === "Ila"
+      ? "ila_attempts.json"
+      : input.childName === "Reina"
+        ? "reina_attempts.json"
+        : "creator_attempts.json";
   const filePath = path.join(logsDir, fileName);
   const timestamp = new Date().toISOString();
   const word = `worksheet-q${input.problemId}-${timestamp.slice(11, 23)}`;
@@ -22,6 +27,30 @@ export async function appendWorksheetAttemptLine(input: {
   console.log(
     `  🎮 [worksheet] logWorksheetAttempt persisted ${input.correct ? "correct" : "incorrect"} q${input.problemId}`,
   );
+}
+
+/** Append one spelling/reading-style attempt line under src/context/{child}/attempts/ (NDJSON per day). */
+export function appendAttemptLine(
+  childName: ChildName | string,
+  entry: { word: string; correct: boolean },
+): void {
+  if (!shouldPersistSessionData()) return;
+  const dir = path.resolve(
+    process.cwd(),
+    "src",
+    "context",
+    String(childName).toLowerCase(),
+    "attempts",
+  );
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const today = new Date().toISOString().slice(0, 10);
+  const file = path.join(dir, `${today}.ndjson`);
+  const line =
+    JSON.stringify({
+      ...entry,
+      timestamp: new Date().toISOString(),
+    }) + "\n";
+  fs.appendFileSync(file, line, "utf-8");
 }
 
 export function loadAttemptHistory(childName: "Ila" | "Reina"): string {

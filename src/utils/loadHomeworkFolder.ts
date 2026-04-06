@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
+import type { ChildName } from "./childContextPaths";
 
 /**
  * Parse homework date folder names. Accepts:
@@ -32,9 +33,10 @@ function parseHomeworkDateFolderName(name: string): number | null {
   return null;
 }
 
-export function findLatestHomeworkFolder(
-  childName: "Ila" | "Reina"
-): string | null {
+export function findLatestHomeworkFolder(childName: ChildName): string | null {
+  if (childName === "creator") {
+    return null;
+  }
   const base = path.join(
     process.cwd(),
     "homework",
@@ -196,7 +198,7 @@ export interface HomeworkPayload {
 }
 
 export async function loadHomeworkPayload(
-  childName: "Ila" | "Reina"
+  childName: ChildName
 ): Promise<HomeworkPayload | null> {
   const folder = findLatestHomeworkFolder(childName);
   if (!folder) return null;
@@ -221,7 +223,7 @@ export async function loadHomeworkPayload(
   const rawContent = await extractHomeworkContent(files);
 
   return {
-    childName,
+    childName: childName as Exclude<ChildName, "creator">,
     date,
     rawContent,
     fileCount: assetPages,

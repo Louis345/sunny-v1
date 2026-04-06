@@ -14,7 +14,7 @@ const CONFUSED_OUTPUT_PATTERNS = [
 ];
 
 /** Terms that belong to the OTHER child — cross-contamination guard. */
-const WRONG_CHILD_PATTERNS: Record<"Ila" | "Reina", RegExp[]> = {
+const WRONG_CHILD_PATTERNS: Record<"Ila" | "Reina" | "creator", RegExp[]> = {
   // Reina's file must never contain Ila-specific clinical markers
   Reina: [
     /querySessions\(["']Ila["']/i,
@@ -29,6 +29,7 @@ const WRONG_CHILD_PATTERNS: Record<"Ila" | "Reina", RegExp[]> = {
     /wrestling championship/i,
     /multiplication.*division readiness/i,
   ],
+  creator: [],
 };
 
 function isConfusedOutput(content: string): boolean {
@@ -36,7 +37,7 @@ function isConfusedOutput(content: string): boolean {
 }
 
 function hasWrongChildContent(
-  childName: "Ila" | "Reina",
+  childName: "Ila" | "Reina" | "creator",
   content: string,
 ): boolean {
   return WRONG_CHILD_PATTERNS[childName].some((p) => p.test(content));
@@ -80,7 +81,7 @@ export async function appendToContext(
  * @param filePathOverride — for tests only; production uses the child's context path.
  */
 export async function appendDeferredActivity(
-  childName: "Ila" | "Reina",
+  childName: "Ila" | "Reina" | "creator",
   activity: string,
   reason: string,
   filePathOverride?: string,

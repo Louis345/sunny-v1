@@ -1,13 +1,17 @@
 import path from "path";
 
-export type ChildName = "Ila" | "Reina";
+export type ChildName = "Ila" | "Reina" | "creator";
 
 export function childContextFolder(childName: ChildName): string {
-  return childName === "Ila" ? "ila" : "reina";
+  if (childName === "Ila") return "ila";
+  if (childName === "Reina") return "reina";
+  return "creator";
 }
 
 export function contextMarkdownBasename(childName: ChildName): string {
-  return childName === "Ila" ? "ila_context.md" : "reina_context.md";
+  if (childName === "Ila") return "ila_context.md";
+  if (childName === "Reina") return "reina_context.md";
+  return "creator_context.md";
 }
 
 /** Path segments under `src/`, e.g. `context/ila/ila_context.md`. */
@@ -41,4 +45,20 @@ export function resolveTodaysPlanJsonPath(childName: ChildName): string {
     childContextFolder(childName),
     "todays_plan.json",
   );
+}
+
+/** Per-child curriculum markdown (moved from src/curriculum/*). */
+export function resolveCurriculumFilePath(childName: ChildName): string {
+  return path.resolve(
+    process.cwd(),
+    "src",
+    "context",
+    childContextFolder(childName),
+    "curriculum.md",
+  );
+}
+
+/** Path relative to `src/` for companions loader. */
+export function curriculumRelativeFromSrc(childName: ChildName): string {
+  return path.join("context", childContextFolder(childName), "curriculum.md");
 }

@@ -6,15 +6,16 @@ import { shouldPersistSessionData } from "../../../utils/runtimeMode";
 import { recordAttempt, childIdFromName } from "../../../engine/learningEngine";
 import type { AttemptInput } from "../../../algorithms/types";
 
-const seenThisSession: Record<"Ila" | "Reina", Set<string>> = {
+const seenThisSession: Record<"Ila" | "Reina" | "creator", Set<string>> = {
   Ila: new Set(),
   Reina: new Set(),
+  creator: new Set(),
 };
 
 export const logAttempt = tool({
   description: "logs an attempt by the child",
   inputSchema: z.object({
-    childName: z.enum(["Ila", "Reina"]),
+    childName: z.enum(["Ila", "Reina", "creator"]),
     word: z.string(),
     correct: z.boolean(),
   }),
@@ -54,7 +55,12 @@ export const logAttempt = tool({
     const logsDir = path.resolve(process.cwd(), "src", "logs");
     await fs.promises.mkdir(logsDir, { recursive: true });
 
-    const fileName = childName === "Ila" ? "ila_attempts.json" : "reina_attempts.json";
+    const fileName =
+      childName === "Ila"
+        ? "ila_attempts.json"
+        : childName === "Reina"
+          ? "reina_attempts.json"
+          : "creator_attempts.json";
     const filePath = path.resolve(logsDir, fileName);
 
     const entry = JSON.stringify({ timestamp, word, correct }) + "\n";

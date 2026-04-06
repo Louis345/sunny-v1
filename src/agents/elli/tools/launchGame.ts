@@ -180,8 +180,18 @@ export async function executeLaunchGame(
   return resolved;
 }
 
+export const KARAOKE_READING_BLOCKS_GAME =
+  "Cannot launch game during active reading session.";
+
+export type LaunchGameHostGuard = {
+  blockDuringKaraokeReading?: () => boolean;
+};
+
 /** Default tool: resolve only. Spelling sessions pass options for word-builder / spell-check validation. */
-export function buildLaunchGameTool(spelling?: LaunchGameSpellingOptions) {
+export function buildLaunchGameTool(
+  spelling?: LaunchGameSpellingOptions,
+  hostGuard?: LaunchGameHostGuard,
+) {
   const isSpelling = Boolean(spelling);
   return tool({
     description: isSpelling ? spellingDescription : defaultDescription,
@@ -192,7 +202,16 @@ export function buildLaunchGameTool(spelling?: LaunchGameSpellingOptions) {
       word?: string;
       hour?: number;
       minute?: number;
-    }) => executeLaunchGame(args, spelling),
+    }) => {
+      if (hostGuard?.blockDuringKaraokeReading?.()) {
+        return {
+          ok: false,
+          error: KARAOKE_READING_BLOCKS_GAME,
+          launched: false,
+        };
+      }
+      return executeLaunchGame(args, spelling);
+    },
   });
 }
 

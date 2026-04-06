@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { buildMeasurementReport } from "../../engine/measurementReport";
 import { loadChildFiles } from "../../utils/loadChildFiles";
 import { PSYCHOLOGIST_CONTEXT } from "../prompts";
 
@@ -19,7 +20,10 @@ export function readNatalieContext(childSlug: string): string | null {
   const bodies = files.map((f) =>
     fs.readFileSync(path.join(dir, f), "utf-8"),
   );
-  const displayName = slug === "ila" ? "Ila" : "Reina";
+  const displayName =
+    slug.length > 0
+      ? slug[0].toUpperCase() + slug.slice(1).toLowerCase()
+      : slug;
   return (
     `## Clinical Sessions (Licensed SLP)\n` +
     `The following notes are from ${displayName}'s\n` +
@@ -40,5 +44,11 @@ export function buildPsychologistContext(childSlug: string): string {
   const { context, curriculum, attempts } = loadChildFiles(childName);
   const base = PSYCHOLOGIST_CONTEXT(childName, context, attempts, curriculum);
   const natalie = readNatalieContext(slug);
-  return natalie ? `${natalie}\n\n${base}` : base;
+  let combined = natalie ? `${natalie}\n\n${base}` : base;
+  const algorithmData = buildMeasurementReport(slug);
+  if (algorithmData) {
+    console.log("  [engine] measurement report built for psychologist");
+    combined = `${combined}\n\n${algorithmData}`;
+  }
+  return combined;
 }

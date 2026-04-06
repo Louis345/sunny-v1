@@ -1,4 +1,10 @@
-import type { SM2Params, DifficultyParams, MasteryParams, InterleavingParams } from "../../algorithms/types";
+import type {
+  SM2Params,
+  DifficultyParams,
+  MasteryParams,
+  InterleavingParams,
+  StepSessionRecord,
+} from "../../algorithms/types";
 
 export interface MoodEntry {
   date: string;
@@ -87,6 +93,12 @@ export interface LearningProfile {
     totalWordsMastered: number;
     perfectSessions: number;
     lastSessionDate: string;
+  };
+
+  /** Clock mini-game mastery — optional; added by clockTracker when first used. */
+  clockMastery?: {
+    currentStep: number;
+    stepSessionHistory: StepSessionRecord[];
   };
 
   rewardPreferences: {
