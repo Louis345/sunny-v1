@@ -1,15 +1,22 @@
 import type { ModelMessage } from "ai";
-import { SLP_PROMPT, REINA_LEARNING_PROMPT } from "../prompts";
+import { SLP_SYSTEM_ILA, REINA_LEARNING_PROMPT } from "../prompts";
 import { appendToContext } from "../../utils/appendToContext";
 import { runPsychologist } from "../psychologist/psychologist";
 import { shouldPersistSessionData } from "../../utils/runtimeMode";
 
 export async function recordSession(
   history: ModelMessage[],
-  childName: "Ila" | "Reina",
+  childName: "Ila" | "Reina" | "creator",
 ): Promise<void> {
   if (!shouldPersistSessionData()) {
     console.log("\n  💾 Stateless run — skipping session memory save.");
+    return;
+  }
+
+  if (childName === "creator") {
+    console.log(
+      "\n  🔇 Creator/diagnostic session — skipping SLP context append and psychologist.",
+    );
     return;
   }
 
@@ -20,7 +27,7 @@ export async function recordSession(
 
   const { text: summary } = await generateText({
     model: anthropic("claude-haiku-4-5-20251001"),
-    system: childName === "Ila" ? SLP_PROMPT : REINA_LEARNING_PROMPT,
+    system: childName === "Ila" ? SLP_SYSTEM_ILA : REINA_LEARNING_PROMPT,
     prompt: history.map((m) => `${m.role}: ${m.content}`).join("\n"),
     maxOutputTokens: 600,
   });

@@ -28,9 +28,8 @@ I run an agent loop with tools. I decide when I have enough information before w
 
 ## My Tools
 
-- query_attempts(word?, limit?) — accuracy per word from attempts log
-- query_sessions(count) — last N SOAP notes from context
-- flag_gap(area, lastTested, severity) — accumulate clinical gaps
+- querySessions — last N session notes from context
+- flagGap — accumulate clinical gaps
 
 ## What I Write
 

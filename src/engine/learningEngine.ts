@@ -1,5 +1,6 @@
 import type {
   AttemptInput,
+  AttemptSnapshot,
   SM2Track,
   Domain,
   DifficultySignal,
@@ -10,18 +11,32 @@ import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { MasteryMap } from "../context/schemas/masteryMap";
 import type { TodaysPlanActivity } from "../agents/psychologist/today-plan";
 import type { RewardTrigger, SessionRewardState } from "./rewardEngine";
+import fs from "fs";
 import type { PlannedActivity, OrderedSession } from "./sessionPlanner";
 
 import { computeSM2, computeQualityFromAttempt } from "../algorithms/spacedRepetition";
 import { assessDifficulty } from "../algorithms/desirableDifficulty";
 import { evaluateRewards } from "./rewardEngine";
 import { planOrderedSession } from "./sessionPlanner";
-import { readWordBank, writeWordBank, ensureWordInBank, createFreshSM2Track } from "../utils/wordBankIO";
+import {
+  readWordBank,
+  writeWordBank,
+  ensureWordInBank,
+  createFreshSM2Track,
+  resolveWordBankPath,
+} from "../utils/wordBankIO";
+import { readNextSessionWordsFromCurriculumFile } from "../utils/curriculumNextSessionWords";
 import { readLearningProfile, initializeLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import { writeSessionNote, updateLearningProfileFromSession } from "./psychologistBridge";
 import type { SessionData } from "./psychologistBridge";
 import { readPersistedTodaysPlan } from "../agents/psychologist/today-plan";
 import type { ChildName } from "../utils/childContextPaths";
+import { getBondContextInjection } from "./bondProtocol";
+
+export interface PlanSessionOptions {
+  /** OCR / extracted homework list — used only when curriculum + bank yield no session words. */
+  homeworkFallbackWords?: string[];
+}
 
 export interface SessionPlan {
   childId: string;
@@ -29,6 +44,8 @@ export interface SessionPlan {
   activities: PlannedActivity[];
   newWords: string[];
   reviewWords: string[];
+  /** Spelling: new words first, then SM-2 due reviews (max 5). Reading: story/karaoke pool (due + new). */
+  focusWords: string[];
   totalWordCount: number;
   estimatedMinutes: number;
   bondContext: string;
@@ -36,6 +53,14 @@ export interface SessionPlan {
   moodAdjustment: boolean;
   /** Wilson step from learning profile at plan time (injected per turn via canvas context). */
   wilsonStep: number;
+  /** Spelling only: when no reviews and no new words were scheduled. */
+  sessionRecommendation?: "reading" | "math" | "clocks" | "free";
+}
+
+function formatDueForLog(isoDate: string): string {
+  const parts = isoDate.split("-");
+  if (parts.length !== 3) return isoDate;
+  return `${Number(parts[1])}/${Number(parts[2])}`;
 }
 
 export interface AttemptResult {
@@ -71,10 +96,16 @@ const sessionStates = new Map<string, {
 }>();
 
 function childIdFromName(childName: ChildName): string {
-  return childName === "Ila" ? "ila" : "reina";
+  if (childName === "Ila") return "ila";
+  if (childName === "Reina") return "reina";
+  return "creator";
 }
 
-export function planSession(childId: string, mode: string): SessionPlan {
+export function planSession(
+  childId: string,
+  mode: string,
+  options?: PlanSessionOptions,
+): SessionPlan {
   let profile = readLearningProfile(childId);
   if (!profile) {
     profile = initializeLearningProfile({
@@ -88,12 +119,25 @@ export function planSession(childId: string, mode: string): SessionPlan {
   }
 
   const wordBank = readWordBank(childId);
+  const homeworkFallback = options?.homeworkFallbackWords ?? [];
 
-  const childName: ChildName = childId === "ila" ? "Ila" : "Reina";
+  if (
+    mode === "spelling" &&
+    homeworkFallback.length > 0 &&
+    !fs.existsSync(resolveWordBankPath(childId))
+  ) {
+    console.log("  [engine] no word bank — using fallback");
+  }
+
+  const childName: ChildName =
+    childId === "ila" ? "Ila" : childId === "reina" ? "Reina" : "creator";
   const todaysPlanResult = readPersistedTodaysPlan(childName);
   const todaysPlan: TodaysPlanActivity[] = todaysPlanResult?.todaysPlan ?? [];
 
   const currentWilsonStep = profile.sessionStats.currentWilsonStep || 1;
+
+  const curriculumWords =
+    mode === "spelling" ? readNextSessionWordsFromCurriculumFile(childId) : [];
 
   const ordered: OrderedSession = planOrderedSession({
     childId,
@@ -103,6 +147,8 @@ export function planSession(childId: string, mode: string): SessionPlan {
     profile,
     moodSignal: profile.moodAdjustment ? "fatigued" : undefined,
     currentWilsonStep,
+    externalNewWordCandidates: curriculumWords,
+    homeworkFallbackWords: homeworkFallback,
   });
 
   sessionStates.set(childId, {
@@ -123,8 +169,51 @@ export function planSession(childId: string, mode: string): SessionPlan {
     wilsonStep: currentWilsonStep,
   });
 
-  const { getBondContextInjection } = require("./bondProtocol");
   const bondContext: string = getBondContextInjection(profile.bondPatterns);
+
+  let focusWords: string[];
+  if (mode === "reading") {
+    focusWords = Array.from(
+      new Set([
+        ...ordered.reviewWords.slice(0, 3),
+        ...ordered.newWords.slice(0, 2),
+      ]),
+    );
+  } else if (mode === "spelling") {
+    focusWords = [...ordered.newWords, ...ordered.reviewWords].slice(0, 5);
+  } else {
+    focusWords = [];
+  }
+
+  let sessionRecommendation: SessionPlan["sessionRecommendation"];
+  if (
+    mode === "spelling" &&
+    ordered.newWords.length === 0 &&
+    ordered.reviewWords.length === 0
+  ) {
+    sessionRecommendation = "reading";
+    console.log("  [engine] no words due — free session");
+  }
+
+  if (mode === "spelling") {
+    console.log(
+      `  [engine] session plan — ${ordered.newWords.length} new, ${ordered.reviewWords.length} review, total: ${focusWords.length}`,
+    );
+    if (ordered.newWords.length > 0) {
+      console.log(`  [engine] new words: ${ordered.newWords.join(", ")}`);
+    }
+    if (ordered.reviewWords.length > 0) {
+      const parts = ordered.reviewWords.map((w) => {
+        const entry = wordBank.words.find(
+          (x) => x.word.toLowerCase() === w.toLowerCase(),
+        );
+        const due =
+          entry?.tracks.spelling?.nextReviewDate ?? todayIso();
+        return `${w} (due ${formatDueForLog(due)})`;
+      });
+      console.log(`  [engine] review words: ${parts.join(", ")}`);
+    }
+  }
 
   return {
     childId,
@@ -132,13 +221,19 @@ export function planSession(childId: string, mode: string): SessionPlan {
     activities: ordered.activities,
     newWords: ordered.newWords,
     reviewWords: ordered.reviewWords,
+    focusWords,
     totalWordCount: ordered.totalWordCount,
     estimatedMinutes: ordered.estimatedMinutes,
     bondContext,
     difficultyParams: profile.algorithmParams.difficulty,
     moodAdjustment: profile.moodAdjustment,
     wilsonStep: currentWilsonStep,
+    sessionRecommendation,
   };
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export function recordAttempt(childId: string, attempt: AttemptInput): AttemptResult {
@@ -160,6 +255,13 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
 
   const quality = computeQualityFromAttempt(attempt);
   const updatedTrack = computeSM2(currentTrack, quality, sm2Params);
+  const snap: AttemptSnapshot = {
+    date: new Date().toISOString().slice(0, 10),
+    quality,
+    scaffoldLevel: attempt.scaffoldLevel,
+    correct: attempt.correct,
+  };
+  updatedTrack.history = [...updatedTrack.history, snap];
 
   if (entry) {
     entry.tracks[attempt.domain] = updatedTrack;

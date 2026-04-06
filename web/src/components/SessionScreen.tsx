@@ -48,11 +48,14 @@ interface Props {
   }) => void;
   sendMessage?: (type: string, payload?: Record<string, unknown>) => void;
   readingCanvas: ReadingCanvasPreferences;
+  storyImageLoading?: boolean;
+  storyImageUrl?: string | null;
 }
 
 const colors: Record<string, { accent: string; bg: string }> = {
   Ila: { accent: "#854F0B", bg: "#FAEEDA" },
   Reina: { accent: "#0C447C", bg: "#E6F1FB" },
+  creator: { accent: "#c4a008", bg: "#1e1b2e" },
 };
 
 export function SessionScreen({
@@ -75,9 +78,12 @@ export function SessionScreen({
   onOverlayFieldChange,
   sendMessage,
   readingCanvas,
+  storyImageLoading = false,
+  storyImageUrl = null,
 }: Props) {
   const color = colors[childName] ?? colors.Ila;
-  const childId = childName.toLowerCase();
+  const childId =
+    childName === "creator" ? "star" : childName.toLowerCase();
 
   return (
     <div className="w-full h-full flex">
@@ -128,6 +134,9 @@ export function SessionScreen({
           interimTranscript={interimTranscript}
           sendMessage={sendMessage}
           readingCanvas={readingCanvas}
+          storyImageChildId={childId}
+          storyImageLoading={storyImageLoading}
+          storyImageUrl={storyImageUrl}
         />
       </div>
     </div>

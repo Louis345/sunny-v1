@@ -27,6 +27,7 @@
   "include": [
     "src",
     "../src/scripts/canvas-test-presets.ts",
-    "../src/server/canvas/registry.ts"
+    "../src/server/canvas/registry.ts",
+    "../src/shared/karaokeMatchWord.ts"
   ]
 }

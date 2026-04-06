@@ -166,6 +166,9 @@ interface SessionState {
   debugMode: boolean;
   /** Karaoke / reading UI — from session_context + learning_profile */
   readingCanvas: ReadingCanvasPreferences;
+  /** Optional Grok illustration after karaoke complete — diagnostics/reading polish */
+  storyImageLoading: boolean;
+  storyImageUrl: string | null;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -181,6 +184,30 @@ function looksLikeNumber(text: string): boolean {
   if (/^\d+$/.test(t)) return true;
   const numberWords = /^(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|and|\s)+$/i;
   return numberWords.test(t);
+}
+
+/**
+ * New karaoke `canvas_draw` → reset story illustration state for the next story.
+ * Non-karaoke / non-idle modes clear overlay (worksheet, games, …).
+ */
+function storyIllustrationPatch(
+  s: SessionState,
+  mode: CanvasState["mode"],
+  nextAnimationKey: number,
+): Pick<SessionState, "storyImageLoading" | "storyImageUrl"> {
+  if (mode !== "karaoke" && mode !== "idle") {
+    return { storyImageLoading: false, storyImageUrl: null };
+  }
+  if (mode === "karaoke") {
+    const prev = s.canvas.animationKey ?? 0;
+    if (nextAnimationKey !== prev) {
+      return { storyImageLoading: false, storyImageUrl: null };
+    }
+  }
+  return {
+    storyImageLoading: s.storyImageLoading,
+    storyImageUrl: s.storyImageUrl,
+  };
 }
 
 function getPlaybackCaptureConfig(policy: TurnPolicy) {
@@ -249,6 +276,8 @@ export function useSession() {
     loadingMessage: null,
     debugMode: false,
     readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
+    storyImageLoading: false,
+    storyImageUrl: null,
   });
 
   const [micMuted, setMicMuted] = useState(false);
@@ -327,6 +356,8 @@ export function useSession() {
           loadingMessage: null,
           childName: m.childName ?? m.child ?? "",
           debugMode,
+          storyImageLoading: false,
+          storyImageUrl: null,
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -464,8 +495,12 @@ export function useSession() {
           const isWordBuilder = mode === "word-builder";
           const isGameMode = GAME_MODES.has(mode);
           const isKaraoke = mode === "karaoke";
-          setStateRef.current((s) => ({
+          setStateRef.current((s) => {
+            const nextAnim = (s.canvas.animationKey ?? 0) + 1;
+            const story = storyIllustrationPatch(s, mode, nextAnim);
+            return {
             ...s,
+            ...story,
             blackboard: clearedBlackboardState(),
             canvas: {
               mode: mode && VALID_CANVAS_MODES.includes(mode) ? mode : "idle",
@@ -517,9 +552,10 @@ export function useSession() {
                     : undefined
                 : undefined,
               pendingAnswer: undefined,
-              animationKey: (s.canvas.animationKey ?? 0) + 1,
+              animationKey: nextAnim,
             },
-          }));
+          };
+          });
           // canvas_done sent by Canvas when animation completes
         }
 
@@ -617,6 +653,26 @@ export function useSession() {
         break;
       }
 
+      case "story_image_loading":
+        console.log("[ws] story image loading...");
+        setStateRef.current((s) => ({
+          ...s,
+          storyImageLoading: true,
+          storyImageUrl: null,
+        }));
+        break;
+
+      case "story_image": {
+        const u = msg.url;
+        console.log("[ws] story image received:", u);
+        setStateRef.current((s) => ({
+          ...s,
+          storyImageLoading: false,
+          storyImageUrl: typeof u === "string" && u.length > 0 ? u : null,
+        }));
+        break;
+      }
+
       case "session_context": {
         setStateRef.current((s) => {
           const rc = msg.readingCanvas as ReadingCanvasPreferences | undefined;
@@ -649,6 +705,8 @@ export function useSession() {
           const isGameMode = GAME_MODES.has(mode);
           const isKaraoke = mode === "karaoke";
           setStateRef.current((s) => {
+            const nextAnim = (s.canvas.animationKey ?? 0) + 1;
+            const story = storyIllustrationPatch(s, mode, nextAnim);
             const nextCanvas: CanvasState = {
               mode,
               canvasRevision:
@@ -701,7 +759,7 @@ export function useSession() {
                     : undefined
                 : undefined,
               pendingAnswer: undefined,
-              animationKey: (s.canvas.animationKey ?? 0) + 1,
+              animationKey: nextAnim,
             };
             console.log("[canvas_draw] received:", {
               mode: nextCanvas.mode,
@@ -713,6 +771,7 @@ export function useSession() {
             });
             return {
               ...s,
+              ...story,
               blackboard: clearedBlackboardState(),
               canvas: nextCanvas,
             };
@@ -921,16 +980,25 @@ export function useSession() {
   // --- Actions ---
 
   const startSession = useCallback(
-    (childName: string) => {
+    (
+      childName: string,
+      options?: { diagKiosk?: boolean },
+    ) => {
       setState((s) => ({ ...s, phase: "connecting", error: null }));
       connect();
+
+      const diagKiosk = options?.diagKiosk === true;
+      const wsChild = diagKiosk ? "creator" : childName;
 
       let timeoutId: ReturnType<typeof setTimeout>;
       const check = setInterval(() => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           clearInterval(check);
           clearTimeout(timeoutId);
-          sendMessage("start_session", { child: childName });
+          sendMessage("start_session", {
+            child: wsChild,
+            ...(diagKiosk ? { diagKiosk: true } : {}),
+          });
           startMic();
         }
       }, 100);
@@ -942,6 +1010,8 @@ export function useSession() {
           error: "Connection timeout",
           phase: "picker",
           debugMode: false,
+          storyImageLoading: false,
+          storyImageUrl: null,
         }));
       }, 10000);
     },
@@ -1008,6 +1078,8 @@ export function useSession() {
       loadingMessage: null,
       debugMode: false,
       readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
+      storyImageLoading: false,
+      storyImageUrl: null,
     });
     wsRef.current?.close();
     wsRef.current = null;

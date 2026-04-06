@@ -14,7 +14,7 @@ export interface RewardEvent {
 }
 
 export function appendRewardLog(
-  childName: "Ila" | "Reina",
+  childName: "Ila" | "Reina" | "creator",
   events: RewardEvent[]
 ): void {
   if (!shouldPersistSessionData()) return;

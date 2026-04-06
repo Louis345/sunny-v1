@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { generateText, stepCountIs } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { PSYCHOLOGIST_PROMPT } from "../prompts";
+import { getCompanionConfig } from "../../companions/loader";
 import { appendToContext } from "../../utils/appendToContext";
 import { querySessions, flagGap } from "./tools";
 import {
@@ -113,16 +114,13 @@ For any homework worksheet you receive:
   CHILD PROFILE FILTER — apply before extracting:
     Read the child's grade level and math skills from their soul file.
 
-    For Reina (2nd grade):
-    - INCLUDE: counting, addition, subtraction, comparing amounts, coin identification
-    - EXCLUDE: any problem requiring multiplication, division, or multi-step operations the child hasn't mastered
-    - If a problem requires an excluded operation, skip it entirely — do not extract it
+    Apply grade level from the soul/profile: include only operations the child has mastered; skip problems above that level.
 
-    This filter applies to ALL worksheets regardless of what the teacher assigned. Our job is to meet the child where they are, not where the worksheet assumes they are.
+    This filter applies to ALL worksheets regardless of what the teacher assigned. Meet the child where they are, not where the worksheet assumes they are.
 
   Extract every problem as JSON with these fields:
 
-  question: What Matilda says aloud to the child.
+  question: What the companion says aloud to the child.
     - Natural spoken language only
     - A tutor asking a question, not a worksheet
     - Example: 'How many cookies did I buy?'
@@ -548,9 +546,10 @@ export async function runPsychologist(
   const tools = { querySessions, flagGap };
   console.log("Tools registered:", Object.keys(tools));
 
+  const companionName = getCompanionConfig(childName).name;
   const { text, steps } = await generateText({
     model: anthropic("claude-sonnet-4-5"),
-    system: PSYCHOLOGIST_PROMPT(childName, hasNatalie),
+    system: PSYCHOLOGIST_PROMPT(childName, hasNatalie, companionName),
     prompt,
     tools,
     stopWhen: stepCountIs(10),

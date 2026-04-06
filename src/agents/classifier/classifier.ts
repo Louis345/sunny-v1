@@ -20,7 +20,10 @@ import "dotenv/config";
 import fs from "fs";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
-import { resolveContextFilePath } from "../../utils/childContextPaths";
+import {
+  resolveContextFilePath,
+  type ChildName,
+} from "../../utils/childContextPaths";
 
 const ROOT = process.cwd();
 const DROP_DIR = path.join(ROOT, "drop");
@@ -614,12 +617,16 @@ function appendToContext(childName: "Ila" | "Reina", text: string): string {
 }
 
 export async function classifyAndRoute(
-  childName: "Ila" | "Reina",
+  childName: ChildName,
   options?: {
     progressState?: { processed: number; total: number };
     logProgress?: boolean;
   },
 ): Promise<{ hasNewFiles: boolean; routed: string[]; reports: IngestFileReport[] }> {
+  if (childName === "creator") {
+    return { hasNewFiles: false, routed: [], reports: [] };
+  }
+
   const allFiles = collectDropFiles().filter((f) => {
     const child = detectChildFromPath(f);
     return child === childName || child === null;
@@ -636,7 +643,8 @@ export async function classifyAndRoute(
   for (const filePath of allFiles) {
     const filename = path.basename(filePath);
     const ext = path.extname(filePath).toLowerCase();
-    const child = detectChildFromPath(filePath) ?? childName;
+    const child: "Ila" | "Reina" =
+      detectChildFromPath(filePath) ?? childName;
     const report: IngestFileReport = {
       filename,
       sourcePath: toWorkspaceRelative(filePath),

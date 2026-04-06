@@ -1,39 +1,36 @@
-Looking at the session data and current notes, I need to clarify which twin this is for. The profile at the top is for **Ila**, but all the session notes are about **Reina**. There's a mismatch here.
-
-However, since you're asking me to plan as a Wilson Reading System curriculum planner and the profile is for Ila (who has dyslexia and uses Wilson), I'll plan for **Ila** based on her clinical profile.
-
 ## Focus Area
-**Wilson Step 2: CVC Decoding with Short /i/ and /a/**
+**Multi-Digit Addition and Subtraction with Regrouping**
 
-Ila has completed phoneme segmentation of CVC words with 85%+ accuracy. Now we advance to visual decoding - seeing the written word and reading it aloud. This targets her dyslexia directly through the structured, multisensory Wilson approach. Her WIAT-4 shows Word Reading at 12th percentile, so systematic phonics progression is essential.
+Reina has mastered single-digit facts (100% accuracy across 16/16 attempts) and demonstrated strong problem-solving transfer from riddles to math contexts. Her competitive nature and wrestling background make her ready for "harder takedowns" - multi-digit problems that require strategic thinking and regrouping. This targets her self-identified math gaps while building on her proven strengths.
 
 ## Words for Next 3 Sessions
 
-**Session 1:** hit, sit, mat, cat, pit
-**Session 2:** bat, fit, hat, pan, tin  
-**Session 3:** map, zip, tap, win, sad
+**Session 1:** 47 + 28, 65 - 29, 156 + 78, 84 - 37, 129 + 45
+**Session 2:** 234 - 67, 178 + 156, 92 - 48, 203 + 89, 145 - 78  
+**Session 3:** 456 + 287, 300 - 142, 178 + 294, 521 - 256, 389 + 175
 
 ## Clinical Reasoning
 
-Ila's CELF-5 shows she needs visual support (100% accuracy with pictures vs 37.5% without) and struggles with auditory memory (Recalling Sentences at 5th percentile). The Wilson approach provides:
+Reina's session history shows she thrives on:
 
-1. **Visual-auditory integration**: She sees AND hears each word
-2. **One-step instructions**: Her Following Directions score (2nd percentile) means we present one word at a time, never stack
-3. **Sentence Comprehension strength**: We use her 63rd percentile strength by embedding words in simple sentences ("The cat sat on the mat")
-4. **ADHD accommodation**: Short, focused sessions with immediate success feedback
+1. **Competitive framing**: She sustained 10-problem streaks and caught instructor errors - ready for "beat your time" challenges with carrying/borrowing
+2. **Pattern recognition**: 100% accuracy on spelling patterns (keyboard, towel) and riddle logic transfers to place-value patterns in regrouping
+3. **Applied contexts**: Failed at worksheet drill (26% coin accuracy) but succeeded with word problems (86% store-game accuracy) - embed these in wrestling scenarios ("3 matches worth 47 points each, plus 28 bonus points")
+4. **Wrestling metaphors**: Use "pin the tens," "carry the one like a takedown," "regroup for the next round"
+5. **Japanese celebration**: すごい and やった after successful regrouping builds confidence
 
-The progression from single vowel (/i/ in Session 1) to mixed vowels (Sessions 2-3) matches her processing capacity while building confidence through repetition disguised as new challenges.
+The progression from 2-digit (Session 1) to 3-digit with zeros (Session 3) matches her advanced processing while maintaining challenge level that engages rather than bores her.
 
 ## Success Looks Like
 
-**Segmentation (hear → say sounds):** Elli says "hit" and Ila responds "/h/-/i/-/t/" with 85%+ accuracy
+**Regrouping mastery**: Reina solves 47 + 28 by carrying the one without hesitation, explaining "7 + 8 = 15, write 5 carry 1"
 
-**Decoding (see → read word):** Elli shows written "hit" and Ila reads it aloud with 80%+ accuracy
+**Speed building**: By Session 2, she completes 5 problems in under 3 minutes with 80%+ accuracy
 
-**Transfer:** By Session 3, Ila can decode at least 3 mixed vowel CVC words independently (no prompting, no hesitation)
+**Transfer to word problems**: Session 3 includes "In 3 wrestling matches, Reina scored 156, 78, and 129 points. What's her total?" and she sets up the addition independently
 
-**Engagement:** She stays focused for 10+ minutes, asks "What's next?", and celebrates her own success
+**Competitive engagement**: She asks "Can I beat my record?" and celebrates personal bests with Japanese expressions
 
-**ADHD management:** She uses "whole body listening" without multiple redirections and waits for "Go" signal before responding
+**Self-regulation**: When stuck, she asks for hints rather than giving up, and exits on successful completion rather than frustration
 
-When she hits 85%+ decoding accuracy on mixed CVC words, advance to CCVC patterns (stop, clap, drip).
+When she hits 85%+ accuracy on 3-digit regrouping, advance to multiplication concepts using wrestling scenarios (3 matches × 47 points each).

@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useRef,
   useCallback,
+  useReducer,
   createRef,
 } from "react";
 import { useForm } from "react-hook-form";
@@ -38,6 +39,11 @@ import {
   DEFAULT_READING_CANVAS_PREFERENCES,
   type ReadingCanvasPreferences,
 } from "../../../src/shared/readingCanvasPreferences";
+import { classifyKaraokeWordMatch } from "../../../src/shared/karaokeMatchWord";
+import {
+  buildKaraokeReadingProgressPayload,
+  isInterimPhraseRestart,
+} from "../../../src/shared/karaokeReadingMetrics";
 import { BlackboardContent } from "./BlackboardContent";
 const Lottie =
   (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
@@ -133,20 +139,6 @@ export interface CanvasState {
   karaokeWords?: string[];
 }
 
-function matchWord(heard: string, expected: string): boolean {
-  const h = heard.toLowerCase().replace(/[^a-z]/g, "");
-  const e = expected.toLowerCase().replace(/[^a-z]/g, "");
-  if (h === e) return true;
-  if (Math.abs(h.length - e.length) > 2) return false;
-  let diff = 0;
-  for (let i = 0; i < Math.min(h.length, e.length); i++) {
-    if (h[i] !== e[i]) diff++;
-  }
-  return diff <= 1;
-}
-
-const KARAOKE_FLAGGED_PLACEHOLDER: string[] = [];
-
 function chunkWordsIntoLines(words: string[], wordsPerLine: number): string[][] {
   if (words.length === 0) return [];
   const lines: string[][] = [];
@@ -177,21 +169,40 @@ function locateWordInLines(
 
 function KaraokeReadingCanvas(props: {
   words: string[];
+  /** Full story body — used to detect a new story vs karaoke refresh (same text preserves word index). */
+  storyText: string;
   interimTranscript: string;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   onCanvasDone: () => void;
   readingCanvas: ReadingCanvasPreferences;
 }): React.ReactElement {
-  const { words, interimTranscript, sendMessage, onCanvasDone, readingCanvas } =
-    props;
+  const {
+    words,
+    storyText,
+    interimTranscript,
+    sendMessage,
+    onCanvasDone,
+    readingCanvas,
+  } = props;
   const p = readingCanvas;
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const newStoryText = storyText ?? "";
+  const lastStoryTextRef = useRef("");
+  const currentWordIndexRef = useRef(0);
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
   const lastInterimRef = useRef("");
-  const indexRef = useRef(0);
   const completeRef = useRef(false);
-  const wordsKey = words.join("|");
-
-  indexRef.current = currentWordIndex;
+  /** Words successfully read in order (sent on progress + complete for server word bank). */
+  const spelledWordsRef = useRef<string[]>([]);
+  /** Words that needed several tries before advancing (struggle signal). */
+  const flaggedWordsSetRef = useRef<Set<string>>(new Set());
+  const mismatchCountForCurrentRef = useRef(0);
+  /** Phrase restarts (interim length shrank) — sent as `hesitations` on reading_progress. */
+  const hesitationsRef = useRef(0);
+  const lastInterimLengthRef = useRef(0);
+  /** Last classify result for the current interim string; shrink + mismatch → flag count. */
+  const lastClassifyResultRef = useRef<"match" | "partial" | "mismatch">(
+    "match",
+  );
 
   const lines = React.useMemo(
     () => chunkWordsIntoLines(words, p.wordsPerLine),
@@ -204,57 +215,105 @@ function KaraokeReadingCanvas(props: {
   }, []);
 
   useEffect(() => {
-    setCurrentWordIndex(0);
-    lastInterimRef.current = "";
-    completeRef.current = false;
-  }, [wordsKey]);
+    if (newStoryText !== lastStoryTextRef.current) {
+      lastStoryTextRef.current = newStoryText;
+      currentWordIndexRef.current = 0;
+      lastInterimRef.current = "";
+      completeRef.current = false;
+      spelledWordsRef.current = [];
+      flaggedWordsSetRef.current = new Set();
+      mismatchCountForCurrentRef.current = 0;
+      hesitationsRef.current = 0;
+      lastInterimLengthRef.current = 0;
+      lastClassifyResultRef.current = "match";
+      rerender();
+    }
+  }, [newStoryText]);
 
   useEffect(() => {
     if (completeRef.current || words.length === 0) return;
     const t = interimTranscript.trim();
     if (t === lastInterimRef.current) return;
+
+    const currLen = t.length;
+    const prevStoredLen = lastInterimLengthRef.current;
+    if (isInterimPhraseRestart(prevStoredLen, currLen)) {
+      hesitationsRef.current += 1;
+      if (lastClassifyResultRef.current === "mismatch") {
+        const stuckIdx = currentWordIndexRef.current;
+        if (stuckIdx < words.length) {
+          const stuckExpected = words[stuckIdx];
+          if (stuckExpected) {
+            mismatchCountForCurrentRef.current += 1;
+            if (mismatchCountForCurrentRef.current >= 3) {
+              const key = stuckExpected.toLowerCase().trim();
+              if (key) flaggedWordsSetRef.current.add(key);
+            }
+          }
+        }
+      }
+    }
+    lastInterimLengthRef.current = currLen;
     lastInterimRef.current = t;
+
     const heardWords = t.split(/\s+/).filter(Boolean);
     const lastWord = heardWords[heardWords.length - 1] ?? "";
-    setCurrentWordIndex((prev) => {
-      if (prev >= words.length) return prev;
-      const expected = words[prev];
-      if (!expected || !matchWord(lastWord, expected)) return prev;
-      const next = prev + 1;
-      if (next >= words.length) {
-        completeRef.current = true;
-        sendMessage("reading_progress", {
+    if (!lastWord) return;
+
+    const prev = currentWordIndexRef.current;
+    if (prev >= words.length) return;
+    const expected = words[prev];
+    if (!expected) return;
+
+    const result = classifyKaraokeWordMatch(lastWord, expected);
+    lastClassifyResultRef.current = result;
+
+    if (result !== "match") return;
+
+    const spelledToken = expected.toLowerCase().trim();
+    if (spelledToken) spelledWordsRef.current.push(spelledToken);
+    mismatchCountForCurrentRef.current = 0;
+    const next = prev + 1;
+    currentWordIndexRef.current = next;
+    rerender();
+    if (next >= words.length) {
+      completeRef.current = true;
+      sendMessage(
+        "reading_progress",
+        buildKaraokeReadingProgressPayload({
           wordIndex: next,
           totalWords: words.length,
-          accuracy:
-            (words.length - KARAOKE_FLAGGED_PLACEHOLDER.length) /
-            Math.max(words.length, 1),
-          flaggedWords: [...KARAOKE_FLAGGED_PLACEHOLDER],
+          hesitations: hesitationsRef.current,
+          flaggedWords: Array.from(flaggedWordsSetRef.current),
+          spelledWords: [...spelledWordsRef.current],
           event: "complete",
-        });
-      }
-      return next;
-    });
+        }),
+      );
+    }
   }, [interimTranscript, words, sendMessage]);
 
   useEffect(() => {
     if (words.length === 0) return;
     const id = window.setInterval(() => {
       if (completeRef.current) return;
-      const idx = indexRef.current;
+      const idx = currentWordIndexRef.current;
       const total = words.length;
-      sendMessage("reading_progress", {
-        wordIndex: idx,
-        totalWords: total,
-        accuracy:
-          (total - KARAOKE_FLAGGED_PLACEHOLDER.length) / Math.max(total, 1),
-        flaggedWords: [...KARAOKE_FLAGGED_PLACEHOLDER],
-        event: "progress",
-      });
+      sendMessage(
+        "reading_progress",
+        buildKaraokeReadingProgressPayload({
+          wordIndex: idx,
+          totalWords: total,
+          hesitations: hesitationsRef.current,
+          flaggedWords: Array.from(flaggedWordsSetRef.current),
+          spelledWords: [...spelledWordsRef.current],
+          event: "progress",
+        }),
+      );
     }, 3000);
     return () => window.clearInterval(id);
-  }, [wordsKey, words.length, sendMessage]);
+  }, [newStoryText, words.length, sendMessage]);
 
+  const currentWordIndex = currentWordIndexRef.current;
   const done = currentWordIndex >= words.length;
   const { lineIdx, colIdx } = done
     ? locateWordInLines(lines, words.length)
@@ -268,27 +327,42 @@ function KaraokeReadingCanvas(props: {
   const fsLineOther = Math.max(24, p.fontSize - 6);
   const fsPrevNext = Math.max(22, Math.round(p.fontSize * 0.67));
 
-  const maxDots = Math.min(words.length, 40);
-  const filledDots =
-    words.length === 0 ? 0 : Math.round((currentWordIndex / words.length) * maxDots);
+  const pctComplete =
+    words.length === 0
+      ? 0
+      : done
+        ? 100
+        : Math.min(99, Math.round((currentWordIndex / words.length) * 100));
 
-  const displayWordNum = Math.min(currentWordIndex + (done ? 0 : 1), words.length);
+  const fillPct =
+    words.length === 0 ? 0 : Math.round((currentWordIndex / words.length) * 100);
 
   return (
     <div
       style={{
+        position: "relative",
         padding: 48,
+        paddingBottom: 120,
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        justifyContent: "space-between",
         minHeight: "100%",
         width: "100%",
         background: p.background,
         fontFamily: p.fontFamilyCss,
       }}
     >
+      <style>{`
+        @keyframes sunny-slide-in-line {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes sunny-word-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+      `}</style>
       <div
         style={{
           flex: 1,
@@ -320,11 +394,13 @@ function KaraokeReadingCanvas(props: {
         )}
 
         <div
+          key={lineIdx}
           style={{
             lineHeight: p.lineHeight,
             marginBottom: 24,
             textAlign: "center",
             width: "100%",
+            animation: "sunny-slide-in-line 0.3s ease-out both",
           }}
         >
           {curLine.map((word, ci) => {
@@ -346,6 +422,7 @@ function KaraokeReadingCanvas(props: {
                         backgroundColor: p.highlightBackground,
                         borderRadius: 8,
                         padding: "4px 8px",
+                        animation: "sunny-word-pulse 1s ease-in-out infinite",
                       }
                     : readInLine
                       ? {
@@ -386,33 +463,50 @@ function KaraokeReadingCanvas(props: {
 
       <div
         style={{
-          width: "100%",
-          maxWidth: 520,
-          paddingTop: 16,
+          position: "absolute",
+          bottom: 24,
+          left: 48,
+          right: 48,
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          alignItems: "stretch",
           gap: 8,
         }}
       >
         <div
           style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: 6,
-            fontSize: 12,
-            color: "#FFD700",
-            letterSpacing: 2,
+            width: "100%",
+            height: 8,
+            borderRadius: 999,
+            background: "#e2e8f0",
+            overflow: "hidden",
           }}
-          aria-hidden
+          aria-valuenow={pctComplete}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          role="progressbar"
         >
-          {Array.from({ length: maxDots }, (_, i) => (
-            <span key={i}>{i < filledDots ? "●" : "○"}</span>
-          ))}
+          <div
+            style={{
+              height: "100%",
+              width: `${fillPct}%`,
+              background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
+              transition: "width 0.4s ease",
+              borderRadius: 999,
+              boxShadow: "0 0 8px rgba(59, 130, 246, 0.5)",
+            }}
+          />
         </div>
-        <div style={{ fontSize: 14, color: "#9ca3af" }}>
-          Word {words.length === 0 ? 0 : displayWordNum} of {words.length}
+        <div
+          style={{
+            fontFamily: "'Lexend', sans-serif",
+            fontSize: 13,
+            fontWeight: 500,
+            color: "#94a3b8",
+            textAlign: "center",
+          }}
+        >
+          {pctComplete}% complete
         </div>
       </div>
     </div>
@@ -543,6 +637,10 @@ interface Props {
   }) => void;
   interimTranscript?: string;
   sendMessage?: (type: string, payload?: Record<string, unknown>) => void;
+  /** For story-image loading avatar: `/characters/${id}.png` */
+  storyImageChildId?: string;
+  storyImageLoading?: boolean;
+  storyImageUrl?: string | null;
 }
 
 /** Worksheet asset URL points at a raster image (not a PDF) — use <img>, not react-pdf. */
@@ -1970,11 +2068,16 @@ export function Canvas({
   onOverlayFieldChange,
   interimTranscript = "",
   sendMessage = () => {},
+  storyImageChildId = "star",
+  storyImageLoading = false,
+  storyImageUrl = null,
 }: Props) {
   console.log("[Canvas] render:", {
     mode: canvas.mode,
     hasSvg: !!canvas.svg,
     willRender: shouldRenderTeachingContent(canvas),
+    storyImageLoading,
+    hasStoryImageUrl: Boolean(storyImageUrl),
   });
   const [displayContent, setDisplayContent] = useState("");
   const [riddleLabel, setRiddleLabel] = useState("");
@@ -2299,6 +2402,126 @@ export function Canvas({
         ? canvas.label.split(/\s+/).filter(Boolean)
         : [];
 
+  const storyImageKeyframes = `@keyframes fadeIn { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: scale(1); } } @keyframes fakeLoad { 0% { width: 0%; } 70% { width: 75%; } 95% { width: 88%; } 100% { width: 88%; } } @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }`;
+
+  if (storyImageLoading) {
+    return (
+      <div
+        className="flex-1 w-full min-h-0 relative"
+        style={{ overflow: "hidden" }}
+      >
+        <style>{storyImageKeyframes}</style>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            gap: 24,
+            background: "#FFF8F0",
+          }}
+        >
+          <img
+            src={`/characters/${storyImageChildId}.png`}
+            alt=""
+            onError={(e) => {
+              e.currentTarget.src = "/characters/star.png";
+            }}
+            style={{
+              width: 130,
+              height: 130,
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "4px solid #FFD700",
+              animation: "bounce 2s ease-in-out infinite",
+            }}
+          />
+          <p
+            style={{
+              fontSize: 16,
+              color: "#64748b",
+              fontFamily: "Lexend, system-ui",
+              margin: 0,
+            }}
+          >
+            Creating your story illustration...
+          </p>
+          <div
+            style={{
+              width: 260,
+              height: 10,
+              background: "#e2e8f0",
+              borderRadius: 999,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: 0,
+                background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
+                borderRadius: 999,
+                boxShadow: "0 0 12px rgba(37,99,235,0.4)",
+                animation: "fakeLoad 8s ease-out forwards",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (storyImageUrl) {
+    return (
+      <div
+        className="flex-1 w-full min-h-0 relative"
+        style={{ overflow: "hidden" }}
+      >
+        <style>{storyImageKeyframes}</style>
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            position: "relative",
+            borderRadius: 16,
+            overflow: "hidden",
+          }}
+        >
+          <img
+            src={storyImageUrl}
+            alt="Your story"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              animation: "fadeIn 1.5s ease-in forwards",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              padding: "32px 24px 24px",
+              background:
+                "linear-gradient(transparent, rgba(0,0,0,0.65))",
+              color: "white",
+              textAlign: "center",
+              fontSize: 20,
+              fontWeight: 600,
+              fontFamily: "Lexend, system-ui",
+              letterSpacing: "0.05em",
+            }}
+          >
+            ✨ Your adventure, illustrated
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="flex-1 flex flex-col items-center justify-center p-8 bg-white relative"
@@ -2407,8 +2630,8 @@ export function Canvas({
         canvas.mode === "karaoke" &&
         karaokeWordsForRender.length > 0 ? (
           <KaraokeReadingCanvas
-            key={canvas.animationKey ?? 0}
             words={karaokeWordsForRender}
+            storyText={String(canvas.content ?? "")}
             interimTranscript={interimTranscript}
             sendMessage={sendMessage}
             onCanvasDone={handleCanvasDone}

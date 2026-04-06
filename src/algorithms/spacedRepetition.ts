@@ -79,6 +79,18 @@ export function getWordsDueForReview(
   });
 }
 
+/** Hardest reviews first (lowest easiness factor) for session scheduling. */
+export function sortDueWordEntriesByEasinessAscending(
+  entries: WordEntry[],
+  domain: Domain,
+): WordEntry[] {
+  return [...entries].sort((a, b) => {
+    const ea = a.tracks[domain]?.easinessFactor ?? 2.5;
+    const eb = b.tracks[domain]?.easinessFactor ?? 2.5;
+    return ea - eb;
+  });
+}
+
 export function getNewWordsForSession(
   wordBank: WordEntry[],
   domain: Domain,
