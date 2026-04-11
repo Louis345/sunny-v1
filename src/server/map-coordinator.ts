@@ -192,6 +192,7 @@ export async function applyNodeResult(
         xpDelta += 25;
       }
     }
+    // Castle bonus (TASK-015).
     if (nodeCfg.isCastle) {
       xpDelta += 50;
     }

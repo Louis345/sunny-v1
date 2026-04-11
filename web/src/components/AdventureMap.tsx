@@ -195,6 +195,46 @@ export function AdventureMap(props: { childId?: string }) {
     return () => clearInterval(id);
   }, [sendNodeRating]);
 
+  const castleCelebrationRef = useRef<{
+    start: number;
+    cx: number;
+    cy: number;
+  } | null>(null);
+  const prevCompletedLenForCelebrationRef = useRef(0);
+
+  useEffect(() => {
+    if (!mapState || mapState.nodes.length === 0) {
+      prevCompletedLenForCelebrationRef.current = 0;
+      castleCelebrationRef.current = null;
+      return;
+    }
+    const n = mapState.completedNodes.length;
+    const total = mapState.nodes.length;
+    const last = mapState.nodes[total - 1];
+    const allDone = n === total && Boolean(last?.isCastle);
+    if (
+      allDone &&
+      n > prevCompletedLenForCelebrationRef.current &&
+      last?.isCastle
+    ) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const layouts = nodeLayouts(w, h, mapState.nodes);
+        const L = layouts[layouts.length - 1];
+        if (L) {
+          castleCelebrationRef.current = {
+            start: performance.now(),
+            cx: L.x,
+            cy: L.y,
+          };
+        }
+      }
+    }
+    prevCompletedLenForCelebrationRef.current = n;
+  }, [mapState]);
+
   const bgImg = useRef<HTMLImageElement | null>(null);
   const castleImg = useRef<HTMLImageElement | null>(null);
   const bgLoadAt = useRef<number | null>(null);
@@ -508,6 +548,33 @@ export function AdventureMap(props: { childId?: string }) {
           like: { x: likeX, y: ly, r: rHit },
           dislike: { x: dislikeX, y: ly, r: rHit },
         };
+      }
+
+      const cel = castleCelebrationRef.current;
+      if (cel) {
+        const dt = now - cel.start;
+        if (dt >= 2000) {
+          castleCelebrationRef.current = null;
+        } else {
+          const prog = dt / 2000;
+          for (let i = 0; i < 60; i++) {
+            const a = (i / 60) * Math.PI * 2 + prog * 2.8;
+            const mag = prog * (100 + (i % 6) * 16);
+            const px = cel.cx + Math.cos(a) * mag;
+            const py = cel.cy + Math.sin(a) * mag - prog * 45;
+            ctx.fillStyle = pal.glow;
+            ctx.globalAlpha = Math.max(0, 1 - prog);
+            ctx.beginPath();
+            ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = `rgba(20,20,24,${Math.min(0.92, prog / 0.55) * 0.88})`;
+          ctx.font = "bold 22px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("Session Complete!", w / 2, h * 0.18);
+        }
       }
 
       ctx.save();

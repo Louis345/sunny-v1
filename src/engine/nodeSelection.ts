@@ -115,6 +115,7 @@ export async function buildNodeList(
     }),
   );
 
+  // Terminal castle boss: hardest due word, difficulty 3 (TASK-009 / TASK-015).
   out.push(
     baseNode("n-castle", "boss", themeName, {
       words: [hardest],
