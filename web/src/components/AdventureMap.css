@@ -16,6 +16,6 @@
   }
 }
 
-.adventure-map-canvas.is-animating {
+.adventure-map-root.is-animating .adventure-map-canvas {
   animation: adventure-map-node-pulse 1.2s ease-in-out infinite;
 }
