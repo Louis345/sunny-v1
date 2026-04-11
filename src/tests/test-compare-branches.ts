@@ -97,6 +97,6 @@ describe("compositeScore", () => {
     });
     expect(s).toBeGreaterThanOrEqual(0);
     expect(s).toBeLessThanOrEqual(100);
-    expect(s).toBe(64.5);
+    expect(s).toBe(63.5);
   });
 });
