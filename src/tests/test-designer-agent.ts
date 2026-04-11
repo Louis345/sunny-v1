@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ChildProfile } from "../shared/childProfile";
+import * as themeRegistry from "../server/theme-registry";
 import { generateTheme } from "../agents/designer/designer";
 
 vi.mock("../utils/generateStoryImage", () => ({
@@ -52,8 +53,7 @@ describe("DesignerAgent generateTheme (TASK-008)", () => {
   });
 
   it("selects theme name from profile.unlockedThemes only", async () => {
-    const spy = vi.spyOn(await import("../server/theme-registry"), "getRandomUnlockedTheme");
-    spy.mockReturnValue("beach");
+    const spy = vi.spyOn(themeRegistry, "getRandomUnlockedTheme").mockReturnValue("beach");
     const t = await generateTheme(baseProfile({ unlockedThemes: ["default", "beach"] }));
     expect(t.name).toBe("beach");
     spy.mockRestore();
