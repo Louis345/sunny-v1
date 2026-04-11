@@ -3,6 +3,13 @@ import fs from "fs";
 import path from "path";
 import { ELLI, MATILDA } from "../companions/loader";
 import { buildProfile } from "../profiles/buildProfile";
+import type { NodeResult } from "../shared/adventureTypes";
+import {
+  applyNodeResult,
+  handleMapClientMessage,
+  MapSessionError,
+  startMapSession,
+} from "./map-coordinator";
 import { loadChildFiles } from "../utils/loadChildFiles";
 import { loadAttemptHistory } from "../utils/attempts";
 
@@ -104,5 +111,56 @@ export function setupRoutes(app: Express): void {
       return res.status(404).json({ error: "File not found" });
     }
     res.sendFile(filePath);
+  });
+
+  app.post("/api/map/start", async (req: Request, res: Response) => {
+    const childId =
+      typeof req.body?.childId === "string" ? req.body.childId : "";
+    if (!childId.trim()) {
+      return res.status(400).json({ error: "childId required" });
+    }
+    try {
+      const out = await startMapSession(childId);
+      res.json(out);
+    } catch (err: unknown) {
+      if (err instanceof MapSessionError) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/map/node-complete", async (req: Request, res: Response) => {
+    const body = req.body as {
+      sessionId?: string;
+      result?: NodeResult;
+      phase?: string;
+      nodeId?: string;
+    };
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId required" });
+    }
+    try {
+      if (body.phase === "click" && typeof body.nodeId === "string") {
+        const events = handleMapClientMessage(sessionId, {
+          type: "node_click",
+          payload: { nodeId: body.nodeId },
+        });
+        return res.json({ events });
+      }
+      if (body.result) {
+        const mapState = await applyNodeResult(sessionId, body.result);
+        return res.json({ mapState });
+      }
+      return res.status(400).json({ error: "invalid body" });
+    } catch (err: unknown) {
+      if (err instanceof MapSessionError) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
   });
 }
