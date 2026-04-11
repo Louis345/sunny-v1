@@ -14,7 +14,11 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`http_${res.status}`);
+  if (!res.ok) {
+    const detail = `http_${res.status}`;
+    console.error("  🔴 [useMapSession] POST failed", url, detail);
+    throw new Error(detail);
+  }
   return res.json() as Promise<T>;
 }
 
@@ -63,8 +67,10 @@ export function useMapSession(childId: string): {
         setMapState(out.mapState);
         setTheme(out.mapState.theme);
         setConnectionStatus("open");
+        console.log("  🎮 [useMapSession] map session ready");
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("  🔴 [useMapSession] map /start failed:", err);
         if (!cancelled) setConnectionStatus("error");
       });
     return () => {
@@ -88,7 +94,8 @@ export function useMapSession(childId: string): {
         if (payload && typeof payload === "object") {
           setLaunchedNode(payload as NodeConfig);
         }
-      } catch {
+      } catch (err) {
+        console.error("  🔴 [useMapSession] node click failed:", err);
         setConnectionStatus("error");
       }
     },
@@ -112,7 +119,8 @@ export function useMapSession(childId: string): {
         setTheme(res.mapState.theme);
         setLaunchedNode(null);
         return res.mapState;
-      } catch {
+      } catch (err) {
+        console.error("  🔴 [useMapSession] node result failed:", err);
         setConnectionStatus("error");
         return null;
       }
@@ -130,7 +138,8 @@ export function useMapSession(childId: string): {
           nodeId,
           rating,
         });
-      } catch {
+      } catch (err) {
+        console.error("  🔴 [useMapSession] node rating failed:", err);
         setConnectionStatus("error");
       }
     },

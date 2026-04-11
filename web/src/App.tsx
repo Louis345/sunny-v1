@@ -4,6 +4,7 @@ import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
+import { AdventureMap } from "./components/AdventureMap";
 
 const isCanvasTestMode =
   import.meta.env.VITE_TEST_MODE === "true" ||
