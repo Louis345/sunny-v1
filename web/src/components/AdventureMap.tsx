@@ -106,7 +106,9 @@ export function AdventureMap(props: { childId?: string }) {
     onNodeClick,
     launchedNode,
     sendNodeResult,
+    sendNodeRating,
   } = useMapSession(resolved);
+  void sendNodeRating;
 
   const [gameFrameUrl, setGameFrameUrl] = useState<string | null>(null);
   const [gameFrameEntered, setGameFrameEntered] = useState(false);

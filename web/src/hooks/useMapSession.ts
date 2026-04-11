@@ -31,6 +31,10 @@ export function useMapSession(childId: string): {
   launchedNode: NodeConfig | null;
   clearLaunchedNode: () => void;
   sendNodeResult: (result: NodeResult) => Promise<MapState | null>;
+  sendNodeRating: (
+    nodeId: string,
+    rating: "like" | "dislike" | null,
+  ) => Promise<void>;
 } {
   const [mapState, setMapState] = useState<MapState | null>(null);
   const [theme, setTheme] = useState<SessionTheme | null>(null);
