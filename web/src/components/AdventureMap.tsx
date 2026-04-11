@@ -78,7 +78,9 @@ export function AdventureMap(props: { childId?: string }) {
     (typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("childId") ?? ""
       : "");
-  const { mapState, theme, connectionStatus, onNodeClick } = useMapSession(resolved);
+  const { mapState, theme, connectionStatus, onNodeClick, sendNodeResult } =
+    useMapSession(resolved);
+  void sendNodeResult;
 
   const mapRef = useRef<MapState | null>(null);
   const themeRef = useRef<SessionTheme | null>(null);
