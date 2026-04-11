@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useRef } from "react";
-import type { MapState, NodeConfig, SessionTheme } from "../../../src/shared/adventureTypes";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  MapState,
+  NodeConfig,
+  NodeResult,
+  SessionTheme,
+} from "../../../src/shared/adventureTypes";
 import { useMapSession } from "../hooks/useMapSession";
 import "./AdventureMap.css";
 
@@ -7,6 +12,7 @@ type Layout = { x: number; y: number; r: number };
 
 const PARTICLES = 20;
 const IMAGE_FADE_MS = 800;
+const PORTAL_MS = 800;
 
 function nodeLayouts(w: number, h: number, nodes: NodeConfig[]): Layout[] {
   const pad = 56;
@@ -21,6 +27,20 @@ function nodeLayouts(w: number, h: number, nodes: NodeConfig[]): Layout[] {
     out.push({ x, y: cy - wave, r: baseR });
   }
   return out;
+}
+
+function buildWordBuilderGameUrl(childId: string, node: NodeConfig): string {
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
+  const q = new URLSearchParams({
+    childId,
+    words: node.words.join(","),
+    difficulty: String(node.difficulty),
+    timeLimit: String(node.timeLimit_ms),
+    theme: node.theme,
+    nodeId: node.id,
+    game: node.type,
+  });
+  return `${base}games/word-builder.html?${q.toString()}`;
 }
 
 function drawCheck(ctx: CanvasRenderingContext2D, x: number, y: number, s: number) {
@@ -78,9 +98,31 @@ export function AdventureMap(props: { childId?: string }) {
     (typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("childId") ?? ""
       : "");
-  const { mapState, theme, connectionStatus, onNodeClick, sendNodeResult } =
-    useMapSession(resolved);
-  void sendNodeResult;
+
+  const {
+    mapState,
+    theme,
+    connectionStatus,
+    onNodeClick,
+    launchedNode,
+    sendNodeResult,
+  } = useMapSession(resolved);
+
+  const [gameFrameUrl, setGameFrameUrl] = useState<string | null>(null);
+  const [gameFrameEntered, setGameFrameEntered] = useState(false);
+  const gameUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    gameUrlRef.current = gameFrameUrl;
+  }, [gameFrameUrl]);
+
+  useEffect(() => {
+    if (!gameFrameUrl) {
+      setGameFrameEntered(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setGameFrameEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [gameFrameUrl]);
 
   const mapRef = useRef<MapState | null>(null);
   const themeRef = useRef<SessionTheme | null>(null);
@@ -89,10 +131,53 @@ export function AdventureMap(props: { childId?: string }) {
     themeRef.current = theme ?? mapState?.theme ?? null;
   }, [mapState, theme]);
 
+  const childIdRef = useRef(resolved);
+  useEffect(() => {
+    childIdRef.current = resolved;
+  }, [resolved]);
+
+  const launchNodeRef = useRef<NodeConfig | null>(null);
+  launchNodeRef.current = launchedNode;
+
   const bgImg = useRef<HTMLImageElement | null>(null);
   const castleImg = useRef<HTMLImageElement | null>(null);
   const bgLoadAt = useRef<number | null>(null);
   const castleLoadAt = useRef<number | null>(null);
+
+  const portalAnimRef = useRef<{ start: number; cx: number; cy: number } | null>(
+    null,
+  );
+  const iframeScheduledRef = useRef(false);
+
+  useEffect(() => {
+    if (!launchedNode) {
+      setGameFrameUrl(null);
+      portalAnimRef.current = null;
+      iframeScheduledRef.current = false;
+      return;
+    }
+    const canvas = canvasRef.current;
+    if (!canvas || !mapState) return;
+    const { clientWidth: w, clientHeight: h } = canvas;
+    const layouts = nodeLayouts(w, h, mapState.nodes);
+    const idx = mapState.nodes.findIndex((n) => n.id === launchedNode.id);
+    const L = layouts[idx];
+    if (L) {
+      portalAnimRef.current = { start: performance.now(), cx: L.x, cy: L.y };
+      iframeScheduledRef.current = false;
+    }
+  }, [launchedNode, mapState]);
+
+  useEffect(() => {
+    const onMsg = (ev: MessageEvent) => {
+      const d = ev.data;
+      if (!d || typeof d !== "object") return;
+      if ((d as { type?: string }).type !== "node_result") return;
+      void sendNodeResult(d as NodeResult);
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [sendNodeResult]);
 
   useEffect(() => {
     const u = mapState?.theme.backgroundUrl;
@@ -281,9 +366,8 @@ export function AdventureMap(props: { childId?: string }) {
       if (last && lastNode?.isCastle) {
         const cx = last.x;
         const cy = last.y - last.r * 1.4;
-        let ca = 0;
         if (castleImg.current && castleLoadAt.current != null) {
-          ca = Math.min(1, (now - castleLoadAt.current) / IMAGE_FADE_MS);
+          const ca = Math.min(1, (now - castleLoadAt.current) / IMAGE_FADE_MS);
           ctx.save();
           ctx.globalAlpha = ca;
           const iw = last.r * 2.8;
@@ -299,6 +383,32 @@ export function AdventureMap(props: { childId?: string }) {
         ctx.arc(cx, cy, 16 * cp, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
+      }
+
+      const pa = portalAnimRef.current;
+      if (pa && !gameUrlRef.current) {
+        const t = now - pa.start;
+        if (t < PORTAL_MS) {
+          const prog = t / PORTAL_MS;
+          ctx.save();
+          ctx.strokeStyle = pal.accent;
+          for (let ring = 0; ring < 5; ring++) {
+            const maxR = Math.min(w, h) * 0.48;
+            const r = prog * maxR * ((ring + 1) / 5);
+            ctx.globalAlpha = Math.max(0, 0.85 * (1 - prog));
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(pa.cx, pa.cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (!iframeScheduledRef.current && launchNodeRef.current) {
+          iframeScheduledRef.current = true;
+          const node = launchNodeRef.current;
+          const url = buildWordBuilderGameUrl(childIdRef.current, node);
+          gameUrlRef.current = url;
+          setGameFrameUrl(url);
+        }
       }
 
       ctx.save();
@@ -350,6 +460,7 @@ export function AdventureMap(props: { childId?: string }) {
 
   const handleCanvasClick = useCallback(
     async (ev: React.MouseEvent<HTMLCanvasElement>) => {
+      if (gameUrlRef.current) return;
       const id = pickNodeId(ev.clientX, ev.clientY);
       if (id) await onNodeClick(id);
     },
@@ -368,6 +479,26 @@ export function AdventureMap(props: { childId?: string }) {
         onClick={handleCanvasClick}
         aria-label="Adventure map"
       />
+      {gameFrameUrl ? (
+        <iframe
+          title="Adventure node game"
+          src={gameFrameUrl}
+          allow="autoplay; fullscreen"
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            border: 0,
+            zIndex: 4,
+            background: "#0a0a0c",
+            transform: gameFrameEntered ? "translateY(0)" : "translateY(100%)",
+            opacity: gameFrameEntered ? 1 : 0,
+            transition: "transform 420ms ease-out, opacity 420ms ease-out",
+            pointerEvents: "auto",
+          }}
+        />
+      ) : null}
     </div>
   );
 }
