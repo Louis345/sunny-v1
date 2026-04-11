@@ -34,6 +34,7 @@ export default defineConfig({
       "src/tests/test-theme-registry.ts",
       "src/tests/test-node-rating-io.ts",
       "src/tests/test-designer-agent.ts",
+      "src/tests/test-node-selection.ts",
       "src/algorithms/*.test.ts",
       "src/engine/*.test.ts",
     ],
