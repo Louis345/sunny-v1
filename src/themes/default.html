@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sunny theme — default</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #87ceeb;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="world"></canvas>
+    <script>
+      window.THEME_NAME = "default";
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const childId = params.get("childId") || "ila";
+        const canvas = document.getElementById("world");
+        const ctx = canvas.getContext("2d");
+        let accent = "#22c55e";
+
+        function resize() {
+          canvas.width = window.innerWidth * devicePixelRatio;
+          canvas.height = window.innerHeight * devicePixelRatio;
+          ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+        }
+
+        function drawWorld() {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          const g = ctx.createLinearGradient(0, 0, 0, h * 0.65);
+          g.addColorStop(0, "#4fa8ff");
+          g.addColorStop(0.55, "#87ceeb");
+          g.addColorStop(1, "#b8e2ff");
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, w, h * 0.65);
+
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          [[w * 0.15, h * 0.12, w * 0.12], [w * 0.45, h * 0.1, w * 0.1], [w * 0.72, h * 0.14, w * 0.11]].forEach(
+            ([x, y, r]) => {
+              ctx.beginPath();
+              ctx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2);
+              ctx.fill();
+            },
+          );
+
+          const hill = ctx.createLinearGradient(0, h * 0.45, 0, h);
+          hill.addColorStop(0, accent);
+          hill.addColorStop(1, "#14532d");
+          ctx.fillStyle = hill;
+          ctx.beginPath();
+          ctx.moveTo(0, h * 0.55);
+          ctx.bezierCurveTo(
+            w * 0.25,
+            h * 0.42,
+            w * 0.55,
+            h * 0.62,
+            w,
+            h * 0.48,
+          );
+          ctx.lineTo(w, h);
+          ctx.lineTo(0, h);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = "rgba(255,255,200,0.35)";
+          ctx.fillRect(0, h * 0.62, w, h * 0.04);
+        }
+
+        function tick() {
+          drawWorld();
+          requestAnimationFrame(tick);
+        }
+
+        fetch("/api/profile/" + encodeURIComponent(childId))
+          .then(function (r) {
+            if (!r.ok) throw new Error("profile " + r.status);
+            return r.json();
+          })
+          .then(function (p) {
+            if (p && p.ui && typeof p.ui.accentColor === "string") {
+              accent = p.ui.accentColor;
+            }
+          })
+          .catch(function (e) {
+            console.warn(" 🎮 [theme-default] profile fetch failed, using palette default", e);
+          })
+          .finally(function () {
+            resize();
+            window.addEventListener("resize", resize);
+            tick();
+          });
+      })();
+    </script>
+  </body>
+</html>

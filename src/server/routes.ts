@@ -1,7 +1,8 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
 import { ELLI, MATILDA } from "../companions/loader";
+import { buildProfile } from "../profiles/buildProfile";
 import { loadChildFiles } from "../utils/loadChildFiles";
 import { loadAttemptHistory } from "../utils/attempts";
 
@@ -17,8 +18,31 @@ function isValidChild(name: string): name is ChildName {
 }
 
 export function setupRoutes(app: Express): void {
+  const themesDir = path.resolve(process.cwd(), "src", "themes");
+  if (fs.existsSync(themesDir)) {
+    app.use("/themes", express.static(themesDir));
+  }
+
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  app.get("/api/profile/:childId", async (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId : "";
+    if (!childId.trim()) {
+      return res.status(400).json({ error: "Missing childId" });
+    }
+    try {
+      const profile = await buildProfile(childId);
+      if (!profile) {
+        return res.status(404).json({ error: "Unknown profile" });
+      }
+      res.json(profile);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
   });
 
   app.get("/api/companions", (_req: Request, res: Response) => {

@@ -110,4 +110,10 @@ export interface LearningProfile {
       lastTriggered?: string;
     };
   };
+
+  /** Epsilon-greedy bandit per child (TASK-005); counts/values align with ALL_NODE_TYPES order. */
+  banditState?: {
+    counts: number[];
+    values: number[];
+  };
 }
