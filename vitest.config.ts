@@ -38,6 +38,7 @@ export default defineConfig({
       "src/tests/test-map-coordinator.ts",
       "src/tests/test-post-node-pipeline.ts",
       "src/tests/test-adventure-metrics.ts",
+      "src/tests/test-session-metrics-note.ts",
       "src/algorithms/*.test.ts",
       "src/engine/*.test.ts",
     ],
