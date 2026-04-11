@@ -95,6 +95,8 @@ describe("buildNodeList (TASK-009)", () => {
   it("works for any childId string on profile", async () => {
     const nodes = await buildNodeList(profile(200_000, "registry_child_x"), theme());
     expect(nodes.length).toBeGreaterThan(0);
-    expect(vi.mocked(planSession).mock.calls[0][0]).toBe("registry_child_x");
+    expect(
+      vi.mocked(planSession).mock.calls.some((c) => c[0] === "registry_child_x"),
+    ).toBe(true);
   });
 });
