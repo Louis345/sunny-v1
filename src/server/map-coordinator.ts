@@ -137,3 +137,31 @@ export async function applyNodeResult(
 export function getMapState(sessionId: string): MapState | null {
   return sessions.get(sessionId)?.mapState ?? null;
 }
+
+/** Explicit like / dislike / skip (null) after a node (TASK-013). */
+export async function recordExplicitMapRating(
+  sessionId: string,
+  nodeId: string,
+  rating: "like" | "dislike" | null,
+): Promise<void> {
+  const rec = sessions.get(sessionId);
+  if (!rec) {
+    throw new MapSessionError("unknown_session", 404);
+  }
+  const nodeCfg = rec.mapState.nodes.find((n) => n.id === nodeId);
+  if (!nodeCfg) {
+    throw new MapSessionError("unknown_node", 400);
+  }
+  const like: NodeRatingLike = rating === "like" ? "like" : "dislike";
+  await appendNodeRating({
+    childId: rec.mapState.childId,
+    sessionDate: rec.mapState.sessionDate,
+    nodeType: nodeCfg.type,
+    word: nodeCfg.words[0] ?? "session",
+    theme: rec.mapState.theme.name,
+    rating: like,
+    completionTime_ms: 0,
+    accuracy: 0,
+    abandonedEarly: rating === null,
+  });
+}

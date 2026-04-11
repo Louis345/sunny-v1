@@ -8,6 +8,7 @@ import {
   applyNodeResult,
   handleMapClientMessage,
   MapSessionError,
+  recordExplicitMapRating,
   startMapSession,
 } from "./map-coordinator";
 import { loadChildFiles } from "../utils/loadChildFiles";
@@ -137,6 +138,7 @@ export function setupRoutes(app: Express): void {
       result?: NodeResult;
       phase?: string;
       nodeId?: string;
+      rating?: unknown;
     };
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     if (!sessionId) {
@@ -149,6 +151,13 @@ export function setupRoutes(app: Express): void {
           payload: { nodeId: body.nodeId },
         });
         return res.json({ events });
+      }
+      if (body.phase === "rating" && typeof body.nodeId === "string") {
+        const raw = body.rating;
+        const norm: "like" | "dislike" | null =
+          raw === "like" ? "like" : raw === "dislike" ? "dislike" : null;
+        await recordExplicitMapRating(sessionId, body.nodeId, norm);
+        return res.json({ ok: true });
       }
       if (body.result) {
         const mapState = await applyNodeResult(sessionId, body.result);

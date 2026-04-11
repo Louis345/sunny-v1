@@ -120,6 +120,23 @@ export function useMapSession(childId: string): {
     [sessionId],
   );
 
+  const sendNodeRating = useCallback(
+    async (nodeId: string, rating: "like" | "dislike" | null) => {
+      if (!sessionId) return;
+      try {
+        await postJson("/api/map/node-complete", {
+          sessionId,
+          phase: "rating",
+          nodeId,
+          rating,
+        });
+      } catch {
+        setConnectionStatus("error");
+      }
+    },
+    [sessionId],
+  );
+
   return {
     mapState,
     theme,
@@ -129,5 +146,6 @@ export function useMapSession(childId: string): {
     launchedNode,
     clearLaunchedNode,
     sendNodeResult,
+    sendNodeRating,
   };
 }

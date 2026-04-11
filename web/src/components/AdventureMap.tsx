@@ -108,7 +108,6 @@ export function AdventureMap(props: { childId?: string }) {
     sendNodeResult,
     sendNodeRating,
   } = useMapSession(resolved);
-  void sendNodeRating;
 
   const [gameFrameUrl, setGameFrameUrl] = useState<string | null>(null);
   const [gameFrameEntered, setGameFrameEntered] = useState(false);
@@ -140,6 +139,61 @@ export function AdventureMap(props: { childId?: string }) {
 
   const launchNodeRef = useRef<NodeConfig | null>(null);
   launchNodeRef.current = launchedNode;
+
+  const ratingUiRef = useRef<{
+    nodeId: string;
+    nodeType: string;
+    showAt: number;
+    dismissAt: number;
+  } | null>(null);
+  const ratingHitRef = useRef<{
+    like: { x: number; y: number; r: number };
+    dislike: { x: number; y: number; r: number };
+  } | null>(null);
+  const lastCompletedLenRef = useRef(0);
+  const sessionStampRef = useRef("");
+
+  useEffect(() => {
+    if (!mapState) {
+      ratingUiRef.current = null;
+      lastCompletedLenRef.current = 0;
+      sessionStampRef.current = "";
+      return;
+    }
+    const stamp = `${mapState.childId}|${mapState.sessionDate}`;
+    if (stamp !== sessionStampRef.current) {
+      sessionStampRef.current = stamp;
+      lastCompletedLenRef.current = mapState.completedNodes.length;
+      ratingUiRef.current = null;
+      return;
+    }
+    const n = mapState.completedNodes.length;
+    if (n > lastCompletedLenRef.current) {
+      lastCompletedLenRef.current = n;
+      const nid = mapState.completedNodes[n - 1];
+      const node = mapState.nodes.find((x) => x.id === nid);
+      if (nid && node) {
+        const now = performance.now();
+        ratingUiRef.current = {
+          nodeId: nid,
+          nodeType: node.type,
+          showAt: now + 500,
+          dismissAt: now + 5000,
+        };
+      }
+    }
+  }, [mapState]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const ru = ratingUiRef.current;
+      if (!ru) return;
+      if (performance.now() < ru.dismissAt) return;
+      ratingUiRef.current = null;
+      void sendNodeRating(ru.nodeId, null);
+    }, 280);
+    return () => clearInterval(id);
+  }, [sendNodeRating]);
 
   const bgImg = useRef<HTMLImageElement | null>(null);
   const castleImg = useRef<HTMLImageElement | null>(null);
@@ -413,6 +467,49 @@ export function AdventureMap(props: { childId?: string }) {
         }
       }
 
+      ratingHitRef.current = null;
+      const ru = ratingUiRef.current;
+      if (ru && now >= ru.showAt) {
+        const cx = w / 2;
+        const cy = h / 2;
+        ctx.save();
+        ctx.fillStyle = "#ffffffee";
+        ctx.strokeStyle = pal.accent;
+        ctx.lineWidth = 2;
+        const bw = 300;
+        const bh = 110;
+        ctx.beginPath();
+        ctx.roundRect(cx - bw / 2, cy - bh / 2, bw, bh, 14);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#111";
+        ctx.font = "14px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`How was ${ru.nodeType}?`, cx, cy - 26);
+        const ly = cy + 18;
+        const likeX = cx - 64;
+        const dislikeX = cx + 64;
+        const rHit = 26;
+        ctx.fillStyle = pal.accent;
+        ctx.beginPath();
+        ctx.arc(likeX, ly, rHit, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = pal.particle;
+        ctx.beginPath();
+        ctx.arc(dislikeX, ly, rHit, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "18px system-ui, sans-serif";
+        ctx.fillText("\u2713", likeX, ly);
+        ctx.fillText("\u2717", dislikeX, ly);
+        ctx.restore();
+        ratingHitRef.current = {
+          like: { x: likeX, y: ly, r: rHit },
+          dislike: { x: dislikeX, y: ly, r: rHit },
+        };
+      }
+
       ctx.save();
       ctx.fillStyle = "#ffffffee";
       ctx.strokeStyle = pal.accent;
@@ -462,11 +559,44 @@ export function AdventureMap(props: { childId?: string }) {
 
   const handleCanvasClick = useCallback(
     async (ev: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const ru = ratingUiRef.current;
+      if (ru && performance.now() >= ru.showAt) {
+        const hit = ratingHitRef.current;
+        const inCircle = (
+          px: number,
+          py: number,
+          c: { x: number; y: number; r: number },
+        ) => {
+          const dx = px - c.x;
+          const dy = py - c.y;
+          return dx * dx + dy * dy <= c.r * c.r;
+        };
+        if (hit) {
+          if (inCircle(x, y, hit.like)) {
+            ratingUiRef.current = null;
+            await sendNodeRating(ru.nodeId, "like");
+            return;
+          }
+          if (inCircle(x, y, hit.dislike)) {
+            ratingUiRef.current = null;
+            await sendNodeRating(ru.nodeId, "dislike");
+            return;
+          }
+        }
+        ratingUiRef.current = null;
+        await sendNodeRating(ru.nodeId, null);
+        return;
+      }
       if (gameUrlRef.current) return;
       const id = pickNodeId(ev.clientX, ev.clientY);
       if (id) await onNodeClick(id);
     },
-    [onNodeClick, pickNodeId],
+    [onNodeClick, pickNodeId, sendNodeRating],
   );
 
   return (
