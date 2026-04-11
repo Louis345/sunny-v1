@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "./hooks/useSession";
 import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
@@ -9,6 +9,9 @@ const isCanvasTestMode =
   import.meta.env.VITE_TEST_MODE === "true" ||
   (typeof window !== "undefined" &&
     window.location.search.includes("testmode"));
+
+const adventureMapEnabled =
+  import.meta.env.VITE_ADVENTURE_MAP === "true";
 
 function App() {
   const {
@@ -25,9 +28,12 @@ function App() {
     toggleMicMute,
   } = useSession();
 
+  const [adventureChildId, setAdventureChildId] = useState<string | null>(null);
+
   // Auto-start session when on /test/canvas so the canvas test page works directly
   useEffect(() => {
     if (
+      !adventureMapEnabled &&
       state.phase === "picker" &&
       window.location.pathname === "/test/canvas" &&
       (window.location.port === "3002" || window.location.port === "5173")
@@ -35,6 +41,21 @@ function App() {
       startSession("Ila");
     }
   }, [state.phase, startSession]);
+
+  if (adventureMapEnabled && adventureChildId) {
+    return (
+      <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+        <button
+          type="button"
+          className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
+          onClick={() => setAdventureChildId(null)}
+        >
+          Back
+        </button>
+        <AdventureMap childId={adventureChildId} />
+      </div>
+    );
+  }
 
   if (state.phase === "picker") {
     return (
@@ -44,7 +65,15 @@ function App() {
             {state.error}
           </div>
         )}
-        <ChildPicker onSelect={startSession} />
+        <ChildPicker
+          onSelect={(name, opts) => {
+            if (adventureMapEnabled && !opts?.diagKiosk) {
+              setAdventureChildId(name.trim().toLowerCase());
+              return;
+            }
+            startSession(name, opts);
+          }}
+        />
       </div>
     );
   }
