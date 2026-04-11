@@ -1,4 +1,6 @@
 import { randomUUID } from "crypto";
+import fs from "fs";
+import path from "path";
 import type {
   MapState,
   NodeConfig,
@@ -6,10 +8,13 @@ import type {
   NodeRatingLike,
   SessionTheme,
 } from "../shared/adventureTypes";
-import type { ChildProfile } from "../shared/childProfile";
+import type { ChildQuality } from "../algorithms/types";
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
+import { recordReward } from "../engine/bandit";
+import { recordAttempt } from "../engine/learningEngine";
+import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
 
 type SessionRecord = {
@@ -91,6 +96,29 @@ function ratingFromResult(result: NodeResult): NodeRatingLike {
   return result.accuracy >= 0.5 ? "like" : "dislike";
 }
 
+function appendMapSessionNote(
+  childId: string,
+  sessionDate: string,
+  summary: string,
+): void {
+  try {
+    const dateStr = sessionDate.slice(0, 10);
+    const dir = path.join(
+      process.cwd(),
+      "src",
+      "context",
+      childId,
+      "session_notes",
+    );
+    fs.mkdirSync(dir, { recursive: true });
+    const fp = path.join(dir, `${dateStr}.md`);
+    fs.appendFileSync(fp, `\n- ${summary}\n`, "utf-8");
+    console.log(`  🎮 [map-coordinator] session note line: ${summary}`);
+  } catch (err) {
+    console.error("  🔴 [map-coordinator] session note append failed:", err);
+  }
+}
+
 export async function applyNodeResult(
   sessionId: string,
   result: NodeResult,
@@ -109,11 +137,6 @@ export async function applyNodeResult(
     st.completedNodes.push(result.nodeId);
   }
 
-  const gain = 5 + Math.round(result.wordsAttempted * 2);
-  if (result.completed) {
-    st.xp += gain;
-  }
-
   const rating = ratingFromResult(result);
   await appendNodeRating({
     childId: st.childId,
@@ -126,6 +149,60 @@ export async function applyNodeResult(
     accuracy: result.accuracy,
     abandonedEarly: !result.completed,
   });
+
+  const liked = rating === "like";
+  try {
+    await recordReward(
+      st.childId,
+      nodeCfg.type,
+      liked,
+      result.completed,
+      result.accuracy,
+    );
+  } catch (err) {
+    console.error("  🔴 [map-coordinator] recordReward failed:", err);
+  }
+
+  for (const word of nodeCfg.words) {
+    const correct = result.completed && result.accuracy >= 0.5;
+    try {
+      recordAttempt(st.childId, {
+        word,
+        domain: "spelling",
+        correct,
+        quality: (correct ? 4 : 2) as ChildQuality,
+        scaffoldLevel: 2,
+        responseTimeMs: result.timeSpent_ms,
+      });
+    } catch (err) {
+      console.error("  🔴 [map-coordinator] recordAttempt failed:", err);
+    }
+  }
+
+  if (result.completed) {
+    let xpDelta = 5;
+    const wn = nodeCfg.words.length;
+    const correctWords =
+      wn === 0 ? 0 : Math.min(wn, Math.round(wn * result.accuracy));
+    xpDelta += correctWords * 10;
+    const bankAfter = readWordBank(st.childId);
+    for (const w of nodeCfg.words) {
+      const en = bankAfter.words.find((x) => x.word === w);
+      if (en?.tracks?.spelling?.mastered === true) {
+        xpDelta += 25;
+      }
+    }
+    if (nodeCfg.isCastle) {
+      xpDelta += 50;
+    }
+    st.xp += xpDelta;
+  }
+
+  appendMapSessionNote(
+    st.childId,
+    st.sessionDate,
+    `Map node ${nodeCfg.type} ${result.nodeId} completed=${result.completed} accuracy=${result.accuracy}`,
+  );
 
   if (st.currentNodeIndex < st.nodes.length - 1) {
     st.currentNodeIndex++;

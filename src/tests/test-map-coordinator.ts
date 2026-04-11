@@ -1,13 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { MapState, NodeResult } from "../shared/adventureTypes";
-import {
-  __resetAdventureMapSessionsForTests,
-  applyNodeResult,
-  getMapState,
-  handleMapClientMessage,
-  MapSessionError,
-  startMapSession,
-} from "../server/map-coordinator";
 
 vi.mock("../profiles/buildProfile", () => ({
   buildProfile: vi.fn(),
@@ -24,6 +16,25 @@ vi.mock("../engine/nodeSelection", () => ({
 vi.mock("../utils/nodeRatingIO", () => ({
   appendNodeRating: vi.fn().mockResolvedValue(undefined),
 }));
+
+vi.mock("../engine/bandit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../engine/bandit")>();
+  return { ...actual, recordReward: vi.fn().mockResolvedValue(undefined) };
+});
+
+vi.mock("../engine/learningEngine", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../engine/learningEngine")>();
+  return { ...actual, recordAttempt: vi.fn().mockReturnValue({}) };
+});
+
+import {
+  __resetAdventureMapSessionsForTests,
+  applyNodeResult,
+  getMapState,
+  handleMapClientMessage,
+  MapSessionError,
+  startMapSession,
+} from "../server/map-coordinator";
 
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme } from "../agents/designer/designer";
