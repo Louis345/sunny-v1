@@ -291,6 +291,8 @@ export class SessionManager {
   private storyImageGeneratedThisStory = false;
   /** After reading_progress event=complete, allow STT through while karaoke canvas may still be visible. */
   private karaokeReadingComplete = false;
+  /** Ensures event=complete triggers at most one companion turn per karaoke story. */
+  private readingProgressCompleteConsumed = false;
 
   /** Karaoke on screen and reader has not finished (no reading_progress complete yet). */
   private karaokeReadingInProgress(): boolean {
@@ -2378,7 +2380,10 @@ export class SessionManager {
       return;
     }
 
-    if (state === "CANVAS_PENDING" || state === "SPEAKING") {
+    if (
+      !opts?.fromReadingComplete &&
+      (state === "CANVAS_PENDING" || state === "SPEAKING")
+    ) {
       if (!this.shouldAcceptInterruptedTranscript(transcript)) {
         auditLog("transcript", {
           action: "dropped",
@@ -4638,6 +4643,7 @@ export class SessionManager {
         console.log(`  🖼️  [canvas] canvasShow type=blackboard`);
       } else if (ct === "karaoke") {
         this.karaokeReadingComplete = false;
+        this.readingProgressCompleteConsumed = false;
         this.pendingGameStart = null;
         const words = (args.words as string[]) ?? [];
         const st = args.storyText;
@@ -4779,6 +4785,13 @@ export class SessionManager {
     );
 
     if (event === "complete") {
+      if (this.readingProgressCompleteConsumed) return;
+      this.readingProgressCompleteConsumed = true;
+
+      if (this.turnSM.getState() === "CANVAS_PENDING") {
+        this.canvasDone({});
+      }
+
       this.karaokeReadingComplete = true;
       console.log("  📖 [reading] suppression lifted — story complete");
       const childId = childIdFromName(this.childName);
