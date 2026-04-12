@@ -46,3 +46,8 @@ drop/reina/
 
 # Local Rive explorer (HTML + character.riv); delete when done
 rive-demo/
+
+# Python (pipeline local venv — never commit)
+venv/
+__pycache__/
+*.pyc
