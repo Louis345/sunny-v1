@@ -36,3 +36,7 @@ jobs:
       - name: Build (web)
         working-directory: web
         run: npm run build
+
+      - name: Test (web Vitest)
+        working-directory: web
+        run: npm run test

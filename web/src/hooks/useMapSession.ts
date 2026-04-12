@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
+  CompanionEvent,
+  CompanionEventPayload,
+} from "../../../src/shared/companionTypes";
+import type {
   MapState,
   NodeConfig,
   NodeResult,
@@ -7,6 +11,20 @@ import type {
 } from "../../../src/shared/adventureTypes";
 
 export type MapConnectionStatus = "idle" | "connecting" | "open" | "error";
+
+function isCompanionEvent(msg: unknown): msg is CompanionEvent {
+  if (!msg || typeof msg !== "object") return false;
+  const m = msg as Record<string, unknown>;
+  if (m.type !== "companion_event") return false;
+  const p = m.payload;
+  if (!p || typeof p !== "object") return false;
+  const pl = p as Record<string, unknown>;
+  return (
+    typeof pl.trigger === "string" &&
+    typeof pl.childId === "string" &&
+    typeof pl.timestamp === "number"
+  );
+}
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
@@ -39,6 +57,7 @@ export function useMapSession(childId: string): {
     nodeId: string,
     rating: "like" | "dislike" | null,
   ) => Promise<void>;
+  companionEvents: CompanionEventPayload[];
 } {
   const [mapState, setMapState] = useState<MapState | null>(null);
   const [theme, setTheme] = useState<SessionTheme | null>(null);
@@ -46,6 +65,9 @@ export function useMapSession(childId: string): {
   const [connectionStatus, setConnectionStatus] =
     useState<MapConnectionStatus>("idle");
   const [launchedNode, setLaunchedNode] = useState<NodeConfig | null>(null);
+  const [companionEvents, setCompanionEvents] = useState<CompanionEventPayload[]>(
+    [],
+  );
 
   useEffect(() => {
     if (!childId.trim()) {
@@ -53,9 +75,13 @@ export function useMapSession(childId: string): {
       setTheme(null);
       setSessionId(null);
       setLaunchedNode(null);
+      setCompanionEvents([]);
       setConnectionStatus("idle");
+      const w = window as unknown as { _mapWs?: WebSocket };
+      w._mapWs = undefined;
       return;
     }
+    setCompanionEvents([]);
     let cancelled = false;
     setConnectionStatus("connecting");
     postJson<{ sessionId: string; mapState: MapState }>("/api/map/start", {
@@ -75,6 +101,47 @@ export function useMapSession(childId: string): {
       });
     return () => {
       cancelled = true;
+    };
+  }, [childId]);
+
+  useEffect(() => {
+    const id = childId.trim();
+    if (!id) return;
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const ws = new WebSocket(wsUrl);
+    const w = window as unknown as { _mapWs?: WebSocket };
+    w._mapWs = ws;
+
+    ws.onopen = () => {
+      ws.send(
+        JSON.stringify({ type: "map_session_attach", childId: id }),
+      );
+      console.log(
+        "[useMapSession] map WebSocket open, sent map_session_attach",
+        { childId: id, url: wsUrl },
+      );
+    };
+    ws.onmessage = (ev) => {
+      try {
+        const msg: unknown = JSON.parse(String(ev.data));
+        if (isCompanionEvent(msg)) {
+          console.log("companion_event received:", msg);
+          setCompanionEvents((prev) => [...prev, msg.payload]);
+        }
+      } catch {
+        /* ignore non-JSON frames */
+      }
+    };
+    ws.onerror = () => {
+      console.error("  �� [useMapSession] map WebSocket error");
+    };
+    return () => {
+      if (w._mapWs === ws) {
+        w._mapWs = undefined;
+      }
+      ws.close();
     };
   }, [childId]);
 
@@ -108,16 +175,21 @@ export function useMapSession(childId: string): {
     async (result: NodeResult) => {
       if (!sessionId) return null;
       try {
-        const res = await postJson<{ mapState: MapState }>(
-          "/api/map/node-complete",
-          {
-            sessionId,
-            result,
-          },
-        );
+        const res = await postJson<{
+          mapState: MapState;
+          companionEvent?: CompanionEvent | null;
+        }>("/api/map/node-complete", {
+          sessionId,
+          result,
+        });
         setMapState(res.mapState);
         setTheme(res.mapState.theme);
         setLaunchedNode(null);
+        if (res.companionEvent && isCompanionEvent(res.companionEvent)) {
+          const ev = res.companionEvent;
+          console.log("companion_event received (REST):", ev);
+          setCompanionEvents((prev) => [...prev, ev.payload]);
+        }
         return res.mapState;
       } catch (err) {
         console.error("  🔴 [useMapSession] node result failed:", err);
@@ -156,5 +228,6 @@ export function useMapSession(childId: string): {
     clearLaunchedNode,
     sendNodeResult,
     sendNodeRating,
+    companionEvents,
   };
 }

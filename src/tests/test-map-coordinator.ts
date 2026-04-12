@@ -37,6 +37,7 @@ import {
 } from "../server/map-coordinator";
 
 import { buildProfile } from "../profiles/buildProfile";
+import { cloneCompanionDefaults } from "../shared/companionTypes";
 import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { appendNodeRating } from "../utils/nodeRatingIO";
@@ -89,6 +90,7 @@ describe("map coordinator (TASK-010)", () => {
       ui: { accentColor: "#00f" },
       unlockedThemes: ["default"],
       attentionWindow_ms: 200_000,
+      companion: cloneCompanionDefaults(),
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);
     vi.mocked(buildNodeList).mockResolvedValue(mockNodes());
@@ -127,7 +129,7 @@ describe("map coordinator (TASK-010)", () => {
       timeSpent_ms: 12_000,
       wordsAttempted: 2,
     };
-    const next = await applyNodeResult(sessionId, result);
+    const { mapState: next } = await applyNodeResult(sessionId, result);
     expect(next.xp).toBeGreaterThan(0);
     expect(vi.mocked(appendNodeRating).mock.calls.length).toBeGreaterThan(0);
   });

@@ -12,6 +12,8 @@ interface PathCurveProps {
   count: number;
   startRadius?: number;
   endRadius?: number;
+  /** Fired when node layout positions are recomputed (for companion LookAt, etc.). */
+  onPositionsChange?: (positions: Point[]) => void;
   children: (positions: Point[]) => ReactNode;
 }
 
@@ -19,6 +21,7 @@ export function PathCurve({
   count,
   startRadius = 44,
   endRadius = 44,
+  onPositionsChange,
   children,
 }: PathCurveProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -46,6 +49,10 @@ export function PathCurve({
     observer.observe(svgRef.current);
     return () => observer.disconnect();
   }, [recompute]);
+
+  useEffect(() => {
+    onPositionsChange?.(state.positions);
+  }, [state.positions, onPositionsChange]);
 
   return (
     <>

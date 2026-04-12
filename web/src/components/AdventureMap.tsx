@@ -1,13 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { NodeConfig, NodeResult } from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
 import { useMapSession } from "../hooks/useMapSession";
-import { NodeCard } from "./NodeCard";
-import { PathCurve } from "./PathCurve";
-import { RatingOverlay } from "./RatingOverlay";
-import { WorldBackground } from "./WorldBackground";
-import { XPBar } from "./XPBar";
+import { NodeCard } from "./NodeCard.tsx";
+import { PathCurve } from "./PathCurve.tsx";
+import { RatingOverlay } from "./RatingOverlay.tsx";
+import { WorldBackground } from "./WorldBackground.tsx";
+import { XPBar } from "./XPBar.tsx";
 import "./AdventureMap.css";
 
 const PORTAL_MS = 800;
@@ -132,7 +132,11 @@ function LaunchPortal({
   );
 }
 
-export function AdventureMap(props: { childId: string }) {
+export function AdventureMap(props: {
+  childId: string;
+  mapSession: ReturnType<typeof useMapSession>;
+  onActiveNodeScreenChange?: (p: { x: number; y: number } | null) => void;
+}) {
   const resolved = props.childId.trim();
 
   const {
@@ -143,7 +147,7 @@ export function AdventureMap(props: { childId: string }) {
     launchedNode,
     sendNodeResult,
     sendNodeRating,
-  } = useMapSession(resolved);
+  } = props.mapSession;
 
   const [gameFrameUrl, setGameFrameUrl] = useState<string | null>(null);
   const [gameFrameEntered, setGameFrameEntered] = useState(false);
@@ -160,6 +164,9 @@ export function AdventureMap(props: { childId: string }) {
   const lastCompletedLenRef = useRef(0);
   const sessionStampRef = useRef("");
   const prevCelebrationLenRef = useRef(0);
+  const worldRef = useRef<HTMLDivElement>(null);
+  const [pathPositions, setPathPositions] = useState<Point[]>([]);
+  const [hoveredNodeIndex, setHoveredNodeIndex] = useState<number | null>(null);
 
   const accentColor =
     resolved && accentForChild?.childId === resolved
@@ -291,6 +298,28 @@ export function AdventureMap(props: { childId: string }) {
     return undefined;
   }, [mapState]);
 
+  const activeIndexForActiveNode = mapState?.currentNodeIndex ?? 0;
+  const focusIndexForActiveNode = hoveredNodeIndex ?? activeIndexForActiveNode;
+
+  useLayoutEffect(() => {
+    const cb = props.onActiveNodeScreenChange;
+    if (!cb) return;
+    const container = worldRef.current;
+    if (!container) return;
+    if (pathPositions.length === 0) {
+      cb(null);
+      return;
+    }
+    const safeIdx = Math.max(0, Math.min(focusIndexForActiveNode, pathPositions.length - 1));
+    const pos = pathPositions[safeIdx];
+    if (!pos) {
+      cb(null);
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    cb({ x: rect.left + pos.x, y: rect.top + pos.y });
+  }, [focusIndexForActiveNode, pathPositions, props.onActiveNodeScreenChange]);
+
   const handleRate = useCallback(
     async (rating: "like" | "dislike" | null) => {
       if (!ratingPrompt) return;
@@ -337,7 +366,6 @@ export function AdventureMap(props: { childId: string }) {
   const activeIndex = mapState?.currentNodeIndex ?? 0;
   const completed = new Set(mapState?.completedNodes ?? []);
 
-
   const launchedIdx =
     launchedNode && mapState
       ? mapState.nodes.findIndex((n) => n.id === launchedNode.id)
@@ -354,6 +382,7 @@ export function AdventureMap(props: { childId: string }) {
       style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}
     >
       <div
+        ref={worldRef}
         className="adventure-map-world"
         style={{ width: "100vw", height: "100vh" }}
       >
@@ -362,6 +391,7 @@ export function AdventureMap(props: { childId: string }) {
           count={nodes.length}
           startRadius={nodes[0]?.isGoal ? 60 : 44}
           endRadius={nodes[nodes.length - 1]?.isGoal ? 60 : 44}
+          onPositionsChange={setPathPositions}
         >
           {(positions: Point[]) => (
             <>
@@ -383,6 +413,9 @@ export function AdventureMap(props: { childId: string }) {
                     thumbnail={thumbBase ?? undefined}
                     onClick={() => void onNodeClick(node.id)}
                     isActive={isActive}
+                    onHoverChange={(h) => {
+                      setHoveredNodeIndex(h ? i : null);
+                    }}
                   />
                 );
               })}

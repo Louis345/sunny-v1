@@ -7,6 +7,7 @@ import { buildProfile } from "../profiles/buildProfile";
 import type { NodeResult } from "../shared/adventureTypes";
 import {
   applyNodeResult,
+  broadcastTestMapCompanionEvent,
   handleMapClientMessage,
   MapSessionError,
   recordExplicitMapRating,
@@ -197,8 +198,11 @@ export function setupRoutes(app: Express): void {
         return res.json({ ok: true });
       }
       if (body.result) {
-        const mapState = await applyNodeResult(sessionId, body.result);
-        return res.json({ mapState });
+        const { mapState, companionEvent } = await applyNodeResult(
+          sessionId,
+          body.result,
+        );
+        return res.json({ mapState, companionEvent });
       }
       return res.status(400).json({ error: "invalid body" });
     } catch (err: unknown) {
@@ -208,6 +212,21 @@ export function setupRoutes(app: Express): void {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
     }
+  });
+
+  /** TEMP TEST ONLY — do not commit to main. */
+  app.post("/api/map/test-companion-event", (req: Request, res: Response) => {
+    const childId =
+      typeof req.body?.childId === "string" ? req.body.childId : "";
+    const trigger =
+      typeof req.body?.trigger === "string"
+        ? req.body.trigger
+        : "correct_answer";
+    const out = broadcastTestMapCompanionEvent(childId, trigger);
+    if (!out.ok) {
+      return res.status(400).json(out);
+    }
+    res.json(out);
   });
 
   const webPublic = path.resolve(process.cwd(), "web", "public");

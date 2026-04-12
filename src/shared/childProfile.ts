@@ -1,3 +1,5 @@
+import type { CompanionConfig } from "./companionTypes";
+
 /**
  * API-facing child profile for games, themes, and adventure map (TASK-004).
  */
@@ -18,4 +20,6 @@ export interface ChildProfile {
   ui: ChildProfileUI;
   unlockedThemes: string[];
   attentionWindow_ms: number;
+  /** VRM companion dials and asset URL (Phase 0.5). */
+  companion: CompanionConfig;
 }

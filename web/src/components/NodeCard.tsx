@@ -7,12 +7,14 @@ export function NodeCard({
   thumbnail,
   onClick,
   isActive,
+  onHoverChange,
 }: {
   node: NodeConfig;
   position: { x: number; y: number };
   thumbnail?: string | null;
   onClick: () => void;
   isActive: boolean;
+  onHoverChange?: (hovering: boolean) => void;
 }) {
   const isGoal = node.isGoal;
   const isLocked = node.isLocked;
@@ -29,6 +31,12 @@ export function NodeCard({
     <motion.div
       role="button"
       tabIndex={isLocked ? -1 : 0}
+      onPointerEnter={() => {
+        if (!isLocked && !isDone) onHoverChange?.(true);
+      }}
+      onPointerLeave={() => {
+        onHoverChange?.(false);
+      }}
       onClick={() => {
         if (!isLocked && !isDone) onClick();
       }}

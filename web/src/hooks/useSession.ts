@@ -14,6 +14,10 @@ import {
 } from "../../../src/shared/readingCanvasPreferences";
 import { gameIframeRef } from "../components/Canvas";
 import { shouldRenderTeachingContent } from "../utils/canvasLayout";
+import {
+  ensurePlaybackAnalyser,
+  resetAudioAnalyser,
+} from "../utils/audioAnalyser";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -962,10 +966,13 @@ export function useSession() {
       if (playContextRef.current.state === "suspended") {
         await playContextRef.current.resume();
       }
-      const audioBuffer = pcmToAudioBuffer(playContextRef.current, chunk);
-      const source = playContextRef.current.createBufferSource();
+      const ctx = playContextRef.current;
+      const audioBuffer = pcmToAudioBuffer(ctx, chunk);
+      const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(playContextRef.current.destination);
+      const analyser = ensurePlaybackAnalyser(ctx);
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
       currentSourceRef.current = source;
       source.onended = () => {
         if (currentSourceRef.current === source) {
@@ -1120,6 +1127,7 @@ export function useSession() {
         playContextRef.current.close();
         playContextRef.current = null;
       }
+      resetAudioAnalyser();
       wsRef.current?.close();
     };
   }, [stopMic]);

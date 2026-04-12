@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
+import type { WebSocket } from "ws";
 import type {
   MapState,
   NodeConfig,
@@ -16,6 +17,7 @@ import { recordReward } from "../engine/bandit";
 import { recordAttempt } from "../engine/learningEngine";
 import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
+import type { CompanionEvent, CompanionTrigger } from "../shared/companionTypes";
 
 type SessionRecord = {
   childId: string;
@@ -24,8 +26,129 @@ type SessionRecord = {
 
 const sessions = new Map<string, SessionRecord>();
 
+/** Browser WebSocket.OPEN — avoid importing `ws` runtime in hot paths. */
+const WS_OPEN = 1;
+/** Keyed by normalized map childId (same as `profile.childId` / `map_session_attach`). */
+const mapSessionWebSockets = new Map<string, Set<WebSocket>>();
+
+/** Must match `buildProfile` normalization so attach and broadcast use one key. */
+function mapCompanionWsKey(childId: string): string {
+  return childId.trim().toLowerCase();
+}
+
+export function registerMapSessionWebSocket(
+  childId: string,
+  ws: WebSocket,
+): void {
+  const key = mapCompanionWsKey(childId);
+  if (!key) return;
+  let set = mapSessionWebSockets.get(key);
+  if (!set) {
+    set = new Set();
+    mapSessionWebSockets.set(key, set);
+  }
+  set.add(ws);
+  console.log(
+    "[map-coordinator] registerMapSessionWebSocket",
+    JSON.stringify({
+      childId: key,
+      socketCount: set.size,
+      thisSocketReadyState: ws.readyState,
+      allKeys: [...mapSessionWebSockets.keys()],
+    }),
+  );
+  const onClose = () => {
+    set!.delete(ws);
+    if (set!.size === 0) {
+      mapSessionWebSockets.delete(key);
+    }
+    ws.off("close", onClose);
+  };
+  ws.once("close", onClose);
+}
+
+function broadcastCompanionEventToMapChild(childId: string, data: unknown): void {
+  const key = mapCompanionWsKey(childId);
+  const set = mapSessionWebSockets.get(key);
+  if (!set?.size) {
+    console.log(
+      "[map-coordinator] companion_event skipped WebSocket (no listeners)",
+      JSON.stringify({
+        lookupChildId: key,
+        registeredKeys: [...mapSessionWebSockets.keys()],
+      }),
+    );
+    return;
+  }
+  const sockets = [...set];
+  console.log(
+    "[map-coordinator] attempting companion_event broadcast",
+    JSON.stringify({
+      childId: key,
+      socketCount: sockets.length,
+      readyStates: sockets.map((w) => w.readyState),
+    }),
+  );
+  const json = JSON.stringify(data);
+  for (const w of set) {
+    if (w.readyState === WS_OPEN) {
+      try {
+        w.send(json);
+      } catch (err) {
+        console.error("  [map-coordinator] map WebSocket send failed:", err);
+      }
+    }
+  }
+}
+
 export function __resetAdventureMapSessionsForTests(): void {
   sessions.clear();
+  mapSessionWebSockets.clear();
+}
+
+/**
+ * TEMP TEST ONLY — do not commit to main. Exercises `broadcastCompanionEventToMapChild`
+ * without POST /api/map/node-complete (for broken game iframes).
+ */
+export function broadcastTestMapCompanionEvent(
+  childIdRaw: string,
+  triggerRaw: string,
+):
+  | {
+      ok: true;
+      childId: string;
+      trigger: CompanionTrigger;
+      sockets: number;
+    }
+  | { ok: false; error: string } {
+  const allowed: CompanionTrigger[] = [
+    "session_start",
+    "correct_answer",
+    "wrong_answer",
+    "mastery_unlock",
+    "session_end",
+    "idle_too_long",
+  ];
+  const trigger = allowed.find((t) => t === triggerRaw) ?? null;
+  if (!trigger) {
+    return { ok: false, error: `invalid trigger: ${triggerRaw}` };
+  }
+  const key = mapCompanionWsKey(childIdRaw);
+  if (!key) {
+    return { ok: false, error: "childId required" };
+  }
+  const set = mapSessionWebSockets.get(key);
+  const sockets = set?.size ?? 0;
+  const companionEvent: CompanionEvent = {
+    type: "companion_event",
+    payload: {
+      trigger,
+      childId: key,
+      timestamp: Date.now(),
+    },
+  };
+  broadcastCompanionEventToMapChild(key, companionEvent);
+  return { ok: true, childId: key, trigger, sockets };
 }
 
 export class MapSessionError extends Error {
@@ -132,7 +255,7 @@ function appendMapSessionNote(
 export async function applyNodeResult(
   sessionId: string,
   result: NodeResult,
-): Promise<MapState> {
+): Promise<{ mapState: MapState; companionEvent: CompanionEvent }> {
   const rec = sessions.get(sessionId);
   if (!rec) {
     throw new MapSessionError("unknown_session", 404);
@@ -220,7 +343,28 @@ export async function applyNodeResult(
   }
   syncNodeStatuses(st);
 
-  return st;
+  const trigger =
+    rating === "like" ? ("correct_answer" as const) : ("wrong_answer" as const);
+  const companionEvent: CompanionEvent = {
+    type: "companion_event",
+    payload: {
+      trigger,
+      childId: st.childId,
+      timestamp: Date.now(),
+    },
+  };
+  console.log(
+    "[map-coordinator] applyNodeResult emitting companion_event",
+    JSON.stringify({
+      sessionId: sessionId.slice(0, 8),
+      mapChildId: st.childId,
+      wsLookupKey: mapCompanionWsKey(st.childId),
+      trigger,
+    }),
+  );
+  broadcastCompanionEventToMapChild(st.childId, companionEvent);
+
+  return { mapState: st, companionEvent };
 }
 
 export function getMapState(sessionId: string): MapState | null {

@@ -33,6 +33,7 @@ import {
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
+import { cloneCompanionDefaults } from "../shared/companionTypes";
 
 vi.mock("../profiles/buildProfile", () => ({
   buildProfile: vi.fn(),
@@ -114,6 +115,7 @@ describe("post-node pipeline (TASK-014)", () => {
       ui: { accentColor: "#00f" },
       unlockedThemes: ["default"],
       attentionWindow_ms: 240_000,
+      companion: cloneCompanionDefaults(),
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);
     vi.mocked(buildNodeList).mockResolvedValue(mockTwoWordNode());
@@ -159,7 +161,7 @@ describe("post-node pipeline (TASK-014)", () => {
       timeSpent_ms: 10_000,
       wordsAttempted: 1,
     };
-    const next = await applyNodeResult(sessionId, result);
+    const { mapState: next } = await applyNodeResult(sessionId, result);
     expect(next.xp).toBeGreaterThanOrEqual(5 + 10 + 50);
   });
 
@@ -185,7 +187,7 @@ describe("post-node pipeline (TASK-014)", () => {
       timeSpent_ms: 5000,
       wordsAttempted: 2,
     };
-    const next = await applyNodeResult(sessionId, result);
+    const { mapState: next } = await applyNodeResult(sessionId, result);
     expect(next.xp).toBeGreaterThanOrEqual(5 + 20 + 25);
   });
 });

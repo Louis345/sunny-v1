@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ChildProfile } from "../shared/childProfile";
+import { cloneCompanionDefaults } from "../shared/companionTypes";
 import { ALL_NODE_TYPES } from "../shared/adventureTypes";
 import * as themeRegistry from "../server/theme-registry";
 import { generateTheme } from "../agents/designer/designer";
@@ -18,6 +19,7 @@ function baseProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
     ui: { accentColor: "#3366ff" },
     unlockedThemes: ["default", "beach"],
     attentionWindow_ms: 240_000,
+    companion: cloneCompanionDefaults(),
     ...overrides,
   };
 }

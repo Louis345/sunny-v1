@@ -1,5 +1,6 @@
 import type { WebSocket } from "ws";
 import type { IncomingMessage } from "http";
+import { registerMapSessionWebSocket } from "./map-coordinator";
 import { SessionManager } from "./session-manager";
 
 export function handleWsConnection(
@@ -23,6 +24,25 @@ export function handleWsConnection(
     }
 
     switch (msg.type) {
+      case "map_session_attach": {
+        const body = msg as { childId?: string; sessionId?: string };
+        const childId =
+          typeof body.childId === "string"
+            ? body.childId.trim()
+            : typeof body.sessionId === "string"
+              ? body.sessionId.trim()
+              : "";
+        if (!childId) {
+          ws.send(
+            JSON.stringify({ type: "error", message: "childId required" }),
+          );
+          return;
+        }
+        console.log("[ws-handler] map_session_attach for:", childId);
+        registerMapSessionWebSocket(childId, ws);
+        break;
+      }
+
       case "start_session": {
         const raw = msg as {
           child?: string;

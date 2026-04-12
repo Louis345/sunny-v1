@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { ChildProfile } from "../shared/childProfile";
+import { cloneCompanionDefaults } from "../shared/companionTypes";
 import {
   getAvailableThemes,
   getRandomUnlockedTheme,
@@ -20,6 +21,7 @@ function profileAtLevel(level: number): ChildProfile {
     ui: { accentColor: "#000" },
     unlockedThemes: unlocked,
     attentionWindow_ms: 300_000,
+    companion: cloneCompanionDefaults(),
   };
 }
 

@@ -32,6 +32,7 @@ export default defineConfig({
       "src/tests/test-path-curve.ts",
       "src/tests/test-map-path-layout.ts",
       "src/tests/test-child-profile.ts",
+      "src/tests/test-companion-types.ts",
       "src/tests/test-bandit.ts",
       "src/tests/test-theme-registry.ts",
       "src/tests/test-node-rating-io.ts",

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ChildProfile } from "../shared/childProfile";
+import { cloneCompanionDefaults } from "../shared/companionTypes";
 import type { SessionTheme } from "../shared/adventureTypes";
 import { buildNodeList } from "../engine/nodeSelection";
 
@@ -26,6 +27,7 @@ function profile(attention: number, childId = "qa_child"): ChildProfile {
     ui: { accentColor: "#111" },
     unlockedThemes: ["default"],
     attentionWindow_ms: attention,
+    companion: cloneCompanionDefaults(),
   };
 }
 

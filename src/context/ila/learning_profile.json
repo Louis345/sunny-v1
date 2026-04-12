@@ -2,7 +2,7 @@
   "childId": "ila",
   "version": 1,
   "createdAt": "2026-04-03T21:20:33.923Z",
-  "lastUpdated": "2026-04-11T02:11:44.454Z",
+  "lastUpdated": "2026-04-12T22:51:20.400Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -115,5 +115,33 @@
       "triggered": 0,
       "correct": 0
     }
+  },
+  "banditState": {
+    "counts": [
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      2,
+      0,
+      0,
+      0,
+      0
+    ],
+    "values": [
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0
+    ]
   }
 }
