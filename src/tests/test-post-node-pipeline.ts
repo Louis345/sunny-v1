@@ -68,11 +68,10 @@ function mockTwoWordNode(): MapState["nodes"] {
     {
       id: "n-a",
       type: "word-builder",
-      words: ["one", "two"],
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
       difficulty: 2,
-      timeLimit_ms: 60_000,
-      theme: "default",
-      isCastle: false,
     },
   ];
 }
@@ -82,11 +81,10 @@ function mockCastleBoss(): MapState["nodes"] {
     {
       id: "n-boss",
       type: "boss",
-      words: ["zip"],
+      isLocked: false,
+      isCompleted: false,
+      isGoal: true,
       difficulty: 3,
-      timeLimit_ms: 90_000,
-      theme: "default",
-      isCastle: true,
     },
   ];
 }

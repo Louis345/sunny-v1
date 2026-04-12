@@ -1,44 +1,53 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-
-interface CompanionConfig {
-  childName: string;
-  companionName: string;
-  emoji: string;
-}
+import {
+  normalizeCompanionConfig,
+  type CompanionThemeConfig,
+  type CompanionThemeResponse,
+} from "../../../src/shared/companionTheme";
 
 interface Props {
   /** `diagKiosk` uses child=creator + Charlotte on the server (diagnostic prompt). */
   onSelect: (childName: string, options?: { diagKiosk?: boolean }) => void;
 }
 
+function requestCompanionRows(): Promise<CompanionThemeResponse[]> {
+  return fetch("/api/companions").then((r) => {
+    if (!r.ok) throw new Error("Could not load companions");
+    return r.json() as Promise<CompanionThemeResponse[]>;
+  });
+}
+
 export function ChildPicker({ onSelect }: Props) {
-  const [companions, setCompanions] = useState<CompanionConfig[]>([]);
+  const [companions, setCompanions] = useState<CompanionThemeConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchCompanions = useCallback(() => {
+  useEffect(() => {
+    let cancelled = false;
+    requestCompanionRows()
+      .then((rows) => {
+        if (!cancelled) setCompanions(rows.map(normalizeCompanionConfig));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message ?? "Something went wrong");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refetchCompanions = useCallback(() => {
     setLoading(true);
     setError(null);
-    fetch("/api/companions")
-      .then((r) => {
-        if (!r.ok) throw new Error("Could not load companions");
-        return r.json();
-      })
-      .then(setCompanions)
+    requestCompanionRows()
+      .then((rows) => setCompanions(rows.map(normalizeCompanionConfig)))
       .catch((err) => setError(err?.message ?? "Something went wrong"))
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    fetchCompanions();
-  }, [fetchCompanions]);
-
-  const colors: Record<string, { bg: string; text: string; badge: string }> = {
-    Ila: { bg: "#FAEEDA", text: "#854F0B", badge: "#EF9F27" },
-    Reina: { bg: "#E6F1FB", text: "#0C447C", badge: "#85B7EB" },
-    creator: { bg: "#1e1b2e", text: "#f5e9c9", badge: "#fbbf24" },
-  };
 
   if (loading) {
     return (
@@ -54,7 +63,7 @@ export function ChildPicker({ onSelect }: Props) {
       <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-white">
         <p className="text-red-600 text-center">{error}</p>
         <button
-          onClick={fetchCompanions}
+          onClick={refetchCompanions}
           className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
         >
           Try again
@@ -68,7 +77,7 @@ export function ChildPicker({ onSelect }: Props) {
       <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-white">
         <p className="text-gray-600 text-center">No companions available.</p>
         <button
-          onClick={fetchCompanions}
+          onClick={refetchCompanions}
           className="px-4 py-2 text-blue-600 hover:underline"
         >
           Retry
@@ -88,7 +97,6 @@ export function ChildPicker({ onSelect }: Props) {
 
       <div className="flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
         {companions.map((c) => {
-          const color = colors[c.childName] ?? colors.Ila;
           return (
             <motion.button
               key={c.childName}
@@ -98,6 +106,10 @@ export function ChildPicker({ onSelect }: Props) {
               className="w-60 h-64 rounded-xl border-2 border-gray-200 bg-gray-50 
                          flex flex-col items-center justify-center gap-3
                          hover:border-blue-400 transition-colors"
+              style={{
+                background: c.accentBg,
+                color: c.accentColor,
+              }}
             >
               <img
                 src={`/characters/${c.childName.toLowerCase()}.png`}
@@ -107,16 +119,16 @@ export function ChildPicker({ onSelect }: Props) {
                 }}
                 className="w-24 h-24 rounded-full object-cover"
                 style={{
-                  border: `3px solid ${color.badge}`,
+                  border: `3px solid ${c.accentColor}`,
                   boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
                 }}
               />
 
               <div className="text-center">
-                <div className="text-2xl font-medium text-gray-900">
+                <div className="text-2xl font-medium" style={{ color: c.accentColor }}>
                   {c.childName}
                 </div>
-                <div className="text-sm text-gray-500 mt-0.5">
+                <div className="text-sm mt-0.5" style={{ color: c.accentColor }}>
                   with {c.companionName}
                 </div>
               </div>

@@ -18,12 +18,11 @@ export type NodeType =
 export interface NodeConfig {
   id: string;
   type: NodeType;
-  words: string[];
+  isLocked: boolean;
+  isCompleted: boolean;
+  isGoal: boolean;
   difficulty: 1 | 2 | 3;
-  timeLimit_ms: number;
-  theme: string;
   thumbnailUrl?: string;
-  isCastle: boolean;
 }
 
 export type NodeRatingLike = "like" | "dislike";
@@ -63,6 +62,12 @@ export interface SessionThemeAmbient {
   color: string;
 }
 
+/** Normalized 0–1 coordinates on the map container; used for arc-length node layout. */
+export interface MapWaypoint {
+  x: number;
+  y: number;
+}
+
 export interface SessionTheme {
   name: string;
   palette: SessionThemePalette;
@@ -71,8 +76,12 @@ export interface SessionTheme {
   pathStyle: string;
   castleVariant: string;
   backgroundUrl?: string;
-  castleUrl?: string;
-  nodeThumbnails?: Record<string, string>;
+  /** Grok castle asset; null if generation failed or no API key. */
+  castleUrl?: string | null;
+  /** Grok thumbnails keyed by node type; null per key when that asset failed. */
+  nodeThumbnails?: Record<string, string | null>;
+  /** Optional path polyline in normalized space; nodes spaced by arc length. */
+  mapWaypoints?: ReadonlyArray<MapWaypoint>;
 }
 
 export interface MapState {

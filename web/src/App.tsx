@@ -123,6 +123,8 @@ function App() {
           readingCanvas={state.readingCanvas}
           storyImageLoading={state.storyImageLoading}
           storyImageUrl={state.storyImageUrl}
+          accentColor={state.companion?.accentColor ?? "#7C3AED"}
+          accentBg={state.companion?.accentBg ?? "#F3E8FF"}
         />
       </div>
     );

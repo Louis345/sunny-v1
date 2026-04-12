@@ -71,10 +71,15 @@ describe("buildNodeList (TASK-009)", () => {
     expect(nodes[0]?.type).toBe("riddle");
   });
 
-  it("last node is boss with isCastle", async () => {
+  it("last node is boss with isGoal=true", async () => {
     const nodes = await buildNodeList(profile(400_000), theme());
     expect(nodes[nodes.length - 1]?.type).toBe("boss");
-    expect(nodes[nodes.length - 1]?.isCastle).toBe(true);
+    expect(nodes[nodes.length - 1]?.isGoal).toBe(true);
+  });
+
+  it("isGoal is false on all non-terminal nodes", async () => {
+    const nodes = await buildNodeList(profile(400_000), theme());
+    expect(nodes.slice(0, -1).every((n) => n.isGoal === false)).toBe(true);
   });
 
   it("matches attention-based counts (3 / 4 / 5 nodes)", async () => {
@@ -86,10 +91,12 @@ describe("buildNodeList (TASK-009)", () => {
     expect(long.length).toBe(5);
   });
 
-  it("uses due words for spelling-style nodes", async () => {
+  it("marks all generated nodes with map status flags", async () => {
     const nodes = await buildNodeList(profile(400_000), theme());
     const wb = nodes.find((n) => n.type === "word-builder");
-    expect(wb?.words.length).toBeGreaterThan(0);
+    expect(wb).toBeDefined();
+    expect(wb?.isLocked).toBe(false);
+    expect(wb?.isCompleted).toBe(false);
   });
 
   it("works for any childId string on profile", async () => {

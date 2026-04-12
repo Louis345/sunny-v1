@@ -18,6 +18,13 @@ app.use(express.json());
 
 setupRoutes(app);
 
+// Without the built SPA, `web/public` has no index.html — send `/` straight to the world PoC.
+if (!serveStatic) {
+  app.get("/", (_req, res) => {
+    res.redirect(302, "/worlds/proof-of-concept.html");
+  });
+}
+
 // Serve built frontend in production (--serve-static flag)
 if (serveStatic) {
   const distPath = path.resolve(process.cwd(), "web/dist");
@@ -43,6 +50,10 @@ httpServer.listen(PORT, () => {
 
   if (serveStatic) {
     console.log("  📁 Serving static frontend from web/dist\n");
+  } else {
+    console.log(
+      `  🗺️  World PoC: http://localhost:${PORT}/ → /worlds/proof-of-concept.html\n`
+    );
   }
   if (isKiosk) {
     console.log(

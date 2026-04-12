@@ -3,7 +3,13 @@
  * Grok images are best-effort; session start never waits on network failure.
  */
 import type { ChildProfile } from "../../shared/childProfile";
-import type { SessionTheme, SessionThemePalette } from "../../shared/adventureTypes";
+import {
+  ALL_NODE_TYPES,
+  type NodeType,
+  type SessionTheme,
+  type SessionThemePalette,
+} from "../../shared/adventureTypes";
+import { DEFAULT_MAP_WAYPOINTS } from "../../shared/mapPathLayout";
 import { getRandomUnlockedTheme } from "../../server/theme-registry";
 import { generateStoryImage } from "../../utils/generateStoryImage";
 
@@ -44,6 +50,35 @@ function paletteForBucket(
   };
 }
 
+const CASTLE_IMAGE_PROMPT = `A cute illustrated children's castle for a learning adventure app.
+  Bright colors, flat illustration style, welcoming and magical, wide base,
+  colorful flags, glowing windows. No text. Transparent background PNG style.
+  Child-friendly, warm, playful.`;
+
+const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
+  riddle:
+    "A glowing question mark surrounded by sparkles, cartoon style, purple tones, child-friendly",
+  "word-builder":
+    "Colorful alphabet blocks stacked playfully, bright primary colors, cartoon style",
+  karaoke:
+    "An open storybook with stars floating out, warm golden light, illustrated style",
+  "spell-check":
+    "Colorful letters bouncing in bubbles, blue tones, cartoon style",
+  "coin-counter":
+    "Shiny gold coins stacked and scattered, warm amber tones, cartoon style",
+  "clock-game":
+    "A friendly cartoon clock with a smiling face, bright colors",
+  "space-invaders":
+    "A cute cartoon rocket ship in space with stars, vibrant colors",
+  asteroid:
+    "A cute cartoon asteroid with a smile, deep purple and silver, starfield, child-friendly",
+  "space-frogger":
+    "A tiny green frog on lily pads over stylized lanes, arcade-cute, bright colors",
+  "bubble-pop":
+    "Cheerful cartoon bubbles with letters inside, pastel colors, child-friendly",
+  boss: "A golden trophy with stars exploding around it, triumphant, cartoon style",
+};
+
 export async function generateTheme(
   profile: ChildProfile,
   opts?: { now?: Date; themeName?: string },
@@ -66,6 +101,9 @@ export async function generateTheme(
     nodeStyle: "rounded",
     pathStyle,
     castleVariant: "stone",
+    castleUrl: null,
+    nodeThumbnails: {},
+    mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
   };
 
   const bgPrompt =
@@ -73,20 +111,32 @@ export async function generateTheme(
     `Theme: ${themeName}. Colors matching: ${accent}. ` +
     `Style: flat illustration, bright, child-friendly, wide landscape. No text. No characters.`;
 
-  const castlePrompt =
-    `A ${themeName} gentle castle on a hill for a children's learning adventure. ` +
-    `Colors matching: ${accent}. ` +
-    `Style: flat illustration, bright, child-friendly. No text. No characters.`;
+  const jobs: Promise<string | null>[] = [
+    generateStoryImage(bgPrompt, { useDirectScene: true }),
+    generateStoryImage(CASTLE_IMAGE_PROMPT, { useDirectScene: true }),
+    ...ALL_NODE_TYPES.map((type) =>
+      generateStoryImage(NODE_THUMBNAIL_PROMPTS[type], {
+        useDirectScene: true,
+      }),
+    ),
+  ];
 
   try {
-    const [bg, castle] = await Promise.all([
-      generateStoryImage(bgPrompt, { useDirectScene: true }),
-      generateStoryImage(castlePrompt, { useDirectScene: true }),
-    ]);
+    const results = await Promise.all(jobs);
+    const bg = results[0];
+    const castle = results[1];
+    const thumbResults = results.slice(2);
+
     if (bg) theme.backgroundUrl = bg;
-    if (castle) theme.castleUrl = castle;
+    theme.castleUrl = castle ?? null;
+
+    const nodeThumbnails: Record<string, string | null> = {};
+    ALL_NODE_TYPES.forEach((type, i) => {
+      nodeThumbnails[type] = thumbResults[i] ?? null;
+    });
+    theme.nodeThumbnails = nodeThumbnails;
   } catch {
-    /* Grok unavailable — palette-only theme */
+    /* Grok unavailable — palette-only theme; castleUrl / thumbnails stay null */
   }
 
   return theme;

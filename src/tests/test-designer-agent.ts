@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { ChildProfile } from "../shared/childProfile";
+import { ALL_NODE_TYPES } from "../shared/adventureTypes";
 import * as themeRegistry from "../server/theme-registry";
 import { generateTheme } from "../agents/designer/designer";
 
@@ -44,12 +45,21 @@ describe("DesignerAgent generateTheme (TASK-008)", () => {
     expect(t.nodeStyle).toBeTruthy();
     expect(t.pathStyle).toBeTruthy();
     expect(t.castleVariant).toBeTruthy();
+    expect(t.mapWaypoints).toBeDefined();
+    expect(t.mapWaypoints!.length).toBeGreaterThanOrEqual(2);
   });
 
   it("works when Grok returns null (no API key path)", async () => {
     const t = await generateTheme(baseProfile());
     expect(t.backgroundUrl).toBeUndefined();
-    expect(t.castleUrl).toBeUndefined();
+    expect(t.castleUrl).toBeNull();
+    expect(t.nodeThumbnails).toBeDefined();
+    for (const type of ALL_NODE_TYPES) {
+      expect(t.nodeThumbnails![type]).toBeNull();
+    }
+    expect(vi.mocked(generateStoryImage)).toHaveBeenCalledTimes(
+      2 + ALL_NODE_TYPES.length,
+    );
   });
 
   it("selects theme name from profile.unlockedThemes only", async () => {

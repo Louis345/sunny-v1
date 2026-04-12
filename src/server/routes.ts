@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
 import { ELLI, MATILDA } from "../companions/loader";
+import { generateStoryImage } from "../utils/generateStoryImage";
 import { buildProfile } from "../profiles/buildProfile";
 import type { NodeResult } from "../shared/adventureTypes";
 import {
@@ -35,6 +36,21 @@ export function setupRoutes(app: Express): void {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  /** Visual PoC — `web/public/worlds/proof-of-concept.html`; uses server-side GROK_API_KEY. */
+  app.get("/api/grok-image", async (req: Request, res: Response) => {
+    const prompt =
+      typeof req.query.prompt === "string" ? req.query.prompt.trim() : "";
+    if (!prompt) {
+      return res.status(400).json({ error: "prompt required" });
+    }
+    try {
+      const url = await generateStoryImage(prompt, { useDirectScene: true });
+      res.json({ url });
+    } catch (e: unknown) {
+      res.status(500).json({ error: String(e) });
+    }
+  });
+
   app.get("/api/profile/:childId", async (req: Request, res: Response) => {
     const childId =
       typeof req.params.childId === "string" ? req.params.childId : "";
@@ -53,15 +69,36 @@ export function setupRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/companions", (_req: Request, res: Response) => {
-    const configs = Object.entries(companions).map(([childName, config]) => ({
-      childName,
-      companionName: config.name,
-      emoji: config.emoji,
-      voiceId: config.voiceId,
-      openingLine: config.openingLine,
-      goodbye: config.goodbye,
-    }));
+  app.get("/api/companions", async (_req: Request, res: Response) => {
+    const rows = await Promise.all(
+      Object.entries(companions).map(async ([childName, config]) => {
+        const profile = await buildProfile(childName.toLowerCase());
+        const ui = profile?.ui as { accentColor?: string; accentBg?: string } | undefined;
+        return {
+          childName,
+          companionName: config.name,
+          emoji: config.emoji,
+          voiceId: config.voiceId,
+          openingLine: config.openingLine,
+          goodbye: config.goodbye,
+          accentColor: ui?.accentColor ?? "#7C3AED",
+          accentBg: ui?.accentBg ?? "#F3E8FF",
+        };
+      }),
+    );
+    const configs = [
+      ...rows,
+      {
+        childName: "creator",
+        companionName: "Charlotte",
+        emoji: "🌟",
+        voiceId: "",
+        openingLine: "",
+        goodbye: "",
+        accentColor: "#fbbf24",
+        accentBg: "#1e1b2e",
+      },
+    ];
     res.json(configs);
   });
 
@@ -172,4 +209,9 @@ export function setupRoutes(app: Express): void {
       res.status(500).json({ error: message });
     }
   });
+
+  const webPublic = path.resolve(process.cwd(), "web", "public");
+  if (fs.existsSync(webPublic)) {
+    app.use(express.static(webPublic));
+  }
 }

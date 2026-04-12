@@ -68,6 +68,8 @@ interface CompanionConfig {
   childName: string;
   companionName: string;
   emoji: string;
+  accentColor: string;
+  accentBg: string;
   voiceId: string;
   openingLine: string;
   goodbye: string;
@@ -362,6 +364,8 @@ export function useSession() {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
             emoji: m.emoji ?? "🌟",
+            accentColor: m.accentColor ?? "#7C3AED",
+            accentBg: m.accentBg ?? "#F3E8FF",
             voiceId: m.voiceId ?? "",
             openingLine: m.openingLine ?? "",
             goodbye: m.goodbye ?? "",

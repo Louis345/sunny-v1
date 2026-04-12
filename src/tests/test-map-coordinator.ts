@@ -63,20 +63,18 @@ function mockNodes(): MapState["nodes"] {
     {
       id: "n-riddle",
       type: "riddle",
-      words: [],
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
       difficulty: 1,
-      timeLimit_ms: 40_000,
-      theme: "default",
-      isCastle: false,
     },
     {
       id: "n-wb",
       type: "word-builder",
-      words: ["alpha"],
+      isLocked: true,
+      isCompleted: false,
+      isGoal: false,
       difficulty: 2,
-      timeLimit_ms: 60_000,
-      theme: "default",
-      isCastle: false,
     },
   ];
 }

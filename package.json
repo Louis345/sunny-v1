@@ -33,6 +33,7 @@
     "web": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
     "sunny": "cd web && npm run build && cd .. && npx tsx src/scripts/launch-kiosk.ts",
+    "sunny:adventure": "cd web && VITE_ADVENTURE_MAP=true npm run build && cd .. && ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:reading": "cd web && npm run build && cd .. && SUNNY_SUBJECT=reading npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:math": "cd web && npm run build && cd .. && SUNNY_SUBJECT=math npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:clocks": "cd web && npm run build && cd .. && SUNNY_SUBJECT=clocks npx tsx src/scripts/launch-kiosk.ts",

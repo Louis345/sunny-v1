@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>World PoC — Grok layers</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #1e3a5f;
+      }
+      .world-root {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .world-img {
+        position: absolute;
+        opacity: 0;
+        transition: opacity 0.6s ease;
+      }
+      .world-img.is-visible {
+        opacity: 1;
+      }
+      #bg {
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 1;
+      }
+      #castle {
+        right: 8%;
+        top: 35%;
+        width: 220px;
+        height: auto;
+        z-index: 2;
+      }
+      .world-node {
+        width: 90px;
+        height: auto;
+        z-index: 3;
+        cursor: pointer;
+        transform-origin: center center;
+        transition: transform 0.2s ease, opacity 0.6s ease;
+      }
+      .world-node:hover {
+        transform: scale(1.1);
+      }
+      #node-0 {
+        left: 8%;
+        top: 55%;
+      }
+      #node-1 {
+        left: 28%;
+        top: 42%;
+      }
+      #node-2 {
+        left: 48%;
+        top: 46%;
+      }
+      #node-3 {
+        left: 67%;
+        top: 38%;
+      }
+      .xp-bar {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-family: system-ui, sans-serif;
+      }
+      .xp-bar .label {
+        font-size: 13px;
+        color: #7c3aed;
+        font-weight: 500;
+      }
+      .xp-bar .track {
+        margin-top: 4px;
+        height: 8px;
+        width: 140px;
+        background: #e9d5ff;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .xp-bar .fill {
+        height: 8px;
+        width: 60%;
+        background: #7c3aed;
+        border-radius: 4px;
+      }
+      .map-path-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 2;
+        pointer-events: none;
+      }
+      .loading-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 16px;
+        background: rgba(15, 23, 42, 0.75);
+        color: #f8fafc;
+        font-family: system-ui, sans-serif;
+        transition: opacity 0.4s ease;
+      }
+      .loading-overlay.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(255, 255, 255, 0.25);
+        border-top-color: #a78bfa;
+        border-radius: 50%;
+        animation: spin 0.85s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .load-status {
+        font-size: 14px;
+        max-width: 90vw;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="world-root">
+      <div id="loading" class="loading-overlay" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="load-status" id="load-status">Generating world with Grok…</div>
+      </div>
+
+      <img id="bg" class="world-img" alt="" />
+
+      <svg class="map-path-svg" viewBox="0 0 1000 700" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          fill="none"
+          stroke="rgba(255,255,255,0.7)"
+          stroke-width="4"
+          stroke-dasharray="12,8"
+          vector-effect="non-scaling-stroke"
+          d="M 70,478 Q 95,474 125,470 Q 210,422 325,379 Q 415,392 525,407 Q 615,382 715,351"
+        />
+      </svg>
+
+      <img id="castle" class="world-img" alt="" />
+
+      <img id="node-0" class="world-img world-node" alt="" data-node-type="riddle" />
+      <img id="node-1" class="world-img world-node" alt="" data-node-type="spelling" />
+      <img id="node-2" class="world-img world-node" alt="" data-node-type="reading" />
+      <img id="node-3" class="world-img world-node" alt="" data-node-type="game" />
+
+      <div class="xp-bar">
+        <div class="label">⭐ Level 3</div>
+        <div class="track">
+          <div class="fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const PROMPTS = {
+          background:
+            "Wide children's adventure landscape, rolling green hills, bright blue sky, " +
+            "white fluffy clouds, flat illustration style, warm cheerful colors, " +
+            "no characters, no text, 16:9, seamless",
+          castle:
+            "A cute illustrated children's castle, bright colors, red roofs, " +
+            "flags, glowing windows, flat illustration style, child-friendly, standalone building, " +
+            "transparent background, PNG format, isolated on white",
+          node_riddle:
+            "A glowing magical question mark with sparkles around it, " +
+            "purple tones, cartoon style, child-friendly, " +
+            "transparent background, PNG format, isolated on white",
+          node_spelling:
+            "Colorful alphabet blocks stacked playfully, " +
+            "cartoon style, bright primary colors, " +
+            "transparent background, PNG format, isolated on white",
+          node_reading:
+            "An open storybook with stars floating out, " +
+            "warm golden colors, illustrated style, " +
+            "transparent background, PNG format, isolated on white",
+          node_game:
+            "A colorful game controller with stars, " +
+            "cartoon style, vibrant colors, " +
+            "transparent background, PNG format, isolated on white",
+        };
+
+        const jobs = [
+          { id: "bg", prompt: PROMPTS.background },
+          { id: "castle", prompt: PROMPTS.castle },
+          { id: "node-0", prompt: PROMPTS.node_riddle },
+          { id: "node-1", prompt: PROMPTS.node_spelling },
+          { id: "node-2", prompt: PROMPTS.node_reading },
+          { id: "node-3", prompt: PROMPTS.node_game },
+        ];
+
+        function fetchImageUrl(prompt) {
+          var q = "/api/grok-image?prompt=" + encodeURIComponent(prompt);
+          return fetch(q).then(function (res) {
+            if (!res.ok) {
+              return res.text().then(function (t) {
+                throw new Error(t || res.statusText);
+              });
+            }
+            return res.json();
+          });
+        }
+
+        function applyUrl(imgId, url) {
+          var el = document.getElementById(imgId);
+          if (!el || !url) return;
+          el.onload = function () {
+            el.classList.add("is-visible");
+          };
+          el.onerror = function () {
+            console.warn("[PoC] failed to decode image", imgId);
+          };
+          el.src = url;
+        }
+
+        var statusEl = document.getElementById("load-status");
+        var overlay = document.getElementById("loading");
+
+        Promise.all(
+          jobs.map(function (job) {
+            return fetchImageUrl(job.prompt).then(function (data) {
+              if (statusEl) {
+                statusEl.textContent = "Loaded " + job.id + "…";
+              }
+              return { id: job.id, url: data && data.url ? data.url : null };
+            });
+          }),
+        )
+          .then(function (results) {
+            var ok = 0;
+            results.forEach(function (r) {
+              if (r.url) {
+                applyUrl(r.id, r.url);
+                ok++;
+              } else {
+                console.warn("[PoC] no URL for", r.id, "(missing GROK_API_KEY or API error)");
+              }
+            });
+            if (statusEl) {
+              statusEl.textContent =
+                ok === results.length
+                  ? "World ready."
+                  : "Partial load (" + ok + "/" + results.length + "). Check server logs & GROK_API_KEY.";
+            }
+          })
+          .catch(function (err) {
+            console.error("[PoC]", err);
+            if (statusEl) {
+              statusEl.textContent = "Error: " + (err && err.message ? err.message : String(err));
+            }
+          })
+          .finally(function () {
+            setTimeout(function () {
+              if (overlay) {
+                overlay.classList.add("is-hidden");
+              }
+            }, 600);
+          });
+
+        document.querySelectorAll(".world-node").forEach(function (node) {
+          node.addEventListener("click", function () {
+            var t = node.getAttribute("data-node-type") || "unknown";
+            console.log("[PoC] node clicked:", t);
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

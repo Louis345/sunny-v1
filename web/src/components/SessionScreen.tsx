@@ -8,6 +8,8 @@ interface CompanionConfig {
   childName: string;
   companionName: string;
   emoji: string;
+  accentColor?: string;
+  accentBg?: string;
 }
 
 interface RewardEvent {
@@ -50,13 +52,9 @@ interface Props {
   readingCanvas: ReadingCanvasPreferences;
   storyImageLoading?: boolean;
   storyImageUrl?: string | null;
+  accentColor: string;
+  accentBg: string;
 }
-
-const colors: Record<string, { accent: string; bg: string }> = {
-  Ila: { accent: "#854F0B", bg: "#FAEEDA" },
-  Reina: { accent: "#0C447C", bg: "#E6F1FB" },
-  creator: { accent: "#c4a008", bg: "#1e1b2e" },
-};
 
 export function SessionScreen({
   childName,
@@ -80,8 +78,9 @@ export function SessionScreen({
   readingCanvas,
   storyImageLoading = false,
   storyImageUrl = null,
+  accentColor,
+  accentBg,
 }: Props) {
-  const color = colors[childName] ?? colors.Ila;
   const childId =
     childName === "creator" ? "star" : childName.toLowerCase();
 
@@ -94,8 +93,8 @@ export function SessionScreen({
         interimTranscript={interimTranscript}
         correctStreak={correctStreak}
         sessionState={sessionState}
-        accentColor={color.accent}
-        accentBg={color.bg}
+        accentColor={accentColor}
+        accentBg={accentBg}
         micMuted={micMuted}
         onToggleMicMute={onToggleMicMute}
         onBargeIn={onBargeIn}
@@ -127,7 +126,7 @@ export function SessionScreen({
           reward={reward}
           sessionPhase={sessionPhase}
           sessionState={sessionState}
-          accentColor={color.accent}
+          accentColor={accentColor}
           onCanvasDone={onCanvasDone}
           onWorksheetAnswer={onWorksheetAnswer}
           onOverlayFieldChange={onOverlayFieldChange}

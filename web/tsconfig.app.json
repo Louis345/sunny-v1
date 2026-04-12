@@ -28,6 +28,9 @@
     "src",
     "../src/scripts/canvas-test-presets.ts",
     "../src/server/canvas/registry.ts",
-    "../src/shared/karaokeMatchWord.ts"
+    "../src/shared/karaokeMatchWord.ts",
+    "../src/shared/companionTheme.ts",
+    "../src/shared/pathCurve.ts",
+    "../src/shared/mapPathLayout.ts"
   ]
 }

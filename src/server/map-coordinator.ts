@@ -38,6 +38,15 @@ export class MapSessionError extends Error {
   }
 }
 
+function syncNodeStatuses(state: MapState): void {
+  const completed = new Set(state.completedNodes);
+  state.nodes = state.nodes.map((node, idx) => ({
+    ...node,
+    isCompleted: completed.has(node.id),
+    isLocked: idx > state.currentNodeIndex && !completed.has(node.id),
+  }));
+}
+
 export async function startMapSession(
   childId: string,
 ): Promise<{ sessionId: string; mapState: MapState }> {
@@ -58,6 +67,7 @@ export async function startMapSession(
     xp: 0,
     level: profile.level,
   };
+  syncNodeStatuses(mapState);
   const sessionId = randomUUID();
   sessions.set(sessionId, { childId: profile.childId, mapState });
   return { sessionId, mapState };
@@ -142,7 +152,7 @@ export async function applyNodeResult(
     childId: st.childId,
     sessionDate: st.sessionDate,
     nodeType: nodeCfg.type,
-    word: nodeCfg.words[0] ?? "session",
+    word: "session",
     theme: st.theme.name,
     rating,
     completionTime_ms: result.timeSpent_ms,
@@ -163,7 +173,8 @@ export async function applyNodeResult(
     console.error("  🔴 [map-coordinator] recordReward failed:", err);
   }
 
-  for (const word of nodeCfg.words) {
+  for (let i = 0; i < result.wordsAttempted; i++) {
+    const word = `attempt-${i + 1}`;
     const correct = result.completed && result.accuracy >= 0.5;
     try {
       recordAttempt(st.childId, {
@@ -181,19 +192,18 @@ export async function applyNodeResult(
 
   if (result.completed) {
     let xpDelta = 5;
-    const wn = nodeCfg.words.length;
+    const wn = Math.max(0, result.wordsAttempted);
     const correctWords =
       wn === 0 ? 0 : Math.min(wn, Math.round(wn * result.accuracy));
     xpDelta += correctWords * 10;
     const bankAfter = readWordBank(st.childId);
-    for (const w of nodeCfg.words) {
-      const en = bankAfter.words.find((x) => x.word === w);
-      if (en?.tracks?.spelling?.mastered === true) {
+    for (let i = 0; i < Math.min(wn, bankAfter.words.length); i++) {
+      if (bankAfter.words[i]?.tracks?.spelling?.mastered === true) {
         xpDelta += 25;
       }
     }
     // Castle bonus (TASK-015).
-    if (nodeCfg.isCastle) {
+    if (nodeCfg.isGoal) {
       xpDelta += 50;
     }
     st.xp += xpDelta;
@@ -208,6 +218,7 @@ export async function applyNodeResult(
   if (st.currentNodeIndex < st.nodes.length - 1) {
     st.currentNodeIndex++;
   }
+  syncNodeStatuses(st);
 
   return st;
 }
@@ -235,7 +246,7 @@ export async function recordExplicitMapRating(
     childId: rec.mapState.childId,
     sessionDate: rec.mapState.sessionDate,
     nodeType: nodeCfg.type,
-    word: nodeCfg.words[0] ?? "session",
+    word: "session",
     theme: rec.mapState.theme.name,
     rating: like,
     completionTime_ms: 0,

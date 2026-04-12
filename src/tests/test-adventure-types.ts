@@ -34,17 +34,17 @@ describe("adventure types (TASK-003)", () => {
     expect(() => nodeRatingSchema.parse(sample)).not.toThrow();
   });
 
-  it("NodeConfig with isCastle=true is valid", () => {
+  it("NodeConfig does not include words or isCastle", () => {
     const cfg: NodeConfig = {
       id: "n1",
       type: "riddle",
-      words: ["one"],
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
       difficulty: 2,
-      timeLimit_ms: 60_000,
-      theme: "default",
-      isCastle: true,
     };
-    expect(cfg.isCastle).toBe(true);
+    expect("words" in cfg).toBe(false);
+    expect("isCastle" in cfg).toBe(false);
   });
 
   it("SessionTheme with no URLs (canvas-only) is valid", () => {
