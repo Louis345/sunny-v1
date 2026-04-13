@@ -134,6 +134,9 @@ import {
   createSpellingHomeworkGate,
   type SpellingHomeworkGate,
 } from "./spelling-homework-gate";
+import { broadcastCompanionEventToMapChild } from "./map-coordinator";
+import type { CompanionEventPayload } from "../shared/companionTypes";
+import { isCompanionEmote } from "../shared/companionEmotes";
 
 type CanvasActivitySnapshot = {
   mode: ActivityMode;
@@ -2617,6 +2620,7 @@ export class SessionManager {
             if (toolName === "session_log") toolName = "sessionLog";
             if (toolName === "session_status") toolName = "sessionStatus";
             if (toolName === "session_end") toolName = "sessionEnd";
+            if (toolName === "express_companion") toolName = "expressCompanion";
             let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
 
@@ -3192,6 +3196,7 @@ export class SessionManager {
       sessionLog: (a) => this.hostSessionLog(a),
       sessionStatus: () => this.hostSessionStatus(),
       sessionEnd: (a) => this.hostSessionEnd(a),
+      expressCompanion: (a) => this.hostExpressCompanion(a),
     });
     if (this.worksheetSession && this.worksheetMode) {
       return {
@@ -3570,6 +3575,37 @@ export class SessionManager {
     return { ended: true, childName: args.childName };
   }
 
+  private async hostExpressCompanion(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const emoteRaw = args.emote;
+    if (!isCompanionEmote(emoteRaw)) {
+      return { ok: false, error: "invalid_emote" };
+    }
+    let intensity = 0.8;
+    if (args.intensity != null) {
+      const n = Number(args.intensity);
+      if (Number.isFinite(n)) {
+        intensity = Math.min(1, Math.max(0, n));
+      }
+    }
+    const childId = childIdFromName(this.childName);
+    const payload: CompanionEventPayload = {
+      emote: emoteRaw,
+      intensity,
+      timestamp: Date.now(),
+      childId,
+    };
+    this.send("companion_event", { payload });
+    const envelope: { type: "companion_event"; payload: CompanionEventPayload } =
+      { type: "companion_event", payload };
+    broadcastCompanionEventToMapChild(childId, envelope);
+    console.log(
+      `  [companion] expressCompanion emote=${emoteRaw} intensity=${intensity} childId=${childId}`,
+    );
+    return { ok: true, emote: emoteRaw, intensity };
+  }
+
   private normalizeToolName(tool: string): string {
     if (tool === "start_spell_check") return "startSpellCheck";
     if (tool === "launch_game") return "launchGame";
@@ -3583,6 +3619,7 @@ export class SessionManager {
     if (tool === "session_log") return "sessionLog";
     if (tool === "session_status") return "sessionStatus";
     if (tool === "session_end") return "sessionEnd";
+    if (tool === "express_companion") return "expressCompanion";
     if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
     if (tool === "request_resume_activity") return "requestResumeActivity";
     return tool;

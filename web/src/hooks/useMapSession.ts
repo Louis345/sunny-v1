@@ -3,6 +3,7 @@ import type {
   CompanionEvent,
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
+import { isCompanionEmote } from "../../../src/shared/companionEmotes";
 import type {
   MapState,
   NodeConfig,
@@ -19,8 +20,10 @@ function isCompanionEvent(msg: unknown): msg is CompanionEvent {
   const p = m.payload;
   if (!p || typeof p !== "object") return false;
   const pl = p as Record<string, unknown>;
+  const hasTrigger = typeof pl.trigger === "string";
+  const hasEmote = isCompanionEmote(pl.emote);
   return (
-    typeof pl.trigger === "string" &&
+    (hasTrigger || hasEmote) &&
     typeof pl.childId === "string" &&
     typeof pl.timestamp === "number"
   );

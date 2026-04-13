@@ -1,6 +1,6 @@
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { ChildProfile } from "../shared/childProfile";
-import { cloneCompanionDefaults } from "../shared/companionTypes";
+import { mergeCompanionConfigWithDefaults } from "../shared/companionTypes";
 import { readLearningProfile } from "../utils/learningProfileIO";
 import { getNodeRatings } from "../utils/nodeRatingIO";
 import { computeAttentionWindow, computeUnlockedThemes } from "./profileCompute";
@@ -51,6 +51,6 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     ui: { accentColor: accent },
     unlockedThemes,
     attentionWindow_ms,
-    companion: cloneCompanionDefaults(),
+    companion: mergeCompanionConfigWithDefaults(lp.companion),
   };
 }

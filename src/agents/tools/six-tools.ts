@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { REWARD_CHARACTER_SVG } from "../../server/canvas/registry";
+import { COMPANION_EMOTES } from "../../shared/companionEmotes";
 
 /** Implemented by SessionManager (or test harness). */
 export interface SixToolsHost {
@@ -10,7 +11,12 @@ export interface SixToolsHost {
   sessionLog(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   sessionStatus(): Promise<Record<string, unknown>>;
   sessionEnd(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+  expressCompanion(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>>;
 }
+
+const companionEmoteSchema = z.enum(COMPANION_EMOTES);
 
 const placeValueColumn = z.enum(["hundreds", "tens", "ones"]);
 
@@ -404,6 +410,23 @@ export function createSixTools(host: SixToolsHost) {
         reason: z.enum(["child_requested", "session_complete", "goodbye"]),
       }),
       execute: async (args) => host.sessionEnd(args as Record<string, unknown>),
+    }),
+    expressCompanion: tool({
+      description:
+        "Make the companion react expressively. Use to show emotion intentionally alongside speech. Never describe emotion in words — show it through Elli's body and face.",
+      inputSchema: z.object({
+        emote: companionEmoteSchema.describe(
+          "Facial/body expression to show on the companion.",
+        ),
+        intensity: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe("Expression strength 0–1; default 0.8."),
+      }),
+      execute: async (args) =>
+        host.expressCompanion(args as Record<string, unknown>),
     }),
   } as const;
 }

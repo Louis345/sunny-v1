@@ -91,5 +91,19 @@
       "triggered": 0,
       "correct": 0
     }
+  },
+  "companion": {
+    "vrmUrl": "/companions/matilda.vrm",
+    "sensitivity": {
+      "session_start": 0.8,
+      "correct_answer": 0.8,
+      "wrong_answer": 0.6,
+      "mastery_unlock": 1.0,
+      "session_end": 0.8,
+      "idle_too_long": 0.4
+    },
+    "idleFrequency_ms": 45000,
+    "randomMomentProbability": 0.3,
+    "toggledOff": false
   }
 }

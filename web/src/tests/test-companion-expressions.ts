@@ -3,10 +3,12 @@ import type { VRM } from "@pixiv/three-vrm";
 import {
   TRIGGER_EXPRESSION_MAP,
   TRIGGER_REACTION_DURATION_MS,
+  applyAcceptedEmote,
   applyAcceptedTrigger,
   applyExpressionStateToVrm,
   createNeutralExpressionState,
   getThinkingHeadTiltFactor,
+  pickEmotesToApply,
   pickTriggersToApply,
   shouldApplyCompanionReaction,
   tickExpressionDecay,
@@ -16,7 +18,7 @@ import type { CompanionEvent } from "../../../src/shared/companionTypes";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 
 function ev(
-  trigger: CompanionEvent["payload"]["trigger"],
+  trigger: NonNullable<CompanionEvent["payload"]["trigger"]>,
   timestamp: number,
   childId = "fixture",
 ): CompanionEvent {
@@ -128,6 +130,48 @@ describe("companionExpressions (COMPANION-003)", () => {
     expect(TRIGGER_REACTION_DURATION_MS.mastery_unlock).toBeGreaterThan(
       TRIGGER_REACTION_DURATION_MS.wrong_answer,
     );
+  });
+
+  it("pickTriggersToApply skips payloads that have emote set", () => {
+    const c = cloneCompanionDefaults();
+    c.sensitivity.correct_answer = 1;
+    const deduper = new CompanionEventDeduper();
+    const withEmote: CompanionEvent["payload"] = {
+      emote: "happy",
+      timestamp: 9001,
+      childId: "fixture",
+    };
+    const withTrigger = ev("correct_answer", 9002).payload;
+    const r = () => 0.1;
+    const a = pickTriggersToApply([withEmote, withTrigger], c, r, deduper);
+    expect(a).toEqual(["correct_answer"]);
+  });
+
+  it("pickEmotesToApply returns emote + default intensity", () => {
+    const deduper = new CompanionEventDeduper();
+    const p: CompanionEvent["payload"] = {
+      emote: "wink",
+      timestamp: 101,
+      childId: "fixture",
+    };
+    const out = pickEmotesToApply([p], deduper);
+    expect(out).toEqual([{ emote: "wink", intensity: 0.8 }]);
+  });
+
+  it("applyAcceptedEmote wink uses short happy duration", () => {
+    const s = createNeutralExpressionState();
+    applyAcceptedEmote(s, "wink", 1);
+    expect(s.faceExpression).toBe("happy");
+    expect(s.faceDurationMs).toBe(600);
+    expect(s.faceInitialWeight).toBe(1);
+  });
+
+  it("applyAcceptedEmote neutral clears expression", () => {
+    const s = createNeutralExpressionState();
+    applyAcceptedTrigger(s, "correct_answer");
+    applyAcceptedEmote(s, "neutral");
+    expect(s.faceExpression).toBeNull();
+    expect(s.thinkingActive).toBe(false);
   });
 
   it("thinking applies head bone rotation via applyExpressionStateToVrm", () => {

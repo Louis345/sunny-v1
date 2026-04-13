@@ -12,6 +12,7 @@ import {
   DEFAULT_READING_CANVAS_PREFERENCES,
   type ReadingCanvasPreferences,
 } from "../../../src/shared/readingCanvasPreferences";
+import type { CompanionEventPayload } from "../../../src/shared/companionTypes";
 import { gameIframeRef } from "../components/Canvas";
 import { shouldRenderTeachingContent } from "../utils/canvasLayout";
 import {
@@ -175,6 +176,8 @@ interface SessionState {
   /** Optional Grok illustration after karaoke complete — diagnostics/reading polish */
   storyImageLoading: boolean;
   storyImageUrl: string | null;
+  /** Voice WebSocket `companion_event` payloads (merged with map in App). */
+  companionEvents: CompanionEventPayload[];
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -284,6 +287,7 @@ export function useSession() {
     readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
     storyImageLoading: false,
     storyImageUrl: null,
+    companionEvents: [],
   });
 
   const [micMuted, setMicMuted] = useState(false);
@@ -364,6 +368,7 @@ export function useSession() {
           debugMode,
           storyImageLoading: false,
           storyImageUrl: null,
+          companionEvents: [],
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -374,6 +379,21 @@ export function useSession() {
             openingLine: m.openingLine ?? "",
             goodbye: m.goodbye ?? "",
           },
+        }));
+        break;
+      }
+
+      case "companion_event": {
+        const payload = msg.payload;
+        if (!payload || typeof payload !== "object") break;
+        const pl = payload as Record<string, unknown>;
+        if (typeof pl.childId !== "string" || typeof pl.timestamp !== "number") {
+          break;
+        }
+        const ev = pl as unknown as CompanionEventPayload;
+        setStateRef.current((s) => ({
+          ...s,
+          companionEvents: [...s.companionEvents, ev],
         }));
         break;
       }
@@ -1091,6 +1111,7 @@ export function useSession() {
       readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
       storyImageLoading: false,
       storyImageUrl: null,
+      companionEvents: [],
     });
     wsRef.current?.close();
     wsRef.current = null;
@@ -1183,6 +1204,7 @@ export function useSession() {
     sendMessage,
     micMuted,
     toggleMicMute,
+    companionEvents: state.companionEvents,
   };
 }
 

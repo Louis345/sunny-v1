@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "./hooks/useSession";
 import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
@@ -7,7 +7,10 @@ import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { useMapSession } from "./hooks/useMapSession";
-import type { CompanionConfig } from "../../src/shared/companionTypes";
+import type {
+  CompanionConfig,
+  CompanionEventPayload,
+} from "../../src/shared/companionTypes";
 import {
   cloneCompanionDefaults,
   mergeCompanionConfigWithDefaults,
@@ -20,6 +23,28 @@ const isCanvasTestMode =
 
 const adventureMapEnabled =
   import.meta.env.VITE_ADVENTURE_MAP === "true";
+
+function companionEventDedupeKey(p: CompanionEventPayload): string {
+  const trig = p.trigger ?? "";
+  const em = p.emote ?? "";
+  return `${p.timestamp}|${p.childId.trim().toLowerCase()}|${em}|${trig}`;
+}
+
+function mergeCompanionEvents(
+  voice: CompanionEventPayload[],
+  map: CompanionEventPayload[],
+): CompanionEventPayload[] {
+  const seen = new Set<string>();
+  const out: CompanionEventPayload[] = [];
+  for (const p of [...voice, ...map]) {
+    const k = companionEventDedupeKey(p);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(p);
+  }
+  out.sort((a, b) => a.timestamp - b.timestamp);
+  return out;
+}
 
 function App() {
   const {
@@ -34,6 +59,7 @@ function App() {
     sendMessage,
     micMuted,
     toggleMicMute,
+    companionEvents: voiceCompanionEvents,
   } = useSession();
 
   const [adventureChildId, setAdventureChildId] = useState<string | null>(null);
@@ -50,13 +76,11 @@ function App() {
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
   );
 
-  useEffect(() => {
-    console.log(
-      "App companionEvents:",
-      mapSession.companionEvents.length,
-      mapSession.companionEvents,
-    );
-  }, [mapSession.companionEvents]);
+  const mergedCompanionEvents = useMemo(
+    () =>
+      mergeCompanionEvents(voiceCompanionEvents, mapSession.companionEvents),
+    [voiceCompanionEvents, mapSession.companionEvents],
+  );
 
   const activeProfileChildId =
     adventureChildId ??
@@ -73,6 +97,17 @@ function App() {
       setActiveNodeScreen(null);
     }
   }, [adventureMapEnabled, adventureChildId]);
+
+  /** Voice connection failed while map was shown — map branch hides picker error UI; drop map so errors surface. */
+  useEffect(() => {
+    if (
+      adventureMapEnabled &&
+      adventureChildId &&
+      state.error
+    ) {
+      setAdventureChildId(null);
+    }
+  }, [adventureMapEnabled, adventureChildId, state.error]);
 
   useEffect(() => {
     if (!activeProfileChildId) {
@@ -124,7 +159,10 @@ function App() {
         <button
           type="button"
           className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
-          onClick={() => setAdventureChildId(null)}
+          onClick={() => {
+            setAdventureChildId(null);
+            resetToPicker();
+          }}
         >
           Back
         </button>
@@ -147,6 +185,7 @@ function App() {
           onSelect={(name, opts) => {
             if (adventureMapEnabled && !opts?.diagKiosk) {
               setAdventureChildId(name.trim().toLowerCase());
+              startSession(name, opts);
               return;
             }
             startSession(name, opts);
@@ -220,7 +259,7 @@ function App() {
         childId={activeProfileChildId}
         companion={profileCompanion}
         toggledOff={companionMuted}
-        companionEvents={mapSession.companionEvents}
+        companionEvents={mergedCompanionEvents}
         activeNodeScreen={
           adventureMapEnabled && adventureChildId ? activeNodeScreen : null
         }

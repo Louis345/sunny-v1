@@ -67,7 +67,10 @@ export function registerMapSessionWebSocket(
   ws.once("close", onClose);
 }
 
-function broadcastCompanionEventToMapChild(childId: string, data: unknown): void {
+export function broadcastCompanionEventToMapChild(
+  childId: string,
+  data: unknown,
+): void {
   const key = mapCompanionWsKey(childId);
   const set = mapSessionWebSockets.get(key);
   if (!set?.size) {

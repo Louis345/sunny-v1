@@ -207,4 +207,10 @@ export class SixToolsMemoryHarness {
   async sessionEnd(): Promise<Record<string, unknown>> {
     return { ended: true };
   }
+
+  async expressCompanion(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return { ok: true, emote: args.emote, intensity: args.intensity ?? 0.8 };
+  }
 }

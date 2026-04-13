@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildProfile } from "../profiles/buildProfile";
+import { isCompanionEmote } from "../shared/companionEmotes";
 import {
   COMPANION_DEFAULTS,
   mergeCompanionConfigWithDefaults,
@@ -50,6 +51,21 @@ describe("companion types (COMPANION-001)", () => {
     expect(typeof ev.payload.childId).toBe("string");
   });
 
+  it("CompanionEvent may carry emote + intensity without trigger (expressCompanion)", () => {
+    const ev: CompanionEvent = {
+      type: "companion_event",
+      payload: {
+        emote: "wink",
+        intensity: 0.5,
+        timestamp: 1_700_000_000_001,
+        childId: "fixture_child",
+      },
+    };
+    expect(ev.payload.emote).toBe("wink");
+    expect(ev.payload.intensity).toBe(0.5);
+    expect(ev.payload.trigger).toBeUndefined();
+  });
+
   it("CompanionTrigger union covers all six triggers (exhaustive check)", () => {
     const seen = new Set<string>(TRIGGERS);
     expect(seen.size).toBe(6);
@@ -68,6 +84,13 @@ describe("companion types (COMPANION-001)", () => {
     expect(COMPANION_DEFAULTS.toggledOff).toBe(false);
   });
 
+  it("isCompanionEmote accepts expressCompanion enum and rejects unknown", () => {
+    expect(isCompanionEmote("happy")).toBe(true);
+    expect(isCompanionEmote("celebrating")).toBe(true);
+    expect(isCompanionEmote("angry")).toBe(false);
+    expect(isCompanionEmote(null)).toBe(false);
+  });
+
   it("mergeCompanionConfigWithDefaults fills missing sensitivity keys", () => {
     const m = mergeCompanionConfigWithDefaults({
       vrmUrl: "/custom.vrm",
@@ -83,6 +106,8 @@ describe("companion types (COMPANION-001)", () => {
     expect(p).not.toBeNull();
     if (!p) return;
     assertCompanionConfigShape(p.companion);
+    expect(p.companion.vrmUrl).toBe("/companions/sample.vrm");
+    expect(p.companion.idleFrequency_ms).toBe(45000);
   });
 
   it("buildProfile returns companion for fixture child reina", async () => {
@@ -90,5 +115,6 @@ describe("companion types (COMPANION-001)", () => {
     expect(p).not.toBeNull();
     if (!p) return;
     assertCompanionConfigShape(p.companion);
+    expect(p.companion.vrmUrl).toBe("/companions/matilda.vrm");
   });
 });

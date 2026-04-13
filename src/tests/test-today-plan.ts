@@ -254,6 +254,7 @@ describe("sessionLog skipped → deferred context line", () => {
       })),
       sessionStatus: vi.fn(async () => ({})),
       sessionEnd: vi.fn(async () => ({})),
+      expressCompanion: vi.fn(async () => ({ ok: true })),
     };
     const tools = createSixTools(host);
     const exec = tools.sessionLog.execute;

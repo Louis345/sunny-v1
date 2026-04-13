@@ -7,11 +7,13 @@ import type {
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
 import {
+  applyAcceptedEmote,
   applyAcceptedTrigger,
   applyExpressionStateToVrm,
   applyThinkingHeadTiltToVrm,
   CompanionEventDeduper,
   createNeutralExpressionState,
+  pickEmotesToApply,
   pickTriggersToApply,
   tickExpressionDecay,
   type ExpressionDecayState,
@@ -139,6 +141,12 @@ export function CompanionLayer({
       const comp = companionRef.current;
       const ex = expressionStateRef.current;
       if (comp) {
+        const emotes = pickEmotesToApply(companionEventsRef.current, eventDeduperRef.current, {
+          forChildId: childIdRef.current,
+        });
+        for (const { emote, intensity } of emotes) {
+          applyAcceptedEmote(ex, emote, intensity);
+        }
         const triggers = pickTriggersToApply(
           companionEventsRef.current,
           comp,

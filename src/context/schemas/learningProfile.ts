@@ -5,6 +5,7 @@ import type {
   InterleavingParams,
   StepSessionRecord,
 } from "../../algorithms/types";
+import type { CompanionConfig } from "../../shared/companionTypes";
 
 export interface MoodEntry {
   date: string;
@@ -116,4 +117,10 @@ export interface LearningProfile {
     counts: number[];
     values: number[];
   };
+
+  /**
+   * VRM + reaction dials for the web companion (merged with defaults in `buildProfile`).
+   * Change `vrmUrl` to `/companions/your-model.vrm` after dropping a file in `web/public/companions/`.
+   */
+  companion?: Partial<CompanionConfig>;
 }

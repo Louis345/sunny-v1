@@ -3,6 +3,10 @@
  * Transport-agnostic; server and web both import from here.
  */
 
+import type { CompanionEmote } from "./companionEmotes";
+
+export type { CompanionEmote } from "./companionEmotes";
+
 export type CompanionTrigger =
   | "session_start"
   | "correct_answer"
@@ -22,7 +26,12 @@ export interface CompanionConfig {
 }
 
 export interface CompanionEventPayload {
-  trigger: CompanionTrigger;
+  /** Map / game / sensitivity path */
+  trigger?: CompanionTrigger;
+  /** Claude `expressCompanion` path */
+  emote?: CompanionEmote;
+  /** 0–1; default 0.8 when omitted on wire */
+  intensity?: number;
   timestamp: number;
   childId: string;
   metadata?: Record<string, unknown>;
