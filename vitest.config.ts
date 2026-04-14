@@ -2,6 +2,8 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // Engine/integration tests mutate real paths under src/context/<childId>/; parallel files race.
+    fileParallelism: false,
     environment: "node",
     include: [
       "src/tests/test-six-tools.ts",
@@ -33,6 +35,10 @@ export default defineConfig({
       "src/tests/test-map-path-layout.ts",
       "src/tests/test-child-profile.ts",
       "src/tests/test-companion-types.ts",
+      "src/tests/test-companion-api-001.ts",
+      "src/tests/test-companion-api-registry.ts",
+      "src/tests/test-companion-validate.ts",
+      "src/tests/test-companion-generate-capabilities.ts",
       "src/tests/test-bandit.ts",
       "src/tests/test-theme-registry.ts",
       "src/tests/test-node-rating-io.ts",
