@@ -2,6 +2,7 @@
  * Contract: six-tool canvas/session surface (memory harness — no WebSocket).
  */
 import { describe, it, expect } from "vitest";
+import { createCompanionActTool } from "../agents/tools/companionAct";
 import { createSixTools } from "../agents/tools/six-tools";
 import { SixToolsMemoryHarness } from "../agents/tools/six-tools-apply";
 
@@ -74,5 +75,24 @@ describe("six tools (harness)", () => {
       { toolCallId: "t1", messages: [] },
     );
     expect(out).toMatchObject({ ok: true, emote: "happy", intensity: 0.6 });
+  });
+
+  it("companionAct tool executes against harness host", async () => {
+    const h = new SixToolsMemoryHarness();
+    const t = createCompanionActTool({
+      companionAct: (a) => h.companionAct(a),
+    });
+    const exec = t.execute;
+    expect(exec).toBeDefined();
+    const out = await exec!(
+      { type: "emote", payload: { emote: "wink", intensity: 0.7 } },
+      { toolCallId: "t2", messages: [] },
+    );
+    expect(out).toMatchObject({
+      ok: true,
+      stub: true,
+      type: "emote",
+      payload: { emote: "wink", intensity: 0.7 },
+    });
   });
 });

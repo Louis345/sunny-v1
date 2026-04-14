@@ -16,6 +16,7 @@ import {
   generateCanvasCapabilitiesManifest,
   generateCanvasCapabilitiesManifestCompact,
 } from "../server/canvas/registry";
+import { generateCompanionCapabilities } from "../shared/companions/generateCompanionCapabilities";
 import {
   generateToolDocs,
   generateToolNamesLine,
@@ -696,7 +697,11 @@ function buildDiagSessionPrompt(
     : "# Creator context\n(File not found at src/context/creator/creator.md)\n";
 
   const core = buildDiagModeInstructions(creatorContext);
-  const manifest = "\n\n" + generateCanvasCapabilitiesManifestCompact();
+  const manifest =
+    "\n\n" +
+    generateCanvasCapabilitiesManifestCompact() +
+    "\n\n" +
+    generateCompanionCapabilities();
   const toolsSection = `\n\n## Your tools\n${generateToolNamesLine()}.\nArguments are validated server-side; use sessionStatus for game lists and canvasStatus when needed.`;
 
   const imageRequestBlock = `
@@ -740,7 +745,11 @@ export async function buildSessionPrompt(
     const focus = subjectFocusBlock(subject).trim();
     const body = focus ? `${focus}\n\n${base}` : base;
     const careSuffix = getCarePlanBlock(subject, childName, options);
-    const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+    const manifest =
+      "\n\n" +
+      generateCanvasCapabilitiesManifest() +
+      "\n\n" +
+      generateCompanionCapabilities();
     const beforeCare = `${body}${manifest}`;
     logSessionPromptLengths(beforeCare.length, careSuffix);
     return `${body}${
@@ -802,7 +811,11 @@ Use canvasShow (sound_box, karaoke, etc.) per the session subject block above.
 ${generateToolDocs()}
 `;
     const careSuffix = getCarePlanBlock(subject, childName, options);
-    const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+    const manifest =
+      "\n\n" +
+      generateCanvasCapabilitiesManifest() +
+      "\n\n" +
+      generateCompanionCapabilities();
     const generatedCore = `${namePrefix}\n\n${body}`;
     const beforeCare = `${generatedCore}${manifest}`;
     logSessionPromptLengths(beforeCare.length, careSuffix);
@@ -1034,7 +1047,11 @@ Output the prompt only. No explanation.
       console.log(`  ⚡ Session prompt cached (${cacheKey})`);
       const cachedBody = namePrefix + fs.readFileSync(cacheFile, "utf-8");
       const careSuffix = getCarePlanBlock(subject, childName, options);
-      const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+      const manifest =
+        "\n\n" +
+        generateCanvasCapabilitiesManifest() +
+        "\n\n" +
+        generateCompanionCapabilities();
       const beforeCare = `${cachedBody}${manifest}`;
       logSessionPromptLengths(beforeCare.length, careSuffix);
       return (
@@ -1063,7 +1080,11 @@ Output the prompt only. No explanation.
 
   const generatedCore = namePrefix + promptText;
   const careSuffix = getCarePlanBlock(subject, childName, options);
-  const manifest = "\n\n" + generateCanvasCapabilitiesManifest();
+  const manifest =
+    "\n\n" +
+    generateCanvasCapabilitiesManifest() +
+    "\n\n" +
+    generateCompanionCapabilities();
   const beforeCare = `${generatedCore}${manifest}`;
   logSessionPromptLengths(beforeCare.length, careSuffix);
   return (

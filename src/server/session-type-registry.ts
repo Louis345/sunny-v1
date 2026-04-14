@@ -17,6 +17,7 @@ export const CANONICAL_AGENT_TOOL_KEYS = [
   "sessionStatus",
   "sessionEnd",
   "expressCompanion",
+  "companionAct",
   "launchGame",
   "dateTime",
 ] as const;

@@ -213,4 +213,10 @@ export class SixToolsMemoryHarness {
   ): Promise<Record<string, unknown>> {
     return { ok: true, emote: args.emote, intensity: args.intensity ?? 0.8 };
   }
+
+  async companionAct(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return { ok: true, stub: true, ...args };
+  }
 }

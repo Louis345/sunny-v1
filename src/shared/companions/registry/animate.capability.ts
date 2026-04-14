@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { CapabilityDefinition } from "../companionContract";
 
-const animations = [
+export const COMPANION_ANIMATION_IDS = [
   "idle",
   "walk",
   "dance_victory",
@@ -11,6 +11,8 @@ const animations = [
   "wave",
 ] as const;
 
+const animations = COMPANION_ANIMATION_IDS;
+
 const animatePayloadSchema = z
   .object({
     animation: z.enum(animations),
@@ -19,14 +21,15 @@ const animatePayloadSchema = z
   })
   .strict();
 
-/** Phase 1 — contract only; client/runtime not wired yet. */
+/** Phase 1 — VRM layer maps clips to expression/idle cues (see `companionAnimateBridge`). */
 export const animateCapability: CapabilityDefinition = {
   type: "animate",
   version: "1.0",
   phase: 1,
-  description: "Play a named animation clip on the companion (future).",
+  description:
+    "Play a named animation id on the companion (mapped to expressions until a clip graph ships).",
   whenToUse: [
-    "When movement reinforces a celebration or transition (implementation pending).",
+    "When movement or pose reinforces a celebration or transition alongside speech.",
   ],
   payloadSchema: animatePayloadSchema,
   defaultPayload: { animation: "idle", loop: false },

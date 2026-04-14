@@ -8,14 +8,15 @@ const movePayloadSchema = z
   })
   .strict();
 
-/** Phase 1 — contract only; client/runtime not wired yet. */
+/** Phase 1 — nudges VRM root position toward symbolic map targets in the viewport. */
 export const moveCapability: CapabilityDefinition = {
   type: "move",
   version: "1.0",
   phase: 1,
-  description: "Move the companion toward a named map/node target (future).",
+  description:
+    "Move the companion toward a named symbolic target (small world-space nudge for map context).",
   whenToUse: [
-    "When the companion should relocate on the adventure map (implementation pending).",
+    "When the companion should shift on screen toward a map or story beat anchor.",
   ],
   payloadSchema: movePayloadSchema,
   defaultPayload: { target: "center", speed: "normal" },

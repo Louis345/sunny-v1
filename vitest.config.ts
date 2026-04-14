@@ -36,6 +36,7 @@ export default defineConfig({
       "src/tests/test-child-profile.ts",
       "src/tests/test-companion-types.ts",
       "src/tests/test-companion-api-001.ts",
+      "src/tests/test-companion-animate-bridge.ts",
       "src/tests/test-companion-api-registry.ts",
       "src/tests/test-companion-validate.ts",
       "src/tests/test-companion-generate-capabilities.ts",

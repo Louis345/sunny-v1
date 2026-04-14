@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CapabilityDefinition, CompanionCommand } from "../shared/companions/companionContract";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 
-describe("companion capability registry (COMPANION-API-001)", () => {
+describe("companion capability registry (COMPANION-API-002)", () => {
   it("exports COMPANION_CAPABILITIES as a Map", () => {
     expect(COMPANION_CAPABILITIES).toBeInstanceOf(Map);
   });

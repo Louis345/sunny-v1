@@ -103,6 +103,7 @@ import {
   type WorksheetSession,
 } from "./worksheet-tools";
 import { createLaunchGameTool } from "../agents/elli/tools/worksheetTools";
+import { createCompanionActTool } from "../agents/tools/companionAct";
 import { createSixTools } from "../agents/tools/six-tools";
 import {
   buildLaunchGameTool,
@@ -137,6 +138,8 @@ import {
 import { broadcastCompanionEventToMapChild } from "./map-coordinator";
 import type { CompanionEventPayload } from "../shared/companionTypes";
 import { isCompanionEmote } from "../shared/companionEmotes";
+import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
+import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 
 type CanvasActivitySnapshot = {
   mode: ActivityMode;
@@ -2621,6 +2624,7 @@ export class SessionManager {
             if (toolName === "session_status") toolName = "sessionStatus";
             if (toolName === "session_end") toolName = "sessionEnd";
             if (toolName === "express_companion") toolName = "expressCompanion";
+            if (toolName === "companion_act") toolName = "companionAct";
             let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;
             const result = toolResults[i];
 
@@ -3198,9 +3202,13 @@ export class SessionManager {
       sessionEnd: (a) => this.hostSessionEnd(a),
       expressCompanion: (a) => this.hostExpressCompanion(a),
     });
+    const companionActTool = createCompanionActTool({
+      companionAct: (a) => this.hostCompanionAct(a),
+    });
+    const baseTools = { ...six, companionAct: companionActTool };
     if (this.worksheetSession && this.worksheetMode) {
       return {
-        ...six,
+        ...baseTools,
         launchGame: createLaunchGameTool(this.worksheetSession),
         dateTime,
       };
@@ -3210,7 +3218,7 @@ export class SessionManager {
     };
     if (this.ctx?.sessionType === "math") {
       return {
-        ...six,
+        ...baseTools,
         mathProblem,
         launchGame: buildLaunchGameTool(undefined, launchGameKaraokeGuard),
         dateTime,
@@ -3218,7 +3226,7 @@ export class SessionManager {
     }
     if (this.isSpellingSession) {
       return {
-        ...six,
+        ...baseTools,
         launchGame: buildLaunchGameTool(
           {
             isWordBuilderSessionActive: () => this.wordBuilderSessionActive,
@@ -3243,7 +3251,7 @@ export class SessionManager {
       };
     }
     return {
-      ...six,
+      ...baseTools,
       launchGame: buildLaunchGameTool(undefined, launchGameKaraokeGuard),
       dateTime,
     };
@@ -3606,6 +3614,28 @@ export class SessionManager {
     return { ok: true, emote: emoteRaw, intensity };
   }
 
+  private async hostCompanionAct(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const childId = childIdFromName(this.childName);
+    const cmd = validateCompanionCommand(args, COMPANION_CAPABILITIES, {
+      childId,
+      source: "claude",
+    });
+    if (!cmd) {
+      return { ok: false, error: "invalid_or_unknown_companion_command" };
+    }
+    this.send("companion_command", { command: cmd });
+    broadcastCompanionEventToMapChild(childId, {
+      type: "companion_command",
+      command: cmd,
+    });
+    console.log(
+      `  [companion] companionAct type=${cmd.type} childId=${childId}`,
+    );
+    return { ok: true, type: cmd.type };
+  }
+
   private normalizeToolName(tool: string): string {
     if (tool === "start_spell_check") return "startSpellCheck";
     if (tool === "launch_game") return "launchGame";
@@ -3620,6 +3650,7 @@ export class SessionManager {
     if (tool === "session_status") return "sessionStatus";
     if (tool === "session_end") return "sessionEnd";
     if (tool === "express_companion") return "expressCompanion";
+    if (tool === "companion_act") return "companionAct";
     if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
     if (tool === "request_resume_activity") return "requestResumeActivity";
     return tool;

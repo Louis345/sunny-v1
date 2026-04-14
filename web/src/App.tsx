@@ -5,8 +5,10 @@ import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
+import { CompanionDiag } from "./components/CompanionDiag";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { useMapSession } from "./hooks/useMapSession";
+import type { CompanionCommand } from "../../src/shared/companions/companionContract";
 import type {
   CompanionConfig,
   CompanionEventPayload,
@@ -23,6 +25,9 @@ const isCanvasTestMode =
 
 const adventureMapEnabled =
   import.meta.env.VITE_ADVENTURE_MAP === "true";
+
+const companionDiagEnabled =
+  import.meta.env.VITE_COMPANION_DIAG === "true";
 
 function companionEventDedupeKey(p: CompanionEventPayload): string {
   const trig = p.trigger ?? "";
@@ -46,7 +51,31 @@ function mergeCompanionEvents(
   return out;
 }
 
+function companionCommandDedupeKey(c: CompanionCommand): string {
+  return `${c.timestamp}|${c.childId.trim().toLowerCase()}|${c.type}|${JSON.stringify(c.payload)}`;
+}
+
+function mergeCompanionCommands(
+  voice: CompanionCommand[],
+  map: CompanionCommand[],
+): CompanionCommand[] {
+  const seen = new Set<string>();
+  const out: CompanionCommand[] = [];
+  for (const p of [...voice, ...map]) {
+    const k = companionCommandDedupeKey(p);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(p);
+  }
+  out.sort((a, b) => a.timestamp - b.timestamp);
+  return out;
+}
+
 function App() {
+  if (companionDiagEnabled) {
+    return <CompanionDiag />;
+  }
+
   const {
     state,
     startSession,
@@ -60,6 +89,7 @@ function App() {
     micMuted,
     toggleMicMute,
     companionEvents: voiceCompanionEvents,
+    companionCommands: voiceCompanionCommands,
   } = useSession();
 
   const [adventureChildId, setAdventureChildId] = useState<string | null>(null);
@@ -80,6 +110,15 @@ function App() {
     () =>
       mergeCompanionEvents(voiceCompanionEvents, mapSession.companionEvents),
     [voiceCompanionEvents, mapSession.companionEvents],
+  );
+
+  const mergedCompanionCommands = useMemo(
+    () =>
+      mergeCompanionCommands(
+        voiceCompanionCommands,
+        mapSession.companionCommands,
+      ),
+    [voiceCompanionCommands, mapSession.companionCommands],
   );
 
   const activeProfileChildId =
@@ -260,6 +299,7 @@ function App() {
         companion={profileCompanion}
         toggledOff={companionMuted}
         companionEvents={mergedCompanionEvents}
+        companionCommands={mergedCompanionCommands}
         activeNodeScreen={
           adventureMapEnabled && adventureChildId ? activeNodeScreen : null
         }

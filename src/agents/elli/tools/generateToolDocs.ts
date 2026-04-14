@@ -1,16 +1,21 @@
 import type { Tool } from "ai";
 import { launchGame } from "./launchGame";
 import { dateTime } from "./dateTime";
+import { createCompanionActTool } from "../../tools/companionAct";
 import { createSixTools } from "../../tools/six-tools";
 import { SixToolsMemoryHarness } from "../../tools/six-tools-apply";
 
 /** Default host for docs + rare CLI paths (single-session). */
 const _defaultSixHost = new SixToolsMemoryHarness();
 const _six = createSixTools(_defaultSixHost);
+const _companionAct = createCompanionActTool({
+  companionAct: (a) => _defaultSixHost.companionAct(a),
+});
 
 /** Every `tool()` exposed to Elli — single registry for runtime + docs. */
 export const ALL_TOOLS = {
   ..._six,
+  companionAct: _companionAct,
   launchGame,
   dateTime,
 } as const;

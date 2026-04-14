@@ -12,6 +12,7 @@ import {
   DEFAULT_READING_CANVAS_PREFERENCES,
   type ReadingCanvasPreferences,
 } from "../../../src/shared/readingCanvasPreferences";
+import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
 import type { CompanionEventPayload } from "../../../src/shared/companionTypes";
 import { gameIframeRef } from "../components/Canvas";
 import { shouldRenderTeachingContent } from "../utils/canvasLayout";
@@ -178,6 +179,8 @@ interface SessionState {
   storyImageUrl: string | null;
   /** Voice WebSocket `companion_event` payloads (merged with map in App). */
   companionEvents: CompanionEventPayload[];
+  /** Voice WebSocket `companion_command` messages (merged with map in App). */
+  companionCommands: CompanionCommand[];
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -288,6 +291,7 @@ export function useSession() {
     storyImageLoading: false,
     storyImageUrl: null,
     companionEvents: [],
+    companionCommands: [],
   });
 
   const [micMuted, setMicMuted] = useState(false);
@@ -369,6 +373,7 @@ export function useSession() {
           storyImageLoading: false,
           storyImageUrl: null,
           companionEvents: [],
+          companionCommands: [],
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -394,6 +399,29 @@ export function useSession() {
         setStateRef.current((s) => ({
           ...s,
           companionEvents: [...s.companionEvents, ev],
+        }));
+        break;
+      }
+
+      case "companion_command": {
+        const command = (msg as Record<string, unknown>).command;
+        if (!command || typeof command !== "object") break;
+        const c = command as Record<string, unknown>;
+        if (
+          c.apiVersion !== "1.0" ||
+          typeof c.type !== "string" ||
+          typeof c.childId !== "string" ||
+          typeof c.timestamp !== "number" ||
+          (c.source !== "claude" && c.source !== "diag") ||
+          c.payload == null ||
+          typeof c.payload !== "object"
+        ) {
+          break;
+        }
+        const cmd = c as unknown as CompanionCommand;
+        setStateRef.current((s) => ({
+          ...s,
+          companionCommands: [...s.companionCommands, cmd],
         }));
         break;
       }
@@ -1112,6 +1140,7 @@ export function useSession() {
       storyImageLoading: false,
       storyImageUrl: null,
       companionEvents: [],
+      companionCommands: [],
     });
     wsRef.current?.close();
     wsRef.current = null;
@@ -1205,6 +1234,7 @@ export function useSession() {
     micMuted,
     toggleMicMute,
     companionEvents: state.companionEvents,
+    companionCommands: state.companionCommands,
   };
 }
 

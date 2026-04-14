@@ -2,10 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import type { VRM } from "@pixiv/three-vrm";
+import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
 import type {
   CompanionConfig,
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
+import { isCompanionEmote } from "../../../src/shared/companionEmotes";
 import {
   applyAcceptedEmote,
   applyAcceptedTrigger,
@@ -27,13 +29,25 @@ import {
   type CompanionIdleState,
 } from "../utils/companionIdle";
 import { audioAnalyserRef, updateMouthSync } from "../utils/audioAnalyser";
+import {
+  startCameraTransition,
+  tickCameraTransition,
+  type CameraAnimState,
+} from "../utils/companionCamera";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
+import {
+  COMPANION_MOVE_OFFSETS,
+  mapAnimationToEmote,
+  moveSpeedToLerpPerFrame,
+} from "../../../src/shared/companions/companionAnimateBridge";
 
 export interface CompanionLayerProps {
   childId: string | null;
   companion: CompanionConfig | null;
   toggledOff: boolean;
   companionEvents?: CompanionEventPayload[];
+  /** Validated `companionAct` commands (voice or map WebSocket). */
+  companionCommands?: CompanionCommand[];
   /** Screen pixel for LookAt (viewport); null drifts gaze toward screen center. */
   activeNodeScreen?: { x: number; y: number } | null;
 }
@@ -66,6 +80,7 @@ export function CompanionLayer({
   companion,
   toggledOff,
   companionEvents = [],
+  companionCommands = [],
   activeNodeScreen = null,
 }: CompanionLayerProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -95,6 +110,70 @@ export function CompanionLayer({
   const scratchVecRef = useRef(new THREE.Vector3());
   const activeNodeScreenRef = useRef(activeNodeScreen);
   activeNodeScreenRef.current = activeNodeScreen;
+
+  const processedCommandKeysRef = useRef<Set<string>>(new Set());
+  const cameraAnimRef = useRef<CameraAnimState | null>(null);
+  const cameraScratchRef = useRef(new THREE.Vector3());
+  const moveTargetRef = useRef<{ x: number; z: number } | null>(null);
+  const moveLerpRef = useRef(0.065);
+
+  useLayoutEffect(() => {
+    const want = childId?.trim().toLowerCase() ?? "";
+    for (const cmd of companionCommands) {
+      if (want && cmd.childId.trim().toLowerCase() !== want) continue;
+      const key = `${cmd.timestamp}|${cmd.type}|${cmd.childId}|${cmd.source}`;
+      if (processedCommandKeysRef.current.has(key)) continue;
+      processedCommandKeysRef.current.add(key);
+      if (processedCommandKeysRef.current.size > 256) {
+        const sorted = [...processedCommandKeysRef.current].sort();
+        for (let i = 0; i < sorted.length - 128; i++) {
+          processedCommandKeysRef.current.delete(sorted[i]!);
+        }
+      }
+      const cam = cameraRef.current;
+      if (cmd.type === "emote") {
+        const em = cmd.payload.emote;
+        if (isCompanionEmote(em)) {
+          const intRaw = cmd.payload.intensity;
+          const intensity =
+            typeof intRaw === "number" && Number.isFinite(intRaw)
+              ? intRaw
+              : undefined;
+          applyAcceptedEmote(expressionStateRef.current, em, intensity);
+        }
+      } else if (cmd.type === "camera" && cam) {
+        const angle = String(cmd.payload.angle ?? "mid-shot");
+        const tr = cmd.payload.transition_ms;
+        const transitionMs =
+          typeof tr === "number" && Number.isFinite(tr) ? tr : undefined;
+        startCameraTransition(
+          cam,
+          angle,
+          transitionMs,
+          cameraAnimRef,
+          cameraScratchRef.current,
+        );
+      } else if (cmd.type === "animate") {
+        const anim = typeof cmd.payload.animation === "string" ? cmd.payload.animation : "idle";
+        const em = mapAnimationToEmote(anim);
+        if (em && isCompanionEmote(em)) {
+          applyAcceptedEmote(expressionStateRef.current, em);
+          console.log("🎮 [CompanionLayer] companion_command animate", anim, "→", em);
+        }
+      } else if (cmd.type === "move") {
+        const target = typeof cmd.payload.target === "string" ? cmd.payload.target : "center";
+        const off = COMPANION_MOVE_OFFSETS[target] ?? COMPANION_MOVE_OFFSETS.center;
+        moveTargetRef.current = { x: off.x, z: off.z };
+        const spd =
+          typeof cmd.payload.speed === "string" ? cmd.payload.speed : undefined;
+        moveLerpRef.current = moveSpeedToLerpPerFrame(spd);
+        console.log("🎮 [CompanionLayer] companion_command move", {
+          target,
+          speed: spd ?? "normal",
+        });
+      }
+    }
+  }, [companionCommands, childId]);
 
   const stopLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -189,6 +268,18 @@ export function CompanionLayer({
         lt.position.copy(scratchVecRef.current);
       }
 
+      tickCameraTransition(camera, cameraAnimRef);
+      const mt = moveTargetRef.current;
+      if (mt) {
+        const p = vrm.scene.position;
+        const a = moveLerpRef.current;
+        p.x += (mt.x - p.x) * a;
+        p.z += (mt.z - p.z) * a;
+        if (Math.abs(p.x - mt.x) < 0.006 && Math.abs(p.z - mt.z) < 0.006) {
+          p.x = mt.x;
+          p.z = mt.z;
+        }
+      }
       vrm.update(dt);
       applyThinkingHeadTiltToVrm(vrm, expressionStateRef.current);
       renderer.render(scene, camera);
@@ -213,7 +304,7 @@ export function CompanionLayer({
   useLayoutEffect(() => {
     if (toggledOffRef.current || !vrmRef.current) return;
     startLoop();
-  }, [companionEvents, startLoop]);
+  }, [companionEvents, companionCommands, startLoop]);
 
   useEffect(() => {
     if (!childId || !companion) {
@@ -279,6 +370,9 @@ export function CompanionLayer({
       console.log("CompanionLayer: [sync]", reason, { w, h, aspect: cam.aspect });
     };
 
+    processedCommandKeysRef.current.clear();
+    cameraAnimRef.current = null;
+    moveTargetRef.current = null;
     console.log("CompanionLayer: [effect] building scene for child", childId);
     const scene = new THREE.Scene();
     sceneRef.current = scene;
