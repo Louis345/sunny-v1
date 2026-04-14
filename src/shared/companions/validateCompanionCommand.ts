@@ -3,7 +3,11 @@
  * Never throws; returns null and logs when invalid or unknown.
  */
 
-import type { CapabilityRegistry, CompanionCommand } from "./companionContract";
+import {
+  COMPANION_API_VERSION,
+  type CapabilityRegistry,
+  type CompanionCommand,
+} from "./companionContract";
 
 export function validateCompanionCommand(
   raw: unknown,
@@ -44,7 +48,7 @@ export function validateCompanionCommand(
     return null;
   }
   return {
-    apiVersion: "1.0",
+    apiVersion: COMPANION_API_VERSION,
     type,
     payload: parsed.data,
     childId: opts.childId,

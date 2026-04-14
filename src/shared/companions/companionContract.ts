@@ -9,6 +9,9 @@ export type CompanionCapabilityPhase = 0.5 | 1 | 2 | 3;
 
 export type CompanionApiVersion = "1.0";
 
+/** Runtime companion API version; must match `CompanionApiVersion`. */
+export const COMPANION_API_VERSION: CompanionApiVersion = "1.0";
+
 export type DiagControl =
   | {
       kind: "dropdown";
