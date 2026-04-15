@@ -261,6 +261,7 @@ export function useSession() {
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isPlayingRef = useRef(false);
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const analyserNodeRef = useRef<AnalyserNode | null>(null);
   const serverDoneRef = useRef(false);
   const bargeInConsecutiveRef = useRef(0);
   const rollingBufferRef = useRef<string[]>([]);
@@ -1019,6 +1020,7 @@ export function useSession() {
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       const analyser = ensurePlaybackAnalyser(ctx);
+      analyserNodeRef.current = analyser;
       source.connect(analyser);
       analyser.connect(ctx.destination);
       currentSourceRef.current = source;
@@ -1178,6 +1180,7 @@ export function useSession() {
         playContextRef.current = null;
       }
       resetAudioAnalyser();
+      analyserNodeRef.current = null;
       wsRef.current?.close();
     };
   }, [stopMic]);
@@ -1235,6 +1238,7 @@ export function useSession() {
     toggleMicMute,
     companionEvents: state.companionEvents,
     companionCommands: state.companionCommands,
+    analyserNodeRef,
   };
 }
 

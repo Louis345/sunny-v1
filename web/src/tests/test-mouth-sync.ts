@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  audioAnalyserRef,
   ensurePlaybackAnalyser,
   resetAudioAnalyser,
   rmsFromByteTimeDomain,
@@ -12,18 +11,27 @@ describe("mouth sync / audioAnalyser (COMPANION-005)", () => {
     resetAudioAnalyser();
   });
 
-  it("audioAnalyserRef.current is null initially", () => {
-    expect(audioAnalyserRef.current).toBeNull();
-  });
-
-  it("ensurePlaybackAnalyser creates analyser and stores ref", () => {
+  it("ensurePlaybackAnalyser returns analyser from AudioContext", () => {
     const node = { fftSize: 2048 } as unknown as AnalyserNode;
     const ctx = {
       createAnalyser: () => node,
     } as unknown as AudioContext;
     const a = ensurePlaybackAnalyser(ctx);
     expect(a).toBe(node);
-    expect(audioAnalyserRef.current).toBe(node);
+  });
+
+  it("ensurePlaybackAnalyser after reset creates a new analyser", () => {
+    const nodes = [
+      { fftSize: 2048 } as unknown as AnalyserNode,
+      { fftSize: 2048 } as unknown as AnalyserNode,
+    ];
+    let i = 0;
+    const ctx = {
+      createAnalyser: () => nodes[i++]!,
+    } as unknown as AudioContext;
+    expect(ensurePlaybackAnalyser(ctx)).toBe(nodes[0]);
+    resetAudioAnalyser();
+    expect(ensurePlaybackAnalyser(ctx)).toBe(nodes[1]);
   });
 
   it("updateMouthSync returns 0.0 when analyser is null", () => {

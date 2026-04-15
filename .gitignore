@@ -44,6 +44,9 @@ drop/processed/
 drop/ila/
 drop/reina/
 
+# Companion Mixamo FBX clips (large binaries; paths stay in animationRegistry)
+web/public/animations/*.fbx
+
 # Local Rive explorer (HTML + character.riv); delete when done
 rive-demo/
 

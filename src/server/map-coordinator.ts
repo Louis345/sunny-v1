@@ -9,6 +9,7 @@ import type {
   NodeRatingLike,
   SessionTheme,
 } from "../shared/adventureTypes";
+import { DEFAULT_MAP_WAYPOINTS } from "../shared/mapPathLayout";
 import type { ChildQuality } from "../algorithms/types";
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme } from "../agents/designer/designer";
@@ -17,7 +18,10 @@ import { recordReward } from "../engine/bandit";
 import { recordAttempt } from "../engine/learningEngine";
 import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
+import { isCompanionEmote } from "../shared/companionEmotes";
 import type { CompanionEvent, CompanionTrigger } from "../shared/companionTypes";
+import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
+import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 
 type SessionRecord = {
   childId: string;
@@ -154,6 +158,76 @@ export function broadcastTestMapCompanionEvent(
   return { ok: true, childId: key, trigger, sockets };
 }
 
+/** TEMP TEST — broadcast emote + intensity on map WebSocket (diag panel). */
+export function broadcastTestMapCompanionEmote(
+  childIdRaw: string,
+  emoteRaw: string,
+  intensityRaw: number,
+):
+  | {
+      ok: true;
+      childId: string;
+      emote: string;
+      intensity: number;
+      sockets: number;
+    }
+  | { ok: false; error: string } {
+  if (!isCompanionEmote(emoteRaw)) {
+    return { ok: false, error: `invalid emote: ${emoteRaw}` };
+  }
+  const key = mapCompanionWsKey(childIdRaw);
+  if (!key) {
+    return { ok: false, error: "childId required" };
+  }
+  const intensity = Math.max(0, Math.min(1, Number.isFinite(intensityRaw) ? intensityRaw : 0.8));
+  const set = mapSessionWebSockets.get(key);
+  const sockets = set?.size ?? 0;
+  const companionEvent: CompanionEvent = {
+    type: "companion_event",
+    payload: {
+      childId: key,
+      emote: emoteRaw,
+      intensity,
+      timestamp: Date.now(),
+    },
+  };
+  broadcastCompanionEventToMapChild(key, companionEvent);
+  return { ok: true, childId: key, emote: emoteRaw, intensity, sockets };
+}
+
+/** TEMP TEST — validated `companionAct` command on map WebSocket (diag / tooling). */
+export function broadcastTestMapCompanionAct(
+  childIdRaw: string,
+  raw: { type: string; payload: Record<string, unknown> },
+):
+  | {
+      ok: true;
+      childId: string;
+      type: string;
+      sockets: number;
+    }
+  | { ok: false; error: string } {
+  const key = mapCompanionWsKey(childIdRaw);
+  if (!key) {
+    return { ok: false, error: "childId required" };
+  }
+  const cmd = validateCompanionCommand(
+    { type: raw.type, payload: raw.payload },
+    COMPANION_CAPABILITIES,
+    { childId: key, source: "diag" },
+  );
+  if (!cmd) {
+    return { ok: false, error: "invalid_companion_command" };
+  }
+  const set = mapSessionWebSockets.get(key);
+  const sockets = set?.size ?? 0;
+  broadcastCompanionEventToMapChild(key, {
+    type: "companion_command",
+    command: cmd,
+  });
+  return { ok: true, childId: key, type: cmd.type, sockets };
+}
+
 export class MapSessionError extends Error {
   constructor(
     message: string,
@@ -173,9 +247,102 @@ function syncNodeStatuses(state: MapState): void {
   }));
 }
 
+function isDiagMapMode(): boolean {
+  return process.env.SUNNY_SUBJECT?.trim() === "diag";
+}
+
+/** Static theme — no Grok / designer image pipeline (SUNNY_SUBJECT=diag map only). */
+function diagSessionTheme(): SessionTheme {
+  const accent = "#1a56db";
+  return {
+    name: "default",
+    palette: {
+      sky: "#6ec8ff",
+      ground: "#228b5c",
+      accent,
+      particle: "#e0f2fe",
+      glow: accent,
+    },
+    ambient: { type: "dots", count: 20, speed: 1, color: "#e0f2fe" },
+    nodeStyle: "rounded",
+    pathStyle: "curve",
+    castleVariant: "stone",
+    castleUrl: null,
+    nodeThumbnails: {},
+    mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
+  };
+}
+
+/**
+ * Isolated diag map: no buildProfile, no Grok, fixed nodes for kiosk QA.
+ */
+function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
+  const sessionDate = new Date().toISOString();
+  const theme = diagSessionTheme();
+  const nodes: NodeConfig[] = [
+    {
+      id: "n-riddle",
+      type: "riddle",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 1,
+    },
+    {
+      id: "n-wb",
+      type: "word-builder",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 2,
+    },
+    {
+      id: "n-karaoke",
+      type: "karaoke",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 2,
+    },
+    {
+      id: "n-coins",
+      type: "coin-counter",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 2,
+    },
+    {
+      id: "n-castle",
+      type: "boss",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: true,
+      difficulty: 3,
+    },
+  ];
+  const mapState: MapState = {
+    childId: "creator",
+    sessionDate,
+    nodes,
+    currentNodeIndex: 0,
+    completedNodes: [],
+    theme,
+    xp: 0,
+    level: 1,
+  };
+  syncNodeStatuses(mapState);
+  const sessionId = randomUUID();
+  sessions.set(sessionId, { childId: "creator", mapState });
+  return { sessionId, mapState };
+}
+
 export async function startMapSession(
   childId: string,
 ): Promise<{ sessionId: string; mapState: MapState }> {
+  if (isDiagMapMode()) {
+    return buildDiagMapSession();
+  }
   const profile = await buildProfile(childId);
   if (!profile) {
     throw new MapSessionError("unknown_child", 404);

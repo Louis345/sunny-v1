@@ -1,11 +1,12 @@
 import { z } from "zod";
-import type { CapabilityDefinition } from "../companionContract";
-
-const cameraAngles = ["close-up", "mid-shot", "full-body", "wide"] as const;
+import {
+  CAMERA_ANGLES,
+  type CapabilityDefinition,
+} from "../companionContract";
 
 const cameraPayloadSchema = z
   .object({
-    angle: z.enum(cameraAngles),
+    angle: z.enum(CAMERA_ANGLES),
     transition_ms: z.number().nonnegative().optional(),
   })
   .strict();
@@ -27,7 +28,7 @@ export const cameraCapability: CapabilityDefinition = {
       kind: "dropdown",
       key: "angle",
       label: "Angle",
-      options: [...cameraAngles],
+      options: [...CAMERA_ANGLES],
     },
     {
       kind: "slider",

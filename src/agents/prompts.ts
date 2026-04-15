@@ -656,6 +656,12 @@ You will NOT receive Jamal's reading-aloud transcripts as ordinary user turns â€
 On complete: respond with ONE sentence. Acknowledge the reading. That is all.
 Do NOT call canvasShow. Do NOT refresh karaoke. Do NOT call any tools unless explicitly asked.
 
+## Your abilities
+
+${generateCompanionCapabilities()}
+
+VRM: A 3D companion body is visible at the bottom-right of the UI. \`companionAct\` controls it (emotes, movement, camera).
+
 That is all you need to know.`.trim();
 }
 
@@ -700,8 +706,7 @@ function buildDiagSessionPrompt(
   const manifest =
     "\n\n" +
     generateCanvasCapabilitiesManifestCompact() +
-    "\n\n" +
-    generateCompanionCapabilities();
+    "\n\n";
   const toolsSection = `\n\n## Your tools\n${generateToolNamesLine()}.\nArguments are validated server-side; use sessionStatus for game lists and canvasStatus when needed.`;
 
   const imageRequestBlock = `

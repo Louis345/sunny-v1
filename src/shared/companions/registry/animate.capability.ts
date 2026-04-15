@@ -1,15 +1,8 @@
 import { z } from "zod";
-import type { CapabilityDefinition } from "../companionContract";
-
-export const COMPANION_ANIMATION_IDS = [
-  "idle",
-  "walk",
-  "dance_victory",
-  "think",
-  "sit",
-  "jump",
-  "wave",
-] as const;
+import {
+  COMPANION_ANIMATION_IDS,
+  type CapabilityDefinition,
+} from "../companionContract";
 
 const animations = COMPANION_ANIMATION_IDS;
 

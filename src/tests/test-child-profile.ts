@@ -51,4 +51,11 @@ describe("buildProfile (TASK-004)", () => {
     expect(typeof p.attentionWindow_ms).toBe("number");
     expect(p.attentionWindow_ms).toBeGreaterThan(0);
   });
+
+  it("buildProfile(creator) reads src/context/creator/learning_profile.json", async () => {
+    const p = await buildProfile("creator");
+    expect(p).not.toBeNull();
+    if (!p) return;
+    expect(p.childId).toBe("creator");
+  });
 });

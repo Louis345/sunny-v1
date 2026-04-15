@@ -1,32 +1,31 @@
 /**
  * Shared analyser for ElevenLabs PCM playback (COMPANION-005).
- * `useSession` routes BufferSource → AnalyserNode → destination; CompanionLayer reads RMS for "aa".
+ * `useSession` routes BufferSource → AnalyserNode → destination; pass that node via a React ref to CompanionLayer for RMS → "aa".
  */
 
-export const audioAnalyserRef: { current: AnalyserNode | null } = { current: null };
+let playbackAnalyser: AnalyserNode | null = null;
 
 let smoothedMouthWeight = 0;
 
 export function resetAudioAnalyser(): void {
   try {
-    audioAnalyserRef.current?.disconnect();
+    playbackAnalyser?.disconnect();
   } catch {
     /* ignore */
   }
-  audioAnalyserRef.current = null;
+  playbackAnalyser = null;
   smoothedMouthWeight = 0;
 }
 
 /** Create or reuse an AnalyserNode for the given playback AudioContext. */
 export function ensurePlaybackAnalyser(ctx: AudioContext): AnalyserNode {
-  const cur = audioAnalyserRef.current;
-  if (cur && cur.context === ctx) {
-    return cur;
+  if (playbackAnalyser && playbackAnalyser.context === ctx) {
+    return playbackAnalyser;
   }
   resetAudioAnalyser();
   const a = ctx.createAnalyser();
   a.fftSize = 2048;
-  audioAnalyserRef.current = a;
+  playbackAnalyser = a;
   return a;
 }
 

@@ -41,6 +41,15 @@ export function generateCompanionCapabilities(
     lines.push("");
     lines.push(`**Example:** \`companionAct({ type: "${def.type}", payload: ${JSON.stringify(def.defaultPayload)} })\``);
     lines.push("");
+    if (def.type === "animate") {
+      lines.push(
+        "**Guidance:** Use **animate** for physical actions (wave, dance, think, shrug). Use **emote** only for facial expressions.",
+      );
+      lines.push(
+        "Example: `companionAct({ type: 'animate', payload: { animation: 'wave' } })` — not `companionAct({ type: 'emote', payload: { emote: 'happy' } })` for body language.",
+      );
+      lines.push("");
+    }
   }
 
   return lines.join("\n");

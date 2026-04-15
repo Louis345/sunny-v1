@@ -7,6 +7,8 @@ import { buildProfile } from "../profiles/buildProfile";
 import type { NodeResult } from "../shared/adventureTypes";
 import {
   applyNodeResult,
+  broadcastTestMapCompanionAct,
+  broadcastTestMapCompanionEmote,
   broadcastTestMapCompanionEvent,
   handleMapClientMessage,
   MapSessionError,
@@ -214,10 +216,41 @@ export function setupRoutes(app: Express): void {
     }
   });
 
-  /** TEMP TEST ONLY — do not commit to main. */
+  /** TEMP TEST ONLY — trigger-based or emote+intensity for map WebSocket. */
   app.post("/api/map/test-companion-event", (req: Request, res: Response) => {
     const childId =
       typeof req.body?.childId === "string" ? req.body.childId : "";
+    const emoteRaw = req.body?.emote;
+    if (typeof emoteRaw === "string" && emoteRaw.trim() !== "") {
+      const intensityRaw = req.body?.intensity;
+      const intensity =
+        typeof intensityRaw === "number" && Number.isFinite(intensityRaw)
+          ? intensityRaw
+          : 0.8;
+      const out = broadcastTestMapCompanionEmote(childId, emoteRaw.trim(), intensity);
+      if (!out.ok) {
+        return res.status(400).json(out);
+      }
+      return res.json(out);
+    }
+    const actType = req.body?.type;
+    const actPayload = req.body?.payload;
+    if (
+      typeof actType === "string" &&
+      actType.trim() !== "" &&
+      actPayload &&
+      typeof actPayload === "object" &&
+      !Array.isArray(actPayload)
+    ) {
+      const out = broadcastTestMapCompanionAct(childId, {
+        type: actType.trim(),
+        payload: actPayload as Record<string, unknown>,
+      });
+      if (!out.ok) {
+        return res.status(400).json(out);
+      }
+      return res.json(out);
+    }
     const trigger =
       typeof req.body?.trigger === "string"
         ? req.body.trigger

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
+import {
+  COMPANION_API_VERSION,
+  type CompanionCommand,
+} from "../../../src/shared/companions/companionContract";
 import type {
   CompanionEvent,
   CompanionEventPayload,
@@ -41,7 +44,7 @@ function isCompanionCommandMessage(msg: unknown): msg is {
   if (!c || typeof c !== "object") return false;
   const cmd = c as Record<string, unknown>;
   return (
-    cmd.apiVersion === "1.0" &&
+    cmd.apiVersion === COMPANION_API_VERSION &&
     typeof cmd.type === "string" &&
     typeof cmd.childId === "string" &&
     typeof cmd.timestamp === "number" &&
@@ -160,8 +163,20 @@ export function useMapSession(childId: string): {
         if (isCompanionEvent(msg)) {
           console.log("companion_event received:", msg);
           setCompanionEvents((prev) => [...prev, msg.payload]);
-        } else if (isCompanionCommandMessage(msg)) {
-          setCompanionCommands((prev) => [...prev, msg.command]);
+        } else if (
+          typeof msg === "object" &&
+          msg !== null &&
+          (msg as Record<string, unknown>).type === "companion_command"
+        ) {
+          if (isCompanionCommandMessage(msg)) {
+            console.log("🎮 [useMapSession] companion_command received:", msg);
+            setCompanionCommands((prev) => [...prev, msg.command]);
+          } else {
+            console.warn(
+              "🎮 [useMapSession] companion_command ignored (invalid shape)",
+              msg,
+            );
+          }
         }
       } catch {
         /* ignore non-JSON frames */

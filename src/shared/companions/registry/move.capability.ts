@@ -1,9 +1,12 @@
 import { z } from "zod";
-import type { CapabilityDefinition } from "../companionContract";
+import {
+  BONE_TARGETS,
+  type CapabilityDefinition,
+} from "../companionContract";
 
 const movePayloadSchema = z
   .object({
-    target: z.string().min(1),
+    target: z.enum(BONE_TARGETS),
     speed: z.enum(["slow", "normal", "fast"]).optional(),
   })
   .strict();

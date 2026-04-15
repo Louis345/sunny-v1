@@ -360,7 +360,7 @@ export function getWilsonBlock(ctx: SessionContext): string {
   } else {
     const prof = readLearningProfile(childId);
     wilsonStep =
-      prof?.sessionStats.currentWilsonStep ?? (childId === "ila" ? 4 : 1);
+      prof?.sessionStats?.currentWilsonStep ?? (childId === "ila" ? 4 : 1);
     moodAdjustment = prof?.moodAdjustment ?? false;
   }
   return [

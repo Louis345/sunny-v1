@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "./hooks/useSession";
 import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
@@ -7,8 +7,12 @@ import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
 import { CompanionDiag } from "./components/CompanionDiag";
 import { CompanionLayer } from "./components/CompanionLayer";
+import { DiagPanel } from "./components/DiagPanel";
 import { useMapSession } from "./hooks/useMapSession";
-import type { CompanionCommand } from "../../src/shared/companions/companionContract";
+import {
+  COMPANION_API_VERSION,
+  type CompanionCommand,
+} from "../../src/shared/companions/companionContract";
 import type {
   CompanionConfig,
   CompanionEventPayload,
@@ -28,6 +32,10 @@ const adventureMapEnabled =
 
 const companionDiagEnabled =
   import.meta.env.VITE_COMPANION_DIAG === "true";
+
+const diagMapPanelEnabled =
+  import.meta.env.VITE_ADVENTURE_MAP === "true" &&
+  import.meta.env.VITE_DIAG_CHILD_ID?.trim().toLowerCase() === "creator";
 
 function companionEventDedupeKey(p: CompanionEventPayload): string {
   const trig = p.trigger ?? "";
@@ -90,17 +98,31 @@ function App() {
     toggleMicMute,
     companionEvents: voiceCompanionEvents,
     companionCommands: voiceCompanionCommands,
+    analyserNodeRef,
   } = useSession();
 
   const [adventureChildId, setAdventureChildId] = useState<string | null>(null);
   const [profileCompanion, setProfileCompanion] = useState<CompanionConfig | null>(
     null,
   );
+
+  useEffect(() => {
+    if (!adventureMapEnabled) return;
+    const raw = import.meta.env.VITE_DIAG_CHILD_ID;
+    if (raw === undefined || raw === "") return;
+    const id = raw.trim().toLowerCase();
+    if (!id) return;
+    setAdventureChildId(id);
+  }, []);
+
   const [companionMuted, setCompanionMuted] = useState(false);
   const [activeNodeScreen, setActiveNodeScreen] = useState<{
     x: number;
     y: number;
   } | null>(null);
+  const [diagCompanionCommands, setDiagCompanionCommands] = useState<
+    CompanionCommand[]
+  >([]);
 
   const mapSession = useMapSession(
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
@@ -115,10 +137,34 @@ function App() {
   const mergedCompanionCommands = useMemo(
     () =>
       mergeCompanionCommands(
-        voiceCompanionCommands,
-        mapSession.companionCommands,
+        mergeCompanionCommands(
+          voiceCompanionCommands,
+          mapSession.companionCommands,
+        ),
+        diagCompanionCommands,
       ),
-    [voiceCompanionCommands, mapSession.companionCommands],
+    [
+      voiceCompanionCommands,
+      mapSession.companionCommands,
+      diagCompanionCommands,
+    ],
+  );
+
+  const handleDiagCamera = useCallback(
+    (angle: "close-up" | "mid-shot" | "full-body" | "wide") => {
+      setDiagCompanionCommands((prev) => [
+        ...prev,
+        {
+          apiVersion: COMPANION_API_VERSION,
+          type: "camera",
+          payload: { angle },
+          childId: "creator",
+          timestamp: Date.now(),
+          source: "diag",
+        },
+      ]);
+    },
+    [],
   );
 
   const activeProfileChildId =
@@ -177,18 +223,6 @@ function App() {
       cancelled = true;
     };
   }, [activeProfileChildId]);
-
-  // Auto-start session when on /test/canvas so the canvas test page works directly
-  useEffect(() => {
-    if (
-      !adventureMapEnabled &&
-      state.phase === "picker" &&
-      window.location.pathname === "/test/canvas" &&
-      (window.location.port === "3002" || window.location.port === "5173")
-    ) {
-      startSession("Ila");
-    }
-  }, [state.phase, startSession]);
 
   let main: ReactNode = null;
 
@@ -294,6 +328,16 @@ function App() {
   return (
     <>
       {main}
+      {adventureMapEnabled &&
+      adventureChildId &&
+      diagMapPanelEnabled ? (
+        <DiagPanel
+          startSession={startSession}
+          endSession={endSession}
+          voiceActive={state.phase === "active"}
+          onCameraAct={handleDiagCamera}
+        />
+      ) : null}
       <CompanionLayer
         childId={activeProfileChildId}
         companion={profileCompanion}
@@ -303,6 +347,7 @@ function App() {
         activeNodeScreen={
           adventureMapEnabled && adventureChildId ? activeNodeScreen : null
         }
+        analyserNodeRef={analyserNodeRef}
       />
       {activeProfileChildId ? (
         <button
