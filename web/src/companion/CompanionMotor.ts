@@ -127,19 +127,22 @@ export class CompanionMotor {
     this.detachVrmFromScene();
     this.vrm = vrm;
     const lookTarget = new THREE.Object3D();
+    // Place look target in front of the camera so the character looks
+    // straight ahead on the first frame (before tick() repositions it).
+    lookTarget.position.set(0, 1.4, -5);
     scene.add(lookTarget);
     this.lookTarget = lookTarget;
     if (vrm.lookAt) {
       vrm.lookAt.target = lookTarget;
     }
     scene.add(vrm.scene);
-    vrm.scene.rotation.y = 0;
+    vrm.scene.rotation.y = Math.PI; // VRM 0.x faces +Z by default; rotate to face -Z (toward camera at -d)
     vrm.scene.position.set(0, -0.8, 0);
     // Reset spring bones then pre-simulate 30 frames so hair settles at rest
     // instead of launching on first render.
     if (vrm.springBoneManager) {
       vrm.springBoneManager.reset();
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 120; i++) {
         vrm.springBoneManager.update(1 / 60);
       }
     }
