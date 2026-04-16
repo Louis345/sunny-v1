@@ -15,7 +15,7 @@ import {
   applyAcceptedEmote,
   applyAcceptedTrigger,
   applyExpressionStateToVrm,
-  applyThinkingHeadTiltToVrm,
+  // applyThinkingHeadTiltToVrm,
   CompanionEventDeduper,
   createNeutralExpressionState,
   pickEmotesToApply,
@@ -24,7 +24,7 @@ import {
   type ExpressionDecayState,
 } from "../utils/companionExpressions";
 import {
-  applyIdleMotionToVrm,
+  // applyIdleMotionToVrm,
   createInitialIdleState,
   expressionBlocksIdle,
   screenPixelToLookTargetWorld,
@@ -93,7 +93,6 @@ export class CompanionMotor {
   private moveLerp = 0.065;
 
   private animationMixer: THREE.AnimationMixer | null = null;
-  private currentAction: THREE.AnimationAction | null = null;
   private readonly clipCache = new Map<AnimationName, THREE.AnimationClip>();
   private readonly clipInflight = new Map<
     AnimationName,
@@ -433,9 +432,7 @@ export class CompanionMotor {
         busy,
         () => Math.random(),
       );
-      if (!this.currentAction) {
-        applyIdleMotionToVrm(vrm, this.idleState);
-      }
+      // applyIdleMotionToVrm(vrm, this.idleState); // TODO: re-enable once procedural/mixer conflict is resolved
       const mouthW = updateMouthSync(ctx.analyser, ctx.dt);
       vrm.expressionManager?.setValue("aa", mouthW);
     }
@@ -471,9 +468,7 @@ export class CompanionMotor {
       this.animationMixer.update(ctx.dt);
     }
     vrm.update(ctx.dt);
-    if (!this.currentAction) {
-      applyThinkingHeadTiltToVrm(vrm, this.expressionState);
-    }
+    // applyThinkingHeadTiltToVrm(vrm, this.expressionState); // TODO: re-enable once procedural/mixer conflict is resolved
   }
 
   hasVrm(): boolean {
@@ -548,13 +543,11 @@ export class CompanionMotor {
     );
     action.clampWhenFinished = !loop;
     action.reset().play();
-    this.currentAction = loop ? null : action;
     console.log("🎮 [CompanionMotor] animate clip", name, { loop });
 
     if (!loop) {
       const onFinished = () => {
         this.animationMixer?.removeEventListener("finished", onFinished);
-        this.currentAction = null;
         this.applyAnimateCommand("idle", { loop: true });
       };
       this.animationMixer.addEventListener("finished", onFinished);
