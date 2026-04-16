@@ -136,10 +136,9 @@ export class CompanionMotor {
       vrm.lookAt.target = lookTarget;
     }
     scene.add(vrm.scene);
-    vrm.scene.rotation.y = Math.PI; // VRM 0.x faces +Z by default; rotate to face -Z (toward camera at -d)
+    vrm.scene.rotation.y = 0;
     vrm.scene.position.set(0, -0.8, 0);
-    // Reset spring bones then pre-simulate 30 frames so hair settles at rest
-    // instead of launching on first render.
+    // Pre-simulate spring bones so hair settles at rest instead of launching on first render.
     if (vrm.springBoneManager) {
       vrm.springBoneManager.reset();
       for (let i = 0; i < 120; i++) {
