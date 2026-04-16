@@ -122,7 +122,6 @@ export function retargetMixamoClipToVrm(
   mixamoRoot: THREE.Object3D,
   vrm: VRM,
 ): THREE.AnimationClip | null {
-  const _vec3 = new THREE.Vector3();
   const restRotationInverse = new THREE.Quaternion();
   const parentRestWorldRotation = new THREE.Quaternion();
   const _quatA = new THREE.Quaternion();
@@ -130,23 +129,6 @@ export function retargetMixamoClipToVrm(
   if (!vrm.humanoid) {
     console.warn("🎮 [mixamoRetarget] VRM has no humanoid");
     return null;
-  }
-
-  // Compute hip-height scale so the character's step height matches the VRM.
-  const hipsObj =
-    mixamoRoot.getObjectByName("mixamorig:Hips") ??
-    mixamoRoot.getObjectByName("mixamorig_Hips") ??
-    mixamoRoot.getObjectByName("mixamorigHips");
-  const vrmHipsNode = vrm.humanoid.getNormalizedBoneNode("hips");
-  let hipsPositionScale = 1.0;
-  if (hipsObj && vrmHipsNode) {
-    const motionHipsHeight = hipsObj.position.y;
-    const vrmHipsY = vrmHipsNode.getWorldPosition(_vec3).y;
-    const vrmRootY = vrm.scene.getWorldPosition(new THREE.Vector3()).y;
-    const vrmHipsHeight = Math.abs(vrmHipsY - vrmRootY);
-    if (motionHipsHeight > 0) {
-      hipsPositionScale = vrmHipsHeight / motionHipsHeight;
-    }
   }
 
   const tracks: THREE.KeyframeTrack[] = [];
@@ -211,22 +193,12 @@ export function retargetMixamoClipToVrm(
           values,
         ),
       );
-    } else if (property === "position") {
-      const scale = vrmBoneName === "hips" ? hipsPositionScale : 1.0;
-      const values =
-        scale !== 1.0
-          ? new Float32Array(track.values.length)
-          : new Float32Array(track.values);
-      if (scale !== 1.0) {
-        for (let i = 0; i < track.values.length; i++) {
-          values[i] = track.values[i]! * scale;
-        }
-      }
+    } else if (property === "position" && vrmBoneName !== "hips") {
       tracks.push(
         new THREE.VectorKeyframeTrack(
           `${vrmNodeName}.position`,
           track.times,
-          values,
+          new Float32Array(track.values),
         ),
       );
     }

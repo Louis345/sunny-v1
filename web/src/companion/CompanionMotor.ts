@@ -15,7 +15,7 @@ import {
   applyAcceptedEmote,
   applyAcceptedTrigger,
   applyExpressionStateToVrm,
-  applyThinkingHeadTiltToVrm,
+  // applyThinkingHeadTiltToVrm,
   CompanionEventDeduper,
   createNeutralExpressionState,
   pickEmotesToApply,
@@ -24,7 +24,7 @@ import {
   type ExpressionDecayState,
 } from "../utils/companionExpressions";
 import {
-  applyIdleMotionToVrm,
+  // applyIdleMotionToVrm,
   createInitialIdleState,
   expressionBlocksIdle,
   screenPixelToLookTargetWorld,
@@ -73,7 +73,8 @@ export class CompanionMotor {
   private vrm: VRM | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
 
-  private expressionState: ExpressionDecayState = createNeutralExpressionState();
+  private expressionState: ExpressionDecayState =
+    createNeutralExpressionState();
   private eventDeduper = new CompanionEventDeduper();
   private idleState: CompanionIdleState = createInitialIdleState();
   private lookTarget: THREE.Object3D | null = null;
@@ -126,18 +127,40 @@ export class CompanionMotor {
   ): void {
     this.detachVrmFromScene();
     this.vrm = vrm;
-    const lookTarget = new THREE.Object3D();
+    // const lookTarget = new THREE.Object3D();
     // Place look target in front of the camera so the character looks
     // straight ahead on the first frame (before tick() repositions it).
-    lookTarget.position.set(0, 1.4, -5);
-    scene.add(lookTarget);
-    this.lookTarget = lookTarget;
-    if (vrm.lookAt) {
-      vrm.lookAt.target = lookTarget;
-    }
+    // lookTarget.position.set(0, 1.4, -5);
+    // scene.add(lookTarget);
+    // this.lookTarget = lookTarget;
+    // if (vrm.lookAt) {
+    //   vrm.lookAt.target = lookTarget;
+    // }
     scene.add(vrm.scene);
     vrm.scene.rotation.y = 0;
     vrm.scene.position.set(0, -0.8, 0);
+    if (vrm.springBoneManager) {
+      const colliders = vrm.springBoneManager.colliders;
+      console.log("🦴 spring collider count:", colliders.length);
+      colliders.forEach((c) => {
+        const radius =
+          (c.shape as unknown as Record<string, unknown>)?.radius ??
+          "no-radius";
+        console.log("🦴 collider:", c.name, "radius:", radius);
+      });
+      const joints = vrm.springBoneManager.joints;
+      console.log("🦴 joint count:", joints.size);
+      joints.forEach((j) => {
+        console.log(
+          "🦴 joint:",
+          j.bone?.name,
+          "gravity:",
+          j.settings.gravityPower,
+          "dir:",
+          j.settings.gravityDir,
+        );
+      });
+    }
     // Pre-simulate spring bones so hair settles at rest instead of launching on first render.
     if (vrm.springBoneManager) {
       vrm.springBoneManager.reset();
@@ -153,7 +176,7 @@ export class CompanionMotor {
     }
     this.animationMixer = new THREE.AnimationMixer(vrm.scene);
     this.fitCameraToVrm(vrm, mountW, mountH);
-    this.playAnimation("idle", { loop: true });
+    // this.playAnimation("idle", { loop: true });
   }
 
   /**
@@ -172,8 +195,7 @@ export class CompanionMotor {
     const camera = this.camera;
     if (!vrm || vrm !== this.vrm || !camera) return;
 
-    const aspect =
-      Math.max(1e-6, mountW) / Math.max(1e-6, mountH);
+    const aspect = Math.max(1e-6, mountW) / Math.max(1e-6, mountH);
     camera.aspect = aspect;
     camera.fov = COMPANION_CAMERA_BASE_FOV;
     camera.updateProjectionMatrix();
@@ -338,10 +360,7 @@ export class CompanionMotor {
             ? cmd.payload.animation
             : "idle";
         const loopRaw = cmd.payload.loop;
-        const loop =
-          typeof loopRaw === "boolean"
-            ? loopRaw
-            : undefined;
+        const loop = typeof loopRaw === "boolean" ? loopRaw : undefined;
         this.applyAnimateCommand(anim, { loop });
       } else if (cmd.type === "move") {
         const target = parseBoneTarget(cmd.payload.target);
@@ -371,7 +390,10 @@ export class CompanionMotor {
       forChildId: ctx.childId,
     });
     for (const { emote, intensity } of emotes) {
-      console.log("🎮 [CompanionMotor] applying emote from event:", { emote, intensity });
+      console.log("🎮 [CompanionMotor] applying emote from event:", {
+        emote,
+        intensity,
+      });
       applyAcceptedEmote(ex, emote, intensity);
     }
 
@@ -410,7 +432,7 @@ export class CompanionMotor {
         busy,
         () => Math.random(),
       );
-      applyIdleMotionToVrm(vrm, this.idleState);
+      // applyIdleMotionToVrm(vrm, this.idleState);
       const mouthW = updateMouthSync(ctx.analyser, ctx.dt);
       vrm.expressionManager?.setValue("aa", mouthW);
     }
@@ -427,11 +449,7 @@ export class CompanionMotor {
       lt.position.copy(this.scratchVec);
     }
 
-    tickCameraTransition(
-      camera,
-      this.cameraAnim,
-      this.cameraAnimLookScratch,
-    );
+    tickCameraTransition(camera, this.cameraAnim, this.cameraAnimLookScratch);
     if (this.cameraAnim.current) {
       this.lastCameraLookAt.copy(this.cameraAnimLookScratch);
     }
@@ -450,7 +468,7 @@ export class CompanionMotor {
       this.animationMixer.update(ctx.dt);
     }
     vrm.update(ctx.dt);
-    applyThinkingHeadTiltToVrm(vrm, this.expressionState);
+    // applyThinkingHeadTiltToVrm(vrm, this.expressionState);
   }
 
   hasVrm(): boolean {
@@ -480,8 +498,7 @@ export class CompanionMotor {
     }
     const name = animation as AnimationName;
     const entry = getAnimationEntry(name);
-    const loop =
-      opts.loop ?? entry?.defaultLoop ?? false;
+    const loop = opts.loop ?? entry?.defaultLoop ?? false;
     if (!entry?.path) {
       this.applyAnimateEmoteFallback(animation);
       return;

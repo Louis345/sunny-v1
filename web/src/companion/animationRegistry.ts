@@ -22,13 +22,13 @@ export const ANIMATION_REGISTRY: Record<
   AnimationName,
   AnimationRegistryEntry | null
 > = {
-  idle: { path: "/animations/idle.fbx", defaultLoop: true },
+  idle: { path: "/animations/idle.fbx", defaultLoop: false },
   walk: null,
   dance_victory: {
     path: "/animations/dance_victory.fbx",
     defaultLoop: false,
   },
-  think: { path: "/animations/think.fbx", defaultLoop: true },
+  think: { path: "/animations/think.fbx", defaultLoop: false },
   sit: null,
   jump: null,
   wave: { path: "/animations/wave.fbx", defaultLoop: false },

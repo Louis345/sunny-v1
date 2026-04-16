@@ -189,7 +189,9 @@ export function CompanionLayer({
 
     const mount = mountRef.current;
     if (!mount) {
-      console.error("CompanionLayer: [effect] mountRef.current is null — skip Three setup");
+      console.error(
+        "CompanionLayer: [effect] mountRef.current is null — skip Three setup",
+      );
       return;
     }
 
@@ -216,7 +218,11 @@ export function CompanionLayer({
       if (motor?.hasVrm()) {
         motor.syncCameraToMount(w, h);
       }
-      console.log("CompanionLayer: [sync]", reason, { w, h, aspect: cam.aspect });
+      console.log("CompanionLayer: [sync]", reason, {
+        w,
+        h,
+        aspect: cam.aspect,
+      });
     };
 
     const motor = new CompanionMotor();
@@ -228,7 +234,7 @@ export function CompanionLayer({
 
     const { w: cw0, h: ch0 } = readMountSize();
     const camera = new THREE.PerspectiveCamera(22, cw0 / ch0, 0.05, 50);
-    camera.position.set(0, 1, 3);
+    camera.position.set(0, 1, -3);
     camera.lookAt(0, 1, 0);
     cameraRef.current = camera;
     motor.setCamera(camera);
@@ -241,10 +247,18 @@ export function CompanionLayer({
       usedSize: { w: cw0, h: ch0 },
     });
 
-    const finishSetup = (renderer: CompanionRenderer, webgpuMaterials: boolean) => {
-      console.log("CompanionLayer: [finishSetup] enter", { webgpuMaterials, cancelled });
+    const finishSetup = (
+      renderer: CompanionRenderer,
+      webgpuMaterials: boolean,
+    ) => {
+      console.log("CompanionLayer: [finishSetup] enter", {
+        webgpuMaterials,
+        cancelled,
+      });
       if (cancelled) {
-        console.log("CompanionLayer: [finishSetup] cancelled, disposing renderer");
+        console.log(
+          "CompanionLayer: [finishSetup] cancelled, disposing renderer",
+        );
         renderer.dispose();
         return;
       }
@@ -256,7 +270,9 @@ export function CompanionLayer({
       canvas.style.width = "100%";
       canvas.style.height = "100%";
       canvas.style.display = "block";
-      console.log("CompanionLayer: [finishSetup] canvas styled (already in DOM)");
+      console.log(
+        "CompanionLayer: [finishSetup] canvas styled (already in DOM)",
+      );
 
       const amb = new THREE.AmbientLight(0xffffff, 0.62);
       const dir = new THREE.DirectionalLight(0xffffff, 0.88);
@@ -265,32 +281,39 @@ export function CompanionLayer({
       console.log("CompanionLayer: [finishSetup] lights added, loading VRM...");
 
       const modelUrl = resolveModelUrl(companion.vrmUrl);
-      console.log("CompanionLayer: [finishSetup] calling loadCompanionVrm", modelUrl, {
-        webgpu: webgpuMaterials,
-      });
+      console.log(
+        "CompanionLayer: [finishSetup] calling loadCompanionVrm",
+        modelUrl,
+        {
+          webgpu: webgpuMaterials,
+        },
+      );
       loadCompanionVrm(modelUrl, { webgpu: webgpuMaterials })
-      .then((vrm) => {
-        if (cancelled) {
-          vrm.scene.removeFromParent();
-          return;
-        }
-        const { w: mw, h: mh } = readMountSize();
-        motor.attachVrm(vrm, scene, mw, mh);
+        .then((vrm) => {
+          if (cancelled) {
+            vrm.scene.removeFromParent();
+            return;
+          }
+          const { w: mw, h: mh } = readMountSize();
+          motor.attachVrm(vrm, scene, mw, mh);
 
-        syncRendererToMount("after VRM load");
-        requestAnimationFrame(() => syncRendererToMount("rAF1 post VRM"));
-        requestAnimationFrame(() =>
-          requestAnimationFrame(() => syncRendererToMount("rAF2 post VRM")),
-        );
+          syncRendererToMount("after VRM load");
+          requestAnimationFrame(() => syncRendererToMount("rAF1 post VRM"));
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => syncRendererToMount("rAF2 post VRM")),
+          );
 
-        console.log("CompanionLayer: [VRM] loaded, starting loop if visible");
-        if (!toggledOffRef.current) {
-          startLoop();
-        }
-      })
-      .catch((err: unknown) => {
-        console.error("CompanionLayer: failed to load or validate VRM —", err);
-      });
+          console.log("CompanionLayer: [VRM] loaded, starting loop if visible");
+          if (!toggledOffRef.current) {
+            startLoop();
+          }
+        })
+        .catch((err: unknown) => {
+          console.error(
+            "CompanionLayer: failed to load or validate VRM —",
+            err,
+          );
+        });
     };
 
     const onResize = () => {
@@ -329,10 +352,15 @@ export function CompanionLayer({
           try {
             webgpuAttempt.dispose();
           } catch (disposeErr: unknown) {
-            console.error("CompanionLayer: [init] WebGPU dispose after failure:", disposeErr);
+            console.error(
+              "CompanionLayer: [init] WebGPU dispose after failure:",
+              disposeErr,
+            );
           }
         }
-        console.log("CompanionLayer: [init] constructing THREE.WebGLRenderer fallback...");
+        console.log(
+          "CompanionLayer: [init] constructing THREE.WebGLRenderer fallback...",
+        );
         renderer = new THREE.WebGLRenderer({
           alpha: true,
           antialias: true,
@@ -342,13 +370,18 @@ export function CompanionLayer({
       }
 
       if (cancelled || !renderer) {
-        console.log("CompanionLayer: [init] stop after create", { cancelled, hasRenderer: Boolean(renderer) });
+        console.log("CompanionLayer: [init] stop after create", {
+          cancelled,
+          hasRenderer: Boolean(renderer),
+        });
         renderer?.dispose();
         return;
       }
 
       if (!mount) {
-        console.error("CompanionLayer: [init] mount ref missing, cannot append canvas");
+        console.error(
+          "CompanionLayer: [init] mount ref missing, cannot append canvas",
+        );
         renderer.dispose();
         return;
       }
@@ -358,7 +391,10 @@ export function CompanionLayer({
       renderer.setClearColor(0x000000, 0);
       console.log("CompanionLayer: [init] setClearColor(0x000000, 0)");
 
-      const pr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 2);
+      const pr = Math.min(
+        typeof window !== "undefined" ? window.devicePixelRatio : 1,
+        2,
+      );
       renderer.setPixelRatio(pr);
       console.log("CompanionLayer: [init] setPixelRatio", pr);
 
@@ -379,7 +415,10 @@ export function CompanionLayer({
       }
 
       const webgpuMaterials = isWebGpuRenderer(renderer);
-      console.log("CompanionLayer: [init] material pipeline", webgpuMaterials ? "WebGPU (MToonNode)" : "WebGL (classic MToon)");
+      console.log(
+        "CompanionLayer: [init] material pipeline",
+        webgpuMaterials ? "WebGPU (MToonNode)" : "WebGL (classic MToon)",
+      );
       finishSetup(renderer, webgpuMaterials);
     })();
 

@@ -40,7 +40,10 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     boneA.add(boneB);
     const skeleton = new THREE.Skeleton([boneA, boneB]);
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
+    geo.setAttribute(
+      "position",
+      new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3),
+    );
     const skin = new THREE.SkinnedMesh(geo, new THREE.MeshBasicMaterial());
     skin.add(boneA);
     skin.bind(skeleton);

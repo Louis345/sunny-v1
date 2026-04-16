@@ -64,7 +64,8 @@ export function resolveCameraFraming(
     baseline.height *
       (ref.cameraYFrac + preset.cameraYDeltaFrac);
   const d = baseline.baseDistance * preset.distanceScale;
-  outPosition.set(baseline.center.x, camY, baseline.center.z - d);
+  // VRM 1.0 forward is -Z: place camera on +Z so view direction matches the face.
+  outPosition.set(baseline.center.x, camY, baseline.center.z + d);
   outLookAt.set(baseline.center.x, lookY, baseline.center.z);
   return baseline.baseFov * preset.fovScale;
 }
