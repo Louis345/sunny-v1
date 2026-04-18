@@ -278,6 +278,8 @@ export function tryPushCreatorDiagReadingKaraoke(
     type: "karaoke",
     storyText: trimmed,
     words,
+    backgroundImageUrl:
+      "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600",
   });
   return { ok: true };
 }

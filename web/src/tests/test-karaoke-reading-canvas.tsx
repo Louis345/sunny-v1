@@ -1,72 +1,82 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KaraokeReadingCanvas } from "../components/KaraokeReadingCanvas";
 
 describe("KaraokeReadingCanvas", () => {
   afterEach(() => {
-    document.body.classList.remove("karaoke-active");
     cleanup();
   });
 
-  it("word at wordIndex has data-highlighted attribute", () => {
+  it("first word is highlighted on mount", () => {
     render(
       <KaraokeReadingCanvas
         words={["one", "two", "three"]}
-        wordIndex={1}
-        onSkipWord={() => {}}
-        companionMinimized={false}
+        interimTranscript=""
+        sendMessage={() => {}}
       />,
     );
     const hi = document.querySelector("[data-highlighted='true']");
     expect(hi).not.toBeNull();
-    expect(hi?.textContent).toContain("two");
+    expect(hi?.textContent).toContain("one");
   });
 
-  it("clicking word at wordIndex calls onSkipWord with that index", async () => {
+  it("clicking current word advances to next word", async () => {
     const user = userEvent.setup();
-    const onSkipWord = vi.fn();
     render(
       <KaraokeReadingCanvas
         words={["a", "b", "c"]}
-        wordIndex={1}
-        onSkipWord={onSkipWord}
-        companionMinimized={false}
+        interimTranscript=""
+        sendMessage={vi.fn()}
       />,
     );
     const hi = document.querySelector("[data-highlighted='true']");
-    expect(hi).not.toBeNull();
+    expect(hi?.textContent).toContain("a");
     await user.click(hi!);
-    expect(onSkipWord).toHaveBeenCalledTimes(1);
-    expect(onSkipWord).toHaveBeenCalledWith(1);
+    await waitFor(() => {
+      const newHi = document.querySelector("[data-highlighted='true']");
+      expect(newHi?.textContent).toContain("b");
+    });
   });
 
-  it("clicking non-current word does not call onSkipWord", async () => {
+  it("clicking non-current word does not advance wordIndex", async () => {
     const user = userEvent.setup();
-    const onSkipWord = vi.fn();
     render(
       <KaraokeReadingCanvas
         words={["a", "b", "c"]}
-        wordIndex={1}
-        onSkipWord={onSkipWord}
-        companionMinimized={false}
+        interimTranscript=""
+        sendMessage={vi.fn()}
       />,
     );
-    await user.click(screen.getByText("a", { exact: true }));
-    expect(onSkipWord).not.toHaveBeenCalled();
+    // "a" is current; click "b" (not highlighted)
+    await user.click(screen.getByText("b", { exact: true }));
+    const hi = document.querySelector("[data-highlighted='true']");
+    expect(hi?.textContent).toContain("a");
   });
 
-  it("progress bar reflects wordIndex / words.length ratio", () => {
-    render(
+  it("progress bar reflects reading progress", async () => {
+    const sendMsg = vi.fn();
+    // Use a stable words ref via rerender
+    const { rerender } = render(
       <KaraokeReadingCanvas
         words={["w1", "w2", "w3", "w4"]}
-        wordIndex={2}
-        onSkipWord={() => {}}
-        companionMinimized={false}
+        interimTranscript=""
+        sendMessage={sendMsg}
       />,
     );
     const fill = screen.getByTestId("karaoke-progress-fill");
-    expect(fill.getAttribute("style")).toContain("width: 50%");
+    expect(fill.getAttribute("style")).toContain("width: 0%");
+
+    rerender(
+      <KaraokeReadingCanvas
+        words={["w1", "w2", "w3", "w4"]}
+        interimTranscript="w1"
+        sendMessage={sendMsg}
+      />,
+    );
+    await waitFor(() => {
+      expect(fill.getAttribute("style")).toContain("width: 25%");
+    });
   });
 
   it("backgroundImageUrl applied to container background", () => {
@@ -74,10 +84,9 @@ describe("KaraokeReadingCanvas", () => {
     render(
       <KaraokeReadingCanvas
         words={["x"]}
-        wordIndex={0}
-        onSkipWord={() => {}}
+        interimTranscript=""
+        sendMessage={() => {}}
         backgroundImageUrl={url}
-        companionMinimized={false}
       />,
     );
     const root = screen.getByTestId("karaoke-reading-root");
@@ -88,23 +97,24 @@ describe("KaraokeReadingCanvas", () => {
     const { container } = render(
       <KaraokeReadingCanvas
         words={[]}
-        wordIndex={0}
-        onSkipWord={() => {}}
-        companionMinimized={false}
+        interimTranscript=""
+        sendMessage={() => {}}
       />,
     );
     expect(container.querySelector("[data-testid='karaoke-reading-root']")).not.toBeNull();
   });
 
-  it("companionMinimized adds karaoke-active class to document.body", () => {
+  it("always adds karaoke-active class to document.body on mount", () => {
     const { unmount } = render(
       <KaraokeReadingCanvas
         words={["only"]}
-        wordIndex={0}
-        onSkipWord={() => {}}
-        companionMinimized
+        interimTranscript=""
+        sendMessage={() => {}}
       />,
     );
+    // The class is managed by useKaraokeReading if needed, or permanently by the component.
+    // Since KaraokeReadingCanvas is always a full-screen reading surface, the body class
+    // is set unconditionally so CompanionLayer knows to minimize.
     expect(document.body.classList.contains("karaoke-active")).toBe(true);
     unmount();
     expect(document.body.classList.contains("karaoke-active")).toBe(false);

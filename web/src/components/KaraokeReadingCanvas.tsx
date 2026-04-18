@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import { useKaraokeReading } from "../hooks/useKaraokeReading";
 
 const DEFAULT_ACCENT = "#6D5EF5";
 const DEFAULT_CARD_BG = "#FFF4E2";
@@ -50,50 +51,51 @@ function accentPillBackground(accent: string): string {
 
 export interface KaraokeReadingCanvasProps {
   words: string[];
-  wordIndex: number;
-  onSkipWord: (idx: number) => void;
-  storyTitle?: string;
+  interimTranscript: string;
+  sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   backgroundImageUrl?: string;
   accentColor?: string;
   cardBackground?: string;
   fontSize?: number;
   lineHeight?: number;
   wordsPerLine?: number;
-  /** Indices tapped to skip — optional underline / dim */
-  skippedWordIndices?: readonly number[];
-  companionMinimized: boolean;
-  /** Reserve bottom-right; label only (VRM renders elsewhere) */
-  listeningLabel?: string;
+  storyTitle?: string;
+  onComplete?: () => void;
 }
 
 export function KaraokeReadingCanvas({
   words,
-  wordIndex,
-  onSkipWord,
-  storyTitle,
+  interimTranscript,
+  sendMessage,
   backgroundImageUrl,
   accentColor = DEFAULT_ACCENT,
   cardBackground = DEFAULT_CARD_BG,
   fontSize = DEFAULT_FONT_SIZE,
   lineHeight = DEFAULT_LINE_HEIGHT,
   wordsPerLine = 8,
-  skippedWordIndices = [],
-  companionMinimized,
-  listeningLabel = "Companion is listening",
+  storyTitle,
+  onComplete,
 }: KaraokeReadingCanvasProps): React.ReactElement {
-  const accent = accentColor || DEFAULT_ACCENT;
-  const skipped = useMemo(
-    () => new Set(skippedWordIndices.map((n) => n)),
-    [skippedWordIndices],
-  );
+  const { wordIndex, skippedIndices, handleSkipWord } = useKaraokeReading({
+    words,
+    interimTranscript,
+    sendMessage,
+    onComplete,
+  });
 
+  // Always add the karaoke-active class so CompanionLayer knows to minimize.
   useEffect(() => {
-    if (!companionMinimized) return;
     document.body.classList.add("karaoke-active");
     return () => {
       document.body.classList.remove("karaoke-active");
     };
-  }, [companionMinimized]);
+  }, []);
+
+  const accent = accentColor || DEFAULT_ACCENT;
+  const skipped = useMemo(
+    () => new Set(skippedIndices),
+    [skippedIndices],
+  );
 
   const lines = useMemo(
     () => chunkWordsIntoLines(words, wordsPerLine),
@@ -147,36 +149,57 @@ export function KaraokeReadingCanvas({
         fontFamily: "'Lexend', system-ui, sans-serif",
       }}
     >
+      {/* Dark overlay for image backgrounds */}
       {backgroundImageUrl?.trim() ? (
         <div
           aria-hidden
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(0,0,0,0.5)",
+            background: "rgba(0,0,0,0.45)",
             pointerEvents: "none",
           }}
         />
       ) : null}
 
-      {/* Ambient particles */}
-      <div
+      {/* Atmospheric SVG: moon, foliage, fireflies */}
+      <svg
         aria-hidden
+        viewBox="0 0 1200 800"
+        preserveAspectRatio="xMidYMid slice"
+        width="100%"
+        height="100%"
         style={{
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
-          opacity: 0.35,
-          backgroundImage:
-            "radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
+          zIndex: 1,
         }}
-      />
+      >
+        {/* Moon */}
+        <circle cx="1050" cy="120" r="70" fill="#fff7d6" opacity="0.9" />
+        <circle cx="1050" cy="120" r="110" fill="#fff7d6" opacity="0.12" />
 
+        {/* Foliage — dark organic corner anchors */}
+        <g fill="#0f2720">
+          <ellipse cx="80" cy="100" rx="220" ry="75" transform="rotate(-15 80 100)" />
+          <ellipse cx="1120" cy="130" rx="240" ry="85" transform="rotate(20 1120 130)" />
+          <ellipse cx="60" cy="700" rx="260" ry="90" transform="rotate(-10 60 700)" />
+          <ellipse cx="1140" cy="710" rx="250" ry="100" transform="rotate(15 1140 710)" />
+        </g>
+
+        {/* Fireflies */}
+        <circle cx="200" cy="350" r="2" fill="#fbbf24" opacity="0.3" />
+        <circle cx="980" cy="420" r="1.5" fill="#fbbf24" opacity="0.25" />
+        <circle cx="140" cy="500" r="1.5" fill="#fbbf24" opacity="0.2" />
+        <circle cx="1060" cy="580" r="2" fill="#fbbf24" opacity="0.3" />
+      </svg>
+
+      {/* Content layer */}
       <div
         style={{
           position: "relative",
-          zIndex: 1,
+          zIndex: 2,
           height: "100%",
           width: "100%",
           padding: "20px 24px 120px",
@@ -211,12 +234,7 @@ export function KaraokeReadingCanvas({
             }}
           >
             <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                flexShrink: 0,
-              }}
+              style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
               aria-hidden
             >
               {Array.from({ length: NUM_STARS }, (_, i) => (
@@ -293,12 +311,7 @@ export function KaraokeReadingCanvas({
                 HOMEWORK STORY
               </div>
               <div
-                style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#f8fafc",
-                  lineHeight: 1.35,
-                }}
+                style={{ fontSize: 13, fontWeight: 600, color: "#f8fafc", lineHeight: 1.35 }}
               >
                 {storyTitle.trim()}
               </div>
@@ -319,22 +332,18 @@ export function KaraokeReadingCanvas({
           <div
             style={{
               width: "100%",
-              maxWidth: 760,
+              maxWidth: 820,
               borderRadius: 28,
               padding: "36px 40px 44px",
               background: cardBackground,
               boxShadow:
                 "0 24px 48px rgba(0,0,0,0.35), 0 2px 0 rgba(255,255,255,0.35) inset",
-              border: "1px solid rgba(0,0,0,0.06)",
+              border: "1.5px solid #e7cfa2",
             }}
           >
             {words.length === 0 ? (
               <div
-                style={{
-                  textAlign: "center",
-                  color: "rgba(15,23,42,0.45)",
-                  fontSize: 18,
-                }}
+                style={{ textAlign: "center", color: "rgba(15,23,42,0.45)", fontSize: 18 }}
               >
                 No words yet.
               </div>
@@ -400,9 +409,7 @@ export function KaraokeReadingCanvas({
                           data-highlighted={isCurrent ? "true" : undefined}
                           onClick={
                             isCurrent
-                              ? () => {
-                                  onSkipWord(safeWordIndex);
-                                }
+                              ? () => { handleSkipWord(safeWordIndex); }
                               : undefined
                           }
                           onKeyDown={
@@ -410,18 +417,24 @@ export function KaraokeReadingCanvas({
                               ? (ev) => {
                                   if (ev.key === "Enter" || ev.key === " ") {
                                     ev.preventDefault();
-                                    onSkipWord(safeWordIndex);
+                                    handleSkipWord(safeWordIndex);
                                   }
                                 }
                               : undefined
                           }
                           style={{
                             cursor: isCurrent ? "pointer" : "default",
-                            fontWeight: isCurrent ? 600 : before ? 500 : 500,
-                            color: isCurrent ? accent : before ? "rgba(15,23,42,0.55)" : "#0f172a",
+                            fontWeight: isCurrent ? 600 : 500,
+                            color: isCurrent
+                              ? accent
+                              : before
+                                ? "rgba(15,23,42,0.55)"
+                                : "#0f172a",
                             opacity: before ? 0.5 : 1,
                             textDecoration: wasSkipped ? "underline" : undefined,
-                            backgroundColor: isCurrent ? accentPillBackground(accent) : "transparent",
+                            backgroundColor: isCurrent
+                              ? accentPillBackground(accent)
+                              : "transparent",
                             borderRadius: isCurrent ? 10 : 0,
                             padding: isCurrent ? "4px 10px" : "2px 0",
                             transition: "color 0.2s, background-color 0.2s",
@@ -454,14 +467,14 @@ export function KaraokeReadingCanvas({
         </div>
       </div>
 
-      {/* Placeholder listening slot (VRM is separate layer) */}
+      {/* Companion placeholder — reserves space; VRM renders on top via CompanionLayer */}
       <div
         aria-hidden
         style={{
           position: "absolute",
           right: 28,
           bottom: 28,
-          zIndex: 2,
+          zIndex: 3,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -472,14 +485,40 @@ export function KaraokeReadingCanvas({
       >
         <div
           style={{
+            position: "relative",
             width: 72,
             height: 72,
             borderRadius: "50%",
-            background: "linear-gradient(145deg, rgba(255,255,255,0.2), rgba(15,23,42,0.5))",
-            border: "2px solid rgba(255,255,255,0.25)",
-            boxShadow: "0 8px 20px rgba(0,0,0,0.35)",
+            background: DEFAULT_CARD_BG,
+            border: "2px solid #e7cfa2",
+            boxShadow: "0 8px 20px rgba(0,0,0,0.25)",
           }}
-        />
+        >
+          {/* Left eye */}
+          <div
+            style={{
+              position: "absolute",
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#2a1d10",
+              top: "38%",
+              left: "30%",
+            }}
+          />
+          {/* Right eye */}
+          <div
+            style={{
+              position: "absolute",
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#2a1d10",
+              top: "38%",
+              right: "30%",
+            }}
+          />
+        </div>
         <div
           style={{
             fontSize: 9,
@@ -490,7 +529,7 @@ export function KaraokeReadingCanvas({
             lineHeight: 1.35,
           }}
         >
-          {listeningLabel.toUpperCase()}
+          LUMA IS LISTENING
         </div>
       </div>
     </div>

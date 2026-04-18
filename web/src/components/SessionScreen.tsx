@@ -56,7 +56,6 @@ interface Props {
   accentColor: string;
   accentBg: string;
   sessionTheme?: SessionTheme | null;
-  karaokeCompanionMinimized?: boolean;
 }
 
 export function SessionScreen({
@@ -84,7 +83,6 @@ export function SessionScreen({
   accentColor,
   accentBg,
   sessionTheme = null,
-  karaokeCompanionMinimized = false,
 }: Props) {
   const childId =
     childName === "creator" ? "star" : childName.toLowerCase();
@@ -142,7 +140,6 @@ export function SessionScreen({
           storyImageLoading={storyImageLoading}
           storyImageUrl={storyImageUrl}
           sessionTheme={sessionTheme}
-          karaokeCompanionMinimized={karaokeCompanionMinimized}
         />
       </div>
     </div>

@@ -3,7 +3,6 @@ import React, {
   useEffect,
   useRef,
   useCallback,
-  useReducer,
   createRef,
 } from "react";
 import { useForm } from "react-hook-form";
@@ -39,11 +38,6 @@ import {
   DEFAULT_READING_CANVAS_PREFERENCES,
   type ReadingCanvasPreferences,
 } from "../../../src/shared/readingCanvasPreferences";
-import { classifyKaraokeWordMatch } from "../../../src/shared/karaokeMatchWord";
-import {
-  buildKaraokeReadingProgressPayload,
-  isInterimPhraseRestart,
-} from "../../../src/shared/karaokeReadingMetrics";
 import { BlackboardContent } from "./BlackboardContent";
 import {
   KaraokeReadingCanvas as KaraokeReadingCanvasView,
@@ -147,8 +141,6 @@ export interface CanvasState {
 
 function KaraokeReadingSession(props: {
   words: string[];
-  /** Full story body — used to detect a new story vs karaoke refresh (same text preserves word index). */
-  storyText: string;
   interimTranscript: string;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   onCanvasDone: () => void;
@@ -157,204 +149,29 @@ function KaraokeReadingSession(props: {
   backgroundImageUrl?: string;
   sessionThemeAccent?: string;
   sessionThemeCardBackground?: string;
-  companionMinimized: boolean;
 }): React.ReactElement {
   const {
     words,
-    storyText,
     interimTranscript,
     sendMessage,
     onCanvasDone,
-    readingCanvas,
+    readingCanvas: p,
     storyTitle,
     backgroundImageUrl,
     sessionThemeAccent,
     sessionThemeCardBackground,
-    companionMinimized,
   } = props;
-  const p = readingCanvas;
-  const newStoryText = storyText ?? "";
-  const lastStoryTextRef = useRef("");
-  const currentWordIndexRef = useRef(0);
-  const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const lastInterimRef = useRef("");
-  const completeRef = useRef(false);
-  /** Words successfully read in order (sent on progress + complete for server word bank). */
-  const spelledWordsRef = useRef<string[]>([]);
-  /** Words that needed several tries before advancing (struggle signal). */
-  const flaggedWordsSetRef = useRef<Set<string>>(new Set());
-  /** Word indices the child skipped by tap — no hesitation penalty. */
-  const skippedIndicesRef = useRef<Set<number>>(new Set());
-  const skippedWordsListRef = useRef<string[]>([]);
-  const mismatchCountForCurrentRef = useRef(0);
-  /** Phrase restarts (interim length shrank) — sent as `hesitations` on reading_progress. */
-  const hesitationsRef = useRef(0);
-  const lastInterimLengthRef = useRef(0);
-  /** Last classify result for the current interim string; shrink + mismatch → flag count. */
-  const lastClassifyResultRef = useRef<"match" | "partial" | "mismatch">(
-    "match",
-  );
-
-  const handleSkipWord = useCallback(
-    (globalIdx: number) => {
-      if (completeRef.current || words.length === 0) return;
-      if (globalIdx !== currentWordIndexRef.current) return;
-      const w = words[globalIdx];
-      if (!w) return;
-      const norm = w.toLowerCase().trim();
-      if (norm) skippedWordsListRef.current.push(norm);
-      skippedIndicesRef.current.add(globalIdx);
-      const next = globalIdx + 1;
-      currentWordIndexRef.current = next;
-      mismatchCountForCurrentRef.current = 0;
-      rerender();
-      if (next >= words.length) {
-        completeRef.current = true;
-        sendMessage(
-          "reading_progress",
-          buildKaraokeReadingProgressPayload({
-            wordIndex: next,
-            totalWords: words.length,
-            hesitations: hesitationsRef.current,
-            flaggedWords: Array.from(flaggedWordsSetRef.current),
-            skippedWords: [...skippedWordsListRef.current],
-            spelledWords: [...spelledWordsRef.current],
-            event: "complete",
-          }),
-        );
-        return;
-      }
-      sendMessage(
-        "reading_progress",
-        buildKaraokeReadingProgressPayload({
-          wordIndex: next,
-          totalWords: words.length,
-          hesitations: hesitationsRef.current,
-          flaggedWords: Array.from(flaggedWordsSetRef.current),
-          skippedWords: [...skippedWordsListRef.current],
-          spelledWords: [...spelledWordsRef.current],
-          event: "progress",
-        }),
-      );
-    },
-    [words, sendMessage],
-  );
 
   useEffect(() => {
     onCanvasDone();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (newStoryText !== lastStoryTextRef.current) {
-      lastStoryTextRef.current = newStoryText;
-      currentWordIndexRef.current = 0;
-      lastInterimRef.current = "";
-      completeRef.current = false;
-      spelledWordsRef.current = [];
-      flaggedWordsSetRef.current = new Set();
-      skippedIndicesRef.current = new Set();
-      skippedWordsListRef.current = [];
-      mismatchCountForCurrentRef.current = 0;
-      hesitationsRef.current = 0;
-      lastInterimLengthRef.current = 0;
-      lastClassifyResultRef.current = "match";
-      rerender();
-    }
-  }, [newStoryText]);
-
-  useEffect(() => {
-    if (completeRef.current || words.length === 0) return;
-    const t = interimTranscript.trim();
-    if (t === lastInterimRef.current) return;
-
-    const currLen = t.length;
-    const prevStoredLen = lastInterimLengthRef.current;
-    if (isInterimPhraseRestart(prevStoredLen, currLen)) {
-      hesitationsRef.current += 1;
-      if (lastClassifyResultRef.current === "mismatch") {
-        const stuckIdx = currentWordIndexRef.current;
-        if (stuckIdx < words.length) {
-          const stuckExpected = words[stuckIdx];
-          if (stuckExpected) {
-            mismatchCountForCurrentRef.current += 1;
-            if (mismatchCountForCurrentRef.current >= 3) {
-              const key = stuckExpected.toLowerCase().trim();
-              if (key) flaggedWordsSetRef.current.add(key);
-            }
-          }
-        }
-      }
-    }
-    lastInterimLengthRef.current = currLen;
-    lastInterimRef.current = t;
-
-    const heardWords = t.split(/\s+/).filter(Boolean);
-    const lastWord = heardWords[heardWords.length - 1] ?? "";
-    if (!lastWord) return;
-
-    const prev = currentWordIndexRef.current;
-    if (prev >= words.length) return;
-    const expected = words[prev];
-    if (!expected) return;
-
-    const result = classifyKaraokeWordMatch(lastWord, expected);
-    lastClassifyResultRef.current = result;
-
-    if (result !== "match") return;
-
-    const spelledToken = expected.toLowerCase().trim();
-    if (spelledToken) spelledWordsRef.current.push(spelledToken);
-    mismatchCountForCurrentRef.current = 0;
-    const next = prev + 1;
-    currentWordIndexRef.current = next;
-    rerender();
-    if (next >= words.length) {
-      completeRef.current = true;
-      sendMessage(
-        "reading_progress",
-        buildKaraokeReadingProgressPayload({
-          wordIndex: next,
-          totalWords: words.length,
-          hesitations: hesitationsRef.current,
-          flaggedWords: Array.from(flaggedWordsSetRef.current),
-          skippedWords: [...skippedWordsListRef.current],
-          spelledWords: [...spelledWordsRef.current],
-          event: "complete",
-        }),
-      );
-    }
-  }, [interimTranscript, words, sendMessage]);
-
-  useEffect(() => {
-    if (words.length === 0) return;
-    const id = window.setInterval(() => {
-      if (completeRef.current) return;
-      const idx = currentWordIndexRef.current;
-      const total = words.length;
-      sendMessage(
-        "reading_progress",
-        buildKaraokeReadingProgressPayload({
-          wordIndex: idx,
-          totalWords: total,
-          hesitations: hesitationsRef.current,
-          flaggedWords: Array.from(flaggedWordsSetRef.current),
-          skippedWords: [...skippedWordsListRef.current],
-          spelledWords: [...spelledWordsRef.current],
-          event: "progress",
-        }),
-      );
-    }, 3000);
-    return () => window.clearInterval(id);
-  }, [newStoryText, words.length, sendMessage]);
-
-  const currentWordIndex = currentWordIndexRef.current;
-
   return (
     <KaraokeReadingCanvasView
       words={words}
-      wordIndex={currentWordIndex}
-      onSkipWord={handleSkipWord}
+      interimTranscript={interimTranscript}
+      sendMessage={sendMessage}
       storyTitle={storyTitle}
       backgroundImageUrl={backgroundImageUrl}
       accentColor={sessionThemeAccent}
@@ -362,8 +179,6 @@ function KaraokeReadingSession(props: {
       fontSize={p.fontSize}
       lineHeight={p.lineHeight}
       wordsPerLine={p.wordsPerLine}
-      skippedWordIndices={Array.from(skippedIndicesRef.current)}
-      companionMinimized={companionMinimized}
     />
   );
 }
@@ -497,8 +312,6 @@ interface Props {
   storyImageLoading?: boolean;
   storyImageUrl?: string | null;
   sessionTheme?: SessionTheme | null;
-  /** When true, companion is minimized during karaoke — drives body.karaoke-active for layout. */
-  karaokeCompanionMinimized?: boolean;
 }
 
 /** Worksheet asset URL points at a raster image (not a PDF) — use <img>, not react-pdf. */
@@ -1930,7 +1743,6 @@ export function Canvas({
   storyImageLoading = false,
   storyImageUrl = null,
   sessionTheme = null,
-  karaokeCompanionMinimized = false,
 }: Props) {
   console.log("[Canvas] render:", {
     mode: canvas.mode,
@@ -2491,16 +2303,14 @@ export function Canvas({
         karaokeWordsForRender.length > 0 ? (
           <KaraokeReadingSession
             words={karaokeWordsForRender}
-            storyText={String(canvas.content ?? "")}
             interimTranscript={interimTranscript}
-            sendMessage={sendMessage}
+            sendMessage={sendMessage ?? (() => {})}
             onCanvasDone={handleCanvasDone}
             readingCanvas={readingCanvas}
             storyTitle={canvas.storyTitle}
             backgroundImageUrl={canvas.backgroundImageUrl}
             sessionThemeAccent={sessionTheme?.palette?.accent ?? accentColor}
             sessionThemeCardBackground={sessionTheme?.palette?.cardBackground}
-            companionMinimized={karaokeCompanionMinimized}
           />
         ) : null}
 

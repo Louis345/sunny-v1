@@ -8,35 +8,35 @@ describe("useKaraokeReading", () => {
   });
 
   it("wordIndex advances when interimTranscript matches expected word", () => {
-    const { result } = renderHook(() =>
-      useKaraokeReading({
-        words: ["hello", "world"],
-        interimTranscript: "hello",
-        sendMessage: vi.fn(),
-      }),
+    const words = ["hello", "world"];
+    const sendMsg = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "hello" },
     );
     expect(result.current.wordIndex).toBe(1);
     expect(result.current.isComplete).toBe(false);
   });
 
   it("wordIndex does not advance on mismatch", () => {
-    const { result } = renderHook(() =>
-      useKaraokeReading({
-        words: ["hello"],
-        interimTranscript: "xyz",
-        sendMessage: vi.fn(),
-      }),
+    const words = ["hello"];
+    const sendMsg = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "xyz" },
     );
     expect(result.current.wordIndex).toBe(0);
   });
 
   it("handleSkipWord advances wordIndex and adds to skippedIndices", () => {
-    const { result } = renderHook(() =>
-      useKaraokeReading({
-        words: ["one", "two", "three"],
-        interimTranscript: "",
-        sendMessage: vi.fn(),
-      }),
+    const words = ["one", "two", "three"];
+    const sendMsg = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "" },
     );
     act(() => {
       result.current.handleSkipWord(0);
@@ -46,12 +46,12 @@ describe("useKaraokeReading", () => {
   });
 
   it("handleSkipWord on non-current index does nothing", () => {
-    const { result } = renderHook(() =>
-      useKaraokeReading({
-        words: ["a", "b", "c"],
-        interimTranscript: "",
-        sendMessage: vi.fn(),
-      }),
+    const words = ["a", "b", "c"];
+    const sendMsg = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "" },
     );
     act(() => {
       result.current.handleSkipWord(2); // current is 0, not 2
@@ -61,12 +61,12 @@ describe("useKaraokeReading", () => {
   });
 
   it("isComplete true when wordIndex reaches words.length", () => {
-    const { result } = renderHook(() =>
-      useKaraokeReading({
-        words: ["a", "b"],
-        interimTranscript: "",
-        sendMessage: vi.fn(),
-      }),
+    const words = ["a", "b"];
+    const sendMsg = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "" },
     );
     act(() => {
       result.current.handleSkipWord(0);
@@ -80,20 +80,18 @@ describe("useKaraokeReading", () => {
   });
 
   it("flaggedWords accumulates after 3 consecutive mismatches on same word", () => {
+    const words = ["hello"];
+    const sendMsg = vi.fn();
     const { result, rerender } = renderHook(
-      (props: { interimTranscript: string }) =>
-        useKaraokeReading({
-          words: ["hello"],
-          interimTranscript: props.interimTranscript,
-          sendMessage: vi.fn(),
-        }),
-      { initialProps: { interimTranscript: "" } },
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "" },
     );
     expect(result.current.flaggedWords).toEqual([]);
-    // Three cycles: mismatch then phrase-restart (shrink) = one flag-event each
+    // Three cycles: mismatch → phrase-restart (shrink) = one flag-event each
     for (let i = 0; i < 3; i++) {
-      rerender({ interimTranscript: "xyz xyz xyz" }); // long mismatch
-      rerender({ interimTranscript: "" });             // phrase restart (shrink)
+      rerender("xyz xyz xyz"); // long mismatch, sets lastClassify=mismatch
+      rerender("");             // phrase restart (length shrinks) → mismatchCount++
     }
     expect(result.current.flaggedWords).toContain("hello");
   });
@@ -109,7 +107,7 @@ describe("useKaraokeReading", () => {
     );
     // "one" matched on initial render → wordIndex = 1
     expect(result.current.wordIndex).toBe(1);
-    // Switch to a new words array
+    // Switch to a new words array reference
     rerender({ words: words2, interimTranscript: "one" });
     expect(result.current.wordIndex).toBe(0);
     expect(result.current.isComplete).toBe(false);
