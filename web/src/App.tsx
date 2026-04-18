@@ -221,25 +221,39 @@ function App() {
             childId={adventureChildId}
             mapSession={mapSession}
             onActiveNodeScreenChange={setActiveNodeScreen}
+            karaokeReadingForMapNode={{
+              words: state.canvas.karaokeWords ?? [],
+              interimTranscript: state.interimTranscript,
+              sendMessage,
+              backgroundImageUrl: state.canvas.backgroundImageUrl,
+              accentColor:
+                mapSession.theme?.palette?.accent ?? state.companion?.accentColor,
+              cardBackground: mapSession.theme?.palette?.cardBackground,
+              fontSize: state.readingCanvas.fontSize,
+              lineHeight: state.readingCanvas.lineHeight,
+              wordsPerLine: state.readingCanvas.wordsPerLine,
+              storyTitle: state.canvas.storyTitle,
+            }}
           />
-          {karaokeReadingActive && (
-            <div className="fixed inset-0 z-50">
-              <KaraokeReadingCanvas
-                words={state.canvas.karaokeWords!}
-                interimTranscript={state.interimTranscript}
-                sendMessage={sendMessage}
-                backgroundImageUrl={state.canvas.backgroundImageUrl}
-                accentColor={
-                  mapSession.theme?.palette?.accent ?? state.companion?.accentColor
-                }
-                cardBackground={mapSession.theme?.palette?.cardBackground}
-                fontSize={state.readingCanvas.fontSize}
-                lineHeight={state.readingCanvas.lineHeight}
-                wordsPerLine={state.readingCanvas.wordsPerLine}
-                storyTitle={state.canvas.storyTitle}
-              />
-            </div>
-          )}
+          {karaokeReadingActive &&
+            mapSession.launchedNode?.type !== "karaoke" && (
+              <div className="fixed inset-0 z-50">
+                <KaraokeReadingCanvas
+                  words={state.canvas.karaokeWords!}
+                  interimTranscript={state.interimTranscript}
+                  sendMessage={sendMessage}
+                  backgroundImageUrl={state.canvas.backgroundImageUrl}
+                  accentColor={
+                    mapSession.theme?.palette?.accent ?? state.companion?.accentColor
+                  }
+                  cardBackground={mapSession.theme?.palette?.cardBackground}
+                  fontSize={state.readingCanvas.fontSize}
+                  lineHeight={state.readingCanvas.lineHeight}
+                  wordsPerLine={state.readingCanvas.wordsPerLine}
+                  storyTitle={state.canvas.storyTitle}
+                />
+              </div>
+            )}
         </NodeTransitionOverlay>
       </div>
     );

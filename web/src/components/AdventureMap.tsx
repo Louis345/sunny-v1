@@ -1,16 +1,22 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { NodeConfig, NodeResult } from "../../../src/shared/adventureTypes";
+import type {
+  NodeConfig,
+  NodeResult,
+  NodeType,
+} from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
 import { useMapSession } from "../hooks/useMapSession";
+import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
+import type { KaraokeReadingCanvasProps } from "./KaraokeReadingCanvas";
 import { NodeCard } from "./NodeCard.tsx";
+import { NodeTransitionOverlay } from "./NodeTransitionOverlay";
 import { PathCurve } from "./PathCurve.tsx";
 import { RatingOverlay } from "./RatingOverlay.tsx";
 import { WorldBackground } from "./WorldBackground.tsx";
 import { XPBar } from "./XPBar.tsx";
 import "./AdventureMap.css";
 
-const PORTAL_MS = 800;
 
 function MapLoadingOverlay({ accent }: { accent: string }) {
   return (
@@ -44,11 +50,27 @@ function MapLoadingOverlay({ accent }: { accent: string }) {
   );
 }
 
-function buildWordBuilderGameUrl(
+/** HTML game file per node type; unknown types fall back to word-builder stub. */
+const NODE_TYPE_GAME_HTML: Partial<Record<NodeType, string>> = {
+  "word-builder": "word-builder.html",
+  "spell-check": "spell-check.html",
+  "clock-game": "clock-game.html",
+  "coin-counter": "coin-counter.html",
+  "space-invaders": "space-invaders.html",
+  "asteroid": "asteroid.html",
+  "space-frogger": "space-frogger.html",
+  "bubble-pop": "word-builder.html",
+  "riddle": "word-builder.html",
+  "boss": "word-builder.html",
+};
+
+function buildAdventureNodeGameUrl(
   childId: string,
   node: NodeConfig,
   themeName: string,
-): string {
+): string | null {
+  if (node.type === "karaoke") return null;
+  const file = NODE_TYPE_GAME_HTML[node.type] ?? "word-builder.html";
   const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
   const q = new URLSearchParams({
     childId,
@@ -57,85 +79,15 @@ function buildWordBuilderGameUrl(
     nodeId: node.id,
     game: node.type,
   });
-  return `${base}games/word-builder.html?${q.toString()}`;
-}
-
-function LaunchPortal({
-  x,
-  y,
-  onComplete,
-}: {
-  x: number;
-  y: number;
-  onComplete: () => void;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const surface = canvasRef.current;
-    if (!surface) return;
-    const ctx = surface.getContext("2d")!;
-    surface.width = window.innerWidth;
-    surface.height = window.innerHeight;
-    const start = performance.now();
-    const duration = 700;
-    let frame: number;
-
-    function animate(now: number) {
-      const el = canvasRef.current;
-      if (!el) return;
-      const progress = Math.min((now - start) / duration, 1);
-      ctx.clearRect(0, 0, el.width, el.height);
-
-      for (let i = 0; i < 5; i++) {
-        const rp = Math.max(0, (progress - i * 0.06) / (1 - i * 0.06));
-        if (rp <= 0) continue;
-        const radius = rp * Math.max(el.width, el.height) * 1.5;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255,255,255,${(1 - rp) * 0.9})`;
-        ctx.lineWidth = 6;
-        ctx.stroke();
-      }
-
-      const washRadius = progress * Math.max(el.width, el.height) * 2.2;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, washRadius);
-      g.addColorStop(0, `rgba(255,255,255,${progress})`);
-      g.addColorStop(0.6, `rgba(255,255,255,${progress * 0.6})`);
-      g.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, el.width, el.height);
-
-      if (progress < 1) {
-        frame = requestAnimationFrame(animate);
-      } else {
-        onComplete();
-      }
-    }
-
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
-  }, [x, y, onComplete]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        zIndex: 6,
-        pointerEvents: "none",
-      }}
-    />
-  );
+  return `${base}games/${file}?${q.toString()}`;
 }
 
 export function AdventureMap(props: {
   childId: string;
   mapSession: ReturnType<typeof useMapSession>;
   onActiveNodeScreenChange?: (p: { x: number; y: number } | null) => void;
+  /** Voice-session reading props when a map node of type \"karaoke\" is launched. */
+  karaokeReadingForMapNode?: KaraokeReadingCanvasProps;
 }) {
   const resolved = props.childId.trim();
 
@@ -150,8 +102,6 @@ export function AdventureMap(props: {
   } = props.mapSession;
 
   const [gameFrameUrl, setGameFrameUrl] = useState<string | null>(null);
-  const [gameFrameEntered, setGameFrameEntered] = useState(false);
-  const [portalActive, setPortalActive] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState<{
     nodeId: string;
     nodeType: string;
@@ -172,8 +122,6 @@ export function AdventureMap(props: {
     resolved && accentForChild?.childId === resolved
       ? accentForChild.accent
       : "#7C3AED";
-
-  const handlePortalAnimationComplete = useCallback(() => {}, []);
 
   useEffect(() => {
     if (!resolved) return;
@@ -198,37 +146,16 @@ export function AdventureMap(props: {
   }, [resolved]);
 
   useEffect(() => {
-    const id = requestAnimationFrame(() =>
-      setGameFrameEntered(Boolean(gameFrameUrl)),
-    );
-    return () => cancelAnimationFrame(id);
-  }, [gameFrameUrl]);
-
-  useEffect(() => {
     if (!launchedNode || !resolved.trim()) {
-      const id = requestAnimationFrame(() => {
-        setPortalActive(false);
-        if (!launchedNode) setGameFrameUrl(null);
-      });
-      return () => cancelAnimationFrame(id);
-    }
-    const rafId = requestAnimationFrame(() => {
       setGameFrameUrl(null);
-      setPortalActive(true);
-    });
-    const t = window.setTimeout(() => {
-      const url = buildWordBuilderGameUrl(
-        resolved,
-        launchedNode,
-        mapState?.theme.name ?? "default",
-      );
-      setGameFrameUrl(url);
-      setPortalActive(false);
-    }, PORTAL_MS);
-    return () => {
-      cancelAnimationFrame(rafId);
-      window.clearTimeout(t);
-    };
+      return;
+    }
+    const url = buildAdventureNodeGameUrl(
+      resolved,
+      launchedNode,
+      mapState?.theme.name ?? "default",
+    );
+    setGameFrameUrl(url);
   }, [launchedNode, mapState?.theme.name, resolved]);
 
   useEffect(() => {
@@ -366,11 +293,6 @@ export function AdventureMap(props: {
   const activeIndex = mapState?.currentNodeIndex ?? 0;
   const completed = new Set(mapState?.completedNodes ?? []);
 
-  const launchedIdx =
-    launchedNode && mapState
-      ? mapState.nodes.findIndex((n) => n.id === launchedNode.id)
-      : -1;
-
   const level = mapState?.level ?? 1;
   const xp = mapState?.xp ?? 0;
   const xpToNext = Math.max(1, level * 100);
@@ -419,13 +341,6 @@ export function AdventureMap(props: {
                   />
                 );
               })}
-              {portalActive && launchedIdx >= 0 && positions[launchedIdx] ? (
-                <LaunchPortal
-                  x={positions[launchedIdx].x}
-                  y={positions[launchedIdx].y}
-                  onComplete={handlePortalAnimationComplete}
-                />
-              ) : null}
             </>
           )}
         </PathCurve>
@@ -479,25 +394,42 @@ export function AdventureMap(props: {
         </AnimatePresence>
       </div>
 
-      {gameFrameUrl ? (
-        <iframe
-          title="Adventure node game"
-          src={gameFrameUrl}
-          allow="autoplay; fullscreen"
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            border: 0,
-            zIndex: 14,
-            background: "#0a0a0c",
-            transform: gameFrameEntered ? "translateY(0)" : "translateY(100%)",
-            opacity: gameFrameEntered ? 1 : 0,
-            transition: "transform 420ms ease-out, opacity 420ms ease-out",
-            pointerEvents: "auto",
-          }}
-        />
+      {launchedNode ? (
+        <NodeTransitionOverlay
+          active
+          color={
+            theme?.palette?.accent ??
+            mapState?.theme.palette.accent ??
+            accentColor ??
+            "#6D5EF5"
+          }
+        >
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 14,
+              background: "#0a0a0c",
+            }}
+          >
+            {launchedNode.type === "karaoke" && props.karaokeReadingForMapNode ? (
+              <KaraokeReadingCanvas {...props.karaokeReadingForMapNode} />
+            ) : gameFrameUrl ? (
+              <iframe
+                title="Adventure node game"
+                src={gameFrameUrl}
+                allow="autoplay; fullscreen"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  display: "block",
+                  background: "#0a0a0c",
+                }}
+              />
+            ) : null}
+          </div>
+        </NodeTransitionOverlay>
       ) : null}
     </div>
   );
