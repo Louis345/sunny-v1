@@ -199,32 +199,30 @@ function App() {
   let main: ReactNode = null;
 
   if (adventureMapEnabled && adventureChildId) {
+    const mapTransitionColor =
+      mapSession.theme?.palette?.accent ??
+      state.companion?.accentColor ??
+      "#6D5EF5";
     main = (
       <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-        <button
-          type="button"
-          className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
-          onClick={() => {
-            setAdventureChildId(null);
-            resetToPicker();
-          }}
-        >
-          Back
-        </button>
-        <AdventureMap
-          childId={adventureChildId}
-          mapSession={mapSession}
-          onActiveNodeScreenChange={setActiveNodeScreen}
-        />
-        {karaokeReadingActive && (
-          <NodeTransitionOverlay
-            active={karaokeReadingActive}
-            color={
-              mapSession.theme?.palette?.accent ??
-              state.companion?.accentColor ??
-              "#6D5EF5"
-            }
+        {/* Single shell for map + all node overlays; extend active= when adding non-karaoke nodes. */}
+        <NodeTransitionOverlay active={karaokeReadingActive} color={mapTransitionColor}>
+          <button
+            type="button"
+            className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
+            onClick={() => {
+              setAdventureChildId(null);
+              resetToPicker();
+            }}
           >
+            Back
+          </button>
+          <AdventureMap
+            childId={adventureChildId}
+            mapSession={mapSession}
+            onActiveNodeScreenChange={setActiveNodeScreen}
+          />
+          {karaokeReadingActive && (
             <div className="fixed inset-0 z-50">
               <KaraokeReadingCanvas
                 words={state.canvas.karaokeWords!}
@@ -241,8 +239,8 @@ function App() {
                 storyTitle={state.canvas.storyTitle}
               />
             </div>
-          </NodeTransitionOverlay>
-        )}
+          )}
+        </NodeTransitionOverlay>
       </div>
     );
   } else if (state.phase === "picker") {
