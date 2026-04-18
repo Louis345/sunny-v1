@@ -2,7 +2,7 @@
   "childId": "ila",
   "version": 1,
   "createdAt": "2026-04-03T21:20:33.923Z",
-  "lastUpdated": "2026-04-18T17:01:48.631Z",
+  "lastUpdated": "2026-04-18T19:58:01.381Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -48,30 +48,6 @@
   },
   "moodHistory": [
     {
-      "date": "2026-04-04T22:36:19.107Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-04T22:48:16.000Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-05T19:36:53.145Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 1,
-      "notableSignals": []
-    },
-    {
       "date": "2026-04-11T02:11:44.447Z",
       "startMood": "neutral",
       "endMood": "neutral",
@@ -89,6 +65,62 @@
     },
     {
       "date": "2026-04-18T17:01:48.628Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T18:59:39.391Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T19:31:05.462Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T19:57:01.381Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T19:57:04.530Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T19:57:07.745Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T19:57:13.713Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T19:58:01.379Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -115,14 +147,14 @@
     "dyslexiaMode": true
   },
   "sessionStats": {
-    "totalSessions": 6,
-    "averageAccuracy": 0.16666666666666666,
+    "totalSessions": 13,
+    "averageAccuracy": 0.07692307692307693,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 4,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-04-18T17:01:48.628Z"
+    "lastSessionDate": "2026-04-18T19:58:01.379Z"
   },
   "rewardPreferences": {
     "favoriteGames": [],

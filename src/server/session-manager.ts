@@ -287,6 +287,8 @@ export function tryPushCreatorDiagReadingKaraoke(
 /** Options passed from the client on `start_session` (see ws-handler). */
 export type SessionManagerOptions = {
   silentTts?: boolean;
+  /** No LLM / no server TTS — Deepgram STT only (e.g. diag reading kiosk). */
+  sttOnly?: boolean;
 };
 
 export class SessionManager {
@@ -1683,7 +1685,7 @@ export class SessionManager {
     this.sessionStartedToolCalled = false;
     this.transitionedToWork = false;
 
-    if (!this.options?.silentTts) {
+    if (!this.options?.silentTts && !this.options?.sttOnly) {
       this.ttsBridge = new WsTtsBridge(this.ws, this.companion.voiceId);
       await this.ttsBridge.prime();
     }
@@ -1691,15 +1693,17 @@ export class SessionManager {
     await this.connectDeepgram();
 
     if (subject === "diag") {
-      const sessionTime = formatDateTimeEastern();
-      await this.handleEndOfTurn(
-        `[Session started at: ${sessionTime}]\n\n` +
-          "[Session start — diagnostics] The current time is above. " +
-          "dateTime has already been resolved for this session — do not call the dateTime tool unless Jamal explicitly asks for the time or date again.\n\n" +
-          "At most two short sentences: (1) greet Jamal as your creator using the time of day naturally, (2) ask who is with him. " +
-          "Stop — do not list capabilities or canvas modes unless he asks.",
-        true,
-      );
+      if (!this.options?.sttOnly) {
+        const sessionTime = formatDateTimeEastern();
+        await this.handleEndOfTurn(
+          `[Session started at: ${sessionTime}]\n\n` +
+            "[Session start — diagnostics] The current time is above. " +
+            "dateTime has already been resolved for this session — do not call the dateTime tool unless Jamal explicitly asks for the time or date again.\n\n" +
+            "At most two short sentences: (1) greet Jamal as your creator using the time of day naturally, (2) ask who is with him. " +
+            "Stop — do not list capabilities or canvas modes unless he asks.",
+          true,
+        );
+      }
     } else {
       await this.handleCompanionTurn(this.companion.openingLine);
     }
@@ -2399,6 +2403,8 @@ export class SessionManager {
       this.turnSM.getState() === "IDLE" &&
       this.shouldSuppressTranscriptDuringKaraoke(transcript)
     ) {
+      // Still forward to client for karaoke word-match; do not pass to LLM below.
+      this.send("interim", { text: transcript });
       return;
     }
 
@@ -2623,6 +2629,11 @@ export class SessionManager {
       const finalTools = this.buildAgentToolkit();
 
       this.debugPrintClaudePreRun(userMessage);
+
+      if (this.options?.sttOnly) {
+        this.turnSM.onInterrupt();
+        return;
+      }
 
       await runAgent({
         history: historyWithPin,

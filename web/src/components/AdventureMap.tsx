@@ -1,16 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type {
-  NodeConfig,
-  NodeResult,
-  NodeType,
-} from "../../../src/shared/adventureTypes";
+import type { NodeConfig, NodeResult } from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
+import { useTransition } from "../context/TransitionContext";
 import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
 import type { KaraokeReadingCanvasProps } from "./KaraokeReadingCanvas";
 import { NodeCard } from "./NodeCard.tsx";
-import { NodeTransitionOverlay } from "./NodeTransitionOverlay";
 import { PathCurve } from "./PathCurve.tsx";
 import { RatingOverlay } from "./RatingOverlay.tsx";
 import { WorldBackground } from "./WorldBackground.tsx";
@@ -50,37 +46,6 @@ function MapLoadingOverlay({ accent }: { accent: string }) {
   );
 }
 
-/** HTML game file per node type; unknown types fall back to word-builder stub. */
-const NODE_TYPE_GAME_HTML: Partial<Record<NodeType, string>> = {
-  "word-builder": "word-builder.html",
-  "spell-check": "spell-check.html",
-  "clock-game": "clock-game.html",
-  "coin-counter": "coin-counter.html",
-  "space-invaders": "space-invaders.html",
-  "asteroid": "asteroid.html",
-  "space-frogger": "space-frogger.html",
-  "bubble-pop": "word-builder.html",
-  "riddle": "word-builder.html",
-  "boss": "word-builder.html",
-};
-
-function buildAdventureNodeGameUrl(
-  childId: string,
-  node: NodeConfig,
-  themeName: string,
-): string | null {
-  if (node.type === "karaoke") return null;
-  const file = NODE_TYPE_GAME_HTML[node.type] ?? "word-builder.html";
-  const base = (import.meta.env.BASE_URL || "/").replace(/\/?$/, "/");
-  const q = new URLSearchParams({
-    childId,
-    difficulty: String(node.difficulty),
-    theme: themeName,
-    nodeId: node.id,
-    game: node.type,
-  });
-  return `${base}games/${file}?${q.toString()}`;
-}
 
 export function AdventureMap(props: {
   childId: string;
@@ -96,12 +61,14 @@ export function AdventureMap(props: {
     theme,
     connectionStatus,
     onNodeClick,
+    commitLaunchedNode,
     launchedNode,
     sendNodeResult,
     sendNodeRating,
   } = props.mapSession;
 
-  const [gameFrameUrl, setGameFrameUrl] = useState<string | null>(null);
+  const { triggerTransition } = useTransition();
+
   const [ratingPrompt, setRatingPrompt] = useState<{
     nodeId: string;
     nodeType: string;
@@ -145,18 +112,6 @@ export function AdventureMap(props: {
     };
   }, [resolved]);
 
-  useEffect(() => {
-    if (!launchedNode || !resolved.trim()) {
-      setGameFrameUrl(null);
-      return;
-    }
-    const url = buildAdventureNodeGameUrl(
-      resolved,
-      launchedNode,
-      mapState?.theme.name ?? "default",
-    );
-    setGameFrameUrl(url);
-  }, [launchedNode, mapState?.theme.name, resolved]);
 
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
@@ -257,6 +212,35 @@ export function AdventureMap(props: {
     [ratingPrompt, sendNodeRating],
   );
 
+  const handleNodeLaunch = useCallback(
+    async (node: NodeConfig) => {
+      const result = await onNodeClick(node.id);
+      if (!result) return;
+      const transitionColor =
+        result.accentColor ??
+        theme?.palette?.accent ??
+        mapState?.theme.palette.accent ??
+        accentColor ??
+        "#6D5EF5";
+      triggerTransition({
+        color: transitionColor,
+        onComplete: () => commitLaunchedNode(result),
+      });
+    },
+    [
+      onNodeClick,
+      commitLaunchedNode,
+      triggerTransition,
+      theme,
+      mapState,
+      accentColor,
+    ],
+  );
+
+  const diagReading = import.meta.env.VITE_DIAG_READING === "true";
+  const chimpBg =
+    "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600";
+
   if (resolved && !mapState) {
     if (connectionStatus === "error") {
       return (
@@ -333,7 +317,7 @@ export function AdventureMap(props: {
                     node={node}
                     position={pos}
                     thumbnail={thumbBase ?? undefined}
-                    onClick={() => void onNodeClick(node.id)}
+                    onClick={() => void handleNodeLaunch(node)}
                     isActive={isActive}
                     onHoverChange={(h) => {
                       setHoveredNodeIndex(h ? i : null);
@@ -394,42 +378,47 @@ export function AdventureMap(props: {
         </AnimatePresence>
       </div>
 
-      {launchedNode ? (
-        <NodeTransitionOverlay
-          active
-          color={
-            theme?.palette?.accent ??
-            mapState?.theme.palette.accent ??
-            accentColor ??
-            "#6D5EF5"
-          }
+      {launchedNode?.type === "karaoke" &&
+      launchedNode.words &&
+      launchedNode.words.length > 0 ? (
+        <div
+          key={launchedNode.id}
+          className="fixed inset-0 z-[40]"
+          style={{ background: "#0a1512" }}
         >
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 14,
-              background: "#0a0a0c",
-            }}
-          >
-            {launchedNode.type === "karaoke" && props.karaokeReadingForMapNode ? (
-              <KaraokeReadingCanvas {...props.karaokeReadingForMapNode} />
-            ) : gameFrameUrl ? (
-              <iframe
-                title="Adventure node game"
-                src={gameFrameUrl}
-                allow="autoplay; fullscreen"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  display: "block",
-                  background: "#0a0a0c",
-                }}
-              />
-            ) : null}
-          </div>
-        </NodeTransitionOverlay>
+          <KaraokeReadingCanvas
+            words={launchedNode.words}
+            interimTranscript={
+              props.karaokeReadingForMapNode?.interimTranscript ?? ""
+            }
+            sendMessage={
+              props.karaokeReadingForMapNode?.sendMessage ?? (() => {})
+            }
+            backgroundImageUrl={
+              diagReading
+                ? chimpBg
+                : props.karaokeReadingForMapNode?.backgroundImageUrl
+            }
+            accentColor={
+              props.karaokeReadingForMapNode?.accentColor ??
+              theme?.palette?.accent ??
+              mapState?.theme.palette.accent ??
+              accentColor
+            }
+            cardBackground={
+              props.karaokeReadingForMapNode?.cardBackground ??
+              mapState?.theme.palette.cardBackground
+            }
+            fontSize={props.karaokeReadingForMapNode?.fontSize}
+            lineHeight={props.karaokeReadingForMapNode?.lineHeight}
+            wordsPerLine={props.karaokeReadingForMapNode?.wordsPerLine}
+            storyTitle={
+              diagReading
+                ? "Chimpanzees"
+                : props.karaokeReadingForMapNode?.storyTitle
+            }
+          />
+        </div>
       ) : null}
     </div>
   );

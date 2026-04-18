@@ -202,6 +202,7 @@ export function KaraokeReadingCanvas({
           zIndex: 2,
           height: "100%",
           width: "100%",
+          minWidth: 0,
           padding: "20px 24px 120px",
           boxSizing: "border-box",
           display: "flex",
@@ -327,12 +328,16 @@ export function KaraokeReadingCanvas({
             alignItems: "center",
             justifyContent: "center",
             minHeight: 0,
+            minWidth: 0,
+            width: "100%",
           }}
         >
           <div
             style={{
               width: "100%",
               maxWidth: 820,
+              minWidth: 0,
+              boxSizing: "border-box",
               borderRadius: 28,
               padding: "36px 40px 44px",
               background: cardBackground,
@@ -357,6 +362,9 @@ export function KaraokeReadingCanvas({
                     textAlign: "center",
                     color: "#0f172a",
                     marginBottom: nextLine ? 18 : 0,
+                    maxWidth: "100%",
+                    overflowWrap: "break-word",
+                    wordBreak: "break-word",
                   }}
                 >
                   {curLine.map((word, ci) => {
@@ -456,6 +464,9 @@ export function KaraokeReadingCanvas({
                       textAlign: "center",
                       color: "#0f172a",
                       opacity: 0.35,
+                      maxWidth: "100%",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
                     }}
                   >
                     {nextLine.join(" ")}

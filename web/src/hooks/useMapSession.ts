@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   COMPANION_API_VERSION,
   type CompanionCommand,
@@ -54,6 +54,58 @@ function isCompanionCommandMessage(msg: unknown): msg is {
   );
 }
 
+const DIAG_READING_ENABLED =
+  import.meta.env.VITE_DIAG_READING === "true";
+
+const DIAG_KARAOKE_WORDS: readonly string[] = [
+  "Chimpanzees",
+  "are",
+  "apes.",
+  "They",
+  "inhabit",
+  "steamy",
+  "rainforests",
+  "and",
+  "other",
+  "parts",
+  "of",
+  "Africa.",
+  "Chimps",
+  "gather",
+  "in",
+  "bands",
+  "that",
+  "number",
+  "from",
+  "15",
+  "to",
+  "150",
+  "chimps.",
+];
+
+function applyDiagReadingFirstNode(mapState: MapState): MapState {
+  if (!DIAG_READING_ENABLED || mapState.nodes.length === 0) {
+    return mapState;
+  }
+  const first = mapState.nodes[0]!;
+  /** Keep `first.id` so POST /api/map/node-complete (click) matches server `currentNode.id`. */
+  const diagNode: NodeConfig = {
+    ...first,
+    type: "karaoke",
+    isLocked: false,
+    isCompleted: false,
+    difficulty: 1,
+    words: [...DIAG_KARAOKE_WORDS],
+    theme: "jungle",
+    isCastle: false,
+    accentColor: mapState.theme.palette.accent,
+  };
+  return {
+    ...mapState,
+    nodes: [diagNode, ...mapState.nodes.slice(1)],
+  };
+}
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
     method: "POST",
@@ -77,7 +129,8 @@ export function useMapSession(childId: string): {
   theme: SessionTheme | null;
   sessionId: string | null;
   connectionStatus: MapConnectionStatus;
-  onNodeClick: (nodeId: string) => Promise<void>;
+  onNodeClick: (nodeId: string) => Promise<NodeConfig | null>;
+  commitLaunchedNode: (node: NodeConfig) => void;
   launchedNode: NodeConfig | null;
   clearLaunchedNode: () => void;
   sendNodeResult: (result: NodeResult) => Promise<MapState | null>;
@@ -100,6 +153,11 @@ export function useMapSession(childId: string): {
   const [companionCommands, setCompanionCommands] = useState<CompanionCommand[]>(
     [],
   );
+
+  const mapStateRef = useRef<MapState | null>(null);
+  useEffect(() => {
+    mapStateRef.current = mapState;
+  }, [mapState]);
 
   useEffect(() => {
     if (!childId.trim()) {
@@ -124,7 +182,7 @@ export function useMapSession(childId: string): {
       .then((out) => {
         if (cancelled) return;
         setSessionId(out.sessionId);
-        setMapState(out.mapState);
+        setMapState(applyDiagReadingFirstNode(out.mapState));
         setTheme(out.mapState.theme);
         setConnectionStatus("open");
         console.log("  🎮 [useMapSession] map session ready");
@@ -194,8 +252,8 @@ export function useMapSession(childId: string): {
   }, [childId]);
 
   const onNodeClick = useCallback(
-    async (nodeId: string) => {
-      if (!sessionId) return;
+    async (nodeId: string): Promise<NodeConfig | null> => {
+      if (!sessionId) return null;
       try {
         const res = await postJson<{
           events?: Array<{ type: string; payload?: unknown }>;
@@ -206,16 +264,30 @@ export function useMapSession(childId: string): {
         });
         const launch = res.events?.find((e) => e.type === "node_launched");
         const payload = launch?.payload;
-        if (payload && typeof payload === "object") {
-          setLaunchedNode(payload as NodeConfig);
+        if (!payload || typeof payload !== "object") {
+          return null;
         }
+        let node = payload as NodeConfig;
+        const ms = mapStateRef.current;
+        if (node.type === "karaoke" && ms) {
+          const fromMap = ms.nodes.find((n) => n.id === nodeId);
+          if (fromMap?.words?.length) {
+            node = { ...node, words: fromMap.words };
+          }
+        }
+        return node;
       } catch (err) {
         console.error("  🔴 [useMapSession] node click failed:", err);
         setConnectionStatus("error");
+        return null;
       }
     },
     [sessionId],
   );
+
+  const commitLaunchedNode = useCallback((node: NodeConfig) => {
+    setLaunchedNode(node);
+  }, []);
 
   const clearLaunchedNode = useCallback(() => setLaunchedNode(null), []);
 
@@ -230,7 +302,7 @@ export function useMapSession(childId: string): {
           sessionId,
           result,
         });
-        setMapState(res.mapState);
+        setMapState(applyDiagReadingFirstNode(res.mapState));
         setTheme(res.mapState.theme);
         setLaunchedNode(null);
         if (res.companionEvent && isCompanionEvent(res.companionEvent)) {
@@ -272,6 +344,7 @@ export function useMapSession(childId: string): {
     sessionId,
     connectionStatus,
     onNodeClick,
+    commitLaunchedNode,
     launchedNode,
     clearLaunchedNode,
     sendNodeResult,

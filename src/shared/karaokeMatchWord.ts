@@ -1,3 +1,5 @@
+import { normalizeNumberWord } from "./numberWords";
+
 export type KaraokeWordClass = "match" | "partial" | "mismatch";
 
 /** Dyslexia-friendly confusions — paired letters fold to one canonical form. */
@@ -53,12 +55,43 @@ export function classifyKaraokeWordMatch(
   heard: string,
   expected: string,
 ): KaraokeWordClass {
-  const h = heard.toLowerCase().replace(/[^a-z]/g, "");
-  const e = expected.toLowerCase().replace(/[^a-z]/g, "");
-  if (h === e) return "match";
-  if (applyConfusionPairs(h) === applyConfusionPairs(e)) return "match";
-  if (e.length > 4 && e.startsWith(h) && h.length >= 2) return "partial";
-  if (e.length > 4 && levenshtein1OrLess(h, e)) return "match";
+  // Step 1: clean
+  const cleanH = heard.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const cleanE = expected.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  // Step 2: normalize numbers (word → digit)
+  const normH = normalizeNumberWord(cleanH);
+  const normE = normalizeNumberWord(cleanE);
+
+  // Step 3: exact match after normalization
+  if (normH === normE) return "match";
+
+  // Step 4: confusion pairs (dyslexia — only for pure alpha words)
+  if (/^[a-z]+$/.test(normH) && /^[a-z]+$/.test(normE)) {
+    if (applyConfusionPairs(normH) === applyConfusionPairs(normE)) {
+      return "match";
+    }
+  }
+
+  // Streaming prefix: letter-only tokens still forming the expected word (e.g. tw → twelve).
+  // Runs before short-token cutoff so partial is not blocked when normE is a short digit string.
+  if (
+    /^[a-z]+$/.test(cleanH) &&
+    /^[a-z]+$/.test(cleanE) &&
+    cleanH !== cleanE &&
+    cleanE.length > 4 &&
+    cleanE.startsWith(cleanH) &&
+    cleanH.length >= 2
+  ) {
+    return "partial";
+  }
+
+  // Step 5: short expected token — no fuzzy/prefix beyond steps above
+  if (normE.length <= 4) return "mismatch";
+
+  // Step 6: at most one edit for longer tokens (STT / pronunciation slack)
+  if (levenshtein1OrLess(normH, normE)) return "match";
+
   return "mismatch";
 }
 

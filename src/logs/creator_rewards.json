@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "timestamp": "2026-04-18T18:47:31.561Z",
+    "rewardStyle": "takeover",
+    "displayDuration_ms": 3000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 0
+  }
+]

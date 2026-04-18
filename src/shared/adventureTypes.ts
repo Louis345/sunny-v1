@@ -23,6 +23,13 @@ export interface NodeConfig {
   isGoal: boolean;
   difficulty: 1 | 2 | 3;
   thumbnailUrl?: string;
+  /** Karaoke passage when `type === "karaoke"`. */
+  words?: string[];
+  /** Optional node theme label (client / diag). */
+  theme?: string;
+  isCastle?: boolean;
+  /** Curtain / accent override for transitions (optional). */
+  accentColor?: string;
 }
 
 export type NodeRatingLike = "like" | "dislike";

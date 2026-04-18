@@ -34,7 +34,7 @@ describe("adventure types (TASK-003)", () => {
     expect(() => nodeRatingSchema.parse(sample)).not.toThrow();
   });
 
-  it("NodeConfig does not include words or isCastle", () => {
+  it("NodeConfig minimal object has no optional karaoke fields set", () => {
     const cfg: NodeConfig = {
       id: "n1",
       type: "riddle",

@@ -48,10 +48,12 @@ export function handleWsConnection(
           child?: string;
           diagKiosk?: boolean;
           silentTts?: boolean;
+          sttOnly?: boolean;
         };
         const child = raw.child;
         const diagKiosk = raw.diagKiosk === true;
         const silentTts = raw.silentTts === true;
+        const sttOnly = raw.sttOnly === true;
         const validChild =
           child === "Ila" ||
           child === "Reina" ||
@@ -80,12 +82,14 @@ export function handleWsConnection(
           );
           return;
         }
-        session = new SessionManager(
-          ws,
-          child,
-          diagKiosk,
-          silentTts ? { silentTts: true } : undefined,
-        );
+        const sessionOptions =
+          silentTts || sttOnly
+            ? {
+                ...(silentTts ? { silentTts: true as const } : {}),
+                ...(sttOnly ? { sttOnly: true as const } : {}),
+              }
+            : undefined;
+        session = new SessionManager(ws, child, diagKiosk, sessionOptions);
         await session.start();
         break;
       }

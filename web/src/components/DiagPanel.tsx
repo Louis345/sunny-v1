@@ -10,7 +10,7 @@ const DIAG_CHILD = "creator";
 export interface DiagPanelProps {
   startSession: (
     childName: string,
-    options?: { diagKiosk?: boolean; silentTts?: boolean },
+    options?: { diagKiosk?: boolean; silentTts?: boolean; sttOnly?: boolean },
   ) => void;
   endSession: () => void;
   voiceActive: boolean;
@@ -68,6 +68,7 @@ export function DiagPanel({
     startSessionRef.current(DIAG_CHILD, {
       diagKiosk: true,
       silentTts: import.meta.env.VITE_DIAG_READING === "true",
+      sttOnly: import.meta.env.VITE_DIAG_READING === "true",
     });
     if (import.meta.env.VITE_DIAG_READING === "true") {
       setTimeout(() => {
@@ -91,6 +92,7 @@ export function DiagPanel({
       startSession(DIAG_CHILD, {
         diagKiosk: true,
         silentTts: import.meta.env.VITE_DIAG_READING === "true",
+        sttOnly: import.meta.env.VITE_DIAG_READING === "true",
       });
     }
   }, [voiceActive, startSession, endSession]);

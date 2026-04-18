@@ -27,6 +27,7 @@ export default defineConfig({
       "src/tests/test-generate-story-image.ts",
       "src/tests/test-karaoke-reading-suppression.ts",
       "src/tests/test-karaoke-matchWord.ts",
+      "src/tests/test-number-words.ts",
       "src/tests/test-karaoke-accuracy.ts",
       "src/tests/test-reading-complete-gap.ts",
       "src/tests/test-compare-branches.ts",

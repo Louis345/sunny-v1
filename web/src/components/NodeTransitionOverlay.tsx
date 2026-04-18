@@ -68,14 +68,23 @@ export function NodeTransitionOverlay({
   };
 
   return (
-    <>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 14,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+      }}
+    >
       {children}
       {overlay && (
         <div
           data-testid="node-transition-overlay"
           data-transition-style={overlay.style}
           style={{
-            position: "fixed",
+            position: "absolute",
             inset: 0,
             zIndex: 100,
             pointerEvents: "none",
@@ -145,6 +154,6 @@ export function NodeTransitionOverlay({
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }

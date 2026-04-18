@@ -39,4 +39,10 @@ describe("matchKaraokeWord", () => {
     expect(classifyKaraokeWordMatch("ship", "zhip")).toBe("match");
     expect(classifyKaraokeWordMatch("cat", "dog")).toBe("mismatch");
   });
+
+  it("maps spoken number words to digits for match", () => {
+    expect(matchKaraokeWord("fifteen", "15")).toBe(true);
+    expect(matchKaraokeWord("hundred", "15")).toBe(false);
+    expect(matchKaraokeWord("fifteen", "fifteen")).toBe(true);
+  });
 });

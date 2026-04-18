@@ -1111,13 +1111,14 @@ export function useSession() {
   const startSession = useCallback(
     (
       childName: string,
-      options?: { diagKiosk?: boolean; silentTts?: boolean },
+      options?: { diagKiosk?: boolean; silentTts?: boolean; sttOnly?: boolean },
     ) => {
       setState((s) => ({ ...s, phase: "connecting", error: null }));
       connect();
 
       const diagKiosk = options?.diagKiosk === true;
       const silentTts = options?.silentTts === true;
+      const sttOnly = options?.sttOnly === true;
       const wsChild = diagKiosk ? "creator" : childName;
 
       let timeoutId: ReturnType<typeof setTimeout>;
@@ -1129,6 +1130,7 @@ export function useSession() {
             child: wsChild,
             ...(diagKiosk ? { diagKiosk: true } : {}),
             ...(silentTts ? { silentTts: true } : {}),
+            ...(sttOnly ? { sttOnly: true } : {}),
           });
           startMic();
         }
