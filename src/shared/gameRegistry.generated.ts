@@ -24,6 +24,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     },
     "voiceEnabled": true
   },
+  "chimp-quest-generated": {
+    "url": "/games/chimp-quest-generated.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "clock-game": {
     "url": "/games/clock-game.html",
     "defaultConfig": {

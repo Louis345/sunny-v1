@@ -12,7 +12,7 @@
  *   - Progress monitoring data
  *
  * Output:
- *   - Report cards → appended to souls/ila.md or souls/reina.md
+ *   - Report cards → appended to context/ila/soul.md or context/reina/soul.md
  *   - Session notes → appended to context/ila/ila_context.md or context/reina/reina_context.md
  *   - IEP updates → merged into soul file under ## Evaluation Updates
  */
@@ -92,9 +92,10 @@ async function classifyAndExtract(
   filename: string,
   child: "Ila" | "Reina"
 ): Promise<{ type: IngestResult["type"]; destination: IngestResult["destination"]; formatted: string }> {
+  const soulFolder = child === "Ila" ? "ila" : "reina";
   const currentSoul = fs.readFileSync(
-    path.resolve(process.cwd(), "src", "souls", child === "Ila" ? "ila.md" : "reina.md"),
-    "utf-8"
+    path.resolve(process.cwd(), "src", "context", soulFolder, "soul.md"),
+    "utf-8",
   );
 
   const { text } = await generateText({
@@ -146,7 +147,13 @@ async function processFile(filePath: string): Promise<IngestResult> {
 
   const targetFile =
     destination === "soul"
-      ? path.resolve(process.cwd(), "src", "souls", child === "Ila" ? "ila.md" : "reina.md")
+      ? path.resolve(
+          process.cwd(),
+          "src",
+          "context",
+          child === "Ila" ? "ila" : "reina",
+          "soul.md",
+        )
       : resolveContextFilePath(child as ChildName);
 
   const separator = "\n\n---\n\n";

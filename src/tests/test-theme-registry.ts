@@ -21,6 +21,7 @@ function profileAtLevel(level: number): ChildProfile {
     ui: { accentColor: "#000" },
     unlockedThemes: unlocked,
     attentionWindow_ms: 300_000,
+    childContext: "",
     companion: cloneCompanionDefaults(),
   };
 }

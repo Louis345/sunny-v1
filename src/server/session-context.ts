@@ -148,6 +148,8 @@ export interface ReadingProgressSnapshot {
   /** Karaoke phrase restarts (interim shrank) — struggle signal, separate from accuracy. */
   hesitations: number;
   flaggedWords: string[];
+  /** Words skipped by tap — recorded, not penalized. */
+  skippedWords?: string[];
   /** Words successfully matched in order during karaoke (browser-driven). */
   spelledWords?: string[];
   event?: string;

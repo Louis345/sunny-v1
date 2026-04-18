@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type ReactElement,
+} from "react";
 import { useSession } from "./hooks/useSession";
 import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
@@ -8,6 +16,7 @@ import { AdventureMap } from "./components/AdventureMap";
 import { CompanionDiag } from "./components/CompanionDiag";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { DiagPanel } from "./components/DiagPanel";
+import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
 import { useMapSession } from "./hooks/useMapSession";
 import {
   COMPANION_API_VERSION,
@@ -21,6 +30,12 @@ import {
   cloneCompanionDefaults,
   mergeCompanionConfigWithDefaults,
 } from "../../src/shared/companionTypes";
+import { classifyKaraokeWordMatch } from "../../src/shared/karaokeMatchWord";
+import {
+  buildKaraokeReadingProgressPayload,
+  isInterimPhraseRestart,
+} from "../../src/shared/karaokeReadingMetrics";
+import type { ReadingCanvasPreferences } from "../../src/shared/readingCanvasPreferences";
 
 const isCanvasTestMode =
   import.meta.env.VITE_TEST_MODE === "true" ||
@@ -79,6 +94,217 @@ function mergeCompanionCommands(
   return out;
 }
 
+/**
+ * Karaoke orchestration for adventure-map layout only (SessionScreen is not mounted).
+ * Mirrors `KaraokeReadingSession` in Canvas.tsx without `canvas_done` on mount.
+ */
+function AdventureMapKaraokeOverlay(props: {
+  words: string[];
+  storyText: string;
+  interimTranscript: string;
+  sendMessage: (type: string, payload?: Record<string, unknown>) => void;
+  readingCanvas: ReadingCanvasPreferences;
+  storyTitle?: string;
+  backgroundImageUrl?: string;
+  sessionThemeAccent?: string;
+  sessionThemeCardBackground?: string;
+}): ReactElement {
+  const {
+    words,
+    storyText,
+    interimTranscript,
+    sendMessage,
+    readingCanvas,
+    storyTitle,
+    backgroundImageUrl,
+    sessionThemeAccent,
+    sessionThemeCardBackground,
+  } = props;
+  const p = readingCanvas;
+  const newStoryText = storyText ?? "";
+  const lastStoryTextRef = useRef("");
+  const [wordIndex, setWordIndex] = useState(0);
+  const [skippedIndices, setSkippedIndices] = useState<number[]>([]);
+  const [complete, setComplete] = useState(false);
+  const wordIndexRef = useRef(0);
+  const lastInterimRef = useRef("");
+  const spelledWordsRef = useRef<string[]>([]);
+  const flaggedWordsSetRef = useRef<Set<string>>(new Set());
+  const skippedWordsListRef = useRef<string[]>([]);
+  const mismatchCountForCurrentRef = useRef(0);
+  const hesitationsRef = useRef(0);
+  const lastInterimLengthRef = useRef(0);
+  const lastClassifyResultRef = useRef<"match" | "partial" | "mismatch">(
+    "match",
+  );
+
+  useEffect(() => {
+    wordIndexRef.current = wordIndex;
+  }, [wordIndex]);
+
+  const handleSkipWord = useCallback(
+    (globalIdx: number) => {
+      if (complete || words.length === 0) return;
+      if (globalIdx !== wordIndex) return;
+      const w = words[globalIdx];
+      if (!w) return;
+      const norm = w.toLowerCase().trim();
+      if (norm) skippedWordsListRef.current.push(norm);
+      setSkippedIndices((prev) => [...prev, globalIdx]);
+      const next = globalIdx + 1;
+      setWordIndex(next);
+      mismatchCountForCurrentRef.current = 0;
+      if (next >= words.length) {
+        setComplete(true);
+        sendMessage(
+          "reading_progress",
+          buildKaraokeReadingProgressPayload({
+            wordIndex: next,
+            totalWords: words.length,
+            hesitations: hesitationsRef.current,
+            flaggedWords: Array.from(flaggedWordsSetRef.current),
+            skippedWords: [...skippedWordsListRef.current],
+            spelledWords: [...spelledWordsRef.current],
+            event: "complete",
+          }),
+        );
+        return;
+      }
+      sendMessage(
+        "reading_progress",
+        buildKaraokeReadingProgressPayload({
+          wordIndex: next,
+          totalWords: words.length,
+          hesitations: hesitationsRef.current,
+          flaggedWords: Array.from(flaggedWordsSetRef.current),
+          skippedWords: [...skippedWordsListRef.current],
+          spelledWords: [...spelledWordsRef.current],
+          event: "progress",
+        }),
+      );
+    },
+    [words, sendMessage, complete, wordIndex],
+  );
+
+  useEffect(() => {
+    if (newStoryText !== lastStoryTextRef.current) {
+      lastStoryTextRef.current = newStoryText;
+      setWordIndex(0);
+      lastInterimRef.current = "";
+      setComplete(false);
+      spelledWordsRef.current = [];
+      flaggedWordsSetRef.current = new Set();
+      setSkippedIndices([]);
+      skippedWordsListRef.current = [];
+      mismatchCountForCurrentRef.current = 0;
+      hesitationsRef.current = 0;
+      lastInterimLengthRef.current = 0;
+      lastClassifyResultRef.current = "match";
+    }
+  }, [newStoryText]);
+
+  useEffect(() => {
+    if (complete || words.length === 0) return;
+    const t = interimTranscript.trim();
+    if (t === lastInterimRef.current) return;
+
+    const currLen = t.length;
+    const prevStoredLen = lastInterimLengthRef.current;
+    if (isInterimPhraseRestart(prevStoredLen, currLen)) {
+      hesitationsRef.current += 1;
+      if (lastClassifyResultRef.current === "mismatch") {
+        const stuckIdx = wordIndex;
+        if (stuckIdx < words.length) {
+          const stuckExpected = words[stuckIdx];
+          if (stuckExpected) {
+            mismatchCountForCurrentRef.current += 1;
+            if (mismatchCountForCurrentRef.current >= 3) {
+              const key = stuckExpected.toLowerCase().trim();
+              if (key) flaggedWordsSetRef.current.add(key);
+            }
+          }
+        }
+      }
+    }
+    lastInterimLengthRef.current = currLen;
+    lastInterimRef.current = t;
+
+    const heardWords = t.split(/\s+/).filter(Boolean);
+    const lastWord = heardWords[heardWords.length - 1] ?? "";
+    if (!lastWord) return;
+
+    const prev = wordIndex;
+    if (prev >= words.length) return;
+    const expected = words[prev];
+    if (!expected) return;
+
+    const result = classifyKaraokeWordMatch(lastWord, expected);
+    lastClassifyResultRef.current = result;
+
+    if (result !== "match") return;
+
+    const spelledToken = expected.toLowerCase().trim();
+    if (spelledToken) spelledWordsRef.current.push(spelledToken);
+    mismatchCountForCurrentRef.current = 0;
+    const next = prev + 1;
+    setWordIndex(next);
+    if (next >= words.length) {
+      setComplete(true);
+      sendMessage(
+        "reading_progress",
+        buildKaraokeReadingProgressPayload({
+          wordIndex: next,
+          totalWords: words.length,
+          hesitations: hesitationsRef.current,
+          flaggedWords: Array.from(flaggedWordsSetRef.current),
+          skippedWords: [...skippedWordsListRef.current],
+          spelledWords: [...spelledWordsRef.current],
+          event: "complete",
+        }),
+      );
+    }
+  }, [interimTranscript, words, sendMessage, complete, wordIndex]);
+
+  useEffect(() => {
+    if (words.length === 0) return;
+    const id = window.setInterval(() => {
+      if (complete) return;
+      const idx = wordIndexRef.current;
+      const total = words.length;
+      sendMessage(
+        "reading_progress",
+        buildKaraokeReadingProgressPayload({
+          wordIndex: idx,
+          totalWords: total,
+          hesitations: hesitationsRef.current,
+          flaggedWords: Array.from(flaggedWordsSetRef.current),
+          skippedWords: [...skippedWordsListRef.current],
+          spelledWords: [...spelledWordsRef.current],
+          event: "progress",
+        }),
+      );
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [newStoryText, words.length, sendMessage, complete]);
+
+  return (
+    <KaraokeReadingCanvas
+      words={words}
+      wordIndex={wordIndex}
+      onSkipWord={handleSkipWord}
+      storyTitle={storyTitle}
+      backgroundImageUrl={backgroundImageUrl}
+      accentColor={sessionThemeAccent}
+      cardBackground={sessionThemeCardBackground}
+      fontSize={p.fontSize}
+      lineHeight={p.lineHeight}
+      wordsPerLine={p.wordsPerLine}
+      skippedWordIndices={skippedIndices}
+      companionMinimized
+    />
+  );
+}
+
 function App() {
   if (companionDiagEnabled) {
     return <CompanionDiag />;
@@ -108,6 +334,7 @@ function App() {
 
   useEffect(() => {
     if (!adventureMapEnabled) return;
+    if (import.meta.env.VITE_DIAG_READING === "true") return;
     const raw = import.meta.env.VITE_DIAG_CHILD_ID;
     if (raw === undefined || raw === "") return;
     const id = raw.trim().toLowerCase();
@@ -173,9 +400,24 @@ function App() {
       ? (state.childName?.trim().toLowerCase() ?? null)
       : null);
 
+  const karaokeReadingActive =
+    state.phase === "active" &&
+    state.canvas.mode === "karaoke" &&
+    (state.canvas.karaokeWords?.length ?? 0) > 0 &&
+    !state.karaokeStoryComplete;
+
   useEffect(() => {
+    if (karaokeReadingActive) return;
     setCompanionMuted(false);
-  }, [activeProfileChildId]);
+  }, [activeProfileChildId, karaokeReadingActive]);
+
+  useEffect(() => {
+    if (karaokeReadingActive) {
+      setCompanionMuted(true);
+      return;
+    }
+    setCompanionMuted(false);
+  }, [karaokeReadingActive]);
 
   useEffect(() => {
     if (!(adventureMapEnabled && adventureChildId)) {
@@ -244,6 +486,29 @@ function App() {
           mapSession={mapSession}
           onActiveNodeScreenChange={setActiveNodeScreen}
         />
+        {state.phase === "active" &&
+        state.canvas.mode === "karaoke" &&
+        (state.canvas.karaokeWords?.length ?? 0) > 0 &&
+        !state.karaokeStoryComplete ? (
+          <div className="fixed inset-0 z-50">
+            <AdventureMapKaraokeOverlay
+              words={state.canvas.karaokeWords!}
+              storyText={String(state.canvas.content ?? "")}
+              interimTranscript={state.interimTranscript}
+              sendMessage={sendMessage}
+              readingCanvas={state.readingCanvas}
+              storyTitle={state.canvas.storyTitle}
+              backgroundImageUrl={state.canvas.backgroundImageUrl}
+              sessionThemeAccent={
+                mapSession.theme?.palette?.accent ??
+                state.companion?.accentColor
+              }
+              sessionThemeCardBackground={
+                mapSession.theme?.palette?.cardBackground
+              }
+            />
+          </div>
+        ) : null}
       </div>
     );
   } else if (state.phase === "picker") {
@@ -310,6 +575,12 @@ function App() {
           storyImageUrl={state.storyImageUrl}
           accentColor={state.companion?.accentColor ?? "#7C3AED"}
           accentBg={state.companion?.accentBg ?? "#F3E8FF"}
+          sessionTheme={mapSession.theme}
+          karaokeCompanionMinimized={
+            state.phase === "active" &&
+            state.canvas.mode === "karaoke" &&
+            !state.karaokeStoryComplete
+          }
         />
       </div>
     );
@@ -329,19 +600,32 @@ function App() {
     <>
       {main}
       {adventureMapEnabled &&
-      adventureChildId &&
-      diagMapPanelEnabled ? (
-        <DiagPanel
-          startSession={startSession}
-          endSession={endSession}
-          voiceActive={state.phase === "active"}
-          onCameraAct={handleDiagCamera}
-        />
+      diagMapPanelEnabled &&
+      (adventureChildId !== null ||
+        import.meta.env.VITE_DIAG_READING === "true") ? (
+        <div
+          style={{
+            display:
+              import.meta.env.VITE_DIAG_READING === "true" ? "none" : "contents",
+          }}
+        >
+          <DiagPanel
+            startSession={startSession}
+            endSession={endSession}
+            voiceActive={state.phase === "active"}
+            onCameraAct={handleDiagCamera}
+          />
+        </div>
       ) : null}
       <CompanionLayer
         childId={activeProfileChildId}
         companion={profileCompanion}
         toggledOff={companionMuted}
+        karaokeActive={
+          state.phase === "active" &&
+          state.canvas.mode === "karaoke" &&
+          !state.karaokeStoryComplete
+        }
         companionEvents={mergedCompanionEvents}
         companionCommands={mergedCompanionCommands}
         activeNodeScreen={

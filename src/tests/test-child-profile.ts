@@ -50,6 +50,8 @@ describe("buildProfile (TASK-004)", () => {
     expect(p.unlockedThemes).toContain("default");
     expect(typeof p.attentionWindow_ms).toBe("number");
     expect(p.attentionWindow_ms).toBeGreaterThan(0);
+    expect(typeof p.childContext).toBe("string");
+    expect(p.childContext.length).toBeGreaterThan(0);
   });
 
   it("buildProfile(creator) reads src/context/creator/learning_profile.json", async () => {
@@ -57,5 +59,6 @@ describe("buildProfile (TASK-004)", () => {
     expect(p).not.toBeNull();
     if (!p) return;
     expect(p.childId).toBe("creator");
+    expect(typeof p.childContext).toBe("string");
   });
 });

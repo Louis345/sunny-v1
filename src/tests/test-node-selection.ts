@@ -27,6 +27,7 @@ function profile(attention: number, childId = "qa_child"): ChildProfile {
     ui: { accentColor: "#111" },
     unlockedThemes: ["default"],
     attentionWindow_ms: attention,
+    childContext: "",
     companion: cloneCompanionDefaults(),
   };
 }

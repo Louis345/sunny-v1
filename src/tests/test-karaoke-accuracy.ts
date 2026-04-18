@@ -64,6 +64,7 @@ describe("reading_progress payload", () => {
       totalWords: 37,
       hesitations: 4,
       flaggedWords: [],
+      skippedWords: [],
       spelledWords: [],
       event: "progress",
     });
@@ -79,6 +80,7 @@ describe("reading_progress payload", () => {
       totalWords: 37,
       hesitations: 9,
       flaggedWords: [],
+      skippedWords: [],
       spelledWords: Array.from({ length: 37 }, (_, i) => `w${i}`),
       event: "complete",
     });

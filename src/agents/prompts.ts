@@ -24,6 +24,15 @@ import {
 
 const TEMPLATE_VERSION = "v16"; // bump this when prompt changes
 
+const SRC_DIR = path.resolve(__dirname, "..");
+
+/** Soul markdown under `src/context/{childId}/soul.md` (childId lowercased). */
+export function readSoul(childId: string): string {
+  const id = childId.trim().toLowerCase();
+  const p = path.resolve(SRC_DIR, "context", id, "soul.md");
+  return fs.readFileSync(p, "utf-8");
+}
+
 export type BuildSessionPromptOptions = {
   /** Explicit plan for tests; `null` skips injection; omit reads persisted plan. */
   carePlan?: PsychologistStructuredOutput | null;
@@ -134,16 +143,6 @@ export function extractWordsFromHomework(content: string): string[] {
   return words;
 }
 
-const ilaSoul = fs.readFileSync(
-  path.resolve(process.cwd(), "src/souls/ila.md"),
-  "utf-8",
-);
-
-const reinaSoul = fs.readFileSync(
-  path.resolve(process.cwd(), "src/souls/reina.md"),
-  "utf-8",
-);
-
 /** SLP session summarizer — pass child display name + soul markdown. */
 export function SLP_PROMPT(childName: string, soul: string): string {
   return `
@@ -164,23 +163,29 @@ Nothing that isn't in the transcript.
 `.trim();
 }
 
-/** Pre-built Ila path (soul loaded once at module init). */
-export const SLP_SYSTEM_ILA = SLP_PROMPT("Ila", ilaSoul);
+/** SLP system prompt for Ila (soul read from disk at call time). */
+export function getSLPSystemIla(): string {
+  return SLP_PROMPT("Ila", readSoul("ila"));
+}
 
-export const REINA_LEARNING_PROMPT = `
+/** Learning-coach summarizer for Reina sessions (soul read at call time). */
+export function getReinaLearningPrompt(): string {
+  const soul = readSoul("reina");
+  return `
 You are a learning coach documenting sessions with Reina. 
 Here is her complete profile:
-${reinaSoul}
+${soul}
 Format: Engagement / Wins / Watch
 
 `;
+}
 
 export const CSE_CHAIR_PROMPT = ""; //TODO:  - phase 8
 
 export function buildCurriculumPlannerPrompt(
   childName: "Ila" | "Reina",
 ): string {
-  const soul = childName === "Ila" ? ilaSoul : reinaSoul;
+  const soul = readSoul(childName === "Ila" ? "ila" : "reina");
   return `
 You are a Wilson-oriented curriculum planner for ${childName}.
 Use the profile and goals in the soul file; respect grade level and IEP targets.
@@ -408,7 +413,7 @@ export function PSYCHOLOGIST_PROMPT(
   hasNatalieNotes = false,
   companionName: string,
 ): string {
-  const soul = childName === "Ila" ? ilaSoul : reinaSoul;
+  const soul = readSoul(childName === "Ila" ? "ila" : "reina");
 
   const natalieBlock = hasNatalieNotes
     ? `
@@ -502,7 +507,6 @@ CRITICAL RULES:
 }
 
 // ── Session prompt builder (Psychologist) ────────────────────────────────────
-const SRC_DIR = path.resolve(__dirname, "..");
 
 /** `- Name:` line in companion markdown, else first `#` title before em dash, else fallback. */
 export function parseCompanionNameFromMarkdown(md: string): string {
@@ -762,11 +766,7 @@ export async function buildSessionPrompt(
     }${manifest}`;
   }
 
-  const soulFile = childName === "Ila" ? "ila.md" : "reina.md";
-  const soul = fs.readFileSync(
-    path.resolve(SRC_DIR, "souls", soulFile),
-    "utf-8",
-  );
+  const soul = readSoul(childName === "Ila" ? "ila" : "reina");
 
   const contextPath = path.resolve(SRC_DIR, ...contextFileSegments(childName));
   const recentContext = shouldLoadPersistedHistory()

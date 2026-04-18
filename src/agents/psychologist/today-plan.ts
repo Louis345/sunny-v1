@@ -54,9 +54,9 @@ export function assertTodaysPlanInvariants(plan: TodaysPlanActivity[]): void {
 }
 
 function loadSoulSnippet(childName: "Ila" | "Reina", maxChars: number): string {
-  const base = childName === "Ila" ? "ila.md" : "reina.md";
+  const folder = childName === "Ila" ? "ila" : "reina";
   const full = fs.readFileSync(
-    path.resolve(process.cwd(), "src", "souls", base),
+    path.resolve(process.cwd(), "src", "context", folder, "soul.md"),
     "utf-8",
   );
   return full.slice(0, maxChars);

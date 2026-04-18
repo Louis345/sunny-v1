@@ -115,6 +115,7 @@ describe("post-node pipeline (TASK-014)", () => {
       ui: { accentColor: "#00f" },
       unlockedThemes: ["default"],
       attentionWindow_ms: 240_000,
+      childContext: "",
       companion: cloneCompanionDefaults(),
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);

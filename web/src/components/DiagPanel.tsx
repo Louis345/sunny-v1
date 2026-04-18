@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   COMPANION_EMOTES,
   type CompanionEmote,
@@ -10,7 +10,7 @@ const DIAG_CHILD = "creator";
 export interface DiagPanelProps {
   startSession: (
     childName: string,
-    options?: { diagKiosk?: boolean },
+    options?: { diagKiosk?: boolean; silentTts?: boolean },
   ) => void;
   endSession: () => void;
   voiceActive: boolean;
@@ -31,12 +31,55 @@ async function postTestCompanionEvent(body: Record<string, unknown>): Promise<vo
   }
 }
 
+const READING_TEST_EXCERPT =
+  "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
+
+async function postTestReadingMode(): Promise<void> {
+  const res = await fetch("/api/map/test-reading-mode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      childId: "creator",
+      text: READING_TEST_EXCERPT,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.error(" 🎮 [DiagPanel] test-reading-mode failed", res.status, err);
+  }
+}
+
+let diagReadingAutoVoicePrimed = false;
+
 export function DiagPanel({
   startSession,
   endSession,
   voiceActive,
   onCameraAct,
 }: DiagPanelProps) {
+  const startSessionRef = useRef(startSession);
+  startSessionRef.current = startSession;
+
+  useEffect(() => {
+    if (import.meta.env.VITE_DIAG_READING !== "true") return;
+    if (voiceActive) return;
+    if (diagReadingAutoVoicePrimed) return;
+    diagReadingAutoVoicePrimed = true;
+    startSessionRef.current(DIAG_CHILD, {
+      diagKiosk: true,
+      silentTts: import.meta.env.VITE_DIAG_READING === "true",
+    });
+    if (import.meta.env.VITE_DIAG_READING === "true") {
+      setTimeout(() => {
+        fetch("/api/map/test-reading-mode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ childId: "creator" }),
+        }).catch(console.error);
+      }, 500);
+    }
+  }, [voiceActive]);
+
   const [emote, setEmote] = useState<CompanionEmote>("neutral");
   const [intensity, setIntensity] = useState(0.8);
   const [animation, setAnimation] = useState<string>(COMPANION_ANIMATION_IDS[0]!);
@@ -45,7 +88,10 @@ export function DiagPanel({
     if (voiceActive) {
       endSession();
     } else {
-      startSession(DIAG_CHILD, { diagKiosk: true });
+      startSession(DIAG_CHILD, {
+        diagKiosk: true,
+        silentTts: import.meta.env.VITE_DIAG_READING === "true",
+      });
     }
   }, [voiceActive, startSession, endSession]);
 
@@ -145,6 +191,21 @@ export function DiagPanel({
           onClick={fireAnimation}
         >
           Fire Animation
+        </button>
+      </section>
+
+      <section className="mb-3">
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-400">
+          Reading test
+        </div>
+        <button
+          type="button"
+          className="w-full rounded-md bg-amber-700 px-2 py-1.5 text-sm font-medium text-white hover:bg-amber-600"
+          onClick={() => {
+            void postTestReadingMode();
+          }}
+        >
+          Test Reading Mode
         </button>
       </section>
 

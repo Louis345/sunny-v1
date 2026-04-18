@@ -4,7 +4,7 @@
  */
 
 import * as THREE from "three";
-import type { VRM } from "@pixiv/three-vrm";
+import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
 import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
 import type {
   CompanionConfig,
@@ -57,7 +57,155 @@ import {
   getAnimationEntry,
   type AnimationRegistryEntry,
 } from "./animationRegistry";
-import { loadMixamoFbxRoot, retargetMixamoClipToVrm } from "./mixamoRetarget";
+
+// --- Mixamo FBX → VRM retargeting (inlined from former mixamoRetarget.ts) ---
+
+const MIXAMO_TO_VRM_HUMANOID: Record<string, VRMHumanBoneName> = {
+  "mixamorig:Hips": "hips",
+  "mixamorig:Spine": "spine",
+  "mixamorig:Spine1": "chest",
+  "mixamorig:Spine2": "upperChest",
+  "mixamorig:Neck": "neck",
+  "mixamorig:Head": "head",
+  "mixamorig:LeftShoulder": "leftShoulder",
+  "mixamorig:LeftArm": "leftUpperArm",
+  "mixamorig:LeftForeArm": "leftLowerArm",
+  "mixamorig:LeftHand": "leftHand",
+  "mixamorig:RightShoulder": "rightShoulder",
+  "mixamorig:RightArm": "rightUpperArm",
+  "mixamorig:RightForeArm": "rightLowerArm",
+  "mixamorig:RightHand": "rightHand",
+  "mixamorig:LeftUpLeg": "leftUpperLeg",
+  "mixamorig:LeftLeg": "leftLowerLeg",
+  "mixamorig:LeftFoot": "leftFoot",
+  "mixamorig:LeftToeBase": "leftToes",
+  "mixamorig:RightUpLeg": "rightUpperLeg",
+  "mixamorig:RightLeg": "rightLowerLeg",
+  "mixamorig:RightFoot": "rightFoot",
+  "mixamorig:RightToeBase": "rightToes",
+  "mixamorig:LeftEye": "leftEye",
+  "mixamorig:RightEye": "rightEye",
+  "mixamorig:LeftHandThumb1": "leftThumbMetacarpal",
+  "mixamorig:LeftHandThumb2": "leftThumbProximal",
+  "mixamorig:LeftHandThumb3": "leftThumbDistal",
+  "mixamorig:RightHandThumb1": "rightThumbMetacarpal",
+  "mixamorig:RightHandThumb2": "rightThumbProximal",
+  "mixamorig:RightHandThumb3": "rightThumbDistal",
+  "mixamorig:LeftHandIndex1": "leftIndexProximal",
+  "mixamorig:LeftHandIndex2": "leftIndexIntermediate",
+  "mixamorig:LeftHandIndex3": "leftIndexDistal",
+  "mixamorig:RightHandIndex1": "rightIndexProximal",
+  "mixamorig:RightHandIndex2": "rightIndexIntermediate",
+  "mixamorig:RightHandIndex3": "rightIndexDistal",
+  "mixamorig:LeftHandMiddle1": "leftMiddleProximal",
+  "mixamorig:LeftHandMiddle2": "leftMiddleIntermediate",
+  "mixamorig:LeftHandMiddle3": "leftMiddleDistal",
+  "mixamorig:RightHandMiddle1": "rightMiddleProximal",
+  "mixamorig:RightHandMiddle2": "rightMiddleIntermediate",
+  "mixamorig:RightHandMiddle3": "rightMiddleDistal",
+  "mixamorig:LeftHandRing1": "leftRingProximal",
+  "mixamorig:LeftHandRing2": "leftRingIntermediate",
+  "mixamorig:LeftHandRing3": "leftRingDistal",
+  "mixamorig:RightHandRing1": "rightRingProximal",
+  "mixamorig:RightHandRing2": "rightRingIntermediate",
+  "mixamorig:RightHandRing3": "rightRingDistal",
+  "mixamorig:LeftHandPinky1": "leftLittleProximal",
+  "mixamorig:LeftHandPinky2": "leftLittleIntermediate",
+  "mixamorig:LeftHandPinky3": "leftLittleDistal",
+  "mixamorig:RightHandPinky1": "rightLittleProximal",
+  "mixamorig:RightHandPinky2": "rightLittleIntermediate",
+  "mixamorig:RightHandPinky3": "rightLittleDistal",
+};
+
+function toCanonicalMixamoBoneName(name: string): string {
+  return name
+    .replace(/^mixamorig_/, "mixamorig:")
+    .replace(/^mixamorig([A-Z])/, "mixamorig:$1");
+}
+
+function retargetMixamoClipToVrm(
+  clip: THREE.AnimationClip,
+  mixamoRoot: THREE.Object3D,
+  vrm: VRM,
+): THREE.AnimationClip | null {
+  const restRotationInverse = new THREE.Quaternion();
+  const parentRestWorldRotation = new THREE.Quaternion();
+  const _quatA = new THREE.Quaternion();
+
+  if (!vrm.humanoid) {
+    return null;
+  }
+
+  const tracks: THREE.KeyframeTrack[] = [];
+
+  for (const track of clip.tracks) {
+    const dotIdx = track.name.lastIndexOf(".");
+    const rawBonePart = dotIdx >= 0 ? track.name.slice(0, dotIdx) : track.name;
+    const pipeIdx = rawBonePart.lastIndexOf("|");
+    const mixamoRigName = pipeIdx >= 0 ? rawBonePart.slice(pipeIdx + 1) : rawBonePart;
+    const property = dotIdx >= 0 ? track.name.slice(dotIdx + 1) : "";
+
+    const vrmBoneName = MIXAMO_TO_VRM_HUMANOID[toCanonicalMixamoBoneName(mixamoRigName)];
+    if (!vrmBoneName) continue;
+
+    const vrmNodeName = vrm.humanoid.getNormalizedBoneNode(vrmBoneName)?.name;
+    if (!vrmNodeName) {
+      continue;
+    }
+
+    if (track instanceof THREE.QuaternionKeyframeTrack) {
+      const srcBoneObj = mixamoRoot.getObjectByName(mixamoRigName);
+      if (srcBoneObj) {
+        srcBoneObj.getWorldQuaternion(restRotationInverse);
+        restRotationInverse.invert();
+        if (srcBoneObj.parent) {
+          srcBoneObj.parent.getWorldQuaternion(parentRestWorldRotation);
+        } else {
+          parentRestWorldRotation.identity();
+        }
+      } else {
+        restRotationInverse.identity();
+        parentRestWorldRotation.identity();
+      }
+
+      const values = new Float32Array(track.values);
+      for (let i = 0; i < values.length; i += 4) {
+        _quatA.fromArray(values, i);
+        _quatA.premultiply(parentRestWorldRotation).multiply(restRotationInverse);
+        _quatA.toArray(values, i);
+      }
+
+      tracks.push(
+        new THREE.QuaternionKeyframeTrack(
+          `${vrmNodeName}.quaternion`,
+          track.times,
+          values,
+        ),
+      );
+    } else if (property === "position" && vrmBoneName !== "hips") {
+      tracks.push(
+        new THREE.VectorKeyframeTrack(
+          `${vrmNodeName}.position`,
+          track.times,
+          new Float32Array(track.values),
+        ),
+      );
+    }
+  }
+
+  if (tracks.length === 0) {
+    return null;
+  }
+
+  return new THREE.AnimationClip("vrmAnimation", clip.duration, tracks);
+}
+
+async function loadMixamoFbxRoot(url: string): Promise<THREE.Group> {
+  const { FBXLoader } = await import("three/addons/loaders/FBXLoader.js");
+  const loader = new FBXLoader();
+  return loader.loadAsync(url);
+}
+
 export interface CompanionMotorTickContext {
   dt: number;
   dtMs: number;
@@ -139,28 +287,6 @@ export class CompanionMotor {
     scene.add(vrm.scene);
     vrm.scene.rotation.y = 0;
     vrm.scene.position.set(0, -0.8, 0);
-    if (vrm.springBoneManager) {
-      const colliders = vrm.springBoneManager.colliders;
-      console.log("🦴 spring collider count:", colliders.length);
-      colliders.forEach((c) => {
-        const radius =
-          (c.shape as unknown as Record<string, unknown>)?.radius ??
-          "no-radius";
-        console.log("🦴 collider:", c.name, "radius:", radius);
-      });
-      const joints = vrm.springBoneManager.joints;
-      console.log("🦴 joint count:", joints.size);
-      joints.forEach((j) => {
-        console.log(
-          "🦴 joint:",
-          j.bone?.name,
-          "gravity:",
-          j.settings.gravityPower,
-          "dir:",
-          j.settings.gravityDir,
-        );
-      });
-    }
     // Pre-simulate spring bones so hair settles at rest instead of launching on first render.
     if (vrm.springBoneManager) {
       vrm.springBoneManager.reset();
@@ -176,7 +302,7 @@ export class CompanionMotor {
     }
     this.animationMixer = new THREE.AnimationMixer(vrm.scene);
     this.fitCameraToVrm(vrm, mountW, mountH);
-    // this.playAnimation("idle", { loop: true });
+    this.playAnimation("idle", { loop: true });
   }
 
   /**
@@ -369,10 +495,6 @@ export class CompanionMotor {
         const spd =
           typeof cmd.payload.speed === "string" ? cmd.payload.speed : undefined;
         this.moveLerp = moveSpeedToLerpPerFrame(spd);
-        console.log("🎮 [CompanionMotor] companion_command move", {
-          target,
-          speed: spd ?? "normal",
-        });
       }
     }
   }
@@ -390,10 +512,6 @@ export class CompanionMotor {
       forChildId: ctx.childId,
     });
     for (const { emote, intensity } of emotes) {
-      console.log("🎮 [CompanionMotor] applying emote from event:", {
-        emote,
-        intensity,
-      });
       applyAcceptedEmote(ex, emote, intensity);
     }
 
@@ -408,11 +526,6 @@ export class CompanionMotor {
       for (const t of triggers) {
         applyAcceptedTrigger(ex, t);
       }
-    } else if (ctx.companionEvents.length > 0) {
-      console.warn(
-        "🎮 [CompanionMotor] companion config null — triggers skipped, events pending:",
-        ctx.companionEvents.length,
-      );
     }
 
     tickExpressionDecay(ex, ctx.dtMs);
@@ -479,12 +592,6 @@ export class CompanionMotor {
     const em = mapAnimationToEmote(animation);
     if (em && isCompanionEmote(em)) {
       applyAcceptedEmote(this.expressionState, em);
-      console.log(
-        "🎮 [CompanionMotor] animate emote fallback",
-        animation,
-        "→",
-        em,
-      );
     }
   }
 
@@ -492,7 +599,6 @@ export class CompanionMotor {
     animation: string,
     opts: { loop?: boolean },
   ): void {
-    console.log("🎮 [CompanionMotor] applying animate command:", { animation });
     if (!isCompanionAnimationId(animation)) {
       return;
     }
@@ -543,7 +649,6 @@ export class CompanionMotor {
     );
     action.clampWhenFinished = !loop;
     action.reset().play();
-    console.log("🎮 [CompanionMotor] animate clip", name, { loop });
 
     if (!loop) {
       const onFinished = () => {
@@ -555,7 +660,7 @@ export class CompanionMotor {
   }
 
   private async fetchRetargetedClip(
-    name: AnimationName,
+    _name: AnimationName,
     entry: AnimationRegistryEntry,
     vrm: VRM,
   ): Promise<THREE.AnimationClip | null> {
@@ -573,14 +678,10 @@ export class CompanionMotor {
       // zero-track placeholder at index 0.
       const raw = root.animations.find((c) => c.tracks.length > 0);
       if (!raw) {
-        console.warn(
-          `🎮 [CompanionMotor] ${name}.fbx loaded but has no animation tracks (${root.animations.length} clips)`,
-        );
         return null;
       }
       return retargetMixamoClipToVrm(raw, root, vrm);
-    } catch (err) {
-      console.warn("🎮 [CompanionMotor] FBX load/retarget failed:", name, err);
+    } catch {
       return null;
     }
   }

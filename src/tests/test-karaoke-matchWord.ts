@@ -32,4 +32,11 @@ describe("matchKaraokeWord", () => {
     expect(matchKaraokeWord("kitchen", "sitting")).toBe(false);
     expect(matchKaraokeWord("running", "sitting")).toBe(false);
   });
+
+  it("treats common letter confusions as match for dyslexia-friendly karaoke", () => {
+    expect(classifyKaraokeWordMatch("man", "nan")).toBe("match");
+    expect(classifyKaraokeWordMatch("bat", "dat")).toBe("match");
+    expect(classifyKaraokeWordMatch("ship", "zhip")).toBe("match");
+    expect(classifyKaraokeWordMatch("cat", "dog")).toBe("mismatch");
+  });
 });

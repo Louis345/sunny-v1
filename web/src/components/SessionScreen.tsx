@@ -3,6 +3,7 @@ import { Canvas, type CanvasState } from "./Canvas";
 import type { OverlayField } from "../../../src/server/assignment-player";
 import type { BlackboardState } from "../hooks/useSession";
 import type { ReadingCanvasPreferences } from "../../../src/shared/readingCanvasPreferences";
+import type { SessionTheme } from "../../../src/shared/adventureTypes";
 
 interface CompanionConfig {
   childName: string;
@@ -54,6 +55,8 @@ interface Props {
   storyImageUrl?: string | null;
   accentColor: string;
   accentBg: string;
+  sessionTheme?: SessionTheme | null;
+  karaokeCompanionMinimized?: boolean;
 }
 
 export function SessionScreen({
@@ -80,6 +83,8 @@ export function SessionScreen({
   storyImageUrl = null,
   accentColor,
   accentBg,
+  sessionTheme = null,
+  karaokeCompanionMinimized = false,
 }: Props) {
   const childId =
     childName === "creator" ? "star" : childName.toLowerCase();
@@ -136,6 +141,8 @@ export function SessionScreen({
           storyImageChildId={childId}
           storyImageLoading={storyImageLoading}
           storyImageUrl={storyImageUrl}
+          sessionTheme={sessionTheme}
+          karaokeCompanionMinimized={karaokeCompanionMinimized}
         />
       </div>
     </div>

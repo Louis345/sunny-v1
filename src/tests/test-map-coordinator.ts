@@ -90,6 +90,7 @@ describe("map coordinator (TASK-010)", () => {
       ui: { accentColor: "#00f" },
       unlockedThemes: ["default"],
       attentionWindow_ms: 200_000,
+      childContext: "",
       companion: cloneCompanionDefaults(),
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);

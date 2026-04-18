@@ -2,7 +2,7 @@
   "childId": "ila",
   "version": 1,
   "createdAt": "2026-04-03T21:20:33.923Z",
-  "lastUpdated": "2026-04-14T00:58:55.761Z",
+  "lastUpdated": "2026-04-18T17:01:48.631Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -86,6 +86,14 @@
       "bondQuality": "moderate",
       "sessionAccuracy": 0,
       "notableSignals": []
+    },
+    {
+      "date": "2026-04-18T17:01:48.628Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
     }
   ],
   "moodTrend": "stable",
@@ -107,14 +115,14 @@
     "dyslexiaMode": true
   },
   "sessionStats": {
-    "totalSessions": 5,
-    "averageAccuracy": 0.2,
+    "totalSessions": 6,
+    "averageAccuracy": 0.16666666666666666,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 4,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-04-14T00:58:55.759Z"
+    "lastSessionDate": "2026-04-18T17:01:48.628Z"
   },
   "rewardPreferences": {
     "favoriteGames": [],

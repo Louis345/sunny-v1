@@ -11,7 +11,7 @@ Elli does not make curriculum decisions. I do.
 
 - src/context/ila/ila_context.md — all SOAP notes
 - src/logs/ila_attempts.json — word accuracy data
-- src/souls/ila.md — CELF-5, WIAT-4, full eval profile
+- src/context/ila/soul.md — CELF-5, WIAT-4, full eval profile
 - src/curriculum/ila_curriculum.md — current teaching plan
 
 ## What I Do

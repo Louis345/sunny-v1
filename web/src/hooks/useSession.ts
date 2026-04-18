@@ -20,6 +20,7 @@ import {
   ensurePlaybackAnalyser,
   resetAudioAnalyser,
 } from "../utils/audioAnalyser";
+import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -143,6 +144,8 @@ interface CanvasState {
   clockDisplay?: string;
   /** Reading / karaoke — ordered tokens for highlight UI */
   karaokeWords?: string[];
+  storyTitle?: string;
+  backgroundImageUrl?: string;
 }
 
 interface TurnPolicy {
@@ -181,6 +184,8 @@ interface SessionState {
   companionEvents: CompanionEventPayload[];
   /** Voice WebSocket `companion_command` messages (merged with map in App). */
   companionCommands: CompanionCommand[];
+  /** After `reading_progress` event=complete — companion UI leaves minimized reading layout. */
+  karaokeStoryComplete: boolean;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -293,7 +298,11 @@ export function useSession() {
     storyImageUrl: null,
     companionEvents: [],
     companionCommands: [],
+    karaokeStoryComplete: false,
   });
+
+  const sessionStateRef = useRef(state);
+  sessionStateRef.current = state;
 
   const [micMuted, setMicMuted] = useState(false);
   const micMutedRef = useRef(false);
@@ -309,6 +318,9 @@ export function useSession() {
   // --- WebSocket connection ---
 
   const sendMessage = useCallback((type: string, payload: Record<string, unknown> = {}) => {
+    if (type === "reading_progress" && payload.event === "complete") {
+      setStateRef.current((s) => ({ ...s, karaokeStoryComplete: true }));
+    }
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type, ...payload }));
     }
@@ -375,6 +387,7 @@ export function useSession() {
           storyImageUrl: null,
           companionEvents: [],
           companionCommands: [],
+          karaokeStoryComplete: false,
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -386,6 +399,15 @@ export function useSession() {
             goodbye: m.goodbye ?? "",
           },
         }));
+        if (import.meta.env.VITE_DIAG_READING === "true") {
+          window.setTimeout(() => {
+            fetch("/api/map/test-reading-mode", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ childId: "creator" }),
+            }).catch(console.error);
+          }, 500);
+        }
         break;
       }
 
@@ -484,7 +506,8 @@ export function useSession() {
           companionText: s.companionText + chunk,
         }));
         const useBrowserTts = debugBrowserTtsRef.current || urlWantsBrowserTts();
-        if (useBrowserTts && chunk && typeof window !== "undefined" && window.speechSynthesis) {
+        const silenceAssist = isKaraokeReadingAssistSilence(sessionStateRef.current);
+        if (useBrowserTts && !silenceAssist && chunk && typeof window !== "undefined" && window.speechSynthesis) {
           browserTtsAccumRef.current += chunk;
           if (browserTtsDebounceRef.current) {
             clearTimeout(browserTtsDebounceRef.current);
@@ -506,6 +529,9 @@ export function useSession() {
 
       case "audio": {
         serverDoneRef.current = false;
+        if (isKaraokeReadingAssistSilence(sessionStateRef.current)) {
+          break;
+        }
         const audioData = base64ToArrayBuffer((msg.data as string) ?? "");
         audioQueueRef.current.push(audioData);
         if (!isPlayingRef.current) {
@@ -558,6 +584,7 @@ export function useSession() {
             return {
             ...s,
             ...story,
+            karaokeStoryComplete: isKaraoke ? false : s.karaokeStoryComplete,
             blackboard: clearedBlackboardState(),
             canvas: {
               mode: mode && VALID_CANVAS_MODES.includes(mode) ? mode : "idle",
@@ -608,6 +635,14 @@ export function useSession() {
                     ? (data.words as string[])
                     : undefined
                 : undefined,
+              storyTitle:
+                isKaraoke && typeof data.storyTitle === "string"
+                  ? data.storyTitle
+                  : undefined,
+              backgroundImageUrl:
+                isKaraoke && typeof data.backgroundImageUrl === "string"
+                  ? data.backgroundImageUrl
+                  : undefined,
               pendingAnswer: undefined,
               animationKey: nextAnim,
             },
@@ -815,6 +850,14 @@ export function useSession() {
                     ? (data.words as string[])
                     : undefined
                 : undefined,
+              storyTitle:
+                isKaraoke && typeof data.storyTitle === "string"
+                  ? data.storyTitle
+                  : undefined,
+              backgroundImageUrl:
+                isKaraoke && typeof data.backgroundImageUrl === "string"
+                  ? data.backgroundImageUrl
+                  : undefined,
               pendingAnswer: undefined,
               animationKey: nextAnim,
             };
@@ -829,6 +872,7 @@ export function useSession() {
             return {
               ...s,
               ...story,
+              karaokeStoryComplete: isKaraoke ? false : s.karaokeStoryComplete,
               blackboard: clearedBlackboardState(),
               canvas: nextCanvas,
             };
@@ -856,6 +900,7 @@ export function useSession() {
           reward: null,
           sessionState: "IDLE",
           readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
+          karaokeStoryComplete: false,
         }));
         stopMicRef.current();
         break;
@@ -1038,17 +1083,41 @@ export function useSession() {
     }
   }
 
+  const karaokeAssistSilence = isKaraokeReadingAssistSilence(state);
+  useEffect(() => {
+    if (!karaokeAssistSilence) return;
+    audioQueueRef.current = [];
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+      } catch {
+        /* already stopped */
+      }
+      currentSourceRef.current = null;
+    }
+    isPlayingRef.current = false;
+    if (browserTtsDebounceRef.current) {
+      clearTimeout(browserTtsDebounceRef.current);
+      browserTtsDebounceRef.current = null;
+    }
+    browserTtsAccumRef.current = "";
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, [karaokeAssistSilence]);
+
   // --- Actions ---
 
   const startSession = useCallback(
     (
       childName: string,
-      options?: { diagKiosk?: boolean },
+      options?: { diagKiosk?: boolean; silentTts?: boolean },
     ) => {
       setState((s) => ({ ...s, phase: "connecting", error: null }));
       connect();
 
       const diagKiosk = options?.diagKiosk === true;
+      const silentTts = options?.silentTts === true;
       const wsChild = diagKiosk ? "creator" : childName;
 
       let timeoutId: ReturnType<typeof setTimeout>;
@@ -1059,6 +1128,7 @@ export function useSession() {
           sendMessage("start_session", {
             child: wsChild,
             ...(diagKiosk ? { diagKiosk: true } : {}),
+            ...(silentTts ? { silentTts: true } : {}),
           });
           startMic();
         }
@@ -1143,6 +1213,7 @@ export function useSession() {
       storyImageUrl: null,
       companionEvents: [],
       companionCommands: [],
+      karaokeStoryComplete: false,
     });
     wsRef.current?.close();
     wsRef.current = null;

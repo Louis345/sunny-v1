@@ -12,4 +12,4 @@ The `AnimationName` values are defined in `src/shared/companions/companionContra
 
 ## Retargeting
 
-Runtime retargeting from Mixamo skeleton to VRM is handled in `web/src/companion/mixamoRetarget.ts` (see `CompanionMotor` load path).
+Runtime retargeting from Mixamo skeleton to VRM lives in `CompanionMotor` (private load/retarget path).

@@ -54,3 +54,6 @@ rive-demo/
 venv/
 __pycache__/
 *.pyc
+src/pipeline/venv/
+src/pipeline/__pycache__/
+src/pipeline/.pytest_cache/

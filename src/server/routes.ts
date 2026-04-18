@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
@@ -15,6 +16,7 @@ import {
   recordExplicitMapRating,
   startMapSession,
 } from "./map-coordinator";
+import { tryPushCreatorDiagReadingKaraoke } from "./session-manager";
 import { loadChildFiles } from "../utils/loadChildFiles";
 import { loadAttemptHistory } from "../utils/attempts";
 
@@ -25,8 +27,30 @@ const companions = {
 
 type ChildName = keyof typeof companions;
 
+const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
+
 function isValidChild(name: string): name is ChildName {
   return name === "Ila" || name === "Reina";
+}
+
+function stripJsonFences(raw: string): string {
+  let t = raw.trim();
+  if (t.startsWith("```")) {
+    t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  }
+  return t;
+}
+
+function normalizeWrittenScore(raw: unknown): 0 | 0.5 | 1 {
+  if (raw === 0 || raw === "0") return 0;
+  if (raw === 0.5 || raw === "0.5") return 0.5;
+  if (raw === 1 || raw === "1") return 1;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    if (raw <= 0) return 0;
+    if (raw < 1) return 0.5;
+    return 1;
+  }
+  return 0;
 }
 
 export function setupRoutes(app: Express): void {
@@ -216,6 +240,27 @@ export function setupRoutes(app: Express): void {
     }
   });
 
+  /** Diag: push karaoke reading onto an active creator diag voice WebSocket session. */
+  app.post("/api/map/test-reading-mode", (req: Request, res: Response) => {
+    const childId =
+      typeof req.body?.childId === "string"
+        ? req.body.childId.trim().toLowerCase()
+        : "";
+    const bodyText =
+      typeof req.body?.text === "string" ? req.body.text.trim() : "";
+    const text =
+      bodyText ||
+      "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
+    if (childId !== "creator") {
+      return res.status(400).json({ error: "childId must be creator" });
+    }
+    const out = tryPushCreatorDiagReadingKaraoke(text);
+    if (!out.ok) {
+      return res.status(409).json({ error: out.error });
+    }
+    res.json({ ok: true });
+  });
+
   /** TEMP TEST ONLY — trigger-based or emote+intensity for map WebSocket. */
   app.post("/api/map/test-companion-event", (req: Request, res: Response) => {
     const childId =
@@ -260,6 +305,85 @@ export function setupRoutes(app: Express): void {
       return res.status(400).json(out);
     }
     res.json(out);
+  });
+
+  /** Haiku grades written homework answers for static game iframes (see generateGame.ts). */
+  app.post("/api/game-grade-written", async (req: Request, res: Response) => {
+    try {
+      const question =
+        typeof req.body?.question === "string" ? req.body.question.trim() : "";
+      const studentAnswer =
+        typeof req.body?.studentAnswer === "string"
+          ? req.body.studentAnswer.trim()
+          : "";
+      if (!question || !studentAnswer) {
+        return res
+          .status(400)
+          .json({ error: "question and studentAnswer required" });
+      }
+      const rawKp = req.body?.keyPoints;
+      const keyPoints = Array.isArray(rawKp)
+        ? rawKp.filter((x): x is string => typeof x === "string")
+        : [];
+      const glRaw = req.body?.gradeLevel;
+      const gradeLevel =
+        typeof glRaw === "number" && Number.isFinite(glRaw)
+          ? glRaw
+          : typeof glRaw === "string" && glRaw.trim() !== ""
+            ? Number(glRaw)
+            : 2;
+      const gradeLevelSafe = Number.isFinite(gradeLevel) ? gradeLevel : 2;
+
+      const client = new Anthropic();
+      const gradeUser = `question: ${question}
+studentAnswer: ${studentAnswer}
+keyPoints: ${JSON.stringify(keyPoints)}
+gradeLevel: ${gradeLevelSafe}
+
+Grade this student answer. Return JSON only:
+{ "correct": boolean, "partial": boolean,
+  "feedback": string (one encouraging sentence),
+  "score": 0|0.5|1 }`;
+
+      const msg = await client.messages.create({
+        model: GAME_GRADE_HAIKU_MODEL,
+        max_tokens: 256,
+        messages: [{ role: "user", content: gradeUser }],
+      });
+      const text = msg.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+      const stripped = stripJsonFences(text);
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(stripped) as Record<string, unknown>;
+      } catch {
+        const start = stripped.indexOf("{");
+        const end = stripped.lastIndexOf("}");
+        if (start < 0 || end <= start) {
+          return res.status(502).json({ error: "invalid_grade_json" });
+        }
+        parsed = JSON.parse(stripped.slice(start, end + 1)) as Record<
+          string,
+          unknown
+        >;
+      }
+
+      const score = normalizeWrittenScore(parsed.score);
+      const correct = Boolean(parsed.correct);
+      const partial = Boolean(parsed.partial);
+      const feedback =
+        typeof parsed.feedback === "string" && parsed.feedback.trim() !== ""
+          ? parsed.feedback.trim()
+          : "Nice try — keep going!";
+
+      res.json({ correct, partial, feedback, score });
+    } catch (err: unknown) {
+      console.error("  🎮 [game-grade-written] failed", err);
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
   });
 
   const webPublic = path.resolve(process.cwd(), "web", "public");

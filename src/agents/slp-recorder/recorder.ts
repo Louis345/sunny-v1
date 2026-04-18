@@ -1,5 +1,5 @@
 import type { ModelMessage } from "ai";
-import { SLP_SYSTEM_ILA, REINA_LEARNING_PROMPT } from "../prompts";
+import { getReinaLearningPrompt, getSLPSystemIla } from "../prompts";
 import { appendToContext } from "../../utils/appendToContext";
 import { runPsychologist } from "../psychologist/psychologist";
 import { shouldPersistSessionData } from "../../utils/runtimeMode";
@@ -27,7 +27,7 @@ export async function recordSession(
 
   const { text: summary } = await generateText({
     model: anthropic("claude-haiku-4-5-20251001"),
-    system: childName === "Ila" ? SLP_SYSTEM_ILA : REINA_LEARNING_PROMPT,
+    system: childName === "Ila" ? getSLPSystemIla() : getReinaLearningPrompt(),
     prompt: history.map((m) => `${m.role}: ${m.content}`).join("\n"),
     maxOutputTokens: 600,
   });

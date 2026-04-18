@@ -53,6 +53,8 @@ export interface SessionThemePalette {
   accent: string;
   particle: string;
   glow: string;
+  /** Optional reading / karaoke card fill; client falls back if absent. */
+  cardBackground?: string;
 }
 
 export interface SessionThemeAmbient {

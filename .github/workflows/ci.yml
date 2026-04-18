@@ -23,20 +23,16 @@ jobs:
       - name: Install (root)
         run: npm ci
 
-      - name: Build (root)
-        run: npm run build
-
-      - name: Test (Vitest)
-        run: npx vitest run
-
       - name: Install (web)
         working-directory: web
         run: npm ci
+
+      - name: Build (root)
+        run: npm run build
 
       - name: Build (web)
         working-directory: web
         run: npm run build
 
-      - name: Test (web Vitest)
-        working-directory: web
+      - name: Test (Vitest root + web)
         run: npm run test

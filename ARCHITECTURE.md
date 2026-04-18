@@ -24,7 +24,7 @@ Every piece of knowledge lives in exactly one place.
 → Psychologist receives them automatically  
 → Adding a mode = one file, zero duplicate prose in prompts
 
-**CHILD PROFILES:** Defined once in `src/souls/`  
+**CHILD PROFILES:** Defined once under `src/context/{child}/` (e.g. `soul.md`)  
 → Every agent reads from there  
 → Never duplicate profile data in prompts
 

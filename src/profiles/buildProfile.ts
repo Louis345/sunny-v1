@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { ChildProfile } from "../shared/childProfile";
 import { mergeCompanionConfigWithDefaults } from "../shared/companionTypes";
@@ -5,8 +7,21 @@ import { readLearningProfile } from "../utils/learningProfileIO";
 import { getNodeRatings } from "../utils/nodeRatingIO";
 import { computeAttentionWindow, computeUnlockedThemes } from "./profileCompute";
 
+const PROFILE_SRC = path.resolve(__dirname, "..");
+
 function normalizeChildId(raw: string): string {
   return raw.trim().toLowerCase();
+}
+
+function getChildContext(childId: string): string {
+  const id = normalizeChildId(childId);
+  const file = path.join(PROFILE_SRC, "context", id, `${id}_context.md`);
+  if (!fs.existsSync(file)) return "";
+  try {
+    return fs.readFileSync(file, "utf-8");
+  } catch {
+    return "";
+  }
 }
 
 /**
@@ -51,6 +66,7 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     ui: { accentColor: accent },
     unlockedThemes,
     attentionWindow_ms,
+    childContext: getChildContext(childId),
     companion: mergeCompanionConfigWithDefaults(lp.companion),
   };
 }

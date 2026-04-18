@@ -19,6 +19,7 @@ function baseProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
     ui: { accentColor: "#3366ff" },
     unlockedThemes: ["default", "beach"],
     attentionWindow_ms: 240_000,
+    childContext: "",
     companion: cloneCompanionDefaults(),
     ...overrides,
   };

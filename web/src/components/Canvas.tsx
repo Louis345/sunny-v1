@@ -45,6 +45,10 @@ import {
   isInterimPhraseRestart,
 } from "../../../src/shared/karaokeReadingMetrics";
 import { BlackboardContent } from "./BlackboardContent";
+import {
+  KaraokeReadingCanvas as KaraokeReadingCanvasView,
+} from "./KaraokeReadingCanvas";
+import type { SessionTheme } from "../../../src/shared/adventureTypes";
 const Lottie =
   (LottieRaw as unknown as { default: typeof LottieRaw }).default ?? LottieRaw;
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -137,37 +141,11 @@ export interface CanvasState {
   clockMinute?: number;
   clockDisplay?: string;
   karaokeWords?: string[];
+  storyTitle?: string;
+  backgroundImageUrl?: string;
 }
 
-function chunkWordsIntoLines(words: string[], wordsPerLine: number): string[][] {
-  if (words.length === 0) return [];
-  const lines: string[][] = [];
-  const wpl = Math.max(4, Math.min(16, wordsPerLine));
-  for (let i = 0; i < words.length; i += wpl) {
-    lines.push(words.slice(i, i + wpl));
-  }
-  return lines;
-}
-
-/** Map global word index → line + column; past end → last line, col after last word. */
-function locateWordInLines(
-  lines: string[][],
-  globalIdx: number,
-): { lineIdx: number; colIdx: number } {
-  let g = 0;
-  for (let li = 0; li < lines.length; li++) {
-    const row = lines[li];
-    for (let ci = 0; ci < row.length; ci++) {
-      if (g === globalIdx) return { lineIdx: li, colIdx: ci };
-      g++;
-    }
-  }
-  const lastLi = Math.max(0, lines.length - 1);
-  const lastRow = lines[lastLi] ?? [];
-  return { lineIdx: lastLi, colIdx: lastRow.length };
-}
-
-function KaraokeReadingCanvas(props: {
+function KaraokeReadingSession(props: {
   words: string[];
   /** Full story body — used to detect a new story vs karaoke refresh (same text preserves word index). */
   storyText: string;
@@ -175,6 +153,11 @@ function KaraokeReadingCanvas(props: {
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   onCanvasDone: () => void;
   readingCanvas: ReadingCanvasPreferences;
+  storyTitle?: string;
+  backgroundImageUrl?: string;
+  sessionThemeAccent?: string;
+  sessionThemeCardBackground?: string;
+  companionMinimized: boolean;
 }): React.ReactElement {
   const {
     words,
@@ -183,6 +166,11 @@ function KaraokeReadingCanvas(props: {
     sendMessage,
     onCanvasDone,
     readingCanvas,
+    storyTitle,
+    backgroundImageUrl,
+    sessionThemeAccent,
+    sessionThemeCardBackground,
+    companionMinimized,
   } = props;
   const p = readingCanvas;
   const newStoryText = storyText ?? "";
@@ -195,6 +183,9 @@ function KaraokeReadingCanvas(props: {
   const spelledWordsRef = useRef<string[]>([]);
   /** Words that needed several tries before advancing (struggle signal). */
   const flaggedWordsSetRef = useRef<Set<string>>(new Set());
+  /** Word indices the child skipped by tap — no hesitation penalty. */
+  const skippedIndicesRef = useRef<Set<number>>(new Set());
+  const skippedWordsListRef = useRef<string[]>([]);
   const mismatchCountForCurrentRef = useRef(0);
   /** Phrase restarts (interim length shrank) — sent as `hesitations` on reading_progress. */
   const hesitationsRef = useRef(0);
@@ -204,9 +195,49 @@ function KaraokeReadingCanvas(props: {
     "match",
   );
 
-  const lines = React.useMemo(
-    () => chunkWordsIntoLines(words, p.wordsPerLine),
-    [words, p.wordsPerLine],
+  const handleSkipWord = useCallback(
+    (globalIdx: number) => {
+      if (completeRef.current || words.length === 0) return;
+      if (globalIdx !== currentWordIndexRef.current) return;
+      const w = words[globalIdx];
+      if (!w) return;
+      const norm = w.toLowerCase().trim();
+      if (norm) skippedWordsListRef.current.push(norm);
+      skippedIndicesRef.current.add(globalIdx);
+      const next = globalIdx + 1;
+      currentWordIndexRef.current = next;
+      mismatchCountForCurrentRef.current = 0;
+      rerender();
+      if (next >= words.length) {
+        completeRef.current = true;
+        sendMessage(
+          "reading_progress",
+          buildKaraokeReadingProgressPayload({
+            wordIndex: next,
+            totalWords: words.length,
+            hesitations: hesitationsRef.current,
+            flaggedWords: Array.from(flaggedWordsSetRef.current),
+            skippedWords: [...skippedWordsListRef.current],
+            spelledWords: [...spelledWordsRef.current],
+            event: "complete",
+          }),
+        );
+        return;
+      }
+      sendMessage(
+        "reading_progress",
+        buildKaraokeReadingProgressPayload({
+          wordIndex: next,
+          totalWords: words.length,
+          hesitations: hesitationsRef.current,
+          flaggedWords: Array.from(flaggedWordsSetRef.current),
+          skippedWords: [...skippedWordsListRef.current],
+          spelledWords: [...spelledWordsRef.current],
+          event: "progress",
+        }),
+      );
+    },
+    [words, sendMessage],
   );
 
   useEffect(() => {
@@ -222,6 +253,8 @@ function KaraokeReadingCanvas(props: {
       completeRef.current = false;
       spelledWordsRef.current = [];
       flaggedWordsSetRef.current = new Set();
+      skippedIndicesRef.current = new Set();
+      skippedWordsListRef.current = [];
       mismatchCountForCurrentRef.current = 0;
       hesitationsRef.current = 0;
       lastInterimLengthRef.current = 0;
@@ -285,6 +318,7 @@ function KaraokeReadingCanvas(props: {
           totalWords: words.length,
           hesitations: hesitationsRef.current,
           flaggedWords: Array.from(flaggedWordsSetRef.current),
+          skippedWords: [...skippedWordsListRef.current],
           spelledWords: [...spelledWordsRef.current],
           event: "complete",
         }),
@@ -305,6 +339,7 @@ function KaraokeReadingCanvas(props: {
           totalWords: total,
           hesitations: hesitationsRef.current,
           flaggedWords: Array.from(flaggedWordsSetRef.current),
+          skippedWords: [...skippedWordsListRef.current],
           spelledWords: [...spelledWordsRef.current],
           event: "progress",
         }),
@@ -314,202 +349,22 @@ function KaraokeReadingCanvas(props: {
   }, [newStoryText, words.length, sendMessage]);
 
   const currentWordIndex = currentWordIndexRef.current;
-  const done = currentWordIndex >= words.length;
-  const { lineIdx, colIdx } = done
-    ? locateWordInLines(lines, words.length)
-    : locateWordInLines(lines, currentWordIndex);
-
-  const prevLine = lineIdx > 0 ? lines[lineIdx - 1] : null;
-  const curLine = lines[lineIdx] ?? [];
-  const nextLine = lineIdx < lines.length - 1 ? lines[lineIdx + 1] : null;
-
-  const fsHighlight = p.fontSize;
-  const fsLineOther = Math.max(24, p.fontSize - 6);
-  const fsPrevNext = Math.max(22, Math.round(p.fontSize * 0.67));
-
-  const pctComplete =
-    words.length === 0
-      ? 0
-      : done
-        ? 100
-        : Math.min(99, Math.round((currentWordIndex / words.length) * 100));
-
-  const fillPct =
-    words.length === 0 ? 0 : Math.round((currentWordIndex / words.length) * 100);
 
   return (
-    <div
-      style={{
-        position: "relative",
-        padding: 48,
-        paddingBottom: 120,
-        boxSizing: "border-box",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        minHeight: "100%",
-        width: "100%",
-        background: p.background,
-        fontFamily: p.fontFamilyCss,
-      }}
-    >
-      <style>{`
-        @keyframes sunny-slide-in-line {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes sunny-word-pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-        }
-      `}</style>
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "100%",
-          maxWidth: 900,
-        }}
-      >
-        {prevLine ? (
-          <div
-            style={{
-              fontSize: fsPrevNext,
-              fontWeight: 400,
-              color: "#9ca3af",
-              opacity: 0.6,
-              lineHeight: p.lineHeight,
-              marginBottom: 24,
-              textAlign: "center",
-              width: "100%",
-            }}
-          >
-            {prevLine.join(" ")}
-          </div>
-        ) : (
-          <div style={{ marginBottom: 8 }} />
-        )}
-
-        <div
-          key={lineIdx}
-          style={{
-            lineHeight: p.lineHeight,
-            marginBottom: 24,
-            textAlign: "center",
-            width: "100%",
-            animation: "sunny-slide-in-line 0.3s ease-out both",
-          }}
-        >
-          {curLine.map((word, ci) => {
-            const readInLine = done || ci < colIdx;
-            const isCurrent = !done && ci === colIdx;
-            return (
-              <span
-                key={`${lineIdx}-${ci}-${word}`}
-                style={{
-                  display: "inline",
-                  marginRight: "0.35em",
-                  transition: "all 0.2s ease",
-                  letterSpacing: "0.05em",
-                  ...(isCurrent
-                    ? {
-                        fontSize: fsHighlight,
-                        fontWeight: 800,
-                        color: p.highlightColor,
-                        backgroundColor: p.highlightBackground,
-                        borderRadius: 8,
-                        padding: "4px 8px",
-                        animation: "sunny-word-pulse 1s ease-in-out infinite",
-                      }
-                    : readInLine
-                      ? {
-                          fontSize: fsPrevNext,
-                          fontWeight: 400,
-                          color: "#9ca3af",
-                          opacity: 0.75,
-                        }
-                      : {
-                          fontSize: fsLineOther,
-                          fontWeight: 600,
-                          color: "#1f2937",
-                        }),
-                }}
-              >
-                {word}
-              </span>
-            );
-          })}
-        </div>
-
-        {nextLine ? (
-          <div
-            style={{
-              fontSize: fsPrevNext,
-              fontWeight: 400,
-              color: "#d1d5db",
-              opacity: 0.3,
-              lineHeight: p.lineHeight,
-              textAlign: "center",
-              width: "100%",
-            }}
-          >
-            {nextLine.join(" ")}
-          </div>
-        ) : null}
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          bottom: 24,
-          left: 48,
-          right: 48,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
-          gap: 8,
-        }}
-      >
-        <div
-          style={{
-            width: "100%",
-            height: 8,
-            borderRadius: 999,
-            background: "#e2e8f0",
-            overflow: "hidden",
-          }}
-          aria-valuenow={pctComplete}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          role="progressbar"
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${fillPct}%`,
-              background: "linear-gradient(90deg, #3b82f6, #8b5cf6)",
-              transition: "width 0.4s ease",
-              borderRadius: 999,
-              boxShadow: "0 0 8px rgba(59, 130, 246, 0.5)",
-            }}
-          />
-        </div>
-        <div
-          style={{
-            fontFamily: "'Lexend', sans-serif",
-            fontSize: 13,
-            fontWeight: 500,
-            color: "#94a3b8",
-            textAlign: "center",
-          }}
-        >
-          {pctComplete}% complete
-        </div>
-      </div>
-    </div>
+    <KaraokeReadingCanvasView
+      words={words}
+      wordIndex={currentWordIndex}
+      onSkipWord={handleSkipWord}
+      storyTitle={storyTitle}
+      backgroundImageUrl={backgroundImageUrl}
+      accentColor={sessionThemeAccent}
+      cardBackground={sessionThemeCardBackground}
+      fontSize={p.fontSize}
+      lineHeight={p.lineHeight}
+      wordsPerLine={p.wordsPerLine}
+      skippedWordIndices={Array.from(skippedIndicesRef.current)}
+      companionMinimized={companionMinimized}
+    />
   );
 }
 
@@ -641,6 +496,9 @@ interface Props {
   storyImageChildId?: string;
   storyImageLoading?: boolean;
   storyImageUrl?: string | null;
+  sessionTheme?: SessionTheme | null;
+  /** When true, companion is minimized during karaoke — drives body.karaoke-active for layout. */
+  karaokeCompanionMinimized?: boolean;
 }
 
 /** Worksheet asset URL points at a raster image (not a PDF) — use <img>, not react-pdf. */
@@ -2071,6 +1929,8 @@ export function Canvas({
   storyImageChildId = "star",
   storyImageLoading = false,
   storyImageUrl = null,
+  sessionTheme = null,
+  karaokeCompanionMinimized = false,
 }: Props) {
   console.log("[Canvas] render:", {
     mode: canvas.mode,
@@ -2629,13 +2489,18 @@ export function Canvas({
         {displayMode === "karaoke" &&
         canvas.mode === "karaoke" &&
         karaokeWordsForRender.length > 0 ? (
-          <KaraokeReadingCanvas
+          <KaraokeReadingSession
             words={karaokeWordsForRender}
             storyText={String(canvas.content ?? "")}
             interimTranscript={interimTranscript}
             sendMessage={sendMessage}
             onCanvasDone={handleCanvasDone}
             readingCanvas={readingCanvas}
+            storyTitle={canvas.storyTitle}
+            backgroundImageUrl={canvas.backgroundImageUrl}
+            sessionThemeAccent={sessionTheme?.palette?.accent ?? accentColor}
+            sessionThemeCardBackground={sessionTheme?.palette?.cardBackground}
+            companionMinimized={karaokeCompanionMinimized}
           />
         ) : null}
 

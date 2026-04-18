@@ -263,6 +263,30 @@ function unwrapToolResult(result: unknown): unknown {
   return result;
 }
 
+/** Creator diag voice session — `POST /api/map/test-reading-mode` pushes karaoke here. */
+let creatorDiagSessionForReadingTest: SessionManager | null = null;
+
+export function tryPushCreatorDiagReadingKaraoke(
+  text: string,
+): { ok: true } | { ok: false; error: string } {
+  const s = creatorDiagSessionForReadingTest;
+  if (!s) return { ok: false, error: "no_active_creator_diag_voice_session" };
+  const trimmed = text.trim();
+  if (!trimmed) return { ok: false, error: "text_required" };
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  s.applyClientToolCall("canvasShow", {
+    type: "karaoke",
+    storyText: trimmed,
+    words,
+  });
+  return { ok: true };
+}
+
+/** Options passed from the client on `start_session` (see ws-handler). */
+export type SessionManagerOptions = {
+  silentTts?: boolean;
+};
+
 export class SessionManager {
   /** When true, child speech is not sent to the companion (silent reward games). */
   public suppressTranscripts: boolean = false;
@@ -271,6 +295,7 @@ export class SessionManager {
   private childName: ChildName;
   private companion: CompanionConfig;
   private conversationHistory: ModelMessage[] = [];
+  private readonly options?: SessionManagerOptions;
   private ttsBridge: WsTtsBridge | null = null;
   private currentAbort: AbortController | null = null;
   private clearSessionTimer: (() => void) | null = null;
@@ -806,9 +831,11 @@ export class SessionManager {
     ws: WebSocket,
     childName: ChildName,
     private readonly diagKioskFast = false,
+    options?: SessionManagerOptions,
   ) {
     this.ws = ws;
     this.childName = childName;
+    this.options = options;
     this.companion = getCompanionConfig(childName);
 
     if (isSunnyTestMode()) {
@@ -1654,8 +1681,10 @@ export class SessionManager {
     this.sessionStartedToolCalled = false;
     this.transitionedToWork = false;
 
-    this.ttsBridge = new WsTtsBridge(this.ws, this.companion.voiceId);
-    await this.ttsBridge.prime();
+    if (!this.options?.silentTts) {
+      this.ttsBridge = new WsTtsBridge(this.ws, this.companion.voiceId);
+      await this.ttsBridge.prime();
+    }
 
     await this.connectDeepgram();
 
@@ -1671,6 +1700,13 @@ export class SessionManager {
       );
     } else {
       await this.handleCompanionTurn(this.companion.openingLine);
+    }
+
+    if (this.diagKioskFast && this.childName === "creator") {
+      creatorDiagSessionForReadingTest = this;
+      console.log(
+        "  📖 [diag] creator voice session registered for test-reading-mode",
+      );
     }
   }
 
@@ -2151,6 +2187,10 @@ export class SessionManager {
     if (this.isEnding) return;
     this.isEnding = true;
     this.isSpellingSession = false;
+
+    if (creatorDiagSessionForReadingTest === this) {
+      creatorDiagSessionForReadingTest = null;
+    }
 
     const ts = new Date().toISOString();
     console.log(`  🏁 [${ts}] Ending session for ${this.childName}`);
@@ -2880,6 +2920,14 @@ export class SessionManager {
                     content: args.storyText,
                     label: words.join(" "),
                     karaokeWords: words,
+                    storyTitle:
+                      typeof args.storyTitle === "string"
+                        ? args.storyTitle
+                        : undefined,
+                    backgroundImageUrl:
+                      typeof args.backgroundImageUrl === "string"
+                        ? args.backgroundImageUrl
+                        : undefined,
                   };
                   this.send(
                     "canvas_draw",
@@ -4727,6 +4775,12 @@ export class SessionManager {
           content: args.storyText as string,
           label: words.join(" "),
           karaokeWords: words,
+          storyTitle:
+            typeof args.storyTitle === "string" ? args.storyTitle : undefined,
+          backgroundImageUrl:
+            typeof args.backgroundImageUrl === "string"
+              ? args.backgroundImageUrl
+              : undefined,
         };
         if (this.ctx) {
           this.ctx.updateCanvas({
@@ -4828,6 +4882,11 @@ export class SessionManager {
     const spelledWords = Array.isArray(payload.spelledWords)
       ? (payload.spelledWords as string[])
       : [];
+    const skippedWords = Array.isArray(payload.skippedWords)
+      ? (payload.skippedWords as string[]).filter(
+          (w): w is string => typeof w === "string",
+        )
+      : [];
     const event =
       typeof payload.event === "string" ? payload.event : undefined;
     if (!Number.isFinite(wordIndex) || !Number.isFinite(totalWords)) {
@@ -4840,6 +4899,7 @@ export class SessionManager {
       accuracy: Number.isFinite(accuracy) ? accuracy : 0,
       hesitations,
       flaggedWords,
+      skippedWords,
       spelledWords,
       event,
     });

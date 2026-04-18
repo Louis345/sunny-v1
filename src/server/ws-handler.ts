@@ -47,9 +47,11 @@ export function handleWsConnection(
         const raw = msg as {
           child?: string;
           diagKiosk?: boolean;
+          silentTts?: boolean;
         };
         const child = raw.child;
         const diagKiosk = raw.diagKiosk === true;
+        const silentTts = raw.silentTts === true;
         const validChild =
           child === "Ila" ||
           child === "Reina" ||
@@ -78,7 +80,12 @@ export function handleWsConnection(
           );
           return;
         }
-        session = new SessionManager(ws, child, diagKiosk);
+        session = new SessionManager(
+          ws,
+          child,
+          diagKiosk,
+          silentTts ? { silentTts: true } : undefined,
+        );
         await session.start();
         break;
       }

@@ -251,7 +251,7 @@ ${lastTwoSessionSummaries}
 
 export const ELLI = loadCompanion(
   "companions/elli.md",
-  "souls/ila.md",
+  "context/ila/soul.md",
   contextFileRelativeFromSrc("Ila"),
   curriculumRelativeFromSrc("Ila"),
   "ELEVENLABS_VOICE_ID_ILA",
@@ -265,7 +265,7 @@ export const ELLI = loadCompanion(
 
 export const MATILDA = loadCompanion(
   "companions/matilda.md",
-  "souls/reina.md",
+  "context/reina/soul.md",
   contextFileRelativeFromSrc("Reina"),
   curriculumRelativeFromSrc("Reina"),
   "ELEVENLABS_VOICE_ID_REINA",

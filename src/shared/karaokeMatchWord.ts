@@ -1,5 +1,26 @@
 export type KaraokeWordClass = "match" | "partial" | "mismatch";
 
+/** Dyslexia-friendly confusions — paired letters fold to one canonical form. */
+export const CONFUSION_PAIRS: [string, string][] = [
+  ["m", "n"],
+  ["b", "d"],
+  ["p", "q"],
+  ["f", "v"],
+  ["s", "z"],
+  ["w", "v"],
+];
+
+/** Normalize confusable letters to canonical form (m→n, b→d, …). */
+export function applyConfusionPairs(word: string): string {
+  return word
+    .replace(/m/g, "n")
+    .replace(/b/g, "d")
+    .replace(/p/g, "q")
+    .replace(/f/g, "v")
+    .replace(/s/g, "z")
+    .replace(/w/g, "v");
+}
+
 function levenshtein1OrLess(a: string, b: string): boolean {
   const m = a.length;
   const n = b.length;
@@ -35,9 +56,9 @@ export function classifyKaraokeWordMatch(
   const h = heard.toLowerCase().replace(/[^a-z]/g, "");
   const e = expected.toLowerCase().replace(/[^a-z]/g, "");
   if (h === e) return "match";
-  if (e.length <= 4) return "mismatch";
-  if (e.startsWith(h) && h.length >= 2) return "partial";
-  if (levenshtein1OrLess(h, e)) return "match";
+  if (applyConfusionPairs(h) === applyConfusionPairs(e)) return "match";
+  if (e.length > 4 && e.startsWith(h) && h.length >= 2) return "partial";
+  if (e.length > 4 && levenshtein1OrLess(h, e)) return "match";
   return "mismatch";
 }
 

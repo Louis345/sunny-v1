@@ -28,6 +28,8 @@ export function buildKaraokeReadingProgressPayload(args: {
   totalWords: number;
   hesitations: number;
   flaggedWords: string[];
+  /** Words the child skipped via tap — agency, no penalty; not hesitations. */
+  skippedWords: string[];
   spelledWords: string[];
   event: KaraokeReadingProgressEvent;
 }): Record<string, unknown> {
@@ -37,6 +39,7 @@ export function buildKaraokeReadingProgressPayload(args: {
     accuracy: karaokeProgressAccuracy(args.wordIndex, args.totalWords),
     hesitations: args.hesitations,
     flaggedWords: args.flaggedWords,
+    skippedWords: args.skippedWords,
     spelledWords: args.spelledWords,
     event: args.event,
   };

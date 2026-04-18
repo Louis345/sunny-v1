@@ -20,6 +20,8 @@ export interface ChildProfile {
   ui: ChildProfileUI;
   unlockedThemes: string[];
   attentionWindow_ms: number;
+  /** Body of `src/context/{childId}/{childId}_context.md` when present; else empty string. */
+  childContext: string;
   /** VRM companion dials and asset URL (Phase 0.5). */
   companion: CompanionConfig;
 }
