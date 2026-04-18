@@ -8,10 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { NodeTransitionOverlay } from "../components/NodeTransitionOverlay";
+import {
+  NodeTransitionOverlay,
+  type Palette,
+} from "../components/NodeTransitionOverlay";
+
+export type { Palette };
 
 export type TransitionOptions = {
-  color: string;
+  palette?: Palette | "random";
   onComplete: () => void;
   duration?: number;
 };
@@ -24,7 +29,7 @@ const TransitionContext = createContext<TransitionContextValue | null>(null);
 
 export function TransitionProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState(false);
-  const [color, setColor] = useState("#6D5EF5");
+  const [palette, setPalette] = useState<Palette | "random">("random");
   const [duration, setDuration] = useState(700);
   const pendingRef = useRef<TransitionOptions | null>(null);
 
@@ -40,7 +45,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
 
   const triggerTransition = useCallback((opts: TransitionOptions) => {
     pendingRef.current = opts;
-    setColor(opts.color);
+    setPalette(opts.palette ?? "random");
     setDuration(opts.duration ?? 700);
     setActive(true);
   }, []);
@@ -56,7 +61,7 @@ export function TransitionProvider({ children }: { children: ReactNode }) {
       {createPortal(
         <NodeTransitionOverlay
           active={active}
-          color={color}
+          palette={palette}
           duration={duration}
           onComplete={handleOverlayComplete}
         >

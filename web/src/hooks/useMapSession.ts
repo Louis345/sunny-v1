@@ -269,10 +269,10 @@ export function useMapSession(childId: string): {
         }
         let node = payload as NodeConfig;
         const ms = mapStateRef.current;
-        if (node.type === "karaoke" && ms) {
+        if (ms) {
           const fromMap = ms.nodes.find((n) => n.id === nodeId);
           if (fromMap?.words?.length) {
-            node = { ...node, words: fromMap.words };
+            node = { ...node, type: fromMap.type, words: fromMap.words };
           }
         }
         return node;

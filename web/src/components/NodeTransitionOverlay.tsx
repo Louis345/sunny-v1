@@ -1,27 +1,62 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-const STYLES = ["sheet", "wipe", "split", "iris"] as const;
-type TransitionStyle = (typeof STYLES)[number];
+export type Palette = {
+  from: string;
+  to: string;
+};
+
+export const TRANSITION_PALETTES: Palette[] = [
+  { from: "#f59e0b", to: "#ef4444" }, // ember         (cover-wipe fave)
+  { from: "#6D5EF5", to: "#a78bfa" }, // purple dream
+  { from: "#f472b6", to: "#fb923c" }, // pink sunset
+  { from: "#06b6d4", to: "#3b82f6" }, // ocean dive
+  { from: "#10b981", to: "#84cc16" }, // jungle
+  { from: "#8b5cf6", to: "#ec4899" }, // magic hour
+  { from: "#14b8a6", to: "#0ea5e9" }, // lagoon
+  { from: "#eab308", to: "#f97316" }, // honey
+  { from: "#a855f7", to: "#6366f1" }, // nebula
+  { from: "#22c55e", to: "#06b6d4" }, // mint breeze
+  { from: "#e879f9", to: "#f472b6" }, // bubblegum
+  { from: "#fb7185", to: "#f59e0b" }, // peach glow
+];
 
 export type NodeTransitionOverlayProps = {
   children: ReactNode;
   active: boolean;
-  color: string;
+  palette?: Palette | "random";
   duration?: number;
   onComplete?: () => void;
 };
 
+const STYLES = ["sheet", "wipe", "split", "iris"] as const;
+type TransitionStyle = (typeof STYLES)[number];
+
+function resolvePalette(
+  palette: Palette | "random",
+  lastIndexRef: React.MutableRefObject<number>,
+): Palette {
+  if (palette !== "random") return palette;
+  let idx: number;
+  do {
+    idx = Math.floor(Math.random() * TRANSITION_PALETTES.length);
+  } while (idx === lastIndexRef.current && TRANSITION_PALETTES.length > 1);
+  lastIndexRef.current = idx;
+  return TRANSITION_PALETTES[idx]!;
+}
+
 export function NodeTransitionOverlay({
   children,
   active,
-  color,
+  palette = "random",
   duration = 700,
   onComplete,
 }: NodeTransitionOverlayProps) {
   const lastStyleRef = useRef<TransitionStyle | null>(null);
+  const lastPaletteIndexRef = useRef<number>(-1);
   const onCompleteRef = useRef(onComplete);
   const [overlay, setOverlay] = useState<{
     style: TransitionStyle;
+    palette: Palette;
     armed: boolean;
   } | null>(null);
 
@@ -39,40 +74,40 @@ export function NodeTransitionOverlay({
     const picked = pool[Math.floor(Math.random() * pool.length)]!;
     lastStyleRef.current = picked;
 
-    setOverlay({ style: picked, armed: false });
+    const resolvedPalette = resolvePalette(palette, lastPaletteIndexRef);
+    setOverlay({ style: picked, palette: resolvedPalette, armed: false });
 
-    let doneId: number | undefined;
+    // double-rAF: guarantees the browser has committed the unarmed state
+    // before we flip armed=true, so the CSS transition always fires.
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        setOverlay((o) => (o ? { ...o, armed: true } : null));
+      });
+    });
 
-    const armId = window.setTimeout(() => {
-      setOverlay((o) => (o ? { ...o, armed: true } : null));
-      doneId = window.setTimeout(() => {
-        onCompleteRef.current?.();
-        setOverlay(null);
-      }, duration);
-    }, 0);
+    // onComplete timer runs in parallel from activation, not from arm.
+    const doneId = window.setTimeout(() => {
+      onCompleteRef.current?.();
+      setOverlay(null);
+    }, duration);
 
     return () => {
-      window.clearTimeout(armId);
-      if (doneId !== undefined) {
-        window.clearTimeout(doneId);
-      }
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      window.clearTimeout(doneId);
     };
-  }, [active, duration]);
+  }, [active, duration, palette]);
 
   const ms = `${duration}ms`;
-
-  const singleLayerBase: CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    background: color,
-  };
 
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 14,
+        zIndex: 9999,
         width: "100%",
         height: "100%",
         pointerEvents: "none",
@@ -83,18 +118,26 @@ export function NodeTransitionOverlay({
         <div
           data-testid="node-transition-overlay"
           data-transition-style={overlay.style}
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 100,
-            pointerEvents: "none",
-            overflow: "hidden",
-          }}
+          data-palette-from={overlay.palette.from}
+          style={
+            {
+              position: "absolute",
+              inset: 0,
+              zIndex: 100,
+              // block clicks while the transition animation is playing
+              pointerEvents: "auto",
+              overflow: "hidden",
+              "--from": overlay.palette.from,
+              "--to": overlay.palette.to,
+            } as React.CSSProperties
+          }
         >
           {overlay.style === "sheet" && (
             <div
               style={{
-                ...singleLayerBase,
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(0deg, var(--from), var(--to))",
                 transform: overlay.armed ? "translateY(0)" : "translateY(100%)",
                 transition: `transform ${ms} ease-out`,
               }}
@@ -103,7 +146,9 @@ export function NodeTransitionOverlay({
           {overlay.style === "wipe" && (
             <div
               style={{
-                ...singleLayerBase,
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(90deg, var(--from), var(--to))",
                 transform: overlay.armed ? "scaleX(1)" : "scaleX(0)",
                 transformOrigin: "left center",
                 transition: `transform ${ms} ease-out`,
@@ -113,7 +158,10 @@ export function NodeTransitionOverlay({
           {overlay.style === "iris" && (
             <div
               style={{
-                ...singleLayerBase,
+                position: "absolute",
+                inset: 0,
+                background:
+                  "radial-gradient(circle at center, var(--from), var(--to))",
                 clipPath: overlay.armed
                   ? "circle(150vmax at 50% 50%)"
                   : "circle(0% at 50% 50%)",
@@ -133,8 +181,11 @@ export function NodeTransitionOverlay({
                   right: 0,
                   top: 0,
                   height: "50%",
-                  background: color,
-                  transform: overlay.armed ? "translateY(0)" : "translateY(-100%)",
+                  background:
+                    "linear-gradient(180deg, var(--from), var(--to))",
+                  transform: overlay.armed
+                    ? "translateY(0)"
+                    : "translateY(-100%)",
                   transition: `transform ${ms} ease-out`,
                 }}
               />
@@ -145,8 +196,10 @@ export function NodeTransitionOverlay({
                   right: 0,
                   bottom: 0,
                   height: "50%",
-                  background: color,
-                  transform: overlay.armed ? "translateY(0)" : "translateY(100%)",
+                  background: "linear-gradient(0deg, var(--from), var(--to))",
+                  transform: overlay.armed
+                    ? "translateY(0)"
+                    : "translateY(100%)",
                   transition: `transform ${ms} ease-out`,
                 }}
               />

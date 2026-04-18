@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { NodeConfig, NodeResult } from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
-import { useTransition } from "../context/TransitionContext";
+import { useTransition, type Palette } from "../context/TransitionContext";
 import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
 import type { KaraokeReadingCanvasProps } from "./KaraokeReadingCanvas";
@@ -13,6 +13,27 @@ import { WorldBackground } from "./WorldBackground.tsx";
 import { XPBar } from "./XPBar.tsx";
 import "./AdventureMap.css";
 
+import type { NodeType } from "../../../src/shared/adventureTypes";
+
+/** Home palette per node type. 20% of activations pick "random" instead. */
+const NODE_PALETTES: Partial<Record<NodeType, Palette>> = {
+  karaoke:         { from: "#6D5EF5", to: "#a78bfa" }, // purple dream
+  riddle:          { from: "#e879f9", to: "#fbcfe8" }, // bubblegum
+  boss:            { from: "#f59e0b", to: "#ef4444" }, // ember
+  "word-builder":  { from: "#10b981", to: "#84cc16" }, // jungle
+  "spell-check":   { from: "#06b6d4", to: "#3b82f6" }, // ocean dive
+  "clock-game":    { from: "#eab308", to: "#f97316" }, // honey
+  "coin-counter":  { from: "#14b8a6", to: "#0ea5e9" }, // lagoon
+  "space-invaders":{ from: "#8b5cf6", to: "#ec4899" }, // magic hour
+  asteroid:        { from: "#a855f7", to: "#6366f1" }, // nebula
+  "space-frogger": { from: "#22c55e", to: "#06b6d4" }, // mint breeze
+  "bubble-pop":    { from: "#f472b6", to: "#fb923c" }, // pink sunset
+};
+
+function nodeTransitionPalette(nodeType: NodeType): Palette | "random" {
+  if (Math.random() < 0.2) return "random";
+  return NODE_PALETTES[nodeType] ?? "random";
+}
 
 function MapLoadingOverlay({ accent }: { accent: string }) {
   return (
@@ -216,25 +237,12 @@ export function AdventureMap(props: {
     async (node: NodeConfig) => {
       const result = await onNodeClick(node.id);
       if (!result) return;
-      const transitionColor =
-        result.accentColor ??
-        theme?.palette?.accent ??
-        mapState?.theme.palette.accent ??
-        accentColor ??
-        "#6D5EF5";
       triggerTransition({
-        color: transitionColor,
+        palette: nodeTransitionPalette(result.type),
         onComplete: () => commitLaunchedNode(result),
       });
     },
-    [
-      onNodeClick,
-      commitLaunchedNode,
-      triggerTransition,
-      theme,
-      mapState,
-      accentColor,
-    ],
+    [onNodeClick, commitLaunchedNode, triggerTransition],
   );
 
   const diagReading = import.meta.env.VITE_DIAG_READING === "true";
