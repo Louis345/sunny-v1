@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSession } from "./hooks/useSession";
+import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
@@ -14,6 +15,7 @@ import { AdventureMap } from "./components/AdventureMap";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
+import { NodeTransitionOverlay } from "./components/NodeTransitionOverlay";
 import { useMapSession } from "./hooks/useMapSession";
 import {
   COMPANION_API_VERSION,
@@ -100,28 +102,30 @@ function App() {
     analyserNodeRef,
   } = useSession();
 
-  const [adventureChildId, setAdventureChildId] = useState<string | null>(null);
   const [profileCompanion, setProfileCompanion] = useState<CompanionConfig | null>(
     null,
   );
-
-  useEffect(() => {
-    if (!adventureMapEnabled) return;
-    const raw = import.meta.env.VITE_DIAG_CHILD_ID;
-    if (raw === undefined || raw === "") return;
-    const id = raw.trim().toLowerCase();
-    if (!id) return;
-    setAdventureChildId(id);
-  }, []);
-
-  const [companionMuted, setCompanionMuted] = useState(false);
-  const [activeNodeScreen, setActiveNodeScreen] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
   const [diagCompanionCommands, setDiagCompanionCommands] = useState<
     CompanionCommand[]
   >([]);
+
+  const {
+    adventureChildId,
+    setAdventureChildId,
+    activeNodeScreen,
+    setActiveNodeScreen,
+    karaokeReadingActive,
+    companionMuted,
+    activeProfileChildId,
+  } = useAdventureState(state, adventureMapEnabled);
+
+  // Stable defaults object — avoids creating a new reference on every render.
+  const defaultCompanion = useMemo(() => cloneCompanionDefaults(), []);
+  // Provide defaults inline while the fetch is in-flight so CompanionLayer can
+  // start loading the VRM immediately, without a synchronous setState in the effect.
+  const effectiveCompanion = activeProfileChildId
+    ? (profileCompanion ?? defaultCompanion)
+    : profileCompanion;
 
   const mapSession = useMapSession(
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
@@ -166,55 +170,8 @@ function App() {
     [],
   );
 
-  const activeProfileChildId =
-    adventureChildId ??
-    (state.phase === "active"
-      ? (state.childName?.trim().toLowerCase() ?? null)
-      : null);
-
-  const karaokeReadingActive =
-    state.phase === "active" &&
-    state.canvas.mode === "karaoke" &&
-    (state.canvas.karaokeWords?.length ?? 0) > 0 &&
-    !state.karaokeStoryComplete;
-
   useEffect(() => {
-    if (karaokeReadingActive) return;
-    setCompanionMuted(false);
-  }, [activeProfileChildId, karaokeReadingActive]);
-
-  useEffect(() => {
-    if (karaokeReadingActive) {
-      setCompanionMuted(true);
-      return;
-    }
-    setCompanionMuted(false);
-  }, [karaokeReadingActive]);
-
-  useEffect(() => {
-    if (!(adventureMapEnabled && adventureChildId)) {
-      setActiveNodeScreen(null);
-    }
-  }, [adventureMapEnabled, adventureChildId]);
-
-  /** Voice connection failed while map was shown — map branch hides picker error UI; drop map so errors surface. */
-  useEffect(() => {
-    if (
-      adventureMapEnabled &&
-      adventureChildId &&
-      state.error
-    ) {
-      setAdventureChildId(null);
-    }
-  }, [adventureMapEnabled, adventureChildId, state.error]);
-
-  useEffect(() => {
-    if (!activeProfileChildId) {
-      setProfileCompanion(null);
-      return;
-    }
-    // Defaults immediately so CompanionLayer mounts and can load the VRM while fetch runs.
-    setProfileCompanion(cloneCompanionDefaults());
+    if (!activeProfileChildId) return;
     let cancelled = false;
     fetch(`/api/profile/${encodeURIComponent(activeProfileChildId)}`)
       .then(async (r) => {
@@ -235,6 +192,7 @@ function App() {
       });
     return () => {
       cancelled = true;
+      setProfileCompanion(null);
     };
   }, [activeProfileChildId]);
 
@@ -259,22 +217,31 @@ function App() {
           onActiveNodeScreenChange={setActiveNodeScreen}
         />
         {karaokeReadingActive && (
-          <div className="fixed inset-0 z-50">
-            <KaraokeReadingCanvas
-              words={state.canvas.karaokeWords!}
-              interimTranscript={state.interimTranscript}
-              sendMessage={sendMessage}
-              backgroundImageUrl={state.canvas.backgroundImageUrl}
-              accentColor={
-                mapSession.theme?.palette?.accent ?? state.companion?.accentColor
-              }
-              cardBackground={mapSession.theme?.palette?.cardBackground}
-              fontSize={state.readingCanvas.fontSize}
-              lineHeight={state.readingCanvas.lineHeight}
-              wordsPerLine={state.readingCanvas.wordsPerLine}
-              storyTitle={state.canvas.storyTitle}
-            />
-          </div>
+          <NodeTransitionOverlay
+            active={karaokeReadingActive}
+            color={
+              mapSession.theme?.palette?.accent ??
+              state.companion?.accentColor ??
+              "#6D5EF5"
+            }
+          >
+            <div className="fixed inset-0 z-50">
+              <KaraokeReadingCanvas
+                words={state.canvas.karaokeWords!}
+                interimTranscript={state.interimTranscript}
+                sendMessage={sendMessage}
+                backgroundImageUrl={state.canvas.backgroundImageUrl}
+                accentColor={
+                  mapSession.theme?.palette?.accent ?? state.companion?.accentColor
+                }
+                cardBackground={mapSession.theme?.palette?.cardBackground}
+                fontSize={state.readingCanvas.fontSize}
+                lineHeight={state.readingCanvas.lineHeight}
+                wordsPerLine={state.readingCanvas.wordsPerLine}
+                storyTitle={state.canvas.storyTitle}
+              />
+            </div>
+          </NodeTransitionOverlay>
         )}
       </div>
     );
@@ -381,7 +348,7 @@ function App() {
       ) : null}
       <CompanionLayer
         childId={activeProfileChildId}
-        companion={profileCompanion}
+        companion={effectiveCompanion}
         toggledOff={companionMuted}
         karaokeActive={
           state.phase === "active" &&
@@ -390,20 +357,9 @@ function App() {
         }
         companionEvents={mergedCompanionEvents}
         companionCommands={mergedCompanionCommands}
-        activeNodeScreen={
-          adventureMapEnabled && adventureChildId ? activeNodeScreen : null
-        }
+        activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
       />
-      {activeProfileChildId ? (
-        <button
-          type="button"
-          className="pointer-events-auto fixed bottom-4 right-4 z-[20] rounded-lg bg-white/95 px-3 py-2 text-sm font-medium text-zinc-900 shadow-md"
-          onClick={() => setCompanionMuted((m) => !m)}
-        >
-          {companionMuted ? "Show friend" : "Hide friend"}
-        </button>
-      ) : null}
     </>
   );
 }
