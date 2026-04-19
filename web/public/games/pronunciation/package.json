@@ -1,0 +1,15 @@
+{
+  "name": "pronunciation-game",
+  "version": "0.1.0",
+  "description": "Flow-state pronunciation game — standalone prototype, pre-Sunny migration",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "happy-dom": "^14.12.0",
+    "vitest": "^1.6.0"
+  }
+}

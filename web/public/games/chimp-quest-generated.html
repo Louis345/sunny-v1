@@ -17,14 +17,15 @@
             background: linear-gradient(160deg, #064e3b, #065f46, #047857, #1a3a1a);
             min-height: 100vh;
             color: #333;
+            overflow-x: hidden;
         }
 
         .progress-bar {
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            height: 8px;
+            width: 100%;
+            height: 4px;
             background: rgba(255, 255, 255, 0.2);
             z-index: 1000;
         }
@@ -32,20 +33,241 @@
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #10b981, #34d399);
-            transition: width 0.3s ease;
+            width: 0%;
+            transition: width 0.5s ease;
         }
 
         .xp-chip {
             position: fixed;
             top: 16px;
             right: 16px;
-            background: linear-gradient(90deg, #fbbf24, #f59e0b);
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
             color: white;
             padding: 8px 16px;
             border-radius: 20px;
-            font-weight: 700;
-            font-size: 14px;
+            font-weight: bold;
             z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 20px 160px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-family: 'Fredoka One', cursive;
+            font-size: 2.5rem;
+            color: white;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+        }
+
+        .vocabulary-strip {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .vocabulary-title {
+            font-family: 'Fredoka One', cursive;
+            color: white;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+        }
+
+        .vocab-words {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .vocab-chip {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            backdrop-filter: blur(5px);
+        }
+
+        .tab-navigation {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tab-button {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            transform: scale(1.05);
+        }
+
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .question-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border-top: 4px solid;
+            border-image: linear-gradient(90deg, #10b981, #34d399, #6366f1, #8b5cf6) 1;
+            display: none;
+        }
+
+        .question-card.active {
+            display: block;
+        }
+
+        .question-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .answer-option {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-weight: 600;
+        }
+
+        .answer-option:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+        }
+
+        .answer-option.selected {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .answer-option.correct {
+            background: #dcfce7;
+            border-color: #22c55e;
+        }
+
+        .answer-option.incorrect {
+            background: #fee2e2;
+            border-color: #ef4444;
+        }
+
+        .option-letter {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #64748b;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .answer-textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-family: 'Nunito', sans-serif;
+            font-size: 1rem;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .answer-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .submit-button {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .submit-button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .feedback.correct {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #22c55e;
+        }
+
+        .feedback.incorrect {
+            background: #fee2e2;
+            color: #dc2626;
+            border: 1px solid #ef4444;
+        }
+
+        .feedback.partial {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .quest-giver {
@@ -54,58 +276,69 @@
             left: 20px;
             display: flex;
             align-items: center;
-            gap: 16px;
-            z-index: 100;
+            gap: 15px;
+            z-index: 1000;
         }
 
         .quest-giver-avatar {
-            background: linear-gradient(45deg, #6366f1, #8b5cf6);
+            width: 80px;
+            height: 60px;
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
             border-radius: 50px;
-            padding: 16px 20px;
             display: flex;
-            flex-direction: column;
             align-items: center;
-            gap: 4px;
-            color: white;
-            font-size: 32px;
-        }
-
-        .quest-giver-name {
-            font-size: 12px;
-            font-weight: 600;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            position: relative;
         }
 
         .mouth {
-            width: 8px;
-            height: 4px;
-            background: #fff;
-            border-radius: 4px;
-            transition: all 0.2s ease;
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 10px;
+            background: #4c1d95;
+            border-radius: 10px;
+            transition: height 0.3s ease;
         }
 
         .mouth.talking {
-            height: 8px;
-            background: #fbbf24;
+            height: 15px;
+        }
+
+        .quest-giver-name {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
         }
 
         .speech-bubble {
             background: white;
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            max-width: 250px;
-            font-size: 14px;
-            line-height: 1.4;
+            padding: 15px;
+            border-radius: 15px;
+            max-width: 300px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            margin-left: 10px;
         }
 
         .speech-bubble::before {
             content: '';
             position: absolute;
-            left: -8px;
-            top: 50%;
-            transform: translateY(-50%);
-            border: 8px solid transparent;
-            border-right-color: white;
+            left: -10px;
+            top: 20px;
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 10px solid white;
         }
 
         .elli-corner {
@@ -114,231 +347,23 @@
             right: 20px;
             width: 60px;
             height: 60px;
-            background: linear-gradient(45deg, #8b5cf6, #a855f7);
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            z-index: 100;
-            animation: gentle-bounce 2s ease-in-out infinite;
-        }
-
-        @keyframes gentle-bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-        }
-
-        .vocabulary-strip {
-            position: fixed;
-            top: 60px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 16px;
-            padding: 12px 20px;
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            max-width: 80vw;
-            z-index: 50;
-        }
-
-        .vocab-chip {
-            background: linear-gradient(45deg, #10b981, #34d399);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 140px 20px 160px;
-        }
-
-        .tab-navigation {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        .tab-btn {
-            background: rgba(255, 255, 255, 0.7);
-            border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-family: 'Nunito', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .tab-btn.active {
-            background: white;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        .question-card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-            overflow: hidden;
-            display: none;
-        }
-
-        .question-card.active {
-            display: block;
-        }
-
-        .question-header {
-            background: linear-gradient(90deg, #6366f1, #8b5cf6, #a855f7);
-            height: 4px;
-        }
-
-        .question-content {
-            padding: 24px;
-        }
-
-        .question-title {
-            font-family: 'Fredoka One', cursive;
-            font-size: 18px;
-            color: #374151;
-            margin-bottom: 20px;
-            line-height: 1.4;
-        }
-
-        .options {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .option-btn {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: #f9fafb;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 16px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: 'Nunito', sans-serif;
-            font-size: 16px;
-            text-align: left;
-        }
-
-        .option-btn:hover {
-            background: #f3f4f6;
-            border-color: #d1d5db;
-        }
-
-        .option-btn.correct {
-            background: #d1fae5;
-            border-color: #10b981;
-            color: #047857;
-        }
-
-        .option-btn.incorrect {
-            background: #fee2e2;
-            border-color: #ef4444;
-            color: #dc2626;
-        }
-
-        .option-letter {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(45deg, #6366f1, #8b5cf6);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .written-area {
-            margin-top: 16px;
-        }
-
-        .written-textarea {
-            width: 100%;
-            min-height: 120px;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 16px;
-            font-family: 'Nunito', sans-serif;
-            font-size: 16px;
-            resize: vertical;
-            transition: all 0.2s ease;
-        }
-
-        .written-textarea:focus {
-            outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .submit-btn {
-            background: linear-gradient(45deg, #10b981, #34d399);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-family: 'Nunito', sans-serif;
-            font-weight: 700;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 16px;
-            transition: all 0.2s ease;
-        }
-
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-        }
-
-        .submit-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .feedback {
-            margin-top: 16px;
-            padding: 16px;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-
-        .feedback.correct {
-            background: #d1fae5;
-            color: #047857;
-        }
-
-        .feedback.incorrect {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-
-        .feedback.partial {
-            background: #fef3cd;
-            color: #92400e;
+            font-size: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
         }
 
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -347,119 +372,137 @@
 
         .modal {
             background: white;
-            border-radius: 20px;
             padding: 40px;
+            border-radius: 20px;
             text-align: center;
-            max-width: 400px;
+            max-width: 500px;
             margin: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
         }
 
-        .modal-title {
+        .modal h2 {
             font-family: 'Fredoka One', cursive;
-            font-size: 24px;
-            margin-bottom: 16px;
-            color: #374151;
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #333;
         }
 
-        .modal-emoji {
-            font-size: 48px;
+        .bouncing-elli {
+            font-size: 3rem;
+            animation: bounce 1s infinite;
             margin: 20px 0;
-            animation: bounce 1s ease-in-out infinite;
         }
 
         @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-12px); }
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            60% { transform: translateY(-10px); }
         }
 
-        .modal-btn {
-            background: linear-gradient(45deg, #6366f1, #8b5cf6);
+        .start-button {
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
             color: white;
             border: none;
-            padding: 16px 32px;
-            border-radius: 16px;
-            font-family: 'Nunito', sans-serif;
-            font-weight: 700;
-            font-size: 18px;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
             cursor: pointer;
-            transition: all 0.2s ease;
+            margin-top: 20px;
+            transition: transform 0.2s ease;
         }
 
-        .modal-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
-        }
-
-        .confetti-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 1500;
+        .start-button:hover {
+            transform: scale(1.05);
         }
 
         .confetti {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            animation: confetti-fall 3s ease-out forwards;
+            position: fixed;
+            pointer-events: none;
+            z-index: 1001;
         }
 
-        @keyframes confetti-fall {
-            0% {
-                transform: translateY(-100vh) rotate(0deg);
-                opacity: 1;
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2rem;
             }
-            100% {
-                transform: translateY(100vh) rotate(720deg);
-                opacity: 0;
+            
+            .quest-giver {
+                bottom: 10px;
+                left: 10px;
+            }
+            
+            .speech-bubble {
+                max-width: 250px;
+            }
+            
+            .elli-corner {
+                bottom: 10px;
+                right: 10px;
             }
         }
     </style>
 </head>
 <body>
     <div class="progress-bar">
-        <div class="progress-fill" id="progress-fill"></div>
+        <div class="progress-fill"></div>
     </div>
 
-    <div class="xp-chip" id="xp-chip">0 XP</div>
+    <div class="xp-chip">
+        <span id="xp-display">0 XP</span>
+    </div>
 
-    <div class="vocabulary-strip">
-        <div class="vocab-chip">inhabit: live in</div>
-        <div class="vocab-chip">instruments: tools for work</div>
-        <div class="vocab-chip">wild: free in nature</div>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🐵 Chimpanzees Quest</h1>
+            <p class="subtitle">Reading Comprehension Adventure</p>
+        </div>
+
+        <div class="vocabulary-strip">
+            <h3 class="vocabulary-title">🔤 Key Words</h3>
+            <div class="vocab-words">
+                <div class="vocab-chip">inhabit - live in</div>
+                <div class="vocab-chip">instruments - tools for work</div>
+                <div class="vocab-chip">wild - free in nature</div>
+            </div>
+        </div>
+
+        <div class="tab-navigation" id="tab-navigation">
+            <!-- Tabs will be generated here -->
+        </div>
+
+        <div id="questions-container">
+            <!-- Questions will be generated here -->
+        </div>
     </div>
 
     <div class="quest-giver">
         <div class="quest-giver-avatar">
-            🐵
-            <div class="quest-giver-name">Coco</div>
+            🧙‍♀️
             <div class="mouth" id="mouth"></div>
         </div>
+        <div class="quest-giver-name">Prof. Maya</div>
         <div class="speech-bubble" id="speech-bubble">
-            Welcome to the Chimpanzees quest! Let's learn about our primate friends! 🌟
+            Welcome to your Chimpanzees quest! Let's explore together! 🌟
         </div>
     </div>
 
-    <div class="elli-corner">🌟</div>
+    <div class="elli-corner">
+        🌟
+    </div>
 
-    <div class="confetti-container" id="confetti-container"></div>
-
-    <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-overlay" id="start-modal">
         <div class="modal">
-            <div class="modal-title">📚 Today's Quest</div>
-            <div>5 questions worth 50 XP total</div>
-            <div class="modal-emoji">🌟</div>
-            <button class="modal-btn" onclick="startQuest()">Let's Go!</button>
+            <h2>📚 Today's Quest</h2>
+            <div class="bouncing-elli">🌟</div>
+            <p style="font-size: 1.2rem; margin: 20px 0;">
+                5 questions worth 50 XP total
+            </p>
+            <p style="color: #666;">
+                Read about chimpanzees and show what you learned!
+            </p>
+            <button class="start-button" onclick="startQuest()">Let's Go!</button>
         </div>
-    </div>
-
-    <div class="container">
-        <div class="tab-navigation" id="tab-navigation"></div>
-        <div id="questions-container"></div>
     </div>
 
     <script>
@@ -468,15 +511,12 @@
             "type": "comprehension",
             "gradeLevel": 1,
             "concepts": [
+                "Animal habitats",
                 "Animal behavior",
-                "Habitat and environment",
-                "Physical characteristics",
-                "Diet and feeding",
-                "Social structure",
                 "Tool use",
-                "Sleep and shelter",
-                "Social bonds",
-                "Conservation awareness"
+                "Social structures",
+                "Conservation",
+                "Similarities between humans and animals"
             ],
             "vocabularyWords": [
                 {
@@ -525,7 +565,7 @@
                     "correctAnswer": "Live in",
                     "keyPoints": [
                         "inhabit means to live in a place",
-                        "chimpanzees inhabit steamy rainforests"
+                        "Chimpanzees inhabit rainforests in Africa"
                     ],
                     "hint": "Think about where chimpanzees live."
                 },
@@ -541,10 +581,10 @@
                     ],
                     "correctAnswer": "Page 6",
                     "keyPoints": [
-                        "Page 6 contains 'What Do Chimps Look Like?'",
-                        "Using a table of contents to find information"
+                        "Page 6 is titled 'What Do Chimps Look Like?'",
+                        "This page contains descriptions and images of chimpanzee appearance"
                     ],
-                    "hint": "Look for a section about how chimps look."
+                    "hint": "Look for the page that describes what chimpanzees look like."
                 },
                 {
                     "id": 3,
@@ -553,13 +593,13 @@
                     "options": null,
                     "correctAnswer": null,
                     "keyPoints": [
-                        "Chimpanzees hold hands and hug like people",
-                        "Chimpanzees kiss and show affection",
+                        "Chimpanzees have big brains and are smart",
+                        "Chimpanzees like to hold hands and hug",
+                        "Chimpanzees kiss other chimpanzees",
                         "Chimpanzees help each other",
-                        "Chimpanzees care for orphaned babies",
-                        "Chimpanzees have big brains and are smart"
+                        "Chimpanzees have individual faces that look different from one another"
                     ],
-                    "hint": "Think about how chimpanzees show feelings and how they care for each other."
+                    "hint": "Look at the pages about chimp behavior and their similarities to humans."
                 },
                 {
                     "id": 4,
@@ -569,9 +609,9 @@
                     "correctAnswer": null,
                     "keyPoints": [
                         "Chimpanzees should stay free in the wild",
-                        "They are smart and need their natural habitat",
-                        "They live in bands and need social groups",
-                        "They make nests in trees and roam on land"
+                        "They are intelligent and need to live naturally",
+                        "They have complex social structures and behaviors",
+                        "Keeping them in labs or as pets is harmful"
                     ],
                     "hint": "Look at the last page of the book about helping chimpanzees."
                 },
@@ -583,11 +623,11 @@
                     "correctAnswer": null,
                     "keyPoints": [
                         "To teach readers about chimpanzees",
-                        "To help people understand chimps are smart",
-                        "To show that chimps deserve to be free",
-                        "To encourage conservation and protection of chimps"
+                        "To explain how chimpanzees are similar to humans",
+                        "To show why chimpanzees should stay free in the wild",
+                        "To encourage conservation and protection of chimpanzees"
                     ],
-                    "hint": "What did you learn about chimpanzees? What message does the author want you to remember?"
+                    "hint": "Think about the main message at the end of the book."
                 }
             ]
         };
@@ -595,50 +635,43 @@
         let currentQuestion = 0;
         let totalXP = 0;
         let startTime = Date.now();
-        let questionResults = {};
+        let questStarted = false;
+        let questionResults = [];
 
         function startQuest() {
-            document.getElementById('modal-overlay').style.display = 'none';
-            initializeGame();
+            document.getElementById('start-modal').style.display = 'none';
+            questStarted = true;
+            startTime = Date.now();
+            generateTabs();
+            generateQuestions();
+            showQuestion(0);
             animateMouth();
         }
 
-        function animateMouth() {
-            const mouth = document.getElementById('mouth');
-            setInterval(() => {
-                mouth.classList.toggle('talking');
-            }, 500);
-        }
-
-        function initializeGame() {
-            createTabs();
-            createQuestions();
-            showQuestion(0);
-            updateProgress();
-        }
-
-        function createTabs() {
+        function generateTabs() {
             const tabNav = document.getElementById('tab-navigation');
+            tabNav.innerHTML = '';
+            
             homework.problems.forEach((problem, index) => {
                 const tab = document.createElement('button');
-                tab.className = `tab-btn ${index === 0 ? 'active' : ''}`;
+                tab.className = `tab-button ${index === 0 ? 'active' : ''}`;
                 tab.textContent = `Q${index + 1}`;
                 tab.onclick = () => showQuestion(index);
                 tabNav.appendChild(tab);
             });
         }
 
-        function createQuestions() {
+        function generateQuestions() {
             const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
             homework.problems.forEach((problem, index) => {
                 const card = document.createElement('div');
                 card.className = `question-card ${index === 0 ? 'active' : ''}`;
                 card.id = `question-${index}`;
 
                 let content = `
-                    <div class="question-header"></div>
-                    <div class="question-content">
-                        <div class="question-title">${problem.question}</div>
+                    <div class="question-text">${problem.question}</div>
                 `;
 
                 if (problem.type === 'multiple_choice') {
@@ -646,95 +679,111 @@
                     problem.options.forEach((option, optIndex) => {
                         const letter = String.fromCharCode(65 + optIndex);
                         content += `
-                            <button class="option-btn" onclick="selectAnswer(${index}, '${option}')">
+                            <div class="answer-option" onclick="selectOption(${index}, '${option}', this)">
                                 <div class="option-letter">${letter}</div>
-                                <div>${option}</div>
-                            </button>
+                                <span>${option}</span>
+                            </div>
                         `;
                     });
                     content += '</div>';
-                } else {
+                } else if (problem.type === 'written') {
                     content += `
-                        <div class="written-area">
-                            <textarea class="written-textarea" id="textarea-${index}" placeholder="Type your answer here..."></textarea>
-                            <button class="submit-btn" onclick="submitWritten(${index})">Submit Answer</button>
-                        </div>
+                        <textarea class="answer-textarea" id="answer-${index}" 
+                                placeholder="Type your answer here..."></textarea>
+                        <button class="submit-button" onclick="submitWrittenAnswer(${index})">Submit Answer</button>
                     `;
                 }
 
-                content += '<div id="feedback-' + index + '"></div></div>';
+                content += `<div class="feedback" id="feedback-${index}" style="display: none;"></div>`;
                 card.innerHTML = content;
                 container.appendChild(card);
             });
         }
 
         function showQuestion(index) {
-            document.querySelectorAll('.question-card').forEach(card => {
-                card.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
+            // Update tabs
+            document.querySelectorAll('.tab-button').forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
             });
 
-            document.getElementById(`question-${index}`).classList.add('active');
-            document.querySelectorAll('.tab-btn')[index].classList.add('active');
+            // Update questions
+            document.querySelectorAll('.question-card').forEach((card, i) => {
+                card.classList.toggle('active', i === index);
+            });
+
             currentQuestion = index;
-        }
-
-        function selectAnswer(questionIndex, selectedAnswer) {
-            const problem = homework.problems[questionIndex];
-            const isCorrect = selectedAnswer === problem.correctAnswer;
-            
-            // Disable all options for this question
-            const questionCard = document.getElementById(`question-${questionIndex}`);
-            const options = questionCard.querySelectorAll('.option-btn');
-            options.forEach(btn => {
-                btn.onclick = null;
-                const optionText = btn.querySelector('div:last-child').textContent;
-                if (optionText === problem.correctAnswer) {
-                    btn.classList.add('correct');
-                } else if (optionText === selectedAnswer && !isCorrect) {
-                    btn.classList.add('incorrect');
-                }
-            });
-
-            // Update results
-            questionResults[questionIndex] = {
-                correct: isCorrect,
-                xp: isCorrect ? 10 : 0
-            };
-
-            if (isCorrect) {
-                totalXP += 10;
-                confetti();
-                showFeedback(questionIndex, 'Great job! That\'s correct! 🎉', 'correct');
-            } else {
-                showFeedback(questionIndex, `Not quite right. ${problem.hint}`, 'incorrect');
-            }
-
             updateProgress();
         }
 
-        async function submitWritten(questionIndex) {
-            const textarea = document.getElementById(`textarea-${questionIndex}`);
+        function selectOption(questionIndex, selectedAnswer, element) {
+            const problem = homework.problems[questionIndex];
+            
+            // Clear previous selections
+            element.parentElement.querySelectorAll('.answer-option').forEach(opt => {
+                opt.classList.remove('selected', 'correct', 'incorrect');
+            });
+
+            element.classList.add('selected');
+
+            // Check answer
+            const isCorrect = selectedAnswer === problem.correctAnswer;
+            
+            setTimeout(() => {
+                element.classList.add(isCorrect ? 'correct' : 'incorrect');
+                
+                // Show correct answer if wrong
+                if (!isCorrect) {
+                    element.parentElement.querySelectorAll('.answer-option').forEach(opt => {
+                        if (opt.textContent.includes(problem.correctAnswer)) {
+                            opt.classList.add('correct');
+                        }
+                    });
+                }
+
+                showFeedback(questionIndex, isCorrect, isCorrect ? "Great job! 🎉" : problem.hint);
+                
+                if (isCorrect) {
+                    awardXP(10);
+                    confetti();
+                }
+
+                // Disable further clicks
+                element.parentElement.querySelectorAll('.answer-option').forEach(opt => {
+                    opt.style.pointerEvents = 'none';
+                });
+
+                // Move to next question after delay
+                setTimeout(() => {
+                    if (questionIndex < homework.problems.length - 1) {
+                        showQuestion(questionIndex + 1);
+                        updateSpeechBubble("Great! Let's continue to the next question! 💪");
+                    } else {
+                        completeQuest();
+                    }
+                }, 2000);
+            }, 300);
+        }
+
+        async function submitWrittenAnswer(questionIndex) {
+            const textarea = document.getElementById(`answer-${questionIndex}`);
             const studentAnswer = textarea.value.trim();
             const problem = homework.problems[questionIndex];
 
             if (!studentAnswer) {
-                showFeedback(questionIndex, 'Please write an answer before submitting.', 'incorrect');
+                showFeedback(questionIndex, false, "Please write your answer first!");
                 return;
             }
 
             // Disable submit button
-            const submitBtn = textarea.parentNode.querySelector('.submit-btn');
+            const submitBtn = textarea.nextElementSibling;
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Grading...';
+            submitBtn.textContent = "Checking...";
 
             try {
                 const response = await fetch('/api/game-grade-written', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
                         question: problem.question,
@@ -745,77 +794,71 @@
                 });
 
                 const result = await response.json();
-                const score = result.score || 0;
-                const xp = Math.round(score * 10);
+                
+                let feedbackText = result.feedback;
+                let feedbackType = 'incorrect';
+                let xpAwarded = 0;
 
-                questionResults[questionIndex] = {
-                    correct: score === 1,
-                    partial: score === 0.5,
-                    xp: xp,
-                    feedback: result.feedback
-                };
-
-                totalXP += xp;
-
-                if (score === 1) {
+                if (result.score === 1) {
+                    feedbackType = 'correct';
+                    xpAwarded = 10;
                     confetti();
-                    showFeedback(questionIndex, `Excellent! ${result.feedback} 🌟`, 'correct');
-                } else if (score === 0.5) {
-                    showFeedback(questionIndex, `Good try! ${result.feedback} You earned half points.`, 'partial');
+                } else if (result.score === 0.5) {
+                    feedbackType = 'partial';
+                    xpAwarded = 5;
+                    feedbackText += " You're on the right track! 👍";
                 } else {
-                    showFeedback(questionIndex, `${result.feedback || 'Keep trying!'} ${problem.hint}`, 'incorrect');
+                    feedbackText = problem.hint;
                 }
 
+                if (xpAwarded > 0) {
+                    awardXP(xpAwarded);
+                }
+
+                showFeedback(questionIndex, feedbackType === 'correct', feedbackText, feedbackType);
+                
             } catch (error) {
-                questionResults[questionIndex] = {
-                    correct: false,
-                    xp: 0
-                };
-                showFeedback(questionIndex, `Something went wrong, but don't worry! ${problem.hint}`, 'incorrect');
+                showFeedback(questionIndex, false, "Something went wrong. " + problem.hint);
             }
 
             submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit Answer';
-            updateProgress();
-        }
+            submitBtn.textContent = "Submit Answer";
 
-        function showFeedback(questionIndex, message, type) {
-            const feedbackDiv = document.getElementById(`feedback-${questionIndex}`);
-            feedbackDiv.innerHTML = message;
-            feedbackDiv.className = `feedback ${type}`;
-        }
-
-        function updateProgress() {
-            document.getElementById('xp-chip').textContent = `${totalXP} XP`;
-            
-            const completedQuestions = Object.keys(questionResults).length;
-            const progressPercent = (completedQuestions / homework.problems.length) * 100;
-            document.getElementById('progress-fill').style.width = `${progressPercent}%`;
-
-            if (completedQuestions === homework.problems.length) {
-                setTimeout(() => {
+            // Move to next question after delay
+            setTimeout(() => {
+                if (questionIndex < homework.problems.length - 1) {
+                    showQuestion(questionIndex + 1);
+                    updateSpeechBubble("Nice work! Let's tackle the next one! 📚");
+                } else {
                     completeQuest();
-                }, 2000);
+                }
+            }, 3000);
+        }
+
+        function showFeedback(questionIndex, isCorrect, message, type = null) {
+            const feedback = document.getElementById(`feedback-${questionIndex}`);
+            feedback.style.display = 'block';
+            feedback.textContent = message;
+            
+            if (type) {
+                feedback.className = `feedback ${type}`;
+            } else {
+                feedback.className = `feedback ${isCorrect ? 'correct' : 'incorrect'}`;
             }
         }
 
-        function completeQuest() {
-            const accuracy = totalXP / (homework.problems.length * 10);
-            
-            window.parent.postMessage({
-                type: 'node_complete',
-                accuracy: accuracy,
-                completed: true,
-                timeSpent_ms: Date.now() - startTime,
-                childId: 'ila'
-            }, '*');
+        function awardXP(amount) {
+            totalXP += amount;
+            document.getElementById('xp-display').textContent = `${totalXP} XP`;
+            updateProgress();
+        }
 
-            document.getElementById('speech-bubble').textContent = 
-                `Amazing work! You've completed the quest and earned ${totalXP} XP! 🎉`;
+        function updateProgress() {
+            const progress = (currentQuestion + 1) / homework.problems.length * 100;
+            document.querySelector('.progress-fill').style.width = `${progress}%`;
         }
 
         function confetti() {
-            const container = document.getElementById('confetti-container');
             const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#f0932b', '#eb4d4b', '#6c5ce7'];
             
             for (let i = 0; i < 50; i++) {
@@ -823,16 +866,57 @@
                 confettiPiece.className = 'confetti';
                 confettiPiece.style.left = Math.random() * 100 + 'vw';
                 confettiPiece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confettiPiece.style.animationDelay = Math.random() * 2 + 's';
-                confettiPiece.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                confettiPiece.style.width = confettiPiece.style.height = Math.random() * 10 + 5 + 'px';
+                confettiPiece.style.animation = `confetti-fall ${Math.random() * 2 + 1}s linear forwards`;
                 
-                container.appendChild(confettiPiece);
+                document.body.appendChild(confettiPiece);
                 
                 setTimeout(() => {
                     confettiPiece.remove();
-                }, 5000);
+                }, 3000);
             }
         }
+
+        function animateMouth() {
+            const mouth = document.getElementById('mouth');
+            setInterval(() => {
+                mouth.classList.add('talking');
+                setTimeout(() => {
+                    mouth.classList.remove('talking');
+                }, 500);
+            }, 2000);
+        }
+
+        function updateSpeechBubble(message) {
+            document.getElementById('speech-bubble').textContent = message;
+        }
+
+        function completeQuest() {
+            const accuracy = totalXP / (homework.problems.length * 10);
+            const timeSpent = Date.now() - startTime;
+            
+            updateSpeechBubble("🎉 Amazing work, Ila! You've completed your Chimpanzees quest!");
+            
+            // Send completion message to parent
+            window.parent.postMessage({
+                type: 'node_complete',
+                accuracy: accuracy,
+                completed: true,
+                timeSpent_ms: timeSpent,
+                childId: 'ila'
+            }, '*');
+        }
+
+        // Add confetti animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes confetti-fall {
+                to {
+                    transform: translateY(100vh) rotate(360deg);
+                }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>

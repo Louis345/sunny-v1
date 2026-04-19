@@ -42,6 +42,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "pronunciation-game": {
+    "url": "/games/pronunciation-game.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "spell-check": {
     "url": "/games/spell-check.html",
     "defaultConfig": {},

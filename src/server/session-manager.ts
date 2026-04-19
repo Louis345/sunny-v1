@@ -284,6 +284,34 @@ export function tryPushCreatorDiagReadingKaraoke(
   return { ok: true };
 }
 
+const TEST_PRONUNCIATION_WORDS = [
+  "blister",
+  "carpet",
+  "thirteen",
+  "orbit",
+  "harvest",
+  "confirm",
+  "interrupt",
+  "perfume",
+  "hamburger",
+  "corner",
+  "kindergarten",
+  "chimp",
+  "inhabit",
+  "instruments",
+  "band",
+];
+
+export function tryPushCreatorDiagPronunciation(): { ok: true } | { ok: false; error: string } {
+  const s = creatorDiagSessionForReadingTest;
+  if (!s) return { ok: false, error: "no_active_creator_diag_voice_session" };
+  s.applyClientToolCall("canvasShow", {
+    type: "pronunciation",
+    pronunciationWords: TEST_PRONUNCIATION_WORDS,
+  });
+  return { ok: true };
+}
+
 /** Options passed from the client on `start_session` (see ws-handler). */
 export type SessionManagerOptions = {
   silentTts?: boolean;
@@ -4808,6 +4836,34 @@ export class SessionManager {
         }
         this.clearActiveCanvasActivity();
         console.log(`  🖼️  [canvas] canvasShow type=karaoke`);
+      } else if (ct === "pronunciation") {
+        this.karaokeReadingComplete = false;
+        this.readingProgressCompleteConsumed = false;
+        this.pendingGameStart = null;
+        const wlist = Array.isArray(args.pronunciationWords)
+          ? (args.pronunciationWords as string[])
+          : [];
+        this.currentCanvasState = {
+          mode: "pronunciation",
+          pronunciationWords: wlist,
+          backgroundImageUrl:
+            typeof args.backgroundImageUrl === "string"
+              ? args.backgroundImageUrl
+              : undefined,
+        };
+        if (this.ctx) {
+          this.ctx.updateCanvas({
+            mode: "pronunciation",
+            content: wlist.join(" "),
+            label: wlist.join(" "),
+            sceneDescription: undefined,
+            problemAnswer: undefined,
+            problemHint: undefined,
+          });
+          this.broadcastContext();
+        }
+        this.clearActiveCanvasActivity();
+        console.log(`  🖼️  [canvas] canvasShow type=pronunciation`);
       } else if (ct === "sound_box") {
         this.pendingGameStart = null;
         const tw = String(args.targetWord ?? "");

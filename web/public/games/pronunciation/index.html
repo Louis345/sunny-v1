@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pronunciation Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #05070c;
+      font-family: 'Lexend', system-ui, sans-serif;
+      color: white;
+    }
+
+    /* === LAYERS === */
+    /*  z=0  fallback gradient
+        z=1  camera video (mirrored)
+        z=2  starfield canvas
+        z=3  word belt (DOM pills)
+        z=4  particle canvas (hit bursts)
+        z=5  HUD
+        z=6  calibrating overlay
+        z=10 screens (start, end) */
+
+    #bg-fallback {
+      position: fixed; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse at center, #0e172a 0%, #05070c 75%);
+    }
+    #camera {
+      position: fixed; inset: 0; z-index: 1;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: transparent;
+    }
+    #stars, #particles {
+      position: fixed; inset: 0;
+      pointer-events: none;
+    }
+    #stars     { z-index: 2; }
+    #belt      { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
+    #particles { z-index: 4; }
+    #hud       { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+
+    /* === WORD PILLS === */
+    .pill {
+      position: absolute;
+      padding: 14px 28px;
+      border-radius: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      line-height: 1;
+      white-space: nowrap;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      user-select: none;
+      will-change: transform, opacity;
+      animation: spring-in 180ms cubic-bezier(.34, 1.56, .64, 1);
+    }
+    @keyframes spring-in {
+      from { transform: translate(-50%, -50%) scale(0); }
+      to   { transform: translate(-50%, -50%) scale(var(--enter-scale, 0.35)); }
+    }
+    .pill.hit  { animation: pill-hit 200ms ease-out forwards; }
+    .pill.miss { animation: pill-miss 320ms ease-out forwards; }
+    @keyframes pill-hit {
+      0%   { transform: translate(-50%, -50%) scaleX(1.15) scaleY(0.7); }
+      100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    }
+    @keyframes pill-miss {
+      0%   { filter: brightness(1.6) hue-rotate(-60deg); }
+      100% { transform: translate(-50%, -50%) scale(0); opacity: 0; filter: brightness(1); }
+    }
+
+    /* === HUD === */
+    #hud > * { pointer-events: auto; }
+    .chip {
+      position: absolute;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(10, 12, 18, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-family: 'Lexend', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    #mic-chip  { top: 20px; left: 20px; }
+    #mic-chip::before {
+      content: '';
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #ef4444;
+    }
+    #mic-chip.active::before {
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: mic-pulse 1.4s infinite;
+    }
+    @keyframes mic-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(0.75); }
+    }
+
+    #audio-toggle { top: 20px; left: 170px; cursor: pointer; }
+    #streak-chip {
+      top: 20px; right: 200px;
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.85), rgba(239, 68, 68, 0.85));
+    }
+    #xp-chip {
+      top: 20px; right: 20px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.85), rgba(109, 94, 245, 0.85));
+    }
+    #heard-caption {
+      position: fixed;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 22px;
+      border-radius: 14px;
+      background: rgba(10, 12, 18, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-family: 'Lexend', sans-serif;
+      font-size: 16px;
+      min-width: 220px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 5;
+    }
+    #heard { font-weight: 600; }
+
+    /* === CALIBRATING OVERLAY === */
+    #calibrating {
+      position: fixed; inset: 0; z-index: 6;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Caveat', cursive;
+      font-size: 56px;
+      pointer-events: none;
+      animation: fade-in 400ms ease;
+    }
+    #calibrating.hidden { display: none; }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* === SCREENS === */
+    .screen {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+      background: rgba(5, 7, 12, 0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .screen.hidden { display: none; }
+    .screen h1 {
+      font-family: 'Caveat', cursive;
+      font-size: 64px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .screen p {
+      font-size: 20px;
+      opacity: 0.9;
+      margin-bottom: 10px;
+      max-width: 640px;
+      line-height: 1.5;
+    }
+    .screen .fine {
+      font-size: 13px;
+      opacity: 0.55;
+      margin: 18px 0 28px;
+    }
+    .btn {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      padding: 16px 44px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      color: white;
+      background: linear-gradient(135deg, #fbbf24, #ef4444);
+      box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+      transition: transform 120ms ease;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn.secondary {
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin: 24px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stat {
+      padding: 18px 28px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 120px;
+    }
+    .stat .value {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .stat .label {
+      font-size: 13px;
+      opacity: 0.65;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .flagged-list {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 14px;
+      max-width: 600px;
+    }
+    .flagged-chip {
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(239, 68, 68, 0.18);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      cursor: pointer;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 15px;
+    }
+    .flagged-chip:hover { background: rgba(239, 68, 68, 0.3); }
+    .actions { display: flex; gap: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div id="bg-fallback"></div>
+  <video id="camera" autoplay playsinline muted></video>
+  <canvas id="stars"></canvas>
+  <div id="belt"></div>
+  <canvas id="particles"></canvas>
+
+  <div id="hud">
+    <div id="mic-chip" class="chip">waiting</div>
+    <div id="audio-toggle" class="chip">🎵 on</div>
+    <div id="streak-chip" class="chip">🔥 <span id="streak">0</span></div>
+    <div id="xp-chip" class="chip">✨ <span id="xp">0</span> XP</div>
+    <div id="heard-caption">heard: <span id="heard">—</span></div>
+  </div>
+
+  <div id="calibrating" class="hidden">say &ldquo;ready&rdquo; to begin…</div>
+
+  <div id="start-screen" class="screen">
+    <h1>say the words as they fly!</h1>
+    <p>Say each word out loud. Pop the bubbles before they reach you.</p>
+    <p class="fine">Sunny uses your camera so words can fly around you. Nothing is recorded.</p>
+    <button id="start-btn" class="btn">▶ start</button>
+  </div>
+
+  <div id="end-screen" class="screen hidden">
+    <h1 id="end-title">🎉 amazing!</h1>
+    <div class="stats">
+      <div class="stat"><div class="value" id="end-hits">0</div><div class="label">words hit</div></div>
+      <div class="stat"><div class="value" id="end-xp">0</div><div class="label">xp earned</div></div>
+      <div class="stat"><div class="value" id="end-streak">0</div><div class="label">best streak</div></div>
+    </div>
+    <div id="end-flagged-wrap" style="display: none;">
+      <p style="font-size: 15px; opacity: 0.7;">tap to hear</p>
+      <div id="end-flagged" class="flagged-list"></div>
+    </div>
+    <div class="actions">
+      <button id="replay-btn" class="btn">▶ play again</button>
+      <button id="back-btn" class="btn secondary">back to map</button>
+    </div>
+  </div>
+
+  <script type="module" src="./game.js"></script>
+</body>
+</html>

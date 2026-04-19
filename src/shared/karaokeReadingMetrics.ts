@@ -20,7 +20,7 @@ export function isInterimPhraseRestart(
   return currTrimmedLength < prevTrimmedLength && prevTrimmedLength > 0;
 }
 
-export type KaraokeReadingProgressEvent = "progress" | "complete";
+export type KaraokeReadingProgressEvent = "progress" | "complete" | "hit";
 
 /** Shape sent over the wire as `reading_progress` from the browser. */
 export function buildKaraokeReadingProgressPayload(args: {
@@ -32,8 +32,11 @@ export function buildKaraokeReadingProgressPayload(args: {
   skippedWords: string[];
   spelledWords: string[];
   event: KaraokeReadingProgressEvent;
+  /** Present when event is "hit" (pronunciation multi mode). */
+  hitWordIndex?: number;
+  word?: string;
 }): Record<string, unknown> {
-  return {
+  const base: Record<string, unknown> = {
     wordIndex: args.wordIndex,
     totalWords: args.totalWords,
     accuracy: karaokeProgressAccuracy(args.wordIndex, args.totalWords),
@@ -43,4 +46,9 @@ export function buildKaraokeReadingProgressPayload(args: {
     spelledWords: args.spelledWords,
     event: args.event,
   };
+  if (args.event === "hit") {
+    if (args.hitWordIndex !== undefined) base.hitWordIndex = args.hitWordIndex;
+    if (args.word !== undefined) base.word = args.word;
+  }
+  return base;
 }

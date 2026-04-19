@@ -16,7 +16,10 @@ import {
   recordExplicitMapRating,
   startMapSession,
 } from "./map-coordinator";
-import { tryPushCreatorDiagReadingKaraoke } from "./session-manager";
+import {
+  tryPushCreatorDiagPronunciation,
+  tryPushCreatorDiagReadingKaraoke,
+} from "./session-manager";
 import { loadChildFiles } from "../utils/loadChildFiles";
 import { loadAttemptHistory } from "../utils/attempts";
 
@@ -255,6 +258,22 @@ export function setupRoutes(app: Express): void {
       return res.status(400).json({ error: "childId must be creator" });
     }
     const out = tryPushCreatorDiagReadingKaraoke(text);
+    if (!out.ok) {
+      return res.status(409).json({ error: out.error });
+    }
+    res.json({ ok: true });
+  });
+
+  /** Diag: push pronunciation canvas onto an active creator diag voice WebSocket session. */
+  app.post("/api/map/test-pronunciation-mode", (req: Request, res: Response) => {
+    const childId =
+      typeof req.body?.childId === "string"
+        ? req.body.childId.trim().toLowerCase()
+        : "";
+    if (childId !== "creator") {
+      return res.status(400).json({ error: "childId must be creator" });
+    }
+    const out = tryPushCreatorDiagPronunciation();
     if (!out.ok) {
       return res.status(409).json({ error: out.error });
     }

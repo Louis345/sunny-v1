@@ -15,6 +15,7 @@ import { AdventureMap } from "./components/AdventureMap";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
+import { PronunciationGameCanvas } from "./components/PronunciationGameCanvas";
 import { useMapSession } from "./hooks/useMapSession";
 import {
   COMPANION_API_VERSION,
@@ -244,6 +245,23 @@ function App() {
                 lineHeight={state.readingCanvas.lineHeight}
                 wordsPerLine={state.readingCanvas.wordsPerLine}
                 storyTitle={state.canvas.storyTitle}
+              />
+            </div>
+          )}
+        {state.canvas.mode === "pronunciation" &&
+          (state.canvas.pronunciationWords?.length ?? 0) > 0 && (
+            <div className="fixed inset-0 z-50">
+              <PronunciationGameCanvas
+                words={state.canvas.pronunciationWords!}
+                interimTranscript={state.interimTranscript}
+                sendMessage={sendMessage}
+                backgroundImageUrl={state.canvas.backgroundImageUrl}
+                accentColor={
+                  mapSession.theme?.palette?.accent ?? state.companion?.accentColor
+                }
+                onComplete={(result) => {
+                  sendMessage("pronunciation_complete", result);
+                }}
               />
             </div>
           )}

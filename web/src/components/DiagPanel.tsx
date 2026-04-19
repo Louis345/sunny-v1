@@ -49,6 +49,22 @@ async function postTestReadingMode(): Promise<void> {
   }
 }
 
+async function postTestPronunciationMode(): Promise<void> {
+  const res = await fetch("/api/map/test-pronunciation-mode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ childId: "creator" }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    console.error(
+      " 🎮 [DiagPanel] test-pronunciation-mode failed",
+      res.status,
+      err,
+    );
+  }
+}
+
 let diagReadingAutoVoicePrimed = false;
 
 export function DiagPanel({
@@ -208,6 +224,21 @@ export function DiagPanel({
           }}
         >
           Test Reading Mode
+        </button>
+      </section>
+
+      <section className="mb-3">
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-400">
+          Pronunciation test
+        </div>
+        <button
+          type="button"
+          className="w-full rounded-md bg-rose-700 px-2 py-1.5 text-sm font-medium text-white hover:bg-rose-600"
+          onClick={() => {
+            void postTestPronunciationMode();
+          }}
+        >
+          Test Pronunciation
         </button>
       </section>
 

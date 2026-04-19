@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pronunciation Game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #05070c;
+      font-family: 'Lexend', system-ui, sans-serif;
+      color: white;
+    }
+
+    /* === LAYERS === */
+    /*  z=0  fallback gradient
+        z=1  camera video (mirrored)
+        z=2  starfield canvas
+        z=3  word belt (DOM pills)
+        z=4  particle canvas (hit bursts)
+        z=5  HUD
+        z=6  calibrating overlay
+        z=10 screens (start, end) */
+
+    #bg-fallback {
+      position: fixed; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse at center, #0e172a 0%, #05070c 75%);
+    }
+    #camera {
+      position: fixed; inset: 0; z-index: 1;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: transparent;
+    }
+    #stars, #particles {
+      position: fixed; inset: 0;
+      pointer-events: none;
+    }
+    #stars     { z-index: 2; }
+    #belt      { position: fixed; inset: 0; z-index: 3; pointer-events: none; }
+    #particles { z-index: 4; }
+    #hud       { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+
+    /* === WORD PILLS === */
+    .pill {
+      position: absolute;
+      padding: 14px 28px;
+      border-radius: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+      line-height: 1;
+      white-space: nowrap;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      user-select: none;
+      will-change: transform, opacity;
+      animation: spring-in 180ms cubic-bezier(.34, 1.56, .64, 1);
+    }
+    @keyframes spring-in {
+      from { transform: translate(-50%, -50%) scale(0); }
+      to   { transform: translate(-50%, -50%) scale(var(--enter-scale, 0.35)); }
+    }
+    .pill.hit  { animation: pill-hit 200ms ease-out forwards; }
+    .pill.miss { animation: pill-miss 320ms ease-out forwards; }
+    @keyframes pill-hit {
+      0%   { transform: translate(-50%, -50%) scaleX(1.15) scaleY(0.7); }
+      100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    }
+    @keyframes pill-miss {
+      0%   { filter: brightness(1.6) hue-rotate(-60deg); }
+      100% { transform: translate(-50%, -50%) scale(0); opacity: 0; filter: brightness(1); }
+    }
+
+    /* === HUD === */
+    #hud > * { pointer-events: auto; }
+    .chip {
+      position: absolute;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(10, 12, 18, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-family: 'Lexend', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    #mic-chip  { top: 20px; left: 20px; }
+    #mic-chip::before {
+      content: '';
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #ef4444;
+    }
+    #mic-chip.active::before {
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: mic-pulse 1.4s infinite;
+    }
+    @keyframes mic-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.55; transform: scale(0.75); }
+    }
+
+    #audio-toggle { top: 20px; left: 170px; cursor: pointer; }
+    #streak-chip {
+      top: 20px; right: 200px;
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.85), rgba(239, 68, 68, 0.85));
+    }
+    #xp-chip {
+      top: 20px; right: 20px;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.85), rgba(109, 94, 245, 0.85));
+    }
+    #heard-caption {
+      position: fixed;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 22px;
+      border-radius: 14px;
+      background: rgba(10, 12, 18, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-family: 'Lexend', sans-serif;
+      font-size: 16px;
+      min-width: 220px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 5;
+    }
+    #heard { font-weight: 600; }
+
+    /* === CALIBRATING OVERLAY === */
+    #calibrating {
+      position: fixed; inset: 0; z-index: 6;
+      background: rgba(0, 0, 0, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Caveat', cursive;
+      font-size: 56px;
+      pointer-events: none;
+      animation: fade-in 400ms ease;
+    }
+    #calibrating.hidden { display: none; }
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* === SCREENS === */
+    .screen {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+      background: rgba(5, 7, 12, 0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    .screen.hidden { display: none; }
+    .screen h1 {
+      font-family: 'Caveat', cursive;
+      font-size: 64px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .screen p {
+      font-size: 20px;
+      opacity: 0.9;
+      margin-bottom: 10px;
+      max-width: 640px;
+      line-height: 1.5;
+    }
+    .screen .fine {
+      font-size: 13px;
+      opacity: 0.55;
+      margin: 18px 0 28px;
+    }
+    .btn {
+      font-family: 'Fredoka', sans-serif;
+      font-weight: 700;
+      font-size: 22px;
+      padding: 16px 44px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      color: white;
+      background: linear-gradient(135deg, #fbbf24, #ef4444);
+      box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+      transition: transform 120ms ease;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn.secondary {
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin: 24px 0;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stat {
+      padding: 18px 28px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 120px;
+    }
+    .stat .value {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .stat .label {
+      font-size: 13px;
+      opacity: 0.65;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .flagged-list {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 14px;
+      max-width: 600px;
+    }
+    .flagged-chip {
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(239, 68, 68, 0.18);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      cursor: pointer;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 15px;
+    }
+    .flagged-chip:hover { background: rgba(239, 68, 68, 0.3); }
+    .actions { display: flex; gap: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div id="bg-fallback"></div>
+  <video id="camera" autoplay playsinline muted></video>
+  <canvas id="stars"></canvas>
+  <div id="belt"></div>
+  <canvas id="particles"></canvas>
+
+  <div id="hud">
+    <div id="mic-chip" class="chip">waiting</div>
+    <div id="audio-toggle" class="chip">🎵 on</div>
+    <div id="streak-chip" class="chip">🔥 <span id="streak">0</span></div>
+    <div id="xp-chip" class="chip">✨ <span id="xp">0</span> XP</div>
+    <div id="heard-caption">heard: <span id="heard">—</span></div>
+  </div>
+
+  <div id="calibrating" class="hidden">say &ldquo;ready&rdquo; to begin…</div>
+
+  <div id="start-screen" class="screen">
+    <h1>say the words as they fly!</h1>
+    <p>Say each word out loud. Pop the bubbles before they reach you.</p>
+    <p class="fine">Sunny uses your camera so words can fly around you. Nothing is recorded.</p>
+    <button id="start-btn" class="btn">▶ start</button>
+  </div>
+
+  <div id="end-screen" class="screen hidden">
+    <h1 id="end-title">🎉 amazing!</h1>
+    <div class="stats">
+      <div class="stat"><div class="value" id="end-hits">0</div><div class="label">words hit</div></div>
+      <div class="stat"><div class="value" id="end-xp">0</div><div class="label">xp earned</div></div>
+      <div class="stat"><div class="value" id="end-streak">0</div><div class="label">best streak</div></div>
+    </div>
+    <div id="end-flagged-wrap" style="display: none;">
+      <p style="font-size: 15px; opacity: 0.7;">tap to hear</p>
+      <div id="end-flagged" class="flagged-list"></div>
+    </div>
+    <div class="actions">
+      <button id="replay-btn" class="btn">▶ play again</button>
+      <button id="back-btn" class="btn secondary">back to map</button>
+    </div>
+  </div>
+  <script>
+// constants.js
+//
+// Single source of truth for every tunable value in the game.
+// No magic numbers anywhere else. Parent dashboard overrides will wire in
+// here when Sunny migration happens — one patch site, zero scattered edits.
+
+const SUNNY_AUDIO = {
+  HEARTBEAT_BPM: 78,
+
+  // HEARTBEAT_GAIN is the MASTER BUS gain for the heartbeat voices.
+  // softKick() and shaker() in game.js use their own per-hit peaks
+  // (0.22 on beat 1, 0.14 on beat 3, etc., matching Audio Moodboard v2).
+  // Ducking modulates THIS bus, not the per-voice gains.
+  HEARTBEAT_GAIN: 0.18,
+  HEARTBEAT_DUCK_GAIN: 0.06,
+
+  // Duck window centered on a chime: 200ms down + 200ms bottom + 200ms up
+  // = 600ms total. Matches test #8 ("≤600ms then recovers"). Overlapping
+  // chimes reschedule; there is no stacking hold.
+  HEARTBEAT_DUCK_RAMP_MS: 200,
+  HEARTBEAT_DUCK_HOLD_MS: 200,
+
+  CHIME_HIT_PITCH_RANGE_SEMITONES: 2,
+  CHIME_MISS_FIXED: true,
+
+  MUSIC_FADE_OUT_MS: 400,
+  MUSIC_FADE_IN_MS: 600,
+};
+
+const SUNNY_FEEDBACK = {
+  ALLOWED_STYLES: ['stamp', 'shock', 'glow', 'boom'],
+  PARENT_OVERRIDE_KEY: 'sunny.styleOverride',
+
+  // Child-day persistence: one style per child per day.
+  STYLE_PERSISTENCE_KEY: (childId, date) => `sunny.style.${childId}.${date}`,
+
+  MAX_HUE_SHIFT_BETWEEN_HITS: 120,   // degrees
+  MAX_DURATION_JITTER: 0.20,         // fraction of base (±20%)
+  MAX_POSITION_JITTER_PX: 10,
+};
+
+const SUNNY_STORAGE = {
+  SFX_KEY: 'sunny.sfxOn',
+  MUSIC_KEY: 'sunny.musicOn',
+  MUSIC_TOOLTIP_SEEN_KEY: 'sunny.tooltipMusicSeen',
+};
+
+// Allowed keys for setAudioPref — defense against typo'd writes.
+const SUNNY_AUDIO_PREF_KEYS = [
+  SUNNY_STORAGE.SFX_KEY,
+  SUNNY_STORAGE.MUSIC_KEY,
+];
+
+  </script>
+  <script>
+// prefs.js
+//
+// Persistent preferences. Reads/writes localStorage.
+// Tests live in prefs.test.js under the happy-dom environment.
+//
+// Three responsibilities:
+//   - pickStyle(childId, date?) — returns one of the 4 allowed feedback
+//     styles for this child-day. Parent override wins when set.
+//   - getAudioPrefs() — { sfx, music } booleans, default both true.
+//   - setAudioPref(key, bool) — guarded writer, only accepts known keys.
+
+// Exposed for tests; not part of the public API.
+function __todayISO(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+function pickRandom(list, rng = Math.random) {
+  return list[Math.floor(rng() * list.length)];
+}
+
+function isAllowedStyle(s) {
+  return typeof s === 'string' && SUNNY_FEEDBACK.ALLOWED_STYLES.includes(s);
+}
+
+function pickStyle(childId, date = __todayISO(), rng = Math.random) {
+  // 1. Parent override (locked-in via parent dashboard). Wins unconditionally
+  //    when valid. Does NOT overwrite the child-day storage — so removing
+  //    the override later reverts to the child-day's own pick, not to a
+  //    trapped-for-the-day copy of the override value.
+  const override = localStorage.getItem(SUNNY_FEEDBACK.PARENT_OVERRIDE_KEY);
+  if (override !== null) {
+    if (isAllowedStyle(override)) return override;
+    console.warn(
+      `[pickStyle] parent override "${override}" is not one of ` +
+        `${SUNNY_FEEDBACK.ALLOWED_STYLES.join(', ')} — ignoring`
+    );
+    // fall through to normal path
+  }
+
+  // 2. Child-day storage.
+  const key = SUNNY_FEEDBACK.STYLE_PERSISTENCE_KEY(childId, date);
+  const stored = localStorage.getItem(key);
+  if (isAllowedStyle(stored)) return stored;
+
+  // 3. Fresh pick. Persists so a reload within the same day is stable.
+  const fresh = pickRandom(SUNNY_FEEDBACK.ALLOWED_STYLES, rng);
+  localStorage.setItem(key, fresh);
+  return fresh;
+}
+
+// ---------------------------------------------------------------------------
+// Audio prefs
+// ---------------------------------------------------------------------------
+// Default both ON. A child should hear the app on first load. Parents can
+// toggle either independently from the settings sheet.
+
+function getAudioPrefs() {
+  return {
+    sfx: localStorage.getItem(SUNNY_STORAGE.SFX_KEY) !== 'false',
+    music: localStorage.getItem(SUNNY_STORAGE.MUSIC_KEY) !== 'false',
+  };
+}
+
+function setAudioPref(key, on) {
+  if (!SUNNY_AUDIO_PREF_KEYS.includes(key)) {
+    throw new Error(
+      `[setAudioPref] unknown key "${key}" — allowed: ` +
+        SUNNY_AUDIO_PREF_KEYS.join(', ')
+    );
+  }
+  localStorage.setItem(key, String(Boolean(on)));
+}
+
+  </script>
+  <script>
+// logic.js
+//
+// Pure, testable functions for the pronunciation game.
+// No DOM, no audio, no window, no timers. Every import here runs in Node.
+// This is the module that vitest exercises and that the HTML consumes as
+// an ES module via <script type="module">.
+//
+// When this migrates to Project Sunny, this file moves to
+// web/public/games/pronunciation/logic.js and the HTML imports it from
+// there. URL params already flow through; nothing else changes.
+
+// ---------------------------------------------------------------------------
+// Config: difficulty curves
+// ---------------------------------------------------------------------------
+// Belts move at a fixed speed for the whole session — do not tie travelMs to
+// streak. Flow state requires predictability. Difficulty is the one knob
+// that changes the feel, set once per session from URL params.
+
+const DIFFICULTY_CURVES = {
+  1: { travelMs: 3800, cadenceMs: 1800, maxActive: 2 },
+  2: { travelMs: 3200, cadenceMs: 1400, maxActive: 3 },
+  3: { travelMs: 2600, cadenceMs: 1100, maxActive: 3 },
+};
+
+function curveFor(difficulty) {
+  const d = Number(difficulty);
+  if (d === 1 || d === 2 || d === 3) return DIFFICULTY_CURVES[d];
+  return DIFFICULTY_CURVES[2];
+}
+
+const XP_PER_HIT = 10;
+
+// ---------------------------------------------------------------------------
+// Levenshtein distance
+// ---------------------------------------------------------------------------
+// Classic two-row DP. Good enough for sub-20-char words.
+
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  let prev = new Array(b.length + 1);
+  let curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        curr[j - 1] + 1,       // insertion
+        prev[j] + 1,           // deletion
+        prev[j - 1] + cost,    // substitution
+      );
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[b.length];
+}
+
+// ---------------------------------------------------------------------------
+// Kid pronunciation normalization
+// ---------------------------------------------------------------------------
+// Common substitutions kids with speech or reading challenges make:
+//   - th → f  ("thirteen" → "firteen")
+//   - r → w   ("rabbit" → "wabbit")
+//   - m ↔ n   (nasal confusion)
+//   - b ↔ d   (classic letter reversal)
+//   - p ↔ q
+//
+// Substitutions are unidirectional in the string — we collapse both sides of
+// each pair to a single canonical letter, so 'band' and 'dand' both map to
+// 'dand'. That means kidNorm is a lossy equivalence class, and the matcher
+// must refuse to resolve it when multiple active words share the same class.
+
+function kidNorm(word) {
+  return String(word)
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+    .replace(/th/g, 'f')
+    .replace(/r/g, 'w')
+    .replace(/m/g, 'n')
+    .replace(/b/g, 'd')
+    .replace(/p/g, 'q');
+}
+
+// Given a list of words, return groups of words that collapse to the same
+// kidNorm value. Used both as a static sanity check for the word list and
+// at runtime to guard against ambiguous matches.
+function findKidNormCollisions(words) {
+  const buckets = new Map();
+  for (const w of words) {
+    const n = kidNorm(w);
+    if (!buckets.has(n)) buckets.set(n, []);
+    buckets.get(n).push(w);
+  }
+  const out = [];
+  for (const [normalized, ws] of buckets) {
+    if (ws.length > 1) out.push({ normalized, words: ws });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// matchWord
+// ---------------------------------------------------------------------------
+// Decide whether a heard utterance should count as a successful say of the
+// expected word. Tiered leniency:
+//   1. Exact match after lowercase + strip non-letters.
+//   2. Levenshtein <= 1 if expected.length > 4.
+//   3. Levenshtein <= 2 if expected.length > 6.
+//   4. kidNorm equivalence — but ONLY when no other active word also
+//      kidNorm-matches the heard utterance. Ambiguity = no match.
+//
+// The activeWords array is the set of words currently on the belt. Default
+// to just [expected] so tests can pass two args and still get sensible
+// behavior.
+
+function matchWord(heard, expected, activeWords) {
+  const h = String(heard).toLowerCase().replace(/[^a-z]/g, '');
+  const e = String(expected).toLowerCase().replace(/[^a-z]/g, '');
+  if (!h) return false;
+  if (h === e) return true;
+  if (e.length > 4 && levenshtein(h, e) <= 1) return true;
+  if (e.length > 6 && levenshtein(h, e) <= 2) return true;
+
+  const hN = kidNorm(h);
+  const eN = kidNorm(e);
+  if (hN === eN) {
+    const pool = Array.isArray(activeWords) && activeWords.length > 0
+      ? activeWords
+      : [expected];
+    const colliders = pool.filter(w => w !== expected && kidNorm(w) === hN);
+    if (colliders.length > 0) return false;
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// beltPosition
+// ---------------------------------------------------------------------------
+// Deterministic mapping from belt progress t ∈ [0, 1] to screen-space layout.
+// Returns percentages so the HTML can use them directly in CSS left/top.
+// No randomness, no jitter. Flow state requires the child's eye to lock onto
+// the lane within 3 words.
+
+function beltPosition(t, mode = 'depth') {
+  const clamped = Math.max(0, Math.min(1, t));
+
+  if (mode === 'depth') {
+    const x = 50;
+    const y = 30 + 40 * clamped;                 // 30% → 70%
+    const scale = 0.35 + (1.15 - 0.35) * clamped; // 0.35 → 1.15
+    // Opacity: 0.5 at start, full by ~t=0.75, remain 1.0 after that.
+    const opacity = Math.min(1.0, 0.5 + (0.5 * clamped) / 0.75);
+    const inSayZone = y >= 55 && y <= 75;
+    return { x, y, scale, opacity, inSayZone };
+  }
+
+  if (mode === 'horizontal') {
+    const x = 100 - 100 * clamped;               // 100% → 0%
+    const y = 50;
+    // Scale peaks at t=0.5 to give perspective even in a flat lane.
+    let scale;
+    if (clamped <= 0.5) {
+      scale = 0.5 + (1.15 - 0.5) * (clamped / 0.5);
+    } else {
+      scale = 1.15 - (1.15 - 0.7) * ((clamped - 0.5) / 0.5);
+    }
+    const opacity = 1.0;
+    const inSayZone = x >= 35 && x <= 65;
+    return { x, y, scale, opacity, inSayZone };
+  }
+
+  throw new Error(`Unknown belt mode: ${mode}`);
+}
+
+// ---------------------------------------------------------------------------
+// scoring
+// ---------------------------------------------------------------------------
+
+function streakMultiplier(streak) {
+  if (streak >= 10) return 2.0;
+  if (streak >= 5) return 1.5;
+  return 1.0;
+}
+
+function scoreForHit(streak) {
+  return Math.round(XP_PER_HIT * streakMultiplier(streak));
+}
+
+// ---------------------------------------------------------------------------
+// shouldSpawn
+// ---------------------------------------------------------------------------
+// Spawn gate. The caller owns the clock (so tests don't need fake timers).
+
+function shouldSpawn({ now, lastSpawnAt, activeCount, maxActive, cadenceMs }) {
+  if (activeCount >= maxActive) return false;
+  if (now - lastSpawnAt < cadenceMs) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// word queue
+// ---------------------------------------------------------------------------
+// Emits words in shuffled order, never the same one twice in a row, with
+// flagged (missed) words re-surfacing within 3–5 subsequent emits. When the
+// queue empties it reshuffles and continues.
+
+function createWordQueue(words, rng = Math.random) {
+  if (!Array.isArray(words) || words.length < 2) {
+    throw new Error('createWordQueue requires at least 2 words');
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  let queue = shuffle(words);
+  let lastEmitted = null;
+  const flagged = []; // [{ word, dueAtEmit }]
+  let emitCount = 0;
+
+  function drainDueFlagged() {
+    for (let i = 0; i < flagged.length; i++) {
+      if (emitCount >= flagged[i].dueAtEmit) {
+        const { word } = flagged[i];
+        if (word !== lastEmitted) {
+          flagged.splice(i, 1);
+          return word;
+        }
+      }
+    }
+    return null;
+  }
+
+  return {
+    next() {
+      emitCount++;
+      const due = drainDueFlagged();
+      if (due !== null) {
+        lastEmitted = due;
+        return due;
+      }
+      if (queue.length === 0) queue = shuffle(words);
+      let w = queue.shift();
+      if (w === lastEmitted && queue.length > 0) {
+        const next = queue.shift();
+        queue.unshift(w);
+        w = next;
+      }
+      lastEmitted = w;
+      return w;
+    },
+
+    flag(word) {
+      // re-surface in 3–5 emits
+      const delay = 3 + Math.floor(rng() * 3);
+      flagged.push({ word, dueAtEmit: emitCount + delay });
+    },
+
+    remaining() {
+      return queue.length + flagged.length;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// pitchForStreak
+// ---------------------------------------------------------------------------
+// C5 rising one semitone per streak, capped at streak 10 so the pop never
+// climbs off the top of the usable range. Caller owns the audio context.
+
+const SEMITONE = Math.pow(2, 1 / 12);
+
+function pitchForStreak(streak, baseHz = 523.25) {
+  const semis = Math.max(0, Math.min(10, streak));
+  return baseHz * Math.pow(SEMITONE, semis);
+}
+
+// ---------------------------------------------------------------------------
+// VariationDeck
+// ---------------------------------------------------------------------------
+// "Rotate, don't randomize." Shuffles the item list, pops one at a time until
+// empty, then reshuffles. Two guarantees:
+//
+//   1. Within one deck cycle, every item appears exactly once.
+//   2. Across deck boundaries, next() never returns the same value twice in
+//      a row — the last-popped value is held and, if it happens to land at
+//      the top of the next shuffled deck, we swap it into a random non-top
+//      position.
+//
+// Caller passes in an RNG for tests. Default is Math.random.
+
+class VariationDeck {
+  constructor(items, rng = Math.random) {
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('VariationDeck requires a non-empty array');
+    }
+    this._items = items;
+    this._rng = rng;
+    this._deck = [];
+    this._lastPopped = null;
+  }
+
+  next() {
+    if (this._deck.length === 0) this._refill();
+    const item = this._deck.pop();
+    this._lastPopped = item;
+    return item;
+  }
+
+  _refill() {
+    this._deck = [...this._items];
+    // Fisher–Yates
+    for (let i = this._deck.length - 1; i > 0; i--) {
+      const j = Math.floor(this._rng() * (i + 1));
+      [this._deck[i], this._deck[j]] = [this._deck[j], this._deck[i]];
+    }
+    // Consecutive-repeat guard: the NEXT pop is this._deck[last index].
+    // If it equals the value we just popped from the previous deck, swap
+    // it with any other position. Single-item decks can't be guarded.
+    const top = this._deck.length - 1;
+    if (
+      this._lastPopped !== null &&
+      this._deck.length > 1 &&
+      this._deck[top] === this._lastPopped
+    ) {
+      const swap = Math.floor(this._rng() * (this._deck.length - 1));
+      [this._deck[top], this._deck[swap]] = [this._deck[swap], this._deck[top]];
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// buildNodeResult
+// ---------------------------------------------------------------------------
+// Pure builder for the postMessage payload the game emits on completion.
+// Contract documented in MIGRATION.md. Keeping this pure means the shape is
+// pinned by tests rather than living in untested DOM glue.
+//
+// Input:
+//   config:          { nodeId, childId? }
+//   wordsHit:        number — successful pronunciations
+//   wordsAttempted:  number — words that RESOLVED on the belt (hit OR missed).
+//                    In-flight pills at the timeout are excluded from this
+//                    count so accuracy isn't penalized by the kid running
+//                    out of time on words they never got to try.
+//   missesByWord:    Map<word, count> — misses tallied per word.
+//   xpEarned:        total XP accrued from scoreForHit sums.
+//   timeSpent_ms:    elapsed play time.
+//   completed:       true if the run finished naturally, false if abandoned.
+
+function buildNodeResult({
+  config,
+  wordsHit,
+  wordsAttempted,
+  missesByWord,
+  xpEarned,
+  timeSpent_ms,
+  completed,
+}) {
+  const flaggedWords = [];
+  if (missesByWord instanceof Map) {
+    for (const [word, count] of missesByWord.entries()) {
+      if (count >= 2) flaggedWords.push(word);
+    }
+  }
+  const accuracy = wordsAttempted > 0 ? wordsHit / wordsAttempted : 0;
+
+  return {
+    type: 'node_complete',
+    nodeId: config?.nodeId ?? 'unknown',
+    childId: config?.childId ?? 'unknown',
+    completed: Boolean(completed),
+    accuracy,
+    timeSpent_ms,
+    wordsHit,
+    wordsAttempted,
+    flaggedWords,
+    xpEarned,
+  };
+}
+
+  </script>
+  <script>
+// game.js
+//
+// Orchestration layer. All pure logic lives in logic.js (and has tests).
+// This file is the glue: DOM, Web Audio, camera, Web Speech API, rAF loop.
+// When Sunny migration happens, this file splits into a hook and the HTML
+// gets templated — logic.js does not change.
+
+// ---------------------------------------------------------------------------
+// Default config — the prototype's hardcoded word list.
+// ---------------------------------------------------------------------------
+// This is the one piece of "hardcoded" intentionally kept for the prototype.
+// getConfig() still reads URL params so a test harness can override without
+// editing this file. When this migrates into Sunny, this constant gets
+// deleted and getConfig() reads from URL params only (NodeConfig pipes words
+// in from buildProfile(childId).dueWords).
+
+const DEFAULT_WORDS = [
+  'blister', 'carpet', 'thirteen', 'orbit', 'harvest',
+  'confirm', 'interrupt', 'perfume', 'hamburger', 'corner',
+  'kindergarten', 'chimp', 'inhabit', 'instruments', 'band',
+];
+
+const PALETTE = [
+  ['#8b7cff', '#6D5EF5'],
+  ['#f9a8d4', '#f472b6'],
+  ['#22d3ee', '#06b6d4'],
+  ['#34d399', '#10b981'],
+  ['#fbbf24', '#f59e0b'],
+  ['#a78bfa', '#8b5cf6'],
+];
+
+function getConfig() {
+  const p = new URLSearchParams(location.search);
+  const wordsParam = p.get('words');
+  const words = wordsParam
+    ? wordsParam.split(',').map(w => w.trim()).filter(Boolean)
+    : DEFAULT_WORDS;
+  const difficulty = parseInt(p.get('difficulty') || '2', 10);
+
+  // beltMode is canonical; `mode` is legacy and warns.
+  let beltMode = p.get('beltMode');
+  if (!beltMode) {
+    const legacy = p.get('mode');
+    if (legacy) {
+      console.warn('[pronunciation-game] ?mode= is deprecated, use ?beltMode=');
+      beltMode = legacy;
+    } else {
+      beltMode = 'depth';
+    }
+  }
+
+  const duration = parseInt(p.get('duration') || '60000', 10);
+  const nodeId = p.get('nodeId') || 'pronunciation-game';
+  const childId = p.get('childId') || 'unknown';
+  const sttMode = p.get('sttMode') || 'local';
+  return { words, difficulty, beltMode, duration, nodeId, childId, sttMode };
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const state = {
+  running: false,
+  calibrated: false,
+  audioOn: true,
+  startedAt: 0,
+  active: [],            // list of live pill entries
+  lastSpawnAt: 0,
+  hits: 0,
+  wordsAttempted: 0,     // hits + resolved misses. In-flight at timeout excluded.
+  xp: 0,
+  streak: 0,
+  bestStreak: 0,
+  missesByWord: new Map(),
+  paletteIdx: 0,
+  queue: null,
+};
+
+let config;
+let audioCtx = null;
+let ambientNodes = [];
+let rec = null;
+let nextPillId = 1;
+const particles = [];
+
+// ---------------------------------------------------------------------------
+// Audio
+// ---------------------------------------------------------------------------
+function ensureAudio() {
+  if (audioCtx) return;
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if (!Ctor) return;
+  audioCtx = new Ctor();
+}
+
+function startAmbient() {
+  if (!audioCtx || !state.audioOn || ambientNodes.length) return;
+  const master = audioCtx.createGain();
+  master.gain.value = 0.063; // ~-24 dB
+  master.connect(audioCtx.destination);
+
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 400;
+  lp.connect(master);
+
+  [130.81, 196.00].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq * (i === 0 ? 1.003 : 0.997);
+    osc.connect(lp);
+    osc.start();
+    ambientNodes.push(osc);
+  });
+
+  const lfo = audioCtx.createOscillator();
+  lfo.frequency.value = 0.1;
+  const lfoGain = audioCtx.createGain();
+  lfoGain.gain.value = 0.015;
+  lfo.connect(lfoGain).connect(master.gain);
+  lfo.start();
+  ambientNodes.push(lfo);
+  ambientNodes.push(master);
+}
+
+function stopAmbient() {
+  for (const n of ambientNodes) {
+    try { if (n.stop) n.stop(); } catch (e) { /* gain nodes don't stop */ }
+    try { n.disconnect(); } catch (e) {}
+  }
+  ambientNodes = [];
+}
+
+function playHitPop(streak) {
+  if (!audioCtx || !state.audioOn) return;
+  const now = audioCtx.currentTime;
+  const freq = pitchForStreak(streak);
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.5, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.1);
+
+  // noise snap 30ms after the tone
+  const bufSize = Math.floor(audioCtx.sampleRate * 0.06);
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 2);
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+  const ngain = audioCtx.createGain();
+  ngain.gain.value = 0.18;
+  noise.connect(ngain).connect(audioCtx.destination);
+  noise.start(now + 0.03);
+}
+
+function playMiss() {
+  if (!audioCtx || !state.audioOn) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(220, now);
+  osc.frequency.exponentialRampToValueAtTime(110, now + 0.2);
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 800;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.connect(filter).connect(gain).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.25);
+}
+
+function playWhoosh() {
+  if (!audioCtx || !state.audioOn) return;
+  const now = audioCtx.currentTime;
+  const bufSize = Math.floor(audioCtx.sampleRate * 0.15);
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0;
+  for (let i = 0; i < bufSize; i++) {
+    const w = Math.random() * 2 - 1;
+    b0 = 0.99765 * b0 + w * 0.0990460;
+    b1 = 0.96300 * b1 + w * 0.2965164;
+    b2 = 0.57000 * b2 + w * 1.0526913;
+    data[i] = (b0 + b1 + b2 + w * 0.1848) * 0.11;
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 1000;
+  bp.Q.value = 1;
+  const gain = audioCtx.createGain();
+  gain.gain.value = 0.08;
+  noise.connect(bp).connect(gain).connect(audioCtx.destination);
+  noise.start(now);
+}
+
+// ---------------------------------------------------------------------------
+// Camera
+// ---------------------------------------------------------------------------
+async function initCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return false;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false,
+    });
+    const video = document.getElementById('camera');
+    video.srcObject = stream;
+    document.getElementById('bg-fallback').style.display = 'none';
+    return true;
+  } catch (e) {
+    console.warn('camera denied or unavailable:', e.message);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Starfield (behind everything but camera)
+// ---------------------------------------------------------------------------
+function initStars() {
+  const c = document.getElementById('stars');
+  function resize() { c.width = innerWidth; c.height = innerHeight; }
+  resize();
+  addEventListener('resize', resize);
+  const stars = [];
+  for (let i = 0; i < 80; i++) {
+    stars.push({
+      x: Math.random() * c.width,
+      y: Math.random() * c.height,
+      r: Math.random() * 1.5 + 0.3,
+      a: Math.random(),
+      s: (Math.random() * 0.02 + 0.005) * (Math.random() < 0.5 ? -1 : 1),
+    });
+  }
+  const ctx = c.getContext('2d');
+  function draw() {
+    ctx.clearRect(0, 0, c.width, c.height);
+    for (const s of stars) {
+      s.a += s.s;
+      if (s.a > 1 || s.a < 0.2) s.s = -s.s;
+      ctx.globalAlpha = s.a * 0.55;
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ---------------------------------------------------------------------------
+// Particles (explosion on hit)
+// ---------------------------------------------------------------------------
+function initParticles() {
+  const c = document.getElementById('particles');
+  function resize() { c.width = innerWidth; c.height = innerHeight; }
+  resize();
+  addEventListener('resize', resize);
+  const ctx = c.getContext('2d');
+  function draw() {
+    ctx.clearRect(0, 0, c.width, c.height);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.15;
+      p.life -= 1 / 60;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+function burst(x, y, colors) {
+  for (let i = 0; i < 50; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 5;
+    particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 2,
+      r: 2 + Math.random() * 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 0.5 + Math.random() * 0.3,
+      maxLife: 0.8,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Belt: spawn / update / hit / miss
+// ---------------------------------------------------------------------------
+function spawnWord() {
+  const word = state.queue.next();
+  if (!word) return;
+  const pal = PALETTE[state.paletteIdx % PALETTE.length];
+  state.paletteIdx++;
+
+  const el = document.createElement('div');
+  el.className = 'pill';
+  el.textContent = word;
+  el.style.background = `linear-gradient(135deg, ${pal[0]}, ${pal[1]})`;
+  el.style.boxShadow = `0 10px 24px rgba(0,0,0,0.45), 0 0 40px ${pal[1]}44`;
+  document.getElementById('belt').appendChild(el);
+
+  const missedBefore = state.missesByWord.get(word) || 0;
+  const curve = curveFor(config.difficulty);
+  const travelMs = missedBefore > 0 ? 3800 : curve.travelMs;
+
+  state.active.push({
+    id: nextPillId++,
+    word,
+    spawnedAt: performance.now(),
+    travelMs,
+    palette: pal,
+    el,
+    hit: false,
+    fading: false,
+    inSayZone: false,
+  });
+  state.lastSpawnAt = performance.now();
+  playWhoosh();
+}
+
+function updatePill(entry, now) {
+  const t = (now - entry.spawnedAt) / entry.travelMs;
+
+  if (entry.fading) {
+    // let the CSS animation finish, then drop
+    return t < 1.5;
+  }
+
+  if (t >= 1 && !entry.hit) {
+    // miss
+    entry.fading = true;
+    const prev = state.missesByWord.get(entry.word) || 0;
+    state.missesByWord.set(entry.word, prev + 1);
+    state.queue.flag(entry.word);
+    state.streak = 0;
+    state.wordsAttempted++;
+    updateHud();
+    entry.el.classList.add('miss');
+    playMiss();
+    setTimeout(() => entry.el.remove(), 320);
+    return true;
+  }
+
+  const pos = beltPosition(t, config.beltMode);
+  entry.inSayZone = pos.inSayZone;
+  entry.el.style.left = pos.x + '%';
+  entry.el.style.top = pos.y + '%';
+  entry.el.style.transform = `translate(-50%, -50%) scale(${pos.scale})`;
+  entry.el.style.opacity = pos.opacity;
+  return true;
+}
+
+function hitWord(entry) {
+  if (entry.hit || entry.fading) return;
+  entry.hit = true;
+  state.hits++;
+  state.wordsAttempted++;
+  state.streak++;
+  if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+  state.xp += scoreForHit(state.streak);
+
+  const r = entry.el.getBoundingClientRect();
+  burst(r.left + r.width / 2, r.top + r.height / 2, entry.palette);
+  playHitPop(state.streak);
+
+  entry.el.classList.add('hit');
+  setTimeout(() => entry.el.remove(), 200);
+  updateHud();
+}
+
+function updateHud() {
+  document.getElementById('streak').textContent = state.streak;
+  document.getElementById('xp').textContent = state.xp;
+}
+
+// ---------------------------------------------------------------------------
+// Speech recognition
+// ---------------------------------------------------------------------------
+function initSTT() {
+  if (config.sttMode !== 'local') {
+    document.getElementById('mic-chip').classList.remove('inactive');
+    document.getElementById('mic-chip').classList.add('active');
+    document.getElementById('mic-chip').textContent = 'Sunny STT';
+    return true;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('mic-chip').textContent = 'Chrome only';
+    return false;
+  }
+  rec = new SR();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = 'en-US';
+
+  rec.onstart = () => {
+    document.getElementById('mic-chip').classList.remove('inactive');
+    document.getElementById('mic-chip').classList.add('active');
+    document.getElementById('mic-chip').textContent = 'listening';
+  };
+
+  rec.onend = () => {
+    document.getElementById('mic-chip').classList.remove('active');
+    document.getElementById('mic-chip').classList.add('inactive');
+    // Chrome kills continuous recognition periodically — restart if playing.
+    if (state.running || !state.calibrated) {
+      setTimeout(() => { try { rec.start(); } catch (e) {} }, 120);
+    }
+  };
+
+  rec.onerror = (e) => {
+    console.warn('STT error:', e.error);
+  };
+
+  rec.onresult = (ev) => {
+    let latestFull = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      latestFull = ev.results[i][0].transcript;
+    }
+    const lastToken = latestFull.trim().split(/\s+/).pop() || '';
+    document.getElementById('heard').textContent = lastToken || '—';
+
+    if (!state.calibrated) {
+      if (/\b(ready|start|ok|okay|go)\b/i.test(latestFull)) {
+        state.calibrated = true;
+        document.getElementById('calibrating').classList.add('hidden');
+        beginPlay();
+      }
+      return;
+    }
+    checkHit(lastToken);
+  };
+
+  try { rec.start(); } catch (e) {}
+  return true;
+}
+
+function checkHit(heard) {
+  if (!heard) return;
+  const sayable = state.active.filter(e => !e.hit && !e.fading && e.inSayZone);
+  const pool = sayable.map(e => e.word);
+  for (const entry of sayable) {
+    if (matchWord(heard, entry.word, pool)) {
+      hitWord(entry);
+      return;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main loop
+// ---------------------------------------------------------------------------
+function beginPlay() {
+  state.running = true;
+  state.startedAt = performance.now();
+  state.queue = createWordQueue(config.words);
+  startAmbient();
+  loop();
+}
+
+function loop() {
+  if (!state.running) return;
+  const now = performance.now();
+
+  const curve = curveFor(config.difficulty);
+  const activeCount = state.active.filter(e => !e.hit && !e.fading).length;
+  // Gently accelerate spawn cadence per 5 hits, floor at 1200ms.
+  const cadence = Math.max(1200, curve.cadenceMs - Math.floor(state.hits / 5) * 300);
+
+  if (shouldSpawn({
+    now,
+    lastSpawnAt: state.lastSpawnAt,
+    activeCount,
+    maxActive: curve.maxActive,
+    cadenceMs: cadence,
+  })) {
+    spawnWord();
+  }
+
+  state.active = state.active.filter(e => updatePill(e, now));
+
+  if (now - state.startedAt > config.duration) {
+    endGame();
+    return;
+  }
+  requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state.running = false;
+  stopAmbient();
+  if (rec) { try { rec.stop(); } catch (e) {} }
+
+  // In-flight pills at timeout are NOT counted into wordsAttempted.
+  // The child never got a chance to resolve them — penalizing accuracy
+  // with words they didn't see finish would punish engagement speed.
+  document.querySelectorAll('.pill').forEach(p => p.remove());
+  state.active = [];
+
+  const accuracy = state.wordsAttempted
+    ? state.hits / state.wordsAttempted
+    : 0;
+
+  document.getElementById('end-title').textContent =
+    accuracy >= 0.7 ? '🎉 amazing!' : 'keep practicing!';
+  document.getElementById('end-hits').textContent = state.hits;
+  document.getElementById('end-xp').textContent = state.xp;
+  document.getElementById('end-streak').textContent = state.bestStreak;
+
+  const flagged = [...state.missesByWord.entries()]
+    .filter(([, c]) => c >= 2)
+    .map(([w]) => w);
+
+  if (flagged.length) {
+    document.getElementById('end-flagged-wrap').style.display = 'block';
+    const list = document.getElementById('end-flagged');
+    list.innerHTML = '';
+    for (const w of flagged) {
+      const chip = document.createElement('div');
+      chip.className = 'flagged-chip';
+      chip.textContent = `🔊 ${w}`;
+      chip.onclick = () => {
+        const u = new SpeechSynthesisUtterance(w);
+        u.rate = 0.8;
+        speechSynthesis.speak(u);
+      };
+      list.appendChild(chip);
+    }
+  } else {
+    document.getElementById('end-flagged-wrap').style.display = 'none';
+  }
+
+  document.getElementById('end-screen').classList.remove('hidden');
+
+  // Post the new NodeResult shape — see MIGRATION.md for the Sunny-side
+  // changes this assumes. Old 'node_result' type is gone.
+  try {
+    const payload = buildNodeResult({
+      config,
+      wordsHit: state.hits,
+      wordsAttempted: state.wordsAttempted,
+      missesByWord: state.missesByWord,
+      xpEarned: state.xp,
+      timeSpent_ms: performance.now() - state.startedAt,
+      completed: true,
+    });
+    window.parent.postMessage(payload, '*');
+  } catch (e) {}
+}
+
+// ---------------------------------------------------------------------------
+// UI wiring
+// ---------------------------------------------------------------------------
+async function onStart() {
+  config = getConfig();
+
+  const collisions = findKidNormCollisions(config.words);
+  if (collisions.length) {
+    console.warn('[pronunciation-game] kidNorm collisions in word list — ' +
+      'matcher will reject ambiguous matches at runtime:', collisions);
+  }
+
+  ensureAudio();
+  if (audioCtx && audioCtx.state === 'suspended') {
+    try { await audioCtx.resume(); } catch (e) {}
+  }
+
+  await initCamera();
+  initSTT();
+
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('calibrating').classList.remove('hidden');
+}
+
+function onReplay() {
+  Object.assign(state, {
+    running: false,
+    calibrated: false,
+    startedAt: 0,
+    active: [],
+    lastSpawnAt: 0,
+    hits: 0,
+    wordsAttempted: 0,
+    xp: 0,
+    streak: 0,
+    bestStreak: 0,
+    missesByWord: new Map(),
+    paletteIdx: 0,
+    queue: null,
+  });
+  document.getElementById('end-screen').classList.add('hidden');
+  document.getElementById('calibrating').classList.remove('hidden');
+  document.getElementById('end-flagged-wrap').style.display = 'none';
+  updateHud();
+  if (rec) { try { rec.start(); } catch (e) {} }
+}
+
+function onBack() {
+  try {
+    const payload = buildNodeResult({
+      config: config || { nodeId: 'pronunciation-game', childId: 'unknown' },
+      wordsHit: state.hits,
+      wordsAttempted: state.wordsAttempted,
+      missesByWord: state.missesByWord,
+      xpEarned: state.xp,
+      timeSpent_ms: state.startedAt ? performance.now() - state.startedAt : 0,
+      completed: false,
+    });
+    window.parent.postMessage(payload, '*');
+  } catch (e) {}
+  document.getElementById('end-screen').classList.add('hidden');
+  document.getElementById('start-screen').classList.remove('hidden');
+}
+
+function onAudioToggle() {
+  state.audioOn = !state.audioOn;
+  document.getElementById('audio-toggle').textContent =
+    state.audioOn ? '🎵 on' : '🎵 off';
+  if (state.audioOn) startAmbient();
+  else stopAmbient();
+}
+
+window.addEventListener('message', (e) => {
+  if (!e.data) return;
+
+  // Deepgram interim transcript from Sunny parent
+  if (e.data.type === 'interim' && typeof e.data.text === 'string') {
+    if (!config || config.sttMode === 'local') return;
+    const lastToken = e.data.text.trim().split(/\s+/).pop() || '';
+    document.getElementById('heard').textContent = lastToken || '—';
+
+    if (!state.calibrated) {
+      if (/\b(ready|start|ok|okay|go)\b/i.test(e.data.text)) {
+        state.calibrated = true;
+        document.getElementById('calibrating').classList.add('hidden');
+        beginPlay();
+      }
+      return;
+    }
+    checkHit(lastToken);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+initStars();
+initParticles();
+document.getElementById('start-btn').onclick = onStart;
+document.getElementById('replay-btn').onclick = onReplay;
+document.getElementById('back-btn').onclick = onBack;
+document.getElementById('audio-toggle').onclick = onAudioToggle;
+
+  </script>
+
+</body>
+</html>

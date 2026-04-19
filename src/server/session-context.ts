@@ -42,6 +42,7 @@ export interface CanvasState {
     | "riddle"
     | "championship"
     | "karaoke"
+    | "pronunciation"
     | "sound_box"
     | "clock"
     | "score_meter"

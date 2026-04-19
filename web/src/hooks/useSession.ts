@@ -41,6 +41,7 @@ const BASE_CANVAS_MODES = [
   "place_value",
   "spelling",
   "karaoke",
+  "pronunciation",
   "sound_box",
   "clock",
   "score_meter",
@@ -144,6 +145,8 @@ interface CanvasState {
   clockDisplay?: string;
   /** Reading / karaoke — ordered tokens for highlight UI */
   karaokeWords?: string[];
+  /** Pronunciation belt — word list from server */
+  pronunciationWords?: string[];
   storyTitle?: string;
   backgroundImageUrl?: string;
 }
@@ -578,6 +581,7 @@ export function useSession() {
           const isWordBuilder = mode === "word-builder";
           const isGameMode = GAME_MODES.has(mode);
           const isKaraoke = mode === "karaoke";
+          const isPronunciation = mode === "pronunciation";
           setStateRef.current((s) => {
             const nextAnim = (s.canvas.animationKey ?? 0) + 1;
             const story = storyIllustrationPatch(s, mode, nextAnim);
@@ -640,9 +644,15 @@ export function useSession() {
                   ? data.storyTitle
                   : undefined,
               backgroundImageUrl:
-                isKaraoke && typeof data.backgroundImageUrl === "string"
+                (isKaraoke || isPronunciation) &&
+                typeof data.backgroundImageUrl === "string"
                   ? data.backgroundImageUrl
                   : undefined,
+              pronunciationWords: isPronunciation
+                ? Array.isArray(data.pronunciationWords)
+                  ? (data.pronunciationWords as string[])
+                  : undefined
+                : undefined,
               pendingAnswer: undefined,
               animationKey: nextAnim,
             },
@@ -796,6 +806,7 @@ export function useSession() {
           const isWordBuilder = mode === "word-builder";
           const isGameMode = GAME_MODES.has(mode);
           const isKaraoke = mode === "karaoke";
+          const isPronunciation = mode === "pronunciation";
           setStateRef.current((s) => {
             const nextAnim = (s.canvas.animationKey ?? 0) + 1;
             const story = storyIllustrationPatch(s, mode, nextAnim);
@@ -855,9 +866,15 @@ export function useSession() {
                   ? data.storyTitle
                   : undefined,
               backgroundImageUrl:
-                isKaraoke && typeof data.backgroundImageUrl === "string"
+                (isKaraoke || isPronunciation) &&
+                typeof data.backgroundImageUrl === "string"
                   ? data.backgroundImageUrl
                   : undefined,
+              pronunciationWords: isPronunciation
+                ? Array.isArray(data.pronunciationWords)
+                  ? (data.pronunciationWords as string[])
+                  : undefined
+                : undefined,
               pendingAnswer: undefined,
               animationKey: nextAnim,
             };
