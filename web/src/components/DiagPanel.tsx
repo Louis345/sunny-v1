@@ -77,18 +77,34 @@ export function DiagPanel({
   startSessionRef.current = startSession;
 
   useEffect(() => {
-    if (import.meta.env.VITE_DIAG_READING !== "true") return;
+    if (
+      import.meta.env.VITE_DIAG_READING !== "true" &&
+      import.meta.env.VITE_DIAG_PRONUNCIATION !== "true"
+    ) {
+      return;
+    }
     if (voiceActive) return;
     if (diagReadingAutoVoicePrimed) return;
     diagReadingAutoVoicePrimed = true;
     startSessionRef.current(DIAG_CHILD, {
       diagKiosk: true,
       silentTts: import.meta.env.VITE_DIAG_READING === "true",
-      sttOnly: import.meta.env.VITE_DIAG_READING === "true",
+      sttOnly:
+        import.meta.env.VITE_DIAG_READING === "true" ||
+        import.meta.env.VITE_DIAG_PRONUNCIATION === "true",
     });
     if (import.meta.env.VITE_DIAG_READING === "true") {
       setTimeout(() => {
         fetch("/api/map/test-reading-mode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ childId: "creator" }),
+        }).catch(console.error);
+      }, 500);
+    }
+    if (import.meta.env.VITE_DIAG_PRONUNCIATION === "true") {
+      setTimeout(() => {
+        fetch("/api/map/test-pronunciation-mode", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ childId: "creator" }),

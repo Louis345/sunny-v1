@@ -12,6 +12,8 @@ export interface UseKaraokeReadingArgs {
   onComplete?: () => void;
   mode?: "sequential" | "multi";
   activeWordIndices?: number[];
+  /** When set (pronunciation belt), only this word index is eligible for hits — stays in sync with the leader pill. Omit for generic multi (match any active index). */
+  leaderWordIndex?: number | null;
 }
 
 export interface UseKaraokeReadingResult {
@@ -21,6 +23,10 @@ export interface UseKaraokeReadingResult {
   isComplete: boolean;
   flaggedWords: string[];
   hitWordIndex: number | null;
+  /** Immediately unblocks a word index in the pending-hit guard. Call this as
+   *  soon as the canvas has confirmed the hit so the hook doesn't stay blocked
+   *  across Deepgram `final` restarts. */
+  clearHitBlock: (wordIndex: number) => void;
 }
 
 export function useKaraokeReading(
@@ -33,6 +39,7 @@ export function useKaraokeReading(
     onComplete,
     mode = "sequential",
     activeWordIndices = [],
+    leaderWordIndex = null,
   } = args;
 
   const [wordIndex, setWordIndex] = useState(0);
@@ -55,7 +62,6 @@ export function useKaraokeReading(
   const lastClassifyResultRef = useRef<"match" | "partial" | "mismatch">(
     "match",
   );
-  const multiMissCountRef = useRef<Map<number, number>>(new Map());
   const pendingHitBlockRef = useRef<Set<number>>(new Set());
 
   // Reset all state when the words array reference changes (new story).
@@ -73,7 +79,6 @@ export function useKaraokeReading(
     hesitationsRef.current = 0;
     lastInterimLengthRef.current = 0;
     lastClassifyResultRef.current = "match";
-    multiMissCountRef.current = new Map();
     pendingHitBlockRef.current = new Set();
     setWordIndex(0);
     setSkippedIndices([]);
@@ -157,37 +162,26 @@ export function useKaraokeReading(
 
     const currLen = t.length;
     const prevStoredLen = lastInterimLengthRef.current;
-    const prevTrimmed = lastInterimRef.current;
 
     if (mode === "multi") {
-      const indices = activeWordIndices;
+      const useLeader =
+        typeof leaderWordIndex === "number" &&
+        leaderWordIndex >= 0 &&
+        leaderWordIndex < words.length;
+      const matchIndices = useLeader ? [leaderWordIndex] : activeWordIndices;
+
       if (isInterimPhraseRestart(prevStoredLen, currLen)) {
         hesitationsRef.current += 1;
-        const oldLastToken =
-          prevTrimmed.split(/\s+/).filter(Boolean).pop() ?? "";
-        for (const i of indices) {
-          const expected = words[i];
-          if (!expected) continue;
-          const cls = classifyKaraokeWordMatch(oldLastToken, expected);
-          if (cls !== "match") {
-            const c = (multiMissCountRef.current.get(i) ?? 0) + 1;
-            multiMissCountRef.current.set(i, c);
-            if (c >= 3) {
-              const key = expected.toLowerCase().trim();
-              if (key) {
-                flaggedWordsSetRef.current.add(key);
-                setFlaggedWords(Array.from(flaggedWordsSetRef.current));
-              }
-            }
-          }
-        }
+        // Do not run phrase-restart "miss every active word" logic in multi —
+        // STT length drops are not attempts on each belt word and caused false
+        // flags during fast play. Belt auto-miss / sequential mode handle misses.
       }
       lastInterimLengthRef.current = currLen;
       lastInterimRef.current = t;
 
       const lastWord = t.split(/\s+/).filter(Boolean).pop() ?? "";
       let best: "match" | "partial" | "mismatch" = "mismatch";
-      for (const i of indices) {
+      for (const i of matchIndices) {
         const expected = words[i];
         if (!expected) continue;
         const r = classifyKaraokeWordMatch(lastWord, expected);
@@ -199,33 +193,48 @@ export function useKaraokeReading(
       }
       lastClassifyResultRef.current = best;
 
-      if (!lastWord) return;
+      const heardTokens = t.split(/\s+/).filter(Boolean);
+      if (heardTokens.length === 0) return;
 
-      for (const i of indices) {
-        if (pendingHitBlockRef.current.has(i)) continue;
-        const expected = words[i];
-        if (!expected) continue;
-        if (classifyKaraokeWordMatch(lastWord, expected) !== "match") continue;
+      for (const heardWord of heardTokens) {
+        for (const i of matchIndices) {
+          const blocked = pendingHitBlockRef.current.has(i);
+          const expected = words[i];
+          if (!expected) continue;
+          const matchResult = classifyKaraokeWordMatch(heardWord, expected);
+          if (import.meta.env.DEV) {
+            console.debug(
+              "[PG-MATCH] heard=%s expected=%s result=%s idx=%d blocked=%s",
+              heardWord,
+              expected,
+              matchResult,
+              i,
+              blocked,
+            );
+          }
+          if (blocked) continue;
+          if (matchResult !== "match") continue;
 
-        pendingHitBlockRef.current.add(i);
-        const spelledToken = expected.toLowerCase().trim();
-        if (spelledToken) spelledWordsRef.current.push(spelledToken);
-        setHitWordIndex(i);
-        sendMessage(
-          "reading_progress",
-          buildKaraokeReadingProgressPayload({
-            wordIndex: wordIndexRef.current,
-            totalWords: words.length,
-            hesitations: hesitationsRef.current,
-            flaggedWords: Array.from(flaggedWordsSetRef.current),
-            skippedWords: [...skippedWordsListRef.current],
-            spelledWords: [...spelledWordsRef.current],
-            event: "hit",
-            hitWordIndex: i,
-            word: expected,
-          }),
-        );
-        return;
+          pendingHitBlockRef.current.add(i);
+          const spelledToken = expected.toLowerCase().trim();
+          if (spelledToken) spelledWordsRef.current.push(spelledToken);
+          setHitWordIndex(i);
+          sendMessage(
+            "reading_progress",
+            buildKaraokeReadingProgressPayload({
+              wordIndex: wordIndexRef.current,
+              totalWords: words.length,
+              hesitations: hesitationsRef.current,
+              flaggedWords: Array.from(flaggedWordsSetRef.current),
+              skippedWords: [...skippedWordsListRef.current],
+              spelledWords: [...spelledWordsRef.current],
+              event: "hit",
+              hitWordIndex: i,
+              word: expected,
+            }),
+          );
+          return;
+        }
       }
       return;
     }
@@ -297,6 +306,7 @@ export function useKaraokeReading(
     onComplete,
     mode,
     activeWordIndices,
+    leaderWordIndex,
   ]);
 
   // Periodic progress heartbeat every 3 seconds.
@@ -320,6 +330,10 @@ export function useKaraokeReading(
     return () => window.clearInterval(id);
   }, [words, sendMessage]);
 
+  const clearHitBlock = useCallback((wordIndex: number) => {
+    pendingHitBlockRef.current.delete(wordIndex);
+  }, []);
+
   return {
     wordIndex,
     skippedIndices,
@@ -327,5 +341,6 @@ export function useKaraokeReading(
     isComplete,
     flaggedWords,
     hitWordIndex,
+    clearHitBlock,
   };
 }

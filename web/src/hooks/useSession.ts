@@ -909,16 +909,21 @@ export function useSession() {
       case "session_ended":
         turnPolicyRef.current = DEFAULT_TURN_POLICY;
         setMicMuted(false);
-        setStateRef.current((s) => ({
-          ...s,
-          phase: "ended",
-          canvas: { mode: "idle" },
-          blackboard: { gesture: null },
-          reward: null,
-          sessionState: "IDLE",
-          readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
-          karaokeStoryComplete: false,
-        }));
+        setStateRef.current((s) => {
+          const preservePronunciationOverlay =
+            s.canvas.mode === "pronunciation" &&
+            (s.canvas.pronunciationWords?.length ?? 0) > 0;
+          return {
+            ...s,
+            phase: "ended",
+            canvas: preservePronunciationOverlay ? s.canvas : { mode: "idle" },
+            blackboard: { gesture: null },
+            reward: null,
+            sessionState: "IDLE",
+            readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
+            karaokeStoryComplete: false,
+          };
+        });
         stopMicRef.current();
         break;
 

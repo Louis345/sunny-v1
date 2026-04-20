@@ -129,6 +129,7 @@ describe("useKaraokeReading", () => {
             sendMessage: sendMsg,
             mode: "multi",
             activeWordIndices: stableActive1,
+            // Omit leaderWordIndex — generic multi matches any active index.
           }),
         { initialProps: { interim: "" } },
       );
@@ -207,7 +208,7 @@ describe("useKaraokeReading", () => {
       expect(result.current.hitWordIndex).toBeNull();
     });
 
-    it("flags word after 3 misses across all active words", async () => {
+    it("does not flag words on phrase restart alone in multi mode", async () => {
       const words = ["hello"];
       const sendMsg = vi.fn();
       const active0 = [0];
@@ -219,14 +220,55 @@ describe("useKaraokeReading", () => {
             sendMessage: sendMsg,
             mode: "multi",
             activeWordIndices: active0,
+            leaderWordIndex: 0,
           }),
         { initialProps: { interim: "" } },
       );
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 5; i++) {
         rerender({ interim: "xyz xyz xyz" });
         rerender({ interim: "" });
       }
-      await waitFor(() => expect(result.current.flaggedWords).toContain("hello"));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.flaggedWords).toEqual([]);
+    });
+
+    it("with leaderWordIndex, only the leader index can score a hit", async () => {
+      const words = ["apple", "banana"];
+      const sendMsg = vi.fn();
+      const { rerender } = renderHook(
+        (p: { interim: string }) =>
+          useKaraokeReading({
+            words,
+            interimTranscript: p.interim,
+            sendMessage: sendMsg,
+            mode: "multi",
+            activeWordIndices: [0, 1],
+            leaderWordIndex: 0,
+          }),
+        { initialProps: { interim: "" } },
+      );
+      rerender({ interim: "banana" });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      const hitsBanana = sendMsg.mock.calls.filter(
+        (c) => c[0] === "reading_progress" && (c[1] as { event?: string })?.event === "hit",
+      );
+      expect(hitsBanana.length).toBe(0);
+
+      rerender({ interim: "apple" });
+      await waitFor(() => {
+        expect(sendMsg).toHaveBeenCalledWith(
+          "reading_progress",
+          expect.objectContaining({
+            event: "hit",
+            hitWordIndex: 0,
+            word: "apple",
+          }),
+        );
+      });
     });
 
     it("never matches same word twice before it is cleared", async () => {
@@ -240,6 +282,8 @@ describe("useKaraokeReading", () => {
             sendMessage: sendMsg,
             mode: "multi",
             activeWordIndices: p.active,
+            leaderWordIndex:
+              p.active.length === 1 ? (p.active[0] ?? null) : null,
           }),
         { initialProps: { interim: "", active: stableActive1 } },
       );

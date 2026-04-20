@@ -129,7 +129,8 @@ export function updateLearningProfileFromSession(
     notableSignals: [],
   };
 
-  profile.moodHistory = [...profile.moodHistory.slice(-9), moodEntry];
+  const prevMood = Array.isArray(profile.moodHistory) ? profile.moodHistory : [];
+  profile.moodHistory = [...prevMood.slice(-9), moodEntry];
 
   const stats = profile.sessionStats;
   stats.totalSessions++;

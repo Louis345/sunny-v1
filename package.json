@@ -57,6 +57,8 @@
     "sunny:testmode:reading:reina": "cd web && npm run build && cd .. && TTS_ENABLED=false SUNNY_STATELESS=true SUNNY_CHILD=reina SUNNY_SUBJECT=reading npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:diag": "cd web && VITE_ADVENTURE_MAP=true VITE_DIAG_CHILD_ID=creator npm run build && cd .. && TTS_ENABLED=true SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:diag:reading": "cd web && VITE_ADVENTURE_MAP=true VITE_DIAG_CHILD_ID=creator VITE_DIAG_READING=true npm run build && cd .. && TTS_ENABLED=true SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
+    "sunny:mode:diag:pronunciation": "cd web && VITE_ADVENTURE_MAP=true VITE_DIAG_CHILD_ID=creator VITE_DIAG_PRONUNCIATION=true npm run build && cd .. && TTS_ENABLED=true SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
+    "sunny:diag:dryRun": "npx tsx src/scripts/diag-dry-run.ts",
     "sunny:mode:diag:mute": "cd web && npm run build && cd .. && TTS_ENABLED=false SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
     "sunny:testmode:diag": "cd web && npm run build && cd .. && TTS_ENABLED=false SUNNY_STATELESS=true SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
     "sunny:testmode:diag:mute": "cd web && npm run build && cd .. && TTS_ENABLED=false SUNNY_STATELESS=true SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
