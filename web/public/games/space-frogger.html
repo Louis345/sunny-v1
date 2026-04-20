@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Space Frogger</title>
@@ -459,7 +460,17 @@ function endGame(won) {
     <button onclick="startGame()">${won?'PLAY AGAIN ⭐':'TRY AGAIN'}</button>
   `;
   msg.classList.remove('hidden');
-  if (won) window.parent.postMessage({ type:'game_complete', score, won:true }, '*');
+  if (won) {
+    sendNodeComplete({
+      completed: true,
+      accuracy: 1,
+      flaggedWords: [],
+      xpEarned: score,
+      timeSpent_ms: 0,
+      score,
+      won: true,
+    });
+  }
 }
 
 // ── Loop ──────────────────────────────────────

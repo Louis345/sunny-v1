@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="_contract.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chimpanzees Quest</title>
@@ -898,13 +899,13 @@
             updateSpeechBubble("🎉 Amazing work, Ila! You've completed your Chimpanzees quest!");
             
             // Send completion message to parent
-            window.parent.postMessage({
-                type: 'node_complete',
+            sendNodeComplete({
                 accuracy: accuracy,
                 completed: true,
                 timeSpent_ms: timeSpent,
-                childId: 'ila'
-            }, '*');
+                flaggedWords: [],
+                xpEarned: totalXP
+            });
         }
 
         // Add confetti animation

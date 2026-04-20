@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Spell Check</title>
@@ -47,7 +48,11 @@ const sf=document.getElementById('sf');
 for(let i=0;i<55;i++){const s=document.createElement('div');s.className='s';const sz=Math.random()*3+1.5;s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;--d:${1.5+Math.random()*2.5}s;--dl:${Math.random()*3}s;opacity:${0.2+Math.random()*0.6}`;sf.appendChild(s)}
 for(let i=0;i<3;i++){const sh=document.createElement('div');sh.className='shooting';sh.style.cssText=`left:${Math.random()*60}%;top:${Math.random()*40}%;animation-delay:${i*1.2+Math.random()}s`;sf.appendChild(sh)}
 
-let secretWord='';
+const previewWords=(window.GAME_PARAMS&&window.GAME_PARAMS.words)||[];
+const _childId=(window.GAME_PARAMS&&window.GAME_PARAMS.childId)||'unknown';
+const _difficulty=(window.GAME_PARAMS&&window.GAME_PARAMS.difficulty)||2;
+const _nodeId=(window.GAME_PARAMS&&window.GAME_PARAMS.nodeId)||'unknown';
+let secretWord=previewWords[0]?String(previewWords[0]).toLowerCase().trim():'';
 let current='';
 let playerName='Student';
 
@@ -56,7 +61,7 @@ function postToParent(data){window.parent.postMessage(data,'*')}
 window.addEventListener('message',e=>{
   const msg=e.data;
   if(!msg||msg.type!=='start')return;
-  secretWord=String(msg.word||'').toLowerCase().trim();
+  secretWord=String(msg.word||previewWords[0]||'').toLowerCase().trim();
   playerName=msg.playerName||'Student';
   current='';
   document.getElementById('player-line').textContent=playerName;
@@ -105,7 +110,14 @@ function submit(){
   const wrap=document.getElementById('mainwrap');
   if(guess===secretWord){
     row.querySelectorAll('.tile').forEach(t=>t.classList.add('flash-ok'));
-    setTimeout(()=>postToParent({type:'correct',word:secretWord}),420);
+    setTimeout(()=>sendNodeComplete({
+      completed:true,
+      accuracy:1,
+      flaggedWords:[],
+      xpEarned:10,
+      timeSpent_ms:0,
+      word:secretWord
+    }),420);
   }else{
     wrap.classList.add('shake');
     setTimeout(()=>{

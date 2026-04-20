@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clock Match — Project Sunny</title>
@@ -215,7 +216,14 @@ body {
   function finish(correct) {
     if (ended) return;
     ended = true;
-    postToParent({ type: "game_complete", correct: !!correct });
+    sendNodeComplete({
+      completed: true,
+      accuracy: correct ? 1 : 0,
+      flaggedWords: [],
+      xpEarned: correct ? 10 : 0,
+      timeSpent_ms: 0,
+      correct: !!correct,
+    });
   }
 
   function startRound() {

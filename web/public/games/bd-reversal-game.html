@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>B / D Reversal — Project Sunny</title>
@@ -237,6 +238,9 @@
   let childName = 'friend';
   let companionName = 'Sunny';
   let probeWords = ['bed', 'dog', 'big', 'duck', 'bird', 'dab', 'bad', 'dig'];
+  if (window.GAME_PARAMS && Array.isArray(window.GAME_PARAMS.words) && window.GAME_PARAMS.words.length) {
+    probeWords = window.GAME_PARAMS.words.map(function (w) { return String(w); });
+  }
   let bdWords = [];
 
   let round = 1;
@@ -503,10 +507,13 @@
     playVictory();
     setElli('You finished! Accuracy <strong>' + Math.round(accuracy * 100) + '%</strong>' +
       (masteredBD ? ' — you are rocking B and D! 🌟' : ' — keep practicing; you are getting there! 💪'));
-    postToParent({
-      type: 'game_complete',
-      score: score,
+    sendNodeComplete({
+      completed: true,
       accuracy: accuracy,
+      flaggedWords: mistakes.slice(),
+      xpEarned: score,
+      timeSpent_ms: 0,
+      score: score,
       mistakes: mistakes,
       masteredBD: masteredBD,
     });

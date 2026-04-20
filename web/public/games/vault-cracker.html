@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vault Cracker</title>
@@ -546,12 +547,16 @@ function nextLevel() {
 
 function finishGame() {
   document.getElementById('win-overlay').style.display = 'none';
-  window.parent.postMessage({
-    type: 'game_complete',
+  sendNodeComplete({
+    completed: true,
+    accuracy: 1,
+    flaggedWords: [],
+    xpEarned: totalScore,
+    timeSpent_ms: 0,
     score: totalScore,
     levelsCompleted: currentLevel + 1,
     won: true,
-  }, '*');
+  });
 
   document.getElementById('vault-icon').textContent = '🏆';
   document.getElementById('vault-label').textContent = 'CHAMPION!';

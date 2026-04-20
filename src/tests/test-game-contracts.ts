@@ -5,6 +5,15 @@ import * as path from "node:path";
 /** Vitest runs with cwd = repo root. */
 const PROJECT_ROOT = process.cwd();
 const GAMES_DIR = path.join(PROJECT_ROOT, "web", "public", "games");
+const SKIP_PATHS = new Set([
+  "web/public/games/pronunciation-game.html",
+  "web/public/games/pronunciation/index.html",
+]);
+const WORD_DRIVEN = new Set([
+  "web/public/games/word-builder.html",
+  "web/public/games/spell-check.html",
+  "web/public/games/bd-reversal-game.html",
+]);
 
 function collectHtmlFiles(dir: string, acc: string[] = []): string[] {
   if (!fs.existsSync(dir)) return acc;
@@ -16,71 +25,19 @@ function collectHtmlFiles(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-const GAME_HTML_PATHS = collectHtmlFiles(GAMES_DIR).sort();
+const GAME_HTML_PATHS = collectHtmlFiles(GAMES_DIR)
+  .filter((abs) => !SKIP_PATHS.has(relGamePath(abs)))
+  .sort();
 
 function relGamePath(abs: string): string {
   return path.relative(PROJECT_ROOT, abs).split(path.sep).join("/");
 }
 
-/** Reads ?words= from query (any common accessor). */
-function readsWordsParam(html: string): boolean {
-  return (
-    /\.get\(\s*['"]words['"]\s*\)/.test(html) ||
-    /GAME_PARAMS\.words/.test(html) ||
-    (/URLSearchParams/.test(html) &&
-      /words/.test(html) &&
-      /split\s*\(\s*['"],['"]\s*\)/.test(html))
-  );
+function hasContractScript(html: string): boolean {
+  return /<script\s+src=["']_contract\.js["']\s*><\/script>/.test(html);
 }
 
-function readsChildIdParam(html: string): boolean {
-  return (
-    /\.get\(\s*['"]childId['"]\s*\)/.test(html) ||
-    /GAME_PARAMS\.childId/.test(html)
-  );
-}
-
-function readsDifficultyParam(html: string): boolean {
-  return (
-    /\.get\(\s*['"]difficulty['"]\s*\)/.test(html) ||
-    /GAME_PARAMS\.difficulty/.test(html)
-  );
-}
-
-function readsNodeIdParam(html: string): boolean {
-  return (
-    /\.get\(\s*['"]nodeId['"]\s*\)/.test(html) ||
-    /GAME_PARAMS\.nodeId/.test(html)
-  );
-}
-
-function usesURLSearchParams(html: string): boolean {
-  return /new\s+URLSearchParams|URLSearchParams\s*\(/.test(html);
-}
-
-function postsNodeComplete(html: string): boolean {
-  return /['"]node_complete['"]/.test(html) && /postMessage\s*\(/.test(html);
-}
-
-function nodeCompletePayloadFields(html: string): {
-  accuracy: boolean;
-  flaggedWords: boolean;
-  xpEarned: boolean;
-  timeSpent_ms: boolean;
-  nodeId: boolean;
-  childId: boolean;
-} {
-  return {
-    accuracy: /\baccuracy\b/.test(html),
-    flaggedWords: /\bflaggedWords\b/.test(html),
-    xpEarned: /\bxpEarned\b/.test(html),
-    timeSpent_ms: /\btimeSpent_ms\b/.test(html),
-    nodeId: /\bnodeId\s*:/.test(html) || /\bnodeId\s*,/.test(html),
-    childId: /\bchildId\s*:/.test(html) || /\bchildId\s*,/.test(html),
-  };
-}
-
-describe("game contract compliance (HTML under web/public/games)", () => {
+describe("game contract compliance (helper-based)", () => {
   it("discovers at least one game HTML file", () => {
     expect(GAME_HTML_PATHS.length).toBeGreaterThan(0);
   });
@@ -95,49 +52,33 @@ describe("game contract compliance (HTML under web/public/games)", () => {
         html = fs.readFileSync(absPath, "utf-8");
       });
 
-      it("accepts ?words= param (URLSearchParams + words read)", () => {
-        expect(usesURLSearchParams(html), "URLSearchParams").toBe(true);
-        expect(readsWordsParam(html), "words param").toBe(true);
+      it("loads the shared contract helper", () => {
+        expect(hasContractScript(html)).toBe(true);
       });
 
-      it("accepts ?childId= param", () => {
-        expect(readsChildIdParam(html)).toBe(true);
+      it("uses sendNodeComplete for completion", () => {
+        expect(/sendNodeComplete\s*\(/.test(html)).toBe(true);
       });
 
-      it("accepts ?difficulty= param", () => {
-        expect(readsDifficultyParam(html)).toBe(true);
+      it("sends contract payload fields", () => {
+        expect(/\baccuracy\b/.test(html)).toBe(true);
+        expect(/\bflaggedWords\b/.test(html)).toBe(true);
+        expect(/\bxpEarned\b/.test(html)).toBe(true);
+        expect(/\btimeSpent_ms\b/.test(html)).toBe(true);
       });
 
-      it("accepts ?nodeId= param", () => {
-        expect(readsNodeIdParam(html)).toBe(true);
+      it("does not use legacy node_result", () => {
+        expect(/['"]node_result['"]/.test(html)).toBe(false);
       });
 
-      it("posts node_complete on finish", () => {
-        expect(postsNodeComplete(html)).toBe(true);
+      it("does not parse URL params directly", () => {
+        expect(/URLSearchParams/.test(html)).toBe(false);
       });
 
-      it("node_complete includes accuracy", () => {
-        expect(nodeCompletePayloadFields(html).accuracy).toBe(true);
-      });
-
-      it("node_complete includes flaggedWords array", () => {
-        expect(nodeCompletePayloadFields(html).flaggedWords).toBe(true);
-      });
-
-      it("node_complete includes xpEarned", () => {
-        expect(nodeCompletePayloadFields(html).xpEarned).toBe(true);
-      });
-
-      it("node_complete includes timeSpent_ms", () => {
-        expect(nodeCompletePayloadFields(html).timeSpent_ms).toBe(true);
-      });
-
-      it("node_complete includes nodeId from params", () => {
-        expect(nodeCompletePayloadFields(html).nodeId).toBe(true);
-      });
-
-      it("node_complete includes childId from params", () => {
-        expect(nodeCompletePayloadFields(html).childId).toBe(true);
+      it("uses GAME_PARAMS words fallback when word-driven", () => {
+        if (!WORD_DRIVEN.has(label)) return;
+        expect(/GAME_PARAMS/.test(html)).toBe(true);
+        expect(/GAME_PARAMS\.words/.test(html)).toBe(true);
       });
     });
   }

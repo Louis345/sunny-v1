@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sunny's Corner Store — Project Sunny</title>
@@ -835,10 +836,16 @@ function finishGame() {
   };
   ov.classList.add("show");
 
-  window.parent?.postMessage(
-    { type: "game_complete", score: G.score, correct: G.correct, attempts: LEVELS.length, accuracy: pct },
-    "*",
-  );
+  sendNodeComplete({
+    completed: true,
+    accuracy: pct / 100,
+    flaggedWords: [],
+    xpEarned: G.score,
+    timeSpent_ms: 0,
+    score: G.score,
+    correct: G.correct,
+    attempts: LEVELS.length,
+  });
 }
 
 // ─── Confetti ────────────────────────────────────────────────

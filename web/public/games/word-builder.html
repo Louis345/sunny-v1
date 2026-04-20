@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="_contract.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Word Builder</title>
@@ -40,26 +41,22 @@
   </div>
   <script>
     (function () {
-      var params = new URLSearchParams(window.location.search);
-      var nodeId = params.get("nodeId") || "node_unknown";
-      var rawWords = params.get("words") || "practice";
-      var words = rawWords.split(",").map(function (w) { return w.trim(); }).filter(Boolean);
+      var words = (window.GAME_PARAMS && window.GAME_PARAMS.words ? window.GAME_PARAMS.words : []).slice();
+      var _childId = (window.GAME_PARAMS && window.GAME_PARAMS.childId) || "unknown";
+      var _difficulty = (window.GAME_PARAMS && window.GAME_PARAMS.difficulty) || 2;
+      var _nodeId = (window.GAME_PARAMS && window.GAME_PARAMS.nodeId) || "node_unknown";
       if (words.length === 0) words = ["practice"];
       document.getElementById("word-line").textContent = "Words: " + words.join(", ");
 
       function sendResult(completed, accuracy) {
-        if (!window.parent) return;
-        window.parent.postMessage(
-          {
-            type: "node_result",
-            nodeId: nodeId,
-            completed: completed,
-            accuracy: accuracy,
-            timeSpent_ms: 1200,
-            wordsAttempted: words.length,
-          },
-          "*",
-        );
+        sendNodeComplete({
+          completed: completed,
+          accuracy: accuracy,
+          flaggedWords: [],
+          xpEarned: Math.round(accuracy * 10),
+          timeSpent_ms: 1200,
+          wordsAttempted: words.length,
+        });
       }
 
       document.getElementById("done-ok").addEventListener("click", function () {

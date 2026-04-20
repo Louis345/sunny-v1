@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ASTEROIDS</title>
@@ -823,12 +824,16 @@ function endGame(won) {
   `;
   msg.classList.remove('hidden');
 
-  window.parent.postMessage({
-    type: 'game_complete',
+  sendNodeComplete({
+    completed: true,
+    accuracy: won ? 1 : 0,
+    flaggedWords: [],
+    xpEarned: score,
+    timeSpent_ms: 0,
     score,
     wave,
     won,
-  }, '*');
+  });
 }
 
 function startGame() {

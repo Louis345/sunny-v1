@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coin Rain — Project Sunny</title>
@@ -515,12 +516,15 @@ function endGame(){
       'Score: '+score+' points • Rounds correct: '+correctRounds+'/4'+
     '</div>'+
     '<button type="button" class="overlay-btn" onclick="restartGame()">Play Again! →</button>';
-  postToParent({
-    type: 'game_complete',
+  sendNodeComplete({
+    completed: true,
+    accuracy: accuracy,
+    flaggedWords: [],
+    xpEarned: score,
+    timeSpent_ms: 0,
     score: score,
     correct: correctRounds,
     attempts: attempts,
-    accuracy: accuracy,
   });
   setMatilda('WOW! You scored '+score+' points! You\'re a money master! 💰');
 }

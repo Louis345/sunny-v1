@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="_contract.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Space Invaders — Project Sunny</title>
@@ -231,7 +232,15 @@
     } else {
       gameState = 'gameover';
     }
-    postToParent({ type: 'game_complete', score: score, level: level });
+    sendNodeComplete({
+      completed: true,
+      accuracy: reason === 'victory' ? 1 : 0,
+      flaggedWords: [],
+      xpEarned: score,
+      timeSpent_ms: 0,
+      score: score,
+      level: level,
+    });
   }
 
   window.addEventListener('message', function (e) {
