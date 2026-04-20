@@ -24,6 +24,7 @@ export default defineConfig({
       "src/tests/test-canvas-voice-sync.ts",
       "src/tests/test-session-subject-diag.ts",
       "src/tests/test-plan-session-sm2.ts",
+      "src/tests/test-game-contracts.ts",
       "src/tests/test-generate-story-image.ts",
       "src/tests/test-karaoke-reading-suppression.ts",
       "src/tests/test-karaoke-matchWord.ts",
