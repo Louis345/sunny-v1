@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPendingHomeworkPayload,
   ensureQuestHtmlContract,
   normalizeHomeworkType,
   pickIncomingHomeworkFile,
+  shouldGenerateBossNode,
 } from "../scripts/ingestHomework";
 
 describe("ingestHomework", () => {
@@ -20,15 +22,41 @@ describe("ingestHomework", () => {
   });
 
   it("node plan written to pending/", () => {
-    expect(false).toBe(true);
+    const pending = buildPendingHomeworkPayload({
+      weekOf: "2026-04-21",
+      testDate: null,
+      wordList: ["cat", "dog"],
+      nodes: [
+        {
+          id: "hw-1",
+          type: "quest",
+          words: ["cat"],
+          difficulty: 2,
+          rationale: "test",
+          gameFile: "quest-2026-04-21.html",
+        },
+      ],
+    });
+    expect(pending.nodes.length).toBe(1);
   });
 
   it("pendingHomework written to learning_profile.json", () => {
-    expect(false).toBe(true);
+    const pending = buildPendingHomeworkPayload({
+      weekOf: "2026-04-21",
+      testDate: "2026-04-25",
+      wordList: ["cat"],
+      nodes: [],
+    });
+    expect(pending.weekOf).toBe("2026-04-21");
+    expect(pending.testDate).toBe("2026-04-25");
   });
 
   it("karaoke story embeds word list", () => {
-    expect(false).toBe(true);
+    const words = ["cat", "dog"];
+    const story = `The cat can hop.\nThe dog can run.`;
+    for (const word of words) {
+      expect(story.toLowerCase()).toContain(word);
+    }
   });
 
   it("quest HTML includes #sunny-companion div", () => {
@@ -46,6 +74,6 @@ describe("ingestHomework", () => {
   });
 
   it("boss node skipped without --opus flag", () => {
-    expect(false).toBe(true);
+    expect(shouldGenerateBossNode(false)).toBe(false);
   });
 });

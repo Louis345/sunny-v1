@@ -3,10 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 
-const PDF_PATH = '/Users/jamaltaylor/Downloads/4_16 reading.pdf';
-
-const HAIKU_MODEL = "claude-haiku-4-5-20251001";
-const SONNET_MODEL = "claude-sonnet-4-20250514";
+export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+export const SONNET_MODEL = "claude-sonnet-4-20250514";
 
 const REFERENCE_HTML_PATH = path.join(
   process.cwd(),
@@ -14,15 +12,6 @@ const REFERENCE_HTML_PATH = path.join(
   "public",
   "games",
   "chimp-quest.html",
-);
-
-const READING_TEXT_OUT = path.join(
-  process.cwd(),
-  "src",
-  "context",
-  "ila",
-  "homework",
-  "chimp-reading-text.txt",
 );
 
 const TEXT_FROM_PDF_PROMPT = `Extract ALL readable text from this document 
@@ -57,14 +46,14 @@ No markdown. No explanation. Just JSON:
   }]
 }`;
 
-function textFromMessage(resp: Anthropic.Message): string {
+export function textFromMessage(resp: Anthropic.Message): string {
   return resp.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
     .map((b) => b.text)
     .join("\n");
 }
 
-function stripJsonFences(raw: string): string {
+export function stripJsonFences(raw: string): string {
   let t = raw.trim();
   if (t.startsWith("```")) {
     t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
@@ -72,7 +61,7 @@ function stripJsonFences(raw: string): string {
   return t;
 }
 
-function parseExtractedJson(raw: string): unknown {
+export function parseExtractedJson(raw: string): unknown {
   const stripped = stripJsonFences(raw);
   try {
     return JSON.parse(stripped);
@@ -86,7 +75,7 @@ function parseExtractedJson(raw: string): unknown {
   }
 }
 
-function stripHtmlFences(raw: string): string {
+export function stripHtmlFences(raw: string): string {
   let t = raw.trim();
   if (t.startsWith("```")) {
     t = t.replace(/^```(?:html)?\s*/i, "").replace(/\s*```$/i, "").trim();
@@ -101,6 +90,86 @@ function loadOptionalReferenceHtml(): string {
   const raw = fs.readFileSync(REFERENCE_HTML_PATH, "utf8");
   if (raw.length <= REFERENCE_HTML_MAX_CHARS) return raw;
   return `${raw.slice(0, REFERENCE_HTML_MAX_CHARS)}\n<!-- truncated for prompt size -->\n`;
+}
+
+type CliArgs = {
+  childId: string;
+  pdfOverridePath?: string;
+  opus: boolean;
+  preview: boolean;
+};
+
+type InputSource =
+  | { kind: "pdf"; filePath: string }
+  | { kind: "txt"; filePath: string };
+
+function parseCliArgs(argv: string[]): CliArgs {
+  let childId: string | undefined;
+  let pdfOverridePath: string | undefined;
+  let opus = false;
+  let preview = false;
+
+  for (const arg of argv) {
+    if (arg.startsWith("--child=")) {
+      childId = arg.slice("--child=".length).trim();
+      continue;
+    }
+    if (arg.startsWith("--pdf=")) {
+      const raw = arg.slice("--pdf=".length).trim();
+      if (raw) pdfOverridePath = path.resolve(process.cwd(), raw);
+      continue;
+    }
+    if (arg === "--opus") {
+      opus = true;
+      continue;
+    }
+    if (arg === "--preview") {
+      preview = true;
+    }
+  }
+
+  if (!childId) {
+    throw new Error("Missing required argument --child=<childId>");
+  }
+
+  return { childId, pdfOverridePath, opus, preview };
+}
+
+function firstMatchingFile(dirPath: string, ext: ".pdf" | ".txt"): string | undefined {
+  if (!fs.existsSync(dirPath)) return undefined;
+  const entries = fs.readdirSync(dirPath);
+  const match = entries.find((entry) => entry.toLowerCase().endsWith(ext));
+  return match ? path.join(dirPath, match) : undefined;
+}
+
+function resolveInputSource(args: CliArgs): InputSource {
+  if (args.pdfOverridePath) {
+    if (!fs.existsSync(args.pdfOverridePath)) {
+      throw new Error(`--pdf path not found: ${args.pdfOverridePath}`);
+    }
+    const ext = path.extname(args.pdfOverridePath).toLowerCase();
+    if (ext === ".pdf") return { kind: "pdf", filePath: args.pdfOverridePath };
+    if (ext === ".txt") return { kind: "txt", filePath: args.pdfOverridePath };
+    throw new Error(`--pdf must point to a .pdf or .txt file: ${args.pdfOverridePath}`);
+  }
+
+  const incomingDir = path.join(
+    process.cwd(),
+    "src",
+    "context",
+    args.childId,
+    "homework",
+    "incoming",
+  );
+  const firstPdf = firstMatchingFile(incomingDir, ".pdf");
+  if (firstPdf) return { kind: "pdf", filePath: firstPdf };
+
+  const firstTxt = firstMatchingFile(incomingDir, ".txt");
+  if (firstTxt) return { kind: "txt", filePath: firstTxt };
+
+  throw new Error(
+    `No input found for child "${args.childId}". Expected a .pdf or .txt in ${incomingDir}`,
+  );
 }
 
 function buildSonnetPrompt(extractedJson: string, referenceHtml: string): string {
@@ -155,8 +224,23 @@ postMessage on complete:
     accuracy: (total XP earned) / (n * 10),
     completed: true,
     timeSpent_ms: Date.now() - startTime,
-    childId: 'ila'
+    childId: GAME_PARAMS.childId
   }, '*');
+
+COMPANION EVENTS — fire these via postMessage:
+After _contract.js loads, call fireCompanionEvent() at:
+- correct answer: fireCompanionEvent('correct_answer', 
+    { word: currentWord, xp: 10 })
+- wrong answer: fireCompanionEvent('wrong_answer', 
+    { question: problem.question })
+- streak of 3: fireCompanionEvent('streak_3', 
+    { streak: 3 })
+- game complete: fireCompanionEvent('game_complete', 
+    { accuracy, xpEarned: totalXP })
+- 10 seconds idle: fireCompanionEvent('idle_10s', {})
+
+fireCompanionEvent is already defined in _contract.js
+which is loaded at top of <head>
 
 Homework data:
 ${extractedJson}
@@ -164,30 +248,115 @@ ${extractedJson}
 Return raw HTML only. No markdown.`;
 }
 
-async function main(): Promise<void> {
-  const client = new Anthropic();
+function buildOpusPrompt(
+  extractedJson: string,
+  sonnetGame: string,
+  childId: string,
+): string {
+  return `You are creating the FINAL BOSS NODE for a 
+    child's homework session in Project Sunny.
+    
+    Child profile:
+      - childId: ${childId}
+      - Age 8, Grade 2, dyslexia + ADHD
+      - Wilson Step 4, reading level 3
+      - Lexend font required, 42px minimum
+      - Cream background #FFF8F0
+    
+    The child has already played through these nodes:
+    - Pronunciation game
+    - Karaoke reading
+    - Word builder
+    - Quest game (see below)
+    
+    Previous quest game for reference:
+    ${sonnetGame.slice(0, 8000)}
+    
+    Homework content:
+    ${extractedJson}
+    
+    Create a BOSS NODE that:
+    1. Is harder than the quest game
+    2. Tests mastery not just recognition
+    3. Has a dramatic boss battle feel
+    4. Uses same visual style as quest game
+    5. Includes companion events via fireCompanionEvent()
+    6. Accepts URL params via GAME_PARAMS from _contract.js
+    7. Posts node_complete on finish
+    8. No hardcoded child names — use GAME_PARAMS.childId
+    9. Lexend font, cream bg, large text for dyslexia
+    10. 5-7 minutes to complete
+    
+    Return raw HTML only. No markdown.`;
+}
 
-  const pdfBytes = fs.readFileSync(PDF_PATH);
-  const pdfBase64 = pdfBytes.toString("base64");
+export async function generateQuestGameHtml(args: {
+  client: Anthropic;
+  extractedJsonPretty: string;
+  maxTokens?: number;
+}): Promise<string> {
+  const referenceHtml = loadOptionalReferenceHtml();
+  const genPrompt = buildSonnetPrompt(args.extractedJsonPretty, referenceHtml);
+  const genResp = await args.client.messages.create({
+    model: SONNET_MODEL,
+    max_tokens: args.maxTokens ?? 16384,
+    messages: [{ role: "user", content: genPrompt }],
+  });
+  return stripHtmlFences(textFromMessage(genResp));
+}
+
+async function main(): Promise<void> {
+  const args = parseCliArgs(process.argv.slice(2));
+  const childId = args.childId;
+  const inputSource = resolveInputSource(args);
+  const OUT_DIR = path.join(
+    process.cwd(),
+    "src",
+    "context",
+    childId,
+    "homework",
+    "games",
+  );
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  const date = new Date().toISOString().slice(0, 10);
+  const GAME_OUT = path.join(OUT_DIR, `${date}-quest.html`);
+  const TEXT_OUT = path.join(OUT_DIR, `${date}-reading.txt`);
+
+  const client = new Anthropic();
+  console.log("📄 Step 1/4: Reading PDF...");
+
+  let pdfBase64 = "";
+  let textInput = "";
+  if (inputSource.kind === "pdf") {
+    const pdfBytes = fs.readFileSync(inputSource.filePath);
+    pdfBase64 = pdfBytes.toString("base64");
+  } else {
+    textInput = fs.readFileSync(inputSource.filePath, "utf8");
+  }
 
   const extractResp = await client.messages.create({
     model: HAIKU_MODEL,
     max_tokens: 8192,
     messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: "application/pdf",
-              data: pdfBase64,
-            },
+      inputSource.kind === "pdf"
+        ? {
+            role: "user",
+            content: [
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              { type: "text", text: EXTRACTION_PROMPT },
+            ],
+          }
+        : {
+            role: "user",
+            content: `${EXTRACTION_PROMPT}\n\nHomework text:\n${textInput}`,
           },
-          { type: "text", text: EXTRACTION_PROMPT },
-        ],
-      },
     ],
   });
 
@@ -199,20 +368,25 @@ async function main(): Promise<void> {
     model: HAIKU_MODEL,
     max_tokens: 4000,
     messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: "application/pdf",
-              data: pdfBase64,
-            },
+      inputSource.kind === "pdf"
+        ? {
+            role: "user",
+            content: [
+              {
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/pdf",
+                  data: pdfBase64,
+                },
+              },
+              { type: "text", text: TEXT_FROM_PDF_PROMPT },
+            ],
+          }
+        : {
+            role: "user",
+            content: `${TEXT_FROM_PDF_PROMPT}\n\nHomework text:\n${textInput}`,
           },
-          { type: "text", text: TEXT_FROM_PDF_PROMPT },
-        ],
-      },
     ],
   });
 
@@ -226,33 +400,65 @@ async function main(): Promise<void> {
     typeof textExtracted.fullText === "string" ? textExtracted.fullText : "";
   const pages = Array.isArray(textExtracted.pages) ? textExtracted.pages : [];
 
-  fs.mkdirSync(path.dirname(READING_TEXT_OUT), { recursive: true });
-  fs.writeFileSync(READING_TEXT_OUT, fullText, "utf8");
+  fs.writeFileSync(TEXT_OUT, fullText, "utf8");
+  console.log("✅ Step 1/4: PDF extracted");
 
   console.log(`📖 Book text extracted: ${fullText.length} characters`);
   console.log(`📄 Pages: ${pages.length}`);
   console.log(`First 200 chars: ${fullText.slice(0, 200)}`);
 
-  const referenceHtml = loadOptionalReferenceHtml();
-  const genPrompt = buildSonnetPrompt(extractedJsonPretty, referenceHtml);
-
-  const genResp = await client.messages.create({
-    model: SONNET_MODEL,
-    max_tokens: 16384,
-    messages: [{ role: "user", content: genPrompt }],
+  console.log("🎮 Step 2/4: Building game...");
+  const html = await generateQuestGameHtml({
+    client,
+    extractedJsonPretty,
   });
+  console.log("✅ Step 2/4: Quest game ready");
 
-  const html = stripHtmlFences(textFromMessage(genResp));
+  fs.writeFileSync(GAME_OUT, html);
 
-  fs.writeFileSync("web/public/games/chimp-quest-generated.html", html);
+  if (args.opus) {
+    console.log("🏆 Step 3/4: Generating boss node...");
+    const bossResp = await client.messages.create({
+      model: "claude-opus-4-6",
+      max_tokens: 16384,
+      messages: [
+        {
+          role: "user",
+          content: buildOpusPrompt(extractedJsonPretty, html, childId),
+        },
+      ],
+    });
 
-  console.log("✅ Game generated: web/public/games/chimp-quest-generated.html");
-  console.log(`✅ Reading text: ${READING_TEXT_OUT}`);
+    const bossHtml = stripHtmlFences(textFromMessage(bossResp));
+    const BOSS_OUT = path.join(OUT_DIR, `${date}-boss.html`);
+    fs.writeFileSync(BOSS_OUT, bossHtml);
+    console.log(`✅ Boss node: ${BOSS_OUT}`);
+    console.log("✅ Step 3/4: Boss node ready");
+  }
+
+  console.log("💾 Step 4/4: Saving files...");
+  console.log(`✅ Game generated: ${GAME_OUT}`);
+  console.log(`✅ Reading text: ${TEXT_OUT}`);
   console.log("📊 Extraction:", JSON.stringify(extracted, null, 2));
+  if (args.preview) {
+    const previewUrl =
+      `http://localhost:3001/games/${path.basename(GAME_OUT)}` +
+      `?childId=${childId}&preview=true&companion=elli`;
+    const { exec } = await import("child_process");
+    exec(`open -a "Google Chrome" "${previewUrl}"`);
+    console.log(`🔍 Preview: ${previewUrl}`);
+  }
+  console.log("✅ Done!");
   console.log("📁 Open in browser to review");
+  console.log("\nUsage:");
+  console.log("  npm run sunny:homework -- --child=ila");
+  console.log("  npm run sunny:homework -- --child=ila --opus");
+  console.log("  npm run sunny:homework -- --child=ila --preview");
 }
 
-main().catch((err) => {
-  console.error("🎮 [generateGame] failed", err);
-  process.exit(1);
-});
+if (typeof require !== "undefined" && require.main === module) {
+  main().catch((err) => {
+    console.error("🎮 [generateGame] failed", err);
+    process.exit(1);
+  });
+}

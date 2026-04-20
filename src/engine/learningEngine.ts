@@ -57,6 +57,16 @@ export interface SessionPlan {
   sessionRecommendation?: "reading" | "math" | "clocks" | "free";
 }
 
+type HomeworkNodeLike = {
+  id: string;
+  type: string;
+  words?: string[];
+  difficulty?: number;
+  gameFile?: string | null;
+  storyFile?: string | null;
+  date?: string;
+};
+
 function formatDueForLog(isoDate: string): string {
   const parts = isoDate.split("-");
   if (parts.length !== 3) return isoDate;
@@ -120,6 +130,50 @@ export function planSession(
 
   const wordBank = readWordBank(childId);
   const homeworkFallback = options?.homeworkFallbackWords ?? [];
+  const currentWilsonStep = profile.sessionStats.currentWilsonStep || 1;
+
+  if (mode === "homework" && profile.pendingHomework?.nodes?.length) {
+    const pending = profile.pendingHomework;
+    const baseNodes = reorderHomeworkNodesForSession(pending.nodes as HomeworkNodeLike[]);
+    const dueWords = getDueHomeworkWords(
+      wordBank.words,
+      pending.wordList,
+      new Date().toISOString().slice(0, 10),
+    );
+    const strugglingWords = dueWords.filter(
+      (w) => estimateWordConfidence(wordBank.words, w) < 0.4,
+    );
+    const nodesAfterStruggling = promotePronunciationNode(baseNodes, strugglingWords);
+    const maxNodes = Math.max(2, Math.floor(profile.demographics.age > 0 ? (profile.demographics.attentionSpan === "short" ? 2 : 4) : 3) + 2);
+    const cappedNodes = nodesAfterStruggling.slice(0, Math.min(maxNodes, nodesAfterStruggling.length));
+    const difficulty = getHomeworkDifficulty(profile);
+    const companion = profile.companion?.toggledOff ? "off" : "elli";
+
+    const activities: PlannedActivity[] = cappedNodes.map((node, idx) => ({
+      type: "game",
+      words: dueWords,
+      domain: "spelling",
+      priority: idx + 1,
+      timeboxMinutes: 5,
+      source: `homework:${node.type}`,
+    }));
+
+    return {
+      childId,
+      mode,
+      activities,
+      newWords: [],
+      reviewWords: dueWords,
+      focusWords: dueWords,
+      totalWordCount: dueWords.length,
+      estimatedMinutes: activities.reduce((sum, a) => sum + a.timeboxMinutes, 0),
+      bondContext: getBondContextInjection(profile.bondPatterns),
+      difficultyParams: profile.algorithmParams.difficulty,
+      moodAdjustment: profile.moodAdjustment,
+      wilsonStep: currentWilsonStep,
+      sessionRecommendation: undefined,
+    };
+  }
 
   if (
     mode === "spelling" &&
@@ -133,8 +187,6 @@ export function planSession(
     childId === "ila" ? "Ila" : childId === "reina" ? "Reina" : "creator";
   const todaysPlanResult = readPersistedTodaysPlan(childName);
   const todaysPlan: TodaysPlanActivity[] = todaysPlanResult?.todaysPlan ?? [];
-
-  const currentWilsonStep = profile.sessionStats.currentWilsonStep || 1;
 
   const curriculumWords =
     mode === "spelling" ? readNextSessionWordsFromCurriculumFile(childId) : [];
@@ -384,3 +436,95 @@ export function getSessionRewardState(childId: string): SessionRewardState | nul
 }
 
 export { childIdFromName };
+
+function getHomeworkDifficulty(profile: LearningProfile): 1 | 2 | 3 {
+  const target = profile.algorithmParams.difficulty.targetAccuracy ?? 0.7;
+  if (target >= 0.8) return 3;
+  if (target >= 0.65) return 2;
+  return 1;
+}
+
+function getDueHomeworkWords(
+  bank: WordEntry[],
+  words: string[],
+  todayIsoDate: string,
+): string[] {
+  const out: string[] = [];
+  for (const raw of words) {
+    const word = raw.toLowerCase();
+    const entry = bank.find((w) => w.word.toLowerCase() === word);
+    const due = entry?.tracks?.spelling?.nextReviewDate;
+    if (!due || due <= todayIsoDate) {
+      out.push(raw);
+    }
+  }
+  return out.length > 0 ? out : words;
+}
+
+function estimateWordConfidence(bank: WordEntry[], wordRaw: string): number {
+  const word = wordRaw.toLowerCase();
+  const entry = bank.find((w) => w.word.toLowerCase() === word);
+  const ease = entry?.tracks?.spelling?.easinessFactor ?? 2.5;
+  const normalized = (ease - 1.3) / (2.5 - 1.3);
+  return Math.max(0, Math.min(1, normalized));
+}
+
+function modalityForNode(nodeType: string): string {
+  if (nodeType === "pronunciation" || nodeType === "word-builder") return "phonics";
+  if (nodeType === "karaoke") return "reading";
+  if (nodeType === "quest" || nodeType === "boss") return "quest";
+  return nodeType;
+}
+
+export function reorderHomeworkNodesForSession(nodes: HomeworkNodeLike[]): HomeworkNodeLike[] {
+  const out = [...nodes];
+  const bossIdx = out.findIndex((n) => n.type === "boss");
+  if (bossIdx > -1 && bossIdx !== out.length - 1) {
+    const [boss] = out.splice(bossIdx, 1);
+    out.push(boss!);
+  }
+  for (let i = 1; i < out.length; i++) {
+    if (modalityForNode(out[i - 1]!.type) === modalityForNode(out[i]!.type)) {
+      const swapIdx = out.findIndex(
+        (n, idx) =>
+          idx > i && modalityForNode(n.type) !== modalityForNode(out[i - 1]!.type),
+      );
+      if (swapIdx > -1) {
+        const [swap] = out.splice(swapIdx, 1);
+        out.splice(i, 0, swap!);
+      }
+    }
+  }
+  return out;
+}
+
+function promotePronunciationNode(
+  nodes: HomeworkNodeLike[],
+  strugglingWords: string[],
+): HomeworkNodeLike[] {
+  if (strugglingWords.length === 0) return nodes;
+  const out = [...nodes];
+  const pronIdx = out.findIndex((n) => n.type === "pronunciation");
+  if (pronIdx > 1) {
+    const [pron] = out.splice(pronIdx, 1);
+    out.unshift(pron!);
+  }
+  return out;
+}
+
+export function buildNodeParams(
+  node: HomeworkNodeLike,
+  childId: string,
+  words: string[],
+  companion = "elli",
+): string {
+  const params = new URLSearchParams({
+    words: words.join(","),
+    childId,
+    difficulty: String(node.difficulty ?? 2),
+    nodeId: node.id,
+    companion,
+    sessionId: `sess-${Date.now()}`,
+  });
+  return params.toString();
+}

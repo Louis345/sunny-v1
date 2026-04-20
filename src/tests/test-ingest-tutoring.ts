@@ -1,6 +1,10 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import {
   appendTutoringSessionSection,
+  moveTranscriptToProcessed,
   parseCoveredWords,
   parseStruggledWords,
 } from "../scripts/ingestTutoring";
@@ -28,6 +32,12 @@ describe("ingestTutoring", () => {
   });
 
   it("transcript moved to processed/", () => {
-    expect(false).toBe(true);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tutoring-"));
+    const incoming = path.join(dir, "sample.txt");
+    const processedDir = path.join(dir, "processed");
+    fs.writeFileSync(incoming, "hello", "utf8");
+    const moved = moveTranscriptToProcessed(incoming, processedDir);
+    expect(fs.existsSync(moved)).toBe(true);
+    expect(fs.existsSync(incoming)).toBe(false);
   });
 });

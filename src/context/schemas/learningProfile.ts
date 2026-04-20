@@ -118,6 +118,23 @@ export interface LearningProfile {
     values: number[];
   };
 
+  pendingHomework?: {
+    weekOf: string;
+    testDate: string | null;
+    wordList: string[];
+    generatedAt: string;
+    nodes: Array<{
+      id: string;
+      type: string;
+      words: string[];
+      difficulty: number;
+      gameFile: string | null;
+      storyFile: string | null;
+      approved?: boolean;
+      date?: string;
+    }>;
+  };
+
   /**
    * VRM + reaction dials for the web companion (merged with defaults in `buildProfile`).
    * Change `vrmUrl` to `/companions/your-model.vrm` after dropping a file in `web/public/companions/`.

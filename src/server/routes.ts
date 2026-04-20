@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
+import { spawn } from "child_process";
 import { ELLI, MATILDA } from "../companions/loader";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { buildProfile } from "../profiles/buildProfile";
@@ -22,6 +23,9 @@ import {
 } from "./session-manager";
 import { loadChildFiles } from "../utils/loadChildFiles";
 import { loadAttemptHistory } from "../utils/attempts";
+import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
+import { generateQuestGameHtml } from "../scripts/generateGame";
 
 const companions = {
   Ila: ELLI,
@@ -31,6 +35,7 @@ const companions = {
 type ChildName = keyof typeof companions;
 
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
+const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-20250514";
 
 function isValidChild(name: string): name is ChildName {
   return name === "Ila" || name === "Reina";
@@ -160,6 +165,179 @@ export function setupRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/homework/ingest", async (req: Request, res: Response) => {
+    const childId =
+      typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+    if (!childId) {
+      return res.status(400).json({ ok: false, error: "childId required" });
+    }
+    const pendingPath = path.join(
+      process.cwd(),
+      "src",
+      "context",
+      childId,
+      "homework",
+      "pending",
+      new Date().toISOString().slice(0, 10),
+    );
+    const args = ["tsx", "src/scripts/ingestHomework.ts", `--child=${childId}`];
+    if (req.body?.opus === true) args.push("--opus");
+    const child = spawn("npx", args, {
+      cwd: process.cwd(),
+      stdio: "inherit",
+      env: { ...process.env, SUNNY_NON_INTERACTIVE: "true" },
+    });
+    child.once("error", (err) => {
+      res.status(500).json({ ok: false, error: String(err) });
+    });
+    child.once("close", (code) => {
+      if (code === 0) {
+        res.json({ ok: true, pendingPath });
+      } else {
+        res.status(500).json({ ok: false, error: `ingest exited ${code}` });
+      }
+    });
+  });
+
+  app.get("/api/homework/pending/:childId", (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    if (!childId) {
+      return res.status(400).json({ nodes: [] });
+    }
+    const profile = readLearningProfile(childId);
+    if (!profile?.pendingHomework) {
+      return res.json({ nodes: [] });
+    }
+    res.json(profile.pendingHomework);
+  });
+
+  app.post("/api/homework/approve", (req: Request, res: Response) => {
+    const childId =
+      typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+    const date = typeof req.body?.date === "string" ? req.body.date.trim() : "";
+    const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+    if (!childId || !date || !nodeId) {
+      return res.status(400).json({ ok: false, error: "childId, date, nodeId required" });
+    }
+    const profile = readLearningProfile(childId);
+    if (!profile?.pendingHomework) {
+      return res.status(404).json({ ok: false, error: "no pendingHomework" });
+    }
+    const node = profile.pendingHomework.nodes.find((n) => n.id === nodeId);
+    if (!node) {
+      return res.status(404).json({ ok: false, error: "node not found" });
+    }
+    node.approved = true;
+    const allApproved = profile.pendingHomework.nodes.every((n) => n.approved === true);
+    if (allApproved) {
+      const pendingDir = path.join(
+        process.cwd(),
+        "src",
+        "context",
+        childId,
+        "homework",
+        "pending",
+        date,
+      );
+      const gamesDir = path.join(
+        process.cwd(),
+        "src",
+        "context",
+        childId,
+        "homework",
+        "games",
+        date,
+      );
+      fs.mkdirSync(gamesDir, { recursive: true });
+      if (fs.existsSync(pendingDir)) {
+        for (const file of fs.readdirSync(pendingDir)) {
+          fs.renameSync(path.join(pendingDir, file), path.join(gamesDir, file));
+        }
+      }
+    }
+    writeLearningProfile(childId, profile);
+    res.json({ ok: true, allApproved });
+  });
+
+  app.post("/api/homework/regenerate", async (req: Request, res: Response) => {
+    try {
+      const childId =
+        typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+      const date = typeof req.body?.date === "string" ? req.body.date.trim() : "";
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const feedback =
+        typeof req.body?.feedback === "string" ? req.body.feedback.trim() : "";
+      if (!childId || !date || !nodeId) {
+        return res.status(400).json({ ok: false, error: "childId, date, nodeId required" });
+      }
+      const profile = readLearningProfile(childId);
+      const pending = profile?.pendingHomework;
+      if (!pending) {
+        return res.status(404).json({ ok: false, error: "no pendingHomework" });
+      }
+      const node = pending.nodes.find((n) => n.id === nodeId);
+      if (!node) {
+        return res.status(404).json({ ok: false, error: "node not found" });
+      }
+      const pendingDir = path.join(
+        process.cwd(),
+        "src",
+        "context",
+        childId,
+        "homework",
+        "pending",
+        date,
+      );
+      fs.mkdirSync(pendingDir, { recursive: true });
+      let newFile = "";
+      if (node.type === "karaoke") {
+        const client = new Anthropic();
+        const msg = await client.messages.create({
+          model: HOMEWORK_SONNET_MODEL,
+          max_tokens: 700,
+          messages: [
+            {
+              role: "user",
+              content: `Write a grade 2 story, 150 words max, max 8 words per sentence.
+Embed these words naturally: ${node.words.join(", ")}.
+${feedback ? `Parent feedback: ${feedback}` : ""}
+Return plain text only.`,
+            },
+          ],
+        });
+        const story = msg.content
+          .filter((b): b is Anthropic.TextBlock => b.type === "text")
+          .map((b) => b.text)
+          .join("\n")
+          .trim();
+        newFile = "karaoke-story.txt";
+        fs.writeFileSync(path.join(pendingDir, newFile), story, "utf8");
+        node.storyFile = newFile;
+      } else if (node.type === "quest" || node.type === "boss") {
+        const classificationPath = path.join(pendingDir, "classification.json");
+        const extracted = fs.existsSync(classificationPath)
+          ? JSON.parse(fs.readFileSync(classificationPath, "utf8"))
+          : {};
+        const client = new Anthropic();
+        const html = await generateQuestGameHtml({
+          client,
+          extractedJsonPretty: JSON.stringify({ ...extracted, feedback }, null, 2),
+        });
+        newFile = node.gameFile || `${node.type}-${date}.html`;
+        fs.writeFileSync(path.join(pendingDir, newFile), ensureQuestHtmlContract(html), "utf8");
+        node.gameFile = newFile;
+      } else {
+        return res.json({ ok: true, newFile: "" });
+      }
+      writeLearningProfile(childId, profile);
+      res.json({ ok: true, newFile });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ ok: false, error: message });
+    }
+  });
+
   app.get("/api/homework/:name/:date/:filename", (req: Request, res: Response) => {
     const name = typeof req.params.name === "string" ? req.params.name : "";
     const date = typeof req.params.date === "string" ? req.params.date : "";
@@ -178,6 +356,45 @@ export function setupRoutes(app: Express): void {
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: "File not found" });
     }
+    res.sendFile(filePath);
+  });
+
+  app.get("/homework/:childId/:date/:filename", (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    const date = typeof req.params.date === "string" ? req.params.date.trim() : "";
+    const filename = typeof req.params.filename === "string" ? req.params.filename : "";
+    if (!childId || !date || !/^[\w.\- ]+$/.test(filename)) {
+      return res.status(400).json({ error: "Invalid request" });
+    }
+    const pendingBase = path.resolve(
+      process.cwd(),
+      "src",
+      "context",
+      childId,
+      "homework",
+      "pending",
+      date,
+    );
+    const gamesBase = path.resolve(
+      process.cwd(),
+      "src",
+      "context",
+      childId,
+      "homework",
+      "games",
+      date,
+    );
+    const candidatePaths = [
+      path.resolve(pendingBase, filename),
+      path.resolve(gamesBase, filename),
+    ];
+    const filePath = candidatePaths.find((candidate) => {
+      const inPending = candidate.startsWith(pendingBase) && fs.existsSync(candidate);
+      const inGames = candidate.startsWith(gamesBase) && fs.existsSync(candidate);
+      return inPending || inGames;
+    });
+    if (!filePath) return res.status(404).json({ error: "File not found" });
     res.sendFile(filePath);
   });
 

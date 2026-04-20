@@ -25,6 +25,11 @@ export interface NodeConfig {
   thumbnailUrl?: string;
   /** Karaoke passage when `type === "karaoke"`. */
   words?: string[];
+  /** Homework node metadata (quest/boss routing). */
+  gameFile?: string;
+  storyFile?: string;
+  storyText?: string;
+  date?: string;
   /** Optional node theme label (client / diag). */
   theme?: string;
   isCastle?: boolean;

@@ -12,10 +12,11 @@ describe("map node routing", () => {
         type: "pronunciation",
         words: ["cat"],
         difficulty: 1,
-      },
+      } as const,
       { childId: "ila", companion: "elli", isDiagMode: false },
     );
     expect(action.kind).toBe("canvas");
+    if (action.kind !== "canvas") throw new Error("expected canvas action");
     expect(action.payload.type).toBe("pronunciation");
   });
 
@@ -28,10 +29,11 @@ describe("map node routing", () => {
         difficulty: 2,
         date: "2026-04-21",
         gameFile: "quest-2026-04-21.html",
-      },
+      } as const,
       { childId: "ila", companion: "elli", isDiagMode: true },
     );
     expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
     expect(action.url).toContain("/homework/ila/2026-04-21/quest-2026-04-21.html");
     expect(action.url).toContain("preview=true");
   });
@@ -40,7 +42,6 @@ describe("map node routing", () => {
     const params = buildNodeLaunchParams(
       {
         id: "n3",
-        type: "word-builder",
         words: ["cat", "dog"],
         difficulty: 2,
       },
@@ -52,7 +53,7 @@ describe("map node routing", () => {
 
   it("preview=true when isDiagMode", () => {
     const params = buildNodeLaunchParams(
-      { id: "n4", type: "quest", words: [], difficulty: 1 },
+      { id: "n4", words: [], difficulty: 1 },
       { childId: "ila", companion: "elli", isDiagMode: true },
     );
     expect(params.get("preview")).toBe("true");
@@ -60,7 +61,7 @@ describe("map node routing", () => {
 
   it("companion param comes from children.config.json", () => {
     const params = buildNodeLaunchParams(
-      { id: "n5", type: "quest", words: [], difficulty: 1 },
+      { id: "n5", words: [], difficulty: 1 },
       { childId: "ila", companion: "matilda", isDiagMode: false },
     );
     expect(params.get("companion")).toBe("matilda");

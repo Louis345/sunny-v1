@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { NodeConfig, NodeResult } from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
+import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { useTransition, type Palette } from "../context/TransitionContext";
 import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
@@ -105,6 +106,7 @@ export function AdventureMap(props: {
   const worldRef = useRef<HTMLDivElement>(null);
   const [pathPositions, setPathPositions] = useState<Point[]>([]);
   const [hoveredNodeIndex, setHoveredNodeIndex] = useState<number | null>(null);
+  const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
 
   const accentColor =
     resolved && accentForChild?.childId === resolved
@@ -237,12 +239,28 @@ export function AdventureMap(props: {
     async (node: NodeConfig) => {
       const result = await onNodeClick(node.id);
       if (!result) return;
-      triggerTransition({
-        palette: nodeTransitionPalette(result.type),
-        onComplete: () => commitLaunchedNode(result),
+      const action = buildNodeLaunchAction(result, {
+        childId: resolved,
+        companion: "elli",
+        isDiagMode: resolved === "creator",
       });
+      if (action.kind === "canvas") {
+        props.karaokeReadingForMapNode?.sendMessage?.("canvas_show", action.payload);
+        triggerTransition({
+          palette: nodeTransitionPalette(result.type),
+          onComplete: () => commitLaunchedNode(result),
+        });
+        return;
+      }
+      if (action.kind === "iframe") {
+        setLaunchedUrl(action.url);
+        triggerTransition({
+          palette: nodeTransitionPalette(result.type),
+          onComplete: () => commitLaunchedNode(result),
+        });
+      }
     },
-    [onNodeClick, commitLaunchedNode, triggerTransition],
+    [onNodeClick, resolved, props.karaokeReadingForMapNode, commitLaunchedNode, triggerTransition],
   );
 
   const diagReading = import.meta.env.VITE_DIAG_READING === "true";
@@ -425,6 +443,22 @@ export function AdventureMap(props: {
                 ? "Chimpanzees"
                 : props.karaokeReadingForMapNode?.storyTitle
             }
+          />
+        </div>
+      ) : null}
+      {launchedUrl ? (
+        <div className="fixed inset-0 z-[45]" style={{ background: "#111827" }}>
+          <button
+            type="button"
+            className="absolute top-3 right-3 z-[50] rounded bg-white px-3 py-1 text-sm"
+            onClick={() => setLaunchedUrl(null)}
+          >
+            Close
+          </button>
+          <iframe
+            title="homework-node"
+            src={launchedUrl}
+            style={{ width: "100%", height: "100%", border: "none" }}
           />
         </div>
       ) : null}
