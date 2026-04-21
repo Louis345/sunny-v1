@@ -1,4 +1,4 @@
-import type { SM2Track, WordEntry, DifficultySignal } from "../algorithms/types";
+import type { SM2Track, WordEntry } from "../algorithms/types";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 
 export interface RewardTrigger {
@@ -20,7 +20,7 @@ export interface SessionRewardState {
 }
 
 export function evaluateRewards(
-  word: string,
+  _word: string,
   updatedTrack: SM2Track,
   previousTrack: SM2Track | undefined,
   sessionState: SessionRewardState,

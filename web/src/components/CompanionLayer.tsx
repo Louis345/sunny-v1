@@ -34,6 +34,8 @@ export interface CompanionLayerProps {
   activeNodeScreen?: { x: number; y: number } | null;
   /** Playback analyser from `useSession` for mouth sync; omit in diag/tests (no voice pipeline). */
   analyserNodeRef?: RefObject<AnalyserNode | null>;
+  /** Short line above companion (non-interactive). */
+  speechBubbleText?: string | null;
 }
 
 type CompanionRenderer = WebGPURenderer | THREE.WebGLRenderer;
@@ -64,6 +66,7 @@ export function CompanionLayer({
   companionCommands = [],
   activeNodeScreen = null,
   analyserNodeRef: analyserNodeRefProp,
+  speechBubbleText,
 }: CompanionLayerProps) {
   const fallbackAnalyserRef = useRef<AnalyserNode | null>(null);
   const analyserNodeRef = analyserNodeRefProp ?? fallbackAnalyserRef;
@@ -434,9 +437,31 @@ export function CompanionLayer({
   return (
     <div
       ref={wrapRef}
-      className="pointer-events-none fixed inset-0 z-[15]"
+      className="fixed inset-0 z-[15]"
+      style={{ pointerEvents: "none" }}
       aria-hidden
     >
+      {speechBubbleText ? (
+        <div
+          style={{
+            position: "fixed",
+            bottom: karaokeActive ? "22vh" : "min(68vh, calc(10vh + min(56vh, 85%) + 8px))",
+            right: karaokeActive ? 20 : "max(2vw, 12px)",
+            maxWidth: 260,
+            padding: "10px 14px",
+            borderRadius: 14,
+            background: "rgba(15,23,42,0.88)",
+            color: "#f8fafc",
+            fontSize: 14,
+            lineHeight: 1.35,
+            pointerEvents: "none",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            zIndex: 16,
+          }}
+        >
+          {speechBubbleText}
+        </div>
+      ) : null}
       <div
         ref={mountRef}
         className="pointer-events-none overflow-hidden"

@@ -170,6 +170,15 @@ export function handleWsConnection(
         break;
       }
 
+      case "screenshot_response": {
+        if (!session) return;
+        const sr = msg as { data?: string | null };
+        session.receiveScreenshot(
+          typeof sr.data === "string" ? sr.data : null,
+        );
+        break;
+      }
+
       default:
         ws.send(
           JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })

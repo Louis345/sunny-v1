@@ -16,8 +16,14 @@ export function isStatelessRun(env: RuntimeEnv = process.env): boolean {
   return isDemoMode(env) || isSunnyTestMode(env) || isExplicitStatelessMode(env);
 }
 
+/** Homework map free / go-live preview: no SM-2, word bank, session notes, or attempt logs. */
+export function sunnyPreviewBlocksPersistence(env: RuntimeEnv = process.env): boolean {
+  const v = env.SUNNY_PREVIEW_MODE?.trim().toLowerCase();
+  return v === "free" || v === "go-live";
+}
+
 export function shouldPersistSessionData(env: RuntimeEnv = process.env): boolean {
-  return !isStatelessRun(env);
+  return !isStatelessRun(env) && !sunnyPreviewBlocksPersistence(env);
 }
 
 export function isHomeworkMode(env: RuntimeEnv = process.env): boolean {

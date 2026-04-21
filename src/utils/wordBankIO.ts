@@ -3,6 +3,7 @@ import path from "path";
 import type { WordEntry, Domain, SM2Track } from "../algorithms/types";
 import type { WordBankFile } from "../context/schemas/wordBank";
 import { createEmptyWordBank, createFreshSM2Track } from "../context/schemas/wordBank";
+import { sunnyPreviewBlocksPersistence } from "./runtimeMode";
 
 export function resolveWordBankPath(childId: string): string {
   return path.resolve(process.cwd(), "src", "context", childId, "word_bank.json");
@@ -22,6 +23,9 @@ export function readWordBank(childId: string): WordBankFile {
 }
 
 export function writeWordBank(childId: string, data: WordBankFile): void {
+  if (sunnyPreviewBlocksPersistence()) {
+    return;
+  }
   const filePath = resolveWordBankPath(childId);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   data.lastUpdated = new Date().toISOString();

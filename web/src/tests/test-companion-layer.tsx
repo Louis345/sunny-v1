@@ -117,7 +117,7 @@ describe("CompanionLayer (COMPANION-002)", () => {
       <CompanionLayer childId="fixture" companion={companion} toggledOff={false} />,
     );
     await waitFor(() => expect(container.querySelector("canvas")).toBeTruthy());
-    const wrap = container.querySelector(".pointer-events-none.fixed");
+    const wrap = container.querySelector("div.fixed.inset-0");
     expect(wrap).toBeTruthy();
     expect((wrap as HTMLElement).style.display).not.toBe("none");
 
@@ -132,7 +132,7 @@ describe("CompanionLayer (COMPANION-002)", () => {
       <CompanionLayer childId="fixture" companion={companion} toggledOff={true} />,
     );
     await waitFor(() => expect(container.querySelector("canvas")).toBeTruthy());
-    const wrap = container.querySelector(".pointer-events-none.fixed") as HTMLElement;
+    const wrap = container.querySelector("div.fixed.inset-0") as HTMLElement;
     expect(wrap.style.display).toBe("none");
 
     rerender(

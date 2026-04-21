@@ -1,3 +1,10 @@
+import {
+  NODE_REGISTRY,
+  type NodeContext,
+  type RoutableNodeConfig,
+  buildNodeUrlSearchParams,
+} from "./nodeRegistry";
+
 type RoutableNode = {
   id: string;
   type: string;
@@ -12,6 +19,10 @@ type RoutingContext = {
   childId: string;
   companion: string;
   isDiagMode: boolean;
+  /** Overrides default `free` when `isDiagMode` (e.g. parent go-live walkthrough). */
+  iframePreviewParam?: string;
+  vrmUrl?: string;
+  companionMuted?: boolean;
 };
 
 type CanvasLaunchAction = {
@@ -31,67 +42,50 @@ type SkipLaunchAction = {
 
 export type NodeLaunchAction = CanvasLaunchAction | IframeLaunchAction | SkipLaunchAction;
 
+function iframePreviewQuery(ctx: RoutingContext): string {
+  if (ctx.iframePreviewParam) return ctx.iframePreviewParam;
+  return ctx.isDiagMode ? "free" : "false";
+}
+
 export function buildNodeLaunchParams(
   node: Pick<RoutableNode, "id" | "words" | "difficulty">,
   ctx: RoutingContext,
 ): URLSearchParams {
-  return new URLSearchParams({
-    words: (node.words ?? []).join(","),
+  const nctx: NodeContext = {
     childId: ctx.childId,
-    difficulty: String(node.difficulty),
-    nodeId: node.id,
     companion: ctx.companion,
-    preview: ctx.isDiagMode ? "true" : "false",
-  });
+    previewParam: iframePreviewQuery(ctx),
+    vrmUrl: ctx.vrmUrl,
+    companionMuted: ctx.companionMuted,
+  };
+  return buildNodeUrlSearchParams(node, nctx);
 }
 
 export function buildNodeLaunchAction(
   node: RoutableNode,
   ctx: RoutingContext,
 ): NodeLaunchAction {
-  const params = buildNodeLaunchParams(node, ctx);
-  switch (node.type) {
-    case "pronunciation":
-      return {
-        kind: "canvas",
-        payload: {
-          type: "pronunciation",
-          pronunciationWords: node.words ?? [],
-        },
-      };
-    case "karaoke":
-      return {
-        kind: "canvas",
-        payload: {
-          type: "karaoke",
-          storyText: node.storyText,
-          words: node.words ?? [],
-        },
-      };
-    case "word-builder":
-      return {
-        kind: "iframe",
-        url: `/games/word-builder.html?${params.toString()}`,
-      };
-    case "quest":
-    case "boss": {
-      if (!node.date || !node.gameFile) {
-        return { kind: "skip", reason: "missing-homework-file" };
-      }
-      return {
-        kind: "iframe",
-        url: `/homework/${ctx.childId}/${node.date}/${node.gameFile}?${params.toString()}`,
-      };
-    }
-    case "dopamine":
-      if (!node.gameFile) {
-        return { kind: "skip", reason: "missing-game-file" };
-      }
-      return {
-        kind: "iframe",
-        url: `/games/${node.gameFile}?${params.toString()}`,
-      };
-    default:
-      return { kind: "skip", reason: "unsupported-node-type" };
+  const handler = NODE_REGISTRY[node.type];
+  if (!handler) {
+    return { kind: "skip", reason: "unsupported-node-type" };
   }
+  const nctx: NodeContext = {
+    childId: ctx.childId,
+    companion: ctx.companion,
+    previewParam: iframePreviewQuery(ctx),
+    vrmUrl: ctx.vrmUrl,
+    companionMuted: ctx.companionMuted,
+  };
+  const rc = node as RoutableNodeConfig;
+  if (handler.canvasMessage) {
+    return { kind: "canvas", payload: handler.canvasMessage(rc) };
+  }
+  if (handler.getUrl) {
+    const url = handler.getUrl(rc, nctx);
+    if (!url) {
+      return { kind: "skip", reason: "missing-homework-file" };
+    }
+    return { kind: "iframe", url };
+  }
+  return { kind: "skip", reason: "unsupported-node-type" };
 }

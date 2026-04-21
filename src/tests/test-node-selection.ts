@@ -22,6 +22,7 @@ import { planSession } from "../engine/learningEngine";
 function profile(attention: number, childId = "qa_child"): ChildProfile {
   return {
     childId,
+    ttsName: childId,
     level: 5,
     interests: { tags: [] },
     ui: { accentColor: "#111" },

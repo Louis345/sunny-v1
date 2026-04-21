@@ -2,13 +2,11 @@ import type {
   AttemptInput,
   AttemptSnapshot,
   SM2Track,
-  Domain,
   DifficultySignal,
   ChildQuality,
   WordEntry,
 } from "../algorithms/types";
 import type { LearningProfile } from "../context/schemas/learningProfile";
-import type { MasteryMap } from "../context/schemas/masteryMap";
 import type { TodaysPlanActivity } from "../agents/psychologist/today-plan";
 import type { RewardTrigger, SessionRewardState } from "./rewardEngine";
 import fs from "fs";
@@ -32,6 +30,7 @@ import type { SessionData } from "./psychologistBridge";
 import { readPersistedTodaysPlan } from "../agents/psychologist/today-plan";
 import type { ChildName } from "../utils/childContextPaths";
 import { getBondContextInjection } from "./bondProtocol";
+import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
 
 export interface PlanSessionOptions {
   /** OCR / extracted homework list — used only when curriculum + bank yield no session words. */
@@ -55,6 +54,8 @@ export interface SessionPlan {
   wilsonStep: number;
   /** Spelling only: when no reviews and no new words were scheduled. */
   sessionRecommendation?: "reading" | "math" | "clocks" | "free";
+  /** Homework mode: SM-2-style due words for map / launch (same list as activities). */
+  dueWords?: string[];
 }
 
 type HomeworkNodeLike = {
@@ -64,6 +65,7 @@ type HomeworkNodeLike = {
   difficulty?: number;
   gameFile?: string | null;
   storyFile?: string | null;
+  storyText?: string;
   date?: string;
 };
 
@@ -91,6 +93,10 @@ export interface SessionSummary {
   correctStreak: number;
   wilsonStep: number;
   duration: number;
+  /** Largest SM-2 easiness delta observed this session (for VRR). */
+  easinessDelta?: number;
+  /** True when Wilson / mastery gate advanced this session. */
+  masteryGateCrossed?: boolean;
 }
 
 // Per-session state (not persisted — lives only for the session lifetime)
@@ -109,6 +115,52 @@ function childIdFromName(childName: ChildName): string {
   if (childName === "Ila") return "ila";
   if (childName === "Reina") return "reina";
   return "creator";
+}
+
+export function getHomeworkPriorityWords(childId: string, today: string): string[] {
+  const bank = readWordBank(childId);
+  return bank.words
+    .filter(
+      (w) =>
+        w.homeworkPriority === true &&
+        w.testDate != null &&
+        String(w.testDate) >= today,
+    )
+    .map((w) => w.word);
+}
+
+function buildHomeworkPrioritySessionPlan(
+  childId: string,
+  profile: LearningProfile,
+  homeworkWords: string[],
+  currentWilsonStep: number,
+): SessionPlan {
+  const minutes = Math.max(5, Math.min(30, homeworkWords.length * 2));
+  return {
+    childId,
+    mode: "homework",
+    activities: [
+      {
+        type: "game",
+        words: [...homeworkWords],
+        domain: "spelling",
+        priority: 1,
+        timeboxMinutes: minutes,
+        source: "homework:priority-bank",
+      },
+    ],
+    newWords: [],
+    reviewWords: [...homeworkWords],
+    focusWords: [...homeworkWords],
+    totalWordCount: homeworkWords.length,
+    estimatedMinutes: minutes,
+    bondContext: getBondContextInjection(profile.bondPatterns),
+    difficultyParams: profile.algorithmParams.difficulty,
+    moodAdjustment: profile.moodAdjustment,
+    wilsonStep: currentWilsonStep,
+    sessionRecommendation: undefined,
+    dueWords: [...homeworkWords],
+  };
 }
 
 export function planSession(
@@ -130,7 +182,20 @@ export function planSession(
 
   const wordBank = readWordBank(childId);
   const homeworkFallback = options?.homeworkFallbackWords ?? [];
-  const currentWilsonStep = profile.sessionStats.currentWilsonStep || 1;
+  const currentWilsonStep = profile.sessionStats?.currentWilsonStep || 1;
+  const todayPlan = new Date().toISOString().slice(0, 10);
+
+  if (mode === "spelling" || mode === "homework") {
+    const homeworkWords = getHomeworkPriorityWords(childId, todayPlan);
+    if (homeworkWords.length > 0) {
+      return buildHomeworkPrioritySessionPlan(
+        childId,
+        profile,
+        homeworkWords,
+        currentWilsonStep,
+      );
+    }
+  }
 
   if (mode === "homework" && profile.pendingHomework?.nodes?.length) {
     const pending = profile.pendingHomework;
@@ -143,11 +208,15 @@ export function planSession(
     const strugglingWords = dueWords.filter(
       (w) => estimateWordConfidence(wordBank.words, w) < 0.4,
     );
-    const nodesAfterStruggling = promotePronunciationNode(baseNodes, strugglingWords);
+    const spellingSpellCheckPlan = baseNodes.some((n) => n.type === "spell-check");
+    const nodesAfterStruggling = spellingSpellCheckPlan
+      ? baseNodes
+      : promotePronunciationNode(baseNodes, strugglingWords);
     const maxNodes = Math.max(2, Math.floor(profile.demographics.age > 0 ? (profile.demographics.attentionSpan === "short" ? 2 : 4) : 3) + 2);
-    const cappedNodes = nodesAfterStruggling.slice(0, Math.min(maxNodes, nodesAfterStruggling.length));
-    const difficulty = getHomeworkDifficulty(profile);
-    const companion = profile.companion?.toggledOff ? "off" : "elli";
+    const sliceLimit = spellingSpellCheckPlan
+      ? Math.min(nodesAfterStruggling.length, Math.max(maxNodes, 6))
+      : Math.min(maxNodes, nodesAfterStruggling.length);
+    const cappedNodes = nodesAfterStruggling.slice(0, sliceLimit);
 
     const activities: PlannedActivity[] = cappedNodes.map((node, idx) => ({
       type: "game",
@@ -172,6 +241,7 @@ export function planSession(
       moodAdjustment: profile.moodAdjustment,
       wilsonStep: currentWilsonStep,
       sessionRecommendation: undefined,
+      dueWords,
     };
   }
 
@@ -208,7 +278,7 @@ export function planSession(
       correctStreak: 0,
       wordsThisSession: [],
       bonusRoundFired: false,
-      streakRecord: profile.sessionStats.streakRecord,
+      streakRecord: profile.sessionStats?.streakRecord ?? 0,
       totalCorrect: 0,
       totalAttempts: 0,
     },
@@ -267,6 +337,11 @@ export function planSession(
     }
   }
 
+  const dueWordsOut =
+    mode === "spelling"
+      ? [...ordered.newWords, ...ordered.reviewWords]
+      : undefined;
+
   return {
     childId,
     mode,
@@ -281,6 +356,7 @@ export function planSession(
     moodAdjustment: profile.moodAdjustment,
     wilsonStep: currentWilsonStep,
     sessionRecommendation,
+    dueWords: dueWordsOut,
   };
 }
 
@@ -297,6 +373,25 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
     maxNewWordsPerSession: 5,
     maxReviewWordsPerSession: 12,
   };
+
+  if (sunnyPreviewBlocksPersistence()) {
+    const quality = computeQualityFromAttempt(attempt);
+    const today = new Date().toISOString().slice(0, 10);
+    const updatedTrack = createFreshSM2Track(today);
+    const difficultySignal = assessDifficulty({
+      recentAttempts: [
+        { correct: attempt.correct, timestamp: new Date().toISOString() },
+      ],
+      params: profile?.algorithmParams.difficulty ?? {
+        targetAccuracy: 0.7,
+        easyThreshold: 0.85,
+        hardThreshold: 0.5,
+        breakThreshold: 0.4,
+        windowSize: 8,
+      },
+    });
+    return { quality, updatedTrack, difficultySignal, rewards: [] };
+  }
 
   ensureWordInBank(childId, attempt.word, attempt.domain, "session");
 
@@ -374,6 +469,25 @@ export function finalizeSession(
 ): SessionSummary {
   const state = sessionStates.get(childId);
   const now = new Date().toISOString();
+
+  if (sunnyPreviewBlocksPersistence()) {
+    sessionStates.delete(childId);
+    const totalAttempts = state?.rewardState.totalAttempts ?? 0;
+    const totalCorrect = state?.rewardState.totalCorrect ?? 0;
+    const accuracy = totalAttempts > 0 ? totalCorrect / totalAttempts : 0;
+    return {
+      childId,
+      date: now,
+      totalAttempts,
+      accuracy,
+      wordsReviewed: [...new Set(state?.attempts.map((a) => a.word) ?? [])],
+      wordsNew: [],
+      wordsRegressed: state?.wordsRegressed ?? [],
+      correctStreak: state?.rewardState.correctStreak ?? 0,
+      wilsonStep: state?.wilsonStep ?? 1,
+      duration: state ? Math.round((Date.now() - state.startTime) / 60_000) : 0,
+    };
+  }
   const duration = state ? Math.round((Date.now() - state.startTime) / 60_000) : 0;
 
   const totalAttempts = state?.rewardState.totalAttempts ?? 0;
@@ -437,13 +551,6 @@ export function getSessionRewardState(childId: string): SessionRewardState | nul
 
 export { childIdFromName };
 
-function getHomeworkDifficulty(profile: LearningProfile): 1 | 2 | 3 {
-  const target = profile.algorithmParams.difficulty.targetAccuracy ?? 0.7;
-  if (target >= 0.8) return 3;
-  if (target >= 0.65) return 2;
-  return 1;
-}
-
 function getDueHomeworkWords(
   bank: WordEntry[],
   words: string[],
@@ -470,6 +577,7 @@ function estimateWordConfidence(bank: WordEntry[], wordRaw: string): number {
 }
 
 function modalityForNode(nodeType: string): string {
+  if (nodeType === "spell-check") return "spelling";
   if (nodeType === "pronunciation" || nodeType === "word-builder") return "phonics";
   if (nodeType === "karaoke") return "reading";
   if (nodeType === "quest" || nodeType === "boss") return "quest";
@@ -482,6 +590,9 @@ export function reorderHomeworkNodesForSession(nodes: HomeworkNodeLike[]): Homew
   if (bossIdx > -1 && bossIdx !== out.length - 1) {
     const [boss] = out.splice(bossIdx, 1);
     out.push(boss!);
+  }
+  if (out.some((n) => n.type === "spell-check")) {
+    return out;
   }
   for (let i = 1; i < out.length; i++) {
     if (modalityForNode(out[i - 1]!.type) === modalityForNode(out[i]!.type)) {

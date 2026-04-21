@@ -243,18 +243,15 @@ export function WORD_BUILDER_ROUND_FAILED(round: number, _word: string): string 
 
 /** After iframe posts game_complete — canvas clear, ask voice spelling from memory. */
 export function WORD_BUILDER_SESSION_COMPLETE(
-  childName: ChildName,
+  childLabel: string,
   word: string
 ): string {
-  return `[Word Builder complete for ${word}. Canvas clear. ${POST_WB_SPELL_CUE} (${childName}). One sentence only.]`;
+  return `[Word Builder complete for ${word}. Canvas clear. ${POST_WB_SPELL_CUE} (${childLabel}). One sentence only.]`;
 }
 
 /** Spell-check typing game — child typed the word on canvas keyboard. */
-export function SPELL_CHECK_CORRECT(
-  childName: ChildName,
-  word: string
-): string {
-  return `[System: ${childName} typed "${word}" correctly in the spell-check typing game. Celebrate briefly; then continue with voice spelling or the next word.]`;
+export function SPELL_CHECK_CORRECT(childLabel: string, word: string): string {
+  return `[System: ${childLabel} typed "${word}" correctly in the spell-check typing game. Celebrate briefly; then continue with voice spelling or the next word.]`;
 }
 
 export function INTAKE_PROMPT(child: "Ila" | "Reina", soulContent: string): string {
@@ -675,8 +672,8 @@ function WILSON_FREE_SESSION_PROMPT(
 ): string {
   return `YOU ARE TALKING TO ${childName.toUpperCase()}.
 Their name is ${childName}.
-${childName === "Ila" ? "Pronounce it EYE-lah." : ""}
-${childName === "Reina" ? "Pronounce it RAY-nah." : ""}
+${childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : ""}
+${childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : ""}
 You already know their name.
 NEVER ask them their name.
 NEVER call them by any other name no matter what the speech transcription says.
@@ -779,8 +776,8 @@ export async function buildSessionPrompt(
     const namePrefix = [
       `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
       `Their name is ${childName}.`,
-      childName === "Ila" ? "Pronounce it EYE-lah." : "",
-      childName === "Reina" ? "Pronounce it RAY-nah." : "",
+      childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : "",
+      childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : "",
       "You already know their name.",
       "NEVER ask them their name.",
       "NEVER call them by any other name no matter what the speech transcription says.",
@@ -1038,8 +1035,8 @@ Output the prompt only. No explanation.
   const namePrefix = [
     `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
     `Their name is ${childName}.`,
-    childName === "Ila" ? "Pronounce it EYE-lah." : "",
-    childName === "Reina" ? "Pronounce it RAY-nah." : "",
+    childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : "",
+    childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : "",
     "You already know their name.",
     "NEVER ask them their name.",
     "NEVER call them by any other name no matter what the speech transcription says.",

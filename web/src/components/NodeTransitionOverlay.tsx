@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 export type Palette = {
   from: string;
@@ -54,6 +54,7 @@ export function NodeTransitionOverlay({
   const lastStyleRef = useRef<TransitionStyle | null>(null);
   const lastPaletteIndexRef = useRef<number>(-1);
   const onCompleteRef = useRef(onComplete);
+  const hasCompletedRef = useRef(false);
   const [overlay, setOverlay] = useState<{
     style: TransitionStyle;
     palette: Palette;
@@ -67,8 +68,11 @@ export function NodeTransitionOverlay({
   useEffect(() => {
     if (!active) {
       setOverlay(null);
+      hasCompletedRef.current = false;
       return;
     }
+
+    hasCompletedRef.current = false;
 
     const pool = STYLES.filter((s) => s !== lastStyleRef.current);
     const picked = pool[Math.floor(Math.random() * pool.length)]!;
@@ -87,18 +91,37 @@ export function NodeTransitionOverlay({
       });
     });
 
-    // onComplete timer runs in parallel from activation, not from arm.
-    const doneId = window.setTimeout(() => {
-      onCompleteRef.current?.();
-      setOverlay(null);
-    }, duration);
+    // Safety-only fallback: fires if transitionend never arrives
+    // (e.g. prefers-reduced-motion cuts duration to 0, tab is hidden).
+    // The real gate is onTransitionEnd on each animated div below.
+    const fallbackId = window.setTimeout(() => {
+      if (!hasCompletedRef.current) {
+        hasCompletedRef.current = true;
+        onCompleteRef.current?.();
+        setOverlay(null);
+      }
+    }, duration + 400);
 
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
-      window.clearTimeout(doneId);
+      window.clearTimeout(fallbackId);
     };
   }, [active, duration, palette]);
+
+  // Called by whichever animated div finishes its CSS transition first.
+  // `prop` is the CSS property we care about — prevents double-firing when
+  // multiple properties transition (e.g. clip-path + -webkit-clip-path).
+  const onTransitionDone = useCallback(
+    (e: React.TransitionEvent<HTMLDivElement>, prop: string) => {
+      if (e.propertyName !== prop) return;
+      if (hasCompletedRef.current) return;
+      hasCompletedRef.current = true;
+      onCompleteRef.current?.();
+      setOverlay(null);
+    },
+    [],
+  );
 
   const ms = `${duration}ms`;
 
@@ -134,6 +157,7 @@ export function NodeTransitionOverlay({
         >
           {overlay.style === "sheet" && (
             <div
+              onTransitionEnd={(e) => onTransitionDone(e, "transform")}
               style={{
                 position: "absolute",
                 inset: 0,
@@ -145,6 +169,7 @@ export function NodeTransitionOverlay({
           )}
           {overlay.style === "wipe" && (
             <div
+              onTransitionEnd={(e) => onTransitionDone(e, "transform")}
               style={{
                 position: "absolute",
                 inset: 0,
@@ -157,6 +182,7 @@ export function NodeTransitionOverlay({
           )}
           {overlay.style === "iris" && (
             <div
+              onTransitionEnd={(e) => onTransitionDone(e, "clip-path")}
               style={{
                 position: "absolute",
                 inset: 0,
@@ -175,6 +201,7 @@ export function NodeTransitionOverlay({
           {overlay.style === "split" && (
             <>
               <div
+                onTransitionEnd={(e) => onTransitionDone(e, "transform")}
                 style={{
                   position: "absolute",
                   left: 0,

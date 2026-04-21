@@ -23,6 +23,8 @@ export interface NodeConfig {
   isGoal: boolean;
   difficulty: 1 | 2 | 3;
   thumbnailUrl?: string;
+  /** Grok / designer prompt for on-demand thumbnails (homework map). */
+  thumbnailPrompt?: string;
   /** Karaoke passage when `type === "karaoke"`. */
   words?: string[];
   /** Homework node metadata (quest/boss routing). */

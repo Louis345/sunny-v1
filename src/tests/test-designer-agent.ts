@@ -14,6 +14,7 @@ import { generateStoryImage } from "../utils/generateStoryImage";
 function baseProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
   return {
     childId: "qa_profile",
+    ttsName: "Qa profile",
     level: 6,
     interests: { tags: ["puzzles"] },
     ui: { accentColor: "#3366ff" },

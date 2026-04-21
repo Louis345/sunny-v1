@@ -6,6 +6,7 @@ import type {
   StepSessionRecord,
 } from "../../algorithms/types";
 import type { CompanionConfig } from "../../shared/companionTypes";
+import type { TamagotchiState } from "../../shared/vrrTypes";
 
 export interface MoodEntry {
   date: string;
@@ -130,14 +131,25 @@ export interface LearningProfile {
       difficulty: number;
       gameFile: string | null;
       storyFile: string | null;
+      /** Karaoke passage text embedded at ingest (no fetch at click). */
+      storyText?: string;
       approved?: boolean;
       date?: string;
     }>;
   };
 
   /**
-   * VRM + reaction dials for the web companion (merged with defaults in `buildProfile`).
-   * Change `vrmUrl` to `/companions/your-model.vrm` after dropping a file in `web/public/companions/`.
+   * Companion reaction overrides (merged onto preset from repo-root `children.config.json` in `buildProfile`).
+   * Preset `vrmUrl` / expressions / face camera / dopamine games come from `children.config.json`; do not set `vrmUrl` here unless intentionally overriding the preset.
    */
   companion?: Partial<CompanionConfig>;
+
+  /** Companion care meters (optional; merged with defaults in buildProfile). */
+  tamagotchi?: TamagotchiState;
 }
+
+/** Optional homework-test metadata on `word_bank.json` rows (see `WordEntry` in algorithms/types). */
+export type WordBankHomeworkPriorityFields = {
+  homeworkPriority?: boolean;
+  testDate?: string;
+};

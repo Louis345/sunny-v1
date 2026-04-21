@@ -1,9 +1,10 @@
 import fs from "fs";
 import path from "path";
 import type { AttemptInput, DifficultySignal } from "../algorithms/types";
-import type { LearningProfile, MoodEntry } from "../context/schemas/learningProfile";
+import type { MoodEntry } from "../context/schemas/learningProfile";
 import type { RewardTrigger } from "./rewardEngine";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
 
 export interface SessionData {
   childId: string;
@@ -55,6 +56,7 @@ export function formatAdventureMetricsBlock(p: {
 }
 
 export function writeSessionNote(childId: string, data: SessionData): void {
+  if (sunnyPreviewBlocksPersistence()) return;
   const dir = path.resolve(process.cwd(), "src", "context", childId, "session_notes");
   fs.mkdirSync(dir, { recursive: true });
 
@@ -115,6 +117,7 @@ export function updateLearningProfileFromSession(
   childId: string,
   data: SessionData,
 ): void {
+  if (sunnyPreviewBlocksPersistence()) return;
   const profile = readLearningProfile(childId);
   if (!profile) return;
 

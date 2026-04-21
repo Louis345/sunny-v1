@@ -3,7 +3,8 @@
  * Load from HTML: <script src="_contract.js"></script> (same directory)
  * or <script src="../games/_contract.js"></script> from a subfolder.
  *
- * ?preview=true — show completion in-page only; no postMessage to parent (dry run).
+ * ?preview=free|true — dry run: no postMessage to parent for node_complete (banner only).
+ * ?preview=go-live — parent walkthrough: node_complete posts to parent; companion events fire.
  */
 (function () {
   "use strict";
@@ -11,6 +12,9 @@
   var GAME_PARAMS = (function () {
     var p = new URLSearchParams(location.search);
     var rawWords = p.get("words");
+    var pv = (p.get("preview") || "").toLowerCase();
+    var previewDryRun = pv === "true" || pv === "free";
+    var previewGoLive = pv === "go-live";
     return {
       words: rawWords
         ? rawWords.split(",").map(function (w) {
@@ -21,7 +25,8 @@
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
       nodeId: p.get("nodeId") || "unknown",
       sessionId: p.get("sessionId") || null,
-      preview: p.get("preview") === "true",
+      previewDryRun: previewDryRun,
+      previewGoLive: previewGoLive,
     };
   })();
 
@@ -51,7 +56,7 @@
 
   function sendNodeComplete(payload) {
     payload = payload || {};
-    if (GAME_PARAMS.preview) {
+    if (GAME_PARAMS.previewDryRun) {
       console.log("[PREVIEW] node_complete suppressed:", payload);
       showPreviewBanner(payload);
       return;
@@ -65,7 +70,31 @@
     window.parent.postMessage(out, "*");
   }
 
+  /**
+   * Notify parent (adventure map) for companion face / reactions.
+   * @param {string} trigger — e.g. correct_answer, wrong_answer, idle_too_long
+   */
+  function fireCompanionEvent(trigger, payload) {
+    payload = payload || {};
+    if (GAME_PARAMS.previewDryRun) {
+      return;
+    }
+    if (!window.parent) return;
+    window.parent.postMessage(
+      {
+        type: "companion_event",
+        payload: Object.assign({}, payload, {
+          trigger: trigger,
+          timestamp: Date.now(),
+          childId: GAME_PARAMS.childId,
+        }),
+      },
+      "*",
+    );
+  }
+
   window.GAME_PARAMS = GAME_PARAMS;
   window.sendNodeComplete = sendNodeComplete;
   window.showPreviewBanner = showPreviewBanner;
+  window.fireCompanionEvent = fireCompanionEvent;
 })();

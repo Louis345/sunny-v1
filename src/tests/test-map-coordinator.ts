@@ -85,6 +85,7 @@ describe("map coordinator (TASK-010)", () => {
     __resetAdventureMapSessionsForTests();
     vi.mocked(buildProfile).mockResolvedValue({
       childId: "qa_map",
+      ttsName: "Qa map",
       level: 2,
       interests: { tags: [] },
       ui: { accentColor: "#00f" },

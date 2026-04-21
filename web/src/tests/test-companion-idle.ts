@@ -105,9 +105,10 @@ describe("companionIdle (COMPANION-004)", () => {
   });
 
   it("expressionBlocksIdle respects face and thinking", () => {
-    expect(expressionBlocksIdle("happy", 1, false)).toBe(true);
-    expect(expressionBlocksIdle(null, 0, true)).toBe(true);
-    expect(expressionBlocksIdle(null, 0, false)).toBe(false);
+    expect(expressionBlocksIdle("happy", 1, false, false)).toBe(true);
+    expect(expressionBlocksIdle(null, 0, true, false)).toBe(true);
+    expect(expressionBlocksIdle(null, 0, false, false)).toBe(false);
+    expect(expressionBlocksIdle(null, 0, false, true)).toBe(true);
   });
 
   it("getIdleBehaviorProgress peaks mid-behavior", () => {

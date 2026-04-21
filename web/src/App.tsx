@@ -12,6 +12,10 @@ import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
+import {
+  CompanionBridge,
+  type GameIframeOverlayState,
+} from "./components/CompanionBridge";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
@@ -25,18 +29,34 @@ import type {
   CompanionConfig,
   CompanionEventPayload,
 } from "../../src/shared/companionTypes";
+import { mergeCompanionConfigWithDefaults } from "../../src/shared/companionTypes";
 import {
-  cloneCompanionDefaults,
-  mergeCompanionConfigWithDefaults,
-} from "../../src/shared/companionTypes";
+  DEFAULT_TAMAGOTCHI,
+  getTamagotchiPersonality,
+  getTamagotchiSpeechBubble,
+  type TamagotchiState,
+} from "../../src/shared/vrrTypes";
+import { TamagotchiSheet } from "./components/TamagotchiSheet";
 
 const isCanvasTestMode =
   import.meta.env.VITE_TEST_MODE === "true" ||
   (typeof window !== "undefined" &&
     window.location.search.includes("testmode"));
 
-const adventureMapEnabled =
-  import.meta.env.VITE_ADVENTURE_MAP === "true";
+const adventureMapEnabled = true;
+
+function resolveMapPreviewMode(): false | "free" | "go-live" {
+  if (typeof window !== "undefined") {
+    const p = new URLSearchParams(window.location.search).get("preview");
+    if (p === "free" || p === "go-live") return p;
+  }
+  const v = import.meta.env.VITE_PREVIEW_MODE;
+  if (v === "free" || v === "go-live") return v;
+  if (import.meta.env.VITE_PREVIEW_MODE === "true") return "free";
+  return false;
+}
+
+const mapPreviewMode = resolveMapPreviewMode();
 
 const diagMapPanelEnabled =
   import.meta.env.VITE_ADVENTURE_MAP === "true" &&
@@ -105,9 +125,18 @@ function App() {
   const [profileCompanion, setProfileCompanion] = useState<CompanionConfig | null>(
     null,
   );
+  const [profileTamagotchi, setProfileTamagotchi] = useState<TamagotchiState | null>(
+    null,
+  );
+  const [companionSheetOpen, setCompanionSheetOpen] = useState(false);
   const [diagCompanionCommands, setDiagCompanionCommands] = useState<
     CompanionCommand[]
   >([]);
+  const [mapGameOverlay, setMapGameOverlay] = useState<GameIframeOverlayState>({
+    active: false,
+    iframe: null,
+    url: null,
+  });
 
   const {
     adventureChildId,
@@ -119,23 +148,37 @@ function App() {
     activeProfileChildId,
   } = useAdventureState(state, adventureMapEnabled);
 
-  // Stable defaults object — avoids creating a new reference on every render.
-  const defaultCompanion = useMemo(() => cloneCompanionDefaults(), []);
-  // Provide defaults inline while the fetch is in-flight so CompanionLayer can
-  // start loading the VRM immediately, without a synchronous setState in the effect.
-  const effectiveCompanion = activeProfileChildId
-    ? (profileCompanion ?? defaultCompanion)
-    : profileCompanion;
+  const effectiveCompanion = activeProfileChildId ? profileCompanion : null;
+
+  const companionBubbleText = useMemo(() => {
+    if (!adventureChildId) return null;
+    const t = profileTamagotchi ?? DEFAULT_TAMAGOTCHI;
+    return getTamagotchiSpeechBubble(
+      getTamagotchiPersonality(t, false),
+    );
+  }, [adventureChildId, profileTamagotchi]);
+
+  const [vrrCelebrateEvent, setVrrCelebrateEvent] =
+    useState<CompanionEventPayload | null>(null);
+
+  useEffect(() => {
+    if (!vrrCelebrateEvent) return;
+    const id = window.setTimeout(() => setVrrCelebrateEvent(null), 8000);
+    return () => window.clearTimeout(id);
+  }, [vrrCelebrateEvent]);
 
   const mapSession = useMapSession(
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
+    mapPreviewMode,
   );
 
-  const mergedCompanionEvents = useMemo(
-    () =>
-      mergeCompanionEvents(voiceCompanionEvents, mapSession.companionEvents),
-    [voiceCompanionEvents, mapSession.companionEvents],
-  );
+  const mergedCompanionEvents = useMemo(() => {
+    const base = mergeCompanionEvents(
+      voiceCompanionEvents,
+      mapSession.companionEvents,
+    );
+    return vrrCelebrateEvent ? [...base, vrrCelebrateEvent] : base;
+  }, [voiceCompanionEvents, mapSession.companionEvents, vrrCelebrateEvent]);
 
   const mergedCompanionCommands = useMemo(
     () =>
@@ -151,6 +194,13 @@ function App() {
       mapSession.companionCommands,
       diagCompanionCommands,
     ],
+  );
+
+  const handleGameIframeOverlayChange = useCallback(
+    (s: GameIframeOverlayState) => {
+      setMapGameOverlay(s);
+    },
+    [],
   );
 
   const handleDiagCamera = useCallback(
@@ -178,16 +228,21 @@ function App() {
         if (!r.ok) {
           throw new Error(`profile ${r.status}`);
         }
-        return r.json() as Promise<{ companion?: CompanionConfig }>;
+        return r.json() as Promise<{
+          companion?: CompanionConfig;
+          tamagotchi?: TamagotchiState;
+        }>;
       })
       .then((data) => {
         if (!cancelled) {
           setProfileCompanion(mergeCompanionConfigWithDefaults(data.companion));
+          setProfileTamagotchi(data.tamagotchi ?? null);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setProfileCompanion(cloneCompanionDefaults());
+          setProfileCompanion(null);
+          setProfileTamagotchi(null);
         }
       });
     return () => {
@@ -214,7 +269,28 @@ function App() {
         <AdventureMap
           childId={adventureChildId}
           mapSession={mapSession}
+          previewMode={mapPreviewMode}
+          mapCompanion={effectiveCompanion}
+          companionMutedForMap={companionMuted}
+          tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+          onTamagotchiSynced={(t) => setProfileTamagotchi(t)}
+          onVrrPhase1Begin={() => {
+            const cid = activeProfileChildId?.trim().toLowerCase();
+            if (!cid) return;
+            setVrrCelebrateEvent({
+              childId: cid,
+              emote: "celebrating",
+              intensity: 1,
+              timestamp: Date.now(),
+            });
+          }}
+          onGameIframeOverlayChange={handleGameIframeOverlayChange}
           onActiveNodeScreenChange={setActiveNodeScreen}
+          onOpenTamagotchiSheet={
+            adventureChildId && activeProfileChildId
+              ? () => setCompanionSheetOpen(true)
+              : undefined
+          }
           karaokeReadingForMapNode={{
             words: state.canvas.karaokeWords ?? [],
             interimTranscript: state.interimTranscript,
@@ -335,7 +411,7 @@ function App() {
         />
       </div>
     );
-  } else if (state.phase === "ended") {
+} else if (state.phase === "ended") {
     main = (
       <div className="w-screen h-screen overflow-hidden">
         <SessionEnd
@@ -368,19 +444,40 @@ function App() {
           />
         </div>
       ) : null}
-      <CompanionLayer
-        childId={activeProfileChildId}
+      <CompanionBridge
+        overlay={mapGameOverlay}
         companion={effectiveCompanion}
-        toggledOff={companionMuted}
-        karaokeActive={
-          state.phase === "active" &&
-          state.canvas.mode === "karaoke" &&
-          !state.karaokeStoryComplete
-        }
-        companionEvents={mergedCompanionEvents}
-        companionCommands={mergedCompanionCommands}
-        activeNodeScreen={activeNodeScreen}
-        analyserNodeRef={analyserNodeRef}
+        companionMuted={companionMuted}
+        isSpeaking={state.sessionState === "SPEAKING"}
+      />
+      <div
+        style={{
+          visibility: mapGameOverlay.active ? "hidden" : "visible",
+          pointerEvents: mapGameOverlay.active ? "none" : "auto",
+        }}
+        aria-hidden={mapGameOverlay.active}
+      >
+        <CompanionLayer
+          childId={activeProfileChildId}
+          companion={effectiveCompanion}
+          toggledOff={companionMuted}
+          karaokeActive={
+            state.phase === "active" &&
+            state.canvas.mode === "karaoke" &&
+            !state.karaokeStoryComplete
+          }
+          companionEvents={mergedCompanionEvents}
+          companionCommands={mergedCompanionCommands}
+          activeNodeScreen={activeNodeScreen}
+          analyserNodeRef={analyserNodeRef}
+          speechBubbleText={companionBubbleText}
+        />
+      </div>
+      <TamagotchiSheet
+        open={companionSheetOpen}
+        tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+        companionName={effectiveCompanion?.companionId ?? "Companion"}
+        onClose={() => setCompanionSheetOpen(false)}
       />
     </>
   );

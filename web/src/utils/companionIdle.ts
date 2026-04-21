@@ -25,8 +25,13 @@ export function expressionBlocksIdle(
   faceExpression: string | null,
   faceWeight: number,
   thinkingActive: boolean,
+  pulseActive = false,
 ): boolean {
-  return thinkingActive || (faceExpression != null && faceWeight > 0.02);
+  return (
+    thinkingActive ||
+    (faceExpression != null && faceWeight > 0.02) ||
+    pulseActive
+  );
 }
 
 /**

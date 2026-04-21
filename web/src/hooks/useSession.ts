@@ -372,6 +372,38 @@ export function useSession() {
     stopMicRef: React.MutableRefObject<() => void>
   ) {
     switch (msg.type) {
+      case "screenshot_request": {
+        void (async () => {
+          const sendShot = (data: string | null) => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(
+                JSON.stringify({ type: "screenshot_response", data }),
+              );
+            }
+          };
+          try {
+            const iframe = gameIframeRef?.current;
+            const doc = iframe?.contentDocument;
+            const target = (doc?.body ?? iframe) as HTMLElement | undefined;
+            if (!target) {
+              sendShot(null);
+              return;
+            }
+            const { default: html2canvas } = await import("html2canvas");
+            const canvas = await html2canvas(target, {
+              useCORS: true,
+              logging: false,
+            });
+            const dataUrl = canvas.toDataURL("image/png");
+            const data = dataUrl.replace(/^data:image\/png;base64,/, "");
+            sendShot(data);
+          } catch {
+            sendShot(null);
+          }
+        })();
+        break;
+      }
+
       case "session_started": {
         const m = msg as Record<string, string>;
         debugBrowserTtsRef.current =

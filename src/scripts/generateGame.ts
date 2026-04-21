@@ -2,9 +2,49 @@ import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
+import type { ChildProfile } from "../shared/childProfile";
 
 export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 export const SONNET_MODEL = "claude-sonnet-4-20250514";
+
+const GAME_GOAL_BY_TYPE: Record<string, string> = {
+  spelling_test: `This game prepares a child for a spelling test.
+The child must PRODUCE each spelling word from memory.
+Correct mechanics: hear word then type it from memory,
+see word then hide it then type it, fill missing letters,
+unscramble scrambled letters to form the word.
+Wrong mechanics: alphabetizing, sorting, matching words
+to definitions, drag-and-drop ordering, multiple choice
+where child picks a word from a list.
+Every single interaction must require the child to
+actively spell the word — not recognize or sort it.`,
+
+  reading: `This game tests reading comprehension.
+Ask questions about the passage or vocabulary.
+Correct mechanics: multiple choice questions about content,
+written short answers, fill in the blank from context.
+Wrong mechanics: spelling drills, math problems, sorting.`,
+
+  math: `This game practices the math skills on this worksheet.
+Correct mechanics: solve problems shown, input numeric answers,
+work through steps to reach a solution.
+Wrong mechanics: spelling, reading comprehension, sorting.`,
+
+  coins: `This game practices counting coins and money.
+Correct mechanics: count coin values shown, identify correct
+coin combinations to make a total, match amounts.
+Wrong mechanics: spelling, alphabetizing, reading questions.`,
+
+  clocks: `This game practices telling time.
+Correct mechanics: read clock faces and write the time,
+match digital time to analog clock, set clock hands.
+Wrong mechanics: spelling, math equations, sorting.`,
+
+  generic: `This game practices the specific skills shown
+in the homework content provided. Analyze the content
+and build the most appropriate interactive mechanic.
+Match the game mechanic to the skill being practiced.`,
+};
 
 const REFERENCE_HTML_PATH = path.join(
   process.cwd(),
@@ -172,7 +212,96 @@ function resolveInputSource(args: CliArgs): InputSource {
   );
 }
 
-function buildSonnetPrompt(extractedJson: string, referenceHtml: string): string {
+function resolveGameGoalHomeworkType(homeworkType?: string): keyof typeof GAME_GOAL_BY_TYPE {
+  const t = (homeworkType ?? "generic").trim().toLowerCase();
+  if (t === "spelling" || t === "spelling_test") return "spelling_test";
+  if (t === "comprehension" || t === "reading") return "reading";
+  if (t === "math") return "math";
+  if (t === "coins") return "coins";
+  if (t === "clocks") return "clocks";
+  if (t in GAME_GOAL_BY_TYPE) return t as keyof typeof GAME_GOAL_BY_TYPE;
+  return "generic";
+}
+
+type SonnetChildProfile = ChildProfile & {
+  dyslexiaMode?: boolean;
+  rewardPreferences?: unknown;
+};
+
+function buildSonnetPrompt(
+  extractedJson: string,
+  referenceHtml: string,
+  homeworkType?: string,
+  testDate?: string,
+  childProfile?: SonnetChildProfile,
+  validationFeedback?: string,
+): string {
+  const validationPreamble =
+    validationFeedback && validationFeedback.trim().length > 0
+      ? `PREVIOUS GENERATION FAILED VALIDATION:
+${validationFeedback.trim()}
+Fix these issues in this generation.
+
+`
+      : "";
+  const goalKey = resolveGameGoalHomeworkType(homeworkType);
+  const gameGoal = GAME_GOAL_BY_TYPE[goalKey] ?? GAME_GOAL_BY_TYPE.generic;
+  const testDateLine = testDate ? `Test/due date: ${testDate}\n` : "";
+  const purposeBlock = `GAME PURPOSE AND MECHANICS:
+${gameGoal}
+
+${testDateLine}
+UNIVERSAL ASSESSMENT LAW:
+If the game tests whether a child knows something,
+never show them the answer while they answer.
+
+For spelling games specifically:
+- Never display the word list while the child is spelling
+- Flash word briefly → hide it → child recalls from memory
+- This is how real spelling tests work
+- Showing the word while asking them to type it
+  measures copying ability, not spelling ability
+- Word list may appear BETWEEN questions as reference
+  (after submitting, before next word begins)
+  but NEVER during active input
+
+This law applies regardless of child profile.
+It is a property of correct assessment design.
+
+`;
+
+  const profileBlock = childProfile
+    ? `
+CHILD PROFILE — drives all visual and pacing decisions:
+${JSON.stringify(
+  {
+    dyslexiaMode: childProfile.dyslexiaMode ?? false,
+    ui: childProfile.ui,
+    interests: childProfile.interests,
+    attentionWindow_ms: childProfile.attentionWindow_ms,
+    rewardPreferences: childProfile.rewardPreferences,
+    level: childProfile.level,
+  },
+  null,
+  2,
+)}
+
+Design rules:
+- dyslexiaMode true → high contrast, no clutter,
+  large tap targets, clean readable layout
+- interests → theme the game world around these
+  (if child likes dinosaurs → dinosaur world,
+   if child likes space → space world, etc.)
+- attentionWindow_ms → pace the game to this window,
+  fewer items if shorter attention window
+- rewardPreferences → match feedback style to profile
+- Profile improves over time — your design reflects
+  current data, not static assumptions
+- NEVER hardcode child name — use GAME_PARAMS.childId
+- NEVER hardcode colors or fonts — derive from profile
+`
+    : "";
+
   const referenceBlock =
     referenceHtml.trim() === ""
       ? ""
@@ -183,7 +312,7 @@ ${referenceHtml}
 
 `;
 
-  return `${referenceBlock}Generate a complete single-file interactive HTML game for Ila (age 8, grade 2).
+  return `${validationPreamble}${purposeBlock}${referenceBlock}Generate a complete single-file interactive HTML game for Ila (age 8, grade 2).
 Match this EXACT visual style:
 - Background: rich dark gradient (not flat dark blue).
   Use: linear-gradient(160deg, #064e3b, #065f46, #047857, #1a3a1a)
@@ -200,6 +329,12 @@ Match this EXACT visual style:
 - Progress: thin bar top with XP chip
 - Confetti: particle explosion on correct answer (multiple choice full credit, or written score === 1)
 - Tab navigation: Q1 Q2 Q3... pill buttons
+
+REQUIRED: Add immediately after <body> tag:
+<div id='sunny-companion' style='position:fixed;
+bottom:20px;right:20px;width:120px;height:120px;
+z-index:9999;pointer-events:none;'></div>
+This is mandatory. Never omit it.
 
 BEFORE game starts:
   Show modal overlay:
@@ -241,7 +376,7 @@ After _contract.js loads, call fireCompanionEvent() at:
 
 fireCompanionEvent is already defined in _contract.js
 which is loaded at top of <head>
-
+${profileBlock}
 Homework data:
 ${extractedJson}
 
@@ -294,9 +429,20 @@ export async function generateQuestGameHtml(args: {
   client: Anthropic;
   extractedJsonPretty: string;
   maxTokens?: number;
+  homeworkType?: string;
+  testDate?: string;
+  childProfile?: SonnetChildProfile;
+  validationFeedback?: string;
 }): Promise<string> {
   const referenceHtml = loadOptionalReferenceHtml();
-  const genPrompt = buildSonnetPrompt(args.extractedJsonPretty, referenceHtml);
+  const genPrompt = buildSonnetPrompt(
+    args.extractedJsonPretty,
+    referenceHtml,
+    args.homeworkType,
+    args.testDate,
+    args.childProfile,
+    args.validationFeedback,
+  );
   const genResp = await args.client.messages.create({
     model: SONNET_MODEL,
     max_tokens: args.maxTokens ?? 16384,
@@ -364,6 +510,36 @@ async function main(): Promise<void> {
   const extracted = parseExtractedJson(extractRaw);
   const extractedJsonPretty = JSON.stringify(extracted, null, 2);
 
+  const incomingDir = path.join(
+    process.cwd(),
+    "src",
+    "context",
+    childId,
+    "homework",
+    "incoming",
+  );
+  let sidecarType: string | undefined;
+  let sidecarTestDate: string | undefined;
+  for (const name of ["extraction.json", "classification.json"]) {
+    const fp = path.join(incomingDir, name);
+    if (!fs.existsSync(fp)) continue;
+    try {
+      const j = JSON.parse(fs.readFileSync(fp, "utf8")) as {
+        type?: string;
+        testDate?: string | null;
+      };
+      if (typeof j.type === "string" && j.type.trim()) sidecarType ??= j.type;
+      if (j.testDate != null && String(j.testDate).trim()) {
+        sidecarTestDate ??= String(j.testDate);
+      }
+    } catch {
+      // ignore malformed sidecar JSON
+    }
+  }
+  const extMeta = extracted as { type?: string; testDate?: string };
+  const homeworkTypeForGen = sidecarType ?? extMeta.type;
+  const testDateForGen = sidecarTestDate ?? extMeta.testDate;
+
   const textResult = await client.messages.create({
     model: HAIKU_MODEL,
     max_tokens: 4000,
@@ -411,6 +587,8 @@ async function main(): Promise<void> {
   const html = await generateQuestGameHtml({
     client,
     extractedJsonPretty,
+    homeworkType: homeworkTypeForGen,
+    testDate: testDateForGen,
   });
   console.log("✅ Step 2/4: Quest game ready");
 

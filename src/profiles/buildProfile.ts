@@ -2,10 +2,17 @@ import fs from "fs";
 import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { ChildProfile } from "../shared/childProfile";
-import { mergeCompanionConfigWithDefaults } from "../shared/companionTypes";
+import { mergeCompanionPresetWithLearningProfile } from "../shared/companionTypes";
+import {
+  companionConfigFromPreset,
+  getTtsNameForChildId,
+  readChildrenConfig,
+} from "./childrenConfig";
 import { readLearningProfile } from "../utils/learningProfileIO";
 import { getNodeRatings } from "../utils/nodeRatingIO";
 import { computeAttentionWindow, computeUnlockedThemes } from "./profileCompute";
+import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
+import { applyPassiveDepletion } from "../engine/vrrEngine";
 
 const PROFILE_SRC = path.resolve(__dirname, "..");
 
@@ -59,14 +66,42 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     interestTags.push(`reading:${lp.readingProfile.currentReadingLevel}`);
   }
 
+  const childrenCfg = readChildrenConfig();
+  const childMeta = childrenCfg.childProfiles?.[childId];
+  const presetFromLp =
+    lp.companion?.companionId &&
+    childrenCfg.companions[lp.companion.companionId]
+      ? lp.companion.companionId
+      : undefined;
+  const presetId =
+    presetFromLp ??
+    childrenCfg.childCompanionIds[childId] ??
+    childrenCfg.defaultCompanionId;
+  const presetBlock = childrenCfg.companions[presetId];
+  if (!presetBlock) {
+    throw new Error(
+      `children.config.json: unknown companion preset "${presetId}" for child "${childId}"`,
+    );
+  }
+  const preset = companionConfigFromPreset(presetId, presetBlock);
+  const companion = mergeCompanionPresetWithLearningProfile(preset, lp.companion);
+
+  const now = new Date().toISOString();
+  const baseT = lp.tamagotchi ?? { ...DEFAULT_TAMAGOTCHI, lastSeenAt: now };
+  const tamagotchi = applyPassiveDepletion(baseT);
+
   return {
     childId,
+    ttsName: getTtsNameForChildId(childId),
+    avatarImagePath: childMeta?.avatarImagePath,
     level,
     interests: { tags: interestTags },
     ui: { accentColor: accent },
     unlockedThemes,
     attentionWindow_ms,
     childContext: getChildContext(childId),
-    companion: mergeCompanionConfigWithDefaults(lp.companion),
+    companion,
+    pendingHomework: lp.pendingHomework ?? undefined,
+    tamagotchi,
   };
 }

@@ -110,6 +110,8 @@ describe("planSession homework", () => {
     const plan = planSession(childId, "homework");
     expect(plan.mode).toBe("homework");
     expect(plan.activities.length).toBeGreaterThan(0);
+    expect(plan.dueWords).toEqual(["cat"]);
+    expect(plan.activities[0]?.words).toEqual(plan.dueWords);
   });
 
   it("boss node placed last regardless of input order", () => {
@@ -118,6 +120,26 @@ describe("planSession homework", () => {
       { id: "b", type: "quest" },
     ]);
     expect(out[out.length - 1]?.type).toBe("boss");
+  });
+
+  it("spelling_test plan with spell-check keeps node order (no modality swaps)", () => {
+    const plan = [
+      { id: "1", type: "spell-check", words: ["a"] },
+      { id: "2", type: "pronunciation", words: ["a"] },
+      { id: "3", type: "karaoke", words: ["a"] },
+      { id: "4", type: "word-builder", words: ["a"] },
+      { id: "5", type: "quest", words: ["a"] },
+      { id: "6", type: "boss", words: ["a"] },
+    ];
+    const out = reorderHomeworkNodesForSession(plan);
+    expect(out.map((n) => n.type)).toEqual([
+      "spell-check",
+      "pronunciation",
+      "karaoke",
+      "word-builder",
+      "quest",
+      "boss",
+    ]);
   });
 
   it("no same modality appears back to back", () => {

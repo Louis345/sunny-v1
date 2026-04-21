@@ -7,21 +7,162 @@ import type {
   NodeConfig,
   NodeResult,
   NodeRatingLike,
+  NodeType,
   SessionTheme,
 } from "../shared/adventureTypes";
 import { DEFAULT_MAP_WAYPOINTS } from "../shared/mapPathLayout";
 import type { ChildQuality } from "../algorithms/types";
+import type { ChildProfile } from "../shared/childProfile";
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { recordReward } from "../engine/bandit";
-import { recordAttempt } from "../engine/learningEngine";
+import { planSession, recordAttempt } from "../engine/learningEngine";
+import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
 import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
 import { isCompanionEmote } from "../shared/companionEmotes";
 import type { CompanionEvent, CompanionTrigger } from "../shared/companionTypes";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
+import { generateStoryImage } from "../utils/generateStoryImage";
+
+/** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
+export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
+  pronunciation:
+    "microphone with colorful sound waves, children's educational app icon, bright purple background, cute cartoon style, transparent background",
+  "spell-check":
+    "golden pencil writing glowing letters, spelling bee trophy, stars, children's game icon, transparent background",
+  "word-builder":
+    "colorful alphabet blocks stacked in tower, letters glowing, children's educational toy, transparent background",
+  karaoke:
+    "open magical book with musical notes floating out, glowing pages, children's story, transparent background",
+  quest:
+    "treasure chest bursting open with gold stars and letters, adventure game icon, transparent background",
+  boss: "epic castle with lightning bolts, final challenge, dramatic sky, game icon, transparent background",
+};
+
+async function enrichHomeworkNodeThumbnails(
+  theme: SessionTheme,
+  nodeTypes: string[],
+): Promise<void> {
+  const next: Record<string, string | null | undefined> = { ...(theme.nodeThumbnails ?? {}) };
+  await Promise.all(
+    [...new Set(nodeTypes)].map(async (type) => {
+      const prompt = NODE_THUMBNAIL_PROMPTS[type];
+      if (!prompt) return;
+      const existing = next[type];
+      if (existing != null && existing !== "") return;
+      const url = await generateStoryImage(prompt, { useDirectScene: true });
+      next[type] = url;
+    }),
+  );
+  theme.nodeThumbnails = next as SessionTheme["nodeThumbnails"];
+}
+
+/** Must match `buildProfile` normalization so paths and WebSocket keys align. */
+function mapCompanionWsKey(childId: string): string {
+  return childId.trim().toLowerCase();
+}
+
+/** Persisted homework map theme (Grok world + thumbnails). */
+export type SavedHomeworkThemeFile = {
+  id: string;
+  name: string;
+  generatedAt: string;
+  worldBackgroundUrl: string;
+  palette: SessionTheme["palette"];
+  thumbnails: Record<string, string | null | undefined>;
+  savedBy: string;
+};
+
+function themesDirForChild(childId: string): string {
+  return path.join(process.cwd(), "src", "context", mapCompanionWsKey(childId), "themes");
+}
+
+/** List saved theme JSON files for a child, oldest → newest. */
+export function listSavedThemes(childId: string): SavedHomeworkThemeFile[] {
+  const dir = themesDirForChild(childId);
+  if (!fs.existsSync(dir)) return [];
+  const names = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
+  const out: SavedHomeworkThemeFile[] = [];
+  for (const name of names) {
+    try {
+      const raw = JSON.parse(
+        fs.readFileSync(path.join(dir, name), "utf8"),
+      ) as SavedHomeworkThemeFile;
+      if (raw?.id && typeof raw.worldBackgroundUrl === "string" && raw.worldBackgroundUrl) {
+        out.push(raw);
+      }
+    } catch {
+      /* skip malformed */
+    }
+  }
+  out.sort((a, b) => a.generatedAt.localeCompare(b.generatedAt));
+  return out;
+}
+
+function sessionThemeFromSaved(doc: SavedHomeworkThemeFile): SessionTheme {
+  const p = doc.palette;
+  return {
+    name: doc.name || "saved",
+    palette: p,
+    ambient: { type: "dots", count: 20, speed: 1, color: p.particle ?? "#e0f2fe" },
+    nodeStyle: "rounded",
+    pathStyle: "curve",
+    castleVariant: "stone",
+    castleUrl: null,
+    backgroundUrl: doc.worldBackgroundUrl,
+    nodeThumbnails: (doc.thumbnails ?? {}) as SessionTheme["nodeThumbnails"],
+    mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
+  };
+}
+
+function homeworkThemePersistenceContext(profile: ChildProfile): boolean {
+  return (
+    Boolean(profile.pendingHomework?.nodes?.length) ||
+    process.env.SUNNY_SUBJECT?.trim() === "homework"
+  );
+}
+
+async function resolveThemeForMapSession(
+  profile: ChildProfile,
+): Promise<{ theme: SessionTheme; shouldPersist: boolean }> {
+  const key = mapCompanionWsKey(profile.childId);
+  const persistCtx = homeworkThemePersistenceContext(profile);
+  const saved = persistCtx ? listSavedThemes(key) : [];
+  const useExisting =
+    persistCtx && saved.length > 0 && Math.random() < 0.5;
+  if (useExisting) {
+    const picked = saved[saved.length - 1]!;
+    console.log(`  🎨 Reusing saved theme: ${picked.name}`);
+    return { theme: sessionThemeFromSaved(picked), shouldPersist: false };
+  }
+  const theme = await generateTheme(profile);
+  return { theme, shouldPersist: persistCtx };
+}
+
+function persistHomeworkThemeSnapshot(childId: string, theme: SessionTheme): void {
+  const worldImageUrl = theme.backgroundUrl;
+  if (!worldImageUrl) return;
+  const themesDir = themesDirForChild(childId);
+  fs.mkdirSync(themesDir, { recursive: true });
+  const safeName = (theme.name ?? "world").replace(/[^a-zA-Z0-9-_]+/g, "-");
+  const themeId = `${safeName}-${Date.now()}`;
+  const themeFile = path.join(themesDir, `${themeId}.json`);
+  const nodeThumbnails = theme.nodeThumbnails ?? {};
+  const payload: SavedHomeworkThemeFile = {
+    id: themeId,
+    name: theme.name ?? "world",
+    generatedAt: new Date().toISOString(),
+    worldBackgroundUrl: worldImageUrl,
+    palette: theme.palette,
+    thumbnails: Object.fromEntries(Object.entries(nodeThumbnails).map(([k, v]) => [k, v])),
+    savedBy: "auto",
+  };
+  fs.writeFileSync(themeFile, JSON.stringify(payload, null, 2), "utf8");
+  console.log(`  🎨 Theme saved → themes/${path.basename(themeFile)}`);
+}
 
 type SessionRecord = {
   childId: string;
@@ -34,11 +175,6 @@ const sessions = new Map<string, SessionRecord>();
 const WS_OPEN = 1;
 /** Keyed by normalized map childId (same as `profile.childId` / `map_session_attach`). */
 const mapSessionWebSockets = new Map<string, Set<WebSocket>>();
-
-/** Must match `buildProfile` normalization so attach and broadcast use one key. */
-function mapCompanionWsKey(childId: string): string {
-  return childId.trim().toLowerCase();
-}
 
 export function registerMapSessionWebSocket(
   childId: string,
@@ -251,6 +387,48 @@ function isDiagMapMode(): boolean {
   return process.env.SUNNY_SUBJECT?.trim() === "diag";
 }
 
+function clampNodeDifficulty(raw: number | undefined): 1 | 2 | 3 {
+  const n = raw ?? 2;
+  if (n <= 1) return 1;
+  if (n >= 3) return 3;
+  return 2;
+}
+
+function isWordDrivenHomeworkNodeType(t: string): boolean {
+  return (
+    t === "pronunciation" ||
+    t === "karaoke" ||
+    t === "word-builder" ||
+    t === "spell-check" ||
+    t === "quest" ||
+    t === "boss"
+  );
+}
+
+/** Adventure map path from `ChildProfile.pendingHomework` (via `buildProfile`). Exported for tests. */
+export function pendingHomeworkToNodeConfigs(
+  hw: NonNullable<ChildProfile["pendingHomework"]>,
+  dueWords: string[],
+): NodeConfig[] {
+  const words = dueWords.length ? dueWords : hw.wordList;
+  return hw.nodes.map((node, i, arr) => ({
+    id: node.id,
+    type: node.type as NodeType,
+    words: isWordDrivenHomeworkNodeType(node.type) ? words : [],
+    difficulty: clampNodeDifficulty(node.difficulty),
+    gameFile: node.gameFile ?? undefined,
+    storyFile: node.storyFile ?? undefined,
+    storyText: node.storyText,
+    date: node.date ?? hw.weekOf,
+    isCastle: node.type === "boss",
+    thumbnailUrl: undefined,
+    thumbnailPrompt: NODE_THUMBNAIL_PROMPTS[node.type] ?? undefined,
+    isLocked: false,
+    isCompleted: false,
+    isGoal: i === arr.length - 1,
+  }));
+}
+
 /** Static theme — no Grok / designer image pipeline (SUNNY_SUBJECT=diag map only). */
 function diagSessionTheme(): SessionTheme {
   const accent = "#1a56db";
@@ -276,9 +454,14 @@ function diagSessionTheme(): SessionTheme {
 /**
  * Isolated diag map: no buildProfile, no Grok, fixed nodes for kiosk QA.
  */
-function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
+export function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
   const sessionDate = new Date().toISOString();
   const theme = diagSessionTheme();
+  const plan = planSession("creator", "spelling");
+  const dueWords =
+    plan.dueWords?.length && plan.dueWords.length > 0
+      ? plan.dueWords
+      : [...plan.newWords, ...plan.reviewWords];
   const nodes: NodeConfig[] = [
     {
       id: "n-riddle",
@@ -287,6 +470,7 @@ function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
       isCompleted: false,
       isGoal: false,
       difficulty: 1,
+      words: [],
     },
     {
       id: "n-wb",
@@ -295,6 +479,7 @@ function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
       isCompleted: false,
       isGoal: false,
       difficulty: 2,
+      words: [...dueWords],
     },
     {
       id: "n-karaoke",
@@ -303,6 +488,7 @@ function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
       isCompleted: false,
       isGoal: false,
       difficulty: 2,
+      words: [...dueWords],
     },
     {
       id: "n-coins",
@@ -311,6 +497,7 @@ function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
       isCompleted: false,
       isGoal: false,
       difficulty: 2,
+      words: [],
     },
     {
       id: "n-castle",
@@ -319,6 +506,7 @@ function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
       isCompleted: false,
       isGoal: true,
       difficulty: 3,
+      words: [...dueWords],
     },
   ];
   const mapState: MapState = {
@@ -347,8 +535,34 @@ export async function startMapSession(
   if (!profile) {
     throw new MapSessionError("unknown_child", 404);
   }
-  const theme = await generateTheme(profile);
-  const nodes = await buildNodeList(profile, theme);
+  const { theme, shouldPersist } = await resolveThemeForMapSession(profile);
+  const nodes =
+    profile.pendingHomework?.nodes?.length
+      ? (() => {
+          const homeworkPlan = planSession(childId, "homework");
+          const dueWords =
+            homeworkPlan.dueWords?.length && profile.pendingHomework
+              ? homeworkPlan.dueWords
+              : profile.pendingHomework.wordList;
+          return pendingHomeworkToNodeConfigs(profile.pendingHomework, dueWords);
+        })()
+      : await buildNodeList(profile, theme);
+  try {
+    await enrichHomeworkNodeThumbnails(theme, nodes.map((n) => n.type as string));
+  } catch (err) {
+    console.error("🎮 [map-coordinator] enrichHomeworkNodeThumbnails failed", err);
+  }
+  if (
+    shouldPersist &&
+    homeworkThemePersistenceContext(profile) &&
+    theme.backgroundUrl
+  ) {
+    try {
+      persistHomeworkThemeSnapshot(profile.childId, theme);
+    } catch (err) {
+      console.error("🎮 [map-coordinator] persistHomeworkThemeSnapshot failed", err);
+    }
+  }
   const sessionDate = new Date().toISOString();
   const mapState: MapState = {
     childId: profile.childId,
@@ -425,6 +639,7 @@ function appendMapSessionNote(
 export async function applyNodeResult(
   sessionId: string,
   result: NodeResult,
+  opts?: { clientPreviewFreeOrGoLive?: boolean },
 ): Promise<{ mapState: MapState; companionEvent: CompanionEvent }> {
   const rec = sessions.get(sessionId);
   if (!rec) {
@@ -441,45 +656,60 @@ export async function applyNodeResult(
   }
 
   const rating = ratingFromResult(result);
-  await appendNodeRating({
-    childId: st.childId,
-    sessionDate: st.sessionDate,
-    nodeType: nodeCfg.type,
-    word: "session",
-    theme: st.theme.name,
-    rating,
-    completionTime_ms: result.timeSpent_ms,
-    accuracy: result.accuracy,
-    abandonedEarly: !result.completed,
-  });
+  const skipPersistence =
+    sunnyPreviewBlocksPersistence() || opts?.clientPreviewFreeOrGoLive === true;
 
-  const liked = rating === "like";
-  try {
-    await recordReward(
-      st.childId,
-      nodeCfg.type,
-      liked,
-      result.completed,
-      result.accuracy,
-    );
-  } catch (err) {
-    console.error("  🔴 [map-coordinator] recordReward failed:", err);
+  if (!skipPersistence) {
+    await appendNodeRating({
+      childId: st.childId,
+      sessionDate: st.sessionDate,
+      nodeType: nodeCfg.type,
+      word: "session",
+      theme: st.theme.name,
+      rating,
+      completionTime_ms: result.timeSpent_ms,
+      accuracy: result.accuracy,
+      abandonedEarly: !result.completed,
+    });
   }
 
-  for (let i = 0; i < result.wordsAttempted; i++) {
-    const word = `attempt-${i + 1}`;
-    const correct = result.completed && result.accuracy >= 0.5;
+  const liked = rating === "like";
+  if (!skipPersistence) {
     try {
-      recordAttempt(st.childId, {
-        word,
-        domain: "spelling",
-        correct,
-        quality: (correct ? 4 : 2) as ChildQuality,
-        scaffoldLevel: 2,
-        responseTimeMs: result.timeSpent_ms,
-      });
+      await recordReward(
+        st.childId,
+        nodeCfg.type,
+        liked,
+        result.completed,
+        result.accuracy,
+      );
     } catch (err) {
-      console.error("  🔴 [map-coordinator] recordAttempt failed:", err);
+      console.error("  🔴 [map-coordinator] recordReward failed:", err);
+    }
+  }
+
+  if (!skipPersistence && nodeCfg.type !== "spell-check") {
+    const pool =
+      nodeCfg.words && nodeCfg.words.length > 0
+        ? nodeCfg.words
+        : null;
+    const nAttempt = Math.max(0, Math.floor(result.wordsAttempted));
+    const count = pool ? Math.min(nAttempt, pool.length) : nAttempt;
+    for (let i = 0; i < count; i++) {
+      const word = pool ? pool[i]! : `attempt-${i + 1}`;
+      const correct = result.completed && result.accuracy >= 0.5;
+      try {
+        recordAttempt(st.childId, {
+          word,
+          domain: "spelling",
+          correct,
+          quality: (correct ? 4 : 2) as ChildQuality,
+          scaffoldLevel: 2,
+          responseTimeMs: result.timeSpent_ms,
+        });
+      } catch (err) {
+        console.error("  🔴 [map-coordinator] recordAttempt failed:", err);
+      }
     }
   }
 
@@ -502,11 +732,13 @@ export async function applyNodeResult(
     st.xp += xpDelta;
   }
 
-  appendMapSessionNote(
-    st.childId,
-    st.sessionDate,
-    `Map node ${nodeCfg.type} ${result.nodeId} completed=${result.completed} accuracy=${result.accuracy}`,
-  );
+  if (!skipPersistence) {
+    appendMapSessionNote(
+      st.childId,
+      st.sessionDate,
+      `Map node ${nodeCfg.type} ${result.nodeId} completed=${result.completed} accuracy=${result.accuracy}`,
+    );
+  }
 
   if (st.currentNodeIndex < st.nodes.length - 1) {
     st.currentNodeIndex++;

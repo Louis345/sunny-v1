@@ -47,7 +47,8 @@ describe("NodeTransitionOverlay", () => {
     );
     expect(onComplete).not.toHaveBeenCalled();
     act(() => {
-      vi.advanceTimersByTime(400);
+      // Fallback timer is duration + 400 (see NodeTransitionOverlay); rAF may not run under fake timers.
+      vi.advanceTimersByTime(400 + 400);
     });
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
@@ -62,7 +63,7 @@ describe("NodeTransitionOverlay", () => {
     );
     expect(screen.queryByTestId("node-transition-overlay")).not.toBeNull();
     act(() => {
-      vi.advanceTimersByTime(300);
+      vi.advanceTimersByTime(300 + 400);
     });
     expect(onComplete).toHaveBeenCalled();
     expect(screen.queryByTestId("node-transition-overlay")).toBeNull();

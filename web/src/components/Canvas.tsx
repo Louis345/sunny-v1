@@ -307,7 +307,7 @@ interface Props {
   }) => void;
   interimTranscript?: string;
   sendMessage?: (type: string, payload?: Record<string, unknown>) => void;
-  /** For story-image loading avatar: `/characters/${id}.png` */
+  /** Story-image loading: text avatar (no PNG). */
   storyImageChildId?: string;
   storyImageLoading?: boolean;
   storyImageUrl?: string | null;
@@ -2094,21 +2094,25 @@ export function Canvas({
             background: "#FFF8F0",
           }}
         >
-          <img
-            src={`/characters/${storyImageChildId}.png`}
-            alt=""
-            onError={(e) => {
-              e.currentTarget.src = "/characters/star.png";
-            }}
+          <div
             style={{
               width: 130,
               height: 130,
               borderRadius: "50%",
-              objectFit: "cover",
               border: "4px solid #FFD700",
               animation: "bounce 2s ease-in-out infinite",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 48,
+              fontWeight: 700,
+              color: "#475569",
+              background: "rgba(255,255,255,0.9)",
             }}
-          />
+            aria-hidden
+          >
+            {storyImageChildId.trim().charAt(0).toUpperCase() || "?"}
+          </div>
           <p
             style={{
               fontSize: 16,

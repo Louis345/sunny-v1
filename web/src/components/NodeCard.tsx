@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
+import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
 
 export function NodeCard({
   node,
@@ -19,6 +20,7 @@ export function NodeCard({
   const isGoal = node.isGoal;
   const isLocked = node.isLocked;
   const isDone = node.isCompleted;
+  const typeLabel = NODE_DISPLAY_LABELS[node.type] ?? node.type;
   const size = isGoal ? 120 : 88;
   const borderColor = isGoal ? "#FCD34D" : "white";
   const borderWidth = isGoal ? 5 : 4;
@@ -168,7 +170,7 @@ export function NodeCard({
               fontWeight: 700,
             }}
           >
-            {isGoal ? "★" : (node.type[0]?.toUpperCase() ?? "?")}
+            {isGoal ? "★" : (typeLabel[0]?.toUpperCase() ?? "?")}
           </div>
         )}
       </div>
@@ -189,7 +191,7 @@ export function NodeCard({
           pointerEvents: "none",
         }}
       >
-        {isGoal ? "BOSS" : node.type}
+        {isGoal ? "BOSS" : typeLabel}
       </div>
     </motion.div>
   );

@@ -124,7 +124,18 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
  * Map session over REST (TASK-010). Outbound shapes match the coordinator
  * WebSocket contract for a future dedicated map socket.
  */
-export function useMapSession(childId: string): {
+export type MapClientPreviewMode = false | "free" | "go-live";
+
+function mapPreviewQueryParam(
+  mode: MapClientPreviewMode,
+): "free" | "go-live" | undefined {
+  return mode === "free" || mode === "go-live" ? mode : undefined;
+}
+
+export function useMapSession(
+  childId: string,
+  previewMode: MapClientPreviewMode = false,
+): {
   mapState: MapState | null;
   theme: SessionTheme | null;
   sessionId: string | null;
@@ -178,6 +189,7 @@ export function useMapSession(childId: string): {
     setConnectionStatus("connecting");
     postJson<{ sessionId: string; mapState: MapState }>("/api/map/start", {
       childId,
+      ...(previewMode === "free" ? { preview: "free" } : {}),
     })
       .then((out) => {
         if (cancelled) return;
@@ -194,11 +206,14 @@ export function useMapSession(childId: string): {
     return () => {
       cancelled = true;
     };
-  }, [childId]);
+  }, [childId, previewMode]);
 
   useEffect(() => {
     const id = childId.trim();
     if (!id) return;
+    if (previewMode === "free") {
+      return;
+    }
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -249,18 +264,27 @@ export function useMapSession(childId: string): {
       }
       ws.close();
     };
-  }, [childId]);
+  }, [childId, previewMode]);
 
   const onNodeClick = useCallback(
     async (nodeId: string): Promise<NodeConfig | null> => {
+      /** Preview (free or go-live): launch from local map — no /node-complete or WS. */
+      if (previewMode === "free" || previewMode === "go-live") {
+        const ms = mapStateRef.current;
+        const fromMap = ms?.nodes.find((n) => n.id === nodeId);
+        return fromMap ?? null;
+      }
       if (!sessionId) return null;
       try {
-        const res = await postJson<{
+        const res =         await postJson<{
           events?: Array<{ type: string; payload?: unknown }>;
         }>("/api/map/node-complete", {
           sessionId,
           phase: "click",
           nodeId,
+          ...(mapPreviewQueryParam(previewMode)
+            ? { preview: mapPreviewQueryParam(previewMode) }
+            : {}),
         });
         const launch = res.events?.find((e) => e.type === "node_launched");
         const payload = launch?.payload;
@@ -282,7 +306,7 @@ export function useMapSession(childId: string): {
         return null;
       }
     },
-    [sessionId],
+    [sessionId, previewMode],
   );
 
   const commitLaunchedNode = useCallback((node: NodeConfig) => {
@@ -301,6 +325,9 @@ export function useMapSession(childId: string): {
         }>("/api/map/node-complete", {
           sessionId,
           result,
+          ...(mapPreviewQueryParam(previewMode)
+            ? { preview: mapPreviewQueryParam(previewMode) }
+            : {}),
         });
         setMapState(applyDiagReadingFirstNode(res.mapState));
         setTheme(res.mapState.theme);
@@ -317,7 +344,7 @@ export function useMapSession(childId: string): {
         return null;
       }
     },
-    [sessionId],
+    [sessionId, previewMode],
   );
 
   const sendNodeRating = useCallback(
@@ -329,13 +356,16 @@ export function useMapSession(childId: string): {
           phase: "rating",
           nodeId,
           rating,
+          ...(mapPreviewQueryParam(previewMode)
+            ? { preview: mapPreviewQueryParam(previewMode) }
+            : {}),
         });
       } catch (err) {
         console.error("  🔴 [useMapSession] node rating failed:", err);
         setConnectionStatus("error");
       }
     },
-    [sessionId],
+    [sessionId, previewMode],
   );
 
   return {

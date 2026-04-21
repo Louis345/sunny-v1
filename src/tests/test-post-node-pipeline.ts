@@ -73,6 +73,7 @@ function mockTwoWordNode(): MapState["nodes"] {
       isCompleted: false,
       isGoal: false,
       difficulty: 2,
+      words: ["w1", "w2"],
     },
   ];
 }
@@ -110,6 +111,7 @@ describe("post-node pipeline (TASK-014)", () => {
     });
     vi.mocked(buildProfile).mockResolvedValue({
       childId: "qa_pipeline",
+      ttsName: "Qa pipeline",
       level: 3,
       interests: { tags: [] },
       ui: { accentColor: "#00f" },
@@ -141,6 +143,14 @@ describe("post-node pipeline (TASK-014)", () => {
     expect(pipelineOrder[1]).toBe("recordReward");
     const attempts = pipelineOrder.filter((s) => s === "recordAttempt");
     expect(attempts.length).toBe(2);
+    expect(recordAttemptMock).toHaveBeenCalledWith(
+      "qa_pipeline",
+      expect.objectContaining({ word: "w1" }),
+    );
+    expect(recordAttemptMock).toHaveBeenCalledWith(
+      "qa_pipeline",
+      expect.objectContaining({ word: "w2" }),
+    );
     expect(appendSpy).toHaveBeenCalled();
     expect(recordRewardMock).toHaveBeenCalledWith(
       "qa_pipeline",

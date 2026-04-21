@@ -1,9 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect } from "vitest";
 import { buildProfile } from "../profiles/buildProfile";
+import { clearChildrenConfigCache } from "../profiles/childrenConfig";
 import { isCompanionEmote } from "../shared/companionEmotes";
 import {
   COMPANION_DEFAULTS,
   mergeCompanionConfigWithDefaults,
+  mergeCompanionPresetWithLearningProfile,
   type CompanionConfig,
   type CompanionEvent,
   type CompanionTrigger,
@@ -19,7 +21,11 @@ const TRIGGERS: CompanionTrigger[] = [
 ];
 
 function assertCompanionConfigShape(c: CompanionConfig): void {
+  expect(typeof c.companionId).toBe("string");
   expect(typeof c.vrmUrl).toBe("string");
+  expect(c.expressions).toBeDefined();
+  expect(Array.isArray(c.dopamineGames)).toBe(true);
+  expect(c.faceCamera?.position?.length).toBe(3);
   expect(typeof c.idleFrequency_ms).toBe("number");
   expect(typeof c.randomMomentProbability).toBe("number");
   expect(typeof c.toggledOff).toBe("boolean");
@@ -32,6 +38,9 @@ function assertCompanionConfigShape(c: CompanionConfig): void {
 }
 
 describe("companion types (COMPANION-001)", () => {
+  beforeEach(() => {
+    clearChildrenConfigCache();
+  });
   it("CompanionConfig default has all required fields and sensitivity keys", () => {
     assertCompanionConfigShape(COMPANION_DEFAULTS);
   });
@@ -107,7 +116,10 @@ describe("companion types (COMPANION-001)", () => {
     if (!p) return;
     assertCompanionConfigShape(p.companion);
     expect(p.companion.vrmUrl).toBe("/companions/sample.vrm");
+    expect(p.companion.companionId).toBe("elli");
     expect(p.companion.idleFrequency_ms).toBe(45000);
+    expect(p.ttsName).toBe("Ee-lah");
+    expect(p.avatarImagePath).toBe("/characters/ila.png");
   });
 
   it("buildProfile returns companion for fixture child reina", async () => {
@@ -115,6 +127,29 @@ describe("companion types (COMPANION-001)", () => {
     expect(p).not.toBeNull();
     if (!p) return;
     assertCompanionConfigShape(p.companion);
-    expect(p.companion.vrmUrl).toBe("/companions/matilda.vrm");
+    expect(p.companion.vrmUrl).toBe("/companions/sample.vrm");
+    expect(p.companion.companionId).toBe("matilda");
+    expect(p.ttsName).toBe("Ray-nah");
+    expect(p.avatarImagePath).toBe("/characters/reina.png");
+  });
+
+  it("mergeCompanionPresetWithLearningProfile keeps preset vrmUrl when learning_profile overrides vrmUrl", () => {
+    const preset: CompanionConfig = {
+      ...COMPANION_DEFAULTS,
+      companionId: "matilda",
+      vrmUrl: "/companions/sample.vrm",
+      expressions: { idle: "neutral", happy: "happy" },
+      faceCamera: {
+        position: [0, 1.4, 0.8],
+        target: [0, 1.4, 0],
+      },
+      dopamineGames: ["space-invaders"],
+    };
+    const merged = mergeCompanionPresetWithLearningProfile(preset, {
+      vrmUrl: "/companions/legacy-missing.vrm",
+      idleFrequency_ms: 999,
+    });
+    expect(merged.vrmUrl).toBe("/companions/sample.vrm");
+    expect(merged.idleFrequency_ms).toBe(999);
   });
 });

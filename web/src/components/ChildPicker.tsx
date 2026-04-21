@@ -111,18 +111,30 @@ export function ChildPicker({ onSelect }: Props) {
                 color: c.accentColor,
               }}
             >
-              <img
-                src={`/characters/${c.childName.toLowerCase()}.png`}
-                alt=""
-                onError={(e) => {
-                  e.currentTarget.src = "/characters/star.png";
-                }}
-                className="w-24 h-24 rounded-full object-cover"
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold select-none overflow-hidden shrink-0"
                 style={{
                   border: `3px solid ${c.accentColor}`,
                   boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+                  background: "rgba(255,255,255,0.35)",
                 }}
-              />
+                aria-hidden
+              >
+                {c.avatarImagePath ? (
+                  <img
+                    src={c.avatarImagePath}
+                    alt=""
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: "50%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  c.childName.trim().charAt(0).toUpperCase() || "?"
+                )}
+              </div>
 
               <div className="text-center">
                 <div className="text-2xl font-medium" style={{ color: c.accentColor }}>
@@ -153,18 +165,17 @@ export function ChildPicker({ onSelect }: Props) {
           >
             ⚡ Dev
           </span>
-          <img
-            src="/characters/star.png"
-            alt=""
-            className="w-20 h-20 rounded-full object-cover opacity-95"
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-amber-50 select-none opacity-95"
             style={{
               border: "3px solid rgba(251, 191, 36, 0.85)",
               boxShadow: "0 0 16px rgba(251, 191, 36, 0.25)",
+              background: "rgba(0,0,0,0.2)",
             }}
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
-          />
+            aria-hidden
+          >
+            ⚡
+          </div>
           <div className="text-center mt-1">
             <div
               className="text-xl font-semibold text-amber-50"

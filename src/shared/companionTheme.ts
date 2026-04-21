@@ -4,6 +4,8 @@ export interface CompanionThemeConfig {
   emoji: string;
   accentColor: string;
   accentBg: string;
+  /** Optional picker-only image path (same-origin). */
+  avatarImagePath?: string | null;
 }
 
 export type CompanionThemeResponse = Partial<CompanionThemeConfig> & {
@@ -19,6 +21,10 @@ export function normalizeCompanionConfig(
     childName: input.childName,
     companionName: input.companionName,
     emoji: input.emoji,
+    avatarImagePath:
+      typeof input.avatarImagePath === "string" && input.avatarImagePath.trim().length > 0
+        ? input.avatarImagePath.trim()
+        : null,
     accentColor:
       typeof input.accentColor === "string" && input.accentColor.trim().length > 0
         ? input.accentColor

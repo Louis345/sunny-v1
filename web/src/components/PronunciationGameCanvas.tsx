@@ -95,6 +95,8 @@ export interface PronunciationGameCanvasProps {
   backgroundImageUrl?: string;
   accentColor?: string;
   onComplete?: (result: PronunciationCompleteResult) => void;
+  /** Extra top padding (px) to clear a fixed banner above the component. */
+  topInset?: number;
 }
 
 type BlockPhase = "approaching" | "hit" | "miss";
@@ -129,6 +131,7 @@ export function PronunciationGameCanvas({
   backgroundImageUrl: _backgroundImageUrl, // eslint-disable-line @typescript-eslint/no-unused-vars
   accentColor: _accentColor, // eslint-disable-line @typescript-eslint/no-unused-vars
   onComplete,
+  topInset = 0,
 }: PronunciationGameCanvasProps): React.ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null);
   const particlesRef = useRef<HTMLCanvasElement>(null);
@@ -155,6 +158,7 @@ export function PronunciationGameCanvas({
   const missCountByWordRef = useRef<Map<string, number>>(new Map());
 
   const [cameraOk, setCameraOk] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
   const [cycleKey, setCycleKey] = useState(0);
   const [blockPhase, setBlockPhase] = useState<BlockPhase>("approaching");
   const [missSeq, setMissSeq] = useState(0);
@@ -257,6 +261,7 @@ export function PronunciationGameCanvas({
   }, []);
 
   useLayoutEffect(() => {
+    if (!hasStarted) return;
     prevWordIndexRef.current = -1;
     hitProcessedForWordIndexRef.current = -1;
     cycleStartRef.current = performance.now();
@@ -275,13 +280,14 @@ export function PronunciationGameCanvas({
       setEnded(false);
       missCountByWordRef.current = new Map();
     });
-  }, [words]);
+  }, [words, hasStarted]);
 
   useEffect(() => {
+    if (!hasStarted) return;
     if (ended) return;
     const endId = window.setTimeout(() => setEnded(true), GAME_MS);
     return () => window.clearTimeout(endId);
-  }, [ended]);
+  }, [hasStarted, ended]);
 
   const finalizeOnce = useCallback(() => {
     if (completeSentRef.current) return;
@@ -601,6 +607,85 @@ export function PronunciationGameCanvas({
         ? `pg-hit-pass ${HIT_MS}ms ease-out forwards`
         : `pg-miss-shatter ${YANK_OUT_MS + YANK_BACK_MS}ms cubic-bezier(0.33, 1, 0.68, 1) forwards`;
 
+  if (!hasStarted) {
+    return (
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(ellipse at center, #0e172a 0%, #05070c 75%)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "'Lexend', system-ui, sans-serif",
+          color: "white",
+          gap: 32,
+          paddingTop: topInset,
+        }}
+      >
+        <style>{css}</style>
+        <div
+          style={{
+            fontFamily: "'Fredoka', sans-serif",
+            fontSize: 40,
+            fontWeight: 800,
+            textAlign: "center",
+            lineHeight: 1.1,
+          }}
+        >
+          Say each word aloud
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            justifyContent: "center",
+            maxWidth: 480,
+          }}
+        >
+          {words.map((w) => (
+            <span
+              key={w}
+              style={{
+                padding: "10px 20px",
+                borderRadius: 999,
+                background: "rgba(109,94,245,0.25)",
+                border: "1px solid rgba(109,94,245,0.5)",
+                fontFamily: "'Fredoka', sans-serif",
+                fontSize: 22,
+                fontWeight: 700,
+              }}
+            >
+              {w}
+            </span>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setHasStarted(true)}
+          style={{
+            marginTop: 8,
+            padding: "18px 52px",
+            borderRadius: 999,
+            background: "linear-gradient(135deg, #6D5EF5, #a78bfa)",
+            border: "none",
+            color: "white",
+            fontSize: 22,
+            fontFamily: "'Fredoka', sans-serif",
+            fontWeight: 800,
+            cursor: "pointer",
+            boxShadow: "0 4px 24px rgba(109,94,245,0.5)",
+            letterSpacing: "0.02em",
+          }}
+        >
+          Let's Go!
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -776,7 +861,7 @@ export function PronunciationGameCanvas({
             display: "flex",
             justifyContent: "center",
             pointerEvents: "none",
-            paddingTop: 48,
+            paddingTop: Math.max(48, topInset + 8),
           }}
         >
           <div
@@ -806,7 +891,7 @@ export function PronunciationGameCanvas({
         <div
           style={{
             position: "absolute",
-            top: 20,
+            top: 20 + topInset,
             left: 20,
             padding: "10px 18px",
             borderRadius: 999,
@@ -837,7 +922,7 @@ export function PronunciationGameCanvas({
         <div
           style={{
             position: "absolute",
-            top: 20,
+            top: 20 + topInset,
             right: 200,
             padding: "10px 18px",
             borderRadius: 999,
@@ -854,7 +939,7 @@ export function PronunciationGameCanvas({
         <div
           style={{
             position: "absolute",
-            top: 20,
+            top: 20 + topInset,
             right: 20,
             padding: "10px 18px",
             borderRadius: 999,

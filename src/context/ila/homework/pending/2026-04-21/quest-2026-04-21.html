@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spelling Quest</title>
+    <script src="_contract.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One:wght@400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(160deg, #064e3b, #065f46, #047857, #1a3a1a);
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            z-index: 1000;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #1a56db, #3b82f6);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .xp-chip {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            color: #1a56db;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 80px 20px 160px;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .tab-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-button.active {
+            background: white;
+            color: #1a56db;
+        }
+
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .tab-button.active:hover {
+            background: white;
+        }
+
+        .question-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+            border-top: 4px solid;
+            border-image: linear-gradient(90deg, #1a56db, #3b82f6) 1;
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .question-card.active {
+            display: block;
+        }
+
+        .question-title {
+            font-family: 'Fredoka One', cursive;
+            font-size: 24px;
+            color: #1a56db;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .word-display {
+            background: linear-gradient(135deg, #1a56db, #3b82f6);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 32px;
+            font-weight: 700;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .word-display.hidden {
+            background: #e5e7eb;
+            color: #9ca3af;
+        }
+
+        .listen-button {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin: 10px auto;
+            display: block;
+        }
+
+        .listen-button:hover {
+            transform: scale(1.05);
+        }
+
+        .spelling-input {
+            width: 100%;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 24px;
+            text-align: center;
+            margin: 20px 0;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .spelling-input:focus {
+            outline: none;
+            border-color: #1a56db;
+            box-shadow: 0 0 20px rgba(26, 86, 219, 0.3);
+        }
+
+        .submit-button {
+            background: linear-gradient(135deg, #1a56db, #3b82f6);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            display: block;
+            margin: 20px auto;
+        }
+
+        .submit-button:hover {
+            transform: scale(1.05);
+        }
+
+        .feedback {
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .feedback.correct {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .feedback.incorrect {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .feedback.partial {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .quest-giver {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            align-items: end;
+            gap: 15px;
+        }
+
+        .quest-avatar {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            width: 80px;
+            height: 60px;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .quest-name {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .mouth {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 4px;
+            background: #065f46;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .mouth.talking {
+            height: 8px;
+            background: #064e3b;
+        }
+
+        .speech-bubble {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 300px;
+            position: relative;
+        }
+
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: 10px;
+            left: -10px;
+            width: 0;
+            height: 0;
+            border: 10px solid transparent;
+            border-right-color: white;
+        }
+
+        .elli-corner {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            margin: 20px;
+        }
+
+        .modal h2 {
+            font-family: 'Fredoka One', cursive;
+            color: #1a56db;
+            margin-bottom: 20px;
+        }
+
+        .modal .elli {
+            font-size: 48px;
+            margin: 20px 0;
+            animation: bounce 1s infinite;
+        }
+
+        .modal button {
+            background: linear-gradient(135deg, #1a56db, #3b82f6);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .modal button:hover {
+            transform: scale(1.05);
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #1a56db;
+            animation: confetti-fall 3s ease-out forwards;
+            z-index: 1500;
+        }
+
+        @keyframes confetti-fall {
+            0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        .next-button {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin: 20px auto;
+            display: block;
+        }
+
+        .next-button:hover {
+            transform: scale(1.05);
+        }
+
+        .word-preview {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .instructions {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+            color: #64748b;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<div id="sunny-companion" style="position:fixed;bottom:20px;right:20px;width:120px;height:120px;z-index:9999;pointer-events:none;"></div>
+    <div class="progress-bar">
+        <div class="progress-fill"></div>
+    </div>
+    
+    <div class="xp-chip">
+        <span id="xp-display">0 XP</span>
+    </div>
+
+    <div class="modal-overlay" id="start-modal">
+        <div class="modal">
+            <h2>📚 Today's Quest</h2>
+            <div class="elli">🌟</div>
+            <p id="quest-description">20 questions worth 200 XP total</p>
+            <button onclick="startGame()">Let's Go!</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tab-nav" id="tab-nav"></div>
+        <div id="questions-container"></div>
+    </div>
+
+    <div class="quest-giver">
+        <div class="quest-avatar">
+            📝
+            <div class="quest-name">Sunny</div>
+            <div class="mouth" id="mouth"></div>
+        </div>
+        <div class="speech-bubble">
+            <div id="quest-text">Listen carefully and spell each word! You've got this! 🌟</div>
+        </div>
+    </div>
+
+    <div class="elli-corner">🌟</div>
+
+    <script>
+        // Game state
+        let currentQuestion = 0;
+        let totalXP = 0;
+        let startTime = Date.now();
+        let correctStreak = 0;
+        let idleTimer = null;
+        let questTexts = [
+            "Listen carefully and spell each word! You've got this! 🌟",
+            "Great job! Keep up the amazing work! ✨",
+            "You're doing fantastic! Each word makes you stronger! 💪",
+            "Excellent spelling! You're becoming a word wizard! 🎭",
+            "Awesome progress! You're mastering these words! 🚀"
+        ];
+
+        // Game data
+        const homework = {
+            "title": "Benchmark Advance Spelling Unit 8 Week 2",
+            "type": "spelling_test",
+            "gradeLevel": 2,
+            "testDate": null,
+            "words": ["farmer", "teacher", "visitor", "actor", "sailor", "baker", "writer", "doctor", "dancer", "inventor", "area", "ever", "hours", "measure", "notice", "order", "piece", "short", "today", "true"],
+            "questions": [
+                {"id": 1, "question": "Spell: farmer", "type": "written", "options": null, "correctAnswer": "farmer", "hint": "Words with -er or -or endings"},
+                {"id": 2, "question": "Spell: teacher", "type": "written", "options": null, "correctAnswer": "teacher", "hint": "Words with -er or -or endings"},
+                {"id": 3, "question": "Spell: visitor", "type": "written", "options": null, "correctAnswer": "visitor", "hint": "Words with -er or -or endings"},
+                {"id": 4, "question": "Spell: actor", "type": "written", "options": null, "correctAnswer": "actor", "hint": "Words with -er or -or endings"},
+                {"id": 5, "question": "Spell: sailor", "type": "written", "options": null, "correctAnswer": "sailor", "hint": "Words with -er or -or endings"},
+                {"id": 6, "question": "Spell: baker", "type": "written", "options": null, "correctAnswer": "baker", "hint": "Words with -er or -or endings"},
+                {"id": 7, "question": "Spell: writer", "type": "written", "options": null, "correctAnswer": "writer", "hint": "Words with -er or -or endings"},
+                {"id": 8, "question": "Spell: doctor", "type": "written", "options": null, "correctAnswer": "doctor", "hint": "Words with -er or -or endings"},
+                {"id": 9, "question": "Spell: dancer", "type": "written", "options": null, "correctAnswer": "dancer", "hint": "Words with -er or -or endings"},
+                {"id": 10, "question": "Spell: inventor", "type": "written", "options": null, "correctAnswer": "inventor", "hint": "Words with -er or -or endings"},
+                {"id": 11, "question": "Spell: area", "type": "written", "options": null, "correctAnswer": "area", "hint": "High-Frequency Word"},
+                {"id": 12, "question": "Spell: ever", "type": "written", "options": null, "correctAnswer": "ever", "hint": "High-Frequency Word"},
+                {"id": 13, "question": "Spell: hours", "type": "written", "options": null, "correctAnswer": "hours", "hint": "High-Frequency Word"},
+                {"id": 14, "question": "Spell: measure", "type": "written", "options": null, "correctAnswer": "measure", "hint": "High-Frequency Word"},
+                {"id": 15, "question": "Spell: notice", "type": "written", "options": null, "correctAnswer": "notice", "hint": "High-Frequency Word"},
+                {"id": 16, "question": "Spell: order", "type": "written", "options": null, "correctAnswer": "order", "hint": "High-Frequency Word"},
+                {"id": 17, "question": "Spell: piece", "type": "written", "options": null, "correctAnswer": "piece", "hint": "High-Frequency Word"},
+                {"id": 18, "question": "Spell: short", "type": "written", "options": null, "correctAnswer": "short", "hint": "High-Frequency Word"},
+                {"id": 19, "question": "Spell: today", "type": "written", "options": null, "correctAnswer": "today", "hint": "High-Frequency Word"},
+                {"id": 20, "question": "Spell: true", "type": "written", "options": null, "correctAnswer": "true", "hint": "High-Frequency Word"}
+            ]
+        };
+
+        const GAME_PARAMS = {
+            childId: 'Ila'
+        };
+
+        // Initialize game
+        function initGame() {
+            createTabs();
+            createQuestions();
+            updateProgress();
+            updateXP();
+            resetIdleTimer();
+        }
+
+        function createTabs() {
+            const tabNav = document.getElementById('tab-nav');
+            homework.questions.forEach((q, index) => {
+                const tab = document.createElement('button');
+                tab.className = `tab-button ${index === 0 ? 'active' : ''}`;
+                tab.textContent = `Q${index + 1}`;
+                tab.onclick = () => goToQuestion(index);
+                tabNav.appendChild(tab);
+            });
+        }
+
+        function createQuestions() {
+            const container = document.getElementById('questions-container');
+            homework.questions.forEach((question, index) => {
+                const card = document.createElement('div');
+                card.className = `question-card ${index === 0 ? 'active' : ''}`;
+                card.id = `question-${index}`;
+                
+                const word = question.correctAnswer;
+                
+                card.innerHTML = `
+                    <div class="question-title">Word ${index + 1}</div>
+                    <div class="instructions">Listen to the word, then it will appear briefly. After it disappears, spell it from memory!</div>
+                    
+                    <button class="listen-button" onclick="playWord('${word}', ${index})">
+                        🔊 Listen to Word
+                    </button>
+                    
+                    <div class="word-display hidden" id="word-display-${index}">
+                        ${word}
+                    </div>
+                    
+                    <textarea 
+                        class="spelling-input" 
+                        id="input-${index}" 
+                        placeholder="Type the word here..."
+                        style="display: none;"
+                        oninput="resetIdleTimer()"
+                    ></textarea>
+                    
+                    <button class="submit-button" id="submit-${index}" onclick="submitAnswer(${index})" style="display: none;">
+                        Submit Spelling
+                    </button>
+                    
+                    <div class="feedback" id="feedback-${index}" style="display: none;"></div>
+                    
+                    <button class="next-button" id="next-${index}" onclick="nextQuestion()" style="display: none;">
+                        Next Word →
+                    </button>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function playWord(word, questionIndex) {
+            resetIdleTimer();
+            
+            // Animate mouth
+            animateMouth();
+            
+            // Play word using speech synthesis
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(word);
+                utterance.rate = 0.8;
+                utterance.pitch = 1.1;
+                speechSynthesis.speak(utterance);
+            }
+            
+            // Show word briefly then hide it
+            setTimeout(() => {
+                const wordDisplay = document.getElementById(`word-display-${questionIndex}`);
+                wordDisplay.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    wordDisplay.classList.add('hidden');
+                    // Show input after word disappears
+                    document.getElementById(`input-${questionIndex}`).style.display = 'block';
+                    document.getElementById(`submit-${questionIndex}`).style.display = 'block';
+                    document.getElementById(`input-${questionIndex}`).focus();
+                }, 2000); // Show word for 2 seconds
+            }, 500);
+        }
+
+        function animateMouth() {
+            const mouth = document.getElementById('mouth');
+            mouth.classList.add('talking');
+            setTimeout(() => mouth.classList.remove('talking'), 1000);
+        }
+
+        async function submitAnswer(questionIndex) {
+            resetIdleTimer();
+            
+            const input = document.getElementById(`input-${questionIndex}`);
+            const feedback = document.getElementById(`feedback-${questionIndex}`);
+            const question = homework.questions[questionIndex];
+            const studentAnswer = input.value.trim();
+            
+            if (!studentAnswer) {
+                feedback.style.display = 'block';
+                feedback.className = 'feedback incorrect';
+                feedback.textContent = 'Please type your answer first!';
+                return;
+            }
+            
+            // Disable input and submit button
+            input.disabled = true;
+            document.getElementById(`submit-${questionIndex}`).disabled = true;
+            
+            try {
+                const response = await fetch('/api/game-grade-written', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: question.question,
+                        studentAnswer: studentAnswer,
+                        keyPoints: question.keyPoints || [],
+                        gradeLevel: homework.gradeLevel
+                    })
+                });
+                
+                const result = await response.json();
+                
+                feedback.style.display = 'block';
+                
+                if (result.score === 1) {
+                    // Perfect score
+                    feedback.className = 'feedback correct';
+                    feedback.textContent = result.feedback || 'Perfect spelling! 🌟';
+                    awardXP(10);
+                    confetti();
+                    correctStreak++;
+                    fireCompanionEvent('correct_answer', { word: question.correctAnswer, xp: 10 });
+                    
+                    if (correctStreak === 3) {
+                        fireCompanionEvent('streak_3', { streak: 3 });
+                        updateQuestText("Amazing! You're on fire! 🔥");
+                    }
+                } else if (result.score === 0.5) {
+                    // Partial credit
+                    feedback.className = 'feedback partial';
+                    feedback.textContent = result.feedback || 'Good try! Almost there!';
+                    awardXP(5);
+                    correctStreak = 0;
+                } else {
+                    // Incorrect
+                    feedback.className = 'feedback incorrect';
+                    feedback.textContent = `${result.feedback || 'Not quite right.'} Hint: ${question.hint}`;
+                    correctStreak = 0;
+                    fireCompanionEvent('wrong_answer', { question: question.question });
+                }
+                
+            } catch (error) {
+                console.error('Grading error:', error);
+                feedback.style.display = 'block';
+                feedback.className = 'feedback incorrect';
+                feedback.textContent = `Something went wrong! Hint: ${question.hint}`;
+                correctStreak = 0;
+            }
+            
+            // Show next button
+            document.getElementById(`next-${questionIndex}`).style.display = 'block';
+            
+            // Update quest text
+            setTimeout(() => {
+                updateQuestText(questTexts[Math.floor(Math.random() * questTexts.length)]);
+            }, 2000);
+        }
+
+        function awardXP(amount) {
+            totalXP += amount;
+            updateXP();
+        }
+
+        function updateXP() {
+            document.getElementById('xp-display').textContent = `${totalXP} XP`;
+        }
+
+        function confetti() {
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    const particle = document.createElement('div');
+                    particle.className = 'confetti';
+                    particle.style.left = Math.random() * window.innerWidth + 'px';
+                    particle.style.backgroundColor = ['#1a56db', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][Math.floor(Math.random() * 5)];
+                    document.body.appendChild(particle);
+                    
+                    setTimeout(() => particle.remove(), 3000);
+                }, i * 100);
+            }
+        }
+
+        function nextQuestion() {
+            resetIdleTimer();
+            
+            if (currentQuestion < homework.questions.length - 1) {
+                currentQuestion++;
+                goToQuestion(currentQuestion);
+            } else {
+                completeGame();
+            }
+        }
+
+        function goToQuestion(index) {
+            resetIdleTimer();
+            
+            // Hide all question cards
+            document.querySelectorAll('.question-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            // Update tab states
+            document.querySelectorAll('.tab-button').forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+            });
+            
+            // Show selected question
+            document.getElementById(`question-${index}`).classList.add('active');
+            currentQuestion = index;
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuestion + 1) / homework.questions.length) * 100;
+            document.querySelector('.progress-fill').style.width = `${progress}%`;
+        }
+
+        function completeGame() {
+            const accuracy = totalXP / (homework.questions.length * 10);
+            
+            fireCompanionEvent('game_complete', { 
+                accuracy, 
+                xpEarned: totalXP 
+            });
+            
+            // Send completion message
+            window.parent.postMessage({
+                type: 'node_complete',
+                accuracy: accuracy,
+                completed: true,
+                timeSpent_ms: Date.now() - startTime,
+                childId: GAME_PARAMS.childId
+            }, '*');
+            
+            updateQuestText("Congratulations! You completed your spelling quest! 🎉");
+        }
+
+        function updateQuestText(text) {
+            document.getElementById('quest-text').textContent = text;
+            animateMouth();
+        }
+
+        function startGame() {
+            document.getElementById('start-modal').style.display = 'none';
+            resetIdleTimer();
+        }
+
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                fireCompanionEvent('idle_10s', {});
+                updateQuestText("Still there? You're doing great! Keep going! 💪");
+            }, 10000);
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initGame();
+            
+            // Update quest description
+            const questDesc = document.getElementById('quest-description');
+            questDesc.textContent = `${homework.questions.length} questions worth ${homework.questions.length * 10} XP total`;
+        });
+    </script>
+</body>
+</html>

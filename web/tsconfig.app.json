@@ -9,6 +9,7 @@
     "skipLibCheck": true,
 
     /* Bundler mode */
+    "resolveJsonModule": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -26,12 +27,15 @@
   },
   "include": [
     "src",
+    "../children.config.json",
     "../src/scripts/canvas-test-presets.ts",
     "../src/server/canvas/registry.ts",
     "../src/shared/karaokeMatchWord.ts",
     "../src/shared/companionTheme.ts",
     "../src/shared/pathCurve.ts",
     "../src/shared/mapPathLayout.ts",
-    "../src/shared/companionTypes.ts"
+    "../src/shared/companionTypes.ts",
+    "../src/shared/vrrTypes.ts",
+    "../src/engine/vrrEngine.ts"
   ]
 }

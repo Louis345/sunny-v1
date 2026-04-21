@@ -14,8 +14,8 @@ body{background:#12002e;font-family:'Nunito','Arial Rounded MT Bold',Arial,sans-
 .shooting{position:absolute;width:80px;height:2px;background:linear-gradient(90deg,transparent,#fff,transparent);border-radius:2px;animation:shoot 3.5s linear infinite;opacity:0}
 @keyframes shoot{0%{opacity:0;transform:translateX(-100px) translateY(0) rotate(-25deg)}10%{opacity:1}40%{opacity:0;transform:translateX(300px) translateY(80px) rotate(-25deg)}100%{opacity:0}}
 .wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:440px}
-.prompt{font-size:22px;font-weight:900;color:#FFD93D;text-align:center;text-shadow:0 2px 0 #8a6a00;line-height:1.2}
-.sub{color:#b89dff;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase}
+.prompt{font-size:22px;font-weight:900;color:#FFD93D;text-align:center;text-shadow:0 2px 0 #8a6a00;line-height:1.2;min-height:2.6em}
+.sub{color:#b89dff;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;text-align:center;min-height:1.2em}
 .tiles-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:64px;align-items:center;width:100%}
 .tile{width:44px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;text-transform:uppercase;background:#3C3489;border:3px solid #FFD93D;color:#FFD93D;transition:transform 0.12s,background 0.2s,border-color 0.2s}
 .tile.flash-ok{animation:flashOk 0.45s ease}
@@ -32,10 +32,11 @@ body{background:#12002e;font-family:'Nunito','Arial Rounded MT Bold',Arial,sans-
 </style>
 </head>
 <body>
+<div id="sunny-companion" style="position:fixed;bottom:20px;right:20px;width:120px;height:120px;z-index:9999;pointer-events:none;"></div>
 <div class="starfield" id="sf"></div>
 <div class="wrap" id="mainwrap">
-  <div class="prompt">How do you spell it?</div>
-  <div class="sub" id="player-line"></div>
+  <div class="prompt" id="prompt-main">Get ready…</div>
+  <div class="sub" id="sub-line"></div>
   <div class="tiles-row" id="tiles-row"></div>
   <div class="keyboard" id="keyboard">
     <div class="kb-row" id="kb0"></div>
@@ -48,31 +49,31 @@ const sf=document.getElementById('sf');
 for(let i=0;i<55;i++){const s=document.createElement('div');s.className='s';const sz=Math.random()*3+1.5;s.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;--d:${1.5+Math.random()*2.5}s;--dl:${Math.random()*3}s;opacity:${0.2+Math.random()*0.6}`;sf.appendChild(s)}
 for(let i=0;i<3;i++){const sh=document.createElement('div');sh.className='shooting';sh.style.cssText=`left:${Math.random()*60}%;top:${Math.random()*40}%;animation-delay:${i*1.2+Math.random()}s`;sf.appendChild(sh)}
 
-const previewWords=(window.GAME_PARAMS&&window.GAME_PARAMS.words)||[];
-const _childId=(window.GAME_PARAMS&&window.GAME_PARAMS.childId)||'unknown';
-const _difficulty=(window.GAME_PARAMS&&window.GAME_PARAMS.difficulty)||2;
-const _nodeId=(window.GAME_PARAMS&&window.GAME_PARAMS.nodeId)||'unknown';
-let secretWord=previewWords[0]?String(previewWords[0]).toLowerCase().trim():'';
-let current='';
-let playerName='Student';
+const WORDS=(window.GAME_PARAMS&&window.GAME_PARAMS.words)||[];
+const startTime=Date.now();
+let wordIndex=0;
+let correctCount=0;
+let currentWord='';
+let currentTyped='';
+let peekTimer=null;
+let canType=false;
+let failCountForWord=0;
+const correctWords=[];
+const struggledWords=[];
 
-function postToParent(data){window.parent.postMessage(data,'*')}
-
-window.addEventListener('message',e=>{
-  const msg=e.data;
-  if(!msg||msg.type!=='start')return;
-  secretWord=String(msg.word||previewWords[0]||'').toLowerCase().trim();
-  playerName=msg.playerName||'Student';
-  current='';
-  document.getElementById('player-line').textContent=playerName;
-  renderTiles();
-  postToParent({type:'ready'});
-});
+function speakWord(w){
+  try{
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(w);
+    u.rate=0.9;
+    window.speechSynthesis.speak(u);
+  }catch(_){}
+}
 
 function renderTiles(){
   const row=document.getElementById('tiles-row');
   row.innerHTML='';
-  const chars=current.split('');
+  const chars=currentTyped.split('');
   const small=chars.length>12;
   chars.forEach(ch=>{
     const t=document.createElement('div');
@@ -81,6 +82,99 @@ function renderTiles(){
     t.textContent=ch.toUpperCase();
     row.appendChild(t);
   });
+}
+
+function setPromptPeek(displayWord){
+  const pm=document.getElementById('prompt-main');
+  const sl=document.getElementById('sub-line');
+  pm.textContent='Spell: '+displayWord;
+  sl.textContent='Listen and remember';
+  speakWord(displayWord);
+  canType=false;
+  if(peekTimer)clearTimeout(peekTimer);
+  peekTimer=setTimeout(()=>{
+    pm.textContent='Type the word';
+    sl.textContent='from memory';
+    currentTyped='';
+    renderTiles();
+    canType=true;
+  },2000);
+}
+
+function beginRound(){
+  if(wordIndex>=WORDS.length){
+    const n=WORDS.length||1;
+    const acc=correctCount/n;
+    if(typeof window.sendNodeComplete==='function'){
+      window.sendNodeComplete({
+        completed:true,
+        accuracy:acc,
+        flaggedWords:[],
+        xpEarned:10*correctCount,
+        timeSpent_ms:Date.now()-startTime,
+        wordsAttempted:n,
+        wordsCorrect:correctWords.slice(),
+        wordsStruggled:struggledWords.slice()
+      });
+    }
+    return;
+  }
+  const raw=WORDS[wordIndex];
+  currentWord=String(raw||'').toLowerCase().trim();
+  currentTyped='';
+  failCountForWord=0;
+  renderTiles();
+  if(!currentWord){wordIndex++;beginRound();return;}
+  setPromptPeek(String(raw).trim());
+}
+
+function flashCorrectThenNext(){
+  const row=document.getElementById('tiles-row');
+  row.querySelectorAll('.tile').forEach(t=>t.classList.add('flash-ok'));
+  setTimeout(()=>{
+    correctCount++;
+    if(currentWord)correctWords.push(currentWord);
+    wordIndex++;
+    beginRound();
+  },480);
+}
+
+function showWordBriefThenRetry(){
+  const pm=document.getElementById('prompt-main');
+  const sl=document.getElementById('sub-line');
+  const wrap=document.getElementById('mainwrap');
+  canType=false;
+  pm.textContent='The word was: '+currentWord;
+  sl.textContent='Try again';
+  setTimeout(()=>{
+    pm.textContent='Type the word';
+    sl.textContent='from memory';
+    currentTyped='';
+    renderTiles();
+    canType=true;
+  },900);
+  wrap.classList.add('shake');
+  setTimeout(()=>wrap.classList.remove('shake'),450);
+}
+
+function submit(){
+  if(!canType||!currentWord)return;
+  const guess=currentTyped.toLowerCase().trim();
+  if(guess===currentWord){
+    flashCorrectThenNext();
+  }else{
+    failCountForWord++;
+    if(failCountForWord>=3&&currentWord){
+      struggledWords.push(currentWord);
+      failCountForWord=0;
+      wordIndex++;
+      beginRound();
+      return;
+    }
+    currentTyped='';
+    renderTiles();
+    showWordBriefThenRetry();
+  }
 }
 
 const KB=[['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l'],['del','z','x','c','v','b','n','m','enter']];
@@ -98,41 +192,24 @@ KB.forEach((row,ri)=>{
 });
 
 function handleKey(l){
-  if(l==='del'){current=current.slice(0,-1);renderTiles();return}
+  if(!canType)return;
+  if(l==='del'){currentTyped=currentTyped.slice(0,-1);renderTiles();return}
   if(l==='enter'){submit();return}
-  if(/^[a-z]$/i.test(l)&&current.length<32){current+=l.toLowerCase();renderTiles()}
-}
-
-function submit(){
-  if(!secretWord)return;
-  const guess=current.toLowerCase().trim();
-  const row=document.getElementById('tiles-row');
-  const wrap=document.getElementById('mainwrap');
-  if(guess===secretWord){
-    row.querySelectorAll('.tile').forEach(t=>t.classList.add('flash-ok'));
-    setTimeout(()=>sendNodeComplete({
-      completed:true,
-      accuracy:1,
-      flaggedWords:[],
-      xpEarned:10,
-      timeSpent_ms:0,
-      word:secretWord
-    }),420);
-  }else{
-    wrap.classList.add('shake');
-    setTimeout(()=>{
-      wrap.classList.remove('shake');
-      current='';
-      renderTiles();
-    },450);
-  }
+  if(/^[a-z]$/i.test(l)&&currentTyped.length<32){currentTyped+=l.toLowerCase();renderTiles()}
 }
 
 document.addEventListener('keydown',e=>{
+  if(!canType)return;
   if(e.key==='Backspace'){e.preventDefault();handleKey('del');return}
   if(e.key==='Enter'){e.preventDefault();submit();return}
   if(/^[a-zA-Z]$/.test(e.key))handleKey(e.key.toLowerCase());
 });
+
+if(WORDS.length===0){
+  document.getElementById('prompt-main').textContent='No words in link';
+}else{
+  beginRound();
+}
 </script>
 </body>
 </html>

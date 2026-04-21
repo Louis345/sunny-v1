@@ -44,6 +44,10 @@ export interface WordEntry {
   wilsonStep?: number;
   tags?: string[];
   tracks: Partial<Record<Domain, SM2Track>>;
+  /** When true and testDate is still in the future, planSession prioritizes this word for homework-style maps. */
+  homeworkPriority?: boolean;
+  /** Spelling test date (YYYY-MM-DD); priority applies while today <= testDate. */
+  testDate?: string;
 }
 
 export interface SM2Params {

@@ -16,6 +16,7 @@ function profileAtLevel(level: number): ChildProfile {
         : ["default"];
   return {
     childId: "qa",
+    ttsName: "Qa",
     level,
     interests: { tags: [] },
     ui: { accentColor: "#000" },

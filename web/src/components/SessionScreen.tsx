@@ -104,12 +104,7 @@ export function SessionScreen({
         onEndSession={onEndSession}
       />
       <div className="flex-1 relative min-w-0 flex flex-col">
-        <img
-          src={`/characters/${childId}.png`}
-          alt=""
-          onError={(e) => {
-            e.currentTarget.src = "/characters/star.png";
-          }}
+        <div
           style={{
             position: "absolute",
             top: 16,
@@ -117,12 +112,21 @@ export function SessionScreen({
             width: 60,
             height: 60,
             borderRadius: "50%",
-            objectFit: "cover",
             border: "3px solid #FFD700",
             zIndex: 10,
             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 22,
+            fontWeight: 700,
+            color: "#1e293b",
+            background: "rgba(255,255,255,0.85)",
           }}
-        />
+          aria-hidden
+        >
+          {childId.trim().charAt(0).toUpperCase() || "?"}
+        </div>
         <Canvas
           canvas={canvas}
           blackboard={blackboard}

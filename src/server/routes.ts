@@ -16,6 +16,7 @@ import {
   MapSessionError,
   recordExplicitMapRating,
   startMapSession,
+  listSavedThemes,
 } from "./map-coordinator";
 import {
   tryPushCreatorDiagPronunciation,
@@ -24,8 +25,14 @@ import {
 import { loadChildFiles } from "../utils/loadChildFiles";
 import { loadAttemptHistory } from "../utils/attempts";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import {
+  applyPassiveDepletion,
+  applyTamagotchiFill,
+} from "../engine/vrrEngine";
+import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
+import { applySpellCheckMapResults } from "./spellCheckMapResults";
 
 const companions = {
   Ila: ELLI,
@@ -104,6 +111,33 @@ export function setupRoutes(app: Express): void {
     }
   });
 
+  app.post("/api/profile/:childId/vrr-claim", (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim() : "";
+    if (!childId) {
+      return res.status(400).json({ error: "Missing childId" });
+    }
+    const rewardId = String(
+      (req.body as { rewardId?: string } | undefined)?.rewardId ?? "",
+    );
+    if (!rewardId) {
+      return res.status(400).json({ error: "rewardId required" });
+    }
+    const profile = readLearningProfile(childId);
+    if (!profile) {
+      return res.status(404).json({ error: "Unknown profile" });
+    }
+    const nowIso = new Date().toISOString();
+    const base = profile.tamagotchi ?? {
+      ...DEFAULT_TAMAGOTCHI,
+      lastSeenAt: nowIso,
+    };
+    const depleted = applyPassiveDepletion(base, Date.now());
+    profile.tamagotchi = applyTamagotchiFill(depleted, "vrr_reward_claim");
+    writeLearningProfile(childId, profile);
+    res.json({ ok: true, rewardId, tamagotchi: profile.tamagotchi });
+  });
+
   app.get("/api/companions", async (_req: Request, res: Response) => {
     const rows = await Promise.all(
       Object.entries(companions).map(async ([childName, config]) => {
@@ -118,6 +152,7 @@ export function setupRoutes(app: Express): void {
           goodbye: config.goodbye,
           accentColor: ui?.accentColor ?? "#7C3AED",
           accentBg: ui?.accentBg ?? "#F3E8FF",
+          avatarImagePath: profile?.avatarImagePath ?? null,
         };
       }),
     );
@@ -132,6 +167,7 @@ export function setupRoutes(app: Express): void {
         goodbye: "",
         accentColor: "#fbbf24",
         accentBg: "#1e1b2e",
+        avatarImagePath: null,
       },
     ];
     res.json(configs);
@@ -197,6 +233,19 @@ export function setupRoutes(app: Express): void {
         res.status(500).json({ ok: false, error: `ingest exited ${code}` });
       }
     });
+  });
+
+  app.get("/api/themes/:childId", (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    if (!childId) {
+      return res.status(400).json({ ok: false, error: "childId required" });
+    }
+    if (!readLearningProfile(childId)) {
+      return res.status(404).json({ ok: false, error: "unknown_child" });
+    }
+    const themes = listSavedThemes(childId);
+    res.json({ ok: true, themes });
   });
 
   app.get("/api/homework/pending/:childId", (req: Request, res: Response) => {
@@ -312,8 +361,10 @@ Return plain text only.`,
           .join("\n")
           .trim();
         newFile = "karaoke-story.txt";
-        fs.writeFileSync(path.join(pendingDir, newFile), story, "utf8");
+        const storyPath = path.join(pendingDir, newFile);
+        fs.writeFileSync(storyPath, story, "utf8");
         node.storyFile = newFile;
+        node.storyText = fs.readFileSync(storyPath, "utf8");
       } else if (node.type === "quest" || node.type === "boss") {
         const classificationPath = path.join(pendingDir, "classification.json");
         const extracted = fs.existsSync(classificationPath)
@@ -395,6 +446,9 @@ Return plain text only.`,
       return inPending || inGames;
     });
     if (!filePath) return res.status(404).json({ error: "File not found" });
+    if (filePath.toLowerCase().endsWith(".html")) {
+      res.type("html");
+    }
     res.sendFile(filePath);
   });
 
@@ -423,6 +477,7 @@ Return plain text only.`,
       phase?: string;
       nodeId?: string;
       rating?: unknown;
+      preview?: string | boolean;
     };
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     if (!sessionId) {
@@ -444,9 +499,13 @@ Return plain text only.`,
         return res.json({ ok: true });
       }
       if (body.result) {
+        const pv = body.preview;
+        const clientPreviewFreeOrGoLive =
+          pv === "free" || pv === "go-live" || pv === true;
         const { mapState, companionEvent } = await applyNodeResult(
           sessionId,
           body.result,
+          { clientPreviewFreeOrGoLive },
         );
         return res.json({ mapState, companionEvent });
       }
@@ -455,6 +514,35 @@ Return plain text only.`,
       if (err instanceof MapSessionError) {
         return res.status(err.statusCode).json({ error: err.message });
       }
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/map/spell-check-results", (req: Request, res: Response) => {
+    const body = req.body as {
+      childId?: string;
+      wordsCorrect?: string[];
+      wordsStruggled?: string[];
+      previewMode?: string | boolean;
+    };
+    const childId = typeof body.childId === "string" ? body.childId.trim().toLowerCase() : "";
+    if (!childId) {
+      return res.status(400).json({ error: "childId required" });
+    }
+    const wordsCorrect = Array.isArray(body.wordsCorrect) ? body.wordsCorrect.map(String) : [];
+    const wordsStruggled = Array.isArray(body.wordsStruggled)
+      ? body.wordsStruggled.map(String)
+      : [];
+    try {
+      const out = applySpellCheckMapResults({
+        childId,
+        wordsCorrect,
+        wordsStruggled,
+        previewMode: body.previewMode,
+      });
+      return res.json(out);
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
     }

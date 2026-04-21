@@ -5,6 +5,15 @@ import { planSession } from "./learningEngine";
 
 const DOPAMINE_TYPES: NodeType[] = ["space-invaders", "asteroid"];
 
+const WORD_DRIVEN_MAP_TYPES = new Set<string>([
+  "pronunciation",
+  "karaoke",
+  "word-builder",
+  "spell-check",
+  "quest",
+  "boss",
+]);
+
 /** Node types the bandit may place between riddle and dopamine. */
 const BANDIT_POOL: NodeType[] = [
   "word-builder",
@@ -34,6 +43,7 @@ function baseNode(
     isGoal: opts.isGoal ?? false,
     difficulty: opts.difficulty ?? 1,
     thumbnailUrl: opts.thumbnailUrl,
+    words: opts.words,
   };
 }
 
@@ -47,22 +57,32 @@ export async function buildNodeList(
   const total = sessionTotalNodes(profile.attentionWindow_ms);
   const middleSlots = Math.max(0, total - 3);
   const childId = profile.childId;
-  planSession(childId, "spelling");
+  const plan = planSession(childId, "spelling");
+  const dueWords =
+    plan.dueWords?.length && plan.dueWords.length > 0
+      ? plan.dueWords
+      : [...plan.newWords, ...plan.reviewWords];
 
   const out: NodeConfig[] = [];
 
-  out.push(baseNode("n-riddle", "riddle", { difficulty: 1 }));
+  out.push(baseNode("n-riddle", "riddle", { difficulty: 1, words: [] }));
 
   for (let i = 0; i < middleSlots; i++) {
     const t = await selectNodeType(childId, [...BANDIT_POOL]);
-    out.push(baseNode(`n-m-${i}-${t}`, t, { difficulty: 2 }));
+    const words = WORD_DRIVEN_MAP_TYPES.has(t) ? [...dueWords] : [];
+    out.push(baseNode(`n-m-${i}-${t}`, t, { difficulty: 2, words }));
   }
 
   const dopamineType =
     DOPAMINE_TYPES[Math.random() < 0.5 ? 0 : 1] ?? "asteroid";
-  out.push(baseNode("n-dopamine", dopamineType, { difficulty: 1 }));
+  out.push(baseNode("n-dopamine", dopamineType, { difficulty: 1, words: [] }));
 
-  out.push(baseNode("n-castle", "boss", { difficulty: 3 }));
+  out.push(
+    baseNode("n-castle", "boss", {
+      difficulty: 3,
+      words: [...dueWords],
+    }),
+  );
   const lastIdx = out.length - 1;
   if (lastIdx >= 0) {
     out[lastIdx] = { ...out[lastIdx], isGoal: true };

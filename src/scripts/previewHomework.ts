@@ -42,7 +42,7 @@ function buildNodeUrl(base: string, childId: string, node: PendingNode): string 
     childId,
     difficulty: String(node.difficulty ?? 1),
     nodeId: node.id,
-    preview: "true",
+    preview: "free",
     companion: "elli",
   });
   if (node.type === "word-builder") {
