@@ -4,6 +4,7 @@
  */
 
 import type { z } from "zod";
+import type { CompanionConfig } from "../companionTypes";
 
 export type CompanionCapabilityPhase = 0.5 | 1 | 2 | 3;
 
@@ -24,8 +25,37 @@ export const COMPANION_ANIMATION_IDS = [
   "jump",
   "wave",
   "shrug",
+  "clap",
+  "nod",
+  "shake_head",
+  "idle_fidget",
+  "point_forward",
+  "arms_up",
 ] as const;
 export type AnimationName = (typeof COMPANION_ANIMATION_IDS)[number];
+
+/**
+ * Interim animate → `children.config.json` expression **keys** (pulse until Opus procedural bones).
+ * Re-exported from `CompanionLayer` as `ANIMATE_TO_EXPRESSION_KEY` for discoverability.
+ */
+export const COMPANION_ANIMATE_TO_EXPRESSION_KEY: Partial<
+  Record<AnimationName, keyof CompanionConfig["expressions"]>
+> = {
+  dance_victory: "happy",
+  wave: "happy",
+  clap: "happy",
+  nod: "happy",
+  shake_head: "concerned",
+  jump: "surprised",
+  idle_fidget: "idle",
+  point_forward: "idle",
+  arms_up: "surprised",
+  think: "thinking",
+  sit: "idle",
+  idle: "idle",
+  walk: "idle",
+  shrug: "concerned",
+};
 
 /** Camera framing presets (`companionAct` type `camera`). */
 export const CAMERA_ANGLES = [

@@ -35,6 +35,65 @@ export const TRIGGER_REACTION_DURATION_MS: Record<CompanionTrigger, number> = {
 /** Max head tilt (radians) for `thinking` pose. */
 export const THINKING_HEAD_TILT_RAD = (15 * Math.PI) / 180;
 
+/** Logical face slot → `children.config.json` `expressions` key. */
+export type FaceLogical = "happy" | "sad" | "surprised" | "wink" | "celebrating";
+
+const LOGICAL_TO_CONFIG_KEY: Record<FaceLogical, keyof CompanionConfig["expressions"]> = {
+  happy: "happy",
+  sad: "concerned",
+  surprised: "surprised",
+  wink: "winking",
+  celebrating: "celebrating",
+};
+
+/** Fallback VRM 1.0 preset names when no companion config (tests). */
+const LOGICAL_FALLBACK_BLEND: Record<FaceLogical, string> = {
+  happy: "happy",
+  sad: "sad",
+  surprised: "surprised",
+  wink: "blinkLeft",
+  celebrating: "happy",
+};
+
+export function resolveBlendForLogical(
+  logical: FaceLogical,
+  companion?: CompanionConfig | null,
+): string {
+  const key = LOGICAL_TO_CONFIG_KEY[logical];
+  const fromCfg = companion?.expressions?.[key];
+  if (typeof fromCfg === "string" && fromCfg.trim().length > 0) {
+    return fromCfg.trim();
+  }
+  return LOGICAL_FALLBACK_BLEND[logical];
+}
+
+export function resolveThinkingBlend(companion?: CompanionConfig | null): string {
+  const t = companion?.expressions?.thinking;
+  if (typeof t === "string" && t.trim().length > 0) return t.trim();
+  return "lookDown";
+}
+
+/** Resolve a `children.config.json` expressions slot to a VRM preset name (animate pulses). */
+export function resolveExpressionKeyBlend(
+  key: keyof CompanionConfig["expressions"],
+  companion?: CompanionConfig | null,
+): string {
+  const v = companion?.expressions?.[key];
+  if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  const fallback: Partial<Record<keyof CompanionConfig["expressions"], string>> = {
+    idle: "neutral",
+    happy: "happy",
+    thinking: "lookDown",
+    celebrating: "happy",
+    concerned: "sad",
+    winking: "blinkLeft",
+    surprised: "surprised",
+    angry: "angry",
+    blink: "blink",
+  };
+  return fallback[key] ?? "neutral";
+}
+
 export function shouldApplyCompanionReaction(
   trigger: CompanionTrigger,
   sensitivity: CompanionConfig["sensitivity"],
@@ -48,7 +107,7 @@ export function shouldApplyCompanionReaction(
 }
 
 export interface ExpressionDecayState {
-  faceExpression: "happy" | "sad" | "surprised" | null;
+  faceExpression: FaceLogical | null;
   /** Peak weight at expression start (1 for triggers, `intensity` for emotes). */
   faceInitialWeight: number;
   faceWeight: number;
@@ -57,6 +116,14 @@ export interface ExpressionDecayState {
   thinkingActive: boolean;
   thinkingElapsedMs: number;
   thinkingDurationMs: number;
+  /** One-shot clip / animate pulse on a raw VRM preset name. */
+  pulseBlend: string | null;
+  pulseWeight: number;
+  pulseExpiresAt: number;
+}
+
+export function isExpressionPulseActive(state: ExpressionDecayState): boolean {
+  return Boolean(state.pulseBlend && performance.now() < state.pulseExpiresAt);
 }
 
 export function createNeutralExpressionState(): ExpressionDecayState {
@@ -69,7 +136,22 @@ export function createNeutralExpressionState(): ExpressionDecayState {
     thinkingActive: false,
     thinkingElapsedMs: 0,
     thinkingDurationMs: 0,
+    pulseBlend: null,
+    pulseWeight: 0,
+    pulseExpiresAt: 0,
   };
+}
+
+/** Short full-weight pulse on a resolved VRM expression preset (animate bridge). */
+export function applyExpressionPulseState(
+  state: ExpressionDecayState,
+  blendName: string,
+  weight: number,
+  durationMs: number,
+): void {
+  state.pulseBlend = blendName;
+  state.pulseWeight = weight;
+  state.pulseExpiresAt = performance.now() + durationMs;
 }
 
 export function applyAcceptedTrigger(
@@ -106,17 +188,30 @@ function clampIntensity(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
+function clearPulse(state: ExpressionDecayState): void {
+  state.pulseBlend = null;
+  state.pulseWeight = 0;
+  state.pulseExpiresAt = 0;
+}
+
 /**
  * Emote-driven reactions (`expressCompanion`). Applied before trigger/sensitivity path.
+ * `companion` is used to resolve `children.config.json` expression preset names for this VRM.
  */
 export function applyAcceptedEmote(
   state: ExpressionDecayState,
   emote: CompanionEmote,
   intensityRaw?: number,
+  companion?: CompanionConfig | null,
 ): void {
   const intensity = clampIntensity(
     intensityRaw != null ? Number(intensityRaw) : DEFAULT_EMOTE_INTENSITY,
   );
+
+  const previewBlend = (logical: FaceLogical | null) => {
+    if (!logical) return "(none)";
+    return resolveBlendForLogical(logical, companion);
+  };
 
   switch (emote) {
     case "neutral": {
@@ -128,6 +223,8 @@ export function applyAcceptedEmote(
       state.thinkingActive = false;
       state.thinkingElapsedMs = 0;
       state.thinkingDurationMs = 0;
+      clearPulse(state);
+      console.log("[VRM] applyEmote:", emote, "→ blendShape: (reset all)", "intensity:", intensity);
       break;
     }
     case "thinking": {
@@ -139,6 +236,14 @@ export function applyAcceptedEmote(
       state.thinkingActive = true;
       state.thinkingElapsedMs = 0;
       state.thinkingDurationMs = 2000;
+      console.log(
+        "[VRM] applyEmote:",
+        emote,
+        "→ blendShape:",
+        resolveThinkingBlend(companion),
+        "(thinking path + head tilt) intensity:",
+        intensity,
+      );
       break;
     }
     case "happy": {
@@ -150,6 +255,14 @@ export function applyAcceptedEmote(
       state.thinkingActive = false;
       state.thinkingElapsedMs = 0;
       state.thinkingDurationMs = 0;
+      console.log(
+        "[VRM] applyEmote:",
+        emote,
+        "→ blendShape:",
+        previewBlend("happy"),
+        "intensity:",
+        intensity,
+      );
       break;
     }
     case "sad": {
@@ -161,6 +274,14 @@ export function applyAcceptedEmote(
       state.thinkingActive = false;
       state.thinkingElapsedMs = 0;
       state.thinkingDurationMs = 0;
+      console.log(
+        "[VRM] applyEmote:",
+        emote,
+        "→ blendShape:",
+        previewBlend("sad"),
+        "intensity:",
+        intensity,
+      );
       break;
     }
     case "surprised": {
@@ -172,10 +293,18 @@ export function applyAcceptedEmote(
       state.thinkingActive = false;
       state.thinkingElapsedMs = 0;
       state.thinkingDurationMs = 0;
+      console.log(
+        "[VRM] applyEmote:",
+        emote,
+        "→ blendShape:",
+        previewBlend("surprised"),
+        "intensity:",
+        intensity,
+      );
       break;
     }
     case "celebrating": {
-      state.faceExpression = "surprised";
+      state.faceExpression = "celebrating";
       state.faceInitialWeight = intensity;
       state.faceWeight = intensity;
       state.faceElapsedMs = 0;
@@ -183,10 +312,18 @@ export function applyAcceptedEmote(
       state.thinkingActive = false;
       state.thinkingElapsedMs = 0;
       state.thinkingDurationMs = 0;
+      console.log(
+        "[VRM] applyEmote:",
+        emote,
+        "→ blendShape:",
+        previewBlend("celebrating"),
+        "intensity:",
+        intensity,
+      );
       break;
     }
     case "wink": {
-      state.faceExpression = "happy";
+      state.faceExpression = "wink";
       state.faceInitialWeight = intensity;
       state.faceWeight = intensity;
       state.faceElapsedMs = 0;
@@ -194,6 +331,14 @@ export function applyAcceptedEmote(
       state.thinkingActive = false;
       state.thinkingElapsedMs = 0;
       state.thinkingDurationMs = 0;
+      console.log(
+        "[VRM] applyEmote:",
+        emote,
+        "→ blendShape:",
+        previewBlend("wink"),
+        "intensity:",
+        intensity,
+      );
       break;
     }
     default:
@@ -205,6 +350,9 @@ export function applyAcceptedEmote(
  * Linear decay: `faceInitialWeight` → 0 over `faceDurationMs`. When complete, all face weights should be 0.
  */
 export function tickExpressionDecay(state: ExpressionDecayState, deltaMs: number): void {
+  if (state.pulseBlend && performance.now() >= state.pulseExpiresAt) {
+    clearPulse(state);
+  }
   if (state.thinkingActive) {
     state.thinkingElapsedMs += deltaMs;
     if (state.thinkingElapsedMs >= state.thinkingDurationMs) {
@@ -238,6 +386,7 @@ export function getThinkingHeadTiltFactor(state: ExpressionDecayState): number {
 
 /** Raw head bone tilt for `thinking` (re-apply after `vrm.update()` — humanoid can overwrite it). */
 export function applyThinkingHeadTiltToVrm(vrm: VRM, state: ExpressionDecayState): void {
+  if (!vrm.humanoid) return;
   const head = vrm.humanoid.getRawBoneNode("head");
   if (head) {
     head.rotation.z = getThinkingHeadTiltFactor(state) * THINKING_HEAD_TILT_RAD;
@@ -304,13 +453,65 @@ export function pickTriggersToApply(
   return out;
 }
 
+function safeSetExpression(
+  em: NonNullable<VRM["expressionManager"]>,
+  name: string,
+  value: number,
+): boolean {
+  try {
+    if (em.getExpression(name) == null) return false;
+    em.setValue(name, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Push decay state onto the VRM (face blend shapes + thinking head tilt). */
-export function applyExpressionStateToVrm(vrm: VRM, state: ExpressionDecayState): void {
+export function applyExpressionStateToVrm(
+  vrm: VRM,
+  state: ExpressionDecayState,
+  companion?: CompanionConfig | null,
+): void {
   const em = vrm.expressionManager;
-  if (em) {
-    for (const id of ["happy", "sad", "surprised"] as const) {
-      em.setValue(id, state.faceExpression === id ? state.faceWeight : 0);
+  if (!em) return;
+
+  const exprMap = (em as { expressionMap?: Record<string, unknown> }).expressionMap ?? {};
+  const allNames = Object.keys(exprMap);
+  for (const name of allNames) {
+    safeSetExpression(em, name, 0);
+  }
+
+  if (state.pulseBlend && performance.now() < state.pulseExpiresAt) {
+    const ok = safeSetExpression(em, state.pulseBlend, state.pulseWeight);
+    if (!ok) {
+      console.warn("[VRM] pulse expression not found:", state.pulseBlend);
     }
   }
-  applyThinkingHeadTiltToVrm(vrm, state);
+
+  if (state.thinkingActive) {
+    const blend = resolveThinkingBlend(companion);
+    const tf = getThinkingHeadTiltFactor(state);
+    const w = 0.85 * tf;
+    const ok = safeSetExpression(em, blend, w);
+    if (!ok) {
+      console.warn("[VRM] thinking blend missing:", blend);
+    }
+  } else if (state.faceExpression) {
+    const blend = resolveBlendForLogical(state.faceExpression, companion);
+    const ok = safeSetExpression(em, blend, state.faceWeight);
+    if (!ok) {
+      console.warn("[VRM] emote blend missing:", blend, "(logical:", state.faceExpression, ")");
+    }
+  }
+
+  try {
+    em.update();
+  } catch {
+    /* ignore */
+  }
+
+  if (vrm.humanoid) {
+    applyThinkingHeadTiltToVrm(vrm, state);
+  }
 }

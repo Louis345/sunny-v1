@@ -7,13 +7,19 @@ import {
 } from "react";
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
-import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
+import {
+  COMPANION_ANIMATE_TO_EXPRESSION_KEY,
+  type CompanionCommand,
+} from "../../../src/shared/companions/companionContract";
 import type {
   CompanionConfig,
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 import { CompanionMotor } from "../companion/CompanionMotor";
+
+/** Interim animate→expression pulse keys (Opus will replace with procedural bones). */
+export const ANIMATE_TO_EXPRESSION_KEY = COMPANION_ANIMATE_TO_EXPRESSION_KEY;
 
 export interface CompanionLayerProps {
   childId: string | null;
@@ -86,8 +92,12 @@ export function CompanionLayer({
   activeNodeScreenRef.current = activeNodeScreen;
 
   useLayoutEffect(() => {
-    motorRef.current?.processCompanionCommands(companionCommands, childId);
-  }, [companionCommands, childId]);
+    motorRef.current?.processCompanionCommands(
+      companionCommands,
+      childId,
+      companionRef.current,
+    );
+  }, [companionCommands, childId, companion]);
 
   useLayoutEffect(() => {
     const mount = mountRef.current;

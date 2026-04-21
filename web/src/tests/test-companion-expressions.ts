@@ -158,10 +158,10 @@ describe("companionExpressions (COMPANION-003)", () => {
     expect(out).toEqual([{ emote: "wink", intensity: 0.8 }]);
   });
 
-  it("applyAcceptedEmote wink uses short happy duration", () => {
+  it("applyAcceptedEmote wink uses wink logical + short duration", () => {
     const s = createNeutralExpressionState();
-    applyAcceptedEmote(s, "wink", 1);
-    expect(s.faceExpression).toBe("happy");
+    applyAcceptedEmote(s, "wink", 1, cloneCompanionDefaults());
+    expect(s.faceExpression).toBe("wink");
     expect(s.faceDurationMs).toBe(600);
     expect(s.faceInitialWeight).toBe(1);
   });
@@ -169,7 +169,7 @@ describe("companionExpressions (COMPANION-003)", () => {
   it("applyAcceptedEmote neutral clears expression", () => {
     const s = createNeutralExpressionState();
     applyAcceptedTrigger(s, "correct_answer");
-    applyAcceptedEmote(s, "neutral");
+    applyAcceptedEmote(s, "neutral", undefined, cloneCompanionDefaults());
     expect(s.faceExpression).toBeNull();
     expect(s.thinkingActive).toBe(false);
   });
@@ -177,15 +177,22 @@ describe("companionExpressions (COMPANION-003)", () => {
   it("thinking applies head bone rotation via applyExpressionStateToVrm", () => {
     const setValue = vi.fn();
     const head = { rotation: { z: 0 } };
+    const exprMap = { happy: {}, sad: {}, surprised: {}, lookDown: {}, neutral: {} };
     const mockVrm = {
-      expressionManager: { setValue },
+      expressionManager: {
+        setValue,
+        getExpression: (name: string) => (name in exprMap ? {} : null),
+        expressionMap: exprMap,
+        update: vi.fn(),
+      },
       humanoid: { getRawBoneNode: (name: string) => (name === "head" ? head : null) },
     } as unknown as VRM;
     const s = createNeutralExpressionState();
     applyAcceptedTrigger(s, "idle_too_long");
     s.thinkingElapsedMs = s.thinkingDurationMs / 2;
-    applyExpressionStateToVrm(mockVrm, s);
-    expect(setValue).toHaveBeenCalledWith("happy", 0);
+    const c = cloneCompanionDefaults();
+    applyExpressionStateToVrm(mockVrm, s, c);
+    expect(setValue).toHaveBeenCalledWith("lookDown", expect.any(Number));
     expect(head.rotation.z).not.toBe(0);
   });
 });

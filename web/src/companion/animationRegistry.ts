@@ -33,6 +33,12 @@ export const ANIMATION_REGISTRY: Record<
   jump: null,
   wave: { path: "/animations/wave.fbx", defaultLoop: false },
   shrug: { path: "/animations/shrug.fbx", defaultLoop: false },
+  clap: null,
+  nod: null,
+  shake_head: null,
+  idle_fidget: null,
+  point_forward: null,
+  arms_up: null,
 };
 
 /** Every contract id has a registry row (completeness check). */

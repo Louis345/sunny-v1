@@ -1,0 +1,84 @@
+{
+  "defaultCompanionId": "elli",
+  "childCompanionIds": {
+    "ila": "elli",
+    "reina": "matilda",
+    "creator": "creator"
+  },
+  "childProfiles": {
+    "ila": {
+      "ttsName": "Ee-lah",
+      "avatarImagePath": "/characters/ila.png"
+    },
+    "reina": {
+      "ttsName": "Ray-nah",
+      "avatarImagePath": "/characters/reina.png"
+    },
+    "creator": {
+      "ttsName": "Creator",
+      "avatarImagePath": null
+    }
+  },
+  "companions": {
+    "elli": {
+      "id": "elli",
+      "vrmUrl": "/companions/sample.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [0, 1.4, 0.8],
+        "target": [0, 1.4, 0]
+      },
+      "dopamineGames": ["space-invaders", "asteroid", "space-frogger"]
+    },
+    "matilda": {
+      "id": "matilda",
+      "vrmUrl": "/companions/sample.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [0, 1.4, 0.8],
+        "target": [0, 1.4, 0]
+      },
+      "dopamineGames": ["space-invaders", "asteroid", "space-frogger"]
+    },
+    "creator": {
+      "id": "creator",
+      "vrmUrl": "/companions/sample.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [0, 1.4, 0.8],
+        "target": [0, 1.4, 0]
+      },
+      "dopamineGames": ["space-invaders", "asteroid", "space-frogger"]
+    }
+  }
+}

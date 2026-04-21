@@ -14,7 +14,10 @@ import { isCompanionEmote } from "../../../src/shared/companionEmotes";
 import {
   applyAcceptedEmote,
   applyAcceptedTrigger,
+  applyExpressionPulseState,
   applyExpressionStateToVrm,
+  isExpressionPulseActive,
+  resolveExpressionKeyBlend,
   // applyThinkingHeadTiltToVrm,
   CompanionEventDeduper,
   createNeutralExpressionState,
@@ -41,6 +44,7 @@ import {
 } from "../utils/companionCamera";
 import {
   CAMERA_ANGLES,
+  COMPANION_ANIMATE_TO_EXPRESSION_KEY,
   COMPANION_CAMERA_BASE_FOV,
   COMPANION_CAMERA_FIT_MARGIN,
   type CameraAngle,
@@ -220,6 +224,8 @@ export interface CompanionMotorTickContext {
 export class CompanionMotor {
   private vrm: VRM | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
+  /** Latest companion config for resolving `expressions` (tick + WS commands). */
+  private expressionCompanionHint: CompanionConfig | null = null;
 
   private expressionState: ExpressionDecayState =
     createNeutralExpressionState();
@@ -250,6 +256,7 @@ export class CompanionMotor {
   /** Reset dedupe + camera/move when rebuilding the Three scene. */
   resetSessionState(): void {
     this.processedCommandKeys.clear();
+    this.expressionCompanionHint = null;
     this.cameraAnim.current = null;
     this.cameraFit = null;
     this.currentCameraAngle = "mid-shot";
@@ -441,12 +448,15 @@ export class CompanionMotor {
     this.cameraAnim.current = null;
     this.moveTarget = null;
     this.processedCommandKeys.clear();
+    this.expressionCompanionHint = null;
   }
 
   processCompanionCommands(
     commands: CompanionCommand[],
     childId: string | null,
+    companion: CompanionConfig | null = null,
   ): void {
+    this.expressionCompanionHint = companion ?? this.expressionCompanionHint;
     const want = childId?.trim().toLowerCase() ?? "";
     for (const cmd of commands) {
       if (want && cmd.childId.trim().toLowerCase() !== want) continue;
@@ -468,7 +478,7 @@ export class CompanionMotor {
             typeof intRaw === "number" && Number.isFinite(intRaw)
               ? intRaw
               : undefined;
-          applyAcceptedEmote(this.expressionState, em, intensity);
+          applyAcceptedEmote(this.expressionState, em, intensity, companion);
         }
       } else if (cmd.type === "camera" && cam) {
         const angleRaw = String(cmd.payload.angle ?? "mid-shot");
@@ -485,8 +495,26 @@ export class CompanionMotor {
           typeof cmd.payload.animation === "string"
             ? cmd.payload.animation
             : "idle";
+        console.log("[VRM] animate command:", anim);
         const loopRaw = cmd.payload.loop;
         const loop = typeof loopRaw === "boolean" ? loopRaw : undefined;
+        const pulseKey = isCompanionAnimationId(anim)
+          ? COMPANION_ANIMATE_TO_EXPRESSION_KEY[anim as AnimationName]
+          : undefined;
+        if (pulseKey != null) {
+          const blend = resolveExpressionKeyBlend(pulseKey, companion);
+          console.log("[VRM] attempting animation pulse:", anim, "→", blend);
+          applyExpressionPulseState(this.expressionState, blend, 1, 1500);
+        } else {
+          console.log("[VRM] attempting animation (mixer path):", anim);
+          if (!isCompanionAnimationId(anim)) {
+            console.warn(
+              "[VRM] unknown animation:",
+              anim,
+              "— not in COMPANION_ANIMATION_IDS; no expression pulse",
+            );
+          }
+        }
         this.applyAnimateCommand(anim, { loop });
       } else if (cmd.type === "move") {
         const target = parseBoneTarget(cmd.payload.target);
@@ -505,6 +533,9 @@ export class CompanionMotor {
     if (!vrm || !camera) return;
 
     const comp = ctx.companion;
+    if (comp) {
+      this.expressionCompanionHint = comp;
+    }
     const ex = this.expressionState;
 
     // Emotes don't need companion config — apply regardless of comp.
@@ -512,7 +543,7 @@ export class CompanionMotor {
       forChildId: ctx.childId,
     });
     for (const { emote, intensity } of emotes) {
-      applyAcceptedEmote(ex, emote, intensity);
+      applyAcceptedEmote(ex, emote, intensity, comp ?? this.expressionCompanionHint);
     }
 
     if (comp) {
@@ -529,13 +560,14 @@ export class CompanionMotor {
     }
 
     tickExpressionDecay(ex, ctx.dtMs);
-    applyExpressionStateToVrm(vrm, ex);
+    applyExpressionStateToVrm(vrm, ex, comp ?? this.expressionCompanionHint);
 
     if (comp) {
       const busy = expressionBlocksIdle(
         ex.faceExpression,
         ex.faceWeight,
         ex.thinkingActive,
+        isExpressionPulseActive(ex),
       );
       tickCompanionIdle(
         this.idleState,
@@ -591,7 +623,12 @@ export class CompanionMotor {
   private applyAnimateEmoteFallback(animation: string): void {
     const em = mapAnimationToEmote(animation);
     if (em && isCompanionEmote(em)) {
-      applyAcceptedEmote(this.expressionState, em);
+      applyAcceptedEmote(
+        this.expressionState,
+        em,
+        undefined,
+        this.expressionCompanionHint,
+      );
     }
   }
 
