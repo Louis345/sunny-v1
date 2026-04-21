@@ -4,6 +4,7 @@ import { WebGLRenderer } from "three";
 import type { VRM } from "@pixiv/three-vrm";
 import type { CompanionFaceCamera } from "../../../src/shared/companionTypes";
 import { applyCompanionVrmExpression, loadCompanionVrm } from "../utils/loadCompanionVrm";
+import { loadMixamoFbxRoot, retargetMixamoClipToVrm } from "../utils/mixamoRetarget";
 
 function resolveModelUrl(vrmUrl: string): string {
   if (vrmUrl.startsWith("http://") || vrmUrl.startsWith("https://")) {
@@ -47,6 +48,7 @@ export function CompanionFace({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
   const vrmRef = useRef<VRM | null>(null);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -110,6 +112,7 @@ export function CompanionFace({
           ? Math.max(0, Math.sin((time / 1000) * 8) * 0.6)
           : 0;
         vrm.expressionManager?.setValue("aa", mouth);
+        mixerRef.current?.update(dt);
         vrm.update(dt);
       }
 
@@ -122,7 +125,7 @@ export function CompanionFace({
     const modelUrl = resolveModelUrl(vrmUrl);
     console.log('[CompanionFace] attempting VRM load:', modelUrl);
     void loadCompanionVrm(modelUrl, { webgpu: false })
-      .then((vrm) => {
+      .then(async (vrm) => {
         if (cancelled) {
           vrm.scene.removeFromParent();
           return;
@@ -131,12 +134,28 @@ export function CompanionFace({
         scene.add(vrm.scene);
         applyCompanionVrmExpression(vrm, expressionRef.current);
         console.log('[CompanionFace] VRM loaded successfully');
-        // TODO: play idle.fbx animation — requires exporting retargetMixamoClipToVrm
-        // from CompanionMotor.ts (currently file-scoped). T-pose is acceptable fallback.
+
+        const mixer = new THREE.AnimationMixer(vrm.scene);
+        try {
+          const fbx = await loadMixamoFbxRoot('/animations/idle.fbx');
+          const rawClip = fbx.animations.find((c) => c.tracks.length > 0);
+          if (rawClip) {
+            const clip = retargetMixamoClipToVrm(rawClip, fbx, vrm);
+            if (clip) {
+              mixer.clipAction(clip).setLoop(THREE.LoopRepeat, Infinity).play();
+            }
+          }
+        } catch (e: unknown) {
+          console.warn('[CompanionFace] idle animation not available:', e);
+        }
+        if (!cancelled) {
+          mixerRef.current = mixer;
+        } else {
+          mixer.stopAllAction();
+        }
       })
       .catch((e: unknown) => {
         console.error("[CompanionFace] VRM load failed:", e);
-        console.error('[CompanionFace] VRM load error:', e);
       });
 
     return () => {
@@ -145,6 +164,8 @@ export function CompanionFace({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+      mixerRef.current?.stopAllAction();
+      mixerRef.current = null;
       const vrm = vrmRef.current;
       vrmRef.current = null;
       if (vrm) {
