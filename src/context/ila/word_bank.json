@@ -1,7 +1,7 @@
 {
   "childId": "ila",
   "version": 1,
-  "lastUpdated": "2026-04-21T23:06:36.958Z",
+  "lastUpdated": "2026-04-22T01:44:45.085Z",
   "words": [
     {
       "word": "attempt-1",
@@ -38,9 +38,9 @@
           "quality": 4,
           "easinessFactor": 2.5,
           "interval": 60,
-          "repetition": 38,
-          "nextReviewDate": "2026-06-20",
-          "lastReviewDate": "2026-04-21",
+          "repetition": 40,
+          "nextReviewDate": "2026-06-21",
+          "lastReviewDate": "2026-04-22",
           "scaffoldLevel": 0,
           "history": [
             {
@@ -267,6 +267,18 @@
             },
             {
               "date": "2026-04-21",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-04-21",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-04-22",
               "quality": 4,
               "scaffoldLevel": 1,
               "correct": true
