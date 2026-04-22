@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, waitFor, cleanup } from "@testing-library/react";
+import { render, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 
@@ -139,5 +139,120 @@ describe("CompanionLayer (COMPANION-002)", () => {
       <CompanionLayer childId="fixture" companion={companion} toggledOff={false} />,
     );
     expect(wrap.style.display).toBe("block");
+  });
+});
+
+describe("CompanionLayer mode transition", () => {
+  beforeEach(() => {
+    vi.mocked(loadCompanionVrm).mockClear();
+    WebGPURendererConstructor.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("canvas persists after mode switch full→portrait", async () => {
+    const { rerender, container } = render(
+      <CompanionLayer mode="full" childId="fixture" companion={companion} toggledOff={false} />,
+    );
+    await waitFor(() => expect(container.querySelector("canvas")).toBeTruthy());
+
+    rerender(
+      <CompanionLayer mode="portrait" childId="fixture" companion={companion} toggledOff={false} />,
+    );
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="companion-portrait"] canvas')).toBeTruthy(),
+    );
+  });
+});
+
+describe("CompanionLayer portrait mode", () => {
+  beforeEach(() => {
+    vi.mocked(loadCompanionVrm).mockClear();
+    WebGPURendererConstructor.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("canvas appears inside portrait container when starting directly in portrait mode", async () => {
+    const { container } = render(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+    );
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="companion-portrait"] canvas')).toBeTruthy(),
+    );
+  });
+
+  it("canvas appears after portrait→full→portrait round-trip", async () => {
+    const { rerender, container } = render(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+    );
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="companion-portrait"] canvas')).toBeTruthy(),
+    );
+
+    rerender(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="full" />,
+    );
+    await waitFor(() => expect(container.querySelector("canvas")).toBeTruthy());
+
+    rerender(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+    );
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="companion-portrait"] canvas')).toBeTruthy(),
+    );
+  });
+
+  it("renders 120×120 circle container when mode='portrait'", () => {
+    const { getByTestId } = render(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+    );
+    const el = getByTestId("companion-portrait") as HTMLElement;
+    expect(el.style.width).toBe("120px");
+    expect(el.style.height).toBe("120px");
+    expect(el.style.borderRadius).toBe("50%");
+  });
+
+  it("portrait container z-index is above game overlays (> 100)", () => {
+    // Game iframe overlay: z-index 100 (AdventureMap launchedUrl container)
+    // Karaoke/pronunciation wrappers: z-50 in App.tsx
+    // Portrait companion must float above all of them.
+    const { getByTestId } = render(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+    );
+    const el = getByTestId("companion-portrait") as HTMLElement;
+    expect(Number(el.style.zIndex)).toBeGreaterThan(100);
+  });
+
+  it("does not render portrait container when mode='full'", () => {
+    const { container } = render(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="full" />,
+    );
+    expect(container.querySelector('[data-testid="companion-portrait"]')).toBeNull();
+    expect(container.querySelector("div.fixed.inset-0")).toBeTruthy();
+  });
+
+  it("clicking portrait container toggles internal muted state (shows 🔇 overlay)", () => {
+    const { getByTestId, queryByTestId } = render(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+    );
+    expect(queryByTestId("companion-muted-overlay")).toBeNull();
+    fireEvent.click(getByTestId("companion-portrait"));
+    expect(getByTestId("companion-muted-overlay")).toBeTruthy();
+    fireEvent.click(getByTestId("companion-portrait"));
+    expect(queryByTestId("companion-muted-overlay")).toBeNull();
+  });
+
+  it("muted overlay contains 🔇 emoji", () => {
+    const { getByTestId } = render(
+      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+    );
+    fireEvent.click(getByTestId("companion-portrait"));
+    const overlay = getByTestId("companion-muted-overlay");
+    expect(overlay.textContent).toBe("🔇");
   });
 });

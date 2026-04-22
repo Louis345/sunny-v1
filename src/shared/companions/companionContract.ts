@@ -96,9 +96,9 @@ export const CAMERA_PRESETS: Record<
   }
 > = {
   "close-up": {
-    distanceScale: 0.52,
-    lookAtYDeltaFrac: 0.14,
-    cameraYDeltaFrac: 0.12,
+    distanceScale: 0.38,
+    lookAtYDeltaFrac: -0.08,
+    cameraYDeltaFrac: -0.07,
     fovScale: 1.12,
   },
   "mid-shot": {

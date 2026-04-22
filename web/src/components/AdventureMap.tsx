@@ -19,7 +19,11 @@ import { XPBar } from "./XPBar.tsx";
 import "./AdventureMap.css";
 
 import type { NodeType } from "../../../src/shared/adventureTypes";
-import type { GameIframeOverlayState } from "./CompanionBridge.tsx";
+export type GameIframeOverlayState = {
+  active: boolean;
+  iframe: HTMLIFrameElement | null;
+  url: string | null;
+};
 import { evaluateVRR } from "../../../src/engine/vrrEngine";
 import {
   DEFAULT_TAMAGOTCHI,
@@ -106,7 +110,7 @@ export function AdventureMap(props: {
   previewMode?: MapPreviewMode;
   /** @deprecated Launch context uses mapCompanion + children.config.json default. */
   launchCompanionId?: string;
-  /** Profile companion for game URL params and bridge (null until /api/profile loads). */
+  /** Profile companion for game URL params and launch context (null until /api/profile loads). */
   mapCompanion?: CompanionConfig | null;
   companionMutedForMap?: boolean;
   onGameIframeOverlayChange?: (s: GameIframeOverlayState) => void;

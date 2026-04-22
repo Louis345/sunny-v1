@@ -16,10 +16,7 @@ import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
-import {
-  CompanionBridge,
-  type GameIframeOverlayState,
-} from "./components/CompanionBridge";
+import type { GameIframeOverlayState } from "./components/AdventureMap";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
@@ -540,6 +537,13 @@ function App() {
     );
   }
 
+  const companionPortraitMode =
+    mapGameOverlay.active ||
+    karaokeReadingActive ||
+    (state.phase === "active" && state.canvas.mode === "pronunciation") ||
+    mapSession.launchedNode?.type === "karaoke" ||
+    (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
+
   return (
     <>
       {main}
@@ -561,40 +565,25 @@ function App() {
           />
         </div>
       ) : null}
-      <CompanionBridge
-        overlay={mapGameOverlay}
+      <CompanionLayer
+        childId={activeProfileChildId}
         companion={effectiveCompanion}
-        companionMuted={companionMuted}
-        isSpeaking={state.sessionState === "SPEAKING"}
-        onMapIframeCompanionEvent={mapSession.forwardMapIframeCompanionEvent}
+        toggledOff={companionMuted}
+        mode={companionPortraitMode ? "portrait" : "full"}
+        karaokeActive={
+          state.phase === "active" &&
+          state.canvas.mode === "karaoke" &&
+          !state.karaokeStoryComplete
+        }
+        companionEvents={mergedCompanionEvents}
+        companionCommands={mergedCompanionCommands}
+        activeNodeScreen={activeNodeScreen}
+        analyserNodeRef={analyserNodeRef}
+        speechBubbleText={companionBubbleText}
       />
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 55,
-          pointerEvents: "none",
-          visibility: mapGameOverlay.active ? "hidden" : "visible",
-        }}
-        aria-hidden={mapGameOverlay.active}
-      >
-        <CompanionLayer
-          childId={activeProfileChildId}
-          companion={effectiveCompanion}
-          toggledOff={companionMuted}
-          karaokeActive={
-            state.phase === "active" &&
-            state.canvas.mode === "karaoke" &&
-            !state.karaokeStoryComplete
-          }
-          companionEvents={mergedCompanionEvents}
-          companionCommands={mergedCompanionCommands}
-          activeNodeScreen={activeNodeScreen}
-          analyserNodeRef={analyserNodeRef}
-          speechBubbleText={companionBubbleText}
-        />
-      </div>
-      {adventureMapEnabled && adventureChildId ? (
+      {adventureMapEnabled &&
+      adventureChildId &&
+      !companionPortraitMode ? (
         <TamagotchiSheet
           open={companionSheetOpen}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}

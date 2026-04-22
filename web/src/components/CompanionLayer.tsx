@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type RefObject,
 } from "react";
 import * as THREE from "three";
@@ -25,7 +26,9 @@ export interface CompanionLayerProps {
   childId: string | null;
   companion: CompanionConfig | null;
   toggledOff: boolean;
-  /** When true, shrink companion to bottom-right for karaoke reading space. */
+  /** "portrait": 120×120 fixed bottom-right circle (canvas/game overlay). "full": full-screen overlay (default). */
+  mode?: "full" | "portrait";
+  /** When true, shrink companion to bottom-right for karaoke reading space. Ignored in portrait mode. */
   karaokeActive?: boolean;
   companionEvents?: CompanionEventPayload[];
   /** Validated `companionAct` commands (voice or map WebSocket). */
@@ -61,6 +64,7 @@ export function CompanionLayer({
   childId,
   companion,
   toggledOff,
+  mode = "full",
   karaokeActive = false,
   companionEvents = [],
   companionCommands = [],
@@ -71,10 +75,19 @@ export function CompanionLayer({
   const fallbackAnalyserRef = useRef<AnalyserNode | null>(null);
   const analyserNodeRef = analyserNodeRefProp ?? fallbackAnalyserRef;
 
+  const [portraitMuted, setPortraitMuted] = useState(false);
+  const portraitMutedRef = useRef(portraitMuted);
+  const modeRef = useRef(mode);
+  useLayoutEffect(() => {
+    portraitMutedRef.current = portraitMuted;
+    modeRef.current = mode;
+  }, [portraitMuted, mode]);
+
   const wrapRef = useRef<HTMLDivElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const toggledOffRef = useRef(toggledOff);
-  toggledOffRef.current = toggledOff;
+  /** Head bone world position sampled at VRM load; used for portrait camera framing. */
+  const portraitHeadPosRef = useRef<THREE.Vector3 | null>(null);
 
   const motorRef = useRef<CompanionMotor | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -84,15 +97,16 @@ export function CompanionLayer({
   const timerRef = useRef<THREE.Timer | null>(null);
 
   const companionEventsRef = useRef<CompanionEventPayload[]>(companionEvents);
+  const childIdRef = useRef<string | null>(childId);
+  const companionRef = useRef<CompanionConfig | null>(companion);
+  const activeNodeScreenRef = useRef(activeNodeScreen);
   useLayoutEffect(() => {
     companionEventsRef.current = companionEvents;
-  }, [companionEvents]);
-  const childIdRef = useRef<string | null>(childId);
-  childIdRef.current = childId;
-  const companionRef = useRef<CompanionConfig | null>(companion);
-  companionRef.current = companion;
-  const activeNodeScreenRef = useRef(activeNodeScreen);
-  activeNodeScreenRef.current = activeNodeScreen;
+    toggledOffRef.current = toggledOff;
+    childIdRef.current = childId;
+    companionRef.current = companion;
+    activeNodeScreenRef.current = activeNodeScreen;
+  }, [companionEvents, toggledOff, childId, companion, activeNodeScreen]);
 
   useLayoutEffect(() => {
     motorRef.current?.processCompanionCommands(
@@ -159,7 +173,7 @@ export function CompanionLayer({
         companionEvents: companionEventsRef.current,
         companion: companionRef.current,
         childId: childIdRef.current,
-        toggledOff: toggledOffRef.current,
+        toggledOff: toggledOffRef.current || portraitMutedRef.current,
         activeNodeScreen: activeNodeScreenRef.current,
         analyser: analyserNodeRef.current,
       });
@@ -167,7 +181,7 @@ export function CompanionLayer({
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, [stopLoop]);
+  }, [stopLoop, analyserNodeRef]);
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -219,6 +233,7 @@ export function CompanionLayer({
     }
 
     let cancelled = false;
+    portraitHeadPosRef.current = null;
     stopLoop();
 
     const readMountSize = () => {
@@ -229,6 +244,37 @@ export function CompanionLayer({
       return { w, h };
     };
 
+    const applyPortraitCamera = (cam: THREE.PerspectiveCamera, headPos: THREE.Vector3) => {
+      // ─── Portrait framing knobs ───────────────────────────────────────────
+      // headPos is the skull-base bone in world space (from vrm.humanoid).
+      //
+      // CAMERA Z-OFFSET (distance in front of face, metres)
+      //   Smaller → zoom in (tighter face crop)
+      //   Larger  → zoom out (more body visible)
+      const zOffset = 0.65;
+
+      // CAMERA Y-OFFSET (vertical shift of camera body relative to head bone)
+      //   More negative → camera lower  → slight upward look angle
+      //   Less negative → camera higher → more level / slight downward angle
+      const camYOffset = -0.02;
+
+      // LOOK-AT Y-OFFSET (point the camera aims at, relative to head bone)
+      //   More negative → aim lower (chin/neck) → head moves toward top of frame
+      //   Less negative → aim higher (eyes/forehead) → head moves toward bottom
+      const lookAtYOffset = -0.04;
+
+      // FOV (degrees) — affects how much is visible at the given distance
+      //   Lower → telephoto / tighter  |  Higher → wider / more context
+      const fov = 28;
+      // ─────────────────────────────────────────────────────────────────────
+
+      cam.position.set(headPos.x, headPos.y + camYOffset, headPos.z + zOffset);
+      cam.fov = fov;
+      cam.aspect = 1; // portrait container is always 1:1
+      cam.updateProjectionMatrix();
+      cam.lookAt(headPos.x, headPos.y + lookAtYOffset, headPos.z);
+    };
+
     const syncRendererToMount = (reason: string) => {
       const cam = cameraRef.current;
       const ren = rendererRef.current;
@@ -236,10 +282,15 @@ export function CompanionLayer({
       if (!cam || !ren || cancelled) return;
       const { w, h } = readMountSize();
       ren.setSize(w, h);
-      cam.aspect = w / h;
-      cam.updateProjectionMatrix();
-      if (motor?.hasVrm()) {
-        motor.syncCameraToMount(w, h);
+      const headPos = portraitHeadPosRef.current;
+      if (modeRef.current === "portrait" && headPos) {
+        applyPortraitCamera(cam, headPos);
+      } else {
+        cam.aspect = w / h;
+        cam.updateProjectionMatrix();
+        if (motor?.hasVrm()) {
+          motor.syncCameraToMount(w, h);
+        }
       }
       console.log("CompanionLayer: [sync]", reason, { w, h, aspect: cam.aspect });
     };
@@ -301,6 +352,21 @@ export function CompanionLayer({
         }
         const { w: mw, h: mh } = readMountSize();
         motor.attachVrm(vrm, scene, mw, mh);
+
+        if (modeRef.current === "portrait") {
+          // Sample head bone world position for accurate face+shoulders framing.
+          // Bounding-box fraction math is unreliable for tight close-ups.
+          const getNormBone = vrm.humanoid?.getNormalizedBoneNode;
+          const headBone =
+            typeof getNormBone === "function"
+              ? getNormBone.call(vrm.humanoid, "head")
+              : null;
+          if (headBone) {
+            const headPos = new THREE.Vector3();
+            headBone.getWorldPosition(headPos);
+            portraitHeadPosRef.current = headPos;
+          }
+        }
 
         syncRendererToMount("after VRM load");
         requestAnimationFrame(() => syncRendererToMount("rAF1 post VRM"));
@@ -396,10 +462,8 @@ export function CompanionLayer({
         requestAnimationFrame(() => syncRendererToMount("rAF2 post-append")),
       );
 
-      if (isWebGpuRenderer(renderer)) {
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
-      } else {
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      if (!isWebGpuRenderer(renderer)) {
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
       }
 
@@ -428,10 +492,52 @@ export function CompanionLayer({
         rendererRef.current = null;
       }
     };
-  }, [childId, companion?.vrmUrl, startLoop, stopLoop]);
+  }, [childId, companion?.vrmUrl, mode, startLoop, stopLoop]);
 
   if (!childId || !companion) {
     return null;
+  }
+
+  if (mode === "portrait") {
+    return (
+      <div
+        data-testid="companion-portrait"
+        ref={wrapRef}
+        onClick={() => setPortraitMuted((m) => !m)}
+        style={{
+          position: "fixed",
+          bottom: 20,
+          right: 20,
+          width: 120,
+          height: 120,
+          borderRadius: "50%",
+          overflow: "hidden",
+          zIndex: 9999,
+          cursor: "pointer",
+        }}
+      >
+        <div
+          ref={mountRef}
+          style={{ width: "100%", height: "100%", pointerEvents: "none" }}
+        />
+        {portraitMuted && (
+          <div
+            data-testid="companion-muted-overlay"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 24,
+            }}
+          >
+            🔇
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (

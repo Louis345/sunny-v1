@@ -1,0 +1,29 @@
+{
+  "id": "default-1776889659102",
+  "name": "default",
+  "generatedAt": "2026-04-22T20:27:39.102Z",
+  "worldBackgroundUrl": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-0afe7505-e318-4c2d-b900-c42c42f79bc3.jpeg",
+  "palette": {
+    "sky": "#6ec8ff",
+    "ground": "#228b5c",
+    "accent": "#1a56db",
+    "particle": "#e0f2fe",
+    "glow": "#1a56db"
+  },
+  "thumbnails": {
+    "word-builder": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-a094deb8-207f-4738-b6e6-a07f1b3a1d0d.jpeg",
+    "bubble-pop": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-3be133ad-99ee-463e-8667-04e2bc23c227.jpeg",
+    "karaoke": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-86390943-c365-4aa1-aef4-94a3def4f537.jpeg",
+    "clock-game": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-10955363-c850-43d6-b7f0-e250418d9735.jpeg",
+    "coin-counter": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-2986cb66-a060-455e-94b5-304355736442.jpeg",
+    "spell-check": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-e5288ad0-49de-4547-978c-45adf269152c.jpeg",
+    "riddle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-edc67b27-467d-49b3-8f93-5759656938e9.jpeg",
+    "space-invaders": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-47f1aa21-2429-41a3-b1ee-1e41eb42d8e2.jpeg",
+    "asteroid": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-ca134534-fa12-4fe8-9b26-b41a83a36283.jpeg",
+    "space-frogger": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-4a88a85a-6092-4cfb-95eb-560c4ab01710.jpeg",
+    "boss": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-2c014c28-11b8-44c6-a675-8864edead797.jpeg",
+    "pronunciation": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-1760cf4f-7da4-414e-9d75-d85ca8eed3aa.jpeg",
+    "quest": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-185b9439-6b97-4b24-b608-262b45ec9e33.jpeg"
+  },
+  "savedBy": "auto"
+}

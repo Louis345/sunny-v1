@@ -36,6 +36,7 @@ import {
 import { createWorksheetSession as createWSSession } from "./worksheet-tools";
 import { readRasterDimensionsFromFile } from "../utils/rasterDimensions";
 import {
+  getSunnyMode,
   isDebugClaude,
   isDemoMode,
   isHomeworkMode,
@@ -45,6 +46,7 @@ import {
   prependDebugClaudeDeveloperBlock,
 } from "./debug-helpers";
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
+import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
 import { startMaxDurationTimer } from "./session-triggers";
 import { WsTtsBridge } from "./ws-tts-bridge";
@@ -87,7 +89,8 @@ export async function runSessionStart(
     );
 
     const envSubject = normalizeSessionSubject(process.env.SUNNY_SUBJECT);
-    const subject = session.diagKioskFast ? "diag" : envSubject;
+    const subject =
+      (session.diagKioskFast || getSunnyMode() === "diag") ? "diag" : envSubject;
 
     const detectedChild = session.childName;
     const homeworkChild = session.diagKioskFast

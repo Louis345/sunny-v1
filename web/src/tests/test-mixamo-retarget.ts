@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as THREE from "three";
 import type { VRM } from "@pixiv/three-vrm";
 
@@ -53,7 +53,26 @@ describe("CompanionMotor uses mixamoRetarget", () => {
   });
 });
 
-// --- Test: CompanionFace RAF tick calls mixer.update before vrm.update ---
+// --- Test: idle animation via CompanionLayer (CompanionFace deleted) ---
+
+vi.mock("three/webgpu", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("three/webgpu")>();
+  const el = document.createElement("canvas");
+  return {
+    ...mod,
+    WebGPURenderer: vi.fn().mockImplementation(() => ({
+      isWebGPURenderer: true as const,
+      domElement: el,
+      setSize: vi.fn(),
+      setPixelRatio: vi.fn(),
+      setClearColor: vi.fn(),
+      init: vi.fn().mockRejectedValue(new Error("no WebGPU in test")),
+      render: vi.fn(),
+      dispose: vi.fn(),
+      outputColorSpace: "",
+    })),
+  };
+});
 
 vi.mock("three", async (importOriginal) => {
   const actual = await importOriginal<typeof import("three")>();
@@ -104,49 +123,50 @@ vi.mock("../utils/mixamoRetarget", () => ({
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 import { loadMixamoFbxRoot } from "../utils/mixamoRetarget";
 
-describe("CompanionFace idle animation", () => {
+describe("CompanionLayer idle animation (replaces CompanionFace tests)", () => {
   beforeEach(() => {
     vi.mocked(loadCompanionVrm).mockClear();
     vi.mocked(loadMixamoFbxRoot).mockClear();
   });
 
-  it("does not throw when idle.fbx is missing (loadMixamoFbxRoot rejects)", async () => {
-    vi.mocked(loadMixamoFbxRoot).mockRejectedValue(new Error("idle.fbx not found"));
-    const { render, cleanup } = await import("@testing-library/react");
-    const React = (await import("react")).default;
-    const { CompanionFace } = await import("../components/CompanionFace");
-    expect(() =>
-      render(
-        React.createElement(CompanionFace, {
-          vrmUrl: "/test.vrm",
-          expression: "happy",
-          faceCamera: {
-            position: [0, 1.35, 1.45] as [number, number, number],
-            target: [0, 1.15, 0] as [number, number, number],
-          },
-        }),
-      ),
-    ).not.toThrow();
+  afterEach(async () => {
+    const { cleanup } = await import("@testing-library/react");
     cleanup();
   });
 
-  it("attempts to load idle.fbx after VRM loads", async () => {
-    const { render, waitFor, cleanup } = await import("@testing-library/react");
+  it("does not throw when idle.fbx is missing (loadMixamoFbxRoot rejects)", async () => {
+    vi.mocked(loadMixamoFbxRoot).mockRejectedValue(new Error("idle.fbx not found"));
+    const { render } = await import("@testing-library/react");
     const React = (await import("react")).default;
-    const { CompanionFace } = await import("../components/CompanionFace");
+    const { CompanionLayer } = await import("../components/CompanionLayer");
+    const { cloneCompanionDefaults } = await import("../../../src/shared/companionTypes");
+    expect(() =>
+      render(
+        React.createElement(CompanionLayer, {
+          childId: "fixture",
+          companion: cloneCompanionDefaults(),
+          toggledOff: false,
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("attempts to load idle.fbx after VRM loads (via CompanionMotor)", async () => {
+    const { render, waitFor } = await import("@testing-library/react");
+    const React = (await import("react")).default;
+    const { CompanionLayer } = await import("../components/CompanionLayer");
+    const { cloneCompanionDefaults } = await import("../../../src/shared/companionTypes");
     render(
-      React.createElement(CompanionFace, {
-        vrmUrl: "/test.vrm",
-        expression: "happy",
-        faceCamera: {
-          position: [0, 1.35, 1.45] as [number, number, number],
-          target: [0, 1.15, 0] as [number, number, number],
-        },
+      React.createElement(CompanionLayer, {
+        childId: "fixture",
+        companion: cloneCompanionDefaults(),
+        toggledOff: false,
       }),
     );
     await waitFor(() => {
-      expect(vi.mocked(loadMixamoFbxRoot)).toHaveBeenCalledWith("/animations/idle.fbx");
+      expect(vi.mocked(loadMixamoFbxRoot)).toHaveBeenCalledWith(
+        expect.stringContaining("/animations/idle.fbx"),
+      );
     });
-    cleanup();
   });
 });
