@@ -18,7 +18,7 @@ import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { recordReward } from "../engine/bandit";
 import { planSession, recordAttempt } from "../engine/learningEngine";
-import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
+import { getSunnyMode, sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
 import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
 import { isCompanionEmote } from "../shared/companionEmotes";
@@ -376,10 +376,13 @@ export class MapSessionError extends Error {
 
 function syncNodeStatuses(state: MapState): void {
   const completed = new Set(state.completedNodes);
+  const unlockAll = getSunnyMode() !== "real";
   state.nodes = state.nodes.map((node, idx) => ({
     ...node,
     isCompleted: completed.has(node.id),
-    isLocked: idx > state.currentNodeIndex && !completed.has(node.id),
+    isLocked: unlockAll
+      ? false
+      : idx > state.currentNodeIndex && !completed.has(node.id),
   }));
 }
 

@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { randomUUID } from "crypto";
 import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
@@ -25,6 +26,12 @@ import {
 import { loadChildFiles } from "../utils/loadChildFiles";
 import { loadAttemptHistory } from "../utils/attempts";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import { readWordBank, ensureWordInBank, updateWordTrack } from "../utils/wordBankIO";
+import { createFreshSM2Track } from "../context/schemas/wordBank";
+import { recordAttempt } from "../engine/learningEngine";
+import { computeProgression } from "../engine/progression";
+import { WILSON_STEPS } from "../modes/wilson/wilsonSteps";
+import { isSunnyDiagMode } from "../utils/runtimeMode";
 import {
   applyPassiveDepletion,
   applyTamagotchiFill,
@@ -68,6 +75,160 @@ function normalizeWrittenScore(raw: unknown): 0 | 0.5 | 1 {
   return 0;
 }
 
+const DIAG_REWARD_TRIGGER_TYPES = new Set([
+  "correct_attempt",
+  "mastered_word",
+  "session_complete",
+  "wilson_step",
+  "castle_bonus",
+  "level_up",
+]);
+
+function pickDiagSpellingWord(childId: string): string {
+  const bank = readWordBank(childId);
+  const first = bank.words[0]?.word;
+  if (first) return first;
+  const nw = `diag-mastered-seed-${randomUUID().slice(0, 8)}`;
+  ensureWordInBank(childId, nw, "spelling", "diag_trigger");
+  return nw;
+}
+
+/**
+ * Diag-only reward / progression trigger (see POST /api/diag/trigger-reward).
+ * Exported for unit tests.
+ */
+export function handleDiagTriggerReward(
+  body: unknown,
+  env: NodeJS.ProcessEnv = process.env,
+): { status: number; body: Record<string, unknown> } {
+  if (!isSunnyDiagMode(env)) {
+    return { status: 403, body: { ok: false, error: "diag_only" } };
+  }
+
+  const b = body as Record<string, unknown>;
+  const type = typeof b.type === "string" ? b.type.trim() : "";
+  const childIdRaw = typeof b.childId === "string" ? b.childId.trim() : "";
+  const childId = childIdRaw.toLowerCase();
+
+  if (!DIAG_REWARD_TRIGGER_TYPES.has(type)) {
+    return { status: 400, body: { ok: false, error: "unknown_type" } };
+  }
+  if (!childId) {
+    return { status: 400, body: { ok: false, error: "childId_required" } };
+  }
+
+  const profile = readLearningProfile(childId);
+  if (!profile) {
+    return { status: 400, body: { ok: false, error: "unknown_child" } };
+  }
+
+  try {
+    switch (type) {
+      case "correct_attempt":
+        recordAttempt(childId, {
+          word: `diag-correct-${randomUUID()}`,
+          domain: "spelling",
+          correct: true,
+          quality: 4,
+          scaffoldLevel: 2,
+          responseTimeMs: 1,
+        });
+        break;
+      case "mastered_word": {
+        const word = pickDiagSpellingWord(childId);
+        ensureWordInBank(childId, word, "spelling", "diag_trigger");
+        const bank = readWordBank(childId);
+        const entry = bank.words.find((w) => w.word === word);
+        if (!entry) {
+          return { status: 500, body: { ok: false, error: "diag_mastered_word_bank" } };
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        const prev = entry.tracks.spelling ?? createFreshSM2Track(today);
+        const next = {
+          ...prev,
+          mastered: true,
+          masteredDate: new Date().toISOString(),
+          history: [
+            ...prev.history,
+            {
+              date: today,
+              quality: 4 as const,
+              scaffoldLevel: 2 as const,
+              correct: true,
+            },
+          ],
+        };
+        updateWordTrack(childId, word, "spelling", next);
+        break;
+      }
+      case "session_complete": {
+        writeLearningProfile(childId, {
+          ...profile,
+          sessionStats: {
+            ...profile.sessionStats,
+            totalSessions: profile.sessionStats.totalSessions + 1,
+          },
+        });
+        break;
+      }
+      case "wilson_step": {
+        const maxStep = WILSON_STEPS.length;
+        const nextStep = Math.min(
+          maxStep,
+          (profile.sessionStats.currentWilsonStep ?? 1) + 1,
+        );
+        writeLearningProfile(childId, {
+          ...profile,
+          sessionStats: {
+            ...profile.sessionStats,
+            currentWilsonStep: nextStep,
+          },
+        });
+        break;
+      }
+      case "castle_bonus": {
+        for (let i = 0; i < 5; i++) {
+          recordAttempt(childId, {
+            word: `diag-castle-${randomUUID()}-${i}`,
+            domain: "spelling",
+            correct: true,
+            quality: 4,
+            scaffoldLevel: 2,
+            responseTimeMs: 1,
+          });
+        }
+        break;
+      }
+      case "level_up": {
+        for (let i = 0; i < 10; i++) {
+          recordAttempt(childId, {
+            word: `diag-level-${randomUUID()}-${i}`,
+            domain: "spelling",
+            correct: true,
+            quality: 4,
+            scaffoldLevel: 2,
+            responseTimeMs: 1,
+          });
+        }
+        break;
+      }
+      default:
+        return { status: 400, body: { ok: false, error: "unknown_type" } };
+    }
+
+    const snap = computeProgression(childId);
+    const event = {
+      timestamp: Date.now(),
+      type: "progression" as const,
+      payload: { ...snap } as Record<string, unknown>,
+    };
+    return { status: 200, body: { ok: true, event } };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { status: 500, body: { ok: false, error: message } };
+  }
+}
+
 export function setupRoutes(app: Express): void {
   const themesDir = path.resolve(process.cwd(), "src", "themes");
   if (fs.existsSync(themesDir)) {
@@ -76,6 +237,11 @@ export function setupRoutes(app: Express): void {
 
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  app.post("/api/diag/trigger-reward", (req: Request, res: Response) => {
+    const out = handleDiagTriggerReward(req.body ?? {}, process.env);
+    res.status(out.status).json(out.body);
   });
 
   /** Visual PoC — `web/public/worlds/proof-of-concept.html`; uses server-side GROK_API_KEY. */

@@ -134,7 +134,15 @@ export function CompanionBridge({
       return;
     }
 
-    if (!doc || doc.readyState !== "complete") return;
+    if (!doc || doc.readyState !== "complete") {
+      const el = iframe;
+      if (el) {
+        const retry = () => setIframeDocTick((n) => n + 1);
+        el.addEventListener("load", retry, { once: true });
+        return () => el.removeEventListener("load", retry);
+      }
+      return;
+    }
 
     const anchor = doc.getElementById("sunny-companion");
     console.log("[CompanionBridge] anchor found:", Boolean(anchor));

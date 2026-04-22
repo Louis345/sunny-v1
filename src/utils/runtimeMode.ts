@@ -23,7 +23,11 @@ export function sunnyPreviewBlocksPersistence(env: RuntimeEnv = process.env): bo
 }
 
 export function shouldPersistSessionData(env: RuntimeEnv = process.env): boolean {
-  return !isStatelessRun(env) && !sunnyPreviewBlocksPersistence(env);
+  return (
+    !isStatelessRun(env) &&
+    !sunnyPreviewBlocksPersistence(env) &&
+    getSunnyMode(env) === "real"
+  );
 }
 
 export function isHomeworkMode(env: RuntimeEnv = process.env): boolean {
@@ -35,4 +39,21 @@ export const isDebugClaude = () => process.env.DEBUG_CLAUDE === "true";
 
 export function shouldLoadPersistedHistory(env: RuntimeEnv = process.env): boolean {
   return !isStatelessRun(env);
+}
+
+export type SunnyMode = "real" | "diag" | "as-child";
+
+export function getSunnyMode(env: RuntimeEnv = process.env): SunnyMode {
+  const v = env.SUNNY_MODE?.trim().toLowerCase();
+  if (v === "diag") return "diag";
+  if (v === "as-child") return "as-child";
+  return "real";
+}
+
+export function isSunnyDiagMode(env: RuntimeEnv = process.env): boolean {
+  return getSunnyMode(env) === "diag";
+}
+
+export function isSunnyAsChildMode(env: RuntimeEnv = process.env): boolean {
+  return getSunnyMode(env) === "as-child";
 }

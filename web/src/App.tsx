@@ -1,8 +1,12 @@
 import {
+  startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 import { useSession } from "./hooks/useSession";
@@ -37,6 +41,9 @@ import {
   type TamagotchiState,
 } from "../../src/shared/vrrTypes";
 import { TamagotchiSheet } from "./components/TamagotchiSheet";
+import { RewardDiagOverlay } from "./components/RewardDiagOverlay";
+import { RewardTriggerPanel } from "./components/RewardTriggerPanel";
+import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
 
 const isCanvasTestMode =
   import.meta.env.VITE_TEST_MODE === "true" ||
@@ -57,6 +64,108 @@ function resolveMapPreviewMode(): false | "free" | "go-live" {
 }
 
 const mapPreviewMode = resolveMapPreviewMode();
+
+type RewardDiagQueued = RewardDiagEvent & { diagId: string };
+
+function createRewardDiagWebSocketConstructor(
+  Original: typeof WebSocket,
+  forwardMessageRef: MutableRefObject<(ev: MessageEvent) => void>,
+): typeof WebSocket {
+  class PatchedWebSocket extends Original {
+    constructor(url: string | URL, protocols?: string | string[]) {
+      super(url, protocols);
+      this.addEventListener("message", (ev: MessageEvent) => {
+        forwardMessageRef.current(ev);
+      });
+    }
+  }
+  return PatchedWebSocket as unknown as typeof WebSocket;
+}
+
+function RewardDiagBridge() {
+  const [events, setEvents] = useState<RewardDiagQueued[]>([]);
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const forwardMessageRef = useRef<(ev: MessageEvent) => void>(() => {});
+
+  useLayoutEffect(() => {
+    forwardMessageRef.current = (ev: MessageEvent) => {
+      try {
+        const raw = JSON.parse(String(ev.data)) as Record<string, unknown>;
+        const t = raw.type;
+        if (t !== "reward" && t !== "progression" && t !== "progression_end") {
+          return;
+        }
+        const rest = { ...raw };
+        delete rest.type;
+        const diagId = crypto.randomUUID();
+        const entry: RewardDiagQueued = {
+          diagId,
+          timestamp: Date.now(),
+          type: t as RewardDiagQueued["type"],
+          payload: rest,
+        };
+        setEvents((prev) => [entry, ...prev].slice(0, 20));
+        const tid = setTimeout(() => {
+          timersRef.current.delete(tid);
+          setEvents((prev) => prev.filter((e) => e.diagId !== diagId));
+        }, 8000);
+        timersRef.current.add(tid);
+      } catch {
+        /* ignore invalid JSON */
+      }
+    };
+  });
+
+  useEffect(() => {
+    const Original = window.WebSocket;
+    const W = createRewardDiagWebSocketConstructor(Original, forwardMessageRef);
+    window.WebSocket = W;
+    const timerSet = timersRef.current;
+
+    return () => {
+      window.WebSocket = Original;
+      for (const t of [...timerSet]) {
+        clearTimeout(t);
+      }
+      timerSet.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onPush = (e: Event) => {
+      const ce = e as CustomEvent<RewardDiagEvent>;
+      const d = ce.detail;
+      if (
+        !d ||
+        (d.type !== "reward" &&
+          d.type !== "progression" &&
+          d.type !== "progression_end")
+      ) {
+        return;
+      }
+      const diagId = crypto.randomUUID();
+      const entry: RewardDiagQueued = {
+        diagId,
+        timestamp: typeof d.timestamp === "number" ? d.timestamp : Date.now(),
+        type: d.type,
+        payload:
+          d.payload && typeof d.payload === "object"
+            ? (d.payload as Record<string, unknown>)
+            : {},
+      };
+      setEvents((prev) => [entry, ...prev].slice(0, 20));
+      const tid = setTimeout(() => {
+        timersRef.current.delete(tid);
+        setEvents((prev) => prev.filter((x) => x.diagId !== diagId));
+      }, 8000);
+      timersRef.current.add(tid);
+    };
+    window.addEventListener("sunny-reward-diag-push", onPush);
+    return () => window.removeEventListener("sunny-reward-diag-push", onPush);
+  }, []);
+
+  return <RewardDiagOverlay events={events} />;
+}
 
 const diagMapPanelEnabled =
   import.meta.env.VITE_ADVENTURE_MAP === "true" &&
@@ -167,6 +276,13 @@ function App() {
     return () => window.clearTimeout(id);
   }, [vrrCelebrateEvent]);
 
+  useEffect(() => {
+    if (adventureChildId) return;
+    startTransition(() => {
+      setCompanionSheetOpen(false);
+    });
+  }, [adventureChildId]);
+
   const mapSession = useMapSession(
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
     mapPreviewMode,
@@ -260,6 +376,7 @@ function App() {
           type="button"
           className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
           onClick={() => {
+            setCompanionSheetOpen(false);
             setAdventureChildId(null);
             resetToPicker();
           }}
@@ -473,12 +590,20 @@ function App() {
           speechBubbleText={companionBubbleText}
         />
       </div>
-      <TamagotchiSheet
-        open={companionSheetOpen}
-        tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
-        companionName={effectiveCompanion?.companionId ?? "Companion"}
-        onClose={() => setCompanionSheetOpen(false)}
-      />
+      {adventureMapEnabled && adventureChildId ? (
+        <TamagotchiSheet
+          open={companionSheetOpen}
+          tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+          companionName={effectiveCompanion?.companionId ?? "Companion"}
+          onClose={() => setCompanionSheetOpen(false)}
+        />
+      ) : null}
+      {isRewardDiagEnabled() ? (
+        <>
+          <RewardDiagBridge />
+          <RewardTriggerPanel childId={activeProfileChildId ?? ""} />
+        </>
+      ) : null}
     </>
   );
 }

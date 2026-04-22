@@ -82,6 +82,7 @@ function mockNodes(): MapState["nodes"] {
 
 describe("map coordinator (TASK-010)", () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     __resetAdventureMapSessionsForTests();
     vi.mocked(buildProfile).mockResolvedValue({
       childId: "qa_map",
@@ -140,5 +141,19 @@ describe("map coordinator (TASK-010)", () => {
     const { sessionId } = await startMapSession("qa_map");
     const st = getMapState(sessionId);
     expect(st?.childId).toBe("qa_map");
+  });
+
+  it("SUNNY_MODE=real (default) sync locks nodes after the current index", async () => {
+    vi.stubEnv("SUNNY_MODE", "real");
+    const { mapState } = await startMapSession("qa_map");
+    expect(mapState.nodes[0]?.isLocked).toBe(false);
+    expect(mapState.nodes.slice(1).every((n) => n.isLocked)).toBe(true);
+  });
+
+  it("SUNNY_MODE=diag leaves every map node unlocked after buildNodeList path", async () => {
+    vi.stubEnv("SUNNY_MODE", "diag");
+    const { mapState } = await startMapSession("qa_map");
+    expect(mapState.nodes.length).toBeGreaterThan(0);
+    expect(mapState.nodes.every((n) => !n.isLocked)).toBe(true);
   });
 });

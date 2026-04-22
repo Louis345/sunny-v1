@@ -2,7 +2,7 @@
   "childId": "ila",
   "version": 1,
   "createdAt": "2026-04-03T21:20:33.923Z",
-  "lastUpdated": "2026-04-21T01:45:39.409Z",
+  "lastUpdated": "2026-04-22T03:38:09.656Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -47,14 +47,6 @@
     "topicFrequency": {}
   },
   "moodHistory": [
-    {
-      "date": "2026-04-14T00:58:55.759Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
     {
       "date": "2026-04-18T17:01:48.628Z",
       "startMood": "neutral",
@@ -126,6 +118,14 @@
       "bondQuality": "moderate",
       "sessionAccuracy": 0,
       "notableSignals": []
+    },
+    {
+      "date": "2026-04-22T03:38:09.654Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
     }
   ],
   "moodTrend": "stable",
@@ -147,14 +147,14 @@
     "dyslexiaMode": true
   },
   "sessionStats": {
-    "totalSessions": 14,
-    "averageAccuracy": 0.07142857142857142,
+    "totalSessions": 15,
+    "averageAccuracy": 0.06666666666666667,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 4,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-04-20T15:55:00.897Z"
+    "lastSessionDate": "2026-04-22T03:38:09.654Z"
   },
   "rewardPreferences": {
     "favoriteGames": [],
