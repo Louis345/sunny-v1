@@ -23,6 +23,8 @@ import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
 import { isCompanionEmote } from "../shared/companionEmotes";
 import type { CompanionEvent, CompanionTrigger } from "../shared/companionTypes";
+import { sessionEventBus, type SessionEventType } from "./session-event-bus";
+import { getActiveVoiceSessionIdForChild } from "./voice-session-registry";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { generateStoryImage } from "../utils/generateStoryImage";
@@ -175,6 +177,110 @@ const sessions = new Map<string, SessionRecord>();
 const WS_OPEN = 1;
 /** Keyed by normalized map childId (same as `profile.childId` / `map_session_attach`). */
 const mapSessionWebSockets = new Map<string, Set<WebSocket>>();
+/** Each map WebSocket → childId from `map_session_attach` (for inbound iframe events). */
+const mapSocketAttachedChildId = new WeakMap<WebSocket, string>();
+
+const COMPANION_TRIGGER_SET = new Set<string>([
+  "session_start",
+  "correct_answer",
+  "wrong_answer",
+  "mastery_unlock",
+  "session_end",
+  "idle_too_long",
+]);
+
+function isCompanionTriggerValue(v: unknown): v is CompanionTrigger {
+  return typeof v === "string" && COMPANION_TRIGGER_SET.has(v);
+}
+
+/** Map iframe `CompanionTrigger` → `SessionEventType` when the bus + companion bridge support it. */
+export function companionTriggerToSessionEventType(
+  t: CompanionTrigger,
+): SessionEventType | null {
+  switch (t) {
+    case "correct_answer":
+    case "wrong_answer":
+    case "session_end":
+      return t;
+    case "idle_too_long":
+      return "idle_10s";
+    case "session_start":
+    case "mastery_unlock":
+      return null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Browser → server: iframe `_contract.js` fired `postMessage({ type: "companion_event" })`;
+ * parent forwards over map WebSocket so `sessionEventBus` + RewardEngine + server CompanionBridge run.
+ */
+export function handleMapSocketIframeCompanionEvent(
+  ws: WebSocket,
+  msg: unknown,
+): boolean {
+  const regKey = mapSocketAttachedChildId.get(ws);
+  if (!regKey) {
+    return false;
+  }
+  if (!msg || typeof msg !== "object") {
+    return true;
+  }
+  const m = msg as Record<string, unknown>;
+  if (m.type !== "map_iframe_companion_event") {
+    return false;
+  }
+  const payload = m.payload;
+  if (!payload || typeof payload !== "object") {
+    console.warn(
+      "[map-coordinator] map_iframe_companion_event ignored: missing payload",
+    );
+    return true;
+  }
+  const pl = payload as Record<string, unknown>;
+  const triggerRaw = pl.trigger;
+  if (!isCompanionTriggerValue(triggerRaw)) {
+    console.warn(
+      "[map-coordinator] map_iframe_companion_event ignored: invalid trigger",
+      triggerRaw,
+    );
+    return true;
+  }
+  const childPayload =
+    typeof pl.childId === "string" ? pl.childId.trim().toLowerCase() : "";
+  if (!childPayload || mapCompanionWsKey(childPayload) !== regKey) {
+    console.warn(
+      "[map-coordinator] map_iframe_companion_event ignored: childId mismatch",
+      { regKey, childPayload },
+    );
+    return true;
+  }
+  const st = companionTriggerToSessionEventType(triggerRaw);
+  if (!st) {
+    console.log(
+      "[map-coordinator] iframe companion trigger not routed to EventBus:",
+      triggerRaw,
+    );
+    return true;
+  }
+  const ts =
+    typeof pl.timestamp === "number" && Number.isFinite(pl.timestamp)
+      ? pl.timestamp
+      : Date.now();
+  const voiceSid = getActiveVoiceSessionIdForChild(regKey) ?? "";
+  sessionEventBus.fire({
+    type: st,
+    childId: regKey,
+    sessionId: voiceSid,
+    timestamp: ts,
+  });
+  console.log(
+    "  🎮 [map-coordinator] iframe companion → EventBus",
+    JSON.stringify({ type: st, childId: regKey, voiceSession: voiceSid || null }),
+  );
+  return true;
+}
 
 export function registerMapSessionWebSocket(
   childId: string,
@@ -182,6 +288,7 @@ export function registerMapSessionWebSocket(
 ): void {
   const key = mapCompanionWsKey(childId);
   if (!key) return;
+  mapSocketAttachedChildId.set(ws, key);
   let set = mapSessionWebSockets.get(key);
   if (!set) {
     set = new Set();
@@ -198,6 +305,7 @@ export function registerMapSessionWebSocket(
     }),
   );
   const onClose = () => {
+    mapSocketAttachedChildId.delete(ws);
     set!.delete(ws);
     if (set!.size === 0) {
       mapSessionWebSockets.delete(key);
@@ -247,6 +355,7 @@ export function broadcastCompanionEventToMapChild(
 export function __resetAdventureMapSessionsForTests(): void {
   sessions.clear();
   mapSessionWebSockets.clear();
+  // WeakMap mapSocketAttachedChildId cannot be cleared; tests use fresh WebSocket mocks.
 }
 
 /**

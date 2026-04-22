@@ -50,6 +50,7 @@ export default defineConfig({
       "src/tests/test-designer-agent.ts",
       "src/tests/test-node-selection.ts",
       "src/tests/test-map-coordinator.ts",
+      "src/tests/test-map-iframe-companion-forward.ts",
       "src/tests/test-post-node-pipeline.ts",
       "src/tests/test-adventure-metrics.ts",
       "src/tests/test-session-metrics-note.ts",

@@ -19,7 +19,7 @@
     "sunny:homework:preview": "cd web && VITE_ADVENTURE_MAP=true VITE_PREVIEW_MODE=free npm run build && cd .. && SUNNY_PREVIEW_MODE=free SUNNY_SUBJECT=homework ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:diag:homework": "cd web && VITE_ADVENTURE_MAP=true VITE_PREVIEW_MODE=free npm run build && cd .. && SUNNY_MODE=diag SUNNY_CHILD=ila SUNNY_SUBJECT=homework ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:diag:rewards": "cd web && VITE_ADVENTURE_MAP=true VITE_REWARD_DIAG=true npm run build && cd .. && SUNNY_MODE=diag SUNNY_CHILD=ila ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
-    "sunny:mode:diag:homework:as-ila": "cd web && VITE_ADVENTURE_MAP=true npm run build && cd .. && SUNNY_MODE=as-child SUNNY_CHILD=ila SUNNY_SUBJECT=homework ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
+    "sunny:mode:diag:homework:as-ila": "cd web && VITE_ADVENTURE_MAP=true VITE_PREVIEW_MODE=free npm run build && cd .. && SUNNY_MODE=as-child SUNNY_CHILD=ila SUNNY_SUBJECT=homework ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:diag:reading:sunny-mode": "cd web && VITE_ADVENTURE_MAP=true npm run build && cd .. && SUNNY_MODE=diag SUNNY_SUBJECT=reading ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:diag:reading:as-ila": "cd web && VITE_ADVENTURE_MAP=true npm run build && cd .. && SUNNY_MODE=as-child SUNNY_CHILD=ila SUNNY_SUBJECT=reading ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
     "sunny:mode:diag:pronunciation:sunny-mode": "cd web && VITE_ADVENTURE_MAP=true npm run build && cd .. && SUNNY_MODE=diag SUNNY_SUBJECT=pronunciation ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",

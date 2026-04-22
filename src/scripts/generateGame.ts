@@ -96,7 +96,10 @@ export function textFromMessage(resp: Anthropic.Message): string {
 export function stripJsonFences(raw: string): string {
   let t = raw.trim();
   if (t.startsWith("```")) {
-    t = t.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    t = t
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
   }
   return t;
 }
@@ -118,7 +121,10 @@ export function parseExtractedJson(raw: string): unknown {
 export function stripHtmlFences(raw: string): string {
   let t = raw.trim();
   if (t.startsWith("```")) {
-    t = t.replace(/^```(?:html)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    t = t
+      .replace(/^```(?:html)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
   }
   return t;
 }
@@ -175,7 +181,10 @@ function parseCliArgs(argv: string[]): CliArgs {
   return { childId, pdfOverridePath, opus, preview };
 }
 
-function firstMatchingFile(dirPath: string, ext: ".pdf" | ".txt"): string | undefined {
+function firstMatchingFile(
+  dirPath: string,
+  ext: ".pdf" | ".txt",
+): string | undefined {
   if (!fs.existsSync(dirPath)) return undefined;
   const entries = fs.readdirSync(dirPath);
   const match = entries.find((entry) => entry.toLowerCase().endsWith(ext));
@@ -190,7 +199,9 @@ function resolveInputSource(args: CliArgs): InputSource {
     const ext = path.extname(args.pdfOverridePath).toLowerCase();
     if (ext === ".pdf") return { kind: "pdf", filePath: args.pdfOverridePath };
     if (ext === ".txt") return { kind: "txt", filePath: args.pdfOverridePath };
-    throw new Error(`--pdf must point to a .pdf or .txt file: ${args.pdfOverridePath}`);
+    throw new Error(
+      `--pdf must point to a .pdf or .txt file: ${args.pdfOverridePath}`,
+    );
   }
 
   const incomingDir = path.join(
@@ -212,7 +223,9 @@ function resolveInputSource(args: CliArgs): InputSource {
   );
 }
 
-function resolveGameGoalHomeworkType(homeworkType?: string): keyof typeof GAME_GOAL_BY_TYPE {
+function resolveGameGoalHomeworkType(
+  homeworkType?: string,
+): keyof typeof GAME_GOAL_BY_TYPE {
   const t = (homeworkType ?? "generic").trim().toLowerCase();
   if (t === "spelling" || t === "spelling_test") return "spelling_test";
   if (t === "comprehension" || t === "reading") return "reading";
@@ -448,7 +461,19 @@ export async function generateQuestGameHtml(args: {
     max_tokens: args.maxTokens ?? 16384,
     messages: [{ role: "user", content: genPrompt }],
   });
-  return stripHtmlFences(textFromMessage(genResp));
+  const html = stripHtmlFences(textFromMessage(genResp));
+
+  // Enforce companion anchor — inject if model omitted it
+  if (
+    !html.includes('id="sunny-companion"') &&
+    !html.includes("id='sunny-companion'")
+  ) {
+    return html.replace(
+      /<body[^>]*>/i,
+      `$&\n<div id="sunny-companion" style="position:fixed;bottom:20px;right:20px;width:120px;height:120px;z-index:9999;pointer-events:none;"></div>`,
+    );
+  }
+  return html;
 }
 
 async function main(): Promise<void> {

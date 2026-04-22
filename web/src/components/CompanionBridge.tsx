@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { CompanionConfig } from "../../../src/shared/companionTypes";
-import type { CompanionTrigger } from "../../../src/shared/companionTypes";
+import type {
+  CompanionConfig,
+  CompanionEventPayload,
+  CompanionTrigger,
+} from "../../../src/shared/companionTypes";
 import { TRIGGER_EXPRESSION_MAP } from "../utils/companionExpressions";
 import { isDopamineGameUrl } from "../../../src/shared/companionIframeGuards";
 import { CompanionFace } from "./CompanionFace";
@@ -48,6 +51,8 @@ export interface CompanionBridgeProps {
   companionMuted: boolean;
   /** True while TTS audio is playing — passed to CompanionFace for mouth animation. */
   isSpeaking?: boolean;
+  /** When set, iframe `companion_event` postMessages are forwarded to the map WebSocket (server EventBus). */
+  onMapIframeCompanionEvent?: (payload: CompanionEventPayload) => void;
 }
 
 /**
@@ -59,6 +64,7 @@ export function CompanionBridge({
   companion,
   companionMuted,
   isSpeaking = false,
+  onMapIframeCompanionEvent,
 }: CompanionBridgeProps) {
   const [blendShape, setBlendShape] = useState(() =>
     companion?.expressions.idle ? companion.expressions.idle : "happy",
@@ -81,8 +87,30 @@ export function CompanionBridge({
       if (!companion) return;
       const blend = mapTriggerToBlendShape(companion, d.payload?.trigger);
       setBlendShape(blend);
+      const pl = d.payload;
+      if (
+        onMapIframeCompanionEvent &&
+        pl &&
+        typeof pl.childId === "string" &&
+        typeof pl.timestamp === "number"
+      ) {
+        const forward: CompanionEventPayload = {
+          childId: pl.childId,
+          timestamp: pl.timestamp,
+        };
+        if (pl.trigger !== undefined) {
+          forward.trigger = pl.trigger as CompanionTrigger;
+        }
+        if (pl.emote !== undefined) {
+          forward.emote = pl.emote as CompanionEventPayload["emote"];
+        }
+        if (pl.intensity !== undefined && typeof pl.intensity === "number") {
+          forward.intensity = pl.intensity;
+        }
+        onMapIframeCompanionEvent(forward);
+      }
     },
-    [companion],
+    [companion, onMapIframeCompanionEvent],
   );
 
   useEffect(() => {

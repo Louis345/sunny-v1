@@ -136,6 +136,10 @@ import {
   type SpellingHomeworkGate,
 } from "./spelling-homework-gate";
 import { sessionEventBus } from "./session-event-bus";
+import {
+  registerActiveVoiceSession,
+  unregisterActiveVoiceSessionIfCurrent,
+} from "./voice-session-registry";
 import { RewardEngine } from "./reward-engine";
 import {
   ServerCompanionBridge,
@@ -916,6 +920,7 @@ export class SessionManager {
       (type, data) => this.send(type, data),
       this.diagKioskFast,
     );
+    registerActiveVoiceSession(cid, this.sessionId);
     if (this.diagKioskFast) {
       markSessionAsPreview(this.sessionId);
     }
@@ -1173,10 +1178,12 @@ export class SessionManager {
     this.isEnding = true;
     this.isSpellingSession = false;
 
+    const endChildId = childIdFromName(this.childName);
+    unregisterActiveVoiceSessionIfCurrent(endChildId, this.sessionId);
     sessionEventBus.fire({
       type: "session_end",
       sessionId: this.sessionId,
-      childId: childIdFromName(this.childName),
+      childId: endChildId,
       timestamp: Date.now(),
     });
     clearPreviewSession(this.sessionId);

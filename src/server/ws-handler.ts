@@ -1,6 +1,9 @@
 import type { WebSocket } from "ws";
 import type { IncomingMessage } from "http";
-import { registerMapSessionWebSocket } from "./map-coordinator";
+import {
+  handleMapSocketIframeCompanionEvent,
+  registerMapSessionWebSocket,
+} from "./map-coordinator";
 import { SessionManager } from "./session-manager";
 
 export function handleWsConnection(
@@ -40,6 +43,20 @@ export function handleWsConnection(
         }
         console.log("[ws-handler] map_session_attach for:", childId);
         registerMapSessionWebSocket(childId, ws);
+        break;
+      }
+
+      case "map_iframe_companion_event": {
+        if (handleMapSocketIframeCompanionEvent(ws, msg)) {
+          break;
+        }
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message:
+              "map_iframe_companion_event requires prior map_session_attach on this socket",
+          }),
+        );
         break;
       }
 

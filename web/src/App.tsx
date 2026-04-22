@@ -566,11 +566,15 @@ function App() {
         companion={effectiveCompanion}
         companionMuted={companionMuted}
         isSpeaking={state.sessionState === "SPEAKING"}
+        onMapIframeCompanionEvent={mapSession.forwardMapIframeCompanionEvent}
       />
       <div
         style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 55,
+          pointerEvents: "none",
           visibility: mapGameOverlay.active ? "hidden" : "visible",
-          pointerEvents: mapGameOverlay.active ? "none" : "auto",
         }}
         aria-hidden={mapGameOverlay.active}
       >

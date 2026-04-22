@@ -151,6 +151,7 @@ export function useMapSession(
   ) => Promise<void>;
   companionEvents: CompanionEventPayload[];
   companionCommands: CompanionCommand[];
+  forwardMapIframeCompanionEvent: (payload: CompanionEventPayload) => void;
 } {
   const [mapState, setMapState] = useState<MapState | null>(null);
   const [theme, setTheme] = useState<SessionTheme | null>(null);
@@ -315,6 +316,25 @@ export function useMapSession(
 
   const clearLaunchedNode = useCallback(() => setLaunchedNode(null), []);
 
+  /** Forward iframe `companion_event` to server so `sessionEventBus` + voice session react. */
+  const forwardMapIframeCompanionEvent = useCallback(
+    (payload: CompanionEventPayload) => {
+      const w = (typeof window !== "undefined"
+        ? (window as unknown as { _mapWs?: WebSocket })._mapWs
+        : undefined) as WebSocket | undefined;
+      if (!w || w.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      w.send(
+        JSON.stringify({
+          type: "map_iframe_companion_event",
+          payload,
+        }),
+      );
+    },
+    [],
+  );
+
   const sendNodeResult = useCallback(
     async (result: NodeResult) => {
       if (!sessionId) return null;
@@ -381,5 +401,6 @@ export function useMapSession(
     sendNodeRating,
     companionEvents,
     companionCommands,
+    forwardMapIframeCompanionEvent,
   };
 }
