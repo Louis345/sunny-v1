@@ -211,6 +211,7 @@ function mergeCompanionCommands(
 }
 
 function App() {
+  const adventureGameIframeRef = useRef<HTMLIFrameElement | null>(null);
   const {
     state,
     startSession,
@@ -226,7 +227,7 @@ function App() {
     companionEvents: voiceCompanionEvents,
     companionCommands: voiceCompanionCommands,
     analyserNodeRef,
-  } = useSession();
+  } = useSession({ adventureGameIframeRef });
 
   const [profileCompanion, setProfileCompanion] = useState<CompanionConfig | null>(
     null,
@@ -316,6 +317,13 @@ function App() {
     [],
   );
 
+  const handleGameIframeMount = useCallback(
+    (el: HTMLIFrameElement | null) => {
+      adventureGameIframeRef.current = el;
+    },
+    [],
+  );
+
   const handleDiagCamera = useCallback(
     (angle: "close-up" | "mid-shot" | "full-body" | "wide") => {
       setDiagCompanionCommands((prev) => [
@@ -387,6 +395,7 @@ function App() {
           mapCompanion={effectiveCompanion}
           companionMutedForMap={companionMuted}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+          onGameIframeMount={handleGameIframeMount}
           onTamagotchiSynced={(t) => setProfileTamagotchi(t)}
           onVrrPhase1Begin={() => {
             const cid = activeProfileChildId?.trim().toLowerCase();

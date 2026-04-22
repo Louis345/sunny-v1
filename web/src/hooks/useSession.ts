@@ -1,4 +1,10 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  type RefObject,
+} from "react";
 import {
   applyBlackboardMessage,
   clearedBlackboardState,
@@ -15,6 +21,7 @@ import {
 import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
 import type { CompanionEventPayload } from "../../../src/shared/companionTypes";
 import { gameIframeRef } from "../components/Canvas";
+import { captureKioskScreenshotPngBase64 } from "../utils/gameScreenshotCapture";
 import { shouldRenderTeachingContent } from "../utils/canvasLayout";
 import {
   ensurePlaybackAnalyser,
@@ -260,7 +267,12 @@ function urlWantsBrowserTts(): boolean {
   }
 }
 
-export function useSession() {
+export type UseSessionOptions = {
+  /** Adventure-map game iframe; preferred target for server-driven screenshots. */
+  adventureGameIframeRef?: RefObject<HTMLIFrameElement | null>;
+};
+
+export function useSession(options?: UseSessionOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const micContextRef = useRef<AudioContext | null>(null);
   const playContextRef = useRef<AudioContext | null>(null);
@@ -317,6 +329,8 @@ export function useSession() {
 
   const sendMessageRef = useRef<(type: string, payload?: Record<string, unknown>) => void>(() => {});
   const stopMicRef = useRef<() => void>(() => {});
+  const adventureGameIframeSourceRef = useRef(options?.adventureGameIframeRef ?? null);
+  adventureGameIframeSourceRef.current = options?.adventureGameIframeRef ?? null;
 
   // --- WebSocket connection ---
 
@@ -382,22 +396,18 @@ export function useSession() {
             }
           };
           try {
-            const iframe = gameIframeRef?.current;
-            const doc = iframe?.contentDocument;
-            const target = (doc?.body ?? iframe) as HTMLElement | undefined;
-            if (!target) {
-              sendShot(null);
-              return;
-            }
             const { default: html2canvas } = await import("html2canvas");
-            const canvas = await html2canvas(target, {
-              useCORS: true,
-              logging: false,
+            const adventureEl =
+              adventureGameIframeSourceRef.current?.current ?? null;
+            const data = await captureKioskScreenshotPngBase64({
+              adventureIframe: adventureEl,
+              canvasIframe: gameIframeRef?.current ?? null,
+              documentBody: document.body,
+              html2canvas,
             });
-            const dataUrl = canvas.toDataURL("image/png");
-            const data = dataUrl.replace(/^data:image\/png;base64,/, "");
             sendShot(data);
-          } catch {
+          } catch (err) {
+            console.error("  🎮 [useSession] screenshot_request capture failed", err);
             sendShot(null);
           }
         })();

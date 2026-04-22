@@ -93,6 +93,14 @@
     );
   }
 
+  // Signal to the adventure map that this game frame has loaded and is ready.
+  // This allows the server to mark canvasReady=true for the current canvas revision.
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "ready" }, "*");
+    }
+  });
+
   window.GAME_PARAMS = GAME_PARAMS;
   window.sendNodeComplete = sendNodeComplete;
   window.showPreviewBanner = showPreviewBanner;

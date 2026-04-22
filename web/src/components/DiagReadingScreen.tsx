@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { useSession } from "../hooks/useSession";
 import { useMapSession } from "../hooks/useMapSession";
@@ -60,9 +60,16 @@ const DIAG_BACKGROUND =
 const adventureMapEnabled = import.meta.env.VITE_ADVENTURE_MAP === "true";
 
 export function DiagReadingScreen() {
-  const { state, startSession, sendMessage } = useSession();
+  const adventureGameIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const { state, startSession, sendMessage } = useSession({
+    adventureGameIframeRef,
+  });
   const mapSession = useMapSession(adventureMapEnabled ? "creator" : "");
   const companion = useMemo(() => cloneCompanionDefaults(), []);
+
+  const handleGameIframeMount = useCallback((el: HTMLIFrameElement | null) => {
+    adventureGameIframeRef.current = el;
+  }, []);
 
   useEffect(() => {
     startSession("creator", {
@@ -100,6 +107,7 @@ export function DiagReadingScreen() {
           <AdventureMap
             childId="creator"
             mapSession={mapSession}
+            onGameIframeMount={handleGameIframeMount}
             karaokeReadingForMapNode={{
               words: state.canvas.karaokeWords ?? [],
               interimTranscript: state.interimTranscript,

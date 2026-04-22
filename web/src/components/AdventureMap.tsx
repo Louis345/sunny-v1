@@ -114,6 +114,8 @@ export function AdventureMap(props: {
   mapCompanion?: CompanionConfig | null;
   companionMutedForMap?: boolean;
   onGameIframeOverlayChange?: (s: GameIframeOverlayState) => void;
+  /** Notifies parent when the launched game iframe mounts (load) or clears (null). */
+  onGameIframeMount?: (el: HTMLIFrameElement | null) => void;
   onActiveNodeScreenChange?: (p: { x: number; y: number } | null) => void;
   /** Voice-session reading props when a map node of type \"karaoke\" is launched. */
   karaokeReadingForMapNode?: KaraokeReadingCanvasProps;
@@ -190,8 +192,9 @@ export function AdventureMap(props: {
         iframe: null,
         url: null,
       });
+      props.onGameIframeMount?.(null);
     }
-  }, [launchedUrl, props.onGameIframeOverlayChange]);
+  }, [launchedUrl, props.onGameIframeOverlayChange, props.onGameIframeMount]);
 
   const accentColor =
     resolved && accentForChild?.childId === resolved
@@ -934,7 +937,10 @@ export function AdventureMap(props: {
           <iframe
             ref={gameIframeRef}
             src={launchedUrl}
-            onLoad={publishIframeOverlay}
+            onLoad={() => {
+              publishIframeOverlay();
+              props.onGameIframeMount?.(gameIframeRef.current);
+            }}
             style={{
               width: "100%",
               height: "100%",
@@ -1016,7 +1022,7 @@ export function AdventureMap(props: {
           </button>
         </div>
       ) : null}
-      {!launchedUrl && props.onOpenTamagotchiSheet ? (
+      {!launchedUrl && !launchedNode && props.onOpenTamagotchiSheet ? (
         <button
           type="button"
           onClick={() => props.onOpenTamagotchiSheet?.()}
