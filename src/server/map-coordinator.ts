@@ -15,6 +15,7 @@ import type { ChildQuality } from "../algorithms/types";
 import type { ChildProfile } from "../shared/childProfile";
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme, paletteOnlyThemeFromProfile } from "../agents/designer/designer";
+import { loadRandomSavedTheme } from "../utils/themeLoader";
 import { buildNodeList } from "../engine/nodeSelection";
 import { recordReward } from "../engine/bandit";
 import { planSession, recordAttempt } from "../engine/learningEngine";
@@ -113,7 +114,10 @@ function sessionThemeFromSaved(doc: SavedHomeworkThemeFile): SessionTheme {
   const p = doc.palette;
   return {
     name: doc.name || "saved",
-    palette: p,
+    palette: {
+      ...p,
+      cardBackground: p.cardBackground ?? p.particle,
+    },
     ambient: { type: "dots", count: 20, speed: 1, color: p.particle ?? "#e0f2fe" },
     nodeStyle: "rounded",
     pathStyle: "curve",
@@ -122,6 +126,7 @@ function sessionThemeFromSaved(doc: SavedHomeworkThemeFile): SessionTheme {
     backgroundUrl: doc.worldBackgroundUrl,
     nodeThumbnails: (doc.thumbnails ?? {}) as SessionTheme["nodeThumbnails"],
     mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
+    source: "saved",
   };
 }
 
@@ -132,9 +137,20 @@ function homeworkThemePersistenceContext(profile: ChildProfile): boolean {
   );
 }
 
-async function resolveThemeForMapSession(
+export async function resolveThemeForMapSession(
   profile: ChildProfile,
 ): Promise<{ theme: SessionTheme; shouldPersist: boolean }> {
+  if (isDiagMapMode()) {
+    const fromBundle = loadRandomSavedTheme();
+    if (fromBundle) {
+      return { theme: { ...fromBundle, source: "saved" }, shouldPersist: false };
+    }
+    return {
+      theme: { ...paletteOnlyThemeFromProfile(profile), source: "palette" },
+      shouldPersist: false,
+    };
+  }
+
   const key = mapCompanionWsKey(profile.childId);
   const persistCtx = homeworkThemePersistenceContext(profile);
   const saved = persistCtx ? listSavedThemes(key) : [];
@@ -146,7 +162,10 @@ async function resolveThemeForMapSession(
     return { theme: sessionThemeFromSaved(picked), shouldPersist: false };
   }
   const generated = await generateTheme(profile);
-  const theme = generated ?? paletteOnlyThemeFromProfile(profile);
+  const theme =
+    generated != null
+      ? { ...generated, source: "generated" as const }
+      : { ...paletteOnlyThemeFromProfile(profile), source: "palette" as const };
   return { theme, shouldPersist: persistCtx };
 }
 
@@ -555,6 +574,7 @@ function diagSessionTheme(): SessionTheme {
       accent,
       particle: "#e0f2fe",
       glow: accent,
+      cardBackground: "#f0f9ff",
     },
     ambient: { type: "dots", count: 20, speed: 1, color: "#e0f2fe" },
     nodeStyle: "rounded",
@@ -652,9 +672,6 @@ export function buildDiagMapSession(): { sessionId: string; mapState: MapState }
 export async function startMapSession(
   childId: string,
 ): Promise<{ sessionId: string; mapState: MapState }> {
-  if (isDiagMapMode()) {
-    return buildDiagMapSession();
-  }
   const profile = await buildProfile(childId);
   if (!profile) {
     throw new MapSessionError("unknown_child", 404);

@@ -1,0 +1,27 @@
+{
+  "id": "diag-fixture",
+  "name": "diag-fixture",
+  "generatedAt": "2026-04-23T00:00:00.000Z",
+  "worldBackgroundUrl": "https://example.com/diag-fixture-bg.png",
+  "palette": {
+    "sky": "#6ec8ff",
+    "ground": "#228b5c",
+    "accent": "#1a56db",
+    "particle": "#e0f2fe",
+    "glow": "#1a56db"
+  },
+  "thumbnails": {
+    "riddle": "https://example.com/diag-riddle.png",
+    "word-builder": "https://example.com/diag-wb.png",
+    "karaoke": "https://example.com/diag-karaoke.png",
+    "spell-check": "https://example.com/diag-sc.png",
+    "coin-counter": "https://example.com/diag-cc.png",
+    "clock-game": "https://example.com/diag-clock.png",
+    "space-invaders": "https://example.com/diag-si.png",
+    "asteroid": "https://example.com/diag-ast.png",
+    "space-frogger": "https://example.com/diag-sf.png",
+    "bubble-pop": "https://example.com/diag-bp.png",
+    "boss": "https://example.com/diag-boss.png"
+  },
+  "savedBy": "fixture"
+}

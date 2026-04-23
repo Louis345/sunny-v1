@@ -91,6 +91,8 @@ export interface SessionTheme {
   nodeStyle: string;
   pathStyle: string;
   castleVariant: string;
+  /** Where this theme came from (diag bundle / generator); optional for wire payloads. */
+  source?: "saved" | "palette" | "generated";
   backgroundUrl?: string;
   /** Grok castle asset; null if generation failed or no API key. */
   castleUrl?: string | null;

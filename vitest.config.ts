@@ -68,6 +68,7 @@ export default defineConfig({
       "src/tests/test-reward-engine.ts",
       "src/tests/test-runtime-mode.ts",
       "src/tests/test-diag-grok-spend-gates.ts",
+      "src/tests/test-theme-resolve-diag.ts",
       "src/tests/test-game-event-handler.ts",
       "src/tests/test-session-manager-lines.ts",
       "src/tests/test-take-game-screenshot.ts",

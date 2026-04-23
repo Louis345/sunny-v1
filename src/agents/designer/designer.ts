@@ -48,6 +48,15 @@ function paletteForBucket(
     accent,
     particle,
     glow,
+    /** Karaoke / reading card fill — client falls back if absent; always set for map themes. */
+    cardBackground:
+      bucket === "night"
+        ? "#0f172a"
+        : bucket === "sunset"
+          ? "#1e293b"
+          : bucket === "sunrise"
+            ? "#fefce8"
+            : "#f0f9ff",
   };
 }
 
