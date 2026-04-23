@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { CompanionRegistry } from "../prompts/companions/registry";
-import { getCompanionContext } from "../prompts/companions/getCompanionContext";
 
 describe("CompanionRegistry", () => {
   it("discovers exactly 2 companions", () => {
@@ -47,34 +46,5 @@ describe("CompanionRegistry", () => {
 
   it("elli defaultFor is ila", () => {
     expect(CompanionRegistry.getById("elli").defaultFor).toBe("ila");
-  });
-});
-
-describe("getCompanionContext", () => {
-  it("returns string for ila", async () => {
-    const result = await getCompanionContext("ila");
-    expect(typeof result).toBe("string");
-    expect(result.length).toBeGreaterThan(100);
-  });
-
-  it("ila gets Elli by default", async () => {
-    const result = await getCompanionContext("ila");
-    expect(result).toContain("Elli");
-  });
-
-  it("reina gets Matilda by default", async () => {
-    const result = await getCompanionContext("reina");
-    expect(result).toContain("Matilda");
-  });
-
-  it("companionOverride respected", async () => {
-    const result = await getCompanionContext("ila", "matilda");
-    expect(result).toContain("Matilda");
-  });
-
-  it("no hardcoded child names in output", async () => {
-    const result = await getCompanionContext("ila");
-    expect(result).not.toMatch(/\bIla\b/);
-    expect(result).not.toMatch(/\bReina\b/);
   });
 });

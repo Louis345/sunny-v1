@@ -100,6 +100,7 @@ describe("map coordinator (TASK-010)", () => {
       attentionWindow_ms: 200_000,
       childContext: "",
       companion: cloneCompanionDefaults(),
+      companionContext: "",
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);
     vi.mocked(buildNodeList).mockResolvedValue(mockNodes());

@@ -125,6 +125,7 @@ describe("post-node pipeline (TASK-014)", () => {
       attentionWindow_ms: 240_000,
       childContext: "",
       companion: cloneCompanionDefaults(),
+      companionContext: "",
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);
     vi.mocked(buildNodeList).mockResolvedValue(mockTwoWordNode());

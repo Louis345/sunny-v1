@@ -50,6 +50,7 @@ function baseProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
     attentionWindow_ms: 200_000,
     childContext: "",
     companion: cloneCompanionDefaults(),
+    companionContext: "",
     ...overrides,
   };
 }

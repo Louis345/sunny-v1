@@ -22,6 +22,7 @@ function baseProfile(overrides: Partial<ChildProfile> = {}): ChildProfile {
     attentionWindow_ms: 240_000,
     childContext: "",
     companion: cloneCompanionDefaults(),
+    companionContext: "",
     ...overrides,
   };
 }

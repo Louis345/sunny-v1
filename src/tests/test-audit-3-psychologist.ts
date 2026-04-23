@@ -34,6 +34,7 @@ const stubProfile = {
   attentionWindow_ms: 120_000,
   childContext: "",
   companion: { ...COMPANION_DEFAULTS, companionId: "test" },
+  companionContext: "",
 } as ChildProfile;
 
 describe("audit-3 psychologist / ingest context", () => {

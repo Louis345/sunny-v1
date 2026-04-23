@@ -13,6 +13,7 @@ import { getNodeRatings } from "../utils/nodeRatingIO";
 import { computeAttentionWindow, computeUnlockedThemes } from "./profileCompute";
 import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import { applyPassiveDepletion } from "../engine/vrrEngine";
+import { CompanionRegistry } from "../prompts/companions/registry";
 
 const PROFILE_SRC = path.resolve(__dirname, "..");
 
@@ -86,6 +87,23 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const preset = companionConfigFromPreset(presetId, presetBlock);
   const companion = mergeCompanionPresetWithLearningProfile(preset, lp.companion);
 
+  const companionIdForRegistry =
+    companion.companionId?.trim() ||
+    (childId === "reina" ? "matilda" : "elli");
+
+  let companionContext = "";
+  try {
+    const regCompanion = CompanionRegistry.getById(companionIdForRegistry);
+    companionContext = [
+      `## Companion: ${regCompanion.name}`,
+      regCompanion.personalityMarkdown,
+      `## Growth context (level ${level})`,
+      regCompanion.getGrowthModifier(level),
+    ].join("\n\n");
+  } catch {
+    companionContext = "";
+  }
+
   const now = new Date().toISOString();
   const baseT = lp.tamagotchi ?? { ...DEFAULT_TAMAGOTCHI, lastSeenAt: now };
   const tamagotchi = applyPassiveDepletion(baseT);
@@ -101,6 +119,7 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     attentionWindow_ms,
     childContext: getChildContext(childId),
     companion,
+    companionContext,
     pendingHomework: lp.pendingHomework ?? undefined,
     tamagotchi,
   };

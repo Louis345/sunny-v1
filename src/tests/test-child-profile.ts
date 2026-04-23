@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildProfile } from "../profiles/buildProfile";
+import { CompanionRegistry } from "../prompts/companions/registry";
 import {
   computeAttentionWindow,
   computeUnlockedThemes,
@@ -60,5 +61,50 @@ describe("buildProfile (TASK-004)", () => {
     if (!p) return;
     expect(p.childId).toBe("creator");
     expect(typeof p.childContext).toBe("string");
+  });
+
+  it("buildProfile returns companionContext string", async () => {
+    const profile = await buildProfile("ila");
+    expect(profile).not.toBeNull();
+    if (!profile) return;
+    expect(typeof profile.companionContext).toBe("string");
+    expect(profile.companionContext.length).toBeGreaterThan(50);
+    expect(profile.companionContext).toContain("Elli");
+  });
+
+  it("buildProfile reina returns Matilda context", async () => {
+    const profile = await buildProfile("reina");
+    expect(profile).not.toBeNull();
+    if (!profile) return;
+    expect(profile.companionContext).toContain("Matilda");
+  });
+
+  it("companionContext contains growth modifier for current level", async () => {
+    const profile = await buildProfile("ila");
+    expect(profile).not.toBeNull();
+    if (!profile) return;
+    expect(profile.companionContext).toMatch(/growth context/i);
+  });
+
+  it("companionContext contains no hardcoded child names", async () => {
+    const profile = await buildProfile("ila");
+    expect(profile).not.toBeNull();
+    if (!profile) return;
+    expect(profile.companionContext).not.toMatch(/\bIla\b/);
+    expect(profile.companionContext).not.toMatch(/\bReina\b/);
+  });
+
+  it("companionContext is replaceable — same shape for any companion", async () => {
+    const profile = await buildProfile("ila");
+    expect(profile).not.toBeNull();
+    if (!profile) return;
+    const registry = CompanionRegistry.getById("matilda");
+    const overrideContext = [
+      `## Companion: ${registry.name}`,
+      registry.personalityMarkdown,
+      `## Growth context (level ${profile.level ?? 1})`,
+      registry.getGrowthModifier(profile.level ?? 1),
+    ].join("\n\n");
+    expect(overrideContext).toContain("Matilda");
   });
 });

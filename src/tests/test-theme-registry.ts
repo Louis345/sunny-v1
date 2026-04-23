@@ -24,6 +24,7 @@ function profileAtLevel(level: number): ChildProfile {
     attentionWindow_ms: 300_000,
     childContext: "",
     companion: cloneCompanionDefaults(),
+    companionContext: "",
   };
 }
 

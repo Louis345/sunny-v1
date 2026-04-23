@@ -126,6 +126,7 @@ describe("buildNodeList dueWords (Audit 2)", () => {
       attentionWindow_ms: 200_000,
       childContext: "",
       companion: cloneCompanionDefaults(),
+      companionContext: "",
     };
     const theme: SessionTheme = {
       name: "t",

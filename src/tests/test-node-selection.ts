@@ -30,6 +30,7 @@ function profile(attention: number, childId = "qa_child"): ChildProfile {
     attentionWindow_ms: attention,
     childContext: "",
     companion: cloneCompanionDefaults(),
+    companionContext: "",
   };
 }
 

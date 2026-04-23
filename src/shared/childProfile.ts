@@ -36,6 +36,11 @@ export interface ChildProfile {
   childContext: string;
   /** VRM companion dials and asset URL (Phase 0.5). */
   companion: CompanionConfig;
+  /**
+   * Markdown companion personality + growth tier for the current level, from
+   * `CompanionRegistry` (see `buildProfile`). Empty when preset id is unknown to the registry.
+   */
+  companionContext: string;
   /** Pending homework week from `learning_profile.json` (adventure map uses nodes when present). */
   pendingHomework?: LearningProfile["pendingHomework"];
   /** Optional companion care meters for map / VRR. */
