@@ -34,4 +34,23 @@ describe("companionCamera", () => {
     expect(posA.y).toBeCloseTo(posB.y);
     expect(lookB.y - lookA.y).toBeCloseTo(-0.62);
   });
+
+  it("resolveCameraFraming applies cameraZWorldOffset to position Z only", () => {
+    const baseline: CameraFitBaseline = {
+      center: new THREE.Vector3(0, 0.9, 0),
+      height: 1.6,
+      baseDistance: 3,
+      baseFov: 22,
+    };
+    const posA = new THREE.Vector3();
+    const lookA = new THREE.Vector3();
+    const posB = new THREE.Vector3();
+    const lookB = new THREE.Vector3();
+    resolveCameraFraming(baseline, "mid-shot", posA, lookA);
+    resolveCameraFraming(baseline, "mid-shot", posB, lookB, {
+      cameraZWorldOffset: 0.42,
+    });
+    expect(lookA.z).toBeCloseTo(lookB.z);
+    expect(posB.z - posA.z).toBeCloseTo(0.42);
+  });
 });

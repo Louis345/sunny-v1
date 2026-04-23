@@ -555,7 +555,7 @@ export function CompanionLayer({
         <div
           style={{
             position: "fixed",
-            bottom: karaokeActive ? "22vh" : "min(68vh, calc(10vh + min(56vh, 85%) + 8px))",
+            bottom: karaokeActive ? "22vh" : "min(68vh, calc(10vh + min(72vh, 95%) + 8px))",
             right: karaokeActive ? 20 : "max(2vw, 12px)",
             maxWidth: 260,
             padding: "10px 14px",
@@ -578,7 +578,7 @@ export function CompanionLayer({
         style={{
           position: "fixed",
           width: "min(28vw, 40%)",
-          height: "min(56vh, 85%)",
+          height: "min(72vh, 95%)",
           bottom: karaokeActive ? 12 : "10vh",
           right: karaokeActive ? 12 : "2vw",
           zIndex: 15,

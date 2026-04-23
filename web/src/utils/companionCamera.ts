@@ -50,9 +50,14 @@ export function fullModeLookAtGroundingOffsetY(characterHeight: number): number 
   return -Math.min(0.78, Math.max(0.52, h * 0.38));
 }
 
+/** Full mode only: extra +Z on camera (world) to pull back and reduce head crop. */
+export const FULL_MODE_CAMERA_Z_PULLBACK = 0.42;
+
 export interface ResolveCameraFramingOptions {
   /** Added to computed look-at Y (negative = aim lower / ground the figure). */
   lookAtYWorldOffset?: number;
+  /** Added to camera position Z (same axis as bbox-fit distance). */
+  cameraZWorldOffset?: number;
 }
 
 /**
@@ -77,8 +82,9 @@ export function resolveCameraFraming(
     baseline.height *
       (ref.cameraYFrac + preset.cameraYDeltaFrac);
   const d = baseline.baseDistance * preset.distanceScale;
+  const zExtra = options?.cameraZWorldOffset ?? 0;
   // VRM 1.0 forward is -Z: place camera on +Z so view direction matches the face.
-  outPosition.set(baseline.center.x, camY, baseline.center.z + d);
+  outPosition.set(baseline.center.x, camY, baseline.center.z + d + zExtra);
   outLookAt.set(baseline.center.x, lookY, baseline.center.z);
   return baseline.baseFov * preset.fovScale;
 }

@@ -36,6 +36,7 @@ import {
 } from "../utils/companionIdle";
 import { updateMouthSync } from "../utils/audioAnalyser";
 import {
+  FULL_MODE_CAMERA_Z_PULLBACK,
   fullModeLookAtGroundingOffsetY,
   resolveCameraFraming,
   startCameraTransition,
@@ -245,15 +246,18 @@ export class CompanionMotor {
     const fit = this.cameraFit;
     if (!cam || !fit) return;
 
-    const lookAtYWorldOffset = this.fullModeGroundFeet
-      ? fullModeLookAtGroundingOffsetY(fit.height)
-      : 0;
+    const resolveOpts = this.fullModeGroundFeet
+      ? {
+          lookAtYWorldOffset: fullModeLookAtGroundingOffsetY(fit.height),
+          cameraZWorldOffset: FULL_MODE_CAMERA_Z_PULLBACK,
+        }
+      : undefined;
     const endFov = resolveCameraFraming(
       fit,
       angle,
       this.cameraEndPos,
       this.cameraEndLook,
-      { lookAtYWorldOffset },
+      resolveOpts,
     );
 
     const transitionMs = opts.transitionMs;
