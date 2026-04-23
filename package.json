@@ -14,6 +14,7 @@
     "drop": "npx tsx src/agents/classifier/classifier.ts",
     "sunny:sync": "npx tsx src/scripts/sync.ts",
     "sunny:ingest:homework": "npx tsx src/scripts/ingestHomework.ts",
+    "sunny:ingest:scan": "npx tsx src/scripts/ingestScanResult.ts --child=ila",
     "sunny:ingest:tutoring": "npx tsx src/scripts/ingestTutoring.ts",
     "sunny:homework": "cd web && VITE_ADVENTURE_MAP=true npm run build && cd .. && ADVENTURE_MAP=true SUNNY_SUBJECT=homework npx tsx src/scripts/launch-kiosk.ts",
     "sunny:homework:preview": "cd web && VITE_ADVENTURE_MAP=true VITE_PREVIEW_MODE=free npm run build && cd .. && SUNNY_PREVIEW_MODE=free SUNNY_SUBJECT=homework ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
