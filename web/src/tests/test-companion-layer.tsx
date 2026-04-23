@@ -236,23 +236,47 @@ describe("CompanionLayer portrait mode", () => {
     expect(container.querySelector("div.fixed.inset-0")).toBeTruthy();
   });
 
-  it("clicking portrait container toggles internal muted state (shows 🔇 overlay)", () => {
-    const { getByTestId, queryByTestId } = render(
-      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+  it("CompanionLayer calls onToggleMute when portrait tapped", () => {
+    const onToggleMute = vi.fn();
+    const { getByTestId } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        toggledOff={false}
+        mode="portrait"
+        micMuted={false}
+        onToggleMute={onToggleMute}
+      />,
     );
-    expect(queryByTestId("companion-muted-overlay")).toBeNull();
     fireEvent.click(getByTestId("companion-portrait"));
-    expect(getByTestId("companion-muted-overlay")).toBeTruthy();
-    fireEvent.click(getByTestId("companion-portrait"));
-    expect(queryByTestId("companion-muted-overlay")).toBeNull();
+    expect(onToggleMute).toHaveBeenCalledOnce();
   });
 
-  it("muted overlay contains 🔇 emoji", () => {
+  it("CompanionLayer shows mute indicator when micMuted is true", () => {
     const { getByTestId } = render(
-      <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        toggledOff={false}
+        mode="portrait"
+        micMuted={true}
+        onToggleMute={() => {}}
+      />,
     );
-    fireEvent.click(getByTestId("companion-portrait"));
-    const overlay = getByTestId("companion-muted-overlay");
-    expect(overlay.textContent).toBe("🔇");
+    expect(getByTestId("companion-muted-overlay").textContent).toBe("🔇");
+  });
+
+  it("CompanionLayer does not show mute indicator when micMuted is false", () => {
+    const { queryByTestId } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        toggledOff={false}
+        mode="portrait"
+        micMuted={false}
+        onToggleMute={() => {}}
+      />,
+    );
+    expect(queryByTestId("companion-muted-overlay")).toBeNull();
   });
 });

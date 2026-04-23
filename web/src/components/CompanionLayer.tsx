@@ -3,7 +3,6 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
   type RefObject,
 } from "react";
 import * as THREE from "three";
@@ -39,6 +38,10 @@ export interface CompanionLayerProps {
   analyserNodeRef?: RefObject<AnalyserNode | null>;
   /** Short line above companion (non-interactive). */
   speechBubbleText?: string | null;
+  /** Current real mic mute state (from useSession). Controls 🔇 overlay in portrait mode. */
+  micMuted?: boolean;
+  /** Called when portrait is tapped. Should call useSession's toggleMicMute. */
+  onToggleMute?: () => void;
 }
 
 type CompanionRenderer = WebGPURenderer | THREE.WebGLRenderer;
@@ -71,17 +74,18 @@ export function CompanionLayer({
   activeNodeScreen = null,
   analyserNodeRef: analyserNodeRefProp,
   speechBubbleText,
+  micMuted = false,
+  onToggleMute,
 }: CompanionLayerProps) {
   const fallbackAnalyserRef = useRef<AnalyserNode | null>(null);
   const analyserNodeRef = analyserNodeRefProp ?? fallbackAnalyserRef;
 
-  const [portraitMuted, setPortraitMuted] = useState(false);
-  const portraitMutedRef = useRef(portraitMuted);
+  const micMutedRef = useRef(micMuted);
   const modeRef = useRef(mode);
   useLayoutEffect(() => {
-    portraitMutedRef.current = portraitMuted;
+    micMutedRef.current = micMuted;
     modeRef.current = mode;
-  }, [portraitMuted, mode]);
+  }, [micMuted, mode]);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -173,7 +177,7 @@ export function CompanionLayer({
         companionEvents: companionEventsRef.current,
         companion: companionRef.current,
         childId: childIdRef.current,
-        toggledOff: toggledOffRef.current || portraitMutedRef.current,
+        toggledOff: toggledOffRef.current || micMutedRef.current,
         activeNodeScreen: activeNodeScreenRef.current,
         analyser: analyserNodeRef.current,
       });
@@ -503,7 +507,7 @@ export function CompanionLayer({
       <div
         data-testid="companion-portrait"
         ref={wrapRef}
-        onClick={() => setPortraitMuted((m) => !m)}
+        onClick={() => onToggleMute?.()}
         style={{
           position: "fixed",
           bottom: 20,
@@ -520,7 +524,7 @@ export function CompanionLayer({
           ref={mountRef}
           style={{ width: "100%", height: "100%", pointerEvents: "none" }}
         />
-        {portraitMuted && (
+        {micMuted && (
           <div
             data-testid="companion-muted-overlay"
             style={{

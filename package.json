@@ -59,7 +59,8 @@
     "sunny:diag:dryRun": "npx tsx src/scripts/diag-dry-run.ts",
     "sunny:mode:diag:mute": "cd web && npm run build && cd .. && TTS_ENABLED=false SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
     "sunny:server:test": "SUNNY_TEST_MODE=true npx tsx src/server.ts",
-    "dev:live": "concurrently --names \"server,web\" --prefix-colors \"green,magenta\" \"npx tsx src/server.ts\" \"cd web && npm run dev\""
+    "dev:live": "concurrently --names \"server,web\" --prefix-colors \"green,magenta\" \"npx tsx src/server.ts\" \"cd web && npm run dev\"",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
@@ -82,6 +83,7 @@
     "@types/node": "^22.13.10",
     "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1",
+    "husky": "^9.1.7",
     "tsx": "^4.21.0",
     "typescript": "^5.8.2",
     "vitest": "^3.0.9"

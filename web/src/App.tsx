@@ -598,6 +598,8 @@ function App() {
         activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
         speechBubbleText={companionBubbleText}
+        micMuted={micMuted}
+        onToggleMute={toggleMicMute}
       />
       {adventureMapEnabled &&
       adventureChildId &&
