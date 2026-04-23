@@ -1,0 +1,8 @@
+{
+  "name": "Elli",
+  "voiceId": "PeNaJO83cBW3Cf3YGzjZ",
+  "ttsName": "ELL-ee",
+  "unlockCost": 0,
+  "vrmPath": "assets/vrm/elli.vrm",
+  "defaultFor": "ila"
+}

@@ -13,6 +13,7 @@ import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
+import { runPsychologistSync } from "../agents/psychologist/sync";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
@@ -495,7 +496,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     throw new Error(`No homework found in ${incomingDir}. Expected .pdf or .txt file.`);
   }
 
-  console.log("📄 Step 1/3: Reading homework...");
+  console.log("📄 Step 1/4: Reading homework...");
   const extracted = await extractHomework(client, incomingFile);
   const testDate = extracted.testDate ?? nextFriday();
   const daysUntilTest = daysUntil(testDate);
@@ -513,7 +514,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   );
 
   console.log("");
-  console.log("📦 Step 2/3: Seeding word bank and creating cycle record...");
+  console.log("📦 Step 2/4: Seeding word bank and creating cycle record...");
 
   const wordBank = readWordBank(childId);
   for (const raw of extracted.words) {
@@ -567,13 +568,13 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const preMdPath = path.join(assumptionsDir, `${today}-pre.md`);
   fs.writeFileSync(
     preMdPath,
-    `## Homework ingested — awaiting Psychologist analysis\n\nRun sunny:sync to generate session plan and assumptions.\n\n**homeworkId:** ${homeworkId}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n`,
+    `## Homework ingested\n\nSession plan and assumptions are produced in the same \`sunny:ingest:homework\` run (Psychologist + today's plan).\n\n**homeworkId:** ${homeworkId}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n`,
     "utf8",
   );
   console.log(`📋 Placeholder assumptions → assumptions/${today}-pre.md`);
 
   console.log("");
-  console.log("💾 Step 3/3: Saving...");
+  console.log("💾 Step 3/4: Saving...");
 
   const profileDoc = readLearningProfile(childId);
   if (!profileDoc) {
@@ -589,6 +590,10 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   writeLearningProfile(childId, profileDoc);
 
   console.log(`✅ Saved to src/context/${childId}/homework/pending/${today}/`);
+
+  console.log("");
+  console.log("🧠 Step 4/4: Psychologist + today's plan (shared with sunny:sync)…");
+  await runPsychologistSync(childId);
 
   if (process.env.SUNNY_NON_INTERACTIVE === "true" || !process.stdin.isTTY) {
     console.log("");

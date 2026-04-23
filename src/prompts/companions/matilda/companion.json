@@ -1,0 +1,8 @@
+{
+  "name": "Matilda",
+  "voiceId": "XrExE9yKIg1WjnnlVkGX",
+  "ttsName": "mah-TILL-dah",
+  "unlockCost": 0,
+  "vrmPath": "assets/vrm/matilda.vrm",
+  "defaultFor": "reina"
+}

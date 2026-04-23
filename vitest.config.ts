@@ -77,6 +77,7 @@ export default defineConfig({
       "src/tests/test-homework-cycle.ts",
       "src/tests/test-ingest-homework-phase2.ts",
       "src/tests/test-ingest-scan-result.ts",
+      "src/tests/test-companion-registry.ts",
       "src/algorithms/*.test.ts",
       "src/engine/*.test.ts",
     ],

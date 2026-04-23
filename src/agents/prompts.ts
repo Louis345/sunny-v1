@@ -22,7 +22,7 @@ import {
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v16"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v17"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -517,10 +517,6 @@ export function parseCompanionNameFromMarkdown(md: string): string {
   return "Companion";
 }
 
-const CHILD_AUTHORITY_RULE = `CHILD LEADS: If they explicitly ask to switch activity — honor immediately (no "one more word" / "finish first"); SM-2 brings words back. When engaged, follow the subject protocol below as a guide, not a script.`.trim();
-
-const SESSION_MODE_PIVOT = `Modes (never claim one "doesn't exist"): reading (story + karaoke, sound_box), spelling/word work, math (place_value, math_inline, launchGame), clocks, homework worksheets, open conversation.`.trim();
-
 export type SessionSubject =
   | "spelling"
   | "math"
@@ -554,68 +550,6 @@ export function normalizeSessionSubject(
   return allowed.has(s as SessionSubject) ? (s as SessionSubject) : "spelling";
 }
 
-function subjectFocusBlock(subject: SessionSubject): string {
-  let core: string;
-  switch (subject) {
-    case "spelling":
-      core = `SESSION SUBJECT — SPELLING (primary today):
-Homework list. Wilson-track (wilsonStep in profile): sound_box → Word Builder → voice spell; else WB → voice spell; spelling canvas, sessionLog.`;
-      break;
-    case "math":
-      core = `SESSION SUBJECT — MATH (primary today):
-mathProblem, place_value, canvasShow text/svg for work on the board.`;
-      break;
-    case "free":
-      core = `SESSION SUBJECT — FREE (primary today):
-Open conversation; follow the child's lead.`;
-      break;
-    case "reversal":
-      core = `SESSION SUBJECT — REVERSAL (primary today):
-b/d-style probes; prefer typing when it reduces ambiguity; logReversal when available.`;
-      break;
-    case "history":
-      core = `SESSION SUBJECT — HISTORY (primary today):
-Weave prior sessions in naturally.`;
-      break;
-    case "clocks":
-      core = `SESSION SUBJECT — CLOCKS (primary today):
-Telling time; canvasShow type=clock; progress o'clock → half → quarter past/to; sessionLog attempts.`;
-      break;
-    case "reading":
-      core = `SESSION SUBJECT — READING (primary today):
-
-[Reading Word Integration]
-Each turn, the server may append a block labeled "[Today's Focus Words]" with reading-domain vocabulary from the spaced-repetition word bank (due + new).
-- When you generate a story for karaoke, pick 3–5 words from that list when they fit the child's chosen topic naturally. Weave them in like ordinary story words.
-- Do not announce them as a spelling list, "words to practice," or reading homework. Spaced repetition stays invisible to the child.
-- If there is no "[Today's Focus Words]" block, or the list is empty/none, use simple decodable words that match the Wilson step from context (e.g. short CVCs when appropriate). Still integrate them naturally; never frame the story as a word list.
-
-No spelling drills as default. sound_box intro → short story → canvasShow karaoke (storyText + words array) → listen; comprehension questions; sessionLog.
-Do not launch Word Builder unless the child pivots to spelling.
-
-When canvas shows karaoke (reading mode):
-You are in PASSIVE mode while the child reads aloud.
-The browser handles ALL word tracking. The server does not send you the child's reading transcripts turn-by-turn — only a single notification when reading_progress event=complete arrives.
-Stay silent until that completes, then respond with ONE sentence acknowledging the reading. Do NOT call canvasShow, refresh karaoke, or launch games during the read-aloud unless the child switches activity (CHILD LEADS above).`;
-      break;
-    case "homework":
-      core = `SESSION SUBJECT — HOMEWORK (primary today):
-Follow the pinned homework; match subject to worksheet; use care plan.`;
-      break;
-    case "pronunciation":
-      core = `SESSION SUBJECT — PRONUNCIATION (primary today):
-Read spelling-list words clearly for calibration only.`;
-      break;
-    case "wilson":
-      core = `SESSION SUBJECT — WILSON (primary today):
-Wilson phonics from context; sound_box; phoneme → word → family.`;
-      break;
-    default:
-      return "";
-  }
-  return `${CHILD_AUTHORITY_RULE}\n\n${core}\n\n${SESSION_MODE_PIVOT}`;
-}
-
 /** Diagnostics-only focus block; `creatorContext` is the body of src/context/creator/creator.md */
 function buildDiagModeInstructions(creatorContext: string): string {
   return `You are Project Sunny, an adaptive AI tutoring system built by Jamal Taylor.
@@ -638,7 +572,7 @@ Response length:
 
 When asked to show a capability:
   Pick the best tool for it.
-  Show it on canvas immediately.
+  Show it in an appropriate adventure map node immediately.
   One sentence to narrate. Then stop.
 
 When something isn't working:
@@ -647,15 +581,19 @@ When something isn't working:
   Ask what Jamal would like to try next.
 
 You know what you are built with.
-You know your canvas capabilities from the [Canvas Capabilities] manifest.
+You know your tool capabilities from the [Canvas Capabilities] manifest.
 You know the available games from sessionStatus when needed.
 
-When canvas shows karaoke (reading mode):
+When a node shows karaoke (reading mode):
 You are in PASSIVE mode.
 The browser handles ALL word tracking.
 You will NOT receive Jamal's reading-aloud transcripts as ordinary user turns — only when reading_progress event=complete fires, or when Jamal speaks a clear command (not story words).
 On complete: respond with ONE sentence. Acknowledge the reading. That is all.
 Do NOT call canvasShow. Do NOT refresh karaoke. Do NOT call any tools unless explicitly asked.
+
+When a game is active in a node, wait for the system to send you the result.
+Do not take screenshots to infer game state.
+The system will tell you what happened.
 
 ## Your abilities
 
@@ -664,28 +602,6 @@ ${generateCompanionCapabilities()}
 VRM: A 3D companion body is visible at the bottom-right of the UI. \`companionAct\` controls it (emotes, movement, camera).
 
 That is all you need to know.`.trim();
-}
-
-function WILSON_FREE_SESSION_PROMPT(
-  childName: Exclude<ChildName, "creator">,
-  companionName: string
-): string {
-  return `YOU ARE TALKING TO ${childName.toUpperCase()}.
-Their name is ${childName}.
-${childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : ""}
-${childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : ""}
-You already know their name.
-NEVER ask them their name.
-NEVER call them by any other name no matter what the speech transcription says.
-
-You are ${companionName} in a free session with ${childName}. No homework today.
-Follow Wilson reading protocol defaults.
-Ask what ${childName} wants to work on.
-Offer: reading, spelling practice, or just chat.
-
-Keep your responses short and warm — one sentence per turn, two at most.
-Match ${childName}'s energy exactly.
-Never explain unprompted. Never use asterisks.`;
 }
 
 function buildDiagSessionPrompt(
@@ -720,6 +636,22 @@ When Jamal asks for an image (explicit request; the server may also illustrate a
   return `${body}${manifest}`;
 }
 
+/** Diagnostic kiosk/map base prompt (sync). Use from session-bootstrap when bypassing `buildSessionPrompt`. */
+export function buildDiagPrompt(
+  childName: ChildName,
+  companionMarkdownPath: string,
+  options?: BuildSessionPromptOptions,
+): string {
+  const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
+  const companionName = parseCompanionNameFromMarkdown(companionPersonality);
+  return buildDiagSessionPrompt(
+    childName,
+    companionName,
+    companionPersonality,
+    options,
+  );
+}
+
 export async function buildSessionPrompt(
   childName: ChildName,
   companionMarkdownPath: string,
@@ -747,9 +679,16 @@ export async function buildSessionPrompt(
   }
 
   if (!homeworkContent || !homeworkContent.trim()) {
-    const base = WILSON_FREE_SESSION_PROMPT(childName, companionName);
-    const focus = subjectFocusBlock(subject).trim();
-    const body = focus ? `${focus}\n\n${base}` : base;
+    const nameTag = [
+      `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
+      `Their name is ${childName}.`,
+      childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : "",
+      childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : "",
+      "You already know their name.",
+      "NEVER ask them their name.",
+      "NEVER call them by any other name no matter what the speech transcription says.",
+    ].filter(Boolean).join("\n");
+    const body = `${nameTag}\n\nYou are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, spelling practice, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest =
       "\n\n" +
@@ -785,14 +724,11 @@ export async function buildSessionPrompt(
     ]
       .filter((l) => l !== "")
       .join("\n");
-    const focus = subjectFocusBlock("reading").trim();
     const homeworkCap =
       homeworkContent.length > 14000
         ? `${homeworkContent.slice(0, 14000)}\n\n[... homework truncated for prompt size ...]`
         : homeworkContent;
-    const body = `${focus}
-
-## You are ${companionName}
+    const body = `## You are ${companionName}
 ${companionPersonality.slice(0, 4500)}
 
 ## Child profile (brief)
@@ -849,8 +785,6 @@ ${recentContext}
 TODAY'S HOMEWORK:
 ${homeworkContent}
 
-${subjectFocusBlock(subject)}
-
 Write a session prompt that does these things:
 
 RESPONSE LENGTH AND EXPLANATION RULES:
@@ -903,7 +837,7 @@ Genuinely engaged with today's words; curious about ${childName}'s life; humor m
 Know today's list deeply — why each word is interesting, not only spelling.
 
 3. PRIMARY JOB (spelling sessions)
-Work through today's spelling words; ${companionName} sets pacing.
+Work through today's spelling words at the child's pace.
 If ${childName} needs a break, take one.
 
 SPELLING — HOW TO ASK:

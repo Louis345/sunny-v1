@@ -3,7 +3,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 import {
-  generateHomeworkId,
   matchScanToHomework,
   computeCycleDelta,
   computeIndependenceRate,
@@ -163,14 +162,21 @@ function applyDeltaToWordBank(childId: string, delta: CycleDelta[], today: strin
     const entry = bank.words.find((w) => w.word.toLowerCase() === d.word.toLowerCase());
     if (!entry?.tracks.spelling) continue;
     const st = entry.tracks.spelling;
+    let changed = false;
     if (d.isolatedAccuracy > d.inSystemAccuracy) {
       st.easinessFactor = Math.min(st.easinessFactor + 0.1, 5.0);
+      changed = true;
     } else if (d.isolatedAccuracy < d.inSystemAccuracy) {
       st.easinessFactor = Math.max(st.easinessFactor - 0.1, 1.3);
+      changed = true;
     }
     // Significant boost for independent mastery (correct in isolation without drilling)
     if (d.isolatedAccuracy === 1 && d.inSystemAccuracy < 1) {
       st.easinessFactor = Math.min(st.easinessFactor + 0.3, 5.0);
+      changed = true;
+    }
+    if (changed) {
+      st.lastReviewDate = today;
     }
   }
   writeWordBank(childId, bank);

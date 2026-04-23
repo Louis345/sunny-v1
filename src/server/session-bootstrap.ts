@@ -9,6 +9,7 @@ import {
   DEMO_MODE_PROMPT,
   HOMEWORK_MODE_PROMPT,
   buildDebugPrompt,
+  buildDiagPrompt,
   buildSessionPrompt,
   extractWordsFromHomework,
   normalizeSessionSubject,
@@ -39,6 +40,7 @@ import {
   getSunnyMode,
   isDebugClaude,
   isDemoMode,
+  isDiagMapMode,
   isHomeworkMode,
 } from "../utils/runtimeMode";
 import {
@@ -135,7 +137,11 @@ export async function runSessionStart(
       );
     }
 
-    if (isHomeworkMode() && homeworkPayload) {
+    if (
+      isHomeworkMode() &&
+      homeworkPayload &&
+      !(isDiagMapMode() || subject === "diag")
+    ) {
       // HOMEWORK MODE: loads real homework but uses parent-facing prompt (no progression loop)
       console.log(
         `  📚 Homework loaded for ${homeworkChild}: ${homeworkPayload.fileCount} pages`,
@@ -254,14 +260,9 @@ export async function runSessionStart(
             generateCanvasCapabilitiesManifest(),
             generateToolDocs(),
           )
-        : await buildSessionPrompt(
-            homeworkChild,
-            session.companion.markdownPath,
-            "",
-            [],
-            "diag",
-            { carePlan: null },
-          );
+        : buildDiagPrompt(homeworkChild, session.companion.markdownPath, {
+            carePlan: null,
+          });
       session.companion = {
         ...session.companion,
         systemPrompt: isDebugClaude()
@@ -301,6 +302,7 @@ export async function runSessionStart(
         homeworkPayload.folderPath,
         "extraction.json",
       );
+      const skipPsychologist = isDiagMapMode() || subject === "diag";
 
       let extraction: HomeworkExtractionResult = {
         subject: "",
@@ -309,7 +311,7 @@ export async function runSessionStart(
 
       // Try loading from cache first
       let loadedFromCache = false;
-      if (fs.existsSync(cacheFile)) {
+      if (!skipPsychologist && fs.existsSync(cacheFile)) {
         try {
           const cached = JSON.parse(
             fs.readFileSync(cacheFile, "utf-8"),
@@ -330,7 +332,7 @@ export async function runSessionStart(
         }
       }
 
-      if (!loadedFromCache) {
+      if (!loadedFromCache && !skipPsychologist) {
         try {
           console.log("  🧠 Psychologist extracting worksheet problems...");
           session.send("loading_status", {
@@ -594,68 +596,90 @@ export async function runSessionStart(
       }
       // ────────────────────────────────────────────────────────────────────────
 
-      console.log("  🧠 Psychologist building session prompt...");
-      const extractSpellingWords =
-        !session.worksheetMode &&
-        (subject === "spelling" || subject === "homework");
-      const wordList =
-        session.worksheetMode || !extractSpellingWords
-          ? []
-          : extractWordsFromHomework(homeworkPayload.rawContent);
-      if (!session.worksheetMode && extractSpellingWords && wordList.length > 0) {
-        console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
-        session.spellingHomeworkWordsByNorm = [
-          ...new Set(
-            wordList.map((w) => String(w).toLowerCase().trim()).filter(Boolean),
-          ),
-        ];
-        session.refreshSpellingHomeworkGate();
-      } else if (session.worksheetMode) {
-        session.spellingHomeworkWordsByNorm = [];
-        session.refreshSpellingHomeworkGate();
-        console.log(
-          `  🎮 [worksheet] ${session.worksheetProblems.length} problem(s) queued; ` +
-            `reward_after=${session.worksheetRewardAfterN}`,
-        );
-      } else {
-        session.spellingHomeworkWordsByNorm = [];
-        session.refreshSpellingHomeworkGate();
-      }
-
-      const homeworkForPrompt =
-        session.worksheetMode && session.worksheetProblems.length > 0
-          ? `## Worksheet extraction (validated; server presents only canonical supported problems)\n${JSON.stringify(
-              {
-                subject: extraction.subject,
-                problems: session.worksheetProblems.map((p) => ({
-                  id: p.id,
-                  question: p.question,
-                  hint: p.hint,
-                  page: p.page,
-                })),
-                session_directives: extraction.session_directives,
-              },
-              null,
-              2,
-            )}\n\n--- ORIGINAL HOMEWORK ---\n${homeworkPayload.rawContent}`
-          : homeworkPayload.rawContent;
-
       let sessionPrompt: string;
-      if (isDebugClaude()) {
-        sessionPrompt = buildDebugPrompt(
-          homeworkChild,
-          session.companion.name,
-          generateCanvasCapabilitiesManifest(),
-          generateToolDocs(),
+      if (skipPsychologist) {
+        console.log(
+          "  🎮 [diag] skipping psychologist session prompt pipeline (homework folder present)",
         );
+        session.spellingHomeworkWordsByNorm = [];
+        session.refreshSpellingHomeworkGate();
+        if (isDebugClaude()) {
+          sessionPrompt = buildDebugPrompt(
+            homeworkChild,
+            session.companion.name,
+            generateCanvasCapabilitiesManifest(),
+            generateToolDocs(),
+          );
+        } else {
+          sessionPrompt = buildDiagPrompt(
+            homeworkChild,
+            session.companion.markdownPath,
+            { carePlan: null },
+          );
+        }
       } else {
-        sessionPrompt = await buildSessionPrompt(
-          homeworkChild,
-          session.companion.markdownPath,
-          homeworkForPrompt,
-          wordList,
-          subject,
-        );
+        console.log("  🧠 Psychologist building session prompt...");
+        const extractSpellingWords =
+          !session.worksheetMode &&
+          (subject === "spelling" || subject === "homework");
+        const wordList =
+          session.worksheetMode || !extractSpellingWords
+            ? []
+            : extractWordsFromHomework(homeworkPayload.rawContent);
+        if (!session.worksheetMode && extractSpellingWords && wordList.length > 0) {
+          console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
+          session.spellingHomeworkWordsByNorm = [
+            ...new Set(
+              wordList.map((w) => String(w).toLowerCase().trim()).filter(Boolean),
+            ),
+          ];
+          session.refreshSpellingHomeworkGate();
+        } else if (session.worksheetMode) {
+          session.spellingHomeworkWordsByNorm = [];
+          session.refreshSpellingHomeworkGate();
+          console.log(
+            `  🎮 [worksheet] ${session.worksheetProblems.length} problem(s) queued; ` +
+              `reward_after=${session.worksheetRewardAfterN}`,
+          );
+        } else {
+          session.spellingHomeworkWordsByNorm = [];
+          session.refreshSpellingHomeworkGate();
+        }
+
+        const homeworkForPrompt =
+          session.worksheetMode && session.worksheetProblems.length > 0
+            ? `## Worksheet extraction (validated; server presents only canonical supported problems)\n${JSON.stringify(
+                {
+                  subject: extraction.subject,
+                  problems: session.worksheetProblems.map((p) => ({
+                    id: p.id,
+                    question: p.question,
+                    hint: p.hint,
+                    page: p.page,
+                  })),
+                  session_directives: extraction.session_directives,
+                },
+                null,
+                2,
+              )}\n\n--- ORIGINAL HOMEWORK ---\n${homeworkPayload.rawContent}`
+            : homeworkPayload.rawContent;
+
+        if (isDebugClaude()) {
+          sessionPrompt = buildDebugPrompt(
+            homeworkChild,
+            session.companion.name,
+            generateCanvasCapabilitiesManifest(),
+            generateToolDocs(),
+          );
+        } else {
+          sessionPrompt = await buildSessionPrompt(
+            homeworkChild,
+            session.companion.markdownPath,
+            homeworkForPrompt,
+            wordList,
+            subject,
+          );
+        }
       }
       // Option C worksheet session + tool instructions — same for debug and normal (debug only swaps base prompt above).
       if (session.worksheetMode && subject !== "diag") {
