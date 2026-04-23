@@ -126,8 +126,8 @@ export function CompanionLayer({
     if (!mount || !motor?.hasVrm()) return;
     const w = Math.floor(mount.clientWidth || 1);
     const h = Math.floor(mount.clientHeight || 1);
-    motor.syncCameraToMount(w, h, mode === "full");
-  }, [karaokeActive, mode]);
+    motor.syncCameraToMount(w, h);
+  }, [karaokeActive]);
 
   const stopLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -293,7 +293,7 @@ export function CompanionLayer({
         cam.aspect = w / h;
         cam.updateProjectionMatrix();
         if (motor?.hasVrm()) {
-          motor.syncCameraToMount(w, h, modeRef.current === "full");
+          motor.syncCameraToMount(w, h);
         }
       }
       console.log("CompanionLayer: [sync]", reason, { w, h, aspect: cam.aspect });
@@ -355,7 +355,7 @@ export function CompanionLayer({
           return;
         }
         const { w: mw, h: mh } = readMountSize();
-        motor.attachVrm(vrm, scene, mw, mh, modeRef.current === "full");
+        motor.attachVrm(vrm, scene, mw, mh);
 
         if (modeRef.current === "portrait") {
           // Sample head bone world position for accurate face+shoulders framing.

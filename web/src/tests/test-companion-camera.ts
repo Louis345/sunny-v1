@@ -1,57 +1,52 @@
 import { describe, it, expect } from "vitest";
 import * as THREE from "three";
 import {
-  FULL_MODE_CAMERA_Z_PULLBACK,
-  fullModeLookAtGroundingOffsetY,
   resolveCameraFraming,
   type CameraFitBaseline,
 } from "../utils/companionCamera";
 
+const makeBaseline = (overrides?: Partial<CameraFitBaseline>): CameraFitBaseline => ({
+  center: new THREE.Vector3(0, 0.9, 0),
+  floorY: 0,
+  height: 1.6,
+  baseDistance: 3,
+  baseFov: 22,
+  ...overrides,
+});
+
 describe("companionCamera", () => {
-  it("fullModeLookAtGroundingOffsetY is negative and within ~0.5–0.8 for human-scale height", () => {
-    const y1 = fullModeLookAtGroundingOffsetY(1.65);
-    expect(y1).toBeLessThan(-0.5);
-    expect(y1).toBeGreaterThan(-0.8);
-    const y2 = fullModeLookAtGroundingOffsetY(1.8);
-    expect(y2).toBeLessThanOrEqual(-0.6);
+  it("resolveCameraFraming look-at Y is anchored from floorY, not center", () => {
+    const pos = new THREE.Vector3();
+    const look = new THREE.Vector3();
+    resolveCameraFraming(makeBaseline({ floorY: 0, height: 1.6 }), "mid-shot", pos, look);
+    // lookAtYFrac = 0.5, mid-shot delta = 0 → look.y = 0 + 1.6*0.5 = 0.8
+    expect(look.y).toBeCloseTo(0.8);
   });
 
-  it("resolveCameraFraming applies lookAtYWorldOffset to look-at Y only", () => {
-    const baseline: CameraFitBaseline = {
-      center: new THREE.Vector3(0, 0.9, 0),
-      height: 1.6,
-      baseDistance: 3,
-      baseFov: 22,
-    };
+  it("resolveCameraFraming look-at Y scales correctly with a taller character", () => {
+    const pos = new THREE.Vector3();
+    const look = new THREE.Vector3();
+    resolveCameraFraming(makeBaseline({ floorY: 0, height: 2.0 }), "mid-shot", pos, look);
+    // 0 + 2.0*0.5 = 1.0
+    expect(look.y).toBeCloseTo(1.0);
+  });
+
+  it("resolveCameraFraming camera position Z equals baseDistance (no additional offset)", () => {
+    const pos = new THREE.Vector3();
+    const look = new THREE.Vector3();
+    resolveCameraFraming(makeBaseline({ baseDistance: 3 }), "mid-shot", pos, look);
+    // mid-shot distanceScale = 1; center.z = 0 → camera at z = 3
+    expect(pos.z).toBeCloseTo(3);
+  });
+
+  it("resolveCameraFraming floorY offset propagates to both look-at and camera Y", () => {
     const posA = new THREE.Vector3();
     const lookA = new THREE.Vector3();
     const posB = new THREE.Vector3();
     const lookB = new THREE.Vector3();
-    resolveCameraFraming(baseline, "mid-shot", posA, lookA);
-    resolveCameraFraming(baseline, "mid-shot", posB, lookB, {
-      lookAtYWorldOffset: -0.62,
-    });
-    expect(posA.x).toBeCloseTo(posB.x);
-    expect(posA.y).toBeCloseTo(posB.y);
-    expect(lookB.y - lookA.y).toBeCloseTo(-0.62);
-  });
-
-  it("resolveCameraFraming applies cameraZWorldOffset to position Z only", () => {
-    const baseline: CameraFitBaseline = {
-      center: new THREE.Vector3(0, 0.9, 0),
-      height: 1.6,
-      baseDistance: 3,
-      baseFov: 22,
-    };
-    const posA = new THREE.Vector3();
-    const lookA = new THREE.Vector3();
-    const posB = new THREE.Vector3();
-    const lookB = new THREE.Vector3();
-    resolveCameraFraming(baseline, "mid-shot", posA, lookA);
-    resolveCameraFraming(baseline, "mid-shot", posB, lookB, {
-      cameraZWorldOffset: FULL_MODE_CAMERA_Z_PULLBACK,
-    });
-    expect(lookA.z).toBeCloseTo(lookB.z);
-    expect(posB.z - posA.z).toBeCloseTo(FULL_MODE_CAMERA_Z_PULLBACK);
+    resolveCameraFraming(makeBaseline({ floorY: 0 }), "mid-shot", posA, lookA);
+    resolveCameraFraming(makeBaseline({ floorY: 1.0 }), "mid-shot", posB, lookB);
+    expect(lookB.y - lookA.y).toBeCloseTo(1.0);
+    expect(posB.y - posA.y).toBeCloseTo(1.0);
   });
 });

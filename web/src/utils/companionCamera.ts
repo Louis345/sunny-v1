@@ -8,6 +8,8 @@ import {
 
 export interface CameraFitBaseline {
   center: THREE.Vector3;
+  /** World Y of the model's lowest point after floor-snap (feet level). Always 0 for a grounded VRM. */
+  floorY: number;
   height: number;
   baseDistance: number;
   baseFov: number;
@@ -44,47 +46,30 @@ function normalizeAngle(angle: CameraAngle | string): CameraAngle {
     : "mid-shot";
 }
 
-/** Extra downward look-at shift (world Y) for full-mode framing so feet sit near the container bottom. */
-export function fullModeLookAtGroundingOffsetY(characterHeight: number): number {
-  const h = Math.max(1e-4, characterHeight);
-  return -Math.min(0.78, Math.max(0.52, h * 0.38));
-}
-
-/** Full mode only: extra +Z on camera (world) to pull back and frame head-to-toe in the mount. */
-export const FULL_MODE_CAMERA_Z_PULLBACK = 0.92;
-
-export interface ResolveCameraFramingOptions {
-  /** Added to computed look-at Y (negative = aim lower / ground the figure). */
-  lookAtYWorldOffset?: number;
-  /** Added to camera position Z (same axis as bbox-fit distance). */
-  cameraZWorldOffset?: number;
-}
-
 /**
  * Resolve camera position, look-at, and FOV from bbox-fit baseline + preset offsets.
+ *
+ * Uses `baseline.floorY` as the ground anchor so framing is model-height-agnostic.
+ * No caller-side offsets are needed — feet always sit at floorY, head at floorY+height.
  */
 export function resolveCameraFraming(
   baseline: CameraFitBaseline,
   angle: CameraAngle | string,
   outPosition: THREE.Vector3,
   outLookAt: THREE.Vector3,
-  options?: ResolveCameraFramingOptions,
 ): number {
   const preset = CAMERA_PRESETS[normalizeAngle(angle)];
   const ref = COMPANION_CAMERA_FIT_REF;
+  // Anchor from the floor, not from bbox center — works for any character height.
   const lookY =
-    baseline.center.y +
-    baseline.height *
-      (ref.lookAtYFrac + preset.lookAtYDeltaFrac) +
-    (options?.lookAtYWorldOffset ?? 0);
+    baseline.floorY +
+    baseline.height * (ref.lookAtYFrac + preset.lookAtYDeltaFrac);
   const camY =
-    baseline.center.y +
-    baseline.height *
-      (ref.cameraYFrac + preset.cameraYDeltaFrac);
+    baseline.floorY +
+    baseline.height * (ref.cameraYFrac + preset.cameraYDeltaFrac);
   const d = baseline.baseDistance * preset.distanceScale;
-  const zExtra = options?.cameraZWorldOffset ?? 0;
   // VRM 1.0 forward is -Z: place camera on +Z so view direction matches the face.
-  outPosition.set(baseline.center.x, camY, baseline.center.z + d + zExtra);
+  outPosition.set(baseline.center.x, camY, baseline.center.z + d);
   outLookAt.set(baseline.center.x, lookY, baseline.center.z);
   return baseline.baseFov * preset.fovScale;
 }
