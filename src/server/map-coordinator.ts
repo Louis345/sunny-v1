@@ -28,7 +28,11 @@ import { appendNodeRating } from "../utils/nodeRatingIO";
 import { isCompanionEmote } from "../shared/companionEmotes";
 import type { CompanionEvent, CompanionTrigger } from "../shared/companionTypes";
 import { sessionEventBus, type SessionEventType } from "./session-event-bus";
-import { getActiveVoiceSessionIdForChild } from "./voice-session-registry";
+import {
+  getActiveVoiceSessionIdForChild,
+  getActiveVoiceSessionManagerForChild,
+} from "./voice-session-registry";
+import { formatNodeResultForCompanion } from "./companion-context/nodeResultFormatter";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { generateStoryImage } from "../utils/generateStoryImage";
@@ -901,6 +905,11 @@ export async function applyNodeResult(
     }),
   );
   broadcastCompanionEventToMapChild(st.childId, companionEvent);
+
+  const voiceSm = getActiveVoiceSessionManagerForChild(st.childId);
+  if (voiceSm) {
+    voiceSm.noteExternalEvent(formatNodeResultForCompanion(nodeCfg, result));
+  }
 
   return { mapState: st, companionEvent };
 }

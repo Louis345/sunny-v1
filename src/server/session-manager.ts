@@ -137,8 +137,11 @@ import {
 import { sessionEventBus } from "./session-event-bus";
 import {
   registerActiveVoiceSession,
+  registerActiveVoiceSessionManager,
   unregisterActiveVoiceSessionIfCurrent,
+  unregisterActiveVoiceSessionManager,
 } from "./voice-session-registry";
+import type { ExternalContextEvent } from "./companion-context/externalContextEvent";
 import { RewardEngine } from "./reward-engine";
 import {
   ServerCompanionBridge,
@@ -920,6 +923,7 @@ export class SessionManager {
       this.diagKioskFast,
     );
     registerActiveVoiceSession(cid, this.sessionId);
+    registerActiveVoiceSessionManager(cid, this);
     if (this.diagKioskFast) {
       markSessionAsPreview(this.sessionId);
     }
@@ -1016,6 +1020,14 @@ export class SessionManager {
   /** Inject a transcript directly — used by test harness to bypass Deepgram */
   injectTranscript(text: string): void {
     this.handleEndOfTurn(text).catch(console.error);
+  }
+
+  /** Append background context from an external event without triggering a new agent turn (GAME-EVENT-001). */
+  public noteExternalEvent(event: ExternalContextEvent): void {
+    this.conversationHistory.push({
+      role: "user",
+      content: `[background: ${event.source}] ${event.summary}`,
+    });
   }
 
   private recordWorksheetAttempt(transcript: string, correct: boolean): void {
@@ -1179,6 +1191,7 @@ export class SessionManager {
 
     const endChildId = childIdFromName(this.childName);
     unregisterActiveVoiceSessionIfCurrent(endChildId, this.sessionId);
+    unregisterActiveVoiceSessionManager(endChildId, this);
     sessionEventBus.fire({
       type: "session_end",
       sessionId: this.sessionId,

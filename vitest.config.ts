@@ -80,6 +80,9 @@ export default defineConfig({
       "src/tests/test-companion-registry.ts",
       "src/algorithms/*.test.ts",
       "src/engine/*.test.ts",
+      "src/tests/test-node-result-formatter.ts",
+      "src/tests/test-session-manager-note-external-event.ts",
+      "src/tests/test-map-coordinator-injects-node-result.ts",
     ],
   },
 });

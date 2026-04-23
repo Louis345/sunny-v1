@@ -30,4 +30,40 @@ export function getActiveVoiceSessionIdForChild(
 
 export function __resetVoiceSessionRegistryForTests(): void {
   activeVoiceSessionIdByChildId.clear();
+  activeVoiceSessionManagerByChildId.clear();
+}
+
+// ── SessionManager handle registry (GAME-EVENT-001) ─────────────────────────
+
+/**
+ * Minimal interface so voice-session-registry doesn't import SessionManager
+ * (avoids circular deps). The concrete SessionManager satisfies this.
+ */
+export interface VoiceSessionManagerHandle {
+  noteExternalEvent(event: unknown): void;
+}
+
+const activeVoiceSessionManagerByChildId = new Map<string, VoiceSessionManagerHandle>();
+
+export function registerActiveVoiceSessionManager(
+  childId: string,
+  sm: VoiceSessionManagerHandle,
+): void {
+  activeVoiceSessionManagerByChildId.set(childId.trim().toLowerCase(), sm);
+}
+
+export function unregisterActiveVoiceSessionManager(
+  childId: string,
+  sm: VoiceSessionManagerHandle,
+): void {
+  const k = childId.trim().toLowerCase();
+  if (activeVoiceSessionManagerByChildId.get(k) === sm) {
+    activeVoiceSessionManagerByChildId.delete(k);
+  }
+}
+
+export function getActiveVoiceSessionManagerForChild(
+  childId: string,
+): VoiceSessionManagerHandle | null {
+  return activeVoiceSessionManagerByChildId.get(childId.trim().toLowerCase()) ?? null;
 }
