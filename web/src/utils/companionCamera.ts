@@ -50,8 +50,8 @@ export function fullModeLookAtGroundingOffsetY(characterHeight: number): number 
   return -Math.min(0.78, Math.max(0.52, h * 0.38));
 }
 
-/** Full mode only: extra +Z on camera (world) to pull back and reduce head crop. */
-export const FULL_MODE_CAMERA_Z_PULLBACK = 0.42;
+/** Full mode only: extra +Z on camera (world) to pull back and frame head-to-toe in the mount. */
+export const FULL_MODE_CAMERA_Z_PULLBACK = 0.92;
 
 export interface ResolveCameraFramingOptions {
   /** Added to computed look-at Y (negative = aim lower / ground the figure). */

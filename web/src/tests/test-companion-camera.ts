@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as THREE from "three";
 import {
+  FULL_MODE_CAMERA_Z_PULLBACK,
   fullModeLookAtGroundingOffsetY,
   resolveCameraFraming,
   type CameraFitBaseline,
@@ -48,9 +49,9 @@ describe("companionCamera", () => {
     const lookB = new THREE.Vector3();
     resolveCameraFraming(baseline, "mid-shot", posA, lookA);
     resolveCameraFraming(baseline, "mid-shot", posB, lookB, {
-      cameraZWorldOffset: 0.42,
+      cameraZWorldOffset: FULL_MODE_CAMERA_Z_PULLBACK,
     });
     expect(lookA.z).toBeCloseTo(lookB.z);
-    expect(posB.z - posA.z).toBeCloseTo(0.42);
+    expect(posB.z - posA.z).toBeCloseTo(FULL_MODE_CAMERA_Z_PULLBACK);
   });
 });
