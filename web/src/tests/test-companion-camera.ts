@@ -19,16 +19,16 @@ describe("companionCamera", () => {
     const pos = new THREE.Vector3();
     const look = new THREE.Vector3();
     resolveCameraFraming(makeBaseline({ floorY: 0, height: 1.6 }), "mid-shot", pos, look);
-    // lookAtYFrac = 0.5, mid-shot delta = 0 → look.y = 0 + 1.6*0.5 = 0.8
-    expect(look.y).toBeCloseTo(0.8);
+    // lookAtYFrac = 0.56, mid-shot delta = 0 → look.y = 0 + 1.6*0.56 = 0.896
+    expect(look.y).toBeCloseTo(0.896);
   });
 
   it("resolveCameraFraming look-at Y scales correctly with a taller character", () => {
     const pos = new THREE.Vector3();
     const look = new THREE.Vector3();
     resolveCameraFraming(makeBaseline({ floorY: 0, height: 2.0 }), "mid-shot", pos, look);
-    // 0 + 2.0*0.5 = 1.0
-    expect(look.y).toBeCloseTo(1.0);
+    // 0 + 2.0*0.56 = 1.12
+    expect(look.y).toBeCloseTo(1.12);
   });
 
   it("resolveCameraFraming camera position Z equals baseDistance (no additional offset)", () => {

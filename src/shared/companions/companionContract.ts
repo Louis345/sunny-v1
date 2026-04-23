@@ -79,8 +79,11 @@ export const COMPANION_CAMERA_FIT_MARGIN = 1.12;
  * Presets apply deltas on top of these.
  */
 export const COMPANION_CAMERA_FIT_REF = {
-  lookAtYFrac: 0.5,
-  cameraYFrac: 0.48,
+  // Both at 0.56 = FIT_MARGIN/2 (1.12/2). With a horizontal camera at this height
+  // the fit-distance half-span exactly reaches floorY=0, so feet sit at the bottom
+  // of the rendered frame and the character reads as grounded.
+  lookAtYFrac: 0.56,
+  cameraYFrac: 0.56,
 } as const;
 
 /**
