@@ -28,6 +28,7 @@ describe("ingestHomework", () => {
       weekOf: "2026-04-21",
       testDate: null,
       wordList: ["cat", "dog"],
+      homeworkId: "hw-spelling_test-test0001",
       nodes: [
         {
           id: "hw-1",
@@ -47,6 +48,7 @@ describe("ingestHomework", () => {
       weekOf: "2026-04-21",
       testDate: "2026-04-25",
       wordList: ["cat"],
+      homeworkId: "hw-spelling_test-test0002",
       nodes: [],
     });
     expect(pending.weekOf).toBe("2026-04-21");
@@ -84,6 +86,7 @@ describe("ingestHomework", () => {
       weekOf: "2026-04-21",
       testDate: null,
       wordList: ["cat"],
+      homeworkId: "hw-spelling_test-test0003",
       nodes: [
         {
           id: "hw-karaoke",
@@ -105,6 +108,7 @@ describe("ingestHomework", () => {
       weekOf: "2026-04-21",
       testDate: null,
       wordList: [],
+      homeworkId: "hw-spelling_test-test0004",
       nodes: [
         {
           id: "hw-q",

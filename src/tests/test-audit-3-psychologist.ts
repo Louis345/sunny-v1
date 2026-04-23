@@ -6,11 +6,13 @@ import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import {
   archiveHomeworkReasoningToHistory,
-  buildHomeworkAlgorithmSummary,
-  buildPsychologistHomeworkPlanUserMessage,
   readLatestTutoringContext,
   readPriorReasoning,
 } from "../scripts/ingestHomework";
+import {
+  buildHomeworkAlgorithmSummary,
+  buildPsychologistHomeworkPlanUserMessage,
+} from "../scripts/homeworkPlanner";
 import { resolveWordBankPath } from "../utils/wordBankIO";
 
 const CHILD = "audit3psych";

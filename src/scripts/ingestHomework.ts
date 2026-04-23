@@ -5,18 +5,16 @@ import fs from "fs";
 import path from "path";
 import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
-import { buildProfile } from "../profiles/buildProfile";
-import type { ChildProfile } from "../shared/childProfile";
-import { generateQuestGameHtml, parseExtractedJson, textFromMessage } from "./generateGame";
-import { validateGeneratedGame } from "./validateGeneratedGame";
+import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
+import { generateHomeworkId } from "../context/schemas/homeworkCycle";
+import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
-const SONNET_MODEL = "claude-sonnet-4-20250514";
 
 type HomeworkType =
   | "spelling_test"
@@ -280,12 +278,14 @@ export function buildPendingHomeworkPayload(args: {
   weekOf: string;
   testDate: string | null;
   wordList: string[];
+  homeworkId: string;
   nodes: PlannedNode[];
-}): NonNullable<LearningProfile["pendingHomework"]> {
+}): NonNullable<LearningProfile["pendingHomework"]> & { homeworkId: string } {
   return {
     weekOf: args.weekOf,
     testDate: args.testDate,
     wordList: args.wordList,
+    homeworkId: args.homeworkId,
     generatedAt: new Date().toISOString(),
     nodes: args.nodes.map((node) => ({
       id: node.id,
@@ -348,66 +348,6 @@ export function readLatestTutoringContext(childId: string): string | null {
   return fs.readFileSync(path.join(dir, sorted[0]!.f), "utf8");
 }
 
-export type HomeworkWordConfidence = {
-  word: string;
-  confidence: number;
-  repetitions: number;
-  previouslyStruggled: boolean;
-};
-
-export type HomeworkAlgorithmSummary = {
-  wilsonStep: number | "unknown";
-  attentionWindow_ms: number;
-  wordConfidence: HomeworkWordConfidence[];
-  recentAccuracy: number[];
-  averageAccuracy: number | null;
-  sessionsAbove80: number;
-};
-
-export function buildHomeworkAlgorithmSummary(
-  childId: string,
-  homeworkWords: string[],
-  lp: LearningProfile | null,
-  profile: ChildProfile,
-): HomeworkAlgorithmSummary {
-  const bank = readWordBank(childId);
-  const wordConfidence = homeworkWords.map((raw) => {
-    const word = String(raw ?? "").trim();
-    const lower = word.toLowerCase();
-    const entry = bank.words.find((w) => w.word.toLowerCase() === lower);
-    const st = entry?.tracks?.spelling;
-    const confidence = st?.easinessFactor ?? 2.5;
-    const repetitions = st?.repetition ?? 0;
-    return {
-      word,
-      confidence,
-      repetitions,
-      previouslyStruggled: repetitions > 0 && confidence < 2.0,
-    };
-  });
-  const ss = lp?.sessionStats;
-  const extended = ss as
-    | (NonNullable<typeof ss> & {
-        recentAccuracy?: unknown;
-        sessionsAbove80?: unknown;
-      })
-    | undefined;
-  const raRaw = extended?.recentAccuracy;
-  const recentAccuracy = Array.isArray(raRaw)
-    ? raRaw.filter((x): x is number => typeof x === "number")
-    : [];
-  const sessionsAbove80 =
-    typeof extended?.sessionsAbove80 === "number" ? extended.sessionsAbove80 : 0;
-  const ws = ss?.currentWilsonStep;
-  return {
-    wilsonStep: typeof ws === "number" ? ws : "unknown",
-    attentionWindow_ms: profile.attentionWindow_ms,
-    wordConfidence,
-    recentAccuracy,
-    averageAccuracy: ss?.averageAccuracy ?? null,
-    sessionsAbove80,
-  };
-}
 
 /**
  * Most recent reasoning.md from homework pending/processed.
@@ -454,138 +394,6 @@ export function archiveHomeworkReasoningToHistory(args: {
   return dest;
 }
 
-const NODE_PLAN_JSON_RULES = `RULES FOR spelling_test TYPE:
-  - Every node practices ALL words — never split words
-    across nodes. Each node gets the full word list.
-  - spell-check node is MANDATORY for spelling_test
-    (baseline, gameFile: spell-check.html).
-  - spell-check goes FIRST — it establishes a baseline
-    before practice begins.
-  - Order for spelling_test MUST be:
-    1. spell-check  (baseline, static HTML)
-    2. pronunciation (React component)
-    3. karaoke      (React story / reading component; type key stays "karaoke")
-    4. word-builder (template)
-    5. quest        (MANDATORY — AI-generated dynamic game)
-    6. boss         (AI with --opus only; always last)
-  - quest is mandatory for spelling_test alongside templates.
-  - All nodes get the complete word list in the
-    'words' field — not a subset.
-  - difficulty: 1 if 4+ days until test,
-               2 if 2-3 days, 3 if 1 day
-
-RULES FOR ALL TYPES:
-  - boss is always last, always isCastle: true,
-    always gameFile: null until --opus generates it
-  - Only use quest when NO existing template fits (non-spelling_test)
-  - max nodes = 6 for spelling_test, max nodes = 5 otherwise
-  - Include a 'rationale' field on each node explaining in one sentence why this node type was chosen for this specific homework type and child profile.
-
-Return JSON only:
-{
-  "nodes": [{
-    "id": string,
-    "type": "spell-check"|"pronunciation"|"karaoke"|"word-builder"|"quest"|"boss",
-    "words": string[],
-    "difficulty": 1|2|3,
-    "gameFile": null,
-    "storyFile": null,
-    "rationale": string
-  }]
-}`;
-
-/** Full user message for the Sonnet homework node planner (tests assert on this). */
-export function buildPsychologistHomeworkPlanUserMessage(args: {
-  algorithmSummary: HomeworkAlgorithmSummary;
-  tutoringContext: string | null;
-  sessionNotes: string[];
-  priorReasoning: string | null;
-  extraction: ExtractionShape;
-  testDate: string;
-  daysUntilTest: number;
-}): string {
-  const AVAILABLE_TOOLS = "";
-  const {
-    algorithmSummary,
-    tutoringContext,
-    sessionNotes,
-    priorReasoning,
-    extraction,
-    testDate,
-    daysUntilTest,
-  } = args;
-  const struggledWordsLine =
-    algorithmSummary.wordConfidence
-      .filter((w) => w.previouslyStruggled)
-      .map((w) => w.word)
-      .join(", ") || "none on record yet";
-
-  return `You are planning a homework practice session.
-Your goal is not task completion.
-Your goal is CHILD INDEPENDENCE:
-the child should eventually complete their
-schoolwork without adult supervision.
-Every session moves them one step closer.
-
-${AVAILABLE_TOOLS}
-
-ALGORITHM FEEDBACK (source of truth — trust this):
-${JSON.stringify(algorithmSummary, null, 2)}
-
-Words this child has previously struggled with
-(easeFactor < 2.0 in SM-2):
-${struggledWordsLine}
-
-${
-  tutoringContext
-    ? `
-HUMAN TUTOR SESSION (read carefully):
-${tutoringContext}
-
-Cross-reference: words tutor covered vs words
-algorithm flags as weak. If tutor covered a word
-AND SM-2 shows it as struggled → high priority.
-If tutor covered a word and SM-2 shows mastered →
-do not over-practice, move on.
-`
-    : "No tutor session on record."
-}
-
-RECENT SESSION NOTES (last 3 sessions):
-${sessionNotes.join("\n---\n") || "No session notes yet."}
-
-${
-  priorReasoning
-    ? `
-PRIOR ASSUMPTIONS (from last session plan):
-${priorReasoning}
-
-CRITICAL: Review what was assumed last time.
-Were those assumptions validated by the data above?
-State explicitly in your rationale:
-  - Which assumptions proved correct
-  - Which assumptions proved wrong
-  - What you are changing based on this evidence
-`
-    : "No prior session plan to review."
-}
-
-TODAY'S HOMEWORK:
-${JSON.stringify(extraction, null, 2)}
-Test date: ${testDate} (${daysUntilTest} days away)
-
-INDEPENDENCE PROGRESSION:
-Ask yourself: if this child practiced these nodes,
-would they be MORE able to do their spelling homework
-independently next week? Design for that outcome.
-Not for a perfect session score.
-
-${AVAILABLE_TOOLS}
-
-Return node plan as JSON with rationale per node.
-
-${NODE_PLAN_JSON_RULES}`;
-}
 
 async function extractHomework(
   client: Anthropic,
@@ -651,103 +459,30 @@ async function extractHomework(
   };
 }
 
-async function buildAutomaticNodePlan(
-  client: Anthropic,
-  args: {
-    childId: string;
-    extraction: ExtractionShape;
-    testDate: string;
-    todayISO: string;
-    daysUntilTest: number;
-    profile: ChildProfile;
-    sessionNotes: string[];
-    learningProfile: LearningProfile | null;
-    tutoringContext: string | null;
-    priorReasoning: string | null;
-  },
-): Promise<NodePlan> {
-  const {
-    childId,
-    extraction,
-    testDate,
-    todayISO,
-    daysUntilTest,
-    profile,
-    sessionNotes,
-    learningProfile,
-    tutoringContext,
-    priorReasoning,
-  } = args;
-  const algorithmSummary = buildHomeworkAlgorithmSummary(
-    childId,
-    extraction.words,
-    learningProfile,
-    profile,
-  );
-  const userPrompt = `${buildPsychologistHomeworkPlanUserMessage({
-    algorithmSummary,
-    tutoringContext,
-    sessionNotes,
-    priorReasoning,
-    extraction,
-    testDate,
-    daysUntilTest,
-  })}
-
-Context: today is ${todayISO}.`;
-  const msg = await client.messages.create({
-    model: SONNET_MODEL,
-    max_tokens: 2000,
-    system: "Return valid JSON only. No markdown fences. No prose.",
-    messages: [
-      {
-        role: "user",
-        content: userPrompt,
-      },
-    ],
-  });
-  const parsed = parseExtractedJson(textFromMessage(msg)) as {
-    nodes?: Partial<PlannedNode>[];
-    sessionNotes?: string;
-  };
-  const baseDifficulty = difficultyFromDaysUntil(daysUntilTest);
-  const merged = mergeNormalizedPlan(parsed.nodes ?? [], extraction.words, baseDifficulty, {
-    homeworkType: extraction.type,
-    daysUntilTest,
-  });
-  const maxNodes = extraction.type === "spelling_test" ? 6 : 5;
-  const capped = merged.slice(0, maxNodes);
+/** Build a blank HomeworkCycle record for a freshly ingested homework. */
+export function buildCycleStub(args: {
+  homeworkId: string;
+  subject: string;
+  wordList: string[];
+  ingestedAt: string;
+  testDate: string | null;
+}): HomeworkCycle {
   return {
-    nodes: capped,
-    sessionNotes: typeof parsed.sessionNotes === "string" ? parsed.sessionNotes : "",
+    homeworkId: args.homeworkId,
+    subject: args.subject,
+    wordList: args.wordList,
+    ingestedAt: args.ingestedAt,
+    testDate: args.testDate,
+    assumptions: null,
+    postAnalysis: null,
+    scanResult: null,
+    delta: null,
+    metrics: null,
   };
-}
-
-async function generateKaraokeStory(
-  client: Anthropic,
-  words: string[],
-  feedback?: string,
-): Promise<string> {
-  const msg = await client.messages.create({
-    model: SONNET_MODEL,
-    max_tokens: 700,
-    messages: [
-      {
-        role: "user",
-        content: `Write a story for grade 2 readers.
-- 150 words max
-- max 8 words per sentence
-- naturally include these words: ${words.join(", ")}
-${feedback ? `- parent feedback: ${feedback}` : ""}
-Return plain text only.`,
-      },
-    ],
-  });
-  return textFromMessage(msg).trim();
 }
 
 export async function runIngestHomework(argv: string[]): Promise<void> {
-  const { childId, opus } = parseCliArgs(argv);
+  const { childId } = parseCliArgs(argv);
   const client = new Anthropic();
   const today = new Date().toISOString().slice(0, 10);
   const contextBase = path.join(process.cwd(), "src", "context", childId, "homework");
@@ -760,7 +495,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     throw new Error(`No homework found in ${incomingDir}. Expected .pdf or .txt file.`);
   }
 
-  console.log("📄 Step 1/4: Reading homework...");
+  console.log("📄 Step 1/3: Reading homework...");
   const extracted = await extractHomework(client, incomingFile);
   const testDate = extracted.testDate ?? nextFriday();
   const daysUntilTest = daysUntil(testDate);
@@ -776,6 +511,9 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     JSON.stringify(extracted, null, 2),
     "utf8",
   );
+
+  console.log("");
+  console.log("📦 Step 2/3: Seeding word bank and creating cycle record...");
 
   const wordBank = readWordBank(childId);
   for (const raw of extracted.words) {
@@ -807,189 +545,35 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     `📝 Seeded ${extracted.words.length} words with homework priority → word_bank.json`,
   );
 
-  console.log("");
-  console.log("🧠 Step 2/4: Building session plan...");
-  const profile = await buildProfile(childId);
-  if (!profile) {
-    throw new Error(`Unknown child profile: ${childId}`);
-  }
-  const sessionNotes = readLastNSessionNotes(childId, 3);
-  const lp = readLearningProfile(childId);
-  const tutoringContext = readLatestTutoringContext(childId);
-  const priorReasoning = readPriorReasoning(childId, { excludePendingDate: today });
-  const nodePlan = await buildAutomaticNodePlan(client, {
-    childId,
-    extraction: extracted,
-    testDate,
-    todayISO: today,
-    daysUntilTest,
-    profile,
-    sessionNotes,
-    learningProfile: lp,
-    tutoringContext,
-    priorReasoning,
+  const homeworkId = generateHomeworkId(extracted.type, extracted.words);
+  const cyclesDir = path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
+  fs.mkdirSync(cyclesDir, { recursive: true });
+  const cycleStub = buildCycleStub({
+    homeworkId,
+    subject: extracted.type,
+    wordList: extracted.words,
+    ingestedAt: today,
+    testDate: extracted.testDate,
   });
-  nodePlan.nodes = finalizePlannedHomeworkNodes(nodePlan.nodes, extracted.words, today);
-  console.log(`✅ ${nodePlan.nodes.length} nodes planned`);
+  fs.writeFileSync(
+    path.join(cyclesDir, `${homeworkId}.json`),
+    JSON.stringify(cycleStub, null, 2),
+    "utf8",
+  );
+  console.log(`🔁 Cycle record created → cycles/${homeworkId}.json`);
 
-  const nodes = nodePlan.nodes;
-  const reasoningLines = [
-    `# Session Plan Reasoning`,
-    `Generated: ${new Date().toISOString()}`,
-    `Child: ${childId}`,
-    `Homework: ${extracted.title ?? "Unknown"}`,
-    `Type: ${extracted.type}`,
-    `Test date: ${testDate} (${daysUntilTest} days away)`,
-    ``,
-    `## Why these nodes`,
-    ...nodes.map(
-      (n) =>
-        `- **${n.type}**: ${n.rationale?.trim() ? n.rationale : "Standard node for this homework type"}`,
-    ),
-    ``,
-    `## Assumptions made`,
-    `- Homework type detected as: ${extracted.type}`,
-    `- Test date: ${testDate ?? "Defaulted to Friday"}`,
-    `- Total words: ${extracted.words?.length ?? 0}`,
-    `- Difficulty: ${nodes[0]?.difficulty ?? 2}/3`,
-    `- Word source: both lists combined`,
-    ``,
-    `## To challenge these decisions`,
-    `Edit pending node plan:`,
-    `  src/context/${childId}/homework/pending/${today}/node-plan.json`,
-    ``,
-    `Then regenerate:`,
-    `  npm run sunny:ingest:homework -- --child=${childId}`,
-  ];
-  const reasoningPath = path.join(pendingDir, "reasoning.md");
-  fs.writeFileSync(reasoningPath, reasoningLines.join("\n"), "utf8");
-  console.log("📋 Reasoning saved → reasoning.md");
-  archiveHomeworkReasoningToHistory({
-    childId,
-    date: today,
-    reasoningSourcePath: reasoningPath,
-  });
-  console.log("📋 Reasoning archived → homework/reasoning-history/");
+  const assumptionsDir = path.join(process.cwd(), "src", "context", childId, "assumptions");
+  fs.mkdirSync(assumptionsDir, { recursive: true });
+  const preMdPath = path.join(assumptionsDir, `${today}-pre.md`);
+  fs.writeFileSync(
+    preMdPath,
+    `## Homework ingested — awaiting Psychologist analysis\n\nRun sunny:sync to generate session plan and assumptions.\n\n**homeworkId:** ${homeworkId}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n`,
+    "utf8",
+  );
+  console.log(`📋 Placeholder assumptions → assumptions/${today}-pre.md`);
 
   console.log("");
-  console.log("🎮 Step 3/4: Generating games...");
-  let generatedQuest = false;
-  let generatedKaraoke = false;
-  for (const node of nodePlan.nodes) {
-    if (node.type === "karaoke") {
-      const story = await generateKaraokeStory(client, node.words);
-      node.storyFile = "karaoke-story.txt";
-      const storyFilePath = path.join(pendingDir, "karaoke-story.txt");
-      fs.writeFileSync(storyFilePath, story, "utf8");
-      node.storyText = fs.readFileSync(storyFilePath, "utf8");
-      generatedKaraoke = true;
-    } else if (node.type === "quest") {
-      const questGenBase = {
-        client,
-        extractedJsonPretty: JSON.stringify(extracted, null, 2),
-        homeworkType: extracted.type,
-        testDate,
-        childProfile: profile,
-      };
-
-      let questHtml = await generateQuestGameHtml(questGenBase);
-      questHtml = ensureQuestHtmlContract(questHtml);
-      let validation = validateGeneratedGame(questHtml, {
-        words: extracted.words,
-        homeworkType: extracted.type,
-        childId,
-      });
-
-      console.log(
-        `🔍 Game validation: ${validation.passed ? "✅" : "❌"} ` +
-          `score=${validation.score}/100`,
-      );
-      if (validation.failures.length > 0) {
-        console.log("  Failures:");
-        validation.failures.forEach((f) => console.log(`    ✗ ${f}`));
-      }
-      if (validation.warnings.length > 0) {
-        console.log("  Warnings:");
-        validation.warnings.forEach((w) => console.log(`    ⚠ ${w}`));
-      }
-
-      if (!validation.passed && validation.shouldRegenerate) {
-        console.log("🔄 Regenerating with validation feedback...");
-        questHtml = await generateQuestGameHtml({
-          ...questGenBase,
-          validationFeedback: validation.failures.join("\n"),
-        });
-        questHtml = ensureQuestHtmlContract(questHtml);
-        const v2 = validateGeneratedGame(questHtml, {
-          words: extracted.words,
-          homeworkType: extracted.type,
-          childId,
-        });
-        console.log(
-          `🔍 Retry validation: ${v2.passed ? "✅" : "❌"} ` + `score=${v2.score}/100`,
-        );
-        if (!v2.passed) {
-          console.log("⚠️  Game failed validation twice.");
-          console.log("   Saving anyway — review before Ila plays.");
-        }
-        validation = v2;
-      }
-
-      fs.writeFileSync(
-        path.join(pendingDir, "game-quality.json"),
-        JSON.stringify(
-          {
-            score: validation.score,
-            passed: validation.passed,
-            failures: validation.failures,
-            warnings: validation.warnings,
-            generatedAt: new Date().toISOString(),
-          },
-          null,
-          2,
-        ),
-        "utf8",
-      );
-
-      const gameFile = `quest-${today}.html`;
-      node.gameFile = gameFile;
-      node.date = today;
-      fs.writeFileSync(path.join(pendingDir, gameFile), questHtml, "utf8");
-      generatedQuest = true;
-    } else if (node.type === "boss") {
-      if (!opus) {
-        console.log(
-          "Boss node HTML requires --opus flag. Skipping file generation (placeholder remains on map).",
-        );
-      } else {
-        const generated = await generateQuestGameHtml({
-          client,
-          extractedJsonPretty: JSON.stringify(extracted, null, 2),
-          homeworkType: extracted.type,
-          testDate,
-          childProfile: profile,
-        });
-        const gameFile = `boss-${today}.html`;
-        node.gameFile = gameFile;
-        node.date = today;
-        fs.writeFileSync(
-          path.join(pendingDir, gameFile),
-          ensureQuestHtmlContract(generated),
-          "utf8",
-        );
-      }
-    }
-  }
-  if (generatedQuest) {
-    console.log("✅ Quest game generated");
-  }
-  if (generatedKaraoke) {
-    console.log("✅ Karaoke story generated");
-  }
-
-  console.log("");
-  console.log("💾 Step 4/4: Saving...");
-  fs.writeFileSync(path.join(pendingDir, "node-plan.json"), JSON.stringify(nodePlan, null, 2), "utf8");
+  console.log("💾 Step 3/3: Saving...");
 
   const profileDoc = readLearningProfile(childId);
   if (!profileDoc) {
@@ -999,7 +583,8 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     weekOf: today,
     testDate,
     wordList: extracted.words,
-    nodes: nodePlan.nodes,
+    homeworkId,
+    nodes: [],
   });
   writeLearningProfile(childId, profileDoc);
 
