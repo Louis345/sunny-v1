@@ -13,6 +13,7 @@ import {
   bundledJsonToSessionTheme,
   loadRandomSavedTheme,
 } from "../utils/themeLoader";
+import * as themeLoader from "../utils/themeLoader";
 
 vi.mock("../profiles/buildProfile", () => ({
   buildProfile: vi.fn(),
@@ -92,7 +93,18 @@ describe("paletteOnlyThemeFromProfile", () => {
     expect(theme.castleVariant).toBeTruthy();
     expect(theme.ambient).toBeDefined();
     expect(theme.mapWaypoints?.length).toBeGreaterThanOrEqual(2);
-    expect(theme.nodeThumbnails).toEqual({});
+    expect(theme.nodeThumbnails).toBeUndefined();
+  });
+
+  it("output has all required SessionTheme fields for canvas gradient (no image URLs)", () => {
+    const profile = baseProfile({ childId: "ila" });
+    const theme = paletteOnlyThemeFromProfile(profile);
+    expect(theme.palette).toBeDefined();
+    expect(theme.ambient).toBeDefined();
+    expect(theme.nodeStyle).toBeDefined();
+    expect(theme.pathStyle).toBeDefined();
+    expect(theme.castleVariant).toBeDefined();
+    expect(theme.backgroundUrl).toBeUndefined();
   });
 });
 
@@ -170,19 +182,31 @@ describe("bundledJsonToSessionTheme", () => {
 
 describe("resolveThemeForMapSession (diag)", () => {
   beforeEach(() => {
-    vi.stubEnv("SUNNY_MODE", "diag");
+    process.env.SUNNY_MODE = "diag";
   });
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it("returns a saved bundle theme with source saved (no image URLs)", async () => {
-    const out = await resolveThemeForMapSession(baseProfile());
-    expect(out.theme.source).toBe("saved");
-    expect(out.theme.backgroundUrl).toBeUndefined();
-    expect(out.theme.nodeThumbnails).toBeUndefined();
-    expect(out.theme.palette.sky).toBeTruthy();
-    expect(out.shouldPersist).toBe(false);
+  it("returns palette-only theme in diag", async () => {
+    const result = await resolveThemeForMapSession(
+      baseProfile({ childId: "ila" }),
+    );
+    expect(result.theme.source).toBe("palette");
+    expect(result.theme.backgroundUrl).toBeUndefined();
+    expect(result.theme.castleUrl).toBeUndefined();
+    expect(result.theme.nodeThumbnails).toBeUndefined();
+    expect(result.theme.palette.sky).toBeTruthy();
+    expect(result.theme.palette.ground).toBeTruthy();
+    expect(result.theme.palette.accent).toBeTruthy();
+    expect(result.shouldPersist).toBe(false);
+  });
+
+  it("does not call loadRandomSavedTheme in diag", async () => {
+    const loadSpy = vi.spyOn(themeLoader, "loadRandomSavedTheme");
+    await resolveThemeForMapSession(baseProfile());
+    expect(loadSpy).not.toHaveBeenCalled();
+    loadSpy.mockRestore();
   });
 
   it("does not call writeFileSync", async () => {

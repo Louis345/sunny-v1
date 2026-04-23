@@ -112,8 +112,6 @@ export function paletteOnlyThemeFromProfile(
     nodeStyle: "rounded",
     pathStyle,
     castleVariant: "stone",
-    castleUrl: null,
-    nodeThumbnails: {},
     mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
   };
 }

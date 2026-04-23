@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import type { MapState, NodeResult } from "../shared/adventureTypes";
 
+/** Avoid real Grok in `enrichHomeworkNodeThumbnails` (5s test timeouts). */
+vi.mock("../utils/generateStoryImage", () => ({
+  generateStoryImage: vi.fn().mockResolvedValue(null),
+}));
+
 const appendNodeRatingMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const recordRewardMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const recordAttemptMock = vi.hoisted(() => vi.fn().mockReturnValue({}));
@@ -39,9 +44,10 @@ vi.mock("../profiles/buildProfile", () => ({
   buildProfile: vi.fn(),
 }));
 
-vi.mock("../agents/designer/designer", () => ({
-  generateTheme: vi.fn(),
-}));
+vi.mock("../agents/designer/designer", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../agents/designer/designer")>();
+  return { ...actual, generateTheme: vi.fn() };
+});
 
 vi.mock("../engine/nodeSelection", () => ({
   buildNodeList: vi.fn(),

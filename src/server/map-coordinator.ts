@@ -15,7 +15,6 @@ import type { ChildQuality } from "../algorithms/types";
 import type { ChildProfile } from "../shared/childProfile";
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme, paletteOnlyThemeFromProfile } from "../agents/designer/designer";
-import { loadRandomSavedTheme } from "../utils/themeLoader";
 import { buildNodeList } from "../engine/nodeSelection";
 import { recordReward } from "../engine/bandit";
 import { planSession, recordAttempt } from "../engine/learningEngine";
@@ -141,10 +140,6 @@ export async function resolveThemeForMapSession(
   profile: ChildProfile,
 ): Promise<{ theme: SessionTheme; shouldPersist: boolean }> {
   if (isDiagMapMode()) {
-    const fromBundle = loadRandomSavedTheme();
-    if (fromBundle) {
-      return { theme: { ...fromBundle, source: "saved" }, shouldPersist: false };
-    }
     return {
       theme: { ...paletteOnlyThemeFromProfile(profile), source: "palette" },
       shouldPersist: false,

@@ -1,25 +1,9 @@
 import WebSocket from "ws";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+/** No folder → `else if (subject === "diag" && !homeworkPayload)` (no extract / no buildSessionPrompt). */
 vi.mock("../utils/loadHomeworkFolder", () => ({
-  loadHomeworkPayload: vi.fn(() =>
-    Promise.resolve({
-      childName: "Ila" as const,
-      date: "2026-01-01",
-      rawContent: "test homework body for diag",
-      fileCount: 1,
-      hasNotes: false,
-      folderPath: "/tmp/sunny-diag-bootstrap-test",
-      assetFilenames: [],
-      pageAssets: [
-        {
-          filename: "page.png",
-          mediaType: "image/png" as const,
-          data: Buffer.alloc(8).toString("base64"),
-        },
-      ],
-    }),
-  ),
+  loadHomeworkPayload: vi.fn(() => Promise.resolve(null)),
 }));
 
 vi.mock("../agents/classifier/classifier", () => ({
