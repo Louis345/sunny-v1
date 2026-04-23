@@ -19,6 +19,7 @@ describe("generateStoryImage", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     process.env.GROK_API_KEY = originalKey;
     process.env.GROK_IMAGE_MODEL = originalModel;
   });
@@ -53,5 +54,13 @@ describe("generateStoryImage", () => {
       (vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string,
     );
     expect(body.prompt).toContain("Scene: forest");
+  });
+
+  it("does not call Grok when SUNNY_MODE=diag", async () => {
+    vi.stubEnv("SUNNY_MODE", "diag");
+    process.env.GROK_API_KEY = "test-key";
+    const url = await generateStoryImage("forest", { useDirectScene: true });
+    expect(url).toBeNull();
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 });

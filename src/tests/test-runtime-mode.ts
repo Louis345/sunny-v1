@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import {
   getSunnyMode,
+  isDiagMapMode,
   isSunnyAsChildMode,
   isSunnyDiagMode,
   shouldPersistSessionData,
@@ -34,6 +35,26 @@ describe("isSunnyDiagMode", () => {
 
   it("is false when SUNNY_MODE is real", () => {
     expect(isSunnyDiagMode({ SUNNY_MODE: "real" })).toBe(false);
+  });
+});
+
+describe("isDiagMapMode", () => {
+  it("is true when SUNNY_MODE is diag even if SUNNY_SUBJECT is homework", () => {
+    expect(
+      isDiagMapMode({ SUNNY_MODE: "diag", SUNNY_SUBJECT: "homework" }),
+    ).toBe(true);
+  });
+
+  it("is true when SUNNY_SUBJECT is diag", () => {
+    expect(isDiagMapMode({ SUNNY_MODE: "real", SUNNY_SUBJECT: "diag" })).toBe(
+      true,
+    );
+  });
+
+  it("is false in real mode with non-diag subject", () => {
+    expect(isDiagMapMode({ SUNNY_MODE: "real", SUNNY_SUBJECT: "reading" })).toBe(
+      false,
+    );
   });
 });
 

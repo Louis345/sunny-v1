@@ -31,7 +31,7 @@ import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { recordAttempt } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
 import { WILSON_STEPS } from "../modes/wilson/wilsonSteps";
-import { isSunnyDiagMode } from "../utils/runtimeMode";
+import { getSunnyMode, isSunnyDiagMode } from "../utils/runtimeMode";
 import {
   applyPassiveDepletion,
   applyTamagotchiFill,
@@ -246,6 +246,9 @@ export function setupRoutes(app: Express): void {
 
   /** Visual PoC — `web/public/worlds/proof-of-concept.html`; uses server-side GROK_API_KEY. */
   app.get("/api/grok-image", async (req: Request, res: Response) => {
+    if (getSunnyMode() === "diag") {
+      return res.status(403).json({ error: "Grok disabled in diag mode" });
+    }
     const prompt =
       typeof req.query.prompt === "string" ? req.query.prompt.trim() : "";
     if (!prompt) {

@@ -1982,7 +1982,9 @@ export class SessionManager {
           this.storyImageGeneratedThisStory = true;
           this.storyImagePending = true;
           this.send("story_image_loading", {});
-          void generateStoryImage(storyText)
+          void generateStoryImage(storyText, {
+            sessionType: this.ctx?.sessionType,
+          })
             .then((url) => {
               this.send("story_image", { url: url ?? null });
             })

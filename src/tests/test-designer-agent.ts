@@ -38,7 +38,7 @@ describe("DesignerAgent generateTheme (TASK-008)", () => {
   });
 
   it("returns a valid SessionTheme shape", async () => {
-    const t = await generateTheme(baseProfile());
+    const t = (await generateTheme(baseProfile()))!;
     expect(t.name).toBeTruthy();
     expect(t.palette.sky).toBeTruthy();
     expect(t.palette.ground).toBeTruthy();
@@ -54,7 +54,7 @@ describe("DesignerAgent generateTheme (TASK-008)", () => {
   });
 
   it("works when Grok returns null (no API key path)", async () => {
-    const t = await generateTheme(baseProfile());
+    const t = (await generateTheme(baseProfile()))!;
     expect(t.backgroundUrl).toBeUndefined();
     expect(t.castleUrl).toBeNull();
     expect(t.nodeThumbnails).toBeDefined();
@@ -68,22 +68,22 @@ describe("DesignerAgent generateTheme (TASK-008)", () => {
 
   it("selects theme name from profile.unlockedThemes only", async () => {
     const spy = vi.spyOn(themeRegistry, "getRandomUnlockedTheme").mockReturnValue("beach");
-    const t = await generateTheme(baseProfile({ unlockedThemes: ["default", "beach"] }));
+    const t = (await generateTheme(baseProfile({ unlockedThemes: ["default", "beach"] })))!;
     expect(t.name).toBe("beach");
     spy.mockRestore();
   });
 
   it("respects time of day for palette (mock Date)", async () => {
     vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
-    const dayTheme = await generateTheme(baseProfile());
+    const dayTheme = (await generateTheme(baseProfile()))!;
     vi.setSystemTime(new Date("2026-06-15T22:00:00Z"));
-    const nightTheme = await generateTheme(baseProfile());
+    const nightTheme = (await generateTheme(baseProfile()))!;
     expect(dayTheme.palette.sky).not.toBe(nightTheme.palette.sky);
   });
 
   it("applies reading-mode palette when SUNNY_SUBJECT=reading", async () => {
     process.env.SUNNY_SUBJECT = "reading";
-    const t = await generateTheme(baseProfile());
+    const t = (await generateTheme(baseProfile()))!;
     expect(t.pathStyle).toContain("reading");
   });
 });

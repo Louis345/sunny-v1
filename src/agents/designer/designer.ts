@@ -12,6 +12,7 @@ import {
 import { DEFAULT_MAP_WAYPOINTS } from "../../shared/mapPathLayout";
 import { getRandomUnlockedTheme } from "../../server/theme-registry";
 import { generateStoryImage } from "../../utils/generateStoryImage";
+import { isDiagMapMode } from "../../utils/runtimeMode";
 
 export type TimeOfDayBucket = "sunrise" | "day" | "sunset" | "night";
 
@@ -79,10 +80,11 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
   boss: "A golden trophy with stars exploding around it, triumphant, cartoon style",
 };
 
-export async function generateTheme(
+/** Palette / layout only — no Grok. Used as map fallback when `generateTheme` is skipped in diag. */
+export function paletteOnlyThemeFromProfile(
   profile: ChildProfile,
   opts?: { now?: Date; themeName?: string },
-): Promise<SessionTheme> {
+): SessionTheme {
   const now = opts?.now ?? new Date();
   const bucket = timeOfDayBucket(now);
   const themeName = opts?.themeName ?? getRandomUnlockedTheme(profile);
@@ -94,7 +96,7 @@ export async function generateTheme(
     pathStyle = "curve-reading";
   }
 
-  const theme: SessionTheme = {
+  return {
     name: themeName,
     palette,
     ambient: { type: "dots", count: 20, speed: 1, color: palette.particle },
@@ -105,10 +107,19 @@ export async function generateTheme(
     nodeThumbnails: {},
     mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
   };
+}
+
+export async function generateTheme(
+  profile: ChildProfile,
+  opts?: { now?: Date; themeName?: string },
+): Promise<SessionTheme | null> {
+  if (isDiagMapMode()) return null;
+
+  const theme = paletteOnlyThemeFromProfile(profile, opts);
 
   const bgPrompt =
-    `A ${themeName} world background for a children's learning adventure. ` +
-    `Theme: ${themeName}. Colors matching: ${accent}. ` +
+    `A ${theme.name} world background for a children's learning adventure. ` +
+    `Theme: ${theme.name}. Colors matching: ${theme.palette.accent}. ` +
     `Style: flat illustration, bright, child-friendly, wide landscape. No text. No characters.`;
 
   const jobs: Promise<string | null>[] = [

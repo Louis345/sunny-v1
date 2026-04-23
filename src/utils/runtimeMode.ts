@@ -54,6 +54,17 @@ export function isSunnyDiagMode(env: RuntimeEnv = process.env): boolean {
   return getSunnyMode(env) === "diag";
 }
 
+/**
+ * Adventure map + Grok spend gates: diagnostic kiosk when `SUNNY_MODE=diag`
+ * or legacy `SUNNY_SUBJECT=diag` static map.
+ */
+export function isDiagMapMode(env: RuntimeEnv = process.env): boolean {
+  return (
+    getSunnyMode(env) === "diag" ||
+    env.SUNNY_SUBJECT?.trim().toLowerCase() === "diag"
+  );
+}
+
 export function isSunnyAsChildMode(env: RuntimeEnv = process.env): boolean {
   return getSunnyMode(env) === "as-child";
 }

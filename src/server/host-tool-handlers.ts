@@ -144,7 +144,10 @@ export async function hostSessionLog(
       );
       session.storyImagePending = true;
       session.send("story_image_loading", {});
-      void generateStoryImage(scene, { useDirectScene: true })
+      void generateStoryImage(scene, {
+        useDirectScene: true,
+        sessionType: session.ctx?.sessionType,
+      })
         .then((url) => {
           session.send("story_image", { url: url ?? null });
         })

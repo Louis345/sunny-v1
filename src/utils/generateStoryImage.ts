@@ -3,6 +3,8 @@
  * No key or API failure → returns null; callers must still clear UI loading state.
  */
 
+import { isDiagMapMode } from "./runtimeMode";
+
 const GROK_IMAGE_ENDPOINT = "https://api.x.ai/v1/images/generations";
 
 let grokStoryImageConfigLogged = false;
@@ -20,8 +22,12 @@ function logGrokImageConfigOnce(model: string | null): void {
 
 export async function generateStoryImage(
   storyText: string,
-  options?: { useDirectScene?: boolean },
+  options?: { useDirectScene?: boolean; sessionType?: string },
 ): Promise<string | null> {
+  if (isDiagMapMode() || options?.sessionType === "diag") {
+    return null;
+  }
+
   const apiKey = process.env.GROK_API_KEY;
   const model =
     process.env.GROK_IMAGE_MODEL?.trim() || "grok-imagine-image";

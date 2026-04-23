@@ -14,11 +14,15 @@ import { DEFAULT_MAP_WAYPOINTS } from "../shared/mapPathLayout";
 import type { ChildQuality } from "../algorithms/types";
 import type { ChildProfile } from "../shared/childProfile";
 import { buildProfile } from "../profiles/buildProfile";
-import { generateTheme } from "../agents/designer/designer";
+import { generateTheme, paletteOnlyThemeFromProfile } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { recordReward } from "../engine/bandit";
 import { planSession, recordAttempt } from "../engine/learningEngine";
-import { getSunnyMode, sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
+import {
+  getSunnyMode,
+  isDiagMapMode,
+  sunnyPreviewBlocksPersistence,
+} from "../utils/runtimeMode";
 import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
 import { isCompanionEmote } from "../shared/companionEmotes";
@@ -48,6 +52,7 @@ async function enrichHomeworkNodeThumbnails(
   theme: SessionTheme,
   nodeTypes: string[],
 ): Promise<void> {
+  if (isDiagMapMode()) return;
   const next: Record<string, string | null | undefined> = { ...(theme.nodeThumbnails ?? {}) };
   await Promise.all(
     [...new Set(nodeTypes)].map(async (type) => {
@@ -140,11 +145,13 @@ async function resolveThemeForMapSession(
     console.log(`  🎨 Reusing saved theme: ${picked.name}`);
     return { theme: sessionThemeFromSaved(picked), shouldPersist: false };
   }
-  const theme = await generateTheme(profile);
+  const generated = await generateTheme(profile);
+  const theme = generated ?? paletteOnlyThemeFromProfile(profile);
   return { theme, shouldPersist: persistCtx };
 }
 
 function persistHomeworkThemeSnapshot(childId: string, theme: SessionTheme): void {
+  if (isDiagMapMode()) return;
   const worldImageUrl = theme.backgroundUrl;
   if (!worldImageUrl) return;
   const themesDir = themesDirForChild(childId);
@@ -495,10 +502,6 @@ function syncNodeStatuses(state: MapState): void {
   }));
 }
 
-function isDiagMapMode(): boolean {
-  return process.env.SUNNY_SUBJECT?.trim() === "diag";
-}
-
 function clampNodeDifficulty(raw: number | undefined): 1 | 2 | 3 {
   const n = raw ?? 2;
   if (n <= 1) return 1;
@@ -541,7 +544,7 @@ export function pendingHomeworkToNodeConfigs(
   }));
 }
 
-/** Static theme — no Grok / designer image pipeline (SUNNY_SUBJECT=diag map only). */
+/** Static theme — no Grok / designer image pipeline (`isDiagMapMode()` / diag map session). */
 function diagSessionTheme(): SessionTheme {
   const accent = "#1a56db";
   return {
@@ -569,11 +572,20 @@ function diagSessionTheme(): SessionTheme {
 export function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
   const sessionDate = new Date().toISOString();
   const theme = diagSessionTheme();
-  const plan = planSession("creator", "spelling");
-  const dueWords =
-    plan.dueWords?.length && plan.dueWords.length > 0
-      ? plan.dueWords
-      : [...plan.newWords, ...plan.reviewWords];
+  let dueWords: string[] = ["seed", "demo"];
+  try {
+    const plan = planSession("creator", "spelling");
+    const picked =
+      plan.dueWords?.length && plan.dueWords.length > 0
+        ? plan.dueWords
+        : [...plan.newWords, ...plan.reviewWords];
+    if (picked.length > 0) dueWords = picked;
+  } catch (err) {
+    console.warn(
+      "  🎮 [diag-map] planSession(creator) failed — using placeholder due words:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
   const nodes: NodeConfig[] = [
     {
       id: "n-riddle",
