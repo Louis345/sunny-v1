@@ -23,6 +23,7 @@ export default defineConfig({
       "src/tests/test-web-toolkit-no-logAttempt.ts",
       "src/tests/test-canvas-voice-sync.ts",
       "src/tests/test-session-subject-diag.ts",
+      "src/tests/test-session-bootstrap-diag-psychologist.ts",
       "src/tests/test-plan-session-sm2.ts",
       "src/tests/test-game-contracts.ts",
       "src/tests/test-validate-generated-game.ts",
