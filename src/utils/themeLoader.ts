@@ -63,11 +63,8 @@ export function bundledJsonToSessionTheme(raw: unknown): SessionTheme | null {
   if (!isRecord(raw)) return null;
 
   const hw = raw as HomeworkThemeBundle;
-  if (
-    typeof hw.worldBackgroundUrl === "string" &&
-    hw.worldBackgroundUrl &&
-    isPalette(hw.palette)
-  ) {
+  /** Homework / bundle JSON on disk — image URLs expire; keep palette + layout metadata only. */
+  if (isPalette(hw.palette) && typeof hw.worldBackgroundUrl === "string" && hw.worldBackgroundUrl) {
     const p = hw.palette;
     return {
       name: typeof hw.name === "string" && hw.name ? hw.name : "saved",
@@ -84,9 +81,6 @@ export function bundledJsonToSessionTheme(raw: unknown): SessionTheme | null {
       nodeStyle: "rounded",
       pathStyle: "curve",
       castleVariant: "stone",
-      castleUrl: null,
-      backgroundUrl: hw.worldBackgroundUrl,
-      nodeThumbnails: (hw.thumbnails ?? {}) as SessionTheme["nodeThumbnails"],
       mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
       source: "saved",
     };
@@ -111,15 +105,6 @@ export function bundledJsonToSessionTheme(raw: unknown): SessionTheme | null {
       nodeStyle: raw.nodeStyle,
       pathStyle: raw.pathStyle,
       castleVariant: raw.castleVariant,
-      castleUrl:
-        raw.castleUrl === null || typeof raw.castleUrl === "string"
-          ? raw.castleUrl
-          : null,
-      backgroundUrl:
-        typeof raw.backgroundUrl === "string" ? raw.backgroundUrl : undefined,
-      nodeThumbnails: isRecord(raw.nodeThumbnails)
-        ? (raw.nodeThumbnails as SessionTheme["nodeThumbnails"])
-        : {},
       mapWaypoints: Array.isArray(raw.mapWaypoints)
         ? (raw.mapWaypoints as SessionTheme["mapWaypoints"])
         : [...DEFAULT_MAP_WAYPOINTS],

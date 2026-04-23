@@ -116,6 +116,56 @@ describe("bundledJsonToSessionTheme", () => {
     expect(bundledJsonToSessionTheme(null)).toBeNull();
     expect(bundledJsonToSessionTheme({})).toBeNull();
   });
+
+  it("strips image URLs from homework bundle JSON (URLs expire)", () => {
+    const saved = {
+      id: "x",
+      name: "fixture",
+      generatedAt: "2026-01-01T00:00:00.000Z",
+      worldBackgroundUrl: "https://expired.grok.url/img.png",
+      thumbnails: { "word-builder": "https://cdn.example/w.png" },
+      palette: {
+        sky: "#1a1a2e",
+        ground: "#228b5c",
+        accent: "#3366ff",
+        particle: "#e0f2fe",
+        glow: "#3366ff",
+      },
+      savedBy: "test",
+    };
+    const theme = bundledJsonToSessionTheme(saved);
+    expect(theme).not.toBeNull();
+    expect(theme!.backgroundUrl).toBeUndefined();
+    expect(theme!.castleUrl).toBeUndefined();
+    expect(theme!.nodeThumbnails).toBeUndefined();
+    expect(theme!.palette.sky).toBe("#1a1a2e");
+  });
+
+  it("strips image fields from full SessionTheme-shaped JSON", () => {
+    const raw = {
+      name: "t",
+      palette: {
+        sky: "#aabbcc",
+        ground: "#ddeeff",
+        accent: "#111",
+        particle: "#222",
+        glow: "#333",
+      },
+      ambient: { type: "dots", count: 1, speed: 1, color: "#fff" },
+      nodeStyle: "rounded",
+      pathStyle: "curve",
+      castleVariant: "stone",
+      backgroundUrl: "https://x/img.png",
+      castleUrl: "https://x/c.png",
+      nodeThumbnails: { riddle: "https://x/r.png" },
+    };
+    const theme = bundledJsonToSessionTheme(raw);
+    expect(theme).not.toBeNull();
+    expect(theme!.backgroundUrl).toBeUndefined();
+    expect(theme!.castleUrl).toBeUndefined();
+    expect(theme!.nodeThumbnails).toBeUndefined();
+    expect(theme!.palette.sky).toBe("#aabbcc");
+  });
 });
 
 describe("resolveThemeForMapSession (diag)", () => {
@@ -126,10 +176,12 @@ describe("resolveThemeForMapSession (diag)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("returns a saved bundle theme with source saved", async () => {
+  it("returns a saved bundle theme with source saved (no image URLs)", async () => {
     const out = await resolveThemeForMapSession(baseProfile());
     expect(out.theme.source).toBe("saved");
-    expect(out.theme.backgroundUrl).toBeTruthy();
+    expect(out.theme.backgroundUrl).toBeUndefined();
+    expect(out.theme.nodeThumbnails).toBeUndefined();
+    expect(out.theme.palette.sky).toBeTruthy();
     expect(out.shouldPersist).toBe(false);
   });
 

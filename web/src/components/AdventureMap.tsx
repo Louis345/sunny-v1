@@ -677,7 +677,11 @@ export function AdventureMap(props: {
         className="adventure-map-world"
         style={{ width: "100vw", height: "100vh" }}
       >
-        <WorldBackground url={bgUrl} />
+        <WorldBackground
+          url={bgUrl}
+          paletteSky={theme?.palette?.sky ?? mapState?.theme.palette.sky}
+          paletteGround={theme?.palette?.ground ?? mapState?.theme.palette.ground}
+        />
         <PathCurve
           count={displayNodes.length}
           startRadius={displayNodes[0]?.isGoal ? 60 : 44}
