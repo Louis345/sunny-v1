@@ -73,6 +73,7 @@ export default defineConfig({
       "src/tests/test-session-manager-lines.ts",
       "src/tests/test-take-game-screenshot.ts",
       "src/tests/test-homework-cycle.ts",
+      "src/tests/test-ingest-homework-phase2.ts",
       "src/tests/test-ingest-scan-result.ts",
       "src/algorithms/*.test.ts",
       "src/engine/*.test.ts",
