@@ -957,7 +957,7 @@ This is a safe space to test everything.
             "[Session start — diagnostics] The current time is above. " +
             "dateTime has already been resolved for this session — do not call the dateTime tool unless Jamal explicitly asks for the time or date again.\n\n" +
             "At most two short sentences: (1) greet Jamal as your creator using the time of day naturally, (2) ask who is with him. " +
-            "Stop — do not list capabilities or canvas modes unless he asks.",
+            "Stop — do not list capabilities or adventure map modes unless he asks.",
           true,
         );
       }

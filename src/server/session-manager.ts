@@ -21,7 +21,6 @@ import {
   TEST_MODE_PROMPT,
   buildDebugPrompt,
   buildSessionPrompt,
-  buildCanvasContext,
   extractWordsFromHomework,
   normalizeSessionSubject,
 } from "../agents/prompts";

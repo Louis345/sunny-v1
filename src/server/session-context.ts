@@ -457,10 +457,10 @@ function buildDiagCanvasContextMessage(
   const c = ctx.canvas.current;
   const snap = ctx.serialize();
 
-  lines.push("[Diagnostic session — canvas snapshot]");
+  lines.push("[Diagnostic session — adventure map snapshot]");
   lines.push(`Mode: ${c.mode}`);
   lines.push(
-    `Canvas ready (browser confirmed current revision): ${snap.canvasReady ? "yes" : "no"}`,
+    `Display ready (browser confirmed current revision): ${snap.canvasReady ? "yes" : "no"}`,
   );
   if (extras?.turnState) {
     lines.push(`Turn state (server): ${extras.turnState}`);
@@ -497,7 +497,7 @@ function buildDiagCanvasContextMessage(
   }
 
   lines.push(
-    `Canvas control: ${ctx.canvas.owner === "server" ? "server-driven" : "companion-driven"}`,
+    `Display control: ${ctx.canvas.owner === "server" ? "server-driven" : "companion-driven"}`,
   );
 
   if (ctx.availableToolNames.includes("launchGame")) {

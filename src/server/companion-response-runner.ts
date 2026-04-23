@@ -4,6 +4,7 @@ import { runAgent } from "../agents/elli/run";
 import type { ModelMessage } from "ai";
 import { buildCanvasContext } from "../agents/prompts";
 import { buildCanvasContextMessage } from "./session-context";
+import { isDiagMapMode } from "../utils/runtimeMode";
 import { auditLog } from "./audit-log";
 import { getTool } from "./games/registry";
 import { unwrapToolResult } from "./unwrapToolResult";
@@ -84,21 +85,25 @@ export async function runCompanionResponseForSession(
       const historyWithPin: typeof recentHistory =
         pins.length > 0 ? [...pins, ...recentHistory] : recentHistory;
 
-      // Prepend canvas state context so the AI always knows what is currently
-      // displayed — prevents duplicate showCanvas calls and enables intelligent
+      // Prepend display state context so the AI always knows what is currently
+      // shown — prevents duplicate showCanvas calls and enables intelligent
       // decisions about whether to update or hold the current display.
-      const canvasCtx = session.ctx
-        ? buildCanvasContextMessage(session.ctx, {
-            turnState: session.turnSM.getState(),
-            lastChildUtterance: session.lastTranscript || null,
-            wordBuilderRound:
-              session.wbActive && session.wbRound > 0 ? session.wbRound : null,
-            activeWord: session.activeWord,
-            wordScaffoldState: session.wordScaffoldState,
-          })
-        : session.currentCanvasState
-          ? buildCanvasContext(session.currentCanvasState)
-          : "";
+      const skipLiveDisplayContext =
+        isDiagMapMode() || session.ctx?.sessionType === "diag";
+      const canvasCtx = skipLiveDisplayContext
+        ? ""
+        : session.ctx
+          ? buildCanvasContextMessage(session.ctx, {
+              turnState: session.turnSM.getState(),
+              lastChildUtterance: session.lastTranscript || null,
+              wordBuilderRound:
+                session.wbActive && session.wbRound > 0 ? session.wbRound : null,
+              activeWord: session.activeWord,
+              wordScaffoldState: session.wordScaffoldState,
+            })
+          : session.currentCanvasState
+            ? buildCanvasContext(session.currentCanvasState)
+            : "";
       const messageWithContext = [userMessage, canvasCtx]
         .filter(Boolean)
         .join("\n\n");

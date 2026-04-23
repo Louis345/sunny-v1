@@ -22,7 +22,7 @@ import {
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v17"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v18"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -97,30 +97,37 @@ export function buildCanvasContext(canvas: Record<string, unknown>): string {
     const content = canvas.content as string | undefined;
     const phonemeBoxes = canvas.phonemeBoxes as Array<unknown> | undefined;
     if (content) {
-      parts.push(`Canvas shows: "${content}" (teaching mode)`);
+      parts.push(`Currently showing: "${content}" (teaching mode)`);
     } else if (phonemeBoxes && phonemeBoxes.length > 0) {
-      parts.push(`Canvas shows: phoneme segmentation boxes (teaching mode)`);
+      parts.push(
+        `Currently showing: phoneme segmentation boxes (teaching mode)`,
+      );
     } else {
-      parts.push(`Canvas is in teaching mode (no content set)`);
+      parts.push(
+        `The adventure map node is in teaching mode (no content set)`,
+      );
     }
   } else if (mode === "place_value") {
     const pv = canvas.placeValueData as Record<string, unknown> | undefined;
     if (pv) {
-      parts.push(`Canvas shows: place-value table ${pv.operandA} ${pv.operation ?? "+"} ${pv.operandB}`);
+      parts.push(
+        `Currently showing: place-value table ${pv.operandA} ${pv.operation ?? "+"} ${pv.operandB}`,
+      );
     }
   } else if (mode === "riddle") {
-    parts.push(`Canvas shows: a riddle`);
+    parts.push(`Currently showing: a riddle`);
   } else if (mode === "reward") {
-    parts.push(`Canvas shows: reward drawing`);
+    parts.push(`Currently showing: reward drawing`);
   } else if (mode === "championship") {
-    parts.push(`Canvas shows: championship screen`);
+    parts.push(`Currently showing: championship screen`);
   } else if (mode === "word-builder") {
-    parts.push(`Canvas shows: Word Builder game`);
+    parts.push(`Currently showing: Word Builder game`);
   } else if (mode === "spell-check") {
-    parts.push(`Canvas shows: Spell Check game`);
+    parts.push(`Currently showing: Spell Check game`);
   } else if (mode === "spelling") {
     const word = canvas.spellingWord as string | undefined;
-    if (word) parts.push(`Canvas shows: spelling board for "${word}"`);
+    if (word)
+      parts.push(`Currently showing: spelling board for "${word}"`);
   }
 
   if (parts.length === 0) return "";
@@ -241,7 +248,7 @@ export function WORD_BUILDER_ROUND_FAILED(round: number, _word: string): string 
   return `[System: Round ${round}/4 — So close! Try the next pattern.]`;
 }
 
-/** After iframe posts game_complete — canvas clear, ask voice spelling from memory. */
+/** After iframe posts game_complete — board clears, ask voice spelling from memory. */
 export function WORD_BUILDER_SESSION_COMPLETE(
   childLabel: string,
   word: string
@@ -302,7 +309,7 @@ Rules:
 
 export function TEST_MODE_PROMPT(childName: ChildName): string {
   return `You are in DIAGNOSTIC MODE. You have no name, no personality, and no warmth.
-You are a test harness used by the developer to verify that tool calls produce correct canvas output.
+You are a test harness used by the developer to verify tool calls, companion actions, and adventure map behavior.
 No real child is present. Child profile on file: ${childName}.
 
 ## Your Only Job
@@ -433,15 +440,15 @@ Here is ${childName}'s complete evaluation profile:
 ${soul}
 ${natalieBlock}
 
-## Canvas Capabilities
-The following canvas modes are available for ${companionName} to use.
+## Tool and display capabilities
+The following display modes are available for ${companionName} to use.
 Recommend specific modes by name in your lesson plan.
 ${getCanvasCapabilities()}
 
 ## Homework Processing
 If homework content is present in the session context:
 - Identify the subject from the content
-- Recommend appropriate canvas modes for that subject
+- Recommend appropriate display modes for that subject
 - Suggest pacing based on the child's profile
 - Note any parent notes about due dates or priorities
 - Do NOT generate a rigid execution script
@@ -581,7 +588,7 @@ When something isn't working:
   Ask what Jamal would like to try next.
 
 You know what you are built with.
-You know your tool capabilities from the [Canvas Capabilities] manifest.
+You know your tool capabilities from the [Tool capabilities] manifest.
 You know the available games from sessionStatus when needed.
 
 When a node shows karaoke (reading mode):
@@ -624,7 +631,7 @@ function buildDiagSessionPrompt(
     "\n\n" +
     generateCanvasCapabilitiesManifestCompact() +
     "\n\n";
-  const toolsSection = `\n\n## Your tools\n${generateToolNamesLine()}.\nArguments are validated server-side; use sessionStatus for game lists and canvasStatus when needed.`;
+  const toolsSection = `\n\n## Your tools\n${generateToolNamesLine()}.\nArguments are validated server-side; use sessionStatus for game lists and map status when needed.`;
 
   const imageRequestBlock = `
 
@@ -850,7 +857,7 @@ ${childName} may say letters in one breath — do NOT ask one letter at a time.
 
 After 2 failed voice attempts: launchGame(spell-check) — "Let me put it on the board — type it for me!"
 
-SESSION RHYTHM — Word Builder first when engaged (teaching tool, not reward): "Let's build [word]" → launchGame(word-builder) → 4 rounds → game_complete → canvas clears → ${POST_WB_SPELL_CUE} → sessionLog; next word repeat; voice wrong ×2 → spell-check. After game_complete: no showCanvas/blackboard — companion speaks only.
+SESSION RHYTHM — Word Builder first when engaged (teaching tool, not reward): "Let's build [word]" → launchGame(word-builder) → 4 rounds → game_complete → node clears → ${POST_WB_SPELL_CUE} → sessionLog; next word repeat; voice wrong ×2 → spell-check. After game_complete: no showCanvas/blackboard — companion speaks only.
 
 4. GIVE ${companionName.toUpperCase()} THEIR TOOLS
 Include this section in the session prompt you write (structure below; adapt voice only):
