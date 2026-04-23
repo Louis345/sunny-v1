@@ -44,6 +44,17 @@ function normalizeAngle(angle: CameraAngle | string): CameraAngle {
     : "mid-shot";
 }
 
+/** Extra downward look-at shift (world Y) for full-mode framing so feet sit near the container bottom. */
+export function fullModeLookAtGroundingOffsetY(characterHeight: number): number {
+  const h = Math.max(1e-4, characterHeight);
+  return -Math.min(0.78, Math.max(0.52, h * 0.38));
+}
+
+export interface ResolveCameraFramingOptions {
+  /** Added to computed look-at Y (negative = aim lower / ground the figure). */
+  lookAtYWorldOffset?: number;
+}
+
 /**
  * Resolve camera position, look-at, and FOV from bbox-fit baseline + preset offsets.
  */
@@ -52,13 +63,15 @@ export function resolveCameraFraming(
   angle: CameraAngle | string,
   outPosition: THREE.Vector3,
   outLookAt: THREE.Vector3,
+  options?: ResolveCameraFramingOptions,
 ): number {
   const preset = CAMERA_PRESETS[normalizeAngle(angle)];
   const ref = COMPANION_CAMERA_FIT_REF;
   const lookY =
     baseline.center.y +
     baseline.height *
-      (ref.lookAtYFrac + preset.lookAtYDeltaFrac);
+      (ref.lookAtYFrac + preset.lookAtYDeltaFrac) +
+    (options?.lookAtYWorldOffset ?? 0);
   const camY =
     baseline.center.y +
     baseline.height *

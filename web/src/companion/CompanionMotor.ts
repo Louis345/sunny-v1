@@ -36,6 +36,7 @@ import {
 } from "../utils/companionIdle";
 import { updateMouthSync } from "../utils/audioAnalyser";
 import {
+  fullModeLookAtGroundingOffsetY,
   resolveCameraFraming,
   startCameraTransition,
   tickCameraTransition,
@@ -98,6 +99,8 @@ export class CompanionMotor {
   private readonly lastCameraLookAt = new THREE.Vector3(0, 0.8, 0);
   private cameraFit: CameraFitBaseline | null = null;
   private currentCameraAngle: CameraAngle = "mid-shot";
+  /** When true, full-mode bbox framing lowers look-at Y so the figure reads grounded in the mount. */
+  private fullModeGroundFeet = false;
 
   private moveTarget: { x: number; z: number } | null = null;
   private moveLerp = 0.065;
@@ -120,6 +123,7 @@ export class CompanionMotor {
     this.expressionState = createNeutralExpressionState();
     this.eventDeduper = new CompanionEventDeduper();
     this.idleState = createInitialIdleState();
+    this.fullModeGroundFeet = false;
   }
 
   setCamera(camera: THREE.PerspectiveCamera | null): void {
@@ -129,15 +133,18 @@ export class CompanionMotor {
   /**
    * Mount VRM into the scene, wire lookAt, initial placement.
    * `mountW` / `mountH` size the perspective projection for bbox fitting (CSS pixels).
+   * @param fullModeGroundFeet When true (CompanionLayer full mode), look-at Y is offset to ground the figure; portrait must pass false.
    */
   attachVrm(
     vrm: VRM,
     scene: THREE.Scene,
     mountW: number,
     mountH: number,
+    fullModeGroundFeet = false,
   ): void {
     this.detachVrmFromScene();
     this.vrm = vrm;
+    this.fullModeGroundFeet = fullModeGroundFeet;
     // const lookTarget = new THREE.Object3D();
     // Place look target in front of the camera so the character looks
     // straight ahead on the first frame (before tick() repositions it).
@@ -171,9 +178,14 @@ export class CompanionMotor {
   /**
    * Resize path — refit using the attached VRM and latest mount dimensions.
    */
-  syncCameraToMount(mountW: number, mountH: number): void {
+  syncCameraToMount(
+    mountW: number,
+    mountH: number,
+    fullModeGroundFeet: boolean,
+  ): void {
     const vrm = this.vrm;
     if (!vrm) return;
+    this.fullModeGroundFeet = fullModeGroundFeet;
     this.fitCameraToVrm(vrm, mountW, mountH);
   }
 
@@ -233,11 +245,15 @@ export class CompanionMotor {
     const fit = this.cameraFit;
     if (!cam || !fit) return;
 
+    const lookAtYWorldOffset = this.fullModeGroundFeet
+      ? fullModeLookAtGroundingOffsetY(fit.height)
+      : 0;
     const endFov = resolveCameraFraming(
       fit,
       angle,
       this.cameraEndPos,
       this.cameraEndLook,
+      { lookAtYWorldOffset },
     );
 
     const transitionMs = opts.transitionMs;
