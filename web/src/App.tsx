@@ -224,6 +224,7 @@ function App() {
     sendMessage,
     micMuted,
     toggleMicMute,
+    registerMapNodeType,
     companionEvents: voiceCompanionEvents,
     companionCommands: voiceCompanionCommands,
     analyserNodeRef,
@@ -285,6 +286,14 @@ function App() {
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
     mapPreviewMode,
   );
+
+  useEffect(() => {
+    registerMapNodeType(mapSession.launchedNode?.type ?? null);
+  }, [
+    mapSession.launchedNode?.id,
+    mapSession.launchedNode?.type,
+    registerMapNodeType,
+  ]);
 
   const mergedCompanionEvents = useMemo(() => {
     const base = mergeCompanionEvents(

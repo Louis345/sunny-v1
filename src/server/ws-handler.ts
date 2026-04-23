@@ -4,6 +4,7 @@ import {
   handleMapSocketIframeCompanionEvent,
   registerMapSessionWebSocket,
 } from "./map-coordinator";
+import { createAudioGate } from "./audioGate";
 import { SessionManager } from "./session-manager";
 
 export function handleWsConnection(
@@ -16,6 +17,7 @@ export function handleWsConnection(
   );
 
   let session: SessionManager | null = null;
+  let audioGate: ReturnType<typeof createAudioGate> | null = null;
 
   ws.on("message", async (raw) => {
     let msg: { type?: string; child?: string; data?: string };
@@ -108,13 +110,25 @@ export function handleWsConnection(
             : undefined;
         session = new SessionManager(ws, child, diagKiosk, sessionOptions);
         await session.start();
+        audioGate = createAudioGate({
+          sendAudio: (pcm) => {
+            session?.receiveAudio(pcm);
+          },
+        });
+        break;
+      }
+
+      case "set_mute": {
+        if (!audioGate) return;
+        const m = msg as { muted?: boolean };
+        audioGate.setMute(m.muted === true);
         break;
       }
 
       case "audio": {
-        if (!session) return;
+        if (!session || !audioGate) return;
         const pcm = Buffer.from(msg.data ?? "", "base64");
-        session.receiveAudio(pcm);
+        audioGate.receiveChunk(pcm);
         break;
       }
 
@@ -128,6 +142,7 @@ export function handleWsConnection(
         if (!session) return;
         await session.end();
         session = null;
+        audioGate = null;
         break;
       }
 
@@ -208,6 +223,7 @@ export function handleWsConnection(
     if (session) {
       await session.end().catch(console.error);
       session = null;
+      audioGate = null;
     }
   });
 

@@ -28,6 +28,8 @@ import {
   resetAudioAnalyser,
 } from "../utils/audioAnalyser";
 import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
+import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
+import { getNodeAudioDefaults } from "../../../src/shared/nodeAudioDefaults";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -322,6 +324,13 @@ export function useSession(options?: UseSessionOptions) {
   const [micMuted, setMicMuted] = useState(false);
   const micMutedRef = useRef(false);
   micMutedRef.current = micMuted;
+  const [ttsMuted, setTtsMuted] = useState(false);
+  const ttsMutedRef = useRef(false);
+  ttsMutedRef.current = ttsMuted;
+  const [mapNodeType, setMapNodeType] = useState<string | null>(null);
+  const registerMapNodeType = useCallback((t: string | null) => {
+    setMapNodeType(t);
+  }, []);
 
   // --- Refs for handler to avoid stale closure ---
   const setStateRef = useRef(setState);
@@ -352,9 +361,11 @@ export function useSession(options?: UseSessionOptions) {
 
     serverDoneRef.current = false;
     sendMessageRef.current("playback_done");
-    for (const frame of rollingBufferRef.current) {
-      sendMessageRef.current("audio", { data: frame });
-    }
+    flushBufferIfUnmuted(
+      rollingBufferRef.current,
+      micMutedRef.current,
+      (type, payload) => sendMessageRef.current(type, payload),
+    );
     rollingBufferRef.current = [];
     bargeInConsecutiveRef.current = 0;
   };
@@ -552,7 +563,14 @@ export function useSession(options?: UseSessionOptions) {
         }));
         const useBrowserTts = debugBrowserTtsRef.current || urlWantsBrowserTts();
         const silenceAssist = isKaraokeReadingAssistSilence(sessionStateRef.current);
-        if (useBrowserTts && !silenceAssist && chunk && typeof window !== "undefined" && window.speechSynthesis) {
+        if (
+          useBrowserTts &&
+          !silenceAssist &&
+          !ttsMutedRef.current &&
+          chunk &&
+          typeof window !== "undefined" &&
+          window.speechSynthesis
+        ) {
           browserTtsAccumRef.current += chunk;
           if (browserTtsDebounceRef.current) {
             clearTimeout(browserTtsDebounceRef.current);
@@ -574,6 +592,9 @@ export function useSession(options?: UseSessionOptions) {
 
       case "audio": {
         serverDoneRef.current = false;
+        if (ttsMutedRef.current) {
+          break;
+        }
         if (isKaraokeReadingAssistSilence(sessionStateRef.current)) {
           break;
         }
@@ -1055,9 +1076,12 @@ export function useSession(options?: UseSessionOptions) {
                   try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
                   currentSourceRef.current = null;
                 }
-                for (const frame of rollingBufferRef.current) {
-                  sendMessageRef.current("audio", { data: frame });
-                }
+                flushBufferIfUnmuted(
+                  rollingBufferRef.current,
+                  micMutedRef.current,
+                  (type, payload) =>
+                    sendMessageRef.current(type, payload as { data: string }),
+                );
                 rollingBufferRef.current = [];
                 bargeInConsecutiveRef.current = 0;
               }
@@ -1170,6 +1194,38 @@ export function useSession(options?: UseSessionOptions) {
     }
   }, [karaokeAssistSilence]);
 
+  useEffect(() => {
+    if (!ttsMuted) return;
+    audioQueueRef.current = [];
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+      } catch {
+        /* already stopped */
+      }
+      currentSourceRef.current = null;
+    }
+    isPlayingRef.current = false;
+    if (browserTtsDebounceRef.current) {
+      clearTimeout(browserTtsDebounceRef.current);
+      browserTtsDebounceRef.current = null;
+    }
+    browserTtsAccumRef.current = "";
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, [ttsMuted]);
+
+  useEffect(() => {
+    if (state.phase !== "active") return;
+    if (!mapNodeType) return;
+    const d = getNodeAudioDefaults(mapNodeType);
+    const shouldMute = d.companionMicDefault === "off";
+    setMicMuted(shouldMute);
+    sendMessage("set_mute", { muted: shouldMute });
+    setTtsMuted(d.companionTtsDefault === "off");
+  }, [mapNodeType, state.phase, sendMessage]);
+
   // --- Actions ---
 
   const startSession = useCallback(
@@ -1224,9 +1280,11 @@ export function useSession(options?: UseSessionOptions) {
       try { currentSourceRef.current.stop(); } catch { /* already stopped */ }
       currentSourceRef.current = null;
     }
-    for (const frame of rollingBufferRef.current) {
-      sendMessage("audio", { data: frame });
-    }
+    flushBufferIfUnmuted(
+      rollingBufferRef.current,
+      micMutedRef.current,
+      sendMessage,
+    );
     rollingBufferRef.current = [];
     bargeInConsecutiveRef.current = 0;
   }, [sendMessage]);
@@ -1245,8 +1303,12 @@ export function useSession(options?: UseSessionOptions) {
   }, [sendMessage]);
 
   const toggleMicMute = useCallback(() => {
-    setMicMuted((m) => !m);
-  }, []);
+    setMicMuted((m) => {
+      const next = !m;
+      sendMessage("set_mute", { muted: next });
+      return next;
+    });
+  }, [sendMessage]);
 
   useEffect(() => {
     mediaStreamRef.current?.getAudioTracks().forEach((t) => {
@@ -1257,6 +1319,8 @@ export function useSession(options?: UseSessionOptions) {
   const resetToPicker = useCallback(() => {
     turnPolicyRef.current = DEFAULT_TURN_POLICY;
     setMicMuted(false);
+    setTtsMuted(false);
+    setMapNodeType(null);
     setState({
       phase: "picker",
       childName: null,
@@ -1373,6 +1437,7 @@ export function useSession(options?: UseSessionOptions) {
     sendMessage,
     micMuted,
     toggleMicMute,
+    registerMapNodeType,
     companionEvents: state.companionEvents,
     companionCommands: state.companionCommands,
     analyserNodeRef,
