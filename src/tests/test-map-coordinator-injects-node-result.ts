@@ -40,6 +40,7 @@ vi.mock("../agents/elli/run", () => ({
 import {
   __resetAdventureMapSessionsForTests,
   applyNodeResult,
+  handleMapClientMessage,
   startMapSession,
 } from "../server/map-coordinator";
 import {
@@ -131,6 +132,28 @@ describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVE
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);
     vi.mocked(buildNodeList).mockResolvedValue(mockNodes());
+  });
+
+  it("8b. [BASELINE→FINAL] node_click with voice SM calls noteExternalEvent(map_node_started) with word hint", async () => {
+    const { sessionId, mapState } = await startMapSession("ila");
+    const sm = new SessionManager(mockWs(), "Ila");
+    registerActiveVoiceSessionManager("ila", sm);
+
+    const notespy = vi.spyOn(sm as unknown as { noteExternalEvent: (e: unknown) => void }, "noteExternalEvent");
+    const firstId = mapState.nodes[0]!.id;
+    handleMapClientMessage(sessionId, {
+      type: "node_click",
+      payload: { nodeId: firstId },
+    });
+
+    expect(notespy).toHaveBeenCalledTimes(1);
+    const started = notespy.mock.calls[0]?.[0] as { source: string; summary: string };
+    expect(started?.source).toBe("map_node_started");
+    expect(started?.summary).toContain("ila");
+    expect(started?.summary.toLowerCase()).toMatch(/spell/);
+    expect(started?.summary).toMatch(/"cat"/);
+
+    unregisterActiveVoiceSessionManager("ila", sm);
   });
 
   it("9. when voice SM is registered, applyNodeResult calls noteExternalEvent exactly once with consistent summary", async () => {

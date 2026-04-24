@@ -741,6 +741,18 @@ export function handleMapClientMessage(
     if (!cur || cur.id !== nodeId) {
       return [{ type: "map_error", payload: { reason: "not_current_node" } }];
     }
+    const childId = rec.mapState.childId;
+    const sm = getActiveVoiceSessionManagerForChild(childId);
+    if (sm) {
+      const nodeSummary = cur.words?.length
+        ? `${childId} just started a ${cur.type} activity. Word: "${cur.words[0]}".`
+        : `${childId} just started a ${cur.type} activity.`;
+      sm.noteExternalEvent({
+        source: "map_node_started",
+        summary: nodeSummary,
+        occurredAt: Date.now(),
+      });
+    }
     out.push({ type: "node_launched", payload: cur });
     return out;
   }
