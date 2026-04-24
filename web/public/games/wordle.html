@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="_contract.js"></script>
+<script>
+(function () {
+  if (window.GAME_PARAMS && window.GAME_PARAMS.childId === "ila") {
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href =
+      "https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&display=swap";
+    document.documentElement.appendChild(l);
+  }
+})();
+</script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Spell it!</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#12002e;font-family:'Nunito','Arial Rounded MT Bold',Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:12px 14px;gap:14px;overflow:hidden;position:relative}
+body.dyslexia{background:#FFF8E7;font-family:'Lexend',system-ui,sans-serif;letter-spacing:0.05em}
+body.dyslexia .starfield{opacity:0.38}
+.starfield{position:absolute;inset:0;pointer-events:none;z-index:0}
+.s{position:absolute;border-radius:50%;background:#fff;animation:tw var(--d,2s) var(--dl,0s) infinite alternate ease-in-out}
+@keyframes tw{from{opacity:0.1;transform:scale(0.7)}to{opacity:0.9;transform:scale(1.3)}}
+.shooting{position:absolute;width:80px;height:2px;background:linear-gradient(90deg,transparent,#fff,transparent);border-radius:2px;animation:shoot 3.5s linear infinite;opacity:0}
+@keyframes shoot{0%{opacity:0;transform:translateX(-100px) translateY(0) rotate(-25deg)}10%{opacity:1}40%{opacity:0;transform:translateX(300px) translateY(80px) rotate(-25deg)}100%{opacity:0}}
+.wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:min(100%, 520px)}
+.title{font-size:26px;font-weight:900;color:#FFD93D;text-align:center;text-shadow:0 2px 0 #8a6a00;letter-spacing:0.02em}
+.message-fixed{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;font-size:24px;font-weight:900;text-align:center;padding:16px 20px;pointer-events:none;opacity:0;visibility:hidden;transition:opacity 0.2s}
+.message-fixed.show{opacity:1;visibility:visible}
+.grid-wrap{width:100%;display:flex;justify-content:center;overflow-x:auto;perspective:800px}
+.game-grid{--cell:52px;--gap:5px;border-collapse:separate;border-spacing:var(--gap)}
+body.dyslexia .game-grid{--cell:60px}
+.cell{
+  width:var(--cell);min-width:var(--cell);height:var(--cell);min-height:var(--cell);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--cell) * 0.5);font-weight:900;text-transform:uppercase;
+  border:2px solid #3C3489;background:transparent;color:#fff;
+  transform-style:preserve-3d;
+  backface-visibility:visible;
+}
+.cell.filled{border:2px solid #FFD93D;background:#3C3489}
+.cell.correct{--fc:#1D9E75;border-color:var(--fc);background:var(--fc);color:#fff}
+.cell.present{--fc:#B59F3B;border-color:var(--fc);background:var(--fc);color:#fff}
+.cell.absent{--fc:#3a3a3c;border-color:var(--fc);background:var(--fc);color:#fff}
+.cell.flip-anim{animation:cellFlip 0.55s ease-in-out both}
+.cell-inner{
+  display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+  border-radius:6px
+}
+@keyframes cellFlip{
+  0%{transform:rotateX(0deg)}
+  50%{transform:rotateX(90deg)}
+  100%{transform:rotateX(0deg)}
+}
+.keyboard{display:flex;flex-direction:column;align-items:center;gap:5px;width:100%;max-width:440px;margin-top:4px}
+.kb-row{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+.key{height:48px!important;min-width:36px!important;border-radius:8px!important;border:none!important;font-size:16px!important;font-weight:900!important;cursor:pointer!important;display:flex!important;align-items:center!important;justify-content:center!important;text-transform:uppercase!important;padding:0 8px!important;font-family:inherit!important;position:relative!important;background:#ffffff!important;color:#12002e!important;box-shadow:0 4px 0 #888!important}
+.key:hover{filter:brightness(0.9)!important}
+.key:active{transform:translateY(3px)!important;box-shadow:0 1px 0 #888!important}
+.key.enter-key{background:#FFD93D!important;color:#12002e!important;min-width:88px!important;font-size:13px!important;font-weight:900!important;box-shadow:0 4px 0 #8a6a00!important}
+.key.del-key{background:#e74c3c!important;color:#fff!important;min-width:64px!important;font-size:12px!important;box-shadow:0 4px 0 #7a1f1f!important}
+.key.kb-correct{background:#1D9E75!important;color:#fff!important;box-shadow:0 4px 0 #0d4d38!important}
+.key.kb-present{background:#B59F3B!important;color:#fff!important;box-shadow:0 4px 0 #5c4f1e!important}
+.key.kb-absent{background:#3a3a3c!important;color:#fff!important;box-shadow:0 4px 0 #1a1a1a!important}
+</style>
+</head>
+<body>
+<div class="starfield" id="sf"></div>
+<div class="wrap" id="mainwrap">
+  <h1 class="title">Spell it!</h1>
+  <div class="grid-wrap">
+    <table class="game-grid" id="grid" role="grid" aria-label="Word grid"></table>
+  </div>
+  <div class="keyboard" id="keyboard">
+    <div class="kb-row" id="kb0"></div>
+    <div class="kb-row" id="kb1"></div>
+    <div class="kb-row" id="kb2"></div>
+  </div>
+</div>
+<div class="message-fixed" id="msg" aria-live="polite"></div>
+<script>
+const sf = document.getElementById("sf");
+for (let i = 0; i < 55; i++) {
+  const s = document.createElement("div");
+  s.className = "s";
+  const sz = Math.random() * 3 + 1.5;
+  s.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;width:${sz}px;height:${sz}px;--d:${1.5 + Math.random() * 2.5}s;--dl:${Math.random() * 3}s;opacity:${0.2 + Math.random() * 0.6}`;
+  sf.appendChild(s);
+}
+for (let i = 0; i < 3; i++) {
+  const sh = document.createElement("div");
+  sh.className = "shooting";
+  sh.style.cssText = `left:${Math.random() * 60}%;top:${Math.random() * 40}%;animation-delay:${i * 1.2 + Math.random()}s`;
+  sf.appendChild(sh);
+}
+
+const startTime = Date.now();
+const GP = window.GAME_PARAMS || {};
+const words = GP.words && GP.words.length ? GP.words : [];
+const rawWord = words[0] != null ? String(words[0]) : "";
+const word = rawWord.toLowerCase().replace(/\s/g, "");
+const childId = GP.childId || "unknown";
+const dRaw = parseInt(String(GP.difficulty || 2), 10) || 2;
+const difficulty = dRaw < 1 ? 1 : dRaw > 3 ? 3 : dRaw;
+const maxRows = difficulty === 1 ? 8 : difficulty === 2 ? 6 : 4;
+
+if (childId === "ila") {
+  document.body.classList.add("dyslexia");
+}
+
+const audioCtx = (function () {
+  try {
+    return new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) {
+    return null;
+  }
+})();
+
+function playOsc(freq, durMs, vol) {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + durMs / 1000);
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start(t0);
+  o.stop(t0 + durMs / 1000 + 0.02);
+}
+
+function playChimeRow() {
+  if (!audioCtx) return;
+  [523, 659, 784].forEach((f, i) => {
+    setTimeout(
+      function () {
+        playOsc(f, 100, 0.2);
+      },
+      i * 100,
+    );
+  });
+}
+
+function playBuzz() {
+  if (!audioCtx) return;
+  playOsc(220, 150, 0.25);
+}
+
+function playFanfare() {
+  if (!audioCtx) return;
+  [523, 659, 784, 1047].forEach((f, i) => {
+    setTimeout(
+      function () {
+        playOsc(f, 120, 0.18);
+      },
+      i * 120,
+    );
+  });
+}
+
+function playLose() {
+  if (!audioCtx) return;
+  [400, 300, 200].forEach((f, i) => {
+    setTimeout(
+      function () {
+        playOsc(f, 150, 0.2);
+      },
+      i * 150,
+    );
+  });
+}
+
+function ensureAudio() {
+  if (audioCtx && audioCtx.state === "suspended") {
+    audioCtx.resume().catch(function () {});
+  }
+}
+
+function fireComp(trigger, pl) {
+  if (typeof window.fireCompanionEvent === "function") {
+    window.fireCompanionEvent(trigger, pl || {});
+  }
+}
+
+let gameOver = false;
+let inputLocked = false;
+let nodeSent = false;
+let currentRow = 0;
+let currentInput = "";
+let triesUsed = 0;
+const keyBest = Object.create(null);
+
+const KB = [
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+  ["del", "z", "x", "c", "v", "b", "n", "m", "enter"],
+];
+const keyEls = Object.create(null);
+
+function rankSt(a) {
+  if (a === "correct" || a === 3) return 3;
+  if (a === "present" || a === 2) return 2;
+  if (a === "absent" || a === 1) return 1;
+  return 0;
+}
+
+function mergeSt(oldS, newS) {
+  return rankSt(newS) > rankSt(oldS) ? newS : oldS;
+}
+
+function updateKey(letter, st) {
+  const lo = letter.toLowerCase();
+  if (!/^[a-z]$/.test(lo)) return;
+  const prev = keyBest[lo];
+  if (!prev) {
+    keyBest[lo] = st;
+  } else {
+    keyBest[lo] = mergeSt(prev, st);
+  }
+  const btn = keyEls[lo];
+  if (btn) {
+    btn.classList.remove("kb-correct", "kb-present", "kb-absent");
+    if (keyBest[lo] === "correct") btn.classList.add("kb-correct");
+    else if (keyBest[lo] === "present") btn.classList.add("kb-present");
+    else if (keyBest[lo] === "absent") btn.classList.add("kb-absent");
+  }
+}
+
+function scoreGuess(secret, guess) {
+  const s = secret;
+  const g = guess;
+  const n = s.length;
+  const res = new Array(n).fill("absent");
+  const bag = Object.create(null);
+  for (let j = 0; j < n; j++) {
+    const c = s[j];
+    bag[c] = (bag[c] || 0) + 1;
+  }
+  for (let i = 0; i < n; i++) {
+    if (g[i] === s[i]) {
+      res[i] = "correct";
+      bag[g[i]]--;
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    if (res[i] === "correct") continue;
+    if (bag[g[i]] > 0) {
+      res[i] = "present";
+      bag[g[i]]--;
+    }
+  }
+  return res;
+}
+
+const grid = document.getElementById("grid");
+let bodyCells = [];
+
+function buildEmptyGrid() {
+  grid.innerHTML = "";
+  bodyCells = [];
+  const wlen = word.length;
+  for (let r = 0; r < maxRows; r++) {
+    const tr = document.createElement("tr");
+    const rowCells = [];
+    for (let c = 0; c < wlen; c++) {
+      const td = document.createElement("td");
+      const inner = document.createElement("div");
+      inner.className = "cell-inner";
+      td.className = "cell";
+      td.setAttribute("role", "gridcell");
+      td.appendChild(inner);
+      tr.appendChild(td);
+      rowCells.push({ td: td, inner: inner });
+    }
+    bodyCells.push(rowCells);
+    grid.appendChild(tr);
+  }
+}
+
+function drawActiveRow() {
+  if (gameOver) return;
+  if (inputLocked) return;
+  const wlen = word.length;
+  for (let r = 0; r < maxRows; r++) {
+    const rowC = bodyCells[r];
+    for (let c = 0; c < wlen; c++) {
+      const { td, inner } = rowC[c];
+      const isPast = r < currentRow;
+      const isAct = r === currentRow;
+      if (isPast) {
+        continue;
+      }
+      if (isAct) {
+        const ch = currentInput[c] || "";
+        inner.textContent = ch ? ch.toUpperCase() : "";
+        td.classList.remove("filled", "correct", "present", "absent", "flip-anim");
+        if (ch) {
+          td.classList.add("filled");
+        }
+      } else {
+        inner.textContent = "";
+        td.className = "cell";
+        inner.className = "cell-inner";
+      }
+    }
+  }
+}
+
+function endGame(completed) {
+  if (nodeSent) return;
+  nodeSent = true;
+  gameOver = true;
+  const w = word;
+  if (typeof window.sendNodeComplete === "function") {
+    window.sendNodeComplete({
+      completed: completed,
+      accuracy: triesUsed === 1 ? 1.0 : completed ? 0.7 : 0,
+      flaggedWords: completed ? [] : [w],
+      xpEarned: completed ? Math.max(50 - triesUsed * 5, 10) : 5,
+      timeSpent_ms: Date.now() - startTime,
+      wordsAttempted: 1,
+      wordsCorrect: completed ? [w] : [],
+      wordsStruggled: completed ? [] : [w],
+    });
+  }
+}
+
+function runFlipThenApply(rIndex, gStr, results, onDone) {
+  const rowC = bodyCells[rIndex];
+  const wlen = gStr.length;
+  var doneN = 0;
+  for (var c = 0; c < wlen; c++) {
+    const { td, inner } = rowC[c];
+    inner.textContent = gStr[c] ? gStr[c].toUpperCase() : "";
+    td.classList.add("filled");
+    (function (ci) {
+      setTimeout(function () {
+        td.classList.add("flip-anim");
+        function finish() {
+          if (td._flipRowDone) return;
+          td._flipRowDone = true;
+          doneN++;
+          td.classList.remove("flip-anim");
+          var st = results[ci];
+          inner.textContent = (gStr[ci] || "").toUpperCase();
+          td.className =
+            "cell " + (st === "correct" ? "correct" : st === "present" ? "present" : "absent");
+          if (doneN === wlen) onDone();
+        }
+        td.addEventListener("animationend", finish, { once: true });
+        setTimeout(finish, 580);
+      }, ci * 90);
+    })(c);
+  }
+}
+
+function submitRow() {
+  if (gameOver || inputLocked) return;
+  if (!word.length) return;
+  if (currentInput.length !== word.length) return;
+  inputLocked = true;
+  ensureAudio();
+  const gStr = currentInput.toLowerCase();
+  const results = scoreGuess(word, gStr);
+  for (var ci = 0; ci < gStr.length; ci++) {
+    updateKey(gStr[ci], results[ci]);
+  }
+  triesUsed++;
+  const isWin = results.every(function (s) {
+    return s === "correct";
+  });
+
+  for (var g = 0; g < results.length; g++) {
+    if (results[g] === "correct") {
+      fireComp("correct_answer", {});
+    }
+  }
+  if (!isWin) {
+    fireComp("wrong_answer", {});
+    if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+      window.GameBridge.reportState(
+        "Guessing a " +
+          word.length +
+          "-letter word — attempt " +
+          triesUsed +
+          " of " +
+          maxRows
+      );
+    }
+  }
+
+  runFlipThenApply(currentRow, gStr, results, function () {
+    inputLocked = false;
+    if (isWin) {
+      gameOver = true;
+      playChimeRow();
+      setTimeout(playFanfare, 320);
+      fireComp("session_complete", {});
+      const show = document.getElementById("msg");
+      show.textContent = "YOU GOT IT!";
+      show.style.color = "#FFD93D";
+      show.classList.add("show");
+      setTimeout(function () {
+        show.classList.remove("show");
+        setTimeout(function () {
+          endGame(true);
+        }, 100);
+      }, 1500);
+      return;
+    }
+    playBuzz();
+    if (triesUsed >= maxRows) {
+      gameOver = true;
+      setTimeout(playLose, 120);
+      const show = document.getElementById("msg");
+      show.textContent = "The word was: " + word;
+      show.style.color = "#e74c3c";
+      show.classList.add("show");
+      setTimeout(function () {
+        show.classList.remove("show");
+        setTimeout(function () {
+          endGame(false);
+        }, 100);
+      }, 2000);
+      return;
+    }
+    currentRow++;
+    currentInput = "";
+    drawActiveRow();
+  });
+}
+
+KB.forEach(function (row, ri) {
+  const el = document.getElementById("kb" + ri);
+  row.forEach(function (letter) {
+    const btn = document.createElement("button");
+    btn.className = "key";
+    if (letter === "enter") btn.classList.add("enter-key");
+    if (letter === "del") btn.classList.add("del-key");
+    btn.type = "button";
+    btn.textContent = letter === "enter" ? "ENTER" : letter === "del" ? "DEL" : letter.toUpperCase();
+    if (/^[a-z]$/.test(letter)) keyEls[letter] = btn;
+    btn.addEventListener("click", function () {
+      keyPress(letter);
+    });
+    el.appendChild(btn);
+  });
+});
+
+function keyPress(l) {
+  if (gameOver || inputLocked) return;
+  if (!word.length) return;
+  if (l === "del") {
+    currentInput = currentInput.slice(0, -1);
+    drawActiveRow();
+    return;
+  }
+  if (l === "enter") {
+    submitRow();
+    return;
+  }
+  if (/^[a-z]$/i.test(l) && currentInput.length < word.length) {
+    currentInput += l.toLowerCase();
+    drawActiveRow();
+  }
+}
+
+document.addEventListener("keydown", function (e) {
+  if (gameOver || inputLocked) return;
+  if (!word.length) return;
+  if (e.key === "Backspace") {
+    e.preventDefault();
+    keyPress("del");
+    return;
+  }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    keyPress("enter");
+    return;
+  }
+  if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+    e.preventDefault();
+    keyPress(e.key);
+  }
+});
+
+if (!word) {
+  document.getElementById("msg").textContent = "No word in link";
+  document.getElementById("msg").style.color = "#e74c3c";
+  document.getElementById("msg").classList.add("show");
+} else {
+  buildEmptyGrid();
+  drawActiveRow();
+}
+</script>
+</body>
+</html>

@@ -757,6 +757,23 @@ export function handleMapClientMessage(
     return out;
   }
 
+  if (msg.type === "game_state_update") {
+    const childId = rec.mapState.childId;
+    const sm = getActiveVoiceSessionManagerForChild(childId);
+    if (sm) {
+      const progress = String(
+        (msg.payload as Record<string, unknown> | undefined)?.progress ??
+          "Working on a game",
+      );
+      sm.noteExternalEvent({
+        source: "game_state_update",
+        summary: progress,
+        occurredAt: Date.now(),
+      });
+    }
+    return [];
+  }
+
   return [{ type: "map_error", payload: { reason: "unknown_message" } }];
 }
 

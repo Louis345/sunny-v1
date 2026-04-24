@@ -547,6 +547,17 @@ function onPill(letter) {
     sHint();
     slots[i] = letter;
     renderScaffold();
+    var blanksLeft = 0;
+    var bi;
+    for (bi = 0; bi < w.length; bi++) {
+      if (hiddenSet.has(bi) && (slots[bi] || "") === "") blanksLeft++;
+    }
+    if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+      window.GameBridge.reportState(
+        'Filling in "' + currentWord + '" — ' +
+        blanksLeft + ' blank' + (blanksLeft !== 1 ? 's' : '') + ' remaining'
+      );
+    }
     for (i = 0; i < w.length; i++) {
       if (hiddenSet.has(i) && (slots[i] || "") === "") {
         return;
@@ -556,6 +567,13 @@ function onPill(letter) {
   } else {
     scaffoldDecoysTaps++;
     sWrong();
+    if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+      var currentTyped = String(letter || "");
+      window.GameBridge.reportState(
+        'Wrong attempt on "' + currentWord +
+        '" — tried "' + currentTyped + '"'
+      );
+    }
     var mw = document.getElementById("mainwrap");
     mw.classList.add("shake");
     setTimeout(function () {

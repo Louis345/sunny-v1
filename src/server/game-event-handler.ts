@@ -157,6 +157,19 @@ export function handleGameEventForSession(
   event: Record<string, unknown>,
   fromPendingFlush = false,
 ): void {
+  /** Iframe `GameBridge` uses `{ type, payload, version }`; voice path expects flat fields. */
+  const pl = event.payload;
+  if (
+    pl != null &&
+    typeof pl === "object" &&
+    !Array.isArray(pl) &&
+    typeof event.type === "string"
+  ) {
+    const inner = pl as Record<string, unknown>;
+    const { payload: _omit, ...rest } = event;
+    event = { ...rest, ...inner } as Record<string, unknown>;
+  }
+
   const type = event.type as string;
 
   if (type === "clock_answer") {

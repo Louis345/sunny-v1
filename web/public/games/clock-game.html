@@ -262,6 +262,11 @@ body {
       clocksRow.appendChild(card);
     });
     setMascot("😊", false);
+    if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+      window.GameBridge.reportState(
+        "Reading a clock — what time does it show?"
+      );
+    }
   }
 
   function onPick(card, isCorrect) {
@@ -277,6 +282,9 @@ body {
     void card.offsetWidth;
     card.classList.add("shake");
     setMascot("😢", true);
+    if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+      window.GameBridge.reportState("Wrong clock answer — trying again");
+    }
     if (wrongTaps >= 2) {
       setTimeout(function () { finish(false); }, 500);
     }

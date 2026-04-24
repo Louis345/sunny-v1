@@ -443,6 +443,9 @@
   }
 
   function startGameFromSession(startLevel) {
+    if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+      window.GameBridge.reportState("Taking a fun break — playing " + document.title);
+    }
     score = 0;
     lives = 3;
     level = Math.max(1, startLevel);

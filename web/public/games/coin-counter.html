@@ -493,6 +493,9 @@ function submitAnswer(){
     streak=0;
     playWrong();
     updateHUD();
+    if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+      window.GameBridge.reportState("Counting coins — not quite right, trying again");
+    }
     var diff=total-targetCents;
     if(diff>0) setMatilda('Too much! You have '+centsToDisplay(total)+' but need '+centsToDisplay(targetCents)+'. Bank cleared — keep catching! 🐷');
     else setMatilda('Not quite! You have '+centsToDisplay(total)+', need '+centsToDisplay(targetCents)+'. Keep catching coins! 🪙');

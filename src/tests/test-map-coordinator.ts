@@ -41,6 +41,11 @@ import {
   MapSessionError,
   startMapSession,
 } from "../server/map-coordinator";
+import {
+  __resetVoiceSessionRegistryForTests,
+  registerActiveVoiceSessionManager,
+  unregisterActiveVoiceSessionManager,
+} from "../server/voice-session-registry";
 
 import { buildProfile } from "../profiles/buildProfile";
 import { cloneCompanionDefaults } from "../shared/companionTypes";
@@ -90,6 +95,7 @@ describe("map coordinator (TASK-010)", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     __resetAdventureMapSessionsForTests();
+    __resetVoiceSessionRegistryForTests();
     vi.mocked(buildProfile).mockResolvedValue({
       childId: "qa_map",
       ttsName: "Qa map",
@@ -127,6 +133,23 @@ describe("map coordinator (TASK-010)", () => {
       payload: { nodeId: firstId },
     });
     expect(events[0]?.type).toBe("node_launched");
+  });
+
+  it("game_state_update calls noteExternalEvent on active voice session manager", async () => {
+    const { sessionId: sid, mapState } = await startMapSession("qa_map");
+    const sm = { noteExternalEvent: vi.fn() };
+    registerActiveVoiceSessionManager(mapState.childId, sm);
+    const events = handleMapClientMessage(sid, {
+      type: "game_state_update",
+      payload: { progress: "Spelling — 2 blanks left" },
+    });
+    expect(events).toEqual([]);
+    expect(sm.noteExternalEvent).toHaveBeenCalledWith({
+      source: "game_state_update",
+      summary: "Spelling — 2 blanks left",
+      occurredAt: expect.any(Number),
+    });
+    unregisterActiveVoiceSessionManager(mapState.childId, sm);
   });
 
   it("applyNodeResult increments XP and appends NodeRating", async () => {

@@ -1,13 +1,15 @@
 /**
- * Standard iframe game ↔ parent (adventure map) contract.
- * Load from HTML: <script src="_contract.js"></script> (same directory)
- * or <script src="../games/_contract.js"></script> from a subfolder.
+ * Standard iframe game ↔ parent (adventure map / voice canvas) contract.
+ * Load: <script src="_contract.js"></script>
  *
- * ?preview=free|true — dry run: no postMessage to parent for node_complete (banner only).
- * ?preview=go-live — parent walkthrough: node_complete posts to parent; companion events fire.
+ * ?preview=free|true — dry run: no postMessage for node_complete / game_complete (banner only);
+ *   companion_event and game_state_update suppressed.
+ * ?preview=go-live — walkthrough: posts behave like production.
  */
-(function () {
+window.GameBridge = (function () {
   "use strict";
+
+  var VERSION = "1.0";
 
   var GAME_PARAMS = (function () {
     var p = new URLSearchParams(location.search);
@@ -35,8 +37,7 @@
     var acc = payload.accuracy != null ? payload.accuracy : 0;
     var xp = payload.xpEarned != null ? payload.xpEarned : 0;
     var flagged = payload.flaggedWords;
-    var flaggedStr =
-      flagged && flagged.length ? flagged.join(",") : "";
+    var flaggedStr = flagged && flagged.length ? flagged.join(",") : "";
     var div = document.createElement("div");
     div.style.cssText =
       "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);" +
@@ -54,55 +55,104 @@
     document.body.appendChild(div);
   }
 
-  function sendNodeComplete(payload) {
-    payload = payload || {};
+  function post(type, payload) {
     if (GAME_PARAMS.previewDryRun) {
-      console.log("[PREVIEW] node_complete suppressed:", payload);
-      showPreviewBanner(payload);
-      return;
+      if (type === "companion_event" || type === "game_state_update") {
+        return;
+      }
     }
-    if (!window.parent) return;
-    var out = Object.assign({}, payload, {
-      type: "node_complete",
-      nodeId: GAME_PARAMS.nodeId,
-      childId: GAME_PARAMS.childId,
-    });
-    window.parent.postMessage(out, "*");
-  }
-
-  /**
-   * Notify parent (adventure map) for companion face / reactions.
-   * @param {string} trigger — e.g. correct_answer, wrong_answer, idle_too_long
-   */
-  function fireCompanionEvent(trigger, payload) {
-    payload = payload || {};
-    if (GAME_PARAMS.previewDryRun) {
-      return;
-    }
-    if (!window.parent) return;
     window.parent.postMessage(
-      {
-        type: "companion_event",
-        payload: Object.assign({}, payload, {
-          trigger: trigger,
-          timestamp: Date.now(),
-          childId: GAME_PARAMS.childId,
-        }),
-      },
+      { type: type, payload: payload || {}, version: VERSION },
       "*",
     );
   }
 
-  // Signal to the adventure map that this game frame has loaded and is ready.
-  // This allows the server to mark canvasReady=true for the current canvas revision.
+  function listen(onStart) {
+    window.addEventListener("message", function (e) {
+      var msg = e.data;
+      if (!msg || msg.type !== "start") return;
+      onStart(msg);
+    });
+  }
+
+  window.GAME_PARAMS = GAME_PARAMS;
+  window.showPreviewBanner = showPreviewBanner;
+
   document.addEventListener("DOMContentLoaded", function () {
     if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: "ready" }, "*");
+      post("ready", {});
     }
   });
 
-  window.GAME_PARAMS = GAME_PARAMS;
-  window.sendNodeComplete = sendNodeComplete;
-  window.showPreviewBanner = showPreviewBanner;
-  window.fireCompanionEvent = fireCompanionEvent;
+  return {
+    init: function (onStart) {
+      var params = window.GAME_PARAMS || null;
+      if (params) {
+        onStart(params);
+      } else {
+        listen(function (msg) {
+          onStart(msg);
+        });
+      }
+    },
+
+    complete: function (result) {
+      var r = result || {};
+      if (GAME_PARAMS.previewDryRun) {
+        console.log("[PREVIEW] complete suppressed:", r);
+        showPreviewBanner(r);
+        return;
+      }
+      var merged = Object.assign({}, r, {
+        nodeId: GAME_PARAMS.nodeId,
+        childId: GAME_PARAMS.childId,
+      });
+      post("game_complete", merged);
+      window.parent.postMessage(
+        Object.assign({ type: "node_complete", version: VERSION }, merged),
+        "*",
+      );
+    },
+
+    reportState: function (progress, extras) {
+      if (!progress || typeof progress !== "string") return;
+      post(
+        "game_state_update",
+        Object.assign(
+          {
+            game: document.title,
+            progress: progress.trim(),
+            childId: GAME_PARAMS.childId,
+          },
+          extras || {},
+        ),
+      );
+    },
+
+    fireEvent: function (trigger, payload) {
+      if (!trigger) return;
+      if (GAME_PARAMS.previewDryRun) {
+        return;
+      }
+      post(
+        "companion_event",
+        Object.assign(
+          {
+            trigger: String(trigger),
+            timestamp: Date.now(),
+            childId: GAME_PARAMS.childId,
+          },
+          payload || {},
+        ),
+      );
+    },
+  };
 })();
+
+window.sendNodeComplete = function (result) {
+  window.GameBridge.complete(result);
+};
+
+window.fireCompanionEvent = function (trigger, payload) {
+  window.GameBridge.fireEvent(trigger, payload);
+};

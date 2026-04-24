@@ -486,6 +486,9 @@ function startGame() {
   document.getElementById('message').classList.add('hidden');
   cancelAnimationFrame(animFrame);
   stopAmbient();
+  if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+    window.GameBridge.reportState("Taking a fun break — playing " + document.title);
+  }
   initGame();
   gameStarted = true;
   startAmbient();

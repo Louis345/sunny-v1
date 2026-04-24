@@ -647,6 +647,7 @@ Return plain text only.`,
       nodeId?: string;
       rating?: unknown;
       preview?: string | boolean;
+      payload?: Record<string, unknown>;
     };
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     if (!sessionId) {
@@ -657,6 +658,17 @@ Return plain text only.`,
         const events = handleMapClientMessage(sessionId, {
           type: "node_click",
           payload: { nodeId: body.nodeId },
+        });
+        return res.json({ events });
+      }
+      if (
+        body.phase === "game_state_update" &&
+        body.payload != null &&
+        typeof body.payload === "object"
+      ) {
+        const events = handleMapClientMessage(sessionId, {
+          type: "game_state_update",
+          payload: body.payload as Record<string, unknown>,
         });
         return res.json({ events });
       }

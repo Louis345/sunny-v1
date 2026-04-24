@@ -152,6 +152,7 @@ export function useMapSession(
   companionEvents: CompanionEventPayload[];
   companionCommands: CompanionCommand[];
   forwardMapIframeCompanionEvent: (payload: CompanionEventPayload) => void;
+  forwardMapIframeGameStateUpdate: (payload: Record<string, unknown>) => void;
   sessionStarted: boolean;
 } {
   const [mapState, setMapState] = useState<MapState | null>(null);
@@ -346,6 +347,23 @@ export function useMapSession(
     [],
   );
 
+  const forwardMapIframeGameStateUpdate = useCallback(
+    (payload: Record<string, unknown>) => {
+      if (!sessionId) return;
+      void postJson<{ events?: unknown[] }>("/api/map/node-complete", {
+        sessionId,
+        phase: "game_state_update",
+        payload,
+        ...(mapPreviewQueryParam(previewMode)
+          ? { preview: mapPreviewQueryParam(previewMode) }
+          : {}),
+      }).catch((err) => {
+        console.error("  🔴 [useMapSession] game_state_update failed:", err);
+      });
+    },
+    [sessionId, previewMode],
+  );
+
   const sendNodeResult = useCallback(
     async (result: NodeResult) => {
       if (!sessionId) return null;
@@ -413,6 +431,7 @@ export function useMapSession(
     companionEvents,
     companionCommands,
     forwardMapIframeCompanionEvent,
+    forwardMapIframeGameStateUpdate,
     sessionStarted,
   };
 }

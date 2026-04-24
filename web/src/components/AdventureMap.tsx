@@ -2,7 +2,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { NodeConfig, NodeResult } from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
-import type { CompanionConfig } from "../../../src/shared/companionTypes";
+import type {
+  CompanionConfig,
+  CompanionEventPayload,
+} from "../../../src/shared/companionTypes";
 import childrenCfg from "../../../children.config.json";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
@@ -141,6 +144,8 @@ export function AdventureMap(props: {
     launchedNode,
     sendNodeResult,
     sendNodeRating,
+    forwardMapIframeCompanionEvent,
+    forwardMapIframeGameStateUpdate,
   } = props.mapSession;
 
   const { triggerTransition } = useTransition();
@@ -241,6 +246,25 @@ export function AdventureMap(props: {
         void sendNodeResult(d as NodeResult);
         return;
       }
+      if (t === "companion_event") {
+        const inner = (d as { payload?: unknown }).payload;
+        if (
+          inner &&
+          typeof inner === "object" &&
+          typeof (inner as { childId?: unknown }).childId === "string" &&
+          typeof (inner as { timestamp?: unknown }).timestamp === "number"
+        ) {
+          forwardMapIframeCompanionEvent(inner as CompanionEventPayload);
+        }
+        return;
+      }
+      if (t === "game_state_update") {
+        const inner = (d as { payload?: unknown }).payload;
+        if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+          forwardMapIframeGameStateUpdate(inner as Record<string, unknown>);
+        }
+        return;
+      }
       if (t !== "node_complete") return;
       const pl = d as Record<string, unknown>;
       const node = launchedNodeRef.current;
@@ -289,7 +313,13 @@ export function AdventureMap(props: {
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [sendNodeResult, resolved, props.previewMode]);
+  }, [
+    sendNodeResult,
+    resolved,
+    props.previewMode,
+    forwardMapIframeCompanionEvent,
+    forwardMapIframeGameStateUpdate,
+  ]);
 
   useEffect(() => {
     if (!mapState) {
