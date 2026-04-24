@@ -137,6 +137,9 @@ export async function runSessionStart(
       );
     }
 
+    /** Snapshot of final companion systemPrompt (parent review prepends prefix to this). */
+    let sessionSystemPromptSnapshot = "";
+
     if (
       isHomeworkMode() &&
       homeworkPayload &&
@@ -231,15 +234,17 @@ export async function runSessionStart(
 
       session.worksheetSubjectLabel = extraction.subject.trim() || "worksheet";
 
+      const homeworkReviewSystemPrompt = prependDebugClaudeDeveloperBlock(
+        HOMEWORK_MODE_PROMPT(
+          session.childName,
+          session.companion.name,
+          extraction.subject,
+        ),
+      );
+      sessionSystemPromptSnapshot = homeworkReviewSystemPrompt;
       session.companion = {
         ...session.companion,
-        systemPrompt: prependDebugClaudeDeveloperBlock(
-          HOMEWORK_MODE_PROMPT(
-            session.childName,
-            session.companion.name,
-            extraction.subject,
-          ),
-        ),
+        systemPrompt: homeworkReviewSystemPrompt,
         openingLine:
           `Hello — I'm ${session.companion.name} in homework review mode. ` +
           `I've loaded ${getTtsNameForChildId(String(homeworkChild))}'s worksheet on ${extraction.subject || "homework"}. ` +
@@ -253,7 +258,7 @@ export async function runSessionStart(
       console.log(
         `  🎮 [diag] no homework folder — diagnostic prompt (${homeworkChild})`,
       );
-      const sessionPrompt = isDebugClaude()
+      const diagSessionPrompt = isDebugClaude()
         ? buildDebugPrompt(
             homeworkChild,
             session.companion.name,
@@ -263,21 +268,25 @@ export async function runSessionStart(
         : buildDiagPrompt(homeworkChild, session.companion.markdownPath, {
             carePlan: null,
           });
+      const diagCompanionSystemPrompt = isDebugClaude()
+        ? diagSessionPrompt
+        : prependDebugClaudeDeveloperBlock(diagSessionPrompt);
+      sessionSystemPromptSnapshot = diagCompanionSystemPrompt;
       session.companion = {
         ...session.companion,
-        systemPrompt: isDebugClaude()
-          ? sessionPrompt
-          : prependDebugClaudeDeveloperBlock(sessionPrompt),
+        systemPrompt: diagCompanionSystemPrompt,
       };
       session.isSpellingSession = false;
-      console.log(`  ✅ Session prompt ready (${sessionPrompt.length} chars)`);
+      console.log(`  ✅ Session prompt ready (${diagSessionPrompt.length} chars)`);
       console.log(`  📚 Subject mode: ${subject}`);
     } else if (isDemoMode() && !homeworkPayload) {
+      const demoCompanionSystemPrompt = prependDebugClaudeDeveloperBlock(
+        DEMO_MODE_PROMPT(session.childName, session.companion.name),
+      );
+      sessionSystemPromptSnapshot = demoCompanionSystemPrompt;
       session.companion = {
         ...session.companion,
-        systemPrompt: prependDebugClaudeDeveloperBlock(
-          DEMO_MODE_PROMPT(session.childName, session.companion.name),
-        ),
+        systemPrompt: demoCompanionSystemPrompt,
         openingLine:
           `Hello — I'm ${session.companion.name} in demo mode. ` +
           "I'm ready to demonstrate my capabilities. " +
@@ -742,11 +751,13 @@ export async function runSessionStart(
             `Help ${homeworkChild} using the image. Subject: ${session.worksheetSubjectLabel}.\n`;
         }
       }
+      const homeworkCompanionSystemPrompt = isDebugClaude()
+        ? sessionPrompt
+        : prependDebugClaudeDeveloperBlock(sessionPrompt);
+      sessionSystemPromptSnapshot = homeworkCompanionSystemPrompt;
       session.companion = {
         ...session.companion,
-        systemPrompt: isDebugClaude()
-          ? sessionPrompt
-          : prependDebugClaudeDeveloperBlock(sessionPrompt),
+        systemPrompt: homeworkCompanionSystemPrompt,
       };
       console.log(`  ✅ Session prompt ready (${sessionPrompt.length} chars)`);
       session.isSpellingSession =
@@ -758,6 +769,25 @@ export async function runSessionStart(
       console.log(`  📚 Subject mode: ${subject}`);
     } else {
       session.send("loading_status", { message: "Starting free session..." });
+      const freeSessionPrompt = isDebugClaude()
+        ? buildDebugPrompt(
+            homeworkChild,
+            session.companion.name,
+            generateCanvasCapabilitiesManifest(),
+            generateToolDocs(),
+          )
+        : buildDiagPrompt(homeworkChild, session.companion.markdownPath, {
+            carePlan: null,
+          });
+      const freeCompanionSystemPrompt = isDebugClaude()
+        ? freeSessionPrompt
+        : prependDebugClaudeDeveloperBlock(freeSessionPrompt);
+      sessionSystemPromptSnapshot = freeCompanionSystemPrompt;
+      session.companion = {
+        ...session.companion,
+        systemPrompt: freeCompanionSystemPrompt,
+      };
+      console.log(`  ✅ Session prompt ready (${freeSessionPrompt.length} chars)`);
       console.log(`  📚 Subject mode: ${subject}`);
     }
 
@@ -893,7 +923,7 @@ This is a safe space to test everything.
 `;
       session.companion = {
         ...session.companion,
-        systemPrompt: parentPrefix + session.companion.systemPrompt,
+        systemPrompt: parentPrefix + sessionSystemPromptSnapshot,
         openingLine:
           `Hi — parent review mode active. ` +
           `I'm fully operational so you can experience ` +

@@ -271,7 +271,7 @@ describe("audit-3 psychologist / ingest context", () => {
     const slice = src.slice(idx, idx + 2200);
     expect(slice).toContain("PARENT REVIEW MODE");
     expect(slice).toContain(
-      "systemPrompt: parentPrefix + session.companion.systemPrompt",
+      "systemPrompt: parentPrefix + sessionSystemPromptSnapshot",
     );
   });
 
