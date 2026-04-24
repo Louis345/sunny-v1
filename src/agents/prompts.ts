@@ -1,12 +1,8 @@
 import fs from "fs";
 import path from "path";
-import {
-  isAdventureMapEnv,
-  shouldLoadPersistedHistory,
-} from "../utils/runtimeMode";
+import { isAdventureMapEnv } from "../utils/runtimeMode";
 import {
   childContextFolder,
-  contextFileSegments,
   type ChildName,
 } from "../utils/childContextPaths";
 import { getTodaysPlanInjectionSuffix } from "../utils/sessionPlanInjection";
@@ -21,11 +17,10 @@ import {
 import { generateCompanionCapabilities } from "../shared/companions/generateCompanionCapabilities";
 import {
   generateAdventureMapVoiceToolDocs,
-  generateToolDocs,
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v21"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v22"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -706,56 +701,6 @@ export async function buildSessionPrompt(
     }${manifest}`;
   }
 
-  const soul = readSoul(childName.toLowerCase());
-
-  const contextPath = path.resolve(SRC_DIR, ...contextFileSegments(childName));
-  const recentContext = shouldLoadPersistedHistory()
-    ? fs.existsSync(contextPath)
-      ? fs.readFileSync(contextPath, "utf-8")
-      : "No previous sessions recorded."
-    : "Stateless run — do not use previous sessions.";
-
-  if (subject === "reading") {
-    const namePrefix = buildNamePrefix(childName);
-    const homeworkCap =
-      homeworkContent.length > 14000
-        ? `${homeworkContent.slice(0, 14000)}\n\n[... homework truncated for prompt size ...]`
-        : homeworkContent;
-    const body = `## You are ${companionName}
-${companionPersonality.slice(0, 4500)}
-
-## Child profile (brief)
-${soul.slice(0, 2000)}
-
-## Recent sessions
-${recentContext.slice(0, 3000)}
-
-## Homework file (vocabulary reference only)
-Use this to choose decodable target words and to build reading stories.
-Do NOT launch Word Builder. Do NOT run spelling drills. Do NOT ask the child to spell words.
-
-${homeworkCap}
-
-## Tools and canvas
-Use canvasShow (sound_box, karaoke, etc.) per the session subject block above.
-
-${generateToolDocs()}
-`;
-    const careSuffix = getCarePlanBlock(subject, childName, options);
-    const manifest = sessionPromptCapabilitiesTail(subject);
-    const generatedCore = `${namePrefix}\n\n${body}`;
-    const beforeCare = `${generatedCore}${manifest}`;
-    logSessionPromptLengths(beforeCare.length, careSuffix);
-    console.log(
-      "  📖 Reading mode: static session prompt (spelling psychologist brief skipped)",
-    );
-    return (
-      generatedCore +
-      (careSuffix ? `\n\n${careSuffix}` : "") +
-      manifest
-    );
-  }
-
   // Spelling mode prompt comes from compact companion files + context files.
   const companionId = companionName.toLowerCase();
   const personalityPath = path.resolve(
@@ -776,7 +721,7 @@ ${generateToolDocs()}
 
   const personality = fs.existsSync(personalityPath)
     ? fs.readFileSync(personalityPath, "utf-8").trim()
-    : companionPersonality.slice(0, 500);
+    : "";
 
   const companionCtx = fs.existsSync(companionContextPath)
     ? fs.readFileSync(companionContextPath, "utf-8").trim()
