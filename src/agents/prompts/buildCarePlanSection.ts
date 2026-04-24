@@ -12,20 +12,54 @@ const FORBIDDEN = [
   "mandatory",
 ] as const;
 
+/** Must appear in the companion-facing block (normalizeForScan lowercases). */
 const REQUIRED = [
-  "hold loosely",
-  "you read the child",
-  "you are the tutor",
-  "the plan bends",
+  "what elli knows about today",
+  "context only — not a checklist",
+  "follow the child",
 ] as const;
 
 function normalizeForScan(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ");
 }
 
+function truncateAtWord(s: string, maxLen: number): string {
+  const t = s.trim().replace(/\s+/g, " ");
+  if (t.length <= maxLen) return t;
+  const slice = t.slice(0, maxLen);
+  const lastSpace = slice.lastIndexOf(" ");
+  return (lastSpace > 40 ? slice.slice(0, lastSpace) : slice).trim() + "…";
+}
+
+/** Short observation text only — no activity titles or methods. */
+function observationFromProfile(childProfile: string, maxChars: number): string {
+  const t = childProfile.trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  const parts = t.split(/(?<=[.!?])\s+/).filter(Boolean);
+  let out = "";
+  for (let i = 0; i < Math.min(parts.length, 2); i++) {
+    const next = out ? `${out} ${parts[i]}` : parts[i];
+    if (next.length > maxChars) break;
+    out = next;
+  }
+  if (out) return out.length > maxChars ? truncateAtWord(out, maxChars) : out;
+  return truncateAtWord(t, maxChars);
+}
+
+function collectFocusWords(plan: TodaysPlan): string[] {
+  const set = new Set<string>();
+  for (const a of plan.todaysPlan) {
+    for (const w of a.words ?? []) {
+      const n = w.trim().toLowerCase();
+      if (n) set.add(n);
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
 /**
  * Ensures care plan copy stays discretionary, not rigid checklist language.
- * Throws if forbidden phrases appear or required tutor-discretion phrases are missing.
+ * Throws if forbidden phrases appear or required context-only lines are missing.
  */
 export function assertCarePlanSectionLanguage(section: string): void {
   const n = normalizeForScan(section);
@@ -39,60 +73,45 @@ export function assertCarePlanSectionLanguage(section: string): void {
   for (const phrase of REQUIRED) {
     if (!n.includes(phrase)) {
       throw new Error(
-        `care plan section missing required discretion language: "${phrase}"`,
+        `care plan section missing required context framing: "${phrase}"`,
       );
     }
   }
 }
 
 /**
- * Structured care plan block for the tutor (context, not a script).
+ * Companion-facing slice of the psychologist plan: words + short observation +
+ * one-line note. No activity scripts, methods, probes, reward policy, or tool commands.
  */
 export function buildCarePlanSection(plan: TodaysPlan): string {
-  const sorted = [...plan.todaysPlan].sort((a, b) => a.priority - b.priority);
+  const words = collectFocusWords(plan);
+  const wordsLine =
+    words.length > 0
+      ? `Words on the map today (names only): ${words.join(", ")}.`
+      : "Words on the map today (names only): none listed in the plan file.";
 
-  const activityBlocks = sorted
-    .map((activity) => {
-      const lines: string[] = [
-        `**${activity.priority}. ${activity.activity}**`,
-        `${activity.required ? "⚠️ Required" : "○ Use judgment"}`,
-        `Reason: ${activity.reason}`,
-        `Time: ~${activity.timeboxMinutes} min`,
-      ];
-      if (activity.method) lines.push(`Method: ${activity.method}`);
-      if (activity.source) lines.push(`Validated by: ${activity.source}`);
-      if (activity.words?.length)
-        lines.push(`Words: ${activity.words.join(", ")}`);
-      if (activity.probeSequence?.length)
-        lines.push(`Probe: ${activity.probeSequence.join(" → ")}`);
-      if (activity.skipConditions?.length)
-        lines.push(`Skip if: ${activity.skipConditions.join(", ")}`);
-      return lines.join("\n");
-    })
-    .join("\n\n");
+  const observation = observationFromProfile(plan.childProfile, 360).trim();
+  const obsBlock = observation
+    ? `What we know about them (observation, not instructions):\n${observation}`
+    : "What we know about them (observation, not instructions):\n(none in plan file)";
 
-  const section = `## Today's Care Plan
-${plan.childProfile}
+  const sortedActs = [...plan.todaysPlan].sort(
+    (a, b) => a.priority - b.priority,
+  );
+  const topReason = sortedActs[0]?.reason?.trim() ?? "";
+  const recLine = topReason
+    ? `Psychologist note (one line, for context): ${truncateAtWord(topReason, 220)}`
+    : `Psychologist note (one line, for context): ${truncateAtWord(plan.stopAfter.trim(), 220)}`;
 
-${plan.stopAfter}
+  const section = `## What Elli knows about today
 
-The plan bends to fit the child — sequence is a suggestion, not a lock.
+Context only — not a checklist. Nothing here assigns your next move; follow the child.
 
-Activities (hold loosely — you read the child):
+${wordsLine}
 
-${activityBlocks}
+${obsBlock}
 
-Reward policy: ${plan.rewardPolicy}
-
-You are the tutor. The plan is context, not a script. If the child needs a game break — give it. If they're exhausted — compress. If they're energized — do everything.
-
-When you skip an activity, call:
-sessionLog({
-  skipped: true,
-  activity: "activity_name",
-  reason: "child fatigue"
-})
-So the Psychologist knows what happened. Skips are data. Never skip logging.`.trim();
+${recLine}`.trim();
 
   assertCarePlanSectionLanguage(section);
   return section;

@@ -12,8 +12,8 @@ export const CANVAS_CAPABILITIES = {
   spelling: {
     description: "Blank tiles revealed letter by letter as child spells aloud. Word hidden by default.",
     useFor: [
-      "spelling practice",
-      "spelling tests",
+      "voice spelling together",
+      "spelling check-ins",
       "compound word morpheme work",
       "competitive streak spelling",
     ],
@@ -48,7 +48,7 @@ export const CANVAS_CAPABILITIES = {
   "word-builder": {
     description:
       "Fill-in-the-blanks spelling game. Child completes the word with decreasing visual support across 4 rounds. Tap letters on keyboard.",
-    useFor: ["reward after a correct spelling", "decoding practice"],
+    useFor: ["reward after a correct spelling", "decoding with letter supports"],
     props: [
       "gameUrl: string (static page)",
       "gameWord: string",

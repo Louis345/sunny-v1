@@ -127,7 +127,7 @@ export const CANVAS_REGISTRY: Record<string, CanvasCapabilityEntry> = {
   },
   spelling: {
     description:
-      "Letter boxes for spelling. spellingRevealed must contain ALL letters of the word — use empty string '' for hidden letters, the actual letter for revealed ones. For tutoring: always use showWord: 'hidden' so the child cannot see the answer. Use showWord: 'hint' to reveal after a wrong attempt. Use showWord: 'always' only for demos.",
+      "Letter boxes for spelling. spellingRevealed must contain ALL letters of the word — use empty string '' for hidden letters, the actual letter for revealed ones. Prefer showWord: 'hidden' so the answer is not shown; use showWord: 'hint' to reveal after a wrong attempt. Use showWord: 'always' only for demos.",
     params: {
       word: "string",
       spellingRevealed: "string[] (optional; same length as word; '' = hidden)",
@@ -277,7 +277,7 @@ export const CANVAS_REGISTRY: Record<string, CanvasCapabilityEntry> = {
     example: { type: "blackboard", params: { gesture: "mask", word: "story" } },
   },
   clock: {
-    description: "Analog clock practice — child reads the time",
+    description: "Analog clock on screen — child reads the time",
     params: {
       hour: "number",
       minute: "number",

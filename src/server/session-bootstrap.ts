@@ -302,7 +302,10 @@ export async function runSessionStart(
         homeworkPayload.folderPath,
         "extraction.json",
       );
-      const skipPsychologist = isDiagMapMode() || subject === "diag" || getSunnyMode() === "as-child";
+      /** Jamal / true diag map: kiosk prompt, no worksheet extraction pipeline. */
+      const useDiagHomeworkPrompt = isDiagMapMode() || subject === "diag";
+      /** Impersonate child: same buildSessionPrompt as production, but no psychologist API and no extraction.json writes (cache read-only if present). */
+      const playtestAsChild = getSunnyMode() === "as-child";
 
       let extraction: HomeworkExtractionResult = {
         subject: "",
@@ -311,7 +314,7 @@ export async function runSessionStart(
 
       // Try loading from cache first
       let loadedFromCache = false;
-      if (!skipPsychologist && fs.existsSync(cacheFile)) {
+      if (!useDiagHomeworkPrompt && fs.existsSync(cacheFile)) {
         try {
           const cached = JSON.parse(
             fs.readFileSync(cacheFile, "utf-8"),
@@ -332,7 +335,7 @@ export async function runSessionStart(
         }
       }
 
-      if (!loadedFromCache && !skipPsychologist) {
+      if (!loadedFromCache && !useDiagHomeworkPrompt && !playtestAsChild) {
         try {
           console.log("  🧠 Psychologist extracting worksheet problems...");
           session.send("loading_status", {
@@ -597,7 +600,7 @@ export async function runSessionStart(
       // ────────────────────────────────────────────────────────────────────────
 
       let sessionPrompt: string;
-      if (skipPsychologist) {
+      if (useDiagHomeworkPrompt) {
         console.log(
           "  🎮 [diag] skipping psychologist session prompt pipeline (homework folder present)",
         );
@@ -618,7 +621,13 @@ export async function runSessionStart(
           );
         }
       } else {
-        console.log("  🧠 Psychologist building session prompt...");
+        if (playtestAsChild) {
+          console.log(
+            "  🧪 [playtest as-child] child session prompt — psychologist API skipped, extraction.json read-only",
+          );
+        } else {
+          console.log("  🧠 Psychologist building session prompt...");
+        }
         const extractSpellingWords =
           !session.worksheetMode &&
           (subject === "spelling" || subject === "homework");

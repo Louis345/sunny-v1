@@ -59,8 +59,8 @@ describe("Suite 1 — Plan injection (buildSessionPrompt)", () => {
       "free",
       { carePlan: samplePlan },
     );
-    expect(prompt).toContain("## Today's Care Plan");
-    expect(prompt).toContain("Compound spelling");
+    expect(prompt).toContain("## What Elli knows about today");
+    expect(prompt).toContain("flower, sun");
     expect(prompt).toContain(samplePlan.childProfile);
   });
 
@@ -68,7 +68,7 @@ describe("Suite 1 — Plan injection (buildSessionPrompt)", () => {
     const prompt = await buildSessionPrompt("Ila", companionIla, "", [], "free", {
       carePlan: null,
     });
-    expect(prompt).not.toContain("## Today's Care Plan");
+    expect(prompt).not.toContain("## What Elli knows about today");
     expect(prompt.length).toBeGreaterThan(100);
   });
 });
@@ -79,11 +79,23 @@ describe("Suite 2 — Care plan language", () => {
     section = buildCarePlanSection(samplePlan);
   });
 
-  it("contains discretion phrases", () => {
-    expect(section.toLowerCase()).toContain("hold loosely");
-    expect(section.toLowerCase()).toContain("you read the child");
-    expect(section.toLowerCase()).toContain("you are the tutor");
-    expect(section.toLowerCase()).toContain("the plan bends");
+  it("contains context-only framing", () => {
+    const n = section.toLowerCase();
+    expect(n).toContain("what elli knows about today");
+    expect(n).toContain("context only — not a checklist");
+    expect(n).toContain("follow the child");
+  });
+
+  it("avoids tutor-classroom vocabulary in built section", () => {
+    const n = section.toLowerCase();
+    expect(n).not.toMatch(/\btutor(ing)?\b/);
+    expect(n).not.toMatch(/\bpractice\b/);
+    expect(n).not.toMatch(/\blesson\b/);
+    expect(n).not.toMatch(/\bcurriculum\b/);
+    expect(n).not.toContain("work through");
+    expect(n).not.toMatch(/\bcanvas\b/);
+    expect(n).not.toMatch(/\bloading\b/);
+    expect(n).not.toMatch(/\bready\b/);
   });
 
   it("does not contain rigid checklist phrases", () => {
@@ -96,33 +108,35 @@ describe("Suite 2 — Care plan language", () => {
     expect(n).not.toContain("mandatory");
   });
 
+  it("does not leak activity scripts or tool commands", () => {
+    expect(section).not.toContain("Method:");
+    expect(section).not.toContain("Probe:");
+    expect(section).not.toContain("sessionLog");
+    expect(section).not.toContain("⚠️ Required");
+    expect(section).not.toContain("Compound spelling");
+    expect(section).not.toContain(samplePlan.rewardPolicy);
+  });
+
   it("assertCarePlanSectionLanguage rejects forbidden copy", () => {
     const bad = `${buildCarePlanSection(samplePlan)}\n\nThis task is mandatory.`;
     expect(() => assertCarePlanSectionLanguage(bad)).toThrow(/mandatory/);
   });
 });
 
-describe("Suite 3 — Required vs discretionary visible", () => {
-  it("marks required and optional; shows skip conditions", () => {
+describe("Suite 3 — Focus words and observation", () => {
+  it("lists words only and includes psychologist one-liner", () => {
     const s = buildCarePlanSection(samplePlan);
-    expect(s).toContain("⚠️ Required");
-    expect(s).toContain("○ Use judgment");
-    expect(s).toContain("Skip if: tired, time running short");
-    expect(s).toContain("Method: Break into parts (Natalie style)");
-    expect(s).toContain("Validated by: Natalie session 2025-03");
-    expect(s).toContain("Words: sun, flower");
-    expect(s).toContain("Probe: repeat → use in sentence");
+    expect(s).toContain("Words on the map today (names only): flower, sun.");
+    expect(s).toContain("Psychologist note (one line, for context): Priority target");
+    expect(s).toContain("Needs visual anchors");
   });
 });
 
-describe("Suite 4 — childProfile before activities", () => {
-  it("childProfile appears before activity list", () => {
+describe("Suite 4 — childProfile in observation block", () => {
+  it("observation contains profile text", () => {
     const s = buildCarePlanSection(samplePlan);
-    const profileIdx = s.indexOf(samplePlan.childProfile);
-    const actIdx = s.indexOf("**1. Compound spelling**");
-    expect(profileIdx).toBeGreaterThan(-1);
-    expect(actIdx).toBeGreaterThan(-1);
-    expect(profileIdx).toBeLessThan(actIdx);
+    expect(s).toContain("What we know about them (observation, not instructions):");
+    expect(s).toContain(samplePlan.childProfile.split(";")[0].trim());
   });
 });
 
@@ -155,8 +169,8 @@ describe("Suite 5 — Child-agnostic", () => {
 describe("formatTodaysPlanInjection (compat)", () => {
   it("delegates to care plan section shape", () => {
     const s = formatTodaysPlanInjection(samplePlan, "Ila");
-    expect(s).toContain("## Today's Care Plan");
-    expect(s).toContain("hold loosely");
+    expect(s).toContain("## What Elli knows about today");
+    expect(s.toLowerCase()).toContain("context only — not a checklist");
   });
 });
 
@@ -212,8 +226,8 @@ describe("getTodaysPlanInjectionSuffix", () => {
     writePersistedTodaysPlan("Ila", samplePlan, tmp);
     const s = getTodaysPlanInjectionSuffix("Ila", tmp);
     expect(s.length).toBeGreaterThan(0);
-    expect(s).toContain("## Today's Care Plan");
-    expect(s).toContain("Compound spelling");
+    expect(s).toContain("## What Elli knows about today");
+    expect(s).toContain("flower, sun");
   });
 });
 

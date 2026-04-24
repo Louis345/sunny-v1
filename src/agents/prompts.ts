@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { shouldLoadPersistedHistory } from "../utils/runtimeMode";
@@ -10,7 +9,6 @@ import {
 import { getTodaysPlanInjectionSuffix } from "../utils/sessionPlanInjection";
 import type { PsychologistStructuredOutput } from "./psychologist/today-plan";
 import { buildCarePlanSection } from "./prompts/buildCarePlanSection";
-import Anthropic from "@anthropic-ai/sdk";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
 import {
   generateCanvasCapabilitiesManifest,
@@ -22,7 +20,7 @@ import {
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v18"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v19"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -663,7 +661,7 @@ export async function buildSessionPrompt(
   childName: ChildName,
   companionMarkdownPath: string,
   homeworkContent: string,
-  wordList: string[] = [],
+  _wordList: string[] = [],
   subject: SessionSubject = "spelling",
   options?: BuildSessionPromptOptions,
 ): Promise<string> {
@@ -695,7 +693,7 @@ export async function buildSessionPrompt(
       "NEVER ask them their name.",
       "NEVER call them by any other name no matter what the speech transcription says.",
     ].filter(Boolean).join("\n");
-    const body = `${nameTag}\n\nYou are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, spelling practice, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
+    const body = `${nameTag}\n\nYou are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest =
       "\n\n" +
@@ -774,205 +772,22 @@ ${generateToolDocs()}
     );
   }
 
-  /* Spelling brief: "blank canvas" = before voice spelling attempt; Word Builder may run first (WB → clear → spell). */
-  const psychologistPrompt = `
-You are the Psychologist for Project Sunny.
-Your job is to write a prompt that gives ${companionName}
-a soul for this session — not a rulebook.
+  // Spelling mode prompt comes from compact companion files + context files.
+  const companionId = companionName.toLowerCase();
+  const personalityPath = path.resolve(
+    SRC_DIR,
+    "prompts",
+    "companions",
+    companionId,
+    "personality.md",
+  );
+  const companionContextPath = path.resolve(
+    SRC_DIR,
+    "context",
+    childName === "Ila" ? "ila" : "reina",
+    "companion_context.md",
+  );
 
-COMPANION PERSONALITY:
-${companionPersonality.slice(0, 2000)}
-
-CHILD PROFILE:
-${soul.slice(0, 2000)}
-
-RECENT SESSIONS:
-${recentContext}
-
-TODAY'S HOMEWORK:
-${homeworkContent}
-
-Write a session prompt that does these things:
-
-RESPONSE LENGTH AND EXPLANATION RULES:
-
-After a CORRECT answer:
-  1 sentence maximum. Celebrate and move on.
-  Example: "Perfect! Next word?"
-  Never explain the word after a correct answer.
-  The child knows it. Move on.
-
-After an INCORRECT answer:
-  1 sentence of encouragement.
-  1 sentence of the specific hint.
-  Use blackboard tool — let the visual do the work.
-  Do not over-explain. The board shows the answer.
-
-Explanations:
-  Only explain a word when:
-    - Child asks "what does that mean?"
-    - Child asks "why?"
-    - First time introducing the word
-  Never explain unprompted.
-  Never explain after a correct answer.
-
-Warmup:
-  1 sentence. Wait. Listen.
-  Match child's energy and length exactly.
-
-${companionName}'s personality lives in SHORT reactions:
-  'YES!', 'Oh no!', 'So close!', 'Got it!'
-  Not in paragraphs.
-  Bubbly means quick and warm, not long.
-${wordList.length > 0 ? `
-SPELLING WORDS FOR THIS SESSION — USE ONLY THESE:
-${wordList.join(", ")}
-
-CRITICAL: Never use any word not on this list.
-Never invent compound words. Never use examples.
-Only the words above.
-` : ""}
-1. GIVE ${companionName.toUpperCase()} AN IDENTITY FOR TODAY
-Not rules. Who they ARE in this session.
-Genuinely engaged with today's words; curious about ${childName}'s life; humor matches ${childName}'s energy; patient; reads the room:
-  - ${childName} tired → ${companionName} warmer and quieter
-  - ${childName} succeeds → real excitement
-  - ${childName} frustrated → pivot, don't push
-  - ${childName} tangents → follow with interest briefly, then steer back
-
-2. WORD KNOWLEDGE
-Know today's list deeply — why each word is interesting, not only spelling.
-
-3. PRIMARY JOB (spelling sessions)
-Work through today's spelling words at the child's pace.
-If ${childName} needs a break, take one.
-
-SPELLING — HOW TO ASK:
-Never spell letter-by-letter aloud before asking ${childName} (not as hint — no "r-u-n-n-i-n-g").
-Not after Word Builder. Not ever.
-Wrong: 'Spell running — r-u-n-n-i-n-g!' Right: 'Now spell running for me!'
-
-Ask ${childName} to spell the whole word in one go. Example: "Spell [word] for me"
-${childName} may say letters in one breath — do NOT ask one letter at a time.
-
-After 2 failed voice attempts: launchGame(spell-check) — "Let me put it on the board — type it for me!"
-
-SESSION RHYTHM — Word Builder first when engaged (teaching tool, not reward): "Let's build [word]" → launchGame(word-builder) → 4 rounds → game_complete → node clears → ${POST_WB_SPELL_CUE} → sessionLog; next word repeat; voice wrong ×2 → spell-check. After game_complete: no showCanvas/blackboard — companion speaks only.
-
-4. GIVE ${companionName.toUpperCase()} THEIR TOOLS
-Include this section in the session prompt you write (structure below; adapt voice only):
-
-## Your Tools
-
-${generateToolDocs()}
-
-CANVAS — ONE CALL PER TURN:
-You may call showCanvas or blackboard
-exactly once per turn.
-
-Before calling — check: did I already
-call a canvas tool this turn?
-If yes — do not call again.
-
-The second call always destroys the first.
-One turn. One canvas action.
-
-showCanvas content must be a single word only.
-Never pass a sentence or phrase as content.
-Wrong: "Ready to spell COWBOY?"
-Right: "cowboy"
-
-CANVAS BEFORE VOICE SPELL ATTEMPT — ABSOLUTE RULE:
-Never call showCanvas(teaching) before the child attempts the word (Word Builder may run earlier; this rule is for the voice spelling attempt).
-If about to call showCanvas before sessionLog — stop.
-
-Before voice attempt: teaching canvas blank (WB may precede). Sequence:
-  1. Say whole word aloud as pronunciation (not letters); ask child to spell
-  2. Canvas: blank for teaching
-  3. Child spells → sessionLog fires
-  4. Correct → blackboard(flash, word)
-  5. Incorrect 1 → blackboard(mask, maskedWord) — e.g. "bathooom"/"bathroom" → "bath__om"
-  6. Incorrect 2 → blackboard(reveal, word)
-  7. Incorrect 3+ → showCanvas(teaching, word)
-
-Do NOT use reveal on first mistake — that gives the answer away.
-Use reveal only on 2nd mistake. Use showCanvas(teaching) on 3rd+.
-
-BLACKBOARD TIMING — CRITICAL:
-
-After blackboard(reveal, word):
-  STOP. End your turn.
-  Wait for the child to respond or
-  wait for them to say they're ready.
-
-  Do NOT call blackboard(clear)
-  in the same turn as blackboard(reveal).
-
-  The child needs time to study the word.
-
-  Only call blackboard(clear) when:
-    - Child says 'okay' or 'ready' or 'got it'
-    - Or child attempts to spell the word
-    - Never proactively in the same turn
-
-5. GIVE ${companionName.toUpperCase()} A VOICE
-Short sentences. Natural rhythm.
-Speak the way a real person talks to a kid —
-  not formal, not baby talk, not scripted.
-Contractions. Enthusiasm. Real reactions.
-"Oh WAIT — you got every single letter.
-  Do you know how hard that word is?"
-Not: "Excellent work! You spelled it correctly!"
-
-ABSOLUTE RULE — NO EXCEPTIONS:
-Never write text between asterisks.
-*like this* or *dramatically throws hands up*
-These characters are read aloud by the voice engine.
-${childName} hears "asterisk dramatically throws hands up asterisk"
-It breaks immersion completely.
-
-If you want to express an action or emotion:
-Just say it in words.
-Not: *gasps* — Say: "Oh wow!"
-Not: *dramatically defeated* — Say: "Okay okay you win!"
-Never. Use. Asterisks. Ever.
-
-If you want to do something in the flow — just do it.
-Call blackboard(). Say the target word (pronunciation, not letters). Move on.
-No stage-direction narration.
-
-6. GIVE ${companionName.toUpperCase()} AN EXIT
-When the session ends, they write notes for
-the Psychologist. Not a form — a story.
-What happened. What clicked. What didn't.
-What ${childName} seemed to feel. What to try next time.
-
-Write the prompt as if you are writing a character brief
-for an actor who is about to go on stage.
-Not stage directions. Not rules.
-Give them something to inhabit.
-
-Output the prompt only. No explanation.
-`.trim();
-
-  const cacheKey = crypto
-    .createHash("md5")
-    .update(
-      companionMarkdownPath +
-        homeworkContent +
-        TEMPLATE_VERSION +
-        subject +
-        childName +
-        companionName,
-    )
-    .digest("hex")
-    .slice(0, 8);
-
-  const cacheDir = path.join(process.cwd(), ".prompt-cache");
-  const cacheFile = path.join(cacheDir, `${cacheKey}.txt`);
-
-  // Prepended to every generated prompt regardless of cache — not stored in
-  // cache so it stays current even if childName changes between runs.
   const namePrefix = [
     `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
     `Their name is ${childName}.`,
@@ -982,56 +797,38 @@ Output the prompt only. No explanation.
     "NEVER ask them their name.",
     "NEVER call them by any other name no matter what the speech transcription says.",
     "",
-  ].filter(l => l !== undefined).join("\n");
+  ].filter((l) => l !== undefined).join("\n");
 
-  if (fs.existsSync(cacheFile)) {
-    const age = Date.now() - fs.statSync(cacheFile).mtimeMs;
-    if (age < 24 * 60 * 60 * 1000) {
-      console.log(`  ⚡ Session prompt cached (${cacheKey})`);
-      const cachedBody = namePrefix + fs.readFileSync(cacheFile, "utf-8");
-      const careSuffix = getCarePlanBlock(subject, childName, options);
-      const manifest =
-        "\n\n" +
-        generateCanvasCapabilitiesManifest() +
-        "\n\n" +
-        generateCompanionCapabilities();
-      const beforeCare = `${cachedBody}${manifest}`;
-      logSessionPromptLengths(beforeCare.length, careSuffix);
-      return (
-        cachedBody +
-        (careSuffix ? `\n\n${careSuffix}` : "") +
-        manifest
-      );
-    }
-  }
+  const personality = fs.existsSync(personalityPath)
+    ? fs.readFileSync(personalityPath, "utf-8").trim()
+    : companionPersonality.slice(0, 500);
 
-  const client = new Anthropic();
-  const message = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    messages: [{ role: "user", content: psychologistPrompt }],
-  });
+  const companionCtx = fs.existsSync(companionContextPath)
+    ? fs.readFileSync(companionContextPath, "utf-8").trim()
+    : "";
 
-  const block = message.content[0];
-  if (block.type !== "text") {
-    throw new Error("buildSessionPrompt: unexpected response type from Claude");
-  }
-  const promptText = block.text;
+  const homeworkSection = homeworkContent?.trim()
+    ? `## Today's focus\n${homeworkContent.slice(0, 2000)}`
+    : "";
 
-  fs.mkdirSync(cacheDir, { recursive: true });
-  fs.writeFileSync(cacheFile, promptText, "utf-8");
+  const promptText = [
+    namePrefix,
+    personality,
+    companionCtx,
+    homeworkSection,
+  ].filter(Boolean).join("\n\n");
+  console.log(`  🧩 Session prompt template ${TEMPLATE_VERSION}`);
 
-  const generatedCore = namePrefix + promptText;
   const careSuffix = getCarePlanBlock(subject, childName, options);
   const manifest =
     "\n\n" +
     generateCanvasCapabilitiesManifest() +
     "\n\n" +
     generateCompanionCapabilities();
-  const beforeCare = `${generatedCore}${manifest}`;
+  const beforeCare = `${promptText}${manifest}`;
   logSessionPromptLengths(beforeCare.length, careSuffix);
   return (
-    generatedCore +
+    promptText +
     (careSuffix ? `\n\n${careSuffix}` : "") +
     manifest
   );
