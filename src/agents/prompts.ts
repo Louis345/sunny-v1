@@ -835,7 +835,9 @@ ${generateToolDocs()}
     : "";
 
   const homeworkSection = homeworkContent?.trim()
-    ? `## Today's focus\n${homeworkContent.slice(0, 2000)}`
+    ? `## Context: words in today's adventure\n` +
+      `(These appear in nodes. You don't teach them. The map does.)\n` +
+      `${homeworkContent.slice(0, 2000)}`
     : "";
 
   const promptText = [
