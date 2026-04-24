@@ -43,8 +43,6 @@ export function generateToolNamesLine(): string {
 const ADVENTURE_MAP_VOICE_TOOL_KEYS = [
   "companionAct",
   "dateTime",
-  "expressCompanion",
-  "launchGame",
   "sessionEnd",
   "sessionLog",
   "sessionStatus",
