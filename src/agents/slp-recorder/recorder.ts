@@ -1,8 +1,22 @@
 import type { ModelMessage } from "ai";
-import { getReinaLearningPrompt, getSLPSystemIla } from "../prompts";
+import { readSoul, SLP_PROMPT } from "../prompts";
 import { appendToContext } from "../../utils/appendToContext";
 import { runPsychologist } from "../psychologist/psychologist";
 import { shouldPersistSessionData } from "../../utils/runtimeMode";
+
+function summarizerSystemPrompt(childName: "Ila" | "Reina"): string {
+  const soul = readSoul(childName.toLowerCase());
+  if (childName === "Ila") {
+    return SLP_PROMPT(childName, soul);
+  }
+  return `
+You are a learning coach documenting sessions with ${childName}.
+Here is her complete profile:
+${soul}
+Format: Engagement / Wins / Watch
+
+`;
+}
 
 export async function recordSession(
   history: ModelMessage[],
@@ -27,7 +41,7 @@ export async function recordSession(
 
   const { text: summary } = await generateText({
     model: anthropic("claude-haiku-4-5-20251001"),
-    system: childName === "Ila" ? getSLPSystemIla() : getReinaLearningPrompt(),
+    system: summarizerSystemPrompt(childName),
     prompt: history.map((m) => `${m.role}: ${m.content}`).join("\n"),
     maxOutputTokens: 600,
   });

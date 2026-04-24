@@ -10,6 +10,7 @@ import {
   type ChildName,
 } from "../utils/childContextPaths";
 import { getTodaysPlanInjectionSuffix } from "../utils/sessionPlanInjection";
+import { buildNamePrefix } from "../utils/childNamePrefix";
 import type { PsychologistStructuredOutput } from "./psychologist/today-plan";
 import { buildCarePlanSection } from "./prompts/buildCarePlanSection";
 import { getCanvasCapabilities } from "../utils/generateCanvasCapabilities";
@@ -24,7 +25,7 @@ import {
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v20"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v21"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -58,12 +59,6 @@ export function getCarePlanBlock(
 ): string {
   if (subject === "diag") return "";
   return resolveCarePlanSuffix(childName, options);
-}
-
-/** Placeholder for psychologist brief hooks; diagnostic sessions use no psychologist path. */
-export function getPsychologistBrief(subject: SessionSubject): string {
-  if (subject === "diag") return "";
-  return "";
 }
 
 function logSessionPromptLengths(
@@ -172,29 +167,10 @@ Nothing that isn't in the transcript.
 `.trim();
 }
 
-/** SLP system prompt for Ila (soul read from disk at call time). */
-export function getSLPSystemIla(): string {
-  return SLP_PROMPT("Ila", readSoul("ila"));
-}
-
-/** Learning-coach summarizer for Reina sessions (soul read at call time). */
-export function getReinaLearningPrompt(): string {
-  const soul = readSoul("reina");
-  return `
-You are a learning coach documenting sessions with Reina. 
-Here is her complete profile:
-${soul}
-Format: Engagement / Wins / Watch
-
-`;
-}
-
-export const CSE_CHAIR_PROMPT = ""; //TODO:  - phase 8
-
 export function buildCurriculumPlannerPrompt(
   childName: "Ila" | "Reina",
 ): string {
-  const soul = readSoul(childName === "Ila" ? "ila" : "reina");
+  const soul = readSoul(childName.toLowerCase());
   return `
 You are a Wilson-oriented curriculum planner for ${childName}.
 Use the profile and goals in the soul file; respect grade level and IEP targets.
@@ -379,11 +355,11 @@ The actual worksheet is pinned as an image in this conversation. The homework ha
 Your job:
 - Answer questions about the worksheet honestly — what you can and cannot see
 - Walk through problems when asked ("can you check problem 2?")
-- Explain how you would tutor ${childName} on any given problem
+- Explain how you would help ${childName} with any given problem
 - Flag any issues you notice (wrong answers, unclear handwriting, ambiguous coins, etc.)
 - Be conversational — this is a parent reviewing, not a child learning
 
-If asked to demo the tutor flow: narrate exactly what you would say to ${childName} and why.
+If asked to demo the help flow: narrate exactly what you would say to ${childName} and why.
 If the image is unclear on something: say so directly rather than guessing.
 
 Subject on file: ${subject || "general homework"}.
@@ -419,7 +395,7 @@ export function PSYCHOLOGIST_PROMPT(
   hasNatalieNotes = false,
   companionName: string,
 ): string {
-  const soul = readSoul(childName === "Ila" ? "ila" : "reina");
+  const soul = readSoul(childName.toLowerCase());
 
   const natalieBlock = hasNatalieNotes
     ? `
@@ -592,7 +568,7 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
 
 /** Diagnostics-only focus block; `creatorContext` is the body of src/context/creator/creator.md */
 function buildDiagModeInstructions(creatorContext: string): string {
-  return `You are Project Sunny, an adaptive AI tutoring system built by Jamal Taylor.
+  return `You are Project Sunny, an adaptive learning companion built by Jamal Taylor.
 
 ${creatorContext}
 
@@ -719,16 +695,8 @@ export async function buildSessionPrompt(
   }
 
   if (!homeworkContent || !homeworkContent.trim()) {
-    const nameTag = [
-      `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
-      `Their name is ${childName}.`,
-      childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : "",
-      childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : "",
-      "You already know their name.",
-      "NEVER ask them their name.",
-      "NEVER call them by any other name no matter what the speech transcription says.",
-    ].filter(Boolean).join("\n");
-    const body = `${nameTag}\n\nYou are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
+    const namePrefix = buildNamePrefix(childName);
+    const body = `${namePrefix}\n\nYou are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest = sessionPromptCapabilitiesTail(subject);
     const beforeCare = `${body}${manifest}`;
@@ -738,7 +706,7 @@ export async function buildSessionPrompt(
     }${manifest}`;
   }
 
-  const soul = readSoul(childName === "Ila" ? "ila" : "reina");
+  const soul = readSoul(childName.toLowerCase());
 
   const contextPath = path.resolve(SRC_DIR, ...contextFileSegments(childName));
   const recentContext = shouldLoadPersistedHistory()
@@ -748,18 +716,7 @@ export async function buildSessionPrompt(
     : "Stateless run — do not use previous sessions.";
 
   if (subject === "reading") {
-    const namePrefix = [
-      `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
-      `Their name is ${childName}.`,
-      childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : "",
-      childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : "",
-      "You already know their name.",
-      "NEVER ask them their name.",
-      "NEVER call them by any other name no matter what the speech transcription says.",
-      "",
-    ]
-      .filter((l) => l !== "")
-      .join("\n");
+    const namePrefix = buildNamePrefix(childName);
     const homeworkCap =
       homeworkContent.length > 14000
         ? `${homeworkContent.slice(0, 14000)}\n\n[... homework truncated for prompt size ...]`
@@ -811,20 +768,11 @@ ${generateToolDocs()}
   const companionContextPath = path.resolve(
     SRC_DIR,
     "context",
-    childName === "Ila" ? "ila" : "reina",
+    childName.toLowerCase(),
     "companion_context.md",
   );
 
-  const namePrefix = [
-    `YOU ARE TALKING TO ${childName.toUpperCase()}.`,
-    `Their name is ${childName}.`,
-    childName === "Ila" ? "IMPORTANT: The name is spelled 'Ila' but pronounced 'Ee-lah'. In every response you write, always write 'Ee-lah' — never write 'Ila' — so text-to-speech reads it correctly." : "",
-    childName === "Reina" ? "IMPORTANT: The name is spelled 'Reina' but pronounced 'Ray-nah'. In every response you write, always write 'Ray-nah' — never write 'Reina' — so text-to-speech reads it correctly." : "",
-    "You already know their name.",
-    "NEVER ask them their name.",
-    "NEVER call them by any other name no matter what the speech transcription says.",
-    "",
-  ].filter((l) => l !== undefined).join("\n");
+  const namePrefix = buildNamePrefix(childName);
 
   const personality = fs.existsSync(personalityPath)
     ? fs.readFileSync(personalityPath, "utf-8").trim()
@@ -870,7 +818,7 @@ export function buildDebugPrompt(
     `⚠️ DEBUG MODE — DEVELOPER IS TESTING YOU
 
 You are NOT ${companionName}. You are a test harness.
-No tutor identity. No child to protect. No worksheet rules.
+No fixed teaching persona. No child to protect. No worksheet rules.
 A developer is stress-testing your canvas and tool capabilities.
 
 YOUR ONLY JOB: demonstrate capabilities when asked.
