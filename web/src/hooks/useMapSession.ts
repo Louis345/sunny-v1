@@ -152,6 +152,7 @@ export function useMapSession(
   companionEvents: CompanionEventPayload[];
   companionCommands: CompanionCommand[];
   forwardMapIframeCompanionEvent: (payload: CompanionEventPayload) => void;
+  sessionStarted: boolean;
 } {
   const [mapState, setMapState] = useState<MapState | null>(null);
   const [theme, setTheme] = useState<SessionTheme | null>(null);
@@ -165,6 +166,7 @@ export function useMapSession(
   const [companionCommands, setCompanionCommands] = useState<CompanionCommand[]>(
     [],
   );
+  const [sessionStarted, setSessionStarted] = useState(false);
 
   const mapStateRef = useRef<MapState | null>(null);
   useEffect(() => {
@@ -179,6 +181,7 @@ export function useMapSession(
       setLaunchedNode(null);
       setCompanionEvents([]);
       setCompanionCommands([]);
+      setSessionStarted(false);
       setConnectionStatus("idle");
       const w = window as unknown as { _mapWs?: WebSocket };
       w._mapWs = undefined;
@@ -186,6 +189,7 @@ export function useMapSession(
     }
     setCompanionEvents([]);
     setCompanionCommands([]);
+    setSessionStarted(false);
     let cancelled = false;
     setConnectionStatus("connecting");
     postJson<{ sessionId: string; mapState: MapState }>("/api/map/start", {
@@ -198,6 +202,7 @@ export function useMapSession(
         setMapState(applyDiagReadingFirstNode(out.mapState));
         setTheme(out.mapState.theme);
         setConnectionStatus("open");
+        setSessionStarted(true);
         console.log("  🎮 [useMapSession] map session ready");
       })
       .catch((err) => {
@@ -237,6 +242,12 @@ export function useMapSession(
         if (isCompanionEvent(msg)) {
           console.log("companion_event received:", msg);
           setCompanionEvents((prev) => [...prev, msg.payload]);
+        } else if (
+          typeof msg === "object" &&
+          msg !== null &&
+          (msg as Record<string, unknown>).type === "session_started"
+        ) {
+          setSessionStarted(true);
         } else if (
           typeof msg === "object" &&
           msg !== null &&
@@ -402,5 +413,6 @@ export function useMapSession(
     companionEvents,
     companionCommands,
     forwardMapIframeCompanionEvent,
+    sessionStarted,
   };
 }

@@ -302,7 +302,7 @@ export async function runSessionStart(
         homeworkPayload.folderPath,
         "extraction.json",
       );
-      const skipPsychologist = isDiagMapMode() || subject === "diag";
+      const skipPsychologist = isDiagMapMode() || subject === "diag" || getSunnyMode() === "as-child";
 
       let extraction: HomeworkExtractionResult = {
         subject: "",

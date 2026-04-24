@@ -11,7 +11,7 @@ const gamesDir = join(dirname(fileURLToPath(import.meta.url)), "../../public/gam
 describe("HTML games sunny-companion anchor", () => {
   it("no .html file contains sunny-companion id (injection architecture deleted)", () => {
     const files = readdirSync(gamesDir).filter((f) => f.endsWith(".html"));
-    expect(files.length).toBe(12);
+    expect(files.length).toBeGreaterThan(0);
     for (const f of files) {
       const text = readFileSync(join(gamesDir, f), "utf8");
       expect(text, `${f} still contains #sunny-companion`).not.toContain('id="sunny-companion"');

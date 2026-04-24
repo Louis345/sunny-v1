@@ -245,6 +245,7 @@ function App() {
     iframe: null,
     url: null,
   });
+  const [sessionReady, setSessionReady] = useState(false);
 
   const {
     adventureChildId,
@@ -286,6 +287,17 @@ function App() {
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
     mapPreviewMode,
   );
+
+  useEffect(() => {
+    setSessionReady(false);
+  }, [adventureChildId]);
+
+  useEffect(() => {
+    if (sessionReady) return;
+    if (mapSession.sessionStarted || (mapSession.mapState?.nodes.length ?? 0) > 0) {
+      setSessionReady(true);
+    }
+  }, [sessionReady, mapSession.sessionStarted, mapSession.mapState]);
 
   useEffect(() => {
     registerMapNodeType(mapSession.launchedNode?.type ?? null);
@@ -384,6 +396,31 @@ function App() {
   let main: ReactNode = null;
 
   if (adventureMapEnabled && adventureChildId) {
+    if (!sessionReady) {
+      main = (
+        <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+          <button
+            type="button"
+            className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
+            onClick={() => {
+              setCompanionSheetOpen(false);
+              setAdventureChildId(null);
+              resetToPicker();
+            }}
+          >
+            Back
+          </button>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <p
+              className="animate-pulse text-3xl font-black tracking-wide"
+              style={{ color: "#FFD93D" }}
+            >
+              Getting ready...
+            </p>
+          </div>
+        </div>
+      );
+    } else {
     main = (
       <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
         <button
@@ -475,6 +512,7 @@ function App() {
           )}
       </div>
     );
+    }
   } else if (state.phase === "picker") {
     main = (
       <div className="w-screen h-screen overflow-hidden">
