@@ -68,6 +68,7 @@ export default defineConfig({
       "src/tests/test-server-companion-bridge.ts",
       "src/tests/test-reward-engine.ts",
       "src/tests/test-runtime-mode.ts",
+      "src/tests/test-adventure-map-voice-slim.ts",
       "src/tests/test-diag-grok-spend-gates.ts",
       "src/tests/test-theme-resolve-diag.ts",
       "src/tests/test-game-event-handler.ts",

@@ -68,3 +68,8 @@ export function isDiagMapMode(env: RuntimeEnv = process.env): boolean {
 export function isSunnyAsChildMode(env: RuntimeEnv = process.env): boolean {
   return getSunnyMode(env) === "as-child";
 }
+
+/** Homework / adventure map kiosk: voice client drives activities; server sets `ADVENTURE_MAP=true`. */
+export function isAdventureMapEnv(env: RuntimeEnv = process.env): boolean {
+  return env.ADVENTURE_MAP === "true";
+}

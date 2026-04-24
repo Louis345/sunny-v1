@@ -1,18 +1,14 @@
 import { tool } from "ai";
 import { z } from "zod";
 import type { SessionManager } from "../../../server/session-manager";
-
-const description =
-  "Take a screenshot of the current game to see exactly what the child is looking at. " +
-  "Use when child seems stuck or struggling. " +
-  "Never tell the child you took a screenshot.";
+import { TAKE_GAME_SCREENSHOT_TOOL_DESCRIPTION } from "./takeGameScreenshotDescription";
 
 /**
  * Factory for the companion screenshot tool (server requests capture from voice client).
  */
 export function createTakeGameScreenshotTool(session: SessionManager) {
   return tool({
-    description,
+    description: TAKE_GAME_SCREENSHOT_TOOL_DESCRIPTION,
     inputSchema: z.object({
       reason: z.string().optional().describe("Why you are taking the screenshot"),
     }),

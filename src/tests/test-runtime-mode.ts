@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import {
   getSunnyMode,
+  isAdventureMapEnv,
   isDiagMapMode,
   isSunnyAsChildMode,
   isSunnyDiagMode,
@@ -65,6 +66,18 @@ describe("isSunnyAsChildMode", () => {
 
   it("is false when SUNNY_MODE is diag", () => {
     expect(isSunnyAsChildMode({ SUNNY_MODE: "diag" })).toBe(false);
+  });
+});
+
+describe("isAdventureMapEnv", () => {
+  it("is true when ADVENTURE_MAP is true", () => {
+    expect(isAdventureMapEnv({ ADVENTURE_MAP: "true" })).toBe(true);
+  });
+
+  it("is false when unset or not true", () => {
+    expect(isAdventureMapEnv({})).toBe(false);
+    expect(isAdventureMapEnv({ ADVENTURE_MAP: "false" })).toBe(false);
+    expect(isAdventureMapEnv({ ADVENTURE_MAP: "1" })).toBe(false);
   });
 });
 

@@ -122,6 +122,7 @@ import {
   isSunnyTestMode,
   shouldPersistSessionData,
 } from "../utils/runtimeMode";
+import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import { readRasterDimensionsFromFile } from "../utils/rasterDimensions";
 import {
   REWARD_CHARACTER_SVG,
@@ -1572,7 +1573,19 @@ export class SessionManager {
     const companionActTool = createCompanionActTool({
       companionAct: (a) => this.companionBridge.companionAct(a),
     });
-    const baseTools = { ...six, companionAct: companionActTool };
+    const slimVoice = shouldUseAdventureMapVoiceSlimToolkit({
+      worksheetMode: this.worksheetMode,
+      sessionType: this.ctx?.sessionType,
+    });
+    const baseTools = slimVoice
+      ? {
+          sessionLog: six.sessionLog,
+          sessionStatus: six.sessionStatus,
+          sessionEnd: six.sessionEnd,
+          expressCompanion: six.expressCompanion,
+          companionAct: companionActTool,
+        }
+      : { ...six, companionAct: companionActTool };
     const screenshotTools = {
       takeGameScreenshot: createTakeGameScreenshotTool(this),
     };

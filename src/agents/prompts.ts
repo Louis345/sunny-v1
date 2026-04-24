@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { shouldLoadPersistedHistory } from "../utils/runtimeMode";
+import {
+  isAdventureMapEnv,
+  shouldLoadPersistedHistory,
+} from "../utils/runtimeMode";
 import {
   childContextFolder,
   contextFileSegments,
@@ -16,11 +19,12 @@ import {
 } from "../server/canvas/registry";
 import { generateCompanionCapabilities } from "../shared/companions/generateCompanionCapabilities";
 import {
+  generateAdventureMapVoiceToolDocs,
   generateToolDocs,
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 
-const TEMPLATE_VERSION = "v19"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v20"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -555,6 +559,37 @@ export function normalizeSessionSubject(
   return allowed.has(s as SessionSubject) ? (s as SessionSubject) : "spelling";
 }
 
+function useAdventureMapVoiceSlimPrompt(subject: SessionSubject): boolean {
+  return (
+    isAdventureMapEnv() &&
+    subject !== "reading" &&
+    subject !== "diag"
+  );
+}
+
+/** Canvas manifest + companion capabilities, or adventure-map voice tail without canvas manifest. */
+function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
+  if (useAdventureMapVoiceSlimPrompt(subject)) {
+    return (
+      "\n\n" +
+      "The adventure map controls which activities appear on screen. " +
+      "Do not use canvasShow, canvasClear, or canvasStatus. " +
+      "Stay in voice: narrate, encourage, and use companionAct. " +
+      "Use sessionLog and sessionStatus as usual.\n\n" +
+      "## Your tools\n" +
+      generateAdventureMapVoiceToolDocs() +
+      "\n\n" +
+      generateCompanionCapabilities()
+    );
+  }
+  return (
+    "\n\n" +
+    generateCanvasCapabilitiesManifest() +
+    "\n\n" +
+    generateCompanionCapabilities()
+  );
+}
+
 /** Diagnostics-only focus block; `creatorContext` is the body of src/context/creator/creator.md */
 function buildDiagModeInstructions(creatorContext: string): string {
   return `You are Project Sunny, an adaptive AI tutoring system built by Jamal Taylor.
@@ -695,11 +730,7 @@ export async function buildSessionPrompt(
     ].filter(Boolean).join("\n");
     const body = `${nameTag}\n\nYou are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
-    const manifest =
-      "\n\n" +
-      generateCanvasCapabilitiesManifest() +
-      "\n\n" +
-      generateCompanionCapabilities();
+    const manifest = sessionPromptCapabilitiesTail(subject);
     const beforeCare = `${body}${manifest}`;
     logSessionPromptLengths(beforeCare.length, careSuffix);
     return `${body}${
@@ -754,11 +785,7 @@ Use canvasShow (sound_box, karaoke, etc.) per the session subject block above.
 ${generateToolDocs()}
 `;
     const careSuffix = getCarePlanBlock(subject, childName, options);
-    const manifest =
-      "\n\n" +
-      generateCanvasCapabilitiesManifest() +
-      "\n\n" +
-      generateCompanionCapabilities();
+    const manifest = sessionPromptCapabilitiesTail(subject);
     const generatedCore = `${namePrefix}\n\n${body}`;
     const beforeCare = `${generatedCore}${manifest}`;
     logSessionPromptLengths(beforeCare.length, careSuffix);
@@ -820,11 +847,7 @@ ${generateToolDocs()}
   console.log(`  🧩 Session prompt template ${TEMPLATE_VERSION}`);
 
   const careSuffix = getCarePlanBlock(subject, childName, options);
-  const manifest =
-    "\n\n" +
-    generateCanvasCapabilitiesManifest() +
-    "\n\n" +
-    generateCompanionCapabilities();
+  const manifest = sessionPromptCapabilitiesTail(subject);
   const beforeCare = `${promptText}${manifest}`;
   logSessionPromptLengths(beforeCare.length, careSuffix);
   return (
