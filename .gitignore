@@ -46,6 +46,8 @@ drop/reina/
 
 # Companion Mixamo FBX clips (large binaries; paths stay in animationRegistry)
 web/public/animations/*.fbx
+# NOTE: web/public/animations/*.json sidecars ARE committed (small metadata files)
+# NOTE: src/shared/companions/animations.generated.ts IS committed (generated from sidecars)
 
 # Local Rive explorer (HTML + character.riv); delete when done
 rive-demo/

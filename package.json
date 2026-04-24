@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "npx tsx scripts/generate-game-registry.ts && tsc",
+    "ingest:animations": "npx tsx src/scripts/ingestAnimations.ts",
     "start": "npx tsx src/scripts/launch-kiosk.ts --no-browser",
     "dev": "npx tsx src/index.ts",
     "ila": "npx tsx src/sessions/ila.ts",

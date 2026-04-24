@@ -83,6 +83,7 @@ export default defineConfig({
       "src/tests/test-node-result-formatter.ts",
       "src/tests/test-session-manager-note-external-event.ts",
       "src/tests/test-map-coordinator-injects-node-result.ts",
+      "src/tests/test-ingest-animations.ts",
     ],
   },
 });

@@ -1,14 +1,10 @@
 import { z } from "zod";
-import {
-  COMPANION_ANIMATION_IDS,
-  type CapabilityDefinition,
-} from "../companionContract";
-
-const animations = COMPANION_ANIMATION_IDS;
+import { ANIMATION_IDS } from "../animations.generated";
+import type { CapabilityDefinition } from "../companionContract";
 
 const animatePayloadSchema = z
   .object({
-    animation: z.enum(animations),
+    animation: z.enum(ANIMATION_IDS),
     loop: z.boolean().optional(),
     duration_ms: z.number().positive().optional(),
   })
@@ -32,7 +28,7 @@ export const animateCapability: CapabilityDefinition = {
       kind: "dropdown",
       key: "animation",
       label: "Animation",
-      options: [...animations],
+      options: [...ANIMATION_IDS],
     },
     { kind: "toggle", key: "loop", label: "Loop", default: false },
   ],

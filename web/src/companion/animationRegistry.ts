@@ -1,12 +1,14 @@
 /**
  * FBX clip registry (COMPANION-MOTOR): `AnimationName` → public URL under `/animations/`.
- * Add a Mixamo FBX to `web/public/animations/` and set the path here (one line per clip).
+ * Derived from animations.generated.ts — do not add entries by hand.
+ * To register a new clip: add the FBX + sidecar JSON, then run `npm run ingest:animations`.
  */
 
 import {
   COMPANION_ANIMATION_IDS,
   type AnimationName,
 } from "../../../src/shared/companions/companionContract";
+import { ANIMATION_MANIFEST } from "../../../src/shared/companions/animations.generated";
 
 export type AnimationRegistryEntry = {
   /** URL path served from `web/public` (e.g. `/animations/wave.fbx`). */
@@ -15,31 +17,17 @@ export type AnimationRegistryEntry = {
   defaultLoop?: boolean;
 };
 
+const fbxByName = new Map<string, AnimationRegistryEntry>(
+  ANIMATION_MANIFEST.map((e) => [e.name, { path: e.path, defaultLoop: e.defaultLoop }]),
+);
+
 /**
- * `null` means no FBX yet — client uses emote fallback (`companionAnimateBridge`).
+ * Every contract AnimationName has a row; `null` means no FBX on disk yet — client uses emote fallback.
  */
-export const ANIMATION_REGISTRY: Record<
-  AnimationName,
-  AnimationRegistryEntry | null
-> = {
-  idle: { path: "/animations/idle.fbx", defaultLoop: false },
-  walk: null,
-  dance_victory: {
-    path: "/animations/dance_victory.fbx",
-    defaultLoop: false,
-  },
-  think: { path: "/animations/think.fbx", defaultLoop: false },
-  sit: null,
-  jump: null,
-  wave: { path: "/animations/wave.fbx", defaultLoop: false },
-  shrug: { path: "/animations/shrug.fbx", defaultLoop: false },
-  clap: null,
-  nod: null,
-  shake_head: null,
-  idle_fidget: null,
-  point_forward: null,
-  arms_up: null,
-};
+export const ANIMATION_REGISTRY: Record<AnimationName, AnimationRegistryEntry | null> =
+  Object.fromEntries(
+    COMPANION_ANIMATION_IDS.map((id) => [id, fbxByName.get(id) ?? null]),
+  ) as Record<AnimationName, AnimationRegistryEntry | null>;
 
 /** Every contract id has a registry row (completeness check). */
 export function assertAnimationRegistryComplete(): void {
