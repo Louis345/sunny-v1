@@ -400,7 +400,7 @@ function CompanionSlot({
       }
     }
     motor?.setShowroomIdle(featured ? "center" : "flank", idleSeedRef.current);
-    motor?.setCameraAngle(featured ? "close-up" : "full-body", 680);
+    motor?.setCameraAngle(featured ? "mid-shot" : "full-body", 680);
   }, [featured, onMotorReady, slot]);
 
   const stopLoop = useCallback(() => {
@@ -477,7 +477,7 @@ function CompanionSlot({
     motor.resetSessionState();
     motor.setCamera(camera);
     motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
-    motor.setCameraAngle(slotRef.current === "current" ? "close-up" : "full-body", 0);
+    motor.setCameraAngle(slotRef.current === "current" ? "mid-shot" : "full-body", 0);
     motorRef.current = motor;
     onMotorReady(slotRef.current, motor);
 
@@ -522,7 +522,7 @@ function CompanionSlot({
           const size = readMountSize();
           motor.attachVrm(vrm, scene, size.w, size.h);
           motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
-          motor.setCameraAngle(slotRef.current === "current" ? "close-up" : "full-body", 0);
+          motor.setCameraAngle(slotRef.current === "current" ? "mid-shot" : "full-body", 0);
           motor.playAnimation("idle", { loop: true });
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);

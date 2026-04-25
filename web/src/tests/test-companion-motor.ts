@@ -84,4 +84,42 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     expect(vrm.scene.position.x).not.toBe(0);
     expect(vrm.update).toHaveBeenCalled();
   });
+
+  it("showroom idle applies one normalized posture for consistent arms", () => {
+    const root = new THREE.Group();
+    const setNormalizedPose = vi.fn();
+
+    const vrm = {
+      scene: root,
+      lookAt: { target: null as THREE.Object3D | null },
+      humanoid: {
+        getRawBoneNode: () => null,
+        getNormalizedBoneNode: () => null,
+        setNormalizedPose,
+      },
+      expressionManager: { setValue: vi.fn() },
+      update: vi.fn(),
+    } as unknown as VRM;
+
+    const scene = new THREE.Scene();
+    motor.attachVrm(vrm, scene, 320, 480);
+    motor.setShowroomIdle("center");
+    motor.tick({
+      dt: 1 / 60,
+      dtMs: 1000 / 60,
+      companionEvents: [],
+      companion: null,
+      childId: "ila",
+      toggledOff: false,
+      activeNodeScreen: null,
+      analyser: null,
+    });
+
+    expect(setNormalizedPose).toHaveBeenCalled();
+    const pose = setNormalizedPose.mock.lastCall?.[0];
+    expect(pose.leftUpperArm.rotation[2]).toBeLessThan(0);
+    expect(pose.rightUpperArm.rotation[2]).toBeGreaterThan(0);
+    expect(pose.leftLowerArm.rotation[2]).toBeLessThan(0);
+    expect(pose.rightLowerArm.rotation[2]).toBeGreaterThan(0);
+  });
 });

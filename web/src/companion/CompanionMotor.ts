@@ -4,7 +4,7 @@
  */
 
 import * as THREE from "three";
-import type { VRM } from "@pixiv/three-vrm";
+import type { VRM, VRMPose } from "@pixiv/three-vrm";
 import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
 import type {
   CompanionConfig,
@@ -79,6 +79,10 @@ export interface CompanionMotorTickContext {
 }
 
 type ShowroomIdleMode = "center" | "flank" | null;
+type HumanoidWithPoseApi = VRM["humanoid"] & {
+  resetNormalizedPose?: () => void;
+  setNormalizedPose?: (pose: VRMPose) => void;
+};
 
 export class CompanionMotor {
   private vrm: VRM | null = null;
@@ -104,6 +108,7 @@ export class CompanionMotor {
 
   private moveTarget: { x: number; z: number } | null = null;
   private moveLerp = 0.065;
+  private vrmMetaVersion = "";
   private showroomIdleMode: ShowroomIdleMode = null;
   private showroomIdleSeed = 0;
   private showroomIdleElapsedMs = 0;
@@ -135,6 +140,13 @@ export class CompanionMotor {
   setShowroomIdle(mode: ShowroomIdleMode, seed = 0): void {
     this.showroomIdleMode = mode;
     this.showroomIdleSeed = seed;
+    this.showroomIdleElapsedMs = 0;
+    if (mode && this.animationMixer) {
+      this.animationMixer.stopAllAction();
+    }
+    if (mode) {
+      this.applyShowroomIdlePose(0);
+    }
   }
 
   setCameraAngle(angle: CameraAngle, transitionMs = 520): void {
@@ -170,6 +182,7 @@ export class CompanionMotor {
     const metaVersion = String(
       (vrm as { meta?: { metaVersion?: string } }).meta?.metaVersion ?? "",
     );
+    this.vrmMetaVersion = metaVersion;
     vrm.scene.rotation.y = metaVersion.startsWith("0") ? Math.PI : 0;
     // Reset position before measuring so we get a clean bbox.
     vrm.scene.position.set(0, 0, 0);
@@ -205,7 +218,11 @@ export class CompanionMotor {
     }
     this.animationMixer = new THREE.AnimationMixer(vrm.scene);
     this.fitCameraToVrm(vrm, mountW, mountH);
-    this.playAnimation("idle", { loop: true });
+    if (this.showroomIdleMode) {
+      this.applyShowroomIdlePose(0);
+    } else {
+      this.playAnimation("idle", { loop: true });
+    }
   }
 
   /**
@@ -314,6 +331,11 @@ export class CompanionMotor {
    * Play a registered animation by id (used after VRM attach and for tooling).
    */
   playAnimation(animation: string, opts?: { loop?: boolean }): void {
+    if (this.showroomIdleMode && animation === "idle") {
+      this.animationMixer?.stopAllAction();
+      this.applyShowroomIdlePose(0);
+      return;
+    }
     this.applyAnimateCommand(animation, opts ?? {});
   }
 
@@ -337,6 +359,7 @@ export class CompanionMotor {
       v.scene.removeFromParent();
     }
     this.vrm = null;
+    this.vrmMetaVersion = "";
     this.cameraFit = null;
   }
 
@@ -518,7 +541,9 @@ export class CompanionMotor {
     }
     this.applyShowroomIdlePose(ctx.dtMs);
     vrm.update(ctx.dt);
-    // applyThinkingHeadTiltToVrm(vrm, this.expressionState); // TODO: re-enable once procedural/mixer conflict is resolved
+    // Keep procedural bone writers disabled here. They conflict with the
+    // AnimationMixer on some VRMs and previously caused bent/back-facing poses.
+    // applyThinkingHeadTiltToVrm(vrm, this.expressionState);
   }
 
   hasVrm(): boolean {
@@ -544,71 +569,41 @@ export class CompanionMotor {
 
     this.showroomIdleElapsedMs += dtMs;
     const t = this.showroomIdleElapsedMs / 1000 + this.showroomIdleSeed * 10;
-    const breathe = Math.sin(t * 1.75) * (mode === "center" ? 0.026 : 0.014);
+    const breathe = Math.sin(t * 1.75) * (mode === "center" ? 0.022 : 0.012);
     const sway = Math.sin(t * 0.72) * (mode === "center" ? 0.045 : 0.022);
     const glance = Math.sin(t * 0.47) * (mode === "center" ? 0.09 : 0.045);
+    const humanoid = vrm.humanoid as HumanoidWithPoseApi;
+    const setPose = humanoid.setNormalizedPose?.bind(humanoid);
+    if (!setPose) return;
 
-    const humanoid = vrm.humanoid;
-    const bone = (name: Parameters<typeof humanoid.getRawBoneNode>[0]) =>
-      humanoid.getNormalizedBoneNode(name) ?? humanoid.getRawBoneNode(name);
-    const hips = bone("hips");
-    const spine = bone("spine");
-    const chest = bone("chest");
-    const neck = bone("neck");
-    const head = bone("head");
-    const leftUpperArm = bone("leftUpperArm");
-    const rightUpperArm = bone("rightUpperArm");
-    const leftLowerArm = bone("leftLowerArm");
-    const rightLowerArm = bone("rightLowerArm");
-    const leftHand = bone("leftHand");
-    const rightHand = bone("rightHand");
+    const q = (x = 0, y = 0, z = 0): [number, number, number, number] => {
+      const quat = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(x, y, z, "XYZ"),
+      );
+      return [quat.x, quat.y, quat.z, quat.w];
+    };
 
-    if (hips) {
-      hips.position.y = breathe * 0.18;
-      hips.rotation.z = sway * 0.16;
-    }
-    if (spine) {
-      spine.rotation.x = breathe * 0.38;
-      spine.rotation.z = sway * 0.34;
-    }
-    if (chest) {
-      chest.rotation.x = breathe * 0.3;
-      chest.rotation.z = sway * 0.22;
-    }
-    if (neck) {
-      neck.rotation.y = glance * 0.38;
-      neck.rotation.z = -sway * 0.18;
-    }
-    if (head) {
-      head.rotation.y = glance;
-      head.rotation.z = -sway * 0.24;
-    }
-    if (leftUpperArm) {
-      leftUpperArm.rotation.x = 0.08 + breathe * 0.22;
-      leftUpperArm.rotation.y = 0.08;
-      leftUpperArm.rotation.z = mode === "center" ? -4.05 : -3.85;
-    }
-    if (rightUpperArm) {
-      rightUpperArm.rotation.x = 0.08 + breathe * 0.22;
-      rightUpperArm.rotation.y = -0.08;
-      rightUpperArm.rotation.z = mode === "center" ? 4.05 : 3.85;
-    }
-    if (leftLowerArm) {
-      leftLowerArm.rotation.y = 0.04;
-      leftLowerArm.rotation.z = -0.12 - breathe * 0.12;
-    }
-    if (rightLowerArm) {
-      rightLowerArm.rotation.y = -0.04;
-      rightLowerArm.rotation.z = 0.12 + breathe * 0.12;
-    }
-    if (leftHand) {
-      leftHand.rotation.x = breathe * 0.4;
-      leftHand.rotation.z = -0.05;
-    }
-    if (rightHand) {
-      rightHand.rotation.x = breathe * 0.4;
-      rightHand.rotation.z = 0.05;
-    }
+    const upperArmDrop = mode === "center" ? 1.18 : 1.1;
+    const elbowEase = mode === "center" ? 0.16 : 0.1;
+    const armSign = this.vrmMetaVersion.startsWith("0") ? 1 : -1;
+    const pose: VRMPose = {
+      hips: {
+        position: [0, breathe * 0.035, 0],
+        rotation: q(0, 0, sway * 0.09),
+      },
+      spine: { rotation: q(breathe * 0.08, 0, sway * 0.12) },
+      chest: { rotation: q(breathe * 0.07, 0, sway * 0.08) },
+      neck: { rotation: q(0, glance * 0.28, -sway * 0.1) },
+      head: { rotation: q(0, glance, -sway * 0.16) },
+      leftUpperArm: { rotation: q(0, 0, armSign * upperArmDrop) },
+      rightUpperArm: { rotation: q(0, 0, -armSign * upperArmDrop) },
+      leftLowerArm: { rotation: q(0, 0, armSign * elbowEase) },
+      rightLowerArm: { rotation: q(0, 0, -armSign * elbowEase) },
+      leftHand: { rotation: q(breathe * 0.08, 0, 0) },
+      rightHand: { rotation: q(breathe * 0.08, 0, 0) },
+    };
+
+    setPose(pose);
   }
 
   private applyAnimateCommand(
