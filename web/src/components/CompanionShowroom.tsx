@@ -363,6 +363,7 @@ function CompanionSlot({
   active,
   featured,
   soleFlankPair,
+  contained = false,
   onMotorReady,
   onLoadSettled,
 }: {
@@ -375,7 +376,8 @@ function CompanionSlot({
    * than the default side preview.
    */
   soleFlankPair?: boolean;
-  onMotorReady: (slot: SlotName, motor: CompanionMotor | null) => void;
+  contained?: boolean;
+  onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
 }) {
   const slotKey = entry.id;
@@ -394,14 +396,14 @@ function CompanionSlot({
     slotRef.current = slot;
     const motor = motorRef.current;
     if (previousSlot !== slot) {
-      onMotorReady(previousSlot, null);
+      onMotorReady?.(previousSlot, null);
       if (motor) {
-        onMotorReady(slot, motor);
+        onMotorReady?.(slot, motor);
       }
     }
     motor?.setShowroomIdle(featured ? "center" : "flank", idleSeedRef.current);
-    motor?.setCameraAngle(featured ? "mid-shot" : "full-body", 680);
-  }, [featured, onMotorReady, slot]);
+    motor?.setCameraAngle(contained ? "mid-shot" : "full-body", 680);
+  }, [contained, featured, onMotorReady, slot]);
 
   const stopLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -477,9 +479,9 @@ function CompanionSlot({
     motor.resetSessionState();
     motor.setCamera(camera);
     motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
-    motor.setCameraAngle(slotRef.current === "current" ? "mid-shot" : "full-body", 0);
+    motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
     motorRef.current = motor;
-    onMotorReady(slotRef.current, motor);
+    onMotorReady?.(slotRef.current, motor);
 
     const syncRendererToMount = () => {
       const renderer = rendererRef.current;
@@ -522,7 +524,7 @@ function CompanionSlot({
           const size = readMountSize();
           motor.attachVrm(vrm, scene, size.w, size.h);
           motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
-          motor.setCameraAngle(slotRef.current === "current" ? "mid-shot" : "full-body", 0);
+          motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
           motor.playAnimation("idle", { loop: true });
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
@@ -585,7 +587,7 @@ function CompanionSlot({
       cancelled = true;
       resizeObserver?.disconnect();
       stopLoop();
-      onMotorReady(slotRef.current, null);
+      onMotorReady?.(slotRef.current, null);
       motor.dispose();
       motorRef.current = null;
       timerRef.current?.dispose();
@@ -600,15 +602,27 @@ function CompanionSlot({
       sceneRef.current = null;
       cameraRef.current = null;
     };
-  }, [entry.vrmUrl, onLoadSettled, onMotorReady, slotKey, startLoop, stopLoop]);
+  }, [contained, entry.vrmUrl, onLoadSettled, onMotorReady, slotKey, startLoop, stopLoop]);
 
   return (
     <motion.div
       aria-hidden={slot !== "current"}
       initial={false}
-      style={slotFrameStyle(slot, {
-        soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
-      })}
+      style={
+        contained
+          ? {
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              opacity: 1,
+              zIndex: 1,
+              pointerEvents: "none",
+            }
+          : slotFrameStyle(slot, {
+              soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
+            })
+      }
     >
       <motion.div
         initial={{ opacity: 0 }}
@@ -623,6 +637,382 @@ function CompanionSlot({
       >
         <div ref={mountRef} style={{ width: "100%", height: "100%" }} />
       </motion.div>
+    </motion.div>
+  );
+}
+
+/**
+ * CompanionInfoCard
+ * ─────────────────
+ * Two-panel info card that slides in when the user clicks "Meet me".
+ * LEFT:  name, personality traits, subject strengths, bio
+ * RIGHT: live 3D canvas close-up for the selected companion.
+ *
+ * Picking now happens inside the card so the bottom of the stage stays clear.
+ */
+function CompanionInfoCard({
+  entry,
+  introText,
+  bonusPoints,
+  pickLabel,
+  picking,
+  onPick,
+  onClose,
+}: {
+  entry: CompanionManifestEntry;
+  introText: string;
+  bonusPoints?: number;
+  pickLabel: string;
+  picking: boolean;
+  onPick: () => void;
+  onClose: () => void;
+}) {
+  const cardAccent = entry.id
+    ? `hsl(${(entry.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) * 37) % 360}, 70%, 68%)`
+    : "#a78bfa";
+
+  return (
+    <motion.div
+      key="companion-info-card"
+      initial={{ opacity: 0, x: 56, scale: 0.97 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 56, scale: 0.97 }}
+      transition={{ duration: 0.38, ease: [0.34, 1.56, 0.64, 1] }}
+      style={{
+        position: "fixed",
+        top: "50%",
+        right: "clamp(16px, 5vw, 80px)",
+        transform: "translateY(-50%)",
+        zIndex: 34,
+        width: "min(92vw, 860px)",
+        maxHeight: "min(78vh, 620px)",
+        borderRadius: 18,
+        background: "rgba(10, 6, 24, 0.96)",
+        border: "1px solid rgba(255,255,255,0.09)",
+        boxShadow: "0 32px 90px rgba(0,0,0,0.7)",
+        display: "flex",
+        overflow: "hidden",
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Close companion card"
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          top: 14,
+          right: 14,
+          zIndex: 6,
+          width: 38,
+          height: 38,
+          borderRadius: "50%",
+          border: "1px solid rgba(255,255,255,0.24)",
+          background: "rgba(15,23,42,0.86)",
+          color: "#f8fafc",
+          fontSize: 24,
+          lineHeight: 1,
+          cursor: "pointer",
+        }}
+      >
+        ×
+      </button>
+      {/* ── LEFT: bio + traits + strengths ── */}
+      <div
+        style={{
+          flex: "0 0 52%",
+          padding: "32px 28px 24px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          overflowY: "auto",
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "clamp(28px, 4.4vw, 42px)",
+              fontWeight: 800,
+              color: "#fff",
+              lineHeight: 1.05,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {entry.name}
+          </h2>
+          <p
+            style={{
+              margin: "6px 0 0",
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.35)",
+            }}
+          >
+            {introText.slice(0, 48)}…
+          </p>
+        </div>
+
+        <p
+          style={{
+            margin: 0,
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.94)",
+            color: "#1e1b4b",
+            fontSize: 15,
+            lineHeight: 1.45,
+            padding: "14px 16px",
+            boxShadow: "0 12px 34px rgba(0,0,0,0.24)",
+          }}
+        >
+          {introText}
+        </p>
+
+        <div style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
+        {entry.traits && entry.traits.length > 0 && (
+          <div>
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 10,
+              }}
+            >
+              Personality
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {entry.traits.map((t) => (
+                <span
+                  key={t}
+                  style={{
+                    padding: "5px 14px",
+                    borderRadius: 999,
+                    background: "rgba(109,94,245,0.22)",
+                    border: "1.5px solid rgba(109,94,245,0.45)",
+                    color: "#c4b5fd",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {entry.subjects && entry.subjects.length > 0 && (
+          <div>
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 12,
+              }}
+            >
+              Subject Strengths
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {entry.subjects.map((s) => (
+                <div key={s.label}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 14 }}>{s.emoji}</span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "rgba(255,255,255,0.6)",
+                      }}
+                    >
+                      {s.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#a78bfa",
+                        marginLeft: "auto",
+                      }}
+                    >
+                      {s.level}/5
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      height: 6,
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.07)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${(s.level / 5) * 100}%`,
+                        borderRadius: 999,
+                        background: "linear-gradient(90deg, #6d5ef5, #a78bfa)",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {entry.bio && (
+          <div>
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 8,
+              }}
+            >
+              About
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                lineHeight: 1.75,
+                color: "rgba(255,255,255,0.6)",
+                fontStyle: "italic",
+              }}
+            >
+              {entry.bio}
+            </p>
+          </div>
+        )}
+
+        {!entry.bio && !entry.traits && (
+          <div>
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.28)",
+                marginBottom: 8,
+              }}
+            >
+              Personality
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {entry.personality.map((t) => (
+                <span
+                  key={t}
+                  style={{
+                    padding: "5px 14px",
+                    borderRadius: 999,
+                    background: "rgba(109,94,245,0.22)",
+                    border: "1.5px solid rgba(109,94,245,0.45)",
+                    color: "#c4b5fd",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {bonusPoints != null && bonusPoints > 0 && (
+          <div style={{ color: "#fbbf24", fontSize: 14, fontWeight: 700 }}>
+            ⭐ +{bonusPoints} bonus XP when you pick {entry.name}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onPick}
+          disabled={picking}
+          style={{
+            marginTop: "auto",
+            border: 0,
+            borderRadius: 999,
+            background: accent,
+            color: "#fff",
+            fontSize: 18,
+            fontWeight: 800,
+            fontFamily: "Lexend, system-ui, sans-serif",
+            padding: "14px 22px",
+            boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
+            cursor: picking ? "wait" : "pointer",
+            opacity: picking ? 0.76 : 1,
+            whiteSpace: "normal",
+          }}
+        >
+          {pickLabel}
+        </button>
+      </div>
+
+      {/* ── RIGHT: live 3D canvas (camera already zoomed to close-up) ── */}
+      <div
+        style={{
+          flex: "0 0 48%",
+          position: "relative",
+          background: `radial-gradient(ellipse at 50% 20%, ${cardAccent}22, transparent 60%), rgba(0,0,0,0.3)`,
+          borderLeft: "1px solid rgba(255,255,255,0.06)",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 340,
+        }}
+      >
+        <CompanionSlot
+          entry={entry}
+          slot="current"
+          active
+          featured
+          contained
+          onLoadSettled={() => undefined}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            bottom: 18,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(109,94,245,0.4)",
+            borderRadius: 999,
+            padding: "6px 18px",
+            fontSize: 13,
+            fontWeight: 700,
+            color: "#c4b5fd",
+            whiteSpace: "nowrap",
+            maxWidth: "calc(100% - 32px)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {entry.name}
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -722,6 +1112,8 @@ export function CompanionShowroom({
     setSpotlightOpen(false);
     setIntroVisible(false);
     setPicking(false);
+    // Zoom back to full body on stage
+    motorsRef.current.current?.setCameraAngle("full-body", 680);
     Object.values(motorsRef.current).forEach((motor) => {
       motor?.playAnimation("idle", { loop: true });
     });
@@ -733,6 +1125,8 @@ export function CompanionShowroom({
     clearTimers();
     setSpotlightOpen(true);
     setIntroVisible(false);
+    // Zoom current companion to close-up for the info card
+    motorsRef.current.current?.setCameraAngle("close-up", 680);
     motorsRef.current.current?.playAnimation("wave", { loop: false });
     motorsRef.current.prev?.playAnimation("nod", { loop: false });
     motorsRef.current.next?.playAnimation("nod", { loop: false });
@@ -974,8 +1368,6 @@ export function CompanionShowroom({
           }
           @media (max-width: 640px) {
             .sunny-showroom-stage { height: 58vh !important; }
-            .sunny-showroom-stats { left: 50% !important; right: auto !important; top: auto !important; bottom: 98px !important; transform: translateX(-50%) !important; width: min(88vw, 480px) !important; }
-            .sunny-showroom-subtitle { bottom: 28px !important; }
             .sunny-showroom-dots { bottom: 4px !important; }
           }`}
       </style>
@@ -1061,6 +1453,35 @@ export function CompanionShowroom({
             pointerEvents: "none",
           }}
         />
+        {/* God rays — one per companion position */}
+        <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
+          {slots.map((s, i) => {
+            const positions = ["10%", "27%", "50%", "73%", "90%"];
+            const left = positions[i] ?? "50%";
+            const isActive = s.entry.id === (current?.id ?? "");
+            return (
+              <div
+                key={s.entry.id}
+                style={{
+                  position: "absolute",
+                  left,
+                  top: 0,
+                  width: s.slot === "current" ? 130 : 80,
+                  height: s.slot === "current" ? "55%" : "45%",
+                  transform: "translateX(-50%)",
+                  background: `linear-gradient(180deg,
+                    rgba(255,255,255,${isActive ? 0.07 : 0.035}) 0%,
+                    rgba(255,255,255,0.018) 55%,
+                    transparent 100%)`,
+                  clipPath: "polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%)",
+                  pointerEvents: "none",
+                  transition: "opacity 0.8s",
+                }}
+              />
+            );
+          })}
+        </div>
+
         <AnimatePresence initial={false}>
           {slots.map((slot) => (
             <CompanionSlot
@@ -1259,134 +1680,20 @@ export function CompanionShowroom({
               ×
             </motion.button>
 
-            {introVisible && (
-              <motion.div
-                key="subtitle"
-                className="sunny-showroom-subtitle"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 16 }}
-                style={{
-                  position: "fixed",
-                  left: "50%",
-                  bottom: 34,
-                  transform: "translateX(-50%)",
-                  zIndex: 35,
-                  width: "min(88vw, 480px)",
-                  borderRadius: 22,
-                  background: "#fff",
-                  color: "#1e1b4b",
-                  fontFamily: "Lexend, system-ui, sans-serif",
-                  fontSize: 18,
-                  lineHeight: 1.45,
-                  padding: "18px 22px",
-                  boxShadow: "0 22px 70px rgba(0,0,0,0.34)",
-                  textAlign: "center",
-                }}
-              >
-                {introText}
-              </motion.div>
-            )}
-
-            {introVisible && (
-              <motion.aside
-                key="stats"
-                className="sunny-showroom-stats"
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 24 }}
-                transition={{ delay: 0.12 }}
-                style={{
-                  position: "fixed",
-                  top: "25%",
-                  right: "clamp(18px, 7vw, 112px)",
-                  zIndex: 34,
-                  width: 310,
-                  borderRadius: 20,
-                  padding: 24,
-                  background: "rgba(15,23,42,0.9)",
-                  boxShadow: "0 24px 80px rgba(0,0,0,0.38)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  backdropFilter: "blur(14px)",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: "0 0 14px",
-                    color: "#fff",
-                    fontSize: 28,
-                    fontWeight: 800,
-                    lineHeight: 1.05,
-                  }}
-                >
-                  {current.name}
-                </h2>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-                  {current.personality.map((trait) => (
-                    <span
-                      key={trait}
-                      style={{
-                        borderRadius: 999,
-                        padding: "4px 12px",
-                        background: "rgba(109,94,245,0.25)",
-                        border: "1px solid rgba(109,94,245,0.5)",
-                        color: "#c4b5fd",
-                        fontSize: 14,
-                      }}
-                    >
-                      {trait}
-                    </span>
-                  ))}
-                </div>
-                {bonus > 0 && (
-                  <div
-                    style={{
-                      color: "#fbbf24",
-                      fontSize: 15,
-                      fontWeight: 700,
-                      marginBottom: 12,
-                    }}
-                  >
-                    ⭐ +{bonus} bonus XP
-                  </div>
-                )}
-                <p
-                  style={{
-                    color: "rgba(255,255,255,0.7)",
-                    fontSize: 14,
-                    fontStyle: "italic",
-                    lineHeight: 1.45,
-                    margin: "0 0 18px",
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {introText}
-                </p>
-                <button
-                  type="button"
-                  onClick={confirmPick}
-                  disabled={picking}
-                  style={{
-                    width: "100%",
-                    border: 0,
-                    borderRadius: 999,
-                    background: accent,
-                    color: "#fff",
-                    fontFamily: "Lexend, system-ui, sans-serif",
-                    fontSize: 18,
-                    fontWeight: 800,
-                    padding: "14px 18px",
-                    cursor: picking ? "wait" : "pointer",
-                    opacity: picking ? 0.76 : 1,
-                  }}
-                >
-                  {pickLabel}
-                </button>
-              </motion.aside>
-            )}
+            <AnimatePresence>
+              {introVisible && (
+                <CompanionInfoCard
+                  key="companion-info-card"
+                  entry={current}
+                  introText={introText}
+                  bonusPoints={bonus > 0 ? bonus : undefined}
+                  pickLabel={pickLabel}
+                  picking={picking}
+                  onPick={confirmPick}
+                  onClose={closeSpotlight}
+                />
+              )}
+            </AnimatePresence>
           </>
         )}
       </AnimatePresence>
