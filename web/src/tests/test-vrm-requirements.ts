@@ -2,24 +2,28 @@ import { describe, it, expect } from "vitest";
 import {
   REQUIRED_VRM_BONES,
   REQUIRED_VRM_EXPRESSIONS,
+  VRM_EXPRESSION_ALIASES,
   validateVrmRequirements,
 } from "../utils/vrmRequirements";
 
 function mockVrm(overrides: {
-  expressions?: Partial<Record<(typeof REQUIRED_VRM_EXPRESSIONS)[number], boolean>>;
+  expressions?: Partial<Record<string, boolean>>;
   bones?: Partial<Record<(typeof REQUIRED_VRM_BONES)[number], boolean>>;
   omitExpressionManager?: boolean;
 }) {
   const exprPresent = overrides.expressions ?? {};
   const bonePresent = overrides.bones ?? {};
+  const defaultExpressions = new Set<string>(
+    REQUIRED_VRM_EXPRESSIONS.flatMap((name) => VRM_EXPRESSION_ALIASES[name]),
+  );
   return {
     expressionManager: overrides.omitExpressionManager
       ? null
       : {
           getExpression(name: string) {
-            const required = REQUIRED_VRM_EXPRESSIONS as readonly string[];
-            if (!required.includes(name)) return {};
-            return exprPresent[name as keyof typeof exprPresent] === false ? null : {};
+            if (exprPresent[name] === false) return null;
+            if (exprPresent[name] === true || defaultExpressions.has(name)) return {};
+            return null;
           },
         },
     humanoid: {
@@ -60,6 +64,10 @@ describe("validateVrmRequirements (COMPANION-002)", () => {
         mockVrm({
           expressions: {
             happy: false,
+            Joy: false,
+            joy: false,
+            Fun: false,
+            fun: false,
             sad: true,
             surprised: true,
             aa: true,
@@ -67,6 +75,25 @@ describe("validateVrmRequirements (COMPANION-002)", () => {
         }),
       ),
     ).toThrow(/happy/);
+  });
+
+  it("passes when a VRM0 expression alias is present", () => {
+    expect(() =>
+      validateVrmRequirements(
+        mockVrm({
+          expressions: {
+            happy: false,
+            Joy: true,
+            sad: false,
+            Sorrow: true,
+            surprised: false,
+            Surprised: true,
+            aa: false,
+            A: true,
+          },
+        }),
+      ),
+    ).not.toThrow();
   });
 
   it("throws when bone head is missing", () => {

@@ -5,7 +5,10 @@ import {
   VRM,
 } from "@pixiv/three-vrm";
 import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
-import { validateVrmRequirements } from "./vrmRequirements";
+import {
+  resolveVrmExpressionName,
+  validateVrmRequirements,
+} from "./vrmRequirements";
 
 export type LoadCompanionVrmOptions = {
   /** When true (default), use MToonNodeMaterial for WebGPURenderer. When false, classic materials for WebGLRenderer. */
@@ -79,12 +82,14 @@ export function applyCompanionVrmExpression(vrm: VRM, blendShapeName: string): v
   const manager = vrm.expressionManager;
   if (!manager) return;
   manager.resetValues();
-  if (manager.getExpression(blendShapeName) != null) {
-    manager.setValue(blendShapeName, 1);
+  const resolved = resolveVrmExpressionName(manager, blendShapeName);
+  if (resolved != null) {
+    manager.setValue(resolved, 1);
   } else {
     console.warn(`[VRM] expression "${blendShapeName}" not found`);
-    if (manager.getExpression("neutral") != null) {
-      manager.setValue("neutral", 1);
+    const neutral = resolveVrmExpressionName(manager, "neutral");
+    if (neutral != null) {
+      manager.setValue(neutral, 1);
     }
   }
   manager.update();

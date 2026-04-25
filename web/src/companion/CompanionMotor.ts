@@ -65,6 +65,7 @@ import {
   retargetMixamoClipToVrm,
   loadMixamoFbxRoot,
 } from "../utils/mixamoRetarget";
+import { resolveVrmExpressionName } from "../utils/vrmRequirements";
 
 export interface CompanionMotorTickContext {
   dt: number;
@@ -76,6 +77,8 @@ export interface CompanionMotorTickContext {
   activeNodeScreen: { x: number; y: number } | null;
   analyser: AnalyserNode | null;
 }
+
+type ShowroomIdleMode = "center" | "flank" | null;
 
 export class CompanionMotor {
   private vrm: VRM | null = null;
@@ -101,6 +104,9 @@ export class CompanionMotor {
 
   private moveTarget: { x: number; z: number } | null = null;
   private moveLerp = 0.065;
+  private showroomIdleMode: ShowroomIdleMode = null;
+  private showroomIdleSeed = 0;
+  private showroomIdleElapsedMs = 0;
 
   private animationMixer: THREE.AnimationMixer | null = null;
   private readonly clipCache = new Map<AnimationName, THREE.AnimationClip>();
@@ -124,6 +130,16 @@ export class CompanionMotor {
 
   setCamera(camera: THREE.PerspectiveCamera | null): void {
     this.camera = camera;
+  }
+
+  setShowroomIdle(mode: ShowroomIdleMode, seed = 0): void {
+    this.showroomIdleMode = mode;
+    this.showroomIdleSeed = seed;
+  }
+
+  setCameraAngle(angle: CameraAngle, transitionMs = 520): void {
+    this.currentCameraAngle = angle;
+    this.applyCameraFraming(angle, { transitionMs });
   }
 
   /**
@@ -151,7 +167,10 @@ export class CompanionMotor {
     //   vrm.lookAt.target = lookTarget;
     // }
     scene.add(vrm.scene);
-    vrm.scene.rotation.y = 0;
+    const metaVersion = String(
+      (vrm as { meta?: { metaVersion?: string } }).meta?.metaVersion ?? "",
+    );
+    vrm.scene.rotation.y = metaVersion.startsWith("0") ? Math.PI : 0;
     // Reset position before measuring so we get a clean bbox.
     vrm.scene.position.set(0, 0, 0);
     // Pre-simulate spring bones so hair settles at rest instead of launching on first render.
@@ -167,6 +186,13 @@ export class CompanionMotor {
       const snapBox = new THREE.Box3().setFromObject(vrm.scene);
       if (!snapBox.isEmpty() && snapBox.min.y !== 0) {
         vrm.scene.position.y -= snapBox.min.y;
+      }
+      const centerBox = new THREE.Box3().setFromObject(vrm.scene);
+      if (!centerBox.isEmpty()) {
+        const center = new THREE.Vector3();
+        centerBox.getCenter(center);
+        vrm.scene.position.x -= center.x;
+        vrm.scene.position.z -= center.z;
       }
     } catch {
       // Degenerate / test mesh — leave at Y=0.
@@ -451,7 +477,13 @@ export class CompanionMotor {
       );
       // applyIdleMotionToVrm(vrm, this.idleState); // TODO: re-enable once procedural/mixer conflict is resolved
       const mouthW = updateMouthSync(ctx.analyser, ctx.dt);
-      vrm.expressionManager?.setValue("aa", mouthW);
+      const em = vrm.expressionManager;
+      if (em) {
+        const mouthExpression = resolveVrmExpressionName(em, "aa");
+        if (mouthExpression) {
+          em.setValue(mouthExpression, mouthW);
+        }
+      }
     }
 
     const look = vrm.lookAt;
@@ -484,6 +516,7 @@ export class CompanionMotor {
     if (this.animationMixer) {
       this.animationMixer.update(ctx.dt);
     }
+    this.applyShowroomIdlePose(ctx.dtMs);
     vrm.update(ctx.dt);
     // applyThinkingHeadTiltToVrm(vrm, this.expressionState); // TODO: re-enable once procedural/mixer conflict is resolved
   }
@@ -501,6 +534,80 @@ export class CompanionMotor {
         undefined,
         this.expressionCompanionHint,
       );
+    }
+  }
+
+  private applyShowroomIdlePose(dtMs: number): void {
+    const mode = this.showroomIdleMode;
+    const vrm = this.vrm;
+    if (!mode || !vrm) return;
+
+    this.showroomIdleElapsedMs += dtMs;
+    const t = this.showroomIdleElapsedMs / 1000 + this.showroomIdleSeed * 10;
+    const breathe = Math.sin(t * 1.75) * (mode === "center" ? 0.026 : 0.014);
+    const sway = Math.sin(t * 0.72) * (mode === "center" ? 0.045 : 0.022);
+    const glance = Math.sin(t * 0.47) * (mode === "center" ? 0.09 : 0.045);
+
+    const humanoid = vrm.humanoid;
+    const bone = (name: Parameters<typeof humanoid.getRawBoneNode>[0]) =>
+      humanoid.getNormalizedBoneNode(name) ?? humanoid.getRawBoneNode(name);
+    const hips = bone("hips");
+    const spine = bone("spine");
+    const chest = bone("chest");
+    const neck = bone("neck");
+    const head = bone("head");
+    const leftUpperArm = bone("leftUpperArm");
+    const rightUpperArm = bone("rightUpperArm");
+    const leftLowerArm = bone("leftLowerArm");
+    const rightLowerArm = bone("rightLowerArm");
+    const leftHand = bone("leftHand");
+    const rightHand = bone("rightHand");
+
+    if (hips) {
+      hips.position.y = breathe * 0.18;
+      hips.rotation.z = sway * 0.16;
+    }
+    if (spine) {
+      spine.rotation.x = breathe * 0.38;
+      spine.rotation.z = sway * 0.34;
+    }
+    if (chest) {
+      chest.rotation.x = breathe * 0.3;
+      chest.rotation.z = sway * 0.22;
+    }
+    if (neck) {
+      neck.rotation.y = glance * 0.38;
+      neck.rotation.z = -sway * 0.18;
+    }
+    if (head) {
+      head.rotation.y = glance;
+      head.rotation.z = -sway * 0.24;
+    }
+    if (leftUpperArm) {
+      leftUpperArm.rotation.x = 0.08 + breathe * 0.22;
+      leftUpperArm.rotation.y = 0.08;
+      leftUpperArm.rotation.z = mode === "center" ? -4.05 : -3.85;
+    }
+    if (rightUpperArm) {
+      rightUpperArm.rotation.x = 0.08 + breathe * 0.22;
+      rightUpperArm.rotation.y = -0.08;
+      rightUpperArm.rotation.z = mode === "center" ? 4.05 : 3.85;
+    }
+    if (leftLowerArm) {
+      leftLowerArm.rotation.y = 0.04;
+      leftLowerArm.rotation.z = -0.12 - breathe * 0.12;
+    }
+    if (rightLowerArm) {
+      rightLowerArm.rotation.y = -0.04;
+      rightLowerArm.rotation.z = 0.12 + breathe * 0.12;
+    }
+    if (leftHand) {
+      leftHand.rotation.x = breathe * 0.4;
+      leftHand.rotation.z = -0.05;
+    }
+    if (rightHand) {
+      rightHand.rotation.x = breathe * 0.4;
+      rightHand.rotation.z = 0.05;
     }
   }
 

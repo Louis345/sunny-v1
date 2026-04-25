@@ -9,6 +9,7 @@ import {
   type CompanionEmote,
   isCompanionEmote,
 } from "../../../src/shared/companionEmotes";
+import { resolveVrmExpressionName } from "./vrmRequirements";
 
 /** Face expression id, or `thinking` for head-tilt pose (not a blend shape). */
 export type CompanionExpressionId = "happy" | "sad" | "surprised" | "thinking";
@@ -459,15 +460,16 @@ function safeSetExpression(
   value: number,
 ): boolean {
   try {
-    if (em.getExpression(name) == null) return false;
-    em.setValue(name, value);
+    const resolved = resolveVrmExpressionName(em, name);
+    if (resolved == null) return false;
+    em.setValue(resolved, value);
     return true;
   } catch {
     return false;
   }
 }
 
-/** Push decay state onto the VRM (face blend shapes + thinking head tilt). */
+/** Push decay state onto the VRM face blend shapes. */
 export function applyExpressionStateToVrm(
   vrm: VRM,
   state: ExpressionDecayState,
@@ -505,13 +507,6 @@ export function applyExpressionStateToVrm(
     }
   }
 
-  try {
-    em.update();
-  } catch {
-    /* ignore */
-  }
-
-  if (vrm.humanoid) {
-    applyThinkingHeadTiltToVrm(vrm, state);
-  }
+  // `vrm.update(dt)` calls `expressionManager.update()` in the render loop.
+  // Keep this function focused on queuing expression weights only.
 }

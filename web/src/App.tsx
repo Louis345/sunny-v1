@@ -41,6 +41,7 @@ import { TamagotchiSheet } from "./components/TamagotchiSheet";
 import { RewardDiagOverlay } from "./components/RewardDiagOverlay";
 import { RewardTriggerPanel } from "./components/RewardTriggerPanel";
 import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
+import { CompanionShowroomPage } from "./CompanionShowroomPage";
 
 const isCanvasTestMode =
   import.meta.env.VITE_TEST_MODE === "true" ||
@@ -392,6 +393,10 @@ function App() {
       setProfileCompanion(null);
     };
   }, [activeProfileChildId]);
+
+  if (import.meta.env.VITE_MODE === "intro") {
+    return <CompanionShowroomPage />;
+  }
 
   let main: ReactNode = null;
 

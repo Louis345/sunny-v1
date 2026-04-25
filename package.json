@@ -61,7 +61,9 @@
     "sunny:mode:diag:mute": "cd web && npm run build && cd .. && TTS_ENABLED=false SUNNY_SUBJECT=diag npx tsx src/scripts/launch-kiosk.ts",
     "sunny:server:test": "SUNNY_TEST_MODE=true npx tsx src/server.ts",
     "dev:live": "concurrently --names \"server,web\" --prefix-colors \"green,magenta\" \"npx tsx src/server.ts\" \"cd web && npm run dev\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "sunny:ingest:companion": "npx tsx src/scripts/ingestCompanions.ts",
+    "sunny:mode:intro": "npm run sunny:ingest:companion && cd web && VITE_MODE=intro VITE_COMPANION_SHOWROOM_GROK_BACKGROUND=true npm run build && cd .. && npx tsx src/scripts/launch-kiosk.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

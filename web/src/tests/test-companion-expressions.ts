@@ -6,6 +6,7 @@ import {
   applyAcceptedEmote,
   applyAcceptedTrigger,
   applyExpressionStateToVrm,
+  applyThinkingHeadTiltToVrm,
   createNeutralExpressionState,
   getThinkingHeadTiltFactor,
   pickEmotesToApply,
@@ -174,7 +175,7 @@ describe("companionExpressions (COMPANION-003)", () => {
     expect(s.thinkingActive).toBe(false);
   });
 
-  it("thinking applies head bone rotation via applyExpressionStateToVrm", () => {
+  it("thinking applies head bone rotation via applyThinkingHeadTiltToVrm", () => {
     const setValue = vi.fn();
     const head = { rotation: { z: 0 } };
     const exprMap = { happy: {}, sad: {}, surprised: {}, lookDown: {}, neutral: {} };
@@ -193,6 +194,7 @@ describe("companionExpressions (COMPANION-003)", () => {
     const c = cloneCompanionDefaults();
     applyExpressionStateToVrm(mockVrm, s, c);
     expect(setValue).toHaveBeenCalledWith("lookDown", expect.any(Number));
+    applyThinkingHeadTiltToVrm(mockVrm, s);
     expect(head.rotation.z).not.toBe(0);
   });
 });
