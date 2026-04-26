@@ -2,15 +2,163 @@
   "childId": "creator",
   "version": 1,
   "createdAt": "2026-04-14T00:00:00.000Z",
-  "lastUpdated": "2026-04-14T00:00:00.000Z",
-  "interests": ["space", "animals", "adventure"],
+  "lastUpdated": "2026-04-26T15:50:55.528Z",
+  "demographics": {
+    "age": 10,
+    "grade": 4,
+    "diagnoses": [],
+    "learningStyle": "mixed",
+    "attentionSpan": "moderate",
+    "iepActive": false
+  },
+  "algorithmParams": {
+    "sm2": {
+      "defaultEasinessFactor": 2.5,
+      "minEasinessFactor": 1.3,
+      "intervalModifier": 1,
+      "maxNewWordsPerSession": 5,
+      "maxReviewWordsPerSession": 12
+    },
+    "difficulty": {
+      "targetAccuracy": 0.7,
+      "easyThreshold": 0.85,
+      "hardThreshold": 0.5,
+      "breakThreshold": 0.4,
+      "windowSize": 8
+    },
+    "mastery": {
+      "gateAccuracy": 0.8,
+      "gateSessions": 3,
+      "regressionThreshold": 0.6,
+      "regressionSessions": 2
+    },
+    "interleaving": {
+      "weakestWeight": 0.5,
+      "secondWeight": 0.3,
+      "randomWeight": 0.2,
+      "minTypeExposure": 0.15
+    }
+  },
+  "bondPatterns": {
+    "topics": [],
+    "bondStyle": "unknown",
+    "averageBondTurns": 3,
+    "lastBondQuality": "moderate",
+    "topicFrequency": {}
+  },
+  "moodHistory": [
+    {
+      "date": "2026-04-26T15:05:44.409Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:06:44.843Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:23:04.935Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:23:51.321Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:27:12.244Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:35:05.716Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:35:28.872Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-26T15:50:55.526Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    }
+  ],
+  "moodTrend": "stable",
+  "moodAdjustment": false,
+  "iepTargets": [],
+  "readingProfile": {
+    "currentReadingLevel": "CVC",
+    "averageReadingAccuracy": 0,
+    "comprehensionAccuracy": 0,
+    "flaggedPatterns": [],
+    "storiesCompleted": 0,
+    "fontSize": 36,
+    "lineHeight": 2,
+    "fontFamily": "Lexend",
+    "background": "#FFF8F0",
+    "wordsPerLine": 8,
+    "highlightColor": "#1a56db",
+    "highlightBackground": "#dbeafe",
+    "dyslexiaMode": false
+  },
+  "sessionStats": {
+    "totalSessions": 8,
+    "averageAccuracy": 0,
+    "averageDurationMinutes": 0,
+    "currentWilsonStep": 1,
+    "streakRecord": 0,
+    "totalWordsMastered": 0,
+    "perfectSessions": 0,
+    "lastSessionDate": "2026-04-26T15:50:55.526Z"
+  },
+  "rewardPreferences": {
+    "favoriteGames": [
+      "space",
+      "animals",
+      "adventure"
+    ],
+    "celebrationStyle": "mixed",
+    "bonusRoundHistory": {
+      "triggered": 0,
+      "correct": 0
+    }
+  },
   "companion": {
     "vrmUrl": "/companions/sample.vrm",
     "sensitivity": {
       "session_start": 0.8,
       "correct_answer": 0.8,
       "wrong_answer": 0.6,
-      "mastery_unlock": 1.0,
+      "mastery_unlock": 1,
       "session_end": 0.8,
       "idle_too_long": 0.4
     },

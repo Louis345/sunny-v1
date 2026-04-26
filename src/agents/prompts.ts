@@ -19,8 +19,9 @@ import {
   generateAdventureMapVoiceToolDocs,
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
+import { generateGameConfigDocs } from "../profile/generateGameConfigDocs";
 
-const TEMPLATE_VERSION = "v22"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v23"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -417,6 +418,10 @@ ${natalieBlock}
 The following display modes are available for ${companionName} to use.
 Recommend specific modes by name in your lesson plan.
 ${getCanvasCapabilities()}
+
+## Per-child game configuration (schema — generated from defaults)
+Games read these keys from the built child profile. Align recommendations and any profile updates with this structure.
+${generateGameConfigDocs()}
 
 ## Homework Processing
 If homework content is present in the session context:

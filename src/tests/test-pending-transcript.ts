@@ -5,6 +5,7 @@ vi.mock("../agents/elli/run", () => ({
   runAgent: vi.fn().mockResolvedValue(""),
 }));
 
+import { runAgent } from "../agents/elli/run";
 import { SessionManager } from "../server/session-manager";
 import { TurnStateMachine } from "../server/session-state";
 import { WsTtsBridge } from "../server/ws-tts-bridge";
@@ -12,6 +13,7 @@ import { WsTtsBridge } from "../server/ws-tts-bridge";
 function mockBrowserWs(): WebSocket {
   return {
     readyState: WebSocket.OPEN,
+    OPEN: WebSocket.OPEN,
     send: vi.fn(),
   } as unknown as WebSocket;
 }
@@ -142,5 +144,24 @@ describe("TTS off path", () => {
     await vi.waitFor(() => {
       expect(peekPending(turnSM)).toBeNull();
     });
+  });
+});
+
+describe("STT-only game sessions", () => {
+  it("forwards final transcript to the client without starting a companion response", async () => {
+    vi.mocked(runAgent).mockClear();
+    const ws = mockBrowserWs();
+    const session = new SessionManager(ws, "creator", true, { sttOnly: true });
+
+    session.injectTranscript("orbit");
+    await new Promise<void>((r) => setImmediate(r));
+
+    expect(ws.send).toHaveBeenCalledWith(
+      expect.stringContaining('"type":"final"'),
+    );
+    expect(ws.send).toHaveBeenCalledWith(
+      expect.stringContaining('"text":"orbit"'),
+    );
+    expect(runAgent).not.toHaveBeenCalled();
   });
 });

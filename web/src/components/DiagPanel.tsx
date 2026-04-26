@@ -17,6 +17,9 @@ export interface DiagPanelProps {
   onCameraAct: (
     angle: "close-up" | "mid-shot" | "full-body" | "wide",
   ) => void;
+  onTestReading?: () => void;
+  onTestPronunciation?: () => void;
+  onTestWordRadar?: () => void;
 }
 
 async function postTestCompanionEvent(body: Record<string, unknown>): Promise<void> {
@@ -31,40 +34,6 @@ async function postTestCompanionEvent(body: Record<string, unknown>): Promise<vo
   }
 }
 
-const READING_TEST_EXCERPT =
-  "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
-
-async function postTestReadingMode(): Promise<void> {
-  const res = await fetch("/api/map/test-reading-mode", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      childId: "creator",
-      text: READING_TEST_EXCERPT,
-    }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    console.error(" 🎮 [DiagPanel] test-reading-mode failed", res.status, err);
-  }
-}
-
-async function postTestPronunciationMode(): Promise<void> {
-  const res = await fetch("/api/map/test-pronunciation-mode", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ childId: "creator" }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    console.error(
-      " 🎮 [DiagPanel] test-pronunciation-mode failed",
-      res.status,
-      err,
-    );
-  }
-}
-
 let diagReadingAutoVoicePrimed = false;
 
 export function DiagPanel({
@@ -72,6 +41,9 @@ export function DiagPanel({
   endSession,
   voiceActive,
   onCameraAct,
+  onTestReading,
+  onTestPronunciation,
+  onTestWordRadar,
 }: DiagPanelProps) {
   const startSessionRef = useRef(startSession);
   startSessionRef.current = startSession;
@@ -116,18 +88,19 @@ export function DiagPanel({
   const [emote, setEmote] = useState<CompanionEmote>("neutral");
   const [intensity, setIntensity] = useState(0.8);
   const [animation, setAnimation] = useState<string>(COMPANION_ANIMATION_IDS[0]!);
+  const startDiagVoiceSession = useCallback(() => {
+    startSession(DIAG_CHILD, {
+      diagKiosk: true,
+    });
+  }, [startSession]);
 
   const toggleVoice = useCallback(() => {
     if (voiceActive) {
       endSession();
     } else {
-      startSession(DIAG_CHILD, {
-        diagKiosk: true,
-        silentTts: import.meta.env.VITE_DIAG_READING === "true",
-        sttOnly: import.meta.env.VITE_DIAG_READING === "true",
-      });
+      startDiagVoiceSession();
     }
-  }, [voiceActive, startSession, endSession]);
+  }, [voiceActive, startDiagVoiceSession, endSession]);
 
   const fireEmote = useCallback(() => {
     void postTestCompanionEvent({
@@ -144,6 +117,10 @@ export function DiagPanel({
       payload: { animation },
     });
   }, [animation]);
+
+  const triggerWordRadarTest = useCallback(() => {
+    onTestWordRadar?.();
+  }, [onTestWordRadar]);
 
   return (
     <div
@@ -235,9 +212,7 @@ export function DiagPanel({
         <button
           type="button"
           className="w-full rounded-md bg-amber-700 px-2 py-1.5 text-sm font-medium text-white hover:bg-amber-600"
-          onClick={() => {
-            void postTestReadingMode();
-          }}
+          onClick={onTestReading}
         >
           Test Reading Mode
         </button>
@@ -250,13 +225,26 @@ export function DiagPanel({
         <button
           type="button"
           className="w-full rounded-md bg-rose-700 px-2 py-1.5 text-sm font-medium text-white hover:bg-rose-600"
-          onClick={() => {
-            void postTestPronunciationMode();
-          }}
+          onClick={onTestPronunciation}
         >
           Test Pronunciation
         </button>
       </section>
+
+      {onTestWordRadar != null ? (
+        <section className="mb-3">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-400">
+            Word radar test
+          </div>
+          <button
+            type="button"
+            className="w-full rounded-md bg-violet-700 px-2 py-1.5 text-sm font-medium text-white hover:bg-violet-600"
+            onClick={triggerWordRadarTest}
+          >
+            Test Word Radar
+          </button>
+        </section>
+      ) : null}
 
       <section>
         <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-400">

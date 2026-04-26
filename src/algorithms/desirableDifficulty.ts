@@ -46,3 +46,23 @@ export function assessDifficulty(input: DifficultyInput): DifficultySignal {
 
   return { zone: "optimal", currentAccuracy, recommendation: "maintain", confidence };
 }
+
+type AttemptHistoryInput = Array<{ correct?: boolean } & Record<string, unknown>>;
+
+/**
+ * ChildProfile output field: `currentDifficulty`.
+ */
+export function desirableDifficulty(
+  attemptHistory: AttemptHistoryInput = [],
+): { currentDifficulty: number } {
+  if (attemptHistory.length === 0) {
+    return { currentDifficulty: 0.7 };
+  }
+
+  const window = attemptHistory.slice(-10);
+  const correct = window.filter((attempt) => attempt.correct === true).length;
+  const accuracy = correct / window.length;
+  const target = 0.7;
+  const next = target + (accuracy - target) * 0.5;
+  return { currentDifficulty: Math.max(0, Math.min(1, next)) };
+}

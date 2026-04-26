@@ -311,6 +311,13 @@ export function useMapSession(
           if (fromMap?.words?.length) {
             node = { ...node, type: fromMap.type, words: fromMap.words };
           }
+          if (fromMap?.wordRadarItems?.length) {
+            node = {
+              ...node,
+              type: fromMap.type,
+              wordRadarItems: fromMap.wordRadarItems,
+            };
+          }
         }
         return node;
       } catch (err) {

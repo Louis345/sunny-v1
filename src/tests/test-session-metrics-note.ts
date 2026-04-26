@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import fs from "fs";
+import type { LearningProfile } from "../context/schemas/learningProfile";
 import {
   formatAdventureMetricsBlock,
+  updateLearningProfileFromSession,
   writeSessionNote,
   type SessionData,
 } from "../engine/psychologistBridge";
+import * as learningProfileIO from "../utils/learningProfileIO";
 
 function minimalSession(over: Partial<SessionData> = {}): SessionData {
   return {
@@ -61,5 +64,28 @@ describe("session note metrics (TASK-017)", () => {
     expect(written).toContain("Ratings: 3 likes, 1 dislikes, 1 null");
     expect(written).toContain("Most engaged node type: bubble-pop");
     expect(written).toContain("Least engaged: clock-game");
+  });
+
+  it("updateLearningProfileFromSession tolerates profile JSON missing sessionStats (diag/creator)", () => {
+    const writeSpy = vi.spyOn(learningProfileIO, "writeLearningProfile").mockImplementation(() => undefined);
+    const readSpy = vi.spyOn(learningProfileIO, "readLearningProfile").mockReturnValue({
+      childId: "creator",
+      version: 1,
+      createdAt: "2026-04-14T00:00:00.000Z",
+      lastUpdated: "2026-04-14T00:00:00.000Z",
+      moodHistory: [],
+    } as unknown as LearningProfile);
+
+    expect(() =>
+      updateLearningProfileFromSession("creator", minimalSession({ totalCorrect: 0, totalAttempts: 0 })),
+    ).not.toThrow();
+
+    expect(writeSpy).toHaveBeenCalled();
+    const written = writeSpy.mock.calls[0]![1] as LearningProfile;
+    expect(written.sessionStats?.totalSessions).toBe(1);
+    expect(written.bondPatterns?.topicFrequency).toEqual({});
+
+    readSpy.mockRestore();
+    writeSpy.mockRestore();
   });
 });

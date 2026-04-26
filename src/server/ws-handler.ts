@@ -202,6 +202,18 @@ export function handleWsConnection(
         break;
       }
 
+      case "word_radar_complete": {
+        if (!session) return;
+        session.receiveWordRadarComplete(msg as Record<string, unknown>);
+        break;
+      }
+
+      case "pronunciation_complete": {
+        if (!session) return;
+        session.receivePronunciationComplete(msg as Record<string, unknown>);
+        break;
+      }
+
       case "screenshot_response": {
         if (!session) return;
         const sr = msg as { data?: string | null };

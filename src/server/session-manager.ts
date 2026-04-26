@@ -49,6 +49,10 @@ import {
 } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
 import { finalizeClockSession } from "../engine/clockTracker";
+import {
+  applyWordRadarResultToWordBank,
+  type WordRadarWireResultRow,
+} from "../utils/wordRadarProfile";
 import { computeQualityFromAttempt } from "../algorithms/spacedRepetition";
 import type { AttemptInput, ScaffoldLevel } from "../algorithms/types";
 import { type ModelMessage } from "ai";
@@ -1412,6 +1416,18 @@ export class SessionManager {
       this.lastTranscriptTime = now;
     }
 
+    if (this.options?.sttOnly) {
+      auditLog("transcript", {
+        action: "accepted",
+        turnState: this.turnSM.getState(),
+        tts,
+        childName: auditChild,
+        round: auditRound,
+      });
+      this.send("final", { text: transcript });
+      return;
+    }
+
     if (
       !opts?.fromReadingComplete &&
       this.turnSM.getState() === "IDLE" &&
@@ -1548,7 +1564,9 @@ export class SessionManager {
     }
 
     if (this.suppressTranscripts) {
-      console.log("  🔇 Transcript suppressed — voice disabled");
+      console.log("  🔇 Transcript suppressed — forwarding to client, skipping LLM");
+      // Still forward to client so flow-state games (word-radar, etc.) can read the transcript.
+      this.send("final", { text: transcript });
       this.turnSM.onInterrupt();
       return;
     }
@@ -2022,6 +2040,53 @@ export class SessionManager {
         }
       }
     }
+  }
+
+  receiveWordRadarComplete(msg: Record<string, unknown>): void {
+    const raw = msg.rawResults;
+    if (!Array.isArray(raw)) {
+      console.warn("  ⚠️  word_radar_complete: missing rawResults");
+      return;
+    }
+    const rows: WordRadarWireResultRow[] = [];
+    for (const r of raw) {
+      if (!r || typeof r !== "object") continue;
+      const o = r as Record<string, unknown>;
+      const item = o.item;
+      const correct = o.correct === true;
+      const responseTime_ms = Number(o.responseTime_ms);
+      if (!item || typeof item !== "object") continue;
+      const display = String((item as Record<string, unknown>).display ?? "");
+      if (!display) continue;
+      rows.push({
+        item: { display },
+        correct,
+        responseTime_ms: Number.isFinite(responseTime_ms) ? responseTime_ms : 0,
+      });
+    }
+    const childId = childIdFromName(this.childName);
+    try {
+      applyWordRadarResultToWordBank(childId, rows);
+      console.log(
+        `  🎮 [word_radar_complete] merged ${rows.length} row(s) → word_bank (${childId})`,
+      );
+    } catch (e) {
+      console.error("  🔴 word_radar_complete word bank merge failed", e);
+    }
+  }
+
+  receivePronunciationComplete(msg: Record<string, unknown>): void {
+    const accuracyRaw = Number(msg.accuracy);
+    const totalRaw = Number(msg.totalWords);
+    const correctRaw = Number(msg.correctCount);
+    const accuracy = Number.isFinite(accuracyRaw) ? accuracyRaw : 0;
+    const totalWords = Number.isFinite(totalRaw) ? totalRaw : 0;
+    const correctCount = Number.isFinite(correctRaw) ? correctRaw : 0;
+    const accPct =
+      accuracy <= 1 && accuracy >= 0 ? Math.round(accuracy * 100) : Math.round(accuracy);
+    console.log(
+      `  🎮 [pronunciation_complete] words=${correctCount}/${totalWords} acc=${accPct}%`,
+    );
   }
 
   private evaluateSpelling(

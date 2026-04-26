@@ -6,6 +6,7 @@ import { planSession } from "./learningEngine";
 const DOPAMINE_TYPES: NodeType[] = ["space-invaders", "asteroid"];
 
 const WORD_DRIVEN_MAP_TYPES = new Set<string>([
+  "word-radar",
   "pronunciation",
   "karaoke",
   "word-builder",
@@ -15,7 +16,8 @@ const WORD_DRIVEN_MAP_TYPES = new Set<string>([
 ]);
 
 /** Node types the bandit may place between riddle and dopamine. */
-const BANDIT_POOL: NodeType[] = [
+export const BANDIT_POOL: NodeType[] = [
+  "word-radar",
   "word-builder",
   "bubble-pop",
   "karaoke",

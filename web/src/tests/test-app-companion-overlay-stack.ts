@@ -45,4 +45,10 @@ describe("App companion overlay stack", () => {
   it("mapSession launchedNode pronunciation triggers portrait mode", () => {
     expect(src).toMatch(/companionPortraitMode[\s\S]{0,350}launchedNode.*pronunciation/);
   });
+
+  it("local diag flow games register as active voice game node types", () => {
+    expect(src).toContain("activeVoiceGameNodeType");
+    expect(src).toMatch(/diagFlowGameOpen === "reading"[\s\S]{0,80}"karaoke"/);
+    expect(src).toMatch(/registerMapNodeType\(activeVoiceGameNodeType\)/);
+  });
 });

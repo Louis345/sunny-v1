@@ -2,6 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import type { MapState, NodeResult } from "../shared/adventureTypes";
 
+function mockNodeNoWordPool(): MapState["nodes"] {
+  return [
+    {
+      id: "n-k",
+      type: "karaoke",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 2,
+    },
+  ];
+}
+
 /** Avoid real Grok in `enrichHomeworkNodeThumbnails` (5s test timeouts). */
 vi.mock("../utils/generateStoryImage", () => ({
   generateStoryImage: vi.fn().mockResolvedValue(null),
@@ -207,5 +220,21 @@ describe("post-node pipeline (TASK-014)", () => {
     };
     const { mapState: next } = await applyNodeResult(sessionId, result);
     expect(next.xp).toBeGreaterThanOrEqual(5 + 20 + 25);
+  });
+
+  it("does not call recordAttempt when node has no word pool but wordsAttempted > 0", async () => {
+    vi.mocked(buildNodeList).mockResolvedValue(mockNodeNoWordPool());
+    recordAttemptMock.mockClear();
+    const { sessionId, mapState } = await startMapSession("qa_pipeline");
+    const nodeId = mapState.nodes[0].id;
+    const result: NodeResult = {
+      nodeId,
+      completed: true,
+      accuracy: 1,
+      timeSpent_ms: 3000,
+      wordsAttempted: 5,
+    };
+    await applyNodeResult(sessionId, result);
+    expect(recordAttemptMock).not.toHaveBeenCalled();
   });
 });

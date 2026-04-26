@@ -1,12 +1,18 @@
 import fs from "fs";
 import path from "path";
 import type { CompanionConfig } from "../shared/companionTypes";
+import type { ChildProfileGames } from "../shared/childProfile";
 import { COMPANION_DEFAULTS } from "../shared/companionTypes";
 
 export type ChildProfileEntry = {
   ttsName?: string;
   /** Same-origin path for picker card image only (optional). */
   avatarImagePath?: string | null;
+  /** Word Radar UI — from profile API (optional). */
+  showTimer?: boolean;
+  showKeyboard?: boolean;
+  /** Per-game child config overrides. */
+  games?: ChildProfileGames;
 };
 
 export type ChildrenConfigFile = {

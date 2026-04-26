@@ -44,4 +44,45 @@ describe("GameEventHandler", () => {
       }),
     ).not.toThrow();
   });
+
+  it("voice_control disables companion transcript responses without muting game STT", () => {
+    const turnSM = new TurnStateMachine(
+      () => {},
+      () => {},
+      () => {},
+    );
+    const session = {
+      childName: "Ila",
+      ctx: null,
+      turnSM,
+      send: () => {},
+      gameBridge: { startGame: () => {}, handleGameEvent: () => {} },
+      pendingGameStart: null,
+      currentCanvasRevision: 0,
+      broadcastContext: () => {},
+      spellCheckSessionActive: false,
+      activeSpellCheckWord: "",
+      clearActiveCanvasActivity: () => {},
+      wbActive: false,
+      wbRound: 0,
+      wbWord: "",
+      wbLastProcessedRound: 0,
+      pendingRoundComplete: null,
+      runCompanionResponse: async () => {},
+      activeCanvasActivity: { snapshot: null },
+      worksheetProblemIndex: 0,
+      currentCanvasState: null,
+      setActiveCanvasActivity: () => {},
+      spaceInvadersRewardActive: false,
+      suppressTranscripts: false,
+      sessionTtsLabel: "Ila",
+    };
+
+    handleGameEventForSession(session, {
+      type: "voice_control",
+      voiceEnabled: false,
+    });
+
+    expect(session.suppressTranscripts).toBe(true);
+  });
 });

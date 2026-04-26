@@ -11,6 +11,9 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      # Remove when GitHub Release `companion-vrms-v1` (see scripts/companion-vrms.manifest.json) ships all .vrm assets.
+      SKIP_COMPANION_VRM_DOWNLOAD: "true"
     steps:
       - uses: actions/checkout@v4
 

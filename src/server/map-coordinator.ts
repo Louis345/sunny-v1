@@ -47,6 +47,8 @@ export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
     "colorful alphabet blocks stacked in tower, letters glowing, children's educational toy, transparent background",
   karaoke:
     "open magical book with musical notes floating out, glowing pages, children's story, transparent background",
+  "word-radar":
+    "radar dish scanning a starfield with glowing word tiles, deep purple space, children's game icon, transparent background",
   quest:
     "treasure chest bursting open with gold stars and letters, adventure game icon, transparent background",
   boss: "epic castle with lightning bolts, final challenge, dramatic sky, game icon, transparent background",
@@ -527,8 +529,9 @@ function clampNodeDifficulty(raw: number | undefined): 1 | 2 | 3 {
   return 2;
 }
 
-function isWordDrivenHomeworkNodeType(t: string): boolean {
+export function isWordDrivenHomeworkNodeType(t: string): boolean {
   return (
+    t === "word-radar" ||
     t === "pronunciation" ||
     t === "karaoke" ||
     t === "word-builder" ||
@@ -544,22 +547,37 @@ export function pendingHomeworkToNodeConfigs(
   dueWords: string[],
 ): NodeConfig[] {
   const words = dueWords.length ? dueWords : hw.wordList;
-  return hw.nodes.map((node, i, arr) => ({
-    id: node.id,
-    type: node.type as NodeType,
-    words: isWordDrivenHomeworkNodeType(node.type) ? words : [],
-    difficulty: clampNodeDifficulty(node.difficulty),
-    gameFile: node.gameFile ?? undefined,
-    storyFile: node.storyFile ?? undefined,
-    storyText: node.storyText,
-    date: node.date ?? hw.weekOf,
-    isCastle: node.type === "boss",
-    thumbnailUrl: undefined,
-    thumbnailPrompt: NODE_THUMBNAIL_PROMPTS[node.type] ?? undefined,
-    isLocked: false,
-    isCompleted: false,
-    isGoal: i === arr.length - 1,
-  }));
+  return hw.nodes.map((node, i, arr) => {
+    const persistedItems = (node as { wordRadarItems?: NodeConfig["wordRadarItems"] })
+      .wordRadarItems;
+    const wordRadarItems =
+      node.type === "word-radar"
+        ? Array.isArray(persistedItems) && persistedItems.length > 0
+          ? persistedItems
+          : words.map((w) => ({
+              display: w,
+              acceptedResponses: [w.toLowerCase()],
+              label: "Spelling",
+            }))
+        : undefined;
+    return {
+      id: node.id,
+      type: node.type as NodeType,
+      words: isWordDrivenHomeworkNodeType(node.type) ? words : [],
+      wordRadarItems,
+      difficulty: clampNodeDifficulty(node.difficulty),
+      gameFile: node.gameFile ?? undefined,
+      storyFile: node.storyFile ?? undefined,
+      storyText: node.storyText,
+      date: node.date ?? hw.weekOf,
+      isCastle: node.type === "boss",
+      thumbnailUrl: undefined,
+      thumbnailPrompt: NODE_THUMBNAIL_PROMPTS[node.type] ?? undefined,
+      isLocked: false,
+      isCompleted: false,
+      isGoal: i === arr.length - 1,
+    };
+  });
 }
 
 /** Static theme — no Grok / designer image pipeline (`isDiagMapMode()` / diag map session). */
@@ -606,6 +624,19 @@ export function buildDiagMapSession(): { sessionId: string; mapState: MapState }
     );
   }
   const nodes: NodeConfig[] = [
+    {
+      id: "n-word-radar",
+      type: "word-radar",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 1,
+      words: [],
+      wordRadarItems: [
+        { display: "star", acceptedResponses: ["star"] },
+        { display: "moon", acceptedResponses: ["moon", "luna"] },
+      ],
+    },
     {
       id: "n-riddle",
       type: "riddle",
@@ -746,7 +777,9 @@ export function handleMapClientMessage(
     if (sm) {
       const nodeSummary = cur.words?.length
         ? `${childId} just started a ${cur.type} activity. Word: "${cur.words[0]}".`
-        : `${childId} just started a ${cur.type} activity.`;
+        : cur.wordRadarItems?.length
+          ? `${childId} just started a ${cur.type} activity. Word: "${cur.wordRadarItems[0].display}".`
+          : `${childId} just started a ${cur.type} activity.`;
       sm.noteExternalEvent({
         source: "map_node_started",
         summary: nodeSummary,
@@ -862,22 +895,24 @@ export async function applyNodeResult(
       nodeCfg.words && nodeCfg.words.length > 0
         ? nodeCfg.words
         : null;
-    const nAttempt = Math.max(0, Math.floor(result.wordsAttempted));
-    const count = pool ? Math.min(nAttempt, pool.length) : nAttempt;
-    for (let i = 0; i < count; i++) {
-      const word = pool ? pool[i]! : `attempt-${i + 1}`;
-      const correct = result.completed && result.accuracy >= 0.5;
-      try {
-        recordAttempt(st.childId, {
-          word,
-          domain: "spelling",
-          correct,
-          quality: (correct ? 4 : 2) as ChildQuality,
-          scaffoldLevel: 2,
-          responseTimeMs: result.timeSpent_ms,
-        });
-      } catch (err) {
-        console.error("  🔴 [map-coordinator] recordAttempt failed:", err);
+    if (pool) {
+      const nAttempt = Math.max(0, Math.floor(result.wordsAttempted));
+      const count = Math.min(nAttempt, pool.length);
+      for (let i = 0; i < count; i++) {
+        const word = pool[i]!;
+        const correct = result.completed && result.accuracy >= 0.5;
+        try {
+          recordAttempt(st.childId, {
+            word,
+            domain: "spelling",
+            correct,
+            quality: (correct ? 4 : 2) as ChildQuality,
+            scaffoldLevel: 2,
+            responseTimeMs: result.timeSpent_ms,
+          });
+        } catch (err) {
+          console.error("  🔴 [map-coordinator] recordAttempt failed:", err);
+        }
       }
     }
   }

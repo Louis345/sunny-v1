@@ -67,6 +67,13 @@ type HomeworkNodeLike = {
   storyFile?: string | null;
   storyText?: string;
   date?: string;
+  wordRadarItems?: Array<{
+    display: string;
+    acceptedResponses: string[];
+    hint?: string;
+    label?: string;
+    subject?: string;
+  }>;
 };
 
 function formatDueForLog(isoDate: string): string {
@@ -577,7 +584,7 @@ function estimateWordConfidence(bank: WordEntry[], wordRaw: string): number {
 }
 
 function modalityForNode(nodeType: string): string {
-  if (nodeType === "spell-check") return "spelling";
+  if (nodeType === "spell-check" || nodeType === "word-radar") return "spelling";
   if (nodeType === "pronunciation" || nodeType === "word-builder") return "phonics";
   if (nodeType === "karaoke") return "reading";
   if (nodeType === "quest" || nodeType === "boss") return "quest";

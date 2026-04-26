@@ -172,6 +172,70 @@ export function handleGameEventForSession(
 
   const type = event.type as string;
 
+  if (type === "voice_control") {
+    const voiceEnabled = event.voiceEnabled === true;
+    s.suppressTranscripts = !voiceEnabled;
+    console.log(`  🎮 Voice: ${voiceEnabled ? "active" : "silent"}`);
+    return;
+  }
+
+  if (type === "game_state_update") {
+    const progress =
+      typeof event.progress === "string"
+        ? event.progress
+        : typeof (event.payload as Record<string, unknown> | undefined)?.progress ===
+            "string"
+          ? String((event.payload as Record<string, unknown>).progress)
+          : "";
+    if (progress) {
+      s.noteExternalEvent?.({
+        source: "game_state_update",
+        summary: progress,
+      });
+    }
+    return;
+  }
+
+  if (type === "companion_event") {
+    const payload =
+      event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+        ? (event.payload as Record<string, unknown>)
+        : event;
+    const childId =
+      typeof payload.childId === "string"
+        ? payload.childId
+        : childIdFromName(s.childName);
+    const timestamp =
+      typeof payload.timestamp === "number" ? payload.timestamp : Date.now();
+    const trigger = payload.trigger;
+    const metadata =
+      payload.metadata && typeof payload.metadata === "object"
+        ? (payload.metadata as Record<string, unknown>)
+        : undefined;
+    if (
+      trigger === "correct_answer" ||
+      trigger === "wrong_answer" ||
+      trigger === "mastery_unlock" ||
+      trigger === "idle_too_long" ||
+      trigger === "session_start" ||
+      trigger === "session_end"
+    ) {
+      s.send?.("companion_event", {
+        payload: {
+          trigger,
+          childId,
+          timestamp,
+          ...(metadata ? { metadata } : {}),
+        },
+      });
+      s.noteExternalEvent?.({
+        source: "companion_event",
+        summary: `Game companion event: ${trigger}`,
+      });
+    }
+    return;
+  }
+
   if (type === "clock_answer") {
     recordClockAttempt(
       childIdFromName(s.childName),

@@ -88,6 +88,7 @@ describe("map node routing", () => {
     const required = [
       "pronunciation",
       "karaoke",
+      "word-radar",
       "word-builder",
       "spell-check",
       "quest",

@@ -175,6 +175,7 @@ interface SessionState {
   companion: CompanionConfig | null;
   companionText: string;
   interimTranscript: string;
+  gameTranscript: string;
   canvas: CanvasState;
   blackboard: BlackboardState;
   correctStreak: number;
@@ -198,6 +199,8 @@ interface SessionState {
   companionCommands: CompanionCommand[];
   /** After `reading_progress` event=complete — companion UI leaves minimized reading layout. */
   karaokeStoryComplete: boolean;
+  /** True when server confirms creator diag game session registration. */
+  diagGameSessionReady: boolean;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -299,6 +302,7 @@ export function useSession(options?: UseSessionOptions) {
     companion: null,
     companionText: "",
     interimTranscript: "",
+    gameTranscript: "",
     canvas: { mode: "idle" },
     blackboard: { gesture: null },
     correctStreak: 0,
@@ -316,6 +320,7 @@ export function useSession(options?: UseSessionOptions) {
     companionEvents: [],
     companionCommands: [],
     karaokeStoryComplete: false,
+    diagGameSessionReady: false,
   });
 
   const sessionStateRef = useRef(state);
@@ -381,7 +386,11 @@ export function useSession(options?: UseSessionOptions) {
     };
 
     ws.onerror = () => {
-      setStateRef.current((s) => ({ ...s, error: "Connection lost" }));
+      setStateRef.current((s) => ({
+        ...s,
+        error: "Connection lost",
+        phase: s.phase === "active" || s.phase === "connecting" ? "picker" : s.phase,
+      }));
     };
 
     ws.onclose = () => {
@@ -441,9 +450,12 @@ export function useSession(options?: UseSessionOptions) {
           debugMode,
           storyImageLoading: false,
           storyImageUrl: null,
+          interimTranscript: "",
+          gameTranscript: "",
           companionEvents: [],
           companionCommands: [],
           karaokeStoryComplete: false,
+          diagGameSessionReady: false,
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -523,20 +535,28 @@ export function useSession(options?: UseSessionOptions) {
         break;
 
       case "interim":
-        setStateRef.current((s) => ({ ...s, interimTranscript: (msg.text as string) ?? "" }));
+        setStateRef.current((s) => ({
+          ...s,
+          interimTranscript: (msg.text as string) ?? "",
+          gameTranscript: (msg.text as string) ?? "",
+        }));
         break;
 
       case "final":
-        browserTtsAccumRef.current = "";
-        if (browserTtsDebounceRef.current) {
-          clearTimeout(browserTtsDebounceRef.current);
-          browserTtsDebounceRef.current = null;
+        {
+          const text = (msg.text as string) ?? "";
+          browserTtsAccumRef.current = "";
+          if (browserTtsDebounceRef.current) {
+            clearTimeout(browserTtsDebounceRef.current);
+            browserTtsDebounceRef.current = null;
+          }
+          setStateRef.current((s) => ({
+            ...s,
+            interimTranscript: "",
+            gameTranscript: text,
+            companionText: "",
+          }));
         }
-        setStateRef.current((s) => ({
-          ...s,
-          interimTranscript: "",
-          companionText: "",
-        }));
         break;
 
       case "echo_answer": {
@@ -985,9 +1005,14 @@ export function useSession(options?: UseSessionOptions) {
             sessionState: "IDLE",
             readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
             karaokeStoryComplete: false,
+            diagGameSessionReady: false,
           };
         });
         stopMicRef.current();
+        break;
+
+      case "diag_game_session_ready":
+        setStateRef.current((s) => ({ ...s, diagGameSessionReady: true }));
         break;
 
       case "loading_status":
@@ -998,7 +1023,12 @@ export function useSession(options?: UseSessionOptions) {
         break;
 
       case "error":
-        setStateRef.current((s) => ({ ...s, error: (msg.message as string) ?? "Unknown error" }));
+        setStateRef.current((s) => ({
+          ...s,
+          error: (msg.message as string) ?? "Unknown error",
+          diagGameSessionReady: false,
+          phase: s.phase === "active" || s.phase === "connecting" ? "picker" : s.phase,
+        }));
         break;
     }
   }
@@ -1221,8 +1251,13 @@ export function useSession(options?: UseSessionOptions) {
     if (!mapNodeType) return;
     const d = getNodeAudioDefaults(mapNodeType);
     const shouldMute = d.companionMicDefault === "off";
-    setMicMuted(shouldMute);
-    sendMessage("set_mute", { muted: shouldMute });
+    const gameNeedsStt =
+      shouldMute &&
+      (mapNodeType === "karaoke" ||
+        mapNodeType === "pronunciation" ||
+        mapNodeType === "word-radar");
+    setMicMuted(gameNeedsStt ? false : shouldMute);
+    sendMessage("set_mute", { muted: gameNeedsStt ? false : shouldMute });
     setTtsMuted(d.companionTtsDefault === "off");
   }, [mapNodeType, state.phase, sendMessage]);
 
@@ -1233,7 +1268,12 @@ export function useSession(options?: UseSessionOptions) {
       childName: string,
       options?: { diagKiosk?: boolean; silentTts?: boolean; sttOnly?: boolean },
     ) => {
-      setState((s) => ({ ...s, phase: "connecting", error: null }));
+      setState((s) => ({
+        ...s,
+        phase: "connecting",
+        error: null,
+        diagGameSessionReady: false,
+      }));
       connect();
 
       const diagKiosk = options?.diagKiosk === true;
@@ -1327,6 +1367,7 @@ export function useSession(options?: UseSessionOptions) {
       companion: null,
       companionText: "",
       interimTranscript: "",
+      gameTranscript: "",
       canvas: { mode: "idle" },
       blackboard: { gesture: null },
       correctStreak: 0,
@@ -1344,6 +1385,7 @@ export function useSession(options?: UseSessionOptions) {
       companionEvents: [],
       companionCommands: [],
       karaokeStoryComplete: false,
+      diagGameSessionReady: false,
     });
     wsRef.current?.close();
     wsRef.current = null;

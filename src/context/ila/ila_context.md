@@ -1795,3 +1795,12 @@ Apologies for the technical hiccup. We're working to get the canvas fully loaded
 I'm ready to document this session with Ila. I have her full profile loaded and understand her learning profile, strengths, and needs.
 
 When you're ready, share the session transcript and I'll write a factual SOAP note based only on what occurred during the session.
+
+## Deferred Activities
+- Child is working on spelling "farmer" in spell-check activity and asking for help with which letter to place. Provided encouragement and phonetic guidance without directly giving the answer. deferred 2026-04-24
+  reason: Child asking for help rather than making a spelling attempt
+  reschedule: next session
+
+
+## Session — 4/26/2026, 9:20:12 AM
+I'm ready to document. Who's in the session with Ila?

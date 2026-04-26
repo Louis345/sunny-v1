@@ -4,6 +4,7 @@ import type { NodeConfig } from "./adventureTypes";
 export const NODE_DISPLAY_LABELS: Record<string, string> = {
   pronunciation: "Pronunciation",
   karaoke: "Story",
+  "word-radar": "Word Radar",
   "spell-check": "Spell Check",
   "word-builder": "Word Builder",
   quest: "Quest",
@@ -24,7 +25,13 @@ export type NodeContext = {
 /** Homework / map nodes may use types not in `NodeType` (cast at map boundary). */
 export type RoutableNodeConfig = Pick<
   NodeConfig,
-  "id" | "words" | "difficulty" | "gameFile" | "date" | "storyText"
+  | "id"
+  | "words"
+  | "wordRadarItems"
+  | "difficulty"
+  | "gameFile"
+  | "date"
+  | "storyText"
 > & { type: string };
 
 export function buildNodeUrlSearchParams(
@@ -67,6 +74,12 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       type: "karaoke",
       storyText: node.storyText ?? "",
       words: node.words ?? [],
+    }),
+  },
+  "word-radar": {
+    canvasMessage: (node) => ({
+      type: "word_radar",
+      wordRadarItems: node.wordRadarItems ?? [],
     }),
   },
   "word-builder": {

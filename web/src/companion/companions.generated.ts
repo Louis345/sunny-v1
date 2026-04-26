@@ -21,47 +21,47 @@ export type CompanionManifestEntry = {
 export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
   {
     "id": "2878599730723533962",
-    "name": "Elli",
+    "name": "2878599730723533962",
     "vrmUrl": "/companions/2878599730723533962.vrm",
     "personality": [
-      "sparkly",
-      "funny",
-      "brave"
+      "friendly",
+      "curious",
+      "loves learning"
     ]
   },
   {
     "id": "4573661938486170180",
-    "name": "Freya",
+    "name": "4573661938486170180",
     "vrmUrl": "/companions/4573661938486170180.vrm",
     "personality": [
-      "bold",
-      "fast",
-      "adventurous"
+      "friendly",
+      "curious",
+      "loves learning"
     ]
   },
   {
     "id": "673852811403133503",
-    "name": "Matilda",
+    "name": "673852811403133503",
     "vrmUrl": "/companions/673852811403133503.vrm",
     "personality": [
-      "clever",
-      "patient",
-      "loves books"
+      "friendly",
+      "curious",
+      "loves learning"
     ]
   },
   {
     "id": "7339187387832391139",
-    "name": "Nova",
+    "name": "7339187387832391139",
     "vrmUrl": "/companions/7339187387832391139.vrm",
     "personality": [
+      "friendly",
       "curious",
-      "creative",
-      "loves puzzles"
+      "loves learning"
     ]
   },
   {
     "id": "sample",
-    "name": "Sunny",
+    "name": "Sample",
     "vrmUrl": "/companions/sample.vrm",
     "personality": [
       "friendly",

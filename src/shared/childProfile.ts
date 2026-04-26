@@ -14,6 +14,67 @@ export interface ChildProfileUI {
   accentColor: string;
 }
 
+export interface ChildProfileWordRadar {
+  showTimer: boolean;
+  showKeyboard: boolean;
+  personalBests: Record<string, number>;
+}
+
+export interface GameConfig {
+  unlocked: boolean;
+  sessionCount: number;
+  lastAccuracy: number | null;
+}
+
+export interface WordRadarGameConfig extends GameConfig {
+  inputMode: "whole-word" | "letter-by-letter" | "keyboard";
+  speakStyle: "option-a" | "option-b";
+  keyboardStyle: "option-b" | "option-c";
+  showTimer: boolean;
+  personalBestMetric: "speed" | "accuracy";
+}
+
+export interface SpellCheckGameConfig extends GameConfig {
+  difficulty: 1 | 2 | 3;
+  knownMode: "skip" | "quick";
+  maxWords: number;
+}
+
+export interface KaraokeGameConfig extends GameConfig {
+  wordsPerLine: number;
+  fontSize: number;
+  skipWordEnabled: boolean;
+}
+
+export interface ClockGameConfig extends GameConfig {}
+
+export interface CoinGameConfig extends GameConfig {}
+
+export interface BossGameConfig extends GameConfig {
+  sessionsRequired: number;
+  dataThresholdMet: boolean;
+  generatedGamePath: string | null;
+  generationModel: "sonnet" | "opus" | null;
+}
+
+export interface ChildProfileGames {
+  "word-radar"?: WordRadarGameConfig;
+  "spell-check"?: SpellCheckGameConfig;
+  "karaoke-reading"?: KaraokeGameConfig;
+  "clock-game"?: ClockGameConfig;
+  "coin-counter"?: CoinGameConfig;
+  boss?: BossGameConfig;
+  [key: string]:
+    | GameConfig
+    | WordRadarGameConfig
+    | SpellCheckGameConfig
+    | KaraokeGameConfig
+    | ClockGameConfig
+    | CoinGameConfig
+    | BossGameConfig
+    | undefined;
+}
+
 export interface ChildProfile {
   childId: string;
   /**
@@ -28,7 +89,31 @@ export interface ChildProfile {
   avatarImagePath?: string | null;
   /** Adventure progression level (1+), drives theme unlocks. */
   level: number;
+  xp?: number;
   interests: ChildProfileInterests;
+  dyslexiaMode?: boolean;
+  companionColor?: string;
+  dueWords?: string[];
+  sm2Stats?: Record<
+    string,
+    {
+      interval: number;
+      easeFactor: number;
+      dueDate: string;
+      domain: "spelling" | "reading" | "math";
+    }
+  >;
+  currentDifficulty?: number;
+  masteryGating?: {
+    clockStep: number;
+    coinStep: number;
+    readingLevel: number;
+  };
+  mathRotation?: string[];
+  retrievalPractice?: {
+    nextScaffoldWords: string[];
+  };
+  games?: ChildProfileGames;
   ui: ChildProfileUI;
   unlockedThemes: string[];
   attentionWindow_ms: number;
@@ -45,4 +130,6 @@ export interface ChildProfile {
   pendingHomework?: LearningProfile["pendingHomework"];
   /** Optional companion care meters for map / VRR. */
   tamagotchi?: TamagotchiState;
+  /** Word Radar game settings + server-derived bests from word_bank. */
+  wordRadar?: ChildProfileWordRadar;
 }

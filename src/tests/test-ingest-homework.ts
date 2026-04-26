@@ -123,14 +123,15 @@ describe("ingestHomework", () => {
     expect(pending.nodes[0]?.gameFile).toBe("quest-2026-04-21.html");
   });
 
-  it("spelling_test merge uses spell-check first, full word list, mandatory quest before boss", () => {
+  it("spelling_test merge uses word-radar first, full word list, mandatory quest before boss", () => {
     const words = Array.from({ length: 20 }, (_, i) => `w${i}`);
     const out = mergeNormalizedPlan([], words, 2, {
       homeworkType: "spelling_test",
       daysUntilTest: 5,
     });
-    expect(out[0]?.type).toBe("spell-check");
+    expect(out[0]?.type).toBe("word-radar");
     expect(out.map((n) => n.type)).toEqual([
+      "word-radar",
       "spell-check",
       "pronunciation",
       "karaoke",

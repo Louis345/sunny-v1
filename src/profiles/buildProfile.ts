@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
-import type { ChildProfile } from "../shared/childProfile";
+import type { ChildProfile, ChildProfileGames } from "../shared/childProfile";
 import { mergeCompanionPresetWithLearningProfile } from "../shared/companionTypes";
 import {
   companionConfigFromPreset,
@@ -14,11 +14,37 @@ import { computeAttentionWindow, computeUnlockedThemes } from "./profileCompute"
 import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import { applyPassiveDepletion } from "../engine/vrrEngine";
 import { CompanionRegistry } from "../prompts/companions/registry";
+import { buildWordRadarPersonalBests } from "../utils/wordRadarProfile";
+import { readWordBank } from "../utils/wordBankIO";
+import { sm2 } from "../algorithms/sm2";
+import { desirableDifficulty } from "../algorithms/desirableDifficulty";
+import { interleaving } from "../algorithms/interleaving";
+import { masteryGating as computeMasteryGating } from "../algorithms/masteryGating";
+import { retrievalPractice as computeRetrievalPractice } from "../algorithms/retrievalPractice";
+import { DEFAULT_GAME_CONFIGS } from "../profile/gameConfigDefaults";
+import { verifyGameConfig } from "../profile/verifyProfile";
 
 const PROFILE_SRC = path.resolve(__dirname, "..");
 
 function normalizeChildId(raw: string): string {
   return raw.trim().toLowerCase();
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function deepMerge<T extends Record<string, unknown>>(base: T, override: unknown): T {
+  if (!isPlainRecord(override)) return { ...base };
+  const out: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    const existing = out[key];
+    out[key] =
+      isPlainRecord(existing) && isPlainRecord(value)
+        ? deepMerge(existing, value)
+        : value;
+  }
+  return out as T;
 }
 
 function getChildContext(childId: string): string {
@@ -47,6 +73,10 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const childId = normalizeChildId(childIdRaw);
   const lp = readLearningProfile(childId);
   if (!lp) return null;
+  const wordBank = readWordBank(childId);
+  wordBank.words = (wordBank.words ?? []).filter((w) =>
+    /^[a-z]{2,30}$/.test(w.word.toLowerCase()),
+  );
 
   const level = levelFromLearningProfile(lp);
   const ratings = await getNodeRatings(childId, 500);
@@ -108,12 +138,50 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const baseT = lp.tamagotchi ?? { ...DEFAULT_TAMAGOTCHI, lastSeenAt: now };
   const tamagotchi = applyPassiveDepletion(baseT);
 
-  return {
+  const { dueWords, sm2Stats } = sm2(wordBank);
+  const { mathRotation } = interleaving(
+    ((lp as unknown as { mathHistory?: unknown[] }).mathHistory ?? []) as Array<{
+      type?: string;
+      problemType?: string;
+      correct?: boolean;
+    }>,
+  );
+  const { currentDifficulty } = desirableDifficulty(
+    ((lp as unknown as { attemptHistory?: unknown[] }).attemptHistory ?? lp.moodHistory ?? []) as Array<{
+      correct?: boolean;
+    }>,
+  );
+  const { masteryGating } = computeMasteryGating({
+    ...(lp as unknown as Record<string, unknown>),
+    sessionStats: lp.sessionStats,
+    readingProfile: lp.readingProfile,
+  });
+  const { retrievalPractice } = computeRetrievalPractice(wordBank);
+  const games = deepMerge(
+    DEFAULT_GAME_CONFIGS as unknown as Record<string, unknown>,
+    childMeta?.games ?? {},
+  ) as ChildProfileGames;
+  const wordRadarGame = games["word-radar"];
+  const wrShowTimer = wordRadarGame?.showTimer ?? (childMeta?.showTimer !== false);
+  const wrShowKeyboard =
+    wordRadarGame?.inputMode === "keyboard" || childMeta?.showKeyboard === true;
+
+  const profile: ChildProfile = {
     childId,
     ttsName: getTtsNameForChildId(childId),
     avatarImagePath: childMeta?.avatarImagePath,
     level,
+    xp: Math.max(0, (lp.sessionStats?.totalWordsMastered ?? 0) * 10 + (lp.sessionStats?.totalSessions ?? 0) * 5),
     interests: { tags: interestTags },
+    dyslexiaMode: lp.readingProfile?.dyslexiaMode ?? false,
+    companionColor: accent,
+    dueWords,
+    sm2Stats,
+    currentDifficulty,
+    masteryGating,
+    mathRotation,
+    retrievalPractice,
+    games,
     ui: { accentColor: accent },
     unlockedThemes,
     attentionWindow_ms,
@@ -122,5 +190,16 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     companionContext,
     pendingHomework: lp.pendingHomework ?? undefined,
     tamagotchi,
+    wordRadar: {
+      showTimer: wrShowTimer,
+      showKeyboard: wrShowKeyboard,
+      personalBests: buildWordRadarPersonalBests(childId),
+    },
   };
+
+  if (process.env.NODE_ENV !== "production") {
+    verifyGameConfig(profile);
+  }
+
+  return profile;
 }

@@ -1,10 +1,29 @@
 import fs from "fs";
 import path from "path";
 import type { AttemptInput, DifficultySignal } from "../algorithms/types";
-import type { MoodEntry } from "../context/schemas/learningProfile";
+import type { LearningProfile, MoodEntry } from "../context/schemas/learningProfile";
 import type { RewardTrigger } from "./rewardEngine";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
+
+const DEFAULT_SESSION_STATS: LearningProfile["sessionStats"] = {
+  totalSessions: 0,
+  averageAccuracy: 0,
+  averageDurationMinutes: 0,
+  currentWilsonStep: 1,
+  streakRecord: 0,
+  totalWordsMastered: 0,
+  perfectSessions: 0,
+  lastSessionDate: "",
+};
+
+const DEFAULT_BOND_PATTERNS: LearningProfile["bondPatterns"] = {
+  topics: [],
+  bondStyle: "unknown",
+  averageBondTurns: 3,
+  lastBondQuality: "moderate",
+  topicFrequency: {},
+};
 
 export interface SessionData {
   childId: string;
@@ -134,6 +153,13 @@ export function updateLearningProfileFromSession(
 
   const prevMood = Array.isArray(profile.moodHistory) ? profile.moodHistory : [];
   profile.moodHistory = [...prevMood.slice(-9), moodEntry];
+
+  if (!profile.sessionStats) {
+    profile.sessionStats = { ...DEFAULT_SESSION_STATS };
+  }
+  if (!profile.bondPatterns) {
+    profile.bondPatterns = { ...DEFAULT_BOND_PATTERNS };
+  }
 
   const stats = profile.sessionStats;
   stats.totalSessions++;

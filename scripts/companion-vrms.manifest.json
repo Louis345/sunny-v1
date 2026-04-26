@@ -1,0 +1,12 @@
+{
+  "githubRepo": "Louis345/sunny-v1",
+  "releaseTag": "companion-vrms-v1",
+  "minBytesToTreatAsPresent": 1000000,
+  "assets": [
+    { "filename": "2878599730723533962.vrm" },
+    { "filename": "4573661938486170180.vrm" },
+    { "filename": "673852811403133503.vrm" },
+    { "filename": "7339187387832391139.vrm" },
+    { "filename": "sample.vrm" }
+  ]
+}

@@ -8,15 +8,47 @@
   "childProfiles": {
     "ila": {
       "ttsName": "Ee-lah",
-      "avatarImagePath": "/characters/ila.png"
+      "avatarImagePath": "/characters/ila.png",
+      "showTimer": true,
+      "showKeyboard": false,
+      "games": {
+        "word-radar": {
+          "inputMode": "whole-word",
+          "showTimer": true,
+          "personalBestMetric": "accuracy",
+          "keyboardStyle": "option-c"
+        },
+        "karaoke-reading": {
+          "fontSize": 42,
+          "wordsPerLine": 6
+        }
+      }
     },
     "reina": {
       "ttsName": "Ray-nah",
-      "avatarImagePath": "/characters/reina.png"
+      "avatarImagePath": "/characters/reina.png",
+      "showTimer": true,
+      "showKeyboard": false,
+      "games": {
+        "word-radar": {
+          "inputMode": "letter-by-letter",
+          "showTimer": true,
+          "personalBestMetric": "speed"
+        }
+      }
     },
     "creator": {
       "ttsName": "Creator",
-      "avatarImagePath": null
+      "avatarImagePath": null,
+      "showTimer": true,
+      "showKeyboard": true,
+      "games": {
+        "word-radar": {
+          "inputMode": "keyboard",
+          "showTimer": true,
+          "keyboardStyle": "option-b"
+        }
+      }
     }
   },
   "companions": {

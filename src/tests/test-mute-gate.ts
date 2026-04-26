@@ -79,6 +79,12 @@ describe("node-driven audio defaults", () => {
     expect(cfg.companionTtsDefault).toBe("off");
   });
 
+  it("word-radar defaults to mic off and tts off", () => {
+    const cfg = getNodeAudioDefaults("word-radar");
+    expect(cfg.companionMicDefault).toBe("off");
+    expect(cfg.companionTtsDefault).toBe("off");
+  });
+
   it("spell-check defaults to both on", () => {
     const cfg = getNodeAudioDefaults("spell-check");
     expect(cfg.companionMicDefault).toBe("on");

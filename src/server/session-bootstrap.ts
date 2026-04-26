@@ -1006,6 +1006,7 @@ This is a safe space to test everything.
 
     if (session.diagKioskFast && session.childName === "creator") {
       hooks.registerCreatorDiagReadingSession?.(session);
+      session.send("diag_game_session_ready", { childId: "creator" });
       console.log(
         "  📖 [diag] creator voice session registered for test-reading-mode",
       );

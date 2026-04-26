@@ -13,6 +13,8 @@ import { useTransition, type Palette } from "../context/TransitionContext";
 import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
 import type { KaraokeReadingCanvasProps } from "./KaraokeReadingCanvas";
+import { WordRadar } from "./WordRadar";
+import type { RadarItem } from "./WordRadar";
 import { PronunciationGameCanvas } from "./PronunciationGameCanvas";
 import { NodeCard } from "./NodeCard.tsx";
 import { PathCurve } from "./PathCurve.tsx";
@@ -67,6 +69,7 @@ const NODE_PALETTES: Partial<Record<NodeType, Palette>> = {
   asteroid:        { from: "#a855f7", to: "#6366f1" }, // nebula
   "space-frogger": { from: "#22c55e", to: "#06b6d4" }, // mint breeze
   "bubble-pop":    { from: "#f472b6", to: "#fb923c" }, // pink sunset
+  "word-radar":    { from: "#7c3aed", to: "#ec4899" }, // radar sweep
 };
 
 function nodeTransitionPalette(nodeType: string): Palette | "random" {
@@ -111,6 +114,11 @@ export function AdventureMap(props: {
   childId: string;
   mapSession: ReturnType<typeof useMapSession>;
   previewMode?: MapPreviewMode;
+  /**
+   * When set (e.g. diag reading kiosk), fullscreen flow games get the same top inset + back control
+   * as preview builds, without enabling free-preview STT / URL behavior.
+   */
+  showFlowGameBackChrome?: boolean;
   /** @deprecated Launch context uses mapCompanion + children.config.json default. */
   launchCompanionId?: string;
   /** Profile companion for game URL params and launch context (null until /api/profile loads). */
@@ -122,6 +130,15 @@ export function AdventureMap(props: {
   onActiveNodeScreenChange?: (p: { x: number; y: number } | null) => void;
   /** Voice-session reading props when a map node of type \"karaoke\" is launched. */
   karaokeReadingForMapNode?: KaraokeReadingCanvasProps;
+  /** From `/api/profile` — Word Radar UI + personal bests (server-derived). */
+  wordRadarFromProfile?: {
+    showTimer: boolean;
+    showKeyboard: boolean;
+    inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
+    speakStyle?: "option-a" | "option-b";
+    keyboardStyle?: "option-b" | "option-c";
+    personalBests: Record<string, number>;
+  };
   /** From `/api/profile` — drives tamagotchi strip + VRR evaluation. */
   tamagotchi?: TamagotchiState;
   /** After VRR claim persisted on server — parent should merge into profile state. */
@@ -544,7 +561,9 @@ export function AdventureMap(props: {
           onComplete: () => {
             commitLaunchedNode(result);
             console.log("[DEBUG] after commitLaunchedNode (canvas path)");
-            if (!mapPreview) {
+            // word-radar is handled client-side only — sending canvas_show to
+            // the voice WS would hit the default error branch and clear adventureChildId.
+            if (!mapPreview && result.type !== "word-radar") {
               props.karaokeReadingForMapNode?.sendMessage?.(
                 "canvas_show",
                 payload,
@@ -587,6 +606,8 @@ export function AdventureMap(props: {
   );
 
   const diagReading = import.meta.env.VITE_DIAG_READING === "true";
+  const flowGameBackChrome =
+    Boolean(props.previewMode) || props.showFlowGameBackChrome === true;
   const chimpBg =
     "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600";
 
@@ -809,7 +830,7 @@ export function AdventureMap(props: {
           className="fixed inset-0 z-[40] flex flex-col"
           style={{ background: "#0a1512" }}
         >
-          {props.previewMode ? (
+          {flowGameBackChrome ? (
             <div
               aria-hidden
               style={{ height: PREVIEW_GAME_TOP_INSET_PX, flexShrink: 0, background: "#0a1512" }}
@@ -817,7 +838,7 @@ export function AdventureMap(props: {
           ) : null}
           <div
             className="relative flex min-h-0 flex-1 flex-col"
-            style={props.previewMode ? { minHeight: 0 } : undefined}
+            style={flowGameBackChrome ? { minHeight: 0 } : undefined}
           >
           <KaraokeReadingCanvas
             words={launchedNode.words}
@@ -859,7 +880,7 @@ export function AdventureMap(props: {
                 : props.karaokeReadingForMapNode?.storyTitle
             }
           />
-          {props.previewMode ? (
+          {flowGameBackChrome ? (
             <button
               type="button"
               className="absolute top-3 right-3 z-[50] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
@@ -868,6 +889,68 @@ export function AdventureMap(props: {
               ← Back to map
             </button>
           ) : null}
+          </div>
+        </div>
+      ) : null}
+      {launchedNode?.type === "word-radar" &&
+      launchedNode.wordRadarItems &&
+      launchedNode.wordRadarItems.length > 0 ? (
+        <div key={launchedNode.id} className="fixed inset-0 z-[42] flex flex-col">
+          {flowGameBackChrome ? (
+            <div
+              aria-hidden
+              style={{ height: PREVIEW_GAME_TOP_INSET_PX, flexShrink: 0, background: "#12002e" }}
+            />
+          ) : null}
+          <div className="relative min-h-0 flex-1">
+            <WordRadar
+              items={launchedNode.wordRadarItems as RadarItem[]}
+              interimTranscript={
+                props.karaokeReadingForMapNode?.interimTranscript ?? ""
+              }
+              sendMessage={
+                props.previewMode === "free"
+                  ? (_type: string, _payload?: Record<string, unknown>) => {
+                      void _type;
+                      void _payload;
+                    }
+                  : props.karaokeReadingForMapNode?.sendMessage ??
+                    ((_type: string, _payload?: Record<string, unknown>) => {
+                      void _type;
+                      void _payload;
+                    })
+              }
+              timerSeconds={props.wordRadarFromProfile?.showTimer === true ? 10 : undefined}
+              showKeyboard={props.wordRadarFromProfile?.showKeyboard === true}
+              inputMode={props.wordRadarFromProfile?.inputMode}
+              speakStyle={props.wordRadarFromProfile?.speakStyle}
+              keyboardStyle={props.wordRadarFromProfile?.keyboardStyle}
+              personalBests={props.wordRadarFromProfile?.personalBests ?? {}}
+              companion={props.mapCompanion ?? null}
+              childId={props.childId}
+              onComplete={(result) => {
+                if (props.previewMode === "free" || props.showFlowGameBackChrome) {
+                  clearLaunchedNode();
+                  return;
+                }
+                void sendNodeResult({
+                  nodeId: launchedNode.id,
+                  completed: true,
+                  accuracy: result.accuracy,
+                  timeSpent_ms: result.timeSpent_ms,
+                  wordsAttempted: result.rawResults.length,
+                });
+              }}
+            />
+            {flowGameBackChrome ? (
+              <button
+                type="button"
+                className="absolute top-3 right-3 z-[50] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
+                onClick={() => clearLaunchedNode()}
+              >
+                ← Back to map
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

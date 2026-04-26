@@ -43,8 +43,22 @@ type ExtractionShape = {
 
 type PlannedNode = {
   id: string;
-  type: "spell-check" | "pronunciation" | "karaoke" | "word-builder" | "quest" | "boss";
+  type:
+    | "word-radar"
+    | "spell-check"
+    | "pronunciation"
+    | "karaoke"
+    | "word-builder"
+    | "quest"
+    | "boss";
   words: string[];
+  /** Populated for `word-radar` nodes (spelling homework). */
+  wordRadarItems?: Array<{
+    display: string;
+    acceptedResponses: string[];
+    label?: string;
+    subject?: string;
+  }>;
   difficulty: 1 | 2 | 3;
   rationale: string;
   gameFile?: string | null;
@@ -52,6 +66,15 @@ type PlannedNode = {
   storyText?: string;
   date?: string;
 };
+
+function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode["wordRadarItems"]> {
+  return wordList.map((w) => ({
+    display: w,
+    acceptedResponses: [w.toLowerCase()],
+    label: "Spelling",
+    subject: "spelling",
+  }));
+}
 
 type NodePlan = {
   nodes: PlannedNode[];
@@ -86,8 +109,9 @@ const REQUIRED_NODE_ORDER = [
   "boss",
 ] as const;
 
-/** Spelling test: templates + mandatory AI quest before boss. */
+/** Spelling test: word-radar first, then templates + mandatory AI quest before boss. */
 const SPELLING_TEST_NODE_ORDER = [
+  "word-radar",
   "spell-check",
   "pronunciation",
   "karaoke",
@@ -113,6 +137,18 @@ function defaultPlannedNode(
   useFullWordList: boolean,
 ): PlannedNode {
   const words = useFullWordList ? [...wordList] : wordList.slice(0, 12);
+  if (type === "word-radar") {
+    return {
+      id: `hw-${idx}`,
+      type: "word-radar",
+      words,
+      wordRadarItems: wordRadarItemsFromWordList(words),
+      difficulty,
+      rationale: `Automatic ${type} node`,
+      gameFile: null,
+      storyFile: null,
+    };
+  }
   return {
     id: `hw-${idx}`,
     type,
@@ -156,6 +192,7 @@ export function mergeNormalizedPlan(
       id: String(n.id ?? ""),
       type: ty,
       words,
+      ...(ty === "word-radar" && spelling ? { wordRadarItems: wordRadarItemsFromWordList([...wordList]) } : {}),
       difficulty: diff,
       rationale: spelling && ty === "quest" ? SPELLING_QUEST_RATIONALE : rationaleRaw,
       gameFile: n.gameFile ?? null,
@@ -169,7 +206,11 @@ export function mergeNormalizedPlan(
       const words = spelling ? [...wordList] : existing.words;
       const rationale =
         spelling && type === "quest" ? SPELLING_QUEST_RATIONALE : existing.rationale;
-      return { ...existing, id: existing.id || `hw-${idx}`, words, rationale };
+      const wordRadarItems =
+        type === "word-radar" && spelling
+          ? wordRadarItemsFromWordList([...wordList])
+          : existing.wordRadarItems;
+      return { ...existing, id: existing.id || `hw-${idx}`, words, rationale, wordRadarItems };
     }
     const created = defaultPlannedNode(type, idx, wordList, spelling ? spellingDiff : difficulty, spelling);
     if (spelling && type === "quest") {
@@ -247,6 +288,7 @@ export function finalizePlannedHomeworkNodes(
     storyFile: n.storyFile ?? null,
     storyText: n.storyText,
     date: n.date,
+    wordRadarItems: n.wordRadarItems,
   }));
   const ordered = reorderHomeworkNodesForSession(skeleton);
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -288,17 +330,23 @@ export function buildPendingHomeworkPayload(args: {
     wordList: args.wordList,
     homeworkId: args.homeworkId,
     generatedAt: new Date().toISOString(),
-    nodes: args.nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      words: node.words,
-      difficulty: node.difficulty,
-      gameFile: homeworkGameBasename(node.gameFile ?? null),
-      storyFile: node.storyFile ?? null,
-      storyText: node.storyText,
-      date: node.date ?? args.weekOf,
-      approved: false,
-    })),
+    nodes: args.nodes.map((node) => {
+      const base = {
+        id: node.id,
+        type: node.type,
+        words: node.words,
+        difficulty: node.difficulty,
+        gameFile: homeworkGameBasename(node.gameFile ?? null),
+        storyFile: node.storyFile ?? null,
+        storyText: node.storyText,
+        date: node.date ?? args.weekOf,
+        approved: false,
+      };
+      if (node.type === "word-radar" && node.wordRadarItems?.length) {
+        return { ...base, wordRadarItems: node.wordRadarItems };
+      }
+      return base;
+    }),
   };
 }
 

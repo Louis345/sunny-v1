@@ -133,6 +133,14 @@ export interface LearningProfile {
       storyFile: string | null;
       /** Karaoke passage text embedded at ingest (no fetch at click). */
       storyText?: string;
+      /** Word Radar drills when `type === "word-radar"` (ingest / map). */
+      wordRadarItems?: Array<{
+        display: string;
+        acceptedResponses: string[];
+        hint?: string;
+        label?: string;
+        subject?: string;
+      }>;
       approved?: boolean;
       date?: string;
     }>;

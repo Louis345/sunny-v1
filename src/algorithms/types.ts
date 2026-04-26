@@ -48,6 +48,8 @@ export interface WordEntry {
   homeworkPriority?: boolean;
   /** Spelling test date (YYYY-MM-DD); priority applies while today <= testDate. */
   testDate?: string;
+  /** Best Word Radar response time (ms) for this word; optional. */
+  wordRadarBestTime_ms?: number;
 }
 
 export interface SM2Params {

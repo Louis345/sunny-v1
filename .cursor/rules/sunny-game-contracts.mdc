@@ -1,0 +1,45 @@
+---
+description: Sunny game implementation contracts
+alwaysApply: true
+---
+
+# Sunny Game Contracts
+
+Use these contracts whenever adding or modifying a game mode.
+
+## 1) Game Categories
+
+- `domain-html`: iframe or standalone HTML game, no learning progression state by default.
+- `low-level-learning`: foundational learning mechanics with learning-state updates and test coverage.
+- `flow-state-voice`: voice-driven learning flow (e.g. karaoke, pronunciation, word-radar).
+
+## 2) Flow-State Voice Contract (Required)
+
+- Reuse existing shell STT + WebSocket (`interimTranscript`, `sendMessage`); never create a new STT connection or socket.
+- Game speech must drive game state, not live Claude turns.
+- Companion avatar is required in flow-state games (portrait or explicitly approved mode).
+- React flow-state games must use `FlowGameOverlay` for fullscreen chrome/back behavior.
+- React flow-state games must use the React flow game event bridge; iframe games must use `_contract.js`.
+- Emit structured completion/events to server (for example: `reading_progress`, `pronunciation_complete`, `word_radar_complete`).
+- For diagnostics launch paths, gate actions on explicit session readiness instead of timing sleeps.
+
+## 3) Low-Level Learning Contract
+
+- Respect existing typed contracts for props/results and scoring.
+- Persist required learning outputs through server-owned pathways.
+- Cover state machine behavior with tests before/alongside implementation.
+
+## 4) Domain HTML Contract
+
+- Keep isolation boundaries clear (`iframe`/URL launch path, message bridge only).
+- Do not add learning-state side effects unless explicitly requested.
+- Avatar/events are optional unless product requirements say otherwise.
+
+## 5) Pre-merge Checklist
+
+- Correct category selected (`domain-html`, `low-level-learning`, `flow-state-voice`).
+- No extra STT/WebSocket clients introduced.
+- Flow-state games include companion avatar.
+- Flow-state overlays use the shared back-button shell.
+- Structured event payloads sent and server-handled.
+- Diag launch works from cold start and with an already-active session.

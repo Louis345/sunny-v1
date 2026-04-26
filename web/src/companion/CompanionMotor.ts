@@ -112,6 +112,10 @@ export class CompanionMotor {
   private showroomIdleMode: ShowroomIdleMode = null;
   private showroomIdleSeed = 0;
   private showroomIdleElapsedMs = 0;
+  private blinkState = {
+    nextBlinkAt: this.scheduleNextBlinkAt(),
+    blinkingUntil: 0,
+  };
 
   private animationMixer: THREE.AnimationMixer | null = null;
   private readonly clipCache = new Map<AnimationName, THREE.AnimationClip>();
@@ -131,6 +135,10 @@ export class CompanionMotor {
     this.expressionState = createNeutralExpressionState();
     this.eventDeduper = new CompanionEventDeduper();
     this.idleState = createInitialIdleState();
+    this.blinkState = {
+      nextBlinkAt: this.scheduleNextBlinkAt(),
+      blinkingUntil: 0,
+    };
   }
 
   setCamera(camera: THREE.PerspectiveCamera | null): void {
@@ -498,13 +506,22 @@ export class CompanionMotor {
         busy,
         () => Math.random(),
       );
-      // applyIdleMotionToVrm(vrm, this.idleState); // TODO: re-enable once procedural/mixer conflict is resolved
       const mouthW = updateMouthSync(ctx.analyser, ctx.dt);
       const em = vrm.expressionManager;
       if (em) {
         const mouthExpression = resolveVrmExpressionName(em, "aa");
         if (mouthExpression) {
           em.setValue(mouthExpression, mouthW);
+        }
+        const now = performance.now();
+        if (!ctx.toggledOff && now >= this.blinkState.nextBlinkAt) {
+          this.blinkState.blinkingUntil = now + 150 + Math.random() * 50;
+          this.blinkState.nextBlinkAt = this.scheduleNextBlinkAt(now);
+        }
+        const isBlinking = now < this.blinkState.blinkingUntil;
+        const blinkExpression = resolveVrmExpressionName(em, "blink");
+        if (blinkExpression) {
+          em.setValue(blinkExpression, isBlinking ? 1 : 0);
         }
       }
     }
@@ -560,6 +577,10 @@ export class CompanionMotor {
         this.expressionCompanionHint,
       );
     }
+  }
+
+  private scheduleNextBlinkAt(baseNow = performance.now()): number {
+    return baseNow + 1000 + Math.random() * 4000;
   }
 
   private applyShowroomIdlePose(dtMs: number): void {

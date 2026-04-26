@@ -42,6 +42,32 @@ import { RewardDiagOverlay } from "./components/RewardDiagOverlay";
 import { RewardTriggerPanel } from "./components/RewardTriggerPanel";
 import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
 import { CompanionShowroomPage } from "./CompanionShowroomPage";
+import { WordRadar } from "./components/WordRadar";
+import { FlowGameOverlay } from "./components/FlowGameOverlay";
+import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
+
+const DIAG_READING_TEST_EXCERPT =
+  "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
+
+const DIAG_READING_TEST_WORDS = DIAG_READING_TEST_EXCERPT.split(/\s+/).filter(Boolean);
+
+const DIAG_PRONUNCIATION_WORDS = [
+  "blister",
+  "carpet",
+  "thirteen",
+  "orbit",
+  "harvest",
+  "confirm",
+  "interrupt",
+  "perfume",
+  "hamburger",
+  "corner",
+  "kindergarten",
+  "chimp",
+  "inhabit",
+  "instruments",
+  "band",
+];
 
 const isCanvasTestMode =
   import.meta.env.VITE_TEST_MODE === "true" ||
@@ -237,6 +263,19 @@ function App() {
   const [profileTamagotchi, setProfileTamagotchi] = useState<TamagotchiState | null>(
     null,
   );
+  const [profileWordRadar, setProfileWordRadar] = useState<{
+    showTimer: boolean;
+    showKeyboard: boolean;
+    personalBests: Record<string, number>;
+  } | null>(null);
+  const [wordRadarDiagOpen, setWordRadarDiagOpen] = useState(false);
+  const [diagFlowGameOpen, setDiagFlowGameOpen] = useState<
+    "reading" | "pronunciation" | "word-radar" | null
+  >(null);
+  const [pendingDiagFlowGame, setPendingDiagFlowGame] = useState<
+    "reading" | "pronunciation" | "word-radar" | null
+  >(null);
+  const [diagGameRestartRequested, setDiagGameRestartRequested] = useState(false);
   const [companionSheetOpen, setCompanionSheetOpen] = useState(false);
   const [diagCompanionCommands, setDiagCompanionCommands] = useState<
     CompanionCommand[]
@@ -300,13 +339,77 @@ function App() {
     }
   }, [sessionReady, mapSession.sessionStarted, mapSession.mapState]);
 
+  const activeVoiceGameNodeType =
+    diagFlowGameOpen === "reading"
+      ? "karaoke"
+      : diagFlowGameOpen ?? mapSession.launchedNode?.type ?? null;
+
   useEffect(() => {
-    registerMapNodeType(mapSession.launchedNode?.type ?? null);
+    registerMapNodeType(activeVoiceGameNodeType);
   }, [
+    activeVoiceGameNodeType,
     mapSession.launchedNode?.id,
-    mapSession.launchedNode?.type,
     registerMapNodeType,
   ]);
+
+  const startDiagGameMicSession = useCallback(() => {
+    startSession("creator", {
+      diagKiosk: true,
+      silentTts: true,
+      sttOnly: true,
+    });
+  }, [startSession]);
+
+  const openDiagFlowGame = useCallback(
+    (mode: "reading" | "pronunciation" | "word-radar") => {
+      setDiagFlowGameOpen(mode);
+      setWordRadarDiagOpen(mode === "word-radar");
+      setPendingDiagFlowGame(mode);
+      if (state.phase === "active" && state.diagGameSessionReady) {
+        setPendingDiagFlowGame(null);
+        return;
+      }
+      if (state.phase === "active") {
+        setDiagGameRestartRequested(true);
+        endSession();
+        return;
+      }
+      if (state.phase !== "connecting") {
+        startDiagGameMicSession();
+      }
+    },
+    [
+      endSession,
+      startDiagGameMicSession,
+      state.diagGameSessionReady,
+      state.phase,
+    ],
+  );
+
+  useEffect(() => {
+    if (!pendingDiagFlowGame || !diagGameRestartRequested) return;
+    if (state.phase === "active" || state.phase === "connecting") return;
+    setDiagGameRestartRequested(false);
+    startDiagGameMicSession();
+  }, [
+    diagGameRestartRequested,
+    pendingDiagFlowGame,
+    startDiagGameMicSession,
+    state.phase,
+  ]);
+
+  useEffect(() => {
+    if (!pendingDiagFlowGame) return;
+    if (state.phase !== "active" || !state.diagGameSessionReady) return;
+    setPendingDiagFlowGame(null);
+  }, [pendingDiagFlowGame, state.diagGameSessionReady, state.phase]);
+
+  const closeDiagFlowGame = useCallback(() => {
+    setDiagFlowGameOpen(null);
+    setWordRadarDiagOpen(false);
+    setPendingDiagFlowGame(null);
+    setDiagGameRestartRequested(false);
+  }, []);
 
   const mergedCompanionEvents = useMemo(() => {
     const base = mergeCompanionEvents(
@@ -374,23 +477,44 @@ function App() {
         return r.json() as Promise<{
           companion?: CompanionConfig;
           tamagotchi?: TamagotchiState;
+          wordRadar?: {
+            showTimer?: boolean;
+            showKeyboard?: boolean;
+            personalBests?: Record<string, number>;
+          };
         }>;
       })
       .then((data) => {
         if (!cancelled) {
           setProfileCompanion(mergeCompanionConfigWithDefaults(data.companion));
           setProfileTamagotchi(data.tamagotchi ?? null);
+          const wr = data.wordRadar;
+          if (wr && typeof wr === "object") {
+            const pb = wr.personalBests;
+            setProfileWordRadar({
+              showTimer: wr.showTimer === true,
+              showKeyboard: wr.showKeyboard === true,
+              personalBests:
+                pb && typeof pb === "object" && !Array.isArray(pb)
+                  ? (pb as Record<string, number>)
+                  : {},
+            });
+          } else {
+            setProfileWordRadar(null);
+          }
         }
       })
       .catch(() => {
         if (!cancelled) {
           setProfileCompanion(null);
           setProfileTamagotchi(null);
+          setProfileWordRadar(null);
         }
       });
     return () => {
       cancelled = true;
       setProfileCompanion(null);
+      setProfileWordRadar(null);
     };
   }, [activeProfileChildId]);
 
@@ -467,7 +591,7 @@ function App() {
           }
           karaokeReadingForMapNode={{
             words: state.canvas.karaokeWords ?? [],
-            interimTranscript: state.interimTranscript,
+            interimTranscript: state.gameTranscript,
             sendMessage,
             backgroundImageUrl: state.canvas.backgroundImageUrl,
             accentColor:
@@ -478,13 +602,20 @@ function App() {
             wordsPerLine: state.readingCanvas.wordsPerLine,
             storyTitle: state.canvas.storyTitle,
           }}
+          wordRadarFromProfile={
+            profileWordRadar ?? {
+              showTimer: true,
+              showKeyboard: false,
+              personalBests: {},
+            }
+          }
         />
         {karaokeReadingActive &&
           mapSession.launchedNode?.type !== "karaoke" && (
             <div className="fixed inset-0 z-50">
               <KaraokeReadingCanvas
                 words={state.canvas.karaokeWords!}
-                interimTranscript={state.interimTranscript}
+                interimTranscript={state.gameTranscript}
                 sendMessage={sendMessage}
                 backgroundImageUrl={state.canvas.backgroundImageUrl}
                 accentColor={
@@ -503,7 +634,7 @@ function App() {
             <div className="fixed inset-0 z-50">
               <PronunciationGameCanvas
                 words={state.canvas.pronunciationWords!}
-                interimTranscript={state.interimTranscript}
+                interimTranscript={state.gameTranscript}
                 sendMessage={sendMessage}
                 backgroundImageUrl={state.canvas.backgroundImageUrl}
                 accentColor={
@@ -528,10 +659,8 @@ function App() {
         )}
         <ChildPicker
           onSelect={(name, opts) => {
-            if (adventureMapEnabled && !opts?.diagKiosk) {
+            if (adventureMapEnabled) {
               setAdventureChildId(name.trim().toLowerCase());
-              startSession(name, opts);
-              return;
             }
             startSession(name, opts);
           }}
@@ -601,8 +730,18 @@ function App() {
   const companionPortraitMode =
     mapGameOverlay.active ||
     karaokeReadingActive ||
+    diagFlowGameOpen != null ||
     (state.phase === "active" && state.canvas.mode === "pronunciation") ||
     mapSession.launchedNode?.type === "karaoke" ||
+    mapSession.launchedNode?.type === "word-radar" ||
+    (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
+  const voiceGameCompanionMicMuted =
+    karaokeReadingActive ||
+    diagFlowGameOpen != null ||
+    wordRadarDiagOpen ||
+    (state.phase === "active" && state.canvas.mode === "pronunciation") ||
+    mapSession.launchedNode?.type === "karaoke" ||
+    mapSession.launchedNode?.type === "word-radar" ||
     (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
 
   return (
@@ -623,6 +762,9 @@ function App() {
             endSession={endSession}
             voiceActive={state.phase === "active"}
             onCameraAct={handleDiagCamera}
+            onTestReading={() => openDiagFlowGame("reading")}
+            onTestPronunciation={() => openDiagFlowGame("pronunciation")}
+            onTestWordRadar={() => openDiagFlowGame("word-radar")}
           />
         </div>
       ) : null}
@@ -641,7 +783,7 @@ function App() {
         activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
         speechBubbleText={companionBubbleText}
-        micMuted={micMuted}
+        micMuted={micMuted || voiceGameCompanionMicMuted}
         onToggleMute={toggleMicMute}
       />
       {adventureMapEnabled &&
@@ -659,6 +801,57 @@ function App() {
           <RewardDiagBridge />
           <RewardTriggerPanel childId={activeProfileChildId ?? ""} />
         </>
+      ) : null}
+      {diagFlowGameOpen === "reading" ? (
+        <FlowGameOverlay onBack={closeDiagFlowGame}>
+          <KaraokeReadingCanvas
+            words={DIAG_READING_TEST_WORDS}
+            interimTranscript={state.gameTranscript}
+            sendMessage={sendMessage}
+            backgroundImageUrl="https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600"
+            accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
+            cardBackground={mapSession.theme?.palette?.cardBackground}
+            fontSize={state.readingCanvas.fontSize}
+            lineHeight={state.readingCanvas.lineHeight}
+            wordsPerLine={state.readingCanvas.wordsPerLine}
+            storyTitle="Chimpanzees"
+            onComplete={closeDiagFlowGame}
+          />
+        </FlowGameOverlay>
+      ) : null}
+      {diagFlowGameOpen === "pronunciation" ? (
+        <FlowGameOverlay onBack={closeDiagFlowGame}>
+          <PronunciationGameCanvas
+            words={DIAG_PRONUNCIATION_WORDS}
+            interimTranscript={state.gameTranscript}
+            sendMessage={sendMessage}
+            backgroundImageUrl={state.canvas.backgroundImageUrl}
+            accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
+            onComplete={(result) => {
+              sendMessage("pronunciation_complete", result);
+              closeDiagFlowGame();
+            }}
+          />
+        </FlowGameOverlay>
+      ) : null}
+      {wordRadarDiagOpen ? (
+        <FlowGameOverlay onBack={closeDiagFlowGame}>
+          <WordRadar
+            items={DIAG_WORD_RADAR_ITEMS}
+            interimTranscript={state.gameTranscript}
+            sendMessage={sendMessage}
+            autoStart={state.diagGameSessionReady}
+            timerSeconds={profileWordRadar?.showTimer === true ? 10 : undefined}
+            showKeyboard={profileWordRadar?.showKeyboard ?? false}
+            personalBests={profileWordRadar?.personalBests ?? {}}
+            companion={effectiveCompanion}
+            childId={activeProfileChildId ?? ""}
+            onComplete={(result) => {
+              console.log("  🎮 [DiagPanel] WordRadar result", result);
+              setWordRadarDiagOpen(false);
+            }}
+          />
+        </FlowGameOverlay>
       ) : null}
     </>
   );

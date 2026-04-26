@@ -43,3 +43,27 @@ export function selectNextProblemType(input: InterleavingInput): InterleavingRes
 
   return { nextType: chosen, reason, typeAccuracies };
 }
+
+type MathHistoryInput = { type?: string; problemType?: string; correct?: boolean }[];
+
+const DEFAULT_ROTATION = ["addition", "subtraction", "clocks", "coins"];
+
+/**
+ * ChildProfile output field: `mathRotation`.
+ */
+export function interleaving(
+  mathHistory: MathHistoryInput = [],
+): { mathRotation: string[] } {
+  if (mathHistory.length === 0) {
+    return { mathRotation: [...DEFAULT_ROTATION] };
+  }
+
+  const recentTypes = new Set(
+    mathHistory
+      .slice(-8)
+      .map((attempt) => attempt.problemType ?? attempt.type)
+      .filter((type): type is string => typeof type === "string" && type.length > 0),
+  );
+  const unseen = DEFAULT_ROTATION.filter((type) => !recentTypes.has(type));
+  return { mathRotation: [...unseen, ...DEFAULT_ROTATION.filter((type) => recentTypes.has(type))] };
+}

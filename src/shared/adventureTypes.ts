@@ -6,6 +6,7 @@ export type NodeType =
   | "word-builder"
   | "bubble-pop"
   | "karaoke"
+  | "word-radar"
   | "clock-game"
   | "coin-counter"
   | "spell-check"
@@ -27,6 +28,13 @@ export interface NodeConfig {
   thumbnailPrompt?: string;
   /** Karaoke passage when `type === "karaoke"`. */
   words?: string[];
+  /** Word Radar drills when `type === "word-radar"`. */
+  wordRadarItems?: Array<{
+    display: string;
+    acceptedResponses: string[];
+    hint?: string;
+    label?: string;
+  }>;
   /** Homework node metadata (quest/boss routing). */
   gameFile?: string;
   storyFile?: string;
@@ -118,6 +126,7 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "word-builder",
   "bubble-pop",
   "karaoke",
+  "word-radar",
   "clock-game",
   "coin-counter",
   "spell-check",

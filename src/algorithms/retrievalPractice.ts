@@ -32,3 +32,28 @@ export function determineScaffoldLevel(input: ScaffoldInput): ScaffoldRecommenda
     qualityIfIncorrect,
   };
 }
+
+type WordBankInput = {
+  words?: Array<{
+    word: string;
+    tracks?: Record<string, { scaffoldLevel?: number; mastered?: boolean }>;
+  }>;
+};
+
+/**
+ * ChildProfile output field: `retrievalPractice`.
+ */
+export function retrievalPractice(
+  wordBank: WordBankInput,
+): { retrievalPractice: { nextScaffoldWords: string[] } } {
+  const nextScaffoldWords = (wordBank.words ?? [])
+    .filter((entry) =>
+      Object.values(entry.tracks ?? {}).some(
+        (track) => !track.mastered && (track.scaffoldLevel ?? 0) > 0,
+      ),
+    )
+    .slice(0, 8)
+    .map((entry) => entry.word);
+
+  return { retrievalPractice: { nextScaffoldWords } };
+}

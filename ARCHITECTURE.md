@@ -189,3 +189,102 @@ Everything else is in service of that.
 
 When you change architecture laws, contract thresholds, or mandatory checks, update this file in the same PR.  
 If `AGENTS.md` or onboarding docs reference process, keep them aligned with this file.
+
+---
+
+## Law 12: Games Are Configured Per Child By The Psychologist
+
+Every game in Sunny has a configuration namespace on the child profile.  
+Games read config. Algorithms write algorithm outputs. Psychologist writes game config.  
+No game hardcodes behavior that should be profile-driven.
+
+### The separation
+
+- **Algorithms** → child profile root (shared across all games)
+- **Psychologist** → child profile `games` namespace (per-game, per-child)
+- **Games** → read from profile, never write back directly
+- **Server** → passes profile config into game via props or `GAME_PARAMS`
+
+### Game config schema (source of truth)
+
+Each game config extends `GameConfig` base:
+
+- `unlocked: boolean` — Psychologist flips when child is ready
+- `sessionCount: number` — auto-incremented by server on `sendNodeComplete`
+- `lastAccuracy: number | null` — written by server from `sendNodeComplete.accuracy`
+
+#### word-radar
+
+- `inputMode: "whole-word" | "letter-by-letter" | "keyboard"`
+  - **whole-word** — child says the full word, STT matches against `acceptedResponses`
+  - **letter-by-letter** — child says one letter at a time, per-position matching with aliases
+  - **keyboard** — child types the word, auto-submits on length match
+- `speakStyle: "option-a" | "option-b"`
+  - **option-a** — silent mic + waveform, all-or-nothing tile reveal on match
+  - **option-b** — confidence bar fills as STT hears partial match (`computeMatchRatio` in `useWordRadar`)
+- `keyboardStyle: "option-b" | "option-c"`
+  - **option-b** — locked-forward: correct letters lock green, wrong shakes tile
+  - **option-c** — free-type: all tiles pending yellow, reveal on complete word
+- `showTimer: boolean` — displays SVG ring + countdown, always records `responseTime_ms`
+- `personalBestMetric: "speed" | "accuracy"`
+  - **speed** — personal best = lowest `responseTime_ms` per word
+  - **accuracy** — personal best = highest accuracy streak
+
+#### spell-check
+
+- `difficulty: 1 | 2 | 3` — controls hide ratio and decoy count
+- `knownMode: "skip" | "quick"` — skip = omit known words, quick = fast pass
+- `maxWords: number` — max words per session (SM-2 due list may be longer)
+
+#### karaoke-reading
+
+- `wordsPerLine: number` — chunk size for line display
+- `fontSize: number` — px, Ila default 42, Reina default 40
+- `skipWordEnabled: boolean` — shows SKIP button on current word
+
+#### clock-game
+
+- `unlocked: boolean`
+- Step comes from `masteryGating.clockStep` (algorithm output, **not** game config)
+- **VIOLATION:** never add `step` to clock-game config
+
+#### coin-counter
+
+- `unlocked: boolean`
+- Step comes from `masteryGating.coinStep` (algorithm output, **not** game config)
+- **VIOLATION:** never add `step` to coin-counter config
+
+#### boss
+
+- `sessionsRequired: number` — total sessions before Psychologist evaluates unlock
+- `dataThresholdMet: boolean` — Psychologist sets true when data quality sufficient
+- `generatedGamePath: string | null` — path written when Sonnet/Opus generates the game
+- `generationModel: "sonnet" | "opus" | null`
+
+### What the Psychologist can write
+
+The Psychologist reads the full `measurementReport` which includes:
+
+- Per-game `sessionCount` and `lastAccuracy`
+- SM-2 due words and ease factors
+- `masteryGating` outputs (`clockStep`, `coinStep`, `readingLevel`)
+- `rawResults` from `sendNodeComplete` (per-item accuracy, `responseTime_ms`, `inputMode` used)
+
+The Psychologist writes to `games` config to:
+
+- Change `inputMode` when a child's STT accuracy is consistently low (e.g. whole-word accuracy below 0.5 for 3 sessions → switch to keyboard)
+- Adjust `difficulty` when `lastAccuracy` is above 0.85 for 2 sessions
+- Flip `unlocked: true` when prerequisite sessions are complete
+- Set `personalBestMetric` based on whether speed or accuracy is improving faster
+
+### Adding a new game — checklist
+
+1. Add `GameConfig` subtype to `src/shared/childProfile.ts`
+2. Add default config to `src/profile/gameConfigDefaults.ts`
+3. Add to `verifyGameConfig` in `src/profile/verifyProfile.ts`
+4. Add to `ARCHITECTURE.md` game config schema (this section)
+5. Server passes `games["your-game"]` into `GAME_PARAMS` or React props
+6. Game reads from props / `GAME_PARAMS` only — never reads profile directly
+7. Tests: `buildProfile` returns correct defaults, `verifyGameConfig` passes
+
+Runtime prompt text for the Psychologist is generated from defaults via `generateGameConfigDocs()` in `src/profile/generateGameConfigDocs.ts` (keeps prompts aligned with `DEFAULT_GAME_CONFIGS`).
