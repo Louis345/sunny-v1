@@ -11,6 +11,8 @@ type RoutableNode = {
   words?: string[];
   difficulty: number;
   gameFile?: string;
+  gameHtmlPath?: string;
+  generationModel?: "sonnet" | "opus";
   date?: string;
   storyText?: string;
 };

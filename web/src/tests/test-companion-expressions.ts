@@ -35,6 +35,8 @@ describe("companionExpressions (COMPANION-003)", () => {
     expect(TRIGGER_EXPRESSION_MAP.wrong_answer).toBe("sad");
     expect(TRIGGER_EXPRESSION_MAP.mastery_unlock).toBe("surprised");
     expect(TRIGGER_EXPRESSION_MAP.session_start).toBe("happy");
+    expect(TRIGGER_EXPRESSION_MAP.session_complete).toBe("happy");
+    expect(TRIGGER_EXPRESSION_MAP.session_end).toBe("happy");
     expect(TRIGGER_EXPRESSION_MAP.idle_too_long).toBe("thinking");
   });
 

@@ -225,6 +225,7 @@ export function handleGameEventForSession(
       trigger === "mastery_unlock" ||
       trigger === "idle_too_long" ||
       trigger === "session_start" ||
+      trigger === "session_complete" ||
       trigger === "session_end"
     ) {
       s.send?.("companion_event", {

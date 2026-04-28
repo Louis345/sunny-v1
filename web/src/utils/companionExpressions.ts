@@ -19,6 +19,7 @@ export const TRIGGER_EXPRESSION_MAP: Record<CompanionTrigger, CompanionExpressio
   wrong_answer: "sad",
   mastery_unlock: "surprised",
   session_start: "happy",
+  session_complete: "happy",
   session_end: "happy",
   idle_too_long: "thinking",
 };
@@ -29,6 +30,7 @@ export const TRIGGER_REACTION_DURATION_MS: Record<CompanionTrigger, number> = {
   correct_answer: 2000,
   wrong_answer: 1500,
   mastery_unlock: 3000,
+  session_complete: 2000,
   session_end: 2000,
   idle_too_long: 2000,
 };

@@ -20,6 +20,8 @@ import {
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 import { generateGameConfigDocs } from "../profile/generateGameConfigDocs";
+import { buildProfile } from "../profiles/buildProfile";
+import { readLearningProfile } from "../utils/learningProfileIO";
 
 const TEMPLATE_VERSION = "v23"; // bump this when prompt changes
 
@@ -731,6 +733,21 @@ export async function buildSessionPrompt(
   const companionCtx = fs.existsSync(companionContextPath)
     ? fs.readFileSync(companionContextPath, "utf-8").trim()
     : "";
+  const profile = await buildProfile(childName.toLowerCase());
+  const learningProfile = readLearningProfile(childName.toLowerCase());
+  const bossConfig = profile?.games?.boss;
+  const totalSessions = learningProfile?.sessionStats?.totalSessions ?? 0;
+  const QUEST_UNLOCK_THRESHOLD = 10;
+  const sessionsRemaining = Math.max(0, QUEST_UNLOCK_THRESHOLD - totalSessions);
+  const questStatusLine = bossConfig?.dataThresholdMet
+    ? `The AI Challenge node is unlocked and available on the map.`
+    : `The AI Challenge node is NOT yet unlocked.
+The child needs ${sessionsRemaining} more session(s).
+Do NOT tell the child the exact number.
+If asked, say "keep going — something special is coming soon."
+Build anticipation. Never cause disappointment.`;
+  const mapStatusSection = `## Map Status
+${questStatusLine}`;
 
   const homeworkSection = homeworkContent?.trim()
     ? `## Context: words in today's adventure\n` +
@@ -742,6 +759,7 @@ export async function buildSessionPrompt(
     namePrefix,
     personality,
     companionCtx,
+    mapStatusSection,
     homeworkSection,
   ].filter(Boolean).join("\n\n");
   console.log(`  🧩 Session prompt template ${TEMPLATE_VERSION}`);

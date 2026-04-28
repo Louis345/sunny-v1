@@ -5,7 +5,9 @@ const WS_BASE = "wss://api.elevenlabs.io/v1/text-to-speech";
 const FLUSH_INTERVAL_MS = 50;
 
 function normalizeForTTS(text: string): string {
-  return text.replace(/\bIla\b/gi, "EYE-lah");
+  let t = text.replace(/-(?=[A-Z])/g, " ");
+  t = t.replace(/\bIla\b/gi, "EYE-lah");
+  return t;
 }
 
 function getPronunciationLocators(): object[] | undefined {

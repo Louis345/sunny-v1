@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 import type { ChildProfile } from "../shared/childProfile";
+import { updateChildProfileGenerationModel } from "../profile/updateProfile";
 
 export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 export const SONNET_MODEL = "claude-sonnet-4-20250514";
@@ -618,6 +619,7 @@ async function main(): Promise<void> {
   console.log("✅ Step 2/4: Quest game ready");
 
   fs.writeFileSync(GAME_OUT, html);
+  await updateChildProfileGenerationModel(childId, "sonnet", GAME_OUT);
 
   if (args.opus) {
     console.log("🏆 Step 3/4: Generating boss node...");
@@ -635,6 +637,7 @@ async function main(): Promise<void> {
     const bossHtml = stripHtmlFences(textFromMessage(bossResp));
     const BOSS_OUT = path.join(OUT_DIR, `${date}-boss.html`);
     fs.writeFileSync(BOSS_OUT, bossHtml);
+    await updateChildProfileGenerationModel(childId, "opus", BOSS_OUT);
     console.log(`✅ Boss node: ${BOSS_OUT}`);
     console.log("✅ Step 3/4: Boss node ready");
   }

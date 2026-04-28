@@ -12,6 +12,7 @@ export type CompanionTrigger =
   | "correct_answer"
   | "wrong_answer"
   | "mastery_unlock"
+  | "session_complete"
   | "session_end"
   | "idle_too_long";
 
@@ -78,6 +79,7 @@ export const COMPANION_DEFAULTS: CompanionConfig = {
     correct_answer: 0.9,
     wrong_answer: 0.6,
     mastery_unlock: 1.0,
+    session_complete: 0.85,
     session_end: 0.7,
     idle_too_long: 0.5,
   },

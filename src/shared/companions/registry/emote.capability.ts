@@ -14,8 +14,9 @@ export const emoteCapability: CapabilityDefinition = {
   type: "emote",
   version: "1.0",
   phase: 0.5,
-  description:
-    "Facial / body expression on the VRM companion (happy, sad, celebrating, etc.).",
+  description: `Facial / body expression on the VRM companion.
+     Valid values: ${COMPANION_EMOTES.join(" | ")}.
+     Do not use any value not in this list.`,
   whenToUse: [
     "When the moment calls for visible warmth, encouragement, or shared feeling — alongside what you say.",
     "Never replace speech with only an emote; use both when it helps the child feel seen.",

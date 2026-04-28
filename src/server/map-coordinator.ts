@@ -218,6 +218,7 @@ const COMPANION_TRIGGER_SET = new Set<string>([
   "correct_answer",
   "wrong_answer",
   "mastery_unlock",
+  "session_complete",
   "session_end",
   "idle_too_long",
 ]);
@@ -411,6 +412,7 @@ export function broadcastTestMapCompanionEvent(
     "correct_answer",
     "wrong_answer",
     "mastery_unlock",
+    "session_complete",
     "session_end",
     "idle_too_long",
   ];
@@ -712,6 +714,40 @@ export function buildMapSummary(mapState: MapState): string {
   return buildMapSummaryFromPendingNodes(mapState.nodes);
 }
 
+/** Spelling homework baseline order through wheel, then mystery, then karaoke — then quest/boss. */
+const HOMEWORK_NODE_ORDER = [
+  "word-radar",
+  "spell-check",
+  "wheel-of-fortune",
+  "karaoke",
+] as const;
+
+// TODO: Level 5 unlock — companion picks based on session energy
+// TODO: Level 10 unlock — child picks from menu
+// Skill tree progression planned, random pool for now.
+const DOPAMINE_POOL = [
+  "space-invaders.html",
+  "asteroid.html",
+  "space-frogger.html",
+] as const;
+
+function pickDopamineGameFileForMystery(): string {
+  const gameFile =
+    DOPAMINE_POOL[Math.floor(Math.random() * DOPAMINE_POOL.length)]!;
+  console.log(`🎮 [mystery] picked dopamine game: ${gameFile}`);
+  return gameFile;
+}
+
+function orderHomeworkBaselineNodes(nodes: NodeConfig[]): NodeConfig[] {
+  const byType = new Map(nodes.map((n) => [n.type, n]));
+  const out: NodeConfig[] = [];
+  for (const t of HOMEWORK_NODE_ORDER) {
+    const n = byType.get(t);
+    if (n) out.push({ ...n, isGoal: false });
+  }
+  return out;
+}
+
 export async function startMapSession(
   childId: string,
 ): Promise<{ sessionId: string; mapState: MapState }> {
@@ -720,32 +756,131 @@ export async function startMapSession(
     throw new MapSessionError("unknown_child", 404);
   }
   const { theme, shouldPersist } = await resolveThemeForMapSession(profile);
-  const nodes =
-    profile.pendingHomework?.nodes?.length
-      ? (() => {
-          const homeworkPlan = planSession(childId, "homework");
-          const dueWords =
-            homeworkPlan.dueWords?.length && profile.pendingHomework
-              ? homeworkPlan.dueWords
-              : profile.pendingHomework.wordList;
-          return pendingHomeworkToNodeConfigs(profile.pendingHomework, dueWords);
-        })()
-      : await buildNodeList(profile, theme);
+  let nodes: NodeConfig[];
+  const homeworkId =
+    (
+      profile.pendingHomework as
+        | (NonNullable<ChildProfile["pendingHomework"]> & { homeworkId?: string })
+        | undefined
+    )?.homeworkId ??
+    profile.pendingHomework?.weekOf ??
+    "session";
+  const questConfig = profile.games?.quest;
+  const bossConfig = profile.games?.boss;
+  console.log("🎯 [quest-boss-check]", {
+    questDataThresholdMet: questConfig?.dataThresholdMet,
+    questGeneratedGamePath: questConfig?.generatedGamePath,
+    questGenerationModel: questConfig?.generationModel,
+    dataThresholdMet: bossConfig?.dataThresholdMet,
+    generatedGamePath: bossConfig?.generatedGamePath,
+    generationModel: bossConfig?.generationModel,
+  });
   if (profile.pendingHomework?.nodes?.length) {
-    if (nodes.length > 0) {
-      nodes[nodes.length - 1] = { ...nodes[nodes.length - 1], isGoal: false };
+    const homeworkPlan = planSession(childId, "homework");
+    const dueWords =
+      homeworkPlan.dueWords?.length && profile.pendingHomework
+        ? homeworkPlan.dueWords
+        : profile.pendingHomework.wordList;
+    const rawBaseline = pendingHomeworkToNodeConfigs(profile.pendingHomework, dueWords).filter(
+      (node) =>
+        node.type !== "quest" && node.type !== "boss" && node.type !== "mystery",
+    );
+    const baselineOrdered = orderHomeworkBaselineNodes(rawBaseline);
+    const mysteryGameFile = pickDopamineGameFileForMystery();
+    const wheelIdx = baselineOrdered.findIndex((n) => n.type === "wheel-of-fortune");
+    let head: NodeConfig[];
+    let tail: NodeConfig[];
+    if (wheelIdx >= 0) {
+      head = baselineOrdered.slice(0, wheelIdx + 1);
+      tail = baselineOrdered.slice(wheelIdx + 1);
+    } else {
+      const karaIdx = baselineOrdered.findIndex((n) => n.type === "karaoke");
+      if (karaIdx >= 0) {
+        head = baselineOrdered.slice(0, karaIdx);
+        tail = baselineOrdered.slice(karaIdx);
+      } else {
+        head = [...baselineOrdered];
+        tail = [];
+      }
     }
-    nodes.push({
-      id: "n-mystery-final",
+
+    const mysteryNode: NodeConfig = {
+      id: `n-mystery-${homeworkId}`,
       type: "mystery",
       words: [],
-      difficulty: 3,
+      difficulty: 2,
+      gameFile: mysteryGameFile,
       thumbnailUrl: theme.nodeThumbnails?.mystery ?? undefined,
       thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.mystery,
       isLocked: false,
       isCompleted: false,
-      isGoal: true,
+      isGoal: false,
+    };
+
+    const ordered: NodeConfig[] = [...head, mysteryNode, ...tail];
+    if (
+      questConfig?.dataThresholdMet &&
+      questConfig?.generatedGamePath &&
+      questConfig?.generationModel
+    ) {
+      ordered.push({
+        id: `n-quest-${homeworkId}`,
+        type: "quest",
+        words: [],
+        difficulty: 2,
+        isLocked: false,
+        isCompleted: false,
+        isGoal: false,
+        thumbnailUrl: theme?.nodeThumbnails?.["quest"] ?? undefined,
+        thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.quest,
+        gameHtmlPath: questConfig.generatedGamePath,
+        generationModel: questConfig.generationModel,
+      });
+    }
+    if (
+      bossConfig?.dataThresholdMet &&
+      bossConfig?.generatedGamePath &&
+      bossConfig?.generationModel === "opus"
+    ) {
+      ordered.push({
+        id: `n-boss-${homeworkId}`,
+        type: "boss",
+        words: [],
+        difficulty: 3,
+        isLocked: false,
+        isCompleted: false,
+        isGoal: false,
+        thumbnailUrl: theme?.nodeThumbnails?.["boss"] ?? undefined,
+        thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.boss,
+        gameHtmlPath: bossConfig.generatedGamePath,
+        generationModel: bossConfig.generationModel,
+      });
+    }
+    ordered.forEach((node, i) => {
+      node.isGoal = i === ordered.length - 1;
     });
+    nodes = ordered;
+  } else {
+    nodes = await buildNodeList(profile, theme);
+  }
+  console.log("🗺️ [map] final node order:", nodes.map((n) => n.type));
+  if (process.env.DIAG_UNLOCK_MAP === "true") {
+    nodes.forEach((node) => {
+      if (node.type === "quest") {
+        node.isLocked = false;
+        node.isCompleted = false;
+        return;
+      }
+      if (node.type === "boss") {
+        node.isLocked = false;
+        node.isCompleted = false;
+        return;
+      }
+      if (node.type === "mystery") return;
+      node.isLocked = false;
+      node.isCompleted = true;
+    });
+    console.log("🔓 [diag] DIAG_UNLOCK_MAP active — all nodes unlocked");
   }
   try {
     await enrichHomeworkNodeThumbnails(theme, nodes.map((n) => n.type as string));
@@ -779,6 +914,12 @@ export async function startMapSession(
     xp: 0,
     level: profile.level,
   };
+  if (process.env.DIAG_UNLOCK_MAP === "true") {
+    mapState.completedNodes = mapState.nodes
+      .filter((node) => node.type !== "mystery" && node.type !== "quest" && node.type !== "boss")
+      .map((node) => node.id);
+    mapState.currentNodeIndex = 0;
+  }
   syncNodeStatuses(mapState);
   const sessionId = randomUUID();
   sessions.set(sessionId, { childId: profile.childId, mapState });

@@ -635,12 +635,18 @@ export class CompanionMotor {
     opts: { loop?: boolean },
   ): void {
     if (!isCompanionAnimationId(animation)) {
+      console.warn(
+        `🎮 [CompanionMotor] [animate] [skip] not a contract animation id: ${JSON.stringify(animation)}`,
+      );
       return;
     }
     const name = animation as AnimationName;
     const entry = getAnimationEntry(name);
     const loop = opts.loop ?? entry?.defaultLoop ?? false;
     if (!entry?.path) {
+      console.warn(
+        `🎮 [CompanionMotor] [animate] [emote-fallback] no FBX path in registry for "${name}" — emote only`,
+      );
       this.applyAnimateEmoteFallback(animation);
       return;
     }
@@ -655,6 +661,9 @@ export class CompanionMotor {
     const vrm = this.vrm;
     const mixer = this.animationMixer;
     if (!vrm || !mixer) {
+      console.warn(
+        `🎮 [CompanionMotor] [animate] [emote-fallback] "${name}" — missing vrm=${Boolean(vrm)} mixer=${Boolean(mixer)}`,
+      );
       this.applyAnimateEmoteFallback(name);
       return;
     }
@@ -673,9 +682,21 @@ export class CompanionMotor {
       }
     }
     if (!clip || !this.animationMixer || !this.vrm) {
+      if (!clip) {
+        console.warn(
+          `🎮 [CompanionMotor] [animate] [emote-fallback] "${name}" — FBX load/retarget produced no clip (see prior [animation-fetch] logs)`,
+        );
+      } else {
+        console.warn(
+          `🎮 [CompanionMotor] [animate] [emote-fallback] "${name}" — vrm/mixer became null after async load`,
+        );
+      }
       this.applyAnimateEmoteFallback(name);
       return;
     }
+    console.log(
+      `🎮 [CompanionMotor] [animate] [play] "${name}" tracks=${clip.tracks.length} loop=${loop}`,
+    );
     this.animationMixer.stopAllAction();
     const action = this.animationMixer.clipAction(clip);
     action.setLoop(
@@ -695,28 +716,51 @@ export class CompanionMotor {
   }
 
   private async fetchRetargetedClip(
-    _name: AnimationName,
+    name: AnimationName,
     entry: AnimationRegistryEntry,
     vrm: VRM,
   ): Promise<THREE.AnimationClip | null> {
+    const path = entry.path;
+    const url =
+      typeof window !== "undefined" &&
+      path.startsWith("/") &&
+      !path.startsWith("//")
+        ? `${window.location.origin}${path}`
+        : path;
+    console.log(
+      `🎮 [CompanionMotor] [animation-fetch] [start] name="${name}" url=${url}`,
+    );
     try {
-      const path = entry.path;
-      const url =
-        typeof window !== "undefined" &&
-        path.startsWith("/") &&
-        !path.startsWith("//")
-          ? `${window.location.origin}${path}`
-          : path;
       const root = await loadMixamoFbxRoot(url);
       // Pick the first animation clip that actually contains tracks.
       // Some Mixamo FBX exports put the clip at index > 0 or embed a
       // zero-track placeholder at index 0.
       const raw = root.animations.find((c) => c.tracks.length > 0);
       if (!raw) {
+        const clipSummaries = root.animations.map(
+          (c, i) => `#${i} tracks=${c.tracks.length} duration=${c.duration}`,
+        );
+        console.warn(
+          `🎮 [CompanionMotor] [animation-fetch] [no-tracks] name="${name}" url=${url} clips=${root.animations.length} ${clipSummaries.join(" | ") || "(none)"}`,
+        );
         return null;
       }
-      return retargetMixamoClipToVrm(raw, root, vrm);
-    } catch {
+      const retargeted = retargetMixamoClipToVrm(raw, root, vrm);
+      if (!retargeted) {
+        console.warn(
+          `🎮 [CompanionMotor] [animation-fetch] [retarget-empty] name="${name}" url=${url} rawTracks=${raw.tracks.length} → zero VRM tracks after retarget`,
+        );
+        return null;
+      }
+      console.log(
+        `🎮 [CompanionMotor] [animation-fetch] [ok] name="${name}" retargetedTracks=${retargeted.tracks.length}`,
+      );
+      return retargeted;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `🎮 [CompanionMotor] [animation-fetch] [error] name="${name}" url=${url} ${msg}`,
+      );
       return null;
     }
   }

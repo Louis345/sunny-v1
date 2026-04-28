@@ -9,7 +9,7 @@ const SCAFFOLD_TYPES = ["cold", "phonemic_hint", "sound_box", "word_builder", "f
 const CANVAS_MODES = ["none", "none", "sound_box", "spelling", "text"] as const;
 
 export function determineScaffoldLevel(input: ScaffoldInput): ScaffoldRecommendation {
-  const { track, isNewWord, previousAttemptThisSession } = input;
+  const { isNewWord, previousAttemptThisSession } = input;
 
   let level: ScaffoldLevel;
 

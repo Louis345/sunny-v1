@@ -5,6 +5,7 @@ export type {
   CoinGameConfig,
   GameConfig,
   KaraokeGameConfig,
+  QuestGameConfig,
   SpellCheckGameConfig,
   WordRadarGameConfig,
 } from "../shared/childProfile";
