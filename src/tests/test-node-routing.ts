@@ -133,6 +133,7 @@ describe("map node routing", () => {
       "spell-check",
       "wordle",
       "wheel-of-fortune",
+      "mystery",
       "quest",
       "boss",
       "dopamine",

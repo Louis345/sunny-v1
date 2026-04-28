@@ -17,7 +17,9 @@ type RoutableNode = {
 
 type RoutingContext = {
   childId: string;
+  childName?: string;
   companion: string;
+  companionName?: string;
   isDiagMode: boolean;
   /** Overrides default `free` when `isDiagMode` (e.g. parent go-live walkthrough). */
   iframePreviewParam?: string;
@@ -53,7 +55,9 @@ export function buildNodeLaunchParams(
 ): URLSearchParams {
   const nctx: NodeContext = {
     childId: ctx.childId,
+    childName: ctx.childName,
     companion: ctx.companion,
+    companionName: ctx.companionName,
     previewParam: iframePreviewQuery(ctx),
     vrmUrl: ctx.vrmUrl,
     companionMuted: ctx.companionMuted,
@@ -71,7 +75,9 @@ export function buildNodeLaunchAction(
   }
   const nctx: NodeContext = {
     childId: ctx.childId,
+    childName: ctx.childName,
     companion: ctx.companion,
+    companionName: ctx.companionName,
     previewParam: iframePreviewQuery(ctx),
     vrmUrl: ctx.vrmUrl,
     companionMuted: ctx.companionMuted,

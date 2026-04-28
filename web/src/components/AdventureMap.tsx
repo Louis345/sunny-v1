@@ -79,6 +79,27 @@ function nodeTransitionPalette(nodeType: string): Palette | "random" {
   return NODE_PALETTES[nodeType as NodeType] ?? "random";
 }
 
+function profileLaunchNames(
+  profile: unknown,
+  childId: string,
+  fallbackCompanionId: string,
+): { childName: string; companionName: string } {
+  const p = profile as {
+    ttsName?: unknown;
+    companion?: { companionId?: unknown };
+  } | null;
+  const childName =
+    typeof p?.ttsName === "string" && p.ttsName.trim().length > 0
+      ? p.ttsName.trim()
+      : childId.charAt(0).toUpperCase() + childId.slice(1);
+  const companionId =
+    typeof p?.companion?.companionId === "string" && p.companion.companionId.trim().length > 0
+      ? p.companion.companionId.trim()
+      : fallbackCompanionId;
+  const companionName = companionId.charAt(0).toUpperCase() + companionId.slice(1);
+  return { childName, companionName };
+}
+
 function MapLoadingOverlay({ accent }: { accent: string }) {
   return (
     <div
@@ -191,6 +212,10 @@ export function AdventureMap(props: {
     childId: string;
     accent: string;
   } | null>(null);
+  const [profileNames, setProfileNames] = useState<{
+    childName: string;
+    companionName: string;
+  } | null>(null);
   const lastCompletedLenRef = useRef(0);
   const sessionStampRef = useRef("");
   const prevCelebrationLenRef = useRef(0);
@@ -240,14 +265,24 @@ export function AdventureMap(props: {
             ? profile.ui.accentColor
             : "#7C3AED";
         setAccentForChild({ childId: resolved, accent });
+        setProfileNames(
+          profileLaunchNames(
+            profile,
+            resolved,
+            props.mapCompanion?.companionId ?? childrenCfg.defaultCompanionId,
+          ),
+        );
       })
       .catch(() => {
-        if (!cancelled) setAccentForChild({ childId: resolved, accent: "#7C3AED" });
+        if (!cancelled) {
+          setAccentForChild({ childId: resolved, accent: "#7C3AED" });
+          setProfileNames(null);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [resolved]);
+  }, [resolved, props.mapCompanion?.companionId]);
 
   const launchedNodeRef = useRef<NodeConfig | null>(null);
   useEffect(() => {
@@ -541,9 +576,24 @@ export function AdventureMap(props: {
       const muted = props.companionMutedForMap === true;
       const presetId =
         props.mapCompanion?.companionId ?? childrenCfg.defaultCompanionId;
+      let nextProfileNames = profileNames;
+      if (!nextProfileNames) {
+        try {
+          const profileResp = await fetch(`/api/profile/${encodeURIComponent(resolved)}`);
+          const profileJson = profileResp.ok ? await profileResp.json() : null;
+          nextProfileNames = profileLaunchNames(profileJson, resolved, presetId);
+          setProfileNames(nextProfileNames);
+        } catch {
+          nextProfileNames = profileLaunchNames(null, resolved, presetId);
+        }
+      }
       const launchAction = buildNodeLaunchAction(result, {
         childId: resolved,
+        childName: nextProfileNames?.childName,
         companion: muted ? "off" : presetId,
+        companionName:
+          nextProfileNames?.companionName ??
+          (presetId.charAt(0).toUpperCase() + presetId.slice(1)),
         isDiagMode:
           props.previewMode === "free" ||
           props.previewMode === "go-live" ||
@@ -605,6 +655,7 @@ export function AdventureMap(props: {
       props.mapCompanion,
       props.companionMutedForMap,
       props.karaokeReadingForMapNode,
+      profileNames,
       commitLaunchedNode,
       clearLaunchedNode,
       triggerTransition,
@@ -724,6 +775,7 @@ export function AdventureMap(props: {
           </button>
         </div>
       ) : null}
+      <style>{`@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }`}</style>
       <div
         ref={worldRef}
         className="adventure-map-world"
@@ -750,6 +802,9 @@ export function AdventureMap(props: {
                   (node.isGoal
                     ? (castleUrl ?? thumbs?.[node.type])
                     : thumbs?.[node.type]);
+                const thumbnail =
+                  thumbBase ??
+                  (node.type === "mystery" ? "/thumbnails/mystery-fallback.svg" : undefined);
                 const isDone = node.isCompleted;
                 const isActive = i === activeIndex && !isDone;
                 return (
@@ -757,10 +812,18 @@ export function AdventureMap(props: {
                     key={node.id}
                     node={node}
                     position={pos}
-                    thumbnail={thumbBase ?? undefined}
+                    thumbnail={thumbnail}
                     onClick={() => void handleNodeLaunch(node)}
                     onLockedClick={() => props.onLockedNodeTap?.(node)}
                     isActive={isActive}
+                    customStyle={
+                      node.type === "mystery"
+                        ? {
+                            animation: "pulse 1.5s ease-in-out infinite",
+                            boxShadow: "0 0 20px rgba(124, 58, 237, 0.8)",
+                          }
+                        : undefined
+                    }
                     onHoverChange={(h) => {
                       setHoveredNodeIndex(h ? i : null);
                     }}

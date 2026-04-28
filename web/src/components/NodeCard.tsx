@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import type { CSSProperties } from "react";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
 
@@ -10,6 +11,7 @@ export function NodeCard({
   isActive,
   onHoverChange,
   onLockedClick,
+  customStyle,
 }: {
   node: NodeConfig;
   position: { x: number; y: number };
@@ -19,8 +21,10 @@ export function NodeCard({
   onHoverChange?: (hovering: boolean) => void;
   /** Fired when the learner taps a locked node (voice session can react). */
   onLockedClick?: () => void;
+  customStyle?: CSSProperties;
 }) {
   const isGoal = node.isGoal;
+  const isMystery = node.type === "mystery";
   const isLocked = node.isLocked;
   const isDone = node.isCompleted;
   const typeLabel = NODE_DISPLAY_LABELS[node.type] ?? node.type;
@@ -79,12 +83,15 @@ export function NodeCard({
         boxShadow: baseShadow,
         cursor: isLocked || isDone ? "default" : "pointer",
         filter: isLocked ? "grayscale(0.6)" : "none",
+        ...customStyle,
       }}
       whileHover={
         isActive && !isLocked && !isDone ? { scale: isGoal ? 1.06 : 1.12 } : undefined
       }
       animate={
-        isActive && !isLocked
+        isMystery
+          ? false
+          : isActive && !isLocked
           ? isGoal
             ? {
                 scale: [1, 1.05, 1],
@@ -105,7 +112,9 @@ export function NodeCard({
           : false
       }
       transition={
-        isActive && !isLocked
+        isMystery
+          ? { duration: 0 }
+          : isActive && !isLocked
           ? { repeat: Infinity, duration: isGoal ? 2.2 : 2 }
           : { duration: 0 }
       }
@@ -206,7 +215,7 @@ export function NodeCard({
           pointerEvents: "none",
         }}
       >
-        {isGoal ? "BOSS" : typeLabel}
+        {isGoal ? (isMystery ? typeLabel : "BOSS") : typeLabel}
       </div>
     </motion.div>
   );

@@ -40,6 +40,8 @@ import { generateStoryImage } from "../utils/generateStoryImage";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
+  mystery:
+    "A glowing magical treasure chest with a question mark, floating in a fantasy adventure world, colorful, child-friendly, cartoon style, warm lighting",
   pronunciation:
     "microphone with colorful sound waves, children's educational app icon, bright purple background, cute cartoon style, transparent background",
   "spell-check":
@@ -729,8 +731,29 @@ export async function startMapSession(
           return pendingHomeworkToNodeConfigs(profile.pendingHomework, dueWords);
         })()
       : await buildNodeList(profile, theme);
+  if (profile.pendingHomework?.nodes?.length) {
+    if (nodes.length > 0) {
+      nodes[nodes.length - 1] = { ...nodes[nodes.length - 1], isGoal: false };
+    }
+    nodes.push({
+      id: "n-mystery-final",
+      type: "mystery",
+      words: [],
+      difficulty: 3,
+      thumbnailUrl: theme.nodeThumbnails?.mystery ?? undefined,
+      thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.mystery,
+      isLocked: false,
+      isCompleted: false,
+      isGoal: true,
+    });
+  }
   try {
     await enrichHomeworkNodeThumbnails(theme, nodes.map((n) => n.type as string));
+    const mysteryThumb = theme.nodeThumbnails?.mystery;
+    if (mysteryThumb) {
+      const idx = nodes.findIndex((n) => n.type === "mystery");
+      if (idx >= 0) nodes[idx] = { ...nodes[idx], thumbnailUrl: mysteryThumb };
+    }
   } catch (err) {
     console.error("🎮 [map-coordinator] enrichHomeworkNodeThumbnails failed", err);
   }
@@ -841,7 +864,11 @@ export function handleMapClientMessage(
   return [{ type: "map_error", payload: { reason: "unknown_message" } }];
 }
 
-function ratingFromResult(result: NodeResult): NodeRatingLike {
+function ratingFromResult(nodeType: NodeType, result: NodeResult): NodeRatingLike {
+  if (nodeType === "mystery") {
+    if (!result.completed) return "dislike";
+    return result.accuracy >= 0.7 ? "like" : "dislike";
+  }
   if (!result.completed) return "dislike";
   return result.accuracy >= 0.5 ? "like" : "dislike";
 }
@@ -888,7 +915,7 @@ export async function applyNodeResult(
     st.completedNodes.push(result.nodeId);
   }
 
-  const rating = ratingFromResult(result);
+  const rating = ratingFromResult(nodeCfg.type, result);
   const skipPersistence =
     sunnyPreviewBlocksPersistence() || opts?.clientPreviewFreeOrGoLive === true;
 

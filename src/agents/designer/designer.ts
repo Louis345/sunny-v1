@@ -66,6 +66,8 @@ const CASTLE_IMAGE_PROMPT = `A cute illustrated children's castle for a learning
   Child-friendly, warm, playful.`;
 
 const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
+  mystery:
+    "A glowing magical treasure chest with a question mark, floating in a fantasy adventure world, colorful, child-friendly, cartoon style, warm lighting",
   riddle:
     "A glowing question mark surrounded by sparkles, cartoon style, purple tones, child-friendly",
   "word-builder":
