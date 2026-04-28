@@ -197,7 +197,7 @@ export function runHandleToolCall(
       // Canvas onLoad posts round 1 "start" to the iframe — do not wbSendRound here.
       const wordBuilderCanvas = {
         mode: "word-builder",
-        gameUrl: "/games/wordd-builder.html",
+        gameUrl: "/games/word-builder.html",
         gameWord: word,
         gamePlayerName: session.childName,
         wordBuilderRound: 1,

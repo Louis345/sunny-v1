@@ -57,7 +57,7 @@ export const CANVAS_CAPABILITIES = {
       "wordBuilderMode?: \"fill_blanks\"",
     ],
     example:
-      '{ mode: "word-builder", gameUrl: "/games/wordd-builder.html", gameWord: "cowboy", wordBuilderRound: 1, wordBuilderMode: "fill_blanks" }',
+      '{ mode: "word-builder", gameUrl: "/games/word-builder.html", gameWord: "cowboy", wordBuilderRound: 1, wordBuilderMode: "fill_blanks" }',
   },
   "spell-check": {
     description:

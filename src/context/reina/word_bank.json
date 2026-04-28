@@ -1658,9 +1658,9 @@
       "tracks": {
         "spelling": {
           "quality": 3,
-          "easinessFactor": 2.32,
-          "interval": 9,
-          "repetition": 3,
+          "easinessFactor": 2.42,
+          "interval": 22,
+          "repetition": 4,
           "nextReviewDate": "2026-05-07",
           "lastReviewDate": "2026-04-28",
           "scaffoldLevel": 0,
@@ -1699,9 +1699,9 @@
       "tracks": {
         "spelling": {
           "quality": 5,
-          "easinessFactor": 2.46,
-          "interval": 4,
-          "repetition": 2,
+          "easinessFactor": 2.56,
+          "interval": 10,
+          "repetition": 3,
           "nextReviewDate": "2026-05-02",
           "lastReviewDate": "2026-04-28",
           "scaffoldLevel": 0,
@@ -1734,9 +1734,9 @@
       "tracks": {
         "spelling": {
           "quality": 5,
-          "easinessFactor": 2.46,
-          "interval": 4,
-          "repetition": 2,
+          "easinessFactor": 2.56,
+          "interval": 10,
+          "repetition": 3,
           "nextReviewDate": "2026-05-02",
           "lastReviewDate": "2026-04-28",
           "scaffoldLevel": 0,
@@ -1769,7 +1769,7 @@
       "tracks": {
         "spelling": {
           "quality": 0,
-          "easinessFactor": 1.56,
+          "easinessFactor": 1.36,
           "interval": 1,
           "repetition": 0,
           "nextReviewDate": "2026-04-29",
@@ -1804,9 +1804,9 @@
       "tracks": {
         "spelling": {
           "quality": 3,
-          "easinessFactor": 2.36,
-          "interval": 1,
-          "repetition": 1,
+          "easinessFactor": 2.46,
+          "interval": 4,
+          "repetition": 2,
           "nextReviewDate": "2026-04-29",
           "lastReviewDate": "2026-04-28",
           "scaffoldLevel": 0,
@@ -1833,9 +1833,9 @@
       "tracks": {
         "spelling": {
           "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
+          "easinessFactor": 2.6,
+          "interval": 1,
+          "repetition": 1,
           "nextReviewDate": "2026-04-28",
           "lastReviewDate": "2026-04-28",
           "scaffoldLevel": 0,

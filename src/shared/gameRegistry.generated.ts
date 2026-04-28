@@ -70,7 +70,7 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "voiceEnabled": true
   },
   "word-builder": {
-    "url": "/games/word-builder.html",
+    "url": "/games/wordd-builder.html",
     "defaultConfig": {},
     "voiceEnabled": true
   },

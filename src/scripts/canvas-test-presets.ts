@@ -8,7 +8,7 @@ export const CANVAS_TEST_PRESETS = [
     label: "Word builder (fill blanks)",
     state: {
       mode: "word-builder" as const,
-      gameUrl: "/games/wordd-builder.html",
+      gameUrl: "/games/word-builder.html",
       gameWord: "cowboy",
       gamePlayerName: "Ila" as const,
       wordBuilderRound: 1,
