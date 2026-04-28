@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { isAdventureMapEnv } from "../utils/runtimeMode";
@@ -393,19 +392,6 @@ export function PSYCHOLOGIST_PROMPT(
   companionName: string,
 ): string {
   const soul = readSoul(childName.toLowerCase());
-
-  const natalieBlock = hasNatalieNotes
-    ? `
-
-## Licensed SLP session notes (natalie/)
-The user prompt may include a "Clinical Sessions (Licensed SLP)" block from notes in src/context/${childContextFolder(childName)}/natalie/.
-When generating recommendations and any structured plan:
-1. Adopt methods Natalie validated where they apply.
-2. Flag contradictions between those notes and your own observations.
-3. Reference the note source in any per-activity method field when you relied on them.
-4. Her clinical judgment overrides your inference on this child's targets relative to those notes.
-`
-    : "";
 
   const natalieBlock = hasNatalieNotes
     ? `

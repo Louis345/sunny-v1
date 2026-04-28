@@ -75,15 +75,34 @@
     "dyslexiaMode": false
   },
   "sessionStats": {
-    "totalSessions": 1,
+    "totalSessions": 2,
     "averageAccuracy": 0.925,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 37,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-04-04T23:53:44.860Z"
+    "lastSessionDate": "2026-04-28"
   },
+  "totalSessionSeconds": 750,
+  "longestStreak": 5,
+  "sessions": [
+    {
+      "date": "2026-04-28",
+      "durationSeconds": 750,
+      "wordsAttempted": 16,
+      "wordsCorrect": 14,
+      "coinsEarned": 0,
+      "coinsLost": 0,
+      "gamesPlayed": [
+        "word-radar",
+        "spell-check",
+        "wheel-of-fortune"
+      ],
+      "streakPeak": 5,
+      "note": "manually recovered — ran in diag mode accidentally"
+    }
+  ],
   "rewardPreferences": {
     "favoriteGames": [],
     "celebrationStyle": "mixed",

@@ -19,7 +19,7 @@ const GAMES_DIR = path.join(process.cwd(), "web/public/games");
 
 /** Known metadata — reward type, non-default config, or filename ≠ public game id */
 export const GAME_META: Record<string, GameMetaEntry> = {
-  "wordd-builder": {
+  "word-builder": {
     type: "tool",
     voiceEnabled: true,
     key: "word-builder",
