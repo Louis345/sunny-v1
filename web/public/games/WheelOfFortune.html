@@ -163,6 +163,7 @@ const GP = window.GAME_PARAMS || {};
 const WORD_RAW = (GP.words?.[0] ?? 'rabbit').toLowerCase().replace(/[^a-z]/g, '');
 const LETTERS = WORD_RAW.toUpperCase().split('');
 const CHILD_ID = GP.childId ?? 'unknown';
+const COMPANION_ID = GP.companion ?? 'elli';
 const THEME_ID = GP.theme ?? 'cosmos';
 const CATEGORY = GP.category ?? 'Spelling';
 const ELLI_START_COINS = GP.elliCoins ?? 600;
@@ -170,6 +171,16 @@ const ELLI_START_COINS = GP.elliCoins ?? 600;
 if (CHILD_ID === 'ila' || GP.dyslexiaMode === true) {
   document.body.classList.add('dyslexia');
 }
+
+function displayNameFromId(raw, fallback) {
+  const v = String(raw || '').trim();
+  if (!v) return fallback;
+  if (v.toLowerCase() === 'off') return fallback;
+  return v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+const CHILD_NAME = displayNameFromId(CHILD_ID, 'Child');
+const COMPANION_NAME = displayNameFromId(COMPANION_ID, 'Companion');
 
 function fireComp(trigger, payload) {
   if (typeof window.fireCompanionEvent === 'function') {
@@ -201,13 +212,13 @@ function boardStateStr(letters, revealed) {
 const COIN_VALUES = { '100':100, '200':200, '250':250, '300':300, '350':350, '400':400, '500':500 };
 function wheelLandDescription(segLabel) {
   if (segLabel === 'BANKRUPT') {
-    return "Elli lost all her coins. Ila's coins are safe.";
+    return COMPANION_NAME + " lost all their coins. " + CHILD_NAME + "'s coins are safe.";
   }
   if (segLabel === 'FREE\nLETTER') {
     return "A free letter will be revealed.";
   }
   if (segLabel === 'ELLI\nSPINS') {
-    return "Elli gets to pick the next letter.";
+    return COMPANION_NAME + " gets to pick the next letter.";
   }
   if (COIN_VALUES[segLabel] != null) {
     return "Worth " + segLabel + " coins. Child picks a letter.";
@@ -980,8 +991,8 @@ function App() {
     completedRef.current = true;
     reportGameState(
       `Word solved! The word was "${WORD_RAW}". ` +
-        `Ila earned ${ilaCoins} coins total. ` +
-        `Elli finished with ${elliCoins} coins. Game complete.`,
+        `${CHILD_NAME} earned ${ilaCoins} coins total. ` +
+        `${COMPANION_NAME} finished with ${elliCoins} coins. Game complete.`,
       {
         phase: "won",
         currentWord: WORD_RAW,
@@ -1020,7 +1031,7 @@ function App() {
     completedRef.current = true;
     reportGameState(
       `Game over. The word was "${WORD_RAW}". ` +
-        `Ila earned ${ilaCoins} coins. Better luck next time.`,
+        `${CHILD_NAME} earned ${ilaCoins} coins. Better luck next time.`,
       {
         phase: "lost",
         currentWord: WORD_RAW,
@@ -1055,7 +1066,7 @@ function App() {
     reportGameAction(
       "wheel_spin_started",
       `Wheel of Fortune started. Word: ${LETTERS.length} letters. Category: ${CATEGORY}. ` +
-        `Ila: ${ilaCoins} coins. Elli: ${elliCoins} coins. Spinning the wheel.`,
+        `${CHILD_NAME}: ${ilaCoins} coins. ${COMPANION_NAME}: ${elliCoins} coins. Spinning the wheel.`,
       getSnapshot({
         phase: "spinning",
         lastAction: "wheel_spin_started",
@@ -1127,7 +1138,7 @@ function App() {
             "letter_revealed",
             `Letter "${best}" is correct! (FREE LETTER) Tile revealed. ` +
               `${newReveal.size} of ${LETTERS.length} letters found. ` +
-              `Ila has ${ilaCoins + earned} coins.`,
+              `${CHILD_NAME} has ${ilaCoins + earned} coins.`,
             getSnapshot({
               phase: "idle",
               revealed: newReveal,
@@ -1144,14 +1155,14 @@ function App() {
         setPhase('idle');
 
       } else if (segLabel === 'ELLI\nSPINS') {
-        setSpeech("Elli is thinking... 🤔");
+        setSpeech(COMPANION_NAME + " is thinking... 🤔");
         setTimeout(() => {
           const unguessed = ALPHABET.filter(l => !guessedLetters.has(l));
           const inWord = unguessed.filter(l => LETTERS.includes(l));
           const pick = inWord.length > 0
             ? inWord[Math.floor(Math.random() * inWord.length)]
             : unguessed[Math.floor(Math.random() * unguessed.length)];
-          setSpeech(`Elli picks... ${pick}! Let's see! 🤞`);
+          setSpeech(`${COMPANION_NAME} picks... ${pick}! Let's see! 🤞`);
           const newReveal = new Set(revealed);
           let earned = 0;
           let found = false;
@@ -1167,9 +1178,9 @@ function App() {
             setSpeech(`Yes! ${pick} is there! Great teamwork! 🌟`);
             reportGameAction(
               "letter_revealed",
-              `Elli picked letter "${pick}" — it is in the word. ` +
+              `${COMPANION_NAME} picked letter "${pick}" — it is in the word. ` +
                 `Letter "${pick}" is correct! ` +
-                `${newReveal.size} of ${LETTERS.length} letters found. Ila has ${ilaCoins + earned} coins.`,
+                `${newReveal.size} of ${LETTERS.length} letters found. ${CHILD_NAME} has ${ilaCoins + earned} coins.`,
               getSnapshot({
                 phase: "idle",
                 revealed: newReveal,
@@ -1187,7 +1198,7 @@ function App() {
             setSpeech(`No ${pick} this time. Keep going! 💪`);
             reportGameAction(
               "wrong_letter",
-              `Elli picked letter "${pick}" — not in the word. No tiles revealed. Wrong guess counted.`,
+              `${COMPANION_NAME} picked letter "${pick}" — not in the word. No tiles revealed. Wrong guess counted.`,
               getSnapshot({
                 phase: "idle",
                 guessedLetters: new Set([...guessedLetters, pick]),
@@ -1255,7 +1266,7 @@ function App() {
         "letter_revealed",
         `Letter "${letter}" is correct! Tile revealed. ` +
           `${newReveal.size} of ${LETTERS.length} letters found. ` +
-          `Ila has ${newIla} coins.`,
+          `${CHILD_NAME} has ${newIla} coins.`,
         getSnapshot({
           phase: "idle",
           revealed: newReveal,
@@ -1414,8 +1425,8 @@ function App() {
           <ElliSpeechBubble theme={theme} speech={speech} />
 
           <div style={{display:'flex', gap:8, width:'100%', justifyContent:'center'}}>
-            <ScoreCard name="Ila"  emoji="⭐" coins={ilaCoins}  bankrupt={false}      theme={theme}/>
-            <ScoreCard name="Elli" emoji="🌟" coins={elliCoins} bankrupt={isBankrupt} theme={theme}/>
+            <ScoreCard name={CHILD_NAME}  emoji="⭐" coins={ilaCoins}  bankrupt={false}      theme={theme}/>
+            <ScoreCard name={COMPANION_NAME} emoji="🌟" coins={elliCoins} bankrupt={isBankrupt} theme={theme}/>
           </div>
         </div>
 
@@ -1462,7 +1473,7 @@ function App() {
               borderRadius:14, fontSize:19, fontWeight:700,
               color:'#fca5a5', textAlign:'center', maxWidth:350, lineHeight:1.5,
             }}>
-              💪 Your coins are SAFE! Only Elli lost hers. You've got this!
+              {`💪 Your coins are SAFE! Only ${COMPANION_NAME} lost theirs. You've got this!`}
             </div>
           )}
 
