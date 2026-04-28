@@ -48,6 +48,18 @@
       if (words.length === 0) words = ["practice"];
       document.getElementById("word-line").textContent = "Words: " + words.join(", ");
 
+      if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+        window.GameBridge.reportState(
+          'Word builder — ' + words.length + ' word' + (words.length !== 1 ? 's' : '') + ' to build: ' + words.join(', '),
+          {
+            phase: "playing",
+            currentWord: words[0] || "",
+            itemIndex: 0,
+            totalItems: words.length,
+          }
+        );
+      }
+
       function sendResult(completed, accuracy) {
         sendNodeComplete({
           completed: completed,
@@ -60,9 +72,21 @@
       }
 
       document.getElementById("done-ok").addEventListener("click", function () {
+        if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+          window.GameBridge.reportState(
+            'Word builder complete — all words built successfully',
+            { phase: "complete", correct: true, totalItems: words.length }
+          );
+        }
         sendResult(true, 1);
       });
       document.getElementById("done-bad").addEventListener("click", function () {
+        if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+          window.GameBridge.reportState(
+            'Word builder ended — struggled with some words',
+            { phase: "complete", correct: false, totalItems: words.length }
+          );
+        }
         sendResult(false, 0.25);
       });
     })();

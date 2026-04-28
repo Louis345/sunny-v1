@@ -44,11 +44,9 @@ export function assertTodaysPlanInvariants(plan: TodaysPlanActivity[]): void {
   if (plan.filter((a) => a.required).length < 1) {
     throw new Error("todaysPlan must include at least one required activity");
   }
-  for (const a of plan) {
-    if (a.required && a.skipConditions != null && a.skipConditions.length > 0) {
-      throw new Error(
-        "skipConditions may only appear on activities with required: false",
-      );
+  for (const activity of plan) {
+    if (activity.required !== false && activity.skipConditions) {
+      delete activity.skipConditions;
     }
   }
 }

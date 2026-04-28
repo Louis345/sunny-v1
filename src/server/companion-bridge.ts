@@ -5,16 +5,6 @@ import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { isCompanionEmote } from "../shared/companionEmotes";
 
-const PREVIEW_SESSIONS = new Set<string>();
-
-export function markSessionAsPreview(sessionId: string): void {
-  PREVIEW_SESSIONS.add(sessionId);
-}
-
-export function clearPreviewSession(sessionId: string): void {
-  PREVIEW_SESSIONS.delete(sessionId);
-}
-
 const EVENT_TO_EMOTE: Partial<Record<SessionEvent["type"], string>> = {
   correct_answer: "happy",
   wrong_answer: "concerned",
@@ -26,8 +16,6 @@ const EVENT_TO_EMOTE: Partial<Record<SessionEvent["type"], string>> = {
 };
 
 function routeEventToCompanion(event: SessionEvent): void {
-  if (PREVIEW_SESSIONS.has(event.sessionId)) return;
-
   const emote = EVENT_TO_EMOTE[event.type];
   if (!emote) return;
 

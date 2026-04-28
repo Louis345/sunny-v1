@@ -187,19 +187,19 @@ describe("todaysPlan invariants", () => {
     ).toThrow();
   });
 
-  it("forbids skipConditions on required activities", () => {
-    expect(() =>
-      assertTodaysPlanInvariants([
-        {
-          activity: "x",
-          priority: 1,
-          required: true,
-          reason: "r",
-          timeboxMinutes: 1,
-          skipConditions: ["tired"],
-        },
-      ]),
-    ).toThrow();
+  it("strips skipConditions from required activities (Psychologist may emit them)", () => {
+    const plan = [
+      {
+        activity: "x",
+        priority: 1,
+        required: true,
+        reason: "r",
+        timeboxMinutes: 1,
+        skipConditions: ["tired"] as string[] | undefined,
+      },
+    ];
+    expect(() => assertTodaysPlanInvariants(plan)).not.toThrow();
+    expect(plan[0]?.skipConditions).toBeUndefined();
   });
 
   it("allows skipConditions only when required is false", () => {
@@ -253,6 +253,7 @@ describe("sessionLog skipped → deferred context line", () => {
         deferred: true,
       })),
       sessionStatus: vi.fn(async () => ({})),
+      spinWheel: vi.fn(async () => ({ ok: true })),
       sessionEnd: vi.fn(async () => ({})),
       expressCompanion: vi.fn(async () => ({ ok: true })),
     };

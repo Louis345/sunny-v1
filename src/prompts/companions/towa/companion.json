@@ -1,0 +1,8 @@
+{
+  "name": "Towa",
+  "voiceId": "BlgEcC0TfWpBak7FmvHW",
+  "voiceModelId": "eleven_multilingual_v2",
+  "ttsName": "TOH-wah",
+  "unlockCost": 750,
+  "vrmPath": "/companions/7339187387832391139.vrm"
+}

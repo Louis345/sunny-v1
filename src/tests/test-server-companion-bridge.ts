@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as mapCoord from "../server/map-coordinator";
 import { sessionEventBus } from "../server/session-event-bus";
-import {
-  ServerCompanionBridge,
-  clearPreviewSession,
-  markSessionAsPreview,
-} from "../server/companion-bridge";
+import { ServerCompanionBridge } from "../server/companion-bridge";
 
 describe("ServerCompanionBridge", () => {
   it("routes correct_answer to map broadcast via global EventBus", () => {
@@ -20,17 +16,15 @@ describe("ServerCompanionBridge", () => {
     spy.mockRestore();
   });
 
-  it("preview mode suppresses reactive companion events (global bus)", () => {
+  it("reactive companion events still route on global bus (preview is write-gated elsewhere)", () => {
     const spy = vi.spyOn(mapCoord, "broadcastCompanionEventToMapChild");
-    markSessionAsPreview("x");
     sessionEventBus.fire({
       type: "correct_answer",
-      sessionId: "x",
+      sessionId: "preview-session-id",
       childId: "ila",
       timestamp: Date.now(),
     });
-    expect(spy).not.toHaveBeenCalled();
-    clearPreviewSession("x");
+    expect(spy).toHaveBeenCalled();
     spy.mockRestore();
   });
 

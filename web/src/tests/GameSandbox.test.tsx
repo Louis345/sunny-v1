@@ -66,7 +66,7 @@ describe("GameSandbox", () => {
     } as Response);
     render(<GameSandbox interimTranscript="" sendMessage={vi.fn()} />);
     await screen.findAllByLabelText("inputMode whole-word");
-    fireEvent.click(screen.getByText("Launch Game"));
+    fireEvent.click(screen.getByText("Test Word Radar"));
     expect(await screen.findByTestId("word-radar-root")).toBeTruthy();
     await waitFor(
       () => {
@@ -98,7 +98,7 @@ describe("GameSandbox", () => {
     } as Response);
     render(<GameSandbox interimTranscript="cat" sendMessage={vi.fn()} />);
     await screen.findAllByLabelText("inputMode whole-word");
-    fireEvent.click(screen.getByText("Launch Game"));
+    fireEvent.click(screen.getByText("Test Word Radar"));
     await act(async () => Promise.resolve());
     await waitFor(() => expect(console.log).toHaveBeenCalled());
   });

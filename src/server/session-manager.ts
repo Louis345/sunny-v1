@@ -128,6 +128,8 @@ import {
 } from "../utils/runtimeMode";
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import { readRasterDimensionsFromFile } from "../utils/rasterDimensions";
+import { buildGameContextSummary } from "./gameContextSummary";
+import { compressGameScreenshotBase64 } from "./compressGameScreenshot";
 import {
   REWARD_CHARACTER_SVG,
   generateCanvasCapabilitiesManifest,
@@ -148,11 +150,7 @@ import {
 } from "./voice-session-registry";
 import type { ExternalContextEvent } from "./companion-context/externalContextEvent";
 import { RewardEngine } from "./reward-engine";
-import {
-  ServerCompanionBridge,
-  markSessionAsPreview,
-  clearPreviewSession,
-} from "./companion-bridge";
+import { ServerCompanionBridge } from "./companion-bridge";
 import * as gev from "./game-event-handler";
 import { unwrapToolResult } from "./unwrapToolResult";
 import { runHandleToolCall } from "./tool-call-router";
@@ -332,6 +330,13 @@ export type SessionManagerOptions = {
 export class SessionManager {
   /** When true, child speech is not sent to the companion (silent reward games). */
   public suppressTranscripts: boolean = false;
+
+  /**
+   * One-shot summary from `game_state_update`, consumed on the next companion run
+   * (see companion-response-runner). Last write wins; never accumulates.
+   */
+  private pendingGameContext: string | null = null;
+  private currentActivityState: Record<string, unknown> | null = null;
 
   private ws: WebSocket;
   private childName: ChildName;
@@ -929,9 +934,6 @@ export class SessionManager {
     );
     registerActiveVoiceSession(cid, this.sessionId);
     registerActiveVoiceSessionManager(cid, this);
-    if (this.diagKioskFast) {
-      markSessionAsPreview(this.sessionId);
-    }
   }
 
   private refreshSpellingHomeworkGate(): void {
@@ -975,7 +977,48 @@ export class SessionManager {
     if (!p) return;
     clearTimeout(p.timer);
     this.screenshotPending = null;
-    p.resolve(data);
+    if (!data) {
+      p.resolve(null);
+      return;
+    }
+    void compressGameScreenshotBase64(data)
+      .then((compressed) => {
+        p.resolve(compressed);
+      })
+      .catch((err: unknown) => {
+        console.warn(
+          "  ⚠️  screenshot compress failed — forwarding original:",
+          err,
+        );
+        p.resolve(data);
+      });
+  }
+
+  injectGameContext(state: Record<string, unknown>): void {
+    this.currentActivityState = { ...state, updatedAt: new Date().toISOString() };
+    this.pendingGameContext = buildGameContextSummary(state);
+  }
+
+  getFreshActivityStateForScreenshot(): Record<string, unknown> | null {
+    const state = this.currentActivityState;
+    if (!state) return null;
+    const updatedAt = typeof state.updatedAt === "string" ? Date.parse(state.updatedAt) : 0;
+    if (!updatedAt || Number.isNaN(updatedAt)) return state;
+    return Date.now() - updatedAt <= 15_000 ? state : null;
+  }
+
+  /** Returns 0–2 synthetic messages for the next Claude call, then clears (never accumulates). */
+  takePendingGameContextMessages(): ModelMessage[] {
+    const p = this.pendingGameContext;
+    this.pendingGameContext = null;
+    if (!p) return [];
+    return [
+      { role: "user" as const, content: p },
+      {
+        role: "assistant" as const,
+        content: "Understood, I have the current game state.",
+      },
+    ];
   }
 
   private send(type: string, payload: Record<string, unknown> = {}): void {
@@ -1203,7 +1246,6 @@ export class SessionManager {
       childId: endChildId,
       timestamp: Date.now(),
     });
-    clearPreviewSession(this.sessionId);
     this.rewardEngine.detach();
     this.companionBridge.detach();
     if (this.screenshotPending) {
@@ -1585,6 +1627,7 @@ export class SessionManager {
       canvasStatus: () => this.hostCanvasStatus(),
       sessionLog: (a) => this.hostSessionLog(a),
       sessionStatus: () => this.hostSessionStatus(),
+      spinWheel: () => this.hostSpinWheel(),
       sessionEnd: (a) => this.hostSessionEnd(a),
       expressCompanion: (a) => this.companionBridge.expressCompanion(a),
     });
@@ -1599,6 +1642,7 @@ export class SessionManager {
       ? {
           sessionLog: six.sessionLog,
           sessionStatus: six.sessionStatus,
+          spinWheel: six.spinWheel,
           sessionEnd: six.sessionEnd,
           expressCompanion: six.expressCompanion,
           companionAct: companionActTool,
@@ -1687,6 +1731,27 @@ export class SessionManager {
 
   private async hostSessionStatus(): Promise<Record<string, unknown>> {
     return hostSessionStatus(this as never);
+  }
+
+  private async hostSpinWheel(): Promise<Record<string, unknown>> {
+    const state = this.currentActivityState;
+    const game = String(state?.game ?? "").toLowerCase();
+    if (!game.includes("wheel")) {
+      return {
+        ok: false,
+        reason: "wheel_not_active",
+        currentActivityState: state,
+      };
+    }
+    this.send("game_message", {
+      forward: {
+        type: "wheel_spin",
+        source: "companion",
+        timestamp: Date.now(),
+      },
+    });
+    console.log("  🎮 [wheel] spin requested by companion");
+    return { ok: true, action: "wheel_spin" };
   }
 
   private async hostSessionEnd(

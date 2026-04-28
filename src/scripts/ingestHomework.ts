@@ -14,6 +14,7 @@ import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
+import { readChildMeta } from "../profiles/childrenConfig";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
@@ -50,7 +51,8 @@ type PlannedNode = {
     | "karaoke"
     | "word-builder"
     | "quest"
-    | "boss";
+    | "boss"
+    | "wheel-of-fortune";
   words: string[];
   /** Populated for `word-radar` nodes (spelling homework). */
   wordRadarItems?: Array<{
@@ -74,6 +76,64 @@ function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode
     label: "Spelling",
     subject: "spelling",
   }));
+}
+
+/** Persisted map + session spelling source; word cap from child profile `games["spell-check"].maxWords`. */
+export function buildHomeworkNodes(args: {
+  type: HomeworkType;
+  words: string[];
+  homeworkId: string;
+  childId: string;
+}): PlannedNode[] {
+  const { type, words, homeworkId, childId } = args;
+  const idSuffix = homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
+
+  if (type === "spelling_test") {
+    const childMeta = readChildMeta(childId);
+    const maxWords = childMeta?.games?.["spell-check"]?.maxWords ?? 5;
+    const w = words.slice(0, maxWords);
+    return [
+      {
+        id: `n-word-radar-${idSuffix}`,
+        type: "word-radar",
+        words: [...w],
+        wordRadarItems: wordRadarItemsFromWordList(w),
+        difficulty: 1,
+        rationale: "Word radar — recognition for all spelling-list words",
+        gameFile: null,
+        storyFile: null,
+      },
+      {
+        id: `n-spell-check-${idSuffix}`,
+        type: "spell-check",
+        words: [...w],
+        difficulty: 2,
+        rationale: "Spell-check — typing practice for list words",
+        gameFile: null,
+        storyFile: null,
+      },
+      {
+        id: `n-wheel-${idSuffix}`,
+        type: "wheel-of-fortune",
+        words: [...w],
+        difficulty: 2,
+        rationale: "Bonus round — collaborative spelling game",
+        gameFile: null,
+        storyFile: null,
+      },
+      {
+        id: `n-karaoke-${idSuffix}`,
+        type: "karaoke",
+        words: [...w],
+        difficulty: 2,
+        rationale: "Karaoke — read-aloud with embedded spelling words",
+        gameFile: null,
+        storyFile: null,
+      },
+    ];
+  }
+
+  return [];
 }
 
 type NodePlan = {
@@ -628,12 +688,19 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   if (!profileDoc) {
     throw new Error(`Could not read learning_profile.json for child: ${childId}`);
   }
+  const homeworkNodes = buildHomeworkNodes({
+    type: extracted.type,
+    words: extracted.words,
+    homeworkId,
+    childId,
+  });
+
   profileDoc.pendingHomework = buildPendingHomeworkPayload({
     weekOf: today,
     testDate,
     wordList: extracted.words,
     homeworkId,
-    nodes: [],
+    nodes: homeworkNodes,
   });
   writeLearningProfile(childId, profileDoc);
 

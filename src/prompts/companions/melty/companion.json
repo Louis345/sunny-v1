@@ -1,0 +1,8 @@
+{
+  "name": "Melty",
+  "voiceId": "ocZQ262SsZb9RIxcQBOj",
+  "voiceModelId": "eleven_multilingual_v2",
+  "ttsName": "MEL-tee",
+  "unlockCost": 750,
+  "vrmPath": "/companions/4573661938486170180.vrm"
+}

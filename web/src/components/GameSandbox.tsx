@@ -280,7 +280,7 @@ export function GameSandbox({
           setLaunched(true);
         }}
       >
-        Launch Game
+        Test Word Radar
       </button>
       {accuracy !== null ? (
         <div className="mt-2 text-zinc-300">Accuracy {(accuracy * 100).toFixed(0)}%</div>

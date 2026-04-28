@@ -1,0 +1,31 @@
+{
+  "id": "beach-1777326667394",
+  "name": "beach",
+  "generatedAt": "2026-04-27T21:51:07.394Z",
+  "worldBackgroundUrl": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-9435a04e-e537-47db-924a-628cf833ff99.jpeg",
+  "palette": {
+    "sky": "#6ec8ff",
+    "ground": "#228b5c",
+    "accent": "#1a56db",
+    "particle": "#e0f2fe",
+    "glow": "#1a56db",
+    "cardBackground": "#f0f9ff"
+  },
+  "thumbnails": {
+    "word-builder": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-2ef514bd-dd86-43d1-930f-09bb3a83475e.jpeg",
+    "bubble-pop": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-d843095d-27d5-454b-a49a-ff1c7f17d3ed.jpeg",
+    "karaoke": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-f9aad774-38b8-4505-acdd-f851ef73c45f.jpeg",
+    "word-radar": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-752796f4-9811-4baa-93c6-159ce98431db.jpeg",
+    "clock-game": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-4e36564d-9dae-4617-a16e-661709a599c7.jpeg",
+    "coin-counter": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-695e81ea-ec5b-4654-b763-4a05a8a36805.jpeg",
+    "spell-check": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-272b0d06-32a8-4ca0-9d86-6cdb6300ab8d.jpeg",
+    "wordle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-b96611e0-e172-4b10-b3a7-5ea16d184737.jpeg",
+    "riddle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-c6ac6f16-b6cc-4102-b449-845755e22370.jpeg",
+    "space-invaders": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-19e95028-e484-4811-bb21-9110fe69ae8a.jpeg",
+    "asteroid": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-33a0e349-8db7-4046-8781-eb4be51a5b97.jpeg",
+    "space-frogger": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-8b18e2e9-4be0-4fbc-9f06-759798c8927a.jpeg",
+    "boss": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-bf0e5dee-25e9-4a5f-aa40-0c9b571c5e58.jpeg",
+    "wheel-of-fortune": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-79695828-7afd-495d-a10f-ae59700d3f08.jpeg"
+  },
+  "savedBy": "auto"
+}

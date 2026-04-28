@@ -16,6 +16,17 @@ export function createTakeGameScreenshotTool(session: SessionManager) {
       console.log(
         `  [takeGameScreenshot] reason=${args.reason ?? "not specified"}`,
       );
+      const freshState = session.getFreshActivityStateForScreenshot?.();
+      if (freshState) {
+        console.log(
+          "  [takeGameScreenshot] skipped — fresh structured game state is available",
+        );
+        return {
+          screenshot: null,
+          reason: "fresh_structured_state_available",
+          currentActivityState: freshState,
+        };
+      }
       return new Promise<{ screenshot: string | null }>((resolve) => {
         const timeout = setTimeout(() => {
           resolve({ screenshot: null });

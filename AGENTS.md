@@ -107,7 +107,7 @@ Never submit a failing build.
 
 ### Law 8: Agent-Assisted PR Review (Solo Maintainer Safeguard)
 
-**Mechanical gate:** GitHub Actions workflow `.github/workflows/ci.yml` runs on PRs and pushes to `main`/`master`: root `npm run build`, `vitest run`, and `web` build. That enforces **Law 7** (and any behavior covered by tests). It does not interpret Laws 1–6 by itself.
+**Mechanical gate:** GitHub Actions workflow `.github/workflows/ci.yml` runs on PRs and pushes to `main`/`master`: root `npm run build` (server `tsc` plus `web`’s `tsc -b` and Vite production build), then `npm run test` (root Vitest and `web` tests). That enforces **Law 7** (and any behavior covered by tests). It does not interpret Laws 1–6 by itself.
 
 **Narrative flags:** `.github/workflows/claude-review.yml` posts a PR comment from Claude using a checklist aligned with these laws (requires `ANTHROPIC_API_KEY` secret).
 

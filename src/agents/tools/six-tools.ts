@@ -10,6 +10,7 @@ export interface SixToolsHost {
   canvasStatus(): Promise<Record<string, unknown>>;
   sessionLog(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   sessionStatus(): Promise<Record<string, unknown>>;
+  spinWheel(): Promise<Record<string, unknown>>;
   sessionEnd(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   expressCompanion(
     args: Record<string, unknown>,
@@ -398,9 +399,16 @@ export function createSixTools(host: SixToolsHost) {
         host.sessionLog(args as Record<string, unknown>),
     }),
     sessionStatus: tool({
-      description: "Session summary for the model (streak, phase, worksheet progress when applicable).",
+      description:
+        "Session summary for the model (streak, phase, worksheet progress, and current game/activity state when available).",
       inputSchema: z.object({}),
       execute: async () => host.sessionStatus(),
+    }),
+    spinWheel: tool({
+      description:
+        "Spin the active Wheel of Fortune wheel when the game state says it is Elli/the companion's turn or Jamal asks you to spin. Do not use for other games.",
+      inputSchema: z.object({}),
+      execute: async () => host.spinWheel(),
     }),
     sessionEnd: tool({
       description:

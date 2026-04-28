@@ -1,0 +1,25 @@
+{
+  "modelName": "Dress-up Unity-chan・Sweets 1",
+  "sourceUrl": "https://hub.vroid.com/characters/4802476145633298032/models/7543927599794566143",
+  "recommendedNames": ["Melty", "Sweets-chan", "Lulu Sweet"],
+  "ageImage": "Around 7-8 years old, cute little princess",
+  "personality": "Energetic, spoiled, sweets-loving cheerful girl",
+  "personalityTags": ["sweet", "bubbly", "sparkly"],
+  "likes": ["strawberries", "candy", "cakes", "pink things", "sparkly items", "cute band-aids"],
+  "dislikes": ["bitter food", "dark places", "being alone"],
+  "catchphrases": ["Kawaii~!", "Let's eat sweets~!", "It's okay! Melty is here!", "I fell down again..."],
+  "specialSkills": ["Decorating sweets cutely", "cheering people up with hugs", "putting cute band-aids"],
+  "role": "Your daughter's best friend, little sister, and energy supplier",
+  "outfitChangeEffect": "Sweets outfit -> super spoiled sweet girl. Knight outfit -> Sweets Knight.",
+  "gestureProfile": {
+    "meet": "wave",
+    "intro": ["wave", "think"],
+    "plead": ["dance_victory", "wave"]
+  },
+  "scripts": {
+    "en": {
+      "intro": "Hi! I'm Melty. I love strawberries, candy, pink sparkles, and cheering people up when they feel wobbly.",
+      "plead": "Please pick me! I'll make every lesson sweeter, put cute band-aids on hard moments, and celebrate you so much."
+    }
+  }
+}

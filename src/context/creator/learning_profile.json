@@ -2,7 +2,7 @@
   "childId": "creator",
   "version": 1,
   "createdAt": "2026-04-14T00:00:00.000Z",
-  "lastUpdated": "2026-04-26T15:50:55.528Z",
+  "lastUpdated": "2026-04-27T20:05:29.564Z",
   "demographics": {
     "age": 10,
     "grade": 4,
@@ -48,30 +48,6 @@
   },
   "moodHistory": [
     {
-      "date": "2026-04-26T15:05:44.409Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-26T15:06:44.843Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-26T15:23:04.935Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
       "date": "2026-04-26T15:23:51.321Z",
       "startMood": "neutral",
       "endMood": "neutral",
@@ -110,6 +86,46 @@
       "bondQuality": "moderate",
       "sessionAccuracy": 0,
       "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T00:56:37.419Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T15:12:03.849Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T16:23:14.129Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T17:06:39.862Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-27T20:05:29.560Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
     }
   ],
   "moodTrend": "stable",
@@ -131,14 +147,14 @@
     "dyslexiaMode": false
   },
   "sessionStats": {
-    "totalSessions": 8,
+    "totalSessions": 13,
     "averageAccuracy": 0,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 0,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-04-26T15:50:55.526Z"
+    "lastSessionDate": "2026-04-27T20:05:29.560Z"
   },
   "rewardPreferences": {
     "favoriteGames": [

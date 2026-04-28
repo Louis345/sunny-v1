@@ -1,0 +1,8 @@
+{
+  "name": "Yukari",
+  "voiceId": "piI8Kku0DcvcL6TTSeQt",
+  "voiceModelId": "eleven_multilingual_v2",
+  "ttsName": "YOO-kah-ree",
+  "unlockCost": 750,
+  "vrmPath": "/companions/3852603318431396015.vrm"
+}

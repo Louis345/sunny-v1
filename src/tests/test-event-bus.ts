@@ -1,11 +1,9 @@
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import * as mapCoord from "../server/map-coordinator";
 import { sessionEventBus } from "../server/session-event-bus";
-import {
-  clearPreviewSession,
-  markSessionAsPreview,
-} from "../server/companion-bridge";
 import { createTakeGameScreenshotTool } from "../agents/elli/tools/takeGameScreenshot";
+/** Registers `routeEventToCompanion` on the bus (tests may run this file alone). */
+import "../server/companion-bridge";
 
 describe("SessionEventBus", () => {
   it("fires to subscribers", () => {
@@ -57,22 +55,16 @@ describe("SessionEventBus", () => {
     spy.mockRestore();
   });
 
-  it("preview sessions suppressed in CompanionBridge", () => {
+  it("CompanionBridge routes correct_answer for any sessionId (companion emotes are not preview-suppressed)", () => {
     const spy = vi.spyOn(mapCoord, "broadcastCompanionEventToMapChild");
-    markSessionAsPreview("pv1");
     sessionEventBus.fire({
       type: "correct_answer",
       sessionId: "pv1",
       childId: "ila",
       timestamp: Date.now(),
     });
-    expect(spy).not.toHaveBeenCalled();
-    clearPreviewSession("pv1");
+    expect(spy).toHaveBeenCalled();
     spy.mockRestore();
-  });
-
-  afterEach(() => {
-    clearPreviewSession("pv1");
   });
 });
 

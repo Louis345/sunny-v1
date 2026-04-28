@@ -19,4 +19,4 @@
 
 ## Build reminder
 
-Root **`npm run build`** runs the game-registry generator, then `tsc`. After adding or renaming HTML games, commit the updated `src/shared/gameRegistry.generated.ts` if your workflow keeps it in git.
+Root **`npm run build`** runs the game-registry generator, server `tsc`, then the **`web`** package build (`tsc -b` + Vite). After adding or renaming HTML games, commit the updated `src/shared/gameRegistry.generated.ts` if your workflow keeps it in git.

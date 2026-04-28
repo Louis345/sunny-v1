@@ -6,8 +6,10 @@ import { COMPANION_MANIFEST } from "./companion/companions.generated";
 // getText is intentionally naive here — in production, Claude streams text per companion.
 function getText(companionId: string): string {
   const entry = COMPANION_MANIFEST.find((c) => c.id === companionId);
-  return entry
-    ? `Hi! I'm ${entry.name}. ${entry.personality.join(", ")}. Pick me and we'll have so much fun learning together!`
+  return entry?.showroom?.scripts.en.intro
+    ? entry.showroom.scripts.en.intro
+    : entry
+      ? `Hi! I'm ${entry.name}. ${entry.personality.join(", ")}. Pick me and we'll have so much fun learning together!`
     : "Hey! I'm so excited to meet you!";
 }
 

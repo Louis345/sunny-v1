@@ -1,0 +1,33 @@
+{
+  "homeworkId": "hw-spelling_test-2da310ad",
+  "subject": "spelling_test",
+  "wordList": [
+    "faster",
+    "fastest",
+    "slower",
+    "slowest",
+    "newer",
+    "newest",
+    "colder",
+    "coldest",
+    "taller",
+    "tallest",
+    "covered",
+    "cried",
+    "figure",
+    "horse",
+    "money",
+    "products",
+    "questions",
+    "since",
+    "usually",
+    "voice"
+  ],
+  "ingestedAt": "2026-04-28",
+  "testDate": null,
+  "assumptions": null,
+  "postAnalysis": null,
+  "scanResult": null,
+  "delta": null,
+  "metrics": null
+}

@@ -7,6 +7,11 @@ export interface GameDefinition {
 }
 
 export const TEACHING_TOOLS: Record<string, GameDefinition> = {
+  "WheelOfFortune": {
+    "url": "/games/WheelOfFortune.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "bd-reversal": {
     "url": "/games/bd-reversal-game.html",
     "defaultConfig": {

@@ -10,11 +10,13 @@ export type NodeType =
   | "clock-game"
   | "coin-counter"
   | "spell-check"
+  | "wordle"
   | "riddle"
   | "space-invaders"
   | "asteroid"
   | "space-frogger"
-  | "boss";
+  | "boss"
+  | "wheel-of-fortune";
 
 export interface NodeConfig {
   id: string;
@@ -130,9 +132,11 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "clock-game",
   "coin-counter",
   "spell-check",
+  "wordle",
   "riddle",
   "space-invaders",
   "asteroid",
   "space-frogger",
   "boss",
+  "wheel-of-fortune",
 ] as const;

@@ -138,9 +138,24 @@ describe("buildProfile (TASK-004)", () => {
     ]);
   });
 
-  it('buildProfile("ila").games["word-radar"].inputMode === "whole-word"', async () => {
+  it('buildProfile("ila").games["word-radar"].inputMode === "letter-by-letter"', async () => {
     const p = await buildProfile("ila");
-    expect(p?.games?.["word-radar"]?.inputMode).toBe("whole-word");
+    expect(p?.games?.["word-radar"]?.inputMode).toBe("letter-by-letter");
+  });
+
+  it('buildProfile("ila").wordRadar.inputMode === "letter-by-letter"', async () => {
+    const p = await buildProfile("ila");
+    expect(p?.wordRadar?.inputMode).toBe("letter-by-letter");
+  });
+
+  it('buildProfile("reina").wordRadar.inputMode === "letter-by-letter"', async () => {
+    const p = await buildProfile("reina");
+    expect(p?.wordRadar?.inputMode).toBe("letter-by-letter");
+  });
+
+  it('buildProfile("creator").wordRadar.inputMode === "keyboard"', async () => {
+    const p = await buildProfile("creator");
+    expect(p?.wordRadar?.inputMode).toBe("keyboard");
   });
 
   it('buildProfile("ila").games["word-radar"].speakStyle === "option-a"', async () => {

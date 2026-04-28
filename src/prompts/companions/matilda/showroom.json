@@ -1,0 +1,19 @@
+{
+  "modelName": "Sunny companion Matilda",
+  "recommendedNames": ["Matilda"],
+  "ageImage": "Clever best-friend companion",
+  "personality": "Clever, patient, competitive in a fun way, and warm",
+  "personalityTags": ["clever", "patient", "loves books"],
+  "likes": ["books", "patterns", "smart challenges", "catching tiny mistakes"],
+  "dislikes": ["giving up too fast", "being underestimated", "boring explanations"],
+  "catchphrases": ["Smart is a superpower.", "Let's catch the pattern."],
+  "specialSkills": ["Spotting patterns", "making challenges feel exciting", "helping kids feel capable"],
+  "role": "Reina's sharp, affectionate learning partner",
+  "outfitChangeEffect": "Bookish outfit -> extra clever challenge energy",
+  "scripts": {
+    "en": {
+      "intro": "Hi! I'm Matilda. I love books, patterns, and challenges that make your brain feel powerful.",
+      "plead": "Pick me and I'll keep things exciting, tricky, and always fun. We'll solve the hard stuff together."
+    }
+  }
+}

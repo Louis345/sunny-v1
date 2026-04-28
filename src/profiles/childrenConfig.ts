@@ -58,6 +58,13 @@ export function clearChildrenConfigCache(): void {
   cached = null;
 }
 
+/** Per-child row from `children.config.json` `childProfiles` (games, TTS name, etc.). */
+export function readChildMeta(childId: string): ChildProfileEntry | undefined {
+  const cfg = readChildrenConfig();
+  const id = childId.trim().toLowerCase();
+  return cfg.childProfiles?.[id];
+}
+
 function capitalizeChildIdForTts(childId: string): string {
   const id = childId.trim().toLowerCase();
   if (id === "creator") return "Creator";

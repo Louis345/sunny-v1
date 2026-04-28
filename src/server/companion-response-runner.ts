@@ -16,6 +16,7 @@ import {
   debugLogToolCall,
   debugPrintClaudePreRun,
 } from "./debug-helpers";
+import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 
 export async function runCompanionResponseForSession(
   session: any,
@@ -117,11 +118,28 @@ export async function runCompanionResponseForSession(
         return;
       }
 
+      const gameContextMessages =
+        typeof session.takePendingGameContextMessages === "function"
+          ? session.takePendingGameContextMessages()
+          : [];
+
+      if (gameContextMessages.length > 0) {
+        console.log("  🎮 [companion] injecting game context into Claude call");
+      }
+
+      const thinkingHooks =
+        session.companionBridge
+          ? createThinkingEmoteOnFirstToolInStep(session.companionBridge)
+          : null;
+
       await runAgent({
         history: historyWithPin,
+        injectedContextMessages: gameContextMessages,
         userMessage: messageWithContext,
         profile: session.companion,
         tools: finalTools,
+        experimentalOnStepStart: thinkingHooks?.onStepStart,
+        experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
         onToken: (chunk) => {
           fullResponse += chunk;
           session.send("response_text", { chunk });
@@ -133,7 +151,7 @@ export async function runCompanionResponseForSession(
         signal: session.currentAbort?.signal,
         transitionToWorkPhase,
         allowTransitionToWork: !session.transitionedToWork,
-        onStepFinish: (step) => {
+        onStepFinish: async (step) => {
           const toolCalls = (step.toolCalls ?? []) as Array<{
             toolName?: string;
             name?: string;

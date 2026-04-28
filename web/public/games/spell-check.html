@@ -309,6 +309,7 @@ if (totalRoundsPlanned === 0) totalRoundsPlanned = 1;
 
 var roundsPassedFirstPass = 0;
 var nodeSent = false;
+var heartbeatId = null;
 var wordIndex = 0;
 var roundIdx = 0;
 var roundList = [];
@@ -555,7 +556,15 @@ function onPill(letter) {
     if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
       window.GameBridge.reportState(
         'Filling in "' + currentWord + '" — ' +
-        blanksLeft + ' blank' + (blanksLeft !== 1 ? 's' : '') + ' remaining'
+        blanksLeft + ' blank' + (blanksLeft !== 1 ? 's' : '') + ' remaining',
+        {
+          phase: "playing",
+          currentWord: currentWord,
+          itemIndex: wordIndex,
+          totalItems: sessionWords.length,
+          correct: true,
+          score: roundsPassedFirstPass,
+        }
       );
     }
     for (i = 0; i < w.length; i++) {
@@ -571,7 +580,15 @@ function onPill(letter) {
       var currentTyped = String(letter || "");
       window.GameBridge.reportState(
         'Wrong attempt on "' + currentWord +
-        '" — tried "' + currentTyped + '"'
+        '" — tried "' + currentTyped + '"',
+        {
+          phase: "playing",
+          currentWord: currentWord,
+          itemIndex: wordIndex,
+          totalItems: sessionWords.length,
+          correct: false,
+          score: roundsPassedFirstPass,
+        }
       );
     }
     var mw = document.getElementById("mainwrap");
@@ -711,6 +728,7 @@ function submitR3() {
 function finishSession(early) {
   if (nodeSent) return;
   nodeSent = true;
+  if (heartbeatId) { clearInterval(heartbeatId); heartbeatId = null; }
   var sfl = sessionWords
     .map(function (e) {
       return e.w;
@@ -790,6 +808,16 @@ if (rawList.length === 0) {
     fireC("session_complete", {});
   }
 } else {
+  if (window.GameBridge && typeof window.GameBridge.startHeartbeat === "function") {
+    heartbeatId = window.GameBridge.startHeartbeat(
+      function() {
+        return 'Spelling "' + currentWord + '" — word ' + (wordIndex + 1) + ' of ' + sessionWords.length;
+      },
+      function() {
+        return { phase: "playing", currentWord: currentWord, itemIndex: wordIndex, totalItems: sessionWords.length };
+      }
+    );
+  }
   beginWordOrFinish();
 }
 </script>

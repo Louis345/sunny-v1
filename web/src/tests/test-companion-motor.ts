@@ -53,7 +53,10 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
       scene: root,
       lookAt: { target: null as THREE.Object3D | null },
       humanoid: { getRawBoneNode: () => null },
-      expressionManager: { setValue: vi.fn() },
+      expressionManager: {
+        setValue: vi.fn(),
+        getExpression: vi.fn(() => ({})),
+      },
       update: vi.fn(),
     } as unknown as VRM;
 
@@ -97,7 +100,10 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
         getNormalizedBoneNode: () => null,
         setNormalizedPose,
       },
-      expressionManager: { setValue: vi.fn() },
+      expressionManager: {
+        setValue: vi.fn(),
+        getExpression: vi.fn(() => ({})),
+      },
       update: vi.fn(),
     } as unknown as VRM;
 

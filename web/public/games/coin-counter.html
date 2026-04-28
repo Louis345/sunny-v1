@@ -343,6 +343,7 @@ let fallingCoins = [];
 let targetCents = 0;
 let roundActive = false;
 let fallInterval = null;
+let coinHeartbeatId = null;
 
 const gameArea = document.getElementById('game-area');
 const matildaText = document.getElementById('matilda-text');
@@ -447,6 +448,32 @@ function startRound(){
   setMatilda(matildaLines[Math.floor(Math.random()*matildaLines.length)]);
 
   var targetCoins=round.coins.slice();
+  if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+    window.GameBridge.reportState(
+      'Coin counter — collect exactly ' + centsToDisplay(targetCents) + ' (round ' + (currentRound + 1) + ' of 4)',
+      {
+        phase: "playing",
+        currentWord: centsToDisplay(targetCents),
+        itemIndex: currentRound,
+        totalItems: 4,
+        score: score,
+      }
+    );
+  }
+  if (coinHeartbeatId) clearInterval(coinHeartbeatId);
+  if (window.GameBridge && typeof window.GameBridge.startHeartbeat === "function") {
+    coinHeartbeatId = window.GameBridge.startHeartbeat(
+      function() {
+        var total = bankCoins.reduce(function(s, c) { return s + COINS[c].value; }, 0);
+        return 'Coin counter — have ' + centsToDisplay(total) + ', need ' + centsToDisplay(targetCents);
+      },
+      function() {
+        var total = bankCoins.reduce(function(s, c) { return s + COINS[c].value; }, 0);
+        return { phase: "playing", currentWord: centsToDisplay(targetCents), score: total };
+      }
+    );
+  }
+
   var allTypes=Object.keys(COINS);
   var i;
   for(i=0;i<3;i++) targetCoins.push(allTypes[Math.floor(Math.random()*allTypes.length)]);
@@ -494,7 +521,17 @@ function submitAnswer(){
     playWrong();
     updateHUD();
     if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
-      window.GameBridge.reportState("Counting coins — not quite right, trying again");
+      window.GameBridge.reportState(
+        "Counting coins — not quite right, trying again",
+        {
+          phase: "playing",
+          currentWord: centsToDisplay(targetCents),
+          score: total,
+          correct: false,
+          itemIndex: currentRound,
+          totalItems: 4,
+        }
+      );
     }
     var diff=total-targetCents;
     if(diff>0) setMatilda('Too much! You have '+centsToDisplay(total)+' but need '+centsToDisplay(targetCents)+'. Bank cleared — keep catching! 🐷');
@@ -507,6 +544,7 @@ function submitAnswer(){
 
 function endGame(){
   if(fallInterval) clearInterval(fallInterval);
+  if(coinHeartbeatId){ clearInterval(coinHeartbeatId); coinHeartbeatId=null; }
   roundActive=false;
   playComplete();
   var attempts = 4;

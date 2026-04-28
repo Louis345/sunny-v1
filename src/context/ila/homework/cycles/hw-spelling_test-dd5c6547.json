@@ -1,0 +1,33 @@
+{
+  "homeworkId": "hw-spelling_test-dd5c6547",
+  "subject": "spelling_test",
+  "wordList": [
+    "farmer",
+    "teacher",
+    "visitor",
+    "actor",
+    "sailor",
+    "baker",
+    "writer",
+    "doctor",
+    "dancer",
+    "inventor",
+    "area",
+    "ever",
+    "hours",
+    "measure",
+    "notice",
+    "order",
+    "piece",
+    "short",
+    "today",
+    "true"
+  ],
+  "ingestedAt": "2026-04-27",
+  "testDate": null,
+  "assumptions": null,
+  "postAnalysis": null,
+  "scanResult": null,
+  "delta": null,
+  "metrics": null
+}

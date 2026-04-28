@@ -1,13 +1,13 @@
 # Elli Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-04-03T21:23:31.718Z*
+*Updated: 2026-04-28T00:18:31.734Z*
 
-• Let's play a quick rhyme game with sit, sat, hit, hat, bit, bat—see which ones sound the same or different to her
+• Try the Word Builder game with sit/sat/hit/hat/bit—let her spell and see the sounds light up instead of saying sounds out loud
 
-• When we're playing, slip in easy two- and three-step directions like "touch the red circle, then clap twice" and watch what she does
+• Play with faster/fastest words naturally: "You're fast at drawing! You're even faster than yesterday! You're the fastest I've ever seen!"
 
-• After she tells me a story, ask her to repeat a sentence back—start short, then try longer ones
+• Give her a two-step direction like "touch the red circle, then clap twice" and see how she does
 
-• When she's spelling, ask her to say the word out loud too—like "what word are we making?" to hear how she says it
+• Tell her a short sentence like "The dog ran fast" and ask her to say it back to you
 
-• Pick a picture and ask her to make up a sentence about it, or use a word in a sentence when I say it
+• Watch if she reads new words or just remembers stories she's heard before—pick a book she's never seen

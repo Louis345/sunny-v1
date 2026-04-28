@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Project Sunny — Wheel of Fortune</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="_contract.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { font-family: 'Lexend', sans-serif; background: #0a0a0a; height: 100%; }
+
+    @keyframes twinkle {
+      0%,100% { opacity: 0.15; transform: scale(0.7); }
+      50%      { opacity: 0.9;  transform: scale(1.2); }
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0px); }
+      50%      { transform: translateY(-10px); }
+    }
+    @keyframes bounceUp {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-14px); }
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0) rotate(0deg); }
+      20%      { transform: translateX(-10px) rotate(-2deg); }
+      40%      { transform: translateX(10px) rotate(2deg); }
+      60%      { transform: translateX(-8px) rotate(-1deg); }
+      80%      { transform: translateX(8px) rotate(1deg); }
+    }
+    @keyframes pulseGlow {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.65; }
+    }
+    @keyframes coinFall {
+      0%   { opacity: 1;   transform: translateY(0)   rotate(0deg)   scale(1); }
+      80%  { opacity: 0.8; transform: translateY(140px) rotate(300deg) scale(0.8); }
+      100% { opacity: 0;   transform: translateY(180px) rotate(360deg) scale(0.5); }
+    }
+    @keyframes celebPop {
+      0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+      60%  { transform: scale(1.15) rotate(4deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @keyframes revealTile {
+      0%   { transform: rotateY(90deg) scale(0.8); opacity: 0; }
+      100% { transform: rotateY(0deg) scale(1);   opacity: 1; }
+    }
+    @keyframes bankruptFlash {
+      0%,100% { background: rgba(220,0,0,0.0); }
+      50%      { background: rgba(220,0,0,0.12); }
+    }
+    @keyframes spinnerHum {
+      0%   { filter: drop-shadow(0 0 8px var(--wheel-glow)); }
+      50%  { filter: drop-shadow(0 0 22px var(--wheel-glow)) drop-shadow(0 0 40px var(--wheel-glow)); }
+      100% { filter: drop-shadow(0 0 8px var(--wheel-glow)); }
+    }
+    @keyframes slotReveal {
+      0%   { transform: scaleY(0); opacity: 0; }
+      60%  { transform: scaleY(1.1); }
+      100% { transform: scaleY(1);  opacity: 1; }
+    }
+    @keyframes starBurst {
+      0%   { transform: scale(0) rotate(0deg); opacity: 1; }
+      100% { transform: scale(2.5) rotate(180deg); opacity: 0; }
+    }
+    @keyframes scoreTickUp {
+      0%   { transform: translateY(8px); opacity: 0; }
+      100% { transform: translateY(0);   opacity: 1; }
+    }
+    @keyframes firefly {
+      0%,100% { transform: translate(0,0) scale(1); opacity: 0.6; }
+      33%      { transform: translate(12px,-8px) scale(1.3); opacity: 1; }
+      66%      { transform: translate(-8px,6px) scale(0.8); opacity: 0.4; }
+    }
+    @keyframes bubbleRise {
+      0%   { transform: translateY(0) scale(1); opacity: 0.7; }
+      100% { transform: translateY(-80px) scale(1.4); opacity: 0; }
+    }
+    @keyframes spinBtnPulse {
+      0%,100% { transform: scale(1);    box-shadow: 0 0 20px var(--btn-glow); }
+      50%      { transform: scale(1.06); box-shadow: 0 0 40px var(--btn-glow), 0 0 70px var(--btn-glow); }
+    }
+    .wheel-spin-wrap {
+      transform-origin: center center;
+    }
+    .wheel-spin-wrap.spinning {
+      transition: transform 3.2s cubic-bezier(0.12, 0.6, 0.2, 1.0);
+    }
+    .sound-hint {
+      position: absolute; top: 68px; right: 16px;
+      font-family: Lexend, sans-serif; font-size: 14px;
+      color: rgba(255,255,255,0.45);
+      padding: 4px 10px; border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      pointer-events: none; z-index: 20;
+      animation: pulseGlow 2s ease-in-out 1s 3;
+    }
+  </style>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#070010">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="1200" height="800" fill="#070010"/>
+    <!-- Stars -->
+    <circle cx="120" cy="80" r="3" fill="#a855f7" opacity="0.7"/>
+    <circle cx="340" cy="40" r="2" fill="#06b6d4" opacity="0.6"/>
+    <circle cx="900" cy="100" r="3" fill="#fff" opacity="0.5"/>
+    <circle cx="1100" cy="60" r="2" fill="#a855f7" opacity="0.8"/>
+    <circle cx="600" cy="30" r="2" fill="#06b6d4" opacity="0.5"/>
+    <!-- Wheel -->
+    <circle cx="300" cy="420" r="200" fill="#f59e0b" opacity="0.9"/>
+    <circle cx="300" cy="420" r="195" fill="#1e0040"/>
+    <path d="M300,420 L300,225 A195,195 0 0,1 469,320 Z" fill="#6d28d9"/>
+    <path d="M300,420 L469,320 A195,195 0 0,1 495,515 Z" fill="#4338ca"/>
+    <path d="M300,420 L495,515 A195,195 0 0,1 380,600 Z" fill="#1d4ed8"/>
+    <path d="M300,420 L380,600 A195,195 0 0,1 195,610 Z" fill="#0e7490"/>
+    <path d="M300,420 L195,610 A195,195 0 0,1 110,510 Z" fill="#200000"/>
+    <path d="M300,420 L110,510 A195,195 0 0,1 105,325 Z" fill="#6d28d9"/>
+    <path d="M300,420 L105,325 A195,195 0 0,1 190,240 Z" fill="#4338ca"/>
+    <path d="M300,420 L190,240 A195,195 0 0,1 300,225 Z" fill="#0284c7"/>
+    <circle cx="300" cy="420" r="30" fill="#1e0040"/>
+    <circle cx="300" cy="420" r="20" fill="#a855f7"/>
+    <!-- Pointer -->
+    <polygon points="287,230 313,230 300,258" fill="#f59e0b"/>
+    <!-- Tiles -->
+    <rect x="550" y="320" width="58" height="68" rx="10" fill="#3b1383" stroke="#a855f7" strokeWidth="3"/>
+    <rect x="620" y="320" width="58" height="68" rx="10" fill="rgba(168,85,247,0.06)" stroke="rgba(168,85,247,0.38)" strokeWidth="3"/>
+    <rect x="690" y="320" width="58" height="68" rx="10" fill="#3b1383" stroke="#a855f7" strokeWidth="3"/>
+    <rect x="760" y="320" width="58" height="68" rx="10" fill="#3b1383" stroke="#a855f7" strokeWidth="3"/>
+    <rect x="830" y="320" width="58" height="68" rx="10" fill="rgba(168,85,247,0.06)" stroke="rgba(168,85,247,0.38)" strokeWidth="3"/>
+    <rect x="900" y="320" width="58" height="68" rx="10" fill="#3b1383" stroke="#a855f7" strokeWidth="3"/>
+    <text x="579" y="365" textAnchor="middle" fontSize="32" fontWeight="900" fill="#ede9fe" fontFamily="sans-serif">R</text>
+    <text x="719" y="365" textAnchor="middle" fontSize="32" fontWeight="900" fill="#ede9fe" fontFamily="sans-serif">B</text>
+    <text x="789" y="365" textAnchor="middle" fontSize="32" fontWeight="900" fill="#ede9fe" fontFamily="sans-serif">B</text>
+    <text x="929" y="365" textAnchor="middle" fontSize="32" fontWeight="900" fill="#ede9fe" fontFamily="sans-serif">T</text>
+    <!-- Elli -->
+    <circle cx="1080" cy="650" r="55" fill="#1e0040" stroke="#a855f7" strokeWidth="4"/>
+    <text x="1080" y="668" textAnchor="middle" fontSize="44" fontFamily="sans-serif">🌟</text>
+    <!-- Speech bubble -->
+    <rect x="820" y="590" width="210" height="52" rx="14" fill="#0d0020" stroke="#a855f7" strokeWidth="2.5"/>
+    <text x="925" y="621" textAnchor="middle" fontSize="18" fill="#ede9fe" fontFamily="sans-serif">Try the letter A!</text>
+    <!-- Title -->
+    <text x="600" y="90" textAnchor="middle" fontSize="36" fontWeight="900" fill="#a855f7" fontFamily="sans-serif" letterSpacing="4">WHEEL OF FORTUNE</text>
+    <text x="600" y="130" textAnchor="middle" fontSize="20" fill="#c4b5fd" fontFamily="sans-serif" letterSpacing="3">PROJECT SUNNY — 3 DIRECTIONS</text>
+  </svg>
+</template>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ═══════════════════════════════════════════════════════════════════
+   GAME PARAMS
+═══════════════════════════════════════════════════════════════════ */
+const GP = window.GAME_PARAMS || {};
+const WORD_RAW = (GP.words?.[0] ?? 'rabbit').toLowerCase().replace(/[^a-z]/g, '');
+const LETTERS = WORD_RAW.toUpperCase().split('');
+const CHILD_ID = GP.childId ?? 'unknown';
+const THEME_ID = GP.theme ?? 'cosmos';
+const CATEGORY = GP.category ?? 'Spelling';
+const ELLI_START_COINS = GP.elliCoins ?? 600;
+
+if (CHILD_ID === 'ila' || GP.dyslexiaMode === true) {
+  document.body.classList.add('dyslexia');
+}
+
+function fireComp(trigger, payload) {
+  if (typeof window.fireCompanionEvent === 'function') {
+    window.fireCompanionEvent(trigger, payload || {});
+  }
+}
+
+function reportGameState(message, extras) {
+  if (window.GameBridge && typeof window.GameBridge.reportState === 'function') {
+    window.GameBridge.reportState(message, extras || {});
+  }
+}
+
+function reportGameAction(action, message, snapshot) {
+  if (window.GameBridge && typeof window.GameBridge.reportAction === 'function') {
+    window.GameBridge.reportAction(action, message, snapshot || {});
+    return;
+  }
+  reportGameState(message, Object.assign({}, snapshot || {}, {
+    action: action,
+    lastAction: (snapshot && snapshot.lastAction) || action,
+  }));
+}
+
+function boardStateStr(letters, revealed) {
+  return letters.map(function(l, i) { return revealed.has(i) ? l.toUpperCase() : '_'; }).join(' ');
+}
+
+const COIN_VALUES = { '100':100, '200':200, '250':250, '300':300, '350':350, '400':400, '500':500 };
+function wheelLandDescription(segLabel) {
+  if (segLabel === 'BANKRUPT') {
+    return "Elli lost all her coins. Ila's coins are safe.";
+  }
+  if (segLabel === 'FREE\nLETTER') {
+    return "A free letter will be revealed.";
+  }
+  if (segLabel === 'ELLI\nSPINS') {
+    return "Elli gets to pick the next letter.";
+  }
+  if (COIN_VALUES[segLabel] != null) {
+    return "Worth " + segLabel + " coins. Child picks a letter.";
+  }
+  return "Child continues.";
+}
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+/* ═══════════════════════════════════════════════════════════════════
+   SOUND ENGINE  — all synthesis, no files
+═══════════════════════════════════════════════════════════════════ */
+class SoundEngine {
+  constructor() { this._ctx = null; }
+
+  get ctx() {
+    if (!this._ctx) this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this._ctx.state === 'suspended') this._ctx.resume();
+    return this._ctx;
+  }
+
+  /* ── core helpers ── */
+  _osc(freq, type, dur, vol, when, freqEnd) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, when);
+    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, when + dur * 0.9);
+    g.gain.setValueAtTime(vol, when);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(when); o.stop(when + dur + 0.02);
+  }
+
+  _noise(dur, vol, filterFreq, filterType, when) {
+    const ctx = this.ctx;
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++)
+      d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * dur * 0.3));
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const f = ctx.createBiquadFilter();
+    f.type = filterType || 'bandpass';
+    f.frequency.value = filterFreq || 2000;
+    f.Q.value = 1.8;
+    const g = ctx.createGain();
+    g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    src.start(when); return src;
+  }
+
+  /* ── wheel tick (physical detent) ── */
+  _tick(when, vol = 0.22) {
+    const ctx = this.ctx;
+    const n = this._noise(0.018, vol, 2200, 'highpass', when);
+    this._osc(180, 'sine', 0.025, vol * 0.6, when);
+  }
+
+  /* ── spin sequence: schedules all ticks + calls onLand after dur ── */
+  spinSequence(dur = 3.2, onLand) {
+    const ctx = this.ctx;
+    const t0 = ctx.currentTime + 0.05;
+    const totalTicks = 52;
+    // tick times follow an ease-in-out profile: slow → fast → slow
+    for (let i = 0; i < totalTicks; i++) {
+      const p = i / totalTicks;
+      // cumulative position on ease-in-out curve
+      const ease = p < 0.5
+        ? 2 * p * p
+        : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      const tickTime = t0 + ease * dur * 0.92;
+      const vol = p > 0.75 ? 0.18 + (p - 0.75) * 0.5 : 0.18;
+      this._tick(tickTime, vol);
+    }
+    // Final heavy land thud
+    const land = t0 + dur * 0.93;
+    this._osc(110, 'sine', 0.22, 0.9, land, 35);
+    this._osc(220, 'sine', 0.15, 0.5, land, 60);
+    this._tick(land, 0.55);
+    this._tick(land + 0.015, 0.35);
+    setTimeout(() => { if (onLand) onLand(); }, dur * 1000);
+  }
+
+  /* ── spin whoosh ── */
+  spinWhoosh() {
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    this._noise(0.45, 0.38, 3800, 'bandpass', t);
+    this._osc(280, 'sawtooth', 0.35, 0.18, t, 60);
+  }
+
+  /* ── BANKRUPT — dramatic descending wah-wah ── */
+  bankrupt() {
+    const ctx = this.ctx;
+    const t = ctx.currentTime + 0.05;
+    // Initial shocked sting
+    this._osc(1047, 'square', 0.07, 0.28, t);
+    this._osc(784, 'square', 0.07, 0.22, t + 0.07);
+    this._osc(523, 'square', 0.07, 0.18, t + 0.14);
+    // Descending trombone wah
+    this._osc(440, 'sawtooth', 0.55, 0.55, t + 0.25, 65);
+    this._osc(330, 'sawtooth', 0.6,  0.42, t + 0.55, 45);
+    this._osc(55,  'sawtooth', 0.7,  0.45, t + 0.7,  28);
+    // Low rumble for drama
+    this._osc(40, 'sine', 0.8, 0.35, t + 0.6);
+    // Glitch stutter
+    for (let i = 0; i < 5; i++) {
+      this._osc(300 - i * 40, 'square', 0.06, 0.14, t + 0.22 + i * 0.065);
+    }
+  }
+
+  /* ── letter reveal — bright ascending ping ── */
+  letterReveal() {
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    this._osc(880,  'sine', 0.22, 0.38, t);
+    this._osc(1320, 'sine', 0.16, 0.25, t + 0.04);
+    this._osc(1760, 'sine', 0.10, 0.18, t + 0.08);
+    this._osc(2093, 'sine', 0.06, 0.12, t + 0.12);
+  }
+
+  /* ── letter button tap ── */
+  buttonTap() {
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    this._osc(660, 'sine', 0.10, 0.22, t);
+    this._osc(880, 'sine', 0.07, 0.10, t + 0.02);
+  }
+
+  /* ── coin tinkle ── */
+  coin(when) {
+    const t = when != null ? when : this.ctx.currentTime;
+    const f = 1100 + Math.random() * 700;
+    this._osc(f,       'sine', 0.20, 0.28, t);
+    this._osc(f * 1.5, 'sine', 0.10, 0.12, t + 0.03);
+    this._osc(f * 2,   'sine', 0.06, 0.08, t + 0.06);
+  }
+
+  /* ── SOLVE fanfare ── */
+  fanfare() {
+    const ctx = this.ctx;
+    const t = ctx.currentTime + 0.05;
+    // Ascending arpeggio
+    const notes = [523, 659, 784, 880, 1047, 1319, 1568, 2093];
+    notes.forEach((freq, i) => {
+      this._osc(freq,        'sine',     0.5,  0.30, t + i * 0.095);
+      this._osc(freq * 1.5,  'sine',     0.25, 0.14, t + i * 0.095 + 0.02);
+    });
+    // Triumphant final chord
+    [1047, 1319, 1568, 2093, 2637].forEach((freq, i) => {
+      this._osc(freq, 'sine', 1.4, 0.20 - i * 0.02, t + notes.length * 0.095);
+    });
+    // Coin shower
+    for (let i = 0; i < 16; i++) {
+      this.coin(t + 0.9 + i * 0.11);
+    }
+    // Percussion hits
+    this._noise(0.12, 0.4, 3000, 'highpass', t + notes.length * 0.095);
+    this._noise(0.12, 0.3, 3000, 'highpass', t + notes.length * 0.095 + 0.25);
+  }
+}
+
+const SE = new SoundEngine();
+
+/* Segment index → degrees to rotate wheel so that segment is under pointer.
+   Pointer is at top (−90° in SVG coords). Segment i midpoint is at (i+0.5)×36°−90°.
+   To bring segment i to pointer: rotate CW by (i+0.5)×36° */
+const SEG_DEG = i => (i + 0.5) * 36;
+// midgame → landed on 400 (seg 5), bankrupt → BANKRUPT (seg 2), celebrate → 500 (seg 7)
+const STATE_SEG = { midgame: 5, bankrupt: 2, celebrate: 7 };
+const INIT_SPINS = 5;
+
+/* ═══════════════════════════════════════════════════════════════════
+   THEMES
+═══════════════════════════════════════════════════════════════════ */
+const THEMES = {
+  cosmos: {
+    id: 'cosmos',
+    bg: 'radial-gradient(ellipse 80% 60% at 30% 20%, #1e0055 0%, #070010 55%, #000820 100%)',
+    headerBg: 'rgba(168,85,247,0.12)',
+    headerBorder: 'rgba(168,85,247,0.45)',
+    headerText: '#ede9fe',
+    subText: '#a78bfa',
+    accentA: '#a855f7',
+    accentB: '#f59e0b',
+    accentC: '#06b6d4',
+    wheelColors: [
+      '#6d28d9','#4338ca','#1d4ed8','#0284c7',
+      '#0e7490','#6d28d9','#4338ca','#1d4ed8',
+      '#0284c7','#0e7490',
+    ],
+    bankruptFill: '#200000',
+    bankruptText: '#ff3333',
+    wheelRingFill: '#f59e0b',
+    wheelStroke: 'rgba(255,255,255,0.25)',
+    wheelHubOuter: '#1e0040',
+    wheelHubInner: '#a855f7',
+    wheelHubStar: '#ffd700',
+    pointer: '#f59e0b',
+    wheelGlow: '#a855f7',
+    tileHiddenBg: 'rgba(168,85,247,0.06)',
+    tileHiddenBorder: 'rgba(168,85,247,0.38)',
+    tileRevBg: 'linear-gradient(145deg,#3b1383,#5b21b6)',
+    tileRevBorder: '#a855f7',
+    tileRevText: '#ede9fe',
+    tileRevGlow: 'rgba(168,85,247,0.7)',
+    scoreBg: 'rgba(168,85,247,0.09)',
+    scoreBorder: 'rgba(168,85,247,0.45)',
+    scoreName: '#c4b5fd',
+    scoreCoins: '#fbbf24',
+    bubbleBg: '#0d0020',
+    bubbleBorder: '#a855f7',
+    bubbleText: '#ede9fe',
+    elliBg: 'radial-gradient(circle,#3b0f6e,#150030)',
+    elliBorder: '#a855f7',
+    elliGlow: '#a855f7',
+    slotBg: 'linear-gradient(135deg,#1e0040,#2d0060)',
+    slotBorder: '#f59e0b',
+    slotText: '#fbbf24',
+    slotGlow: '#f59e0b',
+    particleColor: 'rgba(168,85,247,0.55)',
+    bgLabel: 'NEON COSMOS',
+    bgTagline: 'Deep space. Maximum hype.',
+    emoji: '🚀',
+  },
+  treasure: {
+    id: 'treasure',
+    bg: 'radial-gradient(ellipse 90% 70% at 50% 5%, #0c2240 0%, #071426 55%, #02080f 100%)',
+    headerBg: 'rgba(245,158,11,0.12)',
+    headerBorder: 'rgba(245,158,11,0.4)',
+    headerText: '#fef3c7',
+    subText: '#fcd34d',
+    accentA: '#f59e0b',
+    accentB: '#0d9488',
+    accentC: '#ef4444',
+    wheelColors: [
+      '#b45309','#d97706','#ca8a04','#a16207',
+      '#92400e','#b45309','#d97706','#ca8a04',
+      '#a16207','#92400e',
+    ],
+    bankruptFill: '#1a0200',
+    bankruptText: '#ff5533',
+    wheelRingFill: '#0d9488',
+    wheelStroke: 'rgba(255,210,80,0.35)',
+    wheelHubOuter: '#78350f',
+    wheelHubInner: '#f59e0b',
+    wheelHubStar: '#fff',
+    pointer: '#ef4444',
+    wheelGlow: '#f59e0b',
+    tileHiddenBg: 'rgba(245,158,11,0.06)',
+    tileHiddenBorder: 'rgba(245,158,11,0.32)',
+    tileRevBg: 'linear-gradient(145deg,#78350f,#b45309)',
+    tileRevBorder: '#f59e0b',
+    tileRevText: '#fef3c7',
+    tileRevGlow: 'rgba(245,158,11,0.75)',
+    scoreBg: 'rgba(245,158,11,0.08)',
+    scoreBorder: 'rgba(245,158,11,0.38)',
+    scoreName: '#fcd34d',
+    scoreCoins: '#fbbf24',
+    bubbleBg: '#060e1a',
+    bubbleBorder: '#f59e0b',
+    bubbleText: '#fef3c7',
+    elliBg: 'radial-gradient(circle,#92400e,#3a1a00)',
+    elliBorder: '#f59e0b',
+    elliGlow: '#f59e0b',
+    slotBg: 'linear-gradient(135deg,#1a0800,#2a1000)',
+    slotBorder: '#0d9488',
+    slotText: '#34d399',
+    slotGlow: '#0d9488',
+    particleColor: 'rgba(245,158,11,0.5)',
+    bgLabel: 'SUNKEN TREASURE',
+    bgTagline: 'Golden adventure. Warm & electric.',
+    emoji: '🏴‍☠️',
+  },
+  enchanted: {
+    id: 'enchanted',
+    bg: 'radial-gradient(ellipse 80% 80% at 50% 100%, #0a1a0a 0%, #071012 50%, #0a0520 100%)',
+    headerBg: 'rgba(52,211,153,0.09)',
+    headerBorder: 'rgba(52,211,153,0.33)',
+    headerText: '#d1fae5',
+    subText: '#6ee7b7',
+    accentA: '#34d399',
+    accentB: '#c084fc',
+    accentC: '#fb923c',
+    wheelColors: [
+      '#065f46','#047857','#059669','#0d9488',
+      '#0e7490','#065f46','#047857','#059669',
+      '#0d9488','#0e7490',
+    ],
+    bankruptFill: '#1a0010',
+    bankruptText: '#ff6688',
+    wheelRingFill: '#c084fc',
+    wheelStroke: 'rgba(110,231,183,0.3)',
+    wheelHubOuter: '#052e16',
+    wheelHubInner: '#34d399',
+    wheelHubStar: '#052e16',
+    pointer: '#c084fc',
+    wheelGlow: '#34d399',
+    tileHiddenBg: 'rgba(52,211,153,0.05)',
+    tileHiddenBorder: 'rgba(52,211,153,0.28)',
+    tileRevBg: 'linear-gradient(145deg,#064e3b,#065f46)',
+    tileRevBorder: '#34d399',
+    tileRevText: '#d1fae5',
+    tileRevGlow: 'rgba(52,211,153,0.65)',
+    scoreBg: 'rgba(52,211,153,0.07)',
+    scoreBorder: 'rgba(52,211,153,0.32)',
+    scoreName: '#6ee7b7',
+    scoreCoins: '#c084fc',
+    bubbleBg: '#060e0a',
+    bubbleBorder: '#34d399',
+    bubbleText: '#d1fae5',
+    elliBg: 'radial-gradient(circle,#064e3b,#01100a)',
+    elliBorder: '#34d399',
+    elliGlow: '#34d399',
+    slotBg: 'linear-gradient(135deg,#010d08,#020f10)',
+    slotBorder: '#c084fc',
+    slotText: '#c084fc',
+    slotGlow: '#c084fc',
+    particleColor: 'rgba(52,211,153,0.45)',
+    bgLabel: 'ENCHANTED FOREST',
+    bgTagline: 'Firefly magic. Calm but electric.',
+    emoji: '🌿',
+  },
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   WHEEL SVG
+═══════════════════════════════════════════════════════════════════ */
+const SEGS = ['100','200','BANKRUPT','300','FREE\nLETTER','400','ELLI\nSPINS','500','250','350'];
+
+function WheelSVG({ theme, size = 270, rotation = 0, spinning = false }) {
+  const n = SEGS.length;
+  const step = (2 * Math.PI) / n;
+  const r = size / 2 - 5;
+  const cx = size / 2, cy = size / 2;
+
+  return (
+    <div
+      className={`wheel-spin-wrap${spinning ? ' spinning' : ''}`}
+      style={{ transform: `rotate(${rotation}deg)`, display: 'inline-block', lineHeight: 0 }}
+    >
+    <svg
+      width={size} height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      style={{ '--wheel-glow': theme.wheelGlow }}
+    >
+      {/* Outer ring */}
+      <circle cx={cx} cy={cy} r={r + 4} fill={theme.wheelRingFill} />
+
+      {SEGS.map((label, i) => {
+        const a0 = i * step - Math.PI / 2;
+        const a1 = (i + 1) * step - Math.PI / 2;
+        const x1 = cx + r * Math.cos(a0), y1 = cy + r * Math.sin(a0);
+        const x2 = cx + r * Math.cos(a1), y2 = cy + r * Math.sin(a1);
+        const am = a0 + step / 2;
+        const tr = r * 0.67;
+        const tx = cx + tr * Math.cos(am);
+        const ty = cy + tr * Math.sin(am);
+        const deg = (am * 180) / Math.PI + 90;
+        const isBankrupt = label === 'BANKRUPT';
+        const fill = isBankrupt ? theme.bankruptFill : theme.wheelColors[i % theme.wheelColors.length];
+        const lines = label.split('\n');
+        const fs = label.length > 6 ? 9 : label.length > 4 ? 10 : 13;
+
+        return (
+          <g key={i}>
+            <path
+              d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z`}
+              fill={fill}
+              stroke={theme.wheelStroke}
+              strokeWidth={1.5}
+            />
+            <g transform={`translate(${tx},${ty}) rotate(${deg})`}>
+              {lines.map((line, li) => (
+                <text key={li}
+                  x={0} y={(li - (lines.length - 1) / 2) * (fs + 2.5)}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fontSize={fs} fontFamily="Lexend,sans-serif" fontWeight="800"
+                  fill={isBankrupt ? theme.bankruptText : '#fff'}
+                  style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+                >{line}</text>
+              ))}
+            </g>
+          </g>
+        );
+      })}
+
+      {/* Decorative dots on ring */}
+      {Array.from({ length: n }).map((_, i) => {
+        const a = i * step - Math.PI / 2;
+        const dx = cx + (r + 2) * Math.cos(a);
+        const dy = cy + (r + 2) * Math.sin(a);
+        return <circle key={i} cx={dx} cy={dy} r={3.5} fill="#fff" opacity={0.85} />;
+      })}
+
+      {/* Hub */}
+      <circle cx={cx} cy={cy} r={28} fill={theme.wheelHubOuter} />
+      <circle cx={cx} cy={cy} r={19} fill={theme.wheelHubInner} />
+      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
+        fontSize={15} fill={theme.wheelHubStar} fontFamily="Lexend,sans-serif" fontWeight="900">★</text>
+
+      {/* Pointer */}
+      <polygon
+        points={`${cx - 13},4 ${cx + 13},4 ${cx},32`}
+        fill={theme.pointer}
+        stroke="#fff" strokeWidth={1.5}
+      />
+      <circle cx={cx} cy={4} r={5} fill={theme.pointer} stroke="#fff" strokeWidth={1.5} />
+    </svg>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   PARTICLES (stars / fireflies / bubbles)
+═══════════════════════════════════════════════════════════════════ */
+function Particles({ theme, count = 28 }) {
+  const isEnchanted = theme.id === 'enchanted';
+  const isTreasure = theme.id === 'treasure';
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      {Array.from({ length: count }).map((_, i) => {
+        const x = (i * 34.7 + 5) % 100;
+        const y = (i * 47.1 + 3) % 100;
+        const size = i % 4 === 0 ? 5 : i % 3 === 0 ? 3 : 2;
+        const delay = `${(i % 7) * 0.28}s`;
+        const dur = `${2 + (i % 5) * 0.5}s`;
+
+        if (isEnchanted) {
+          return (
+            <div key={i} style={{
+              position: 'absolute', left: `${x}%`, top: `${y}%`,
+              width: size + 2, height: size + 2,
+              borderRadius: '50%',
+              background: i % 2 === 0 ? '#34d399' : '#c084fc',
+              opacity: 0.5,
+              animation: `firefly ${dur} ease-in-out ${delay} infinite`,
+            }} />
+          );
+        }
+        if (isTreasure) {
+          return (
+            <div key={i} style={{
+              position: 'absolute', left: `${x}%`, top: `${y}%`,
+              width: size, height: size,
+              borderRadius: '50%',
+              background: i % 3 === 0 ? '#f59e0b' : 'rgba(255,255,255,0.4)',
+              animation: `twinkle ${dur} ease-in-out ${delay} infinite`,
+            }} />
+          );
+        }
+        // cosmos: stars
+        return (
+          <div key={i} style={{
+            position: 'absolute', left: `${x}%`, top: `${y}%`,
+            width: size, height: size,
+            borderRadius: '50%',
+            background: i % 4 === 0 ? '#a855f7' : i % 4 === 1 ? '#06b6d4' : '#fff',
+            animation: `twinkle ${dur} ease-in-out ${delay} infinite`,
+          }} />
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TILE ROW
+═══════════════════════════════════════════════════════════════════ */
+function TileRow({ letters, revealed, theme, celebrate }) {
+  return (
+    <div style={{ display: 'flex', gap: 9, justifyContent: 'center', flexWrap: 'nowrap', width: '100%', overflowX: 'auto' }}>
+      {letters.map((letter, i) => {
+        const show = revealed.includes(i);
+        return (
+          <div key={i} style={{
+            width: 60, height: 70,
+            borderRadius: 12,
+            border: `3px solid ${show ? theme.tileRevBorder : theme.tileHiddenBorder}`,
+            background: show ? theme.tileRevBg : theme.tileHiddenBg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'Lexend,sans-serif',
+            fontSize: 30, fontWeight: 900,
+            color: show ? theme.tileRevText : 'transparent',
+            boxShadow: show ? `0 0 14px ${theme.tileRevGlow}, inset 0 1px 0 rgba(255,255,255,0.15)` : 'inset 0 2px 6px rgba(0,0,0,0.5)',
+            transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
+            animation: show && celebrate ? `celebPop 0.5s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.07}s both` : undefined,
+          }}>
+            {letter}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCORE CARD
+═══════════════════════════════════════════════════════════════════ */
+function ScoreCard({ name, emoji, coins, bankrupt, theme }) {
+  return (
+    <div style={{
+      background: bankrupt ? 'rgba(220,0,0,0.15)' : theme.scoreBg,
+      border: `2.5px solid ${bankrupt ? '#ff3333' : theme.scoreBorder}`,
+      borderRadius: 14,
+      padding: '10px 16px',
+      minWidth: 120,
+      textAlign: 'center',
+      boxShadow: bankrupt ? '0 0 24px rgba(255,0,0,0.4)' : 'none',
+      animation: bankrupt ? 'shake 0.55s ease-in-out' : undefined,
+    }}>
+      <div style={{ fontSize: 22, marginBottom: 2 }}>{emoji}</div>
+      <div style={{
+        fontFamily: 'Lexend,sans-serif', fontSize: 18, fontWeight: 700,
+        color: theme.scoreName, marginBottom: 6,
+      }}>{name}</div>
+      <div style={{
+        fontFamily: 'Lexend,sans-serif', fontSize: 24, fontWeight: 800,
+        color: bankrupt ? '#ff4444' : theme.scoreCoins,
+        animation: !bankrupt ? 'scoreTickUp 0.4s ease-out' : undefined,
+      }}>
+        {bankrupt ? '💀 BUST!' : `🪙 ${coins}`}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LETTER BUTTONS
+═══════════════════════════════════════════════════════════════════ */
+function LetterBank({ theme, guessedLetters, onPick }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 440 }}>
+      {ALPHABET.map(l => {
+        const isUsed = guessedLetters.has(l);
+        return (
+          <div key={l}
+            onClick={() => { if (!isUsed) { SE.buttonTap(); onPick(l); } }}
+            style={{
+              width: 44, height: 44,
+              background: isUsed ? 'rgba(255,255,255,0.03)' : `${theme.accentA}18`,
+              border: `2.5px solid ${isUsed ? `${theme.accentA}22` : `${theme.accentA}55`}`,
+              borderRadius: 11,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, fontWeight: 800, fontFamily: 'Lexend,sans-serif',
+              color: isUsed ? 'rgba(255,255,255,0.18)' : theme.accentA,
+              cursor: isUsed ? 'default' : 'pointer', userSelect: 'none',
+              transition: 'all 0.1s',
+              pointerEvents: isUsed ? 'none' : 'auto',
+            }}
+            onMouseDown={e => { if (!isUsed) e.currentTarget.style.transform = 'scale(0.88)'; }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+          >{l}</div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COIN RAIN
+═══════════════════════════════════════════════════════════════════ */
+function CoinRain() {
+  const coins = Array.from({ length: 18 });
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden', zIndex: 2 }}>
+      {coins.map((_, i) => (
+        <div key={i} style={{
+          position: 'absolute',
+          left: `${(i * 5.3 + 4) % 96}%`,
+          top: `${(i * 13) % 50}%`,
+          fontSize: 22,
+          animation: `coinFall ${1.1 + (i % 5) * 0.25}s ease-in ${(i % 6) * 0.18}s infinite`,
+          opacity: 0,
+        }}>🪙</div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ELLI SPEECH (left rail, under wheel) + PORTRAIT (bottom-right circle only)
+═══════════════════════════════════════════════════════════════════ */
+function ElliSpeechBubble({ theme, speech }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      maxWidth: 268,
+      marginTop: 6,
+      marginBottom: 2,
+      background: theme.bubbleBg,
+      border: `2.5px solid ${theme.bubbleBorder}`,
+      borderRadius: 18,
+      padding: '10px 14px',
+      boxShadow: `0 0 20px ${theme.bubbleBorder}44`,
+      zIndex: 4,
+    }}>
+      <p style={{
+        fontFamily: 'Lexend,sans-serif', fontSize: 16, fontWeight: 600,
+        color: theme.bubbleText, lineHeight: 1.45, margin: 0,
+        textAlign: 'center',
+      }}>{speech}</p>
+        {/* Tail points down toward SPIN */}
+        <div style={{
+          position: 'absolute', bottom: -13, left: '50%',
+          transform: 'translateX(-50%)',
+          borderLeft: '9px solid transparent',
+          borderRight: '9px solid transparent',
+          borderTop: `13px solid ${theme.bubbleBorder}`,
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -9, left: '50%',
+          transform: 'translateX(-50%)',
+          borderLeft: '7px solid transparent',
+          borderRight: '7px solid transparent',
+          borderTop: `10px solid ${theme.bubbleBg}`,
+        }} />
+    </div>
+  );
+}
+
+function ElliPortrait({ theme, mood }) {
+  const face = mood === 'shocked' ? '😱' : mood === 'celebrating' ? '🤩' : '🌟';
+  const anim = mood === 'celebrating' ? 'bounceUp 0.55s ease-in-out infinite'
+             : mood === 'shocked'     ? 'shake 0.5s ease-in-out'
+             :                         'float 3.5s ease-in-out infinite';
+  return (
+    <div style={{
+      position: 'absolute', bottom: 14, left: 14,
+      zIndex: 10,
+    }}>
+      <div style={{
+        width: 90, height: 90,
+        borderRadius: '50%',
+        background: theme.elliBg,
+        border: `4px solid ${theme.elliBorder}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 44,
+        boxShadow: `0 0 28px ${theme.elliGlow}99, 0 0 60px ${theme.elliGlow}33`,
+        animation: anim,
+      }}>
+        {face}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CELEBRATION BANNER
+═══════════════════════════════════════════════════════════════════ */
+function CelebrationBanner({ letters, theme }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+    }}>
+      {/* Slot machine word */}
+      <div style={{ display: 'flex', gap: 7, justifyContent: 'center', flexWrap: 'nowrap', width: '100%', overflowX: 'auto' }}>
+        {letters.map((l, i) => (
+          <div key={i} style={{
+            width: 60, height: 72,
+            borderRadius: 12,
+            background: theme.slotBg,
+            border: `3px solid ${theme.slotBorder}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 30, fontWeight: 900, fontFamily: 'Lexend,sans-serif',
+            color: theme.slotText,
+            boxShadow: `0 0 20px ${theme.slotGlow}88, inset 0 0 10px rgba(255,255,255,0.08)`,
+            animation: `celebPop 0.45s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.08}s both`,
+          }}>{l}</div>
+        ))}
+      </div>
+      <div style={{
+        fontSize: 38, fontWeight: 900, fontFamily: 'Lexend,sans-serif',
+        color: theme.accentA,
+        letterSpacing: 5,
+        textShadow: `0 0 20px ${theme.accentA}, 0 0 40px ${theme.accentA}88`,
+        animation: 'bounceUp 0.7s ease-in-out infinite',
+      }}>{WORD_RAW.toUpperCase()}! 🎊</div>
+      {/* Star burst row */}
+      <div style={{ display: 'flex', gap: 14 }}>
+        {['🌟','⭐','🏆','🎯','✨','🎉','⭐','🌟'].map((e, i) => (
+          <div key={i} style={{
+            fontSize: 26,
+            animation: `bounceUp ${0.4 + (i % 4) * 0.08}s ease-in-out ${i * 0.07}s infinite`,
+          }}>{e}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   APP — real game state machine
+═══════════════════════════════════════════════════════════════════ */
+function App() {
+  const theme = THEMES[THEME_ID] ?? THEMES.cosmos;
+
+  const [revealed, setRevealed] = useState(new Set());
+  const [guessedLetters, setGuessedLetters] = useState(new Set());
+  const [ilaCoins, setIlaCoins] = useState(0);
+  const [elliCoins, setElliCoins] = useState(ELLI_START_COINS);
+  const [elliJustBankrupt, setElliJustBankrupt] = useState(false);
+  const [wrongGuesses, setWrongGuesses] = useState(0);
+  const [phase, setPhase] = useState('idle'); // idle | spinning | picking | won | lost
+  const [wheelRot, setWheelRot] = useState(SEG_DEG(0)); // start with seg 0 at pointer
+  const [spinning, setSpinning] = useState(false);
+  const [currentValue, setCurrentValue] = useState(null);
+  const [speech, setSpeech] = useState('Spin the wheel to start! 🌟');
+  const [mood, setMood] = useState('happy');
+  const startTime = useRef(Date.now());
+  const completedRef = useRef(false);
+
+  const isSolved = LETTERS.length > 0 && LETTERS.every((_, i) => revealed.has(i));
+  const isGameOver = wrongGuesses >= 6 && !isSolved;
+
+  const getSnapshot = useCallback((overrides = {}) => {
+    const snapRevealed = overrides.revealed ?? revealed;
+    const snapGuessed = overrides.guessedLetters ?? guessedLetters;
+    const snapPhase = overrides.phase ?? phase;
+    const snapWrong = overrides.wrongGuesses ?? wrongGuesses;
+    const snapScore = overrides.score ?? ilaCoins;
+    return {
+      game: "Wheel of Fortune",
+      phase: snapPhase,
+      currentWord: WORD_RAW,
+      category: CATEGORY,
+      screenText: [
+        "BONUS ROUND",
+        THEME_ID === 'cosmos' ? "SPACE SPELLING CHALLENGE"
+          : THEME_ID === 'treasure' ? "TREASURE HUNT SPELLING"
+          : "ENCHANTED WORD QUEST",
+        snapPhase === 'won' ? "WORD SOLVED" : "GUESS THE WORD",
+        `Category: ${CATEGORY}`,
+      ],
+      boardState: boardStateStr(LETTERS, snapRevealed),
+      visibleLetters: LETTERS.filter((_, i) => snapRevealed.has(i)),
+      guessedLetters: Array.from(snapGuessed),
+      wrongGuesses: snapWrong,
+      maxWrongGuesses: 6,
+      wheelValue: overrides.wheelValue ?? currentValue,
+      score: snapScore,
+      itemIndex: snapRevealed.size,
+      totalItems: LETTERS.length,
+      turn: snapPhase === 'picking' ? 'child' : 'companion',
+      canSpin: snapPhase === 'idle' && !spinning,
+      canPickLetter: snapPhase === 'picking',
+      lastAction: overrides.lastAction ?? null,
+      letter: overrides.letter,
+      correct: overrides.correct,
+    };
+  }, [revealed, guessedLetters, phase, wrongGuesses, ilaCoins, currentValue, spinning]);
+
+  // Companion heartbeat — reports board state every 5s while game is active
+  useEffect(() => {
+    if (!window.GameBridge || typeof window.GameBridge.startHeartbeat !== 'function') return;
+    if (phase === 'won' || phase === 'lost') return;
+    const hbId = window.GameBridge.startHeartbeat(
+      () => `Wheel of Fortune — board: ${boardStateStr(LETTERS, revealed)} — ${LETTERS.length - revealed.size} letters left`,
+      () => getSnapshot({ lastAction: 'heartbeat' })
+    );
+    return () => clearInterval(hbId);
+  }, [phase, revealed, ilaCoins, getSnapshot]);
+
+  // Win detection
+  useEffect(() => {
+    if (!isSolved || completedRef.current) return;
+    completedRef.current = true;
+    reportGameState(
+      `Word solved! The word was "${WORD_RAW}". ` +
+        `Ila earned ${ilaCoins} coins total. ` +
+        `Elli finished with ${elliCoins} coins. Game complete.`,
+      {
+        phase: "won",
+        currentWord: WORD_RAW,
+        boardState: boardStateStr(LETTERS, revealed),
+        correct: true,
+        score: ilaCoins,
+        itemIndex: revealed.size,
+        totalItems: LETTERS.length,
+      }
+    );
+    SE.fanfare();
+    setMood('celebrating');
+    setSpeech(`WE DID IT! You solved ${WORD_RAW.toUpperCase()}! You are SO smart!! 🎉`);
+    fireComp('session_complete', {});
+    setPhase('won');
+    setTimeout(() => {
+      if (typeof window.sendNodeComplete === 'function') {
+        window.sendNodeComplete({
+          completed: true,
+          accuracy: (6 - wrongGuesses) / 6,
+          wordsCorrect: [WORD_RAW],
+          wordsStruggled: [],
+          flaggedWords: [],
+          xpEarned: 150,
+          coinsEarned: ilaCoins,
+          timeSpent_ms: Date.now() - startTime.current,
+          wordsAttempted: 1,
+        });
+      }
+    }, 3500);
+  }, [isSolved, ilaCoins, elliCoins]);
+
+  // Game-over detection
+  useEffect(() => {
+    if (!isGameOver || completedRef.current) return;
+    completedRef.current = true;
+    reportGameState(
+      `Game over. The word was "${WORD_RAW}". ` +
+        `Ila earned ${ilaCoins} coins. Better luck next time.`,
+      {
+        phase: "lost",
+        currentWord: WORD_RAW,
+        boardState: boardStateStr(LETTERS, revealed),
+        correct: false,
+        score: ilaCoins,
+        itemIndex: revealed.size,
+        totalItems: LETTERS.length,
+      }
+    );
+    setPhase('lost');
+    setSpeech(`The word was ${WORD_RAW.toUpperCase()}. We'll get it next time! 💪`);
+    setTimeout(() => {
+      if (typeof window.sendNodeComplete === 'function') {
+        window.sendNodeComplete({
+          completed: false,
+          accuracy: 0,
+          wordsCorrect: [],
+          wordsStruggled: [WORD_RAW],
+          flaggedWords: [WORD_RAW],
+          xpEarned: 20,
+          coinsEarned: ilaCoins,
+          timeSpent_ms: Date.now() - startTime.current,
+          wordsAttempted: 1,
+        });
+      }
+    }, 2000);
+  }, [isGameOver, ilaCoins]);
+
+  const handleSpin = useCallback(() => {
+    if (spinning || phase !== 'idle') return;
+    reportGameAction(
+      "wheel_spin_started",
+      `Wheel of Fortune started. Word: ${LETTERS.length} letters. Category: ${CATEGORY}. ` +
+        `Ila: ${ilaCoins} coins. Elli: ${elliCoins} coins. Spinning the wheel.`,
+      getSnapshot({
+        phase: "spinning",
+        lastAction: "wheel_spin_started",
+        score: ilaCoins,
+      })
+    );
+    setElliJustBankrupt(false);
+    SE.spinWhoosh();
+    setSpinning(true);
+    setPhase('spinning');
+
+    const segIdx = Math.floor(Math.random() * SEGS.length);
+    const fullSpins = 5 + Math.floor(Math.random() * 3);
+    // Calculate delta so wheel lands exactly on segIdx
+    const desiredMod = SEG_DEG(segIdx);
+    const currentMod = wheelRot % 360;
+    let delta = desiredMod - currentMod;
+    if (delta <= 0) delta += 360;
+    setWheelRot(prev => prev + fullSpins * 360 + delta);
+
+    SE.spinSequence(3.2, () => {
+      setSpinning(false);
+      const segLabel = SEGS[segIdx];
+      const labelLine = String(segLabel).replace(/\n/g, " ");
+      reportGameAction(
+        "wheel_landed",
+        `Wheel landed on: ${labelLine}. ` +
+          `${wheelLandDescription(segLabel)} ` +
+          `Tiles revealed: ${revealed.size} of ${LETTERS.length}.`,
+        getSnapshot({
+          phase: "picking",
+          wheelValue: labelLine,
+          lastAction: "wheel_landed",
+          score: ilaCoins,
+        })
+      );
+
+      if (segLabel === 'BANKRUPT') {
+        SE.bankrupt();
+        setElliCoins(0);
+        setElliJustBankrupt(true);
+        setMood('shocked');
+        setSpeech('OH NO! I lost ALL my coins! But yours are SAFE — keep going!');
+        setTimeout(() => {
+          setElliJustBankrupt(false);
+          setMood('happy');
+          setSpeech('Your turn again! Spin the wheel! 🌟');
+          setPhase('idle');
+        }, 2200);
+
+      } else if (segLabel === 'FREE\nLETTER') {
+        const unrevealed = LETTERS.map((l, i) => ({ l, i })).filter(({ i }) => !revealed.has(i));
+        if (unrevealed.length > 0) {
+          const counts = {};
+          unrevealed.forEach(({ l }) => { counts[l] = (counts[l] || 0) + 1; });
+          const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+          const newReveal = new Set(revealed);
+          let earned = 0;
+          LETTERS.forEach((l, i) => {
+            if (l === best && !revealed.has(i)) { newReveal.add(i); earned += 100; }
+          });
+          setRevealed(newReveal);
+          setIlaCoins(c => c + earned);
+          setGuessedLetters(g => new Set([...g, best]));
+          SE.letterReveal();
+          fireComp('correct_answer', {});
+          setSpeech(`FREE LETTER! ${best} is in the word! 🎁`);
+          reportGameAction(
+            "letter_revealed",
+            `Letter "${best}" is correct! (FREE LETTER) Tile revealed. ` +
+              `${newReveal.size} of ${LETTERS.length} letters found. ` +
+              `Ila has ${ilaCoins + earned} coins.`,
+            getSnapshot({
+              phase: "idle",
+              revealed: newReveal,
+              guessedLetters: new Set([...guessedLetters, best]),
+              letter: best,
+              correct: true,
+              lastAction: "letter_revealed",
+              score: ilaCoins + earned,
+            })
+          );
+        } else {
+          setSpeech('No letters left to reveal! Spin again! 🌟');
+        }
+        setPhase('idle');
+
+      } else if (segLabel === 'ELLI\nSPINS') {
+        setSpeech("Elli is thinking... 🤔");
+        setTimeout(() => {
+          const unguessed = ALPHABET.filter(l => !guessedLetters.has(l));
+          const inWord = unguessed.filter(l => LETTERS.includes(l));
+          const pick = inWord.length > 0
+            ? inWord[Math.floor(Math.random() * inWord.length)]
+            : unguessed[Math.floor(Math.random() * unguessed.length)];
+          setSpeech(`Elli picks... ${pick}! Let's see! 🤞`);
+          const newReveal = new Set(revealed);
+          let earned = 0;
+          let found = false;
+          LETTERS.forEach((l, i) => {
+            if (l === pick && !revealed.has(i)) { newReveal.add(i); earned += 100; found = true; }
+          });
+          setGuessedLetters(g => new Set([...g, pick]));
+          if (found) {
+            setRevealed(newReveal);
+            setIlaCoins(c => c + earned);
+            SE.letterReveal();
+            fireComp('correct_answer', {});
+            setSpeech(`Yes! ${pick} is there! Great teamwork! 🌟`);
+            reportGameAction(
+              "letter_revealed",
+              `Elli picked letter "${pick}" — it is in the word. ` +
+                `Letter "${pick}" is correct! ` +
+                `${newReveal.size} of ${LETTERS.length} letters found. Ila has ${ilaCoins + earned} coins.`,
+              getSnapshot({
+                phase: "idle",
+                revealed: newReveal,
+                guessedLetters: new Set([...guessedLetters, pick]),
+                letter: pick,
+                correct: true,
+                lastAction: "letter_revealed",
+                score: ilaCoins + earned,
+              })
+            );
+          } else {
+            SE.buttonTap();
+            fireComp('wrong_answer', {});
+            setWrongGuesses(w => w + 1);
+            setSpeech(`No ${pick} this time. Keep going! 💪`);
+            reportGameAction(
+              "wrong_letter",
+              `Elli picked letter "${pick}" — not in the word. No tiles revealed. Wrong guess counted.`,
+              getSnapshot({
+                phase: "idle",
+                guessedLetters: new Set([...guessedLetters, pick]),
+                wrongGuesses: wrongGuesses + 1,
+                letter: pick,
+                correct: false,
+                lastAction: "wrong_letter",
+                score: ilaCoins,
+              })
+            );
+          }
+          setPhase('idle');
+        }, 1500);
+
+      } else {
+        const coins = COIN_VALUES[segLabel] ?? 200;
+        setCurrentValue(coins);
+        setPhase('picking');
+        setSpeech(`You landed on ${coins}! Pick a letter! 🎯`);
+        setMood('happy');
+      }
+    });
+  }, [spinning, phase, revealed, guessedLetters, wrongGuesses, wheelRot, ilaCoins, elliCoins, getSnapshot]);
+
+  useEffect(() => {
+    function onMessage(event) {
+      const msg = event.data;
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type !== 'wheel_spin') return;
+      handleSpin();
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [handleSpin]);
+
+  const handleLetterPick = useCallback((letter) => {
+    letter = String(letter || '').toUpperCase().charAt(0);
+    if (!ALPHABET.includes(letter)) return;
+    if (phase !== 'picking') {
+      reportGameAction(
+        "letter_attempt_ignored",
+        `Letter attempt ignored: "${letter}" was entered, but the game is not waiting for a letter.`,
+        getSnapshot({
+          letter: letter,
+          lastAction: 'letter_attempt_ignored',
+        })
+      );
+      return;
+    }
+    const nextGuessedLetters = new Set([...guessedLetters, letter]);
+    setGuessedLetters(nextGuessedLetters);
+    const newReveal = new Set(revealed);
+    let count = 0;
+    LETTERS.forEach((l, i) => {
+      if (l === letter && !revealed.has(i)) { newReveal.add(i); count++; }
+    });
+    if (count > 0) {
+      const newIla = ilaCoins + (currentValue ?? 200) * count;
+      setRevealed(newReveal);
+      setIlaCoins(c => c + (currentValue ?? 200) * count);
+      SE.letterReveal();
+      fireComp('correct_answer', {});
+      setSpeech(`Yes! ${letter} is in there${count > 1 ? ' ' + count + ' times' : ''}! 🎉`);
+      reportGameAction(
+        "letter_revealed",
+        `Letter "${letter}" is correct! Tile revealed. ` +
+          `${newReveal.size} of ${LETTERS.length} letters found. ` +
+          `Ila has ${newIla} coins.`,
+        getSnapshot({
+          phase: "idle",
+          revealed: newReveal,
+          guessedLetters: nextGuessedLetters,
+          letter: letter,
+          correct: true,
+          lastAction: "letter_revealed",
+          score: newIla,
+        })
+      );
+    } else {
+      SE.buttonTap();
+      fireComp('wrong_answer', {});
+      const nextWrongGuesses = wrongGuesses + 1;
+      setWrongGuesses(nextWrongGuesses);
+      setSpeech(`No ${letter} this time. Keep trying! 💪`);
+      reportGameAction(
+        "wrong_letter",
+        `Letter "${letter}" is not in the word. No tiles revealed. ` +
+          `${LETTERS.length - revealed.size} of ${LETTERS.length} letter positions still hidden.`,
+        getSnapshot({
+          phase: "idle",
+          guessedLetters: nextGuessedLetters,
+          wrongGuesses: nextWrongGuesses,
+          letter: letter,
+          correct: false,
+          lastAction: "wrong_letter",
+          score: ilaCoins,
+        })
+      );
+    }
+    setPhase('idle');
+    setCurrentValue(null);
+  }, [phase, revealed, guessedLetters, wrongGuesses, currentValue, ilaCoins, getSnapshot]);
+
+  useEffect(() => {
+    function onKeyDown(event) {
+      const target = event.target;
+      const tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      const key = String(event.key || "").toUpperCase();
+      if (!/^[A-Z]$/.test(key)) return;
+      event.preventDefault();
+      handleLetterPick(key);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleLetterPick]);
+
+  const isCelebrate = phase === 'won';
+  const isBankrupt = elliJustBankrupt;
+  const isLost = phase === 'lost';
+  const spinBtnDisabled = spinning || phase !== 'idle';
+  const spinColor = isBankrupt ? '#ff3333' : isCelebrate ? theme.accentA : theme.accentB;
+  const headerBadge = isBankrupt ? 'BANKRUPT!'
+    : isCelebrate ? '🏆 SOLVED!'
+    : isLost ? '💀 GAME OVER'
+    : phase === 'picking' ? `🎯 ${currentValue} — Pick!`
+    : '🎡 Spin!';
+  const revealedArr = Array.from(revealed);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0,
+      background: theme.bg,
+      fontFamily: 'Lexend,sans-serif',
+      overflow: 'hidden',
+    }}>
+      <Particles theme={theme} count={28} />
+
+      {/* Bankrupt flash overlay */}
+      {isBankrupt && (
+        <div style={{
+          position:'absolute', inset:0, pointerEvents:'none', zIndex:1,
+          animation:'bankruptFlash 0.7s ease-in-out infinite',
+          boxShadow:'inset 0 0 60px rgba(220,0,0,0.35)',
+        }}/>
+      )}
+
+      {isCelebrate && <CoinRain />}
+      {isCelebrate && (
+        <div style={{
+          position:'absolute', inset:0, pointerEvents:'none', zIndex:1,
+          boxShadow:`inset 0 0 80px ${theme.elliGlow}44`,
+          animation:'pulseGlow 1s ease-in-out infinite',
+        }}/>
+      )}
+
+      {/* ── HEADER ── */}
+      <div style={{
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'11px 20px',
+        background: theme.headerBg,
+        borderBottom:`2px solid ${theme.headerBorder}`,
+        position:'relative', zIndex:5,
+      }}>
+        <div>
+          <div style={{fontSize:22, fontWeight:900, color:theme.headerText, letterSpacing:3}}>
+            {theme.emoji} BONUS ROUND
+          </div>
+          <div style={{fontSize:15, fontWeight:500, color:theme.subText, letterSpacing:1.5}}>
+            {THEME_ID==='cosmos' ? 'SPACE SPELLING CHALLENGE'
+           : THEME_ID==='treasure' ? 'TREASURE HUNT SPELLING'
+           : 'ENCHANTED WORD QUEST'}
+          </div>
+        </div>
+        <div style={{
+          padding:'7px 18px',
+          background: isBankrupt ? 'rgba(220,0,0,0.2)' : isCelebrate ? `${theme.accentA}22` : 'transparent',
+          border:`2.5px solid ${spinColor}`,
+          borderRadius:12, fontSize:20, fontWeight:800, color:spinColor,
+          animation:(isBankrupt||isCelebrate)?'pulseGlow 0.7s ease-in-out infinite':undefined,
+          letterSpacing:1,
+        }}>
+          {headerBadge}
+        </div>
+      </div>
+
+      {/* ── BODY ── */}
+      <div style={{
+        display:'flex',
+        height:'calc(100% - 62px)',
+        position:'relative', zIndex:3,
+      }}>
+        {/* LEFT: Wheel + button + scores */}
+        <div style={{
+          width:310, flexShrink:0,
+          display:'flex', flexDirection:'column', alignItems:'center',
+          padding:'10px 10px 6px', gap:8,
+        }}>
+          <div style={{
+            filter: isBankrupt
+              ? 'drop-shadow(0 0 20px #ff0000)'
+              : `drop-shadow(0 0 14px ${theme.wheelGlow}88)`,
+          }}>
+            <WheelSVG theme={theme} size={248} rotation={wheelRot} spinning={spinning} />
+          </div>
+
+          <div
+            onClick={spinBtnDisabled ? undefined : handleSpin}
+            style={{
+              '--btn-glow': spinColor,
+              width:'88%', padding:'10px 0',
+              background: spinBtnDisabled ? 'rgba(255,255,255,0.06)' : `${spinColor}22`,
+              border:`2.5px solid ${spinBtnDisabled ? 'rgba(255,255,255,0.2)' : spinColor}`,
+              borderRadius:13,
+              fontSize:20, fontWeight:900, fontFamily:'Lexend,sans-serif',
+              color: spinBtnDisabled ? 'rgba(255,255,255,0.4)' : spinColor,
+              textAlign:'center', cursor: spinBtnDisabled ? 'default' : 'pointer',
+              userSelect:'none', letterSpacing:1,
+              animation: !spinBtnDisabled ? 'spinBtnPulse 2s ease-in-out infinite' : undefined,
+              transition:'all 0.2s',
+            }}
+          >{spinning ? '⏳ Spinning…' : isCelebrate ? '🎊 Solved!' : isLost ? '💀 Game Over' : '🎡  SPIN!'}</div>
+
+          <ElliSpeechBubble theme={theme} speech={speech} />
+
+          <div style={{display:'flex', gap:8, width:'100%', justifyContent:'center'}}>
+            <ScoreCard name="Ila"  emoji="⭐" coins={ilaCoins}  bankrupt={false}      theme={theme}/>
+            <ScoreCard name="Elli" emoji="🌟" coins={elliCoins} bankrupt={isBankrupt} theme={theme}/>
+          </div>
+        </div>
+
+        {/* RIGHT: Puzzle */}
+        <div style={{
+          flex:1,
+          display:'flex', flexDirection:'column',
+          alignItems:'center', justifyContent:'center',
+          padding:'14px 24px', gap:14,
+          borderLeft:`1px solid ${theme.headerBorder}`,
+          overflowY:'auto',
+        }}>
+          <div style={{fontSize:18, fontWeight:600, color:theme.subText, letterSpacing:2, textTransform:'uppercase'}}>
+            {isCelebrate ? '🏆 Word Solved!' : '🔤 Guess the word'}
+          </div>
+
+          {isCelebrate
+            ? <CelebrationBanner letters={LETTERS} theme={theme}/>
+            : <TileRow letters={LETTERS} revealed={revealedArr} theme={theme} celebrate={false}/>
+          }
+
+          {!isCelebrate && !isLost && (
+            <div style={{
+              padding:'6px 18px',
+              background:`${theme.accentA}12`,
+              border:`1.5px solid ${theme.accentA}44`,
+              borderRadius:8, fontSize:18, fontWeight:500,
+              color:theme.accentA, letterSpacing:1,
+            }}>Category: {CATEGORY}</div>
+          )}
+
+          {phase === 'picking' && (
+            <div style={{display:'flex', flexDirection:'column', gap:10, alignItems:'center', width:'100%'}}>
+              <div style={{fontSize:18, fontWeight:600, color:theme.subText}}>Pick a letter:</div>
+              <LetterBank theme={theme} guessedLetters={guessedLetters} onPick={handleLetterPick}/>
+            </div>
+          )}
+
+          {isBankrupt && (
+            <div style={{
+              padding:'14px 22px',
+              background:'rgba(255,0,0,0.1)',
+              border:'2px solid rgba(255,80,80,0.4)',
+              borderRadius:14, fontSize:19, fontWeight:700,
+              color:'#fca5a5', textAlign:'center', maxWidth:350, lineHeight:1.5,
+            }}>
+              💪 Your coins are SAFE! Only Elli lost hers. You've got this!
+            </div>
+          )}
+
+          {wrongGuesses > 0 && !isCelebrate && !isLost && (
+            <div style={{fontSize:16, color:theme.subText, opacity:0.7}}>
+              Wrong guesses: {wrongGuesses} / 6
+            </div>
+          )}
+
+          {isLost && (
+            <div style={{
+              padding:'14px 22px',
+              background:'rgba(0,0,0,0.3)',
+              border:`2px solid ${theme.accentA}44`,
+              borderRadius:14, fontSize:19, fontWeight:700,
+              color:theme.accentA, textAlign:'center',
+            }}>
+              The word was: <span style={{color:theme.accentB}}>{WORD_RAW.toUpperCase()}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── ELLI ── */}
+      <ElliPortrait theme={theme} mood={mood} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { MapState, NodeResult } from "../shared/adventureTypes";
+import type { MapState, NodeResult, NodeConfig } from "../shared/adventureTypes";
 
 /** Avoid real Grok in `enrichHomeworkNodeThumbnails` (flaky 5s timeouts). */
 vi.mock("../utils/generateStoryImage", () => ({
@@ -30,7 +30,36 @@ vi.mock("../engine/bandit", async (importOriginal) => {
 
 vi.mock("../engine/learningEngine", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../engine/learningEngine")>();
-  return { ...actual, recordAttempt: vi.fn().mockReturnValue({}) };
+  return {
+    ...actual,
+    recordAttempt: vi.fn().mockReturnValue({}),
+    planSession: vi.fn((childId: string, mode: string, opts?: unknown) => {
+      if (mode === "homework") {
+        return {
+          childId,
+          mode,
+          activities: [],
+          newWords: [],
+          reviewWords: [],
+          focusWords: [],
+          totalWordCount: 0,
+          estimatedMinutes: 0,
+          bondContext: "",
+          difficultyParams: {
+            targetAccuracy: 0.7,
+            easyThreshold: 0.85,
+            hardThreshold: 0.5,
+            breakThreshold: 0.4,
+            windowSize: 8,
+          },
+          moodAdjustment: false,
+          wilsonStep: 1,
+          dueWords: [],
+        };
+      }
+      return actual.planSession(childId, mode, opts as never);
+    }),
+  };
 });
 
 import {
@@ -40,6 +69,7 @@ import {
   handleMapClientMessage,
   MapSessionError,
   startMapSession,
+  buildMapSummary,
 } from "../server/map-coordinator";
 import {
   __resetVoiceSessionRegistryForTests,
@@ -49,6 +79,10 @@ import {
 
 import { buildProfile } from "../profiles/buildProfile";
 import { cloneCompanionDefaults } from "../shared/companionTypes";
+import {
+  buildHomeworkNodes,
+  buildPendingHomeworkPayload,
+} from "../scripts/ingestHomework";
 import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { appendNodeRating } from "../utils/nodeRatingIO";
@@ -118,6 +152,52 @@ describe("map coordinator (TASK-010)", () => {
     expect(vi.mocked(buildNodeList).mock.calls.length).toBeGreaterThan(0);
   });
 
+  it("startMapSession uses pending homework nodes when profile.pendingHomework has nodes", async () => {
+    vi.mocked(buildNodeList).mockClear();
+    const words = ["farmer", "teacher"];
+    const homeworkId = "hw-spelling_test-qa";
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId: "qa_map",
+      ttsName: "Qa map",
+      level: 2,
+      xp: 0,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+      dueWords: [],
+      sm2Stats: {} as never,
+      currentDifficulty: 2,
+      masteryGating: {} as never,
+      mathRotation: [],
+      retrievalPractice: { nextScaffoldWords: [] },
+      games: {} as never,
+      wordRadar: {
+        showTimer: true,
+        showKeyboard: false,
+        personalBests: {},
+        inputMode: "whole-word",
+      },
+      dyslexiaMode: false,
+      companionColor: "#00f",
+      avatarImagePath: null,
+      pendingHomework: buildPendingHomeworkPayload({
+        weekOf: "2026-04-26",
+        testDate: null,
+        wordList: words,
+        homeworkId,
+        nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "qa_map" }),
+      }) as import("../shared/childProfile").ChildProfile["pendingHomework"],
+    });
+    const { mapState } = await startMapSession("qa_map");
+    expect(mapState.nodes[0]?.type).toBe("word-radar");
+    expect(mapState.nodes.some((n) => n.type === "riddle")).toBe(false);
+    expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
+  });
+
   it("startMapSession throws for unknown child", async () => {
     vi.mocked(buildProfile).mockResolvedValueOnce(null);
     await expect(startMapSession("missing_xyz")).rejects.toBeInstanceOf(
@@ -149,6 +229,32 @@ describe("map coordinator (TASK-010)", () => {
       summary: "Spelling — 2 blanks left",
       occurredAt: expect.any(Number),
     });
+    unregisterActiveVoiceSessionManager(mapState.childId, sm);
+  });
+
+  it("game_state_update injects structured state into the active voice session", async () => {
+    const { sessionId: sid, mapState } = await startMapSession("qa_map");
+    const sm = {
+      injectGameContext: vi.fn(),
+      noteExternalEvent: vi.fn(),
+    };
+    registerActiveVoiceSessionManager(mapState.childId, sm);
+    const payload = {
+      progress: 'Spelling "inventor" — N N visible',
+      phase: "playing",
+      currentWord: "inventor",
+      boardState: "I N V E N _ O R",
+      letter: "N",
+    };
+
+    const events = handleMapClientMessage(sid, {
+      type: "game_state_update",
+      payload,
+    });
+
+    expect(events).toEqual([]);
+    expect(sm.injectGameContext).toHaveBeenCalledTimes(1);
+    expect(sm.injectGameContext).toHaveBeenCalledWith(payload);
     unregisterActiveVoiceSessionManager(mapState.childId, sm);
   });
 
@@ -185,5 +291,69 @@ describe("map coordinator (TASK-010)", () => {
     const { mapState } = await startMapSession("qa_map");
     expect(mapState.nodes.length).toBeGreaterThan(0);
     expect(mapState.nodes.every((n) => !n.isLocked)).toBe(true);
+  });
+});
+
+describe("buildMapSummary", () => {
+  const theme: MapState["theme"] = {
+    name: "t",
+    palette: { sky: "#1", ground: "#2", accent: "#3", particle: "#4", glow: "#5" },
+    ambient: { type: "dots", count: 1, speed: 1, color: "#fff" },
+    nodeStyle: "rounded",
+    pathStyle: "curve",
+    castleVariant: "stone",
+    mapWaypoints: [],
+  };
+
+  function node(
+    id: string,
+    type: NodeConfig["type"],
+    isGoal: boolean,
+  ): NodeConfig {
+    return {
+      id,
+      type,
+      isLocked: false,
+      isCompleted: false,
+      isGoal,
+      difficulty: 1,
+      words: ["x"],
+    };
+  }
+
+  it("returns string containing node types", () => {
+    const mapState: MapState = {
+      childId: "ila",
+      sessionDate: "2026-01-01",
+      nodes: [node("n1", "word-radar", false), node("n2", "spell-check", false)],
+      currentNodeIndex: 0,
+      completedNodes: [],
+      theme,
+      xp: 0,
+      level: 1,
+    };
+    const s = buildMapSummary(mapState);
+    expect(s).toContain("word-radar");
+    expect(s).toContain("spell-check");
+  });
+
+  it("marks first node with START HERE and last with BOSS", () => {
+    const mapState: MapState = {
+      childId: "ila",
+      sessionDate: "2026-01-01",
+      nodes: [
+        node("n1", "word-radar", false),
+        node("n2", "spell-check", false),
+        node("n3", "boss", true),
+      ],
+      currentNodeIndex: 0,
+      completedNodes: [],
+      theme,
+      xp: 0,
+      level: 1,
+    };
+    const s = buildMapSummary(mapState);
+    expect(s).toContain("START HERE");
+    expect(s).toContain("BOSS");
   });
 });

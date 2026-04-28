@@ -1,0 +1,6 @@
+{"childId":"reina","sessionDate":"2026-04-28T00:49:11.128Z","nodeType":"word-radar","word":"session","theme":"default","rating":"like","completionTime_ms":48620,"accuracy":1,"abandonedEarly":false}
+{"childId":"reina","sessionDate":"2026-04-28T00:49:11.128Z","nodeType":"word-radar","word":"session","theme":"default","rating":"dislike","completionTime_ms":0,"accuracy":0,"abandonedEarly":true}
+{"childId":"reina","sessionDate":"2026-04-28T00:49:11.128Z","nodeType":"spell-check","word":"session","theme":"default","rating":"like","completionTime_ms":407523,"accuracy":0.6666666666666666,"abandonedEarly":false}
+{"childId":"reina","sessionDate":"2026-04-28T00:49:11.128Z","nodeType":"spell-check","word":"session","theme":"default","rating":"dislike","completionTime_ms":0,"accuracy":0,"abandonedEarly":true}
+{"childId":"reina","sessionDate":"2026-04-28T00:49:11.128Z","nodeType":"wheel-of-fortune","word":"session","theme":"default","rating":"like","completionTime_ms":132955,"accuracy":1,"abandonedEarly":false}
+{"childId":"reina","sessionDate":"2026-04-28T00:49:11.128Z","nodeType":"wheel-of-fortune","word":"session","theme":"default","rating":"dislike","completionTime_ms":0,"accuracy":0,"abandonedEarly":true}

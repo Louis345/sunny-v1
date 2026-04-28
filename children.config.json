@@ -13,7 +13,7 @@
       "showKeyboard": false,
       "games": {
         "word-radar": {
-          "inputMode": "whole-word",
+          "inputMode": "letter-by-letter",
           "showTimer": true,
           "personalBestMetric": "accuracy",
           "keyboardStyle": "option-c"

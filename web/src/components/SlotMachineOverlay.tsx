@@ -55,6 +55,8 @@ export interface SlotMachineOverlayProps {
   companionName: string;
   onClaim: (reward: RewardItem) => void;
   onPhase1Begin?: () => void;
+  /** Tap backdrop / overlay to clear (e.g. preview when animation never reaches claim). */
+  onDismiss?: () => void;
 }
 
 /**
@@ -65,6 +67,7 @@ export function SlotMachineOverlay({
   companionName: _companionName,
   onClaim,
   onPhase1Begin,
+  onDismiss,
 }: SlotMachineOverlayProps) {
   void _companionName;
   const [phase, setPhase] = useState<UiPhase | null>(null);
@@ -155,7 +158,10 @@ export function SlotMachineOverlay({
   const tierLabel = `Tier ${event.tier}`;
 
   return (
-    <div className="fixed inset-0 z-[12000] flex items-center justify-center pointer-events-auto">
+    <div
+      className="fixed inset-0 z-[12000] flex items-center justify-center pointer-events-auto"
+      onClick={() => onDismiss?.()}
+    >
       <div
         className={`absolute inset-0 transition-[background] duration-500 ${
           phase === "dim" ? "bg-black/70" : "bg-black/80"

@@ -23,6 +23,7 @@ import {
   isDiagMapMode,
   sunnyPreviewBlocksPersistence,
 } from "../utils/runtimeMode";
+import { buildMapSummaryFromPendingNodes } from "../shared/mapSummary";
 import { readWordBank } from "../utils/wordBankIO";
 import { appendNodeRating } from "../utils/nodeRatingIO";
 import { isCompanionEmote } from "../shared/companionEmotes";
@@ -43,6 +44,8 @@ export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
     "microphone with colorful sound waves, children's educational app icon, bright purple background, cute cartoon style, transparent background",
   "spell-check":
     "golden pencil writing glowing letters, spelling bee trophy, stars, children's game icon, transparent background",
+  wordle:
+    "colorful letter tiles floating in space, word puzzle game, children's game icon, transparent background",
   "word-builder":
     "colorful alphabet blocks stacked in tower, letters glowing, children's educational toy, transparent background",
   karaoke:
@@ -52,6 +55,7 @@ export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
   quest:
     "treasure chest bursting open with gold stars and letters, adventure game icon, transparent background",
   boss: "epic castle with lightning bolts, final challenge, dramatic sky, game icon, transparent background",
+  "wheel-of-fortune": "colorful carnival wheel spinning in space, gold coins flying",
 };
 
 async function enrichHomeworkNodeThumbnails(
@@ -536,6 +540,8 @@ export function isWordDrivenHomeworkNodeType(t: string): boolean {
     t === "karaoke" ||
     t === "word-builder" ||
     t === "spell-check" ||
+    t === "wordle" ||
+    t === "wheel-of-fortune" ||
     t === "quest" ||
     t === "boss"
   );
@@ -699,6 +705,11 @@ export function buildDiagMapSession(): { sessionId: string; mapState: MapState }
   return { sessionId, mapState };
 }
 
+/** Map overview for companion prompts (exported for tests). */
+export function buildMapSummary(mapState: MapState): string {
+  return buildMapSummaryFromPendingNodes(mapState.nodes);
+}
+
 export async function startMapSession(
   childId: string,
 ): Promise<{ sessionId: string; mapState: MapState }> {
@@ -780,6 +791,16 @@ export function handleMapClientMessage(
         : cur.wordRadarItems?.length
           ? `${childId} just started a ${cur.type} activity. Word: "${cur.wordRadarItems[0].display}".`
           : `${childId} just started a ${cur.type} activity.`;
+      const gameContextSession = sm as typeof sm & {
+        injectGameContext?: (state: Record<string, unknown>) => void;
+      };
+      gameContextSession.injectGameContext?.({
+        game: cur.type,
+        phase: "launched",
+        nodeId: cur.id,
+        currentWord: cur.words?.[0] ?? cur.wordRadarItems?.[0]?.display ?? "",
+        progress: nodeSummary,
+      });
       sm.noteExternalEvent({
         source: "map_node_started",
         summary: nodeSummary,
@@ -794,15 +815,25 @@ export function handleMapClientMessage(
     const childId = rec.mapState.childId;
     const sm = getActiveVoiceSessionManagerForChild(childId);
     if (sm) {
+      const payload =
+        msg.payload != null &&
+        typeof msg.payload === "object" &&
+        !Array.isArray(msg.payload)
+          ? (msg.payload as Record<string, unknown>)
+          : {};
+      const gameContextSession = sm as typeof sm & {
+        injectGameContext?: (state: Record<string, unknown>) => void;
+      };
+      gameContextSession.injectGameContext?.(payload);
       const progress = String(
-        (msg.payload as Record<string, unknown> | undefined)?.progress ??
-          "Working on a game",
+        payload.progress ?? "Working on a game",
       );
       sm.noteExternalEvent({
         source: "game_state_update",
         summary: progress,
         occurredAt: Date.now(),
       });
+      console.log("  🎮 [map-coordinator] game_state_update injected");
     }
     return [];
   }

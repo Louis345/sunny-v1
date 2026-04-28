@@ -29,7 +29,7 @@ import {
 } from "../utils/audioAnalyser";
 import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
 import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
-import { getNodeAudioDefaults } from "../../../src/shared/nodeAudioDefaults";
+import { mapNodeSessionAudioFlags } from "./mapNodeSessionAudio";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -984,7 +984,12 @@ export function useSession(options?: UseSessionOptions) {
       case "game_message": {
         const forward = msg.forward as Record<string, unknown> | undefined;
         if (forward) {
-          sendToIframe(forward);
+          const activeIframe = adventureGameIframeSourceRef.current?.current;
+          if (activeIframe?.contentWindow) {
+            activeIframe.contentWindow.postMessage(forward, "*");
+          } else {
+            sendToIframe(forward);
+          }
         }
         break;
       }
@@ -1248,17 +1253,11 @@ export function useSession(options?: UseSessionOptions) {
 
   useEffect(() => {
     if (state.phase !== "active") return;
-    if (!mapNodeType) return;
-    const d = getNodeAudioDefaults(mapNodeType);
-    const shouldMute = d.companionMicDefault === "off";
-    const gameNeedsStt =
-      shouldMute &&
-      (mapNodeType === "karaoke" ||
-        mapNodeType === "pronunciation" ||
-        mapNodeType === "word-radar");
-    setMicMuted(gameNeedsStt ? false : shouldMute);
-    sendMessage("set_mute", { muted: gameNeedsStt ? false : shouldMute });
-    setTtsMuted(d.companionTtsDefault === "off");
+    const { companionTtsMuted, micMuted, serverMicMuted } =
+      mapNodeSessionAudioFlags(mapNodeType);
+    setTtsMuted(companionTtsMuted);
+    setMicMuted(micMuted);
+    sendMessage("set_mute", { muted: serverMicMuted });
   }, [mapNodeType, state.phase, sendMessage]);
 
   // --- Actions ---
@@ -1405,6 +1404,8 @@ export function useSession(options?: UseSessionOptions) {
           "round_complete",
           "round_failed",
           "game_complete",
+          "game_state_update",
+          "companion_event",
         ].includes(t)
       ) {
         console.log(`  🎮 forwarded to server: ${t}`);

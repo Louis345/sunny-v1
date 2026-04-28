@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { randomUUID } from "crypto";
 import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
@@ -40,6 +41,7 @@ import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
+import { CompanionRegistry } from "../prompts/companions/registry";
 
 const companions = {
   Ila: ELLI,
@@ -50,6 +52,7 @@ type ChildName = keyof typeof companions;
 
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 
 function isValidChild(name: string): name is ChildName {
   return name === "Ila" || name === "Reina";
@@ -91,6 +94,76 @@ function pickDiagSpellingWord(childId: string): string {
   const nw = `diag-mastered-seed-${randomUUID().slice(0, 8)}`;
   ensureWordInBank(childId, nw, "spelling", "diag_trigger");
   return nw;
+}
+
+type ShowroomLine = "intro" | "plead";
+
+type ShowroomJson = {
+  scripts?: Record<string, Partial<Record<ShowroomLine, unknown>>>;
+};
+
+function getPronunciationLocators():
+  | Array<{ pronunciationDictionaryId: string; versionId: string }>
+  | undefined {
+  const dictId = process.env.ELEVENLABS_PRONUNCIATION_DICT_ID;
+  const versionId = process.env.ELEVENLABS_PRONUNCIATION_DICT_VERSION;
+  if (!dictId || !versionId) return undefined;
+  return [{ pronunciationDictionaryId: dictId, versionId }];
+}
+
+async function audioLikeToBuffer(audio: unknown): Promise<Buffer> {
+  if (Buffer.isBuffer(audio)) return audio;
+  if (audio instanceof ArrayBuffer) return Buffer.from(audio);
+  if (audio instanceof Uint8Array) return Buffer.from(audio);
+  if (
+    audio &&
+    typeof audio === "object" &&
+    "arrayBuffer" in audio &&
+    typeof (audio as { arrayBuffer: unknown }).arrayBuffer === "function"
+  ) {
+    const ab = await (audio as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer();
+    return Buffer.from(ab);
+  }
+  if (
+    audio &&
+    typeof audio === "object" &&
+    Symbol.asyncIterator in audio
+  ) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of audio as AsyncIterable<Uint8Array>) {
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+  throw new Error("Unsupported ElevenLabs audio response");
+}
+
+function readShowroomScript(
+  companionId: string,
+  companionName: string,
+  line: ShowroomLine,
+  language: string,
+): string {
+  const showroomPath = path.join(
+    process.cwd(),
+    "src",
+    "prompts",
+    "companions",
+    companionId,
+    "showroom.json",
+  );
+  const raw = fs.existsSync(showroomPath)
+    ? (JSON.parse(fs.readFileSync(showroomPath, "utf8")) as ShowroomJson)
+    : null;
+  const requested = raw?.scripts?.[language]?.[line];
+  const fallback = raw?.scripts?.en?.[line];
+  const text =
+    (typeof requested === "string" && requested.trim()) ||
+    (typeof fallback === "string" && fallback.trim()) ||
+    (line === "intro"
+      ? `Hi! I'm ${companionName}. I'm so excited to meet you.`
+      : `Please pick me! I think we could have so much fun learning together.`);
+  return text.trim();
 }
 
 /**
@@ -340,6 +413,55 @@ export function setupRoutes(app: Express): void {
       },
     ];
     res.json(configs);
+  });
+
+  app.post("/api/companions/:companionId/speak", async (req: Request, res: Response) => {
+    const companionId =
+      typeof req.params.companionId === "string"
+        ? req.params.companionId.trim()
+        : "";
+    const lineRaw = typeof req.body?.line === "string" ? req.body.line.trim() : "";
+    const line: ShowroomLine = lineRaw === "plead" ? "plead" : "intro";
+    const languageRaw =
+      typeof req.body?.language === "string" ? req.body.language.trim().toLowerCase() : "en";
+    const language = languageRaw || "en";
+    if (!companionId) {
+      return res.status(400).json({ ok: false, error: "companionId_required" });
+    }
+
+    let companion;
+    try {
+      companion = CompanionRegistry.getById(companionId);
+    } catch {
+      return res.status(404).json({ ok: false, error: "unknown_companion" });
+    }
+
+    const voiceId = companion.voiceId?.trim();
+    if (!voiceId) {
+      return res.status(400).json({ ok: false, error: "voice_unavailable" });
+    }
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" });
+    }
+
+    try {
+      const text = readShowroomScript(companion.id, companion.name, line, language);
+      const client = new ElevenLabsClient({ apiKey });
+      const locators = getPronunciationLocators();
+      const audio = await client.textToSpeech.convert(voiceId, {
+        text,
+        modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
+        ...(locators && { pronunciationDictionaryLocators: locators }),
+      });
+      const buffer = await audioLikeToBuffer(audio);
+      res.setHeader("Content-Type", "audio/mpeg");
+      res.setHeader("Cache-Control", "no-store");
+      res.send(buffer);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ ok: false, error: message });
+    }
   });
 
   app.get("/api/child/:name/context", (req: Request, res: Response) => {

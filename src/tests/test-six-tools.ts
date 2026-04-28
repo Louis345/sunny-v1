@@ -95,4 +95,15 @@ describe("six tools (harness)", () => {
       payload: { emote: "wink", intensity: 0.7 },
     });
   });
+
+  it("spinWheel tool executes against host", async () => {
+    const h = new SixToolsMemoryHarness();
+    const tools = createSixTools(h);
+    const exec = tools.spinWheel.execute;
+    expect(exec).toBeDefined();
+
+    const out = await exec!({}, { toolCallId: "spin-1", messages: [] });
+
+    expect(out).toMatchObject({ ok: true, action: "wheel_spin" });
+  });
 });

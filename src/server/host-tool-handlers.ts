@@ -335,6 +335,7 @@ export async function hostSessionStatus(session: any): Promise<Record<string, un
       activeWord: session.activeWord,
       wordBuilderRound: session.wbActive && session.wbRound > 0 ? session.wbRound : null,
       lastChildUtterance: session.lastTranscript || null,
+      currentActivityState: session.currentActivityState ?? null,
     };
   }
 

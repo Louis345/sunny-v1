@@ -11,6 +11,7 @@ const WORD_DRIVEN_MAP_TYPES = new Set<string>([
   "karaoke",
   "word-builder",
   "spell-check",
+  "wordle",
   "quest",
   "boss",
 ]);
@@ -24,6 +25,7 @@ export const BANDIT_POOL: NodeType[] = [
   "clock-game",
   "coin-counter",
   "spell-check",
+  "wordle",
 ];
 
 function sessionTotalNodes(attentionWindow_ms: number): 3 | 4 | 5 {

@@ -203,6 +203,7 @@ body {
   var ended = false;
   var targetHour = 3;
   var targetMinute = 0;
+  var clockHeartbeatId = null;
 
   function setMascot(emoji, bounce) {
     mascot.textContent = emoji;
@@ -216,6 +217,7 @@ body {
   function finish(correct) {
     if (ended) return;
     ended = true;
+    if (clockHeartbeatId) { clearInterval(clockHeartbeatId); clockHeartbeatId = null; }
     sendNodeComplete({
       completed: true,
       accuracy: correct ? 1 : 0,
@@ -264,7 +266,19 @@ body {
     setMascot("😊", false);
     if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
       window.GameBridge.reportState(
-        "Reading a clock — what time does it show?"
+        "Clock game — what clock shows " + label + "?",
+        {
+          phase: "playing",
+          currentWord: label,
+          correct: null,
+        }
+      );
+    }
+    if (clockHeartbeatId) clearInterval(clockHeartbeatId);
+    if (window.GameBridge && typeof window.GameBridge.startHeartbeat === "function") {
+      clockHeartbeatId = window.GameBridge.startHeartbeat(
+        function() { return "Clock game in progress — find " + formatPrompt(targetHour, targetMinute); },
+        function() { return { phase: "playing", currentWord: formatPrompt(targetHour, targetMinute) }; }
       );
     }
   }
@@ -283,7 +297,14 @@ body {
     card.classList.add("shake");
     setMascot("😢", true);
     if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
-      window.GameBridge.reportState("Wrong clock answer — trying again");
+      window.GameBridge.reportState(
+        "Wrong clock answer — trying again",
+        {
+          phase: "playing",
+          currentWord: formatPrompt(targetHour, targetMinute),
+          correct: false,
+        }
+      );
     }
     if (wrongTaps >= 2) {
       setTimeout(function () { finish(false); }, 500);

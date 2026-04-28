@@ -1,8 +1,10 @@
 {
   "name": "Elli",
   "voiceId": "PeNaJO83cBW3Cf3YGzjZ",
+  "voiceModelId": "eleven_multilingual_v2",
   "ttsName": "ELL-ee",
   "unlockCost": 0,
-  "vrmPath": "assets/vrm/elli.vrm",
+  "vrmPath": "/companions/2878599730723533962.vrm",
+  "showInShowroom": false,
   "defaultFor": "ila"
 }

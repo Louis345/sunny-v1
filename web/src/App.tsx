@@ -14,9 +14,12 @@ import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
+import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
 import type { GameIframeOverlayState } from "./components/AdventureMap";
+import type { NodeConfig } from "../../src/shared/adventureTypes";
+import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
 import { CompanionLayer } from "./components/CompanionLayer";
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
@@ -50,6 +53,13 @@ const DIAG_READING_TEST_EXCERPT =
   "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
 
 const DIAG_READING_TEST_WORDS = DIAG_READING_TEST_EXCERPT.split(/\s+/).filter(Boolean);
+
+/** Diag overlay games that suppress companion mic (STT loop risk or reading focus). */
+const DIAG_GAMES_SUPPRESS_MIC = new Set<string>([
+  "reading",
+  "pronunciation",
+  "word-radar",
+]);
 
 const DIAG_PRONUNCIATION_WORDS = [
   "blister",
@@ -88,6 +98,71 @@ function resolveMapPreviewMode(): false | "free" | "go-live" {
 }
 
 const mapPreviewMode = resolveMapPreviewMode();
+
+function childNameFromId(childId: string | null): string {
+  if (!childId) return "Sunny";
+  return childId.charAt(0).toUpperCase() + childId.slice(1);
+}
+
+function shouldUseSessionLoadingOverlay(): boolean {
+  if (import.meta.env.VITE_MODE === "intro") return false;
+  if (import.meta.env.VITE_MODE === "diag") return false;
+  if (diagMapPanelEnabled) return false;
+  if (import.meta.env.VITE_REWARD_DIAG === "true") return false;
+  if (import.meta.env.VITE_COMPANION_DIAG === "true") return false;
+  if (import.meta.env.VITE_DIAG_READING === "true") return false;
+  if (import.meta.env.VITE_DIAG_PRONUNCIATION === "true") return false;
+  return true;
+}
+
+function usePreloadedImages(urls: Array<string | null | undefined>, enabled: boolean): boolean {
+  const key = [
+    ...new Set(
+      urls.filter((url): url is string => typeof url === "string" && url.trim().length > 0),
+    ),
+  ]
+    .sort()
+    .join("|");
+  const stableUrls = useMemo(() => (key ? key.split("|") : []), [key]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setLoadedKey(null);
+      return;
+    }
+    if (stableUrls.length === 0) {
+      setLoadedKey(key);
+      return;
+    }
+    let cancelled = false;
+    let remaining = stableUrls.length;
+    setLoadedKey(null);
+    const finishOne = () => {
+      remaining -= 1;
+      if (!cancelled && remaining <= 0) {
+        setLoadedKey(key);
+        console.log(" 🎮 [loading-screen] assets ready", { count: stableUrls.length });
+      }
+    };
+    const imgs = stableUrls.map((url) => {
+      const img = new Image();
+      img.onload = finishOne;
+      img.onerror = finishOne;
+      img.src = url;
+      return img;
+    });
+    return () => {
+      cancelled = true;
+      for (const img of imgs) {
+        img.onload = null;
+        img.onerror = null;
+      }
+    };
+  }, [enabled, key, stableUrls]);
+
+  return enabled && loadedKey === key;
+}
 
 type RewardDiagQueued = RewardDiagEvent & { diagId: string };
 
@@ -260,6 +335,9 @@ function App() {
   const [profileCompanion, setProfileCompanion] = useState<CompanionConfig | null>(
     null,
   );
+  const [profileAvatarImagePath, setProfileAvatarImagePath] = useState<string | null>(
+    null,
+  );
   const [profileTamagotchi, setProfileTamagotchi] = useState<TamagotchiState | null>(
     null,
   );
@@ -267,15 +345,19 @@ function App() {
     showTimer: boolean;
     showKeyboard: boolean;
     personalBests: Record<string, number>;
+    inputMode: "whole-word" | "letter-by-letter" | "keyboard";
   } | null>(null);
   const [wordRadarDiagOpen, setWordRadarDiagOpen] = useState(false);
+  const [diagWordleUrl, setDiagWordleUrl] = useState<string | null>(null);
+  const [diagWheelUrl, setDiagWheelUrl] = useState<string | null>(null);
   const [diagFlowGameOpen, setDiagFlowGameOpen] = useState<
-    "reading" | "pronunciation" | "word-radar" | null
+    "reading" | "pronunciation" | "word-radar" | "wordle" | "wheel-of-fortune" | null
   >(null);
   const [pendingDiagFlowGame, setPendingDiagFlowGame] = useState<
-    "reading" | "pronunciation" | "word-radar" | null
+    "reading" | "pronunciation" | "word-radar" | "wordle" | "wheel-of-fortune" | null
   >(null);
   const [diagGameRestartRequested, setDiagGameRestartRequested] = useState(false);
+  const lastDiagLaunchEventRef = useRef<string | null>(null);
   const [companionSheetOpen, setCompanionSheetOpen] = useState(false);
   const [diagCompanionCommands, setDiagCompanionCommands] = useState<
     CompanionCommand[]
@@ -286,6 +368,8 @@ function App() {
     url: null,
   });
   const [sessionReady, setSessionReady] = useState(false);
+  const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
+  const [loadingSafetyReleased, setLoadingSafetyReleased] = useState(false);
 
   const {
     adventureChildId,
@@ -328,21 +412,65 @@ function App() {
     mapPreviewMode,
   );
 
+  const theaterLoadingEnabled = shouldUseSessionLoadingOverlay();
+  const mapReady =
+    !adventureChildId ||
+    (mapSession.sessionStarted && (mapSession.mapState?.nodes.length ?? 0) > 0);
+  const voiceReady =
+    !adventureChildId || !theaterLoadingEnabled || state.phase === "active";
+  const profileReady = !activeProfileChildId || profileCompanion !== null;
+  const themeImageUrls = [
+    profileAvatarImagePath,
+    mapSession.mapState?.theme.backgroundUrl,
+    mapSession.mapState?.theme.castleUrl,
+    ...Object.values(mapSession.mapState?.theme.nodeThumbnails ?? {}),
+  ];
+  const imagesReady = usePreloadedImages(
+    themeImageUrls,
+    theaterLoadingEnabled && !!adventureChildId && mapReady && profileReady,
+  );
+  const loadingAssetsReady =
+    !adventureChildId || !theaterLoadingEnabled || (profileReady && imagesReady);
+
+  const onLockedMapNodeTap = useCallback(
+    (node: NodeConfig) => {
+      const who = state.childName ?? adventureChildId ?? "the child";
+      sendMessage("test_transcript", {
+        text:
+          `[Map] ${who} tapped a locked map node (${node.type}). ` +
+          `Reply in one short warm sentence: encourage finishing the unlocked activity first — do not start a new game.`,
+      });
+    },
+    [state.childName, adventureChildId, sendMessage],
+  );
+
   useEffect(() => {
     setSessionReady(false);
+    setLoadingSafetyReleased(false);
   }, [adventureChildId]);
 
   useEffect(() => {
     if (sessionReady) return;
-    if (mapSession.sessionStarted || (mapSession.mapState?.nodes.length ?? 0) > 0) {
+    if (mapReady && ((voiceReady && loadingAssetsReady) || loadingSafetyReleased)) {
       setSessionReady(true);
+      console.log(" 🎮 [loading-screen] curtain lift ready", {
+        safetyReleased: loadingSafetyReleased,
+      });
     }
-  }, [sessionReady, mapSession.sessionStarted, mapSession.mapState]);
+  }, [
+    loadingAssetsReady,
+    loadingSafetyReleased,
+    mapReady,
+    sessionReady,
+    voiceReady,
+  ]);
 
   const activeVoiceGameNodeType =
     diagFlowGameOpen === "reading"
       ? "karaoke"
-      : diagFlowGameOpen ?? mapSession.launchedNode?.type ?? null;
+      : diagFlowGameOpen === "wordle"
+        ? null
+        : diagFlowGameOpen ?? mapSession.launchedNode?.type ?? null;
 
   useEffect(() => {
     registerMapNodeType(activeVoiceGameNodeType);
@@ -351,6 +479,36 @@ function App() {
     mapSession.launchedNode?.id,
     registerMapNodeType,
   ]);
+
+  useEffect(() => {
+    if (
+      state.phase !== "active" ||
+      (diagFlowGameOpen !== "wordle" && diagFlowGameOpen !== "wheel-of-fortune")
+    ) {
+      lastDiagLaunchEventRef.current = null;
+      return;
+    }
+    const game =
+      diagFlowGameOpen === "wheel-of-fortune" ? "Wheel of Fortune" : "Wordle";
+    const currentWord =
+      diagFlowGameOpen === "wheel-of-fortune" ? "inventor" : "farmer";
+    const key = `${diagFlowGameOpen}:${currentWord}:${state.phase}`;
+    if (lastDiagLaunchEventRef.current === key) return;
+    lastDiagLaunchEventRef.current = key;
+    sendMessage("game_event", {
+      event: {
+        type: "game_state_update",
+        version: "1.0",
+        payload: {
+          game,
+          phase: "launched",
+          currentWord,
+          progress: `${game} diagnostic launched.`,
+          childId: "creator",
+        },
+      },
+    });
+  }, [diagFlowGameOpen, sendMessage, state.phase]);
 
   const startDiagGameMicSession = useCallback(() => {
     startSession("creator", {
@@ -361,10 +519,68 @@ function App() {
   }, [startSession]);
 
   const openDiagFlowGame = useCallback(
-    (mode: "reading" | "pronunciation" | "word-radar") => {
+    (mode: "reading" | "pronunciation" | "word-radar" | "wordle" | "wheel-of-fortune") => {
       setDiagFlowGameOpen(mode);
       setWordRadarDiagOpen(mode === "word-radar");
       setPendingDiagFlowGame(mode);
+      if (mode === "wordle") {
+        const cid = (
+          activeProfileChildId ??
+          adventureChildId ??
+          "creator"
+        ).toLowerCase();
+        const comp = effectiveCompanion?.companionId ?? "elli";
+        const action = buildNodeLaunchAction(
+          {
+            id: "diag-wordle-app",
+            type: "wordle",
+            words: ["farmer"],
+            difficulty: 2,
+          },
+          {
+            childId: cid,
+            companion: comp,
+            isDiagMode: true,
+            /** Live _contract.js bridge so game_state_update reaches the voice session (not preview=free). */
+            iframePreviewParam: "go-live",
+          },
+        );
+        if (action.kind === "iframe") {
+          setDiagWordleUrl(action.url);
+        } else {
+          setDiagWordleUrl(null);
+        }
+      } else if (mode === "wheel-of-fortune") {
+        const cid = (
+          activeProfileChildId ??
+          adventureChildId ??
+          "creator"
+        ).toLowerCase();
+        const comp = effectiveCompanion?.companionId ?? "elli";
+        const action = buildNodeLaunchAction(
+          {
+            id: "diag-wof-app",
+            type: "wheel-of-fortune",
+            words: ["inventor"],
+            difficulty: 2,
+          },
+          {
+            childId: cid,
+            companion: comp,
+            isDiagMode: true,
+            /** Live _contract.js bridge so game_state_update reaches the voice session (not preview=free). */
+            iframePreviewParam: "go-live",
+          },
+        );
+        if (action.kind === "iframe") {
+          setDiagWheelUrl(action.url);
+        } else {
+          setDiagWheelUrl(null);
+        }
+      } else {
+        setDiagWordleUrl(null);
+        setDiagWheelUrl(null);
+      }
       if (state.phase === "active" && state.diagGameSessionReady) {
         setPendingDiagFlowGame(null);
         return;
@@ -375,12 +591,24 @@ function App() {
         return;
       }
       if (state.phase !== "connecting") {
-        startDiagGameMicSession();
+        if (mode === "wheel-of-fortune") {
+          startSession("creator", {
+            diagKiosk: true,
+            silentTts: false,
+            sttOnly: false,
+          });
+        } else {
+          startDiagGameMicSession();
+        }
       }
     },
     [
+      activeProfileChildId,
+      adventureChildId,
+      effectiveCompanion?.companionId,
       endSession,
       startDiagGameMicSession,
+      startSession,
       state.diagGameSessionReady,
       state.phase,
     ],
@@ -407,6 +635,8 @@ function App() {
   const closeDiagFlowGame = useCallback(() => {
     setDiagFlowGameOpen(null);
     setWordRadarDiagOpen(false);
+    setDiagWordleUrl(null);
+    setDiagWheelUrl(null);
     setPendingDiagFlowGame(null);
     setDiagGameRestartRequested(false);
   }, []);
@@ -476,21 +706,34 @@ function App() {
         }
         return r.json() as Promise<{
           companion?: CompanionConfig;
+          avatarImagePath?: string | null;
           tamagotchi?: TamagotchiState;
           wordRadar?: {
             showTimer?: boolean;
             showKeyboard?: boolean;
             personalBests?: Record<string, number>;
+            inputMode?: string;
           };
         }>;
       })
       .then((data) => {
         if (!cancelled) {
           setProfileCompanion(mergeCompanionConfigWithDefaults(data.companion));
+          setProfileAvatarImagePath(
+            typeof data.avatarImagePath === "string" &&
+              data.avatarImagePath.trim().length > 0
+              ? data.avatarImagePath.trim()
+              : null,
+          );
           setProfileTamagotchi(data.tamagotchi ?? null);
           const wr = data.wordRadar;
           if (wr && typeof wr === "object") {
             const pb = wr.personalBests;
+            const im = wr.inputMode;
+            const inputMode: "whole-word" | "letter-by-letter" | "keyboard" =
+              im === "letter-by-letter" || im === "keyboard" || im === "whole-word"
+                ? im
+                : "whole-word";
             setProfileWordRadar({
               showTimer: wr.showTimer === true,
               showKeyboard: wr.showKeyboard === true,
@@ -498,6 +741,7 @@ function App() {
                 pb && typeof pb === "object" && !Array.isArray(pb)
                   ? (pb as Record<string, number>)
                   : {},
+              inputMode,
             });
           } else {
             setProfileWordRadar(null);
@@ -507,6 +751,7 @@ function App() {
       .catch(() => {
         if (!cancelled) {
           setProfileCompanion(null);
+          setProfileAvatarImagePath(null);
           setProfileTamagotchi(null);
           setProfileWordRadar(null);
         }
@@ -514,6 +759,7 @@ function App() {
     return () => {
       cancelled = true;
       setProfileCompanion(null);
+      setProfileAvatarImagePath(null);
       setProfileWordRadar(null);
     };
   }, [activeProfileChildId]);
@@ -530,23 +776,51 @@ function App() {
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <button
             type="button"
-            className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
+            className="absolute top-3 left-3 z-[9100] rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
             onClick={() => {
               setCompanionSheetOpen(false);
               setAdventureChildId(null);
+              setSelectedChildName(null);
               resetToPicker();
             }}
           >
             Back
           </button>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p
-              className="animate-pulse text-3xl font-black tracking-wide"
-              style={{ color: "#FFD93D" }}
-            >
-              Getting ready...
-            </p>
-          </div>
+          {theaterLoadingEnabled ? (
+            <SessionLoadingOverlay
+              childName={
+                state.childName ??
+                selectedChildName ??
+                childNameFromId(adventureChildId)
+              }
+              avatarImagePath={profileAvatarImagePath}
+              accentColor={state.companion?.accentColor ?? mapSession.theme?.palette.accent}
+              accentBg={state.companion?.accentBg ?? mapSession.theme?.palette.cardBackground}
+              voiceReady={voiceReady}
+              mapReady={mapReady}
+              assetsReady={loadingAssetsReady}
+              paletteSeed={`${adventureChildId}:${mapSession.theme?.name ?? "sunny"}`}
+              onSafetyRelease={() => {
+                if (!mapReady) {
+                  console.warn(" 🎮 [loading-screen] safety release waiting for map");
+                  return;
+                }
+                setLoadingSafetyReleased(true);
+              }}
+              onHardRelease={() => {
+                setSessionReady(true);
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p
+                className="animate-pulse text-3xl font-black tracking-wide"
+                style={{ color: "#FFD93D" }}
+              >
+                Getting ready...
+              </p>
+            </div>
+          )}
         </div>
       );
     } else {
@@ -554,10 +828,11 @@ function App() {
       <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
         <button
           type="button"
-          className="absolute top-3 left-3 z-20 rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
+          className="absolute top-3 left-3 z-[9100] rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
           onClick={() => {
             setCompanionSheetOpen(false);
             setAdventureChildId(null);
+            setSelectedChildName(null);
             resetToPicker();
           }}
         >
@@ -567,6 +842,7 @@ function App() {
           childId={adventureChildId}
           mapSession={mapSession}
           previewMode={mapPreviewMode}
+          onLockedNodeTap={onLockedMapNodeTap}
           mapCompanion={effectiveCompanion}
           companionMutedForMap={companionMuted}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
@@ -607,6 +883,7 @@ function App() {
               showTimer: true,
               showKeyboard: false,
               personalBests: {},
+              inputMode: "whole-word",
             }
           }
         />
@@ -659,6 +936,7 @@ function App() {
         )}
         <ChildPicker
           onSelect={(name, opts) => {
+            setSelectedChildName(name);
             if (adventureMapEnabled) {
               setAdventureChildId(name.trim().toLowerCase());
             }
@@ -669,13 +947,34 @@ function App() {
     );
   } else if (state.phase === "connecting") {
     main = (
-      <div className="w-screen h-screen overflow-hidden flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-pulse text-2xl mb-2">🌟</div>
-          <p className="text-gray-600">
-            {state.loadingMessage ?? "Connecting..."}
-          </p>
-        </div>
+      <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+        {theaterLoadingEnabled ? (
+          <SessionLoadingOverlay
+            childName={state.childName ?? selectedChildName ?? "Sunny"}
+            avatarImagePath={profileAvatarImagePath}
+            accentColor={state.companion?.accentColor}
+            accentBg={state.companion?.accentBg}
+            voiceReady={false}
+            mapReady={mapReady}
+            assetsReady={loadingAssetsReady}
+            paletteSeed={selectedChildName ?? state.childName ?? "sunny"}
+            onSafetyRelease={() => {
+              if (mapReady) setLoadingSafetyReleased(true);
+            }}
+            onHardRelease={() => {
+              setSessionReady(true);
+            }}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-gray-50">
+            <div className="text-center">
+              <div className="animate-pulse text-2xl mb-2">🌟</div>
+              <p className="text-gray-600">
+                {state.loadingMessage ?? "Connecting..."}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     );
   } else if (state.phase === "active") {
@@ -719,7 +1018,10 @@ function App() {
     main = (
       <div className="w-screen h-screen overflow-hidden">
         <SessionEnd
-          onReturn={resetToPicker}
+          onReturn={() => {
+            setSelectedChildName(null);
+            resetToPicker();
+          }}
           childName={state.childName}
           companionName={state.companion?.companionName}
         />
@@ -737,7 +1039,8 @@ function App() {
     (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
   const voiceGameCompanionMicMuted =
     karaokeReadingActive ||
-    diagFlowGameOpen != null ||
+    (diagFlowGameOpen != null &&
+      DIAG_GAMES_SUPPRESS_MIC.has(diagFlowGameOpen)) ||
     wordRadarDiagOpen ||
     (state.phase === "active" && state.canvas.mode === "pronunciation") ||
     mapSession.launchedNode?.type === "karaoke" ||
@@ -765,6 +1068,8 @@ function App() {
             onTestReading={() => openDiagFlowGame("reading")}
             onTestPronunciation={() => openDiagFlowGame("pronunciation")}
             onTestWordRadar={() => openDiagFlowGame("word-radar")}
+            onTestWordle={() => openDiagFlowGame("wordle")}
+            onTestWheelOfFortune={() => openDiagFlowGame("wheel-of-fortune")}
           />
         </div>
       ) : null}
@@ -843,6 +1148,7 @@ function App() {
             autoStart={state.diagGameSessionReady}
             timerSeconds={profileWordRadar?.showTimer === true ? 10 : undefined}
             showKeyboard={profileWordRadar?.showKeyboard ?? false}
+            inputMode={profileWordRadar?.inputMode}
             personalBests={profileWordRadar?.personalBests ?? {}}
             companion={effectiveCompanion}
             childId={activeProfileChildId ?? ""}
@@ -850,6 +1156,26 @@ function App() {
               console.log("  🎮 [DiagPanel] WordRadar result", result);
               setWordRadarDiagOpen(false);
             }}
+          />
+        </FlowGameOverlay>
+      ) : null}
+      {diagFlowGameOpen === "wordle" && diagWordleUrl ? (
+        <FlowGameOverlay onBack={closeDiagFlowGame}>
+          <iframe
+            ref={adventureGameIframeRef}
+            title="Wordle"
+            src={diagWordleUrl}
+            style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
+          />
+        </FlowGameOverlay>
+      ) : null}
+      {diagFlowGameOpen === "wheel-of-fortune" && diagWheelUrl ? (
+        <FlowGameOverlay onBack={closeDiagFlowGame}>
+          <iframe
+            ref={adventureGameIframeRef}
+            title="Wheel of Fortune"
+            src={diagWheelUrl}
+            style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
           />
         </FlowGameOverlay>
       ) : null}

@@ -15,7 +15,10 @@ import {
   normalizeSessionSubject,
 } from "../agents/prompts";
 import { loadHomeworkPayload } from "../utils/loadHomeworkFolder";
-import { getReadingCanvasPreferencesForChild } from "../utils/learningProfileIO";
+import {
+  getReadingCanvasPreferencesForChild,
+  readLearningProfile,
+} from "../utils/learningProfileIO";
 import { classifyAndRoute } from "../agents/classifier/classifier";
 import {
   extractHomeworkProblems,
@@ -43,6 +46,10 @@ import {
   isDiagMapMode,
   isHomeworkMode,
 } from "../utils/runtimeMode";
+import {
+  buildMapSummaryFromPendingNodes,
+  MAP_SUMMARY_NATURAL_USE_INSTRUCTION,
+} from "../shared/mapSummary";
 import {
   applyDebugClaudeOpeningLineForSession,
   prependDebugClaudeDeveloperBlock,
@@ -74,6 +81,19 @@ export type SessionStartHooks = {
   registerCreatorDiagReadingSession?: (session: unknown) => void;
 };
 
+/** Spelling word list for homework/spelling sessions — pending ingest list wins over OCR folder text. */
+export function resolveSpellingWordListForHomework(opts: {
+  worksheetMode: boolean;
+  extractSpellingWords: boolean;
+  pendingWordList?: string[] | null;
+  rawContent: string;
+}): string[] {
+  if (opts.worksheetMode || !opts.extractSpellingWords) return [];
+  const pending = (opts.pendingWordList ?? []).map((x) => String(x).trim()).filter(Boolean);
+  if (pending.length > 0) return pending;
+  return extractWordsFromHomework(opts.rawContent);
+}
+
 export async function runSessionStart(
   session: any,
   hooks: SessionStartHooks = {},
@@ -99,6 +119,10 @@ export async function runSessionStart(
       ? session.childName
       : (parseSunnyChildEnv() ?? detectedChild ?? "Ila");
     console.log(`  👤 Child override: ${homeworkChild}`);
+
+    const sessionLearningProfile = !session.diagKioskFast
+      ? readLearningProfile(String(homeworkChild).toLowerCase())
+      : null;
 
     let homeworkPayload: Awaited<ReturnType<typeof loadHomeworkPayload>> | null =
       null;
@@ -640,10 +664,12 @@ export async function runSessionStart(
         const extractSpellingWords =
           !session.worksheetMode &&
           (subject === "spelling" || subject === "homework");
-        const wordList =
-          session.worksheetMode || !extractSpellingWords
-            ? []
-            : extractWordsFromHomework(homeworkPayload.rawContent);
+        const wordList = resolveSpellingWordListForHomework({
+          worksheetMode: session.worksheetMode,
+          extractSpellingWords,
+          pendingWordList: sessionLearningProfile?.pendingHomework?.wordList,
+          rawContent: homeworkPayload.rawContent,
+        });
         if (!session.worksheetMode && extractSpellingWords && wordList.length > 0) {
           console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
           session.spellingHomeworkWordsByNorm = [
@@ -890,8 +916,8 @@ export async function runSessionStart(
       session.companion = {
         ...session.companion,
         openingLine:
-          `Hi — reviewing ${getTtsNameForChildId(String(homeworkChild))}'s homework session. ` +
-          "Click any node to preview. Nothing will be recorded.",
+          `Hi! I'm here with ${getTtsNameForChildId(String(homeworkChild))} on the homework map — ` +
+          "I'll chat and cheer them on as we try things. Progress won't be saved to their profile in this preview run.",
       };
     }
 
@@ -931,6 +957,19 @@ This is a safe space to test everything.
           `will see. Nothing is recorded. ` +
           `Ask me anything or just play through the nodes.`,
       };
+    }
+
+    if (
+      sessionLearningProfile?.pendingHomework?.nodes?.length &&
+      (subject === "homework" || subject === "spelling")
+    ) {
+      const mapBlock = buildMapSummaryFromPendingNodes(
+        sessionLearningProfile.pendingHomework.nodes,
+      );
+      if (mapBlock) {
+        session.companion.systemPrompt +=
+          `\n\n## Today's map\n${mapBlock}\n\n${MAP_SUMMARY_NATURAL_USE_INSTRUCTION}`;
+      }
     }
 
     session.send("session_started", {

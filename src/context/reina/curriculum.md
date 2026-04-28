@@ -1,36 +1,35 @@
 ## Focus Area
-**Multi-Digit Addition and Subtraction with Regrouping**
+**Pattern-Based Spelling with Competitive Framing and Multi-Digit Math Integration**
 
-Reina has mastered single-digit facts (100% accuracy across 16/16 attempts) and demonstrated strong problem-solving transfer from riddles to math contexts. Her competitive nature and wrestling background make her ready for "harder takedowns" - multi-digit problems that require strategic thinking and regrouping. This targets her self-identified math gaps while building on her proven strengths.
+Based on Reina's word attempt history, she has mastered only 1 spelling word (keyboard) out of 4 attempted, with 0% accuracy on rhythm, towel, and candle. However, her 100% accuracy on homework-based inflectional endings (moving, movers, move, add) and classroom spelling tests indicates the issue is task design, not capability. She needs Wilson-style pattern practice combined with her competitive wrestling mindset and math strength integration.
 
 ## Words for Next 3 Sessions
-
-**Session 1:** 47 + 28, 65 - 29, 156 + 78, 84 - 37, 129 + 45
-**Session 2:** 234 - 67, 178 + 156, 92 - 48, 203 + 89, 145 - 78  
-**Session 3:** 456 + 287, 300 - 142, 178 + 294, 521 - 256, 389 + 175
+Session 1: splash, crash, flash, thrash, clash
+Session 2: bright, flight, might, sight, fight  
+Session 3: strand, grand, brand, stand, hand
 
 ## Clinical Reasoning
+Reina's session data reveals she learns through patterns, competition, and application - not isolated drill. The failed attempts on rhythm (irregular), towel (riddle context confusion), and candle (abandoned) show she needs Wilson Reading System's systematic approach:
 
-Reina's session history shows she thrives on:
+**Pattern-based progression**: All selected words follow consistent digraph patterns (sh, ght, nd) that build phonemic awareness systematically rather than irregular outliers like "rhythm"
 
-1. **Competitive framing**: She sustained 10-problem streaks and caught instructor errors - ready for "beat your time" challenges with carrying/borrowing
-2. **Pattern recognition**: 100% accuracy on spelling patterns (keyboard, towel) and riddle logic transfers to place-value patterns in regrouping
-3. **Applied contexts**: Failed at worksheet drill (26% coin accuracy) but succeeded with word problems (86% store-game accuracy) - embed these in wrestling scenarios ("3 matches worth 47 points each, plus 28 bonus points")
-4. **Wrestling metaphors**: Use "pin the tens," "carry the one like a takedown," "regroup for the next round"
-5. **Japanese celebration**: すごい and やった after successful regrouping builds confidence
+**Wrestling integration**: Frame as "spelling takedowns" - "Can you pin all 5 words in under 2 minutes?" Use her 100% math fact accuracy as confidence builder: "You crushed 16/16 math problems, now let's dominate these consonant blends"
 
-The progression from 2-digit (Session 1) to 3-digit with zeros (Session 3) matches her advanced processing while maintaining challenge level that engages rather than bores her.
+**Competitive streaks**: Build on her sustained 10-problem math streak. Track consecutive spelling accuracy with Japanese celebration (すごい, やった) when she hits personal bests
+
+**Multi-step processing**: Her riddle mastery (15+/15 correct) shows strong phonological analysis. Apply this to syllable segmentation: "strand" = /str/ + /and/, like solving riddle clues step-by-step
+
+**Applied contexts**: Integrate with her math strength - after spelling "bright," solve "47 + 28" to maintain dual-domain engagement and prevent worksheet fatigue that caused 26% coin counting failure
 
 ## Success Looks Like
+**Pattern mastery**: Reina spells "crash" and immediately identifies the /ash/ pattern in "splash, thrash, clash" without prompting
 
-**Regrouping mastery**: Reina solves 47 + 28 by carrying the one without hesitation, explaining "7 + 8 = 15, write 5 carry 1"
+**Speed building**: By Session 2, she completes all 5 words in under 90 seconds with 80%+ accuracy while explaining the pattern rule
 
-**Speed building**: By Session 2, she completes 5 problems in under 3 minutes with 80%+ accuracy
+**Transfer application**: Session 3 includes reading "The wrestler took a grand stand" and she decodes "grand" and "stand" fluently, connecting to spelling knowledge
 
-**Transfer to word problems**: Session 3 includes "In 3 wrestling matches, Reina scored 156, 78, and 129 points. What's her total?" and she sets up the addition independently
+**Competitive engagement**: She requests "Can I beat my spelling record?" and celebrates consecutive correct attempts with wrestling metaphors ("That's a pin!")
 
-**Competitive engagement**: She asks "Can I beat my record?" and celebrates personal bests with Japanese expressions
+**Integration success**: Alternates between 5-word spelling sets and 2-3 multi-digit math problems without losing engagement, maintaining 85%+ accuracy across both domains
 
-**Self-regulation**: When stuck, she asks for hints rather than giving up, and exits on successful completion rather than frustration
-
-When she hits 85%+ accuracy on 3-digit regrouping, advance to multiplication concepts using wrestling scenarios (3 matches × 47 points each).
+When she hits consistent 90%+ accuracy on consonant blend patterns, advance to Wilson Step 2 (closed syllable exceptions) while introducing multiplication word problems.

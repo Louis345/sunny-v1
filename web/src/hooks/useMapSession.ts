@@ -14,6 +14,7 @@ import type {
   NodeResult,
   SessionTheme,
 } from "../../../src/shared/adventureTypes";
+import { applyLocalNodeResult } from "../../../src/shared/mapLocalProgress";
 
 export type MapConnectionStatus = "idle" | "connecting" | "open" | "error";
 
@@ -57,6 +58,13 @@ function isCompanionCommandMessage(msg: unknown): msg is {
 const DIAG_READING_ENABLED =
   import.meta.env.VITE_DIAG_READING === "true";
 
+/** Diag reading replaces node 1 with karaoke unless user opened homework map preview (`?homeworkPreview=1`). */
+function homeworkMapPreviewFromSearch(): boolean {
+  if (typeof window === "undefined") return false;
+  const v = new URLSearchParams(window.location.search).get("homeworkPreview");
+  return v === "1" || v?.toLowerCase() === "true";
+}
+
 const DIAG_KARAOKE_WORDS: readonly string[] = [
   "Chimpanzees",
   "are",
@@ -84,6 +92,9 @@ const DIAG_KARAOKE_WORDS: readonly string[] = [
 ];
 
 function applyDiagReadingFirstNode(mapState: MapState): MapState {
+  if (homeworkMapPreviewFromSearch()) {
+    return mapState;
+  }
   if (!DIAG_READING_ENABLED || mapState.nodes.length === 0) {
     return mapState;
   }
@@ -373,6 +384,15 @@ export function useMapSession(
 
   const sendNodeResult = useCallback(
     async (result: NodeResult) => {
+      if (previewMode === "free" || previewMode === "go-live") {
+        const cur = mapStateRef.current;
+        if (!cur) return null;
+        const next = applyDiagReadingFirstNode(applyLocalNodeResult(cur, result));
+        setMapState(next);
+        setTheme(next.theme);
+        setLaunchedNode(null);
+        return next;
+      }
       if (!sessionId) return null;
       try {
         const res = await postJson<{
@@ -381,9 +401,6 @@ export function useMapSession(
         }>("/api/map/node-complete", {
           sessionId,
           result,
-          ...(mapPreviewQueryParam(previewMode)
-            ? { preview: mapPreviewQueryParam(previewMode) }
-            : {}),
         });
         setMapState(applyDiagReadingFirstNode(res.mapState));
         setTheme(res.mapState.theme);

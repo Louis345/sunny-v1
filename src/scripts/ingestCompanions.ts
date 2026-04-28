@@ -1,20 +1,85 @@
 import fs from "node:fs";
 import path from "node:path";
 
+type CompanionConfig = {
+  name?: unknown;
+  voiceId?: unknown;
+  voiceModelId?: unknown;
+  ttsName?: unknown;
+  unlockCost?: unknown;
+  vrmPath?: unknown;
+  showInShowroom?: unknown;
+  defaultFor?: unknown;
+};
+
+type ShowroomScripts = Record<
+  string,
+  {
+    intro?: unknown;
+    plead?: unknown;
+  }
+>;
+
+type ShowroomConfig = {
+  modelName?: unknown;
+  sourceUrl?: unknown;
+  recommendedNames?: unknown;
+  ageImage?: unknown;
+  personality?: unknown;
+  personalityTags?: unknown;
+  likes?: unknown;
+  dislikes?: unknown;
+  catchphrases?: unknown;
+  specialSkills?: unknown;
+  role?: unknown;
+  outfitChangeEffect?: unknown;
+  gestureProfile?: unknown;
+  scripts?: unknown;
+};
+
 type CompanionManifestEntry = {
   id: string;
   name: string;
   vrmUrl: string;
   personality: string[];
+  unlockCost: number;
+  voiceAvailable: boolean;
+  defaultFor?: string | string[];
+  showroom?: {
+    modelName?: string;
+    sourceUrl?: string;
+    recommendedNames: string[];
+    ageImage?: string;
+    personality: string;
+    likes: string[];
+    dislikes: string[];
+    catchphrases: string[];
+    specialSkills: string[];
+    role?: string;
+    outfitChangeEffect?: string;
+    gestureProfile: {
+      meet: string;
+      intro: string[];
+      plead: string[];
+    };
+    scripts: {
+      en: {
+        intro: string;
+        plead: string;
+      };
+      ja?: {
+        intro?: string;
+        plead?: string;
+      };
+    };
+  };
 };
 
-type CompanionSidecar = {
-  displayName?: unknown;
-  personality?: unknown;
-};
+type CompanionManifestShowroom = NonNullable<CompanionManifestEntry["showroom"]>;
 
 const repoRoot = process.cwd();
 const companionsDir = path.join(repoRoot, "web", "public", "companions");
+const promptCompanionsDir = path.join(repoRoot, "src", "prompts", "companions");
 const outputPath = path.join(
   repoRoot,
   "web",
@@ -22,22 +87,98 @@ const outputPath = path.join(
   "companion",
   "companions.generated.ts",
 );
+
 const defaultPersonality = ["friendly", "curious", "loves learning"];
 
-function capitalise(name: string): string {
-  return name.length > 0 ? `${name[0].toUpperCase()}${name.slice(1)}` : name;
-}
-
-function readSidecar(filePath: string): CompanionSidecar | null {
+function readJson<T>(filePath: string): T | null {
   if (!fs.existsSync(filePath)) return null;
-  const raw = fs.readFileSync(filePath, "utf8");
-  return JSON.parse(raw) as CompanionSidecar;
+  return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
 }
 
-function resolvePersonality(value: unknown): string[] {
-  if (!Array.isArray(value)) return defaultPersonality;
-  const cleaned = value.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
-  return cleaned.length > 0 ? cleaned : defaultPersonality;
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string" && v.trim().length > 0).map((v) => v.trim());
+}
+
+function asDefaultFor(value: unknown): string | string[] | undefined {
+  const single = asString(value);
+  if (single) return single;
+  const arr = asStringArray(value);
+  return arr.length > 0 ? arr : undefined;
+}
+
+function asGestureProfile(value: unknown): CompanionManifestShowroom["gestureProfile"] {
+  const obj =
+    value && typeof value === "object"
+      ? (value as { meet?: unknown; intro?: unknown; plead?: unknown })
+      : {};
+  const meet = asString(obj.meet) ?? "wave";
+  const intro = asStringArray(obj.intro);
+  const plead = asStringArray(obj.plead);
+  return {
+    meet,
+    intro: intro.length > 0 ? intro : ["wave", "think"],
+    plead: plead.length > 0 ? plead : ["dance_victory", "wave"],
+  };
+}
+
+function normalizeVrmPath(value: unknown): string | null {
+  const raw = asString(value);
+  if (!raw) return null;
+  const file = path.basename(raw);
+  if (!file.toLowerCase().endsWith(".vrm")) return null;
+  const publicPath = path.join(companionsDir, file);
+  return fs.existsSync(publicPath) ? `/companions/${file}` : null;
+}
+
+function resolveScripts(
+  companionName: string,
+  showroom: ShowroomConfig | null,
+): CompanionManifestShowroom["scripts"] {
+  const scripts = showroom?.scripts as ShowroomScripts | undefined;
+  const en = scripts?.en ?? {};
+  const intro =
+    asString(en.intro) ??
+    `Hi! I'm ${companionName}. I'm so excited to meet you.`;
+  const plead =
+    asString(en.plead) ??
+    `Please pick me! I think we could have so much fun learning together.`;
+  const ja = scripts?.ja;
+  const jaIntro = ja ? asString(ja.intro) : undefined;
+  const jaPlead = ja ? asString(ja.plead) : undefined;
+  return {
+    en: { intro, plead },
+    ...(jaIntro || jaPlead ? { ja: { intro: jaIntro, plead: jaPlead } } : {}),
+  };
+}
+
+function buildShowroom(
+  companionName: string,
+  showroom: ShowroomConfig | null,
+): CompanionManifestShowroom {
+  const personality =
+    asString(showroom?.personality) ??
+    `${companionName} is friendly, curious, and loves learning.`;
+  const recommendedNames = asStringArray(showroom?.recommendedNames);
+  return {
+    modelName: asString(showroom?.modelName),
+    sourceUrl: asString(showroom?.sourceUrl),
+    recommendedNames: recommendedNames.length > 0 ? recommendedNames : [companionName],
+    ageImage: asString(showroom?.ageImage),
+    personality,
+    likes: asStringArray(showroom?.likes),
+    dislikes: asStringArray(showroom?.dislikes),
+    catchphrases: asStringArray(showroom?.catchphrases),
+    specialSkills: asStringArray(showroom?.specialSkills),
+    role: asString(showroom?.role),
+    outfitChangeEffect: asString(showroom?.outfitChangeEffect),
+    gestureProfile: asGestureProfile(showroom?.gestureProfile),
+    scripts: resolveScripts(companionName, showroom),
+  };
 }
 
 function renderProgress(done: number, total: number): void {
@@ -56,16 +197,37 @@ export type CompanionManifestEntry = {
   vrmUrl: string;
   /** 3-5 adjectives an 8-year-old can understand, e.g. "super funny", "really patient" */
   personality: string[];
-  /** 3 adjectives from the curated personality pool (generated by generateCompanionPersonalities.ts) */
-  traits?: string[];
-  /** 1-2 sentence description of the companion (generated by generateCompanionPersonalities.ts) */
-  bio?: string;
-  /** Subject strengths with emoji and 1-5 level (generated by generateCompanionPersonalities.ts) */
-  subjects?: Array<{
-    label: string;
-    emoji: string;
-    level: number;
-  }>;
+  unlockCost: number;
+  voiceAvailable: boolean;
+  defaultFor?: string | string[];
+  showroom?: {
+    modelName?: string;
+    sourceUrl?: string;
+    recommendedNames: string[];
+    ageImage?: string;
+    personality: string;
+    likes: string[];
+    dislikes: string[];
+    catchphrases: string[];
+    specialSkills: string[];
+    role?: string;
+    outfitChangeEffect?: string;
+    gestureProfile: {
+      meet: string;
+      intro: string[];
+      plead: string[];
+    };
+    scripts: {
+      en: {
+        intro: string;
+        plead: string;
+      };
+      ja?: {
+        intro?: string;
+        plead?: string;
+      };
+    };
+  };
 };
 
 export const COMPANION_MANIFEST: CompanionManifestEntry[] = ${JSON.stringify(entries, null, 2)};
@@ -77,33 +239,69 @@ if (!fs.existsSync(companionsDir)) {
   process.exit(1);
 }
 
-const vrmFiles = fs
-  .readdirSync(companionsDir)
-  .filter((file) => file.toLowerCase().endsWith(".vrm"))
-  .sort((a, b) => a.localeCompare(b));
+if (!fs.existsSync(promptCompanionsDir)) {
+  console.error(`Prompt companions directory does not exist: ${promptCompanionsDir}`);
+  process.exit(1);
+}
 
-renderProgress(0, vrmFiles.length);
+const companionFolders = fs
+  .readdirSync(promptCompanionsDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+renderProgress(0, companionFolders.length);
 
 const entries: CompanionManifestEntry[] = [];
+const skipped: string[] = [];
 
-vrmFiles.forEach((file, index) => {
-  const id = path.basename(file, ".vrm");
-  const sidecar = readSidecar(path.join(companionsDir, `${id}.json`));
-  const displayName =
-    typeof sidecar?.displayName === "string" && sidecar.displayName.trim().length > 0
-      ? sidecar.displayName.trim()
-      : capitalise(id);
+companionFolders.forEach((dir, index) => {
+  const base = path.join(promptCompanionsDir, dir.name);
+  const config = readJson<CompanionConfig>(path.join(base, "companion.json"));
+  const personalityPath = path.join(base, "personality.md");
+  if (!config || !fs.existsSync(personalityPath)) {
+    skipped.push(`${dir.name} (missing companion.json or personality.md)`);
+    renderProgress(index + 1, companionFolders.length);
+    return;
+  }
+
+  if (config.showInShowroom === false) {
+    skipped.push(`${dir.name} (showInShowroom=false)`);
+    renderProgress(index + 1, companionFolders.length);
+    return;
+  }
+
+  const vrmUrl = normalizeVrmPath(config.vrmPath);
+  if (!vrmUrl) {
+    skipped.push(`${dir.name} (missing VRM: ${String(config.vrmPath ?? "")})`);
+    renderProgress(index + 1, companionFolders.length);
+    return;
+  }
+
+  const name = asString(config.name) ?? dir.name;
+  const showroom = readJson<ShowroomConfig>(path.join(base, "showroom.json"));
+  const tags = asStringArray(showroom?.personalityTags);
+  const unlockCost =
+    typeof config.unlockCost === "number" && Number.isFinite(config.unlockCost)
+      ? config.unlockCost
+      : 0;
 
   entries.push({
-    id,
-    name: displayName,
-    vrmUrl: `/companions/${file}`,
-    personality: resolvePersonality(sidecar?.personality),
+    id: dir.name,
+    name,
+    vrmUrl,
+    personality: tags.length > 0 ? tags : defaultPersonality,
+    unlockCost,
+    voiceAvailable: Boolean(asString(config.voiceId)),
+    defaultFor: asDefaultFor(config.defaultFor),
+    showroom: buildShowroom(name, showroom),
   });
-  renderProgress(index + 1, vrmFiles.length);
+  renderProgress(index + 1, companionFolders.length);
 });
 
 process.stdout.write("\n");
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, renderManifest(entries), "utf8");
 console.log(`✅ Companion manifest written — ${entries.length} companions found.`);
+if (skipped.length > 0) {
+  console.warn(`⚠️  Skipped companions: ${skipped.join(", ")}`);
+}

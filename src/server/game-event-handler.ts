@@ -180,6 +180,13 @@ export function handleGameEventForSession(
   }
 
   if (type === "game_state_update") {
+    const ctx: Record<string, unknown> = { ...event };
+    delete ctx.type;
+    delete ctx.version;
+    delete ctx.payload;
+    s.injectGameContext?.(ctx);
+    console.log("  🎮 [game_state_update] context queued for next companion turn");
+
     const progress =
       typeof event.progress === "string"
         ? event.progress

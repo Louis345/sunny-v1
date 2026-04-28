@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-04-04T23:53:44.866Z",
+  "lastUpdated": "2026-04-28T01:00:45.759Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -98,12 +98,182 @@
       "session_start": 0.8,
       "correct_answer": 0.8,
       "wrong_answer": 0.6,
-      "mastery_unlock": 1.0,
+      "mastery_unlock": 1,
       "session_end": 0.8,
       "idle_too_long": 0.4
     },
     "idleFrequency_ms": 45000,
     "randomMomentProbability": 0.3,
     "toggledOff": false
+  },
+  "pendingHomework": {
+    "weekOf": "2026-04-28",
+    "testDate": "2026-05-02",
+    "wordList": [
+      "faster",
+      "fastest",
+      "slower",
+      "slowest",
+      "newer",
+      "newest",
+      "colder",
+      "coldest",
+      "taller",
+      "tallest",
+      "covered",
+      "cried",
+      "figure",
+      "horse",
+      "money",
+      "products",
+      "questions",
+      "since",
+      "usually",
+      "voice"
+    ],
+    "homeworkId": "hw-spelling_test-2da310ad",
+    "generatedAt": "2026-04-28T00:30:41.239Z",
+    "nodes": [
+      {
+        "id": "n-word-radar-hw-spelling_test-2da310ad",
+        "type": "word-radar",
+        "words": [
+          "faster",
+          "fastest",
+          "slower",
+          "slowest",
+          "newer"
+        ],
+        "difficulty": 1,
+        "gameFile": null,
+        "storyFile": null,
+        "date": "2026-04-28",
+        "approved": false,
+        "wordRadarItems": [
+          {
+            "display": "faster",
+            "acceptedResponses": [
+              "faster"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "fastest",
+            "acceptedResponses": [
+              "fastest"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "slower",
+            "acceptedResponses": [
+              "slower"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "slowest",
+            "acceptedResponses": [
+              "slowest"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "newer",
+            "acceptedResponses": [
+              "newer"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          }
+        ]
+      },
+      {
+        "id": "n-spell-check-hw-spelling_test-2da310ad",
+        "type": "spell-check",
+        "words": [
+          "faster",
+          "fastest",
+          "slower",
+          "slowest",
+          "newer"
+        ],
+        "difficulty": 2,
+        "gameFile": null,
+        "storyFile": null,
+        "date": "2026-04-28",
+        "approved": false
+      },
+      {
+        "id": "n-wheel-hw-spelling_test-2da310ad",
+        "type": "wheel-of-fortune",
+        "words": [
+          "faster",
+          "fastest",
+          "slower",
+          "slowest",
+          "newer"
+        ],
+        "difficulty": 2,
+        "gameFile": null,
+        "storyFile": null,
+        "date": "2026-04-28",
+        "approved": false
+      },
+      {
+        "id": "n-karaoke-hw-spelling_test-2da310ad",
+        "type": "karaoke",
+        "words": [
+          "faster",
+          "fastest",
+          "slower",
+          "slowest",
+          "newer"
+        ],
+        "difficulty": 2,
+        "gameFile": null,
+        "storyFile": null,
+        "date": "2026-04-28",
+        "approved": false
+      }
+    ]
+  },
+  "banditState": {
+    "counts": [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    "values": [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0.9333333333333333,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ]
   }
 }

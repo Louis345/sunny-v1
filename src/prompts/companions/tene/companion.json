@@ -1,0 +1,8 @@
+{
+  "name": "Tene",
+  "voiceId": "vGQNBgLaiM3EdZtxIiuY",
+  "voiceModelId": "eleven_multilingual_v2",
+  "ttsName": "TEH-nay",
+  "unlockCost": 750,
+  "vrmPath": "/companions/1537416846714225126.vrm"
+}

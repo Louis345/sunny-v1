@@ -18,6 +18,7 @@ export interface ChildProfileWordRadar {
   showTimer: boolean;
   showKeyboard: boolean;
   personalBests: Record<string, number>;
+  inputMode: "whole-word" | "letter-by-letter" | "keyboard";
 }
 
 export interface GameConfig {

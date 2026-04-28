@@ -1,12 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { pendingHomeworkToNodeConfigs } from "../server/map-coordinator";
+import {
+  NODE_THUMBNAIL_PROMPTS,
+  isWordDrivenHomeworkNodeType,
+  pendingHomeworkToNodeConfigs,
+} from "../server/map-coordinator";
 import {
   buildNodeLaunchAction,
   buildNodeLaunchParams,
 } from "../shared/homeworkNodeRouting";
+import { ALL_NODE_TYPES } from "../shared/adventureTypes";
 import { NODE_REGISTRY, NODE_REGISTRY_KEYS } from "../shared/nodeRegistry";
+import { BANDIT_POOL } from "../engine/nodeSelection";
 
 describe("map node routing", () => {
+  it("ALL_NODE_TYPES includes wordle", () => {
+    expect(ALL_NODE_TYPES).toContain("wordle");
+  });
+
+  it('isWordDrivenHomeworkNodeType("wordle") returns true', () => {
+    expect(isWordDrivenHomeworkNodeType("wordle")).toBe(true);
+  });
+
+  it('NODE_THUMBNAIL_PROMPTS["wordle"] is defined', () => {
+    expect(NODE_THUMBNAIL_PROMPTS.wordle).toBeDefined();
+    expect(String(NODE_THUMBNAIL_PROMPTS.wordle).length).toBeGreaterThan(0);
+  });
+
   it("pronunciation node calls canvas_show pronunciation", () => {
     const action = buildNodeLaunchAction(
       {
@@ -61,6 +80,27 @@ describe("map node routing", () => {
     expect(params.get("preview")).toBe("free");
   });
 
+  it("iframePreviewParam go-live overrides isDiagMode for companion game_state_update bridge", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "diag-wof-app",
+        type: "wheel-of-fortune",
+        words: ["inventor"],
+        difficulty: 2,
+      },
+      {
+        childId: "creator",
+        companion: "elli",
+        isDiagMode: true,
+        iframePreviewParam: "go-live",
+      },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("preview=go-live");
+    expect(action.url).not.toContain("preview=free");
+  });
+
   it("companion param comes from children.config.json", () => {
     const params = buildNodeLaunchParams(
       { id: "n5", words: [], difficulty: 1 },
@@ -91,6 +131,8 @@ describe("map node routing", () => {
       "word-radar",
       "word-builder",
       "spell-check",
+      "wordle",
+      "wheel-of-fortune",
       "quest",
       "boss",
       "dopamine",
@@ -99,6 +141,23 @@ describe("map node routing", () => {
     for (const key of required) {
       expect(NODE_REGISTRY[key]).toBeDefined();
     }
+  });
+
+  it("wordle node builds iframe URL to wordle.html", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "diag-wordle-test",
+        type: "wordle",
+        words: ["farmer"],
+        difficulty: 2,
+      } as const,
+      { childId: "creator", companion: "elli", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/wordle.html");
+    expect(action.url).toContain("farmer");
+    expect(action.url).toContain("childId=creator");
   });
 
   it("spell-check node builds iframe URL to spell-check.html", () => {
@@ -211,5 +270,39 @@ describe("map node routing", () => {
     expect(out[0]?.words).toEqual(due);
     expect(out[1]?.words).toEqual(due);
     expect(out[2]?.words).toEqual([]);
+  });
+
+  it('ALL_NODE_TYPES includes "wheel-of-fortune"', () => {
+    expect(ALL_NODE_TYPES).toContain("wheel-of-fortune");
+  });
+
+  it('NODE_THUMBNAIL_PROMPTS["wheel-of-fortune"] is defined', () => {
+    expect(NODE_THUMBNAIL_PROMPTS["wheel-of-fortune"]).toBeDefined();
+    expect(String(NODE_THUMBNAIL_PROMPTS["wheel-of-fortune"]).length).toBeGreaterThan(0);
+  });
+
+  it('isWordDrivenHomeworkNodeType("wheel-of-fortune") returns true', () => {
+    expect(isWordDrivenHomeworkNodeType("wheel-of-fortune")).toBe(true);
+  });
+
+  it('"wheel-of-fortune" is NOT in BANDIT_POOL', () => {
+    expect(BANDIT_POOL).not.toContain("wheel-of-fortune");
+  });
+
+  it("wheel-of-fortune node builds iframe URL to WheelOfFortune.html", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "diag-wof-test",
+        type: "wheel-of-fortune",
+        words: ["inventor"],
+        difficulty: 2,
+      } as const,
+      { childId: "creator", companion: "elli", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/WheelOfFortune.html");
+    expect(action.url).toContain("inventor");
+    expect(action.url).toContain("childId=creator");
   });
 });

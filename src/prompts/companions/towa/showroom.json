@@ -1,0 +1,29 @@
+{
+  "modelName": "とわだぱカヒラ（燭台イヤリング）",
+  "sourceUrl": "https://hub.vroid.com/characters/1143363036574802531/models/4426293614259555199",
+  "recommendedNames": ["Towa", "Towadapa", "Kahira", "トワちゃん"],
+  "ageImage": "Around 8-9 years old, stylish little fashionista",
+  "personality": "Mysterious yet super cute girl who loves fashion and has a gentle glowing aura",
+  "personalityTags": ["stylish", "glowing", "gentle"],
+  "likes": ["fashion", "cute accessories", "glowing things", "night walks", "trying new outfits", "sweets"],
+  "dislikes": ["being too bright", "boring clothes", "being ignored"],
+  "catchphrases": ["It glows in the dark, you know!", "How's my outfit today?", "Let's shine together!", "Towa is here~"],
+  "specialSkills": ["Making accessories glow", "coordinating cute outfits", "lighting up dark places", "fashion advice"],
+  "role": "Your daughter's fashionable best friend, stylish little sister, and glow-in-the-dark adventure buddy",
+  "outfitChangeEffect": "Normal -> cute daily fashion girl. Glowing accessories -> mysterious cute night fairy.",
+  "gestureProfile": {
+    "meet": "wave",
+    "intro": ["wave", "think"],
+    "plead": ["wave", "dance_victory"]
+  },
+  "scripts": {
+    "en": {
+      "intro": "Hi! I'm Towa. I love glowing earrings, cute outfits, night walks, and making dark places feel friendly.",
+      "plead": "Pick me and we'll shine together. I'll help every lesson feel stylish, brave, and a little magical."
+    },
+    "ja": {
+      "intro": "トワだよ。かわいいアクセサリーと、光るものが大好き。",
+      "plead": "わたしを選んでね。一緒にきらきらしよう。"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { useSession } from "../hooks/useSession";
 import { useMapSession } from "../hooks/useMapSession";
@@ -61,12 +62,38 @@ const DIAG_BACKGROUND =
 
 const adventureMapEnabled = import.meta.env.VITE_ADVENTURE_MAP === "true";
 
+function homeworkMapPreviewFromSearch(): boolean {
+  if (typeof window === "undefined") return false;
+  const v = new URLSearchParams(window.location.search).get("homeworkPreview");
+  return v === "1" || v?.toLowerCase() === "true";
+}
+
+function readHomeworkMapPreviewChildFromSearch(): string | null {
+  if (!homeworkMapPreviewFromSearch()) return null;
+  const raw = new URLSearchParams(window.location.search).get("childId")?.trim().toLowerCase();
+  return raw && raw.length > 0 ? raw : null;
+}
+
+/** Map `session_started` display name to API `childId` (first token, lowercased). */
+function childIdFromDisplayName(name: string | null | undefined): string {
+  const s = (name ?? "").trim();
+  if (!s) return "creator";
+  return s.split(/\s+/)[0]!.toLowerCase();
+}
+
 function WordRadarDiagPanel({
+  adventureMapEnabled,
   interimTranscript,
+  mapChildId,
+  sessionChildDisplayName,
   sendMessage,
   wordRadar,
 }: {
+  adventureMapEnabled: boolean;
   interimTranscript: string;
+  mapChildId: string;
+  /** Active voice session display name — drives homework preview target when URL has no `childId`. */
+  sessionChildDisplayName: string;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   wordRadar: {
     showTimer: boolean;
@@ -77,18 +104,109 @@ function WordRadarDiagPanel({
     personalBests: Record<string, number>;
   };
 }) {
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [wordleUrl, setWordleUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!wordleUrl) return;
+    const onMsg = (ev: MessageEvent) => {
+      const d = ev.data;
+      if (!d || typeof d !== "object") return;
+      if ((d as { type?: string }).type !== "node_complete") return;
+      if (!adventureMapEnabled) {
+        console.log("  🎮 [DiagReadingScreen] wordle node_complete", d);
+        sendMessage("game_event", { event: d });
+      }
+      setWordleUrl(null);
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [wordleUrl, adventureMapEnabled, sendMessage]);
+
+  const openHomeworkMapPreview = useCallback(() => {
+    const cid = childIdFromDisplayName(sessionChildDisplayName);
+    const u = new URL(window.location.href);
+    u.searchParams.set("homeworkPreview", "1");
+    u.searchParams.set("childId", cid);
+    window.open(u.toString(), "_blank", "noopener,noreferrer");
+  }, [sessionChildDisplayName]);
+
   return (
-    <div
-      className="pointer-events-auto fixed bottom-4 left-4 z-[60] max-w-[280px] rounded-lg border border-white/20 bg-zinc-900/95 p-3 text-left text-xs text-zinc-100 shadow-lg"
-      style={{ fontFamily: "system-ui, sans-serif" }}
-    >
-      <GameSandbox
-        interimTranscript={interimTranscript}
-        sendMessage={sendMessage}
-        wordRadar={wordRadar}
-        wordRadarShowIntro
-      />
-    </div>
+    <>
+      <div
+        className="pointer-events-auto fixed bottom-4 left-4 z-[60] flex max-w-[280px] flex-col overflow-hidden rounded-lg border border-white/20 bg-zinc-900/95 text-left text-xs text-zinc-100 shadow-lg"
+        style={{ fontFamily: "system-ui, sans-serif" }}
+      >
+        <button
+          type="button"
+          className="w-full shrink-0 border-b border-white/15 bg-violet-800 px-3 py-2.5 text-sm font-semibold text-white hover:bg-violet-700"
+          onClick={openHomeworkMapPreview}
+        >
+          🏠 Preview Homework Map
+        </button>
+        <button
+          type="button"
+          className="flex w-full shrink-0 cursor-pointer items-center justify-between px-3 py-2 text-left text-zinc-100 hover:bg-white/5"
+          onClick={() => setDiagOpen((p) => !p)}
+        >
+          <span className="font-bold">Diag</span>
+          <span aria-hidden>{diagOpen ? "▲" : "▼"}</span>
+        </button>
+        {diagOpen ? (
+          <div className="max-h-[60vh] overflow-y-auto p-3">
+            <GameSandbox
+              interimTranscript={interimTranscript}
+              sendMessage={sendMessage}
+              wordRadar={wordRadar}
+              wordRadarShowIntro
+            />
+            <div className="mt-4 border-t border-white/15 pt-3">
+              <div className="mb-2 text-[10px] uppercase tracking-wide text-zinc-400">
+                WORDLE TEST
+              </div>
+              <button
+                type="button"
+                className="w-full rounded-md bg-violet-700 px-2 py-1.5 text-sm font-medium text-white hover:bg-violet-600"
+                onClick={() => {
+                  const action = buildNodeLaunchAction(
+                    {
+                      id: "diag-wordle-test",
+                      type: "wordle",
+                      words: ["farmer"],
+                      difficulty: 2,
+                    },
+                    { childId: mapChildId, companion: "elli", isDiagMode: true },
+                  );
+                  if (action.kind !== "iframe") return;
+                  setWordleUrl(action.url);
+                }}
+              >
+                Test Wordle
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+      {wordleUrl ? (
+        <div className="pointer-events-auto fixed inset-0 z-[100] flex flex-col bg-black/90">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
+            <span className="text-xs font-semibold text-white">Wordle (diag)</span>
+            <button
+              type="button"
+              className="rounded-md bg-white/10 px-3 py-1 text-xs text-white hover:bg-white/20"
+              onClick={() => setWordleUrl(null)}
+            >
+              Close
+            </button>
+          </div>
+          <iframe
+            title="Wordle diagnostic"
+            src={wordleUrl}
+            className="min-h-0 w-full flex-1 border-0 bg-transparent"
+          />
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -98,7 +216,16 @@ export function DiagReadingScreen() {
     useSession({
       adventureGameIframeRef,
     });
-  const mapSession = useMapSession(adventureMapEnabled ? "creator" : "");
+
+  const mapChildId = useMemo(() => {
+    const fromUrl = readHomeworkMapPreviewChildFromSearch();
+    if (fromUrl) return fromUrl;
+    return (
+      import.meta.env.VITE_DIAG_CHILD_ID?.trim().toLowerCase() || "creator"
+    );
+  }, []);
+
+  const mapSession = useMapSession(adventureMapEnabled ? mapChildId : "");
   const companion = useMemo(() => cloneCompanionDefaults(), []);
   const [standaloneReadingVisible, setStandaloneReadingVisible] = useState(true);
   const [wordRadarFromProfile, setWordRadarFromProfile] = useState<{
@@ -124,7 +251,7 @@ export function DiagReadingScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/profile/creator")
+    fetch(`/api/profile/${encodeURIComponent(mapChildId)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (cancelled || !data?.wordRadar) return;
@@ -132,6 +259,7 @@ export function DiagReadingScreen() {
           showTimer?: boolean;
           showKeyboard?: boolean;
           personalBests?: Record<string, number>;
+          inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
         };
         const gameWr = data.games?.["word-radar"] as
           | {
@@ -145,7 +273,7 @@ export function DiagReadingScreen() {
         setWordRadarFromProfile({
           showTimer: gameWr?.showTimer ?? (wr.showTimer === true),
           showKeyboard: gameWr?.inputMode === "keyboard" || wr.showKeyboard === true,
-          inputMode: gameWr?.inputMode,
+          inputMode: wr.inputMode ?? gameWr?.inputMode,
           speakStyle: gameWr?.speakStyle,
           keyboardStyle: gameWr?.keyboardStyle,
           personalBests:
@@ -160,7 +288,7 @@ export function DiagReadingScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mapChildId]);
 
   if (state.phase !== "active") {
     return (
@@ -179,7 +307,7 @@ export function DiagReadingScreen() {
           Connecting...
         </div>
         <CompanionLayer
-          childId="creator"
+          childId={mapChildId}
           companion={companion}
           toggledOff={false}
           mode="portrait"
@@ -208,7 +336,7 @@ export function DiagReadingScreen() {
       <>
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <AdventureMap
-            childId="creator"
+            childId={mapChildId}
             mapSession={mapSession}
             showFlowGameBackChrome
             onGameIframeMount={handleGameIframeMount}
@@ -238,7 +366,7 @@ export function DiagReadingScreen() {
           />
         </div>
         <CompanionLayer
-          childId="creator"
+          childId={mapChildId}
           companion={companion}
           toggledOff={false}
           mode="portrait"
@@ -247,7 +375,12 @@ export function DiagReadingScreen() {
           analyserNodeRef={analyserNodeRef}
         />
         <WordRadarDiagPanel
+          adventureMapEnabled
           interimTranscript={liveFlowStt}
+          mapChildId={mapChildId}
+          sessionChildDisplayName={
+            state.phase === "active" ? (state.childName ?? "") : ""
+          }
           sendMessage={sendMessage}
           wordRadar={wordRadarUi}
         />
@@ -280,7 +413,7 @@ export function DiagReadingScreen() {
         </button>
       )}
       <CompanionLayer
-        childId="creator"
+        childId={mapChildId}
         companion={companion}
         toggledOff={false}
         mode="portrait"
@@ -289,7 +422,12 @@ export function DiagReadingScreen() {
         analyserNodeRef={analyserNodeRef}
       />
       <WordRadarDiagPanel
+        adventureMapEnabled={false}
         interimTranscript={liveFlowStt}
+        mapChildId={mapChildId}
+        sessionChildDisplayName={
+          state.phase === "active" ? (state.childName ?? "") : ""
+        }
         sendMessage={sendMessage}
         wordRadar={wordRadarUi}
       />

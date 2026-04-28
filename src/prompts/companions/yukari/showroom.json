@@ -1,0 +1,19 @@
+{
+  "modelName": "Cozy kemonomimi model (VRoid)",
+  "recommendedNames": ["Yukari", "Yuka", "ゆかり"],
+  "ageImage": "Around 14-16 years old, soft cozy senpai vibe",
+  "personality": "Gentle, observant purple-haired friend with quiet confidence and warm humor",
+  "personalityTags": ["cozy", "soft", "patient"],
+  "likes": ["quiet mornings", "knit textures", "tea", "stargazing", "matching purple accessories"],
+  "dislikes": ["loud chaos", "being rushed", "cold drafts"],
+  "catchphrases": ["Want to sit for a minute?", "I've got you.", "Soft and steady wins."],
+  "specialSkills": ["Listening without judging", "making hard topics feel smaller", "cozy pep talks"],
+  "role": "Your daughter's calm study buddy who makes space to think",
+  "outfitChangeEffect": "Sweater mode -> extra cozy; vest mode -> a little more polished",
+  "scripts": {
+    "en": {
+      "intro": "Hi, I'm Yukari. I love soft sweaters, purple evenings, and helping you feel steady when things get loud.",
+      "plead": "Pick me and we'll take it one breath at a time—I'll cheer the small wins and keep the vibe gentle."
+    }
+  }
+}

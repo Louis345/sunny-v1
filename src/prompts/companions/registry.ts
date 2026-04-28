@@ -8,10 +8,12 @@ export interface CompanionDefinition {
   id: string;
   name: string;
   voiceId: string;
+  voiceModelId?: string;
   ttsName: string;
   unlockCost: number;
   vrmPath: string;
-  defaultFor?: string;
+  showInShowroom?: boolean;
+  defaultFor?: string | string[];
   personalityMarkdown: string;
   getGrowthModifier: (level: number) => string;
 }

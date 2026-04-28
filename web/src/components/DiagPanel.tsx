@@ -20,6 +20,8 @@ export interface DiagPanelProps {
   onTestReading?: () => void;
   onTestPronunciation?: () => void;
   onTestWordRadar?: () => void;
+  onTestWordle?: () => void;
+  onTestWheelOfFortune?: () => void;
 }
 
 async function postTestCompanionEvent(body: Record<string, unknown>): Promise<void> {
@@ -44,6 +46,8 @@ export function DiagPanel({
   onTestReading,
   onTestPronunciation,
   onTestWordRadar,
+  onTestWordle,
+  onTestWheelOfFortune,
 }: DiagPanelProps) {
   const startSessionRef = useRef(startSession);
   startSessionRef.current = startSession;
@@ -122,15 +126,39 @@ export function DiagPanel({
     onTestWordRadar?.();
   }, [onTestWordRadar]);
 
+  const [open, setOpen] = useState(false);
+
   return (
     <div
-      className="pointer-events-auto fixed bottom-4 left-4 z-[20] max-w-[280px] rounded-lg border border-white/20 bg-zinc-900/95 p-3 text-left text-xs text-zinc-100 shadow-lg"
+      className="pointer-events-auto fixed bottom-4 left-4 z-[20] flex max-w-[280px] flex-col overflow-hidden rounded-lg border border-white/20 bg-zinc-900/95 text-left text-xs text-zinc-100 shadow-lg"
       style={{ fontFamily: "system-ui, sans-serif" }}
     >
-      <div className="mb-3 border-b border-white/10 pb-2 font-semibold text-white/90">
-        Diag
-      </div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label="Toggle diagnostics panel"
+        onClick={() => setOpen((p) => !p)}
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "10px 14px",
+          background: "none",
+          border: "none",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          color: "inherit",
+          cursor: "pointer",
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        <span>Diag</span>
+        <span aria-hidden>{open ? "▲" : "▼"}</span>
+      </button>
 
+      {open ? (
+        <div className="max-h-[min(70vh,520px)] overflow-y-auto p-3">
       <section className="mb-3">
         <div className="mb-1 text-[10px] uppercase tracking-wide text-zinc-400">
           Voice
@@ -270,6 +298,73 @@ export function DiagPanel({
           ))}
         </div>
       </section>
+
+      {onTestWordle != null ? (
+        <div style={{ marginTop: 12 }}>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              color: "rgba(255,255,255,0.5)",
+              marginBottom: 6,
+            }}
+          >
+            WORDLE TEST
+          </div>
+          <button
+            type="button"
+            onClick={() => onTestWordle()}
+            style={{
+              width: "100%",
+              padding: "10px 0",
+              borderRadius: 8,
+              border: "none",
+              background: "#6d28d9",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Test Wordle
+          </button>
+        </div>
+      ) : null}
+      {onTestWheelOfFortune != null ? (
+        <div style={{ marginTop: 12 }}>
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              color: "rgba(255,255,255,0.5)",
+              marginBottom: 6,
+            }}
+          >
+            WHEEL OF FORTUNE TEST
+          </div>
+          <button
+            type="button"
+            onClick={() => onTestWheelOfFortune()}
+            style={{
+              width: "100%",
+              padding: "10px 0",
+              borderRadius: 8,
+              border: "none",
+              background: "#6d28d9",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Test Wheel of Fortune
+          </button>
+        </div>
+      ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

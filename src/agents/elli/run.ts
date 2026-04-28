@@ -9,13 +9,30 @@ export interface RunAgentOptions {
   profile: Profile;
   onToken: (chunk: string) => void;
   signal?: AbortSignal;
-  onStepFinish?: (step: { finishReason: string; toolCalls?: unknown[]; toolResults?: unknown[] }) => void;
+  onStepFinish?: (
+    step: { finishReason: string; toolCalls?: unknown[]; toolResults?: unknown[] },
+  ) => void | Promise<void>;
+  /**
+   * LLM step begins (before the provider is called). Pair with
+   * `experimentalOnToolCallStart` to reset "first tool in step" emote state.
+   */
+  experimentalOnStepStart?: (event: unknown) => void | Promise<void>;
+  /**
+   * A tool’s `execute` is about to run. Use to show thinking before work, not after
+   * `onStepFinish` (which runs after tools complete).
+   */
+  experimentalOnToolCallStart?: (event: unknown) => void | Promise<void>;
   quiet?: boolean;
   /** When true, append instruction to redirect to learning (called after 3 turns) */
   transitionToWorkPhase?: boolean;
   allowTransitionToWork?: boolean;
   /** Dynamic tool set — if not provided, falls back to buildAgentTools (ALL_TOOLS) */
   tools?: Record<string, any>;
+  /**
+   * Inserted in `streamText` immediately before the current user turn (e.g. pending
+   * `game_state_update` summary as user + assistant lines). Not part of rolling history.
+   */
+  injectedContextMessages?: ModelMessage[];
 }
 
 export function buildAgentTools(_opts: { allowTransitionToWork?: boolean } = {}) {
@@ -30,10 +47,16 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     onToken,
     signal,
     onStepFinish,
+    experimentalOnStepStart,
+    experimentalOnToolCallStart,
     quiet,
     transitionToWorkPhase,
     allowTransitionToWork,
   } = opts;
+  const injected = opts.injectedContextMessages?.filter(
+    (m) =>
+      typeof m.content !== "string" || m.content.trim().length > 0,
+  ) ?? [];
 
   let fullText = "";
   const systemPrompt = transitionToWorkPhase
@@ -46,14 +69,19 @@ export async function runAgent(opts: RunAgentOptions): Promise<string> {
     system: systemPrompt,
     messages: [
       ...history.filter(m => typeof m.content !== "string" || m.content.trim().length > 0),
+      ...injected,
       { role: "user", content: userMessage }
     ],
     maxOutputTokens: 500,
     tools: opts.tools ?? buildAgentTools({ allowTransitionToWork }),
     stopWhen: stepCountIs(8),
     abortSignal: signal,
-    onStepFinish: (step) => {
-      onStepFinish?.(step);
+    experimental_onStepStart: experimentalOnStepStart,
+    experimental_onToolCallStart: experimentalOnToolCallStart,
+    onStepFinish: async (step) => {
+      if (onStepFinish) {
+        await onStepFinish(step);
+      }
       if (!quiet) {
         console.log(
           "  🔧 Step finished:",

@@ -30,11 +30,7 @@ jobs:
         working-directory: web
         run: npm ci
 
-      - name: Build (root)
-        run: npm run build
-
-      - name: Build (web)
-        working-directory: web
+      - name: Build (root + web)
         run: npm run build
 
       - name: Test (Vitest root + web)

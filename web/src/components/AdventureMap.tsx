@@ -9,6 +9,7 @@ import type {
 import childrenCfg from "../../../children.config.json";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
+import { applyHomeworkStyleNodeLocks } from "../../../src/shared/mapNodeLocks";
 import { useTransition, type Palette } from "../context/TransitionContext";
 import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
@@ -63,6 +64,7 @@ const NODE_PALETTES: Partial<Record<NodeType, Palette>> = {
   boss:            { from: "#f59e0b", to: "#ef4444" }, // ember
   "word-builder":  { from: "#10b981", to: "#84cc16" }, // jungle
   "spell-check":   { from: "#06b6d4", to: "#3b82f6" }, // ocean dive
+  wordle:          { from: "#22d3ee", to: "#a78bfa" }, // tiles in space
   "clock-game":    { from: "#eab308", to: "#f97316" }, // honey
   "coin-counter":  { from: "#14b8a6", to: "#0ea5e9" }, // lagoon
   "space-invaders":{ from: "#8b5cf6", to: "#ec4899" }, // magic hour
@@ -147,6 +149,8 @@ export function AdventureMap(props: {
   onVrrPhase1Begin?: () => void;
   /** Map UI: opens tamagotchi care sheet (e.g. "Elli's Care" button). */
   onOpenTamagotchiSheet?: () => void;
+  /** Learner tapped a locked node — parent can forward to voice (e.g. test_transcript). */
+  onLockedNodeTap?: (node: NodeConfig) => void;
 }) {
   const resolved = props.childId.trim();
 
@@ -359,6 +363,7 @@ export function AdventureMap(props: {
       const nid = mapState.completedNodes[n - 1];
       const node = mapState.nodes.find((x) => x.id === nid);
       if (nid && node) {
+        let innerClearId: number | undefined;
         const show = window.setTimeout(() => {
           setRatingPrompt({
             nodeId: nid,
@@ -382,9 +387,13 @@ export function AdventureMap(props: {
           if (ev) {
             vrrDroppedRef.current = true;
             setPendingVrr(ev);
+            innerClearId = window.setTimeout(() => setPendingVrr(null), 100);
           }
         }, 500);
-        return () => window.clearTimeout(show);
+        return () => {
+          window.clearTimeout(show);
+          if (innerClearId !== undefined) window.clearTimeout(innerClearId);
+        };
       }
     }
     return undefined;
@@ -561,9 +570,8 @@ export function AdventureMap(props: {
           onComplete: () => {
             commitLaunchedNode(result);
             console.log("[DEBUG] after commitLaunchedNode (canvas path)");
-            // word-radar is handled client-side only — sending canvas_show to
-            // the voice WS would hit the default error branch and clear adventureChildId.
-            if (!mapPreview && result.type !== "word-radar") {
+            // Word Radar is client-only — never canvas_show. Other canvas nodes: skip in map preview (no server canvas sync).
+            if (result.type !== "word-radar" && !mapPreview) {
               props.karaokeReadingForMapNode?.sendMessage?.(
                 "canvas_show",
                 payload,
@@ -646,17 +654,10 @@ export function AdventureMap(props: {
   const nodes = mapState?.nodes ?? [];
   const previewActive =
     props.previewMode === "free" || props.previewMode === "go-live";
-  const displayNodes = previewActive
-    ? nodes.map((n) => ({
-        ...n,
-        isLocked: false,
-        isCompleted: false,
-      }))
-    : nodes;
+  const completedForLocks = new Set(mapState?.completedNodes ?? []);
+  const displayNodes =
+    nodes.length > 0 ? applyHomeworkStyleNodeLocks(nodes, completedForLocks) : [];
   const activeIndex = mapState?.currentNodeIndex ?? 0;
-  const completed = new Set(
-    previewActive ? [] : (mapState?.completedNodes ?? []),
-  );
 
   const level = mapState?.level ?? 1;
   const xp = mapState?.xp ?? 0;
@@ -749,7 +750,7 @@ export function AdventureMap(props: {
                   (node.isGoal
                     ? (castleUrl ?? thumbs?.[node.type])
                     : thumbs?.[node.type]);
-                const isDone = completed.has(node.id);
+                const isDone = node.isCompleted;
                 const isActive = i === activeIndex && !isDone;
                 return (
                   <NodeCard
@@ -758,6 +759,7 @@ export function AdventureMap(props: {
                     position={pos}
                     thumbnail={thumbBase ?? undefined}
                     onClick={() => void handleNodeLaunch(node)}
+                    onLockedClick={() => props.onLockedNodeTap?.(node)}
                     isActive={isActive}
                     onHoverChange={(h) => {
                       setHoveredNodeIndex(h ? i : null);
@@ -909,16 +911,11 @@ export function AdventureMap(props: {
                 props.karaokeReadingForMapNode?.interimTranscript ?? ""
               }
               sendMessage={
-                props.previewMode === "free"
-                  ? (_type: string, _payload?: Record<string, unknown>) => {
-                      void _type;
-                      void _payload;
-                    }
-                  : props.karaokeReadingForMapNode?.sendMessage ??
-                    ((_type: string, _payload?: Record<string, unknown>) => {
-                      void _type;
-                      void _payload;
-                    })
+                props.karaokeReadingForMapNode?.sendMessage ??
+                ((_type: string, _payload?: Record<string, unknown>) => {
+                  void _type;
+                  void _payload;
+                })
               }
               timerSeconds={props.wordRadarFromProfile?.showTimer === true ? 10 : undefined}
               showKeyboard={props.wordRadarFromProfile?.showKeyboard === true}
@@ -929,10 +926,6 @@ export function AdventureMap(props: {
               companion={props.mapCompanion ?? null}
               childId={props.childId}
               onComplete={(result) => {
-                if (props.previewMode === "free" || props.showFlowGameBackChrome) {
-                  clearLaunchedNode();
-                  return;
-                }
                 void sendNodeResult({
                   nodeId: launchedNode.id,
                   completed: true,
@@ -1165,38 +1158,41 @@ export function AdventureMap(props: {
           🍎 Elli's Care
         </button>
       ) : null}
-      <SlotMachineOverlay
-        event={pendingVrr}
-        companionName={
-          props.mapCompanion?.companionId ?? "companion"
-        }
-        onPhase1Begin={props.onVrrPhase1Begin}
-        onClaim={async (reward) => {
-          const ev = pendingVrr;
-          setPendingVrr(null);
-          if (!ev) return;
-          console.log("[VRR] claimed:", reward.id);
-          if (props.previewMode === "free" || props.previewMode === "go-live") {
-            return;
+      {false && pendingVrr && (
+        <SlotMachineOverlay
+          event={pendingVrr}
+          companionName={
+            props.mapCompanion?.companionId ?? "companion"
           }
-          try {
-            const r = await fetch(
-              `/api/profile/${encodeURIComponent(resolved)}/vrr-claim`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ rewardId: reward.id }),
-              },
-            );
-            const j = (await r.json()) as { tamagotchi?: TamagotchiState };
-            if (j.tamagotchi && props.onTamagotchiSynced) {
-              props.onTamagotchiSynced(j.tamagotchi);
+          onPhase1Begin={props.onVrrPhase1Begin}
+          onDismiss={() => setPendingVrr(null)}
+          onClaim={async (reward) => {
+            const ev = pendingVrr;
+            setPendingVrr(null);
+            if (!ev) return;
+            console.log("[VRR] claimed:", reward.id);
+            if (props.previewMode === "free" || props.previewMode === "go-live") {
+              return;
             }
-          } catch {
-            /* best-effort */
-          }
-        }}
-      />
+            try {
+              const r = await fetch(
+                `/api/profile/${encodeURIComponent(resolved)}/vrr-claim`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ rewardId: reward.id }),
+                },
+              );
+              const j = (await r.json()) as { tamagotchi?: TamagotchiState };
+              if (j.tamagotchi && props.onTamagotchiSynced) {
+                props.onTamagotchiSynced(j.tamagotchi);
+              }
+            } catch {
+              /* best-effort */
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

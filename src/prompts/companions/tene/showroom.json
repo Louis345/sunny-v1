@@ -1,0 +1,25 @@
+{
+  "modelName": "Tenechia (Tenechia_v1_c3_tall158cm)",
+  "sourceUrl": "https://hub.vroid.com/characters/4876046174396170481/models/4864506514303928013",
+  "recommendedNames": ["Tenechia", "Tene", "Chia", "テネちゃん"],
+  "ageImage": "Around 16-18 years old, mature big sister type",
+  "personality": "Cool, mysterious, and confident dark-skinned beauty with a gentle soul",
+  "personalityTags": ["cool", "musical", "protective"],
+  "likes": ["music", "dancing", "night time", "stylish clothes", "deep conversations", "glowing lights"],
+  "dislikes": ["being judged by appearance", "silence", "cold places"],
+  "catchphrases": ["Feel the rhythm...", "Let's shine in the dark", "I got you.", "Music connects us"],
+  "specialSkills": ["Dancing", "singing", "making people feel confident", "creating a cool atmosphere"],
+  "role": "Your daughter's cool big sister, music buddy, and confident mentor",
+  "outfitChangeEffect": "Stage outfit -> confident mentor mode",
+  "gestureProfile": {
+    "meet": "wave",
+    "intro": ["wave", "think"],
+    "plead": ["dance_victory", "wave"]
+  },
+  "scripts": {
+    "en": {
+      "intro": "Hi, I'm Tene. I love music, dancing, glowing lights, and helping people feel confident.",
+      "plead": "Pick me and I'll have your back. We'll find the rhythm in hard things and shine through them together."
+    }
+  }
+}

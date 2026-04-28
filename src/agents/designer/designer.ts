@@ -76,6 +76,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "A radar dish scanning a starfield with glowing word tiles, deep purple space, child-friendly cartoon",
   "spell-check":
     "Colorful letters bouncing in bubbles, blue tones, cartoon style",
+  wordle:
+    "Colorful letter tiles in a grid, word guessing puzzle, bright playful children's game icon",
   "coin-counter":
     "Shiny gold coins stacked and scattered, warm amber tones, cartoon style",
   "clock-game":
@@ -89,6 +91,7 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
   "bubble-pop":
     "Cheerful cartoon bubbles with letters inside, pastel colors, child-friendly",
   boss: "A golden trophy with stars exploding around it, triumphant, cartoon style",
+  "wheel-of-fortune": "Colorful carnival wheel spinning in space, gold coins flying, arcade-cute cartoon style",
 };
 
 /** Palette / layout only — no Grok. Used as map fallback when `generateTheme` is skipped in diag. */

@@ -491,6 +491,15 @@ export class CompanionMotor {
     tickExpressionDecay(ex, ctx.dtMs);
     applyExpressionStateToVrm(vrm, ex, comp ?? this.expressionCompanionHint);
 
+    const mouthW = updateMouthSync(ctx.analyser, ctx.dt);
+    const em = vrm.expressionManager;
+    if (em) {
+      const mouthExpression = resolveVrmExpressionName(em, "aa");
+      if (mouthExpression) {
+        em.setValue(mouthExpression, mouthW);
+      }
+    }
+
     if (comp) {
       const busy = expressionBlocksIdle(
         ex.faceExpression,
@@ -506,13 +515,7 @@ export class CompanionMotor {
         busy,
         () => Math.random(),
       );
-      const mouthW = updateMouthSync(ctx.analyser, ctx.dt);
-      const em = vrm.expressionManager;
       if (em) {
-        const mouthExpression = resolveVrmExpressionName(em, "aa");
-        if (mouthExpression) {
-          em.setValue(mouthExpression, mouthW);
-        }
         const now = performance.now();
         if (!ctx.toggledOff && now >= this.blinkState.nextBlinkAt) {
           this.blinkState.blinkingUntil = now + 150 + Math.random() * 50;

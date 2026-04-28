@@ -6,6 +6,7 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   karaoke: "Story",
   "word-radar": "Word Radar",
   "spell-check": "Spell Check",
+  wordle: "Wordle",
   "word-builder": "Word Builder",
   quest: "Quest",
   boss: "Boss",
@@ -87,6 +88,12 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
   },
   "spell-check": {
     getUrl: (node, ctx) => `/games/spell-check.html?${buildParams(node, ctx)}`,
+  },
+  wordle: {
+    getUrl: (node, ctx) => `/games/wordle.html?${buildParams(node, ctx)}`,
+  },
+  "wheel-of-fortune": {
+    getUrl: (node, ctx) => `/games/WheelOfFortune.html?${buildParams(node, ctx)}`,
   },
   quest: {
     getUrl: (node, ctx) => {

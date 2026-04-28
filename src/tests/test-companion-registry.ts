@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { CompanionRegistry } from "../prompts/companions/registry";
 
 describe("CompanionRegistry", () => {
-  it("discovers exactly 2 companions", () => {
-    expect(CompanionRegistry.getAll().length).toBe(2);
+  it("discovers all prompt companions (elli, matilda, showroom chars)", () => {
+    expect(CompanionRegistry.getAll().length).toBe(6);
   });
 
   it("getById returns elli", () => {
@@ -18,6 +18,14 @@ describe("CompanionRegistry", () => {
     const matilda = CompanionRegistry.getById("matilda");
     expect(matilda.id).toBe("matilda");
     expect(matilda.defaultFor).toBe("reina");
+  });
+
+  it("getById returns yukari with configured voice", () => {
+    const yukari = CompanionRegistry.getById("yukari");
+    expect(yukari.id).toBe("yukari");
+    expect(yukari.name).toBe("Yukari");
+    expect(yukari.voiceId).toBe("piI8Kku0DcvcL6TTSeQt");
+    expect(yukari.unlockCost).toBe(750);
   });
 
   it("getById throws on unknown id", () => {

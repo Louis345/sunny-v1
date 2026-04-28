@@ -204,6 +204,10 @@ export class SixToolsMemoryHarness {
     return { ok: true };
   }
 
+  async spinWheel(): Promise<Record<string, unknown>> {
+    return { ok: true, action: "wheel_spin" };
+  }
+
   async sessionEnd(): Promise<Record<string, unknown>> {
     return { ended: true };
   }

@@ -7,6 +7,51 @@ import type {
   WordRadarResult,
 } from "../components/WordRadar";
 
+function playChime() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const t = ctx.currentTime;
+    [523, 659, 784].forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.28, t + i * 0.08);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.08 + 0.35);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(t + i * 0.08);
+      o.stop(t + i * 0.08 + 0.4);
+    });
+  } catch {
+    /* Web Audio optional */
+  }
+}
+
+function playBuzz() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(180, t);
+    o.frequency.exponentialRampToValueAtTime(60, t + 0.3);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + 0.4);
+  } catch {
+    /* Web Audio optional */
+  }
+}
+
 export const WORD_RADAR_FLASH_MS = 1500;
 export const WORD_RADAR_FEEDBACK_MS = 900;
 export const WORD_RADAR_DEFAULT_SECONDS = 10;
@@ -412,6 +457,11 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       clearResponseTimer();
       const item = itemsRef.current[itemIndexRef.current];
       if (!item) return;
+      if (correct) {
+        playChime();
+      } else if (incorrectReason !== "skip") {
+        playBuzz();
+      }
       const row: ItemResult = {
         item,
         correct,

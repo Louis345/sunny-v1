@@ -82,7 +82,7 @@ describe("package.json", () => {
         "sunny:mode:diag:rewards"
       ],
     ).toBe(
-      "cd web && VITE_ADVENTURE_MAP=true VITE_REWARD_DIAG=true npm run build && cd .. && SUNNY_MODE=diag SUNNY_CHILD=ila ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
+      "cd web && VITE_MODE=diag VITE_ADVENTURE_MAP=true VITE_REWARD_DIAG=true npm run build && cd .. && SUNNY_MODE=diag SUNNY_CHILD=ila ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
     );
   });
 });

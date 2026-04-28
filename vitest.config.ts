@@ -88,7 +88,9 @@ export default defineConfig({
       "src/tests/test-map-coordinator-injects-node-result.ts",
       "src/tests/test-ingest-animations.ts",
       "src/tests/test-suppress-transcripts-forwarding.ts",
+      "src/tests/test-game-state-injection.ts",
       "src/tests/test-pipeline-audit.ts",
+      "src/tests/test-game-event-forwarding.ts",
     ],
   },
 });

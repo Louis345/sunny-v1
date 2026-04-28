@@ -1,8 +1,10 @@
 {
   "name": "Matilda",
   "voiceId": "XrExE9yKIg1WjnnlVkGX",
+  "voiceModelId": "eleven_multilingual_v2",
   "ttsName": "mah-TILL-dah",
   "unlockCost": 0,
-  "vrmPath": "assets/vrm/matilda.vrm",
+  "vrmPath": "/companions/673852811403133503.vrm",
+  "showInShowroom": false,
   "defaultFor": "reina"
 }

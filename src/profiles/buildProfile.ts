@@ -194,6 +194,10 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
       showTimer: wrShowTimer,
       showKeyboard: wrShowKeyboard,
       personalBests: buildWordRadarPersonalBests(childId),
+      inputMode:
+        wordRadarGame?.inputMode ??
+        DEFAULT_GAME_CONFIGS["word-radar"]?.inputMode ??
+        "whole-word",
     },
   };
 

@@ -16,6 +16,7 @@ import {
   COMPANION_MANIFEST,
   type CompanionManifestEntry,
 } from "../companion/companions.generated";
+import { ensurePlaybackAnalyser } from "../utils/audioAnalyser";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 
 export type CompanionShowroomProps = {
@@ -72,7 +73,7 @@ export type CompanionShowroomProps = {
   generatedBackgroundLoading?: boolean;
 };
 
-type SlotName = "prev" | "current" | "next";
+type SlotName = "prev" | "current" | "next" | "hidden";
 type CompanionRenderer = WebGPURenderer | THREE.WebGLRenderer;
 
 type CarouselSlot = {
@@ -95,6 +96,9 @@ type ConfettiParticle = {
 type AmbientMusicHandle = {
   stop: () => void;
 };
+
+type SpeakingLine = "intro" | "plead";
+type GestureLine = SpeakingLine | "meet";
 
 type WindowWithWebkitAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
@@ -171,6 +175,28 @@ function createSlotEntries(
   ];
 }
 
+function createPersistentSlotEntries(
+  entries: CompanionManifestEntry[],
+  currentIndex: number,
+): CarouselSlot[] {
+  if (entries.length <= 3) {
+    return createSlotEntries(entries, currentIndex);
+  }
+  return entries.map((entry, index) => {
+    const forward = (index - currentIndex + entries.length) % entries.length;
+    const backward = (currentIndex - index + entries.length) % entries.length;
+    let slot: SlotName = "hidden";
+    if (index === currentIndex) {
+      slot = "current";
+    } else if (backward === 1) {
+      slot = "prev";
+    } else if (forward === 1) {
+      slot = "next";
+    }
+    return { slot, entry };
+  });
+}
+
 function slotFrameStyle(
   slot: SlotName,
   opts: { soleFlankPair?: boolean } = {},
@@ -206,6 +232,17 @@ function slotFrameStyle(
       filter: "saturate(0.75)",
       transform: `translateX(-50%) scale(${soleFlankPair ? 0.78 : 0.76})`,
       zIndex: 1,
+    };
+  }
+  if (slot === "hidden") {
+    return {
+      ...base,
+      left: "50%",
+      opacity: 0,
+      filter: "saturate(0.55)",
+      transform: "translateX(-50%) scale(0.62)",
+      zIndex: 0,
+      pointerEvents: "none",
     };
   }
   return {
@@ -364,6 +401,7 @@ function CompanionSlot({
   featured,
   soleFlankPair,
   contained = false,
+  getAnalyser,
   onMotorReady,
   onLoadSettled,
 }: {
@@ -374,9 +412,10 @@ function CompanionSlot({
   /**
    * Two companions: only the `next` flank is shown — give it a hair more presence
    * than the default side preview.
-   */
+  */
   soleFlankPair?: boolean;
   contained?: boolean;
+  getAnalyser?: () => AnalyserNode | null;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
 }) {
@@ -395,9 +434,9 @@ function CompanionSlot({
     const previousSlot = slotRef.current;
     slotRef.current = slot;
     const motor = motorRef.current;
-    if (previousSlot !== slot) {
-      onMotorReady?.(previousSlot, null);
-      if (motor) {
+      if (previousSlot !== slot) {
+        onMotorReady?.(previousSlot, null);
+      if (motor && slot !== "hidden") {
         onMotorReady?.(slot, motor);
       }
     }
@@ -445,13 +484,13 @@ function CompanionSlot({
         childId: null,
         toggledOff: false,
         activeNodeScreen: null,
-        analyser: null,
+        analyser: getAnalyser?.() ?? null,
       });
       renderer.render(scene, camera);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, [stopLoop]);
+  }, [getAnalyser, stopLoop]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -481,7 +520,9 @@ function CompanionSlot({
     motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
     motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
     motorRef.current = motor;
-    onMotorReady?.(slotRef.current, motor);
+    if (slotRef.current !== "hidden") {
+      onMotorReady?.(slotRef.current, motor);
+    }
 
     const syncRendererToMount = () => {
       const renderer = rendererRef.current;
@@ -587,7 +628,9 @@ function CompanionSlot({
       cancelled = true;
       resizeObserver?.disconnect();
       stopLoop();
-      onMotorReady?.(slotRef.current, null);
+      if (slotRef.current !== "hidden") {
+        onMotorReady?.(slotRef.current, null);
+      }
       motor.dispose();
       motorRef.current = null;
       timerRef.current?.dispose();
@@ -618,6 +661,8 @@ function CompanionSlot({
               opacity: 1,
               zIndex: 1,
               pointerEvents: "none",
+              transform: "scale(1.38)",
+              transformOrigin: "50% 58%",
             }
           : slotFrameStyle(slot, {
               soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
@@ -656,6 +701,10 @@ function CompanionInfoCard({
   bonusPoints,
   pickLabel,
   picking,
+  speakingLine,
+  speechError,
+  getAnalyser,
+  onSpeak,
   onPick,
   onClose,
 }: {
@@ -664,12 +713,23 @@ function CompanionInfoCard({
   bonusPoints?: number;
   pickLabel: string;
   picking: boolean;
+  speakingLine: SpeakingLine | null;
+  speechError: string | null;
+  getAnalyser: () => AnalyserNode | null;
+  onSpeak: (line: SpeakingLine) => void;
   onPick: () => void;
   onClose: () => void;
 }) {
   const cardAccent = entry.id
     ? `hsl(${(entry.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) * 37) % 360}, 70%, 68%)`
     : "#a78bfa";
+  const showroom = entry.showroom;
+  const detailRows = [
+    { label: "Likes", values: showroom?.likes ?? [] },
+    { label: "Special skills", values: showroom?.specialSkills ?? [] },
+    { label: "Catchphrases", values: showroom?.catchphrases ?? [] },
+  ].filter((row) => row.values.length > 0);
+  const canSpeak = entry.voiceAvailable;
 
   return (
     <motion.div
@@ -680,17 +740,19 @@ function CompanionInfoCard({
       transition={{ duration: 0.38, ease: [0.34, 1.56, 0.64, 1] }}
       style={{
         position: "fixed",
-        top: "50%",
-        right: "clamp(16px, 5vw, 80px)",
-        transform: "translateY(-50%)",
+        top: "clamp(18px, 8vh, 70px)",
+        right: "clamp(14px, 3vw, 46px)",
         zIndex: 34,
-        width: "min(92vw, 860px)",
-        maxHeight: "min(78vh, 620px)",
-        borderRadius: 18,
+        width: "min(78vw, 1040px)",
+        minWidth: "min(94vw, 390px)",
+        height: "min(70vh, 590px)",
+        maxHeight: "calc(100vh - 56px)",
+        borderRadius: 16,
         background: "rgba(10, 6, 24, 0.96)",
         border: "1px solid rgba(255,255,255,0.09)",
-        boxShadow: "0 32px 90px rgba(0,0,0,0.7)",
-        display: "flex",
+        boxShadow: "0 26px 70px rgba(0,0,0,0.64)",
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 0.9fr) minmax(220px, 0.7fr)",
         overflow: "hidden",
       }}
     >
@@ -719,59 +781,69 @@ function CompanionInfoCard({
       {/* ── LEFT: bio + traits + strengths ── */}
       <div
         style={{
-          flex: "0 0 52%",
-          padding: "32px 28px 24px",
+          height: "100%",
+          padding: "28px 24px 22px",
           display: "flex",
           flexDirection: "column",
-          gap: 16,
-          overflowY: "auto",
+          minWidth: 0,
+          overflow: "hidden",
         }}
       >
-        <div>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "clamp(28px, 4.4vw, 42px)",
-              fontWeight: 800,
-              color: "#fff",
-              lineHeight: 1.05,
-              overflowWrap: "anywhere",
-            }}
-          >
-            {entry.name}
-          </h2>
-          <p
-            style={{
-              margin: "6px 0 0",
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.35)",
-            }}
-          >
-            {introText.slice(0, 48)}…
-          </p>
-        </div>
-
-        <p
+        <div
           style={{
-            margin: 0,
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.94)",
-            color: "#1e1b4b",
-            fontSize: 15,
-            lineHeight: 1.45,
-            padding: "14px 16px",
-            boxShadow: "0 12px 34px rgba(0,0,0,0.24)",
+            flex: "1 1 auto",
+            minHeight: 0,
+            overflowY: "auto",
+            paddingRight: 4,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
           }}
         >
-          {introText}
-        </p>
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "clamp(28px, 4.4vw, 42px)",
+                fontWeight: 800,
+                color: "#fff",
+                lineHeight: 1.05,
+                overflowWrap: "anywhere",
+              }}
+            >
+              {entry.name}
+            </h2>
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.35)",
+              }}
+            >
+              {introText.slice(0, 48)}…
+            </p>
+          </div>
 
-        <div style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+          <p
+            style={{
+              margin: 0,
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.94)",
+              color: "#1e1b4b",
+              fontSize: 15,
+              lineHeight: 1.45,
+              padding: "14px 16px",
+              boxShadow: "0 12px 34px rgba(0,0,0,0.24)",
+            }}
+          >
+            {introText}
+          </p>
 
-        {entry.traits && entry.traits.length > 0 && (
+          <div style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+
           <div>
             <p
               style={{
@@ -781,137 +853,6 @@ function CompanionInfoCard({
                 textTransform: "uppercase",
                 color: "rgba(255,255,255,0.28)",
                 marginBottom: 10,
-              }}
-            >
-              Personality
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-              {entry.traits.map((t) => (
-                <span
-                  key={t}
-                  style={{
-                    padding: "5px 14px",
-                    borderRadius: 999,
-                    background: "rgba(109,94,245,0.22)",
-                    border: "1.5px solid rgba(109,94,245,0.45)",
-                    color: "#c4b5fd",
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {entry.subjects && entry.subjects.length > 0 && (
-          <div>
-            <p
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.28)",
-                marginBottom: 12,
-              }}
-            >
-              Subject Strengths
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {entry.subjects.map((s) => (
-                <div key={s.label}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginBottom: 4,
-                    }}
-                  >
-                    <span style={{ fontSize: 14 }}>{s.emoji}</span>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "rgba(255,255,255,0.6)",
-                      }}
-                    >
-                      {s.label}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#a78bfa",
-                        marginLeft: "auto",
-                      }}
-                    >
-                      {s.level}/5
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      height: 6,
-                      borderRadius: 999,
-                      background: "rgba(255,255,255,0.07)",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${(s.level / 5) * 100}%`,
-                        borderRadius: 999,
-                        background: "linear-gradient(90deg, #6d5ef5, #a78bfa)",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {entry.bio && (
-          <div>
-            <p
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.28)",
-                marginBottom: 8,
-              }}
-            >
-              About
-            </p>
-            <p
-              style={{
-                fontSize: 14,
-                lineHeight: 1.75,
-                color: "rgba(255,255,255,0.6)",
-                fontStyle: "italic",
-              }}
-            >
-              {entry.bio}
-            </p>
-          </div>
-        )}
-
-        {!entry.bio && !entry.traits && (
-          <div>
-            <p
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: "rgba(255,255,255,0.28)",
-                marginBottom: 8,
               }}
             >
               Personality
@@ -935,50 +876,142 @@ function CompanionInfoCard({
               ))}
             </div>
           </div>
-        )}
 
-        {bonusPoints != null && bonusPoints > 0 && (
-          <div style={{ color: "#fbbf24", fontSize: 14, fontWeight: 700 }}>
-            ⭐ +{bonusPoints} bonus XP when you pick {entry.name}
-          </div>
-        )}
+          {showroom?.personality && (
+            <p
+              style={{
+                margin: 0,
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: "rgba(255,255,255,0.62)",
+              }}
+            >
+              {showroom.personality}
+            </p>
+          )}
 
-        <button
-          type="button"
-          onClick={onPick}
-          disabled={picking}
+          {detailRows.map((row) => (
+            <div key={row.label}>
+              <p
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.28)",
+                  margin: "0 0 8px",
+                }}
+              >
+                {row.label}
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  color: "rgba(255,255,255,0.58)",
+                }}
+              >
+                {row.values.slice(0, 4).join(", ")}
+              </p>
+            </div>
+          ))}
+
+          {bonusPoints != null && bonusPoints > 0 && (
+            <div style={{ color: "#fbbf24", fontSize: 14, fontWeight: 700 }}>
+              +{bonusPoints} bonus XP when you pick {entry.name}
+            </div>
+          )}
+        </div>
+
+        <div
           style={{
-            marginTop: "auto",
-            border: 0,
-            borderRadius: 999,
-            background: accent,
-            color: "#fff",
-            fontSize: 18,
-            fontWeight: 800,
-            fontFamily: "Lexend, system-ui, sans-serif",
-            padding: "14px 22px",
-            boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
-            cursor: picking ? "wait" : "pointer",
-            opacity: picking ? 0.76 : 1,
-            whiteSpace: "normal",
+            flex: "0 0 auto",
+            margin: "14px -24px -22px",
+            padding: "14px 24px 22px",
+            background:
+              "linear-gradient(180deg, rgba(10,6,24,0.6), rgba(10,6,24,0.98))",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
           }}
         >
-          {pickLabel}
-        </button>
-      </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => onSpeak("intro")}
+              disabled={!canSpeak || speakingLine != null}
+              style={{
+                border: "1px solid rgba(255,255,255,0.16)",
+                borderRadius: 999,
+                background: canSpeak ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)",
+                color: canSpeak ? "#f8fafc" : "rgba(255,255,255,0.38)",
+                fontSize: 14,
+                fontWeight: 800,
+                fontFamily: "Lexend, system-ui, sans-serif",
+                padding: "11px 16px",
+                cursor: canSpeak && speakingLine == null ? "pointer" : "not-allowed",
+              }}
+            >
+              {speakingLine === "intro" ? "Speaking..." : canSpeak ? "Say Hi" : "Needs voice"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onSpeak("plead")}
+              disabled={!canSpeak || speakingLine != null}
+              style={{
+                border: "1px solid rgba(109,94,245,0.45)",
+                borderRadius: 999,
+                background: canSpeak ? "rgba(109,94,245,0.22)" : "rgba(255,255,255,0.05)",
+                color: canSpeak ? "#ddd6fe" : "rgba(255,255,255,0.38)",
+                fontSize: 14,
+                fontWeight: 800,
+                fontFamily: "Lexend, system-ui, sans-serif",
+                padding: "11px 16px",
+                cursor: canSpeak && speakingLine == null ? "pointer" : "not-allowed",
+              }}
+            >
+              {speakingLine === "plead" ? "Speaking..." : canSpeak ? "Why Pick Me?" : "Needs voice"}
+            </button>
+          </div>
 
-      {/* ── RIGHT: live 3D canvas (camera already zoomed to close-up) ── */}
+          {speechError && (
+            <p style={{ margin: 0, color: "#fca5a5", fontSize: 12, lineHeight: 1.4 }}>
+              {speechError}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={onPick}
+            disabled={picking}
+            style={{
+              border: 0,
+              borderRadius: 999,
+              background: accent,
+              color: "#fff",
+              fontSize: 18,
+              fontWeight: 800,
+              fontFamily: "Lexend, system-ui, sans-serif",
+              padding: "14px 22px",
+              boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
+              cursor: picking ? "wait" : "pointer",
+              opacity: picking ? 0.76 : 1,
+              whiteSpace: "normal",
+            }}
+          >
+            {pickLabel}
+          </button>
+        </div>
+      </div>
       <div
+        aria-hidden
         style={{
-          flex: "0 0 48%",
           position: "relative",
-          background: `radial-gradient(ellipse at 50% 20%, ${cardAccent}22, transparent 60%), rgba(0,0,0,0.3)`,
+          minHeight: 0,
+          background: `radial-gradient(ellipse at 50% 18%, ${cardAccent}22, transparent 62%), rgba(0,0,0,0.24)`,
           borderLeft: "1px solid rgba(255,255,255,0.06)",
           overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: 340,
         }}
       >
         <CompanionSlot
@@ -987,31 +1020,9 @@ function CompanionInfoCard({
           active
           featured
           contained
+          getAnalyser={getAnalyser}
           onLoadSettled={() => undefined}
         />
-
-        <div
-          style={{
-            position: "absolute",
-            bottom: 18,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(0,0,0,0.75)",
-            backdropFilter: "blur(10px)",
-            border: "1px solid rgba(109,94,245,0.4)",
-            borderRadius: 999,
-            padding: "6px 18px",
-            fontSize: 13,
-            fontWeight: 700,
-            color: "#c4b5fd",
-            whiteSpace: "nowrap",
-            maxWidth: "calc(100% - 32px)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {entry.name}
-        </div>
       </div>
     </motion.div>
   );
@@ -1032,6 +1043,8 @@ export function CompanionShowroom({
   const [introVisible, setIntroVisible] = useState(false);
   const [picking, setPicking] = useState(false);
   const [musicOn, setMusicOn] = useState(enableBackgroundMusic);
+  const [speakingLine, setSpeakingLine] = useState<SpeakingLine | null>(null);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const [initialCurtainDismissed, setInitialCurtainDismissed] = useState(false);
   const [settledSlotKeys, setSettledSlotKeys] = useState<Set<string>>(
     () => new Set(),
@@ -1040,6 +1053,13 @@ export function CompanionShowroom({
   const timersRef = useRef<Set<number>>(new Set());
   const confettiCleanupRef = useRef<(() => void) | null>(null);
   const musicRef = useRef<AmbientMusicHandle | null>(null);
+  const speechAudioRef = useRef<{
+    audio: HTMLAudioElement;
+    context: AudioContext;
+  } | null>(null);
+  const speechAnalyserRef = useRef<AnalyserNode | null>(null);
+  const speechGestureIntervalRef = useRef<number | null>(null);
+  const speechUrlRef = useRef<string | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
 
   const entries = COMPANION_MANIFEST;
@@ -1047,7 +1067,7 @@ export function CompanionShowroom({
   const current = entries[currentIndex] ?? null;
   const introText = current ? getText(current.id) : "";
   const slots = useMemo(
-    () => createSlotEntries(entries, currentIndex),
+    () => createPersistentSlotEntries(entries, currentIndex),
     [entries, currentIndex],
   );
   const expectedSlotKeys = useMemo(
@@ -1098,17 +1118,70 @@ export function CompanionShowroom({
     musicRef.current = createAmbientMusic();
   }, [enableBackgroundMusic, musicOn]);
 
+  const clearSpeechGestures = useCallback(() => {
+    if (speechGestureIntervalRef.current != null) {
+      window.clearInterval(speechGestureIntervalRef.current);
+      speechGestureIntervalRef.current = null;
+    }
+  }, []);
+
+  const playShowroomGesture = useCallback(
+    (line: GestureLine, step = 0) => {
+      if (!current) return;
+      const profile = current.showroom?.gestureProfile;
+      const sequence =
+        line === "meet"
+          ? [profile?.meet ?? "wave"]
+          : profile?.[line] && profile[line].length > 0
+            ? profile[line]
+            : line === "intro"
+              ? ["wave", "think"]
+              : ["dance_victory", "wave"];
+      const animation = sequence[step % sequence.length] ?? "wave";
+      motorsRef.current.current?.playAnimation(animation, { loop: false });
+    },
+    [current],
+  );
+
+  const startSpeechGestures = useCallback(
+    (line: SpeakingLine) => {
+      clearSpeechGestures();
+      playShowroomGesture(line, 0);
+      let step = 1;
+      speechGestureIntervalRef.current = window.setInterval(() => {
+        playShowroomGesture(line, step);
+        step += 1;
+      }, line === "intro" ? 2600 : 2100);
+    },
+    [clearSpeechGestures, playShowroomGesture],
+  );
+
+  const stopSpeech = useCallback(() => {
+    clearSpeechGestures();
+    speechAudioRef.current?.audio.pause();
+    void speechAudioRef.current?.context.close();
+    speechAudioRef.current = null;
+    speechAnalyserRef.current = null;
+    if (speechUrlRef.current) {
+      URL.revokeObjectURL(speechUrlRef.current);
+      speechUrlRef.current = null;
+    }
+    setSpeakingLine(null);
+  }, [clearSpeechGestures]);
+
   const cycle = useCallback(
     (direction: -1 | 1) => {
       if (entries.length <= 1 || spotlightOpen || picking) return;
+      stopSpeech();
       setIntroVisible(false);
       setCurrentIndex((prev) => (prev + direction + entries.length) % entries.length);
     },
-    [entries.length, picking, spotlightOpen],
+    [entries.length, picking, spotlightOpen, stopSpeech],
   );
 
   const closeSpotlight = useCallback(() => {
     clearTimers();
+    stopSpeech();
     setSpotlightOpen(false);
     setIntroVisible(false);
     setPicking(false);
@@ -1117,7 +1190,7 @@ export function CompanionShowroom({
     Object.values(motorsRef.current).forEach((motor) => {
       motor?.playAnimation("idle", { loop: true });
     });
-  }, [clearTimers]);
+  }, [clearTimers, stopSpeech]);
 
   const openSpotlight = useCallback(() => {
     if (!current || spotlightOpen) return;
@@ -1125,13 +1198,12 @@ export function CompanionShowroom({
     clearTimers();
     setSpotlightOpen(true);
     setIntroVisible(false);
-    // Zoom current companion to close-up for the info card
-    motorsRef.current.current?.setCameraAngle("close-up", 680);
-    motorsRef.current.current?.playAnimation("wave", { loop: false });
-    motorsRef.current.prev?.playAnimation("nod", { loop: false });
-    motorsRef.current.next?.playAnimation("nod", { loop: false });
-    schedule(() => setIntroVisible(true), 1600);
-  }, [clearTimers, current, schedule, spotlightOpen, startMusic]);
+    motorsRef.current.current?.setCameraAngle("mid-shot", 680);
+    playShowroomGesture("meet");
+    motorsRef.current.prev?.playAnimation("wave", { loop: false });
+    motorsRef.current.next?.playAnimation("wave", { loop: false });
+    schedule(() => setIntroVisible(true), 820);
+  }, [clearTimers, current, playShowroomGesture, schedule, spotlightOpen, startMusic]);
 
   const onStagePointerDown = useCallback(
     (e: PointEvt<HTMLDivElement>) => {
@@ -1174,22 +1246,79 @@ export function CompanionShowroom({
 
   const confirmPick = useCallback(() => {
     if (!current || picking) return;
+    stopSpeech();
     setPicking(true);
     confettiCleanupRef.current?.();
     confettiCleanupRef.current = launchConfetti();
-    motorsRef.current.current?.playAnimation("celebrate", { loop: false });
-    motorsRef.current.prev?.playAnimation("clap", { loop: false });
-    motorsRef.current.next?.playAnimation("clap", { loop: false });
+    motorsRef.current.current?.playAnimation("dance_victory", { loop: false });
+    motorsRef.current.prev?.playAnimation("wave", { loop: false });
+    motorsRef.current.next?.playAnimation("wave", { loop: false });
     schedule(() => {
-      motorsRef.current.prev?.playAnimation("sad", { loop: false });
-      motorsRef.current.next?.playAnimation("sad", { loop: false });
+      motorsRef.current.prev?.playAnimation("shrug", { loop: false });
+      motorsRef.current.next?.playAnimation("shrug", { loop: false });
     }, 800);
     schedule(() => {
       confettiCleanupRef.current?.();
       confettiCleanupRef.current = null;
       onSelect(current.id);
     }, 1800);
-  }, [current, onSelect, picking, schedule]);
+  }, [current, onSelect, picking, schedule, stopSpeech]);
+
+  const speakCurrent = useCallback(
+    async (line: SpeakingLine) => {
+      if (!current || !current.voiceAvailable || speakingLine) return;
+      stopSpeech();
+      setSpeechError(null);
+      setSpeakingLine(line);
+      startSpeechGestures(line);
+      try {
+        const response = await fetch(
+          `/api/companions/${encodeURIComponent(current.id)}/speak`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ line, language: "en" }),
+          },
+        );
+        if (!response.ok) {
+          const err = (await response.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(err?.error ?? `speech_${response.status}`);
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        speechUrlRef.current = url;
+        const audio = new Audio(url);
+        const AudioContextCtor =
+          window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+        if (!AudioContextCtor) {
+          throw new Error("audio_context_unavailable");
+        }
+        const context = new AudioContextCtor();
+        const source = context.createMediaElementSource(audio);
+        const analyser = ensurePlaybackAnalyser(context);
+        source.connect(analyser);
+        analyser.connect(context.destination);
+        speechAnalyserRef.current = analyser;
+        speechAudioRef.current = { audio, context };
+        audio.addEventListener("ended", () => {
+          stopSpeech();
+          motorsRef.current.current?.playAnimation("idle", { loop: true });
+        });
+        audio.addEventListener("error", () => {
+          setSpeechError("I could not play that voice just now.");
+          stopSpeech();
+        });
+        await context.resume();
+        await audio.play();
+      } catch (err: unknown) {
+        setSpeechError(err instanceof Error ? err.message : "Voice preview failed.");
+        stopSpeech();
+      }
+    },
+    [current, speakingLine, startSpeechGestures, stopSpeech],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1240,12 +1369,13 @@ export function CompanionShowroom({
   useEffect(() => {
     return () => {
       clearTimers();
+      stopSpeech();
       confettiCleanupRef.current?.();
       confettiCleanupRef.current = null;
       musicRef.current?.stop();
       musicRef.current = null;
     };
-  }, [clearTimers]);
+  }, [clearTimers, stopSpeech]);
 
   useLayoutEffect(() => {
     Object.values(motorsRef.current).forEach((motor) => {
@@ -1455,9 +1585,8 @@ export function CompanionShowroom({
         />
         {/* God rays — one per companion position */}
         <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
-          {slots.map((s, i) => {
-            const positions = ["10%", "27%", "50%", "73%", "90%"];
-            const left = positions[i] ?? "50%";
+          {slots.filter((s) => s.slot !== "hidden").map((s) => {
+            const left = s.slot === "prev" ? "16%" : s.slot === "next" ? "84%" : "50%";
             const isActive = s.entry.id === (current?.id ?? "");
             return (
               <div
@@ -1491,6 +1620,7 @@ export function CompanionShowroom({
               active={!spotlightOpen}
               featured={slot.slot === "current" && !spotlightOpen}
               soleFlankPair={isPairDuo}
+              getAnalyser={() => speechAnalyserRef.current}
               onMotorReady={setMotor}
               onLoadSettled={markSlotLoadSettled}
             />
@@ -1626,7 +1756,7 @@ export function CompanionShowroom({
               opacity: initialStageLoading ? 0.68 : 1,
             }}
           >
-            Meet me
+            Meet {current.name}
           </button>
         )}
       </div>
@@ -1689,6 +1819,10 @@ export function CompanionShowroom({
                   bonusPoints={bonus > 0 ? bonus : undefined}
                   pickLabel={pickLabel}
                   picking={picking}
+                  speakingLine={speakingLine}
+                  speechError={speechError}
+                  getAnalyser={() => speechAnalyserRef.current}
+                  onSpeak={speakCurrent}
                   onPick={confirmPick}
                   onClose={closeSpotlight}
                 />

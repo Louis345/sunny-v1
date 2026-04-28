@@ -190,14 +190,18 @@ export function CompanionLayer({
   useEffect(() => {
     const wrap = wrapRef.current;
     if (wrap) {
-      wrap.style.display = toggledOff ? "none" : "block";
+      wrap.style.display = toggledOff
+        ? "none"
+        : mode === "portrait"
+          ? "flex"
+          : "block";
     }
     if (toggledOff) {
       stopLoop();
     } else if (motorRef.current?.hasVrm()) {
       startLoop();
     }
-  }, [toggledOff, startLoop, stopLoop]);
+  }, [toggledOff, mode, startLoop, stopLoop]);
 
   /** New events must be visible to RAF tick immediately (ref sync alone can lag one frame vs WS). */
   useLayoutEffect(() => {
@@ -505,41 +509,73 @@ export function CompanionLayer({
   if (mode === "portrait") {
     return (
       <div
-        data-testid="companion-portrait"
         ref={wrapRef}
-        onClick={() => onToggleMute?.()}
+        data-testid="companion-portrait-stack"
         style={{
           position: "fixed",
-          bottom: 20,
-          right: 20,
-          width: 120,
-          height: 120,
-          borderRadius: "50%",
-          overflow: "hidden",
+          bottom: 16,
+          right: 16,
           zIndex: 9999,
-          cursor: "pointer",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          gap: 8,
+          pointerEvents: "none",
         }}
       >
-        <div
-          ref={mountRef}
-          style={{ width: "100%", height: "100%", pointerEvents: "none" }}
-        />
-        {micMuted && (
+        {speechBubbleText ? (
           <div
-            data-testid="companion-muted-overlay"
+            data-testid="companion-speech-bubble"
             style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(0,0,0,0.45)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 24,
+              position: "relative",
+              maxWidth: 220,
+              padding: "10px 14px",
+              borderRadius: 14,
+              background: "rgba(15,23,42,0.88)",
+              color: "#f8fafc",
+              fontSize: 14,
+              lineHeight: 1.35,
+              pointerEvents: "none",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
             }}
           >
-            🔇
+            {speechBubbleText}
           </div>
-        )}
+        ) : null}
+        <div
+          data-testid="companion-portrait"
+          onClick={() => onToggleMute?.()}
+          style={{
+            position: "relative",
+            width: 120,
+            height: 120,
+            borderRadius: "50%",
+            overflow: "hidden",
+            cursor: "pointer",
+            pointerEvents: "auto",
+          }}
+        >
+          <div
+            ref={mountRef}
+            style={{ width: "100%", height: "100%", pointerEvents: "none" }}
+          />
+          {micMuted && (
+            <div
+              data-testid="companion-muted-overlay"
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 24,
+              }}
+            >
+              🔇
+            </div>
+          )}
+        </div>
       </div>
     );
   }

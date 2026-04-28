@@ -1804,3 +1804,40 @@ When you're ready, share the session transcript and I'll write a factual SOAP no
 
 ## Session — 4/26/2026, 9:20:12 AM
 I'm ready to document. Who's in the session with Ila?
+
+## Psychologist Report — 4/27/2026, 8:18:29 PM
+---
+
+## Curriculum Status
+
+**Phoneme segmentation work — AVOIDED/INCOMPLETE across 4 recent sessions** → **CHANGE METHOD**
+
+querySessions reveals critical pattern: 4/4 session shows Ila "resisted phoneme segmentation task (/s/ initial sound in 'sit') — gave partial response ('s i s') before redirecting request." 4/5 session notes "mixed-vowel phoneme segmentation deferred — child requested to skip." Sessions 4/18 and 4/26 show incomplete or no documented work. **The mixed-vowel discrimination diagnostic probe (sit→sat→hit→hat→bit) specified 21 days ago on 4/3 has NEVER been executed.** Ila is actively avoiding phoneme segmentation tasks, preferring narrative reading activities. This is not task refusal—it's cognitive load avoidance consistent with her ADHD + dyslexia profile. Phoneme work requires sustained metalinguistic focus she cannot maintain in current format.
+
+**Spelling homework cycle ingested — comparative/superlative + high-frequency words** → **NEW PRIORITY**
+
+Homework ingested 4/28: faster/fastest, slower/slowest, newer/newest, colder/coldest, taller/tallest, covered, cried, figure, horse, money, products, questions, since, usually, voice (20 words). This is a **comparative/superlative morphology** unit (-er/-est suffixes) + irregular high-frequency words. Ila's WIAT-4 shows spelling at 55th percentile **in isolation** but collapses under cognitive load. CELF-5 Word Structure at 5th percentile documents morphological errors. This homework is grade-level work she will struggle with without explicit morphological instruction.
+
+**Algorithm data shows spelling bank regression** → **HOLD ADVANCEMENT**
+
+Latest session algorithm: 42 words tracked, only 1 mastered (2%), 36 due for review, average ease factor 2.4, **Wilson Step 1 gate status = REGRESSED.** Cross-session accuracy shows 0 attempts in last 5 sessions. Ila has not been practicing spelling words systematically—sessions show reading preference and phoneme avoidance.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Mixed-vowel discrimination diagnostic (21 DAYS OVERDUE—child actively avoiding)** — Specified on 4/3, deferred 4/5 by child request, never re-attempted. Ila resists phoneme segmentation in current format ("s i s" partial response on 4/4, "requested to skip" on 4/5). **Method change required:** embed mixed-vowel work in Word Builder game format (not oral segmentation drills). Probe: use spell-check or word-builder for sit/sat/hit/hat/bit with visual sound boxes. If avoidance persists, this indicates phoneme segmentation is beyond her current capacity without extensive visual scaffolding.
+
+- **CRITICAL: Comparative/superlative morphology (-er/-est) for homework support** — Homework words faster/fastest, slower/slowest, newer/newest, colder/coldest, taller/tallest require explicit morphological instruction. CELF-5 Word Structure at 5th percentile predicts errors. Must probe: (1) "What does 'fast' mean? What does 'faster' mean? What does 'fastest' mean?" (meaning comprehension), (2) Spelling pattern recognition: "Fast has 4 letters. How many letters in 'faster'? How many in 'fastest'?" (6, 7—visual pattern), (3) Oral production: "The dog is fast. The cat is ___. The rabbit is the ___." (faster, fastest—comparative/superlative in context).
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 31 mentions but evidence shows planning references only)** — flagGap shows "tested 31 times" but querySessions review shows sessions with "responded quickly to direct, concrete requests" (single-step only) and "resisted...task" (avoidance, not multi-step compliance testing). **Must formally probe:** "Touch the big red circle, then tap your head twice" (2-step + modifiers). Record exact compliance for IEP baseline.
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 27 mentions but no documented repetition tasks)** — flagGap shows "tested 27 times" but querySessions shows reading activities, not sentence repetition. **Must probe:** "The dog ran fast" (4 words), "The cat is sleeping on the chair" (7 words), "When the boy went outside, he found a ball" (10 words). Record verbatim responses.
+
+- **WATCH: Reading fluency vs. phoneme work avoidance pattern** — Sessions 4/4 and 4/5 show Ila "completed one full passage in reading mode" and requested "Princess Ila story." She engages with narrative reading but avoids phoneme segmentation. This may indicate: (1) reading is whole-word sight recognition without phonemic decoding, (2) phoneme work triggers frustration/shutdown, (3) ADHD makes sustained metalinguistic focus impossible in current format. Must assess whether she can decode **novel** words or only reads memorized text.
+
+---
+
+## Signal
+
+**CHANGE METHOD on phoneme segmentation—child actively avoiding for 21 days.** Mixed-vowel discrimination diagnostic (sit→sat→hit→hat→bit) has been deferred twice and resisted once. Ila cannot sustain oral phoneme segmentation drills; preference for reading suggests she relies on whole-word visual memory. **Immediately shift to game-based phoneme work** (Word Builder, spell-check with visual sound boxes) or abandon segmentation temporarily in favor of morphology work aligned with homework (comparative/superlative -er/-est). Simultaneously, conduct formal baseline probes on Following Directions and Recalling Sentences THIS WEEK—31 and 27 "mentions" in notes do not constitute actual IEP-mandated performance documentation. Homework cycle requires explicit morphological instruction on -er/-est patterns before spelling test.

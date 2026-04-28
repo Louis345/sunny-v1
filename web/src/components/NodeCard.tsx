@@ -9,6 +9,7 @@ export function NodeCard({
   onClick,
   isActive,
   onHoverChange,
+  onLockedClick,
 }: {
   node: NodeConfig;
   position: { x: number; y: number };
@@ -16,6 +17,8 @@ export function NodeCard({
   onClick: () => void;
   isActive: boolean;
   onHoverChange?: (hovering: boolean) => void;
+  /** Fired when the learner taps a locked node (voice session can react). */
+  onLockedClick?: () => void;
 }) {
   const isGoal = node.isGoal;
   const isLocked = node.isLocked;
@@ -40,10 +43,22 @@ export function NodeCard({
         onHoverChange?.(false);
       }}
       onClick={() => {
-        if (!isLocked && !isDone) onClick();
+        if (isDone) return;
+        if (isLocked) {
+          onLockedClick?.();
+          return;
+        }
+        onClick();
       }}
       onKeyDown={(e) => {
-        if (isLocked || isDone) return;
+        if (isDone) return;
+        if (isLocked) {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onLockedClick?.();
+          }
+          return;
+        }
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onClick();

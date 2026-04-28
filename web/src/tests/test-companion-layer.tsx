@@ -217,15 +217,33 @@ describe("CompanionLayer portrait mode", () => {
     expect(el.style.borderRadius).toBe("50%");
   });
 
-  it("portrait container z-index is above game overlays (> 100)", () => {
+  it("portrait stack z-index is above game overlays (> 100)", () => {
     // Game iframe overlay: z-index 100 (AdventureMap launchedUrl container)
     // Karaoke/pronunciation wrappers: z-50 in App.tsx
     // Portrait companion must float above all of them.
     const { getByTestId } = render(
       <CompanionLayer childId="fixture" companion={companion} toggledOff={false} mode="portrait" />,
     );
-    const el = getByTestId("companion-portrait") as HTMLElement;
+    const el = getByTestId("companion-portrait-stack") as HTMLElement;
     expect(Number(el.style.zIndex)).toBeGreaterThan(100);
+  });
+
+  it("renders speech bubble above portrait when speechBubbleText is set", () => {
+    const { getByTestId } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        toggledOff={false}
+        mode="portrait"
+        speechBubbleText="Hello there"
+      />,
+    );
+    const stack = getByTestId("companion-portrait-stack");
+    const bubble = getByTestId("companion-speech-bubble");
+    const portrait = getByTestId("companion-portrait");
+    expect(stack.firstChild).toBe(bubble);
+    expect(stack.lastChild).toBe(portrait);
+    expect(bubble.textContent).toBe("Hello there");
   });
 
   it("does not render portrait container when mode='full'", () => {
