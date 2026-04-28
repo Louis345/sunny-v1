@@ -1027,6 +1027,13 @@ export function useSession(options?: UseSessionOptions) {
         }));
         break;
 
+      case "loading_status":
+        setStateRef.current((s) => ({
+          ...s,
+          loadingMessage: (msg.message as string) ?? null,
+        }));
+        break;
+
       case "error":
         setStateRef.current((s) => ({
           ...s,

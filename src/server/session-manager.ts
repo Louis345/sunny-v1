@@ -1152,15 +1152,18 @@ export class SessionManager {
     this.handleEndOfTurn(value).catch(console.error);
   }
 
-  receiveAudio(pcm: Buffer): void {
-    if (this.fluxHandle) {
-      this.fluxHandle.sendAudio(pcm);
-    }
-  }
+      // ── Extraction cache ────────────────────────────────────────────────────
+      // extraction.json lives alongside the PDF. Once written, all future
+      // sessions load instantly with zero tokens and no overload risk.
+      const cacheFile = path.join(
+        homeworkPayload.folderPath,
+        "extraction.json",
+      );
 
-  bargeIn(): void {
-    const ts = new Date().toISOString();
-    console.log(`  🛑 [${ts}] Barge-in received`);
+      let extraction: HomeworkExtractionResult = {
+        subject: "",
+        problems: [],
+      };
 
     this.pendingRoundComplete = null;
     gev.abortGameTtsGate(this);
@@ -1878,6 +1881,657 @@ export class SessionManager {
     return ordered.slice(0, 5);
   }
 
+  private debugSafeJson(value: unknown, maxLen = 4000): string {
+    try {
+      const s =
+        typeof value === "string"
+          ? JSON.stringify(value)
+          : JSON.stringify(value, (_k, v) =>
+              typeof v === "bigint" ? String(v) : v,
+            );
+      return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
+    } catch {
+      return JSON.stringify(String(value));
+    }
+  }
+
+  /** When DEBUG_CLAUDE=true, log the turn input right before the model runs. */
+  private debugPrintClaudePreRun(rawUserMessage: string): void {
+    if (!isDebugClaude()) return;
+    const c = this.ctx?.canvas.current;
+    const modeStr = String(
+      c?.mode ??
+        (this.currentCanvasState as { mode?: string } | null)?.mode ??
+        "idle",
+    );
+    let showing = "(idle)";
+    if (modeStr === "worksheet_pdf" && c?.activeProblemId) {
+      showing = `problem ${c.activeProblemId} image`;
+    } else if (modeStr === "teaching" && c?.content) {
+      const full = String(c.content);
+      const t = full.replace(/\s+/g, " ").slice(0, 80);
+      showing = t.length < full.length ? `${t}…` : t;
+    } else if (modeStr !== "idle") {
+      showing = modeStr;
+    }
+
+    const lines: string[] = [
+      "═══════════════════════════════",
+      "CLAUDE SEES THIS:",
+      "───────────────────────────────",
+      "[Canvas State]",
+      `Mode: ${modeStr}`,
+      `Showing: ${showing}`,
+      `canvasShowing: ${modeStr}`,
+      "",
+      "[Session State]",
+    ];
+
+    if (this.worksheetSession) {
+      const st = this.worksheetSession.getSessionStatus();
+      lines.push(
+        `Problems: ${st.problemsCompleted}/${st.problemsTotal} complete`,
+      );
+      lines.push(`Reward threshold: ${st.rewardThreshold}`);
+    } else if (this.ctx?.assignment) {
+      const a = this.ctx.assignment;
+      const done = a.attempts.filter((x) => x.correct).length;
+      lines.push(
+        `Problems: ${done}/${a.questions.length} correct (q index ${a.currentIndex})`,
+      );
+      lines.push(`Reward threshold: —`);
+    } else {
+      lines.push("Problems: —");
+      lines.push(
+        `Reward threshold: ${this.worksheetMode ? String(this.worksheetRewardAfterN) : "—"}`,
+      );
+    }
+
+    const elapsedMin =
+      this.sessionStartTime > 0
+        ? Math.max(0, Math.round((Date.now() - this.sessionStartTime) / 60000))
+        : 0;
+    lines.push(
+      `Elapsed: ${this.sessionStartTime > 0 ? `${elapsedMin} min` : "—"}`,
+    );
+    lines.push("");
+    lines.push("[User said]");
+    lines.push(JSON.stringify(rawUserMessage));
+    lines.push("═══════════════════════════════");
+    console.log(lines.join("\n"));
+  }
+
+  private debugLogToolCall(
+    toolName: string,
+    args: Record<string, unknown>,
+    result: unknown,
+  ): void {
+    if (!isDebugClaude()) return;
+    const argStr = this.debugSafeJson(args, 3000);
+    const resStr = this.debugSafeJson(
+      result === undefined ? "(undefined)" : result,
+      3000,
+    );
+    console.log(`→ TOOL: ${toolName}(${argStr})`);
+    console.log(`← RESULT: ${resStr}`);
+  }
+
+  /** First spoken line when DEBUG_CLAUDE=true (scripted; not from Claude). */
+  private debugCreatorOpeningLine(): string {
+    const name = this.companion.name;
+    const child = this.childName;
+    const worksheetBit = this.worksheetMode
+      ? " Worksheet is loaded — grade from the pinned image, and drive canvasShow, sessionLog, canvasClear, sessionStatus, and launchGame."
+      : "";
+    return (
+      `Hi creator — ${name} here, DEBUG session.${worksheetBit} ` +
+      `I'm not running a normal kid session with ${child}; you're stress-testing reasoning and tool use. ` +
+      `Tell me what to verify first and I'll say what I'm doing and why.`
+    );
+  }
+
+  /** Swap opening line for developer diagnostic runs only. */
+  private applyDebugClaudeOpeningLine(): void {
+    if (!isDebugClaude()) return;
+    this.companion = {
+      ...this.companion,
+      openingLine: this.debugCreatorOpeningLine(),
+    };
+  }
+
+  /** Prepends developer-testing instructions when DEBUG_CLAUDE=true. */
+  private prependDebugClaudeToPrompt(prompt: string): string {
+    if (!isDebugClaude()) return prompt;
+    return (
+      `⚠️  DEBUG MODE — DEVELOPER IS TESTING YOU\n\n` +
+      `You are NOT tutoring a child. You are a test harness.\n` +
+      `A developer is verifying your capabilities and reasoning.\n\n` +
+      `YOUR ONLY JOB:\n` +
+      `- Demonstrate capabilities when asked\n` +
+      `- Show what you can and cannot do\n` +
+      `- Be direct about what tools you have\n` +
+      `- Execute requests immediately — no redirecting\n\n` +
+      `RULES:\n` +
+      `- If asked to show a riddle → show it using canvasShow with the best available type\n` +
+      `- If asked to show math → show it\n` +
+      `- If asked to clear → clear it\n` +
+      `- Do NOT say 'but we should do the worksheet first'\n` +
+      `- Do NOT redirect to homework unprompted\n` +
+      `- Do NOT act like a tutor\n\n` +
+      `CAPABILITY LOGIC:\n` +
+      `When asked to display something:\n` +
+      `  1. Check if a specific canvas type fits (riddle, place_value, spelling, etc.)\n` +
+      `  2. If yes → use it\n` +
+      `  3. If no dedicated type → use svg_raw or text\n` +
+      `  4. Never say 'I can't' if text or svg can achieve it\n\n` +
+      `The worksheet is present but irrelevant unless the developer specifically asks about it.\n` +
+      `Confirm every tool call you make and why.\n\n` +
+      prompt
+    );
+  }
+
+  private buildAgentToolkit(): Record<string, unknown> {
+    const six = createSixTools({
+      canvasShow: (a) => this.hostCanvasShow(a),
+      canvasClear: () => this.hostCanvasClear(),
+      canvasStatus: () => this.hostCanvasStatus(),
+      sessionLog: (a) => this.hostSessionLog(a),
+      sessionStatus: () => this.hostSessionStatus(),
+      sessionEnd: (a) => this.hostSessionEnd(a),
+    });
+    if (this.worksheetSession && this.worksheetMode) {
+      return {
+        ...six,
+        launchGame: createLaunchGameTool(this.worksheetSession),
+        dateTime,
+      };
+    }
+    const launchGameKaraokeGuard = {
+      blockDuringKaraokeReading: () => this.karaokeReadingInProgress(),
+    };
+    if (this.ctx?.sessionType === "math") {
+      return {
+        ...six,
+        mathProblem,
+        launchGame: buildLaunchGameTool(undefined, launchGameKaraokeGuard),
+        dateTime,
+      };
+    }
+    if (this.isSpellingSession) {
+      return {
+        ...six,
+        launchGame: buildLaunchGameTool(
+          {
+            isWordBuilderSessionActive: () => this.wordBuilderSessionActive,
+            tryClaimWordBuilderToolSlot: () => {
+              if (this.wbToolExecuteClaimed) return false;
+              this.wbToolExecuteClaimed = true;
+              return true;
+            },
+            isSpellCheckSessionActive: () => this.spellCheckSessionActive,
+            tryClaimSpellCheckToolSlot: () => {
+              if (this.spellCheckToolExecuteClaimed) return false;
+              this.spellCheckToolExecuteClaimed = true;
+              return true;
+            },
+            isHomeworkSpellingWordAllowed: (w) => this.spellingHomeworkGate.allows(w),
+            getHomeworkSpellingRejectMessage: (w) =>
+              this.spellingHomeworkGate.explainReject(w),
+          },
+          launchGameKaraokeGuard,
+        ),
+        dateTime,
+      };
+    }
+    return {
+      ...six,
+      launchGame: buildLaunchGameTool(undefined, launchGameKaraokeGuard),
+      dateTime,
+    };
+  }
+
+  private async hostCanvasShow(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    if (this.storyImagePending) {
+      return {
+        dispatched: false,
+        canvasShowing: "idle",
+        message:
+          "Story image is rendering. Wait for the image to appear before calling canvasShow again.",
+      };
+    }
+    const type = String(args.type ?? "");
+    if (type === "karaoke" && this.shouldBlockKaraokeCanvasRefresh()) {
+      return {
+        ok: false,
+        dispatched: false,
+        canvasShowing: "karaoke",
+        message:
+          "Reading in progress. Do not call canvasShow during active reading. Wait for reading_progress event=complete.",
+      };
+    }
+    if (type === "worksheet" && this.worksheetSession) {
+      const pid = String(args.problemId ?? "");
+      const res = this.worksheetSession.showProblemById(pid);
+      return {
+        dispatched: res.ok === true,
+        canvasShowing: "worksheet",
+        ...res,
+      };
+    }
+    if (type === "text") {
+      return { dispatched: true, canvasShowing: "text" };
+    }
+    if (type === "svg") {
+      return { dispatched: true, canvasShowing: "svg" };
+    }
+    if (type === "game") {
+      return { dispatched: true, canvasShowing: "game", name: args.name };
+    }
+    if (type === "place_value") {
+      return { dispatched: true, canvasShowing: "place_value" };
+    }
+    if (type === "spelling") {
+      const w = String(args.spellingWord ?? args.word ?? "").trim();
+      if (!w) {
+        return {
+          dispatched: false,
+          canvasShowing: "idle",
+          reason: "empty_word",
+        };
+      }
+      if (!this.spellingHomeworkGate.allows(w)) {
+        return {
+          dispatched: false,
+          canvasShowing: "idle",
+          reason: "not_on_homework_list",
+          message: this.spellingHomeworkGate.explainReject(w),
+        };
+      }
+      return { dispatched: true, canvasShowing: "spelling" };
+    }
+    if (type === "riddle") {
+      return { dispatched: true, canvasShowing: "riddle" };
+    }
+    if (type === "math_inline") {
+      return { dispatched: true, canvasShowing: "text" };
+    }
+    if (type === "svg_raw") {
+      return { dispatched: true, canvasShowing: "svg" };
+    }
+    if (type === "reward") {
+      return { dispatched: true, canvasShowing: "reward" };
+    }
+    if (type === "championship") {
+      return { dispatched: true, canvasShowing: "championship" };
+    }
+    if (type === "blackboard") {
+      return { dispatched: true, canvasShowing: "blackboard" };
+    }
+    if (type === "karaoke") {
+      return { dispatched: true, canvasShowing: "karaoke" };
+    }
+    if (type === "sound_box") {
+      return { dispatched: true, canvasShowing: "sound_box" };
+    }
+    if (type === "clock") {
+      return { dispatched: true, canvasShowing: "clock" };
+    }
+    if (type === "score_meter") {
+      return { dispatched: true, canvasShowing: "score_meter" };
+    }
+    return { dispatched: false, canvasShowing: "idle" };
+  }
+
+  private async hostCanvasClear(): Promise<{
+    canvasShowing: "idle";
+    ok?: boolean;
+  }> {
+    this.turnSM.clearPendingTranscript("canvasClear");
+    if (this.worksheetSession) {
+      return this.worksheetSession.clearCanvas();
+    }
+    return { canvasShowing: "idle", ok: true };
+  }
+
+  private async hostCanvasStatus(): Promise<Record<string, unknown>> {
+    return {
+      mode: this.ctx?.canvas.current.mode ?? "idle",
+      revision: this.ctx?.canvas.revision ?? 0,
+      browserVisible: this.ctx?.canvas.browserVisible ?? false,
+    };
+  }
+
+  private async hostSessionLog(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const action = String(args.action ?? "").trim();
+    if (action === "generate_image") {
+      const scene = String(
+        args.observation ?? args.scene ?? args.childSaid ?? "",
+      ).trim();
+      if (!scene) {
+        return { logged: false, error: "generate_image_requires_observation" };
+      }
+      console.log(
+        `  🎮 [story-image] explicit request via sessionLog scene="${scene.slice(0, 120)}${scene.length > 120 ? "…" : ""}"`,
+      );
+      this.storyImagePending = true;
+      this.send("story_image_loading", {});
+      void generateStoryImage(scene, { useDirectScene: true })
+        .then((url) => {
+          this.send("story_image", { url: url ?? null });
+        })
+        .catch(() => {
+          this.send("story_image", { url: null });
+        })
+        .finally(() => {
+          this.storyImagePending = false;
+        });
+      return { logged: true, imageGeneration: "queued" };
+    }
+
+    if (args.skipped === true) {
+      const reason = String(args.reason ?? "").trim();
+      if (!reason) {
+        return { logged: false, error: "reason_required_when_skipped" };
+      }
+      const activityRaw =
+        (args.activity as string | undefined)?.trim() ||
+        (args.observation as string | undefined)?.trim() ||
+        (args.word as string | undefined)?.trim() ||
+        "";
+      const activity = activityRaw || "Activity";
+      await appendDeferredActivity(this.childName, activity, reason);
+      return { logged: true, deferred: true };
+    }
+
+    if (this.worksheetSession) {
+      const wp = this.worksheetProblems[this.worksheetProblemIndex];
+      if (!wp) {
+        auditLog("worksheet", {
+          action: "sessionLog_reject",
+          error: "no_active_problem",
+          childName: this.childName,
+          round: this.roundNumber,
+        });
+        return { logged: false, error: "no_active_problem" };
+      }
+      const res = this.worksheetSession.submitAnswer({
+        problemId: String(wp.id),
+        correct: args.correct === true,
+        childSaid: String(args.childSaid ?? ""),
+      });
+      return { logged: res.ok === true, ...res };
+    }
+    this.processReward({ correct: args.correct === true });
+
+    const loggedWordKey =
+      (args.word as string | undefined)?.toLowerCase().trim() ?? "";
+    if (loggedWordKey) {
+      const domain =
+        this.ctx?.sessionType === "reading" ? "reading" : "spelling";
+      const scaffoldLevel = (
+        typeof args.scaffoldLevel === "number" ? args.scaffoldLevel : 0
+      ) as ScaffoldLevel;
+      const attempt: AttemptInput = {
+        word: loggedWordKey,
+        domain,
+        correct: args.correct === true,
+        quality: computeQualityFromAttempt({
+          word: loggedWordKey,
+          domain,
+          correct: args.correct === true,
+          quality: 0,
+          scaffoldLevel,
+        }),
+        scaffoldLevel,
+      };
+      try {
+        recordAttempt(childIdFromName(this.childName), attempt);
+        console.log(
+          `  🎮 [engine] recordAttempt: "${loggedWordKey}" ${args.correct ? "correct" : "incorrect"} (${domain})`,
+        );
+      } catch (err) {
+        console.error("  [engine] recordAttempt failed:", err);
+      }
+      appendAttemptLine(this.childName, {
+        word: loggedWordKey,
+        correct: args.correct === true,
+      });
+
+      const scaffoldState =
+        this.wordScaffoldState.get(loggedWordKey) ?? {
+          word: loggedWordKey,
+          domain,
+          lastCorrect: null,
+          lastScaffoldLevel: 0 as ScaffoldLevel,
+          attemptCount: 0,
+        };
+      scaffoldState.lastCorrect = args.correct === true;
+      scaffoldState.lastScaffoldLevel = scaffoldLevel;
+      scaffoldState.attemptCount++;
+      this.wordScaffoldState.set(loggedWordKey, scaffoldState);
+
+      const count = (this.wordAttemptCounts.get(loggedWordKey) ?? 0) + 1;
+      this.wordAttemptCounts.set(loggedWordKey, count);
+      const correct = args.correct === true;
+      const lastAttempt =
+        this.lastTranscript?.trim() ||
+        String(args.childSaid ?? "").trim() ||
+        "unknown";
+      this.activeWordContext =
+        `[Active word: "${loggedWordKey}". ` +
+        `Attempts this word: ${count}. ` +
+        `Last attempt: "${lastAttempt}" — ` +
+        `${correct ? "correct" : "incorrect"}.]`;
+      console.log(`  📌 activeWordContext: ${this.activeWordContext}`);
+
+      if (this.companion.tracksActiveWord && this.activeWord) {
+        const active = this.activeWord.toLowerCase().trim();
+        if (loggedWordKey !== active) {
+          console.warn(
+            `  ⚠️  activeWord mismatch: canvas="${active}" sessionLog.word="${loggedWordKey}"`,
+          );
+        }
+      }
+
+      if (
+        this.spellingHomeworkWordsByNorm.length > 0 &&
+        !this.spaceInvadersRewardLaunched
+      ) {
+        if (this.spellingHomeworkWordsByNorm.includes(loggedWordKey)) {
+          this.spellingWordsWithAttempt.add(loggedWordKey);
+        }
+        if (
+          this.spellingWordsWithAttempt.size >=
+          this.spellingHomeworkWordsByNorm.length
+        ) {
+          this.spaceInvadersRewardLaunched = true;
+          this.spaceInvadersRewardActive = true;
+          const inv = getReward("space-invaders");
+          if (inv) {
+            this.send("canvas_draw", {
+              mode: "space-invaders",
+              gameUrl: inv.url,
+              gamePlayerName: this.childName,
+              rewardGameConfig: { ...inv.defaultConfig },
+            });
+          }
+          this.gameBridge.launchByName(
+            "space-invaders",
+            "reward",
+            this.childName,
+          );
+          this.currentCanvasState = {
+            mode: "space-invaders",
+            gameUrl: inv?.url,
+            gamePlayerName: this.childName,
+          };
+          this.setActiveCanvasActivity("reward-game");
+          this.gameBridge.onComplete = () => {
+            this.clearActiveCanvasActivity();
+            this.send("canvas_draw", { mode: "idle" });
+            this.send("session_ended", {
+              summary: "Session complete.",
+              duration_ms: Date.now() - this.sessionStartTime,
+            });
+          };
+        }
+      }
+
+      const wbNorm = this.wbWord.toLowerCase().trim();
+      if (this.wbAwaitingSpell && loggedWordKey === wbNorm) {
+        this.wbAwaitingSpell = false;
+        this.wbEndCleanup();
+      }
+    }
+
+    return { logged: true };
+  }
+
+  private async hostSessionStatus(): Promise<Record<string, unknown>> {
+    if (this.worksheetSession) {
+      return {
+        ...(this.worksheetSession.getSessionStatus() as object),
+      } as Record<string, unknown>;
+    }
+    const base = { ...(this.ctx?.serialize() ?? { ok: true }) } as Record<
+      string,
+      unknown
+    >;
+    return {
+      ...base,
+      turnState: this.turnSM.getState(),
+      activeWord: this.activeWord,
+      wordBuilderRound: this.wbActive && this.wbRound > 0 ? this.wbRound : null,
+      lastChildUtterance: this.lastTranscript || null,
+    };
+  }
+
+  private async hostSessionEnd(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return { ended: true, childName: args.childName };
+  }
+
+  private normalizeToolName(tool: string): string {
+    if (tool === "start_spell_check") return "startSpellCheck";
+    if (tool === "launch_game") return "launchGame";
+    if (tool === "get_session_status") return "getSessionStatus";
+    if (tool === "get_next_problem") return "getNextProblem";
+    if (tool === "submit_answer") return "submitAnswer";
+    if (tool === "clear_canvas") return "clearCanvas";
+    if (tool === "canvas_show") return "canvasShow";
+    if (tool === "canvas_clear") return "canvasClear";
+    if (tool === "canvas_status") return "canvasStatus";
+    if (tool === "session_log") return "sessionLog";
+    if (tool === "session_status") return "sessionStatus";
+    if (tool === "session_end") return "sessionEnd";
+    if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
+    if (tool === "request_resume_activity") return "requestResumeActivity";
+    return tool;
+  }
+
+  private sendLaunchGameRegistryError(
+    tool: string,
+    args: Record<string, unknown>,
+    gameName: string,
+  ): void {
+    this.toolCallsMadeThisTurn++;
+    this.send("tool_call", {
+      tool,
+      args,
+      result: {
+        error: `Unknown game "${gameName}"`,
+        available_tools: Object.keys(TEACHING_TOOLS),
+        available_rewards: Object.keys(REWARD_GAMES),
+      },
+    });
+  }
+
+  /**
+   * Extraction sometimes marks "review" when the sheet is actually blank.
+   * If nothing in extraction hints at handwritten/filled answers, prefer answer_entry.
+   */
+  private maybeRelaxMisdetectedReviewMode(
+    extraction: HomeworkExtractionResult,
+    mode: WorksheetInteractionMode,
+  ): WorksheetInteractionMode {
+    if (mode !== "review") return mode;
+    const problems = extraction.problems;
+    if (problems.length === 0) return mode;
+
+    const handwritingHint =
+      /\b(handwrit|filled in|student wrote|their answer|answers in the box|already completed|wrote in|pencil)\b/i;
+    const anyHandwritingEvidence = problems.some((p) =>
+      (p.structured?.evidence ?? []).some((line) => handwritingHint.test(line)),
+    );
+    if (anyHandwritingEvidence) return mode;
+
+    const anyOverlayFilled = problems.some((p) => {
+      const targets = p.structured?.overlayTargets;
+      if (!targets?.length) return false;
+      return targets.some((t) => {
+        const o = t as Record<string, unknown>;
+        const v = o.value ?? o.filledValue ?? o.childAnswer ?? o.text;
+        return v != null && String(v).trim() !== "";
+      });
+    });
+    if (anyOverlayFilled) return mode;
+
+    console.log(
+      "  ℹ️  [worksheet] review → answer_entry (no handwriting / filled-overlay signals in extraction)",
+    );
+    return "answer_entry";
+  }
+
+  private selectWorksheetProblems(
+    extraction: HomeworkExtractionResult,
+  ): CanonicalWorksheetProblem[] {
+    const byId = new Map<number, CanonicalWorksheetProblem>();
+    for (const p of extraction.problems) {
+      const validated = validateProblem(p);
+      if (!validated.ok) {
+        console.warn(
+          `  ⚠️  [worksheet] skipping problem ${String((p as { id?: unknown }).id)}: ${validated.reason}`,
+        );
+        continue;
+      }
+      byId.set(validated.problem.id, validated.problem);
+    }
+    if (byId.size === 0) return [];
+
+    const dir = extraction.session_directives;
+    // teaching_order defines presentation sequence. problems_today defines which problems to include.
+    // If both exist: filter teaching_order to only include IDs from problems_today.
+    // If only problems_today: use that order.
+    // If only teaching_order: use that order.
+    const problemsToInclude = dir?.problems_today?.length
+      ? new Set(dir.problems_today)
+      : null;
+    const preferredOrder =
+      dir?.teaching_order != null && dir.teaching_order.length > 0
+        ? problemsToInclude
+          ? dir.teaching_order.filter((id) => problemsToInclude.has(id))
+          : dir.teaching_order
+        : (dir?.problems_today ?? null);
+
+    let ordered: CanonicalWorksheetProblem[] = [];
+    if (preferredOrder) {
+      for (const id of preferredOrder) {
+        const item = byId.get(id);
+        if (item) ordered.push(item);
+      }
+    }
+    if (ordered.length === 0) {
+      ordered = Array.from(byId.values()).sort((a, b) => a.id - b.id);
+    }
+
+    return ordered.slice(0, 5);
+  }
+
   private async handleCompanionTurn(text: string): Promise<void> {
     this.turnSM.onEndOfTurn();
     // onEndOfTurn uses setImmediate for LOADING → PROCESSING — wait for it
@@ -2018,6 +2672,8 @@ export class SessionManager {
       if (this.turnSM.getState() === "CANVAS_PENDING") {
         this.canvasDone({});
       }
+    }
+  }
 
       this.karaokeReadingComplete = true;
       console.log("  📖 [reading] suppression lifted — story complete");
@@ -2105,6 +2761,7 @@ export class SessionManager {
         }
       }
     }
+    return dp[m][n];
   }
 
   receiveWordRadarComplete(msg: Record<string, unknown>): void {

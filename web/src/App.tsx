@@ -312,6 +312,11 @@ function mergeCompanionCommands(
   return out;
 }
 
+const isCanvasTestMode =
+  import.meta.env.VITE_TEST_MODE === "true" ||
+  (typeof window !== "undefined" &&
+    window.location.search.includes("testmode"));
+
 function App() {
   const adventureGameIframeRef = useRef<HTMLIFrameElement | null>(null);
   const {
