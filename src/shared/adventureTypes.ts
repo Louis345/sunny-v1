@@ -3,6 +3,7 @@
  */
 
 export type NodeType =
+  | "mystery"
   | "word-builder"
   | "bubble-pop"
   | "karaoke"
@@ -125,6 +126,7 @@ export interface MapState {
 
 /** Canonical arm ordering for bandit / registry (TASK-005). */
 export const ALL_NODE_TYPES: readonly NodeType[] = [
+  "mystery",
   "word-builder",
   "bubble-pop",
   "karaoke",

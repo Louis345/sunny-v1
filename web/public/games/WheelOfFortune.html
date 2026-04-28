@@ -140,7 +140,7 @@
     <text x="719" y="365" textAnchor="middle" fontSize="32" fontWeight="900" fill="#ede9fe" fontFamily="sans-serif">B</text>
     <text x="789" y="365" textAnchor="middle" fontSize="32" fontWeight="900" fill="#ede9fe" fontFamily="sans-serif">B</text>
     <text x="929" y="365" textAnchor="middle" fontSize="32" fontWeight="900" fill="#ede9fe" fontFamily="sans-serif">T</text>
-    <!-- Elli -->
+    <!-- Companion -->
     <circle cx="1080" cy="650" r="55" fill="#1e0040" stroke="#a855f7" strokeWidth="4"/>
     <text x="1080" y="668" textAnchor="middle" fontSize="44" fontFamily="sans-serif">🌟</text>
     <!-- Speech bubble -->
@@ -163,12 +163,38 @@ const GP = window.GAME_PARAMS || {};
 const WORD_RAW = (GP.words?.[0] ?? 'rabbit').toLowerCase().replace(/[^a-z]/g, '');
 const LETTERS = WORD_RAW.toUpperCase().split('');
 const CHILD_ID = GP.childId ?? 'unknown';
+const COMPANION_ID = GP.companion ?? 'companion';
+const CHILD_NAME_RAW = typeof GP.childName === 'string' ? GP.childName.trim() : '';
+const COMPANION_NAME_RAW = typeof GP.companionName === 'string' ? GP.companionName.trim() : '';
 const THEME_ID = GP.theme ?? 'cosmos';
 const CATEGORY = GP.category ?? 'Spelling';
-const ELLI_START_COINS = GP.elliCoins ?? 600;
+const COMPANION_START_COINS = GP.companionCoins ?? 600;
 
 if (CHILD_ID === 'ila' || GP.dyslexiaMode === true) {
   document.body.classList.add('dyslexia');
+}
+
+function displayNameFromId(raw, fallback) {
+  const v = String(raw || '').trim();
+  if (!v) return fallback;
+  if (v.toLowerCase() === 'off') return fallback;
+  return v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+const CHILD_NAME = CHILD_NAME_RAW || displayNameFromId(CHILD_ID, 'Child');
+const COMPANION_NAME = COMPANION_NAME_RAW || displayNameFromId(COMPANION_ID, 'Companion');
+const COMPANION_SPINS_LABEL = `${COMPANION_NAME.slice(0, 8).toUpperCase()}\nSPINS`;
+
+if (!CHILD_NAME_RAW || !COMPANION_NAME_RAW) {
+  console.warn(
+    'WheelOfFortune: missing childName/companionName in GAME_PARAMS; using id-derived fallbacks.',
+    {
+      childName: CHILD_NAME_RAW,
+      companionName: COMPANION_NAME_RAW,
+      childId: CHILD_ID,
+      companion: COMPANION_ID,
+    },
+  );
 }
 
 function fireComp(trigger, payload) {
@@ -201,13 +227,13 @@ function boardStateStr(letters, revealed) {
 const COIN_VALUES = { '100':100, '200':200, '250':250, '300':300, '350':350, '400':400, '500':500 };
 function wheelLandDescription(segLabel) {
   if (segLabel === 'BANKRUPT') {
-    return "Elli lost all her coins. Ila's coins are safe.";
+    return COMPANION_NAME + " lost all their coins. " + CHILD_NAME + "'s coins are safe.";
   }
   if (segLabel === 'FREE\nLETTER') {
     return "A free letter will be revealed.";
   }
-  if (segLabel === 'ELLI\nSPINS') {
-    return "Elli gets to pick the next letter.";
+  if (segLabel === COMPANION_SPINS_LABEL) {
+    return COMPANION_NAME + " gets to pick the next letter.";
   }
   if (COIN_VALUES[segLabel] != null) {
     return "Worth " + segLabel + " coins. Child picks a letter.";
@@ -422,9 +448,9 @@ const THEMES = {
     bubbleBg: '#0d0020',
     bubbleBorder: '#a855f7',
     bubbleText: '#ede9fe',
-    elliBg: 'radial-gradient(circle,#3b0f6e,#150030)',
-    elliBorder: '#a855f7',
-    elliGlow: '#a855f7',
+    companionBg: 'radial-gradient(circle,#3b0f6e,#150030)',
+    companionBorder: '#a855f7',
+    companionGlow: '#a855f7',
     slotBg: 'linear-gradient(135deg,#1e0040,#2d0060)',
     slotBorder: '#f59e0b',
     slotText: '#fbbf24',
@@ -471,9 +497,9 @@ const THEMES = {
     bubbleBg: '#060e1a',
     bubbleBorder: '#f59e0b',
     bubbleText: '#fef3c7',
-    elliBg: 'radial-gradient(circle,#92400e,#3a1a00)',
-    elliBorder: '#f59e0b',
-    elliGlow: '#f59e0b',
+    companionBg: 'radial-gradient(circle,#92400e,#3a1a00)',
+    companionBorder: '#f59e0b',
+    companionGlow: '#f59e0b',
     slotBg: 'linear-gradient(135deg,#1a0800,#2a1000)',
     slotBorder: '#0d9488',
     slotText: '#34d399',
@@ -520,9 +546,9 @@ const THEMES = {
     bubbleBg: '#060e0a',
     bubbleBorder: '#34d399',
     bubbleText: '#d1fae5',
-    elliBg: 'radial-gradient(circle,#064e3b,#01100a)',
-    elliBorder: '#34d399',
-    elliGlow: '#34d399',
+    companionBg: 'radial-gradient(circle,#064e3b,#01100a)',
+    companionBorder: '#34d399',
+    companionGlow: '#34d399',
     slotBg: 'linear-gradient(135deg,#010d08,#020f10)',
     slotBorder: '#c084fc',
     slotText: '#c084fc',
@@ -537,7 +563,7 @@ const THEMES = {
 /* ═══════════════════════════════════════════════════════════════════
    WHEEL SVG
 ═══════════════════════════════════════════════════════════════════ */
-const SEGS = ['100','200','BANKRUPT','300','FREE\nLETTER','400','ELLI\nSPINS','500','250','350'];
+const SEGS = ['100','200','BANKRUPT','300','FREE\nLETTER','400',COMPANION_SPINS_LABEL,'500','250','350'];
 
 function WheelSVG({ theme, size = 270, rotation = 0, spinning = false }) {
   const n = SEGS.length;
@@ -793,7 +819,7 @@ function CoinRain() {
 /* ═══════════════════════════════════════════════════════════════════
    ELLI SPEECH (left rail, under wheel) + PORTRAIT (bottom-right circle only)
 ═══════════════════════════════════════════════════════════════════ */
-function ElliSpeechBubble({ theme, speech }) {
+function CompanionSpeechBubble({ theme, speech }) {
   return (
     <div style={{
       position: 'relative',
@@ -832,7 +858,7 @@ function ElliSpeechBubble({ theme, speech }) {
   );
 }
 
-function ElliPortrait({ theme, mood }) {
+function CompanionPortrait({ theme, mood }) {
   const face = mood === 'shocked' ? '😱' : mood === 'celebrating' ? '🤩' : '🌟';
   const anim = mood === 'celebrating' ? 'bounceUp 0.55s ease-in-out infinite'
              : mood === 'shocked'     ? 'shake 0.5s ease-in-out'
@@ -845,11 +871,11 @@ function ElliPortrait({ theme, mood }) {
       <div style={{
         width: 90, height: 90,
         borderRadius: '50%',
-        background: theme.elliBg,
-        border: `4px solid ${theme.elliBorder}`,
+        background: theme.companionBg,
+        border: `4px solid ${theme.companionBorder}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 44,
-        boxShadow: `0 0 28px ${theme.elliGlow}99, 0 0 60px ${theme.elliGlow}33`,
+        boxShadow: `0 0 28px ${theme.companionGlow}99, 0 0 60px ${theme.companionGlow}33`,
         animation: anim,
       }}>
         {face}
@@ -911,8 +937,8 @@ function App() {
   const [revealed, setRevealed] = useState(new Set());
   const [guessedLetters, setGuessedLetters] = useState(new Set());
   const [ilaCoins, setIlaCoins] = useState(0);
-  const [elliCoins, setElliCoins] = useState(ELLI_START_COINS);
-  const [elliJustBankrupt, setElliJustBankrupt] = useState(false);
+  const [companionCoins, setCompanionCoins] = useState(COMPANION_START_COINS);
+  const [companionJustBankrupt, setCompanionJustBankrupt] = useState(false);
   const [wrongGuesses, setWrongGuesses] = useState(0);
   const [phase, setPhase] = useState('idle'); // idle | spinning | picking | won | lost
   const [wheelRot, setWheelRot] = useState(SEG_DEG(0)); // start with seg 0 at pointer
@@ -980,8 +1006,8 @@ function App() {
     completedRef.current = true;
     reportGameState(
       `Word solved! The word was "${WORD_RAW}". ` +
-        `Ila earned ${ilaCoins} coins total. ` +
-        `Elli finished with ${elliCoins} coins. Game complete.`,
+        `${CHILD_NAME} earned ${ilaCoins} coins total. ` +
+        `${COMPANION_NAME} finished with ${companionCoins} coins. Game complete.`,
       {
         phase: "won",
         currentWord: WORD_RAW,
@@ -1012,7 +1038,7 @@ function App() {
         });
       }
     }, 3500);
-  }, [isSolved, ilaCoins, elliCoins]);
+  }, [isSolved, ilaCoins, companionCoins]);
 
   // Game-over detection
   useEffect(() => {
@@ -1020,7 +1046,7 @@ function App() {
     completedRef.current = true;
     reportGameState(
       `Game over. The word was "${WORD_RAW}". ` +
-        `Ila earned ${ilaCoins} coins. Better luck next time.`,
+        `${CHILD_NAME} earned ${ilaCoins} coins. Better luck next time.`,
       {
         phase: "lost",
         currentWord: WORD_RAW,
@@ -1055,14 +1081,14 @@ function App() {
     reportGameAction(
       "wheel_spin_started",
       `Wheel of Fortune started. Word: ${LETTERS.length} letters. Category: ${CATEGORY}. ` +
-        `Ila: ${ilaCoins} coins. Elli: ${elliCoins} coins. Spinning the wheel.`,
+        `${CHILD_NAME}: ${ilaCoins} coins. ${COMPANION_NAME}: ${companionCoins} coins. Spinning the wheel.`,
       getSnapshot({
         phase: "spinning",
         lastAction: "wheel_spin_started",
         score: ilaCoins,
       })
     );
-    setElliJustBankrupt(false);
+    setCompanionJustBankrupt(false);
     SE.spinWhoosh();
     setSpinning(true);
     setPhase('spinning');
@@ -1095,12 +1121,12 @@ function App() {
 
       if (segLabel === 'BANKRUPT') {
         SE.bankrupt();
-        setElliCoins(0);
-        setElliJustBankrupt(true);
+        setCompanionCoins(0);
+        setCompanionJustBankrupt(true);
         setMood('shocked');
         setSpeech('OH NO! I lost ALL my coins! But yours are SAFE — keep going!');
         setTimeout(() => {
-          setElliJustBankrupt(false);
+          setCompanionJustBankrupt(false);
           setMood('happy');
           setSpeech('Your turn again! Spin the wheel! 🌟');
           setPhase('idle');
@@ -1127,7 +1153,7 @@ function App() {
             "letter_revealed",
             `Letter "${best}" is correct! (FREE LETTER) Tile revealed. ` +
               `${newReveal.size} of ${LETTERS.length} letters found. ` +
-              `Ila has ${ilaCoins + earned} coins.`,
+              `${CHILD_NAME} has ${ilaCoins + earned} coins.`,
             getSnapshot({
               phase: "idle",
               revealed: newReveal,
@@ -1143,15 +1169,15 @@ function App() {
         }
         setPhase('idle');
 
-      } else if (segLabel === 'ELLI\nSPINS') {
-        setSpeech("Elli is thinking... 🤔");
+      } else if (segLabel === COMPANION_SPINS_LABEL) {
+        setSpeech(COMPANION_NAME + " is thinking... 🤔");
         setTimeout(() => {
           const unguessed = ALPHABET.filter(l => !guessedLetters.has(l));
           const inWord = unguessed.filter(l => LETTERS.includes(l));
           const pick = inWord.length > 0
             ? inWord[Math.floor(Math.random() * inWord.length)]
             : unguessed[Math.floor(Math.random() * unguessed.length)];
-          setSpeech(`Elli picks... ${pick}! Let's see! 🤞`);
+          setSpeech(`${COMPANION_NAME} picks... ${pick}! Let's see! 🤞`);
           const newReveal = new Set(revealed);
           let earned = 0;
           let found = false;
@@ -1167,9 +1193,9 @@ function App() {
             setSpeech(`Yes! ${pick} is there! Great teamwork! 🌟`);
             reportGameAction(
               "letter_revealed",
-              `Elli picked letter "${pick}" — it is in the word. ` +
+              `${COMPANION_NAME} picked letter "${pick}" — it is in the word. ` +
                 `Letter "${pick}" is correct! ` +
-                `${newReveal.size} of ${LETTERS.length} letters found. Ila has ${ilaCoins + earned} coins.`,
+                `${newReveal.size} of ${LETTERS.length} letters found. ${CHILD_NAME} has ${ilaCoins + earned} coins.`,
               getSnapshot({
                 phase: "idle",
                 revealed: newReveal,
@@ -1187,7 +1213,7 @@ function App() {
             setSpeech(`No ${pick} this time. Keep going! 💪`);
             reportGameAction(
               "wrong_letter",
-              `Elli picked letter "${pick}" — not in the word. No tiles revealed. Wrong guess counted.`,
+              `${COMPANION_NAME} picked letter "${pick}" — not in the word. No tiles revealed. Wrong guess counted.`,
               getSnapshot({
                 phase: "idle",
                 guessedLetters: new Set([...guessedLetters, pick]),
@@ -1210,7 +1236,7 @@ function App() {
         setMood('happy');
       }
     });
-  }, [spinning, phase, revealed, guessedLetters, wrongGuesses, wheelRot, ilaCoins, elliCoins, getSnapshot]);
+  }, [spinning, phase, revealed, guessedLetters, wrongGuesses, wheelRot, ilaCoins, companionCoins, getSnapshot]);
 
   useEffect(() => {
     function onMessage(event) {
@@ -1255,7 +1281,7 @@ function App() {
         "letter_revealed",
         `Letter "${letter}" is correct! Tile revealed. ` +
           `${newReveal.size} of ${LETTERS.length} letters found. ` +
-          `Ila has ${newIla} coins.`,
+          `${CHILD_NAME} has ${newIla} coins.`,
         getSnapshot({
           phase: "idle",
           revealed: newReveal,
@@ -1306,7 +1332,7 @@ function App() {
   }, [handleLetterPick]);
 
   const isCelebrate = phase === 'won';
-  const isBankrupt = elliJustBankrupt;
+  const isBankrupt = companionJustBankrupt;
   const isLost = phase === 'lost';
   const spinBtnDisabled = spinning || phase !== 'idle';
   const spinColor = isBankrupt ? '#ff3333' : isCelebrate ? theme.accentA : theme.accentB;
@@ -1339,7 +1365,7 @@ function App() {
       {isCelebrate && (
         <div style={{
           position:'absolute', inset:0, pointerEvents:'none', zIndex:1,
-          boxShadow:`inset 0 0 80px ${theme.elliGlow}44`,
+          boxShadow:`inset 0 0 80px ${theme.companionGlow}44`,
           animation:'pulseGlow 1s ease-in-out infinite',
         }}/>
       )}
@@ -1411,11 +1437,11 @@ function App() {
             }}
           >{spinning ? '⏳ Spinning…' : isCelebrate ? '🎊 Solved!' : isLost ? '💀 Game Over' : '🎡  SPIN!'}</div>
 
-          <ElliSpeechBubble theme={theme} speech={speech} />
+          <CompanionSpeechBubble theme={theme} speech={speech} />
 
           <div style={{display:'flex', gap:8, width:'100%', justifyContent:'center'}}>
-            <ScoreCard name="Ila"  emoji="⭐" coins={ilaCoins}  bankrupt={false}      theme={theme}/>
-            <ScoreCard name="Elli" emoji="🌟" coins={elliCoins} bankrupt={isBankrupt} theme={theme}/>
+            <ScoreCard name={CHILD_NAME}  emoji="⭐" coins={ilaCoins}  bankrupt={false}      theme={theme}/>
+            <ScoreCard name={COMPANION_NAME} emoji="🌟" coins={companionCoins} bankrupt={isBankrupt} theme={theme}/>
           </div>
         </div>
 
@@ -1462,7 +1488,7 @@ function App() {
               borderRadius:14, fontSize:19, fontWeight:700,
               color:'#fca5a5', textAlign:'center', maxWidth:350, lineHeight:1.5,
             }}>
-              💪 Your coins are SAFE! Only Elli lost hers. You've got this!
+              {`💪 Your coins are SAFE! Only ${COMPANION_NAME} lost theirs. You've got this!`}
             </div>
           )}
 
@@ -1487,7 +1513,7 @@ function App() {
       </div>
 
       {/* ── ELLI ── */}
-      <ElliPortrait theme={theme} mood={mood} />
+      <CompanionPortrait theme={theme} mood={mood} />
     </div>
   );
 }

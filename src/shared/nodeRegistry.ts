@@ -2,6 +2,7 @@ import type { NodeConfig } from "./adventureTypes";
 
 /** User-facing labels (internal `type` stays canonical, e.g. `karaoke`). */
 export const NODE_DISPLAY_LABELS: Record<string, string> = {
+  mystery: "Mystery",
   pronunciation: "Pronunciation",
   karaoke: "Story",
   "word-radar": "Word Radar",
@@ -15,7 +16,9 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
 
 export type NodeContext = {
   childId: string;
+  childName?: string;
   companion: string;
+  companionName?: string;
   /** `false` = live child session; `free` / `true` / `go-live` = iframe query (see `_contract.js`). */
   previewParam: string;
   sessionId?: string;
@@ -42,9 +45,11 @@ export function buildNodeUrlSearchParams(
   const params: Record<string, string> = {
     words: (node.words ?? []).join(","),
     childId: ctx.childId,
+    childName: ctx.childName ?? "",
     difficulty: String(node.difficulty ?? 2),
     nodeId: node.id,
     companion: ctx.companion,
+    companionName: ctx.companionName ?? "",
     preview: ctx.previewParam,
     companionVrmUrl: ctx.vrmUrl ?? "",
     companionMuted: String(ctx.companionMuted ?? false),
@@ -93,6 +98,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
     getUrl: (node, ctx) => `/games/wordle.html?${buildParams(node, ctx)}`,
   },
   "wheel-of-fortune": {
+    getUrl: (node, ctx) => `/games/WheelOfFortune.html?${buildParams(node, ctx)}`,
+  },
+  mystery: {
     getUrl: (node, ctx) => `/games/WheelOfFortune.html?${buildParams(node, ctx)}`,
   },
   quest: {
