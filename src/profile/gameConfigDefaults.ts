@@ -37,6 +37,15 @@ export const DEFAULT_GAME_CONFIGS: ChildProfileGames = {
     sessionCount: 0,
     lastAccuracy: null,
   },
+  quest: {
+    unlocked: false,
+    sessionCount: 0,
+    lastAccuracy: null,
+    sessionsRequired: 5,
+    dataThresholdMet: false,
+    generatedGamePath: null,
+    generationModel: "sonnet",
+  },
   boss: {
     unlocked: false,
     sessionCount: 0,

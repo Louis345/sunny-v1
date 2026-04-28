@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reina Quest Placeholder</title>
+    <script src="/games/_contract.js"></script>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Lexend, Arial, sans-serif;
+        background: #fff8f0;
+        color: #2d1459;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        max-width: 720px;
+        padding: 24px;
+        text-align: center;
+      }
+      h1 {
+        margin: 0 0 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="sunny-companion"
+      style="position:fixed;bottom:20px;right:20px;width:120px;height:120px;z-index:9999;pointer-events:none;"
+    ></div>
+    <main>
+      <h1>Quest Placeholder</h1>
+      <p>This placeholder page confirms boss/quest map routing in unlocked diag mode.</p>
+    </main>
+    <script>
+      window.parent.postMessage(
+        {
+          type: "node_complete",
+          completed: true,
+          accuracy: 1,
+          timeSpent_ms: 1000,
+          wordsAttempted: 1,
+        },
+        "*",
+      );
+    </script>
+  </body>
+</html>

@@ -9,18 +9,42 @@ export interface AnimationManifestEntry {
 }
 
 export const ANIMATION_MANIFEST: readonly AnimationManifestEntry[] = [
+  { name: "blow_a_kiss", path: "/animations/blow_a_kiss.fbx", defaultLoop: false, label: "Blow A Kiss" },
   { name: "dance_victory", path: "/animations/dance_victory.fbx", defaultLoop: false, label: "Dance Victory" },
+  { name: "defeated", path: "/animations/defeated.fbx", defaultLoop: false, label: "Defeated" },
+  { name: "hip_hop_dancing", path: "/animations/hip_hop_dancing.fbx", defaultLoop: false, label: "Hip Hop Dancing" },
+  { name: "hip_hop_dancing_2", path: "/animations/hip_hop_dancing_2.fbx", defaultLoop: false, label: "Hip Hop Dancing 2" },
   { name: "idle", path: "/animations/idle.fbx", defaultLoop: true, label: "Idle" },
+  { name: "idle_stand", path: "/animations/idle_stand.fbx", defaultLoop: true, label: "Idle Stand" },
+  { name: "ponder_moment", path: "/animations/ponder_moment.fbx", defaultLoop: false, label: "Ponder Moment" },
+  { name: "salsa_dancing", path: "/animations/salsa_dancing.fbx", defaultLoop: false, label: "Salsa Dancing" },
   { name: "shrug", path: "/animations/shrug.fbx", defaultLoop: false, label: "Shrug" },
+  { name: "silly_dancing", path: "/animations/silly_dancing.fbx", defaultLoop: false, label: "Silly Dancing" },
+  { name: "silly_laugh", path: "/animations/silly_laugh.fbx", defaultLoop: false, label: "Silly Laugh" },
+  { name: "sitting", path: "/animations/sitting.fbx", defaultLoop: false, label: "Sitting" },
+  { name: "surprise_jump", path: "/animations/surprise_jump.fbx", defaultLoop: false, label: "Surprise Jump" },
   { name: "think", path: "/animations/think.fbx", defaultLoop: false, label: "Think" },
+  { name: "thinking_2", path: "/animations/thinking_2.fbx", defaultLoop: false, label: "Thinking 2" },
   { name: "wave", path: "/animations/wave.fbx", defaultLoop: false, label: "Wave" },
 ] as const;
 
 export const ANIMATION_IDS = [
+  "blow_a_kiss",
   "dance_victory",
+  "defeated",
+  "hip_hop_dancing",
+  "hip_hop_dancing_2",
   "idle",
+  "idle_stand",
+  "ponder_moment",
+  "salsa_dancing",
   "shrug",
+  "silly_dancing",
+  "silly_laugh",
+  "sitting",
+  "surprise_jump",
   "think",
+  "thinking_2",
   "wave",
 ] as const;
 export type GeneratedAnimationName = (typeof ANIMATION_IDS)[number];

@@ -12,6 +12,7 @@ export type NodeType =
   | "coin-counter"
   | "spell-check"
   | "wordle"
+  | "quest"
   | "riddle"
   | "space-invaders"
   | "asteroid"
@@ -40,6 +41,8 @@ export interface NodeConfig {
   }>;
   /** Homework node metadata (quest/boss routing). */
   gameFile?: string;
+  gameHtmlPath?: string;
+  generationModel?: "sonnet" | "opus";
   storyFile?: string;
   storyText?: string;
   date?: string;

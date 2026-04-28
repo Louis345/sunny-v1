@@ -16,6 +16,7 @@ const TRIGGERS: CompanionTrigger[] = [
   "correct_answer",
   "wrong_answer",
   "mastery_unlock",
+  "session_complete",
   "session_end",
   "idle_too_long",
 ];
@@ -75,9 +76,9 @@ describe("companion types (COMPANION-001)", () => {
     expect(ev.payload.trigger).toBeUndefined();
   });
 
-  it("CompanionTrigger union covers all six triggers (exhaustive check)", () => {
+  it("CompanionTrigger union covers all triggers (exhaustive check)", () => {
     const seen = new Set<string>(TRIGGERS);
-    expect(seen.size).toBe(6);
+    expect(seen.size).toBe(TRIGGERS.length);
   });
 
   it("default sensitivity values are between 0 and 1", () => {

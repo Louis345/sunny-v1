@@ -17,20 +17,23 @@ export const COMPANION_API_VERSION: CompanionApiVersion = "1.0";
 
 /** Named companion animations (`companionAct` type `animate`). */
 export const COMPANION_ANIMATION_IDS = [
-  "idle",
-  "walk",
+  "blow_a_kiss",
   "dance_victory",
-  "think",
-  "sit",
-  "jump",
-  "wave",
+  "defeated",
+  "hip_hop_dancing",
+  "hip_hop_dancing_2",
+  "idle",
+  "idle_stand",
+  "ponder_moment",
+  "salsa_dancing",
   "shrug",
-  "clap",
-  "nod",
-  "shake_head",
-  "idle_fidget",
-  "point_forward",
-  "arms_up",
+  "silly_dancing",
+  "silly_laugh",
+  "sitting",
+  "surprise_jump",
+  "think",
+  "thinking_2",
+  "wave",
 ] as const;
 export type AnimationName = (typeof COMPANION_ANIMATION_IDS)[number];
 
@@ -43,17 +46,8 @@ export const COMPANION_ANIMATE_TO_EXPRESSION_KEY: Partial<
 > = {
   dance_victory: "happy",
   wave: "happy",
-  clap: "happy",
-  nod: "happy",
-  shake_head: "concerned",
-  jump: "surprised",
-  idle_fidget: "idle",
-  point_forward: "idle",
-  arms_up: "surprised",
   think: "thinking",
-  sit: "idle",
   idle: "idle",
-  walk: "idle",
   shrug: "concerned",
 };
 

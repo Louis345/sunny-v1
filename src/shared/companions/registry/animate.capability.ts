@@ -15,8 +15,9 @@ export const animateCapability: CapabilityDefinition = {
   type: "animate",
   version: "1.0",
   phase: 1,
-  description:
-    "Play a named animation id on the companion (mapped to expressions until a clip graph ships).",
+  description: `Play a body animation on the VRM companion.
+     Valid values: ${ANIMATION_IDS.join(" | ")}.
+     Do not use any value not in this list.`,
   whenToUse: [
     "When movement or pose reinforces a celebration or transition alongside speech.",
   ],

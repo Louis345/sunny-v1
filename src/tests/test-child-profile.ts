@@ -133,6 +133,7 @@ describe("buildProfile (TASK-004)", () => {
       "clock-game",
       "coin-counter",
       "karaoke-reading",
+      "quest",
       "spell-check",
       "word-radar",
     ]);

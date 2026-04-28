@@ -10,7 +10,7 @@ describe("companionAnimateBridge (COMPANION-API-009)", () => {
   it("maps known animations to emotes", () => {
     expect(mapAnimationToEmote("dance_victory")).toBe("happy");
     expect(mapAnimationToEmote("think")).toBe("thinking");
-    expect(mapAnimationToEmote("jump")).toBe("surprised");
+    expect(mapAnimationToEmote("surprise_jump")).toBe("surprised");
     expect(mapAnimationToEmote("wave")).toBe("happy");
     expect(mapAnimationToEmote("idle")).toBe("neutral");
   });

@@ -44,7 +44,13 @@ export function validateCompanionCommand(
   }
   const parsed = def.payloadSchema.safeParse(payloadRaw);
   if (!parsed.success) {
-    console.warn(" [companion-api] validate reject: schema", parsed.error.flatten());
+    const pr = payloadRaw as Record<string, unknown>;
+    console.warn("[companion-api] validate reject:", {
+      attempted: pr.animation,
+      emoteAttempted: pr.emote,
+      capabilityType: type,
+      schema: parsed.error.flatten(),
+    });
     return null;
   }
   return {

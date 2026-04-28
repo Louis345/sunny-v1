@@ -96,13 +96,13 @@ describe("handleGameEventForSession companion_event server routing", () => {
     expect(session.send).toHaveBeenCalled();
   });
 
-  it("does NOT call s.send for session_complete (not server-whitelisted)", () => {
+  it("routes session_complete to s.send (server-whitelisted)", () => {
     const session = makeSession();
     handleGameEventForSession(session, {
       type: "companion_event",
       payload: { trigger: "session_complete", childId: "ila", timestamp: 1 },
     });
-    expect(session.send).not.toHaveBeenCalled();
+    expect(session.send).toHaveBeenCalled();
   });
 });
 

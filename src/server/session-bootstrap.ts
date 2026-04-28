@@ -98,6 +98,11 @@ export async function runSessionStart(
   session: any,
   hooks: SessionStartHooks = {},
 ): Promise<void> {
+    if (process.env.SUNNY_STATELESS === "true") {
+      console.warn(
+        "🚨 STATELESS MODE — NO DATA WILL BE SAVED\n🚨 If this is a real child session run: npm run sunny",
+      );
+    }
     session.spellingHomeworkWordsByNorm = [];
     session.refreshSpellingHomeworkGate();
     session.spellingWordsWithAttempt.clear();

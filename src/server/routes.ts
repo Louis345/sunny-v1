@@ -552,6 +552,28 @@ export function setupRoutes(app: Express): void {
     res.json(profile.pendingHomework);
   });
 
+  app.get("/api/homework/game/:childId/:filename", async (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
+    if (!childId || !filename || !/^[\w.\- ]+$/.test(filename)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    const profile = await buildProfile(childId);
+    const configuredPaths = [
+      profile?.games?.quest?.generatedGamePath,
+      profile?.games?.boss?.generatedGamePath,
+    ].filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+    const resolved = configuredPaths
+      .map((p) => path.resolve(p))
+      .find((p) => path.basename(p) === filename && fs.existsSync(p));
+    if (!resolved) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    res.type("html");
+    return res.sendFile(resolved);
+  });
+
   app.post("/api/homework/approve", (req: Request, res: Response) => {
     const childId =
       typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";

@@ -17,6 +17,27 @@ export function isCompanionAnimationId(v: unknown): v is CompanionAnimationId {
   return typeof v === "string" && ANIMATION_SET.has(v);
 }
 
+// ingest:animations — INGEST_ANIMATION_EMOTES_BEGIN (do not edit this marker)
+
+const INGEST_INFERRED_ANIMATION_EMOTES: Partial<
+  Record<CompanionAnimationId, CompanionEmote>
+> = {
+  "blow_a_kiss": "happy",
+  "defeated": "sad",
+  "hip_hop_dancing": "celebrating",
+  "hip_hop_dancing_2": "celebrating",
+  "idle_stand": "neutral",
+  "ponder_moment": "thinking",
+  "salsa_dancing": "celebrating",
+  "silly_dancing": "happy",
+  "silly_laugh": "happy",
+  "sitting": "neutral",
+  "surprise_jump": "surprised",
+  "thinking_2": "thinking",
+};
+
+// ingest:animations — INGEST_ANIMATION_EMOTES_END (do not edit this marker)
+
 /**
  * Maps registry animation ids to face/body cue emotes already supported by CompanionLayer.
  */
@@ -24,28 +45,20 @@ export function mapAnimationToEmote(animation: string): CompanionEmote | null {
   if (!isCompanionAnimationId(animation)) return null;
   switch (animation) {
     case "idle":
-    case "walk":
-    case "sit":
-    case "idle_fidget":
-    case "point_forward":
       return "neutral";
     case "dance_victory":
-    case "clap":
-    case "nod":
       return "happy";
     case "think":
       return "thinking";
-    case "jump":
-    case "arms_up":
-      return "surprised";
     case "wave":
       return "happy";
     case "shrug":
       return "neutral";
-    case "shake_head":
-      return "sad";
     default:
-      return null;
+      return (
+        INGEST_INFERRED_ANIMATION_EMOTES[animation as CompanionAnimationId] ??
+        null
+      );
   }
 }
 

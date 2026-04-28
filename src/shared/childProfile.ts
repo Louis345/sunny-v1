@@ -58,12 +58,20 @@ export interface BossGameConfig extends GameConfig {
   generationModel: "sonnet" | "opus" | null;
 }
 
+export interface QuestGameConfig extends GameConfig {
+  sessionsRequired: number;
+  dataThresholdMet: boolean;
+  generatedGamePath: string | null;
+  generationModel: "sonnet";
+}
+
 export interface ChildProfileGames {
   "word-radar"?: WordRadarGameConfig;
   "spell-check"?: SpellCheckGameConfig;
   "karaoke-reading"?: KaraokeGameConfig;
   "clock-game"?: ClockGameConfig;
   "coin-counter"?: CoinGameConfig;
+  quest?: QuestGameConfig;
   boss?: BossGameConfig;
   [key: string]:
     | GameConfig
@@ -72,6 +80,7 @@ export interface ChildProfileGames {
     | KaraokeGameConfig
     | ClockGameConfig
     | CoinGameConfig
+    | QuestGameConfig
     | BossGameConfig
     | undefined;
 }

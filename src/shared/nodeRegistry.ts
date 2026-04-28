@@ -9,8 +9,8 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   "spell-check": "Spell Check",
   wordle: "Wordle",
   "word-builder": "Word Builder",
-  quest: "Quest",
-  boss: "Boss",
+  quest: "⚔️ Quest",
+  boss: "👹 Boss",
   dopamine: "Game",
 };
 
@@ -34,6 +34,8 @@ export type RoutableNodeConfig = Pick<
   | "wordRadarItems"
   | "difficulty"
   | "gameFile"
+  | "gameHtmlPath"
+  | "generationModel"
   | "date"
   | "storyText"
 > & { type: string };
@@ -101,16 +103,29 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
     getUrl: (node, ctx) => `/games/WheelOfFortune.html?${buildParams(node, ctx)}`,
   },
   mystery: {
-    getUrl: (node, ctx) => `/games/WheelOfFortune.html?${buildParams(node, ctx)}`,
+    getUrl: (node, ctx) =>
+      `/games/${node.gameFile ?? "space-invaders.html"}?${buildParams(node, ctx)}`,
   },
   quest: {
     getUrl: (node, ctx) => {
+      if (node.gameHtmlPath) {
+        const filename = node.gameHtmlPath.split("/").pop();
+        if (filename) {
+          return `/api/homework/game/${ctx.childId}/${encodeURIComponent(filename)}?${buildParams(node, ctx)}`;
+        }
+      }
       if (!node.date || !node.gameFile) return "";
       return `/homework/${ctx.childId}/${node.date}/${node.gameFile}?${buildParams(node, ctx)}`;
     },
   },
   boss: {
     getUrl: (node, ctx) => {
+      if (node.gameHtmlPath) {
+        const filename = node.gameHtmlPath.split("/").pop();
+        if (filename) {
+          return `/api/homework/game/${ctx.childId}/${encodeURIComponent(filename)}?${buildParams(node, ctx)}`;
+        }
+      }
       if (!node.date || !node.gameFile) return "";
       return `/homework/${ctx.childId}/${node.date}/${node.gameFile}?${buildParams(node, ctx)}`;
     },

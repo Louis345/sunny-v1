@@ -92,6 +92,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "A tiny green frog on lily pads over stylized lanes, arcade-cute, bright colors",
   "bubble-pop":
     "Cheerful cartoon bubbles with letters inside, pastel colors, child-friendly",
+  quest:
+    "Treasure chest bursting open with gold stars and letters, adventure game icon, cartoon style",
   boss: "A golden trophy with stars exploding around it, triumphant, cartoon style",
   "wheel-of-fortune": "Colorful carnival wheel spinning in space, gold coins flying, arcade-cute cartoon style",
 };

@@ -34,6 +34,16 @@
           "inputMode": "letter-by-letter",
           "showTimer": true,
           "personalBestMetric": "speed"
+        },
+        "quest": {
+          "dataThresholdMet": true,
+          "generationModel": "sonnet",
+          "generatedGamePath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/2026-04-28-quest.html"
+        },
+        "boss": {
+          "dataThresholdMet": true,
+          "generationModel": "opus",
+          "generatedGamePath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/2026-04-28-boss.html"
         }
       }
     },
