@@ -29,6 +29,34 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     expect(companionTriggerToSessionEventType("idle_too_long")).toBe("idle_10s");
     expect(companionTriggerToSessionEventType("session_start")).toBeNull();
     expect(companionTriggerToSessionEventType("wrong_answer")).toBe("wrong_answer");
+    expect(companionTriggerToSessionEventType("session_complete")).toBe(
+      "session_complete",
+    );
+  });
+
+  it("fires session_complete on bus when map socket forwards iframe event", () => {
+    const fire = vi.spyOn(sessionEventBus, "fire");
+    const ws = { once: vi.fn(), off: vi.fn() } as unknown as WebSocket;
+    registerMapSessionWebSocket("ila", ws);
+    registerActiveVoiceSession("ila", "voice-sid-sc");
+
+    const ok = handleMapSocketIframeCompanionEvent(ws, {
+      type: "map_iframe_companion_event",
+      payload: {
+        trigger: "session_complete",
+        childId: "ila",
+        timestamp: 7,
+      },
+    });
+    expect(ok).toBe(true);
+    expect(fire).toHaveBeenCalledWith({
+      type: "session_complete",
+      childId: "ila",
+      sessionId: "voice-sid-sc",
+      timestamp: 7,
+    });
+    fire.mockRestore();
+    unregisterActiveVoiceSessionIfCurrent("ila", "voice-sid-sc");
   });
 
   it("fires wrong_answer on bus when map socket forwards iframe event", () => {

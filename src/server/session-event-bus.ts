@@ -7,7 +7,8 @@ export type SessionEventType =
   | "node_complete"
   | "reading_complete"
   | "idle_10s"
-  | "session_end";
+  | "session_end"
+  | "session_complete";
 
 export type SessionEvent = {
   type: SessionEventType;

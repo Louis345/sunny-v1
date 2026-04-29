@@ -97,6 +97,7 @@ describe("companion types (COMPANION-001)", () => {
   it("isCompanionEmote accepts expressCompanion enum and rejects unknown", () => {
     expect(isCompanionEmote("happy")).toBe(true);
     expect(isCompanionEmote("celebrating")).toBe(true);
+    expect(isCompanionEmote("excited")).toBe(true);
     expect(isCompanionEmote("angry")).toBe(false);
     expect(isCompanionEmote(null)).toBe(false);
   });

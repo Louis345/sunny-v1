@@ -144,6 +144,8 @@ export interface LearningProfile {
       approved?: boolean;
       date?: string;
     }>;
+    /** Adventure map node ids completed for this homework week (persisted across sessions). */
+    completedAdventureNodeIds?: string[];
   };
 
   /**

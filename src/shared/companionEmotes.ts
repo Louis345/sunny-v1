@@ -9,6 +9,7 @@ export const COMPANION_EMOTES = [
   "thinking",
   "surprised",
   "celebrating",
+  "excited",
   "neutral",
   "wink",
 ] as const;

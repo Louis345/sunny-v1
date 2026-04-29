@@ -383,13 +383,15 @@ function App() {
 
   const effectiveCompanion = activeProfileChildId ? profileCompanion : null;
 
+  /** Tamagotchi quips are suppressed on the adventure map — companion speaks via voice only. */
   const companionBubbleText = useMemo(() => {
     if (!adventureChildId) return null;
+    if (adventureMapEnabled) return null;
     const t = profileTamagotchi ?? DEFAULT_TAMAGOTCHI;
     return getTamagotchiSpeechBubble(
       getTamagotchiPersonality(t, false),
     );
-  }, [adventureChildId, profileTamagotchi]);
+  }, [adventureChildId, adventureMapEnabled, profileTamagotchi]);
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -696,10 +698,16 @@ function App() {
     [],
   );
 
+  /** Profile + tamagotchi meters: GET /api/profile/:childId → buildProfile (learning_profile tamagotchi + passive depletion). */
+  const profileApiChildId =
+    adventureMapEnabled && adventureChildId
+      ? adventureChildId
+      : activeProfileChildId;
+
   useEffect(() => {
-    if (!activeProfileChildId) return;
+    if (!profileApiChildId) return;
     let cancelled = false;
-    fetch(`/api/profile/${encodeURIComponent(activeProfileChildId)}`)
+    fetch(`/api/profile/${encodeURIComponent(profileApiChildId)}`)
       .then(async (r) => {
         if (!r.ok) {
           throw new Error(`profile ${r.status}`);
@@ -760,9 +768,10 @@ function App() {
       cancelled = true;
       setProfileCompanion(null);
       setProfileAvatarImagePath(null);
+      setProfileTamagotchi(null);
       setProfileWordRadar(null);
     };
-  }, [activeProfileChildId]);
+  }, [profileApiChildId]);
 
   if (import.meta.env.VITE_MODE === "intro") {
     return <CompanionShowroomPage />;

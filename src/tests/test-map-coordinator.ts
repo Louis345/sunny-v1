@@ -65,12 +65,15 @@ vi.mock("../engine/learningEngine", async (importOriginal) => {
 import {
   __resetAdventureMapSessionsForTests,
   applyNodeResult,
+  firstIncompleteNodeIndex,
   getMapState,
   handleMapClientMessage,
+  hydrateHomeworkCompletedNodeIds,
   MapSessionError,
   startMapSession,
   buildMapSummary,
 } from "../server/map-coordinator";
+import { inferEmoteFromSlug } from "../scripts/ingestAnimations";
 import {
   __resetVoiceSessionRegistryForTests,
   registerActiveVoiceSessionManager,
@@ -355,5 +358,52 @@ describe("buildMapSummary", () => {
     const s = buildMapSummary(mapState);
     expect(s).toContain("START HERE");
     expect(s).toContain("BOSS");
+  });
+});
+
+describe("homework map completion hydration helpers", () => {
+  function node(
+    id: string,
+    type: NodeConfig["type"],
+    isGoal: boolean,
+  ): NodeConfig {
+    return {
+      id,
+      type,
+      isLocked: false,
+      isCompleted: false,
+      isGoal,
+      difficulty: 1,
+      words: [],
+    };
+  }
+
+  const nodes: NodeConfig[] = [
+    node("n1", "word-radar", false),
+    node("n-mystery-hw1", "mystery", false),
+    node("n2", "karaoke", true),
+  ];
+
+  it("hydrateHomeworkCompletedNodeIds keeps only ids on current map", () => {
+    expect(
+      hydrateHomeworkCompletedNodeIds(nodes, ["n-mystery-hw1", "stale-id", "n1"]),
+    ).toEqual(["n1", "n-mystery-hw1"]);
+  });
+
+  it("firstIncompleteNodeIndex skips completed prefix", () => {
+    const done = new Set(["n1", "n-mystery-hw1"]);
+    expect(firstIncompleteNodeIndex(nodes, done)).toBe(2);
+  });
+
+  it("firstIncompleteNodeIndex returns last index when all complete", () => {
+    const done = new Set(nodes.map((n) => n.id));
+    expect(firstIncompleteNodeIndex(nodes, done)).toBe(2);
+  });
+
+  it("inferEmoteFromSlug maps excited and cheer to celebrating", () => {
+    expect(inferEmoteFromSlug("excited_jump").emote).toBe("celebrating");
+    expect(inferEmoteFromSlug("excited_jump").heuristicHit).toBe(true);
+    expect(inferEmoteFromSlug("crowd_cheer").emote).toBe("celebrating");
+    expect(inferEmoteFromSlug("crowd_cheer").heuristicHit).toBe(true);
   });
 });

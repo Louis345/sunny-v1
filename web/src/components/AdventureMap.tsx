@@ -1218,7 +1218,15 @@ export function AdventureMap(props: {
             gap: 8,
           }}
         >
-          🍎 Elli's Care
+          🍎{" "}
+          {(() => {
+            const id = props.mapCompanion?.companionId?.trim();
+            const label =
+              id && id.length > 0
+                ? id.charAt(0).toUpperCase() + id.slice(1)
+                : "Companion";
+            return `${label}'s Care`;
+          })()}
         </button>
       ) : null}
       {false && pendingVrr && (

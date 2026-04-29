@@ -13,6 +13,7 @@ const EVENT_TO_EMOTE: Partial<Record<SessionEvent["type"], string>> = {
   reading_complete: "happy",
   idle_10s: "winking",
   session_end: "happy",
+  session_complete: "happy",
 };
 
 function routeEventToCompanion(event: SessionEvent): void {
@@ -45,6 +46,7 @@ const EVENT_TYPES: import("./session-event-bus").SessionEventType[] = [
   "reading_complete",
   "idle_10s",
   "session_end",
+  "session_complete",
 ];
 
 EVENT_TYPES.forEach((type) => {

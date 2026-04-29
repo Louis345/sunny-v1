@@ -20,7 +20,8 @@
       gap: 1rem;
       padding: 1rem;
     }
-    .words { font-size: 1.25rem; letter-spacing: 0.04em; }
+    .words { font-size: 1.25rem; letter-spacing: 0.04em; text-align: center; max-width: 28rem; }
+    .progress { font-size: 0.95rem; color: #a1a1aa; }
     button {
       padding: 0.65rem 1.2rem;
       border-radius: 10px;
@@ -31,10 +32,15 @@
       color: #052e16;
     }
     button.secondary { background: #f97316; color: #1c0a01; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
   </style>
 </head>
 <body>
   <div class="words" id="word-line"></div>
+  <div class="progress" id="progress-line"></div>
+  <div>
+    <button type="button" id="done-word">Done with this word</button>
+  </div>
   <div>
     <button type="button" id="done-ok">Finish (success)</button>
     <button type="button" class="secondary" id="done-bad">Finish (struggle)</button>
@@ -46,7 +52,17 @@
       var _difficulty = (window.GAME_PARAMS && window.GAME_PARAMS.difficulty) || 2;
       var _nodeId = (window.GAME_PARAMS && window.GAME_PARAMS.nodeId) || "node_unknown";
       if (words.length === 0) words = ["practice"];
-      document.getElementById("word-line").textContent = "Words: " + words.join(", ");
+      var wordIndex = 0;
+
+      function renderLine() {
+        document.getElementById("word-line").textContent =
+          "Current word: " + (words[wordIndex] || "") + " — (" + (wordIndex + 1) + " / " + words.length + ")";
+        document.getElementById("progress-line").textContent =
+          words.length > 1
+            ? "Build each word, then tap “Finish (success)” on the last one."
+            : "Tap Done when ready, then Finish.";
+      }
+      renderLine();
 
       if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
         window.GameBridge.reportState(
@@ -69,9 +85,34 @@
           timeSpent_ms: 1200,
           wordsAttempted: words.length,
         });
+        if (completed && window.GameBridge && typeof window.GameBridge.fireEvent === "function") {
+          window.setTimeout(function () {
+            window.GameBridge.fireEvent("session_complete", {});
+          }, 0);
+        }
       }
 
+      document.getElementById("done-word").addEventListener("click", function () {
+        if (wordIndex >= words.length - 1) return;
+        wordIndex += 1;
+        renderLine();
+        if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+          window.GameBridge.reportState(
+            'Word builder — working on: ' + (words[wordIndex] || ""),
+            {
+              phase: "playing",
+              currentWord: words[wordIndex] || "",
+              itemIndex: wordIndex,
+              totalItems: words.length,
+            }
+          );
+        }
+      });
+
       document.getElementById("done-ok").addEventListener("click", function () {
+        if (wordIndex < words.length - 1) {
+          return;
+        }
         if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
           window.GameBridge.reportState(
             'Word builder complete — all words built successfully',

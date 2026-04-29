@@ -37,6 +37,7 @@ import { formatNodeResultForCompanion } from "./companion-context/nodeResultForm
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { generateStoryImage } from "../utils/generateStoryImage";
+import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -238,6 +239,8 @@ export function companionTriggerToSessionEventType(
       return t;
     case "idle_too_long":
       return "idle_10s";
+    case "session_complete":
+      return "session_complete";
     case "session_start":
     case "mastery_unlock":
       return null;
@@ -528,6 +531,25 @@ function syncNodeStatuses(state: MapState): void {
       ? false
       : idx > state.currentNodeIndex && !completed.has(node.id),
   }));
+}
+
+/** Intersect persisted homework completion ids with the current map node list (order preserved). */
+export function hydrateHomeworkCompletedNodeIds(
+  nodes: NodeConfig[],
+  persisted: string[] | undefined,
+): string[] {
+  const set = new Set(persisted ?? []);
+  return nodes.filter((n) => set.has(n.id)).map((n) => n.id);
+}
+
+/** Index of first node not in `completed`; if all complete, last node index. */
+export function firstIncompleteNodeIndex(
+  nodes: NodeConfig[],
+  completed: ReadonlySet<string>,
+): number {
+  const idx = nodes.findIndex((n) => !completed.has(n.id));
+  if (idx < 0) return Math.max(0, nodes.length - 1);
+  return idx;
 }
 
 function clampNodeDifficulty(raw: number | undefined): 1 | 2 | 3 {
@@ -919,6 +941,11 @@ export async function startMapSession(
       .filter((node) => node.type !== "mystery" && node.type !== "quest" && node.type !== "boss")
       .map((node) => node.id);
     mapState.currentNodeIndex = 0;
+  } else if (profile.pendingHomework?.nodes?.length) {
+    const persisted = profile.pendingHomework.completedAdventureNodeIds;
+    mapState.completedNodes = hydrateHomeworkCompletedNodeIds(mapState.nodes, persisted);
+    const done = new Set(mapState.completedNodes);
+    mapState.currentNodeIndex = firstIncompleteNodeIndex(mapState.nodes, done);
   }
   syncNodeStatuses(mapState);
   const sessionId = randomUUID();
@@ -1141,6 +1168,24 @@ export async function applyNodeResult(
       st.sessionDate,
       `Map node ${nodeCfg.type} ${result.nodeId} completed=${result.completed} accuracy=${result.accuracy}`,
     );
+  }
+
+  if (!skipPersistence && result.completed) {
+    try {
+      const lp = readLearningProfile(st.childId);
+      if (lp?.pendingHomework?.nodes?.length) {
+        const nodeOk = st.nodes.some((n) => n.id === result.nodeId);
+        if (nodeOk) {
+          const prev = lp.pendingHomework.completedAdventureNodeIds ?? [];
+          if (!prev.includes(result.nodeId)) {
+            lp.pendingHomework.completedAdventureNodeIds = [...prev, result.nodeId];
+            writeLearningProfile(st.childId, lp);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("  🔴 [map-coordinator] persist homework map completion failed:", err);
+    }
   }
 
   if (st.currentNodeIndex < st.nodes.length - 1) {

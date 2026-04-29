@@ -105,6 +105,10 @@ export function inferEmoteFromSlug(
 ): { emote: CompanionEmote; heuristicHit: boolean } {
   const s = slug.toLowerCase();
 
+  if (s.includes("excited") || s.includes("cheer")) {
+    return { emote: "celebrating", heuristicHit: true };
+  }
+
   if (
     s.includes("dance") ||
     s.includes("hip_hop") ||

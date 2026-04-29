@@ -553,7 +553,7 @@ export async function runPsychologist(
     prompt,
     tools,
     stopWhen: stepCountIs(10),
-    maxOutputTokens: 1500,
+    maxOutputTokens: 4096,
     onStepFinish: (step) => {
       console.log(
         "Step:",

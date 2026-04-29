@@ -325,6 +325,25 @@ export function applyAcceptedEmote(
       );
       break;
     }
+    case "excited": {
+      state.faceExpression = "celebrating";
+      state.faceInitialWeight = intensity;
+      state.faceWeight = intensity;
+      state.faceElapsedMs = 0;
+      state.faceDurationMs = 2500;
+      state.thinkingActive = false;
+      state.thinkingElapsedMs = 0;
+      state.thinkingDurationMs = 0;
+      console.log(
+        "[VRM] applyEmote:",
+        emote,
+        "→ blendShape:",
+        previewBlend("celebrating"),
+        "intensity:",
+        intensity,
+      );
+      break;
+    }
     case "wink": {
       state.faceExpression = "wink";
       state.faceInitialWeight = intensity;
