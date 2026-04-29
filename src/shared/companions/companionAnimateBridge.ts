@@ -28,11 +28,13 @@ const INGEST_INFERRED_ANIMATION_EMOTES: Partial<
   "hip_hop_dancing_2": "celebrating",
   "idle_stand": "neutral",
   "ponder_moment": "thinking",
+  "quick_formal_bow": "happy",
   "salsa_dancing": "celebrating",
   "silly_dancing": "happy",
   "silly_laugh": "happy",
   "sitting": "neutral",
   "surprise_jump": "surprised",
+  "talking": "neutral",
   "thinking_2": "thinking",
 };
 

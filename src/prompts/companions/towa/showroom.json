@@ -14,8 +14,42 @@
   "gestureProfile": {
     "meet": "wave",
     "intro": ["wave", "think"],
-    "plead": ["wave", "dance_victory"]
+    "plead": ["wave", "dance_victory"],
+    "specialDance": "blow_a_kiss"
   },
+  "voices": [
+    {
+      "id": "BlgEcC0TfWpBak7FmvHW",
+      "label": "Towa Glow",
+      "language": "en",
+      "default": true
+    },
+    {
+      "id": "pMsXgVXv3BLzUgSXRplE",
+      "label": "Serena",
+      "language": "en"
+    },
+    {
+      "id": "EXAVITQu4vr4xnSDxMaL",
+      "label": "Belle",
+      "language": "en"
+    },
+    {
+      "id": "piI8Kku0DcvcL6TTSeQt",
+      "label": "Fairy",
+      "language": "en"
+    },
+    {
+      "id": "n7Wi4g1bhpw4Bs8HK5ph",
+      "label": "Gigi - Energetic",
+      "language": "en"
+    },
+    {
+      "id": "Nggzl2QAXh3OijoXD116",
+      "label": "Candy - Young and Sweet",
+      "language": "en"
+    }
+  ],
   "scripts": {
     "en": {
       "intro": "Hi! I'm Towa. I love glowing earrings, cute outfits, night walks, and making dark places feel friendly.",

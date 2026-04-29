@@ -625,6 +625,10 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   console.log("📦 Step 2/4: Seeding word bank and creating cycle record...");
 
   const wordBank = readWordBank(childId);
+  // Only the current ingest batch should win getHomeworkPriorityWords(); clear stale flags first.
+  for (const entry of wordBank.words) {
+    entry.homeworkPriority = false;
+  }
   for (const raw of extracted.words) {
     const word = String(raw ?? "").trim();
     if (!word) continue;

@@ -99,6 +99,76 @@ type AmbientMusicHandle = {
 
 type SpeakingLine = "intro" | "plead";
 type GestureLine = SpeakingLine | "meet";
+export type CompanionShowroomGestureProfile = {
+  meet?: string;
+  intro?: string[];
+  plead?: string[];
+  specialDance?: string;
+};
+export type ShowroomSpeechGesturePlan = {
+  sequence: string[];
+  sustainPrimary: boolean;
+  intervalMs: number | null;
+};
+
+const AWKWARD_SPEECH_GESTURE_REPLACEMENTS: Readonly<Record<string, string>> = {
+  wave: "talking",
+  dance_victory: "talking",
+  surprise_jump: "talking",
+  silly_dancing: "talking",
+  hip_hop_dancing: "talking",
+  hip_hop_dancing_2: "talking",
+  salsa_dancing: "talking",
+};
+
+function sanitizeSpeechGesture(animation: string): string {
+  return AWKWARD_SPEECH_GESTURE_REPLACEMENTS[animation] ?? animation;
+}
+
+export function resolveShowroomGestureSequence(
+  profile: CompanionShowroomGestureProfile | null | undefined,
+  line: GestureLine,
+): string[] {
+  if (line === "meet") {
+    return [profile?.meet ?? "wave"];
+  }
+
+  const fallback = line === "intro" ? ["talking", "think"] : ["talking", "think"];
+  const rawSequence =
+    profile?.[line] && profile[line]!.length > 0 ? profile[line]! : fallback;
+  const seen = new Set<string>();
+  const sanitized = rawSequence
+    .map((animation) => sanitizeSpeechGesture(animation))
+    .filter((animation) => {
+      if (seen.has(animation)) return false;
+      seen.add(animation);
+      return true;
+    });
+
+  return sanitized.length > 0 ? sanitized : fallback;
+}
+
+export function resolveShowroomSpeechGesturePlan(
+  profile: CompanionShowroomGestureProfile | null | undefined,
+  line: SpeakingLine,
+): ShowroomSpeechGesturePlan {
+  const sequence = resolveShowroomGestureSequence(profile, line);
+  const primary = sequence[0] ?? "talking";
+  if (primary === "talking") {
+    return {
+      sequence: [primary],
+      sustainPrimary: true,
+      intervalMs: null,
+    };
+  }
+  return {
+    sequence,
+    sustainPrimary: false,
+    intervalMs: line === "intro" ? 2600 : 2100,
+  };
+}
+
+export const SHOWROOM_CARD_REVEAL_DELAY_MS = 1400;
 
 type WindowWithWebkitAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
@@ -404,6 +474,7 @@ function CompanionSlot({
   getAnalyser,
   onMotorReady,
   onLoadSettled,
+  onVrmAttached,
 }: {
   entry: CompanionManifestEntry;
   slot: SlotName;
@@ -418,6 +489,8 @@ function CompanionSlot({
   getAnalyser?: () => AnalyserNode | null;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
+  /** Fires once after `attachVrm` succeeds (not called on load failure). */
+  onVrmAttached?: () => void;
 }) {
   const slotKey = entry.id;
   const mountRef = useRef<HTMLDivElement>(null);
@@ -571,6 +644,7 @@ function CompanionSlot({
           requestAnimationFrame(syncRendererToMount);
           startLoop();
           onLoadSettled(slotKey);
+          onVrmAttached?.();
         })
         .catch((err: unknown) => {
           console.error("CompanionShowroom: failed to load VRM —", err);
@@ -645,7 +719,16 @@ function CompanionSlot({
       sceneRef.current = null;
       cameraRef.current = null;
     };
-  }, [contained, entry.vrmUrl, onLoadSettled, onMotorReady, slotKey, startLoop, stopLoop]);
+  }, [
+    contained,
+    entry.vrmUrl,
+    onLoadSettled,
+    onMotorReady,
+    onVrmAttached,
+    slotKey,
+    startLoop,
+    stopLoop,
+  ]);
 
   return (
     <motion.div
@@ -703,10 +786,16 @@ function CompanionInfoCard({
   picking,
   speakingLine,
   speechError,
+  selectedVoiceId,
   getAnalyser,
+  onVoiceChange,
   onSpeak,
+  onSpecialDance,
   onPick,
   onClose,
+  onCardMotorReady,
+  onCardVrmSettled,
+  cardPreviewVrmReady,
 }: {
   entry: CompanionManifestEntry;
   introText: string;
@@ -715,21 +804,43 @@ function CompanionInfoCard({
   picking: boolean;
   speakingLine: SpeakingLine | null;
   speechError: string | null;
+  selectedVoiceId: string;
   getAnalyser: () => AnalyserNode | null;
+  onVoiceChange: (voiceId: string) => void;
   onSpeak: (line: SpeakingLine) => void;
+  onSpecialDance: () => void;
   onPick: () => void;
   onClose: () => void;
+  onCardMotorReady: (motor: CompanionMotor | null) => void;
+  onCardVrmSettled: () => void;
+  /** True after the card 3D preview has a VRM (signature dance + speech gestures are reliable). */
+  cardPreviewVrmReady: boolean;
 }) {
   const cardAccent = entry.id
     ? `hsl(${(entry.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) * 37) % 360}, 70%, 68%)`
     : "#a78bfa";
   const showroom = entry.showroom;
+
+  const handleCardSlotMotorReady = useCallback(
+    (_slot: SlotName, motor: CompanionMotor | null) => {
+      onCardMotorReady(motor);
+    },
+    [onCardMotorReady],
+  );
+
+  const handleCardVrmAttached = useCallback(() => {
+    onCardVrmSettled();
+  }, [onCardVrmSettled]);
+
+  const ignoreCardSlotLoadSettled = useCallback(() => {}, []);
+
   const detailRows = [
     { label: "Likes", values: showroom?.likes ?? [] },
     { label: "Special skills", values: showroom?.specialSkills ?? [] },
     { label: "Catchphrases", values: showroom?.catchphrases ?? [] },
   ].filter((row) => row.values.length > 0);
-  const canSpeak = entry.voiceAvailable;
+  const voices = entry.voices ?? [];
+  const canSpeak = voices.length > 0;
 
   return (
     <motion.div
@@ -740,19 +851,20 @@ function CompanionInfoCard({
       transition={{ duration: 0.38, ease: [0.34, 1.56, 0.64, 1] }}
       style={{
         position: "fixed",
-        top: "clamp(18px, 8vh, 70px)",
+        top: "auto",
+        bottom: "clamp(18px, 4vh, 46px)",
         right: "clamp(14px, 3vw, 46px)",
         zIndex: 34,
-        width: "min(78vw, 1040px)",
+        width: "min(62vw, 860px)",
         minWidth: "min(94vw, 390px)",
-        height: "min(70vh, 590px)",
+        height: "min(58vh, 520px)",
         maxHeight: "calc(100vh - 56px)",
         borderRadius: 16,
         background: "rgba(10, 6, 24, 0.96)",
         border: "1px solid rgba(255,255,255,0.09)",
         boxShadow: "0 26px 70px rgba(0,0,0,0.64)",
         display: "grid",
-        gridTemplateColumns: "minmax(0, 0.9fr) minmax(220px, 0.7fr)",
+        gridTemplateColumns: "minmax(0, 1fr) minmax(180px, 0.55fr)",
         overflow: "hidden",
       }}
     >
@@ -936,11 +1048,52 @@ function CompanionInfoCard({
             gap: 10,
           }}
         >
+          {voices.length > 1 && (
+            <label
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                color: "rgba(255,255,255,0.58)",
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              Voice
+              <select
+                value={selectedVoiceId}
+                onChange={(event) => onVoiceChange(event.target.value)}
+                disabled={speakingLine != null}
+                style={{
+                  minHeight: 40,
+                  borderRadius: 12,
+                  border: "1px solid rgba(109,94,245,0.42)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "#f8fafc",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                  padding: "0 12px",
+                  outline: "none",
+                }}
+              >
+                {voices.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               type="button"
               onClick={() => onSpeak("intro")}
-              disabled={!canSpeak || speakingLine != null}
+              disabled={!canSpeak || speakingLine != null || !cardPreviewVrmReady}
+              title={!cardPreviewVrmReady ? "Loading 3D preview…" : undefined}
               style={{
                 border: "1px solid rgba(255,255,255,0.16)",
                 borderRadius: 999,
@@ -950,7 +1103,8 @@ function CompanionInfoCard({
                 fontWeight: 800,
                 fontFamily: "Lexend, system-ui, sans-serif",
                 padding: "11px 16px",
-                cursor: canSpeak && speakingLine == null ? "pointer" : "not-allowed",
+                cursor:
+                  canSpeak && speakingLine == null && cardPreviewVrmReady ? "pointer" : "not-allowed",
               }}
             >
               {speakingLine === "intro" ? "Speaking..." : canSpeak ? "Say Hi" : "Needs voice"}
@@ -958,7 +1112,8 @@ function CompanionInfoCard({
             <button
               type="button"
               onClick={() => onSpeak("plead")}
-              disabled={!canSpeak || speakingLine != null}
+              disabled={!canSpeak || speakingLine != null || !cardPreviewVrmReady}
+              title={!cardPreviewVrmReady ? "Loading 3D preview…" : undefined}
               style={{
                 border: "1px solid rgba(109,94,245,0.45)",
                 borderRadius: 999,
@@ -968,10 +1123,30 @@ function CompanionInfoCard({
                 fontWeight: 800,
                 fontFamily: "Lexend, system-ui, sans-serif",
                 padding: "11px 16px",
-                cursor: canSpeak && speakingLine == null ? "pointer" : "not-allowed",
+                cursor:
+                  canSpeak && speakingLine == null && cardPreviewVrmReady ? "pointer" : "not-allowed",
               }}
             >
               {speakingLine === "plead" ? "Speaking..." : canSpeak ? "Why Pick Me?" : "Needs voice"}
+            </button>
+            <button
+              type="button"
+              onClick={onSpecialDance}
+              disabled={!cardPreviewVrmReady}
+              title={!cardPreviewVrmReady ? "Loading 3D preview…" : undefined}
+              style={{
+                border: "1px solid rgba(251,191,36,0.38)",
+                borderRadius: 999,
+                background: "rgba(251,191,36,0.13)",
+                color: "#fde68a",
+                fontSize: 14,
+                fontWeight: 800,
+                fontFamily: "Lexend, system-ui, sans-serif",
+                padding: "11px 16px",
+                cursor: cardPreviewVrmReady ? "pointer" : "not-allowed",
+              }}
+            >
+              Signature Dance
             </button>
           </div>
 
@@ -1021,7 +1196,9 @@ function CompanionInfoCard({
           featured
           contained
           getAnalyser={getAnalyser}
-          onLoadSettled={() => undefined}
+          onMotorReady={handleCardSlotMotorReady}
+          onLoadSettled={ignoreCardSlotLoadSettled}
+          onVrmAttached={handleCardVrmAttached}
         />
       </div>
     </motion.div>
@@ -1045,11 +1222,15 @@ export function CompanionShowroom({
   const [musicOn, setMusicOn] = useState(enableBackgroundMusic);
   const [speakingLine, setSpeakingLine] = useState<SpeakingLine | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [voiceSelections, setVoiceSelections] = useState<Record<string, string>>({});
   const [initialCurtainDismissed, setInitialCurtainDismissed] = useState(false);
   const [settledSlotKeys, setSettledSlotKeys] = useState<Set<string>>(
     () => new Set(),
   );
   const motorsRef = useRef<Partial<Record<SlotName, CompanionMotor>>>({});
+  const cardMotorRef = useRef<CompanionMotor | null>(null);
+  /** Spotlight card mounts a second WebGL viewer; wait for VRM before driving clips (else emote fallback looks identical per character). */
+  const [cardPreviewVrmReady, setCardPreviewVrmReady] = useState(false);
   const timersRef = useRef<Set<number>>(new Set());
   const confettiCleanupRef = useRef<(() => void) | null>(null);
   const musicRef = useRef<AmbientMusicHandle | null>(null);
@@ -1079,6 +1260,20 @@ export function CompanionShowroom({
   );
   const showroomReady = visibleSlotsSettled && !generatedBackgroundLoading;
   const initialStageLoading = !initialCurtainDismissed && !showroomReady;
+
+  useEffect(() => {
+    if (introVisible) {
+      setCardPreviewVrmReady(false);
+    }
+  }, [introVisible]);
+
+  const handleCardMotorReady = useCallback((motor: CompanionMotor | null) => {
+    cardMotorRef.current = motor;
+  }, []);
+
+  const handleCardVrmSettled = useCallback(() => {
+    setCardPreviewVrmReady(true);
+  }, []);
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) {
@@ -1113,6 +1308,14 @@ export function CompanionShowroom({
     });
   }, []);
 
+  const playCurrentCompanionAnimation = useCallback(
+    (animation: string, opts?: { loop?: boolean }) => {
+      motorsRef.current.current?.playAnimation(animation, opts);
+      cardMotorRef.current?.playAnimation(animation, opts);
+    },
+    [],
+  );
+
   const startMusic = useCallback(() => {
     if (!enableBackgroundMusic || !musicOn || musicRef.current) return;
     musicRef.current = createAmbientMusic();
@@ -1126,34 +1329,39 @@ export function CompanionShowroom({
   }, []);
 
   const playShowroomGesture = useCallback(
-    (line: GestureLine, step = 0) => {
+    (line: GestureLine, step = 0, opts?: { loop?: boolean }) => {
       if (!current) return;
-      const profile = current.showroom?.gestureProfile;
-      const sequence =
-        line === "meet"
-          ? [profile?.meet ?? "wave"]
-          : profile?.[line] && profile[line].length > 0
-            ? profile[line]
-            : line === "intro"
-              ? ["wave", "think"]
-              : ["dance_victory", "wave"];
+      const sequence = resolveShowroomGestureSequence(
+        current.showroom?.gestureProfile,
+        line,
+      );
       const animation = sequence[step % sequence.length] ?? "wave";
-      motorsRef.current.current?.playAnimation(animation, { loop: false });
+      playCurrentCompanionAnimation(animation, { loop: opts?.loop ?? false });
     },
-    [current],
+    [current, playCurrentCompanionAnimation],
   );
 
   const startSpeechGestures = useCallback(
     (line: SpeakingLine) => {
       clearSpeechGestures();
-      playShowroomGesture(line, 0);
+      if (!current) return;
+      const plan = resolveShowroomSpeechGesturePlan(
+        current.showroom?.gestureProfile,
+        line,
+      );
+      const primary = plan.sequence[0] ?? "talking";
+      playCurrentCompanionAnimation(primary, { loop: plan.sustainPrimary });
+      if (plan.sustainPrimary || plan.intervalMs == null || plan.sequence.length <= 1) {
+        return;
+      }
       let step = 1;
       speechGestureIntervalRef.current = window.setInterval(() => {
-        playShowroomGesture(line, step);
+        const animation = plan.sequence[step % plan.sequence.length] ?? primary;
+        playCurrentCompanionAnimation(animation, { loop: false });
         step += 1;
-      }, line === "intro" ? 2600 : 2100);
+      }, plan.intervalMs);
     },
-    [clearSpeechGestures, playShowroomGesture],
+    [clearSpeechGestures, current, playCurrentCompanionAnimation],
   );
 
   const stopSpeech = useCallback(() => {
@@ -1185,8 +1393,10 @@ export function CompanionShowroom({
     setSpotlightOpen(false);
     setIntroVisible(false);
     setPicking(false);
+    setCardPreviewVrmReady(false);
     // Zoom back to full body on stage
     motorsRef.current.current?.setCameraAngle("full-body", 680);
+    cardMotorRef.current?.playAnimation("idle", { loop: true });
     Object.values(motorsRef.current).forEach((motor) => {
       motor?.playAnimation("idle", { loop: true });
     });
@@ -1202,7 +1412,7 @@ export function CompanionShowroom({
     playShowroomGesture("meet");
     motorsRef.current.prev?.playAnimation("wave", { loop: false });
     motorsRef.current.next?.playAnimation("wave", { loop: false });
-    schedule(() => setIntroVisible(true), 820);
+    schedule(() => setIntroVisible(true), SHOWROOM_CARD_REVEAL_DELAY_MS);
   }, [clearTimers, current, playShowroomGesture, schedule, spotlightOpen, startMusic]);
 
   const onStagePointerDown = useCallback(
@@ -1250,7 +1460,10 @@ export function CompanionShowroom({
     setPicking(true);
     confettiCleanupRef.current?.();
     confettiCleanupRef.current = launchConfetti();
-    motorsRef.current.current?.playAnimation("dance_victory", { loop: false });
+    playCurrentCompanionAnimation(
+      current.showroom?.gestureProfile.specialDance ?? "dance_victory",
+      { loop: false },
+    );
     motorsRef.current.prev?.playAnimation("wave", { loop: false });
     motorsRef.current.next?.playAnimation("wave", { loop: false });
     schedule(() => {
@@ -1262,11 +1475,23 @@ export function CompanionShowroom({
       confettiCleanupRef.current = null;
       onSelect(current.id);
     }, 1800);
-  }, [current, onSelect, picking, schedule, stopSpeech]);
+  }, [current, onSelect, picking, playCurrentCompanionAnimation, schedule, stopSpeech]);
+
+  const playSpecialDance = useCallback(() => {
+    if (!current) return;
+    stopSpeech();
+    playCurrentCompanionAnimation(
+      current.showroom?.gestureProfile.specialDance ?? "dance_victory",
+      { loop: false },
+    );
+  }, [current, playCurrentCompanionAnimation, stopSpeech]);
 
   const speakCurrent = useCallback(
     async (line: SpeakingLine) => {
-      if (!current || !current.voiceAvailable || speakingLine) return;
+      const currentDefaultVoice =
+        current?.voices.find((voice) => voice.default)?.id ?? current?.voices[0]?.id ?? "";
+      const selectedVoiceId = current ? voiceSelections[current.id] ?? currentDefaultVoice : "";
+      if (!current || current.voices.length === 0 || !selectedVoiceId || speakingLine) return;
       stopSpeech();
       setSpeechError(null);
       setSpeakingLine(line);
@@ -1277,7 +1502,7 @@ export function CompanionShowroom({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ line, language: "en" }),
+            body: JSON.stringify({ line, language: "en", voiceId: selectedVoiceId }),
           },
         );
         if (!response.ok) {
@@ -1304,20 +1529,29 @@ export function CompanionShowroom({
         speechAudioRef.current = { audio, context };
         audio.addEventListener("ended", () => {
           stopSpeech();
-          motorsRef.current.current?.playAnimation("idle", { loop: true });
+          playCurrentCompanionAnimation("idle", { loop: true });
         });
         audio.addEventListener("error", () => {
           setSpeechError("I could not play that voice just now.");
           stopSpeech();
+          playCurrentCompanionAnimation("idle", { loop: true });
         });
         await context.resume();
         await audio.play();
       } catch (err: unknown) {
         setSpeechError(err instanceof Error ? err.message : "Voice preview failed.");
         stopSpeech();
+        playCurrentCompanionAnimation("idle", { loop: true });
       }
     },
-    [current, speakingLine, startSpeechGestures, stopSpeech],
+    [
+      current,
+      playCurrentCompanionAnimation,
+      speakingLine,
+      startSpeechGestures,
+      stopSpeech,
+      voiceSelections,
+    ],
   );
 
   useEffect(() => {
@@ -1404,6 +1638,9 @@ export function CompanionShowroom({
 
   const bonus = bonusPoints?.[current.id] ?? 0;
   const pickLabel = `Pick ${current.name}${childName ? `, ${childName}` : ""}!`;
+  const currentDefaultVoice =
+    current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
+  const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
   const activeGeneratedBackground =
     useGeneratedBackground && generatedBackgroundUrl?.trim()
       ? generatedBackgroundUrl.trim()
@@ -1821,10 +2058,18 @@ export function CompanionShowroom({
                   picking={picking}
                   speakingLine={speakingLine}
                   speechError={speechError}
+                  selectedVoiceId={selectedVoiceId}
                   getAnalyser={() => speechAnalyserRef.current}
+                  onVoiceChange={(voiceId) =>
+                    setVoiceSelections((prev) => ({ ...prev, [current.id]: voiceId }))
+                  }
                   onSpeak={speakCurrent}
+                  onSpecialDance={playSpecialDance}
                   onPick={confirmPick}
                   onClose={closeSpotlight}
+                  onCardMotorReady={handleCardMotorReady}
+                  onCardVrmSettled={handleCardVrmSettled}
+                  cardPreviewVrmReady={cardPreviewVrmReady}
                 />
               )}
             </AnimatePresence>

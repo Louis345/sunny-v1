@@ -118,6 +118,7 @@ export class CompanionMotor {
   };
 
   private animationMixer: THREE.AnimationMixer | null = null;
+  private activeMixerAnimation: AnimationName | null = null;
   private readonly clipCache = new Map<AnimationName, THREE.AnimationClip>();
   private readonly clipInflight = new Map<
     AnimationName,
@@ -149,10 +150,10 @@ export class CompanionMotor {
     this.showroomIdleMode = mode;
     this.showroomIdleSeed = seed;
     this.showroomIdleElapsedMs = 0;
-    if (mode && this.animationMixer) {
+    if (mode && this.animationMixer && !this.activeMixerAnimation) {
       this.animationMixer.stopAllAction();
     }
-    if (mode) {
+    if (mode && !this.activeMixerAnimation) {
       this.applyShowroomIdlePose(0);
     }
   }
@@ -341,6 +342,7 @@ export class CompanionMotor {
   playAnimation(animation: string, opts?: { loop?: boolean }): void {
     if (this.showroomIdleMode && animation === "idle") {
       this.animationMixer?.stopAllAction();
+      this.activeMixerAnimation = null;
       this.applyShowroomIdlePose(0);
       return;
     }
@@ -353,6 +355,7 @@ export class CompanionMotor {
       this.animationMixer.stopAllAction();
       this.animationMixer = null;
     }
+    this.activeMixerAnimation = null;
     this.clipCache.clear();
     this.clipInflight.clear();
     if (v?.lookAt) {
@@ -559,7 +562,9 @@ export class CompanionMotor {
     if (this.animationMixer) {
       this.animationMixer.update(ctx.dt);
     }
-    this.applyShowroomIdlePose(ctx.dtMs);
+    if (!this.activeMixerAnimation) {
+      this.applyShowroomIdlePose(ctx.dtMs);
+    }
     vrm.update(ctx.dt);
     // Keep procedural bone writers disabled here. They conflict with the
     // AnimationMixer on some VRMs and previously caused bent/back-facing poses.
@@ -698,6 +703,7 @@ export class CompanionMotor {
       `🎮 [CompanionMotor] [animate] [play] "${name}" tracks=${clip.tracks.length} loop=${loop}`,
     );
     this.animationMixer.stopAllAction();
+    this.activeMixerAnimation = name;
     const action = this.animationMixer.clipAction(clip);
     action.setLoop(
       loop ? THREE.LoopRepeat : THREE.LoopOnce,
@@ -709,7 +715,8 @@ export class CompanionMotor {
     if (!loop) {
       const onFinished = () => {
         this.animationMixer?.removeEventListener("finished", onFinished);
-        this.applyAnimateCommand("idle", { loop: true });
+        this.activeMixerAnimation = null;
+        this.playAnimation("idle", { loop: true });
       };
       this.animationMixer.addEventListener("finished", onFinished);
     }

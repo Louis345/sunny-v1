@@ -278,5 +278,195 @@
     "childVerbalReaction": null,
     "sessionPhase": "learning",
     "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-04-29T00:27:45.438Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-04-29T00:27:53.171Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-04-29T00:30:01.454Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
+  },
+  {
+    "timestamp": "2026-04-29T00:30:10.221Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 4
+  },
+  {
+    "timestamp": "2026-04-29T00:31:17.122Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 5
+  },
+  {
+    "timestamp": "2026-04-29T00:31:26.804Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-04-29T00:31:36.220Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-04-29T00:31:51.438Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
+  },
+  {
+    "timestamp": "2026-04-29T00:31:56.421Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 4
+  },
+  {
+    "timestamp": "2026-04-29T00:32:01.038Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 5
+  },
+  {
+    "timestamp": "2026-04-29T00:32:19.854Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-04-29T00:32:27.172Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-04-29T00:32:35.955Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
+  },
+  {
+    "timestamp": "2026-04-29T00:35:43.339Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-04-29T00:35:57.337Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 2
+  },
+  {
+    "timestamp": "2026-04-29T00:36:09.919Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 3
+  },
+  {
+    "timestamp": "2026-04-29T00:36:23.218Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 4
+  },
+  {
+    "timestamp": "2026-04-29T00:36:28.492Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 5
+  },
+  {
+    "timestamp": "2026-04-29T00:36:51.631Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 400,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
   }
 ]

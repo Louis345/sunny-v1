@@ -1841,3 +1841,78 @@ Latest session algorithm: 42 words tracked, only 1 mastered (2%), 36 due for rev
 ## Signal
 
 **CHANGE METHOD on phoneme segmentation—child actively avoiding for 21 days.** Mixed-vowel discrimination diagnostic (sit→sat→hit→hat→bit) has been deferred twice and resisted once. Ila cannot sustain oral phoneme segmentation drills; preference for reading suggests she relies on whole-word visual memory. **Immediately shift to game-based phoneme work** (Word Builder, spell-check with visual sound boxes) or abandon segmentation temporarily in favor of morphology work aligned with homework (comparative/superlative -er/-est). Simultaneously, conduct formal baseline probes on Following Directions and Recalling Sentences THIS WEEK—31 and 27 "mentions" in notes do not constitute actual IEP-mandated performance documentation. Homework cycle requires explicit morphological instruction on -er/-est patterns before spelling test.
+
+## Session — 4/28/2026, 8:37:57 PM
+# SOAP Note
+
+**Date:** [Session Date]  
+**Client:** Ila  
+**Clinician:** [Your Name]  
+**Session Duration:** Approximately 12 minutes of documented activity
+
+---
+
+## **S — Subjective**
+
+Ila engaged willingly in three structured word-focused activities (Word Radar, Spell Check, Wheel of Fortune) followed by a game break. She initiated requests for spelling support, asking multiple times "Can I have have, like, um, spelling of words?" and "Can I have help spelling the words?" Ila demonstrated understanding of the spelling task once clarified. During Wheel of Fortune, she made comments such as "spin the wheel" and "I really like this one, but okay" when transitioning to the break activity (Space Frogger).
+
+---
+
+## **O — Objective**
+
+**Word Radar (target word: "farmer")**  
+- Completed: Yes
+- Accuracy: 40%
+- Duration: 70 seconds
+- Ila struggled with superlative comparisons ("fastest," "slowest," "newer"). Made multiple false starts and self-corrections ("so so so"). Demonstrated difficulty sustaining attention to rapid task demands. Eventually self-corrected when given time ("slowest" — articulated s-l-o-w-e-s-t successfully after initial errors).
+
+**Spell Check (5 words: farmer, teacher, visitor, actor, sailor)**  
+- Completed: Yes
+- Accuracy: 87%
+- Duration: 454 seconds
+- Successfully completed: farmer (multiple attempts), teacher (with 2 wrong attempts: "w" and "a"), visitor (multiple successful attempts), actor (multiple successful attempts), sailor (incomplete—5 wrong attempts including "e r o o r" and "o...o r e r").
+- Ila requested explicit spelling support early in the activity and required teacher modeling ("f-a-r-m-e-r — think about someone who works on a farm"). On "sailor," she attempted phonetic substitutions and asked clarifying questions about the ending sound ("at the ending, is it o r e r?") but did not complete this word successfully.
+
+**Wheel of Fortune (target word: "farmer")**  
+- Completed: Yes
+- Accuracy: 83%
+- Duration: 88 seconds
+- Letter sequence guessed: S (incorrect), F (correct—300 coins), A (correct—200 coins), R (correct—400 coins), M (correct—500 coins), E (free letter—no cost).
+- Final score: 1,900 coins vs. companion's 600 coins.
+-
+
+## Session — 4/28/2026, 9:00:59 PM
+# SOAP Note
+
+**Client:** Ila (age 8;3)  
+**Date:** [Session Date]  
+**Duration:** Approximately 10 minutes (55s Word Radar + 419s Spell-Check + 116s Wheel of Fortune)  
+**Session Type:** Speech-Language Pathology via Sunny (AI companion)
+
+---
+
+## **S — Subjective**
+
+Ila initiated word-radar and spelling activities on the Sunny platform. She expressed frustration early in the spell-check activity, stating "It's just bad. You can just press all the buttons if you get a button," indicating cognitive fatigue or overwhelm with task demands. She requested help midway through spelling "fastest," asking "Ellie, can I have a help?" She acknowledged technical glitches ("That drive... it was trying to be crazy") and provided accurate single-word responses ("EST," "three," "Maybe," "Newer") throughout gameplay.
+
+---
+
+## **O — Objective**
+
+### Word Radar Activity (55 seconds)
+- **Accuracy:** 40% (2 correct of 5 responses)
+- **Correct responses:** "slower," "newer"
+- **Missed responses:** "faster," "fastest," "slowest"
+- **Pattern:** Ila demonstrated difficulty with auditory discrimination of comparative/superlative adjective forms when presented without visual context.
+
+### Spell-Check Activity (419 seconds, 20 words, 87% accuracy)
+- **Word 1 ("faster"):** Multiple false starts and incorrect attempts (tried: "e," "a," "u"). Eventually completed with support after expressing frustration.
+- **Word 2 ("fastest"):** Requested explicit help with final suffix. Ila stated "I need I need help with the last part" (note: repeated phrase structure). Provided morphological cue ("S-T ending for 'most' words like coldest, slowest"). Ila independently identified and stated "EST" and completed word successfully.
+- **Words 3-5 ("slower," "slowest," "newer"):** Completed with high accuracy; minimal errors; responded affirmatively to positive reinforcement ("Yes").
+
+### Wheel of Fortune Activity (116 seconds, 83% accuracy)
+- **Word:** "faster" (6 letters)
+- **Letters correctly identified:** F (300 coins), A (250 coins), T (400 coins), E (300 coins), S (FREE LETTER), R (250 coins)
+- **Letters incorrectly guessed:** L (not in word)
+- **Final score:** 1,600 coins earned
+- **Pattern:**

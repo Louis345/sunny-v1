@@ -2,7 +2,7 @@
   "childId": "ila",
   "version": 1,
   "createdAt": "2026-04-03T21:20:33.923Z",
-  "lastUpdated": "2026-04-28T00:17:39.905Z",
+  "lastUpdated": "2026-04-29T01:00:57.210Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -47,30 +47,6 @@
     "topicFrequency": {}
   },
   "moodHistory": [
-    {
-      "date": "2026-04-18T19:31:05.462Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-18T19:57:01.381Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-18T19:57:04.530Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
     {
       "date": "2026-04-18T19:57:07.745Z",
       "startMood": "neutral",
@@ -126,6 +102,30 @@
       "bondQuality": "moderate",
       "sessionAccuracy": 0,
       "notableSignals": []
+    },
+    {
+      "date": "2026-04-29T00:37:50.007Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-29T01:00:51.090Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-29T01:00:57.205Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
     }
   ],
   "moodTrend": "stable",
@@ -147,14 +147,14 @@
     "dyslexiaMode": true
   },
   "sessionStats": {
-    "totalSessions": 17,
-    "averageAccuracy": 0.058823529411764705,
+    "totalSessions": 20,
+    "averageAccuracy": 0.05,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 4,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-04-26T13:20:10.972Z"
+    "lastSessionDate": "2026-04-29T01:00:57.205Z"
   },
   "rewardPreferences": {
     "favoriteGames": [],
@@ -169,33 +169,35 @@
       0,
       0,
       0,
-      6,
+      0,
+      2,
+      0,
+      0,
+      2,
       0,
       0,
       0,
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0
+      2
     ],
     "values": [
       0,
       0,
       0,
-      0.6566666666666667,
+      0,
+      0.38,
+      0,
+      0,
+      0.9733333333333334,
       0,
       0,
       0,
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0
+      0.9666666666666668
     ]
   },
   "companion": {

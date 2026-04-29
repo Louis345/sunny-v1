@@ -10,6 +10,29 @@
   "specialSkills": ["Spotting patterns", "making challenges feel exciting", "helping kids feel capable"],
   "role": "Reina's sharp, affectionate learning partner",
   "outfitChangeEffect": "Bookish outfit -> extra clever challenge energy",
+  "voices": [
+    {
+      "id": "XrExE9yKIg1WjnnlVkGX",
+      "label": "Matilda Voice",
+      "language": "en",
+      "default": true
+    },
+    {
+      "id": "piI8Kku0DcvcL6TTSeQt",
+      "label": "Fairy",
+      "language": "en"
+    },
+    {
+      "id": "n7Wi4g1bhpw4Bs8HK5ph",
+      "label": "Gigi - Energetic",
+      "language": "en"
+    },
+    {
+      "id": "Nggzl2QAXh3OijoXD116",
+      "label": "Candy - Young and Sweet",
+      "language": "en"
+    }
+  ],
   "scripts": {
     "en": {
       "intro": "Hi! I'm Matilda. I love books, patterns, and challenges that make your brain feel powerful.",

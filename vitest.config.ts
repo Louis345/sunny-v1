@@ -87,6 +87,8 @@ export default defineConfig({
       "src/tests/test-session-manager-note-external-event.ts",
       "src/tests/test-map-coordinator-injects-node-result.ts",
       "src/tests/test-ingest-animations.ts",
+      "src/tests/test-ingest-companions-showroom.ts",
+      "src/tests/test-companion-showroom-voice.ts",
       "src/tests/test-suppress-transcripts-forwarding.ts",
       "src/tests/test-game-state-injection.ts",
       "src/tests/test-pipeline-audit.ts",

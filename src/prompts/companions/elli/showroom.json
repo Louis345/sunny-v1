@@ -10,6 +10,29 @@
   "specialSkills": ["Cheering kids up", "turning words into games", "remembering shared jokes"],
   "role": "Ila's best friend and learning buddy",
   "outfitChangeEffect": "Adventure outfit -> extra playful best-friend energy",
+  "voices": [
+    {
+      "id": "PeNaJO83cBW3Cf3YGzjZ",
+      "label": "Elli Voice",
+      "language": "en",
+      "default": true
+    },
+    {
+      "id": "piI8Kku0DcvcL6TTSeQt",
+      "label": "Fairy",
+      "language": "en"
+    },
+    {
+      "id": "n7Wi4g1bhpw4Bs8HK5ph",
+      "label": "Gigi - Energetic",
+      "language": "en"
+    },
+    {
+      "id": "Nggzl2QAXh3OijoXD116",
+      "label": "Candy - Young and Sweet",
+      "language": "en"
+    }
+  ],
   "scripts": {
     "en": {
       "intro": "Hi! I'm Elli. I love riddles, silly ideas, and cheering for every tiny win.",

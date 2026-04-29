@@ -128,4 +128,63 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     expect(pose.leftLowerArm.rotation[2]).toBeLessThan(0);
     expect(pose.rightLowerArm.rotation[2]).toBeGreaterThan(0);
   });
+
+  it("returns through playAnimation idle path after a one-shot animation finishes", async () => {
+    const removeEventListener = vi.fn();
+    let finishedHandler: ((event?: unknown) => void) | undefined;
+    const addEventListener = vi.fn((_event: string, cb: (event?: unknown) => void) => {
+      finishedHandler = cb;
+    });
+    const clipAction = vi.fn(() => ({
+      setLoop: vi.fn(),
+      clampWhenFinished: false,
+      reset() {
+        return this;
+      },
+      play: vi.fn(),
+    }));
+
+    (motor as any).vrm = { scene: new THREE.Group() } as VRM;
+    (motor as any).animationMixer = {
+      stopAllAction: vi.fn(),
+      clipAction,
+      addEventListener,
+      removeEventListener,
+    } as unknown as THREE.AnimationMixer;
+    (motor as any).clipCache.set(
+      "wave",
+      new THREE.AnimationClip("wave", 1, []),
+    );
+
+    const playSpy = vi.spyOn(motor, "playAnimation");
+
+    await (motor as any).loadAndPlayClip(
+      "wave",
+      { name: "wave", path: "/animations/wave.fbx", defaultLoop: false, label: "Wave" },
+      false,
+    );
+
+    expect(addEventListener).toHaveBeenCalledWith("finished", expect.any(Function));
+    expect(finishedHandler).toBeDefined();
+    finishedHandler?.({});
+    expect(removeEventListener).toHaveBeenCalledWith("finished", finishedHandler);
+    expect(playSpy).toHaveBeenCalledWith("idle", { loop: true });
+  });
+
+  it("does not stop an active entrance animation when showroom mode changes", () => {
+    const stopAllAction = vi.fn();
+
+    (motor as any).animationMixer = {
+      stopAllAction,
+    } as unknown as THREE.AnimationMixer;
+    (motor as any).activeMixerAnimation = "quick_formal_bow";
+    (motor as any).vrm = {
+      scene: new THREE.Group(),
+      humanoid: { setNormalizedPose: vi.fn() },
+    } as unknown as VRM;
+
+    motor.setShowroomIdle("flank");
+
+    expect(stopAllAction).not.toHaveBeenCalled();
+  });
 });
