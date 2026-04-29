@@ -175,6 +175,17 @@ export function resolveShowroomSpeechGesturePlan(
 
 export const SHOWROOM_CARD_REVEAL_DELAY_MS = 1400;
 
+export function shouldRunShowroomSlotLoop(
+  slot: SlotName,
+  active: boolean,
+  contained = false,
+): boolean {
+  if (contained) return true;
+  if (slot === "hidden") return false;
+  if (slot === "current") return true;
+  return active;
+}
+
 type WindowWithWebkitAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
 };
@@ -544,6 +555,8 @@ function CompanionSlot({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const slotRef = useRef(slot);
+  const activeRef = useRef(active);
+  const containedRef = useRef(contained);
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -567,6 +580,15 @@ function CompanionSlot({
 
   const startLoop = useCallback(() => {
     stopLoop();
+    if (
+      !shouldRunShowroomSlotLoop(
+        slotRef.current,
+        activeRef.current,
+        containedRef.current,
+      )
+    ) {
+      return;
+    }
     const timer =
       timerRef.current ??
       (() => {
@@ -579,6 +601,16 @@ function CompanionSlot({
     timerRef.current = timer;
 
     const tick = (time: number) => {
+      if (
+        !shouldRunShowroomSlotLoop(
+          slotRef.current,
+          activeRef.current,
+          containedRef.current,
+        )
+      ) {
+        rafRef.current = null;
+        return;
+      }
       const motor = motorRef.current;
       const scene = sceneRef.current;
       const camera = cameraRef.current;
@@ -605,6 +637,18 @@ function CompanionSlot({
     };
     rafRef.current = requestAnimationFrame(tick);
   }, [getAnalyser, stopLoop]);
+
+  useEffect(() => {
+    activeRef.current = active;
+    containedRef.current = contained;
+    if (!shouldRunShowroomSlotLoop(slot, active, contained)) {
+      stopLoop();
+      return;
+    }
+    if (motorRef.current?.hasVrm()) {
+      startLoop();
+    }
+  }, [active, contained, slot, startLoop, stopLoop]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -680,7 +724,15 @@ function CompanionSlot({
           motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
-          startLoop();
+          if (
+            shouldRunShowroomSlotLoop(
+              slotRef.current,
+              activeRef.current,
+              containedRef.current,
+            )
+          ) {
+            startLoop();
+          }
           onLoadSettled(slotKey);
           onVrmAttached?.();
         })

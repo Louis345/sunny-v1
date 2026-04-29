@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import {
   createShowroomAnimateCommand,
   createShowroomCameraCommand,
+  shouldRunShowroomSlotLoop,
 } from "../components/CompanionShowroom";
 
 describe("CompanionShowroom command source", () => {
@@ -79,5 +80,14 @@ describe("CompanionShowroom command source", () => {
 
     expect(source).toContain("const getSpeechAnalyser = useCallback");
     expect(source).not.toContain("getAnalyser={() => speechAnalyserRef.current}");
+  });
+
+  it("only runs render loops for slots visible enough to compare with diag", () => {
+    expect(shouldRunShowroomSlotLoop("hidden", true)).toBe(false);
+    expect(shouldRunShowroomSlotLoop("prev", false)).toBe(false);
+    expect(shouldRunShowroomSlotLoop("next", false)).toBe(false);
+    expect(shouldRunShowroomSlotLoop("prev", true)).toBe(true);
+    expect(shouldRunShowroomSlotLoop("current", false)).toBe(true);
+    expect(shouldRunShowroomSlotLoop("hidden", false, true)).toBe(true);
   });
 });
