@@ -37,3 +37,48 @@ describe("mixamoRetarget legacy VRM0 arm roll", () => {
     expect(result?.tracks[0]?.values[2]).toBeLessThan(0);
   });
 });
+
+describe("mixamoRetarget root motion", () => {
+  it("keeps hips position as rest pose plus scaled Mixamo root delta", () => {
+    const sourceHips = new THREE.Bone();
+    sourceHips.name = "mixamorigHips";
+    const root = new THREE.Group();
+    root.add(sourceHips);
+    root.updateMatrixWorld(true);
+
+    const clip = new THREE.AnimationClip("root-motion", 1, [
+      new THREE.VectorKeyframeTrack(
+        "mixamorigHips.position",
+        [0, 1],
+        [
+          10, 100, -5,
+          25, 90, 15,
+        ],
+      ),
+    ]);
+    const targetHips = new THREE.Bone();
+    targetHips.name = "hipsNode";
+    targetHips.position.set(0, 1, 0);
+    const vrm = {
+      humanoid: {
+        getNormalizedBoneNode: (name: string) =>
+          name === "hips" ? targetHips : null,
+      },
+    } as unknown as VRM;
+
+    const result = retargetMixamoClipToVrm(clip, root, vrm);
+    const hipsTrack = result?.tracks.find(
+      (track) => track.name === "hipsNode.position",
+    );
+
+    expect(hipsTrack).toBeDefined();
+    expect(Array.from(hipsTrack!.values)).toEqual([
+      expect.closeTo(0),
+      expect.closeTo(1),
+      expect.closeTo(0),
+      expect.closeTo(0.15),
+      expect.closeTo(0.9),
+      expect.closeTo(0.2),
+    ]);
+  });
+});

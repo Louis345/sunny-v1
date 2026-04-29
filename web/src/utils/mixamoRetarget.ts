@@ -68,6 +68,7 @@ const LEGACY_VRM0_ARM_ROLL_BONES = new Set<VRMHumanBoneName>([
   "rightLowerArm",
   "rightHand",
 ]);
+const MIXAMO_CENTIMETERS_TO_VRM_METERS = 0.01;
 
 function toCanonicalMixamoBoneName(name: string): string {
   return name
@@ -107,8 +108,9 @@ export function retargetMixamoClipToVrm(
     const vrmBoneName = MIXAMO_TO_VRM_HUMANOID[toCanonicalMixamoBoneName(mixamoRigName)];
     if (!vrmBoneName) continue;
 
-    const vrmNodeName = vrm.humanoid.getNormalizedBoneNode(vrmBoneName)?.name;
-    if (!vrmNodeName) {
+    const vrmNode = vrm.humanoid.getNormalizedBoneNode(vrmBoneName);
+    const vrmNodeName = vrmNode?.name;
+    if (!vrmNode || !vrmNodeName) {
       continue;
     }
 
@@ -145,12 +147,29 @@ export function retargetMixamoClipToVrm(
           values,
         ),
       );
-    } else if (property === "position" && vrmBoneName !== "hips") {
+    } else if (property === "position") {
+      const values = new Float32Array(track.values);
+      if (vrmBoneName === "hips") {
+        const baseX = values[0] ?? 0;
+        const baseY = values[1] ?? 0;
+        const baseZ = values[2] ?? 0;
+        for (let i = 0; i < values.length; i += 3) {
+          values[i] =
+            vrmNode.position.x +
+            (values[i] - baseX) * MIXAMO_CENTIMETERS_TO_VRM_METERS;
+          values[i + 1] =
+            vrmNode.position.y +
+            (values[i + 1] - baseY) * MIXAMO_CENTIMETERS_TO_VRM_METERS;
+          values[i + 2] =
+            vrmNode.position.z +
+            (values[i + 2] - baseZ) * MIXAMO_CENTIMETERS_TO_VRM_METERS;
+        }
+      }
       tracks.push(
         new THREE.VectorKeyframeTrack(
           `${vrmNodeName}.position`,
           track.times,
-          new Float32Array(track.values),
+          values,
         ),
       );
     }
