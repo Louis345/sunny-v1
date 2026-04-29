@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +15,14 @@ import {
   COMPANION_MANIFEST,
   type CompanionManifestEntry,
 } from "../companion/companions.generated";
+import type {
+  CameraAngle,
+  CompanionCommand,
+} from "../../../src/shared/companions/companionContract";
+import { COMPANION_ANIMATION_IDS } from "../../../src/shared/companions/companionContract";
+import { COMPANION_CAPABILITIES } from "../../../src/shared/companions/registry";
+import { validateCompanionCommand } from "../../../src/shared/companions/validateCompanionCommand";
+import { mergeCompanionConfigWithDefaults } from "../../../src/shared/companionTypes";
 import { ensurePlaybackAnalyser } from "../utils/audioAnalyser";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 
@@ -99,6 +106,87 @@ type AmbientMusicHandle = {
 
 type SpeakingLine = "intro" | "plead";
 type GestureLine = SpeakingLine | "meet";
+export type CompanionShowroomGestureProfile = {
+  meet?: string;
+  intro?: string[];
+  plead?: string[];
+  specialDance?: string;
+};
+export type ShowroomSpeechGesturePlan = {
+  sequence: string[];
+  sustainPrimary: boolean;
+  intervalMs: number | null;
+};
+
+const AWKWARD_SPEECH_GESTURE_REPLACEMENTS: Readonly<Record<string, string>> = {
+  wave: "talking",
+  dance_victory: "talking",
+  surprise_jump: "talking",
+  silly_dancing: "talking",
+  hip_hop_dancing: "talking",
+  hip_hop_dancing_2: "talking",
+  salsa_dancing: "talking",
+};
+
+function sanitizeSpeechGesture(animation: string): string {
+  return AWKWARD_SPEECH_GESTURE_REPLACEMENTS[animation] ?? animation;
+}
+
+export function resolveShowroomGestureSequence(
+  profile: CompanionShowroomGestureProfile | null | undefined,
+  line: GestureLine,
+): string[] {
+  if (line === "meet") {
+    return [profile?.meet ?? "wave"];
+  }
+
+  const fallback = line === "intro" ? ["talking", "think"] : ["talking", "think"];
+  const rawSequence =
+    profile?.[line] && profile[line]!.length > 0 ? profile[line]! : fallback;
+  const seen = new Set<string>();
+  const sanitized = rawSequence
+    .map((animation) => sanitizeSpeechGesture(animation))
+    .filter((animation) => {
+      if (seen.has(animation)) return false;
+      seen.add(animation);
+      return true;
+    });
+
+  return sanitized.length > 0 ? sanitized : fallback;
+}
+
+export function resolveShowroomSpeechGesturePlan(
+  profile: CompanionShowroomGestureProfile | null | undefined,
+  line: SpeakingLine,
+): ShowroomSpeechGesturePlan {
+  const sequence = resolveShowroomGestureSequence(profile, line);
+  const primary = sequence[0] ?? "talking";
+  if (primary === "talking") {
+    return {
+      sequence: [primary],
+      sustainPrimary: true,
+      intervalMs: null,
+    };
+  }
+  return {
+    sequence,
+    sustainPrimary: false,
+    intervalMs: line === "intro" ? 2600 : 2100,
+  };
+}
+
+export const SHOWROOM_CARD_REVEAL_DELAY_MS = 1400;
+
+export function shouldRunShowroomSlotLoop(
+  slot: SlotName,
+  active: boolean,
+  contained = false,
+): boolean {
+  if (contained) return true;
+  if (slot === "hidden") return false;
+  if (slot === "current") return true;
+  return active;
+}
 
 type WindowWithWebkitAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
@@ -106,6 +194,8 @@ type WindowWithWebkitAudio = Window & {
 
 const accent = "#6D5EF5";
 const confettiColours = ["#6D5EF5", "#a78bfa", "#fbbf24", "#f472b6", "#34d399"];
+const SHOWROOM_COMMAND_CHILD_ID = "showroom";
+let showroomCommandSequence = 0;
 const sparkleSeeds = [
   { left: "9%", top: "18%", delay: "0s", size: 3 },
   { left: "18%", top: "42%", delay: "1.1s", size: 4 },
@@ -121,17 +211,55 @@ const sparkleSeeds = [
   { left: "50%", top: "52%", delay: "1.9s", size: 3 },
 ];
 
-function isWebGpuRenderer(renderer: CompanionRenderer): renderer is WebGPURenderer {
-  return "isWebGPURenderer" in renderer && renderer.isWebGPURenderer === true;
+function createShowroomCommand(
+  type: string,
+  payload: Record<string, unknown>,
+): CompanionCommand {
+  const cmd = validateCompanionCommand(
+    { type, payload },
+    COMPANION_CAPABILITIES,
+    { childId: SHOWROOM_COMMAND_CHILD_ID, source: "diag" },
+  );
+  if (!cmd) {
+    throw new Error(`CompanionShowroom invalid ${type} command`);
+  }
+  return {
+    ...cmd,
+    // CompanionMotor de-dupes by timestamp/type/child/source. Keep rapid showroom
+    // gesture bursts distinct even if they happen within the same millisecond.
+    timestamp: cmd.timestamp * 1000 + showroomCommandSequence++,
+  };
 }
 
-function hashToUnit(value: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) / 4294967295;
+export function createShowroomAnimateCommand(
+  animation: string,
+  opts: { loop?: boolean } = {},
+): CompanionCommand {
+  return createShowroomCommand("animate", {
+    animation,
+    ...(opts.loop === undefined ? {} : { loop: opts.loop }),
+  });
+}
+
+export function createShowroomCameraCommand(
+  angle: CameraAngle,
+  transitionMs?: number,
+): CompanionCommand {
+  return createShowroomCommand("camera", {
+    angle,
+    ...(transitionMs === undefined ? {} : { transition_ms: transitionMs }),
+  });
+}
+
+function processShowroomCommand(
+  motor: CompanionMotor | null | undefined,
+  cmd: CompanionCommand,
+): void {
+  motor?.processCompanionCommands([cmd], SHOWROOM_COMMAND_CHILD_ID);
+}
+
+function isWebGpuRenderer(renderer: CompanionRenderer): renderer is WebGPURenderer {
+  return "isWebGPURenderer" in renderer && renderer.isWebGPURenderer === true;
 }
 
 function resolveModelUrl(vrmUrl: string): string {
@@ -398,17 +526,16 @@ function CompanionSlot({
   entry,
   slot,
   active,
-  featured,
   soleFlankPair,
   contained = false,
   getAnalyser,
   onMotorReady,
   onLoadSettled,
+  onVrmAttached,
 }: {
   entry: CompanionManifestEntry;
   slot: SlotName;
   active: boolean;
-  featured: boolean;
   /**
    * Two companions: only the `next` flank is shown — give it a hair more presence
    * than the default side preview.
@@ -418,6 +545,8 @@ function CompanionSlot({
   getAnalyser?: () => AnalyserNode | null;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
+  /** Fires once after `attachVrm` succeeds (not called on load failure). */
+  onVrmAttached?: () => void;
 }) {
   const slotKey = entry.id;
   const mountRef = useRef<HTMLDivElement>(null);
@@ -428,7 +557,18 @@ function CompanionSlot({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const slotRef = useRef(slot);
-  const idleSeedRef = useRef(hashToUnit(entry.id));
+  const activeRef = useRef(active);
+  const containedRef = useRef(contained);
+  const companionConfig = useMemo(
+    () =>
+      mergeCompanionConfigWithDefaults(
+        entry.companionConfig ?? {
+          companionId: entry.id,
+          vrmUrl: entry.vrmUrl,
+        },
+      ),
+    [entry.companionConfig, entry.id, entry.vrmUrl],
+  );
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -440,9 +580,8 @@ function CompanionSlot({
         onMotorReady?.(slot, motor);
       }
     }
-    motor?.setShowroomIdle(featured ? "center" : "flank", idleSeedRef.current);
-    motor?.setCameraAngle(contained ? "mid-shot" : "full-body", 680);
-  }, [contained, featured, onMotorReady, slot]);
+    motor?.setCameraAngle("mid-shot", 680);
+  }, [contained, onMotorReady, slot]);
 
   const stopLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -453,6 +592,15 @@ function CompanionSlot({
 
   const startLoop = useCallback(() => {
     stopLoop();
+    if (
+      !shouldRunShowroomSlotLoop(
+        slotRef.current,
+        activeRef.current,
+        containedRef.current,
+      )
+    ) {
+      return;
+    }
     const timer =
       timerRef.current ??
       (() => {
@@ -465,6 +613,16 @@ function CompanionSlot({
     timerRef.current = timer;
 
     const tick = (time: number) => {
+      if (
+        !shouldRunShowroomSlotLoop(
+          slotRef.current,
+          activeRef.current,
+          containedRef.current,
+        )
+      ) {
+        rafRef.current = null;
+        return;
+      }
       const motor = motorRef.current;
       const scene = sceneRef.current;
       const camera = cameraRef.current;
@@ -480,8 +638,8 @@ function CompanionSlot({
         dt,
         dtMs: Math.min(dt * 1000, 100),
         companionEvents: [],
-        companion: null,
-        childId: null,
+        companion: companionConfig,
+        childId: SHOWROOM_COMMAND_CHILD_ID,
         toggledOff: false,
         activeNodeScreen: null,
         analyser: getAnalyser?.() ?? null,
@@ -490,7 +648,19 @@ function CompanionSlot({
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, [getAnalyser, stopLoop]);
+  }, [companionConfig, getAnalyser, stopLoop]);
+
+  useEffect(() => {
+    activeRef.current = active;
+    containedRef.current = contained;
+    if (!shouldRunShowroomSlotLoop(slot, active, contained)) {
+      stopLoop();
+      return;
+    }
+    if (motorRef.current?.hasVrm()) {
+      startLoop();
+    }
+  }, [active, contained, slot, startLoop, stopLoop]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -517,8 +687,7 @@ function CompanionSlot({
     const motor = new CompanionMotor();
     motor.resetSessionState();
     motor.setCamera(camera);
-    motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
-    motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
+    motor.setCameraAngle("mid-shot", 0);
     motorRef.current = motor;
     if (slotRef.current !== "hidden") {
       onMotorReady?.(slotRef.current, motor);
@@ -556,7 +725,7 @@ function CompanionSlot({
       dir.position.set(1.2, 2.2, 0.8);
       scene.add(dir);
 
-      loadCompanionVrm(resolveModelUrl(entry.vrmUrl), { webgpu: webgpuMaterials })
+      loadCompanionVrm(resolveModelUrl(companionConfig.vrmUrl), { webgpu: webgpuMaterials })
         .then((vrm) => {
           if (cancelled) {
             vrm.scene.removeFromParent();
@@ -564,13 +733,20 @@ function CompanionSlot({
           }
           const size = readMountSize();
           motor.attachVrm(vrm, scene, size.w, size.h);
-          motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
-          motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
-          motor.playAnimation("idle", { loop: true });
+          motor.setCameraAngle("mid-shot", 0);
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
-          startLoop();
+          if (
+            shouldRunShowroomSlotLoop(
+              slotRef.current,
+              activeRef.current,
+              containedRef.current,
+            )
+          ) {
+            startLoop();
+          }
           onLoadSettled(slotKey);
+          onVrmAttached?.();
         })
         .catch((err: unknown) => {
           console.error("CompanionShowroom: failed to load VRM —", err);
@@ -645,7 +821,16 @@ function CompanionSlot({
       sceneRef.current = null;
       cameraRef.current = null;
     };
-  }, [contained, entry.vrmUrl, onLoadSettled, onMotorReady, slotKey, startLoop, stopLoop]);
+  }, [
+    contained,
+    companionConfig.vrmUrl,
+    onLoadSettled,
+    onMotorReady,
+    onVrmAttached,
+    slotKey,
+    startLoop,
+    stopLoop,
+  ]);
 
   return (
     <motion.div
@@ -703,10 +888,16 @@ function CompanionInfoCard({
   picking,
   speakingLine,
   speechError,
+  selectedVoiceId,
   getAnalyser,
+  onVoiceChange,
   onSpeak,
+  onSpecialDance,
   onPick,
   onClose,
+  onCardMotorReady,
+  onCardVrmSettled,
+  cardPreviewVrmReady,
 }: {
   entry: CompanionManifestEntry;
   introText: string;
@@ -715,21 +906,43 @@ function CompanionInfoCard({
   picking: boolean;
   speakingLine: SpeakingLine | null;
   speechError: string | null;
+  selectedVoiceId: string;
   getAnalyser: () => AnalyserNode | null;
+  onVoiceChange: (voiceId: string) => void;
   onSpeak: (line: SpeakingLine) => void;
+  onSpecialDance: () => void;
   onPick: () => void;
   onClose: () => void;
+  onCardMotorReady: (motor: CompanionMotor | null) => void;
+  onCardVrmSettled: () => void;
+  /** True after the card 3D preview has a VRM (signature dance + speech gestures are reliable). */
+  cardPreviewVrmReady: boolean;
 }) {
   const cardAccent = entry.id
     ? `hsl(${(entry.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) * 37) % 360}, 70%, 68%)`
     : "#a78bfa";
   const showroom = entry.showroom;
+
+  const handleCardSlotMotorReady = useCallback(
+    (_slot: SlotName, motor: CompanionMotor | null) => {
+      onCardMotorReady(motor);
+    },
+    [onCardMotorReady],
+  );
+
+  const handleCardVrmAttached = useCallback(() => {
+    onCardVrmSettled();
+  }, [onCardVrmSettled]);
+
+  const ignoreCardSlotLoadSettled = useCallback(() => {}, []);
+
   const detailRows = [
     { label: "Likes", values: showroom?.likes ?? [] },
     { label: "Special skills", values: showroom?.specialSkills ?? [] },
     { label: "Catchphrases", values: showroom?.catchphrases ?? [] },
   ].filter((row) => row.values.length > 0);
-  const canSpeak = entry.voiceAvailable;
+  const voices = entry.voices ?? [];
+  const canSpeak = voices.length > 0;
 
   return (
     <motion.div
@@ -740,19 +953,20 @@ function CompanionInfoCard({
       transition={{ duration: 0.38, ease: [0.34, 1.56, 0.64, 1] }}
       style={{
         position: "fixed",
-        top: "clamp(18px, 8vh, 70px)",
+        top: "auto",
+        bottom: "clamp(18px, 4vh, 46px)",
         right: "clamp(14px, 3vw, 46px)",
         zIndex: 34,
-        width: "min(78vw, 1040px)",
+        width: "min(62vw, 860px)",
         minWidth: "min(94vw, 390px)",
-        height: "min(70vh, 590px)",
+        height: "min(58vh, 520px)",
         maxHeight: "calc(100vh - 56px)",
         borderRadius: 16,
         background: "rgba(10, 6, 24, 0.96)",
         border: "1px solid rgba(255,255,255,0.09)",
         boxShadow: "0 26px 70px rgba(0,0,0,0.64)",
         display: "grid",
-        gridTemplateColumns: "minmax(0, 0.9fr) minmax(220px, 0.7fr)",
+        gridTemplateColumns: "minmax(0, 1fr) minmax(180px, 0.55fr)",
         overflow: "hidden",
       }}
     >
@@ -936,11 +1150,52 @@ function CompanionInfoCard({
             gap: 10,
           }}
         >
+          {voices.length > 1 && (
+            <label
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                color: "rgba(255,255,255,0.58)",
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              Voice
+              <select
+                value={selectedVoiceId}
+                onChange={(event) => onVoiceChange(event.target.value)}
+                disabled={speakingLine != null}
+                style={{
+                  minHeight: 40,
+                  borderRadius: 12,
+                  border: "1px solid rgba(109,94,245,0.42)",
+                  background: "rgba(255,255,255,0.1)",
+                  color: "#f8fafc",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                  padding: "0 12px",
+                  outline: "none",
+                }}
+              >
+                {voices.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               type="button"
               onClick={() => onSpeak("intro")}
-              disabled={!canSpeak || speakingLine != null}
+              disabled={!canSpeak || speakingLine != null || !cardPreviewVrmReady}
+              title={!cardPreviewVrmReady ? "Loading 3D preview…" : undefined}
               style={{
                 border: "1px solid rgba(255,255,255,0.16)",
                 borderRadius: 999,
@@ -950,7 +1205,8 @@ function CompanionInfoCard({
                 fontWeight: 800,
                 fontFamily: "Lexend, system-ui, sans-serif",
                 padding: "11px 16px",
-                cursor: canSpeak && speakingLine == null ? "pointer" : "not-allowed",
+                cursor:
+                  canSpeak && speakingLine == null && cardPreviewVrmReady ? "pointer" : "not-allowed",
               }}
             >
               {speakingLine === "intro" ? "Speaking..." : canSpeak ? "Say Hi" : "Needs voice"}
@@ -958,7 +1214,8 @@ function CompanionInfoCard({
             <button
               type="button"
               onClick={() => onSpeak("plead")}
-              disabled={!canSpeak || speakingLine != null}
+              disabled={!canSpeak || speakingLine != null || !cardPreviewVrmReady}
+              title={!cardPreviewVrmReady ? "Loading 3D preview…" : undefined}
               style={{
                 border: "1px solid rgba(109,94,245,0.45)",
                 borderRadius: 999,
@@ -968,10 +1225,30 @@ function CompanionInfoCard({
                 fontWeight: 800,
                 fontFamily: "Lexend, system-ui, sans-serif",
                 padding: "11px 16px",
-                cursor: canSpeak && speakingLine == null ? "pointer" : "not-allowed",
+                cursor:
+                  canSpeak && speakingLine == null && cardPreviewVrmReady ? "pointer" : "not-allowed",
               }}
             >
               {speakingLine === "plead" ? "Speaking..." : canSpeak ? "Why Pick Me?" : "Needs voice"}
+            </button>
+            <button
+              type="button"
+              onClick={onSpecialDance}
+              disabled={!cardPreviewVrmReady}
+              title={!cardPreviewVrmReady ? "Loading 3D preview…" : undefined}
+              style={{
+                border: "1px solid rgba(251,191,36,0.38)",
+                borderRadius: 999,
+                background: "rgba(251,191,36,0.13)",
+                color: "#fde68a",
+                fontSize: 14,
+                fontWeight: 800,
+                fontFamily: "Lexend, system-ui, sans-serif",
+                padding: "11px 16px",
+                cursor: cardPreviewVrmReady ? "pointer" : "not-allowed",
+              }}
+            >
+              Signature Dance
             </button>
           </div>
 
@@ -1018,10 +1295,11 @@ function CompanionInfoCard({
           entry={entry}
           slot="current"
           active
-          featured
           contained
           getAnalyser={getAnalyser}
-          onLoadSettled={() => undefined}
+          onMotorReady={handleCardSlotMotorReady}
+          onLoadSettled={ignoreCardSlotLoadSettled}
+          onVrmAttached={handleCardVrmAttached}
         />
       </div>
     </motion.div>
@@ -1045,11 +1323,18 @@ export function CompanionShowroom({
   const [musicOn, setMusicOn] = useState(enableBackgroundMusic);
   const [speakingLine, setSpeakingLine] = useState<SpeakingLine | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [voiceSelections, setVoiceSelections] = useState<Record<string, string>>({});
+  const [showroomDiagAnimation, setShowroomDiagAnimation] = useState<string>("idle");
+  const [showroomDiagLastCommand, setShowroomDiagLastCommand] =
+    useState<string>("none");
   const [initialCurtainDismissed, setInitialCurtainDismissed] = useState(false);
   const [settledSlotKeys, setSettledSlotKeys] = useState<Set<string>>(
     () => new Set(),
   );
   const motorsRef = useRef<Partial<Record<SlotName, CompanionMotor>>>({});
+  const cardMotorRef = useRef<CompanionMotor | null>(null);
+  /** Spotlight card mounts a second WebGL viewer; wait for VRM before driving clips (else emote fallback looks identical per character). */
+  const [cardPreviewVrmReady, setCardPreviewVrmReady] = useState(false);
   const timersRef = useRef<Set<number>>(new Set());
   const confettiCleanupRef = useRef<(() => void) | null>(null);
   const musicRef = useRef<AmbientMusicHandle | null>(null);
@@ -1061,6 +1346,7 @@ export function CompanionShowroom({
   const speechGestureIntervalRef = useRef<number | null>(null);
   const speechUrlRef = useRef<string | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
+  const getSpeechAnalyser = useCallback(() => speechAnalyserRef.current, []);
 
   const entries = COMPANION_MANIFEST;
   const isPairDuo = entries.length === 2;
@@ -1079,6 +1365,20 @@ export function CompanionShowroom({
   );
   const showroomReady = visibleSlotsSettled && !generatedBackgroundLoading;
   const initialStageLoading = !initialCurtainDismissed && !showroomReady;
+
+  useEffect(() => {
+    if (introVisible) {
+      setCardPreviewVrmReady(false);
+    }
+  }, [introVisible]);
+
+  const handleCardMotorReady = useCallback((motor: CompanionMotor | null) => {
+    cardMotorRef.current = motor;
+  }, []);
+
+  const handleCardVrmSettled = useCallback(() => {
+    setCardPreviewVrmReady(true);
+  }, []);
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) {
@@ -1113,6 +1413,44 @@ export function CompanionShowroom({
     });
   }, []);
 
+  const playCurrentCompanionAnimation = useCallback(
+    (animation: string, opts?: { loop?: boolean }) => {
+      const cmd = createShowroomAnimateCommand(animation, opts);
+      processShowroomCommand(motorsRef.current.current, cmd);
+      processShowroomCommand(cardMotorRef.current, cmd);
+    },
+    [],
+  );
+
+  const fireShowroomDiagAnimation = useCallback(
+    (animation: string, opts?: { loop?: boolean }) => {
+      playCurrentCompanionAnimation(animation, opts);
+      setShowroomDiagLastCommand(
+        `${animation}${opts?.loop === true ? " loop" : ""}`,
+      );
+    },
+    [playCurrentCompanionAnimation],
+  );
+
+  const playSlotAnimation = useCallback(
+    (slot: SlotName, animation: string, opts?: { loop?: boolean }) => {
+      processShowroomCommand(
+        motorsRef.current[slot],
+        createShowroomAnimateCommand(animation, opts),
+      );
+    },
+    [],
+  );
+
+  const setCurrentCompanionCamera = useCallback(
+    (angle: CameraAngle, transitionMs?: number) => {
+      const cmd = createShowroomCameraCommand(angle, transitionMs);
+      processShowroomCommand(motorsRef.current.current, cmd);
+      processShowroomCommand(cardMotorRef.current, cmd);
+    },
+    [],
+  );
+
   const startMusic = useCallback(() => {
     if (!enableBackgroundMusic || !musicOn || musicRef.current) return;
     musicRef.current = createAmbientMusic();
@@ -1126,34 +1464,39 @@ export function CompanionShowroom({
   }, []);
 
   const playShowroomGesture = useCallback(
-    (line: GestureLine, step = 0) => {
+    (line: GestureLine, step = 0, opts?: { loop?: boolean }) => {
       if (!current) return;
-      const profile = current.showroom?.gestureProfile;
-      const sequence =
-        line === "meet"
-          ? [profile?.meet ?? "wave"]
-          : profile?.[line] && profile[line].length > 0
-            ? profile[line]
-            : line === "intro"
-              ? ["wave", "think"]
-              : ["dance_victory", "wave"];
+      const sequence = resolveShowroomGestureSequence(
+        current.showroom?.gestureProfile,
+        line,
+      );
       const animation = sequence[step % sequence.length] ?? "wave";
-      motorsRef.current.current?.playAnimation(animation, { loop: false });
+      playCurrentCompanionAnimation(animation, { loop: opts?.loop ?? false });
     },
-    [current],
+    [current, playCurrentCompanionAnimation],
   );
 
   const startSpeechGestures = useCallback(
     (line: SpeakingLine) => {
       clearSpeechGestures();
-      playShowroomGesture(line, 0);
+      if (!current) return;
+      const plan = resolveShowroomSpeechGesturePlan(
+        current.showroom?.gestureProfile,
+        line,
+      );
+      const primary = plan.sequence[0] ?? "talking";
+      playCurrentCompanionAnimation(primary, { loop: plan.sustainPrimary });
+      if (plan.sustainPrimary || plan.intervalMs == null || plan.sequence.length <= 1) {
+        return;
+      }
       let step = 1;
       speechGestureIntervalRef.current = window.setInterval(() => {
-        playShowroomGesture(line, step);
+        const animation = plan.sequence[step % plan.sequence.length] ?? primary;
+        playCurrentCompanionAnimation(animation, { loop: false });
         step += 1;
-      }, line === "intro" ? 2600 : 2100);
+      }, plan.intervalMs);
     },
-    [clearSpeechGestures, playShowroomGesture],
+    [clearSpeechGestures, current, playCurrentCompanionAnimation],
   );
 
   const stopSpeech = useCallback(() => {
@@ -1185,12 +1528,10 @@ export function CompanionShowroom({
     setSpotlightOpen(false);
     setIntroVisible(false);
     setPicking(false);
+    setCardPreviewVrmReady(false);
     // Zoom back to full body on stage
-    motorsRef.current.current?.setCameraAngle("full-body", 680);
-    Object.values(motorsRef.current).forEach((motor) => {
-      motor?.playAnimation("idle", { loop: true });
-    });
-  }, [clearTimers, stopSpeech]);
+    setCurrentCompanionCamera("full-body", 680);
+  }, [clearTimers, setCurrentCompanionCamera, stopSpeech]);
 
   const openSpotlight = useCallback(() => {
     if (!current || spotlightOpen) return;
@@ -1198,12 +1539,25 @@ export function CompanionShowroom({
     clearTimers();
     setSpotlightOpen(true);
     setIntroVisible(false);
-    motorsRef.current.current?.setCameraAngle("mid-shot", 680);
+    setCurrentCompanionCamera("mid-shot", 680);
     playShowroomGesture("meet");
-    motorsRef.current.prev?.playAnimation("wave", { loop: false });
-    motorsRef.current.next?.playAnimation("wave", { loop: false });
-    schedule(() => setIntroVisible(true), 820);
-  }, [clearTimers, current, playShowroomGesture, schedule, spotlightOpen, startMusic]);
+    playSlotAnimation("prev", "wave", { loop: false });
+    playSlotAnimation("next", "wave", { loop: false });
+    schedule(() => {
+      playCurrentCompanionAnimation("idle", { loop: true });
+    }, Math.max(0, SHOWROOM_CARD_REVEAL_DELAY_MS - 160));
+    schedule(() => setIntroVisible(true), SHOWROOM_CARD_REVEAL_DELAY_MS);
+  }, [
+    clearTimers,
+    current,
+    playCurrentCompanionAnimation,
+    playShowroomGesture,
+    playSlotAnimation,
+    schedule,
+    setCurrentCompanionCamera,
+    spotlightOpen,
+    startMusic,
+  ]);
 
   const onStagePointerDown = useCallback(
     (e: PointEvt<HTMLDivElement>) => {
@@ -1250,23 +1604,46 @@ export function CompanionShowroom({
     setPicking(true);
     confettiCleanupRef.current?.();
     confettiCleanupRef.current = launchConfetti();
-    motorsRef.current.current?.playAnimation("dance_victory", { loop: false });
-    motorsRef.current.prev?.playAnimation("wave", { loop: false });
-    motorsRef.current.next?.playAnimation("wave", { loop: false });
+    playCurrentCompanionAnimation(
+      current.showroom?.gestureProfile.specialDance ?? "dance_victory",
+      { loop: false },
+    );
+    playSlotAnimation("prev", "wave", { loop: false });
+    playSlotAnimation("next", "wave", { loop: false });
     schedule(() => {
-      motorsRef.current.prev?.playAnimation("shrug", { loop: false });
-      motorsRef.current.next?.playAnimation("shrug", { loop: false });
+      playSlotAnimation("prev", "shrug", { loop: false });
+      playSlotAnimation("next", "shrug", { loop: false });
     }, 800);
     schedule(() => {
       confettiCleanupRef.current?.();
       confettiCleanupRef.current = null;
       onSelect(current.id);
     }, 1800);
-  }, [current, onSelect, picking, schedule, stopSpeech]);
+  }, [
+    current,
+    onSelect,
+    picking,
+    playCurrentCompanionAnimation,
+    playSlotAnimation,
+    schedule,
+    stopSpeech,
+  ]);
+
+  const playSpecialDance = useCallback(() => {
+    if (!current) return;
+    stopSpeech();
+    playCurrentCompanionAnimation(
+      current.showroom?.gestureProfile.specialDance ?? "dance_victory",
+      { loop: false },
+    );
+  }, [current, playCurrentCompanionAnimation, stopSpeech]);
 
   const speakCurrent = useCallback(
     async (line: SpeakingLine) => {
-      if (!current || !current.voiceAvailable || speakingLine) return;
+      const currentDefaultVoice =
+        current?.voices.find((voice) => voice.default)?.id ?? current?.voices[0]?.id ?? "";
+      const selectedVoiceId = current ? voiceSelections[current.id] ?? currentDefaultVoice : "";
+      if (!current || current.voices.length === 0 || !selectedVoiceId || speakingLine) return;
       stopSpeech();
       setSpeechError(null);
       setSpeakingLine(line);
@@ -1277,7 +1654,7 @@ export function CompanionShowroom({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ line, language: "en" }),
+            body: JSON.stringify({ line, language: "en", voiceId: selectedVoiceId }),
           },
         );
         if (!response.ok) {
@@ -1304,20 +1681,29 @@ export function CompanionShowroom({
         speechAudioRef.current = { audio, context };
         audio.addEventListener("ended", () => {
           stopSpeech();
-          motorsRef.current.current?.playAnimation("idle", { loop: true });
+          playCurrentCompanionAnimation("idle", { loop: true });
         });
         audio.addEventListener("error", () => {
           setSpeechError("I could not play that voice just now.");
           stopSpeech();
+          playCurrentCompanionAnimation("idle", { loop: true });
         });
         await context.resume();
         await audio.play();
       } catch (err: unknown) {
         setSpeechError(err instanceof Error ? err.message : "Voice preview failed.");
         stopSpeech();
+        playCurrentCompanionAnimation("idle", { loop: true });
       }
     },
-    [current, speakingLine, startSpeechGestures, stopSpeech],
+    [
+      current,
+      playCurrentCompanionAnimation,
+      speakingLine,
+      startSpeechGestures,
+      stopSpeech,
+      voiceSelections,
+    ],
   );
 
   useEffect(() => {
@@ -1377,12 +1763,6 @@ export function CompanionShowroom({
     };
   }, [clearTimers, stopSpeech]);
 
-  useLayoutEffect(() => {
-    Object.values(motorsRef.current).forEach((motor) => {
-      motor?.playAnimation("idle", { loop: true });
-    });
-  }, [currentIndex]);
-
   if (!current) {
     return (
       <div
@@ -1404,6 +1784,9 @@ export function CompanionShowroom({
 
   const bonus = bonusPoints?.[current.id] ?? 0;
   const pickLabel = `Pick ${current.name}${childName ? `, ${childName}` : ""}!`;
+  const currentDefaultVoice =
+    current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
+  const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
   const activeGeneratedBackground =
     useGeneratedBackground && generatedBackgroundUrl?.trim()
       ? generatedBackgroundUrl.trim()
@@ -1559,6 +1942,103 @@ export function CompanionShowroom({
         </button>
       )}
 
+      {import.meta.env.DEV && (
+        <div
+          className="pointer-events-auto"
+          style={{
+            position: "fixed",
+            left: 16,
+            bottom: 16,
+            zIndex: 55,
+            width: 280,
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(15,23,42,0.92)",
+            boxShadow: "0 18px 48px rgba(0,0,0,0.34)",
+            color: "#f8fafc",
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          <div
+            style={{
+              marginBottom: 8,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: 0.8,
+              textTransform: "uppercase",
+              color: "rgba(248,250,252,0.62)",
+            }}
+          >
+            Intro animation diag
+          </div>
+          <select
+            value={showroomDiagAnimation}
+            onChange={(event) => setShowroomDiagAnimation(event.target.value)}
+            style={{
+              width: "100%",
+              marginBottom: 8,
+              padding: "8px 10px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.24)",
+              background: "rgba(24,24,27,0.96)",
+              color: "#f8fafc",
+              fontSize: 14,
+            }}
+          >
+            {COMPANION_ANIMATION_IDS.map((animation) => (
+              <option key={animation} value={animation}>
+                {animation}
+              </option>
+            ))}
+          </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => fireShowroomDiagAnimation(showroomDiagAnimation)}
+              style={{
+                border: 0,
+                borderRadius: 8,
+                background: "#0f7dad",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 800,
+                padding: "9px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Fire
+            </button>
+            <button
+              type="button"
+              onClick={() => fireShowroomDiagAnimation("idle", { loop: true })}
+              style={{
+                border: 0,
+                borderRadius: 8,
+                background: "#047857",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 800,
+                padding: "9px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Force idle
+            </button>
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              color: "rgba(248,250,252,0.62)",
+              overflowWrap: "anywhere",
+            }}
+          >
+            Last: {showroomDiagLastCommand}
+          </div>
+        </div>
+      )}
+
       <div
         className="sunny-showroom-stage"
         onPointerDown={onStagePointerDown}
@@ -1618,9 +2098,8 @@ export function CompanionShowroom({
               entry={slot.entry}
               slot={slot.slot}
               active={!spotlightOpen}
-              featured={slot.slot === "current" && !spotlightOpen}
               soleFlankPair={isPairDuo}
-              getAnalyser={() => speechAnalyserRef.current}
+              getAnalyser={getSpeechAnalyser}
               onMotorReady={setMotor}
               onLoadSettled={markSlotLoadSettled}
             />
@@ -1821,10 +2300,18 @@ export function CompanionShowroom({
                   picking={picking}
                   speakingLine={speakingLine}
                   speechError={speechError}
-                  getAnalyser={() => speechAnalyserRef.current}
+                  selectedVoiceId={selectedVoiceId}
+                  getAnalyser={getSpeechAnalyser}
+                  onVoiceChange={(voiceId) =>
+                    setVoiceSelections((prev) => ({ ...prev, [current.id]: voiceId }))
+                  }
                   onSpeak={speakCurrent}
+                  onSpecialDance={playSpecialDance}
                   onPick={confirmPick}
                   onClose={closeSpotlight}
+                  onCardMotorReady={handleCardMotorReady}
+                  onCardVrmSettled={handleCardVrmSettled}
+                  cardPreviewVrmReady={cardPreviewVrmReady}
                 />
               )}
             </AnimatePresence>

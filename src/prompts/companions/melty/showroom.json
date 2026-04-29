@@ -14,8 +14,42 @@
   "gestureProfile": {
     "meet": "wave",
     "intro": ["wave", "think"],
-    "plead": ["dance_victory", "wave"]
+    "plead": ["dance_victory", "wave"],
+    "specialDance": "silly_dancing"
   },
+  "voices": [
+    {
+      "id": "ocZQ262SsZb9RIxcQBOj",
+      "label": "Lulu Lollipop",
+      "language": "en",
+      "default": true
+    },
+    {
+      "id": "T7eLpgAAhoXHlrNajG8v",
+      "label": "Natasha",
+      "language": "en"
+    },
+    {
+      "id": "jBpfuIE2acCO8z3wKNLl",
+      "label": "Gigi",
+      "language": "en"
+    },
+    {
+      "id": "piI8Kku0DcvcL6TTSeQt",
+      "label": "Fairy",
+      "language": "en"
+    },
+    {
+      "id": "n7Wi4g1bhpw4Bs8HK5ph",
+      "label": "Gigi - Energetic",
+      "language": "en"
+    },
+    {
+      "id": "Nggzl2QAXh3OijoXD116",
+      "label": "Candy - Young and Sweet",
+      "language": "en"
+    }
+  ],
   "scripts": {
     "en": {
       "intro": "Hi! I'm Melty. I love strawberries, candy, pink sparkles, and cheering people up when they feel wobbly.",

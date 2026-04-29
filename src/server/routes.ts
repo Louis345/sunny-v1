@@ -42,6 +42,10 @@ import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
 import { CompanionRegistry } from "../prompts/companions/registry";
+import {
+  resolveAllowedShowroomVoiceId,
+  type ShowroomVoiceOption,
+} from "./companionShowroomVoice";
 
 const companions = {
   Ila: ELLI,
@@ -164,6 +168,51 @@ function readShowroomScript(
       ? `Hi! I'm ${companionName}. I'm so excited to meet you.`
       : `Please pick me! I think we could have so much fun learning together.`);
   return text.trim();
+}
+
+function readShowroomVoiceOptions(
+  companionId: string,
+  companionName: string,
+  fallbackVoiceId: string | undefined,
+): ShowroomVoiceOption[] {
+  const showroomPath = path.join(
+    process.cwd(),
+    "src",
+    "prompts",
+    "companions",
+    companionId,
+    "showroom.json",
+  );
+  const raw = fs.existsSync(showroomPath)
+    ? (JSON.parse(fs.readFileSync(showroomPath, "utf8")) as ShowroomJson & { voices?: unknown })
+    : null;
+  const parsed = Array.isArray(raw?.voices)
+    ? raw.voices
+        .map((voice): ShowroomVoiceOption | null => {
+          if (!voice || typeof voice !== "object") return null;
+          const v = voice as Record<string, unknown>;
+          const id = typeof v.id === "string" && v.id.trim() ? v.id.trim() : "";
+          if (!id) return null;
+          return {
+            id,
+            label:
+              typeof v.label === "string" && v.label.trim()
+                ? v.label.trim()
+                : `${companionName} Voice`,
+            language:
+              typeof v.language === "string" && v.language.trim()
+                ? v.language.trim()
+                : "en",
+            ...(v.default === true ? { default: true } : {}),
+          };
+        })
+        .filter((voice): voice is ShowroomVoiceOption => voice != null)
+    : [];
+
+  if (parsed.length > 0) return parsed;
+  return fallbackVoiceId?.trim()
+    ? [{ id: fallbackVoiceId.trim(), label: `${companionName} Voice`, language: "en", default: true }]
+    : [];
 }
 
 /**
@@ -436,7 +485,19 @@ export function setupRoutes(app: Express): void {
       return res.status(404).json({ ok: false, error: "unknown_companion" });
     }
 
-    const voiceId = companion.voiceId?.trim();
+    const voiceOptions = readShowroomVoiceOptions(
+      companion.id,
+      companion.name,
+      companion.voiceId,
+    );
+    let voiceId: string;
+    try {
+      voiceId = resolveAllowedShowroomVoiceId(req.body?.voiceId, voiceOptions, companion.voiceId);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : "voice_unavailable";
+      const status = error === "voice_not_allowed" ? 400 : 400;
+      return res.status(status).json({ ok: false, error });
+    }
     if (!voiceId) {
       return res.status(400).json({ ok: false, error: "voice_unavailable" });
     }
