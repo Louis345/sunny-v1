@@ -5,6 +5,6 @@
   "ttsName": "mah-TILL-dah",
   "unlockCost": 0,
   "vrmPath": "/companions/673852811403133503.vrm",
-  "showInShowroom": false,
+  "showInShowroom": true,
   "defaultFor": "reina"
 }

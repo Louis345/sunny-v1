@@ -5,6 +5,6 @@
   "ttsName": "ELL-ee",
   "unlockCost": 0,
   "vrmPath": "/companions/2878599730723533962.vrm",
-  "showInShowroom": false,
+  "showInShowroom": true,
   "defaultFor": "ila"
 }

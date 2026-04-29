@@ -63,12 +63,50 @@ const LEGACY_VRM0_ARM_ROLL_BONES = new Set<VRMHumanBoneName>([
   "leftUpperArm",
   "leftLowerArm",
   "leftHand",
+  "leftThumbMetacarpal",
+  "leftThumbProximal",
+  "leftThumbDistal",
+  "leftIndexProximal",
+  "leftIndexIntermediate",
+  "leftIndexDistal",
+  "leftMiddleProximal",
+  "leftMiddleIntermediate",
+  "leftMiddleDistal",
+  "leftRingProximal",
+  "leftRingIntermediate",
+  "leftRingDistal",
+  "leftLittleProximal",
+  "leftLittleIntermediate",
+  "leftLittleDistal",
   "rightShoulder",
   "rightUpperArm",
   "rightLowerArm",
   "rightHand",
+  "rightThumbMetacarpal",
+  "rightThumbProximal",
+  "rightThumbDistal",
+  "rightIndexProximal",
+  "rightIndexIntermediate",
+  "rightIndexDistal",
+  "rightMiddleProximal",
+  "rightMiddleIntermediate",
+  "rightMiddleDistal",
+  "rightRingProximal",
+  "rightRingIntermediate",
+  "rightRingDistal",
+  "rightLittleProximal",
+  "rightLittleIntermediate",
+  "rightLittleDistal",
 ]);
 const MIXAMO_CENTIMETERS_TO_VRM_METERS = 0.01;
+export type MixamoRetargetArmCorrection =
+  | "standard"
+  | "legacy-vrm0"
+  | "mirrored-arm-rest-x";
+
+export type MixamoRetargetCompatibility = {
+  armCorrection: MixamoRetargetArmCorrection;
+};
 
 function toCanonicalMixamoBoneName(name: string): string {
   return name
@@ -80,6 +118,82 @@ function isLegacyVrm0(vrm: VRM): boolean {
   const metaVersion = (vrm as { meta?: { metaVersion?: unknown } }).meta
     ?.metaVersion;
   return String(metaVersion ?? "").startsWith("0");
+}
+
+function getNormalizedBoneLocalX(vrm: VRM, boneName: VRMHumanBoneName): number | null {
+  const node = vrm.humanoid?.getNormalizedBoneNode(boneName);
+  if (!node) return null;
+  return Number.isFinite(node.position.x) ? node.position.x : null;
+}
+
+export function resolveMixamoRetargetCompatibility(
+  vrm: VRM,
+): MixamoRetargetCompatibility {
+  const leftLowerArmX = getNormalizedBoneLocalX(vrm, "leftLowerArm");
+  const rightLowerArmX = getNormalizedBoneLocalX(vrm, "rightLowerArm");
+
+  if (
+    leftLowerArmX != null &&
+    rightLowerArmX != null &&
+    leftLowerArmX < 0 &&
+    rightLowerArmX > 0
+  ) {
+    return { armCorrection: "mirrored-arm-rest-x" };
+  }
+
+  if (!isLegacyVrm0(vrm)) {
+    return { armCorrection: "standard" };
+  }
+
+  return { armCorrection: "legacy-vrm0" };
+}
+
+function applyLegacyVrm0QuaternionCoordinates(quat: THREE.Quaternion): void {
+  quat.x *= -1;
+  quat.z *= -1;
+  quat.normalize();
+}
+
+function findMixamoRigObject(
+  root: THREE.Object3D,
+  rigName: string,
+): THREE.Object3D | undefined {
+  return (
+    root.getObjectByName(rigName) ??
+    root.getObjectByName(toCanonicalMixamoBoneName(rigName)) ??
+    root.getObjectByName(toCanonicalMixamoBoneName(rigName).replace(":", ""))
+  );
+}
+
+function getVrmHipsRestHeight(vrm: VRM, fallbackNode: THREE.Object3D): number {
+  const normalizedRestPose = (
+    vrm.humanoid as unknown as {
+      normalizedRestPose?: {
+        hips?: { position?: ArrayLike<number> };
+      };
+    }
+  ).normalizedRestPose;
+  const restY = normalizedRestPose?.hips?.position?.[1];
+  if (Number.isFinite(restY)) {
+    return Number(restY);
+  }
+  return fallbackNode.position.y;
+}
+
+function getHipsPositionScale(
+  vrm: VRM,
+  mixamoRoot: THREE.Object3D,
+  vrmHipsNode: THREE.Object3D,
+): number {
+  const sourceHips =
+    mixamoRoot.getObjectByName("mixamorigHips") ??
+    mixamoRoot.getObjectByName("mixamorig:Hips") ??
+    mixamoRoot.getObjectByName("mixamorig_Hips");
+  const sourceHeight = sourceHips?.position.y;
+  if (sourceHeight && Number.isFinite(sourceHeight) && Math.abs(sourceHeight) > 1e-6) {
+    return getVrmHipsRestHeight(vrm, vrmHipsNode) / sourceHeight;
+  }
+  return MIXAMO_CENTIMETERS_TO_VRM_METERS;
 }
 
 export function retargetMixamoClipToVrm(
@@ -96,7 +210,13 @@ export function retargetMixamoClipToVrm(
   }
 
   const tracks: THREE.KeyframeTrack[] = [];
-  const flipLegacyArmRoll = isLegacyVrm0(vrm);
+  const compatibility = resolveMixamoRetargetCompatibility(vrm);
+  const legacyVrm0 = isLegacyVrm0(vrm);
+  if (compatibility.armCorrection !== "standard") {
+    console.log(
+      `🎮 [mixamoRetarget] [compat] [${compatibility.armCorrection}]`,
+    );
+  }
 
   for (const track of clip.tracks) {
     const dotIdx = track.name.lastIndexOf(".");
@@ -115,7 +235,7 @@ export function retargetMixamoClipToVrm(
     }
 
     if (property === "quaternion") {
-      const srcBoneObj = mixamoRoot.getObjectByName(mixamoRigName);
+      const srcBoneObj = findMixamoRigObject(mixamoRoot, mixamoRigName);
       if (srcBoneObj) {
         srcBoneObj.getWorldQuaternion(restRotationInverse);
         restRotationInverse.invert();
@@ -133,9 +253,15 @@ export function retargetMixamoClipToVrm(
       for (let i = 0; i < values.length; i += 4) {
         _quatA.fromArray(values, i);
         _quatA.premultiply(parentRestWorldRotation).multiply(restRotationInverse);
-        if (flipLegacyArmRoll && LEGACY_VRM0_ARM_ROLL_BONES.has(vrmBoneName)) {
-          _quatA.z *= -1;
-          _quatA.normalize();
+        if (legacyVrm0) {
+          applyLegacyVrm0QuaternionCoordinates(_quatA);
+        }
+        if (
+          !legacyVrm0 &&
+          compatibility.armCorrection === "mirrored-arm-rest-x" &&
+          LEGACY_VRM0_ARM_ROLL_BONES.has(vrmBoneName)
+        ) {
+          applyLegacyVrm0QuaternionCoordinates(_quatA);
         }
         _quatA.toArray(values, i);
       }
@@ -150,19 +276,21 @@ export function retargetMixamoClipToVrm(
     } else if (property === "position") {
       const values = new Float32Array(track.values);
       if (vrmBoneName === "hips") {
+        const hipsPositionScale = getHipsPositionScale(vrm, mixamoRoot, vrmNode);
         const baseX = values[0] ?? 0;
         const baseY = values[1] ?? 0;
         const baseZ = values[2] ?? 0;
         for (let i = 0; i < values.length; i += 3) {
+          const deltaX = (values[i] - baseX) * hipsPositionScale;
+          const deltaY = (values[i + 1] - baseY) * hipsPositionScale;
+          const deltaZ = (values[i + 2] - baseZ) * hipsPositionScale;
           values[i] =
             vrmNode.position.x +
-            (values[i] - baseX) * MIXAMO_CENTIMETERS_TO_VRM_METERS;
-          values[i + 1] =
-            vrmNode.position.y +
-            (values[i + 1] - baseY) * MIXAMO_CENTIMETERS_TO_VRM_METERS;
+            (legacyVrm0 ? -deltaX : deltaX);
+          values[i + 1] = vrmNode.position.y + deltaY;
           values[i + 2] =
             vrmNode.position.z +
-            (values[i + 2] - baseZ) * MIXAMO_CENTIMETERS_TO_VRM_METERS;
+            (legacyVrm0 ? -deltaZ : deltaZ);
         }
       }
       tracks.push(

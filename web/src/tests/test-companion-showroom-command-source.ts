@@ -72,6 +72,48 @@ describe("CompanionShowroom command source", () => {
     expect(source).not.toContain("Object.values(motorsRef.current).forEach");
   });
 
+  it("opens with the meet gesture but restores idle before the card reveal", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+    const openSpotlightBody = source.match(
+      /const openSpotlight = useCallback\([\s\S]*?\n  \}, \[/,
+    )?.[0];
+
+    expect(openSpotlightBody).toBeDefined();
+    expect(openSpotlightBody).toContain('playShowroomGesture("meet")');
+    expect(openSpotlightBody).toContain('playSlotAnimation("prev", "wave"');
+    expect(openSpotlightBody).toContain('playSlotAnimation("next", "wave"');
+    expect(openSpotlightBody).toContain(
+      'playCurrentCompanionAnimation("idle", { loop: true })',
+    );
+  });
+
+  it("uses diag's mid-shot framing for showroom slots instead of a showroom-only full-body pose view", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain('motor?.setCameraAngle("mid-shot", 680)');
+    expect(source).toContain('motor.setCameraAngle("mid-shot", 0)');
+    expect(source).not.toContain('contained ? "mid-shot" : "full-body"');
+  });
+
+  it("ticks showroom motors with a companion config instead of null like the diag path", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("mergeCompanionConfigWithDefaults");
+    expect(source).toContain("entry.companionConfig");
+    expect(source).toContain("resolveModelUrl(companionConfig.vrmUrl)");
+    expect(source).toContain("companion: companionConfig");
+    expect(source).not.toContain("companion: null");
+  });
+
   it("uses a stable analyser callback so card readiness does not recreate motors", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),

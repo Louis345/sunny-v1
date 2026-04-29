@@ -15,7 +15,7 @@ describe("mixamoRetarget exports", () => {
     expect(typeof mod.loadMixamoFbxRoot).toBe("function");
   });
 
-  it("retargetMixamoClipToVrm returns null when vrm has no humanoid", () => {
+  it("retargetMixamoClipToVrm returns null when vrm has no humanoid", async () => {
     // This test validates behavior is identical to what was in CompanionMotor
     const importFn = async () => {
       const { retargetMixamoClipToVrm } = await import("../utils/mixamoRetarget");
@@ -24,7 +24,7 @@ describe("mixamoRetarget exports", () => {
       const vrm = { humanoid: null } as unknown as VRM;
       return retargetMixamoClipToVrm(clip, root, vrm);
     };
-    expect(importFn()).resolves.toBeNull();
+    await expect(importFn()).resolves.toBeNull();
   });
 
   it("retargetMixamoClipToVrm returns null for empty track list", async () => {

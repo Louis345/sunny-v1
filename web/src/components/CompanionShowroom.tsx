@@ -19,8 +19,10 @@ import type {
   CameraAngle,
   CompanionCommand,
 } from "../../../src/shared/companions/companionContract";
+import { COMPANION_ANIMATION_IDS } from "../../../src/shared/companions/companionContract";
 import { COMPANION_CAPABILITIES } from "../../../src/shared/companions/registry";
 import { validateCompanionCommand } from "../../../src/shared/companions/validateCompanionCommand";
+import { mergeCompanionConfigWithDefaults } from "../../../src/shared/companionTypes";
 import { ensurePlaybackAnalyser } from "../utils/audioAnalyser";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 
@@ -557,6 +559,16 @@ function CompanionSlot({
   const slotRef = useRef(slot);
   const activeRef = useRef(active);
   const containedRef = useRef(contained);
+  const companionConfig = useMemo(
+    () =>
+      mergeCompanionConfigWithDefaults(
+        entry.companionConfig ?? {
+          companionId: entry.id,
+          vrmUrl: entry.vrmUrl,
+        },
+      ),
+    [entry.companionConfig, entry.id, entry.vrmUrl],
+  );
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -568,7 +580,7 @@ function CompanionSlot({
         onMotorReady?.(slot, motor);
       }
     }
-    motor?.setCameraAngle(contained ? "mid-shot" : "full-body", 680);
+    motor?.setCameraAngle("mid-shot", 680);
   }, [contained, onMotorReady, slot]);
 
   const stopLoop = useCallback(() => {
@@ -626,8 +638,8 @@ function CompanionSlot({
         dt,
         dtMs: Math.min(dt * 1000, 100),
         companionEvents: [],
-        companion: null,
-        childId: null,
+        companion: companionConfig,
+        childId: SHOWROOM_COMMAND_CHILD_ID,
         toggledOff: false,
         activeNodeScreen: null,
         analyser: getAnalyser?.() ?? null,
@@ -636,7 +648,7 @@ function CompanionSlot({
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, [getAnalyser, stopLoop]);
+  }, [companionConfig, getAnalyser, stopLoop]);
 
   useEffect(() => {
     activeRef.current = active;
@@ -675,7 +687,7 @@ function CompanionSlot({
     const motor = new CompanionMotor();
     motor.resetSessionState();
     motor.setCamera(camera);
-    motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
+    motor.setCameraAngle("mid-shot", 0);
     motorRef.current = motor;
     if (slotRef.current !== "hidden") {
       onMotorReady?.(slotRef.current, motor);
@@ -713,7 +725,7 @@ function CompanionSlot({
       dir.position.set(1.2, 2.2, 0.8);
       scene.add(dir);
 
-      loadCompanionVrm(resolveModelUrl(entry.vrmUrl), { webgpu: webgpuMaterials })
+      loadCompanionVrm(resolveModelUrl(companionConfig.vrmUrl), { webgpu: webgpuMaterials })
         .then((vrm) => {
           if (cancelled) {
             vrm.scene.removeFromParent();
@@ -721,7 +733,7 @@ function CompanionSlot({
           }
           const size = readMountSize();
           motor.attachVrm(vrm, scene, size.w, size.h);
-          motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
+          motor.setCameraAngle("mid-shot", 0);
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
           if (
@@ -811,7 +823,7 @@ function CompanionSlot({
     };
   }, [
     contained,
-    entry.vrmUrl,
+    companionConfig.vrmUrl,
     onLoadSettled,
     onMotorReady,
     onVrmAttached,
@@ -1312,6 +1324,9 @@ export function CompanionShowroom({
   const [speakingLine, setSpeakingLine] = useState<SpeakingLine | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [voiceSelections, setVoiceSelections] = useState<Record<string, string>>({});
+  const [showroomDiagAnimation, setShowroomDiagAnimation] = useState<string>("idle");
+  const [showroomDiagLastCommand, setShowroomDiagLastCommand] =
+    useState<string>("none");
   const [initialCurtainDismissed, setInitialCurtainDismissed] = useState(false);
   const [settledSlotKeys, setSettledSlotKeys] = useState<Set<string>>(
     () => new Set(),
@@ -1405,6 +1420,16 @@ export function CompanionShowroom({
       processShowroomCommand(cardMotorRef.current, cmd);
     },
     [],
+  );
+
+  const fireShowroomDiagAnimation = useCallback(
+    (animation: string, opts?: { loop?: boolean }) => {
+      playCurrentCompanionAnimation(animation, opts);
+      setShowroomDiagLastCommand(
+        `${animation}${opts?.loop === true ? " loop" : ""}`,
+      );
+    },
+    [playCurrentCompanionAnimation],
   );
 
   const playSlotAnimation = useCallback(
@@ -1518,10 +1543,14 @@ export function CompanionShowroom({
     playShowroomGesture("meet");
     playSlotAnimation("prev", "wave", { loop: false });
     playSlotAnimation("next", "wave", { loop: false });
+    schedule(() => {
+      playCurrentCompanionAnimation("idle", { loop: true });
+    }, Math.max(0, SHOWROOM_CARD_REVEAL_DELAY_MS - 160));
     schedule(() => setIntroVisible(true), SHOWROOM_CARD_REVEAL_DELAY_MS);
   }, [
     clearTimers,
     current,
+    playCurrentCompanionAnimation,
     playShowroomGesture,
     playSlotAnimation,
     schedule,
@@ -1911,6 +1940,103 @@ export function CompanionShowroom({
         >
           {musicOn ? "♫" : "♪"}
         </button>
+      )}
+
+      {import.meta.env.DEV && (
+        <div
+          className="pointer-events-auto"
+          style={{
+            position: "fixed",
+            left: 16,
+            bottom: 16,
+            zIndex: 55,
+            width: 280,
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(15,23,42,0.92)",
+            boxShadow: "0 18px 48px rgba(0,0,0,0.34)",
+            color: "#f8fafc",
+            fontFamily: "system-ui, sans-serif",
+          }}
+        >
+          <div
+            style={{
+              marginBottom: 8,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: 0.8,
+              textTransform: "uppercase",
+              color: "rgba(248,250,252,0.62)",
+            }}
+          >
+            Intro animation diag
+          </div>
+          <select
+            value={showroomDiagAnimation}
+            onChange={(event) => setShowroomDiagAnimation(event.target.value)}
+            style={{
+              width: "100%",
+              marginBottom: 8,
+              padding: "8px 10px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.24)",
+              background: "rgba(24,24,27,0.96)",
+              color: "#f8fafc",
+              fontSize: 14,
+            }}
+          >
+            {COMPANION_ANIMATION_IDS.map((animation) => (
+              <option key={animation} value={animation}>
+                {animation}
+              </option>
+            ))}
+          </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => fireShowroomDiagAnimation(showroomDiagAnimation)}
+              style={{
+                border: 0,
+                borderRadius: 8,
+                background: "#0f7dad",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 800,
+                padding: "9px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Fire
+            </button>
+            <button
+              type="button"
+              onClick={() => fireShowroomDiagAnimation("idle", { loop: true })}
+              style={{
+                border: 0,
+                borderRadius: 8,
+                background: "#047857",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 800,
+                padding: "9px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Force idle
+            </button>
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              color: "rgba(248,250,252,0.62)",
+              overflowWrap: "anywhere",
+            }}
+          >
+            Last: {showroomDiagLastCommand}
+          </div>
+        </div>
       )}
 
       <div

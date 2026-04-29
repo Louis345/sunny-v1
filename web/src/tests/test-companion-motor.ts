@@ -9,6 +9,27 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
   let motor: CompanionMotor;
   let camera: THREE.PerspectiveCamera;
 
+  function mockAnimationAction(overrides: Partial<THREE.AnimationAction> = {}) {
+    const action = {
+      setLoop: vi.fn(),
+      clampWhenFinished: false,
+      enabled: false,
+      setEffectiveWeight: vi.fn(),
+      setEffectiveTimeScale: vi.fn(),
+      reset: vi.fn(function () {
+        return action;
+      }),
+      play: vi.fn(function () {
+        return action;
+      }),
+      crossFadeFrom: vi.fn(function () {
+        return action;
+      }),
+      ...overrides,
+    } as unknown as THREE.AnimationAction;
+    return action;
+  }
+
   beforeEach(() => {
     motor = new CompanionMotor();
     camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
@@ -94,14 +115,8 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     const addEventListener = vi.fn((_event: string, cb: (event?: unknown) => void) => {
       finishedHandler = cb;
     });
-    const clipAction = vi.fn(() => ({
-      setLoop: vi.fn(),
-      clampWhenFinished: false,
-      reset() {
-        return this;
-      },
-      play: vi.fn(),
-    }));
+    const action = mockAnimationAction();
+    const clipAction = vi.fn(() => action);
 
     (motor as any).vrm = { scene: new THREE.Group() } as VRM;
     (motor as any).animationMixer = {
@@ -125,9 +140,93 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
 
     expect(addEventListener).toHaveBeenCalledWith("finished", expect.any(Function));
     expect(finishedHandler).toBeDefined();
-    finishedHandler?.({});
+    finishedHandler?.({ action });
     expect(removeEventListener).toHaveBeenCalledWith("finished", finishedHandler);
     expect(playSpy).toHaveBeenCalledWith("idle", { loop: true });
+  });
+
+  it("does not let a slower previous animation override a newer idle request", async () => {
+    let resolveWave:
+      | ((clip: THREE.AnimationClip | null) => void)
+      | undefined;
+    const played: string[] = [];
+    const clipAction = vi.fn((clip: THREE.AnimationClip) => {
+      played.push(clip.name);
+      return mockAnimationAction();
+    });
+
+    (motor as any).vrm = { scene: new THREE.Group() } as VRM;
+    (motor as any).animationMixer = {
+      stopAllAction: vi.fn(),
+      clipAction,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as THREE.AnimationMixer;
+    vi.spyOn(motor as any, "fetchRetargetedClip").mockImplementation(
+      (name: unknown) => {
+        if (name === "wave") {
+          return new Promise<THREE.AnimationClip | null>((resolve) => {
+            resolveWave = resolve;
+          });
+        }
+        return Promise.resolve(new THREE.AnimationClip(String(name), 1, []));
+      },
+    );
+
+    motor.playAnimation("wave", { loop: false });
+    motor.playAnimation("idle", { loop: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(played).toEqual(["idle"]);
+
+    resolveWave?.(new THREE.AnimationClip("wave", 1, []));
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(played).toEqual(["idle"]);
+  });
+
+  it("crossfades between active FBX actions instead of hard-stopping the mixer", async () => {
+    const idleClip = new THREE.AnimationClip("idle", 1, []);
+    const waveClip = new THREE.AnimationClip("wave", 1, []);
+    const idleAction = mockAnimationAction();
+    const waveAction = mockAnimationAction();
+    const stopAllAction = vi.fn();
+    const clipAction = vi.fn((clip: THREE.AnimationClip) =>
+      clip.name === "idle" ? idleAction : waveAction,
+    );
+
+    (motor as any).vrm = { scene: new THREE.Group() } as VRM;
+    (motor as any).animationMixer = {
+      stopAllAction,
+      clipAction,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as THREE.AnimationMixer;
+    (motor as any).clipCache.set("idle", idleClip);
+    (motor as any).clipCache.set("wave", waveClip);
+
+    await (motor as any).loadAndPlayClip(
+      "idle",
+      { name: "idle", path: "/animations/idle.fbx", defaultLoop: true, label: "Idle" },
+      true,
+    );
+    await (motor as any).loadAndPlayClip(
+      "wave",
+      { name: "wave", path: "/animations/wave.fbx", defaultLoop: false, label: "Wave" },
+      false,
+    );
+
+    expect(stopAllAction).not.toHaveBeenCalled();
+    expect(waveAction.crossFadeFrom).toHaveBeenCalledWith(
+      idleAction,
+      0.22,
+      false,
+    );
+    expect(waveAction.play).toHaveBeenCalled();
   });
 
 });

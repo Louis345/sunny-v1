@@ -113,6 +113,8 @@ export class CompanionMotor {
     AnimationName,
     Promise<THREE.AnimationClip | null>
   >();
+  private animationRequestId = 0;
+  private currentAnimationAction: THREE.AnimationAction | null = null;
 
   /** Reset dedupe + camera/move when rebuilding the Three scene. */
   resetSessionState(): void {
@@ -198,6 +200,8 @@ export class CompanionMotor {
 
     this.clipCache.clear();
     this.clipInflight.clear();
+    this.animationRequestId += 1;
+    this.currentAnimationAction = null;
     if (this.animationMixer) {
       this.animationMixer.stopAllAction();
     }
@@ -321,8 +325,10 @@ export class CompanionMotor {
       this.animationMixer.stopAllAction();
       this.animationMixer = null;
     }
+    this.currentAnimationAction = null;
     this.clipCache.clear();
     this.clipInflight.clear();
+    this.animationRequestId += 1;
     if (v?.lookAt) {
       v.lookAt.target = null;
     }
@@ -572,13 +578,15 @@ export class CompanionMotor {
       this.applyAnimateEmoteFallback(animation);
       return;
     }
-    void this.loadAndPlayClip(name, entry, loop);
+    const requestId = ++this.animationRequestId;
+    void this.loadAndPlayClip(name, entry, loop, requestId);
   }
 
   private async loadAndPlayClip(
     name: AnimationName,
     entry: AnimationRegistryEntry,
     loop: boolean,
+    requestId = ++this.animationRequestId,
   ): Promise<void> {
     const vrm = this.vrm;
     const mixer = this.animationMixer;
@@ -603,6 +611,12 @@ export class CompanionMotor {
         this.clipCache.set(name, clip);
       }
     }
+    if (requestId !== this.animationRequestId) {
+      console.log(
+        `🎮 [CompanionMotor] [animate] [stale] skip "${name}" request=${requestId} latest=${this.animationRequestId}`,
+      );
+      return;
+    }
     if (!clip || !this.animationMixer || !this.vrm) {
       if (!clip) {
         console.warn(
@@ -619,17 +633,29 @@ export class CompanionMotor {
     console.log(
       `🎮 [CompanionMotor] [animate] [play] "${name}" tracks=${clip.tracks.length} loop=${loop}`,
     );
-    this.animationMixer.stopAllAction();
+    const previousAction = this.currentAnimationAction;
     const action = this.animationMixer.clipAction(clip);
     action.setLoop(
       loop ? THREE.LoopRepeat : THREE.LoopOnce,
       loop ? Infinity : 1,
     );
     action.clampWhenFinished = !loop;
-    action.reset().play();
+    action.enabled = true;
+    action.setEffectiveWeight(1);
+    action.setEffectiveTimeScale(1);
+    action.reset();
+    if (previousAction && previousAction !== action) {
+      action.crossFadeFrom(previousAction, 0.22, false).play();
+    } else {
+      action.play();
+    }
+    this.currentAnimationAction = action;
 
     if (!loop) {
-      const onFinished = () => {
+      const onFinished = (event?: { action?: THREE.AnimationAction }) => {
+        if (event?.action && event.action !== action) {
+          return;
+        }
         this.animationMixer?.removeEventListener("finished", onFinished);
         this.playAnimation("idle", { loop: true });
       };
