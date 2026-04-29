@@ -84,14 +84,16 @@ export function buildHomeworkNodes(args: {
   words: string[];
   homeworkId: string;
   childId: string;
+  testDate?: string | null;
 }): PlannedNode[] {
-  const { type, words, homeworkId, childId } = args;
+  const { type, words, homeworkId, childId, testDate } = args;
   const idSuffix = homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
 
   if (type === "spelling_test") {
     const childMeta = readChildMeta(childId);
     const maxWords = childMeta?.games?.["spell-check"]?.maxWords ?? 5;
-    const w = words.slice(0, maxWords);
+    const days = testDate ? daysUntil(testDate) : 999;
+    const w = days <= 5 ? words : words.slice(0, maxWords);
     return [
       {
         id: `n-word-radar-${idSuffix}`,
@@ -141,11 +143,11 @@ type NodePlan = {
   sessionNotes: string;
 };
 
-function nextFriday(): string {
+export function nextFriday(): string {
   const d = new Date();
   const day = d.getDay();
-  const daysUntil = day <= 5 ? 5 - day : 6;
-  d.setDate(d.getDate() + daysUntil);
+  const daysToAdd = day < 5 ? 5 - day : day === 5 ? 7 : 6;
+  d.setDate(d.getDate() + daysToAdd);
   return d.toISOString().slice(0, 10);
 }
 
@@ -410,7 +412,11 @@ export function buildPendingHomeworkPayload(args: {
   };
 }
 
-function parseCliArgs(argv: string[]): { childId: string; opus: boolean } {
+export function parseCliArgs(argv: string[]): {
+  childId: string;
+  opus: boolean;
+  testDate: string | null;
+} {
   const childArg = argv.find((a) => a.startsWith("--child="));
   if (!childArg) {
     throw new Error("Missing required argument --child=<childId>");
@@ -419,7 +425,10 @@ function parseCliArgs(argv: string[]): { childId: string; opus: boolean } {
   if (!childId) {
     throw new Error("Missing required argument --child=<childId>");
   }
-  return { childId, opus: argv.includes("--opus") };
+  const testDateArg = argv.find((a) => a.startsWith("--testDate="));
+  const testDateRaw = testDateArg ? testDateArg.slice("--testDate=".length).trim() : "";
+  const testDate = testDateRaw.length > 0 ? testDateRaw : null;
+  return { childId, opus: argv.includes("--opus"), testDate };
 }
 
 function listIncomingFiles(dir: string): string[] {
@@ -591,7 +600,7 @@ export function buildCycleStub(args: {
 }
 
 export async function runIngestHomework(argv: string[]): Promise<void> {
-  const { childId } = parseCliArgs(argv);
+  const { childId, testDate: cliTestDate } = parseCliArgs(argv);
   const client = new Anthropic();
   const today = new Date().toISOString().slice(0, 10);
   const contextBase = path.join(process.cwd(), "src", "context", childId, "homework");
@@ -606,7 +615,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
 
   console.log("📄 Step 1/4: Reading homework...");
   const extracted = await extractHomework(client, incomingFile);
-  const testDate = extracted.testDate ?? nextFriday();
+  const testDate = cliTestDate ?? extracted.testDate ?? nextFriday();
   const daysUntilTest = daysUntil(testDate);
   const wordsLine =
     extracted.words.length <= 5
@@ -666,7 +675,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     subject: extracted.type,
     wordList: extracted.words,
     ingestedAt: today,
-    testDate: extracted.testDate,
+    testDate,
   });
   fs.writeFileSync(
     path.join(cyclesDir, `${homeworkId}.json`),
@@ -697,6 +706,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     words: extracted.words,
     homeworkId,
     childId,
+    testDate,
   });
 
   profileDoc.pendingHomework = buildPendingHomeworkPayload({
