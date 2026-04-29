@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -16,6 +15,12 @@ import {
   COMPANION_MANIFEST,
   type CompanionManifestEntry,
 } from "../companion/companions.generated";
+import type {
+  CameraAngle,
+  CompanionCommand,
+} from "../../../src/shared/companions/companionContract";
+import { COMPANION_CAPABILITIES } from "../../../src/shared/companions/registry";
+import { validateCompanionCommand } from "../../../src/shared/companions/validateCompanionCommand";
 import { ensurePlaybackAnalyser } from "../utils/audioAnalyser";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 
@@ -176,6 +181,8 @@ type WindowWithWebkitAudio = Window & {
 
 const accent = "#6D5EF5";
 const confettiColours = ["#6D5EF5", "#a78bfa", "#fbbf24", "#f472b6", "#34d399"];
+const SHOWROOM_COMMAND_CHILD_ID = "showroom";
+let showroomCommandSequence = 0;
 const sparkleSeeds = [
   { left: "9%", top: "18%", delay: "0s", size: 3 },
   { left: "18%", top: "42%", delay: "1.1s", size: 4 },
@@ -191,17 +198,55 @@ const sparkleSeeds = [
   { left: "50%", top: "52%", delay: "1.9s", size: 3 },
 ];
 
-function isWebGpuRenderer(renderer: CompanionRenderer): renderer is WebGPURenderer {
-  return "isWebGPURenderer" in renderer && renderer.isWebGPURenderer === true;
+function createShowroomCommand(
+  type: string,
+  payload: Record<string, unknown>,
+): CompanionCommand {
+  const cmd = validateCompanionCommand(
+    { type, payload },
+    COMPANION_CAPABILITIES,
+    { childId: SHOWROOM_COMMAND_CHILD_ID, source: "diag" },
+  );
+  if (!cmd) {
+    throw new Error(`CompanionShowroom invalid ${type} command`);
+  }
+  return {
+    ...cmd,
+    // CompanionMotor de-dupes by timestamp/type/child/source. Keep rapid showroom
+    // gesture bursts distinct even if they happen within the same millisecond.
+    timestamp: cmd.timestamp * 1000 + showroomCommandSequence++,
+  };
 }
 
-function hashToUnit(value: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    hash ^= value.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) / 4294967295;
+export function createShowroomAnimateCommand(
+  animation: string,
+  opts: { loop?: boolean } = {},
+): CompanionCommand {
+  return createShowroomCommand("animate", {
+    animation,
+    ...(opts.loop === undefined ? {} : { loop: opts.loop }),
+  });
+}
+
+export function createShowroomCameraCommand(
+  angle: CameraAngle,
+  transitionMs?: number,
+): CompanionCommand {
+  return createShowroomCommand("camera", {
+    angle,
+    ...(transitionMs === undefined ? {} : { transition_ms: transitionMs }),
+  });
+}
+
+function processShowroomCommand(
+  motor: CompanionMotor | null | undefined,
+  cmd: CompanionCommand,
+): void {
+  motor?.processCompanionCommands([cmd], SHOWROOM_COMMAND_CHILD_ID);
+}
+
+function isWebGpuRenderer(renderer: CompanionRenderer): renderer is WebGPURenderer {
+  return "isWebGPURenderer" in renderer && renderer.isWebGPURenderer === true;
 }
 
 function resolveModelUrl(vrmUrl: string): string {
@@ -468,7 +513,6 @@ function CompanionSlot({
   entry,
   slot,
   active,
-  featured,
   soleFlankPair,
   contained = false,
   getAnalyser,
@@ -479,7 +523,6 @@ function CompanionSlot({
   entry: CompanionManifestEntry;
   slot: SlotName;
   active: boolean;
-  featured: boolean;
   /**
    * Two companions: only the `next` flank is shown — give it a hair more presence
    * than the default side preview.
@@ -501,7 +544,6 @@ function CompanionSlot({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const slotRef = useRef(slot);
-  const idleSeedRef = useRef(hashToUnit(entry.id));
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -513,9 +555,8 @@ function CompanionSlot({
         onMotorReady?.(slot, motor);
       }
     }
-    motor?.setShowroomIdle(featured ? "center" : "flank", idleSeedRef.current);
     motor?.setCameraAngle(contained ? "mid-shot" : "full-body", 680);
-  }, [contained, featured, onMotorReady, slot]);
+  }, [contained, onMotorReady, slot]);
 
   const stopLoop = useCallback(() => {
     if (rafRef.current != null) {
@@ -590,7 +631,6 @@ function CompanionSlot({
     const motor = new CompanionMotor();
     motor.resetSessionState();
     motor.setCamera(camera);
-    motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
     motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
     motorRef.current = motor;
     if (slotRef.current !== "hidden") {
@@ -637,9 +677,7 @@ function CompanionSlot({
           }
           const size = readMountSize();
           motor.attachVrm(vrm, scene, size.w, size.h);
-          motor.setShowroomIdle(slotRef.current === "current" ? "center" : "flank", idleSeedRef.current);
           motor.setCameraAngle(contained ? "mid-shot" : "full-body", 0);
-          motor.playAnimation("idle", { loop: true });
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
           startLoop();
@@ -1193,7 +1231,6 @@ function CompanionInfoCard({
           entry={entry}
           slot="current"
           active
-          featured
           contained
           getAnalyser={getAnalyser}
           onMotorReady={handleCardSlotMotorReady}
@@ -1242,6 +1279,7 @@ export function CompanionShowroom({
   const speechGestureIntervalRef = useRef<number | null>(null);
   const speechUrlRef = useRef<string | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
+  const getSpeechAnalyser = useCallback(() => speechAnalyserRef.current, []);
 
   const entries = COMPANION_MANIFEST;
   const isPairDuo = entries.length === 2;
@@ -1310,8 +1348,28 @@ export function CompanionShowroom({
 
   const playCurrentCompanionAnimation = useCallback(
     (animation: string, opts?: { loop?: boolean }) => {
-      motorsRef.current.current?.playAnimation(animation, opts);
-      cardMotorRef.current?.playAnimation(animation, opts);
+      const cmd = createShowroomAnimateCommand(animation, opts);
+      processShowroomCommand(motorsRef.current.current, cmd);
+      processShowroomCommand(cardMotorRef.current, cmd);
+    },
+    [],
+  );
+
+  const playSlotAnimation = useCallback(
+    (slot: SlotName, animation: string, opts?: { loop?: boolean }) => {
+      processShowroomCommand(
+        motorsRef.current[slot],
+        createShowroomAnimateCommand(animation, opts),
+      );
+    },
+    [],
+  );
+
+  const setCurrentCompanionCamera = useCallback(
+    (angle: CameraAngle, transitionMs?: number) => {
+      const cmd = createShowroomCameraCommand(angle, transitionMs);
+      processShowroomCommand(motorsRef.current.current, cmd);
+      processShowroomCommand(cardMotorRef.current, cmd);
     },
     [],
   );
@@ -1395,12 +1453,8 @@ export function CompanionShowroom({
     setPicking(false);
     setCardPreviewVrmReady(false);
     // Zoom back to full body on stage
-    motorsRef.current.current?.setCameraAngle("full-body", 680);
-    cardMotorRef.current?.playAnimation("idle", { loop: true });
-    Object.values(motorsRef.current).forEach((motor) => {
-      motor?.playAnimation("idle", { loop: true });
-    });
-  }, [clearTimers, stopSpeech]);
+    setCurrentCompanionCamera("full-body", 680);
+  }, [clearTimers, setCurrentCompanionCamera, stopSpeech]);
 
   const openSpotlight = useCallback(() => {
     if (!current || spotlightOpen) return;
@@ -1408,12 +1462,21 @@ export function CompanionShowroom({
     clearTimers();
     setSpotlightOpen(true);
     setIntroVisible(false);
-    motorsRef.current.current?.setCameraAngle("mid-shot", 680);
+    setCurrentCompanionCamera("mid-shot", 680);
     playShowroomGesture("meet");
-    motorsRef.current.prev?.playAnimation("wave", { loop: false });
-    motorsRef.current.next?.playAnimation("wave", { loop: false });
+    playSlotAnimation("prev", "wave", { loop: false });
+    playSlotAnimation("next", "wave", { loop: false });
     schedule(() => setIntroVisible(true), SHOWROOM_CARD_REVEAL_DELAY_MS);
-  }, [clearTimers, current, playShowroomGesture, schedule, spotlightOpen, startMusic]);
+  }, [
+    clearTimers,
+    current,
+    playShowroomGesture,
+    playSlotAnimation,
+    schedule,
+    setCurrentCompanionCamera,
+    spotlightOpen,
+    startMusic,
+  ]);
 
   const onStagePointerDown = useCallback(
     (e: PointEvt<HTMLDivElement>) => {
@@ -1464,18 +1527,26 @@ export function CompanionShowroom({
       current.showroom?.gestureProfile.specialDance ?? "dance_victory",
       { loop: false },
     );
-    motorsRef.current.prev?.playAnimation("wave", { loop: false });
-    motorsRef.current.next?.playAnimation("wave", { loop: false });
+    playSlotAnimation("prev", "wave", { loop: false });
+    playSlotAnimation("next", "wave", { loop: false });
     schedule(() => {
-      motorsRef.current.prev?.playAnimation("shrug", { loop: false });
-      motorsRef.current.next?.playAnimation("shrug", { loop: false });
+      playSlotAnimation("prev", "shrug", { loop: false });
+      playSlotAnimation("next", "shrug", { loop: false });
     }, 800);
     schedule(() => {
       confettiCleanupRef.current?.();
       confettiCleanupRef.current = null;
       onSelect(current.id);
     }, 1800);
-  }, [current, onSelect, picking, playCurrentCompanionAnimation, schedule, stopSpeech]);
+  }, [
+    current,
+    onSelect,
+    picking,
+    playCurrentCompanionAnimation,
+    playSlotAnimation,
+    schedule,
+    stopSpeech,
+  ]);
 
   const playSpecialDance = useCallback(() => {
     if (!current) return;
@@ -1610,12 +1681,6 @@ export function CompanionShowroom({
       musicRef.current = null;
     };
   }, [clearTimers, stopSpeech]);
-
-  useLayoutEffect(() => {
-    Object.values(motorsRef.current).forEach((motor) => {
-      motor?.playAnimation("idle", { loop: true });
-    });
-  }, [currentIndex]);
 
   if (!current) {
     return (
@@ -1855,9 +1920,8 @@ export function CompanionShowroom({
               entry={slot.entry}
               slot={slot.slot}
               active={!spotlightOpen}
-              featured={slot.slot === "current" && !spotlightOpen}
               soleFlankPair={isPairDuo}
-              getAnalyser={() => speechAnalyserRef.current}
+              getAnalyser={getSpeechAnalyser}
               onMotorReady={setMotor}
               onLoadSettled={markSlotLoadSettled}
             />
@@ -2059,7 +2123,7 @@ export function CompanionShowroom({
                   speakingLine={speakingLine}
                   speechError={speechError}
                   selectedVoiceId={selectedVoiceId}
-                  getAnalyser={() => speechAnalyserRef.current}
+                  getAnalyser={getSpeechAnalyser}
                   onVoiceChange={(voiceId) =>
                     setVoiceSelections((prev) => ({ ...prev, [current.id]: voiceId }))
                   }

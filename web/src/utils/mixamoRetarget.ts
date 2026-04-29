@@ -58,10 +58,27 @@ const MIXAMO_TO_VRM_HUMANOID: Record<string, VRMHumanBoneName> = {
   "mixamorig:RightHandPinky3": "rightLittleDistal",
 };
 
+const LEGACY_VRM0_ARM_ROLL_BONES = new Set<VRMHumanBoneName>([
+  "leftShoulder",
+  "leftUpperArm",
+  "leftLowerArm",
+  "leftHand",
+  "rightShoulder",
+  "rightUpperArm",
+  "rightLowerArm",
+  "rightHand",
+]);
+
 function toCanonicalMixamoBoneName(name: string): string {
   return name
     .replace(/^mixamorig_/, "mixamorig:")
     .replace(/^mixamorig([A-Z])/, "mixamorig:$1");
+}
+
+function isLegacyVrm0(vrm: VRM): boolean {
+  const metaVersion = (vrm as { meta?: { metaVersion?: unknown } }).meta
+    ?.metaVersion;
+  return String(metaVersion ?? "").startsWith("0");
 }
 
 export function retargetMixamoClipToVrm(
@@ -78,6 +95,7 @@ export function retargetMixamoClipToVrm(
   }
 
   const tracks: THREE.KeyframeTrack[] = [];
+  const flipLegacyArmRoll = isLegacyVrm0(vrm);
 
   for (const track of clip.tracks) {
     const dotIdx = track.name.lastIndexOf(".");
@@ -94,7 +112,7 @@ export function retargetMixamoClipToVrm(
       continue;
     }
 
-    if (track instanceof THREE.QuaternionKeyframeTrack) {
+    if (property === "quaternion") {
       const srcBoneObj = mixamoRoot.getObjectByName(mixamoRigName);
       if (srcBoneObj) {
         srcBoneObj.getWorldQuaternion(restRotationInverse);
@@ -113,6 +131,10 @@ export function retargetMixamoClipToVrm(
       for (let i = 0; i < values.length; i += 4) {
         _quatA.fromArray(values, i);
         _quatA.premultiply(parentRestWorldRotation).multiply(restRotationInverse);
+        if (flipLegacyArmRoll && LEGACY_VRM0_ARM_ROLL_BONES.has(vrmBoneName)) {
+          _quatA.z *= -1;
+          _quatA.normalize();
+        }
         _quatA.toArray(values, i);
       }
 
