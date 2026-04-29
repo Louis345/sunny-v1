@@ -4,7 +4,7 @@
  */
 
 import * as THREE from "three";
-import type { VRM, VRMPose } from "@pixiv/three-vrm";
+import type { VRM } from "@pixiv/three-vrm";
 import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
 import type {
   CompanionConfig,
@@ -78,12 +78,6 @@ export interface CompanionMotorTickContext {
   analyser: AnalyserNode | null;
 }
 
-type ShowroomIdleMode = "center" | "flank" | null;
-type HumanoidWithPoseApi = VRM["humanoid"] & {
-  resetNormalizedPose?: () => void;
-  setNormalizedPose?: (pose: VRMPose) => void;
-};
-
 export class CompanionMotor {
   private vrm: VRM | null = null;
   private camera: THREE.PerspectiveCamera | null = null;
@@ -108,10 +102,6 @@ export class CompanionMotor {
 
   private moveTarget: { x: number; z: number } | null = null;
   private moveLerp = 0.065;
-  private vrmMetaVersion = "";
-  private showroomIdleMode: ShowroomIdleMode = null;
-  private showroomIdleSeed = 0;
-  private showroomIdleElapsedMs = 0;
   private blinkState = {
     nextBlinkAt: this.scheduleNextBlinkAt(),
     blinkingUntil: 0,
@@ -123,6 +113,8 @@ export class CompanionMotor {
     AnimationName,
     Promise<THREE.AnimationClip | null>
   >();
+  private animationRequestId = 0;
+  private currentAnimationAction: THREE.AnimationAction | null = null;
 
   /** Reset dedupe + camera/move when rebuilding the Three scene. */
   resetSessionState(): void {
@@ -143,18 +135,6 @@ export class CompanionMotor {
 
   setCamera(camera: THREE.PerspectiveCamera | null): void {
     this.camera = camera;
-  }
-
-  setShowroomIdle(mode: ShowroomIdleMode, seed = 0): void {
-    this.showroomIdleMode = mode;
-    this.showroomIdleSeed = seed;
-    this.showroomIdleElapsedMs = 0;
-    if (mode && this.animationMixer) {
-      this.animationMixer.stopAllAction();
-    }
-    if (mode) {
-      this.applyShowroomIdlePose(0);
-    }
   }
 
   setCameraAngle(angle: CameraAngle, transitionMs = 520): void {
@@ -190,7 +170,6 @@ export class CompanionMotor {
     const metaVersion = String(
       (vrm as { meta?: { metaVersion?: string } }).meta?.metaVersion ?? "",
     );
-    this.vrmMetaVersion = metaVersion;
     vrm.scene.rotation.y = metaVersion.startsWith("0") ? Math.PI : 0;
     // Reset position before measuring so we get a clean bbox.
     vrm.scene.position.set(0, 0, 0);
@@ -221,16 +200,14 @@ export class CompanionMotor {
 
     this.clipCache.clear();
     this.clipInflight.clear();
+    this.animationRequestId += 1;
+    this.currentAnimationAction = null;
     if (this.animationMixer) {
       this.animationMixer.stopAllAction();
     }
     this.animationMixer = new THREE.AnimationMixer(vrm.scene);
     this.fitCameraToVrm(vrm, mountW, mountH);
-    if (this.showroomIdleMode) {
-      this.applyShowroomIdlePose(0);
-    } else {
-      this.playAnimation("idle", { loop: true });
-    }
+    this.playAnimation("idle", { loop: true });
   }
 
   /**
@@ -339,11 +316,6 @@ export class CompanionMotor {
    * Play a registered animation by id (used after VRM attach and for tooling).
    */
   playAnimation(animation: string, opts?: { loop?: boolean }): void {
-    if (this.showroomIdleMode && animation === "idle") {
-      this.animationMixer?.stopAllAction();
-      this.applyShowroomIdlePose(0);
-      return;
-    }
     this.applyAnimateCommand(animation, opts ?? {});
   }
 
@@ -353,8 +325,10 @@ export class CompanionMotor {
       this.animationMixer.stopAllAction();
       this.animationMixer = null;
     }
+    this.currentAnimationAction = null;
     this.clipCache.clear();
     this.clipInflight.clear();
+    this.animationRequestId += 1;
     if (v?.lookAt) {
       v.lookAt.target = null;
     }
@@ -367,7 +341,6 @@ export class CompanionMotor {
       v.scene.removeFromParent();
     }
     this.vrm = null;
-    this.vrmMetaVersion = "";
     this.cameraFit = null;
   }
 
@@ -559,7 +532,6 @@ export class CompanionMotor {
     if (this.animationMixer) {
       this.animationMixer.update(ctx.dt);
     }
-    this.applyShowroomIdlePose(ctx.dtMs);
     vrm.update(ctx.dt);
     // Keep procedural bone writers disabled here. They conflict with the
     // AnimationMixer on some VRMs and previously caused bent/back-facing poses.
@@ -586,50 +558,6 @@ export class CompanionMotor {
     return baseNow + 1000 + Math.random() * 4000;
   }
 
-  private applyShowroomIdlePose(dtMs: number): void {
-    const mode = this.showroomIdleMode;
-    const vrm = this.vrm;
-    if (!mode || !vrm) return;
-
-    this.showroomIdleElapsedMs += dtMs;
-    const t = this.showroomIdleElapsedMs / 1000 + this.showroomIdleSeed * 10;
-    const breathe = Math.sin(t * 1.75) * (mode === "center" ? 0.022 : 0.012);
-    const sway = Math.sin(t * 0.72) * (mode === "center" ? 0.045 : 0.022);
-    const glance = Math.sin(t * 0.47) * (mode === "center" ? 0.09 : 0.045);
-    const humanoid = vrm.humanoid as HumanoidWithPoseApi;
-    const setPose = humanoid.setNormalizedPose?.bind(humanoid);
-    if (!setPose) return;
-
-    const q = (x = 0, y = 0, z = 0): [number, number, number, number] => {
-      const quat = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(x, y, z, "XYZ"),
-      );
-      return [quat.x, quat.y, quat.z, quat.w];
-    };
-
-    const upperArmDrop = mode === "center" ? 1.18 : 1.1;
-    const elbowEase = mode === "center" ? 0.16 : 0.1;
-    const armSign = this.vrmMetaVersion.startsWith("0") ? 1 : -1;
-    const pose: VRMPose = {
-      hips: {
-        position: [0, breathe * 0.035, 0],
-        rotation: q(0, 0, sway * 0.09),
-      },
-      spine: { rotation: q(breathe * 0.08, 0, sway * 0.12) },
-      chest: { rotation: q(breathe * 0.07, 0, sway * 0.08) },
-      neck: { rotation: q(0, glance * 0.28, -sway * 0.1) },
-      head: { rotation: q(0, glance, -sway * 0.16) },
-      leftUpperArm: { rotation: q(0, 0, armSign * upperArmDrop) },
-      rightUpperArm: { rotation: q(0, 0, -armSign * upperArmDrop) },
-      leftLowerArm: { rotation: q(0, 0, armSign * elbowEase) },
-      rightLowerArm: { rotation: q(0, 0, -armSign * elbowEase) },
-      leftHand: { rotation: q(breathe * 0.08, 0, 0) },
-      rightHand: { rotation: q(breathe * 0.08, 0, 0) },
-    };
-
-    setPose(pose);
-  }
-
   private applyAnimateCommand(
     animation: string,
     opts: { loop?: boolean },
@@ -650,13 +578,15 @@ export class CompanionMotor {
       this.applyAnimateEmoteFallback(animation);
       return;
     }
-    void this.loadAndPlayClip(name, entry, loop);
+    const requestId = ++this.animationRequestId;
+    void this.loadAndPlayClip(name, entry, loop, requestId);
   }
 
   private async loadAndPlayClip(
     name: AnimationName,
     entry: AnimationRegistryEntry,
     loop: boolean,
+    requestId = ++this.animationRequestId,
   ): Promise<void> {
     const vrm = this.vrm;
     const mixer = this.animationMixer;
@@ -681,6 +611,12 @@ export class CompanionMotor {
         this.clipCache.set(name, clip);
       }
     }
+    if (requestId !== this.animationRequestId) {
+      console.log(
+        `🎮 [CompanionMotor] [animate] [stale] skip "${name}" request=${requestId} latest=${this.animationRequestId}`,
+      );
+      return;
+    }
     if (!clip || !this.animationMixer || !this.vrm) {
       if (!clip) {
         console.warn(
@@ -697,19 +633,31 @@ export class CompanionMotor {
     console.log(
       `🎮 [CompanionMotor] [animate] [play] "${name}" tracks=${clip.tracks.length} loop=${loop}`,
     );
-    this.animationMixer.stopAllAction();
+    const previousAction = this.currentAnimationAction;
     const action = this.animationMixer.clipAction(clip);
     action.setLoop(
       loop ? THREE.LoopRepeat : THREE.LoopOnce,
       loop ? Infinity : 1,
     );
     action.clampWhenFinished = !loop;
-    action.reset().play();
+    action.enabled = true;
+    action.setEffectiveWeight(1);
+    action.setEffectiveTimeScale(1);
+    action.reset();
+    if (previousAction && previousAction !== action) {
+      action.crossFadeFrom(previousAction, 0.22, false).play();
+    } else {
+      action.play();
+    }
+    this.currentAnimationAction = action;
 
     if (!loop) {
-      const onFinished = () => {
+      const onFinished = (event?: { action?: THREE.AnimationAction }) => {
+        if (event?.action && event.action !== action) {
+          return;
+        }
         this.animationMixer?.removeEventListener("finished", onFinished);
-        this.applyAnimateCommand("idle", { loop: true });
+        this.playAnimation("idle", { loop: true });
       };
       this.animationMixer.addEventListener("finished", onFinished);
     }

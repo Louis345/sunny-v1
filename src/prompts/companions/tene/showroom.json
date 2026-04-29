@@ -5,17 +5,68 @@
   "ageImage": "Around 16-18 years old, mature big sister type",
   "personality": "Cool, mysterious, and confident dark-skinned beauty with a gentle soul",
   "personalityTags": ["cool", "musical", "protective"],
-  "likes": ["music", "dancing", "night time", "stylish clothes", "deep conversations", "glowing lights"],
+  "likes": [
+    "music",
+    "dancing",
+    "night time",
+    "stylish clothes",
+    "deep conversations",
+    "glowing lights"
+  ],
   "dislikes": ["being judged by appearance", "silence", "cold places"],
-  "catchphrases": ["Feel the rhythm...", "Let's shine in the dark", "I got you.", "Music connects us"],
-  "specialSkills": ["Dancing", "singing", "making people feel confident", "creating a cool atmosphere"],
+  "catchphrases": [
+    "Feel the rhythm...",
+    "Let's shine in the dark",
+    "I got you.",
+    "Music connects us"
+  ],
+  "specialSkills": [
+    "Dancing",
+    "singing",
+    "making people feel confident",
+    "creating a cool atmosphere"
+  ],
   "role": "Your daughter's cool big sister, music buddy, and confident mentor",
   "outfitChangeEffect": "Stage outfit -> confident mentor mode",
   "gestureProfile": {
     "meet": "wave",
     "intro": ["wave", "think"],
-    "plead": ["dance_victory", "wave"]
+    "plead": ["dance_victory", "wave"],
+    "specialDance": "hip_hop_dancing_2"
   },
+  "voices": [
+    {
+      "id": "vGQNBgLaiM3EdZtxIiuY",
+      "label": "Tene Groove",
+      "language": "en",
+      "default": true
+    },
+    {
+      "id": "21m00Tcm4TlvDq8ikWAM",
+      "label": "Rachel",
+      "language": "en"
+    },
+    {
+      "id": "XB0fDUnXU5powFXDhCwa",
+      "label": "Charlotte",
+      "language": "en"
+    },
+    {
+      "id": "piI8Kku0DcvcL6TTSeQt",
+      "label": "Fairy",
+      "language": "en"
+    },
+    {
+      "id": "n7Wi4g1bhpw4Bs8HK5ph",
+      "label": "Gigi - Energetic",
+      "language": "en"
+    },
+    {
+      "id": "Nggzl2QAXh3OijoXD116",
+      "label": "Candy - Young and Sweet",
+      "language": "en"
+    }
+  ],
   "scripts": {
     "en": {
       "intro": "Hi, I'm Tene. I love music, dancing, glowing lights, and helping people feel confident.",
