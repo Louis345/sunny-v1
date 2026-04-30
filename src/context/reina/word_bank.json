@@ -1,7 +1,7 @@
 {
   "childId": "reina",
   "version": 1,
-  "lastUpdated": "2026-04-29T01:11:39.239Z",
+  "lastUpdated": "2026-04-29T20:41:54.342Z",
   "words": [
     {
       "word": "add",
@@ -64,7 +64,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "addition",
@@ -108,7 +109,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "move",
@@ -171,7 +173,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "movers",
@@ -209,7 +212,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "to",
@@ -278,7 +282,8 @@
           "masteredDate": "2026-04-05",
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "and",
@@ -316,7 +321,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "landed",
@@ -354,7 +360,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "the",
@@ -435,7 +442,8 @@
           "masteredDate": "2026-04-05",
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "ninja",
@@ -467,7 +475,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "had",
@@ -499,7 +508,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "fast",
@@ -531,7 +541,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "she",
@@ -569,7 +580,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "needed",
@@ -607,7 +619,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "more",
@@ -639,7 +652,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "speed",
@@ -671,7 +685,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "escape",
@@ -703,7 +718,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "bad",
@@ -735,7 +751,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "guys",
@@ -767,7 +784,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "were",
@@ -793,7 +811,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "close",
@@ -819,7 +838,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "behind",
@@ -845,7 +865,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "her",
@@ -871,7 +892,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "jumped",
@@ -897,7 +919,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "over",
@@ -923,7 +946,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "a",
@@ -955,7 +979,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "wall",
@@ -981,7 +1006,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "with",
@@ -1007,7 +1033,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "boom",
@@ -1033,7 +1060,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "was",
@@ -1059,7 +1087,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "safe",
@@ -1085,7 +1114,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "at",
@@ -1117,7 +1147,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "last",
@@ -1143,7 +1174,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "detective",
@@ -1175,7 +1207,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "old",
@@ -1201,7 +1234,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "house",
@@ -1227,7 +1261,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "up",
@@ -1253,7 +1288,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "all",
@@ -1279,7 +1315,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "clues",
@@ -1305,7 +1342,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "before",
@@ -1337,7 +1375,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "could",
@@ -1363,7 +1402,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "footprints",
@@ -1389,7 +1429,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "led",
@@ -1415,7 +1456,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "basement",
@@ -1441,7 +1483,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "where",
@@ -1467,7 +1510,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "mysterious",
@@ -1493,7 +1537,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "sounds",
@@ -1519,7 +1564,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "echoed",
@@ -1545,7 +1591,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "solve",
@@ -1571,7 +1618,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "case",
@@ -1597,7 +1645,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "midnight",
@@ -1623,7 +1672,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "struck",
@@ -1649,7 +1699,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "faster",
@@ -1658,10 +1709,10 @@
       "tracks": {
         "spelling": {
           "quality": 3,
-          "easinessFactor": 2.0599999999999996,
-          "interval": 4,
-          "repetition": 2,
-          "nextReviewDate": "2026-05-03",
+          "easinessFactor": 1.8799999999999997,
+          "interval": 30,
+          "repetition": 5,
+          "nextReviewDate": "2026-05-29",
           "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
           "history": [
@@ -1700,15 +1751,34 @@
               "quality": 3,
               "scaffoldLevel": 2,
               "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
             }
           ],
-          "mastered": false,
+          "mastered": true,
+          "masteredDate": "2026-04-29",
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02",
-      "wordRadarBestTime_ms": 9603
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 6377
     },
     {
       "word": "fastest",
@@ -1717,10 +1787,10 @@
       "tracks": {
         "spelling": {
           "quality": 5,
-          "easinessFactor": 2.3400000000000003,
-          "interval": 1,
-          "repetition": 1,
-          "nextReviewDate": "2026-04-30",
+          "easinessFactor": 2.3000000000000003,
+          "interval": 9,
+          "repetition": 3,
+          "nextReviewDate": "2026-05-08",
           "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
           "history": [
@@ -1747,6 +1817,18 @@
               "quality": 5,
               "scaffoldLevel": 0,
               "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
             }
           ],
           "mastered": false,
@@ -1754,8 +1836,8 @@
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02",
-      "wordRadarBestTime_ms": 6822
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 5784
     },
     {
       "word": "slower",
@@ -1764,10 +1846,10 @@
       "tracks": {
         "spelling": {
           "quality": 5,
-          "easinessFactor": 2.3400000000000003,
-          "interval": 1,
-          "repetition": 1,
-          "nextReviewDate": "2026-04-30",
+          "easinessFactor": 2.3000000000000003,
+          "interval": 9,
+          "repetition": 3,
+          "nextReviewDate": "2026-05-08",
           "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
           "history": [
@@ -1794,6 +1876,18 @@
               "quality": 5,
               "scaffoldLevel": 0,
               "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
             }
           ],
           "mastered": false,
@@ -1801,7 +1895,7 @@
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02",
+      "testDate": "2026-05-01",
       "wordRadarBestTime_ms": 8126
     },
     {
@@ -1812,9 +1906,9 @@
         "spelling": {
           "quality": 5,
           "easinessFactor": 1.4000000000000001,
-          "interval": 1,
-          "repetition": 1,
-          "nextReviewDate": "2026-04-30",
+          "interval": 6,
+          "repetition": 3,
+          "nextReviewDate": "2026-05-05",
           "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
           "history": [
@@ -1841,6 +1935,18 @@
               "quality": 5,
               "scaffoldLevel": 0,
               "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
             }
           ],
           "mastered": false,
@@ -1848,8 +1954,8 @@
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02",
-      "wordRadarBestTime_ms": 5513
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 4540
     },
     {
       "word": "newer",
@@ -1858,10 +1964,10 @@
       "tracks": {
         "spelling": {
           "quality": 5,
-          "easinessFactor": 2.2399999999999998,
-          "interval": 1,
-          "repetition": 1,
-          "nextReviewDate": "2026-04-30",
+          "easinessFactor": 2.1999999999999997,
+          "interval": 9,
+          "repetition": 3,
+          "nextReviewDate": "2026-05-08",
           "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
           "history": [
@@ -1882,6 +1988,18 @@
               "quality": 5,
               "scaffoldLevel": 0,
               "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-04-29",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
             }
           ],
           "mastered": false,
@@ -1889,7 +2007,7 @@
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02",
+      "testDate": "2026-05-01",
       "wordRadarBestTime_ms": 2713
     },
     {
@@ -1898,20 +2016,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.6,
-          "interval": 1,
-          "repetition": 1,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.46,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-05-03",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 5512
     },
     {
       "word": "colder",
@@ -1919,20 +2045,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 3998
     },
     {
       "word": "coldest",
@@ -1940,20 +2074,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 5042
     },
     {
       "word": "taller",
@@ -1961,20 +2103,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 3247
     },
     {
       "word": "tallest",
@@ -1982,20 +2132,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 3711
     },
     {
       "word": "covered",
@@ -2003,20 +2161,27 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01"
     },
     {
       "word": "cried",
@@ -2024,20 +2189,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 8465
     },
     {
       "word": "figure",
@@ -2045,20 +2218,27 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01"
     },
     {
       "word": "horse",
@@ -2066,20 +2246,27 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01"
     },
     {
       "word": "money",
@@ -2087,20 +2274,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 8615
     },
     {
       "word": "products",
@@ -2108,20 +2303,27 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01"
     },
     {
       "word": "questions",
@@ -2129,20 +2331,27 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01"
     },
     {
       "word": "since",
@@ -2150,20 +2359,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 3503
     },
     {
       "word": "usually",
@@ -2171,20 +2388,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 4780
     },
     {
       "word": "voice",
@@ -2192,20 +2417,28 @@
       "source": "homework",
       "tracks": {
         "spelling": {
-          "quality": 0,
-          "easinessFactor": 2.5,
-          "interval": 0,
-          "repetition": 0,
-          "nextReviewDate": "2026-04-28",
-          "lastReviewDate": "2026-04-28",
+          "quality": 3,
+          "easinessFactor": 2.36,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-04-30",
+          "lastReviewDate": "2026-04-29",
           "scaffoldLevel": 0,
-          "history": [],
+          "history": [
+            {
+              "date": "2026-04-29",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            }
+          ],
           "mastered": false,
           "regressionCount": 0
         }
       },
       "homeworkPriority": true,
-      "testDate": "2026-05-02"
+      "testDate": "2026-05-01",
+      "wordRadarBestTime_ms": 3201
     }
   ]
 }

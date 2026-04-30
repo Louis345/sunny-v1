@@ -168,7 +168,6 @@ describe("ingestHomework", () => {
       "word-radar",
       "spell-check",
       "pronunciation",
-      "karaoke",
       "word-builder",
       "quest",
       "boss",

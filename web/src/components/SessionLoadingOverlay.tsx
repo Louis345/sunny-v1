@@ -14,6 +14,10 @@ export interface SessionLoadingOverlayProps {
   hardReleaseMs?: number;
   onSafetyRelease?: () => void;
   onHardRelease?: () => void;
+  /** Fires after curtains open (`curtainOpenMs` after `ready` becomes true). Not used for `onHardRelease`. */
+  onCurtainOpen?: () => void;
+  /** Delay after `ready` before `onCurtainOpen` (match CSS curtain transition ~950ms). */
+  curtainOpenMs?: number;
 }
 
 const STAGE_PALETTES = [
@@ -85,6 +89,8 @@ export function SessionLoadingOverlay({
   hardReleaseMs = 30_000,
   onSafetyRelease,
   onHardRelease,
+  onCurtainOpen,
+  curtainOpenMs = 1000,
 }: SessionLoadingOverlayProps) {
   const [paletteStep, setPaletteStep] = useState(0);
   const [safetyReleased, setSafetyReleased] = useState(false);
@@ -94,6 +100,7 @@ export function SessionLoadingOverlay({
   const lastProgressRef = useRef<number | null>(null);
   const safetyReleaseRef = useRef(onSafetyRelease);
   const hardReleaseRef = useRef(onHardRelease);
+  const onCurtainOpenRef = useRef(onCurtainOpen);
   const displayName = childName.trim() || "Sunny";
   const palette =
     STAGE_PALETTES[
@@ -126,6 +133,20 @@ export function SessionLoadingOverlay({
   useEffect(() => {
     hardReleaseRef.current = onHardRelease;
   }, [onHardRelease]);
+
+  useEffect(() => {
+    onCurtainOpenRef.current = onCurtainOpen;
+  }, [onCurtainOpen]);
+
+  useEffect(() => {
+    if (!ready || !onCurtainOpenRef.current) {
+      return;
+    }
+    const id = window.setTimeout(() => {
+      onCurtainOpenRef.current?.();
+    }, Math.max(0, curtainOpenMs));
+    return () => window.clearTimeout(id);
+  }, [ready, curtainOpenMs]);
 
   useEffect(() => {
     if (ready) return;

@@ -3,7 +3,7 @@
  * Load: <script src="_contract.js"></script>
  *
  * ?preview=free|true — dry run: no postMessage for node_complete / game_complete (banner only);
- *   companion_event and game_state_update suppressed.
+ *   companion_event, game_state_update, and currency_award suppressed.
  * ?preview=go-live — walkthrough: posts behave like production.
  */
 window.GameBridge = (function () {
@@ -24,11 +24,16 @@ window.GameBridge = (function () {
           }).filter(Boolean)
         : [],
       childId: p.get("childId") || "unknown",
+      childName: p.get("childName") || "",
+      companion: p.get("companion") || "",
+      companionName: p.get("companionName") || "",
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
       nodeId: p.get("nodeId") || "unknown",
       sessionId: p.get("sessionId") || null,
       previewDryRun: previewDryRun,
       previewGoLive: previewGoLive,
+      isQuest: p.get("isQuest") === "true",
+      dyslexiaMode: p.get("dyslexiaMode") === "true",
     };
   })();
 
@@ -57,7 +62,11 @@ window.GameBridge = (function () {
 
   function post(type, payload) {
     if (GAME_PARAMS.previewDryRun) {
-      if (type === "companion_event" || type === "game_state_update") {
+      if (
+        type === "companion_event" ||
+        type === "game_state_update" ||
+        type === "currency_award"
+      ) {
         return;
       }
     }
@@ -198,6 +207,17 @@ window.GameBridge = (function () {
           );
         }
       }, 5000);
+    },
+
+    /**
+     * Report currency earned or spent. Parent forwards to the server; balance lives in learning_profile only.
+     * @param {number} amount — positive = earn, negative = spend
+     * @param {string} reason — label for logging (e.g. wheel_of_fortune_win)
+     */
+    awardCurrency: function (amount, reason) {
+      var n = Number(amount);
+      if (!Number.isFinite(n)) return;
+      post("currency_award", { amount: n, reason: String(reason || "") });
     },
 
     fireEvent: function (trigger, payload) {

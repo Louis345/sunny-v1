@@ -1916,3 +1916,191 @@ Ila initiated word-radar and spelling activities on the Sunny platform. She expr
 - **Letters incorrectly guessed:** L (not in word)
 - **Final score:** 1,600 coins earned
 - **Pattern:**
+
+## Psychologist Report — 4/29/2026, 3:36:50 PM
+---
+
+## Curriculum Status
+
+**Comparative/superlative morphology (-er/-est) with homework words — 2 sessions, 87% spelling accuracy but 40% auditory discrimination** → **ADVANCE with explicit meaning instruction**
+
+Sessions 4/28 (two back-to-back) demonstrate split performance: Spell-Check showed 87% accuracy across 20 homework words (faster, fastest, slower, slowest, newer successfully completed; sailor incomplete), but Word Radar auditory discrimination was only 40% (2/5 correct on faster/fastest/slowest). This pattern reveals **Ila can spell morphologically complex words with visual scaffolding but cannot distinguish comparative/superlative meanings auditorily.** She requested explicit help ("Can I have a help?", "I need help with the last part") and succeeded when given morphological cues ("S-T ending for 'most' words"). Raw attempt log shows no prior work on comparative forms. CELF-5 Word Structure at 5th percentile predicts this—she needs explicit instruction on -er = "more," -est = "most" before the 5/1 spelling test.
+
+**Phoneme segmentation diagnostic — 24 DAYS OVERDUE, actively avoided across 6 sessions** → **CHANGE METHOD (consistent signal since 4/3)**
+
+querySessions confirms persistent avoidance: 4/4 "resisted phoneme segmentation," 4/5 "deferred—child requested to skip," 4/18 technical issues, 4/26 incomplete session, 4/28 (two sessions) focused entirely on spelling homework with zero phoneme work. **The mixed-vowel discrimination diagnostic (sit→sat→hit→hat→bit) specified 24 days ago has NEVER been executed.** Ila actively chooses spelling/reading activities over oral phoneme drills. Algorithm data shows 0 attempts in last 5 sessions, Wilson Step 1 gate = REGRESSED. This is not curricular oversight—it's task avoidance driven by ADHD cognitive load limits. Method must change or this goal must be abandoned.
+
+**Spelling homework integration — 87% accuracy, test date 5/1 (3 days)** → **MAINTAIN with meaning work**
+
+Homework cycle ingested 4/28: faster/fastest, slower/slowest, newer/newest, colder/coldest, taller/tallest, covered, cried, figure, horse, money, products, questions, since, usually, voice (20 words). Spell-Check sessions 4/28 show 87% accuracy with visual support, but she struggled with "sailor" (5 wrong attempts, incomplete) and expressed frustration ("It's just bad"). Wheel of Fortune on "faster" was 83% accurate (1,600 coins earned). She can spell these words when the task is game-based with immediate feedback, but auditory meaning discrimination (Word Radar 40%) indicates she may not understand what -er/-est actually mean.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Comparative/superlative meaning comprehension (test date 5/1—72 hours away)** — Word Radar 4/28 showed 40% auditory discrimination (missed faster/fastest/slowest). Must probe meaning explicitly BEFORE spelling test: (1) "Point to the picture where the dog is fast. Now point to where the dog is faster. Now point to where the dog is fastest" (visual meaning comprehension with three-way comparison), (2) Oral production: "The turtle is slow. The snail is ___. The sloth is the ___." (slower, slowest—generative use), (3) "How many things do you need to use 'faster'? How many for 'fastest'?" (2 for -er, 3+ for -est—conceptual understanding).
+
+- **CRITICAL: Irregular spelling pattern for homework words (sailor, figure, horse, money, voice)** — Spell-Check 4/28 showed "sailor" incomplete (5 wrong attempts: "e r o o r", "o r e r"). These are irregular high-frequency words without predictable phonetic patterns. WIAT-4 shows spelling at 55th percentile in isolation but collapses under cognitive load. Must use visual memory strategies: (1) "Sailor has AI like in 'rail' and OR like in 'or'—write it 5 times while saying each letter," (2) "Figure has a silent U—draw a picture and label it," (3) "Money has ONE 'e' but sounds like two—circle the weird part."
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 33 mentions but evidence shows planning references)** — flagGap shows "tested 33 times" but querySessions review confirms sessions use single-step instructions only ("Can I have help spelling the words?"—compliance, not multi-step sequences). Must formally probe THIS WEEK: "Touch the big blue circle, then tap your head twice" (2-step + size/color modifiers). Record exact compliance (completed/partially completed/failed) for IEP baseline documentation.
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 29 mentions but no sentence repetition tasks)** — flagGap shows "tested 29 times" but querySessions confirms zero sentence repetition across ALL sessions. Every task is word-level (spelling, Word Radar, Wheel of Fortune). Must probe THIS WEEK: "The dog ran fast" (4 words), "The big cat is sleeping on the soft chair" (9 words + modifiers), "When the boy came home from school yesterday, he found his red ball by the fence" (16 words, embedded clause, past tense). Record verbatim responses for IEP baseline.
+
+- **WATCH: Frustration tolerance during homework spelling** — Session 4/28 shows Ila stated "It's just bad. You can just press all the buttons if you get a button" during Spell-Check, indicating cognitive fatigue or task overwhelm. She requested help twice ("Can I have a help?", "I need help with the last part"). ADHD profile predicts sustained attention collapses after 10-15 minutes. Sessions were back-to-back (Word Radar 55s + Spell-Check 419s + Wheel of Fortune 116s = ~10 minutes total)—this is near her ceiling. Front-load hardest words (sailor, figure, voice) at session start before fatigue hits.
+
+---
+
+## Signal
+
+## Session — 4/29/2026, 4:03:29 PM
+## SOAP Note — Ila Session [Date]
+
+---
+
+**S (Subjective):**
+Ila presented for speech-language therapy session. She initiated off-task comments at beginning ("I like sneakers," "He just looked like me") before transitioning to scheduled activities. Ila self-advocated mid-session, requesting breaks ("That's a lot. Take a break") and asking to explore word structure before spelling ("So... but I was trying to explore it"). She requested social interaction from companion (asking Sunny to dance, wave, bow). Ila demonstrated awareness of external context, mentioning her teacher and a robot project she was working on.
+
+---
+
+**O (Objective):**
+
+**Word Radar (Spelling Sounds):**
+- Completed 10 word families (comparative/superlative -er/-est, -ed past tense, -ing progressives)
+- Accuracy: 65% (6/10 correct on first attempt)
+- Errors: "fastest" → heard as "fastest" (correct); "coldest" → heard as incorrect; "figure" → heard as incorrect; "money" → heard as incorrect; "products" → heard as incorrect; "questions" → heard as incorrect; "usually" → heard as incorrect
+- Pattern: Struggles with phonetically complex or multi-syllabic words; stronger on shorter, regular morpheme patterns (faster, slower, slower, taller, tallest, covered, cried, newer, newest, colder, since, horse, voice)
+- Time: 197 seconds
+- Behavior: Impulsive responses, rapid pace, multiple false starts ("so so so"), frequent self-corrections
+
+**Spell Check (Word Spelling with Visual Support):**
+- Completed 5 words: faster, fastest, slower, slowest, newer
+- Accuracy: 67% (67/100 across word family)
+- Process: Ila filled in blanks letter by letter with visual letter array present
+- Errors noted: Wrong attempts on "faster" (tried m, r, e, n, e); "slower" (tried a, s); "slowest" (tried t)
+- Behavior: Exploration phase—Ila wanted to examine all available letters before committing to answers; responded to redirection ("Slow down") appropriately
+- Time: 269 seconds
+- Pattern: Accuracy improved with visual support and exploration time; morphological endings (-er, -est) being consolidated
+
+**Wheel of Fortune (Word Guessing Game):**
+- Completed 1 word: "faster"
+- Accuracy: 100% (6/6 letters correct on first attempt each)
+- Coins earned
+
+## Psychologist Report — 4/29/2026, 4:04:08 PM
+---
+
+## Curriculum Status
+
+**Comparative/superlative morphology (-er/-est) with spelling homework — 3 sessions, 67% Spell-Check accuracy, 65% Word Radar accuracy** → **ADVANCE with meaning instruction**
+
+Session 4/29 demonstrates continued progress: Word Radar 65% (6/10 correct on faster/slower/tallest/covered/cried/voice), Spell-Check 67% on faster/fastest/slower/slowest/newer with visual support, Wheel of Fortune 100% on "faster." Ila is consolidating morphological endings but still struggles with auditory discrimination (missed coldest/figure/money/products/questions/usually). Pattern shows she can spell -er/-est with visual scaffolding but doesn't consistently distinguish comparative vs. superlative meanings in rapid auditory tasks. Test date is 5/1 (48 hours away). She needs explicit meaning work on what -er and -est mean conceptually, not just spelling practice.
+
+**Phoneme segmentation diagnostic — 26 DAYS OVERDUE, avoided across all recent sessions** → **ABANDON OR FUNDAMENTAL METHOD CHANGE REQUIRED**
+
+querySessions confirms: 4/18 incomplete, 4/26 incomplete, 4/28 (two sessions) zero phoneme work, 4/29 zero phoneme work. The mixed-vowel discrimination probe (sit→sat→hit→hat→bit) specified 26 days ago on 4/3 has **NEVER been executed** across 26 days and 7+ sessions. Algorithm data shows Wilson Step 1 gate = REGRESSED, 0 attempts in last 5 sessions, only 2/42 words mastered (5%). Ila actively avoids oral phoneme segmentation, consistently choosing spelling/reading games. This is not a scheduling issue—it's systematic task avoidance driven by ADHD cognitive load limits and dyslexia profile. **At this point, continued planning for phoneme segmentation without execution is non-functional. Either embed it in game format immediately or abandon this goal in favor of whole-word orthographic instruction.**
+
+**Spelling homework cycle — test date 5/1 (48 hours), irregular words incomplete** → **URGENT FOCUS REQUIRED**
+
+Homework: faster/fastest, slower/slowest, newer/newest, colder/coldest, taller/tallest, covered, cried, figure, horse, money, products, questions, since, usually, voice. Session 4/29 Word Radar shows struggles on figure/money/products/questions/usually (5/10 missed). These are irregular high-frequency words without predictable phonetic patterns. WIAT-4 shows spelling at 55th percentile in isolation but collapses under cognitive load. She has 48 hours before test—must prioritize visual memory strategies for irregular words, not phoneme work she's avoided for 26 days.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Comparative/superlative meaning comprehension (TEST IN 48 HOURS)** — Word Radar 4/29 showed 65% accuracy but missed "coldest" and struggled with discrimination. Must probe meaning explicitly TODAY: (1) "Point to the picture where the dog is fast. Now point to faster. Now fastest" (visual three-way comparison), (2) Oral production: "The turtle is slow. The snail is ___. The sloth is the ___" (slower, slowest), (3) "When do we use -er? When do we use -est?" (conceptual understanding: -er compares 2 things, -est compares 3+).
+
+- **CRITICAL: Irregular spelling words for homework test (figure, money, products, questions, usually, voice)** — Word Radar 4/29 shows these were missed. Must use visual memory strategies TODAY: (1) "Figure has a silent U—let's draw it and label it 5 times," (2) "Money has one E but sounds like two—circle the weird part and write it 5 times," (3) "Usually has TWO U's and TWO L's—trace them with two different colors," (4) "Voice has OI like 'oil'—write voice next to oil 5 times." Prioritize these over comparative words Ila already spelled correctly.
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 34 "mentions" but evidence shows planning references)** — flagGap shows "tested 34 times" but querySessions review confirms sessions use only single-step instructions ("Can I have help?", "Slow down"). Zero documented 2-step or 3-step sequences with modifiers. Must formally probe THIS WEEK: "Touch the big blue circle, then clap your hands twice" (2-step + size/color modifier). Record exact performance (completed/partially completed/failed) for IEP baseline documentation. Legal requirement.
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 30 "mentions" but no sentence repetition tasks)** — flagGap shows "tested 30 times" but querySessions confirms zero sentence repetition across ALL sessions. Every task is word-level (Word Radar, Spell-Check, Wheel of Fortune). Must probe THIS WEEK: "The dog ran fast" (4 words), "The cat is sleeping on the soft chair" (8 words), "When the boy came home from school yesterday, he found his red ball" (13 words). Record verbatim responses for IEP baseline.
+
+- **WATCH: Task engagement vs. avoidance pattern** — Session 4/29 shows Ila requested breaks ("That's a lot. Take a break"), asked to "explore" before spelling, requested social interaction (asking Sunny to dance/wave/bow). She completed 3 game-based activities successfully but initiated off-task comments ("I like sneakers," mentioned teacher/robot project). This is consistent ADHD pattern—she engages with structured game formats but needs frequent movement/social breaks. Front-load hardest work (irregular words) at session start before fatigue.
+
+---
+
+## Signal
+
+**ADVANCE comparative/superlative morphology with urgent focus on meaning instruction before 5/1 test (48 hours).** Ila has demonstrated 65-67% spelling accuracy on homework words but cannot consistently discriminate -er vs -est meanings auditorily. Prioritize explicit meaning work ("faster compares 2 things, fastest compares 3+") and visual memory strategies for irregular words (figure, money, products, questions
+
+## Session — 4/29/2026, 8:52:02 PM
+# SOAP Note — Word Radar: "faster"
+
+**Date:** [Session Date]  
+**Client:** Ila (8y3m)  
+**Activity:** Word Radar — target word "faster"  
+**Clinician:** [Name]
+
+---
+
+## S (Subjective)
+Ila initiated Word Radar activity. Target word presented: "faster."
+
+## O (Objective)
+- **Word Radar intro:** Ready
+- **Companion event triggered:** Wrong answer
+- **Response accuracy:** Missed target word
+  - Expected response: "faster"
+  - Actual response: [not transcribed]
+- **Task engagement:** Activity in progress
+
+## A (Assessment)
+Ila attempted word identification task but did not accurately identify the target word "faster." Single trial data; insufficient for pattern analysis at this point.
+
+## P (Plan)
+- Continue Word Radar activity
+- Observe for patterns in word recognition (particularly multi-syllable words with consonant clusters)
+- Monitor for auditory processing vs. attention factors
+- Provide visual support if needed given her documented strength with visual scaffolding (100% accuracy with pictures vs. 37.5% without)
+
+---
+
+**Note:** Transcript incomplete; full session data needed for comprehensive analysis.
+
+## Session — 4/29/2026, 9:15:30 PM
+# SOAP Note
+
+**Client:** Ila, Age 8 years 3 months  
+**Date of Session:** [Current date]  
+**Session Duration:** Approximately 14 minutes  
+**Activities Completed:** Word Radar, Spell-Check, Wheel of Fortune, Mystery/Speed Catcher
+
+---
+
+## S — Subjective
+
+Ila engaged in a series of digital learning activities focused on phonics, spelling, and word recognition. She participated willingly throughout the session and expressed interest in continuing to math at the end. Ila demonstrated self-awareness about task difficulty and made spontaneous requests to move forward when she felt stuck (e.g., "Let's just move on" during spelling of "fastest").
+
+---
+
+## O — Objective
+
+**Word Radar Activity (35% accuracy, 204 seconds)**
+- Target word: "faster"
+- Ila spelled aloud individual letters in response to spoken words
+- Successfully identified: "fastest," "slower," "slowest," "newer," "colder," "coldest," "taller," "horse," "money," "since," "voice"
+- Missed/struggled: "faster" (initial attempt), "newest," "tallest," "covered," "cried," "figure," "products," "questions," "usually"
+- Pattern: Ila performed better with superlative forms (-est) and shorter, more familiar words
+
+**Spell-Check Activity (60% accuracy, 317 seconds)**
+- Words targeted: "faster," "fastest," "slower," "slowest," "newer"
+- Successfully completed with visual letter-filling support: all 5 words
+- Demonstrated letter sequencing when blanks were provided (visual scaffolding highly effective)
+- When asked to spell "faster" aloud without visual support, Ila produced "f-a-s-t-e" (incomplete; missing final r)
+- Attempted "newest" without completion; requested to move on
+
+**Wheel of Fortune Activity (67% accuracy, 262 seconds)**
+- Target word: "faster"
+- Ila correctly identified letters: F, R, A, E, S, T
+- Incorrectly guessed: M, L
+- Demonstrated strategic thinking (e.g., "So then what letter would you get?")
+- Successfully solved the word after final letter T was revealed
+- Ended with 2000 coins; engaged competitively
+- Made observations about game mechanics (e.g., noticing when Elli hit bankrupt)
+
+**Mystery/Speed Catcher Activity (100% accuracy, 1 second)**
+- Brief completion; nature of activity unclear from transcript
+
+---
+
+## A

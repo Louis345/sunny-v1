@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { MapState, NodeResult, NodeConfig } from "../shared/adventureTypes";
+import * as learningProfileIO from "../utils/learningProfileIO";
+import * as runtimeMode from "../utils/runtimeMode";
 
 /** Avoid real Grok in `enrichHomeworkNodeThumbnails` (flaky 5s timeouts). */
 vi.mock("../utils/generateStoryImage", () => ({
@@ -189,13 +192,168 @@ describe("map coordinator (TASK-010)", () => {
         testDate: null,
         wordList: words,
         homeworkId,
-        nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "qa_map" }),
+        nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
       }) as import("../shared/childProfile").ChildProfile["pendingHomework"],
     });
     const { mapState } = await startMapSession("qa_map");
     expect(mapState.nodes[0]?.type).toBe("word-radar");
+    expect(mapState.nodes.map((n) => n.type)).not.toContain("karaoke");
     expect(mapState.nodes.some((n) => n.type === "riddle")).toBe(false);
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
+  });
+
+  it("manual questUnlocked child gets quest words and a final locked boss teaser", async () => {
+    vi.mocked(buildNodeList).mockClear();
+    const words = ["farmer", "teacher"];
+    const reinforceWords = ["zigzag", "inventor"];
+    const homeworkId = "hw-spelling_test-quest-words";
+    const pendingHomework = {
+      ...(buildPendingHomeworkPayload({
+        weekOf: "2026-04-26",
+        testDate: null,
+        wordList: words,
+        homeworkId,
+        nodes: buildHomeworkNodes({
+          type: "spelling_test",
+          words,
+          homeworkId,
+          childId: "ila",
+        }),
+      }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>),
+      reinforceWords,
+    };
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId: "ila",
+      ttsName: "Ila",
+      level: 2,
+      xp: 0,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+      dueWords: [],
+      sm2Stats: {} as never,
+      currentDifficulty: 2,
+      masteryGating: {} as never,
+      mathRotation: [],
+      retrievalPractice: { nextScaffoldWords: [] },
+      games: {} as never,
+      wordRadar: {
+        showTimer: true,
+        showKeyboard: false,
+        personalBests: {},
+        inputMode: "whole-word",
+      },
+      dyslexiaMode: false,
+      companionColor: "#00f",
+      avatarImagePath: null,
+      pendingHomework,
+    });
+    const writeSpy = vi.spyOn(learningProfileIO, "writeLearningProfile").mockImplementation(() => {});
+    const readSpy = vi.spyOn(learningProfileIO, "readLearningProfile").mockReturnValue(null);
+
+    const { mapState } = await startMapSession("ila");
+    const questNode = mapState.nodes.find((n) => n.type === "quest");
+    const bossNode = mapState.nodes.at(-1);
+
+    expect(questNode?.words).toEqual(reinforceWords);
+    expect(questNode?.isLocked).toBe(true);
+    expect(["monster-stampede.html", "speed-catcher.html"]).toContain(
+      questNode?.gameFile,
+    );
+    expect(questNode?.gameHtmlPath).toBeUndefined();
+    expect(bossNode?.type).toBe("boss");
+    expect(bossNode?.isGoal).toBe(true);
+    expect(bossNode?.isLocked).toBe(true);
+    expect(bossNode?.gameHtmlPath).toBeUndefined();
+    expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
+
+    writeSpy.mockRestore();
+    readSpy.mockRestore();
+  });
+
+  it("reinforceWords persists even when sunnyPreviewBlocksPersistence returns true", async () => {
+    const sunnySpy = vi
+      .spyOn(runtimeMode, "sunnyPreviewBlocksPersistence")
+      .mockReturnValue(true);
+    const writeSpy = vi.spyOn(learningProfileIO, "writeLearningProfile").mockImplementation(() => {});
+
+    const words = ["farmer", "teacher"];
+    const homeworkId = "hw-spelling_test-reinforce-qa";
+    const pendingHw = buildPendingHomeworkPayload({
+      weekOf: "2026-04-26",
+      testDate: null,
+      wordList: words,
+      homeworkId,
+      nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
+    }) as LearningProfile["pendingHomework"];
+
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId: "ila",
+      ttsName: "Ila",
+      level: 2,
+      xp: 0,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+      dueWords: [],
+      sm2Stats: {} as never,
+      currentDifficulty: 2,
+      masteryGating: {} as never,
+      mathRotation: [],
+      retrievalPractice: { nextScaffoldWords: [] },
+      games: {} as never,
+      wordRadar: {
+        showTimer: true,
+        showKeyboard: false,
+        personalBests: {},
+        inputMode: "whole-word",
+      },
+      dyslexiaMode: false,
+      companionColor: "#00f",
+      avatarImagePath: null,
+      pendingHomework: pendingHw,
+    });
+
+    const lpBase = learningProfileIO.initializeLearningProfile({
+      childId: "ila",
+      age: 8,
+      grade: 2,
+      diagnoses: [],
+      learningGoals: [],
+    });
+    const readSpy = vi.spyOn(learningProfileIO, "readLearningProfile").mockReturnValue({
+      ...lpBase,
+      pendingHomework: pendingHw,
+    });
+
+    const { sessionId, mapState } = await startMapSession("ila");
+    const wrNode = mapState.nodes.find((n) => n.type === "word-radar");
+    expect(wrNode).toBeDefined();
+    await applyNodeResult(sessionId, {
+      nodeId: wrNode!.id,
+      completed: true,
+      accuracy: 0.3,
+      timeSpent_ms: 2000,
+      wordsAttempted: 2,
+      missedWords: ["zigzag"],
+    });
+    const reinforceWrite = writeSpy.mock.calls.find((call) =>
+      (call[1] as LearningProfile).pendingHomework?.reinforceWords?.includes("zigzag"),
+    );
+    expect(reinforceWrite).toBeDefined();
+    const questNode = mapState.nodes.find((n) => n.type === "quest");
+    expect(questNode?.words).toContain("zigzag");
+    sunnySpy.mockRestore();
+    writeSpy.mockRestore();
+    readSpy.mockRestore();
   });
 
   it("startMapSession throws for unknown child", async () => {
@@ -213,6 +371,67 @@ describe("map coordinator (TASK-010)", () => {
       payload: { nodeId: firstId },
     });
     expect(events[0]?.type).toBe("node_launched");
+  });
+
+  it("manual quest node launches the game assigned at map-session start", async () => {
+    vi.mocked(buildNodeList).mockClear();
+    const words = ["farmer", "teacher"];
+    const homeworkId = "hw-spelling_test-quest-random";
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId: "ila",
+      ttsName: "Ila",
+      level: 2,
+      xp: 0,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+      dueWords: [],
+      sm2Stats: {} as never,
+      currentDifficulty: 2,
+      masteryGating: {} as never,
+      mathRotation: [],
+      retrievalPractice: { nextScaffoldWords: [] },
+      games: {} as never,
+      wordRadar: {
+        showTimer: true,
+        showKeyboard: false,
+        personalBests: {},
+        inputMode: "whole-word",
+      },
+      dyslexiaMode: false,
+      companionColor: "#00f",
+      avatarImagePath: null,
+      pendingHomework: buildPendingHomeworkPayload({
+        weekOf: "2026-04-26",
+        testDate: null,
+        wordList: words,
+        homeworkId,
+        nodes: buildHomeworkNodes({
+          type: "spelling_test",
+          words,
+          homeworkId,
+          childId: "ila",
+        }),
+      }) as import("../shared/childProfile").ChildProfile["pendingHomework"],
+    });
+    vi.stubEnv("DIAG_UNLOCK_MAP", "true");
+    const { sessionId, mapState } = await startMapSession("ila");
+    const quest = mapState.nodes.find((n) => n.type === "quest");
+    expect(quest).toBeDefined();
+    expect(["monster-stampede.html", "speed-catcher.html"]).toContain(
+      quest?.gameFile,
+    );
+    const events = handleMapClientMessage(sessionId, {
+      type: "node_click",
+      payload: { nodeId: quest!.id },
+    });
+    expect(events[0]?.type).toBe("node_launched");
+    const payload = events[0]?.payload as { gameFile?: string } | undefined;
+    expect(payload?.gameFile).toBe(quest?.gameFile);
   });
 
   it("game_state_update calls noteExternalEvent on active voice session manager", async () => {

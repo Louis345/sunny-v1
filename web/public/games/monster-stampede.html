@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Project Sunny — Monster Stampede</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="_contract.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{font-family:'Lexend',sans-serif;background:#06001a;height:100%;overflow:hidden}
+
+    @keyframes twinkle{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:.9;transform:scale(1.3)}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+    @keyframes monsterWalk{0%,100%{transform:translateY(0) scaleX(-1)}50%{transform:translateY(-10px) scaleX(-1)}}
+    @keyframes monsterGrow{0%{transform:scale(1) scaleX(-1)}50%{transform:scale(1.25) scaleX(-1)}100%{transform:scale(1) scaleX(-1)}}
+    @keyframes monsterRun{0%{transform:translateX(0) scaleX(-1)}100%{transform:translateX(110vw) scaleX(-1)}}
+    @keyframes monsterShake{0%,100%{transform:translateX(0) scaleX(-1)}20%{transform:translateX(-14px) scaleX(-1)}40%{transform:translateX(14px) scaleX(-1)}60%{transform:translateX(-10px) scaleX(-1)}80%{transform:translateX(10px) scaleX(-1)}}
+    @keyframes tileIn{0%{transform:scale(0) rotate(-15deg);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+    @keyframes tileUsed{0%{transform:scale(1)}50%{transform:scale(1.25) rotate(5deg)}100%{transform:scale(.85);opacity:.3}}
+    @keyframes wrongTile{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+    @keyframes blinkCursor{0%,100%{border-color:rgba(168,85,247,.9)}50%{border-color:transparent}}
+    @keyframes slideUp{0%{transform:translateY(30px);opacity:0}100%{transform:translateY(0);opacity:1}}
+    @keyframes popIn{0%{transform:scale(0) rotate(-15deg);opacity:0}70%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+    @keyframes correctFlash{0%,100%{background:rgba(16,185,129,0)}50%{background:rgba(16,185,129,.18)}}
+    @keyframes wrongFlash{0%,100%{background:rgba(239,68,68,0)}50%{background:rgba(239,68,68,.18)}}
+    @keyframes wordComplete{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+    @keyframes xpTick{0%{transform:translateY(10px);opacity:0}50%{opacity:1}100%{transform:translateY(-20px);opacity:0}}
+    @keyframes companion-bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-20px) scale(1.06)}80%{transform:translateY(-8px)}}
+    @keyframes hintPulse{0%,100%{opacity:.4}50%{opacity:1}}
+    @keyframes arenaLight{0%,100%{opacity:.15}50%{opacity:.35}}
+  </style>
+  <template id="__bundler_thumbnail" data-bg-color="#06001a">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#06001a"/>
+      <circle cx="100" cy="80" r="2" fill="#a855f7" opacity=".8"/>
+      <circle cx="400" cy="50" r="2" fill="#06b6d4" opacity=".6"/>
+      <circle cx="1000" cy="70" r="3" fill="white" opacity=".5"/>
+      <text x="600" y="100" text-anchor="middle" font-size="28" font-weight="900" fill="#a855f7" font-family="sans-serif" letter-spacing="5">MONSTER STAMPEDE</text>
+      <!-- Monster -->
+      <text x="180" y="420" text-anchor="middle" font-size="120" font-family="sans-serif">👾</text>
+      <!-- Word blanks -->
+      <rect x="420" y="340" width="70" height="80" rx="12" fill="#3b1383" stroke="#a855f7" stroke-width="3"/>
+      <text x="455" y="395" text-anchor="middle" font-size="36" font-weight="900" fill="white" font-family="sans-serif">B</text>
+      <rect x="508" y="340" width="70" height="80" rx="12" fill="rgba(168,85,247,.08)" stroke="rgba(168,85,247,.4)" stroke-width="3"/>
+      <rect x="596" y="340" width="70" height="80" rx="12" fill="rgba(168,85,247,.08)" stroke="rgba(168,85,247,.4)" stroke-width="3"/>
+      <rect x="684" y="340" width="70" height="80" rx="12" fill="rgba(168,85,247,.08)" stroke="rgba(168,85,247,.4)" stroke-width="3"/>
+      <rect x="772" y="340" width="70" height="80" rx="12" fill="rgba(168,85,247,.08)" stroke="rgba(168,85,247,.4)" stroke-width="3"/>
+      <rect x="860" y="340" width="70" height="80" rx="12" fill="rgba(168,85,247,.08)" stroke="rgba(168,85,247,.4)" stroke-width="3"/>
+      <rect x="948" y="340" width="70" height="80" rx="12" fill="rgba(168,85,247,.08)" stroke="rgba(168,85,247,.4)" stroke-width="3"/>
+      <!-- Letter tiles -->
+      <rect x="320" y="520" width="60" height="60" rx="12" fill="rgba(168,85,247,.3)" stroke="#a855f7" stroke-width="2"/>
+      <text x="350" y="558" text-anchor="middle" font-size="24" font-weight="800" fill="white" font-family="sans-serif">L</text>
+      <rect x="400" y="520" width="60" height="60" rx="12" fill="rgba(168,85,247,.3)" stroke="#a855f7" stroke-width="2"/>
+      <text x="430" y="558" text-anchor="middle" font-size="24" font-weight="800" fill="white" font-family="sans-serif">I</text>
+      <rect x="480" y="520" width="60" height="60" rx="12" fill="rgba(168,85,247,.3)" stroke="#a855f7" stroke-width="2"/>
+      <text x="510" y="558" text-anchor="middle" font-size="24" font-weight="800" fill="white" font-family="sans-serif">S</text>
+    </svg>
+  </template>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+window.GameBridge = window.GameBridge || {
+  reportState:(m,s)=>console.log('[GB:state]',m,s),
+  reportAction:(a,m,s)=>console.log('[GB:action]',a,m,s),
+  startHeartbeat:(gm,gs)=>setInterval(()=>console.log('[GB:hb]',gm()),5000),
+  awardCurrency:(n,r)=>console.log('[GB:coins]',n,r),
+};
+window.fireCompanionEvent = window.fireCompanionEvent || ((t,p)=>console.log('[companion]',t,p));
+window.sendNodeComplete = window.sendNodeComplete || ((r)=>console.log('[nodeComplete]',r));
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME PARAMS
+═══════════════════════════════════════════════════════════════ */
+const GP = window.GAME_PARAMS || {};
+
+const WORDS_RAW    = (GP.words || []).map(w=>w.toLowerCase().replace(/[^a-z]/g,'')).filter(Boolean);
+const CHILD_ID     = GP.childId        ?? 'child';
+const CHILD_NAME   = GP.childName      || 'Player';
+const COMPANION_ID = GP.companion      ?? 'matilda';
+const COMPANION_NAME = GP.companionName || 'Matilda';
+const THEME_ID     = GP.theme          ?? 'cosmos';
+const CATEGORY     = GP.category       ?? 'Spelling';
+const LIVES_MAX    = GP.livesCount     ?? 3;
+const DYSLEXIA     = GP.dyslexiaMode   ?? false;
+const BASE_FONT    = DYSLEXIA ? 48 : 40;
+const TILE_FONT    = DYSLEXIA ? 28 : 24;
+
+/* phoneme-based chunk hints for -er/-ster/-ter endings */
+function getChunks(word) {
+  const chunks = [];
+  if(word.endsWith('ster')) chunks.push({text:'ster',tip:'-ster ending'});
+  else if(word.endsWith('ter')) chunks.push({text:'ter',tip:'-ter ending'});
+  else if(word.endsWith('er')) chunks.push({text:'er',tip:'-er ending'});
+  if(word.startsWith('bl')) chunks.push({text:'bl',tip:'blend: bl'});
+  if(word.startsWith('cl')) chunks.push({text:'cl',tip:'blend: cl'});
+  if(word.startsWith('sp')) chunks.push({text:'sp',tip:'blend: sp'});
+  if(word.startsWith('pl')) chunks.push({text:'pl',tip:'blend: pl'});
+  if(word.startsWith('ch')) chunks.push({text:'ch',tip:'digraph: ch'});
+  if(word.startsWith('sh')) chunks.push({text:'sh',tip:'digraph: sh'});
+  return chunks.slice(0,2);
+}
+
+/* Build scrambled tile set: word letters (shuffled) + 2 extras */
+function buildTiles(word) {
+  const letters = word.split('');
+  const extras = 'abcdefghijklmnopqrstuvwxyz'.split('').filter(c=>!letters.includes(c));
+  const extraPick = [extras[Math.floor(Math.random()*extras.length)],extras[Math.floor(Math.random()*extras.length*0.5+5)]];
+  const all = [...letters,...extraPick];
+  // shuffle
+  for(let i=all.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]]; }
+  return all.map((l,i)=>({id:`t-${i}-${l}`,letter:l,used:false}));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEMES
+═══════════════════════════════════════════════════════════════ */
+const THEMES = {
+  cosmos:{
+    bg:'radial-gradient(ellipse 80% 70% at 30% 10%, #1e0055 0%, #06001a 55%, #000820 100%)',
+    accent:'#a855f7', accent2:'#06b6d4', gold:'#fbbf24',
+    correct:'#10B981', wrong:'#EF4444',
+    tileNormal:'rgba(168,85,247,.22)', tileNormalBorder:'rgba(168,85,247,.55)',
+    tileHover:'rgba(168,85,247,.45)', tileUsed:'rgba(255,255,255,.04)',
+    tileUsedBorder:'rgba(255,255,255,.08)',
+    blankEmpty:'rgba(168,85,247,.06)', blankEmptyBorder:'rgba(168,85,247,.35)',
+    blankFilled:'linear-gradient(145deg,#3b1383,#5b21b6)', blankFilledBorder:'#a855f7',
+    blankGlow:'rgba(168,85,247,.7)',
+    headerBorder:'rgba(168,85,247,.3)',
+    monsterNormal:'#a855f7', monsterAngry:'#EF4444',
+    glow:'rgba(168,85,247,.5)',
+    arenaGlow1:'rgba(168,85,247,.2)', arenaGlow2:'rgba(6,182,212,.15)',
+  },
+  wrestling:{
+    bg:'radial-gradient(ellipse 80% 70% at 50% 0%, #3a0000 0%, #1a0000 55%, #0a0000 100%)',
+    accent:'#EF4444', accent2:'#F59E0B', gold:'#fbbf24',
+    correct:'#10B981', wrong:'#EF4444',
+    tileNormal:'rgba(239,68,68,.22)', tileNormalBorder:'rgba(239,68,68,.55)',
+    tileHover:'rgba(239,68,68,.45)', tileUsed:'rgba(255,255,255,.04)',
+    tileUsedBorder:'rgba(255,255,255,.08)',
+    blankEmpty:'rgba(239,68,68,.06)', blankEmptyBorder:'rgba(239,68,68,.35)',
+    blankFilled:'linear-gradient(145deg,#7f1d1d,#b91c1c)', blankFilledBorder:'#EF4444',
+    blankGlow:'rgba(239,68,68,.7)',
+    headerBorder:'rgba(239,68,68,.3)',
+    monsterNormal:'#EF4444', monsterAngry:'#dc2626',
+    glow:'rgba(239,68,68,.5)',
+    arenaGlow1:'rgba(239,68,68,.2)', arenaGlow2:'rgba(245,158,11,.15)',
+  },
+};
+const T = THEMES[THEME_ID] || THEMES.cosmos;
+
+/* ═══════════════════════════════════════════════════════════════
+   SOUND ENGINE
+═══════════════════════════════════════════════════════════════ */
+class SE {
+  static _ctx=null;
+  static get ctx(){
+    if(!SE._ctx) SE._ctx=new(window.AudioContext||window.webkitAudioContext)();
+    if(SE._ctx.state==='suspended') SE._ctx.resume();
+    return SE._ctx;
+  }
+  static _osc(freq,type,dur,vol,when=0,freqEnd){
+    const ctx=SE.ctx,t=ctx.currentTime+(when||0);
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,t);
+    if(freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd,t+dur*.9);
+    g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t+dur+.02);
+  }
+  static _noise(dur,vol,ffreq,when=0){
+    const ctx=SE.ctx,t=ctx.currentTime+(when||0);
+    const buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(ctx.sampleRate*dur*.4));
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=ffreq; f.Q.value=2;
+    const g=ctx.createGain(); g.gain.value=vol;
+    src.connect(f); f.connect(g); g.connect(ctx.destination); src.start(t);
+  }
+  static letterPlace(){ SE._osc(660,'sine',.12,.28); SE._osc(990,'sine',.08,.14,.03); }
+  static wrong(){ SE._osc(220,'sawtooth',.25,.4,0,80); SE._osc(160,'square',.2,.25,.08); SE._noise(.1,.2,400); }
+  static wordComplete(){ [523,659,784,1047].forEach((f,i)=>{ SE._osc(f,'sine',.4,.28,i*.08); SE._osc(f*1.5,'sine',.2,.12,i*.08+.02); }); SE._noise(.08,.3,4000,.32); }
+  static monsterGrow(){ SE._osc(100,'sawtooth',.3,.5,0,40); SE._noise(.15,.3,300); }
+  static monsterFlee(){ SE._osc(880,'sine',.12,.25); SE._osc(660,'sine',.08,.15,.05,200); }
+  static fanfare(){
+    [523,659,784,880,1047,1319,1568].forEach((f,i)=>{ SE._osc(f,'sine',.6,.28,i*.09); SE._osc(f*1.5,'sine',.3,.12,i*.09+.02); });
+    SE._noise(.1,.4,4000,.65);
+    for(let i=0;i<12;i++) SE._osc(1200+Math.random()*900,'sine',.25,.1,.7+i*.1);
+  }
+  static gameover(){ SE._osc(440,'sawtooth',.6,.4,0,100); SE._osc(300,'sawtooth',.5,.3,.2,60); SE._osc(150,'sine',.8,.35,.4); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STARFIELD
+═══════════════════════════════════════════════════════════════ */
+function Starfield(){
+  const stars=useMemo(()=>Array.from({length:55},(_,i)=>({
+    left:`${(i*17.3+3)%100}%`,top:`${(i*31.7+7)%100}%`,
+    size:i%5===0?3:i%3===0?2:1.5,
+    delay:`${(i%7)*.4}s`,dur:`${2+(i%5)*.5}s`,
+    color:i%4===0?T.accent:i%4===1?T.accent2:'#fff',
+  })),[]);
+  return (
+    <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+      {stars.map((s,i)=>(
+        <div key={i} style={{position:'absolute',left:s.left,top:s.top,width:s.size,height:s.size,borderRadius:'50%',background:s.color,animation:`twinkle ${s.dur} ease-in-out ${s.delay} infinite`}}/>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MONSTER COMPONENT
+═══════════════════════════════════════════════════════════════ */
+const MONSTERS = ['👾','🤖','👹','🦖','🤡','🎃','👺','🦊'];
+function Monster({ scale, anim, emoji }) {
+  const animStyle = anim==='grow'   ? 'monsterGrow .4s ease-in-out'
+                 : anim==='shake'  ? 'monsterShake .45s ease-in-out'
+                 : anim==='run'    ? 'monsterRun .8s ease-in forwards'
+                 : 'monsterWalk 2.4s ease-in-out infinite';
+  return (
+    <div style={{
+      fontSize: 80 + scale*40,
+      filter:`drop-shadow(0 0 ${12+scale*8}px ${scale>1.5?'rgba(239,68,68,.8)':T.glow})`,
+      animation: animStyle,
+      transformOrigin:'center bottom',
+      userSelect:'none',
+      lineHeight:1,
+    }}>{emoji}</div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WORD BLANKS
+═══════════════════════════════════════════════════════════════ */
+function WordBlanks({ word, typed, shakeIdx, completeAnim }) {
+  return (
+    <div style={{
+      display:'flex',gap:8,justifyContent:'center',flexWrap:'nowrap',
+      animation: completeAnim ? 'wordComplete .5s ease' : undefined,
+    }}>
+      {word.split('').map((letter,i)=>{
+        const filled = i < typed.length;
+        const isActive = i === typed.length;
+        return (
+          <div key={i} style={{
+            width: BASE_FONT*1.5,
+            height: BASE_FONT*1.9,
+            borderRadius:12,
+            border:`3px solid ${filled ? T.blankFilledBorder : T.blankEmptyBorder}`,
+            background: filled ? T.blankFilled : T.blankEmpty,
+            display:'flex',alignItems:'center',justifyContent:'center',
+            fontSize: BASE_FONT,
+            fontWeight:900,
+            color: filled ? 'white' : 'transparent',
+            boxShadow: filled ? `0 0 16px ${T.blankGlow}, inset 0 1px 0 rgba(255,255,255,.15)` : 'none',
+            borderBottom: isActive && !filled ? `4px solid ${T.accent}` : undefined,
+            animation: i===shakeIdx ? 'wrongTile .4s ease' : filled ? 'tileIn .25s cubic-bezier(.34,1.56,.64,1)' : undefined,
+            transition:'all .2s',
+          }}>
+            {filled ? typed[i].toUpperCase() : ''}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LETTER TILES
+═══════════════════════════════════════════════════════════════ */
+function LetterTile({ tile, onTap, disabled, shaking }) {
+  const [pressed,setPressed]=useState(false);
+  if(tile.used) return (
+    <div style={{
+      width:64,height:64,borderRadius:14,
+      background:T.tileUsed,border:`2px solid ${T.tileUsedBorder}`,
+      animation:'tileUsed .25s ease forwards',opacity:.25,
+    }}/>
+  );
+  return (
+    <div
+      onClick={()=>{ if(!disabled&&!tile.used){ SE.letterPlace(); onTap(tile); }}}
+      onMouseDown={()=>setPressed(true)}
+      onMouseUp={()=>setPressed(false)}
+      onMouseLeave={()=>setPressed(false)}
+      style={{
+        width:64,height:64,borderRadius:14,
+        background: pressed ? T.tileHover : T.tileNormal,
+        border:`2.5px solid ${T.tileNormalBorder}`,
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:TILE_FONT,fontWeight:800,color:'white',
+        cursor: disabled ? 'default' : 'pointer',
+        userSelect:'none',
+        boxShadow: pressed ? `0 0 20px ${T.glow}` : `0 2px 8px rgba(0,0,0,.4)`,
+        transform: pressed ? 'scale(.9)' : 'scale(1)',
+        transition:'transform .1s,background .1s,box-shadow .1s',
+        animation: shaking ? 'wrongTile .4s ease' : `tileIn .3s cubic-bezier(.34,1.56,.64,1) ${Math.random()*.2}s both`,
+      }}
+    >{tile.letter.toUpperCase()}</div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIVES
+═══════════════════════════════════════════════════════════════ */
+function Lives({count,max}){
+  return (
+    <div style={{display:'flex',gap:6}}>
+      {Array.from({length:max}).map((_,i)=>(
+        <div key={i} style={{fontSize:20,filter:i<count?`drop-shadow(0 0 8px ${T.accent})`:'grayscale(1)',opacity:i<count?1:.22,transition:'all .3s'}}>❤️</div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPANION
+═══════════════════════════════════════════════════════════════ */
+function CompanionPortrait({mood,speech}){
+  const face=mood==='celebrating'?'🤩':mood==='shocked'?'😱':mood==='thinking'?'🤔':'⭐';
+  const anim=mood==='celebrating'?'companion-bounce .7s ease-in-out infinite':
+             mood==='shocked'?'monsterShake .5s ease-in-out':'float 3.5s ease-in-out infinite';
+  return (
+    <div style={{position:'absolute',bottom:14,right:14,zIndex:15,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+      {speech&&(
+        <div style={{
+          background:'rgba(14,7,40,.92)',border:`2px solid ${T.accent}`,
+          borderRadius:'14px 14px 4px 14px',padding:'8px 13px',
+          maxWidth:200,fontSize:12,fontWeight:600,color:'white',lineHeight:1.5,
+          boxShadow:`0 0 16px ${T.glow}`,textAlign:'right',
+        }}>{speech}</div>
+      )}
+      <div style={{
+        width:72,height:72,borderRadius:'50%',
+        background:`radial-gradient(circle,#3b1069,#150030)`,
+        border:`3px solid ${T.accent}`,fontSize:36,
+        display:'flex',alignItems:'center',justifyContent:'center',
+        boxShadow:`0 0 24px ${T.glow}`,animation:anim,
+      }}>{face}</div>
+      <div style={{fontSize:11,fontWeight:700,color:T.accent,textAlign:'center',letterSpacing:'.1em',textTransform:'uppercase'}}>{COMPANION_NAME}</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APP
+═══════════════════════════════════════════════════════════════ */
+function App(){
+  const [phase,setPhase]         = useState('intro');   // intro|playing|won|lost
+  const [wordIdx,setWordIdx]     = useState(0);
+  const [lives,setLives]         = useState(LIVES_MAX);
+  const [score,setScore]         = useState(0);
+  const [typed,setTyped]         = useState([]);        // letters typed so far
+  const [tiles,setTiles]         = useState([]);        // tile objects {id,letter,used}
+  const [monsterScale,setMonsterScale] = useState(1);
+  const [monsterAnim,setMonsterAnim]   = useState('idle');
+  const [shakeIdx,setShakeIdx]   = useState(-1);
+  const [flash,setFlash]         = useState(null);
+  const [completeAnim,setCompleteAnim] = useState(false);
+  const [compMood,setCompMood]   = useState('happy');
+  const [compSpeech,setCompSpeech] = useState('');
+  const [xpPopup,setXpPopup]     = useState(null);
+  const [showHint,setShowHint]   = useState(false);
+
+  const startTime = useRef(Date.now());
+  const completedRef = useRef(false);
+  const wordsCorrect = useRef([]);
+  const wordsWrong = useRef([]);
+  const wrongCount = useRef(0);   // wrong taps on current word
+
+  // Fixed monster emoji per session
+  const monsterEmoji = useMemo(()=>MONSTERS[Math.floor(Math.random()*MONSTERS.length)],[]);
+
+  const currentWord = WORDS_RAW[wordIdx] || '';
+  const chunks = useMemo(()=>getChunks(currentWord),[currentWord]);
+
+  /* ── Bridge helpers ─────────────────────────────────────────── */
+  const reportState=(msg,ex={})=>{ if(window.GameBridge?.reportState) window.GameBridge.reportState(msg,{game:'monster-stampede',wordIdx,score,lives,...ex}); };
+  const reportAction=(action,msg,ex={})=>{ if(window.GameBridge?.reportAction) window.GameBridge.reportAction(action,msg,{game:'monster-stampede',wordIdx,score,lives,...ex}); };
+  const fireComp=(t,p={})=>{ if(window.fireCompanionEvent) window.fireCompanionEvent(t,p); };
+
+  /* ── Start word ─────────────────────────────────────────────── */
+  const startWord = useCallback((idx)=>{
+    const word = WORDS_RAW[idx];
+    if(!word) return;
+    wrongCount.current = 0;
+    setTyped([]);
+    setTiles(buildTiles(word));
+    setMonsterScale(1);
+    setMonsterAnim('idle');
+    setShowHint(false);
+    setShakeIdx(-1);
+    setCompleteAnim(false);
+
+    const opens=[
+      `Spell "${word.toUpperCase()}" to stop the monster! 🌟`,
+      `Tap the letters in order! "${word.toUpperCase()}"`,
+      `You've got this — spell "${word.toUpperCase()}"! 💪`,
+    ];
+    setCompSpeech(opens[idx%opens.length]);
+    setCompMood('happy');
+    reportState(`Word ${idx+1}/${WORDS_RAW.length}: "${word}". Monster ready.`,{currentWord:word,round:idx+1});
+  },[]);
+
+  /* ── Tile tapped ─────────────────────────────────────────────── */
+  const handleTileTap = useCallback((tile)=>{
+    const word = WORDS_RAW[wordIdx];
+    const nextIdx = typed.length;
+    const expected = word[nextIdx];
+
+    if(tile.letter === expected){
+      // Correct
+      const newTyped = [...typed, tile.letter];
+      setTyped(newTyped);
+      setTiles(prev=>prev.map(t=>t.id===tile.id?{...t,used:true}:t));
+      setFlash('correct');
+      setTimeout(()=>setFlash(null),300);
+
+      if(newTyped.length === word.length){
+        // Word complete!
+        const bonus = Math.max(0, 3-wrongCount.current)*50;
+        const earned = 100 + bonus;
+        setScore(s=>s+earned);
+        setXpPopup(`+${earned}`);
+        setTimeout(()=>setXpPopup(null),1200);
+        SE.wordComplete();
+        setCompleteAnim(true);
+        setMonsterAnim('run');
+        SE.monsterFlee();
+        fireComp('correct_answer',{word,earned,wrongCount:wrongCount.current});
+        setCompMood('celebrating');
+        setCompSpeech(`AMAZING! "${word.toUpperCase()}" is correct! 🎉`);
+        wordsCorrect.current.push(word);
+        reportAction('word_complete',`"${word}" spelled correctly. +${earned} pts. Monster fled!`,{word,earned,correct:true});
+        setTimeout(()=>{
+          if(wordIdx+1 >= WORDS_RAW.length) endGame(true);
+          else { setWordIdx(w=>{ const n=w+1; startWord(n); return n; }); }
+        },1200);
+      }
+    } else {
+      // Wrong tile
+      wrongCount.current++;
+      SE.wrong();
+      setFlash('wrong');
+      setTimeout(()=>setFlash(null),400);
+
+      // Monster grows
+      const newScale = Math.min(2.2, monsterScale + .25);
+      setMonsterScale(newScale);
+      setMonsterAnim('grow');
+      SE.monsterGrow();
+      setTimeout(()=>setMonsterAnim('idle'),600);
+
+      // Shake the next blank
+      setShakeIdx(nextIdx);
+      setTimeout(()=>setShakeIdx(-1),500);
+
+      // Lives if too many wrong
+      if(wrongCount.current>=4){
+        setLives(l=>{
+          const nl=l-1;
+          if(nl<=0){ setTimeout(()=>endGame(false),500); }
+          else {
+            // Give hint after 4 wrong
+            setShowHint(true);
+            setCompSpeech(`Try again! Next letter is "${expected.toUpperCase()}" 💡`);
+            setCompMood('thinking');
+          }
+          return nl;
+        });
+        wrongCount.current=0;
+      } else {
+        const hints = [
+          `Hmm, not that one — keep looking!`,
+          `What sound comes next? Think carefully!`,
+          chunks.length>0 ? `Remember: "${chunks[0].tip}"!` : `You can do it! Try again!`,
+        ];
+        setCompSpeech(hints[wrongCount.current%hints.length]);
+        setCompMood('shocked');
+        setTimeout(()=>setCompMood('happy'),1000);
+      }
+
+      fireComp('wrong_answer',{word,tapped:tile.letter,expected,wrongCount:wrongCount.current});
+      reportAction('wrong_letter',`Wrong: tapped "${tile.letter}", expected "${expected}" for "${word}".`,{word,tapped:tile.letter,expected,correct:false});
+    }
+  },[typed,wordIdx,monsterScale,chunks]);
+
+  /* ── End game ────────────────────────────────────────────────── */
+  const endGame = useCallback((won)=>{
+    if(completedRef.current) return;
+    completedRef.current=true;
+    setPhase(won?'won':'lost');
+    if(won){ SE.fanfare(); setCompMood('celebrating'); setCompSpeech('You stopped ALL the monsters! Hero! 🏆'); }
+    else { SE.gameover(); setCompMood('shocked'); setCompSpeech('The monsters got away! But you did great! 💪'); }
+    const result={
+      completed:won,
+      accuracy:wordsCorrect.current.length/WORDS_RAW.length,
+      wordsCorrect:wordsCorrect.current,
+      wordsStruggled:wordsWrong.current,
+      flaggedWords:wordsWrong.current,
+      xpEarned:won?150:40,
+      coinsEarned:score,
+      timeSpent_ms:Date.now()-startTime.current,
+      wordsAttempted:WORDS_RAW.length,
+    };
+    reportState(won?`Won! ${score} pts, ${wordsCorrect.current.length}/${WORDS_RAW.length} words.`:`Lost. ${score} pts.`,result);
+    if(window.GameBridge?.awardCurrency) window.GameBridge.awardCurrency(score,'monster_stampede');
+    setTimeout(()=>{ if(window.sendNodeComplete) window.sendNodeComplete(result); },2000);
+  },[score]);
+
+  /* ── Heartbeat ───────────────────────────────────────────────── */
+  useEffect(()=>{
+    if(phase!=='playing') return;
+    const id=window.GameBridge?.startHeartbeat?.(
+      ()=>`Monster Stampede — word ${wordIdx+1}/${WORDS_RAW.length}, typed ${typed.length}/${currentWord.length}, score ${score}`,
+      ()=>({game:'monster-stampede',wordIdx,typed:typed.join(''),target:currentWord,score,lives})
+    );
+    return ()=>id&&clearInterval(id);
+  },[phase,wordIdx,typed,score,lives,currentWord]);
+
+  const startGame=()=>{ setPhase('playing'); startWord(0); };
+  const restart=()=>{
+    completedRef.current=false; wordsCorrect.current=[]; wordsWrong.current=[];
+    wrongCount.current=0;
+    setScore(0); setLives(LIVES_MAX); setWordIdx(0); setPhase('intro');
+  };
+
+  /* ── Keyboard support ───────────────────────────────────────── */
+  useEffect(()=>{
+    if(phase!=='playing') return;
+    const handleKey=(e)=>{
+      const key=e.key.toLowerCase();
+      if(!/^[a-z]$/.test(key)) return;
+      const match=tiles.find(t=>!t.used&&t.letter===key);
+      if(match) handleTileTap(match);
+    };
+    window.addEventListener('keydown',handleKey);
+    return ()=>window.removeEventListener('keydown',handleKey);
+  },[phase,tiles,handleTileTap]);
+
+  /* ═════════════════════════════════════════════════════════════
+     RENDER
+  ═════════════════════════════════════════════════════════════ */
+  return (
+    <div style={{position:'fixed',inset:0,background:T.bg,fontFamily:'Lexend,sans-serif',overflow:'hidden'}}>
+      <Starfield/>
+
+      {/* Arena lighting */}
+      <div style={{position:'absolute',inset:0,pointerEvents:'none',
+        background:`radial-gradient(ellipse 60% 40% at 20% 70%, ${T.arenaGlow1}, transparent),
+                    radial-gradient(ellipse 40% 30% at 80% 80%, ${T.arenaGlow2}, transparent)`,
+        animation:'arenaLight 3s ease-in-out infinite',
+      }}/>
+
+      {/* Flash overlay */}
+      {flash&&<div style={{position:'absolute',inset:0,pointerEvents:'none',zIndex:1,
+        animation:`${flash==='correct'?'correctFlash':'wrongFlash'} .4s ease`,
+      }}/>}
+
+      {/* ── INTRO ── */}
+      {phase==='intro'&&(
+        <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,zIndex:20,animation:'slideUp .5s ease'}}>
+          <div style={{fontSize:80,animation:'float 2.5s ease-in-out infinite',filter:`drop-shadow(0 0 24px ${T.glow})`}}>{monsterEmoji}</div>
+          <div style={{fontSize:13,fontWeight:700,letterSpacing:'.25em',textTransform:'uppercase',color:T.accent}}>Monster Stampede</div>
+          <div style={{fontSize:52,fontWeight:900,color:'white',textAlign:'center',lineHeight:1.1,textShadow:`0 0 40px ${T.glow}`}}>
+            Spell to<br/><span style={{color:T.accent}}>stop the monster!</span>
+          </div>
+          <div style={{fontSize:16,color:'rgba(255,255,255,.6)',maxWidth:420,textAlign:'center',lineHeight:1.7}}>
+            Tap the letters in the <strong style={{color:'white'}}>right order</strong> to spell each word. Every mistake makes the monster grow! 👾
+          </div>
+          <div style={{display:'flex',gap:12,flexWrap:'wrap',justifyContent:'center'}}>
+            {['Spelling',`${WORDS_RAW.length} words`,`${LIVES_MAX} lives`,'Letter by letter'].map(t=>(
+              <div key={t} style={{fontSize:12,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',padding:'5px 14px',borderRadius:999,background:`${T.accent}18`,border:`1px solid ${T.accent}44`,color:T.accent}}>{t}</div>
+            ))}
+          </div>
+          <button onClick={startGame} style={{marginTop:8,padding:'18px 54px',background:`linear-gradient(135deg,${T.accent},${T.accent2})`,border:'none',borderRadius:18,fontSize:20,fontWeight:900,color:'white',cursor:'pointer',boxShadow:`0 8px 32px ${T.glow}`}}>
+            ⚔️ Fight!
+          </button>
+        </div>
+      )}
+
+      {/* ── PLAYING ── */}
+      {phase==='playing'&&<>
+        {/* Header */}
+        <div style={{position:'relative',zIndex:6,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 20px',background:'rgba(0,0,0,.35)',borderBottom:`2px solid ${T.headerBorder}`,backdropFilter:'blur(8px)'}}>
+          <Lives count={lives} max={LIVES_MAX}/>
+          <div style={{display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',color:'rgba(255,255,255,.4)'}}>
+            {wordIdx+1}/{WORDS_RAW.length} words · {CATEGORY}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,background:`${T.accent}18`,border:`1.5px solid ${T.accent}44`,borderRadius:12,padding:'6px 14px'}}>
+            <span style={{fontSize:13,fontWeight:800,color:T.gold}}>🪙</span>
+            <span style={{fontSize:18,fontWeight:800,color:T.gold}}>{score}</span>
+            {xpPopup&&<span style={{fontSize:14,fontWeight:800,color:T.correct,animation:'xpTick 1.2s ease forwards',position:'absolute',right:12,top:-4}}>{xpPopup}</span>}
+          </div>
+        </div>
+
+        {/* Main arena */}
+        <div style={{position:'relative',zIndex:4,display:'flex',alignItems:'flex-end',justifyContent:'space-between',padding:'20px 40px 10px',gap:20}}>
+          {/* Monster side */}
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8,minWidth:140}}>
+            <Monster scale={monsterScale} anim={monsterAnim} emoji={monsterEmoji}/>
+            {/* Anger meter */}
+            <div style={{width:100,height:6,background:'rgba(255,255,255,.1)',borderRadius:3,overflow:'hidden'}}>
+              <div style={{height:'100%',width:`${Math.min(100,(monsterScale-1)/1.2*100)}%`,background:`linear-gradient(90deg,${T.accent},#ef4444)`,borderRadius:3,transition:'width .3s'}}/>
+            </div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',color:'rgba(255,255,255,.35)'}}>Anger</div>
+          </div>
+
+          {/* Word area */}
+          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:16}}>
+            {/* Word hint */}
+            <div style={{fontSize:12,fontWeight:700,letterSpacing:'.2em',textTransform:'uppercase',color:'rgba(255,255,255,.35)'}}>
+              Spell it to stop the monster:
+            </div>
+
+            <WordBlanks word={currentWord} typed={typed} shakeIdx={shakeIdx} completeAnim={completeAnim}/>
+
+            {/* Phoneme hints */}
+            {(showHint||wrongCount.current>=2)&&chunks.length>0&&(
+              <div style={{display:'flex',gap:8,animation:'hintPulse 1.5s ease-in-out infinite'}}>
+                {chunks.map((c,i)=>(
+                  <div key={i} style={{fontSize:11,fontWeight:700,padding:'4px 12px',borderRadius:8,background:`${T.accent}15`,border:`1px solid ${T.accent}30`,color:T.accent}}>
+                    💡 {c.tip}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Letter tiles */}
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',justifyContent:'center',maxWidth:520,marginTop:8}}>
+              {tiles.map(tile=>(
+                <LetterTile key={tile.id} tile={tile} onTap={handleTileTap}
+                  disabled={tile.used||completeAnim}
+                  shaking={false}/>
+              ))}
+            </div>
+
+            <div style={{fontSize:12,color:'rgba(255,255,255,.3)',fontWeight:600}}>
+              Tap in order · keyboard works too
+            </div>
+          </div>
+        </div>
+      </>}
+
+      {/* ── WIN / LOSE ── */}
+      {(phase==='won'||phase==='lost')&&(
+        <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,zIndex:20,background:'rgba(0,0,0,.7)',backdropFilter:'blur(12px)',animation:'slideUp .5s ease'}}>
+          <div style={{fontSize:80,animation:'popIn .5s ease'}}>{phase==='won'?'🏆':'💪'}</div>
+          <div style={{fontSize:48,fontWeight:900,color:phase==='won'?T.gold:'rgba(255,255,255,.8)',textShadow:phase==='won'?`0 0 30px ${T.gold}44`:'none'}}>
+            {phase==='won'?'Monsters stopped!':'Keep training!'}
+          </div>
+          <div style={{fontSize:16,color:'rgba(255,255,255,.6)',textAlign:'center',maxWidth:380,lineHeight:1.7}}>
+            {wordsCorrect.current.length} of {WORDS_RAW.length} words spelled correctly
+          </div>
+          <div style={{display:'flex',gap:16,flexWrap:'wrap',justifyContent:'center'}}>
+            {[
+              {label:'Score',val:`${score} pts`,color:T.gold},
+              {label:'Words',val:`${wordsCorrect.current.length}/${WORDS_RAW.length}`,color:T.accent},
+              {label:'Lives left',val:`${lives}/${LIVES_MAX}`,color:T.correct},
+            ].map(({label,val,color})=>(
+              <div key={label} style={{background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',borderRadius:14,padding:'12px 20px',textAlign:'center'}}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:'.15em',textTransform:'uppercase',color:'rgba(255,255,255,.4)',marginBottom:4}}>{label}</div>
+                <div style={{fontSize:26,fontWeight:900,color}}>{val}</div>
+              </div>
+            ))}
+          </div>
+          <button onClick={restart} style={{marginTop:8,padding:'14px 40px',background:`linear-gradient(135deg,${T.accent},${T.accent2})`,border:'none',borderRadius:14,fontSize:18,fontWeight:800,color:'white',cursor:'pointer',boxShadow:`0 6px 24px ${T.glow}`}}>
+            Play Again ⚔️
+          </button>
+        </div>
+      )}
+
+      <CompanionPortrait mood={compMood} speech={compSpeech}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

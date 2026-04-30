@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { mapNodeSessionAudioFlags } from "../shared/mapNodeSessionAudio";
 import { createAudioGate } from "../server/audioGate";
 import { flushBufferIfUnmuted } from "../shared/flushBuffer";
 import { getNodeAudioDefaults } from "../shared/nodeAudioDefaults";
@@ -95,5 +96,11 @@ describe("node-driven audio defaults", () => {
     const cfg = getNodeAudioDefaults("future-unknown-node");
     expect(cfg.companionMicDefault).toBe("on");
     expect(cfg.companionTtsDefault).toBe("on");
+  });
+
+  it("word_radar node type keeps serverMicMuted false (STT feeds word-radar; alias of hyphen)", () => {
+    const f = mapNodeSessionAudioFlags("word_radar");
+    expect(f.serverMicMuted).toBe(false);
+    expect(f.micMuted).toBe(false);
   });
 });

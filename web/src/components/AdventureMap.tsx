@@ -1,6 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { NodeConfig, NodeResult } from "../../../src/shared/adventureTypes";
+import type {
+  NodeConfig,
+  NodeResult,
+} from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
 import type {
   CompanionConfig,
@@ -15,7 +18,7 @@ import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
 import type { KaraokeReadingCanvasProps } from "./KaraokeReadingCanvas";
 import { WordRadar } from "./WordRadar";
-import type { RadarItem } from "./WordRadar";
+import type { RadarItem, WordRadarResult } from "./WordRadar";
 import { PronunciationGameCanvas } from "./PronunciationGameCanvas";
 import { NodeCard } from "./NodeCard.tsx";
 import { PathCurve } from "./PathCurve.tsx";
@@ -25,6 +28,35 @@ import { XPBar } from "./XPBar.tsx";
 import "./AdventureMap.css";
 
 import type { NodeType } from "../../../src/shared/adventureTypes";
+
+function nodeResultFromWordRadar(nodeId: string, r: WordRadarResult): NodeResult {
+  const missedWords = [
+    ...new Set(
+      r.rawResults
+        .filter((x) => !x.correct)
+        .map((x) => x.item.display.trim())
+        .filter(Boolean),
+    ),
+  ];
+  const correctWords = [
+    ...new Set(
+      r.rawResults
+        .filter((x) => x.correct)
+        .map((x) => x.item.display.trim())
+        .filter(Boolean),
+    ),
+  ];
+  return {
+    nodeId,
+    completed: true,
+    accuracy: r.accuracy,
+    timeSpent_ms: r.timeSpent_ms,
+    wordsAttempted: r.rawResults.length,
+    missedWords,
+    correctWords,
+  };
+}
+
 export type GameIframeOverlayState = {
   active: boolean;
   iframe: HTMLIFrameElement | null;
@@ -38,11 +70,41 @@ import {
 } from "../../../src/shared/vrrTypes";
 import { SlotMachineOverlay } from "./SlotMachineOverlay";
 import { TamagotchiStrip } from "./TamagotchiStrip";
+import {
+  QuestBriefingModal,
+  questUnlockCompanionBubbleText,
+} from "./quest/QuestBriefingModal";
+import { QuestUnlockSequence } from "./quest/QuestUnlockSequence";
+import { useQuestUnlockSequence } from "./quest/useQuestUnlockSequence";
+import { useQuestBriefing } from "./quest/useQuestBriefing";
+export { questBriefingWordsFromMap } from "./quest/questWords";
 
 export type MapPreviewMode = false | "free" | "go-live";
 
 /** Space below fixed preview banner (z-index 9999, height 40). */
 const PREVIEW_GAME_TOP_INSET_PX = 40;
+
+/** Mirrors server `DIAG_UNLOCK_MAP` — set in `npm run sunny:mode:diag:homework:as-*:unlocked` builds. */
+const DIAG_UNLOCK_MAP_UI =
+  import.meta.env.VITE_DIAG_UNLOCK_MAP === "true";
+
+export function displayNodesForAdventureMap(
+  nodes: readonly NodeConfig[],
+  completedNodeIds: readonly string[],
+  diagUnlockMap: boolean,
+): NodeConfig[] {
+  if (!diagUnlockMap) {
+    return applyHomeworkStyleNodeLocks(
+      [...nodes],
+      new Set(completedNodeIds),
+    );
+  }
+
+  return nodes.map((node) => ({
+    ...node,
+    isLocked: node.type === "boss" && !node.gameHtmlPath ? true : false,
+  }));
+}
 
 function ensurePreviewQueryParam(url: string, mode: MapPreviewMode): string {
   if (!mode) return url;
@@ -164,14 +226,19 @@ export function AdventureMap(props: {
   };
   /** From `/api/profile` — drives tamagotchi strip + VRR evaluation. */
   tamagotchi?: TamagotchiState;
+  /** When false, hides the tamagotchi strip until profile care data has loaded. */
+  tamagotchHydrated?: boolean;
   /** After VRR claim persisted on server — parent should merge into profile state. */
   onTamagotchiSynced?: (t: TamagotchiState) => void;
   /** Phase-1 VRR begins — e.g. pulse celebrating emote on companion (live map only). */
   onVrrPhase1Begin?: () => void;
-  /** Map UI: opens tamagotchi care sheet (e.g. "Elli's Care" button). */
+  /** Map UI: opens tamagotchi care sheet (label uses `profileNames.companionName` from `/api/profile`). */
   onOpenTamagotchiSheet?: () => void;
   /** Learner tapped a locked node — parent can forward to voice (e.g. test_transcript). */
   onLockedNodeTap?: (node: NodeConfig) => void;
+  /** `pendingHomework.reinforceWords` from profile — quest briefing + spell-check list. */
+  reinforceWords?: string[];
+  dyslexiaMode?: boolean;
 }) {
   const resolved = props.childId.trim();
 
@@ -188,6 +255,7 @@ export function AdventureMap(props: {
     sendNodeRating,
     forwardMapIframeCompanionEvent,
     forwardMapIframeGameStateUpdate,
+    forwardMapIframeCurrencyAward,
   } = props.mapSession;
 
   const { triggerTransition } = useTransition();
@@ -225,6 +293,53 @@ export function AdventureMap(props: {
   const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
   const gameIframeRef = useRef<HTMLIFrameElement>(null);
   const [showBossPlaceholder, setShowBossPlaceholder] = useState(false);
+  const pathPositionsRef = useRef<Point[]>([]);
+
+  useEffect(() => {
+    pathPositionsRef.current = pathPositions;
+  }, [pathPositions]);
+
+  const childProfiles = childrenCfg.childProfiles as Record<
+    string,
+    { questUnlocked?: boolean }
+  >;
+  const questCompanionId =
+    props.mapCompanion?.companionId ?? childrenCfg.defaultCompanionId;
+  const previewTopOffsetPx =
+    props.previewMode === "free" || props.previewMode === "go-live"
+      ? PREVIEW_GAME_TOP_INSET_PX
+      : 0;
+
+  const quest = useQuestUnlockSequence({
+    childId: resolved,
+    companionId: questCompanionId,
+    childProfiles,
+    mapState,
+    worldRef,
+    pathPositionsRef,
+    diagUnlockMap: DIAG_UNLOCK_MAP_UI,
+    previewTopOffsetPx,
+    companionBubbleText: questUnlockCompanionBubbleText(
+      resolved,
+      questCompanionId,
+    ),
+    onCompanionEvent: (event) => {
+      forwardMapIframeCompanionEvent({
+        emote:
+          event.type === "quest_unlock_complete"
+            ? "celebrating"
+            : "happy",
+        intensity: event.type === "quest_unlock_companion_reaction" ? 1 : 0.85,
+        timestamp: event.timestamp,
+        childId: event.childId,
+        metadata: {
+          source: "quest_unlock_sequence",
+          questEvent: event.type,
+          companionId: event.companionId,
+        },
+      });
+    },
+  });
 
   const publishIframeOverlay = useCallback(() => {
     const el = gameIframeRef.current;
@@ -299,7 +414,9 @@ export function AdventureMap(props: {
       if (!d || typeof d !== "object") return;
       const t = (d as { type?: string }).type;
       if (t === "node_result") {
-        void sendNodeResult(d as NodeResult);
+        void sendNodeResult(d as NodeResult).then(() => {
+          setLaunchedUrl(null);
+        });
         return;
       }
       if (t === "companion_event") {
@@ -319,6 +436,23 @@ export function AdventureMap(props: {
         if (inner && typeof inner === "object" && !Array.isArray(inner)) {
           forwardMapIframeGameStateUpdate(inner as Record<string, unknown>);
         }
+        return;
+      }
+      if (t === "currency_award") {
+        const inner = (d as { payload?: unknown }).payload;
+        const pl =
+          inner && typeof inner === "object" && !Array.isArray(inner)
+            ? (inner as Record<string, unknown>)
+            : (d as Record<string, unknown>);
+        const rawAmt = pl.amount;
+        const amt =
+          typeof rawAmt === "number" ? rawAmt : Number(rawAmt);
+        if (!Number.isFinite(amt)) return;
+        const reason =
+          typeof pl.reason === "string" && pl.reason.length > 0
+            ? pl.reason
+            : "currency_award";
+        forwardMapIframeCurrencyAward(amt, reason);
         return;
       }
       if (t !== "node_complete") return;
@@ -365,7 +499,21 @@ export function AdventureMap(props: {
         wordsAttempted:
           typeof pl.wordsAttempted === "number" ? pl.wordsAttempted : 0,
       };
-      void sendNodeResult(nr);
+      if (Array.isArray(pl.missedWords)) {
+        nr.missedWords = pl.missedWords.map(String).filter(Boolean);
+      }
+      if (Array.isArray(pl.correctWords)) {
+        nr.correctWords = pl.correctWords.map(String).filter(Boolean);
+      }
+      if (
+        node?.type === "mystery" &&
+        (pl.completed === true || pl.completed === undefined)
+      ) {
+        quest.beginQuestUnlockSequence();
+      }
+      void sendNodeResult(nr).then(() => {
+        setLaunchedUrl(null);
+      });
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -375,6 +523,8 @@ export function AdventureMap(props: {
     props.previewMode,
     forwardMapIframeCompanionEvent,
     forwardMapIframeGameStateUpdate,
+    forwardMapIframeCurrencyAward,
+    quest.beginQuestUnlockSequence,
   ]);
 
   useEffect(() => {
@@ -548,29 +698,72 @@ export function AdventureMap(props: {
     }
   }
 
-  const handleNodeLaunch = useCallback(
-    async (node: NodeConfig) => {
+  const triggerQuestLaunch = useCallback(
+    (iframeUrl: string) => {
+      triggerTransition({
+        palette: nodeTransitionPalette("quest"),
+        onComplete: () => setLaunchedUrl(iframeUrl),
+      });
+    },
+    [triggerTransition],
+  );
+
+  const briefing = useQuestBriefing({
+    childId: resolved,
+    mapState,
+    reinforceWords: props.reinforceWords ?? [],
+    previewMode: props.previewMode ?? false,
+    mapCompanion: props.mapCompanion,
+    companionMutedForMap: props.companionMutedForMap,
+    dyslexiaMode: props.dyslexiaMode,
+    profileNames,
+    setProfileNames,
+    commitLaunchedNode,
+    triggerQuestLaunch,
+  });
+
+  async function handleNodeLaunch(node: NodeConfig) {
       const previewMode = props.previewMode;
       const mapPreview =
         previewMode === "free" || previewMode === "go-live";
-      console.log("[DEBUG node-click]", {
+      console.log("  🎮 [AdventureMap] node_click", {
         nodeId: node?.id,
         nodeType: node?.type,
         isLocked: node?.isLocked,
         previewMode,
-        mapPreview: previewMode === "free" || previewMode === "go-live",
-        launchedUrl,
-        pendingVRR: pendingVrr,
+        mapPreview,
       });
       playFairyShimmer();
       const result = mapPreview ? node : await onNodeClick(node.id);
       if (!result) {
-        console.log("[DEBUG] aborted: no result from onNodeClick / empty node");
+        console.log("  🎮 [AdventureMap] node_click skipped no-result");
         return;
       }
       if (result.type === "boss" && !result.gameFile) {
         setLaunchedUrl(null);
         setShowBossPlaceholder(true);
+        return;
+      }
+      if (
+        result.type === "quest" &&
+        quest.canOpenQuestBriefing
+      ) {
+        if (DIAG_UNLOCK_MAP_UI || mapPreview) {
+          quest.beginQuestUnlockSequence({ force: true });
+          window.setTimeout(() => briefing.show(result), 1300);
+          return;
+        }
+        forwardMapIframeCompanionEvent({
+          emote: "happy",
+          intensity: 0.9,
+          timestamp: Date.now(),
+          childId: resolved,
+          metadata: {
+            source: "quest_briefing",
+            questEvent: "quest_briefing_opened",
+          },
+        });
+        briefing.show(result);
         return;
       }
       const muted = props.companionMutedForMap === true;
@@ -603,12 +796,14 @@ export function AdventureMap(props: {
             ? "free"
             : props.previewMode === "go-live"
               ? "go-live"
-              : undefined,
+              : "false",
         vrmUrl: props.mapCompanion?.vrmUrl,
         companionMuted: muted,
       });
-      console.log("[DEBUG] after buildNodeLaunchAction:", launchAction);
-      console.log("[DEBUG] action kind:", launchAction?.kind);
+      console.log("  🎮 [AdventureMap] node_launch_action", {
+        nodeType: result.type,
+        kind: launchAction.kind,
+      });
       if (launchAction.kind === "skip") {
         console.warn("🎮 [AdventureMap] node launch skip:", launchAction.reason, result.type);
         return;
@@ -619,7 +814,7 @@ export function AdventureMap(props: {
           palette: nodeTransitionPalette(result.type),
           onComplete: () => {
             commitLaunchedNode(result);
-            console.log("[DEBUG] after commitLaunchedNode (canvas path)");
+            console.log("  🎮 [AdventureMap] node_committed canvas");
             // Word Radar is client-only — never canvas_show. Other canvas nodes: skip in map preview (no server canvas sync).
             if (result.type !== "word-radar" && !mapPreview) {
               props.karaokeReadingForMapNode?.sendMessage?.(
@@ -637,32 +832,16 @@ export function AdventureMap(props: {
             ? ensurePreviewQueryParam(launchAction.url, props.previewMode)
             : launchAction.url;
         commitLaunchedNode(result);
-        console.log("[DEBUG] after commitLaunchedNode (iframe path)");
+        console.log("  🎮 [AdventureMap] node_committed iframe");
         triggerTransition({
           palette: nodeTransitionPalette(result.type),
           onComplete: () => {
             setLaunchedUrl(iframeUrl);
-            console.log("[DEBUG] launchedUrl set to:", iframeUrl);
+            console.log("  🎮 [AdventureMap] iframe_url_ready", { iframeUrl });
           },
         });
       }
-    },
-    [
-      onNodeClick,
-      resolved,
-      props.childId,
-      props.previewMode,
-      props.mapCompanion,
-      props.companionMutedForMap,
-      props.karaokeReadingForMapNode,
-      profileNames,
-      commitLaunchedNode,
-      clearLaunchedNode,
-      triggerTransition,
-      launchedUrl,
-      pendingVrr,
-    ],
-  );
+    }
 
   const diagReading = import.meta.env.VITE_DIAG_READING === "true";
   const flowGameBackChrome =
@@ -705,9 +884,14 @@ export function AdventureMap(props: {
   const nodes = mapState?.nodes ?? [];
   const previewActive =
     props.previewMode === "free" || props.previewMode === "go-live";
-  const completedForLocks = new Set(mapState?.completedNodes ?? []);
   const displayNodes =
-    nodes.length > 0 ? applyHomeworkStyleNodeLocks(nodes, completedForLocks) : [];
+    nodes.length > 0
+      ? displayNodesForAdventureMap(
+          nodes,
+          mapState?.completedNodes ?? [],
+          DIAG_UNLOCK_MAP_UI,
+        )
+      : [];
   const activeIndex = mapState?.currentNodeIndex ?? 0;
 
   const level = mapState?.level ?? 1;
@@ -813,9 +997,12 @@ export function AdventureMap(props: {
                     node={node}
                     position={pos}
                     thumbnail={thumbnail}
+                    allowReplayWhenCompleted={DIAG_UNLOCK_MAP_UI}
                     onClick={() => void handleNodeLaunch(node)}
                     onLockedClick={() => props.onLockedNodeTap?.(node)}
                     isActive={isActive}
+                    forceLocked={quest.forceQuestLock(node)}
+                    lockGlyphOverride={quest.lockGlyphOverrideFor(node) ?? undefined}
                     customStyle={
                       node.type === "mystery"
                         ? {
@@ -838,7 +1025,10 @@ export function AdventureMap(props: {
         ) : null}
         <TamagotchiStrip
           tamagotchi={props.tamagotchi ?? DEFAULT_TAMAGOTCHI}
-          hidden={Boolean(launchedNode)}
+          hidden={
+            Boolean(launchedNode) ||
+            props.tamagotchHydrated === false
+          }
         />
         <AnimatePresence>
           {ratingPrompt ? (
@@ -989,13 +1179,9 @@ export function AdventureMap(props: {
               companion={props.mapCompanion ?? null}
               childId={props.childId}
               onComplete={(result) => {
-                void sendNodeResult({
-                  nodeId: launchedNode.id,
-                  completed: true,
-                  accuracy: result.accuracy,
-                  timeSpent_ms: result.timeSpent_ms,
-                  wordsAttempted: result.rawResults.length,
-                });
+                void sendNodeResult(
+                  nodeResultFromWordRadar(launchedNode.id, result),
+                );
               }}
             />
             {flowGameBackChrome ? (
@@ -1218,9 +1404,11 @@ export function AdventureMap(props: {
             gap: 8,
           }}
         >
-          🍎 Elli's Care
+          {`🍎 ${profileNames?.companionName ?? "Companion"}'s Care`}
         </button>
       ) : null}
+      <QuestUnlockSequence {...quest} />
+      <QuestBriefingModal {...briefing.modalProps} />
       {false && pendingVrr && (
         <SlotMachineOverlay
           event={pendingVrr}

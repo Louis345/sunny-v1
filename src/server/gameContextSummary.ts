@@ -82,6 +82,45 @@ export function buildGameContextSummary(state: Record<string, unknown>): string 
   if (typeof state.game === "string" && state.game.length > 0) {
     lines.push(`Game: ${state.game}`);
   }
+  if (typeof state.nodeId === "string" && state.nodeId.length > 0) {
+    lines.push(`Node id: ${state.nodeId}`);
+  }
+  if (state.phase === "node_complete") {
+    if (typeof state.accuracy === "number" && !Number.isNaN(state.accuracy)) {
+      lines.push(`Session accuracy: ${Math.round(state.accuracy * 100)}%`);
+    }
+    if (typeof state.completed === "boolean") {
+      lines.push(`Completed: ${state.completed ? "yes" : "no"}`);
+    }
+    if (
+      typeof state.wordsAttempted === "number" &&
+      !Number.isNaN(state.wordsAttempted)
+    ) {
+      lines.push(`Items attempted: ${String(state.wordsAttempted)}`);
+    }
+  }
+  if (Array.isArray(state.missedWords) && state.missedWords.length > 0) {
+    const m = state.missedWords
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .slice(0, 40);
+    if (m.length) {
+      lines.push(
+        `Missed words: ${m.join(", ")}${state.missedWords.length > 40 ? " …" : ""}`,
+      );
+    }
+  }
+  if (Array.isArray(state.correctWords) && state.correctWords.length > 0) {
+    const c = state.correctWords
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .slice(0, 40);
+    if (c.length) {
+      lines.push(
+        `Correct words: ${c.join(", ")}${state.correctWords.length > 40 ? " …" : ""}`,
+      );
+    }
+  }
 
   return lines.join("\n");
 }

@@ -336,6 +336,8 @@ export class SessionManager {
    * (see companion-response-runner). Last write wins; never accumulates.
    */
   private pendingGameContext: string | null = null;
+  /** Map node `applyNodeResult` rollup — prepended on next take before iframe game_state text. */
+  private pendingNodeCompletionContext: string | null = null;
   private currentActivityState: Record<string, unknown> | null = null;
 
   private ws: WebSocket;
@@ -999,6 +1001,14 @@ export class SessionManager {
     this.pendingGameContext = buildGameContextSummary(state);
   }
 
+  /**
+   * Queue a one-shot map node completion summary for the next companion turn.
+   * Survives subsequent `injectGameContext` calls until consumed (merged first in take).
+   */
+  public queueNodeCompletionHandoff(state: Record<string, unknown>): void {
+    this.pendingNodeCompletionContext = buildGameContextSummary(state);
+  }
+
   getFreshActivityStateForScreenshot(): Record<string, unknown> | null {
     const state = this.currentActivityState;
     if (!state) return null;
@@ -1009,11 +1019,20 @@ export class SessionManager {
 
   /** Returns 0–2 synthetic messages for the next Claude call, then clears (never accumulates). */
   takePendingGameContextMessages(): ModelMessage[] {
-    const p = this.pendingGameContext;
+    const nodePart = this.pendingNodeCompletionContext;
+    this.pendingNodeCompletionContext = null;
+    const gamePart = this.pendingGameContext;
     this.pendingGameContext = null;
-    if (!p) return [];
+    const chunks = [nodePart, gamePart].filter(
+      (x): x is string => typeof x === "string" && x.trim().length > 0,
+    );
+    if (chunks.length === 0) return [];
+    const merged =
+      chunks.length === 1
+        ? chunks[0]!
+        : `${chunks[0]}\n\n---\n\n${chunks[1]}`;
     return [
-      { role: "user" as const, content: p },
+      { role: "user" as const, content: merged },
       {
         role: "assistant" as const,
         content: "Understood, I have the current game state.",

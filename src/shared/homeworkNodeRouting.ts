@@ -27,6 +27,8 @@ type RoutingContext = {
   iframePreviewParam?: string;
   vrmUrl?: string;
   companionMuted?: boolean;
+  isQuest?: boolean;
+  dyslexiaMode?: boolean;
 };
 
 type CanvasLaunchAction = {
@@ -63,6 +65,8 @@ export function buildNodeLaunchParams(
     previewParam: iframePreviewQuery(ctx),
     vrmUrl: ctx.vrmUrl,
     companionMuted: ctx.companionMuted,
+    isQuest: ctx.isQuest,
+    dyslexiaMode: ctx.dyslexiaMode,
   };
   return buildNodeUrlSearchParams(node, nctx);
 }
@@ -83,6 +87,8 @@ export function buildNodeLaunchAction(
     previewParam: iframePreviewQuery(ctx),
     vrmUrl: ctx.vrmUrl,
     companionMuted: ctx.companionMuted,
+    isQuest: ctx.isQuest,
+    dyslexiaMode: ctx.dyslexiaMode,
   };
   const rc = node as RoutableNodeConfig;
   if (handler.canvasMessage) {

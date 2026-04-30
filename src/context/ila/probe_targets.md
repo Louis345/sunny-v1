@@ -1,13 +1,13 @@
 # Elli Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-04-28T00:18:31.734Z*
+*Updated: 2026-04-29T20:04:11.157Z*
 
-• Try the Word Builder game with sit/sat/hit/hat/bit—let her spell and see the sounds light up instead of saying sounds out loud
+• Let's play a game where we compare things—"fast, faster, fastest"—and I'll show pictures so you see what each word means
 
-• Play with faster/fastest words naturally: "You're fast at drawing! You're even faster than yesterday! You're the fastest I've ever seen!"
+• Before we do harder spelling words, let's start with the tricky ones like "money" and "figure"—I'll help you remember the weird parts
 
-• Give her a two-step direction like "touch the red circle, then clap twice" and see how she does
+• When you need a break, we'll take one—no problem! Let's do the hardest words first when your brain is fresh
 
-• Tell her a short sentence like "The dog ran fast" and ask her to say it back to you
+• I'll ask you to do two things in a row, like "touch the blue circle, then clap twice"—just to see how you do
 
-• Watch if she reads new words or just remembers stories she's heard before—pick a book she's never seen
+• After I say a sentence out loud, you try saying it back to me—let's see if we can make it a game

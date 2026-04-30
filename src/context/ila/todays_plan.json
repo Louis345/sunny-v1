@@ -1,12 +1,90 @@
 {
   "todaysPlan": [
     {
-      "activity": "Mixed-vowel phoneme segmentation diagnostic",
+      "activity": "Comparative/Superlative Meaning Comprehension (faster/fastest, slower/slowest, newer/newest, colder/coldest, taller/tallest)",
       "priority": 1,
       "required": true,
-      "reason": "CRITICAL: 21 days overdue. Ila avoided this probe 4/5 and resisted 4/4. Must determine if she has true phonemic awareness or relies on word-family pattern matching. Without this baseline, all decoding work is built on unverified assumptions.",
+      "reason": "Spelling test is May 1 (72 hours away). Session 4/28 Word Radar showed only 40% auditory discrimination of -er/-est forms (missed faster/fastest/slowest). Ila can spell these words with visual support (87% Spell-Check accuracy) but does not understand what -er = 'more' and -est = 'most' mean. CELF-5 Word Structure at 5th percentile documents morphological errors. She needs explicit meaning instruction before test, not just spelling practice.",
+      "timeboxMinutes": 10,
+      "method": "Visual three-way comparison with pictures: show three objects (fast car, faster train, fastest rocket). Ask 'Point to fast. Point to faster. Point to fastest.' Then oral production: 'The dog is slow. The cat is ___. The turtle is the ___.' (slower, slowest). Confirm she understands -er compares TWO things, -est compares THREE OR MORE. Use Sentence Comprehension strength (63rd percentile) to frame comparisons as stories.",
+      "words": [
+        "faster",
+        "fastest",
+        "slower",
+        "slowest",
+        "newer",
+        "newest",
+        "colder",
+        "coldest",
+        "taller",
+        "tallest"
+      ],
+      "probeSequence": [
+        "Visual comprehension: point to fast/faster/fastest pictures",
+        "Oral production: The dog is slow. The cat is ___ (slower). The turtle is the ___ (slowest).",
+        "Concept check: How many things do you need to use 'faster'? (2) How many for 'fastest'? (3 or more)"
+      ]
+    },
+    {
+      "activity": "Irregular Spelling Pattern Visual Memory (sailor, figure, horse, money, voice)",
+      "priority": 2,
+      "required": true,
+      "reason": "Spell-Check 4/28 showed 'sailor' incomplete (5 wrong attempts: 'e r o o r', 'o r e r'). These homework words have irregular orthography without predictable phonics. WIAT-4 spelling at 55th percentile in isolation but collapses under cognitive load. Dyslexia profile demands visual memory anchors, not phonetic analysis. Test is 5/1 (72 hours)—these are the words most likely to fail.",
       "timeboxMinutes": 8,
-      "method": "Word Builder game format with visual sound boxes",
+      "method": "Visual memory strategies with semantic anchors: (1) Sailor = AI like 'rail' + OR like 'or'—write 5x while chanting letters. (2) Figure = silent U—draw stick figure and label it. (3) Money = ONE 'e' but sounds like two—circle the weird part, relate to coins. (4) Horse = OR like 'or' + SE—draw horse. (5) Voice = OI like 'oil' + CE—point to throat. Each word gets a visual mnemonic she creates, not teacher-imposed.",
+      "words": [
+        "sailor",
+        "figure",
+        "horse",
+        "money",
+        "voice"
+      ]
+    },
+    {
+      "activity": "Following Directions Formal Baseline Probe (2-step then 3-step with modifiers)",
+      "priority": 3,
+      "required": true,
+      "reason": "IEP-mandated baseline missing after 33 'mentions' in notes across 25+ sessions. CELF-5: 2nd percentile, documented failure with multi-step directions and modifiers. All sessions use single-step instructions only. CSE requires actual performance data for progress monitoring, not planning references. This is a legal compliance requirement.",
+      "timeboxMinutes": 5,
+      "method": "Formal probe with exact wording documented: (1) 'Touch the big blue circle, then tap your head twice.' Record: completed/partially completed/failed. (2) 'Pick up the red pen, put it next to the book, then clap your hands.' Record verbatim. Do NOT provide 'wait until I say Go' scaffolding on first attempt—test raw baseline. If she fails, repeat WITH scaffolding and document difference.",
+      "probeSequence": [
+        "Touch the big blue circle, then tap your head twice (2-step + size/color modifiers)",
+        "Pick up the red pen, put it next to the book, then clap your hands (3-step + color/spatial modifiers)",
+        "If failed: repeat with 'Wait until I say Go' scaffolding and document performance change"
+      ]
+    },
+    {
+      "activity": "Recalling Sentences Formal Baseline Probe (4-word, 9-word, 16-word)",
+      "priority": 4,
+      "required": true,
+      "reason": "IEP-mandated baseline missing after 29 'mentions' across 25+ sessions. CELF-5: 5th percentile auditory memory with breakdown at longer sentence length. Zero sentence repetition tasks documented—all work is word-level (spelling, Word Radar). CSE requires baseline for progress monitoring. Legal compliance requirement.",
+      "timeboxMinutes": 5,
+      "method": "Sentence repetition probe with length progression: (1) 'The dog ran fast' (4 words). (2) 'The big cat is sleeping on the soft chair' (9 words + modifiers). (3) 'When the boy came home from school yesterday, he found his red ball by the fence' (16 words, embedded clause, past tense). Record verbatim responses. Do NOT repeat sentences—this tests auditory memory, not comprehension. Document where breakdown occurs (word count threshold).",
+      "probeSequence": [
+        "The dog ran fast (4 words)",
+        "The big cat is sleeping on the soft chair (9 words)",
+        "When the boy came home from school yesterday, he found his red ball by the fence (16 words)"
+      ]
+    },
+    {
+      "activity": "Homework Word Spell-Check Rehearsal (game format, front-load hard words)",
+      "priority": 5,
+      "required": false,
+      "reason": "Session 4/28 showed 87% accuracy across 20 homework words with visual scaffolding, but fatigue hit after ~10 minutes ('It's just bad'). Test is 5/1 (72 hours). Final rehearsal confirms mastery and identifies last-minute gaps. Front-load hardest words (sailor, figure, voice, products, questions) at session start before ADHD-driven attention collapse.",
+      "timeboxMinutes": 10,
+      "skipConditions": [
+        "If previous activities exceeded 25 minutes",
+        "If Ila shows frustration or requests break after comparative/superlative work"
+      ],
+      "minimumWords": 10
+    },
+    {
+      "activity": "Mixed-Vowel Discrimination Diagnostic (sit, sat, hit, hat, bit)",
+      "priority": 6,
+      "required": false,
+      "reason": "24 days overdue since 4/3 specification. Actively avoided across 6 sessions (resisted 4/4, deferred 4/5, incomplete 4/18/4/26, zero phoneme work 4/28). Algorithm shows 0 attempts last 5 sessions, Wilson Step 1 gate = REGRESSED. However, spelling test on 5/1 is higher priority—phoneme work can wait until after test. Include ONLY if time allows and Ila does not resist.",
+      "timeboxMinutes": 8,
+      "method": "Embed in Word Builder game format with visual sound boxes (NOT oral segmentation drills). Alternating sequence: sit → sat → hit → hat → bit. 80%+ accuracy = advance to CCVC. <60% = abandon oral phoneme work, focus on whole-word spelling patterns only.",
       "words": [
         "sit",
         "sat",
@@ -14,98 +92,15 @@
         "hat",
         "bit"
       ],
-      "probeSequence": [
-        "Show word in sound boxes",
-        "Ask: Tell me all three sounds",
-        "Record response verbatim",
-        "Alternate vowels unpredictably"
-      ],
-      "minimumWords": 5
-    },
-    {
-      "activity": "Comparative/superlative morphology for homework support",
-      "priority": 2,
-      "required": true,
-      "reason": "Homework due soon: faster/fastest, slower/slowest, etc. CELF-5 Word Structure at 5th percentile predicts morphological errors. Must provide explicit instruction before test.",
-      "timeboxMinutes": 10,
-      "method": "Visual pattern + oral production",
-      "words": [
-        "fast",
-        "faster",
-        "fastest",
-        "slow",
-        "slower",
-        "slowest"
-      ],
-      "probeSequence": [
-        "What does fast mean?",
-        "What does faster mean?",
-        "What does fastest mean?",
-        "How many letters in fast? faster? fastest?",
-        "The dog is fast. The cat is ___. The rabbit is the ___."
-      ]
-    },
-    {
-      "activity": "Spelling practice: taller/tallest, colder/coldest",
-      "priority": 3,
-      "required": false,
-      "reason": "Homework words. Ila's spelling is 55th percentile in isolation but collapses under load. Practice with visual scaffolding before test.",
-      "timeboxMinutes": 7,
-      "method": "Word Builder then spelling from memory",
-      "words": [
-        "tall",
-        "taller",
-        "tallest",
-        "cold",
-        "colder",
-        "coldest"
-      ],
       "skipConditions": [
-        "If Ila shows fatigue after activity 2",
-        "If mixed-vowel diagnostic reveals need for method change"
-      ]
-    },
-    {
-      "activity": "Following Directions formal baseline probe",
-      "priority": 4,
-      "required": true,
-      "reason": "CRITICAL IEP compliance: 2nd percentile, 31 mentions in notes but zero formal execution across all sessions. Must document actual performance for IEP progress monitoring.",
-      "timeboxMinutes": 5,
-      "method": "Direct instruction with exact performance recording",
-      "probeSequence": [
-        "Touch the big red circle, then clap twice",
-        "Pick up the blue pen, put it next to the book, then stand up",
-        "Record: completed/partially completed/failed for each"
-      ]
-    },
-    {
-      "activity": "Recalling Sentences formal baseline probe",
-      "priority": 5,
-      "required": true,
-      "reason": "CRITICAL IEP compliance: 5th percentile, 27 mentions but zero sentence repetition tasks documented. Essential for IEP baseline.",
-      "timeboxMinutes": 5,
-      "method": "Sentence repetition with verbatim recording",
-      "probeSequence": [
-        "Say: The dog ran fast",
-        "Say: The cat is sleeping on the chair",
-        "Say: When the boy went outside, he found a ball",
-        "Record exact responses verbatim"
-      ]
-    },
-    {
-      "activity": "Reading fluency check on novel passage",
-      "priority": 6,
-      "required": false,
-      "reason": "Ila prefers reading to phoneme work. Must assess if she decodes novel words or relies on whole-word memorization. Sessions 4/4-4/5 show reading engagement but phoneme avoidance.",
-      "timeboxMinutes": 5,
-      "method": "Present unfamiliar short passage, observe decoding strategies",
-      "skipConditions": [
-        "If Ila completes required activities and requests reading reward time",
-        "If session time remaining <5 minutes"
-      ]
+        "If Ila requests to skip",
+        "If session time <5 minutes remaining",
+        "If previous activities caused frustration"
+      ],
+      "minimumWords": 3
     }
   ],
-  "childProfile": "Ila is 8y3m with ADHD + dyslexia. She actively avoids phoneme segmentation tasks (deferred 4/5, resisted 4/4) but engages with narrative reading and spelling games. CELF-5 shows strength in Sentence Comprehension (63rd) but severe deficits in Following Directions (2nd), Recalling Sentences (5th), Word Structure (5th). She requires visual support (100% accuracy with pictures vs 37% without), single-step instructions, and breaks every 10-15 minutes. Homework includes comparative/superlative morphology (-er/-est) she will struggle with due to Word Structure deficit. IEP-mandated baseline probes on Following Directions and Recalling Sentences are 21+ days overdue with zero execution despite 31 and 27 planning mentions. Mixed-vowel discrimination diagnostic is the gate-keeper for all future phoneme work but has been avoided for 21 days.",
-  "stopAfter": "30 minutes total or when Ila shows fatigue ('I'm gonna go to bed now') or requests to stop. If mixed-vowel diagnostic probe reveals <60% accuracy, stop phoneme work immediately and pivot to morphology instruction only.",
-  "rewardPolicy": "Ila responds well to game-based learning (Word Builder, spell-check) and narrative reading as rewards. Offer 5-minute reading time after completing required activities 1-2. Do not use games as bribes before work; structure as earned consequences after effort. If she avoids mixed-vowel probe again, do not force—pivot to homework morphology support and document avoidance pattern for method change recommendation."
+  "childProfile": "Ila is 8 years 3 months old with ADHD combined type and dyslexia. She has mild language delays (12th percentile receptive, 4th percentile expressive) but average sentence comprehension (63rd percentile). She depends heavily on visual support—100% accuracy with pictures, 37% without. Multi-step directions fail (2nd percentile); always break tasks into single steps with clear 'Ready? Go!' signals. She spells at 55th percentile in isolation but collapses under cognitive load. Sustained attention lasts 10-15 minutes before fatigue hits. She actively avoids phoneme segmentation work (prefers reading/spelling games) but engages when tasks are game-based with immediate feedback. Comparative/superlative morphology is new territory—she can spell -er/-est words but does not understand their meanings. Irregular spelling words (sailor, figure, money) require visual memory anchors, not phonetic analysis. She is friendly, willing, and pride-motivated—celebrates effort over accuracy. Homework spelling test is May 1 (72 hours), making test preparation the top priority. IEP baseline probes on Following Directions and Recalling Sentences are legally required documentation that has been deferred for 25+ sessions—must complete this week.",
+  "stopAfter": "30 minutes total or when Ila shows frustration/fatigue signs ('It's just bad', requests help repeatedly, false starts increase). Spelling test is 5/1—prioritize meaning comprehension and irregular word rehearsal over IEP probes if time is limited. Front-load hardest activities (comparative meanings, irregular spellings) at session start before ADHD attention collapse.",
+  "rewardPolicy": "Ila responds well to game-based formats (Word Builder, Spell-Check, Wheel of Fortune) and brief breaks between tasks. After completing required comparative/superlative meaning work and irregular spelling rehearsal, offer 3-5 minute game break (Space Frogger, Space Invaders) before IEP baseline probes. If she completes all homework rehearsal + both IEP probes without resistance, end session with 5-minute free choice game. Do NOT offer games as negotiation tools before work starts—she will derail the session. Use praise heavily ('You're on fire today!', 'That's incredible!') and celebrate effort, not just accuracy. Avoid any hint of 'wrong'—she shuts down. If she shows frustration during irregular spelling (like 'sailor' on 4/28), redirect to easier word, celebrate small wins, then return to hard word at end."
 }

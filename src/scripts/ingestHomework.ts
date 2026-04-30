@@ -8,13 +8,14 @@ import { stdin as input, stdout as output } from "process";
 import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
-import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
+import { planSession, reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
 import { readChildMeta } from "../profiles/childrenConfig";
+import { selectHomeworkSessionWords, daysUntilHomeworkTest } from "../shared/homeworkWordSelection";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
@@ -78,22 +79,43 @@ function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode
   }));
 }
 
-/** Persisted map + session spelling source; word cap from child profile `games["spell-check"].maxWords`. */
+/**
+ * Persisted map + session spelling source; word cap from child profile `games["spell-check"].maxWords`.
+ * The live homework **mystery** node (Monster Stampede / Speed Catcher alternation) is injected in
+ * `startMapSession` in `map-coordinator.ts` via `selectMysteryGame` — not part of this node list.
+ */
 export function buildHomeworkNodes(args: {
   type: HomeworkType;
   words: string[];
   homeworkId: string;
   childId: string;
   testDate?: string | null;
+  /** Prior session misses — highest priority in SM-2 ordering (same as map `reinforceWords`). */
+  missedWords?: string[];
 }): PlannedNode[] {
-  const { type, words, homeworkId, childId, testDate } = args;
+  const { type, words, homeworkId, childId, testDate, missedWords } = args;
   const idSuffix = homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
 
   if (type === "spelling_test") {
     const childMeta = readChildMeta(childId);
-    const maxWords = childMeta?.games?.["spell-check"]?.maxWords ?? 5;
-    const days = testDate ? daysUntil(testDate) : 999;
-    const w = days <= 5 ? words : words.slice(0, maxWords);
+    const maxWords =
+      childMeta?.games?.["word-radar"]?.maxWords ??
+      childMeta?.games?.["spell-check"]?.maxWords ??
+      5;
+    const today = new Date().toISOString().slice(0, 10);
+    const bank = readWordBank(childId);
+    const sm2Plan = planSession(childId, "spelling", { homeworkFallbackWords: words });
+    const selected = selectHomeworkSessionWords({
+      wordList: words,
+      sm2Plan,
+      missedWords: missedWords ?? [],
+      testDate: testDate ?? null,
+      maxWords,
+      testImminent: daysUntilHomeworkTest(testDate ?? null, today) <= 5,
+      wordBankWords: bank.words,
+      todayIso: today,
+    });
+    const w = selected;
     return [
       {
         id: `n-word-radar-${idSuffix}`,
@@ -120,15 +142,6 @@ export function buildHomeworkNodes(args: {
         words: [...w],
         difficulty: 2,
         rationale: "Bonus round — collaborative spelling game",
-        gameFile: null,
-        storyFile: null,
-      },
-      {
-        id: `n-karaoke-${idSuffix}`,
-        type: "karaoke",
-        words: [...w],
-        difficulty: 2,
-        rationale: "Karaoke — read-aloud with embedded spelling words",
         gameFile: null,
         storyFile: null,
       },
@@ -176,7 +189,6 @@ const SPELLING_TEST_NODE_ORDER = [
   "word-radar",
   "spell-check",
   "pronunciation",
-  "karaoke",
   "word-builder",
   "quest",
   "boss",

@@ -25,7 +25,7 @@ type ProfileResponse = {
 };
 
 const DEFAULT_WORD_RADAR: WordRadarSandboxConfig = {
-  inputMode: "whole-word",
+  inputMode: "letter-by-letter",
   speakStyle: "option-a",
   keyboardStyle: "option-c",
   showTimer: true,

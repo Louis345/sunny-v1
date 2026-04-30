@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Project Sunny — Speed Catcher</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <script src="_contract.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{font-family:'Lexend',sans-serif;background:#06001a;height:100%;overflow:hidden}
+
+    @keyframes twinkle{0%,100%{opacity:.15;transform:scale(.7)}50%{opacity:.9;transform:scale(1.3)}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-7px)}80%{transform:translateX(7px)}}
+    @keyframes popIn{0%{transform:scale(0) rotate(-10deg);opacity:0}70%{transform:scale(1.15) rotate(2deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+    @keyframes catchFlash{0%,100%{opacity:0}50%{opacity:1}}
+    @keyframes companion-bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-18px) scale(1.05)}80%{transform:translateY(-8px)}}
+    @keyframes slideUp{0%{transform:translateY(30px);opacity:0}100%{transform:translateY(0);opacity:1}}
+    @keyframes pulseBorder{0%,100%{box-shadow:0 0 0 0 rgba(168,85,247,.5)}50%{box-shadow:0 0 0 8px rgba(168,85,247,0)}}
+    @keyframes shootingStar{0%{transform:translate(0,0) rotate(-25deg);opacity:0}10%{opacity:1}100%{transform:translate(-100vw,60vh) rotate(-25deg);opacity:0}}
+    @keyframes wrong-flash{0%,100%{background:rgba(239,68,68,0)}50%{background:rgba(239,68,68,.18)}}
+    @keyframes correct-flash{0%,100%{background:rgba(16,185,129,0)}50%{background:rgba(16,185,129,.15)}}
+    @keyframes countdownPulse{0%{transform:scale(1.4);opacity:0}100%{transform:scale(1);opacity:1}}
+    @keyframes lifelose{0%{transform:scale(1.3);opacity:1}100%{transform:scale(.7);opacity:.3}}
+  </style>
+  <template id="__bundler_thumbnail" data-bg-color="#06001a">
+    <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1200" height="800" fill="#06001a"/>
+      <circle cx="200" cy="100" r="2" fill="#a855f7" opacity=".8"/>
+      <circle cx="500" cy="60" r="2" fill="#06b6d4" opacity=".6"/>
+      <circle cx="900" cy="90" r="3" fill="white" opacity=".5"/>
+      <circle cx="1100" cy="40" r="2" fill="#a855f7" opacity=".7"/>
+      <text x="600" y="120" text-anchor="middle" font-size="32" font-weight="900" fill="#a855f7" font-family="sans-serif" letter-spacing="6">SPEED CATCHER</text>
+      <!-- Target word -->
+      <rect x="350" y="160" width="500" height="80" rx="16" fill="rgba(168,85,247,.15)" stroke="#a855f7" stroke-width="2"/>
+      <text x="600" y="212" text-anchor="middle" font-size="36" font-weight="900" fill="white" font-family="sans-serif" letter-spacing="4">BLISTER</text>
+      <!-- Falling bubbles -->
+      <rect x="120" y="300" width="160" height="60" rx="30" fill="rgba(168,85,247,.3)" stroke="#a855f7" stroke-width="2"/>
+      <text x="200" y="337" text-anchor="middle" font-size="20" font-weight="800" fill="white" font-family="sans-serif">blister</text>
+      <rect x="380" y="380" width="160" height="60" rx="30" fill="rgba(6,182,212,.2)" stroke="#06b6d4" stroke-width="2"/>
+      <text x="460" y="417" text-anchor="middle" font-size="20" font-weight="800" fill="white" font-family="sans-serif">blester</text>
+      <rect x="660" y="340" width="160" height="60" rx="30" fill="rgba(6,182,212,.2)" stroke="#06b6d4" stroke-width="2"/>
+      <text x="740" y="377" text-anchor="middle" font-size="20" font-weight="800" fill="white" font-family="sans-serif">blistor</text>
+      <rect x="920" y="420" width="160" height="60" rx="30" fill="rgba(6,182,212,.2)" stroke="#06b6d4" stroke-width="2"/>
+      <text x="1000" y="457" text-anchor="middle" font-size="20" font-weight="800" fill="white" font-family="sans-serif">blisster</text>
+      <!-- Catcher bar -->
+      <rect x="300" y="680" width="280" height="24" rx="12" fill="#a855f7" opacity=".9"/>
+      <text x="440" y="698" text-anchor="middle" font-size="14" font-weight="700" fill="white" font-family="sans-serif">Player</text>
+    </svg>
+  </template>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+/* ── GameBridge stubs (if _contract.js absent) ─────────────────── */
+window.GameBridge = window.GameBridge || {
+  reportState:(m,s)=>console.log('[GB:state]',m,s),
+  reportAction:(a,m,s)=>console.log('[GB:action]',a,m,s),
+  startHeartbeat:(gm,gs)=>setInterval(()=>console.log('[GB:hb]',gm()),5000),
+  awardCurrency:(n,r)=>console.log('[GB:coins]',n,r),
+};
+window.fireCompanionEvent = window.fireCompanionEvent || ((t,p)=>console.log('[companion]',t,p));
+window.sendNodeComplete = window.sendNodeComplete || ((r)=>console.log('[nodeComplete]',r));
+</script>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+/* ═══════════════════════════════════════════════════════════════
+   GAME PARAMS — driven by child profile at runtime
+═══════════════════════════════════════════════════════════════ */
+const GP = window.GAME_PARAMS || {};
+
+const WORDS        = (GP.words || []).map(w => w.toLowerCase().replace(/[^a-z]/g,'')).filter(Boolean);
+const CHILD_ID     = GP.childId        ?? 'child';
+const CHILD_NAME   = GP.childName      || 'Player';
+const COMPANION_ID = GP.companion      ?? 'matilda';
+const COMPANION_NAME = GP.companionName || 'Matilda';
+const THEME_ID     = GP.theme          ?? 'cosmos';
+const CATEGORY     = GP.category       ?? 'Spelling';
+const LIVES_MAX    = GP.livesCount     ?? 3;
+const ROUND_TIME   = GP.timerSeconds   ?? 22;   // seconds per word
+const PLAYER_COUNT = GP.playerCount    ?? 1;     // 1 or 2 (2 = child vs AI companion)
+const DYSLEXIA     = GP.dyslexiaMode   ?? false;
+const BASE_FONT    = DYSLEXIA ? 42 : 36;
+
+/* ── Misspelling generator ────────────────────────────────────── */
+function makeMisspellings(word, n = 3) {
+  const out = [];
+  const used = new Set([word]);
+  const strategies = [
+    w => { // vowel swap
+      const vowels = 'aeiou';
+      const idxs = [...w].map((c,i)=>vowels.includes(c)?i:-1).filter(i=>i>=0);
+      if (!idxs.length) return null;
+      const i = idxs[Math.floor(Math.random()*idxs.length)];
+      const v = vowels.replace(w[i],'');
+      return w.slice(0,i) + v[Math.floor(Math.random()*v.length)] + w.slice(i+1);
+    },
+    w => w.endsWith('er') ? w.slice(0,-2)+'or' : w.endsWith('or') ? w.slice(0,-2)+'er' : null,
+    w => w.endsWith('er') ? w.slice(0,-2)+'ar' : null,
+    w => { // double a consonant
+      const cons = [...w].reduce((a,c,i)=>{if(!'aeiou'.includes(c)&&i>0&&i<w.length-1)a.push(i);return a;},[]);
+      if (!cons.length) return null;
+      const i = cons[Math.floor(Math.random()*cons.length)];
+      return w.slice(0,i)+w[i]+w.slice(i);
+    },
+    w => { // remove a vowel
+      const idxs = [...w].map((c,i)=>'aeiou'.includes(c)?i:-1).filter(i=>i>0&&i<w.length-1);
+      if (!idxs.length) return null;
+      const i = idxs[Math.floor(Math.random()*idxs.length)];
+      return w.slice(0,i)+w.slice(i+1);
+    },
+    w => { // swap adjacent letters
+      const i = 1+Math.floor(Math.random()*(w.length-2));
+      return w.slice(0,i)+w[i+1]+w[i]+w.slice(i+2);
+    },
+  ];
+  let tries = 0;
+  while (out.length < n && tries < 40) {
+    tries++;
+    const s = strategies[Math.floor(Math.random()*strategies.length)];
+    const v = s(word);
+    if (v && v !== word && v.length >= 3 && !used.has(v)) { used.add(v); out.push(v); }
+  }
+  while (out.length < n) out.push(word.slice(0,-1)+'x'+out.length);
+  return out;
+}
+
+/* ── Shuffle ─────────────────────────────────────────────────── */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SOUND ENGINE
+═══════════════════════════════════════════════════════════════ */
+class SE {
+  static _ctx = null;
+  static get ctx() {
+    if (!SE._ctx) SE._ctx = new (window.AudioContext||window.webkitAudioContext)();
+    if (SE._ctx.state==='suspended') SE._ctx.resume();
+    return SE._ctx;
+  }
+  static _osc(freq,type,dur,vol,when=0,freqEnd){
+    const ctx=SE.ctx, t=ctx.currentTime+(when||0);
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,t);
+    if(freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd,t+dur*.9);
+    g.gain.setValueAtTime(vol,t);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(t); o.stop(t+dur+.02);
+  }
+  static _noise(dur,vol,filterFreq,when=0){
+    const ctx=SE.ctx, t=ctx.currentTime+(when||0);
+    const buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*dur),ctx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/(ctx.sampleRate*dur*.4));
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const f=ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=filterFreq; f.Q.value=2;
+    const g=ctx.createGain(); g.gain.value=vol;
+    src.connect(f); f.connect(g); g.connect(ctx.destination);
+    src.start(t);
+  }
+  static correct(){
+    SE._osc(880,'sine',.18,.35);
+    SE._osc(1320,'sine',.14,.22,.04);
+    SE._osc(1760,'sine',.10,.15,.08);
+    SE._noise(.06,.3,4000);
+  }
+  static wrong(){
+    SE._osc(220,'sawtooth',.25,.4,0,80);
+    SE._osc(150,'square',.2,.25,.08);
+    SE._noise(.12,.25,400);
+  }
+  static whoosh(){
+    SE._osc(800,'sawtooth',.12,.15,0,200);
+    SE._noise(.1,.2,3000);
+  }
+  static tick(){
+    SE._osc(440,'sine',.06,.12);
+  }
+  static fanfare(){
+    [523,659,784,1047,1319,1568].forEach((f,i)=>{
+      SE._osc(f,'sine',.6,.28,i*.09);
+      SE._osc(f*1.5,'sine',.3,.12,i*.09+.02);
+    });
+    SE._noise(.1,.4,4000,.55);
+    for(let i=0;i<10;i++) SE._osc(1200+Math.random()*800,'sine',.25,.1,.6+i*.12);
+  }
+  static gameover(){
+    SE._osc(440,'sawtooth',.6,.4,0,100);
+    SE._osc(300,'sawtooth',.5,.3,.15,60);
+    SE._osc(150,'sine',.8,.35,.35,40);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME
+═══════════════════════════════════════════════════════════════ */
+const THEMES = {
+  cosmos:{
+    bg:'radial-gradient(ellipse 80% 70% at 30% 10%, #1e0055 0%, #06001a 55%, #000820 100%)',
+    accent:'#a855f7', accent2:'#06b6d4', gold:'#fbbf24',
+    correct:'#10B981', wrong:'#EF4444',
+    bubbleCorrect:'rgba(168,85,247,.28)', bubbleCorrectBorder:'#a855f7',
+    bubbleWrong:'rgba(6,182,212,.15)', bubbleWrongBorder:'rgba(6,182,212,.5)',
+    catcherP1:'#a855f7', catcherP2:'#f59e0b',
+    timerColor:'#a855f7', headerBorder:'rgba(168,85,247,.4)',
+    targetBg:'rgba(168,85,247,.12)', targetBorder:'rgba(168,85,247,.6)',
+    glow:'rgba(168,85,247,.5)',
+  },
+  wrestling:{
+    bg:'radial-gradient(ellipse 80% 70% at 50% 0%, #3a0000 0%, #1a0000 55%, #0a0000 100%)',
+    accent:'#EF4444', accent2:'#F59E0B', gold:'#fbbf24',
+    correct:'#10B981', wrong:'#EF4444',
+    bubbleCorrect:'rgba(239,68,68,.25)', bubbleCorrectBorder:'#EF4444',
+    bubbleWrong:'rgba(245,158,11,.15)', bubbleWrongBorder:'rgba(245,158,11,.5)',
+    catcherP1:'#EF4444', catcherP2:'#F59E0B',
+    timerColor:'#EF4444', headerBorder:'rgba(239,68,68,.4)',
+    targetBg:'rgba(239,68,68,.12)', targetBorder:'rgba(239,68,68,.55)',
+    glow:'rgba(239,68,68,.5)',
+  },
+};
+const T = THEMES[THEME_ID] || THEMES.cosmos;
+
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════════ */
+const BUBBLE_COUNT = 4;   // correct + 3 misspellings per round
+const FALL_DURATION_BASE = ROUND_TIME * 1000; // ms
+
+/* ═══════════════════════════════════════════════════════════════
+   STARFIELD (static, memoized)
+═══════════════════════════════════════════════════════════════ */
+function Starfield() {
+  const stars = useMemo(()=>Array.from({length:60},(_,i)=>({
+    left:`${(i*17.3+3)%100}%`, top:`${(i*31.7+7)%100}%`,
+    size:i%5===0?3:i%3===0?2:1.5,
+    delay:`${(i%7)*.4}s`, dur:`${2+(i%5)*.5}s`,
+    color:i%4===0?T.accent:i%4===1?T.accent2:'#fff',
+  })),[]);
+  return (
+    <div style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+      {stars.map((s,i)=>(
+        <div key={i} style={{
+          position:'absolute',left:s.left,top:s.top,
+          width:s.size,height:s.size,borderRadius:'50%',
+          background:s.color,
+          animation:`twinkle ${s.dur} ease-in-out ${s.delay} infinite`,
+        }}/>
+      ))}
+      {[0,1,2].map(i=>(
+        <div key={`ss${i}`} style={{
+          position:'absolute',right:`${5+i*20}%`,top:`${5+i*10}%`,
+          width:60,height:2,borderRadius:2,
+          background:`linear-gradient(90deg,transparent,rgba(255,255,255,.8))`,
+          animation:`shootingStar ${8+i*3}s linear ${i*4}s infinite`,
+        }}/>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUBBLE COMPONENT
+═══════════════════════════════════════════════════════════════ */
+function Bubble({ bubble, onTap, disabled, screenH }) {
+  const ref = useRef(null);
+  const [y, setY] = useState(-80);
+  const isCorrect = bubble.correct;
+
+  useEffect(()=>{
+    const start = performance.now();
+    const dur = bubble.fallDuration;
+    let raf;
+    function tick(now){
+      const p = Math.min(1,(now-start)/dur);
+      setY(-80 + p*(screenH+120));
+      if(p<1) raf=requestAnimationFrame(tick);
+    }
+    raf=requestAnimationFrame(tick);
+    return ()=>cancelAnimationFrame(raf);
+  },[bubble.fallDuration, screenH]);
+
+  const handleTap = useCallback(()=>{
+    if(disabled) return;
+    onTap(bubble);
+  },[disabled, bubble, onTap]);
+
+  return (
+    <div
+      onClick={handleTap}
+      style={{
+        position:'absolute',
+        left:`${bubble.lane}%`,
+        top:y,
+        transform:'translateX(-50%)',
+        width:170,
+        padding:'12px 20px',
+        borderRadius:999,
+        background: isCorrect ? T.bubbleCorrect : T.bubbleWrong,
+        border:`2.5px solid ${isCorrect ? T.bubbleCorrectBorder : T.bubbleWrongBorder}`,
+        boxShadow: isCorrect ? `0 0 20px ${T.glow}` : 'none',
+        cursor: disabled ? 'default' : 'pointer',
+        userSelect:'none',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontFamily:'Lexend,sans-serif',
+        fontSize:BASE_FONT * .6,
+        fontWeight:800,
+        color:'white',
+        textShadow:'0 2px 8px rgba(0,0,0,.6)',
+        transition:'transform .1s',
+        pointerEvents: disabled ? 'none' : 'auto',
+        zIndex:8,
+        backdropFilter:'blur(4px)',
+      }}
+      onMouseDown={e=>{ if(!disabled) e.currentTarget.style.transform='translateX(-50%) scale(.95)'; }}
+      onMouseUp={e=>{ e.currentTarget.style.transform='translateX(-50%) scale(1)'; }}
+    >
+      {bubble.word}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CATCHER BAR
+═══════════════════════════════════════════════════════════════ */
+function CatcherBar({ name, color, score, side='center', animate }) {
+  const pct = side==='left'?'20%':side==='right'?'60%':'calc(50% - 120px)';
+  return (
+    <div style={{
+      position:'absolute', bottom:14, left:pct,
+      width:240, display:'flex', flexDirection:'column', alignItems:'center', gap:4,
+      zIndex:10,
+    }}>
+      <div style={{
+        fontSize:12,fontWeight:700,letterSpacing:'.12em',textTransform:'uppercase',
+        color:`${color}cc`,marginBottom:2,
+      }}>{name} — {score} pts</div>
+      <div style={{
+        width:'100%',height:16,borderRadius:999,
+        background:`${color}22`,
+        border:`3px solid ${color}`,
+        boxShadow:`0 0 20px ${color}66, 0 0 40px ${color}33`,
+        animation: animate ? `pulseBorder .4s ease` : undefined,
+      }}/>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   COMPANION PORTRAIT
+═══════════════════════════════════════════════════════════════ */
+function CompanionPortrait({ mood, name, speech }) {
+  const face = mood==='celebrating'?'🤩':mood==='wrong'?'😬':mood==='thinking'?'🤔':'⭐';
+  const anim = mood==='celebrating'?'companion-bounce .6s ease-in-out infinite':
+               mood==='wrong'?'shake .4s ease-in-out':'float 3s ease-in-out infinite';
+  return (
+    <div style={{position:'absolute',bottom:60,right:16,zIndex:15,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
+      {speech && (
+        <div style={{
+          background:'rgba(14,7,40,.92)',border:`2px solid ${T.accent}`,
+          borderRadius:'14px 14px 4px 14px',padding:'8px 13px',
+          maxWidth:200,fontSize:12,fontWeight:600,color:'white',lineHeight:1.5,
+          boxShadow:`0 0 16px ${T.glow}`,textAlign:'right',
+        }}>{speech}</div>
+      )}
+      <div style={{
+        width:72,height:72,borderRadius:'50%',
+        background:`radial-gradient(circle,#3b1069,#150030)`,
+        border:`3px solid ${T.accent}`,
+        display:'flex',alignItems:'center',justifyContent:'center',
+        fontSize:36,
+        boxShadow:`0 0 24px ${T.glow}`,
+        animation:anim,
+      }}>{face}</div>
+      <div style={{fontSize:11,fontWeight:700,color:T.accent,textAlign:'center',letterSpacing:'.1em',textTransform:'uppercase'}}>{name}</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LIVES DISPLAY
+═══════════════════════════════════════════════════════════════ */
+function Lives({ count, max }) {
+  return (
+    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+      {Array.from({length:max}).map((_,i)=>(
+        <div key={i} style={{
+          fontSize:20,
+          filter: i < count ? `drop-shadow(0 0 8px ${T.accent})` : 'grayscale(1)',
+          opacity: i < count ? 1 : .25,
+          transition:'all .3s',
+          animation: i===count ? 'lifelose .4s ease forwards' : undefined,
+        }}>❤️</div>
+      ))}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APP
+═══════════════════════════════════════════════════════════════ */
+function App() {
+  const [phase, setPhase]           = useState('intro');    // intro|countdown|playing|won|lost
+  const [wordIdx, setWordIdx]       = useState(0);
+  const [lives, setLives]           = useState(LIVES_MAX);
+  const [score, setScore]           = useState(0);
+  const [compScore, setCompScore]   = useState(0);
+  const [bubbles, setBubbles]       = useState([]);
+  const [timerPct, setTimerPct]     = useState(1);
+  const [flash, setFlash]           = useState(null);       // 'correct'|'wrong'|null
+  const [compMood, setCompMood]     = useState('happy');
+  const [compSpeech, setCompSpeech] = useState('Catch the correctly spelled word! 🌟');
+  const [tappedId, setTappedId]     = useState(null);
+  const [catcherAnim, setCatcherAnim] = useState(false);
+  const [countdown, setCountdown]   = useState(3);
+
+  const screenH = window.innerHeight;
+  const currentWord = WORDS[wordIdx] || '';
+  const startTime = useRef(Date.now());
+  const roundStart = useRef(0);
+  const completedRef = useRef(false);
+  const wordsCorrect = useRef([]);
+  const wordsWrong = useRef([]);
+  const timerRef = useRef(null);
+  const compTimerRef = useRef(null);
+  const fallTimerRef = useRef(null);
+
+  /* ── GameBridge helpers ─────────────────────────────────────── */
+  const reportState = (msg, extras={}) => {
+    if(window.GameBridge?.reportState) window.GameBridge.reportState(msg,{game:'speed-catcher',wordIdx,score,lives,...extras});
+  };
+  const reportAction = (action, msg, extras={}) => {
+    if(window.GameBridge?.reportAction) window.GameBridge.reportAction(action,msg,{game:'speed-catcher',wordIdx,score,lives,...extras});
+  };
+  const fireComp = (trigger, payload={}) => {
+    if(window.fireCompanionEvent) window.fireCompanionEvent(trigger,payload);
+  };
+
+  /* ── Build bubbles for a word ───────────────────────────────── */
+  const buildBubbles = useCallback((word) => {
+    const misses = makeMisspellings(word, BUBBLE_COUNT-1);
+    const all = shuffle([{word,correct:true},...misses.map(w=>({word:w,correct:false}))]);
+    const lanes = shuffle([12,33,55,77]).slice(0,all.length);
+    const speedVariance = .85 + Math.random()*.3;
+    return all.map((b,i)=>({
+      ...b,
+      id: `${word}-${i}-${Date.now()}`,
+      lane: lanes[i],
+      fallDuration: FALL_DURATION_BASE * speedVariance * (.88+i*.04),
+    }));
+  },[]);
+
+  /* ── Start round ────────────────────────────────────────────── */
+  const startRound = useCallback((idx) => {
+    const word = WORDS[idx];
+    if(!word) return;
+    const bs = buildBubbles(word);
+    setBubbles(bs);
+    setTappedId(null);
+    setTimerPct(1);
+    roundStart.current = Date.now();
+
+    reportState(`Round ${idx+1}/${WORDS.length}: word is "${word}". Bubbles falling.`,{currentWord:word,round:idx+1});
+
+    // Timer bar
+    clearInterval(timerRef.current);
+    timerRef.current = setInterval(()=>{
+      const elapsed = Date.now()-roundStart.current;
+      const pct = Math.max(0,1-elapsed/(ROUND_TIME*1000));
+      setTimerPct(pct);
+      if(pct<=0){
+        clearInterval(timerRef.current);
+        handleTimeout(idx);
+      }
+    },50);
+
+    // Companion thinks/speaks
+    const sayings = [
+      `Find the real "${word}"!`,
+      `One of these is right — you've got this!`,
+      `Catch it before it falls! ⬇️`,
+      `Stay sharp — fake ones incoming! 👀`,
+    ];
+    setCompSpeech(sayings[idx%sayings.length]);
+    setCompMood('thinking');
+    setTimeout(()=>setCompMood('happy'),1200);
+
+    // Companion AI catches (2-player mode) — waits 1.5-3s, then auto-grabs
+    if(PLAYER_COUNT===2){
+      clearTimeout(compTimerRef.current);
+      const delay = 1500+Math.random()*1500;
+      compTimerRef.current = setTimeout(()=>{
+        // Companion catches correct 80% of time
+        if(Math.random()<.8){
+          setCompScore(s=>s+100);
+          setCompMood('celebrating');
+          setCompSpeech('Got one! Your turn next! 😄');
+          fireComp('correct_answer',{role:'companion',word});
+          setTimeout(()=>setCompMood('happy'),1500);
+        } else {
+          setCompMood('wrong');
+          setCompSpeech('Oops! Missed that one! 😅');
+          setTimeout(()=>setCompMood('happy'),1200);
+        }
+      },delay);
+    }
+
+    // Auto-clear bubbles that hit bottom
+    clearTimeout(fallTimerRef.current);
+    fallTimerRef.current = setTimeout(()=>{
+      // Bubble fell off bottom — check if not already tapped
+      setTappedId(prev=>{
+        if(prev===null) handleTimeout(idx,true);
+        return prev;
+      });
+    },FALL_DURATION_BASE*1.1);
+  },[buildBubbles]);
+
+  /* ── Timeout ─────────────────────────────────────────────────── */
+  const handleTimeout = useCallback((idx,fromFall=false)=>{
+    clearInterval(timerRef.current);
+    SE.wrong();
+    fireComp('wrong_answer',{reason:'timeout',word:WORDS[idx]});
+    setFlash('wrong');
+    setLives(l=>{
+      const nl=l-1;
+      if(nl<=0) setTimeout(()=>endGame(false),500);
+      else setTimeout(()=>nextWord(idx+1),700);
+      return nl;
+    });
+    wordsWrong.current.push(WORDS[idx]);
+    setCompSpeech('Time\'s up! Keep going! ⏱️');
+    reportAction('timeout',`Timeout on word "${WORDS[idx]}".`,{word:WORDS[idx],reason:'timeout'});
+    setTimeout(()=>setFlash(null),500);
+  },[]);
+
+  /* ── Bubble tapped ──────────────────────────────────────────── */
+  const handleBubbleTap = useCallback((bubble)=>{
+    if(tappedId) return;  // already answered this round
+    clearInterval(timerRef.current);
+    clearTimeout(compTimerRef.current);
+    clearTimeout(fallTimerRef.current);
+    setTappedId(bubble.id);
+    SE.whoosh();
+
+    if(bubble.correct){
+      SE.correct();
+      const timeBonus = Math.round(timerPct*100);
+      const earned = 100+timeBonus;
+      setScore(s=>s+earned);
+      setFlash('correct');
+      setCatcherAnim(true);
+      setTimeout(()=>setCatcherAnim(false),500);
+      fireComp('correct_answer',{word:currentWord,earned});
+      setCompMood('celebrating');
+      setCompSpeech(`YES! +${earned} pts! Speedy! 🎉`);
+      wordsCorrect.current.push(currentWord);
+      reportAction('correct',`Correct! "${currentWord}" caught. +${earned} pts.`,{word:currentWord,earned,correct:true});
+      setTimeout(()=>{ setCompMood('happy'); setFlash(null); nextWord(wordIdx+1); },700);
+    } else {
+      SE.wrong();
+      setFlash('wrong');
+      setLives(l=>{
+        const nl=l-1;
+        reportAction('wrong',`Wrong bubble tapped for "${currentWord}". Lives: ${nl}.`,{word:currentWord,tapped:bubble.word,correct:false});
+        fireComp('wrong_answer',{word:currentWord,tapped:bubble.word});
+        setCompMood('wrong');
+        setCompSpeech('Not that one! Keep looking! 👀');
+        if(nl<=0) setTimeout(()=>endGame(false),600);
+        else setTimeout(()=>{ setCompMood('happy'); setFlash(null); nextWord(wordIdx+1); },700);
+        return nl;
+      });
+      wordsWrong.current.push(currentWord);
+    }
+  },[tappedId,timerPct,currentWord,wordIdx]);
+
+  /* ── Next word ───────────────────────────────────────────────── */
+  const nextWord = useCallback((idx)=>{
+    if(idx >= WORDS.length){ endGame(true); return; }
+    setWordIdx(idx);
+    setBubbles([]);
+    setTimeout(()=>startRound(idx),300);
+  },[startRound]);
+
+  /* ── End game ────────────────────────────────────────────────── */
+  const endGame = useCallback((won)=>{
+    if(completedRef.current) return;
+    completedRef.current=true;
+    clearInterval(timerRef.current);
+    clearTimeout(compTimerRef.current);
+    setPhase(won?'won':'lost');
+    setBubbles([]);
+    if(won){ SE.fanfare(); setCompMood('celebrating'); setCompSpeech('You did it! Amazing! 🏆'); }
+    else { SE.gameover(); setCompMood('wrong'); setCompSpeech('Good effort! Try again! 💪'); }
+    const result={
+      completed:won,
+      accuracy:wordsCorrect.current.length/WORDS.length,
+      wordsCorrect:wordsCorrect.current,
+      wordsStruggled:wordsWrong.current,
+      flaggedWords:wordsWrong.current,
+      xpEarned: won?150:40,
+      coinsEarned:score,
+      timeSpent_ms:Date.now()-startTime.current,
+      wordsAttempted:WORDS.length,
+    };
+    reportState(won?`Game won! Score: ${score}. ${wordsCorrect.current.length}/${WORDS.length} correct.`:`Game over. Score: ${score}.`,result);
+    if(window.GameBridge?.awardCurrency) window.GameBridge.awardCurrency(score,'speed_catcher');
+    setTimeout(()=>{ if(window.sendNodeComplete) window.sendNodeComplete(result); },2000);
+  },[score]);
+
+  /* ── Countdown then play ─────────────────────────────────────── */
+  useEffect(()=>{
+    if(phase!=='countdown') return;
+    let c=3; setCountdown(c);
+    const id=setInterval(()=>{
+      c--; setCountdown(c); SE.tick();
+      if(c<=0){ clearInterval(id); setPhase('playing'); }
+    },900);
+    return ()=>clearInterval(id);
+  },[phase]);
+
+  useEffect(()=>{
+    if(phase==='playing') startRound(0);
+  },[phase]);
+
+  /* ── Heartbeat ───────────────────────────────────────────────── */
+  useEffect(()=>{
+    if(phase!=='playing') return;
+    const id=window.GameBridge?.startHeartbeat?.(
+      ()=>`Speed Catcher — word ${wordIdx+1}/${WORDS.length}, score ${score}, lives ${lives}`,
+      ()=>({game:'speed-catcher',wordIdx,score,lives,currentWord:WORDS[wordIdx]})
+    );
+    return ()=>id&&clearInterval(id);
+  },[phase,wordIdx,score,lives]);
+
+  /* ── Timer bar color ─────────────────────────────────────────── */
+  const timerColor = timerPct>.5?T.accent:timerPct>.25?'#F59E0B':'#EF4444';
+
+  /* ═══════════════════════════════════════════════════════════════
+     RENDER
+  ═══════════════════════════════════════════════════════════════ */
+  return (
+    <div style={{
+      position:'fixed',inset:0,background:T.bg,
+      fontFamily:'Lexend,sans-serif',overflow:'hidden',
+    }}>
+      <Starfield/>
+
+      {/* Flash overlay */}
+      {flash && (
+        <div style={{
+          position:'absolute',inset:0,pointerEvents:'none',zIndex:1,
+          animation:`${flash==='correct'?'correct-flash':'wrong-flash'} .5s ease`,
+        }}/>
+      )}
+
+      {/* ── INTRO ── */}
+      {phase==='intro' && (
+        <div style={{
+          position:'absolute',inset:0,display:'flex',flexDirection:'column',
+          alignItems:'center',justifyContent:'center',gap:24,zIndex:20,
+          animation:'slideUp .5s ease',
+        }}>
+          <div style={{fontSize:13,fontWeight:700,letterSpacing:'.25em',textTransform:'uppercase',color:T.accent}}>
+            🚀 Speed Catcher
+          </div>
+          <div style={{fontFamily:'Lexend',fontSize:56,fontWeight:900,color:'white',textAlign:'center',lineHeight:1.1,textShadow:`0 0 40px ${T.glow}`}}>
+            Catch the<br/><span style={{color:T.accent}}>right word!</span>
+          </div>
+          <div style={{fontSize:16,color:'rgba(255,255,255,.6)',maxWidth:440,textAlign:'center',lineHeight:1.7}}>
+            Words fall from space. Tap the <strong style={{color:'white'}}>correctly spelled</strong> one before it hits the ground. Dodge the fakes!
+          </div>
+          <div style={{display:'flex',gap:12,flexWrap:'wrap',justifyContent:'center',marginTop:4}}>
+            {['Spelling',`${WORDS.length} words`,`${LIVES_MAX} lives`,`${ROUND_TIME}s each`].map(t=>(
+              <div key={t} style={{fontSize:12,fontWeight:700,letterSpacing:'.1em',textTransform:'uppercase',padding:'5px 14px',borderRadius:999,background:`${T.accent}18`,border:`1px solid ${T.accent}44`,color:T.accent}}>{t}</div>
+            ))}
+          </div>
+          <button
+            onClick={()=>setPhase('countdown')}
+            style={{
+              marginTop:8,padding:'18px 54px',
+              background:`linear-gradient(135deg,${T.accent},${T.accent2})`,
+              border:'none',borderRadius:18,
+              fontSize:20,fontWeight:900,color:'white',cursor:'pointer',
+              boxShadow:`0 8px 32px ${T.glow}`,letterSpacing:'.05em',
+              transition:'transform .15s',
+            }}
+            onMouseDown={e=>e.currentTarget.style.transform='scale(.96)'}
+            onMouseUp={e=>e.currentTarget.style.transform='scale(1)'}
+          >
+            🚀 Let's Go!
+          </button>
+        </div>
+      )}
+
+      {/* ── COUNTDOWN ── */}
+      {phase==='countdown' && (
+        <div style={{
+          position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',
+          flexDirection:'column',gap:16,zIndex:20,
+        }}>
+          <div style={{fontSize:120,fontWeight:900,color:T.accent,
+            textShadow:`0 0 60px ${T.glow}`,
+            animation:'countdownPulse .7s ease',
+            key:countdown,
+          }}>{countdown>0?countdown:'GO!'}</div>
+          <div style={{fontSize:18,color:'rgba(255,255,255,.5)',fontWeight:600}}>Get ready…</div>
+        </div>
+      )}
+
+      {/* ── PLAYING ── */}
+      {phase==='playing' && <>
+        {/* Header */}
+        <div style={{
+          position:'relative',zIndex:6,
+          display:'flex',alignItems:'center',justifyContent:'space-between',
+          padding:'12px 20px',
+          background:`rgba(0,0,0,.35)`,
+          borderBottom:`2px solid ${T.headerBorder}`,
+          backdropFilter:'blur(8px)',
+        }}>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <Lives count={lives} max={LIVES_MAX}/>
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:'.15em',textTransform:'uppercase',color:'rgba(255,255,255,.4)'}}>
+              {wordIdx+1}/{WORDS.length}
+            </div>
+          </div>
+
+          {/* Timer bar — center */}
+          <div style={{flex:1,margin:'0 24px',height:8,background:'rgba(255,255,255,.1)',borderRadius:4,overflow:'hidden'}}>
+            <div style={{
+              height:'100%',
+              width:`${timerPct*100}%`,
+              background:`linear-gradient(90deg,${timerColor},${timerColor}aa)`,
+              borderRadius:4,
+              transition:'width .05s linear, background .3s',
+              boxShadow:`0 0 8px ${timerColor}88`,
+            }}/>
+          </div>
+
+          <div style={{
+            display:'flex',alignItems:'center',gap:8,
+            background:`${T.accent}18`,border:`1.5px solid ${T.accent}44`,
+            borderRadius:12,padding:'6px 14px',
+          }}>
+            <span style={{fontSize:13,fontWeight:800,color:T.gold}}>🪙</span>
+            <span style={{fontSize:18,fontWeight:800,color:T.gold}}>{score}</span>
+          </div>
+        </div>
+
+        {/* Target word display */}
+        <div style={{
+          position:'relative',zIndex:5,
+          display:'flex',flexDirection:'column',alignItems:'center',
+          padding:'16px 20px 10px',gap:6,
+        }}>
+          <div style={{fontSize:11,fontWeight:700,letterSpacing:'.2em',textTransform:'uppercase',color:'rgba(255,255,255,.35)'}}>
+            {CATEGORY} — Find the correct spelling:
+          </div>
+          <div style={{
+            padding:'12px 32px',borderRadius:16,
+            background:T.targetBg,
+            border:`2px solid ${T.targetBorder}`,
+            boxShadow:`0 0 24px ${T.glow}44`,
+          }}>
+            <div style={{
+              fontSize:BASE_FONT,fontWeight:900,color:'white',
+              letterSpacing:'.08em',textShadow:`0 0 20px ${T.glow}`,
+            }}>{currentWord.toUpperCase()}</div>
+          </div>
+          <div style={{fontSize:12,color:'rgba(255,255,255,.35)',fontWeight:600}}>
+            Tap the correctly spelled word below ↓
+          </div>
+        </div>
+
+        {/* Falling bubbles */}
+        <div style={{position:'absolute',inset:0,zIndex:4,pointerEvents:'none'}}>
+          {bubbles.map(b=>(
+            <Bubble key={b.id} bubble={b} onTap={handleBubbleTap}
+              disabled={!!tappedId} screenH={screenH}/>
+          ))}
+        </div>
+
+        {/* Catchers */}
+        {PLAYER_COUNT===2 ? <>
+          <CatcherBar name={CHILD_NAME} color={T.catcherP1} score={score} side="left" animate={catcherAnim}/>
+          <CatcherBar name={COMPANION_NAME} color={T.catcherP2} score={compScore} side="right"/>
+        </> : (
+          <CatcherBar name={CHILD_NAME} color={T.catcherP1} score={score} side="center" animate={catcherAnim}/>
+        )}
+      </>}
+
+      {/* ── WIN / LOSE ── */}
+      {(phase==='won'||phase==='lost') && (
+        <div style={{
+          position:'absolute',inset:0,display:'flex',flexDirection:'column',
+          alignItems:'center',justifyContent:'center',gap:20,zIndex:20,
+          background:'rgba(0,0,0,.6)',backdropFilter:'blur(12px)',
+          animation:'slideUp .5s ease',
+        }}>
+          <div style={{fontSize:72,animation:'popIn .5s ease'}}>{phase==='won'?'🏆':'💪'}</div>
+          <div style={{
+            fontFamily:'Lexend',fontSize:48,fontWeight:900,
+            color:phase==='won'?T.gold:'rgba(255,255,255,.8)',
+            textShadow:phase==='won'?`0 0 30px ${T.gold}44`:'none',
+          }}>{phase==='won'?'Incredible!':'Good effort!'}</div>
+          <div style={{fontSize:18,color:'rgba(255,255,255,.6)',textAlign:'center',maxWidth:380,lineHeight:1.7}}>
+            {wordsCorrect.current.length} of {WORDS.length} words caught correctly
+          </div>
+          {/* Score breakdown */}
+          <div style={{display:'flex',gap:20,flexWrap:'wrap',justifyContent:'center'}}>
+            {[
+              {label:'Score',val:`${score} pts`,color:T.gold},
+              {label:'Accuracy',val:`${Math.round(wordsCorrect.current.length/WORDS.length*100)}%`,color:T.accent},
+              {label:'Lives left',val:`${lives}/${LIVES_MAX}`,color:T.correct},
+            ].map(({label,val,color})=>(
+              <div key={label} style={{
+                background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.1)',
+                borderRadius:14,padding:'12px 20px',textAlign:'center',
+              }}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:'.15em',textTransform:'uppercase',color:'rgba(255,255,255,.4)',marginBottom:4}}>{label}</div>
+                <div style={{fontSize:28,fontWeight:900,color}}>{val}</div>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={()=>{ completedRef.current=false; wordsCorrect.current=[]; wordsWrong.current=[]; setScore(0); setCompScore(0); setLives(LIVES_MAX); setWordIdx(0); setPhase('intro'); }}
+            style={{
+              marginTop:8,padding:'14px 40px',
+              background:`linear-gradient(135deg,${T.accent},${T.accent2})`,
+              border:'none',borderRadius:14,fontSize:18,fontWeight:800,
+              color:'white',cursor:'pointer',
+              boxShadow:`0 6px 24px ${T.glow}`,
+            }}
+          >Play Again 🚀</button>
+        </div>
+      )}
+
+      {/* Companion */}
+      {phase!=='intro' && (
+        <CompanionPortrait mood={compMood} name={COMPANION_NAME} speech={compSpeech}/>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

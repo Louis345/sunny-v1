@@ -1,0 +1,32 @@
+{
+  "id": "beach-1777491243315",
+  "name": "beach",
+  "generatedAt": "2026-04-29T19:34:03.315Z",
+  "worldBackgroundUrl": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-e17e1602-fafd-4e17-b007-ced8edf79984.jpeg",
+  "palette": {
+    "sky": "#6ec8ff",
+    "ground": "#228b5c",
+    "accent": "#1a56db",
+    "particle": "#e0f2fe",
+    "glow": "#1a56db",
+    "cardBackground": "#f0f9ff"
+  },
+  "thumbnails": {
+    "mystery": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-c1c3e7b1-bbb6-4235-adc2-a02bf187105f.jpeg",
+    "word-builder": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-1a348ba2-f84b-4944-8885-b8fe82c28690.jpeg",
+    "bubble-pop": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-fbd1c00f-d577-45ce-92e6-2da71f784a9b.jpeg",
+    "karaoke": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-72c0d192-caac-4d39-a18e-a3eb5c17ef8d.jpeg",
+    "word-radar": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-6a37e236-1a02-4af2-b7c2-fd07dcf45980.jpeg",
+    "clock-game": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-4443a005-4ba4-453a-85c7-5e5eeac4a4df.jpeg",
+    "coin-counter": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-063ade6b-de81-4e27-84b7-b1878d1fb562.jpeg",
+    "spell-check": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-d783932d-32c6-4242-9b2e-f821dab74e11.jpeg",
+    "wordle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-4680add7-d678-4dd8-b86c-54ca2c9e68b9.jpeg",
+    "riddle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-04611dbc-4f70-4b15-8535-19daf3f89708.jpeg",
+    "space-invaders": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-7fee7168-de36-4486-9801-b59a62988a17.jpeg",
+    "asteroid": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-00af7982-88ac-4890-b399-a5835a4586f2.jpeg",
+    "space-frogger": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-e21a5962-f513-432c-9b59-71e2228cf4e1.jpeg",
+    "boss": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-9c84dd6f-dc7d-4393-97f4-877d1b5932b4.jpeg",
+    "wheel-of-fortune": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-bfa5ead2-a830-456c-969d-334deafc2c9f.jpeg"
+  },
+  "savedBy": "auto"
+}

@@ -314,6 +314,8 @@ function mergeCompanionCommands(
 
 function App() {
   const adventureGameIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const theaterLoadingEnabled = shouldUseSessionLoadingOverlay();
+  const gateCompanionAudioUntilCurtainRef = useRef(false);
   const {
     state,
     startSession,
@@ -330,7 +332,11 @@ function App() {
     companionEvents: voiceCompanionEvents,
     companionCommands: voiceCompanionCommands,
     analyserNodeRef,
-  } = useSession({ adventureGameIframeRef });
+    releaseCompanionAudioPlayback,
+  } = useSession({
+    adventureGameIframeRef,
+    gateCompanionAudioUntilCurtainRef,
+  });
 
   const [profileCompanion, setProfileCompanion] = useState<CompanionConfig | null>(
     null,
@@ -341,12 +347,20 @@ function App() {
   const [profileTamagotchi, setProfileTamagotchi] = useState<TamagotchiState | null>(
     null,
   );
+  /** False until `/api/profile` completes for `activeProfileChildId` — avoids flashing DEFAULT care meters. */
+  const [tamagotchProfileReady, setTamagotchProfileReady] = useState(false);
+  const [profileCompanionCurrency, setProfileCompanionCurrency] = useState(0);
+  const [profileReloadNonce, setProfileReloadNonce] = useState(0);
   const [profileWordRadar, setProfileWordRadar] = useState<{
     showTimer: boolean;
     showKeyboard: boolean;
     personalBests: Record<string, number>;
     inputMode: "whole-word" | "letter-by-letter" | "keyboard";
   } | null>(null);
+  const [profileReinforceWords, setProfileReinforceWords] = useState<
+    string[] | null
+  >(null);
+  const [profileDyslexiaMode, setProfileDyslexiaMode] = useState(false);
   const [wordRadarDiagOpen, setWordRadarDiagOpen] = useState(false);
   const [diagWordleUrl, setDiagWordleUrl] = useState<string | null>(null);
   const [diagWheelUrl, setDiagWheelUrl] = useState<string | null>(null);
@@ -381,15 +395,21 @@ function App() {
     activeProfileChildId,
   } = useAdventureState(state, adventureMapEnabled);
 
+  gateCompanionAudioUntilCurtainRef.current =
+    theaterLoadingEnabled && Boolean(adventureChildId);
+
   const effectiveCompanion = activeProfileChildId ? profileCompanion : null;
+  const activeProfileIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    activeProfileIdRef.current = activeProfileChildId ?? null;
+  }, [activeProfileChildId]);
 
   const companionBubbleText = useMemo(() => {
-    if (!adventureChildId) return null;
+    if (!adventureChildId || !tamagotchProfileReady) return null;
     const t = profileTamagotchi ?? DEFAULT_TAMAGOTCHI;
-    return getTamagotchiSpeechBubble(
-      getTamagotchiPersonality(t, false),
-    );
-  }, [adventureChildId, profileTamagotchi]);
+    return getTamagotchiSpeechBubble(getTamagotchiPersonality(t, false));
+  }, [adventureChildId, profileTamagotchi, tamagotchProfileReady]);
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -412,12 +432,17 @@ function App() {
     mapPreviewMode,
   );
 
-  const theaterLoadingEnabled = shouldUseSessionLoadingOverlay();
+  const prevMapProgRef = useRef<string | null>(null);
+  const lastSessionCompleteTsRef = useRef<number | null>(null);
+  const profileMapProgressKey = `${mapSession.mapState?.xp ?? ""}:${mapSession.mapState?.level ?? ""}:${(mapSession.mapState?.completedNodes ?? []).join(",")}`;
+
   const mapReady =
     !adventureChildId ||
     (mapSession.sessionStarted && (mapSession.mapState?.nodes.length ?? 0) > 0);
   const voiceReady =
-    !adventureChildId || !theaterLoadingEnabled || state.phase === "active";
+    !adventureChildId ||
+    !theaterLoadingEnabled ||
+    (state.sessionBootReady && state.firstAudioChunkReceived);
   const profileReady = !activeProfileChildId || profileCompanion !== null;
   const themeImageUrls = [
     profileAvatarImagePath,
@@ -449,19 +474,32 @@ function App() {
     setLoadingSafetyReleased(false);
   }, [adventureChildId]);
 
+  const handleMapLoadingCurtainOpen = useCallback(() => {
+    setSessionReady(true);
+    releaseCompanionAudioPlayback();
+  }, [releaseCompanionAudioPlayback]);
+
   useEffect(() => {
     if (sessionReady) return;
+    if (adventureMapEnabled && adventureChildId && theaterLoadingEnabled) {
+      return;
+    }
     if (mapReady && ((voiceReady && loadingAssetsReady) || loadingSafetyReleased)) {
       setSessionReady(true);
+      releaseCompanionAudioPlayback();
       console.log(" 🎮 [loading-screen] curtain lift ready", {
         safetyReleased: loadingSafetyReleased,
       });
     }
   }, [
+    adventureChildId,
+    adventureMapEnabled,
     loadingAssetsReady,
     loadingSafetyReleased,
     mapReady,
+    releaseCompanionAudioPlayback,
     sessionReady,
+    theaterLoadingEnabled,
     voiceReady,
   ]);
 
@@ -665,6 +703,38 @@ function App() {
     ],
   );
 
+  useEffect(() => {
+    prevMapProgRef.current = null;
+  }, [adventureChildId]);
+
+  useEffect(() => {
+    if (!adventureMapEnabled || !adventureChildId || !activeProfileChildId) {
+      return;
+    }
+    if (prevMapProgRef.current === null) {
+      prevMapProgRef.current = profileMapProgressKey;
+      return;
+    }
+    if (prevMapProgRef.current !== profileMapProgressKey) {
+      prevMapProgRef.current = profileMapProgressKey;
+      setProfileReloadNonce((n) => n + 1);
+    }
+  }, [
+    activeProfileChildId,
+    adventureChildId,
+    adventureMapEnabled,
+    profileMapProgressKey,
+  ]);
+
+  useEffect(() => {
+    if (!adventureMapEnabled) return;
+    const ev = mergedCompanionEvents[mergedCompanionEvents.length - 1];
+    if (!ev || ev.trigger !== "session_complete") return;
+    if (lastSessionCompleteTsRef.current === ev.timestamp) return;
+    lastSessionCompleteTsRef.current = ev.timestamp;
+    setProfileReloadNonce((n) => n + 1);
+  }, [adventureMapEnabled, mergedCompanionEvents]);
+
   const handleGameIframeOverlayChange = useCallback(
     (s: GameIframeOverlayState) => {
       setMapGameOverlay(s);
@@ -697,7 +767,18 @@ function App() {
   );
 
   useEffect(() => {
-    if (!activeProfileChildId) return;
+    if (!activeProfileChildId) {
+      setTamagotchProfileReady(false);
+      setProfileCompanionCurrency(0);
+      setProfileCompanion(null);
+      setProfileAvatarImagePath(null);
+      setProfileTamagotchi(null);
+      setProfileWordRadar(null);
+      setProfileReinforceWords(null);
+      setProfileDyslexiaMode(false);
+      return;
+    }
+    const cid = activeProfileChildId.trim().toLowerCase();
     let cancelled = false;
     fetch(`/api/profile/${encodeURIComponent(activeProfileChildId)}`)
       .then(async (r) => {
@@ -708,6 +789,9 @@ function App() {
           companion?: CompanionConfig;
           avatarImagePath?: string | null;
           tamagotchi?: TamagotchiState;
+          companionCurrency?: number;
+          dyslexiaMode?: boolean;
+          pendingHomework?: { reinforceWords?: unknown };
           wordRadar?: {
             showTimer?: boolean;
             showKeyboard?: boolean;
@@ -717,52 +801,65 @@ function App() {
         }>;
       })
       .then((data) => {
-        if (!cancelled) {
-          setProfileCompanion(mergeCompanionConfigWithDefaults(data.companion));
-          setProfileAvatarImagePath(
-            typeof data.avatarImagePath === "string" &&
-              data.avatarImagePath.trim().length > 0
-              ? data.avatarImagePath.trim()
-              : null,
-          );
-          setProfileTamagotchi(data.tamagotchi ?? null);
-          const wr = data.wordRadar;
-          if (wr && typeof wr === "object") {
-            const pb = wr.personalBests;
-            const im = wr.inputMode;
-            const inputMode: "whole-word" | "letter-by-letter" | "keyboard" =
-              im === "letter-by-letter" || im === "keyboard" || im === "whole-word"
-                ? im
-                : "whole-word";
-            setProfileWordRadar({
-              showTimer: wr.showTimer === true,
-              showKeyboard: wr.showKeyboard === true,
-              personalBests:
-                pb && typeof pb === "object" && !Array.isArray(pb)
-                  ? (pb as Record<string, number>)
-                  : {},
-              inputMode,
-            });
-          } else {
-            setProfileWordRadar(null);
-          }
+        if (cancelled) return;
+        if (activeProfileIdRef.current?.trim().toLowerCase() !== cid) return;
+        setProfileCompanion(mergeCompanionConfigWithDefaults(data.companion));
+        setProfileAvatarImagePath(
+          typeof data.avatarImagePath === "string" &&
+            data.avatarImagePath.trim().length > 0
+            ? data.avatarImagePath.trim()
+            : null,
+        );
+        setProfileTamagotchi(data.tamagotchi ?? null);
+        setTamagotchProfileReady(true);
+        const cur =
+          typeof data.companionCurrency === "number" && Number.isFinite(data.companionCurrency)
+            ? data.companionCurrency
+            : Number(data.companionCurrency ?? 0);
+        setProfileCompanionCurrency(Math.max(0, Math.floor(cur)));
+        setProfileDyslexiaMode(data.dyslexiaMode === true);
+        const ph = data.pendingHomework;
+        const rw = Array.isArray(ph?.reinforceWords)
+          ? ph.reinforceWords.map(String).filter(Boolean)
+          : [];
+        setProfileReinforceWords(rw);
+        const wr = data.wordRadar;
+        if (wr && typeof wr === "object") {
+          const pb = wr.personalBests;
+          const im = wr.inputMode;
+          const inputMode: "whole-word" | "letter-by-letter" | "keyboard" =
+            im === "letter-by-letter" || im === "keyboard" || im === "whole-word"
+              ? im
+              : "letter-by-letter";
+          setProfileWordRadar({
+            showTimer: wr.showTimer === true,
+            showKeyboard: wr.showKeyboard === true,
+            personalBests:
+              pb && typeof pb === "object" && !Array.isArray(pb)
+                ? (pb as Record<string, number>)
+                : {},
+            inputMode,
+          });
+        } else {
+          setProfileWordRadar(null);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setProfileCompanion(null);
+          setTamagotchProfileReady(false);
           setProfileAvatarImagePath(null);
           setProfileTamagotchi(null);
           setProfileWordRadar(null);
+          setProfileReinforceWords(null);
+          setProfileDyslexiaMode(false);
+          setProfileCompanionCurrency(0);
         }
       });
     return () => {
       cancelled = true;
-      setProfileCompanion(null);
-      setProfileAvatarImagePath(null);
-      setProfileWordRadar(null);
     };
-  }, [activeProfileChildId]);
+  }, [activeProfileChildId, profileReloadNonce]);
 
   if (import.meta.env.VITE_MODE === "intro") {
     return <CompanionShowroomPage />;
@@ -809,7 +906,9 @@ function App() {
               }}
               onHardRelease={() => {
                 setSessionReady(true);
+                releaseCompanionAudioPlayback();
               }}
+              onCurtainOpen={handleMapLoadingCurtainOpen}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -846,6 +945,7 @@ function App() {
           mapCompanion={effectiveCompanion}
           companionMutedForMap={companionMuted}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+          tamagotchHydrated={tamagotchProfileReady}
           onGameIframeMount={handleGameIframeMount}
           onTamagotchiSynced={(t) => setProfileTamagotchi(t)}
           onVrrPhase1Begin={() => {
@@ -883,9 +983,11 @@ function App() {
               showTimer: true,
               showKeyboard: false,
               personalBests: {},
-              inputMode: "whole-word",
+              inputMode: "letter-by-letter",
             }
           }
+          reinforceWords={profileReinforceWords ?? []}
+          dyslexiaMode={profileDyslexiaMode}
         />
         {karaokeReadingActive &&
           mapSession.launchedNode?.type !== "karaoke" && (
@@ -963,6 +1065,7 @@ function App() {
             }}
             onHardRelease={() => {
               setSessionReady(true);
+              releaseCompanionAudioPlayback();
             }}
           />
         ) : (
@@ -1093,11 +1196,15 @@ function App() {
       />
       {adventureMapEnabled &&
       adventureChildId &&
-      !companionPortraitMode ? (
+      !companionPortraitMode &&
+      tamagotchProfileReady ? (
         <TamagotchiSheet
           open={companionSheetOpen}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
           companionName={effectiveCompanion?.companionId ?? "Companion"}
+          companionCurrency={
+            mapSession.liveMapCurrency ?? profileCompanionCurrency
+          }
           onClose={() => setCompanionSheetOpen(false)}
         />
       ) : null}

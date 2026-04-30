@@ -1031,6 +1031,10 @@ This is a safe space to test everything.
     }
 
     await session.connectDeepgram();
+    session.send("session_boot_ready", {
+      ttsPrimed: !session.options?.silentTts && !session.options?.sttOnly,
+      deepgramConnected: true,
+    });
 
     if (subject === "diag") {
       if (!session.options?.sttOnly) {

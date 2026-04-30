@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import type { TamagotchiState } from "../../../src/shared/vrrTypes";
+import { CompanionCurrencyHud } from "./CompanionCurrencyHud";
 
 export interface TamagotchiSheetProps {
   open: boolean;
   tamagotchi: TamagotchiState;
   companionName: string;
+  /** Shop coins — shown at bottom of this panel when set. */
+  companionCurrency?: number;
   inventory?: { id: string; label: string }[];
   onFeed?: (foodId: string) => void;
   onClose: () => void;
@@ -17,6 +20,7 @@ export function TamagotchiSheet({
   open,
   tamagotchi,
   companionName,
+  companionCurrency,
   inventory = [],
   onFeed,
   onClose,
@@ -206,6 +210,12 @@ export function TamagotchiSheet({
         >
           Close
         </button>
+        {companionCurrency !== undefined ? (
+          <CompanionCurrencyHud
+            companionCurrency={companionCurrency}
+            layout="panel"
+          />
+        ) : null}
       </div>
     </div>
   );

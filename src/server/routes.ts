@@ -42,6 +42,7 @@ import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
 import { CompanionRegistry } from "../prompts/companions/registry";
+import { tryLoadIntroOnlyShowroomCompanion } from "./introOnlyShowroomCompanion";
 import {
   resolveAllowedShowroomVoiceId,
   type ShowroomVoiceOption,
@@ -478,11 +479,20 @@ export function setupRoutes(app: Express): void {
       return res.status(400).json({ ok: false, error: "companionId_required" });
     }
 
-    let companion;
+    let companion: {
+      id: string;
+      name: string;
+      voiceId: string;
+      voiceModelId?: string;
+    };
     try {
       companion = CompanionRegistry.getById(companionId);
     } catch {
-      return res.status(404).json({ ok: false, error: "unknown_companion" });
+      const introOnly = tryLoadIntroOnlyShowroomCompanion(companionId);
+      if (!introOnly) {
+        return res.status(404).json({ ok: false, error: "unknown_companion" });
+      }
+      companion = introOnly;
     }
 
     const voiceOptions = readShowroomVoiceOptions(
@@ -853,6 +863,8 @@ Return plain text only.`,
       rating?: unknown;
       preview?: string | boolean;
       payload?: Record<string, unknown>;
+      amount?: unknown;
+      reason?: unknown;
     };
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     if (!sessionId) {
@@ -874,6 +886,19 @@ Return plain text only.`,
         const events = handleMapClientMessage(sessionId, {
           type: "game_state_update",
           payload: body.payload as Record<string, unknown>,
+        });
+        return res.json({ events });
+      }
+      if (body.phase === "currency_award") {
+        const pv = body.preview;
+        const clientPreviewFree = pv === "free" || pv === true;
+        const events = handleMapClientMessage(sessionId, {
+          type: "currency_award",
+          payload: {
+            amount: body.amount,
+            reason: body.reason,
+            skipPersistence: clientPreviewFree,
+          },
         });
         return res.json({ events });
       }

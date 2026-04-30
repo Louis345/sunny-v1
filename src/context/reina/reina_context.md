@@ -1322,3 +1322,70 @@ Mastery-level fluency across single-digit, teens, crossing-10 facts. Continue as
 ## Signal
 
 ADVANCE — Introduce multiplication/division via wrestling word problems (3 matches × 2 points = ?) and deepen reading comprehension with inferential questions on action/adventure texts. MAINTAIN addition/subtraction facts and homework-list spelling (comparative/superlative cycle) as warm-ups. CONCURRENT PRIORITY: Formally administer CELF-5 Word Definitions and Formulated Sentences subtests before expanding to bilingual curriculum (Japanese kanji/katakana prep for June 2026 trip). Her math and reading fluency are solid—but language depth (definitional vocabulary, sentence generation) remains completely untested across 20+ sessions.
+
+## Psychologist Report — 4/29/2026, 12:45:26 PM
+## Curriculum Status
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3, 4/4), 100% fluency, literal comprehension only → ADVANCE
+
+Reina demonstrates grade-level+ oral reading fluency with self-correction and sustained engagement. She captures literal action ("she went boom, but she was safe") but does not infer motive or consequence without prompting. Ready for deeper inferential questions ("Who was chasing her?" "What would have happened if she didn't jump?") and strategy analysis matching her chess/wrestling brain ("How did the ninja outsmart them?").
+
+**Spelling (Homework-Based, Comparative/Superlative Cycle)** — 1 session (4/3), 4/4 correct on inflectional endings (moving, movers, move, add), new homework cycle ingested (4/29: faster/fastest, slower/slowest, colder/coldest), classroom baseline 100% → MAINTAIN
+
+Pattern-based spelling mastered when delivered in 5-word bursts aligned with homework curriculum. Continue as warm-up only (5 words maximum), then pivot to her choice. New homework cycle (comparative/superlative adjectives) aligns with pattern-based strength. No standalone spelling curriculum needed.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), competitive streak sustained → MAINTAIN
+
+Mastery-level fluency across single-digit, teens, crossing-10 facts. Continue as warm-up before multiplication/division intro.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 25+ sessions despite self-identified as math gap (profile, 3/27 notes). Advanced addition/subtraction fluency + reading comprehension strength suggest readiness for word problems with multiplicative reasoning ("3 wrestlers each score 2 points—how many total?"). This is her self-identified growth zone.
+- **CRITICAL: Word Definitions** (mentioned 23 times in clinical notes but never formally administered as CELF-5 subtest) — Advanced vocabulary claimed in profile; reading sessions show fluency but definitional depth never sampled. Required baseline before Japanese kanji/katakana work (parent goal: Japan trip June 2026).
+- **CRITICAL: Formulated Sentences** (mentioned 19 times but never formally administered as CELF-5 subtest) — No narrative production, sentence generation, or expository writing under demand. Relevant for Japanese composition and written math explanations.
+- **WATCH: Following Directions** (mentioned 13 times but never formally administered) — Reading sessions showed strong task compliance, but multi-step direction sequences under timed academic demand never formally tested.
+- **WATCH: Recalling Sentences** (mentioned 11 times but never formally administered) — Working memory appears strong for riddle-catching, but sentence-level recall under language-based cognitive load unknown.
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems (3 matches × 2 points = ?) and deepen reading comprehension with inferential questions on action/adventure texts. MAINTAIN addition/subtraction facts and homework-list spelling (comparative/superlative cycle) as warm-ups. CONCURRENT PRIORITY: Formally administer CELF-5 Word Definitions and Formulated Sentences subtests before expanding to bilingual curriculum (Japanese kanji/katakana prep for June 2026 trip). Her math and reading fluency are solid—but language depth (definitional vocabulary, sentence generation) remains completely untested across 25+ sessions.
+
+## Psychologist Report — 4/29/2026, 2:40:26 PM
+## Curriculum Status
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3, 4/4), 100% fluency across treasure and ninja stories, literal comprehension only ("she went boom, but she was safe") → ADVANCE
+
+Reina demonstrates grade-level+ oral reading fluency with self-correction and sustained engagement. She captures events accurately but does not infer motive, consequence, or strategy without prompting. Ready for deeper inferential work ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical strengths.
+
+**Spelling (Homework-Based, Comparative/Superlative Adjectives)** — 1 session (4/3), 4/4 correct on inflectional endings (moving, movers, move, add), new homework cycle 4/29 (faster/fastest, slower/slowest, colder/coldest), classroom baseline 100% on tests → MAINTAIN
+
+Pattern-based spelling mastered. Continue homework-list spelling as 5-word warm-up only, then pivot to her choice. Current cycle aligns with pattern-based strength. No standalone spelling curriculum needed.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), competitive streak sustained → MAINTAIN
+
+Mastery-level fluency. Continue as warm-up before multiplication/division introduction.
+
+**Worksheet-Based Coin Counting** — 5 sessions, 28/109 attempts (26% accuracy), pedagogy mismatch confirmed → ABANDONED
+
+No return to mechanical drill. Reina learns through application (store-game 86%) and competition (math facts 100%), not rote worksheet practice.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 25+ sessions despite self-identified as math gap (profile, 3/27 notes). Advanced addition/subtraction fluency + reading comprehension strength indicate readiness for word problems with multiplicative reasoning ("3 wrestlers each score 2 points—how many total?"). This is her self-identified growth zone and has been ignored for 4+ weeks.
+- **CRITICAL: Word Definitions** (mentioned 25 times in clinical notes but never formally administered as CELF-5 subtest) — Advanced vocabulary claimed in profile; reading sessions show comprehension but definitional depth never sampled. Required baseline before Japanese kanji/katakana work (parent goal: Japan trip June 2026).
+- **CRITICAL: Formulated Sentences** (mentioned 21 times but never formally administered as CELF-5 subtest) — No narrative production, sentence generation, or expository writing under demand. Relevant for Japanese composition and written math explanations.
+- **WATCH: Following Directions** (mentioned 14 times but never formally administered) — Multi-step direction sequences under timed academic demand never formally tested despite profile claim of "year ahead academically."
+- **WATCH: Recalling Sentences** (mentioned 12 times but never formally administered) — Working memory appears strong for riddle-catching, but sentence-level recall under language-based cognitive load unknown.
+- **WATCH: Word Classes** (mentioned 7 times but never formally administered) — Grammar foundation never probed. Relevant for both English foundational work and Japanese kanji/grammar prep.
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems (3 matches × 2 points = ?) and deepen reading comprehension with inferential questions on action/adventure texts. MAINTAIN addition/subtraction facts and homework-list spelling (comparative/superlative cycle) as warm-ups. CONCURRENT PRIORITY: Formally administer CELF-5 Word Definitions and Formulated Sentences subtests before expanding to bilingual curriculum (Japanese kanji/katakana prep for June 2026 trip). Reina's math and reading fluency are solid—but language depth (definitional vocabulary, sentence generation, grammar) remains completely untested across 25+ sessions despite 25, 21, and 14 mentions respectively in clinical notes.

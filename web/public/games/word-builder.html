@@ -69,6 +69,9 @@
           timeSpent_ms: 1200,
           wordsAttempted: words.length,
         });
+        if (typeof window.fireCompanionEvent === "function") {
+          window.fireCompanionEvent("session_complete", {});
+        }
       }
 
       document.getElementById("done-ok").addEventListener("click", function () {

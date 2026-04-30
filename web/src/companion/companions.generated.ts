@@ -20,6 +20,8 @@ export type CompanionManifestEntry = {
   voices: ShowroomVoiceOption[];
   companionConfig: CompanionConfig;
   defaultFor?: string | string[];
+  /** Intro showroom only — not in CompanionRegistry. */
+  introOnly?: boolean;
   showroom?: {
     modelName?: string;
     sourceUrl?: string;
@@ -176,6 +178,139 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "en": {
           "intro": "Hi! I'm Elli. I love riddles, silly ideas, and cheering for every tiny win.",
           "plead": "Please pick me! I promise I'll make learning feel like hanging out with a friend who is always on your side."
+        }
+      }
+    }
+  },
+  {
+    "id": "kefla",
+    "name": "Kefla",
+    "vrmUrl": "/companions/Kefla.vrm",
+    "personality": [
+      "fierce",
+      "competitive",
+      "training-obsessed",
+      "hyped for challenges"
+    ],
+    "unlockCost": 750,
+    "voiceAvailable": true,
+    "voices": [
+      {
+        "id": "n7Wi4g1bhpw4Bs8HK5ph",
+        "label": "Gigi - Energetic",
+        "language": "en",
+        "default": true
+      },
+      {
+        "id": "piI8Kku0DcvcL6TTSeQt",
+        "label": "Fairy",
+        "language": "en"
+      },
+      {
+        "id": "jBpfuIE2acCO8z3wKNLl",
+        "label": "Gigi",
+        "language": "en"
+      },
+      {
+        "id": "Nggzl2QAXh3OijoXD116",
+        "label": "Candy - Young and Sweet",
+        "language": "en"
+      }
+    ],
+    "companionConfig": {
+      "companionId": "kefla",
+      "vrmUrl": "/companions/Kefla.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [
+          0,
+          1.4,
+          0.8
+        ],
+        "target": [
+          0,
+          1.4,
+          0
+        ]
+      },
+      "dopamineGames": [
+        "space-invaders",
+        "asteroid",
+        "space-frogger"
+      ],
+      "sensitivity": {
+        "session_start": 0.8,
+        "correct_answer": 0.9,
+        "wrong_answer": 0.6,
+        "mastery_unlock": 1,
+        "session_complete": 0.85,
+        "session_end": 0.7,
+        "idle_too_long": 0.5
+      },
+      "idleFrequency_ms": 8000,
+      "randomMomentProbability": 0.3,
+      "toggledOff": false
+    },
+    "introOnly": true,
+    "showroom": {
+      "modelName": "Kefla (VRM)",
+      "recommendedNames": [
+        "Kefla",
+        "Kef"
+      ],
+      "ageImage": "Teen fusion-warrior energy, athletic, confident",
+      "personality": "Fierce anime warrior vibe: treats lessons like training to go beyond her limits — always kind to her partner.",
+      "likes": [
+        "hard training",
+        "big challenges",
+        "powering up through practice",
+        "honest effort",
+        "celebrating wins"
+      ],
+      "dislikes": [
+        "quitting before a real try",
+        "boring easy mode",
+        "giving up on herself"
+      ],
+      "catchphrases": [
+        "Let's go beyond!",
+        "That word's your next rival!",
+        "One more round — you've got this!",
+        "Training time!"
+      ],
+      "specialSkills": [
+        "Turning homework into a training arc",
+        "hyping effort without rushing the child",
+        "making focus feel epic"
+      ],
+      "role": "Study partner who channels battle-anime energy into school grit",
+      "outfitChangeEffect": "Default — battle-ready training look.",
+      "gestureProfile": {
+        "meet": "wave",
+        "intro": [
+          "wave",
+          "think"
+        ],
+        "plead": [
+          "dance_victory",
+          "wave"
+        ],
+        "specialDance": "dance_victory"
+      },
+      "scripts": {
+        "en": {
+          "intro": "I'm Kefla. I turn spelling and math into training — big energy, zero meanness, all heart.",
+          "plead": "Pick me and we'll treat every lesson like leveling up: hard work, loud cheers, real progress."
         }
       }
     }

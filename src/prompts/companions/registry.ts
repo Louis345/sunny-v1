@@ -31,7 +31,10 @@ function discover(): CompanionDefinition[] {
       const growthJsPath = path.join(base, "growth.js");
       const growthTsPath = path.join(base, "growth.ts");
       if (!fs.existsSync(configPath) || !fs.existsSync(personalityPath)) return [];
-      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8")) as {
+        introOnly?: unknown;
+      };
+      if (config.introOnly === true) return [];
       const personalityMarkdown = fs.readFileSync(personalityPath, "utf-8");
       const resolvedGrowth = fs.existsSync(growthJsPath) ? growthJsPath : growthTsPath;
       // eslint-disable-next-line @typescript-eslint/no-var-requires

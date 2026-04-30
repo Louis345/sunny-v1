@@ -9,6 +9,7 @@
     "ila": {
       "ttsName": "Ee-lah",
       "avatarImagePath": "/characters/ila.png",
+      "questUnlocked": true,
       "showTimer": true,
       "showKeyboard": false,
       "games": {
@@ -27,6 +28,7 @@
     "reina": {
       "ttsName": "Ray-nah",
       "avatarImagePath": "/characters/reina.png",
+      "questUnlocked": true,
       "showTimer": true,
       "showKeyboard": false,
       "games": {
@@ -41,7 +43,7 @@
           "generatedGamePath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/2026-04-28-quest.html"
         },
         "boss": {
-          "dataThresholdMet": true,
+          "dataThresholdMet": false,
           "generationModel": "opus",
           "generatedGamePath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/2026-04-28-boss.html"
         }
@@ -50,6 +52,7 @@
     "creator": {
       "ttsName": "Creator",
       "avatarImagePath": null,
+      "questUnlocked": false,
       "showTimer": true,
       "showKeyboard": true,
       "games": {

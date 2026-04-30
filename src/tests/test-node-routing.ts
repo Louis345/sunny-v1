@@ -55,7 +55,7 @@ describe("map node routing", () => {
     );
     expect(action.kind).toBe("iframe");
     if (action.kind !== "iframe") throw new Error("expected iframe action");
-    expect(action.url).toContain("/homework/ila/2026-04-21/quest-2026-04-21.html");
+    expect(action.url).toContain("/games/quest-2026-04-21.html");
     expect(action.url).toContain("preview=free");
   });
 
@@ -78,6 +78,41 @@ describe("map node routing", () => {
       { childId: "ila", companion: "elli", isDiagMode: true },
     );
     expect(params.get("preview")).toBe("free");
+  });
+
+  it("buildNodeLaunchParams passes isQuest and dyslexiaMode into query string", () => {
+    const params = buildNodeLaunchParams(
+      { id: "n-q", words: ["x"], difficulty: 2 },
+      {
+        childId: "ila",
+        companion: "elli",
+        isDiagMode: false,
+        isQuest: true,
+        dyslexiaMode: true,
+      },
+    );
+    expect(params.get("isQuest")).toBe("true");
+    expect(params.get("dyslexiaMode")).toBe("true");
+  });
+
+  it("word-builder URL uses preview=false when iframePreviewParam is false (map can post node_complete)", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "node-wb",
+        type: "word-builder",
+        words: ["play", "word"],
+        difficulty: 2,
+      } as const,
+      {
+        childId: "creator",
+        companion: "elli",
+        isDiagMode: true,
+        iframePreviewParam: "false",
+      },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("preview=false");
   });
 
   it("iframePreviewParam go-live overrides isDiagMode for companion game_state_update bridge", () => {

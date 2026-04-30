@@ -10,3 +10,6 @@
 {"childId":"ila","sessionDate":"2026-04-29T00:49:27.458Z","nodeType":"spell-check","word":"session","theme":"default","rating":"dislike","completionTime_ms":0,"accuracy":0,"abandonedEarly":true}
 {"childId":"ila","sessionDate":"2026-04-29T00:49:27.458Z","nodeType":"wheel-of-fortune","word":"session","theme":"default","rating":"like","completionTime_ms":115744,"accuracy":0.8333333333333334,"abandonedEarly":false}
 {"childId":"ila","sessionDate":"2026-04-29T00:49:27.458Z","nodeType":"wheel-of-fortune","word":"session","theme":"default","rating":"dislike","completionTime_ms":0,"accuracy":0,"abandonedEarly":true}
+{"childId":"ila","sessionDate":"2026-04-29T19:49:41.093Z","nodeType":"word-radar","word":"session","theme":"default","rating":"like","completionTime_ms":197031,"accuracy":0.65,"abandonedEarly":false}
+{"childId":"ila","sessionDate":"2026-04-29T19:49:41.093Z","nodeType":"spell-check","word":"session","theme":"default","rating":"like","completionTime_ms":269213,"accuracy":0.6666666666666666,"abandonedEarly":false}
+{"childId":"ila","sessionDate":"2026-04-29T19:49:41.093Z","nodeType":"wheel-of-fortune","word":"session","theme":"default","rating":"like","completionTime_ms":89289,"accuracy":1,"abandonedEarly":false}

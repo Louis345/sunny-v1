@@ -123,6 +123,8 @@ export interface LearningProfile {
     weekOf: string;
     testDate: string | null;
     wordList: string[];
+    /** From last homework node misses — prioritized on next map load, then cleared. */
+    reinforceWords?: string[];
     generatedAt: string;
     nodes: Array<{
       id: string;
@@ -154,6 +156,15 @@ export interface LearningProfile {
 
   /** Companion care meters (optional; merged with defaults in buildProfile). */
   tamagotchi?: TamagotchiState;
+
+  /** Companion shop / HUD coin balance persisted with the learning profile. */
+  companionCurrency?: number;
+
+  /**
+   * Slug of the last homework mystery iframe played (`monster-stampede` | `speed-catcher`).
+   * Next map session picks the other game so children never repeat back-to-back.
+   */
+  lastMysteryGame?: string | null;
 }
 
 /** Optional homework-test metadata on `word_bank.json` rows (see `WordEntry` in algorithms/types). */

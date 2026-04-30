@@ -20,6 +20,8 @@ type PromptCompanionConfig = {
   vrmPath?: unknown;
   showInShowroom?: unknown;
   defaultFor?: unknown;
+  /** When true, excluded from CompanionRegistry; still listed in intro showroom manifest. */
+  introOnly?: unknown;
 };
 
 type ShowroomScripts = Record<
@@ -65,6 +67,8 @@ type CompanionManifestEntry = {
   voices: ShowroomVoiceOption[];
   companionConfig: SharedCompanionConfig;
   defaultFor?: string | string[];
+  /** Intro showroom only — not in CompanionRegistry or children.config presets. */
+  introOnly?: boolean;
   showroom?: {
     modelName?: string;
     sourceUrl?: string;
@@ -294,6 +298,8 @@ export type CompanionManifestEntry = {
   voices: ShowroomVoiceOption[];
   companionConfig: CompanionConfig;
   defaultFor?: string | string[];
+  /** Intro showroom only — not in CompanionRegistry. */
+  introOnly?: boolean;
   showroom?: {
     modelName?: string;
     sourceUrl?: string;
@@ -392,6 +398,7 @@ export function main(): void {
       voices,
       companionConfig: buildManifestCompanionConfig(dir.name, vrmUrl),
       defaultFor: asDefaultFor(config.defaultFor),
+      ...(config.introOnly === true ? { introOnly: true as const } : {}),
       showroom: buildShowroom(name, showroom),
     });
     renderProgress(index + 1, companionFolders.length);

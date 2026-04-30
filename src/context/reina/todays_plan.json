@@ -1,29 +1,30 @@
 {
   "todaysPlan": [
     {
-      "activity": "Speed Math Warm-Up (Multi-Digit Addition/Subtraction)",
+      "activity": "Multiplication Concept Introduction (Wrestling Scenarios)",
       "priority": 1,
       "required": true,
-      "reason": "Reina has 100% mastery on single-digit facts (16/16 across 4 sessions) but multi-digit with regrouping has never been tested. This is her self-identified math gap and builds toward multiplication readiness. Use competitive framing: 'Can you beat your time on these 3 problems?'",
-      "timeboxMinutes": 5,
-      "method": "Rapid-fire visual problems with timer: 47+28, 83-56, 124+89. Celebrate with やった after each correct answer."
+      "reason": "Self-identified math gap never formally assessed across 25+ sessions; advanced addition fluency (16/16 correct, 100%) indicates readiness for multiplicative reasoning via familiar wrestling contexts",
+      "timeboxMinutes": 15,
+      "method": "Conceptual introduction through wrestling word problems: '3 matches × 2 points each = ? total points.' Use manipulatives or visual arrays if needed. Celebrate with Japanese (すごい, やった) and wrestling metaphors ('pin the problem').",
+      "source": "Profile math gaps (subtraction, multiplication, division); psychologist reports flagging multiplication as critical priority"
     },
     {
       "activity": "Inferential Reading Comprehension (Action/Adventure Text)",
       "priority": 2,
       "required": true,
-      "reason": "Reina has 100% fluency on grade-level narratives (2 sessions) but comprehension depth is literal only ('she went boom, but she was safe'). Before advancing to Constitution reading (parent goal) or Japanese texts, probe inferential thinking with 'Why?' and 'What if?' questions. She requested stories with 'bad guys'—match her interest.",
-      "timeboxMinutes": 10,
-      "method": "Present 1 action/adventure passage (ninja, spy, or heist theme). After reading, ask: 'Why did the character do that?' 'What would happen if they didn't escape?' 'How did they outsmart the enemy?' Connect to her chess/wrestling strategy brain."
+      "reason": "Reading fluency 100% but comprehension remains literal only ('she went boom, but she was safe'); needs depth before Constitution reading or complex Japanese texts",
+      "timeboxMinutes": 12,
+      "method": "Action/adventure text with 'why' and 'what if' questions: 'Why was the ninja in danger?' 'How did she outsmart them?' Match her chess/wrestling analytical brain with strategy analysis.",
+      "source": "Reading sessions 4/3, 4/4 showing literal comprehension only; parent goal of Constitution reading"
     },
     {
-      "activity": "Pattern-Based Spelling (Comparative/Superlative Homework Cycle)",
+      "activity": "Homework Spelling Practice (Comparative/Superlative)",
       "priority": 3,
       "required": false,
-      "reason": "Homework cycle ingested 4/28: faster/fastest, slower/slowest, colder/coldest. Reina has 100% classroom baseline on spelling tests and mastered 4/4 inflectional endings in session (moving, movers, move, add). This aligns with her pattern-based strength. Deliver in 5-word burst then pivot to her choice.",
+      "reason": "Pattern-based spelling mastered (classroom baseline 100%); maintain as brief warm-up aligned with current homework cycle",
       "timeboxMinutes": 5,
-      "method": "Competitive framing: 'Can you spell these 5 homework words faster than last time?' Use words from hw-spelling_test-2da310ad cycle. Time her. Celebrate streak with すごい. Stop at 5 words maximum.",
-      "source": "hw-spelling_test-2da310ad",
+      "method": "5-word maximum from homework list (faster/fastest, slower/slowest, colder/coldest). Competitive framing: 'Beat your perfect streak!' Then pivot to her choice.",
       "words": [
         "faster",
         "fastest",
@@ -32,50 +33,52 @@
         "colder"
       ],
       "skipConditions": [
-        "If she disengages after 3 words",
-        "If she requests different activity",
-        "If energy is low"
-      ]
+        "Low energy at session start",
+        "Requests different activity immediately",
+        "Previous session spelling accuracy below 80%"
+      ],
+      "minimumWords": 3
     },
     {
-      "activity": "Multiplication Conceptual Introduction (Wrestling Word Problems)",
+      "activity": "Math Fact Fluency Warm-Up (Addition/Subtraction)",
       "priority": 4,
       "required": false,
-      "reason": "Reina stated subtraction, multiplication, division as her math gaps (profile, 3/27 notes). Never tested across 20+ sessions despite advanced addition/subtraction fluency. Ready for multiplicative reasoning via wrestling metaphors: '3 wrestlers each score 2 points—how many total?' This is her self-identified growth zone.",
-      "timeboxMinutes": 8,
-      "method": "Present 2-3 simple multiplication scenarios using wrestling context. Start with repeated addition visual (2+2+2 = 3 groups of 2). Ask her to solve, then introduce multiplication symbol. No drill—just concept building.",
+      "reason": "Mastery-level foundation (100% accuracy) serves as confidence-builder before harder multiplication work",
+      "timeboxMinutes": 5,
+      "method": "Rapid-fire 5-problem set mixing single-digit and crossing-10 facts. Celebrate consecutive correct streak. Use as energizer before multiplication introduction.",
       "skipConditions": [
-        "If math warm-up took longer than 5 minutes",
-        "If she requests different activity after reading"
-      ]
-    },
-    {
-      "activity": "Word Definitions Probe (CELF-5 Format)",
-      "priority": 5,
-      "required": false,
-      "reason": "Advanced vocabulary claimed in profile but never formally assessed across 20+ sessions. Required baseline before Japanese kanji/katakana work (parent goal: June 2026 Japan trip). Reading sessions show comprehension but definitional depth unknown. Sample 5-7 words from grade 3-4 level.",
-      "timeboxMinutes": 7,
-      "method": "Ask: 'What does [word] mean?' For words like: champion, dangerous, escape, ancient, brave. Accept explanations, synonyms, or usage examples. Note depth of response (surface vs. elaborated definitions).",
-      "skipConditions": [
-        "If session time is running low",
-        "If she is fatigued from prior activities"
+        "Session time below 25 minutes available",
+        "Reina requests immediate challenge without warm-up",
+        "Previous session showed sustained focus without warm-up needed"
       ],
-      "minimumWords": 5
+      "minimumWords": 0
     },
     {
-      "activity": "Student Choice (Chess, Japanese, or Strategy Game)",
+      "activity": "Word Definitions Probe (CELF-5 Subtest)",
+      "priority": 5,
+      "required": true,
+      "reason": "Advanced vocabulary claimed in profile but never formally assessed across 25+ sessions; required baseline before Japanese kanji/katakana work (June 2026 trip)",
+      "timeboxMinutes": 10,
+      "method": "CELF-5 Word Definitions subtest protocol: 'What does [word] mean?' Start with grade-level words (animal, color, story) then advance to academic vocabulary (multiply, strategy, champion). Record definitional depth vs. breadth.",
+      "source": "Flagged 25 times in clinical notes; parent goal Japanese prep requires vocabulary baseline"
+    },
+    {
+      "activity": "Formulated Sentences Probe (CELF-5 Subtest)",
       "priority": 6,
       "required": false,
-      "reason": "Reina self-regulates well and requests specific activities (riddles, Space Invaders, reading). Honoring her choice builds agency and maintains engagement. She listed chess, piano, Japanese kanji as goals. Offer her the menu.",
-      "timeboxMinutes": 10,
-      "method": "Ask: 'You crushed today's work. What do you want to tackle next—chess strategy, Japanese vocabulary, or something else?' Follow her lead. If she chooses game, allow it as earned reward.",
+      "reason": "No narrative production or sentence generation under demand across any session; relevant for Japanese composition and written math explanations",
+      "timeboxMinutes": 8,
+      "method": "CELF-5 Formulated Sentences subtest protocol: Present word and ask child to create sentence. Start with familiar words (wrestler, match, points) then advance to academic terms (multiply, product, strategy).",
+      "source": "Flagged 21 times in clinical notes; needed before bilingual curriculum expansion",
       "skipConditions": [
-        "If she exits session before this activity",
-        "If prior required activities took full session time"
-      ]
+        "Session time below 30 minutes remaining",
+        "Energy level low after multiplication and reading work",
+        "Reina requests different activity"
+      ],
+      "minimumWords": 0
     }
   ],
-  "childProfile": "Reina is an 8-year-old academically advanced learner who thrives on challenge, competition, and speed. She is a year ahead of grade level, scores 100% on spelling tests, and has mastered single-digit math facts with zero errors across multiple sessions. She is bilingual (English + Japanese) and proud of it—celebrate her wins with すごい and やった. Reina is a competitive wrestler who responds to wrestling metaphors (takedowns, pins, championships) and scoreboard framing ('Can you beat your record?'). She loves strategy (chess, riddles, problem-solving) and engages deeply when material is hard, not when it's easy. She disengages from rote drill (worksheet coin counting crashed to 26% accuracy) but masters applied contexts (store-game 86%, word problems 100%). She self-advocates clearly ('Stop. Thank you' when done, 'I need an easier hint' when stuck) and corrects the tutor when errors occur. She loves the movie Matilda, action/adventure stories with 'bad guys,' and wants to learn kanji/katakana before her Japan trip (June 2026). Match her fast pace, push her hard, acknowledge her intelligence, and pivot when she requests it—she knows what she needs.",
-  "stopAfter": "Stop when Reina self-regulates an exit ('I have to go,' 'I'm done') or after completing 3-4 required activities with high accuracy (90%+). If she requests a game or different activity mid-session, honor it—she has earned autonomy. Do not force completion of all 6 activities; her engagement quality matters more than activity count. End on a win (correct answer, personal best, or mastered concept) so she leaves confident.",
-  "rewardPolicy": "Reina earns games (Space Invaders, store-game) after demonstrating effort and accuracy on challenging work, not as bribery to start. She is smart enough to see through 'do this, then play'—instead, frame games as part of the learning (store-game taught coin counting better than worksheets). If she requests a game mid-session, allow brief access (2-3 minutes) then return to work. She self-regulates well and will re-engage if the next activity is appropriately challenging. Celebrate streaks and personal bests with Japanese phrases (すごい, やった) and wrestling metaphors ('That's a pin!'). Do not over-praise easy tasks—she wants acknowledgment of real achievement."
+  "childProfile": "Reina is an 8-year-old academically advanced learner (year ahead of peers) who thrives on challenge, competition, and speed. She is bilingual (English/Japanese), a competitive wrestler, and consistently scores 100% on spelling tests. She masters new concepts through applied contexts (store-game 86% accuracy) and competitive framing (math facts 100%, riddles 15+/15 correct) but disengages from mechanical drill (worksheet coins 26% accuracy). She has strong nonverbal reasoning, self-corrects errors, and self-advocates for harder material when bored. Wrestling metaphors, Japanese celebration (すごい, やった), and fast-paced energy matching work best. She gets frustrated with slow pacing, baby talk, or tasks that feel too easy. Her self-identified math gaps are subtraction, multiplication, and division—multiplication has never been formally assessed despite 25+ sessions.",
+  "stopAfter": "End session naturally when Reina completes multiplication introduction, inferential reading work, and at least one CELF-5 probe (Word Definitions priority), OR when she self-regulates exit on a winning streak. Typical session length 25-35 minutes. Stop immediately if she says she's done or requests Space Invaders—respect her boundary and celebrate wins before closing.",
+  "rewardPolicy": "Reina earns games/breaks through mastery and sustained effort, not as bribes. After completing required activities (multiplication intro, inferential reading, Word Definitions probe) at 80%+ engagement, offer Space Invaders or choice of next challenge. Use competitive framing: 'You pinned that multiplication problem—champion's choice: harder math or game break?' Match rewards to her identity (wrestler, smart kid who loves challenge). Japanese celebration (すごい, やった) and acknowledgment of her intelligence are intrinsic motivators—external rewards secondary."
 }

@@ -1,0 +1,9 @@
+{
+  "name": "Kefla",
+  "introOnly": true,
+  "voiceId": "n7Wi4g1bhpw4Bs8HK5ph",
+  "voiceModelId": "eleven_multilingual_v2",
+  "ttsName": "KEF-luh",
+  "unlockCost": 750,
+  "vrmPath": "/companions/Kefla.vrm"
+}
