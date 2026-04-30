@@ -22,8 +22,12 @@ import {
 import { generateGameConfigDocs } from "../profile/generateGameConfigDocs";
 import { buildProfile } from "../profiles/buildProfile";
 import { readLearningProfile } from "../utils/learningProfileIO";
+import {
+  readCompanionBaseMarkdown,
+  readCompanionSoulMarkdownFromAbsolute,
+} from "../companions/loader";
 
-const TEMPLATE_VERSION = "v23"; // bump this when prompt changes
+const TEMPLATE_VERSION = "v24"; // bump this when prompt changes
 
 const SRC_DIR = path.resolve(__dirname, "..");
 
@@ -625,12 +629,10 @@ That is all you need to know.`.trim();
 function buildDiagSessionPrompt(
   _childName: ChildName,
   _companionName: string,
-  _companionPersonality: string,
+  companionSoulMarkdown: string,
   _options?: BuildSessionPromptOptions,
 ): string {
   void _childName;
-  void _companionName;
-  void _companionPersonality;
   void _options;
   const creatorPath = path.resolve(SRC_DIR, "context", "creator", "creator.md");
   const creatorContext = fs.existsSync(creatorPath)
@@ -649,7 +651,12 @@ function buildDiagSessionPrompt(
 When Jamal asks for an image (explicit request; the server may also illustrate after reading):
   One short acknowledgment, then sessionLog with action "generate_image" and the scene in observation.`;
 
-  const body = `${core}${imageRequestBlock}${toolsSection}`.trim();
+  const personaBlock =
+    companionSoulMarkdown.trim().length > 0
+      ? `\n\n## Companion rules and persona (${_companionName})\n\n${companionSoulMarkdown.trim()}`
+      : "";
+
+  const body = `${core}${personaBlock}${imageRequestBlock}${toolsSection}`.trim();
   logSessionPromptLengths(body.length + manifest.length, "");
   return `${body}${manifest}`;
 }
@@ -660,12 +667,15 @@ export function buildDiagPrompt(
   companionMarkdownPath: string,
   options?: BuildSessionPromptOptions,
 ): string {
-  const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
-  const companionName = parseCompanionNameFromMarkdown(companionPersonality);
+  const individualMd = fs.readFileSync(companionMarkdownPath, "utf-8");
+  const companionName = parseCompanionNameFromMarkdown(individualMd);
+  const companionSoul = readCompanionSoulMarkdownFromAbsolute(
+    companionMarkdownPath,
+  );
   return buildDiagSessionPrompt(
     childName,
     companionName,
-    companionPersonality,
+    companionSoul,
     options,
   );
 }
@@ -678,14 +688,18 @@ export async function buildSessionPrompt(
   subject: SessionSubject = "spelling",
   options?: BuildSessionPromptOptions,
 ): Promise<string> {
-  const companionPersonality = fs.readFileSync(companionMarkdownPath, "utf-8");
-  const companionName = parseCompanionNameFromMarkdown(companionPersonality);
+  const individualMd = fs.readFileSync(companionMarkdownPath, "utf-8");
+  const companionName = parseCompanionNameFromMarkdown(individualMd);
+  const companionBase = readCompanionBaseMarkdown();
 
   if (subject === "diag") {
+    const companionSoul = readCompanionSoulMarkdownFromAbsolute(
+      companionMarkdownPath,
+    );
     return buildDiagSessionPrompt(
       childName,
       companionName,
-      companionPersonality,
+      companionSoul,
       options,
     );
   }
@@ -698,7 +712,8 @@ export async function buildSessionPrompt(
 
   if (!homeworkContent || !homeworkContent.trim()) {
     const namePrefix = buildNamePrefix(childName);
-    const body = `${namePrefix}\n\nYou are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
+    const soulBlock = [companionBase, individualMd.trim()].filter(Boolean).join("\n\n");
+    const body = `${namePrefix}\n\n${soulBlock ? `${soulBlock}\n\n` : ""}You are ${companionName}. The child has no homework today — follow their lead.\nAsk what they want to explore. Offer reading, a word game, or open conversation.\nKeep responses short and warm — one sentence per turn, two at most. Match their energy. Never explain unprompted. Never use asterisks.`;
     const careSuffix = getCarePlanBlock(subject, childName, options);
     const manifest = sessionPromptCapabilitiesTail(subject);
     const beforeCare = `${body}${manifest}`;
@@ -755,8 +770,11 @@ ${questStatusLine}`;
       `${homeworkContent.slice(0, 2000)}`
     : "";
 
+  const individualSoul = individualMd.trim();
   const promptText = [
     namePrefix,
+    companionBase,
+    individualSoul,
     personality,
     companionCtx,
     mapStatusSection,

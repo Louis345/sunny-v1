@@ -3,6 +3,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  type MutableRefObject,
   type RefObject,
 } from "react";
 import {
@@ -29,7 +30,7 @@ import {
 } from "../utils/audioAnalyser";
 import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
 import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
-import { mapNodeSessionAudioFlags } from "./mapNodeSessionAudio";
+import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudio";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -201,6 +202,10 @@ interface SessionState {
   karaokeStoryComplete: boolean;
   /** True when server confirms creator diag game session registration. */
   diagGameSessionReady: boolean;
+  /** True after backend startup finishes (tts prime + stt connect). */
+  sessionBootReady: boolean;
+  /** First ElevenLabs PCM chunk after this session — used with map loading curtain. */
+  firstAudioChunkReceived: boolean;
 }
 
 function isMathCanvas(content: string | undefined): boolean {
@@ -275,6 +280,11 @@ function urlWantsBrowserTts(): boolean {
 export type UseSessionOptions = {
   /** Adventure-map game iframe; preferred target for server-driven screenshots. */
   adventureGameIframeRef?: RefObject<HTMLIFrameElement | null>;
+  /**
+   * When `.current === true` at `session_started`, companion TTS PCM is queued but not played
+   * until `releaseCompanionAudioPlayback()` (curtain open on the map loading screen).
+   */
+  gateCompanionAudioUntilCurtainRef?: MutableRefObject<boolean>;
 };
 
 export function useSession(options?: UseSessionOptions) {
@@ -321,6 +331,8 @@ export function useSession(options?: UseSessionOptions) {
     companionCommands: [],
     karaokeStoryComplete: false,
     diagGameSessionReady: false,
+    sessionBootReady: false,
+    firstAudioChunkReceived: false,
   });
 
   const sessionStateRef = useRef(state);
@@ -345,6 +357,12 @@ export function useSession(options?: UseSessionOptions) {
   const stopMicRef = useRef<() => void>(() => {});
   const adventureGameIframeSourceRef = useRef(options?.adventureGameIframeRef ?? null);
   adventureGameIframeSourceRef.current = options?.adventureGameIframeRef ?? null;
+
+  const gateCompanionAudioUntilCurtainRef =
+    options?.gateCompanionAudioUntilCurtainRef ?? null;
+  /** When true, `playNextChunk` is a no-op (chunks still queue). */
+  const companionPlaybackGateClosedRef = useRef(false);
+  const playNextChunkRunnerRef = useRef<() => Promise<void>>(async () => {});
 
   // --- WebSocket connection ---
 
@@ -436,6 +454,19 @@ export function useSession(options?: UseSessionOptions) {
 
       case "session_started": {
         const m = msg as Record<string, string>;
+        audioQueueRef.current = [];
+        isPlayingRef.current = false;
+        serverDoneRef.current = false;
+        if (currentSourceRef.current) {
+          try {
+            currentSourceRef.current.stop();
+          } catch {
+            /* already stopped */
+          }
+          currentSourceRef.current = null;
+        }
+        companionPlaybackGateClosedRef.current =
+          gateCompanionAudioUntilCurtainRef?.current === true;
         debugBrowserTtsRef.current =
           (msg as Record<string, unknown>).debugBrowserTts === true ||
           urlWantsBrowserTts();
@@ -456,6 +487,8 @@ export function useSession(options?: UseSessionOptions) {
           companionCommands: [],
           karaokeStoryComplete: false,
           diagGameSessionReady: false,
+          sessionBootReady: false,
+          firstAudioChunkReceived: false,
           companion: {
             childName: m.childName ?? m.child ?? "",
             companionName: m.companionName ?? m.companion ?? "",
@@ -619,9 +652,12 @@ export function useSession(options?: UseSessionOptions) {
           break;
         }
         const audioData = base64ToArrayBuffer((msg.data as string) ?? "");
+        setStateRef.current((s) =>
+          s.firstAudioChunkReceived ? s : { ...s, firstAudioChunkReceived: true },
+        );
         audioQueueRef.current.push(audioData);
         if (!isPlayingRef.current) {
-          playNextChunk();
+          void playNextChunkRunnerRef.current();
         }
         break;
       }
@@ -1011,8 +1047,11 @@ export function useSession(options?: UseSessionOptions) {
             readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
             karaokeStoryComplete: false,
             diagGameSessionReady: false,
+            sessionBootReady: false,
+            firstAudioChunkReceived: false,
           };
         });
+        companionPlaybackGateClosedRef.current = false;
         stopMicRef.current();
         break;
 
@@ -1020,11 +1059,8 @@ export function useSession(options?: UseSessionOptions) {
         setStateRef.current((s) => ({ ...s, diagGameSessionReady: true }));
         break;
 
-      case "loading_status":
-        setStateRef.current((s) => ({
-          ...s,
-          loadingMessage: (msg.message as string) ?? null,
-        }));
+      case "session_boot_ready":
+        setStateRef.current((s) => ({ ...s, sessionBootReady: true }));
         break;
 
       case "loading_status":
@@ -1170,6 +1206,9 @@ export function useSession(options?: UseSessionOptions) {
   // ElevenLabs sends PCM 16-bit signed mono at 24000 Hz (pcm_24000)
 
   async function playNextChunk() {
+    if (companionPlaybackGateClosedRef.current) {
+      return;
+    }
     if (audioQueueRef.current.length === 0) {
       // Brief grace period before re-opening the mic — lets residual room
       // echo from the speakers dissipate so Deepgram doesn't pick it up.
@@ -1212,6 +1251,15 @@ export function useSession(options?: UseSessionOptions) {
       playNextChunk();
     }
   }
+
+  playNextChunkRunnerRef.current = playNextChunk;
+
+  const releaseCompanionAudioPlayback = useCallback(() => {
+    companionPlaybackGateClosedRef.current = false;
+    if (audioQueueRef.current.length > 0 && !isPlayingRef.current) {
+      void playNextChunkRunnerRef.current();
+    }
+  }, []);
 
   const karaokeAssistSilence = isKaraokeReadingAssistSilence(state);
   useEffect(() => {
@@ -1367,6 +1415,18 @@ export function useSession(options?: UseSessionOptions) {
     setMicMuted(false);
     setTtsMuted(false);
     setMapNodeType(null);
+    audioQueueRef.current = [];
+    isPlayingRef.current = false;
+    serverDoneRef.current = false;
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+      } catch {
+        /* already stopped */
+      }
+      currentSourceRef.current = null;
+    }
+    companionPlaybackGateClosedRef.current = false;
     setState({
       phase: "picker",
       childName: null,
@@ -1392,7 +1452,10 @@ export function useSession(options?: UseSessionOptions) {
       companionCommands: [],
       karaokeStoryComplete: false,
       diagGameSessionReady: false,
+      sessionBootReady: false,
+      firstAudioChunkReceived: false,
     });
+    companionPlaybackGateClosedRef.current = false;
     wsRef.current?.close();
     wsRef.current = null;
     stopMic();
@@ -1491,6 +1554,7 @@ export function useSession(options?: UseSessionOptions) {
     companionEvents: state.companionEvents,
     companionCommands: state.companionCommands,
     analyserNodeRef,
+    releaseCompanionAudioPlayback,
   };
 }
 

@@ -101,7 +101,7 @@ describe("ingest homework nodes + spelling word list", () => {
     expect(nodes[1]?.type).toBe("spell-check");
   });
 
-  it("buildHomeworkNodes spelling_test order: word-radar, spell-check, wheel-of-fortune, karaoke", () => {
+  it("buildHomeworkNodes spelling_test order: word-radar, spell-check, wheel-of-fortune", () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["a", "b"],
@@ -112,7 +112,6 @@ describe("ingest homework nodes + spelling word list", () => {
       "word-radar",
       "spell-check",
       "wheel-of-fortune",
-      "karaoke",
     ]);
   });
 
@@ -158,7 +157,7 @@ describe("ingest homework nodes + spelling word list", () => {
     expect(spy).toHaveBeenCalledWith("reina");
   });
 
-  it("buildPendingHomeworkPayload with buildHomeworkNodes yields four persisted nodes", () => {
+  it("buildPendingHomeworkPayload with buildHomeworkNodes yields three persisted spelling nodes", () => {
     const words = ["farmer", "teacher"];
     const homeworkId = "hw-spelling_test-testid";
     const pending = buildPendingHomeworkPayload({
@@ -168,7 +167,7 @@ describe("ingest homework nodes + spelling word list", () => {
       homeworkId,
       nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
     });
-    expect(pending.nodes.length).toBe(4);
+    expect(pending.nodes.length).toBe(3);
     expect(pending.nodes[0]?.type).toBe("word-radar");
     expect(pending.nodes[2]?.type).toBe("wheel-of-fortune");
   });

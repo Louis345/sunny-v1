@@ -158,6 +158,55 @@ describe("SessionLoadingOverlay", () => {
     expect(screen.getByText("Opening the curtain...")).not.toBeNull();
   });
 
+  it("calls onCurtainOpen once after curtainOpenMs when ready", () => {
+    vi.useFakeTimers();
+    const onCurtainOpen = vi.fn();
+    render(
+      <SessionLoadingOverlay
+        childName="Ila"
+        avatarImagePath="/__fixtures__/ila-portrait.png"
+        accentColor="#2dd4bf"
+        accentBg="#ecfeff"
+        voiceReady
+        mapReady
+        assetsReady
+        onCurtainOpen={onCurtainOpen}
+        curtainOpenMs={400}
+      />,
+    );
+    expect(onCurtainOpen).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(399);
+    });
+    expect(onCurtainOpen).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(onCurtainOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not call onCurtainOpen until ready even after curtainOpenMs", () => {
+    vi.useFakeTimers();
+    const onCurtainOpen = vi.fn();
+    render(
+      <SessionLoadingOverlay
+        childName="Ila"
+        avatarImagePath="/__fixtures__/ila-portrait.png"
+        accentColor="#2dd4bf"
+        accentBg="#ecfeff"
+        voiceReady={false}
+        mapReady
+        assetsReady
+        onCurtainOpen={onCurtainOpen}
+        curtainOpenMs={200}
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(onCurtainOpen).not.toHaveBeenCalled();
+  });
+
   it("fires a hard release after the configured timeout", () => {
     vi.useFakeTimers();
     const onHardRelease = vi.fn();

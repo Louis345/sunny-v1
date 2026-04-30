@@ -92,6 +92,15 @@ describe("buildProfile (TASK-004)", () => {
     expect(profile.companionContext).toContain("Matilda");
   });
 
+  it("Friday spelling-test profile config has no generated boss enabled", async () => {
+    for (const childId of ["ila", "reina"]) {
+      const profile = await buildProfile(childId);
+      expect(profile).not.toBeNull();
+      if (!profile) continue;
+      expect(profile.games?.boss?.dataThresholdMet).not.toBe(true);
+    }
+  });
+
   it("companionContext contains growth modifier for current level", async () => {
     const profile = await buildProfile("ila");
     expect(profile).not.toBeNull();
@@ -185,6 +194,14 @@ describe("buildProfile (TASK-004)", () => {
   it('buildProfile("ila").masteryGating.clockStep is a number', async () => {
     const p = await buildProfile("ila");
     expect(typeof p?.masteryGating?.clockStep).toBe("number");
+  });
+
+  it('buildProfile("ila") exposes companionCurrency as non-negative number', async () => {
+    const p = await buildProfile("ila");
+    expect(p).not.toBeNull();
+    if (!p) return;
+    expect(typeof p.companionCurrency).toBe("number");
+    expect(p.companionCurrency).toBeGreaterThanOrEqual(0);
   });
 
   it("missing game in children.config.json falls back to default without throwing", async () => {

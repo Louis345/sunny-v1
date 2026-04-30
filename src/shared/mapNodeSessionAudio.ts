@@ -1,4 +1,4 @@
-import { getNodeAudioDefaults } from "../../../src/shared/nodeAudioDefaults";
+import { getNodeAudioDefaults } from "./nodeAudioDefaults";
 
 export type MapNodeSessionAudioFlags = {
   companionTtsMuted: boolean;
@@ -28,7 +28,8 @@ export function mapNodeSessionAudioFlags(
     shouldMuteCompanionMic &&
     (mapNodeType === "karaoke" ||
       mapNodeType === "pronunciation" ||
-      mapNodeType === "word-radar");
+      mapNodeType === "word-radar" ||
+      mapNodeType === "word_radar");
 
   return {
     companionTtsMuted: d.companionTtsDefault === "off",

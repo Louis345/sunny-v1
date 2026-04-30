@@ -1,0 +1,32 @@
+{
+  "id": "default-1777422291476",
+  "name": "default",
+  "generatedAt": "2026-04-29T00:24:51.476Z",
+  "worldBackgroundUrl": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-f1db265c-91e1-4a9f-9654-94e65db023c4.jpeg",
+  "palette": {
+    "sky": "#0b1b3a",
+    "ground": "#0f3d2e",
+    "accent": "#1a56db",
+    "particle": "#a7c7ff",
+    "glow": "#fde68a",
+    "cardBackground": "#0f172a"
+  },
+  "thumbnails": {
+    "mystery": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-02890966-ed9f-452a-852c-29537c029a88.jpeg",
+    "word-builder": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-ac65768b-3a86-4ca3-a808-17769955cc68.jpeg",
+    "bubble-pop": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-37504213-2bab-436a-9368-f60e6a45783f.jpeg",
+    "karaoke": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-aa475625-1cf8-473b-8c0f-35dee5b5c1e6.jpeg",
+    "word-radar": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-b2e6d4f7-7ce5-4f4a-aad1-581fe7c8e5c9.jpeg",
+    "clock-game": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-6aed507b-cd4a-4812-ad01-27a65863727b.jpeg",
+    "coin-counter": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-f12e707a-1779-4640-a548-93849d223ab3.jpeg",
+    "spell-check": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-a5882ac4-e993-4c08-8a30-be8cb758f003.jpeg",
+    "wordle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-e589dfcf-332d-4a28-9c26-84ddf9bf9813.jpeg",
+    "riddle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-c37ed72e-1127-4936-9d27-36af2862df24.jpeg",
+    "space-invaders": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-ce0af914-d13a-4bc3-a99e-b45093859c2f.jpeg",
+    "asteroid": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-4487b116-afae-49cb-9e83-b44f680a8c13.jpeg",
+    "space-frogger": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-6de62bcf-f820-4ae8-84f1-99f2911411eb.jpeg",
+    "boss": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-8b617554-7acf-475f-a03e-7def4b733e60.jpeg",
+    "wheel-of-fortune": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-c515c7f0-4561-4f1d-a1eb-65d614d1fa12.jpeg"
+  },
+  "savedBy": "auto"
+}

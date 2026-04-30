@@ -89,6 +89,8 @@
           window.setTimeout(function () {
             window.GameBridge.fireEvent("session_complete", {});
           }, 0);
+        } else if (typeof window.fireCompanionEvent === "function") {
+          window.fireCompanionEvent("session_complete", {});
         }
       }
 

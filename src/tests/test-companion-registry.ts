@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CompanionRegistry } from "../prompts/companions/registry";
+import { tryLoadIntroOnlyShowroomCompanion } from "../server/introOnlyShowroomCompanion";
 
 describe("CompanionRegistry", () => {
   it("discovers all prompt companions (elli, matilda, showroom chars)", () => {
@@ -26,6 +27,26 @@ describe("CompanionRegistry", () => {
     expect(yukari.name).toBe("Yukari");
     expect(yukari.voiceId).toBe("piI8Kku0DcvcL6TTSeQt");
     expect(yukari.unlockCost).toBe(750);
+  });
+
+  it("getById throws for intro-only companion kefla (intro showroom only)", () => {
+    expect(() => CompanionRegistry.getById("kefla")).toThrow(
+      'CompanionRegistry: unknown companion "kefla"',
+    );
+  });
+
+  it("tryLoadIntroOnlyShowroomCompanion returns voice meta for kefla", () => {
+    const row = tryLoadIntroOnlyShowroomCompanion("kefla");
+    expect(row).not.toBeNull();
+    expect(row!.id).toBe("kefla");
+    expect(row!.name).toBe("Kefla");
+    expect(row!.voiceId.length).toBeGreaterThan(5);
+    expect(row!.voiceModelId).toBeTruthy();
+  });
+
+  it("tryLoadIntroOnlyShowroomCompanion returns null for registry companions", () => {
+    expect(tryLoadIntroOnlyShowroomCompanion("elli")).toBeNull();
+    expect(tryLoadIntroOnlyShowroomCompanion("matilda")).toBeNull();
   });
 
   it("getById throws on unknown id", () => {

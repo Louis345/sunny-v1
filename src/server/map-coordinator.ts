@@ -17,7 +17,11 @@ import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme, paletteOnlyThemeFromProfile } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { recordReward } from "../engine/bandit";
-import { planSession, recordAttempt } from "../engine/learningEngine";
+import {
+  planSession,
+  recordAttempt,
+  registerMysteryGameForSessionFinalize,
+} from "../engine/learningEngine";
 import {
   getSunnyMode,
   isDiagMapMode,
@@ -25,6 +29,8 @@ import {
 } from "../utils/runtimeMode";
 import { buildMapSummaryFromPendingNodes } from "../shared/mapSummary";
 import { readWordBank } from "../utils/wordBankIO";
+import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import { selectHomeworkSessionWords, daysUntilHomeworkTest } from "../shared/homeworkWordSelection";
 import { appendNodeRating } from "../utils/nodeRatingIO";
 import { isCompanionEmote } from "../shared/companionEmotes";
 import type { CompanionEvent, CompanionTrigger } from "../shared/companionTypes";
@@ -34,10 +40,12 @@ import {
   getActiveVoiceSessionManagerForChild,
 } from "./voice-session-registry";
 import { formatNodeResultForCompanion } from "./companion-context/nodeResultFormatter";
+import { buildNodeCompletionHandoffState } from "./companion-context/nodeCompletionHandoff";
 import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { generateStoryImage } from "../utils/generateStoryImage";
-import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import { reconcileCompanionCurrencyAward } from "./currencyAward";
+import childrenCfg from "../../children.config.json";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -527,9 +535,12 @@ function syncNodeStatuses(state: MapState): void {
   state.nodes = state.nodes.map((node, idx) => ({
     ...node,
     isCompleted: completed.has(node.id),
-    isLocked: unlockAll
-      ? false
-      : idx > state.currentNodeIndex && !completed.has(node.id),
+    isLocked:
+      node.type === "boss" && !node.gameHtmlPath
+        ? true
+        : unlockAll
+          ? false
+          : idx > state.currentNodeIndex && !completed.has(node.id),
   }));
 }
 
@@ -641,7 +652,7 @@ function diagSessionTheme(): SessionTheme {
 export function buildDiagMapSession(): { sessionId: string; mapState: MapState } {
   const sessionDate = new Date().toISOString();
   const theme = diagSessionTheme();
-  let dueWords: string[] = ["seed", "demo"];
+  let dueWords: string[] = [];
   try {
     const plan = planSession("creator", "spelling");
     const picked =
@@ -651,7 +662,7 @@ export function buildDiagMapSession(): { sessionId: string; mapState: MapState }
     if (picked.length > 0) dueWords = picked;
   } catch (err) {
     console.warn(
-      "  🎮 [diag-map] planSession(creator) failed — using placeholder due words:",
+      "  🎮 [diag-map] planSession(creator) failed — empty due words:",
       err instanceof Error ? err.message : String(err),
     );
   }
@@ -736,28 +747,49 @@ export function buildMapSummary(mapState: MapState): string {
   return buildMapSummaryFromPendingNodes(mapState.nodes);
 }
 
-/** Spelling homework baseline order through wheel, then mystery, then karaoke — then quest/boss. */
+/** Spelling homework baseline order through wheel, then mystery, then quest/boss. */
 const HOMEWORK_NODE_ORDER = [
   "word-radar",
   "spell-check",
   "wheel-of-fortune",
-  "karaoke",
 ] as const;
 
 // TODO: Level 5 unlock — companion picks based on session energy
 // TODO: Level 10 unlock — child picks from menu
-// Skill tree progression planned, random pool for now.
-const DOPAMINE_POOL = [
-  "space-invaders.html",
-  "asteroid.html",
-  "space-frogger.html",
-] as const;
 
-function pickDopamineGameFileForMystery(): string {
-  const gameFile =
-    DOPAMINE_POOL[Math.floor(Math.random() * DOPAMINE_POOL.length)]!;
-  console.log(`🎮 [mystery] picked dopamine game: ${gameFile}`);
-  return gameFile;
+export const MYSTERY_GAME_SLUGS = ["monster-stampede", "speed-catcher"] as const;
+export type MysteryGameSlug = (typeof MYSTERY_GAME_SLUGS)[number];
+const QUEST_GAME_FILES = ["monster-stampede.html", "speed-catcher.html"] as const;
+
+function selectQuestGameFile(): (typeof QUEST_GAME_FILES)[number] {
+  return QUEST_GAME_FILES[Math.floor(Math.random() * QUEST_GAME_FILES.length)]!;
+}
+
+/**
+ * Picks the next homework mystery iframe slug, alternating so the child never plays
+ * the same game twice in a row. Persisted to profile via `finalizeSession` after
+ * `registerMysteryGameForSessionFinalize` is called from `startMapSession`.
+ */
+export function selectMysteryGame(childId: string): MysteryGameSlug {
+  const profile = readLearningProfile(childId);
+  const last = profile?.lastMysteryGame ?? null;
+  const games = MYSTERY_GAME_SLUGS as unknown as readonly string[];
+  if (!last || !games.includes(last)) {
+    return MYSTERY_GAME_SLUGS[
+      Math.floor(Math.random() * MYSTERY_GAME_SLUGS.length)
+    ]!;
+  }
+  const other = games.find((g) => g !== last);
+  return (other ?? MYSTERY_GAME_SLUGS[0])! as MysteryGameSlug;
+}
+
+function hasManualQuestUnlock(childId: string): boolean {
+  const profiles = childrenCfg.childProfiles as
+    | Record<string, { questUnlocked?: boolean }>
+    | undefined;
+  const id = childId.trim().toLowerCase();
+  // TODO: replace questUnlocked with computeQuestThreshold(childId)
+  return profiles?.[id]?.questUnlocked === true;
 }
 
 function orderHomeworkBaselineNodes(nodes: NodeConfig[]): NodeConfig[] {
@@ -798,17 +830,55 @@ export async function startMapSession(
     generationModel: bossConfig?.generationModel,
   });
   if (profile.pendingHomework?.nodes?.length) {
-    const homeworkPlan = planSession(childId, "homework");
-    const dueWords =
-      homeworkPlan.dueWords?.length && profile.pendingHomework
-        ? homeworkPlan.dueWords
-        : profile.pendingHomework.wordList;
-    const rawBaseline = pendingHomeworkToNodeConfigs(profile.pendingHomework, dueWords).filter(
+    const hw = profile.pendingHomework;
+    const sm2Plan = planSession(childId, "spelling", {
+      homeworkFallbackWords: hw.wordList,
+    });
+    const bank = readWordBank(childId);
+    const reinforce = hw.reinforceWords ?? [];
+    const today = new Date().toISOString().slice(0, 10);
+    const maxWords =
+      profile.games?.["word-radar"]?.maxWords ??
+      profile.games?.["spell-check"]?.maxWords ??
+      5;
+    const sessionWords = selectHomeworkSessionWords({
+      wordList: hw.wordList,
+      sm2Plan,
+      missedWords: reinforce,
+      testDate: hw.testDate,
+      maxWords,
+      testImminent: daysUntilHomeworkTest(hw.testDate, today) <= 5,
+      wordBankWords: bank.words,
+      todayIso: today,
+    });
+    /** Same source as node-completion handoff misses — URL `words` for mystery iframes. */
+    const pendingHandoffMissedWords =
+      reinforce.length > 0 ? [...reinforce] : [...sessionWords];
+    if (reinforce.length > 0) {
+      try {
+        const lp = readLearningProfile(childId);
+        if (lp?.pendingHomework?.reinforceWords?.length) {
+          writeLearningProfile(childId, {
+            ...lp,
+            pendingHomework: { ...lp.pendingHomework, reinforceWords: [] },
+          });
+        }
+      } catch (err) {
+        console.error("  🔴 [map-coordinator] clear reinforceWords failed:", err);
+      }
+    }
+    const rawBaseline = pendingHomeworkToNodeConfigs(hw, sessionWords).filter(
       (node) =>
-        node.type !== "quest" && node.type !== "boss" && node.type !== "mystery",
+        node.type !== "quest" &&
+        node.type !== "boss" &&
+        node.type !== "mystery" &&
+        node.type !== "karaoke",
     );
     const baselineOrdered = orderHomeworkBaselineNodes(rawBaseline);
-    const mysteryGameFile = pickDopamineGameFileForMystery();
+    const mysterySlug = selectMysteryGame(childId);
+    const mysteryGameFile = `${mysterySlug}.html`;
+    registerMysteryGameForSessionFinalize(childId, mysterySlug);
+    console.log(`🎮 [mystery] picked mystery game: ${mysteryGameFile}`);
     const wheelIdx = baselineOrdered.findIndex((n) => n.type === "wheel-of-fortune");
     let head: NodeConfig[];
     let tail: NodeConfig[];
@@ -816,20 +886,14 @@ export async function startMapSession(
       head = baselineOrdered.slice(0, wheelIdx + 1);
       tail = baselineOrdered.slice(wheelIdx + 1);
     } else {
-      const karaIdx = baselineOrdered.findIndex((n) => n.type === "karaoke");
-      if (karaIdx >= 0) {
-        head = baselineOrdered.slice(0, karaIdx);
-        tail = baselineOrdered.slice(karaIdx);
-      } else {
-        head = [...baselineOrdered];
-        tail = [];
-      }
+      head = [...baselineOrdered];
+      tail = [];
     }
 
     const mysteryNode: NodeConfig = {
       id: `n-mystery-${homeworkId}`,
       type: "mystery",
-      words: [],
+      words: pendingHandoffMissedWords,
       difficulty: 2,
       gameFile: mysteryGameFile,
       thumbnailUrl: theme.nodeThumbnails?.mystery ?? undefined,
@@ -840,44 +904,57 @@ export async function startMapSession(
     };
 
     const ordered: NodeConfig[] = [...head, mysteryNode, ...tail];
-    if (
+    const questGamePath =
+      typeof questConfig?.generatedGamePath === "string" &&
+      questConfig.generatedGamePath.length > 0
+        ? questConfig.generatedGamePath
+        : undefined;
+    const questGenerationModel = questConfig?.generationModel;
+    const questGameReady = Boolean(
       questConfig?.dataThresholdMet &&
-      questConfig?.generatedGamePath &&
-      questConfig?.generationModel
-    ) {
+      questGamePath &&
+      questGenerationModel,
+    );
+    const manualQuest = hasManualQuestUnlock(childId);
+    if (questGameReady || manualQuest) {
       ordered.push({
         id: `n-quest-${homeworkId}`,
         type: "quest",
-        words: [],
+        words: pendingHandoffMissedWords,
         difficulty: 2,
         isLocked: false,
         isCompleted: false,
         isGoal: false,
         thumbnailUrl: theme?.nodeThumbnails?.["quest"] ?? undefined,
         thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.quest,
-        gameHtmlPath: questConfig.generatedGamePath,
-        generationModel: questConfig.generationModel,
+        gameFile: questGameReady ? undefined : selectQuestGameFile(),
+        gameHtmlPath: questGameReady ? questGamePath : undefined,
+        generationModel: questGameReady ? questGenerationModel : undefined,
       });
     }
-    if (
+    const bossGamePath =
+      typeof bossConfig?.generatedGamePath === "string" &&
+      bossConfig.generatedGamePath.length > 0
+        ? bossConfig.generatedGamePath
+        : undefined;
+    const bossGameReady = Boolean(
       bossConfig?.dataThresholdMet &&
-      bossConfig?.generatedGamePath &&
-      bossConfig?.generationModel === "opus"
-    ) {
-      ordered.push({
-        id: `n-boss-${homeworkId}`,
-        type: "boss",
-        words: [],
-        difficulty: 3,
-        isLocked: false,
-        isCompleted: false,
-        isGoal: false,
-        thumbnailUrl: theme?.nodeThumbnails?.["boss"] ?? undefined,
-        thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.boss,
-        gameHtmlPath: bossConfig.generatedGamePath,
-        generationModel: bossConfig.generationModel,
-      });
-    }
+      bossGamePath &&
+      bossConfig?.generationModel === "opus",
+    );
+    ordered.push({
+      id: `n-boss-${homeworkId}`,
+      type: "boss",
+      words: [],
+      difficulty: 3,
+      isLocked: !bossGameReady,
+      isCompleted: false,
+      isGoal: false,
+      thumbnailUrl: theme?.nodeThumbnails?.["boss"] ?? undefined,
+      thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.boss,
+      gameHtmlPath: bossGameReady ? bossGamePath : undefined,
+      generationModel: bossGameReady ? "opus" : undefined,
+    });
     ordered.forEach((node, i) => {
       node.isGoal = i === ordered.length - 1;
     });
@@ -894,7 +971,7 @@ export async function startMapSession(
         return;
       }
       if (node.type === "boss") {
-        node.isLocked = false;
+        node.isLocked = !node.gameHtmlPath;
         node.isCompleted = false;
         return;
       }
@@ -970,26 +1047,35 @@ export function handleMapClientMessage(
 
   if (msg.type === "node_click") {
     const nodeId = String(msg.payload?.nodeId ?? "");
-    const cur = currentNode(rec.mapState);
-    if (!cur || cur.id !== nodeId) {
-      return [{ type: "map_error", payload: { reason: "not_current_node" } }];
+    const diagUnlockMap = process.env.DIAG_UNLOCK_MAP === "true";
+    const clicked = rec.mapState.nodes.find((n) => n.id === nodeId);
+    if (!clicked) {
+      return [{ type: "map_error", payload: { reason: "unknown_node" } }];
+    }
+    const launchedNode = clicked;
+    if (!diagUnlockMap) {
+      const cur = currentNode(rec.mapState);
+      if (!cur || cur.id !== nodeId) {
+        return [{ type: "map_error", payload: { reason: "not_current_node" } }];
+      }
     }
     const childId = rec.mapState.childId;
     const sm = getActiveVoiceSessionManagerForChild(childId);
     if (sm) {
-      const nodeSummary = cur.words?.length
-        ? `${childId} just started a ${cur.type} activity. Word: "${cur.words[0]}".`
-        : cur.wordRadarItems?.length
-          ? `${childId} just started a ${cur.type} activity. Word: "${cur.wordRadarItems[0].display}".`
-          : `${childId} just started a ${cur.type} activity.`;
+      const nodeSummary = launchedNode.words?.length
+        ? `${childId} just started a ${launchedNode.type} activity. Word: "${launchedNode.words[0]}".`
+        : launchedNode.wordRadarItems?.length
+          ? `${childId} just started a ${launchedNode.type} activity. Word: "${launchedNode.wordRadarItems[0].display}".`
+          : `${childId} just started a ${launchedNode.type} activity.`;
       const gameContextSession = sm as typeof sm & {
         injectGameContext?: (state: Record<string, unknown>) => void;
       };
       gameContextSession.injectGameContext?.({
-        game: cur.type,
+        game: launchedNode.type,
         phase: "launched",
-        nodeId: cur.id,
-        currentWord: cur.words?.[0] ?? cur.wordRadarItems?.[0]?.display ?? "",
+        nodeId: launchedNode.id,
+        currentWord:
+          launchedNode.words?.[0] ?? launchedNode.wordRadarItems?.[0]?.display ?? "",
         progress: nodeSummary,
       });
       sm.noteExternalEvent({
@@ -998,7 +1084,7 @@ export function handleMapClientMessage(
         occurredAt: Date.now(),
       });
     }
-    out.push({ type: "node_launched", payload: cur });
+    out.push({ type: "node_launched", payload: launchedNode });
     return out;
   }
 
@@ -1026,6 +1112,34 @@ export function handleMapClientMessage(
       });
       console.log("  🎮 [map-coordinator] game_state_update injected");
     }
+    return [];
+  }
+
+  if (msg.type === "currency_award") {
+    const pl =
+      msg.payload != null && typeof msg.payload === "object" && !Array.isArray(msg.payload)
+        ? (msg.payload as Record<string, unknown>)
+        : {};
+    const skipPersistence =
+      sunnyPreviewBlocksPersistence() || Boolean(pl.skipPersistence);
+    const out = reconcileCompanionCurrencyAward({
+      childId: rec.mapState.childId,
+      amount: pl.amount,
+      dryRun: skipPersistence,
+    });
+    if (!out.ok) {
+      return [];
+    }
+    if (!skipPersistence) {
+      const safe = Math.max(0, Math.floor(Number.isFinite(out.balance) ? out.balance : 0));
+      broadcastCompanionEventToMapChild(rec.mapState.childId, {
+        type: "currency_update",
+        balance: safe,
+      });
+    }
+    console.log(
+      `  🎮 [map-coordinator] currency_award balance=${out.balance} dryRun=${skipPersistence} reason=${String(pl.reason ?? "")}`,
+    );
     return [];
   }
 
@@ -1084,10 +1198,10 @@ export async function applyNodeResult(
   }
 
   const rating = ratingFromResult(nodeCfg.type, result);
-  const skipPersistence =
+  const skipSessionPersistence =
     sunnyPreviewBlocksPersistence() || opts?.clientPreviewFreeOrGoLive === true;
 
-  if (!skipPersistence) {
+  if (!skipSessionPersistence) {
     await appendNodeRating({
       childId: st.childId,
       sessionDate: st.sessionDate,
@@ -1099,15 +1213,11 @@ export async function applyNodeResult(
       accuracy: result.accuracy,
       abandonedEarly: !result.completed,
     });
-  }
-
-  const liked = rating === "like";
-  if (!skipPersistence) {
     try {
       await recordReward(
         st.childId,
         nodeCfg.type,
-        liked,
+        rating === "like",
         result.completed,
         result.accuracy,
       );
@@ -1116,7 +1226,44 @@ export async function applyNodeResult(
     }
   }
 
-  if (!skipPersistence && nodeCfg.type !== "spell-check") {
+  const missed = [...(result.missedWords ?? [])]
+    .map((w) => String(w).trim())
+    .filter(Boolean);
+  if (missed.length > 0 && isWordDrivenHomeworkNodeType(nodeCfg.type)) {
+    const questNode = st.nodes.find(
+      (node) => node.type === "quest" && !node.isCompleted,
+    );
+    if (questNode) {
+      const mergedQuestWords = [
+        ...new Set([
+          ...(questNode.words ?? []),
+          ...missed,
+        ].map((x) => String(x).trim()).filter(Boolean)),
+      ];
+      questNode.words = mergedQuestWords;
+      console.log(
+        `  🎮 [map-coordinator] quest_words updated count=${mergedQuestWords.length}`,
+      );
+    }
+    try {
+      const lp = readLearningProfile(st.childId);
+      const ph = lp?.pendingHomework;
+      if (lp && ph) {
+        const prev = ph.reinforceWords ?? [];
+        const merged = [
+          ...new Set([...prev, ...missed].map((x) => String(x).trim()).filter(Boolean)),
+        ];
+        writeLearningProfile(st.childId, {
+          ...lp,
+          pendingHomework: { ...ph, reinforceWords: merged },
+        });
+      }
+    } catch (err) {
+      console.error("  🔴 [map-coordinator] reinforceWords merge failed:", err);
+    }
+  }
+
+  if (nodeCfg.type !== "spell-check") {
     const pool =
       nodeCfg.words && nodeCfg.words.length > 0
         ? nodeCfg.words
@@ -1162,7 +1309,7 @@ export async function applyNodeResult(
     st.xp += xpDelta;
   }
 
-  if (!skipPersistence) {
+  if (!skipSessionPersistence) {
     appendMapSessionNote(
       st.childId,
       st.sessionDate,
@@ -1170,7 +1317,7 @@ export async function applyNodeResult(
     );
   }
 
-  if (!skipPersistence && result.completed) {
+  if (!skipSessionPersistence && result.completed) {
     try {
       const lp = readLearningProfile(st.childId);
       if (lp?.pendingHomework?.nodes?.length) {
@@ -1217,6 +1364,12 @@ export async function applyNodeResult(
   const voiceSm = getActiveVoiceSessionManagerForChild(st.childId);
   if (voiceSm) {
     voiceSm.noteExternalEvent(formatNodeResultForCompanion(nodeCfg, result));
+    const voiceWithHandoff = voiceSm as typeof voiceSm & {
+      queueNodeCompletionHandoff?: (state: Record<string, unknown>) => void;
+    };
+    voiceWithHandoff.queueNodeCompletionHandoff?.(
+      buildNodeCompletionHandoffState(nodeCfg, result),
+    );
   }
 
   return { mapState: st, companionEvent };

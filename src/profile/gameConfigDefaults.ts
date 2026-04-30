@@ -5,7 +5,7 @@ export const DEFAULT_GAME_CONFIGS: ChildProfileGames = {
     unlocked: true,
     sessionCount: 0,
     lastAccuracy: null,
-    inputMode: "whole-word",
+    inputMode: "letter-by-letter",
     speakStyle: "option-a",
     keyboardStyle: "option-c",
     showTimer: true,

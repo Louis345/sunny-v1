@@ -166,11 +166,14 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const wrShowKeyboard =
     wordRadarGame?.inputMode === "keyboard" || childMeta?.showKeyboard === true;
 
+  const companionCurrency = Math.max(0, Math.floor(Number(lp.companionCurrency ?? 0)));
+
   const profile: ChildProfile = {
     childId,
     ttsName: getTtsNameForChildId(childId),
     avatarImagePath: childMeta?.avatarImagePath,
     level,
+    companionCurrency,
     xp: Math.max(0, (lp.sessionStats?.totalWordsMastered ?? 0) * 10 + (lp.sessionStats?.totalSessions ?? 0) * 5),
     interests: { tags: interestTags },
     dyslexiaMode: lp.readingProfile?.dyslexiaMode ?? false,

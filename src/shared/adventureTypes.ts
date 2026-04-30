@@ -73,6 +73,10 @@ export interface NodeResult {
   accuracy: number;
   timeSpent_ms: number;
   wordsAttempted: number;
+  /** Targets answered incorrectly (e.g. Word Radar) — primes next companion / map node. */
+  missedWords?: string[];
+  /** Targets answered correctly — optional companion context. */
+  correctWords?: string[];
 }
 
 export interface SessionThemePalette {

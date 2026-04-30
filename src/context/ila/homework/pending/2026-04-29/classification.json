@@ -1,0 +1,110 @@
+{
+  "title": "Benchmark Advance Spelling Unit 8 Week 3",
+  "type": "spelling_test",
+  "gradeLevel": 2,
+  "testDate": null,
+  "words": [
+    "faster",
+    "fastest",
+    "slower",
+    "slowest",
+    "newer",
+    "newest",
+    "colder",
+    "coldest",
+    "taller",
+    "tallest",
+    "covered",
+    "cried",
+    "figure",
+    "horse",
+    "money",
+    "products",
+    "questions",
+    "since",
+    "usually",
+    "voice"
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "covered",
+      "hint": "Comparatives: -er, -est words or High-Frequency Words"
+    },
+    {
+      "id": 2,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "voice",
+      "hint": "High-Frequency Words"
+    },
+    {
+      "id": 3,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "figure",
+      "hint": "High-Frequency Words"
+    },
+    {
+      "id": 4,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "taller",
+      "hint": "Comparatives: -er, -est"
+    },
+    {
+      "id": 5,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "tallest",
+      "hint": "Comparatives: -est"
+    },
+    {
+      "id": 6,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "voice",
+      "hint": "High-Frequency Words"
+    },
+    {
+      "id": 7,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "covered",
+      "hint": "High-Frequency Words"
+    },
+    {
+      "id": 8,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "voice",
+      "hint": "High-Frequency Words"
+    },
+    {
+      "id": 9,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "voice",
+      "hint": "High-Frequency Words"
+    },
+    {
+      "id": 10,
+      "question": "Spell the word shown by the code symbols",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "questions",
+      "hint": "High-Frequency Words"
+    }
+  ]
+}

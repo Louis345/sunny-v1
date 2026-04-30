@@ -12,7 +12,9 @@ export function applyHomeworkStyleNodeLocks(
   return nodes.map((node, idx) => {
     const isCompleted = completedIds.has(node.id);
     let isLocked = false;
-    if (isCompleted) {
+    if (node.type === "boss" && !node.gameHtmlPath) {
+      isLocked = true;
+    } else if (isCompleted) {
       isLocked = false;
     } else if (idx === 0) {
       isLocked = false;

@@ -41,6 +41,7 @@ const HANDLED_NODE_TYPES: NodeType[] = [
   "space-invaders",
   "asteroid",
   "space-frogger",
+  "word-radar",
 ];
 
 describe("formatNodeResultForCompanion (GAME-EVENT-001)", () => {
@@ -88,5 +89,18 @@ describe("formatNodeResultForCompanion (GAME-EVENT-001)", () => {
     expect(scEvent.summary.length).toBeGreaterThan(0);
     expect(siEvent.summary.length).toBeGreaterThan(0);
     expect(scEvent.summary).not.toBe(siEvent.summary);
+  });
+
+  it("6. word-radar summary lists missed words when present", () => {
+    const ev = formatNodeResultForCompanion(
+      makeNode("word-radar"),
+      makeResult({
+        missedWords: ["coldest", "figure"],
+        correctWords: ["faster"],
+      }),
+    );
+    expect(ev.summary.toLowerCase()).toContain("word radar");
+    expect(ev.summary).toContain("coldest");
+    expect(ev.summary).toContain("figure");
   });
 });

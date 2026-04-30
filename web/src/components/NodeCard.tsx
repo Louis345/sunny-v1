@@ -12,6 +12,11 @@ export function NodeCard({
   onHoverChange,
   onLockedClick,
   customStyle,
+  allowReplayWhenCompleted = false,
+  /** When true, node renders/taps as locked even if `node.isLocked` is false (quest ceremony). */
+  forceLocked = false,
+  /** Replaces default lock glyph in the locked circle (e.g. ⚡ during quest unlock). */
+  lockGlyphOverride = null,
 }: {
   node: NodeConfig;
   position: { x: number; y: number };
@@ -22,11 +27,20 @@ export function NodeCard({
   /** Fired when the learner taps a locked node (voice session can react). */
   onLockedClick?: () => void;
   customStyle?: CSSProperties;
+  /**
+   * When true (diag unlock-map), completed nodes remain interactive so games can replay.
+   * Normal sessions keep completed nodes non-interactive.
+   */
+  allowReplayWhenCompleted?: boolean;
+  forceLocked?: boolean;
+  lockGlyphOverride?: string | null;
 }) {
   const isGoal = node.isGoal;
   const isMystery = node.type === "mystery";
-  const isLocked = node.isLocked;
+  const isLocked = node.isLocked || forceLocked;
   const isDone = node.isCompleted;
+  const doneButReplayable = isDone && allowReplayWhenCompleted;
+  const interactionLocked = isDone && !doneButReplayable;
   const typeLabel = NODE_DISPLAY_LABELS[node.type] ?? node.type;
   const size = isGoal ? 120 : 88;
   const borderColor = isGoal ? "#FCD34D" : "white";
@@ -41,13 +55,13 @@ export function NodeCard({
       role="button"
       tabIndex={isLocked ? -1 : 0}
       onPointerEnter={() => {
-        if (!isLocked && !isDone) onHoverChange?.(true);
+        if (!isLocked && (!isDone || doneButReplayable)) onHoverChange?.(true);
       }}
       onPointerLeave={() => {
         onHoverChange?.(false);
       }}
       onClick={() => {
-        if (isDone) return;
+        if (interactionLocked) return;
         if (isLocked) {
           onLockedClick?.();
           return;
@@ -55,7 +69,7 @@ export function NodeCard({
         onClick();
       }}
       onKeyDown={(e) => {
-        if (isDone) return;
+        if (interactionLocked) return;
         if (isLocked) {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -81,17 +95,19 @@ export function NodeCard({
         borderRadius: "50%",
         border: `${borderWidth}px solid ${borderColor}`,
         boxShadow: baseShadow,
-        cursor: isLocked || isDone ? "default" : "pointer",
+        cursor: isLocked || interactionLocked ? "default" : "pointer",
         filter: isLocked ? "grayscale(0.6)" : "none",
         ...customStyle,
       }}
       whileHover={
-        isActive && !isLocked && !isDone ? { scale: isGoal ? 1.06 : 1.12 } : undefined
+        isActive && !isLocked && (!isDone || doneButReplayable)
+          ? { scale: isGoal ? 1.06 : 1.12 }
+          : undefined
       }
       animate={
         isMystery
           ? false
-          : isActive && !isLocked
+          : isActive && !isLocked && (!isDone || doneButReplayable)
           ? isGoal
             ? {
                 scale: [1, 1.05, 1],
@@ -114,12 +130,12 @@ export function NodeCard({
       transition={
         isMystery
           ? { duration: 0 }
-          : isActive && !isLocked
+          : isActive && !isLocked && (!isDone || doneButReplayable)
           ? { repeat: Infinity, duration: isGoal ? 2.2 : 2 }
           : { duration: 0 }
       }
     >
-      {isGoal && isActive && !isLocked && !isDone && (
+      {isGoal && isActive && !isLocked && (!isDone || doneButReplayable) && (
         <motion.div
           aria-hidden
           animate={{ rotate: [0, 18, -12, 0], opacity: [0.55, 0.85, 0.55] }}
@@ -178,7 +194,9 @@ export function NodeCard({
               fontSize: isGoal ? 34 : 28,
             }}
           >
-            {"\u{1F512}"}
+            {lockGlyphOverride && lockGlyphOverride.length > 0
+              ? lockGlyphOverride
+              : "\u{1F512}"}
           </div>
         ) : (
           <div

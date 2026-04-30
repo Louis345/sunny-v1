@@ -24,6 +24,9 @@ export type NodeContext = {
   sessionId?: string;
   vrmUrl?: string;
   companionMuted?: boolean;
+  /** Spell-check quest path: adds `isQuest=true` to iframe URL / GAME_PARAMS. */
+  isQuest?: boolean;
+  dyslexiaMode?: boolean;
 };
 
 /** Homework / map nodes may use types not in `NodeType` (cast at map boundary). */
@@ -57,6 +60,8 @@ export function buildNodeUrlSearchParams(
     companionMuted: String(ctx.companionMuted ?? false),
   };
   if (ctx.sessionId) params.sessionId = ctx.sessionId;
+  if (ctx.isQuest === true) params.isQuest = "true";
+  if (ctx.dyslexiaMode === true) params.dyslexiaMode = "true";
   return new URLSearchParams(params);
 }
 
@@ -108,6 +113,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
   },
   quest: {
     getUrl: (node, ctx) => {
+      if (node.gameFile) {
+        return `/games/${node.gameFile}?${buildParams(node, ctx)}`;
+      }
       if (node.gameHtmlPath) {
         const filename = node.gameHtmlPath.split("/").pop();
         if (filename) {

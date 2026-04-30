@@ -4,8 +4,41 @@ import { getTimeBasedGreeting } from "../utils/timeBasedGreeting";
 
 const DIR = path.resolve(__dirname, "..");
 
+/** Shared companion rules — prepended before every per-companion markdown at assembly time. */
+const COMPANION_BASE_RELATIVE = "souls/companion-base.md";
+
 function read(relativePath: string): string {
   return fs.readFileSync(path.resolve(DIR, relativePath), "utf-8");
+}
+
+/** Markdown body of `src/souls/companion-base.md` (trimmed). Empty if missing. */
+export function readCompanionBaseMarkdown(): string {
+  const basePath = path.resolve(DIR, COMPANION_BASE_RELATIVE);
+  if (!fs.existsSync(basePath)) return "";
+  return fs.readFileSync(basePath, "utf-8").trim();
+}
+
+/**
+ * Assembled companion markdown for prompts: **base** (`companion-base.md`) then **individual**
+ * (`relativeToSrc` under `src/`). Use for any companion path — no per-id branching here.
+ */
+export function readCompanionSoulMarkdown(relativeToSrc: string): string {
+  const base = readCompanionBaseMarkdown();
+  const individual = read(relativeToSrc).trim();
+  if (!base) return individual;
+  return `${base}\n\n${individual}`;
+}
+
+/** Resolve `CompanionConfig.markdownPath` (absolute under `src/`) to base + individual markdown. */
+export function readCompanionSoulMarkdownFromAbsolute(absMarkdownPath: string): string {
+  const resolved = path.resolve(absMarkdownPath);
+  const rel = path.relative(DIR, resolved);
+  if (rel.startsWith("..")) {
+    throw new Error(
+      `Companion markdown must live under src/: ${absMarkdownPath}`,
+    );
+  }
+  return readCompanionSoulMarkdown(rel);
 }
 
 function parseField(md: string, heading: string): string {
@@ -28,6 +61,7 @@ export interface CompanionConfig {
   childName: string;
   voiceId: string;
   emoji: string;
+  /** Set in session-bootstrap to the full system prompt; empty from `loadCompanion`. */
   systemPrompt: string;
   openingLine: string;
   goodbye: string;

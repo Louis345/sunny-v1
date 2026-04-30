@@ -1,35 +1,31 @@
 ## Focus Area
-**Pattern-Based Spelling with Competitive Framing and Multi-Digit Math Integration**
+**Advanced Multiplication Foundations with Inferential Reading Integration**
 
-Based on Reina's word attempt history, she has mastered only 1 spelling word (keyboard) out of 4 attempted, with 0% accuracy on rhythm, towel, and candle. However, her 100% accuracy on homework-based inflectional endings (moving, movers, move, add) and classroom spelling tests indicates the issue is task design, not capability. She needs Wilson-style pattern practice combined with her competitive wrestling mindset and math strength integration.
+Reina has mastered single-digit addition/subtraction facts (16/16 correct, 100% accuracy) and demonstrates grade-level+ reading fluency with literal comprehension only. Her self-identified math gaps are multiplication and division, never formally assessed across 25+ sessions. She needs conceptual multiplication introduction through wrestling scenarios combined with inferential reading depth to advance beyond worksheet-based approaches that yielded 26% accuracy failures.
 
 ## Words for Next 3 Sessions
-Session 1: splash, crash, flash, thrash, clash
-Session 2: bright, flight, might, sight, fight  
-Session 3: strand, grand, brand, stand, hand
+Session 1: groups, teams, matches, points, total
+Session 2: multiply, division, factors, products, equals  
+Session 3: strategy, champion, victory, calculate, dominate
 
 ## Clinical Reasoning
-Reina's session data reveals she learns through patterns, competition, and application - not isolated drill. The failed attempts on rhythm (irregular), towel (riddle context confusion), and candle (abandoned) show she needs Wilson Reading System's systematic approach:
+Reina's attempt history reveals a clear pattern: she masters applied contexts (store-game 86% accuracy) and competition-based tasks (math facts 100%, riddles 15+/15 correct) but fails mechanical drill approaches (worksheet coins 28/109 attempts, 26% accuracy). Her perfect addition fluency and multi-step reasoning strength indicate readiness for multiplicative concepts, while her literal-only reading comprehension ("she went boom, but she was safe") requires inferential depth challenges.
 
-**Pattern-based progression**: All selected words follow consistent digraph patterns (sh, ght, nd) that build phonemic awareness systematically rather than irregular outliers like "rhythm"
+**Multiplication conceptual framework**: Introduce through wrestling contexts: "3 matches × 2 points each = ? total points." This builds on her 100% addition fluency while teaching grouping concepts through competitive scenarios she understands. Use Japanese celebration (すごい, やった) and wrestling metaphors ("pin the problem") to maintain engagement.
 
-**Wrestling integration**: Frame as "spelling takedowns" - "Can you pin all 5 words in under 2 minutes?" Use her 100% math fact accuracy as confidence builder: "You crushed 16/16 math problems, now let's dominate these consonant blends"
+**Vocabulary depth integration**: Selected words address the never-assessed Word Definitions gap (mentioned 25 times, never administered) while building academic math language. Bridge mathematical terminology (groups, multiply, factors) with her wrestling identity (champion, strategy, dominate) to connect new concepts to existing strengths.
 
-**Competitive streaks**: Build on her sustained 10-problem math streak. Track consecutive spelling accuracy with Japanese celebration (すごい, やった) when she hits personal bests
+**Inferential comprehension advancement**: Embed multiplication word problems requiring "why" and "what if" analysis: "If you win 4 matches and score 3 points each, how many total points? What strategy gives you the most points?" This advances beyond literal recall toward critical thinking matching her chess/wrestling analytical brain.
 
-**Multi-step processing**: Her riddle mastery (15+/15 correct) shows strong phonological analysis. Apply this to syllable segmentation: "strand" = /str/ + /and/, like solving riddle clues step-by-step
-
-**Applied contexts**: Integrate with her math strength - after spelling "bright," solve "47 + 28" to maintain dual-domain engagement and prevent worksheet fatigue that caused 26% coin counting failure
+**Transfer application**: Connect multiplication to her proven riddle-solving strength: "3 × 4 is like solving 'how many 4s make 12?'" Use pattern recognition skills to build number relationships rather than rote memorization.
 
 ## Success Looks Like
-**Pattern mastery**: Reina spells "crash" and immediately identifies the /ash/ pattern in "splash, thrash, clash" without prompting
+**Conceptual mastery**: Reina explains "4 × 3 means 4 groups with 3 wrestlers in each group" and demonstrates understanding through wrestling tournament scenarios without prompting
 
-**Speed building**: By Session 2, she completes all 5 words in under 90 seconds with 80%+ accuracy while explaining the pattern rule
+**Inferential reading depth**: Answers "Why does the champion calculate total points before the tournament?" with multi-sentence explanations connecting strategy to outcomes
 
-**Transfer application**: Session 3 includes reading "The wrestler took a grand stand" and she decodes "grand" and "stand" fluently, connecting to spelling knowledge
+**Academic vocabulary usage**: Uses mathematical language naturally: "The product of 6 matches and 4 points equals 24 total points" while maintaining wrestling context connections
 
-**Competitive engagement**: She requests "Can I beat my spelling record?" and celebrates consecutive correct attempts with wrestling metaphors ("That's a pin!")
+**Competitive engagement sustained**: Requests "harder multiplication challenges" and maintains 85%+ accuracy on 2-5 multiplication tables while celebrating consecutive correct answers
 
-**Integration success**: Alternates between 5-word spelling sets and 2-3 multi-digit math problems without losing engagement, maintaining 85%+ accuracy across both domains
-
-When she hits consistent 90%+ accuracy on consonant blend patterns, advance to Wilson Step 2 (closed syllable exceptions) while introducing multiplication word problems.
+**Transfer to division readiness**: Solves "24 points shared equally among 6 wrestlers gives how many points each?" and connects division to "fair sharing" concepts through familiar scenarios

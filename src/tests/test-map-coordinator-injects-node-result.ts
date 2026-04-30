@@ -163,12 +163,20 @@ describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVE
     registerActiveVoiceSessionManager("ila", sm);
 
     const notespy = vi.spyOn(sm as unknown as { noteExternalEvent: (e: unknown) => void }, "noteExternalEvent");
+    const handoffSpy = vi.spyOn(sm, "queueNodeCompletionHandoff");
     const histBefore = getHistory(sm).length;
 
     const nodeId = mapState.nodes[0]!.id;
     await applyNodeResult(sessionId, mockResult(nodeId));
 
     expect(notespy).toHaveBeenCalledTimes(1);
+    expect(handoffSpy).toHaveBeenCalledTimes(1);
+    const handoffPayload = handoffSpy.mock.calls[0]?.[0] as {
+      phase: string;
+      game: string;
+    };
+    expect(handoffPayload?.phase).toBe("node_complete");
+    expect(handoffPayload?.game).toBe("spell-check");
     expect(getHistory(sm).length).toBe(histBefore + 1);
     // Summary should mention spell-check
     const injectedEvent = notespy.mock.calls[0]?.[0] as { summary: string; source: string };
@@ -176,6 +184,49 @@ describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVE
     expect(injectedEvent!.summary).toBeTruthy();
     expect(injectedEvent!.summary.toLowerCase()).toMatch(/spell/);
     expect(injectedEvent!.source).toBe("map_node_complete");
+
+    unregisterActiveVoiceSessionManager("ila", sm);
+  });
+
+  it("9b. applyNodeResult for word-radar passes missed/correct words into handoff", async () => {
+    const tail = mockNodes()[1]!;
+    vi.mocked(buildNodeList).mockResolvedValue([
+      {
+        id: "n-wr",
+        type: "word-radar" as const,
+        isLocked: false,
+        isCompleted: false,
+        isGoal: false,
+        difficulty: 2 as const,
+        wordRadarItems: [{ display: "cat", acceptedResponses: ["cat"] }],
+      },
+      tail,
+    ]);
+    const { sessionId, mapState } = await startMapSession("ila");
+    const sm = new SessionManager(mockWs(), "Ila");
+    registerActiveVoiceSessionManager("ila", sm);
+    const handoffSpy = vi.spyOn(sm, "queueNodeCompletionHandoff");
+
+    const nodeId = mapState.nodes[0]!.id;
+    await applyNodeResult(sessionId, {
+      nodeId,
+      completed: true,
+      accuracy: 0.65,
+      timeSpent_ms: 186_000,
+      wordsAttempted: 20,
+      missedWords: ["coldest", "figure", "money"],
+      correctWords: ["faster", "slower"],
+    });
+
+    expect(handoffSpy).toHaveBeenCalledTimes(1);
+    const p = handoffSpy.mock.calls[0]?.[0] as {
+      missedWords: string[];
+      correctWords: string[];
+      game: string;
+    };
+    expect(p.game).toBe("word-radar");
+    expect(p.missedWords).toEqual(["coldest", "figure", "money"]);
+    expect(p.correctWords).toEqual(["faster", "slower"]);
 
     unregisterActiveVoiceSessionManager("ila", sm);
   });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapNodeSessionAudioFlags } from "../mapNodeSessionAudio";
+import { mapNodeSessionAudioFlags } from "../../../../src/shared/mapNodeSessionAudio";
 
 describe("mapNodeSessionAudioFlags", () => {
   it("word-radar suppresses companion TTS while the node is active", () => {

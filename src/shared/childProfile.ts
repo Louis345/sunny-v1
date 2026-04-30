@@ -33,6 +33,8 @@ export interface WordRadarGameConfig extends GameConfig {
   keyboardStyle: "option-b" | "option-c";
   showTimer: boolean;
   personalBestMetric: "speed" | "accuracy";
+  /** Caps homework spelling list per node when no imminent test; defaults with spell-check maxWords. */
+  maxWords?: number;
 }
 
 export interface SpellCheckGameConfig extends GameConfig {
@@ -100,6 +102,8 @@ export interface ChildProfile {
   /** Adventure progression level (1+), drives theme unlocks. */
   level: number;
   xp?: number;
+  /** Persisted companion currency for shop HUD and care summaries. */
+  companionCurrency?: number;
   interests: ChildProfileInterests;
   dyslexiaMode?: boolean;
   companionColor?: string;

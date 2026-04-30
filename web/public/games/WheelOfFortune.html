@@ -1064,6 +1064,9 @@ function App() {
     fireComp('session_complete', {});
     setPhase('won');
     setTimeout(() => {
+      if (window.GameBridge && typeof window.GameBridge.awardCurrency === 'function') {
+        window.GameBridge.awardCurrency(ilaCoins, 'wheel_of_fortune_win');
+      }
       if (typeof window.sendNodeComplete === 'function') {
         window.sendNodeComplete({
           completed: true,
@@ -1100,6 +1103,9 @@ function App() {
     setPhase('lost');
     setSpeech(`The word was ${WORD_RAW.toUpperCase()}. We'll get it next time! 💪`);
     setTimeout(() => {
+      if (window.GameBridge && typeof window.GameBridge.awardCurrency === 'function') {
+        window.GameBridge.awardCurrency(ilaCoins, 'wheel_of_fortune_win');
+      }
       if (typeof window.sendNodeComplete === 'function') {
         window.sendNodeComplete({
           completed: false,

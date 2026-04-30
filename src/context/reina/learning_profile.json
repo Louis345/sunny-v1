@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-04-28T01:00:45.759Z",
+  "lastUpdated": "2026-04-29T20:42:44.846Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -126,8 +126,8 @@
     "toggledOff": false
   },
   "pendingHomework": {
-    "weekOf": "2026-04-28",
-    "testDate": "2026-05-02",
+    "weekOf": "2026-04-29",
+    "testDate": "2026-05-01",
     "wordList": [
       "faster",
       "fastest",
@@ -151,7 +151,7 @@
       "voice"
     ],
     "homeworkId": "hw-spelling_test-2da310ad",
-    "generatedAt": "2026-04-28T00:30:41.239Z",
+    "generatedAt": "2026-04-29T18:39:59.912Z",
     "nodes": [
       {
         "id": "n-word-radar-hw-spelling_test-2da310ad",
@@ -161,12 +161,27 @@
           "fastest",
           "slower",
           "slowest",
-          "newer"
+          "newer",
+          "newest",
+          "colder",
+          "coldest",
+          "taller",
+          "tallest",
+          "covered",
+          "cried",
+          "figure",
+          "horse",
+          "money",
+          "products",
+          "questions",
+          "since",
+          "usually",
+          "voice"
         ],
         "difficulty": 1,
         "gameFile": null,
         "storyFile": null,
-        "date": "2026-04-28",
+        "date": "2026-04-29",
         "approved": false,
         "wordRadarItems": [
           {
@@ -208,6 +223,126 @@
             ],
             "label": "Spelling",
             "subject": "spelling"
+          },
+          {
+            "display": "newest",
+            "acceptedResponses": [
+              "newest"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "colder",
+            "acceptedResponses": [
+              "colder"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "coldest",
+            "acceptedResponses": [
+              "coldest"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "taller",
+            "acceptedResponses": [
+              "taller"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "tallest",
+            "acceptedResponses": [
+              "tallest"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "covered",
+            "acceptedResponses": [
+              "covered"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "cried",
+            "acceptedResponses": [
+              "cried"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "figure",
+            "acceptedResponses": [
+              "figure"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "horse",
+            "acceptedResponses": [
+              "horse"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "money",
+            "acceptedResponses": [
+              "money"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "products",
+            "acceptedResponses": [
+              "products"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "questions",
+            "acceptedResponses": [
+              "questions"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "since",
+            "acceptedResponses": [
+              "since"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "usually",
+            "acceptedResponses": [
+              "usually"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
+          },
+          {
+            "display": "voice",
+            "acceptedResponses": [
+              "voice"
+            ],
+            "label": "Spelling",
+            "subject": "spelling"
           }
         ]
       },
@@ -219,12 +354,27 @@
           "fastest",
           "slower",
           "slowest",
-          "newer"
+          "newer",
+          "newest",
+          "colder",
+          "coldest",
+          "taller",
+          "tallest",
+          "covered",
+          "cried",
+          "figure",
+          "horse",
+          "money",
+          "products",
+          "questions",
+          "since",
+          "usually",
+          "voice"
         ],
         "difficulty": 2,
         "gameFile": null,
         "storyFile": null,
-        "date": "2026-04-28",
+        "date": "2026-04-29",
         "approved": false
       },
       {
@@ -235,12 +385,27 @@
           "fastest",
           "slower",
           "slowest",
-          "newer"
+          "newer",
+          "newest",
+          "colder",
+          "coldest",
+          "taller",
+          "tallest",
+          "covered",
+          "cried",
+          "figure",
+          "horse",
+          "money",
+          "products",
+          "questions",
+          "since",
+          "usually",
+          "voice"
         ],
         "difficulty": 2,
         "gameFile": null,
         "storyFile": null,
-        "date": "2026-04-28",
+        "date": "2026-04-29",
         "approved": false
       },
       {
@@ -251,41 +416,58 @@
           "fastest",
           "slower",
           "slowest",
-          "newer"
+          "newer",
+          "newest",
+          "colder",
+          "coldest",
+          "taller",
+          "tallest",
+          "covered",
+          "cried",
+          "figure",
+          "horse",
+          "money",
+          "products",
+          "questions",
+          "since",
+          "usually",
+          "voice"
         ],
         "difficulty": 2,
         "gameFile": null,
         "storyFile": null,
-        "date": "2026-04-28",
+        "date": "2026-04-29",
         "approved": false
       }
     ]
   },
   "banditState": {
     "counts": [
-      0,
-      0,
-      0,
-      1,
-      0,
-      0,
       1,
       0,
       0,
       0,
+      2,
+      0,
+      0,
+      2,
       0,
       0,
       0,
-      1
+      0,
+      0,
+      0,
+      2
     ],
     "values": [
+      0.3,
       0,
+      0,
+      0,
+      0.615,
       0,
       0,
       1,
-      0,
-      0,
-      0.9333333333333333,
       0,
       0,
       0,

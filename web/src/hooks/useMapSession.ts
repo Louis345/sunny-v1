@@ -34,6 +34,17 @@ function isCompanionEvent(msg: unknown): msg is CompanionEvent {
   );
 }
 
+function isCurrencyUpdateMessage(msg: unknown): msg is {
+  type: "currency_update";
+  balance: number;
+} {
+  if (!msg || typeof msg !== "object") return false;
+  const m = msg as Record<string, unknown>;
+  if (m.type !== "currency_update") return false;
+  const b = m.balance;
+  return typeof b === "number" && Number.isFinite(b);
+}
+
 function isCompanionCommandMessage(msg: unknown): msg is {
   type: "companion_command";
   command: CompanionCommand;
@@ -164,6 +175,9 @@ export function useMapSession(
   companionCommands: CompanionCommand[];
   forwardMapIframeCompanionEvent: (payload: CompanionEventPayload) => void;
   forwardMapIframeGameStateUpdate: (payload: Record<string, unknown>) => void;
+  forwardMapIframeCurrencyAward: (amount: number, reason: string) => void;
+  /** Server-pushed balance while map WS is open; null = use profile-only value from parent. */
+  liveMapCurrency: number | null;
   sessionStarted: boolean;
 } {
   const [mapState, setMapState] = useState<MapState | null>(null);
@@ -179,6 +193,7 @@ export function useMapSession(
     [],
   );
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [liveMapCurrency, setLiveMapCurrency] = useState<number | null>(null);
 
   const mapStateRef = useRef<MapState | null>(null);
   useEffect(() => {
@@ -194,6 +209,7 @@ export function useMapSession(
       setCompanionEvents([]);
       setCompanionCommands([]);
       setSessionStarted(false);
+      setLiveMapCurrency(null);
       setConnectionStatus("idle");
       const w = window as unknown as { _mapWs?: WebSocket };
       w._mapWs = undefined;
@@ -202,6 +218,7 @@ export function useMapSession(
     setCompanionEvents([]);
     setCompanionCommands([]);
     setSessionStarted(false);
+    setLiveMapCurrency(null);
     let cancelled = false;
     setConnectionStatus("connecting");
     postJson<{ sessionId: string; mapState: MapState }>("/api/map/start", {
@@ -274,6 +291,8 @@ export function useMapSession(
               msg,
             );
           }
+        } else if (isCurrencyUpdateMessage(msg)) {
+          setLiveMapCurrency(Math.max(0, Math.floor(msg.balance)));
         }
       } catch {
         /* ignore non-JSON frames */
@@ -382,6 +401,24 @@ export function useMapSession(
     [sessionId, previewMode],
   );
 
+  const forwardMapIframeCurrencyAward = useCallback(
+    (amount: number, reason: string) => {
+      if (!sessionId) return;
+      void postJson<{ events?: unknown[] }>("/api/map/node-complete", {
+        sessionId,
+        phase: "currency_award",
+        amount,
+        reason,
+        ...(mapPreviewQueryParam(previewMode)
+          ? { preview: mapPreviewQueryParam(previewMode) }
+          : {}),
+      }).catch((err) => {
+        console.error("  🔴 [useMapSession] currency_award failed:", err);
+      });
+    },
+    [sessionId, previewMode],
+  );
+
   const sendNodeResult = useCallback(
     async (result: NodeResult) => {
       if (previewMode === "free" || previewMode === "go-live") {
@@ -456,6 +493,8 @@ export function useMapSession(
     companionCommands,
     forwardMapIframeCompanionEvent,
     forwardMapIframeGameStateUpdate,
+    forwardMapIframeCurrencyAward,
+    liveMapCurrency,
     sessionStarted,
   };
 }

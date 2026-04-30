@@ -118,6 +118,25 @@ const sessionStates = new Map<string, {
   wilsonStep: number;
 }>();
 
+/** Mystery slug chosen at map session start — flushed to `learning_profile.lastMysteryGame` in `finalizeSession`. */
+const pendingMysteryGameSlugByChild = new Map<string, string>();
+
+export function registerMysteryGameForSessionFinalize(
+  childId: string,
+  slug: string,
+): void {
+  const id = childId.trim().toLowerCase();
+  if (!id) return;
+  pendingMysteryGameSlugByChild.set(id, slug);
+}
+
+function consumePendingMysteryGameSlug(childId: string): string | undefined {
+  const id = childId.trim().toLowerCase();
+  const s = pendingMysteryGameSlugByChild.get(id);
+  if (s) pendingMysteryGameSlugByChild.delete(id);
+  return s;
+}
+
 function childIdFromName(childName: ChildName): string {
   if (childName === "Ila") return "ila";
   if (childName === "Reina") return "reina";
@@ -381,24 +400,7 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
     maxReviewWordsPerSession: 12,
   };
 
-  if (sunnyPreviewBlocksPersistence()) {
-    const quality = computeQualityFromAttempt(attempt);
-    const today = new Date().toISOString().slice(0, 10);
-    const updatedTrack = createFreshSM2Track(today);
-    const difficultySignal = assessDifficulty({
-      recentAttempts: [
-        { correct: attempt.correct, timestamp: new Date().toISOString() },
-      ],
-      params: profile?.algorithmParams.difficulty ?? {
-        targetAccuracy: 0.7,
-        easyThreshold: 0.85,
-        hardThreshold: 0.5,
-        breakThreshold: 0.4,
-        windowSize: 8,
-      },
-    });
-    return { quality, updatedTrack, difficultySignal, rewards: [] };
-  }
+  const preview = sunnyPreviewBlocksPersistence();
 
   ensureWordInBank(childId, attempt.word, attempt.domain, "session");
 
@@ -420,6 +422,22 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
   if (entry) {
     entry.tracks[attempt.domain] = updatedTrack;
     writeWordBank(childId, bank);
+  }
+
+  if (preview) {
+    const difficultySignal = assessDifficulty({
+      recentAttempts: [
+        { correct: attempt.correct, timestamp: new Date().toISOString() },
+      ],
+      params: profile?.algorithmParams.difficulty ?? {
+        targetAccuracy: 0.7,
+        easyThreshold: 0.85,
+        hardThreshold: 0.5,
+        breakThreshold: 0.4,
+        windowSize: 8,
+      },
+    });
+    return { quality, updatedTrack, difficultySignal, rewards: [] };
   }
 
   const state = sessionStates.get(childId);
@@ -478,6 +496,7 @@ export function finalizeSession(
   const now = new Date().toISOString();
 
   if (sunnyPreviewBlocksPersistence()) {
+    consumePendingMysteryGameSlug(childId);
     sessionStates.delete(childId);
     const totalAttempts = state?.rewardState.totalAttempts ?? 0;
     const totalCorrect = state?.rewardState.totalCorrect ?? 0;
@@ -528,6 +547,14 @@ export function finalizeSession(
 
   writeSessionNote(childId, sessionData);
   updateLearningProfileFromSession(childId, sessionData);
+
+  const mysterySlug = consumePendingMysteryGameSlug(childId);
+  if (mysterySlug) {
+    const prof = readLearningProfile(childId);
+    if (prof) {
+      writeLearningProfile(childId, { ...prof, lastMysteryGame: mysterySlug });
+    }
+  }
 
   sessionStates.delete(childId);
 

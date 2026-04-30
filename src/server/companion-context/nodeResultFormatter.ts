@@ -36,6 +36,14 @@ const FORMATTERS: Partial<Record<NodeType, Formatter>> = {
     `Played the asteroid dopamine game for ${secs(r.timeSpent_ms)}s.`,
   "space-frogger": (_n, r) =>
     `Played space-frogger for ${secs(r.timeSpent_ms)}s.`,
+  "word-radar": (_n, r) => {
+    const base = `Finished Word Radar — ${pct(r.accuracy)} accuracy, ${secs(r.timeSpent_ms)}s.`;
+    const mw = (r.missedWords ?? []).map((w) => String(w).trim()).filter(Boolean);
+    if (!mw.length) return base;
+    const shown = mw.slice(0, 24).join(", ");
+    const more = mw.length > 24 ? " …" : "";
+    return `${base} Words to reinforce: ${shown}${more}.`;
+  },
 };
 
 const fallback: Formatter = (n, r) =>

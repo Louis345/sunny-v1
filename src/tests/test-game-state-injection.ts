@@ -51,6 +51,26 @@ describe("buildGameContextSummary", () => {
     expect(s).toContain("Item 3 of 5");
   });
 
+  it("includes node_complete handoff fields (missed / correct words)", () => {
+    const s = buildGameContextSummary({
+      phase: "node_complete",
+      game: "word-radar",
+      nodeId: "n-wr",
+      accuracy: 0.65,
+      completed: true,
+      wordsAttempted: 20,
+      missedWords: ["coldest", "figure"],
+      correctWords: ["faster", "slower"],
+      progress: "word-radar finished: 65% accuracy — focus coldest, figure",
+    });
+    expect(s).toContain("Phase: node_complete");
+    expect(s).toContain("Game: word-radar");
+    expect(s).toContain("Missed words: coldest, figure");
+    expect(s).toContain("Correct words: faster, slower");
+    expect(s).toContain("Session accuracy: 65%");
+    expect(s).toContain("Items attempted: 20");
+  });
+
   it("includes action, guessedLetters, wrongGuesses, and screenText when present", () => {
     const s = buildGameContextSummary({
       action: "letter_selected",
@@ -88,6 +108,31 @@ describe("SessionManager game context injection", () => {
     const msgs = sm.takePendingGameContextMessages();
     expect(String(msgs[0].content)).toContain("Phase: second");
     expect(String(msgs[0].content)).not.toContain("Phase: first");
+  });
+
+  it("queues node completion handoff before latest iframe context on take", () => {
+    const sm = new SessionManager(mockWs(), "Ila");
+    sm.queueNodeCompletionHandoff({
+      phase: "node_complete",
+      game: "word-radar",
+      nodeId: "n-wr",
+      progress: "Focus next: coldest, figure",
+      missedWords: ["coldest", "figure"],
+      accuracy: 0.65,
+      completed: true,
+      wordsAttempted: 20,
+    });
+    sm.injectGameContext({
+      phase: "launched",
+      game: "spell-check",
+      progress: "Spell check on screen",
+    });
+    const msgs = sm.takePendingGameContextMessages();
+    const body = String(msgs[0].content);
+    expect(body).toContain("---");
+    expect(body).toContain("word-radar");
+    expect(body).toContain("spell-check");
+    expect(body.indexOf("word-radar")).toBeLessThan(body.indexOf("spell-check"));
   });
 
   it("sessionStatus exposes the latest structured game state after injection is consumed", async () => {

@@ -1,13 +1,13 @@
 # Matilda Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-04-28T00:31:04.769Z*
+*Updated: 2026-04-29T18:40:30.060Z*
 
-• When Reina reads action stories, ask "Why was she running?" or "What would happen if she didn't jump?" instead of just what happened
+• When Reina solves a math problem, ask her to explain *why* her answer makes sense—especially with wrestling/match scenarios.
 
-• Try wrestling word problems together: "If you win 3 matches and get 2 points each, how many points total?"
+• During story time, ask "Why did that character do that?" and "What happens next because of that?"—push past just what happened.
 
-• When she uses a cool word, casually ask "What does that word mean to you?" and see how she explains it
+• Pick a word from her reading and naturally ask "What does that word mean to you?" to see how deeply she understands it.
 
-• Ask her to make up sentences about her favorite things—wrestling, chess, ninjas—and write them down together
+• Give her a two-part direction (like "grab the pencil, then write down one sentence") and watch how she handles it.
 
-• Play a game where you give two directions in a row: "Grab a pencil, then write your name" and see if she remembers both
+• Start introducing multiplication through her interests—"If you win 3 matches and get 2 points each, how many points total?"

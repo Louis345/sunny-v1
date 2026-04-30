@@ -322,7 +322,7 @@ export function DiagReadingScreen() {
   const wordRadarUi = wordRadarFromProfile ?? {
     showTimer: true,
     showKeyboard: false,
-    inputMode: "whole-word" as const,
+    inputMode: "letter-by-letter" as const,
     speakStyle: "option-a" as const,
     keyboardStyle: "option-c" as const,
     personalBests: {},
@@ -344,7 +344,7 @@ export function DiagReadingScreen() {
               wordRadarFromProfile ?? {
                 showTimer: true,
                 showKeyboard: false,
-                inputMode: "whole-word",
+                inputMode: "letter-by-letter",
                 speakStyle: "option-a",
                 keyboardStyle: "option-c",
                 personalBests: {},

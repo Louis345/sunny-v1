@@ -8,13 +8,14 @@ import { stdin as input, stdout as output } from "process";
 import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
-import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
+import { planSession, reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
 import { readChildMeta } from "../profiles/childrenConfig";
+import { selectHomeworkSessionWords, daysUntilHomeworkTest } from "../shared/homeworkWordSelection";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
@@ -78,20 +79,43 @@ function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode
   }));
 }
 
-/** Persisted map + session spelling source; word cap from child profile `games["spell-check"].maxWords`. */
+/**
+ * Persisted map + session spelling source; word cap from child profile `games["spell-check"].maxWords`.
+ * The live homework **mystery** node (Monster Stampede / Speed Catcher alternation) is injected in
+ * `startMapSession` in `map-coordinator.ts` via `selectMysteryGame` — not part of this node list.
+ */
 export function buildHomeworkNodes(args: {
   type: HomeworkType;
   words: string[];
   homeworkId: string;
   childId: string;
+  testDate?: string | null;
+  /** Prior session misses — highest priority in SM-2 ordering (same as map `reinforceWords`). */
+  missedWords?: string[];
 }): PlannedNode[] {
-  const { type, words, homeworkId, childId } = args;
+  const { type, words, homeworkId, childId, testDate, missedWords } = args;
   const idSuffix = homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
 
   if (type === "spelling_test") {
     const childMeta = readChildMeta(childId);
-    const maxWords = childMeta?.games?.["spell-check"]?.maxWords ?? 5;
-    const w = words.slice(0, maxWords);
+    const maxWords =
+      childMeta?.games?.["word-radar"]?.maxWords ??
+      childMeta?.games?.["spell-check"]?.maxWords ??
+      5;
+    const today = new Date().toISOString().slice(0, 10);
+    const bank = readWordBank(childId);
+    const sm2Plan = planSession(childId, "spelling", { homeworkFallbackWords: words });
+    const selected = selectHomeworkSessionWords({
+      wordList: words,
+      sm2Plan,
+      missedWords: missedWords ?? [],
+      testDate: testDate ?? null,
+      maxWords,
+      testImminent: daysUntilHomeworkTest(testDate ?? null, today) <= 5,
+      wordBankWords: bank.words,
+      todayIso: today,
+    });
+    const w = selected;
     return [
       {
         id: `n-word-radar-${idSuffix}`,
@@ -121,15 +145,6 @@ export function buildHomeworkNodes(args: {
         gameFile: null,
         storyFile: null,
       },
-      {
-        id: `n-karaoke-${idSuffix}`,
-        type: "karaoke",
-        words: [...w],
-        difficulty: 2,
-        rationale: "Karaoke — read-aloud with embedded spelling words",
-        gameFile: null,
-        storyFile: null,
-      },
     ];
   }
 
@@ -141,11 +156,11 @@ type NodePlan = {
   sessionNotes: string;
 };
 
-function nextFriday(): string {
+export function nextFriday(): string {
   const d = new Date();
   const day = d.getDay();
-  const daysUntil = day <= 5 ? 5 - day : 6;
-  d.setDate(d.getDate() + daysUntil);
+  const daysToAdd = day < 5 ? 5 - day : day === 5 ? 7 : 6;
+  d.setDate(d.getDate() + daysToAdd);
   return d.toISOString().slice(0, 10);
 }
 
@@ -174,7 +189,6 @@ const SPELLING_TEST_NODE_ORDER = [
   "word-radar",
   "spell-check",
   "pronunciation",
-  "karaoke",
   "word-builder",
   "quest",
   "boss",
@@ -410,7 +424,11 @@ export function buildPendingHomeworkPayload(args: {
   };
 }
 
-function parseCliArgs(argv: string[]): { childId: string; opus: boolean } {
+export function parseCliArgs(argv: string[]): {
+  childId: string;
+  opus: boolean;
+  testDate: string | null;
+} {
   const childArg = argv.find((a) => a.startsWith("--child="));
   if (!childArg) {
     throw new Error("Missing required argument --child=<childId>");
@@ -419,7 +437,10 @@ function parseCliArgs(argv: string[]): { childId: string; opus: boolean } {
   if (!childId) {
     throw new Error("Missing required argument --child=<childId>");
   }
-  return { childId, opus: argv.includes("--opus") };
+  const testDateArg = argv.find((a) => a.startsWith("--testDate="));
+  const testDateRaw = testDateArg ? testDateArg.slice("--testDate=".length).trim() : "";
+  const testDate = testDateRaw.length > 0 ? testDateRaw : null;
+  return { childId, opus: argv.includes("--opus"), testDate };
 }
 
 function listIncomingFiles(dir: string): string[] {
@@ -591,7 +612,7 @@ export function buildCycleStub(args: {
 }
 
 export async function runIngestHomework(argv: string[]): Promise<void> {
-  const { childId } = parseCliArgs(argv);
+  const { childId, testDate: cliTestDate } = parseCliArgs(argv);
   const client = new Anthropic();
   const today = new Date().toISOString().slice(0, 10);
   const contextBase = path.join(process.cwd(), "src", "context", childId, "homework");
@@ -606,7 +627,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
 
   console.log("📄 Step 1/4: Reading homework...");
   const extracted = await extractHomework(client, incomingFile);
-  const testDate = extracted.testDate ?? nextFriday();
+  const testDate = cliTestDate ?? extracted.testDate ?? nextFriday();
   const daysUntilTest = daysUntil(testDate);
   const wordsLine =
     extracted.words.length <= 5
@@ -625,6 +646,10 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   console.log("📦 Step 2/4: Seeding word bank and creating cycle record...");
 
   const wordBank = readWordBank(childId);
+  // Only the current ingest batch should win getHomeworkPriorityWords(); clear stale flags first.
+  for (const entry of wordBank.words) {
+    entry.homeworkPriority = false;
+  }
   for (const raw of extracted.words) {
     const word = String(raw ?? "").trim();
     if (!word) continue;
@@ -662,7 +687,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     subject: extracted.type,
     wordList: extracted.words,
     ingestedAt: today,
-    testDate: extracted.testDate,
+    testDate,
   });
   fs.writeFileSync(
     path.join(cyclesDir, `${homeworkId}.json`),
@@ -693,6 +718,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     words: extracted.words,
     homeworkId,
     childId,
+    testDate,
   });
 
   profileDoc.pendingHomework = buildPendingHomeworkPayload({
