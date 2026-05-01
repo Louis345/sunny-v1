@@ -457,6 +457,19 @@ export function AdventureMap(props: {
         forwardMapIframeCurrencyAward(amt, reason);
         return;
       }
+      if (t === "attempt_event") {
+        const inner = (d as { payload?: unknown }).payload;
+        if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+          void fetch("/api/map/attempt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(inner),
+          }).catch((err) => {
+            console.error("  🔴 [AdventureMap] attempt_event failed:", err);
+          });
+        }
+        return;
+      }
       if (t !== "node_complete") return;
       const pl = d as Record<string, unknown>;
       const node = launchedNodeRef.current;
@@ -1118,7 +1131,8 @@ export function AdventureMap(props: {
             backgroundImageUrl={
               diagReading
                 ? chimpBg
-                : props.karaokeReadingForMapNode?.backgroundImageUrl
+                : launchedNode.thumbnailUrl ??
+                  props.karaokeReadingForMapNode?.backgroundImageUrl
             }
             accentColor={
               props.karaokeReadingForMapNode?.accentColor ??
@@ -1136,7 +1150,8 @@ export function AdventureMap(props: {
             storyTitle={
               diagReading
                 ? "Chimpanzees"
-                : props.karaokeReadingForMapNode?.storyTitle
+                : launchedNode.storyTitle ??
+                  props.karaokeReadingForMapNode?.storyTitle
             }
           />
           {flowGameBackChrome ? (

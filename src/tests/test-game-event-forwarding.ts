@@ -295,6 +295,64 @@ describe("_contract.js GameBridge.startHeartbeat", () => {
       }),
     );
   });
+
+  it("fireAttemptEvent posts a normalized attempt_event with contract params", () => {
+    const posts: unknown[] = [];
+    const mockDoc = {
+      addEventListener: (_event: string, cb: () => void) => cb(),
+      title: "Attempt Contract Test",
+      createElement: () => ({ style: { cssText: "" }, textContent: "" }),
+      body: { appendChild: () => {} },
+    };
+    const context = {
+      window: {
+        parent: { postMessage: (msg: unknown) => posts.push(msg) },
+        GAME_PARAMS: null,
+        GameBridge: undefined as unknown,
+        fireAttemptEvent: undefined as unknown,
+        addEventListener: () => {},
+      },
+      document: mockDoc,
+      location: { search: "?childId=ila&nodeId=n1&sessionId=s1" },
+      URLSearchParams,
+      setInterval: () => 1,
+      clearInterval: () => {},
+      Date: { now: () => 123 },
+    };
+
+    vm.runInNewContext(contractSrc, context);
+    const fireAttemptEvent = context.window.fireAttemptEvent as (
+      attempt: Record<string, unknown>,
+    ) => void;
+    fireAttemptEvent({
+      domain: "spelling",
+      target: "blister",
+      attemptedValue: "blster",
+      correct: false,
+      quality: 1,
+      scaffoldLevel: 0,
+    });
+
+    expect(posts).toContainEqual(
+      expect.objectContaining({
+        type: "attempt_event",
+        version: "1.0",
+        payload: expect.objectContaining({
+          childId: "ila",
+          nodeId: "n1",
+          sessionId: "s1",
+          domain: "spelling",
+          target: "blister",
+          word: "blister",
+          attemptedValue: "blster",
+          correct: false,
+          quality: 1,
+          scaffoldLevel: 0,
+          timestamp: 123,
+        }),
+      }),
+    );
+  });
 });
 
 // ─── 5. HTML games have structured extras (phase) in reportState ─────────────

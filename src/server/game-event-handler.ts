@@ -5,6 +5,7 @@
 
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
+import { recordLearningAttempt } from "./learningAttemptEvents";
 import {
   SPELL_CHECK_CORRECT,
   WORD_BUILDER_ROUND_COMPLETE,
@@ -240,6 +241,21 @@ export function handleGameEventForSession(
         source: "companion_event",
         summary: `Game companion event: ${trigger}`,
       });
+    }
+    return;
+  }
+
+  if (type === "attempt_event") {
+    try {
+      const recorded = recordLearningAttempt(event, childIdFromName(s.childName));
+      s.noteExternalEvent?.({
+        source: "attempt_event",
+        summary:
+          `Game attempt: ${recorded.attempt.word} ` +
+          `${recorded.attempt.correct ? "correct" : "incorrect"}`,
+      });
+    } catch (err) {
+      console.error("  🔴 [attempt_event] record failed:", err);
     }
     return;
   }

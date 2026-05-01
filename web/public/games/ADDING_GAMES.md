@@ -22,6 +22,7 @@
 - [ ] Read `GAME_PARAMS` at top of script (never hardcode values)
 - [ ] Call `sendNodeComplete()` on game end
 - [ ] Call `fireCompanionEvent()` on key moments
+- [ ] Call `fireAttemptEvent()` once for every assessable interaction
 - [ ] Dyslexia mode: check `childId === "ila" || dyslexiaMode === true`
 
 ### Platform registration (4 files, always all 4)
@@ -155,6 +156,22 @@ GameBridge.fireEvent("session_complete"); // companion goes wild
 ```
 
 These events now reach the companion on both the map path AND the voice session path.
+
+### 6. GameBridge.reportAttempt(attempt) — REQUIRED for assessment
+
+Call once after every graded interaction. This is the learning-data contract;
+see `GAME_ATTEMPT_CONTRACT.md`.
+
+```javascript
+fireAttemptEvent({
+  domain: "spelling",
+  target: "farmer",
+  attemptedValue: childTypedValue,
+  correct: true,
+  quality: 5,
+  scaffoldLevel: 0,
+});
+```
 
 ---
 

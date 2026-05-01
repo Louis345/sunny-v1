@@ -4,34 +4,35 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../engine/learningEngine", async (importOriginal) => {
+vi.mock("../server/learningAttemptEvents", async (importOriginal) => {
   const mod =
-    await importOriginal<typeof import("../engine/learningEngine")>();
-  return { ...mod, recordAttempt: vi.fn() };
+    await importOriginal<typeof import("../server/learningAttemptEvents")>();
+  return { ...mod, recordLearningAttempt: vi.fn() };
 });
 
-import { recordAttempt } from "../engine/learningEngine";
+import { recordLearningAttempt } from "../server/learningAttemptEvents";
 import { recordWordRadarAttempts } from "../server/recordWordRadarAttempts";
 
-const mockRecordAttempt = recordAttempt as ReturnType<typeof vi.fn>;
+const mockRecordLearningAttempt = recordLearningAttempt as ReturnType<typeof vi.fn>;
 
 describe("recordWordRadarAttempts (BUG 3)", () => {
-  beforeEach(() => mockRecordAttempt.mockClear());
+  beforeEach(() => mockRecordLearningAttempt.mockClear());
 
   it("calls recordAttempt once per row", () => {
     recordWordRadarAttempts("ila", [
       { item: { display: "cat" }, correct: true, responseTime_ms: 100 },
       { item: { display: "dog" }, correct: false, responseTime_ms: 200 },
     ]);
-    expect(mockRecordAttempt).toHaveBeenCalledTimes(2);
+    expect(mockRecordLearningAttempt).toHaveBeenCalledTimes(2);
   });
 
   it("passes correct:true and quality:5 for correct words", () => {
     recordWordRadarAttempts("ila", [
       { item: { display: "fast" }, correct: true, responseTime_ms: 500 },
     ]);
-    expect(mockRecordAttempt).toHaveBeenCalledWith("ila", {
-      word: "fast",
+    expect(mockRecordLearningAttempt).toHaveBeenCalledWith({
+      childId: "ila",
+      target: "fast",
       domain: "spelling",
       correct: true,
       quality: 5,
@@ -44,8 +45,9 @@ describe("recordWordRadarAttempts (BUG 3)", () => {
     recordWordRadarAttempts("ila", [
       { item: { display: "hard" }, correct: false, responseTime_ms: 0 },
     ]);
-    expect(mockRecordAttempt).toHaveBeenCalledWith("ila", {
-      word: "hard",
+    expect(mockRecordLearningAttempt).toHaveBeenCalledWith({
+      childId: "ila",
+      target: "hard",
       domain: "spelling",
       correct: false,
       quality: 1,
@@ -61,7 +63,7 @@ describe("recordWordRadarAttempts (BUG 3)", () => {
       responseTime_ms: 300,
     }));
     recordWordRadarAttempts("reina", rows);
-    expect(mockRecordAttempt).toHaveBeenCalledTimes(10);
+    expect(mockRecordLearningAttempt).toHaveBeenCalledTimes(10);
   });
 
   it("correctWords → correct:true, missedWords → correct:false", () => {
@@ -69,8 +71,8 @@ describe("recordWordRadarAttempts (BUG 3)", () => {
       { item: { display: "run" }, correct: true, responseTime_ms: 100 },
       { item: { display: "jump" }, correct: false, responseTime_ms: 200 },
     ]);
-    const calls = mockRecordAttempt.mock.calls;
-    expect(calls[0][1].correct).toBe(true);
-    expect(calls[1][1].correct).toBe(false);
+    const calls = mockRecordLearningAttempt.mock.calls;
+    expect(calls[0][0].correct).toBe(true);
+    expect(calls[1][0].correct).toBe(false);
   });
 });

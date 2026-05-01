@@ -1,6 +1,6 @@
 export type ChildQuality = 0 | 1 | 2 | 3 | 4 | 5;
 
-export type Domain = "spelling" | "reading" | "segmentation" | "math" | "clocks";
+export type Domain = "spelling" | "reading" | "segmentation" | "math" | "clocks" | "history";
 
 export type ScaffoldLevel = 0 | 1 | 2 | 3 | 4;
 
@@ -10,6 +10,10 @@ export interface AttemptInput {
   correct: boolean;
   quality: ChildQuality;
   scaffoldLevel: ScaffoldLevel;
+  /** What the child actually produced; optional for old callers and non-text attempts. */
+  attemptedValue?: string;
+  /** Single-attempt error classification; optional until a domain classifier can produce it. */
+  errorSignal?: ErrorSignal;
   responseTimeMs?: number;
   confidenceSignal?: "high" | "medium" | "low";
   sessionMood?: "energetic" | "neutral" | "fatigued";
@@ -20,7 +24,59 @@ export interface AttemptSnapshot {
   quality: ChildQuality;
   scaffoldLevel: ScaffoldLevel;
   correct: boolean;
+  attemptedValue?: string;
+  errorSignal?: ErrorSignal;
   responseTimeMs?: number;
+}
+
+export interface ErrorSignal {
+  errorType: string;
+  frequency: number;
+  consistency: number;
+  confidence: number;
+  sessionCount: number;
+  lastSeen: string;
+  exampleTargets: string[];
+  positions: number[];
+  domain: string;
+}
+
+export interface SingleAttemptErrorSignal extends ErrorSignal {
+  frequency: 1;
+  consistency: 1;
+  sessionCount: 1;
+  target: string;
+  attemptedValue: string;
+}
+
+export interface AttemptLogRecord {
+  word: string;
+  correct: boolean;
+  domain?: Domain | string;
+  timestamp: string;
+  sessionId?: string;
+  attemptedValue?: string;
+  errorSignal?: ErrorSignal | SingleAttemptErrorSignal;
+}
+
+export interface PatternResult {
+  childId?: string;
+  patterns: ErrorSignal[];
+  totalRecords: number;
+  classifiedAttempts: number;
+  skippedMissingAttemptedValue: number;
+}
+
+export interface QuestThreshold {
+  unlocked: boolean;
+  reason: "pattern_ready" | "needs_more_sessions" | "needs_confirmed_pattern";
+  totalSessions: number;
+  strongestPattern?: ErrorSignal;
+}
+
+export interface DomainClassifier {
+  domain: Domain | string;
+  classify: (target: string, attempt: string) => SingleAttemptErrorSignal | null;
 }
 
 export interface SM2Track {

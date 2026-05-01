@@ -19,9 +19,11 @@ import { buildNodeList } from "../engine/nodeSelection";
 import { recordReward } from "../engine/bandit";
 import {
   planSession,
-  recordAttempt,
   registerMysteryGameForSessionFinalize,
 } from "../engine/learningEngine";
+import { computeQuestThreshold } from "../engine/error-signals/questThreshold";
+import { recordHomeworkNodeMeasurement } from "../engine/homeworkCycleLoop";
+import { recordLearningAttempt } from "./learningAttemptEvents";
 import {
   getSunnyMode,
   isDiagMapMode,
@@ -610,16 +612,26 @@ export function pendingHomeworkToNodeConfigs(
     return {
       id: node.id,
       type: node.type as NodeType,
-      words: isWordDrivenHomeworkNodeType(node.type) ? words : [],
+      words:
+        node.type === "karaoke" && node.storyText
+          ? node.words
+          : isWordDrivenHomeworkNodeType(node.type)
+            ? words
+            : [],
       wordRadarItems,
       difficulty: clampNodeDifficulty(node.difficulty),
       gameFile: node.gameFile ?? undefined,
       storyFile: node.storyFile ?? undefined,
       storyText: node.storyText,
+      storyTitle: node.storyTitle,
+      storyImagePrompt: node.storyImagePrompt,
       date: node.date ?? hw.weekOf,
       isCastle: node.type === "boss",
       thumbnailUrl: undefined,
-      thumbnailPrompt: NODE_THUMBNAIL_PROMPTS[node.type] ?? undefined,
+      thumbnailPrompt:
+        node.type === "karaoke" && node.storyImagePrompt
+          ? node.storyImagePrompt
+          : NODE_THUMBNAIL_PROMPTS[node.type] ?? undefined,
       isLocked: false,
       isCompleted: false,
       isGoal: i === arr.length - 1,
@@ -753,6 +765,7 @@ export function buildMapSummary(mapState: MapState): string {
 
 /** Spelling homework baseline order through wheel, then mystery, then quest/boss. */
 const HOMEWORK_NODE_ORDER = [
+  "karaoke",
   "word-radar",
   "spell-check",
   "wheel-of-fortune",
@@ -797,8 +810,16 @@ function hasManualQuestUnlock(childId: string): boolean {
     | Record<string, { questUnlocked?: boolean }>
     | undefined;
   const id = childId.trim().toLowerCase();
-  // TODO: replace questUnlocked with computeQuestThreshold(childId)
   return profiles?.[id]?.questUnlocked === true;
+}
+
+function hasQuestUnlock(childId: string): boolean {
+  try {
+    if (computeQuestThreshold(childId)) return true;
+  } catch (err) {
+    console.error("  🔴 [map-coordinator] quest threshold check failed:", err);
+  }
+  return hasManualQuestUnlock(childId);
 }
 
 function orderHomeworkBaselineNodes(nodes: NodeConfig[]): NodeConfig[] {
@@ -880,8 +901,7 @@ export async function startMapSession(
       (node) =>
         node.type !== "quest" &&
         node.type !== "boss" &&
-        node.type !== "mystery" &&
-        node.type !== "karaoke",
+        node.type !== "mystery",
     );
     const baselineOrdered = orderHomeworkBaselineNodes(rawBaseline);
     const mysterySlug = selectMysteryGame(childId);
@@ -924,7 +944,7 @@ export async function startMapSession(
       questGamePath &&
       questGenerationModel,
     );
-    const manualQuest = hasManualQuestUnlock(childId);
+    const manualQuest = hasQuestUnlock(childId);
     if (questGameReady || manualQuest) {
       ordered.push({
         id: `n-quest-${homeworkId}`,
@@ -1284,13 +1304,15 @@ export async function applyNodeResult(
         const word = pool[i]!;
         const correct = result.completed && result.accuracy >= 0.5;
         try {
-          recordAttempt(st.childId, {
-            word,
+          recordLearningAttempt({
+            childId: st.childId,
+            target: word,
             domain: "spelling",
             correct,
             quality: (correct ? 4 : 2) as ChildQuality,
             scaffoldLevel: 2,
             responseTimeMs: result.timeSpent_ms,
+            sessionId: sessionId,
           });
         } catch (err) {
           console.error("  🔴 [map-coordinator] recordAttempt failed:", err);
@@ -1324,6 +1346,38 @@ export async function applyNodeResult(
       st.sessionDate,
       `Map node ${nodeCfg.type} ${result.nodeId} completed=${result.completed} accuracy=${result.accuracy}`,
     );
+  }
+
+  if (!skipSessionPersistence && result.completed) {
+    try {
+      const lp = readLearningProfile(st.childId);
+      const pending = lp?.pendingHomework as
+        | (NonNullable<ChildProfile["pendingHomework"]> & { homeworkId?: string })
+        | undefined;
+      const homeworkId = pending?.homeworkId ?? pending?.weekOf;
+      if (homeworkId) {
+        const updatedCycle = recordHomeworkNodeMeasurement({
+          childId: st.childId,
+          homeworkId,
+          nodeId: result.nodeId,
+          nodeType: nodeCfg.type,
+          accuracy: result.accuracy,
+          completedAt: new Date().toISOString(),
+        });
+        if (updatedCycle?.questMeasurement) {
+          console.log(
+            `  🎮 [homework-cycle] quest measurement ${updatedCycle.questMeasurement.status} accuracy=${updatedCycle.questMeasurement.interventionAccuracy}`,
+          );
+        }
+        if (updatedCycle?.bossTheory) {
+          console.log(
+            `  🎮 [homework-cycle] boss theory ready for ${homeworkId}`,
+          );
+        }
+      }
+    } catch (err) {
+      console.error("  🔴 [map-coordinator] homework cycle measurement failed:", err);
+    }
   }
 
   if (!skipSessionPersistence && result.completed) {

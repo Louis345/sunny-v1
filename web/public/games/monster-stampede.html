@@ -439,6 +439,14 @@ function App(){
         setMonsterAnim('run');
         SE.monsterFlee();
         fireComp('correct_answer',{word,earned,wrongCount:wrongCount.current});
+        if(window.fireAttemptEvent) window.fireAttemptEvent({
+          domain:'spelling',
+          target:word,
+          attemptedValue:newTyped.join(''),
+          correct:true,
+          quality:wrongCount.current===0 ? 5 : 4,
+          scaffoldLevel:showHint ? 1 : 0
+        });
         setCompMood('celebrating');
         setCompSpeech(`AMAZING! "${word.toUpperCase()}" is correct! 🎉`);
         wordsCorrect.current.push(word);
@@ -492,9 +500,17 @@ function App(){
       }
 
       fireComp('wrong_answer',{word,tapped:tile.letter,expected,wrongCount:wrongCount.current});
+      if(window.fireAttemptEvent) window.fireAttemptEvent({
+        domain:'spelling',
+        target:word,
+        attemptedValue:[...typed, tile.letter].join(''),
+        correct:false,
+        quality:1,
+        scaffoldLevel:showHint ? 1 : 0
+      });
       reportAction('wrong_letter',`Wrong: tapped "${tile.letter}", expected "${expected}" for "${word}".`,{word,tapped:tile.letter,expected,correct:false});
     }
-  },[typed,wordIdx,monsterScale,chunks]);
+  },[typed,wordIdx,monsterScale,chunks,showHint]);
 
   /* ── End game ────────────────────────────────────────────────── */
   const endGame = useCallback((won)=>{

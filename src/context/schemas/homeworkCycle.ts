@@ -24,15 +24,66 @@ export interface ScanResult {
   rawExtraction: string; // what Haiku extracted
 }
 
+export interface LearningTheory {
+  theoryId: string;
+  stage: "pre_quest" | "boss";
+  createdAt: string;
+  hypothesis: string;
+  predictedPattern: string;
+  predictedRiskWords: string[];
+  intervention: string;
+  successCriteria: {
+    minAccuracy: number;
+    minImprovement: number;
+  };
+  evidence: string[];
+  status: "pending" | "supported" | "falsified" | "inconclusive";
+  markdown: string;
+}
+
+export interface HomeworkContentProfile {
+  practiceDomain: string;
+  contentDomain: string;
+  topic: string;
+  primarySkill: string;
+  assignmentFormat: string;
+  concepts: string[];
+  sourceEvidence: string[];
+}
+
+export interface InterventionMeasurement {
+  nodeId: string;
+  nodeType: string;
+  measuredAt: string;
+  baselineAccuracy: number;
+  interventionAccuracy: number;
+  improvement: number;
+  predictionMet: boolean;
+  status: "supported" | "falsified" | "inconclusive";
+}
+
 export interface HomeworkCycle {
   homeworkId: string; // deterministic from content
   subject: string;
   wordList: string[];
+  contentProfile?: HomeworkContentProfile | null;
   ingestedAt: string; // ISO date
   testDate: string | null;
 
   // Written by Psychologist BEFORE session cycle
   assumptions: string | null; // markdown — what the system predicted
+
+  /** Structured version of `assumptions`, used by quest/boss generation. */
+  theory?: LearningTheory | null;
+
+  /** Quest evidence against the theory. Boss unlock/generation decisions read this. */
+  questMeasurement?: InterventionMeasurement | null;
+
+  /** Second-chance theory when quest evidence falsifies the first theory. */
+  bossTheory?: LearningTheory | null;
+
+  /** Every baseline/quest/boss node result recorded for this homework cycle. */
+  interventionHistory?: InterventionMeasurement[];
 
   // Written by Psychologist AFTER scan-back
   postAnalysis: string | null; // markdown — what was wrong, what to adjust

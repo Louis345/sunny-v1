@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { shouldLoadPersistedHistory, shouldPersistSessionData } from "./runtimeMode";
 import type { ChildName } from "./childContextPaths";
+import type { ErrorSignal } from "../algorithms/types";
 
 /** Append one worksheet attempt line after server-side validation (not in tool execute). */
 export async function appendWorksheetAttemptLine(input: {
@@ -32,13 +33,21 @@ export async function appendWorksheetAttemptLine(input: {
 /** Append one spelling/reading-style attempt line under src/context/{child}/attempts/ (NDJSON per day). */
 export function appendAttemptLine(
   childName: ChildName | string,
-  entry: { word: string; correct: boolean },
+  entry: {
+    word: string;
+    correct: boolean;
+    domain?: string;
+    sessionId?: string;
+    attemptedValue?: string;
+    errorSignal?: Partial<ErrorSignal>;
+  },
 ): void {
   if (!shouldPersistSessionData()) return;
+  const contextRoot =
+    process.env.SUNNY_CONTEXT_ROOT ??
+    path.resolve(process.cwd(), "src", "context");
   const dir = path.resolve(
-    process.cwd(),
-    "src",
-    "context",
+    contextRoot,
     String(childName).toLowerCase(),
     "attempts",
   );

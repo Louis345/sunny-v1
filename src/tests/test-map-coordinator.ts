@@ -205,6 +205,76 @@ describe("map coordinator (TASK-010)", () => {
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
   });
 
+  it("startMapSession preserves content-aware karaoke homework nodes", async () => {
+    vi.mocked(buildNodeList).mockClear();
+    const words = ["faster", "fastest"];
+    const storyText = "Rain made a river move faster. Erosion changed the hill.";
+    const storyWords = storyText.replace(/[^\w\s]/g, "").split(/\s+/);
+    const homeworkId = "hw-spelling_test-content-aware";
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId: "qa_map",
+      ttsName: "Qa map",
+      level: 2,
+      xp: 0,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+      dueWords: [],
+      sm2Stats: {} as never,
+      currentDifficulty: 2,
+      masteryGating: {} as never,
+      mathRotation: [],
+      retrievalPractice: { nextScaffoldWords: [] },
+      games: {} as never,
+      wordRadar: {
+        showTimer: true,
+        showKeyboard: false,
+        personalBests: {},
+        inputMode: "whole-word",
+      },
+      dyslexiaMode: false,
+      companionColor: "#00f",
+      avatarImagePath: null,
+      pendingHomework: buildPendingHomeworkPayload({
+        weekOf: "2026-05-01",
+        testDate: "2026-05-06",
+        wordList: words,
+        homeworkId,
+        nodes: [
+          {
+            id: "n-karaoke-content",
+            type: "karaoke",
+            words: storyWords,
+            difficulty: 1,
+            rationale: "Build erosion context before spelling.",
+            gameFile: null,
+            storyFile: null,
+            storyText,
+          },
+          ...buildHomeworkNodes({
+            type: "spelling_test",
+            words,
+            homeworkId,
+            childId: "reina",
+            testDate: "2026-05-06",
+          }),
+        ],
+      }) as import("../shared/childProfile").ChildProfile["pendingHomework"],
+    });
+
+    const { mapState } = await startMapSession("qa_map");
+
+    expect(mapState.nodes[0]?.type).toBe("karaoke");
+    expect(mapState.nodes[0]?.storyText).toBe(storyText);
+    expect(mapState.nodes[0]?.words).toEqual(storyWords);
+    expect(mapState.nodes.map((n) => n.type)).toContain("spell-check");
+    expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
+  });
+
   it("manual questUnlocked child gets quest words and a final locked boss teaser", async () => {
     vi.mocked(buildNodeList).mockClear();
     const words = ["farmer", "teacher"];

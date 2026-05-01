@@ -1,5 +1,5 @@
-import { recordAttempt } from "../engine/learningEngine";
 import type { WordRadarWireResultRow } from "../utils/wordRadarProfile";
+import { recordLearningAttempt } from "./learningAttemptEvents";
 
 /**
  * Record one learning attempt per word-radar result row.
@@ -9,18 +9,21 @@ import type { WordRadarWireResultRow } from "../utils/wordRadarProfile";
 export function recordWordRadarAttempts(
   childId: string,
   rows: WordRadarWireResultRow[],
+  sessionId?: string,
 ): void {
   for (const row of rows) {
     const word = row.item.display.toLowerCase().trim();
     if (!word) continue;
     try {
-      recordAttempt(childId, {
-        word,
+      recordLearningAttempt({
+        childId,
+        target: word,
         domain: "spelling",
         correct: row.correct,
         quality: row.correct ? 5 : 1,
         scaffoldLevel: 0,
         responseTimeMs: row.responseTime_ms > 0 ? row.responseTime_ms : undefined,
+        sessionId,
       });
     } catch (err) {
       console.error(`  🔴 [word_radar] recordAttempt failed for "${word}":`, err);

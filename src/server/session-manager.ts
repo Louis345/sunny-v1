@@ -2385,8 +2385,10 @@ export class SessionManager {
           "string"
           ? String((this.currentCanvasState as { content: string }).content).trim()
           : "";
+      const promptRaw = (this.currentCanvasState as { storyImagePrompt?: unknown } | null)?.storyImagePrompt;
+      const fromPrompt = typeof promptRaw === "string" ? promptRaw.trim() : "";
       const storyText =
-        this.lastKaraokeStoryText.trim() || fromCanvas;
+        fromPrompt || this.lastKaraokeStoryText.trim() || fromCanvas;
       if (storyText.length > 0) {
         if (this.storyImageGeneratedThisStory) {
           console.log(
@@ -2444,7 +2446,7 @@ export class SessionManager {
     } catch (e) {
       console.error("  🔴 word_radar_complete word bank merge failed", e);
     }
-    recordWordRadarAttempts(childId, rows);
+    recordWordRadarAttempts(childId, rows, this.sessionId);
   }
 
   receivePronunciationComplete(msg: Record<string, unknown>): void {

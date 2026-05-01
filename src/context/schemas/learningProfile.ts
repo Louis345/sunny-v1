@@ -123,6 +123,15 @@ export interface LearningProfile {
     weekOf: string;
     testDate: string | null;
     wordList: string[];
+    contentProfile?: {
+      practiceDomain: string;
+      contentDomain: string;
+      topic: string;
+      primarySkill: string;
+      assignmentFormat: string;
+      concepts: string[];
+      sourceEvidence: string[];
+    } | null;
     /** From last homework node misses — prioritized on next map load, then cleared. */
     reinforceWords?: string[];
     generatedAt: string;
@@ -135,6 +144,8 @@ export interface LearningProfile {
       storyFile: string | null;
       /** Karaoke passage text embedded at ingest (no fetch at click). */
       storyText?: string;
+      storyTitle?: string;
+      storyImagePrompt?: string;
       /** Word Radar drills when `type === "word-radar"` (ingest / map). */
       wordRadarItems?: Array<{
         display: string;
