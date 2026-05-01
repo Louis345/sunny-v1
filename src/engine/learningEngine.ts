@@ -31,6 +31,8 @@ import { readPersistedTodaysPlan } from "../agents/psychologist/today-plan";
 import type { ChildName } from "../utils/childContextPaths";
 import { getBondContextInjection } from "./bondProtocol";
 import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
+import { defaultDomainClassifiers } from "./error-signals/domainClassifierRegistry";
+import { extractErrorSignal } from "./error-signals/extractor";
 
 export interface PlanSessionOptions {
   /** OCR / extracted homework list — used only when curriculum + bank yield no session words. */
@@ -391,6 +393,18 @@ function todayIso(): string {
 }
 
 export function recordAttempt(childId: string, attempt: AttemptInput): AttemptResult {
+  const errorSignal =
+    attempt.errorSignal ??
+    (!attempt.correct && attempt.attemptedValue
+      ? extractErrorSignal({
+          target: attempt.word,
+          attempt: attempt.attemptedValue,
+          domain: attempt.domain,
+        }, defaultDomainClassifiers) ?? undefined
+      : undefined);
+  const normalizedAttempt: AttemptInput = errorSignal
+    ? { ...attempt, errorSignal }
+    : attempt;
   const profile = readLearningProfile(childId);
   const sm2Params = profile?.algorithmParams.sm2 ?? {
     defaultEasinessFactor: 2.5,
@@ -402,32 +416,38 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
 
   const preview = sunnyPreviewBlocksPersistence();
 
-  ensureWordInBank(childId, attempt.word, attempt.domain, "session");
+  ensureWordInBank(childId, normalizedAttempt.word, normalizedAttempt.domain, "session");
 
   const bank = readWordBank(childId);
-  const entry = bank.words.find((w) => w.word === attempt.word);
-  const previousTrack = entry?.tracks[attempt.domain];
+  const entry = bank.words.find((w) => w.word === normalizedAttempt.word);
+  const previousTrack = entry?.tracks[normalizedAttempt.domain];
   const currentTrack = previousTrack ?? createFreshSM2Track(new Date().toISOString().slice(0, 10));
 
-  const quality = computeQualityFromAttempt(attempt);
+  const quality = computeQualityFromAttempt(normalizedAttempt);
   const updatedTrack = computeSM2(currentTrack, quality, sm2Params);
   const snap: AttemptSnapshot = {
     date: new Date().toISOString().slice(0, 10),
     quality,
-    scaffoldLevel: attempt.scaffoldLevel,
-    correct: attempt.correct,
+    scaffoldLevel: normalizedAttempt.scaffoldLevel,
+    correct: normalizedAttempt.correct,
   };
+  if (normalizedAttempt.attemptedValue) {
+    snap.attemptedValue = normalizedAttempt.attemptedValue;
+  }
+  if (normalizedAttempt.errorSignal) {
+    snap.errorSignal = normalizedAttempt.errorSignal;
+  }
   updatedTrack.history = [...updatedTrack.history, snap];
 
   if (entry) {
-    entry.tracks[attempt.domain] = updatedTrack;
+    entry.tracks[normalizedAttempt.domain] = updatedTrack;
     writeWordBank(childId, bank);
   }
 
   if (preview) {
     const difficultySignal = assessDifficulty({
       recentAttempts: [
-        { correct: attempt.correct, timestamp: new Date().toISOString() },
+        { correct: normalizedAttempt.correct, timestamp: new Date().toISOString() },
       ],
       params: profile?.algorithmParams.difficulty ?? {
         targetAccuracy: 0.7,
@@ -442,11 +462,11 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
 
   const state = sessionStates.get(childId);
   if (state) {
-    state.attempts.push(attempt);
-    state.rewardState.wordsThisSession.push(attempt.word);
+    state.attempts.push(normalizedAttempt);
+    state.rewardState.wordsThisSession.push(normalizedAttempt.word);
     state.rewardState.totalAttempts++;
 
-    if (attempt.correct) {
+    if (normalizedAttempt.correct) {
       state.rewardState.correctStreak++;
       state.rewardState.totalCorrect++;
     } else {
@@ -454,11 +474,11 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
     }
 
     if (previousTrack?.mastered && !updatedTrack.mastered) {
-      state.wordsRegressed.push(attempt.word);
+      state.wordsRegressed.push(normalizedAttempt.word);
     }
   }
 
-  const allAttempts = state?.attempts ?? [attempt];
+  const allAttempts = state?.attempts ?? [normalizedAttempt];
   const difficultySignal = assessDifficulty({
     recentAttempts: allAttempts.map((a) => ({
       correct: a.correct,
@@ -478,7 +498,7 @@ export function recordAttempt(childId: string, attempt: AttemptInput): AttemptRe
   }
 
   const rewards = state
-    ? evaluateRewards(attempt.word, updatedTrack, previousTrack, state.rewardState, profile!)
+    ? evaluateRewards(normalizedAttempt.word, updatedTrack, previousTrack, state.rewardState, profile!)
     : [];
 
   if (state) {

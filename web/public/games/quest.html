@@ -110,6 +110,16 @@
     var typed = el("ans").value.trim().toLowerCase();
     var correct = typed === word.toLowerCase();
     results.push({word:word, correct:correct, typed:typed});
+    if(window.fireAttemptEvent) {
+      window.fireAttemptEvent({
+        domain: "spelling",
+        target: word,
+        attemptedValue: typed,
+        correct: correct,
+        quality: correct ? 5 : 1,
+        scaffoldLevel: 0
+      });
+    }
 
     var inp = el("ans");
     var fb = el("fb");

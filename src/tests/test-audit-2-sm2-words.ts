@@ -161,6 +161,30 @@ describe("Audit 2 — SM-2 homework words and map", () => {
     expect(y?.tracks.spelling?.history?.length).toBeGreaterThan(0);
   });
 
+  it("POST spell-check-results writes NDJSON attempt rows for diagnostics", () => {
+    const out = applySpellCheckMapResults({
+      childId,
+      wordsCorrect: ["Zebra", "Lion", "Tiger", "Otter", "Panda"],
+      wordsStruggled: [],
+      sessionId: "spell-session-1",
+    });
+    expect(out.recorded).toBe(5);
+    const attemptsDir = path.join(ctxDir, "attempts");
+    const file = fs.readdirSync(attemptsDir)[0];
+    const lines = fs
+      .readFileSync(path.join(attemptsDir, file), "utf-8")
+      .trim()
+      .split("\n");
+    expect(lines).toHaveLength(5);
+    for (const line of lines) {
+      expect(JSON.parse(line)).toMatchObject({
+        domain: "spelling",
+        correct: true,
+        sessionId: "spell-session-1",
+      });
+    }
+  });
+
   it("free preview skips spell-check map results writes", () => {
     const before = readWordBank(childId).words.length;
     const out = applySpellCheckMapResults({

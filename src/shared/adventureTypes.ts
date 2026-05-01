@@ -45,6 +45,8 @@ export interface NodeConfig {
   generationModel?: "sonnet" | "opus";
   storyFile?: string;
   storyText?: string;
+  storyTitle?: string;
+  storyImagePrompt?: string;
   date?: string;
   /** Optional node theme label (client / diag). */
   theme?: string;

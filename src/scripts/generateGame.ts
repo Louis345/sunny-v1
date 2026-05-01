@@ -4,6 +4,8 @@ import fs from "fs";
 import path from "path";
 import type { ChildProfile } from "../shared/childProfile";
 import { updateChildProfileGenerationModel } from "../profile/updateProfile";
+import type { ErrorSignal } from "../algorithms/types";
+import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 
 export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 export const SONNET_MODEL = "claude-sonnet-4-20250514";
@@ -249,6 +251,8 @@ function buildSonnetPrompt(
   testDate?: string,
   childProfile?: SonnetChildProfile,
   validationFeedback?: string,
+  learningTheory?: string,
+  errorSignals?: ErrorSignal[],
 ): string {
   const validationPreamble =
     validationFeedback && validationFeedback.trim().length > 0
@@ -326,7 +330,21 @@ ${referenceHtml}
 
 `;
 
-  return `${validationPreamble}${purposeBlock}${referenceBlock}Generate a complete single-file interactive HTML game for Ila (age 8, grade 2).
+  const diagnosticBlock =
+    learningTheory || (errorSignals?.length ?? 0) > 0
+      ? `DIAGNOSTIC THEORY — use this to choose the mechanic:
+${learningTheory ?? "No written theory available."}
+
+Confirmed error signals:
+${JSON.stringify(errorSignals ?? [], null, 2)}
+
+The mechanic is the treatment. Build interactions that directly test the theory.
+If this is a spelling game, every scored interaction must call fireAttemptEvent().
+
+`
+      : "";
+
+  return `${validationPreamble}${purposeBlock}${referenceBlock}${diagnosticBlock}Generate a complete single-file interactive HTML game for Ila (age 8, grade 2).
 Match this EXACT visual style:
 - Background: rich dark gradient (not flat dark blue).
   Use: linear-gradient(160deg, #064e3b, #065f46, #047857, #1a3a1a)
@@ -390,6 +408,21 @@ After _contract.js loads, call fireCompanionEvent() at:
 
 fireCompanionEvent is already defined in _contract.js
 which is loaded at top of <head>
+
+ATTEMPT EVENTS — mandatory for learning diagnostics:
+Every assessable interaction must call fireAttemptEvent() exactly once after
+the answer is graded. This is separate from fireCompanionEvent().
+Use:
+fireAttemptEvent({
+  domain: 'spelling' | 'math' | 'reading' | 'history',
+  target: expectedAnswerOrWord,
+  attemptedValue: childAnswerString, // include whenever the child produced text
+  correct: boolean,
+  quality: 0 | 1 | 2 | 3 | 4 | 5,
+  scaffoldLevel: 0 | 1 | 2 | 3 | 4
+});
+For spelling, target is the word being tested and attemptedValue is exactly
+what the child typed. Do not create a spelling input without fireAttemptEvent().
 ${profileBlock}
 Homework data:
 ${extractedJson}
@@ -447,6 +480,8 @@ export async function generateQuestGameHtml(args: {
   testDate?: string;
   childProfile?: SonnetChildProfile;
   validationFeedback?: string;
+  learningTheory?: string;
+  errorSignals?: ErrorSignal[];
 }): Promise<string> {
   const referenceHtml = loadOptionalReferenceHtml();
   const genPrompt = buildSonnetPrompt(
@@ -456,6 +491,8 @@ export async function generateQuestGameHtml(args: {
     args.testDate,
     args.childProfile,
     args.validationFeedback,
+    args.learningTheory,
+    args.errorSignals,
   );
   const genResp = await args.client.messages.create({
     model: SONNET_MODEL,
@@ -475,6 +512,29 @@ export async function generateQuestGameHtml(args: {
     );
   }
   return html;
+}
+
+function loadLatestHomeworkTheory(childId: string): string | undefined {
+  const dir = path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
+  if (!fs.existsSync(dir)) return undefined;
+  const files = fs
+    .readdirSync(dir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => path.join(dir, file))
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+  for (const file of files) {
+    try {
+      const cycle = JSON.parse(fs.readFileSync(file, "utf8")) as {
+        theory?: { markdown?: unknown };
+        assumptions?: unknown;
+      };
+      if (typeof cycle.theory?.markdown === "string") return cycle.theory.markdown;
+      if (typeof cycle.assumptions === "string") return cycle.assumptions;
+    } catch {
+      // skip malformed cycle
+    }
+  }
+  return undefined;
 }
 
 async function main(): Promise<void> {
@@ -615,6 +675,8 @@ async function main(): Promise<void> {
     extractedJsonPretty,
     homeworkType: homeworkTypeForGen,
     testDate: testDateForGen,
+    learningTheory: loadLatestHomeworkTheory(childId),
+    errorSignals: scanChildErrorPatterns(childId).patterns,
   });
   console.log("✅ Step 2/4: Quest game ready");
 

@@ -43,6 +43,8 @@ export type RoutableNodeConfig = Pick<
   | "generationModel"
   | "date"
   | "storyText"
+  | "storyTitle"
+  | "storyImagePrompt"
 > & { type: string };
 
 export function buildNodeUrlSearchParams(
@@ -94,6 +96,8 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       type: "karaoke",
       storyText: node.storyText ?? "",
       words: node.words ?? [],
+      storyTitle: node.storyTitle,
+      storyImagePrompt: node.storyImagePrompt,
     }),
   },
   "word-radar": {

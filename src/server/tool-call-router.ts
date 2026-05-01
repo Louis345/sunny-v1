@@ -907,6 +907,10 @@ export function runHandleToolCall(
           karaokeWords: words,
           storyTitle:
             typeof args.storyTitle === "string" ? args.storyTitle : undefined,
+          storyImagePrompt:
+            typeof args.storyImagePrompt === "string"
+              ? args.storyImagePrompt
+              : undefined,
           backgroundImageUrl:
             typeof args.backgroundImageUrl === "string"
               ? args.backgroundImageUrl

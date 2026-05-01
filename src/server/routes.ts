@@ -41,6 +41,9 @@ import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
+import { recordLearningAttempt } from "./learningAttemptEvents";
+import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
+import { readHomeworkCycle } from "../engine/homeworkCycleLoop";
 import { CompanionRegistry } from "../prompts/companions/registry";
 import { tryLoadIntroOnlyShowroomCompanion } from "./introOnlyShowroomCompanion";
 import {
@@ -754,10 +757,20 @@ Return plain text only.`,
         const extracted = fs.existsSync(classificationPath)
           ? JSON.parse(fs.readFileSync(classificationPath, "utf8"))
           : {};
+        const homeworkId =
+          (pending as typeof pending & { homeworkId?: string }).homeworkId ??
+          pending.weekOf;
+        const cycle = homeworkId ? readHomeworkCycle(childId, homeworkId) : null;
+        const learningTheory =
+          node.type === "boss"
+            ? cycle?.bossTheory?.markdown ?? cycle?.theory?.markdown
+            : cycle?.theory?.markdown ?? cycle?.assumptions ?? undefined;
         const client = new Anthropic();
         const html = await generateQuestGameHtml({
           client,
           extractedJsonPretty: JSON.stringify({ ...extracted, feedback }, null, 2),
+          learningTheory,
+          errorSignals: scanChildErrorPatterns(childId).patterns,
         });
         newFile = node.gameFile || `${node.type}-${date}.html`;
         fs.writeFileSync(path.join(pendingDir, newFile), ensureQuestHtmlContract(html), "utf8");
@@ -935,6 +948,7 @@ Return plain text only.`,
       childId?: string;
       wordsCorrect?: string[];
       wordsStruggled?: string[];
+      sessionId?: string;
       previewMode?: string | boolean;
     };
     const childId = typeof body.childId === "string" ? body.childId.trim().toLowerCase() : "";
@@ -950,12 +964,29 @@ Return plain text only.`,
         childId,
         wordsCorrect,
         wordsStruggled,
+        sessionId: typeof body.sessionId === "string" ? body.sessionId : undefined,
         previewMode: body.previewMode,
       });
       return res.json(out);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/map/attempt", (req: Request, res: Response) => {
+    try {
+      const out = recordLearningAttempt(req.body as Record<string, unknown>);
+      return res.json({
+        ok: true,
+        recorded: out.skipped ? 0 : 1,
+        skipped: out.skipped,
+        word: out.attempt.word,
+        domain: out.attempt.domain,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(400).json({ error: message });
     }
   });
 

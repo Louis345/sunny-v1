@@ -8,24 +8,23 @@ import { stdin as input, stdout as output } from "process";
 import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
-import { planSession, reorderHomeworkNodesForSession } from "../engine/learningEngine";
+import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
-import { readChildMeta } from "../profiles/childrenConfig";
-import { selectHomeworkSessionWords, daysUntilHomeworkTest } from "../shared/homeworkWordSelection";
+import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
+import { buildPreQuestTheory } from "../engine/homeworkCycleLoop";
+import {
+  buildContentAwareHomeworkNodes,
+  normalizeContentProfile,
+  type ContentProfile,
+  type HomeworkType,
+  type PlannedHomeworkNode,
+} from "./contentAwareHomeworkPlanner";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
-
-type HomeworkType =
-  | "spelling_test"
-  | "reading"
-  | "math"
-  | "coins"
-  | "clocks"
-  | "generic";
 
 type ExtractionShape = {
   title: string;
@@ -33,6 +32,7 @@ type ExtractionShape = {
   gradeLevel: number;
   testDate: string | null;
   words: string[];
+  contentProfile: ContentProfile;
   questions: Array<{
     id: number;
     question: string;
@@ -43,32 +43,7 @@ type ExtractionShape = {
   }>;
 };
 
-type PlannedNode = {
-  id: string;
-  type:
-    | "word-radar"
-    | "spell-check"
-    | "pronunciation"
-    | "karaoke"
-    | "word-builder"
-    | "quest"
-    | "boss"
-    | "wheel-of-fortune";
-  words: string[];
-  /** Populated for `word-radar` nodes (spelling homework). */
-  wordRadarItems?: Array<{
-    display: string;
-    acceptedResponses: string[];
-    label?: string;
-    subject?: string;
-  }>;
-  difficulty: 1 | 2 | 3;
-  rationale: string;
-  gameFile?: string | null;
-  storyFile?: string | null;
-  storyText?: string;
-  date?: string;
-};
+type PlannedNode = PlannedHomeworkNode;
 
 function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode["wordRadarItems"]> {
   return wordList.map((w) => ({
@@ -93,63 +68,9 @@ export function buildHomeworkNodes(args: {
   testDate?: string | null;
   /** Prior session misses — highest priority in SM-2 ordering (same as map `reinforceWords`). */
   missedWords?: string[];
+  contentProfile?: ContentProfile | null;
 }): PlannedNode[] {
-  const { type, words, homeworkId, childId, testDate, missedWords } = args;
-  const idSuffix = homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
-
-  if (type === "spelling_test") {
-    const childMeta = readChildMeta(childId);
-    const maxWords =
-      childMeta?.games?.["word-radar"]?.maxWords ??
-      childMeta?.games?.["spell-check"]?.maxWords ??
-      5;
-    const today = new Date().toISOString().slice(0, 10);
-    const bank = readWordBank(childId);
-    const sm2Plan = planSession(childId, "spelling", { homeworkFallbackWords: words });
-    const selected = selectHomeworkSessionWords({
-      wordList: words,
-      sm2Plan,
-      missedWords: missedWords ?? [],
-      testDate: testDate ?? null,
-      maxWords,
-      testImminent: daysUntilHomeworkTest(testDate ?? null, today) <= 5,
-      wordBankWords: bank.words,
-      todayIso: today,
-    });
-    const w = selected;
-    return [
-      {
-        id: `n-word-radar-${idSuffix}`,
-        type: "word-radar",
-        words: [...w],
-        wordRadarItems: wordRadarItemsFromWordList(w),
-        difficulty: 1,
-        rationale: "Word radar — recognition for all spelling-list words",
-        gameFile: null,
-        storyFile: null,
-      },
-      {
-        id: `n-spell-check-${idSuffix}`,
-        type: "spell-check",
-        words: [...w],
-        difficulty: 2,
-        rationale: "Spell-check — typing practice for list words",
-        gameFile: null,
-        storyFile: null,
-      },
-      {
-        id: `n-wheel-${idSuffix}`,
-        type: "wheel-of-fortune",
-        words: [...w],
-        difficulty: 2,
-        rationale: "Bonus round — collaborative spelling game",
-        gameFile: null,
-        storyFile: null,
-      },
-    ];
-  }
-
-  return [];
+  return buildContentAwareHomeworkNodes(args);
 }
 
 type NodePlan = {
@@ -398,11 +319,13 @@ export function buildPendingHomeworkPayload(args: {
   wordList: string[];
   homeworkId: string;
   nodes: PlannedNode[];
+  contentProfile?: ContentProfile | null;
 }): NonNullable<LearningProfile["pendingHomework"]> & { homeworkId: string } {
   return {
     weekOf: args.weekOf,
     testDate: args.testDate,
     wordList: args.wordList,
+    contentProfile: args.contentProfile ?? null,
     homeworkId: args.homeworkId,
     generatedAt: new Date().toISOString(),
     nodes: args.nodes.map((node) => {
@@ -414,6 +337,8 @@ export function buildPendingHomeworkPayload(args: {
         gameFile: homeworkGameBasename(node.gameFile ?? null),
         storyFile: node.storyFile ?? null,
         storyText: node.storyText,
+        storyTitle: node.storyTitle,
+        storyImagePrompt: node.storyImagePrompt,
         date: node.date ?? args.weekOf,
         approved: false,
       };
@@ -429,6 +354,7 @@ export function parseCliArgs(argv: string[]): {
   childId: string;
   opus: boolean;
   testDate: string | null;
+  pdfOverridePath: string | null;
 } {
   const childArg = argv.find((a) => a.startsWith("--child="));
   if (!childArg) {
@@ -441,7 +367,10 @@ export function parseCliArgs(argv: string[]): {
   const testDateArg = argv.find((a) => a.startsWith("--testDate="));
   const testDateRaw = testDateArg ? testDateArg.slice("--testDate=".length).trim() : "";
   const testDate = testDateRaw.length > 0 ? testDateRaw : null;
-  return { childId, opus: argv.includes("--opus"), testDate };
+  const pdfArg = argv.find((a) => a.startsWith("--pdf="));
+  const pdfRaw = pdfArg ? pdfArg.slice("--pdf=".length).trim() : "";
+  const pdfOverridePath = pdfRaw ? path.resolve(process.cwd(), pdfRaw) : null;
+  return { childId, opus: argv.includes("--opus"), testDate, pdfOverridePath };
 }
 
 function listIncomingFiles(dir: string): string[] {
@@ -537,6 +466,15 @@ async function extractHomework(
   "gradeLevel": number,
   "testDate": string | null,
   "words": string[],
+  "contentProfile": {
+    "practiceDomain": "spelling"|"reading"|"math"|"writing"|"generic",
+    "contentDomain": "science"|"social_studies"|"language_arts"|"math"|"generic",
+    "topic": string,
+    "primarySkill": string,
+    "assignmentFormat": string,
+    "concepts": string[],
+    "sourceEvidence": string[]
+  },
   "questions": [{
     "id": number,
     "question": string,
@@ -566,27 +504,39 @@ async function extractHomework(
     messages: [{ role: "user", content }],
   });
   const parsed = parseExtractedJson(textFromMessage(msg)) as Partial<ExtractionShape>;
+  const normalizedType = normalizeHomeworkType(String(parsed.type ?? "generic"));
+  const words = Array.isArray(parsed.words) ? parsed.words.map((w) => String(w)) : [];
+  const questions = Array.isArray(parsed.questions)
+    ? parsed.questions.map((q, idx) => ({
+        id: Number((q as { id?: number }).id ?? idx + 1),
+        question: String((q as { question?: string }).question ?? ""),
+        type: ((q as { type?: string }).type as "multiple_choice" | "written" | "fill_in") ?? "written",
+        options: Array.isArray((q as { options?: string[] }).options)
+          ? (q as { options: string[] }).options
+          : null,
+        correctAnswer:
+          typeof (q as { correctAnswer?: string | null }).correctAnswer === "string"
+            ? (q as { correctAnswer: string }).correctAnswer
+            : null,
+        hint: String((q as { hint?: string }).hint ?? ""),
+      }))
+    : [];
+  const title = String(parsed.title ?? "Untitled Homework");
+  const contentProfile = normalizeContentProfile({
+    title,
+    type: normalizedType,
+    words,
+    questions,
+    contentProfile: parsed.contentProfile,
+  });
   return {
-    title: String(parsed.title ?? "Untitled Homework"),
-    type: normalizeHomeworkType(String(parsed.type ?? "generic")),
+    title,
+    type: normalizedType,
     gradeLevel: Number(parsed.gradeLevel ?? 2),
     testDate: parsed.testDate ? String(parsed.testDate) : null,
-    words: Array.isArray(parsed.words) ? parsed.words.map((w) => String(w)) : [],
-    questions: Array.isArray(parsed.questions)
-      ? parsed.questions.map((q, idx) => ({
-          id: Number((q as { id?: number }).id ?? idx + 1),
-          question: String((q as { question?: string }).question ?? ""),
-          type: ((q as { type?: string }).type as "multiple_choice" | "written" | "fill_in") ?? "written",
-          options: Array.isArray((q as { options?: string[] }).options)
-            ? (q as { options: string[] }).options
-            : null,
-          correctAnswer:
-            typeof (q as { correctAnswer?: string | null }).correctAnswer === "string"
-              ? (q as { correctAnswer: string }).correctAnswer
-              : null,
-          hint: String((q as { hint?: string }).hint ?? ""),
-        }))
-      : [],
+    words,
+    contentProfile,
+    questions,
   };
 }
 
@@ -595,6 +545,7 @@ export function buildCycleStub(args: {
   homeworkId: string;
   subject: string;
   wordList: string[];
+  contentProfile?: ContentProfile | null;
   ingestedAt: string;
   testDate: string | null;
 }): HomeworkCycle {
@@ -602,6 +553,7 @@ export function buildCycleStub(args: {
     homeworkId: args.homeworkId,
     subject: args.subject,
     wordList: args.wordList,
+    contentProfile: args.contentProfile ?? null,
     ingestedAt: args.ingestedAt,
     testDate: args.testDate,
     assumptions: null,
@@ -613,7 +565,7 @@ export function buildCycleStub(args: {
 }
 
 export async function runIngestHomework(argv: string[]): Promise<void> {
-  const { childId, testDate: cliTestDate } = parseCliArgs(argv);
+  const { childId, testDate: cliTestDate, pdfOverridePath } = parseCliArgs(argv);
   const client = new Anthropic();
   const today = new Date().toISOString().slice(0, 10);
   const contextBase = path.join(process.cwd(), "src", "context", childId, "homework");
@@ -621,9 +573,15 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const pendingDir = path.join(contextBase, "pending", today);
   fs.mkdirSync(pendingDir, { recursive: true });
 
-  const incomingFile = pickIncomingHomeworkFile(listIncomingFiles(incomingDir));
+  const incomingFile = pdfOverridePath ?? pickIncomingHomeworkFile(listIncomingFiles(incomingDir));
   if (!incomingFile) {
     throw new Error(`No homework found in ${incomingDir}. Expected .pdf or .txt file.`);
+  }
+  if (!fs.existsSync(incomingFile)) {
+    throw new Error(`Homework file not found: ${incomingFile}`);
+  }
+  if (!incomingFile.toLowerCase().endsWith(".pdf") && !incomingFile.toLowerCase().endsWith(".txt")) {
+    throw new Error(`Homework file must be a .pdf or .txt file: ${incomingFile}`);
   }
 
   console.log("📄 Step 1/4: Reading homework...");
@@ -687,9 +645,17 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     homeworkId,
     subject: extracted.type,
     wordList: extracted.words,
+    contentProfile: extracted.contentProfile,
     ingestedAt: today,
     testDate,
   });
+  const patternResult = scanChildErrorPatterns(childId);
+  const theory = buildPreQuestTheory({
+    cycle: cycleStub,
+    patterns: patternResult.patterns,
+  });
+  cycleStub.assumptions = theory.markdown;
+  cycleStub.theory = theory;
   fs.writeFileSync(
     path.join(cyclesDir, `${homeworkId}.json`),
     JSON.stringify(cycleStub, null, 2),
@@ -702,10 +668,10 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const preMdPath = path.join(assumptionsDir, `${today}-pre.md`);
   fs.writeFileSync(
     preMdPath,
-    `## Homework ingested\n\nSession plan and assumptions are produced in the same \`sunny:ingest:homework\` run (Psychologist + today's plan).\n\n**homeworkId:** ${homeworkId}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n`,
+    `## Homework ingested\n\n**homeworkId:** ${homeworkId}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n\n${theory.markdown}\n`,
     "utf8",
   );
-  console.log(`📋 Placeholder assumptions → assumptions/${today}-pre.md`);
+  console.log(`📋 Pre-quest theory → assumptions/${today}-pre.md`);
 
   console.log("");
   console.log("💾 Step 3/4: Saving...");
@@ -720,12 +686,14 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     homeworkId,
     childId,
     testDate,
+    contentProfile: extracted.contentProfile,
   });
 
   profileDoc.pendingHomework = buildPendingHomeworkPayload({
     weekOf: today,
     testDate,
     wordList: extracted.words,
+    contentProfile: extracted.contentProfile,
     homeworkId,
     nodes: homeworkNodes,
   });

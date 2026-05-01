@@ -246,6 +246,44 @@ window.GameBridge = (function () {
         ),
       );
     },
+
+    /**
+     * Report one assessable learning interaction.
+     * This is separate from companion events: companion_event drives feedback;
+     * attempt_event drives SM-2, diagnostics, and future assignment selection.
+     */
+    reportAttempt: function (attempt) {
+      if (GAME_PARAMS.previewDryRun) return;
+      if (!attempt || typeof attempt !== "object" || Array.isArray(attempt)) {
+        return;
+      }
+      var payload = Object.assign({}, attempt);
+      if (payload.word == null && payload.target != null) {
+        payload.word = String(payload.target);
+      }
+      if (payload.target == null && payload.word != null) {
+        payload.target = String(payload.word);
+      }
+      var timestamp = Date.now();
+      var attemptId =
+        GAME_PARAMS.sessionId +
+        ":" +
+        GAME_PARAMS.nodeId +
+        ":" +
+        timestamp +
+        ":" +
+        Math.random().toString(36).slice(2);
+      post(
+        "attempt_event",
+        Object.assign(payload, {
+          attemptId: attemptId,
+          childId: GAME_PARAMS.childId,
+          nodeId: GAME_PARAMS.nodeId,
+          sessionId: GAME_PARAMS.sessionId,
+          timestamp: timestamp,
+        }),
+      );
+    },
   };
 })();
 
@@ -255,4 +293,8 @@ window.sendNodeComplete = function (result) {
 
 window.fireCompanionEvent = function (trigger, payload) {
   window.GameBridge.fireEvent(trigger, payload);
+};
+
+window.fireAttemptEvent = function (attempt) {
+  window.GameBridge.reportAttempt(attempt);
 };

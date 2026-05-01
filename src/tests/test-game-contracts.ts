@@ -14,6 +14,26 @@ const WORD_DRIVEN = new Set([
   "web/public/games/spell-check.html",
   "web/public/games/bd-reversal-game.html",
 ]);
+const ASSESSABLE_GAMES = new Set([
+  "web/public/games/WheelOfFortune.html",
+  "web/public/games/bd-reversal-game.html",
+  "web/public/games/chimp-quest-generated.html",
+  "web/public/games/clock-game.html",
+  "web/public/games/coin-counter.html",
+  "web/public/games/monster-stampede.html",
+  "web/public/games/quest.html",
+  "web/public/games/speed-catcher.html",
+  "web/public/games/spell-check.html",
+  "web/public/games/store-game.html",
+  "web/public/games/vault-cracker.html",
+  "web/public/games/word-builder.html",
+  "web/public/games/wordle.html",
+]);
+const REWARD_ONLY_GAMES = new Set([
+  "web/public/games/asteroid.html",
+  "web/public/games/space-frogger.html",
+  "web/public/games/space-invaders.html",
+]);
 
 function collectHtmlFiles(dir: string, acc: string[] = []): string[] {
   if (!fs.existsSync(dir)) return acc;
@@ -79,6 +99,19 @@ describe("game contract compliance (helper-based)", () => {
         if (!WORD_DRIVEN.has(label)) return;
         expect(/GAME_PARAMS/.test(html)).toBe(true);
         // words accessed via destructured variable — contract still satisfied
+      });
+
+      it("declares attempt-contract status", () => {
+        if (ASSESSABLE_GAMES.has(label)) {
+          expect(
+            html.includes("fireAttemptEvent(") ||
+              html.includes("sunny-attempt-contract-server-side"),
+          ).toBe(true);
+          return;
+        }
+        if (REWARD_ONLY_GAMES.has(label)) {
+          expect(html).toContain("sunny-attempt-contract-exempt: reward-only");
+        }
       });
     });
   }

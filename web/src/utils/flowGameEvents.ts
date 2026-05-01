@@ -7,6 +7,7 @@ export type FlowGameSendMessage = (
 
 export interface FlowGameEventBridge {
   reportState: (progress: string, extras?: Record<string, unknown>) => void;
+  reportAttempt: (attempt: Record<string, unknown>) => void;
   fireCompanionEvent: (
     trigger: CompanionTrigger,
     payload?: Record<string, unknown>,
@@ -48,6 +49,24 @@ export function createFlowGameEvents(args: {
             timestamp: Date.now(),
             childId,
             metadata: payload,
+          },
+          version: "1.0",
+        },
+      });
+    },
+
+    reportAttempt(attempt) {
+      const timestamp = Date.now();
+      sendMessage("game_event", {
+        event: {
+          type: "attempt_event",
+          payload: {
+            ...attempt,
+            childId,
+            attemptId:
+              String(attempt.attemptId ?? "") ||
+              `${game}:${timestamp}:${Math.random().toString(36).slice(2)}`,
+            timestamp,
           },
           version: "1.0",
         },

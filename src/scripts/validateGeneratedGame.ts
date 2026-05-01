@@ -52,6 +52,10 @@ export function validateGeneratedGame(
     score -= 10;
   }
 
+  if (!html.includes("fireAttemptEvent")) {
+    failures.push("Missing fireAttemptEvent call for assessable interactions");
+  }
+
   if (ctx.homeworkType === "spelling_test") {
     const firstWord = ctx.words[0];
     const hasWordChips =
@@ -72,7 +76,11 @@ export function validateGeneratedGame(
   const passed = failures.length === 0;
   const shouldRegenerate = failures.some((f) => {
     const fl = f.toLowerCase();
-    return fl.includes("correct and wrong") || fl.includes("hardcoded");
+    return (
+      fl.includes("correct and wrong") ||
+      fl.includes("hardcoded") ||
+      fl.includes("fireattemptevent")
+    );
   });
 
   return { passed, score, failures, warnings, shouldRegenerate };

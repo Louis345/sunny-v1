@@ -1,10 +1,11 @@
 import type { ChildQuality } from "../algorithms/types";
-import { recordAttempt } from "../engine/learningEngine";
+import { recordLearningAttempt } from "./learningAttemptEvents";
 
 export type SpellCheckMapResultsInput = {
   childId: string;
   wordsCorrect: string[];
   wordsStruggled: string[];
+  sessionId?: string;
   previewMode?: string | boolean;
 };
 
@@ -20,24 +21,28 @@ export function applySpellCheckMapResults(
   for (const raw of input.wordsCorrect) {
     const word = raw.toLowerCase().trim();
     if (!word) continue;
-    recordAttempt(input.childId, {
-      word,
+    recordLearningAttempt({
+      childId: input.childId,
+      target: word,
       domain: "spelling",
       correct: true,
       quality: 5 as ChildQuality,
       scaffoldLevel: 0,
+      sessionId: input.sessionId,
     });
     recorded++;
   }
   for (const raw of input.wordsStruggled) {
     const word = raw.toLowerCase().trim();
     if (!word) continue;
-    recordAttempt(input.childId, {
-      word,
+    recordLearningAttempt({
+      childId: input.childId,
+      target: word,
       domain: "spelling",
       correct: false,
       quality: 0 as ChildQuality,
       scaffoldLevel: 0,
+      sessionId: input.sessionId,
     });
     recorded++;
   }

@@ -11,6 +11,7 @@ ${extraBody}<script>
 const GAME_PARAMS = { childId: "${childIdToken}" };
 function sendNodeComplete() {}
 fireCompanionEvent("idle", {});
+fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
 </script></body></html>`;
 }
 
@@ -27,7 +28,7 @@ describe("validateGeneratedGame", () => {
   });
 
   it("rejects HTML missing sendNodeComplete", () => {
-    const html = `${BASE}<script>const GAME_PARAMS = {};</script>fireCompanionEvent</body></html>`;
+    const html = `${BASE}<script>const GAME_PARAMS = {};</script>fireCompanionEvent;fireAttemptEvent</body></html>`;
     const r = validateGeneratedGame(html, {
       words: [],
       homeworkType: "reading",
@@ -41,6 +42,7 @@ describe("validateGeneratedGame", () => {
     const html = `${BASE}<p>ila</p><div id="sunny-companion"></div><script>const GAME_PARAMS = { childId: "x" };
 function sendNodeComplete() {}
 fireCompanionEvent("a", {});
+fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
 </script></body></html>`;
     const r = validateGeneratedGame(html, {
       words: [],
@@ -56,6 +58,7 @@ fireCompanionEvent("a", {});
     const html = `${BASE}<script>const GAME_PARAMS = { childId: "ila" };
 function sendNodeComplete() {}
 fireCompanionEvent("a", {});
+fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
 </script></body></html>`;
     const r = validateGeneratedGame(html, {
       words: [],
@@ -75,6 +78,23 @@ fireCompanionEvent("a", {});
     });
     expect(r.warnings.some((w) => w.includes("Word list may be visible"))).toBe(true);
     expect(r.score).toBe(80);
+  });
+
+  it("rejects generated games that do not report attempt events", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<script>
+const GAME_PARAMS = { childId: "uqchildmarker012" };
+function sendNodeComplete() {}
+fireCompanionEvent("idle", {});
+</script></body></html>`;
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+    });
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((f) => f.includes("fireAttemptEvent"))).toBe(true);
   });
 
   it("passes valid generated game HTML", () => {

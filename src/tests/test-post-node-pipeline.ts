@@ -22,7 +22,7 @@ vi.mock("../utils/generateStoryImage", () => ({
 
 const appendNodeRatingMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const recordRewardMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-const recordAttemptMock = vi.hoisted(() => vi.fn().mockReturnValue({}));
+const recordLearningAttemptMock = vi.hoisted(() => vi.fn().mockReturnValue({}));
 const readWordBankMock = vi.hoisted(() => vi.fn().mockReturnValue({ words: [] }));
 
 vi.mock("../utils/nodeRatingIO", () => ({
@@ -36,7 +36,13 @@ vi.mock("../engine/bandit", async (importOriginal) => {
 
 vi.mock("../engine/learningEngine", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../engine/learningEngine")>();
-  return { ...actual, recordAttempt: recordAttemptMock };
+  return actual;
+});
+
+vi.mock("../server/learningAttemptEvents", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../server/learningAttemptEvents")>();
+  return { ...actual, recordLearningAttempt: recordLearningAttemptMock };
 });
 
 vi.mock("../utils/wordBankIO", () => ({
@@ -124,7 +130,7 @@ describe("post-node pipeline (TASK-014)", () => {
     recordRewardMock.mockImplementation(async () => {
       pipelineOrder.push("recordReward");
     });
-    recordAttemptMock.mockImplementation(() => {
+    recordLearningAttemptMock.mockImplementation(() => {
       pipelineOrder.push("recordAttempt");
       return {};
     });
@@ -163,13 +169,11 @@ describe("post-node pipeline (TASK-014)", () => {
     expect(pipelineOrder[1]).toBe("recordReward");
     const attempts = pipelineOrder.filter((s) => s === "recordAttempt");
     expect(attempts.length).toBe(2);
-    expect(recordAttemptMock).toHaveBeenCalledWith(
-      "qa_pipeline",
-      expect.objectContaining({ word: "w1" }),
+    expect(recordLearningAttemptMock).toHaveBeenCalledWith(
+      expect.objectContaining({ childId: "qa_pipeline", target: "w1" }),
     );
-    expect(recordAttemptMock).toHaveBeenCalledWith(
-      "qa_pipeline",
-      expect.objectContaining({ word: "w2" }),
+    expect(recordLearningAttemptMock).toHaveBeenCalledWith(
+      expect.objectContaining({ childId: "qa_pipeline", target: "w2" }),
     );
     expect(appendSpy).toHaveBeenCalled();
     expect(recordRewardMock).toHaveBeenCalledWith(
@@ -224,7 +228,7 @@ describe("post-node pipeline (TASK-014)", () => {
 
   it("does not call recordAttempt when node has no word pool but wordsAttempted > 0", async () => {
     vi.mocked(buildNodeList).mockResolvedValue(mockNodeNoWordPool());
-    recordAttemptMock.mockClear();
+    recordLearningAttemptMock.mockClear();
     const { sessionId, mapState } = await startMapSession("qa_pipeline");
     const nodeId = mapState.nodes[0].id;
     const result: NodeResult = {
@@ -235,6 +239,6 @@ describe("post-node pipeline (TASK-014)", () => {
       wordsAttempted: 5,
     };
     await applyNodeResult(sessionId, result);
-    expect(recordAttemptMock).not.toHaveBeenCalled();
+    expect(recordLearningAttemptMock).not.toHaveBeenCalled();
   });
 });

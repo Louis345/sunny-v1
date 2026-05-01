@@ -32,6 +32,18 @@ describe("ingestHomework", () => {
       childId,
       testDate: "2026-05-03",
       opus: false,
+      pdfOverridePath: null,
+    });
+  });
+
+  it("parseCliArgs accepts --pdf override path", () => {
+    const childId = sampleChildIdFromConfig();
+    const pdfPath = path.join(process.cwd(), "src", "context", childId, "homework", "incoming", "test.pdf");
+    expect(parseCliArgs([`--child=${childId}`, `--pdf=${pdfPath}`])).toEqual({
+      childId,
+      testDate: null,
+      opus: false,
+      pdfOverridePath: pdfPath,
     });
   });
 
@@ -41,6 +53,7 @@ describe("ingestHomework", () => {
       childId,
       testDate: null,
       opus: false,
+      pdfOverridePath: null,
     });
   });
 

@@ -15,6 +15,8 @@ type RoutableNode = {
   generationModel?: "sonnet" | "opus";
   date?: string;
   storyText?: string;
+  storyTitle?: string;
+  storyImagePrompt?: string;
 };
 
 type RoutingContext = {

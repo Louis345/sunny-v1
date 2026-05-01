@@ -543,6 +543,14 @@ function App() {
     clearInterval(timerRef.current);
     SE.wrong();
     fireComp('wrong_answer',{reason:'timeout',word:WORDS[idx]});
+    if(window.fireAttemptEvent) window.fireAttemptEvent({
+      domain:'spelling',
+      target:WORDS[idx],
+      correct:false,
+      quality:1,
+      scaffoldLevel:0,
+      responseTimeMs:FALL_DURATION_BASE
+    });
     setFlash('wrong');
     setLives(l=>{
       const nl=l-1;
@@ -574,6 +582,15 @@ function App() {
       setCatcherAnim(true);
       setTimeout(()=>setCatcherAnim(false),500);
       fireComp('correct_answer',{word:currentWord,earned});
+      if(window.fireAttemptEvent) window.fireAttemptEvent({
+        domain:'spelling',
+        target:currentWord,
+        attemptedValue:bubble.word,
+        correct:true,
+        quality:5,
+        scaffoldLevel:0,
+        responseTimeMs:Math.max(0, Math.round(FALL_DURATION_BASE * (1 - timerPct)))
+      });
       setCompMood('celebrating');
       setCompSpeech(`YES! +${earned} pts! Speedy! 🎉`);
       wordsCorrect.current.push(currentWord);
@@ -586,6 +603,15 @@ function App() {
         const nl=l-1;
         reportAction('wrong',`Wrong bubble tapped for "${currentWord}". Lives: ${nl}.`,{word:currentWord,tapped:bubble.word,correct:false});
         fireComp('wrong_answer',{word:currentWord,tapped:bubble.word});
+        if(window.fireAttemptEvent) window.fireAttemptEvent({
+          domain:'spelling',
+          target:currentWord,
+          attemptedValue:bubble.word,
+          correct:false,
+          quality:1,
+          scaffoldLevel:0,
+          responseTimeMs:Math.max(0, Math.round(FALL_DURATION_BASE * (1 - timerPct)))
+        });
         setCompMood('wrong');
         setCompSpeech('Not that one! Keep looking! 👀');
         if(nl<=0) setTimeout(()=>endGame(false),600);

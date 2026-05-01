@@ -215,6 +215,10 @@ export async function hostSessionLog(
           scaffoldLevel,
         }),
         scaffoldLevel,
+        attemptedValue:
+          typeof args.childSaid === "string" && args.childSaid.trim()
+            ? args.childSaid.trim()
+            : undefined,
       };
       try {
         recordAttempt(childIdFromName(session.childName), attempt);
@@ -227,6 +231,9 @@ export async function hostSessionLog(
       appendAttemptLine(session.childName, {
         word: loggedWordKey,
         correct: args.correct === true,
+        domain,
+        sessionId: session.sessionId,
+        attemptedValue: attempt.attemptedValue,
       });
 
       const scaffoldState =
