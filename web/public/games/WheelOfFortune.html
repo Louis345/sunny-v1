@@ -189,6 +189,15 @@ const COMPANION_NAME_RAW = typeof GP.companionName === 'string' ? GP.companionNa
 const THEME_ID = GP.theme ?? 'cosmos';
 const CATEGORY = GP.category ?? 'Spelling';
 const COMPANION_START_COINS = GP.companionCoins ?? 600;
+/** Persisted profile balance passed on iframe URL (_contract.js) — child score starts here, not at 0. */
+const PROFILE_COMPANION_CURRENCY = Math.max(
+  0,
+  Math.floor(Number(GP.companionCurrency ?? 0) || 0),
+);
+
+function wofSessionCoinDelta(totalCoins) {
+  return Math.max(0, Math.floor(Number(totalCoins) || 0) - PROFILE_COMPANION_CURRENCY);
+}
 
 if (CHILD_ID === 'ila' || GP.dyslexiaMode === true) {
   document.body.classList.add('dyslexia');
@@ -976,7 +985,7 @@ function App() {
 
   const [revealed, setRevealed] = useState(new Set());
   const [guessedLetters, setGuessedLetters] = useState(new Set());
-  const [ilaCoins, setIlaCoins] = useState(0);
+  const [ilaCoins, setIlaCoins] = useState(PROFILE_COMPANION_CURRENCY);
   const [companionCoins, setCompanionCoins] = useState(COMPANION_START_COINS);
   const [companionJustBankrupt, setCompanionJustBankrupt] = useState(false);
   const [wrongGuesses, setWrongGuesses] = useState(0);
@@ -1065,7 +1074,7 @@ function App() {
     setPhase('won');
     setTimeout(() => {
       if (window.GameBridge && typeof window.GameBridge.awardCurrency === 'function') {
-        window.GameBridge.awardCurrency(ilaCoins, 'wheel_of_fortune_win');
+        window.GameBridge.awardCurrency(wofSessionCoinDelta(ilaCoins), 'wheel_of_fortune_win');
       }
       if (typeof window.sendNodeComplete === 'function') {
         window.sendNodeComplete({
@@ -1075,7 +1084,7 @@ function App() {
           wordsStruggled: [],
           flaggedWords: [],
           xpEarned: 150,
-          coinsEarned: ilaCoins,
+          coinsEarned: wofSessionCoinDelta(ilaCoins),
           timeSpent_ms: Date.now() - startTime.current,
           wordsAttempted: 1,
         });
@@ -1104,7 +1113,7 @@ function App() {
     setSpeech(`The word was ${WORD_RAW.toUpperCase()}. We'll get it next time! 💪`);
     setTimeout(() => {
       if (window.GameBridge && typeof window.GameBridge.awardCurrency === 'function') {
-        window.GameBridge.awardCurrency(ilaCoins, 'wheel_of_fortune_win');
+        window.GameBridge.awardCurrency(wofSessionCoinDelta(ilaCoins), 'wheel_of_fortune_win');
       }
       if (typeof window.sendNodeComplete === 'function') {
         window.sendNodeComplete({
@@ -1114,7 +1123,7 @@ function App() {
           wordsStruggled: [WORD_RAW],
           flaggedWords: [WORD_RAW],
           xpEarned: 20,
-          coinsEarned: ilaCoins,
+          coinsEarned: wofSessionCoinDelta(ilaCoins),
           timeSpent_ms: Date.now() - startTime.current,
           wordsAttempted: 1,
         });

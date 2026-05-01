@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Spelling Quest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;900&display=swap"/>
+<script src="_contract.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Lexend',sans-serif;
+    background:radial-gradient(ellipse 80% 70% at 30% 10%,#1e0055 0%,#06001a 55%,#000820 100%);
+    min-height:100vh;color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;
+  }
+  h1{font-size:clamp(20px,4vw,36px);font-weight:900;color:#a855f7;margin-bottom:8px;text-align:center}
+  .subtitle{font-size:14px;color:rgba(255,255,255,.5);margin-bottom:32px;text-align:center}
+  .card{
+    background:rgba(168,85,247,.08);border:2px solid rgba(168,85,247,.4);
+    border-radius:20px;padding:32px;width:100%;max-width:480px;
+    text-align:center;
+  }
+  .progress{font-size:12px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+    color:rgba(255,255,255,.4);margin-bottom:16px}
+  .word-display{
+    font-size:clamp(28px,6vw,52px);font-weight:900;color:#a855f7;
+    letter-spacing:.06em;margin-bottom:8px;text-shadow:0 0 30px rgba(168,85,247,.5);
+  }
+  .hint{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:24px}
+  input{
+    width:100%;padding:16px 20px;font-size:22px;font-weight:700;
+    font-family:'Lexend',sans-serif;text-align:center;letter-spacing:.08em;
+    background:rgba(255,255,255,.07);border:2px solid rgba(168,85,247,.4);
+    border-radius:14px;color:#fff;outline:none;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  input:focus{border-color:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,.25)}
+  input.correct{border-color:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.25)}
+  input.wrong{border-color:#EF4444;box-shadow:0 0 0 3px rgba(239,68,68,.25)}
+  .btn{
+    margin-top:20px;padding:14px 40px;
+    background:linear-gradient(135deg,#a855f7,#06b6d4);
+    border:none;border-radius:14px;font-size:18px;font-weight:800;
+    font-family:'Lexend',sans-serif;color:#fff;cursor:pointer;
+    box-shadow:0 6px 24px rgba(168,85,247,.4);letter-spacing:.04em;
+    transition:transform .15s,opacity .15s;
+  }
+  .btn:active{transform:scale(.96)}
+  .btn:disabled{opacity:.4;cursor:default}
+  .feedback{
+    margin-top:16px;font-size:15px;font-weight:700;min-height:24px;
+    transition:opacity .2s;
+  }
+  .feedback.correct{color:#10B981}
+  .feedback.wrong{color:#EF4444}
+  /* Score screen */
+  .score-screen{text-align:center}
+  .score-big{font-size:clamp(48px,12vw,96px);font-weight:900;color:#a855f7;
+    text-shadow:0 0 50px rgba(168,85,247,.6)}
+  .score-label{font-size:16px;color:rgba(255,255,255,.6);margin-bottom:24px}
+  .word-results{list-style:none;text-align:left;margin:0 auto;max-width:320px;margin-bottom:28px}
+  .word-results li{
+    display:flex;align-items:center;gap:10px;padding:8px 0;
+    border-bottom:1px solid rgba(255,255,255,.06);font-size:15px;font-weight:600;
+  }
+  .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .dot.c{background:#10B981}
+  .dot.m{background:#EF4444}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+  "use strict";
+
+  var params = window.GAME_PARAMS || {};
+  var WORDS = (params.words && params.words.length) ? params.words : ["fast","jump","run","play","stop"];
+  var idx = 0;
+  var results = []; // [{word, correct, typed}]
+
+  function el(id){ return document.getElementById(id); }
+
+  function renderWord(){
+    var word = WORDS[idx];
+    el("app").innerHTML =
+      '<h1>\u2694\ufe0f Spelling Quest</h1>'+
+      '<p class="subtitle">Type each word to complete the quest</p>'+
+      '<div class="card">'+
+        '<div class="progress">Word '+(idx+1)+' of '+WORDS.length+'</div>'+
+        '<div class="word-display" id="wdisp">'+escHtml(word)+'</div>'+
+        '<p class="hint">Type the word exactly as shown, then press Submit</p>'+
+        '<input id="ans" type="text" autocomplete="off" autocorrect="off" '+
+               'spellcheck="false" placeholder="Type here\u2026" />'+
+        '<button class="btn" id="submitBtn" onclick="submitAnswer()">Submit \u2192</button>'+
+        '<div class="feedback" id="fb"></div>'+
+      '</div>';
+    var inp = el("ans");
+    inp.focus();
+    inp.addEventListener("keydown", function(e){
+      if(e.key === "Enter") submitAnswer();
+    });
+  }
+
+  window.submitAnswer = function(){
+    var word = WORDS[idx];
+    var typed = el("ans").value.trim().toLowerCase();
+    var correct = typed === word.toLowerCase();
+    results.push({word:word, correct:correct, typed:typed});
+
+    var inp = el("ans");
+    var fb = el("fb");
+    inp.classList.add(correct ? "correct" : "wrong");
+    fb.textContent = correct ? "\u2705 Correct!" : "\u274c The word is: "+word;
+    fb.className = "feedback "+(correct?"correct":"wrong");
+    el("submitBtn").disabled = true;
+
+    setTimeout(function(){
+      idx++;
+      if(idx < WORDS.length){
+        renderWord();
+      } else {
+        renderScore();
+      }
+    }, correct ? 700 : 1400);
+  };
+
+  function renderScore(){
+    var correctWords = results.filter(function(r){ return r.correct; }).map(function(r){ return r.word; });
+    var missedWords = results.filter(function(r){ return !r.correct; }).map(function(r){ return r.word; });
+    var accuracy = correctWords.length / results.length;
+
+    var itemsHtml = results.map(function(r){
+      return '<li><span class="dot '+(r.correct?"c":"m")+'"></span>'+
+             '<span>'+escHtml(r.word)+'</span>'+
+             (r.correct ? '' : ' <span style="color:rgba(255,255,255,.35);font-size:12px">you typed: '+escHtml(r.typed)+'</span>')+
+             '</li>';
+    }).join("");
+
+    el("app").innerHTML =
+      '<div class="score-screen">'+
+        '<div class="score-big">'+correctWords.length+'/'+results.length+'</div>'+
+        '<div class="score-label">words correct</div>'+
+        '<ul class="word-results">'+itemsHtml+'</ul>'+
+        '<button class="btn" onclick="finishQuest()">Finish Quest \u2694\ufe0f</button>'+
+      '</div>';
+
+    // Store for finishQuest closure
+    window._questResult = {
+      completed: true,
+      accuracy: accuracy,
+      correctWords: correctWords,
+      missedWords: missedWords,
+      flaggedWords: missedWords,
+      wordsAttempted: results.length,
+      xpEarned: Math.round(accuracy * 100),
+      timeSpent_ms: 0,
+    };
+  }
+
+  window.finishQuest = function(){
+    var r = window._questResult;
+    if(!r) return;
+    if(window.sendNodeComplete) window.sendNodeComplete(r);
+  };
+
+  function escHtml(s){
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  renderWord();
+})();
+</script>
+</body>
+</html>

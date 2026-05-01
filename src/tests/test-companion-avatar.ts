@@ -43,6 +43,21 @@ describe("companion VRM / children.config (TASK companion-avatar)", () => {
     );
     expect(params.get("companionVrmUrl")).toBe("/companions/sample.vrm");
     expect(params.get("companionMuted")).toBe("false");
+    expect(params.get("companionCurrency")).toBe("0");
+  });
+
+  it("buildNodeUrlSearchParams encodes companionCurrency when set", () => {
+    const params = buildNodeUrlSearchParams(
+      { id: "n1", words: ["a"], difficulty: 1 },
+      {
+        childId: "ila",
+        companion: "elli",
+        previewParam: "false",
+        companionMuted: false,
+        companionCurrency: 42,
+      },
+    );
+    expect(params.get("companionCurrency")).toBe("42");
   });
 
   it("no hardcoded /characters/ paths in web/src components (PNG avatars removed)", () => {

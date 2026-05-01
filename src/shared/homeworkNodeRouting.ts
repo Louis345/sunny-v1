@@ -29,6 +29,7 @@ type RoutingContext = {
   companionMuted?: boolean;
   isQuest?: boolean;
   dyslexiaMode?: boolean;
+  companionCurrency?: number;
 };
 
 type CanvasLaunchAction = {
@@ -67,6 +68,7 @@ export function buildNodeLaunchParams(
     companionMuted: ctx.companionMuted,
     isQuest: ctx.isQuest,
     dyslexiaMode: ctx.dyslexiaMode,
+    companionCurrency: ctx.companionCurrency,
   };
   return buildNodeUrlSearchParams(node, nctx);
 }
@@ -89,6 +91,7 @@ export function buildNodeLaunchAction(
     companionMuted: ctx.companionMuted,
     isQuest: ctx.isQuest,
     dyslexiaMode: ctx.dyslexiaMode,
+    companionCurrency: ctx.companionCurrency,
   };
   const rc = node as RoutableNodeConfig;
   if (handler.canvasMessage) {

@@ -65,6 +65,32 @@ export function readChildMeta(childId: string): ChildProfileEntry | undefined {
   return cfg.childProfiles?.[id];
 }
 
+const GAMES_PUBLIC_DIR = path.join(process.cwd(), "web", "public", "games");
+
+/**
+ * Iframe game ids for homework mystery: `childCompanionIds` → companion preset
+ * `dopamineGames` in `children.config.json`. Only slugs with `web/public/games/<slug>.html`
+ * are returned; if none remain, falls back to {@link COMPANION_DEFAULTS}.dopamineGames.
+ */
+export function getDopamineGameSlugsForChild(childIdRaw: string): string[] {
+  const cfg = readChildrenConfig();
+  const id = childIdRaw.trim().toLowerCase();
+  const presetId = cfg.childCompanionIds[id] ?? cfg.defaultCompanionId;
+  const block = cfg.companions[presetId];
+  const raw = block?.dopamineGames;
+  const fromConfig =
+    Array.isArray(raw) && raw.length > 0
+      ? raw.map((s) => String(s).trim().toLowerCase()).filter(Boolean)
+      : [];
+  const base =
+    fromConfig.length > 0 ? fromConfig : [...COMPANION_DEFAULTS.dopamineGames];
+  const deduped = [...new Set(base)];
+  const launchable = deduped.filter((slug) =>
+    fs.existsSync(path.join(GAMES_PUBLIC_DIR, `${slug}.html`)),
+  );
+  return launchable.length > 0 ? launchable : [...COMPANION_DEFAULTS.dopamineGames];
+}
+
 function capitalizeChildIdForTts(childId: string): string {
   const id = childId.trim().toLowerCase();
   if (id === "creator") return "Creator";

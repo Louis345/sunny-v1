@@ -47,7 +47,7 @@ export type LaunchGameExecuteResult =
     };
 
 const defaultDescription =
-  "Launch any game by name. Use live game ids from the manifest. Spelling sessions: for **word-builder** or **spell-check**, pass `word` (homework list). Other sessions: same tool without `word`.";
+  "Launch an HTML iframe game by name. Valid game ids: word-builder, spell-check, clock-game, coin-counter, monster-stampede, speed-catcher, space-invaders, asteroid, space-frogger, bd-reversal, wordle. Do NOT use for word-radar (use canvasShow type='game' name='word-radar' instead). Spelling sessions: for **word-builder** or **spell-check**, pass `word` (homework list). Other sessions: same tool without `word`.";
 
 const spellingDescription =
   "Launch a teaching tool or reward game by id from the manifest. " +

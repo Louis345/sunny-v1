@@ -209,6 +209,11 @@ export async function runCompanionResponseForSession(
             }
 
             debugLogToolCall(session, toolName, args, result);
+            session.recordDebugEvent?.("tool", "called", {
+              tool: toolName,
+              argsKeys: Object.keys(args ?? {}),
+              hasResult: result !== undefined,
+            });
 
             session.handleToolCall(toolName, args, result);
 
@@ -539,6 +544,7 @@ export async function runCompanionResponseForSession(
         { role: "user", content: userMessage },
         { role: "assistant", content: fullResponse },
       );
+      session.recordDebugTranscript?.("assistant", fullResponse);
 
       if (checkAssistantGoodbye(fullResponse)) {
         console.log("  👋 Companion said goodbye");
@@ -587,6 +593,7 @@ export async function runCompanionResponseForSession(
       const message = err instanceof Error ? err.message : String(err);
 
       if (isOverloaded) {
+        session.recordDebugError?.("Anthropic overloaded", err);
         console.warn("  ⚠️  Anthropic overloaded (529) — speaking fallback");
         const fallback = `Hmm, my brain is a little busy right now — give me a second and say that again!`;
         session.send("response_text", { chunk: fallback });
@@ -598,6 +605,7 @@ export async function runCompanionResponseForSession(
       }
 
       console.error("  🔴 Agent error:", message);
+      session.recordDebugError?.("Agent error", err);
       session.send("error", { message: "Companion response failed" });
     } finally {
       session.currentAbort = null;

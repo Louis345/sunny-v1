@@ -27,6 +27,8 @@ export type NodeContext = {
   /** Spell-check quest path: adds `isQuest=true` to iframe URL / GAME_PARAMS. */
   isQuest?: boolean;
   dyslexiaMode?: boolean;
+  /** Persisted shop/HUD balance from learning_profile — iframe games may seed UI (e.g. WoF child score). */
+  companionCurrency?: number;
 };
 
 /** Homework / map nodes may use types not in `NodeType` (cast at map boundary). */
@@ -62,6 +64,11 @@ export function buildNodeUrlSearchParams(
   if (ctx.sessionId) params.sessionId = ctx.sessionId;
   if (ctx.isQuest === true) params.isQuest = "true";
   if (ctx.dyslexiaMode === true) params.dyslexiaMode = "true";
+  const cc = ctx.companionCurrency;
+  params.companionCurrency =
+    typeof cc === "number" && Number.isFinite(cc)
+      ? String(Math.max(0, Math.floor(cc)))
+      : "0";
   return new URLSearchParams(params);
 }
 
@@ -116,14 +123,8 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       if (node.gameFile) {
         return `/games/${node.gameFile}?${buildParams(node, ctx)}`;
       }
-      if (node.gameHtmlPath) {
-        const filename = node.gameHtmlPath.split("/").pop();
-        if (filename) {
-          return `/api/homework/game/${ctx.childId}/${encodeURIComponent(filename)}?${buildParams(node, ctx)}`;
-        }
-      }
-      if (!node.date || !node.gameFile) return "";
-      return `/homework/${ctx.childId}/${node.date}/${node.gameFile}?${buildParams(node, ctx)}`;
+      // Static spelling placeholder — words come from node.words via buildParams.
+      return `/games/quest.html?${buildParams(node, ctx)}`;
     },
   },
   boss: {

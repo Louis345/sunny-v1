@@ -34,6 +34,15 @@ window.GameBridge = (function () {
       previewGoLive: previewGoLive,
       isQuest: p.get("isQuest") === "true",
       dyslexiaMode: p.get("dyslexiaMode") === "true",
+      companionCurrency: (function () {
+        var raw = p.get("companionCurrency");
+        var n =
+          raw != null && raw !== ""
+            ? parseInt(raw, 10)
+            : 0;
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.floor(n));
+      })(),
     };
   })();
 

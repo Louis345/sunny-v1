@@ -57,6 +57,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "quest": {
+    "url": "/games/quest.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "speed-catcher": {
     "url": "/games/speed-catcher.html",
     "defaultConfig": {},

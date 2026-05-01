@@ -158,6 +158,17 @@ export function handleWsConnection(
         break;
       }
 
+      case "client_audio_status": {
+        if (!session) return;
+        session.recordDebugEvent("client_audio", "status", {
+          event: (msg as Record<string, unknown>).event,
+          reason: (msg as Record<string, unknown>).reason,
+          message: (msg as Record<string, unknown>).message,
+          textLength: (msg as Record<string, unknown>).textLength,
+        });
+        break;
+      }
+
       case "test_transcript": {
         if (!session) return;
         const text = (msg as Record<string, string>).text;

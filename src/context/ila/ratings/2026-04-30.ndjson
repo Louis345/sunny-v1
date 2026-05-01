@@ -3,3 +3,7 @@
 {"childId":"ila","sessionDate":"2026-04-30T00:59:50.920Z","nodeType":"wheel-of-fortune","word":"session","theme":"default","rating":"like","completionTime_ms":261516,"accuracy":0.6666666666666666,"abandonedEarly":false}
 {"childId":"ila","sessionDate":"2026-04-30T00:59:50.920Z","nodeType":"mystery","word":"session","theme":"default","rating":"like","completionTime_ms":1000,"accuracy":1,"abandonedEarly":false}
 {"childId":"ila","sessionDate":"2026-04-30T00:59:50.920Z","nodeType":"mystery","word":"session","theme":"default","rating":"like","completionTime_ms":1000,"accuracy":1,"abandonedEarly":false}
+{"childId":"ila","sessionDate":"2026-04-30T23:55:20.119Z","nodeType":"word-radar","word":"session","theme":"beach","rating":"dislike","completionTime_ms":95684,"accuracy":0.2,"abandonedEarly":false}
+{"childId":"ila","sessionDate":"2026-04-30T23:55:20.119Z","nodeType":"spell-check","word":"session","theme":"beach","rating":"like","completionTime_ms":221070,"accuracy":0.7333333333333333,"abandonedEarly":false}
+{"childId":"ila","sessionDate":"2026-04-30T23:55:20.119Z","nodeType":"wheel-of-fortune","word":"session","theme":"beach","rating":"like","completionTime_ms":287140,"accuracy":0.5,"abandonedEarly":false}
+{"childId":"ila","sessionDate":"2026-04-30T23:55:20.119Z","nodeType":"mystery","word":"session","theme":"beach","rating":"dislike","completionTime_ms":156137,"accuracy":0.3333333333333333,"abandonedEarly":true}

@@ -616,6 +616,8 @@ function App() {
             isDiagMode: true,
             /** Live _contract.js bridge so game_state_update reaches the voice session (not preview=free). */
             iframePreviewParam: "go-live",
+            companionCurrency:
+              mapSession.liveMapCurrency ?? profileCompanionCurrency,
           },
         );
         if (action.kind === "iframe") {
@@ -652,6 +654,8 @@ function App() {
       activeProfileChildId,
       adventureChildId,
       effectiveCompanion?.companionId,
+      mapSession.liveMapCurrency,
+      profileCompanionCurrency,
       endSession,
       startDiagGameMicSession,
       startSession,
@@ -1002,6 +1006,9 @@ function App() {
           }
           reinforceWords={profileReinforceWords ?? []}
           dyslexiaMode={profileDyslexiaMode}
+          companionCurrency={
+            mapSession.liveMapCurrency ?? profileCompanionCurrency
+          }
         />
         {karaokeReadingActive &&
           mapSession.launchedNode?.type !== "karaoke" && (

@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { randomUUID } from "crypto";
-import { execSync } from "child_process";
 import type { WebSocket } from "ws";
 import {
   getCompanionConfig,
@@ -54,6 +53,7 @@ import {
   type WordRadarWireResultRow,
 } from "../utils/wordRadarProfile";
 import { computeQualityFromAttempt } from "../algorithms/spacedRepetition";
+import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
 import type { AttemptInput, ScaffoldLevel } from "../algorithms/types";
 import { type ModelMessage } from "ai";
 import {
@@ -168,6 +168,12 @@ import {
   debugCreatorOpeningLineForSession,
   prependDebugClaudeDeveloperBlock,
 } from "./debug-helpers";
+import {
+  buildSessionDebugFinalState,
+  createProcessSessionDebugRecorder,
+  finalizeSessionDebugPacket,
+  type SessionDebugRecorder,
+} from "./session-debug-recorder";
 
 type CanvasActivitySnapshot = {
   mode: ActivityMode;
@@ -358,6 +364,8 @@ export class SessionManager {
   private readonly sessionId = randomUUID();
   private readonly rewardEngine = new RewardEngine();
   private readonly companionBridge = new ServerCompanionBridge();
+  private readonly debugRecorder: SessionDebugRecorder;
+  private debugPacketFinalized = false;
 
   private lastTranscript = "";
   private lastTranscriptTime = 0;
@@ -889,6 +897,19 @@ export class SessionManager {
     this.sessionTtsLabel = getTtsNameForSessionChild(childName);
     this.options = options;
     this.companion = getCompanionConfig(childName);
+    this.debugRecorder = createProcessSessionDebugRecorder({
+      sessionId: this.sessionId,
+      childName,
+      subject: diagKioskFast
+        ? "diag"
+        : normalizeSessionSubject(process.env.SUNNY_SUBJECT),
+      mode: process.env.SUNNY_MODE || (isSunnyTestMode() ? "test" : "default"),
+    });
+    this.debugRecorder.recordEvent("session", "constructed", {
+      diagKiosk: diagKioskFast,
+      silentTts: options?.silentTts === true,
+      sttOnly: options?.sttOnly === true,
+    });
 
     if (isSunnyTestMode()) {
       this.companion = {
@@ -914,6 +935,7 @@ export class SessionManager {
       (msg) => console.log(msg),
       (state) => {
         this.send("session_state", { state });
+        this.debugRecorder.recordEvent("turn", "state_changed", { state });
         if (state === "SPEAKING") {
           this.speakingStartedAt = Date.now();
         } else if (state === "IDLE") {
@@ -1041,6 +1063,23 @@ export class SessionManager {
   }
 
   private send(type: string, payload: Record<string, unknown> = {}): void {
+    if (
+      type === "session_started" ||
+      type === "session_ended" ||
+      type === "error" ||
+      type === "session_state"
+    ) {
+      this.debugRecorder.recordEvent("ws", "send", { type, ...payload });
+    } else if (type === "canvas_draw") {
+      this.debugRecorder.recordEvent("canvas", "draw", {
+        mode: payload.mode,
+        canvasRevision: payload.canvasRevision,
+      });
+    } else if (type === "tool_call") {
+      this.debugRecorder.recordEvent("tool", "client_result", {
+        tool: payload.tool,
+      });
+    }
     if (this.ws.readyState === this.ws.OPEN) {
       this.ws.send(
         JSON.stringify({
@@ -1050,6 +1089,16 @@ export class SessionManager {
         }),
       );
     }
+  }
+
+  recordDebugEvent(component: string, action: string, fields: Record<string, unknown> = {}): void {
+    this.debugRecorder.recordEvent(component, action, fields);
+  }
+  recordDebugTranscript(role: "user" | "assistant" | "system", text: string): void {
+    this.debugRecorder.recordTranscript(role, text);
+  }
+  recordDebugError(message: string, detail?: unknown): void {
+    this.debugRecorder.recordError(message, detail);
   }
 
   private emitRewardAttempt(correct: boolean, word?: string, domain?: string): void {
@@ -1077,10 +1126,18 @@ export class SessionManager {
     }
   }
   async start(): Promise<void> {
+    this.debugRecorder.recordEvent("session", "start_requested", {
+      childName: this.childName,
+      companionName: this.companion.name,
+    });
     await runSessionStart(this, {
       registerCreatorDiagReadingSession: (s) => {
         creatorDiagSessionForReadingTest = s as SessionManager;
       },
+    });
+    this.debugRecorder.recordEvent("session", "started", {
+      sessionType: this.ctx?.sessionType,
+      companionName: this.companion.name,
     });
   }
 
@@ -1190,6 +1247,12 @@ export class SessionManager {
       childName: this.childName,
       round: this.roundNumber,
     });
+    this.debugRecorder.recordEvent("turn", "barge_in", {
+      stateBefore,
+      turnState: this.turnSM.getState(),
+      round: this.roundNumber,
+      tts: ttsLogLabel(),
+    });
 
     if (this.currentAbort) {
       this.currentAbort.abort();
@@ -1250,6 +1313,11 @@ export class SessionManager {
     if (this.isEnding) return;
     this.isEnding = true;
     this.isSpellingSession = false;
+    this.debugRecorder.recordEvent(
+      "session",
+      "ending",
+      buildSessionDebugFinalState(this),
+    );
 
     const endChildId = childIdFromName(this.childName);
     unregisterActiveVoiceSessionIfCurrent(endChildId, this.sessionId);
@@ -1319,6 +1387,10 @@ export class SessionManager {
         const childId = childIdFromName(this.childName);
         try {
           const summary = finalizeSession(childId);
+          this.debugRecorder.recordEvent("engine", "session_finalized", {
+            totalAttempts: summary.totalAttempts,
+            accuracy: summary.accuracy,
+          });
           console.log(
             `  🎮 [engine] session finalized: ${summary.totalAttempts} attempts, ` +
               `${Math.round(summary.accuracy * 100)}% accuracy`,
@@ -1331,6 +1403,11 @@ export class SessionManager {
           this.send("progression_end", {
             ...endProgression,
           } as Record<string, unknown>);
+          this.debugRecorder.recordEvent("engine", "progression_computed", {
+            level: endProgression.level,
+            totalXP: endProgression.totalXP,
+            wordsMastered: endProgression.wordsMastered,
+          });
         } catch {
           // Silent
         }
@@ -1338,14 +1415,28 @@ export class SessionManager {
         appendRewardLog(this.childName, this.rewardEngine.getRewardLog());
       }
 
+      finalizeSessionDebugPacket(this, "completed", {
+        persistedSessionData: shouldPersistSessionData(),
+        sessionNotesWritten: shouldPersistSessionData(),
+        rewardsWritten: shouldPersistSessionData(),
+      });
       this.send("session_ended", {
         summary: `Session ended. ${this.conversationHistory.length} turns.`,
         duration_ms: Date.now() - this.sessionStartTime,
+        debugPacketPath: this.debugRecorder.sessionDir,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      this.debugRecorder.recordError("Post-session chain error", err);
+      finalizeSessionDebugPacket(this, "errored", {
+        persistedSessionData: shouldPersistSessionData(),
+        postSessionError: message,
+      });
       console.error("  🔴 Post-session chain error:", message);
-      this.send("error", { message: "Post-session processing failed" });
+      this.send("error", {
+        message: "Post-session processing failed",
+        debugPacketPath: this.debugRecorder.sessionDir,
+      });
     }
   }
 
@@ -1374,6 +1465,7 @@ export class SessionManager {
         this.handleFluxEndOfTurn(transcript, "final");
       },
       onError: (err) => {
+        this.debugRecorder.recordError("Deepgram error", err);
         console.error("  🔴 Deepgram error:", err.message);
       },
     });
@@ -1449,6 +1541,11 @@ export class SessionManager {
         childName: auditChild,
         round: auditRound,
       });
+      this.debugRecorder.recordEvent("transcript", "replay", {
+        turnState: this.turnSM.getState(),
+        round: auditRound,
+        transcriptLength: transcript.length,
+      });
     }
 
     if (!isReplay) {
@@ -1466,6 +1563,11 @@ export class SessionManager {
           childName: auditChild,
           round: auditRound,
         });
+        this.debugRecorder.recordEvent("transcript", "duplicate_suppressed", {
+          turnState: this.turnSM.getState(),
+          round: auditRound,
+          transcriptLength: transcript.length,
+        });
         return;
       }
       this.lastTranscript = normalized;
@@ -1480,6 +1582,13 @@ export class SessionManager {
         childName: auditChild,
         round: auditRound,
       });
+      this.debugRecorder.recordEvent("transcript", "accepted", {
+        turnState: this.turnSM.getState(),
+        round: auditRound,
+        source: "stt_only",
+        transcriptLength: transcript.length,
+      });
+      this.debugRecorder.recordTranscript("user", transcript);
       this.send("final", { text: transcript });
       return;
     }
@@ -1490,6 +1599,12 @@ export class SessionManager {
       this.shouldSuppressTranscriptDuringKaraoke(transcript)
     ) {
       // Still forward to client for karaoke word-match; do not pass to LLM below.
+      this.debugRecorder.recordEvent("transcript", "suppressed", {
+        reason: "karaoke_reading",
+        turnState: this.turnSM.getState(),
+        round: auditRound,
+        transcriptLength: transcript.length,
+      });
       this.send("interim", { text: transcript });
       return;
     }
@@ -1506,6 +1621,12 @@ export class SessionManager {
           childName: auditChild,
           round: auditRound,
         });
+        this.debugRecorder.recordEvent("transcript", "dropped", {
+          reason: "junk",
+          turnState: state,
+          round: auditRound,
+          transcriptLength: transcript.length,
+        });
         return;
       }
       this.turnSM.setPendingTranscript(transcript);
@@ -1516,6 +1637,11 @@ export class SessionManager {
         tts,
         childName: auditChild,
         round: auditRound,
+      });
+      this.debugRecorder.recordEvent("transcript", "queued", {
+        turnState: state,
+        round: auditRound,
+        transcriptLength: transcript.length,
       });
       return;
     }
@@ -1533,6 +1659,12 @@ export class SessionManager {
           childName: auditChild,
           round: auditRound,
         });
+        this.debugRecorder.recordEvent("transcript", "dropped", {
+          reason: "junk",
+          turnState: state,
+          round: auditRound,
+          transcriptLength: transcript.length,
+        });
         return;
       }
       console.log(
@@ -1546,6 +1678,12 @@ export class SessionManager {
         childName: auditChild,
         round: auditRound,
       });
+      this.debugRecorder.recordEvent("transcript", "dropped", {
+        reason: "assistant_owns_turn",
+        turnState: state,
+        round: auditRound,
+        transcriptLength: transcript.length,
+      });
       return;
     }
 
@@ -1556,6 +1694,12 @@ export class SessionManager {
       childName: auditChild,
       round: auditRound,
     });
+    this.debugRecorder.recordEvent("transcript", "accepted", {
+      turnState: state,
+      round: auditRound,
+      transcriptLength: transcript.length,
+    });
+    this.debugRecorder.recordTranscript("user", transcript);
 
     // WORD_BUILDER: the child is filling in the game but can still speak.
     // Let the transcript fall through — runCompanionResponse uses onCompanionRunFromWordBuilder()
@@ -2300,6 +2444,7 @@ export class SessionManager {
     } catch (e) {
       console.error("  🔴 word_radar_complete word bank merge failed", e);
     }
+    recordWordRadarAttempts(childId, rows);
   }
 
   receivePronunciationComplete(msg: Record<string, unknown>): void {

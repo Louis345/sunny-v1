@@ -41,6 +41,7 @@ export function __resetVoiceSessionRegistryForTests(): void {
  */
 export interface VoiceSessionManagerHandle {
   noteExternalEvent(event: unknown): void;
+  end?: () => Promise<void>;
 }
 
 const activeVoiceSessionManagerByChildId = new Map<string, VoiceSessionManagerHandle>();
@@ -66,4 +67,15 @@ export function getActiveVoiceSessionManagerForChild(
   childId: string,
 ): VoiceSessionManagerHandle | null {
   return activeVoiceSessionManagerByChildId.get(childId.trim().toLowerCase()) ?? null;
+}
+
+export async function endActiveVoiceSessions(): Promise<void> {
+  const sessions = [...new Set(activeVoiceSessionManagerByChildId.values())];
+  await Promise.all(
+    sessions.map(async (session) => {
+      if (typeof session.end === "function") {
+        await session.end();
+      }
+    }),
+  );
 }

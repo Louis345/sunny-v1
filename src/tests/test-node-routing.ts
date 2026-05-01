@@ -340,5 +340,6 @@ describe("map node routing", () => {
     expect(action.url).toContain("/games/WheelOfFortune.html");
     expect(action.url).toContain("inventor");
     expect(action.url).toContain("childId=creator");
+    expect(action.url).toMatch(/companionCurrency=0/);
   });
 });

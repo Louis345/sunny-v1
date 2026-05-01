@@ -119,4 +119,27 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     });
     expect(ok).toBe(false);
   });
+
+  it("BUG 6: emote-only companion events (no trigger) do not emit 'invalid trigger' warning", () => {
+    const warnSpy = vi.spyOn(console, "warn");
+    const ws = { once: vi.fn(), off: vi.fn() } as unknown as WebSocket;
+    registerMapSessionWebSocket("ila", ws);
+
+    handleMapSocketIframeCompanionEvent(ws, {
+      type: "map_iframe_companion_event",
+      payload: {
+        emote: "celebrating",
+        intensity: 0.85,
+        childId: "ila",
+        timestamp: Date.now(),
+        metadata: { source: "quest_unlock_sequence" },
+      },
+    });
+
+    const warnings = warnSpy.mock.calls.map((c) => String(c[0]));
+    expect(
+      warnings.some((w) => w.includes("invalid trigger")),
+    ).toBe(false);
+    warnSpy.mockRestore();
+  });
 });

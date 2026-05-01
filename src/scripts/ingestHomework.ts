@@ -82,7 +82,8 @@ function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode
 /**
  * Persisted map + session spelling source; word cap from child profile `games["spell-check"].maxWords`.
  * The live homework **mystery** node (Monster Stampede / Speed Catcher alternation) is injected in
- * `startMapSession` in `map-coordinator.ts` via `selectMysteryGame` — not part of this node list.
+ * `startMapSession` in `map-coordinator.ts` via `selectMysteryGame` (random from that child's companion
+ * `dopamineGames` in `children.config.json`) — not part of this node list.
  */
 export function buildHomeworkNodes(args: {
   type: HomeworkType;

@@ -15,6 +15,7 @@ const OPEN = 1;
 const CONNECTING = 0;
 
 let createBufferSourceCallCount = 0;
+let playbackContextCreateCount = 0;
 
 describe("useSession companion audio gate", () => {
   let wsInstances: MockWebSocket[];
@@ -42,6 +43,7 @@ describe("useSession companion audio gate", () => {
   beforeEach(() => {
     wsInstances = [];
     createBufferSourceCallCount = 0;
+    playbackContextCreateCount = 0;
     OriginalWebSocket = globalThis.WebSocket;
     OriginalAudioContext = globalThis.AudioContext;
 
@@ -49,6 +51,27 @@ describe("useSession companion audio gate", () => {
       state: AudioContextState = "running";
       sampleRate = 24000;
       destination = {} as AudioDestinationNode;
+      constructor(options?: AudioContextOptions) {
+        this.sampleRate = options?.sampleRate ?? 24000;
+        if (this.sampleRate === 24000) playbackContextCreateCount += 1;
+      }
+      createMediaStreamSource() {
+        return { connect: vi.fn() };
+      }
+      createScriptProcessor() {
+        return {
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+          onaudioprocess: null,
+        };
+      }
+      createGain() {
+        return {
+          gain: { value: 1 },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        };
+      }
       createAnalyser() {
         return {
           context: this,
@@ -84,13 +107,13 @@ describe("useSession companion audio gate", () => {
     globalThis.AudioContext = TestAudioContext as unknown as typeof AudioContext;
 
     vi.stubGlobal("WebSocket", MockWebSocket as unknown as typeof WebSocket);
-
     Object.defineProperty(navigator, "mediaDevices", {
       configurable: true,
       writable: true,
       value: {
         getUserMedia: vi.fn().mockResolvedValue({
           getAudioTracks: () => [{ enabled: true, stop: vi.fn() }],
+          getTracks: () => [{ stop: vi.fn() }],
         } as unknown as MediaStream),
       },
     });
@@ -109,7 +132,7 @@ describe("useSession companion audio gate", () => {
     ws.onmessage?.(ev);
   }
 
-  it("queues first audio and does not start playback while gate is closed", async () => {
+  it("plays first audio immediately even while loading curtain is active", async () => {
     const gateRef: MutableRefObject<boolean> = { current: true };
 
     const { result } = renderHook(() =>
@@ -152,17 +175,23 @@ describe("useSession companion audio gate", () => {
     });
 
     expect(result.current.state.firstAudioChunkReceived).toBe(true);
-    expect(createBufferSourceCallCount).toBe(0);
+    expect(createBufferSourceCallCount).toBeGreaterThan(0);
+  });
+
+  it("primes playback audio on session start before gated PCM is released", async () => {
+    const gateRef: MutableRefObject<boolean> = { current: true };
+    const { result } = renderHook(() =>
+      useSession({
+        gateCompanionAudioUntilCurtainRef: gateRef,
+      }),
+    );
 
     act(() => {
-      result.current.releaseCompanionAudioPlayback();
+      result.current.startSession("ila");
     });
 
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(createBufferSourceCallCount).toBeGreaterThan(0);
+    expect(playbackContextCreateCount).toBeGreaterThan(0);
+    expect(createBufferSourceCallCount).toBe(0);
   });
 
   it("resets firstAudioChunkReceived on session_started", async () => {
@@ -218,4 +247,5 @@ describe("useSession companion audio gate", () => {
     });
     expect(result.current.state.firstAudioChunkReceived).toBe(false);
   });
+
 });

@@ -46,6 +46,7 @@ import { validateCompanionCommand } from "../shared/companions/validateCompanion
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { reconcileCompanionCurrencyAward } from "./currencyAward";
 import childrenCfg from "../../children.config.json";
+import { getDopamineGameSlugsForChild } from "../profiles/childrenConfig";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -286,10 +287,13 @@ export function handleMapSocketIframeCompanionEvent(
   const pl = payload as Record<string, unknown>;
   const triggerRaw = pl.trigger;
   if (!isCompanionTriggerValue(triggerRaw)) {
-    console.warn(
-      "[map-coordinator] map_iframe_companion_event ignored: invalid trigger",
-      triggerRaw,
-    );
+    // Emote-only events (e.g. quest unlock animations) have no trigger — silently drop.
+    if (!isCompanionEmote(pl.emote)) {
+      console.warn(
+        "[map-coordinator] map_iframe_companion_event ignored: invalid trigger",
+        triggerRaw,
+      );
+    }
     return true;
   }
   const childPayload =
@@ -757,30 +761,35 @@ const HOMEWORK_NODE_ORDER = [
 // TODO: Level 5 unlock — companion picks based on session energy
 // TODO: Level 10 unlock — child picks from menu
 
-export const MYSTERY_GAME_SLUGS = ["monster-stampede", "speed-catcher"] as const;
-export type MysteryGameSlug = (typeof MYSTERY_GAME_SLUGS)[number];
-const QUEST_GAME_FILES = ["monster-stampede.html", "speed-catcher.html"] as const;
+/** Re-export for callers/tests that want the mystery pool without importing childrenConfig. */
+export { getDopamineGameSlugsForChild as getMysteryDopaminePoolForChild };
+
+/**
+ * Homework quest when not using a generated HTML game: always one of these two
+ * spelling iframes (`web/public/games/<slug>.html`).
+ */
+export const HOMEWORK_QUEST_SPELLING_SLUGS = [
+  "monster-stampede",
+  "speed-catcher",
+] as const;
+
+const QUEST_GAME_FILES = [
+  `${HOMEWORK_QUEST_SPELLING_SLUGS[0]}.html`,
+  `${HOMEWORK_QUEST_SPELLING_SLUGS[1]}.html`,
+] as const;
 
 function selectQuestGameFile(): (typeof QUEST_GAME_FILES)[number] {
   return QUEST_GAME_FILES[Math.floor(Math.random() * QUEST_GAME_FILES.length)]!;
 }
 
 /**
- * Picks the next homework mystery iframe slug, alternating so the child never plays
- * the same game twice in a row. Persisted to profile via `finalizeSession` after
- * `registerMysteryGameForSessionFinalize` is called from `startMapSession`.
+ * Picks a dopamine iframe game for the homework mystery node (uniform random over
+ * that child's companion `dopamineGames` in `children.config.json`).
+ * Persisted to profile via `finalizeSession` after `registerMysteryGameForSessionFinalize`.
  */
-export function selectMysteryGame(childId: string): MysteryGameSlug {
-  const profile = readLearningProfile(childId);
-  const last = profile?.lastMysteryGame ?? null;
-  const games = MYSTERY_GAME_SLUGS as unknown as readonly string[];
-  if (!last || !games.includes(last)) {
-    return MYSTERY_GAME_SLUGS[
-      Math.floor(Math.random() * MYSTERY_GAME_SLUGS.length)
-    ]!;
-  }
-  const other = games.find((g) => g !== last);
-  return (other ?? MYSTERY_GAME_SLUGS[0])! as MysteryGameSlug;
+export function selectMysteryGame(childId: string): string {
+  const games = getDopamineGameSlugsForChild(childId);
+  return games[Math.floor(Math.random() * games.length)]!;
 }
 
 function hasManualQuestUnlock(childId: string): boolean {

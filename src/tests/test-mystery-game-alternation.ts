@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { LearningProfile } from "../context/schemas/learningProfile";
-import * as profileIo from "../utils/learningProfileIO";
-import { selectMysteryGame } from "../server/map-coordinator";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import {
+  selectMysteryGame,
+  getMysteryDopaminePoolForChild,
+  HOMEWORK_QUEST_SPELLING_SLUGS,
+} from "../server/map-coordinator";
+import { getDopamineGameSlugsForChild, readChildrenConfig } from "../profiles/childrenConfig";
 import {
   finalizeSession,
   planSession,
@@ -11,68 +14,58 @@ import {
 import { readLearningProfile } from "../utils/learningProfileIO";
 import fs from "fs";
 import path from "path";
-import { MYSTERY_GAME_SLUGS } from "../server/map-coordinator";
 
-describe("selectMysteryGame", () => {
-  beforeEach(() => {
-    vi.spyOn(profileIo, "readLearningProfile");
+describe("getDopamineGameSlugsForChild (children.config.json)", () => {
+  it("ila pool matches companion preset dopamineGames (launchable only)", () => {
+    const cfg = readChildrenConfig();
+    const preset = cfg.childCompanionIds["ila"] ?? cfg.defaultCompanionId;
+    const allowed = new Set(
+      cfg.companions[preset].dopamineGames.map((s) =>
+        String(s).trim().toLowerCase(),
+      ),
+    );
+    const got = getDopamineGameSlugsForChild("ila");
+    expect(got.length).toBeGreaterThan(0);
+    for (const g of got) {
+      expect(allowed.has(g)).toBe(true);
+    }
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  it("getMysteryDopaminePoolForChild is the same helper", () => {
+    expect(getMysteryDopaminePoolForChild("reina")).toEqual(
+      getDopamineGameSlugsForChild("reina"),
+    );
+  });
+});
+
+describe("selectMysteryGame (homework mystery = child dopamine pool)", () => {
+  it("every pick is in that child's dopamine pool", () => {
+    const pool = getDopamineGameSlugsForChild("ila");
+    for (let i = 0; i < 80; i++) {
+      expect(pool).toContain(selectMysteryGame("ila"));
+    }
   });
 
-  it("no prior lastMysteryGame → random pick, either slug is valid", () => {
-    vi.mocked(profileIo.readLearningProfile).mockReturnValue({
-      childId: "test",
-      version: 1,
-      createdAt: "",
-      lastUpdated: "",
-      demographics: {} as never,
-      algorithmParams: {} as never,
-      bondPatterns: {} as never,
-      moodHistory: [],
-      rewardPreferences: {} as never,
-    } as unknown as LearningProfile);
-
+  it("many independent draws are not stuck on one game", () => {
     const out = new Set<string>();
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 120; i++) {
       out.add(selectMysteryGame("ila"));
     }
-    expect(out.has("monster-stampede")).toBe(true);
-    expect(out.has("speed-catcher")).toBe(true);
-    for (const g of out) {
-      expect(["monster-stampede", "speed-catcher"]).toContain(g);
+    expect(out.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("many draws cover several games when pool has enough entries", () => {
+    const pool = getDopamineGameSlugsForChild("reina");
+    if (pool.length < 4) return;
+    const out = new Set<string>();
+    for (let i = 0; i < 250; i++) {
+      out.add(selectMysteryGame("reina"));
     }
+    expect(out.size).toBeGreaterThanOrEqual(4);
   });
 
-  it("session 2 → opposite of session 1 lastMysteryGame", () => {
-    vi.mocked(profileIo.readLearningProfile).mockReturnValue({
-      childId: "test",
-      lastMysteryGame: "monster-stampede",
-    } as unknown as LearningProfile);
-    expect(selectMysteryGame("ila")).toBe("speed-catcher");
-  });
-
-  it("session 3 → opposite of session 2 lastMysteryGame", () => {
-    vi.mocked(profileIo.readLearningProfile).mockReturnValue({
-      childId: "test",
-      lastMysteryGame: "speed-catcher",
-    } as unknown as LearningProfile);
-    expect(selectMysteryGame("ila")).toBe("monster-stampede");
-  });
-
-  it("unknown last slug → random valid game", () => {
-    vi.mocked(profileIo.readLearningProfile).mockReturnValue({
-      childId: "test",
-      lastMysteryGame: "space-invaders",
-    } as unknown as LearningProfile);
-    const g = selectMysteryGame("ila");
-    expect(["monster-stampede", "speed-catcher"]).toContain(g);
-  });
-
-  it("every selected mystery game slug has a launchable public HTML file", () => {
-    for (const slug of MYSTERY_GAME_SLUGS) {
+  it("every pool slug for ila has a public HTML file", () => {
+    for (const slug of getDopamineGameSlugsForChild("ila")) {
       const filePath = path.resolve(
         process.cwd(),
         "web",
@@ -81,6 +74,27 @@ describe("selectMysteryGame", () => {
         `${slug}.html`,
       );
       expect(fs.existsSync(filePath), `${slug}.html should exist`).toBe(true);
+    }
+  });
+});
+
+describe("HOMEWORK_QUEST_SPELLING_SLUGS (quest node, non-generated)", () => {
+  it("is exactly monster-stampede and speed-catcher", () => {
+    expect([...HOMEWORK_QUEST_SPELLING_SLUGS].sort()).toEqual(
+      ["monster-stampede", "speed-catcher"].sort(),
+    );
+  });
+
+  it("each slug has a launchable HTML file", () => {
+    for (const slug of HOMEWORK_QUEST_SPELLING_SLUGS) {
+      const filePath = path.resolve(
+        process.cwd(),
+        "web",
+        "public",
+        "games",
+        `${slug}.html`,
+      );
+      expect(fs.existsSync(filePath)).toBe(true);
     }
   });
 });

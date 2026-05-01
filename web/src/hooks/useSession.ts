@@ -280,10 +280,7 @@ function urlWantsBrowserTts(): boolean {
 export type UseSessionOptions = {
   /** Adventure-map game iframe; preferred target for server-driven screenshots. */
   adventureGameIframeRef?: RefObject<HTMLIFrameElement | null>;
-  /**
-   * When `.current === true` at `session_started`, companion TTS PCM is queued but not played
-   * until `releaseCompanionAudioPlayback()` (curtain open on the map loading screen).
-   */
+  /** Kept for App compatibility; companion PCM playback is no longer gated by the curtain. */
   gateCompanionAudioUntilCurtainRef?: MutableRefObject<boolean>;
 };
 
@@ -358,11 +355,21 @@ export function useSession(options?: UseSessionOptions) {
   const adventureGameIframeSourceRef = useRef(options?.adventureGameIframeRef ?? null);
   adventureGameIframeSourceRef.current = options?.adventureGameIframeRef ?? null;
 
-  const gateCompanionAudioUntilCurtainRef =
-    options?.gateCompanionAudioUntilCurtainRef ?? null;
-  /** When true, `playNextChunk` is a no-op (chunks still queue). */
-  const companionPlaybackGateClosedRef = useRef(false);
   const playNextChunkRunnerRef = useRef<() => Promise<void>>(async () => {});
+
+  function primePlaybackAudioContext() {
+    if (typeof window === "undefined") return;
+    try {
+      if (!playContextRef.current || playContextRef.current.state === "closed") {
+        playContextRef.current = new AudioContext({ sampleRate: 24000 });
+      }
+      if (playContextRef.current.state === "suspended") {
+        void playContextRef.current.resume();
+      }
+    } catch (err) {
+      console.warn("PCM playback audio context prime failed:", err);
+    }
+  }
 
   // --- WebSocket connection ---
 
@@ -465,8 +472,6 @@ export function useSession(options?: UseSessionOptions) {
           }
           currentSourceRef.current = null;
         }
-        companionPlaybackGateClosedRef.current =
-          gateCompanionAudioUntilCurtainRef?.current === true;
         debugBrowserTtsRef.current =
           (msg as Record<string, unknown>).debugBrowserTts === true ||
           urlWantsBrowserTts();
@@ -1051,7 +1056,6 @@ export function useSession(options?: UseSessionOptions) {
             firstAudioChunkReceived: false,
           };
         });
-        companionPlaybackGateClosedRef.current = false;
         stopMicRef.current();
         break;
 
@@ -1206,9 +1210,6 @@ export function useSession(options?: UseSessionOptions) {
   // ElevenLabs sends PCM 16-bit signed mono at 24000 Hz (pcm_24000)
 
   async function playNextChunk() {
-    if (companionPlaybackGateClosedRef.current) {
-      return;
-    }
     if (audioQueueRef.current.length === 0) {
       // Brief grace period before re-opening the mic — lets residual room
       // echo from the speakers dissipate so Deepgram doesn't pick it up.
@@ -1255,7 +1256,6 @@ export function useSession(options?: UseSessionOptions) {
   playNextChunkRunnerRef.current = playNextChunk;
 
   const releaseCompanionAudioPlayback = useCallback(() => {
-    companionPlaybackGateClosedRef.current = false;
     if (audioQueueRef.current.length > 0 && !isPlayingRef.current) {
       void playNextChunkRunnerRef.current();
     }
@@ -1322,6 +1322,7 @@ export function useSession(options?: UseSessionOptions) {
       childName: string,
       options?: { diagKiosk?: boolean; silentTts?: boolean; sttOnly?: boolean },
     ) => {
+      primePlaybackAudioContext();
       setState((s) => ({
         ...s,
         phase: "connecting",
@@ -1426,7 +1427,6 @@ export function useSession(options?: UseSessionOptions) {
       }
       currentSourceRef.current = null;
     }
-    companionPlaybackGateClosedRef.current = false;
     setState({
       phase: "picker",
       childName: null,
@@ -1455,7 +1455,6 @@ export function useSession(options?: UseSessionOptions) {
       sessionBootReady: false,
       firstAudioChunkReceived: false,
     });
-    companionPlaybackGateClosedRef.current = false;
     wsRef.current?.close();
     wsRef.current = null;
     stopMic();

@@ -7,6 +7,7 @@ import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { setupRoutes } from "./server/routes";
 import { handleWsConnection } from "./server/ws-handler";
+import { endActiveVoiceSessions } from "./server/voice-session-registry";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const isKiosk = process.argv.includes("--kiosk");
@@ -70,6 +71,7 @@ async function shutdown(signal: string): Promise<void> {
   console.log(`  🛑 Shutting down (${signal})...`);
 
   try {
+    await endActiveVoiceSessions();
     wss.close();
     httpServer.close();
   } catch (_) {

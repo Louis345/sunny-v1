@@ -120,28 +120,6 @@ describe("WordRadar", () => {
     ]);
   });
 
-  it("letter-by-letter mode locks spoken letters left to right", async () => {
-    const { rerender } = renderRadar({ inputMode: "letter-by-letter" });
-    await startRadar();
-
-    rerender(
-      <WordRadar
-        items={sampleItems}
-        interimTranscript="s u"
-        sendMessage={vi.fn()}
-        showKeyboard={false}
-        inputMode="letter-by-letter"
-        personalBests={{}}
-        onComplete={vi.fn()}
-      />,
-    );
-
-    expect(screen.getAllByTestId("word-radar-letter-tile").map((n) => n.textContent)).toEqual([
-      "s",
-      "u",
-      "",
-    ]);
-  });
 
   it("Skip button visible during response phase", async () => {
     renderRadar({ timerSeconds: 10 });

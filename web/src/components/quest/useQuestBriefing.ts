@@ -49,6 +49,7 @@ export function useQuestBriefing(args: {
   mapCompanion?: CompanionConfig | null;
   companionMutedForMap?: boolean;
   dyslexiaMode?: boolean;
+  companionCurrency?: number;
   profileNames: { childName: string; companionName: string } | null;
   setProfileNames: (names: { childName: string; companionName: string }) => void;
   commitLaunchedNode: (node: NodeConfig) => void;
@@ -62,6 +63,7 @@ export function useQuestBriefing(args: {
     mapCompanion,
     companionMutedForMap,
     dyslexiaMode,
+    companionCurrency,
     profileNames,
     setProfileNames,
     commitLaunchedNode,
@@ -137,6 +139,7 @@ export function useQuestBriefing(args: {
       companionMuted: muted,
       isQuest: true,
       dyslexiaMode: dyslexiaMode === true,
+      companionCurrency,
     });
     if (launchAction.kind !== "iframe") {
       console.error(
@@ -152,6 +155,7 @@ export function useQuestBriefing(args: {
     triggerQuestLaunch(iframeUrl, questNode);
   }, [
     commitLaunchedNode,
+    companionCurrency,
     companionId,
     companionMutedForMap,
     dyslexiaMode,

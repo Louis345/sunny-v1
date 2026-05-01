@@ -239,6 +239,8 @@ export function AdventureMap(props: {
   /** `pendingHomework.reinforceWords` from profile — quest briefing + spell-check list. */
   reinforceWords?: string[];
   dyslexiaMode?: boolean;
+  /** Persisted companion shop balance — passed to iframe games (e.g. Wheel of Fortune child score). */
+  companionCurrency?: number;
 }) {
   const resolved = props.childId.trim();
 
@@ -716,6 +718,7 @@ export function AdventureMap(props: {
     mapCompanion: props.mapCompanion,
     companionMutedForMap: props.companionMutedForMap,
     dyslexiaMode: props.dyslexiaMode,
+    companionCurrency: props.companionCurrency,
     profileNames,
     setProfileNames,
     commitLaunchedNode,
@@ -799,6 +802,7 @@ export function AdventureMap(props: {
               : "false",
         vrmUrl: props.mapCompanion?.vrmUrl,
         companionMuted: muted,
+        companionCurrency: props.companionCurrency,
       });
       console.log("  🎮 [AdventureMap] node_launch_action", {
         nodeType: result.type,

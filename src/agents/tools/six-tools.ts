@@ -291,7 +291,7 @@ export function createSixTools(host: SixToolsHost) {
   return {
     canvasShow: tool({
       description:
-        "Render on the child's canvas. See session manifest [Canvas Capabilities] for types: text, svg, svg_raw, worksheet, game, place_value, spelling (spellingWord/word, spellingRevealed/revealed), riddle (text), math_inline (expression), reward (label, optional character/svg), championship (label). Each call replaces whatever was showing (mutex).",
+        "Render on the child's canvas. See session manifest [Canvas Capabilities] for types: text, svg, svg_raw, worksheet, game, place_value, spelling (spellingWord/word, spellingRevealed/revealed), riddle (text), math_inline (expression), reward (label, optional character/svg), championship (label). Each call replaces whatever was showing (mutex). Use type='game' name='word-radar' to launch word-radar (it is a React flow state game, NOT an HTML iframe game — do NOT use launchGame for it).",
       inputSchema: canvasShowSchema,
       execute: async (args) => {
         const a = { ...(args as Record<string, unknown>) };

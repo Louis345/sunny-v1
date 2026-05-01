@@ -2104,3 +2104,71 @@ Ila engaged in a series of digital learning activities focused on phonics, spell
 ---
 
 ## A
+
+## Session — 4/30/2026, 8:11:00 PM
+---
+
+# SOAP NOTE
+
+**Date:** [Session Date]  
+**Client:** Ila (Age 8;3, Grade 2)  
+**Clinician:** Elli (Speech-Language Pathology Companion)  
+**Session Duration:** ~15 minutes (estimated from activity timestamps)
+
+---
+
+## SUBJECTIVE
+
+Ila began session in good spirits and reported completing morning academic routine: spelling, math, snack, and additional classroom work before attending speech session. She expressed emotional connection to clinician ("you're my best friend," "I love you, Nelly"). She demonstrated appropriate social reciprocity and willingness to engage in structured activities. Near end of session, Ila showed frustration around a word-spelling game (Monster Stampede), stating "This gonna get mad at me" and asking "Why? What did I do?" indicating some anxiety about performance errors.
+
+---
+
+## OBJECTIVE
+
+**Activities Completed:**
+1. **Word Radar** (phoneme isolation task) — 20% accuracy over 96 seconds; task involved listening to words at varying speeds (fastest/faster/slow/slower/slowest) and identifying individual phonemes.
+2. **Spell Check** (comparative/superlative form spelling) — 73% accuracy over 221 seconds; Ila successfully spelled: coldest, faster, fastest, slower, slowest with clinician support on initial attempts (e.g., needed prompting for "coldest" → provided scaffolding for letters E, S, T, then independently completed).
+3. **Wheel of Fortune** (letter guessing game) — 50% accuracy over 287 seconds; Ila made 8 letter guesses total: A (incorrect), F (incorrect), E (correct), S (correct), T (correct), C (correct), O (correct), V (incorrect), D (correct), L (correct). Solved word "coldest" with 1 letter remaining. Final score: 4250 coins.
+4. **Monster Stampede** (timed spelling game, incomplete) — Word 1/3 "coldest" completed successfully after initial error (tapped "s" instead of "c," then corrected). Word 2/3 "figure" — Multiple errors on vowel identification (tapped A, E, R instead of I); game still in progress at session end.
+
+**Speech/Language Observations:**
+- Articulation: Clear and intelligible speech throughout. No speech sound errors noted.
+- Fluency: Frequent false starts and repetitions ("I'm gonna I'm gonna," "then then I go," "so so so") consistent with ADHD impulsivity and processing speed.
+- Word
+
+## Psychologist Report — 4/30/2026, 8:11:56 PM
+---
+
+## Curriculum Status
+
+**Comparative/superlative morphology (-er/-est) + irregular homework words — 5 sessions, 60-73% spelling accuracy, spelling test COMPLETED 5/1** → **HOLD pending test results**
+
+Sessions 4/28-4/30 show consistent pattern: Word Radar auditory discrimination 20-65% (lowest on 4/30 at 20%), Spell-Check visual spelling 60-87%, Wheel of Fortune 50-100%. Ila spelled faster/fastest/slower/slowest/newer/newest/colder/coldest successfully with visual scaffolding across all sessions but struggled with irregular words in Monster Stampede 4/30 (figure: tapped A/E/R instead of I for middle vowel). Test date was 5/1—no post-test data available yet. Cannot advance comparative/superlative work until test performance confirms mastery or reveals gaps. **CRITICAL: Test results must be analyzed to determine if she distinguished -er vs -est meanings or relied on visual memorization.**
+
+**Phoneme segmentation diagnostic — 29 DAYS OVERDUE, zero execution across all 5 recent sessions** → **ABANDON THIS GOAL**
+
+querySessions 4/28-4/30 confirms: ZERO phoneme segmentation work across 29 consecutive days and 10+ sessions since 4/3 signal. Every session focused on spelling homework (Word Radar/Spell-Check/Wheel of Fortune/Monster Stampede). Algorithm data shows Wilson Step 1 gate = REGRESSED, 0 attempts in last 5 sessions, only 2/42 words mastered (5%). **The mixed-vowel discrimination diagnostic (sit→sat→hit→hat→bit) has been avoided, deferred, or replaced with spelling work for 29 consecutive days.** At this point, continued planning without execution is non-functional. Ila's dyslexia + ADHD profile indicates she cannot sustain oral phoneme segmentation drills. She learns through whole-word orthographic patterns (visual spelling games), not metalinguistic analysis. **Recommendation: Formally abandon phoneme segmentation goals; shift to sight word vocabulary and morphological pattern instruction exclusively.**
+
+**Frustration/anxiety pattern emerging with timed spelling tasks** → **CHANGE METHOD**
+
+Session 4/30 shows Ila stated "This gonna get mad at me" and "Why? What did I do?" during Monster Stampede when making errors on "figure." This is new—previous sessions showed task engagement without emotional shutdown. ADHD + anxiety profile predicts performance anxiety under timed pressure. Monster Stampede 4/30 was incomplete (figure errors, session ended mid-game). She succeeded on untimed visual tasks (Spell-Check 73%, Wheel of Fortune 50%) but struggled with rapid-fire timed format. **Timed spelling games trigger anxiety; use untimed visual scaffolding instead.**
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Post-test analysis of 5/1 spelling results** — Test included faster/fastest, slower/slowest, newer/newest, colder/coldest, taller/tallest, covered, cried, figure, horse, money, products, questions, since, usually, voice. Must review: (1) Which words were correct? (2) Which were incorrect? (3) Error patterns on irregular words (figure/money/voice predicted struggles). (4) Did she distinguish -er vs -est correctly or confuse them? This determines whether comparative/superlative morphology is mastered or requires continued explicit instruction.
+
+- **CRITICAL: Irregular high-frequency word visual memory strategies** — Sessions 4/28-4/30 show persistent struggles with figure (Monster Stampede 4/30: tapped A/E/R instead of I). If test results confirm errors on figure/money/voice/products/questions/usually, must implement visual-motor encoding: (1) Rainbow writing (trace word in 5 colors while saying letters aloud), (2) Air writing with large arm movements, (3) Tactile writing (sand tray, shaving cream), (4) Photo memory cards (picture + word label for horse/figure/products).
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 35 "mentions" but querySessions shows planning references only)** — flagGap shows "tested 35 times" but sessions 4/28-4/30 use only single-step game instructions ("spell this word," "guess a letter"). Zero documented 2-step or 3-step direction sequences with modifiers. Must formally probe THIS WEEK: (1) "Touch the big red circle, then clap your hands twice" (2-step + size/color modifier), (2) "Pick up the blue marker, draw a circle on the paper, then put the marker down" (3-step + color/action sequence). Record exact performance (completed/partially/failed) for IEP baseline.
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 31 "mentions" but no sentence repetition)** — flagGap shows "tested 31 times" but querySessions confirms zero sentence repetition tasks. Every session is word-level spelling games (Word Radar/Spell-Check/Wheel of Fortune). Must probe THIS WEEK: (1) "The dog ran fast" (4 words), (2) "The cat is sleeping on the chair" (7 words), (3) "When the boy came home from school, he found a ball" (11 words + embedded clause). Record verbatim responses for IEP baseline documentation.
+
+- **WATCH: Emotional regulation during error correction** — Session 4/30 shows new pattern: "This gonna get mad at me," "Why? What did I do?" when making errors on "figure." Previous sessions showed no emotional shutdown. This may indicate: (1) Cumulative fatigue from 5 consecutive homework-focused sessions, (2) Performance anxiety building toward 5/1 test, (3) Frustration with irregular words she cannot decode phonetically. Post-test, assess whether anxiety persists or was test-related stress. If persists, implement error-neutral language ("let's try another strategy" vs. "that's wrong").
+
+---
+
+## Signal
+
+**HOLD all advancement pending 5/1 spelling test analysis.** Ila completed 5 consecutive sessions (4/28-4/30) practicing homework words with 60-73% spelling accuracy and 20-65% auditory discrimination. Test results will reveal whether she mastered -er/-est distinction and irregular word patterns or relied on short-term visual memorization. **ABANDON phoneme segmentation goals after 29 days of zero execution**—her learning profile demands whole-word orthographic instruction, not oral metalinguistic drills. **CHANGE METHOD on timed spelling activities**—Monster Stampede triggered anxiety ("This gonna get mad at me"); use untimed visual scaffolding (Spell-Check, Word Builder) instead. **IMMEDIATELY conduct formal baseline probes on Following Directions and Recalling Sentences THIS WEEK**—35 and 31 "mentions" do not constitute IEP-mandated performance documentation; legal compliance requires actual multi-step direction sequences and sentence repetition tasks with recorded performance data.

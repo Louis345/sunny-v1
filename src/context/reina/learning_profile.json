@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-04-29T20:42:44.846Z",
+  "lastUpdated": "2026-04-30T23:39:55.629Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -54,6 +54,46 @@
       "bondQuality": "moderate",
       "sessionAccuracy": 0.925,
       "notableSignals": []
+    },
+    {
+      "date": "2026-04-30T23:11:44.400Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-30T23:17:23.470Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-30T23:26:30.387Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-30T23:28:24.475Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-04-30T23:39:55.623Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
     }
   ],
   "moodTrend": "stable",
@@ -75,14 +115,14 @@
     "dyslexiaMode": false
   },
   "sessionStats": {
-    "totalSessions": 2,
-    "averageAccuracy": 0.925,
+    "totalSessions": 7,
+    "averageAccuracy": 0.2642857142857143,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 37,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-04-28"
+    "lastSessionDate": "2026-04-30T23:39:55.623Z"
   },
   "totalSessionSeconds": 750,
   "longestStreak": 5,
@@ -138,17 +178,7 @@
       "colder",
       "coldest",
       "taller",
-      "tallest",
-      "covered",
-      "cried",
-      "figure",
-      "horse",
-      "money",
-      "products",
-      "questions",
-      "since",
-      "usually",
-      "voice"
+      "tallest"
     ],
     "homeworkId": "hw-spelling_test-2da310ad",
     "generatedAt": "2026-04-29T18:39:59.912Z",
@@ -166,17 +196,7 @@
           "colder",
           "coldest",
           "taller",
-          "tallest",
-          "covered",
-          "cried",
-          "figure",
-          "horse",
-          "money",
-          "products",
-          "questions",
-          "since",
-          "usually",
-          "voice"
+          "tallest"
         ],
         "difficulty": 1,
         "gameFile": null,
@@ -263,86 +283,6 @@
             ],
             "label": "Spelling",
             "subject": "spelling"
-          },
-          {
-            "display": "covered",
-            "acceptedResponses": [
-              "covered"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "cried",
-            "acceptedResponses": [
-              "cried"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "figure",
-            "acceptedResponses": [
-              "figure"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "horse",
-            "acceptedResponses": [
-              "horse"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "money",
-            "acceptedResponses": [
-              "money"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "products",
-            "acceptedResponses": [
-              "products"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "questions",
-            "acceptedResponses": [
-              "questions"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "since",
-            "acceptedResponses": [
-              "since"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "usually",
-            "acceptedResponses": [
-              "usually"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "voice",
-            "acceptedResponses": [
-              "voice"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
           }
         ]
       },
@@ -359,17 +299,7 @@
           "colder",
           "coldest",
           "taller",
-          "tallest",
-          "covered",
-          "cried",
-          "figure",
-          "horse",
-          "money",
-          "products",
-          "questions",
-          "since",
-          "usually",
-          "voice"
+          "tallest"
         ],
         "difficulty": 2,
         "gameFile": null,
@@ -390,17 +320,7 @@
           "colder",
           "coldest",
           "taller",
-          "tallest",
-          "covered",
-          "cried",
-          "figure",
-          "horse",
-          "money",
-          "products",
-          "questions",
-          "since",
-          "usually",
-          "voice"
+          "tallest"
         ],
         "difficulty": 2,
         "gameFile": null,
@@ -421,17 +341,7 @@
           "colder",
           "coldest",
           "taller",
-          "tallest",
-          "covered",
-          "cried",
-          "figure",
-          "horse",
-          "money",
-          "products",
-          "questions",
-          "since",
-          "usually",
-          "voice"
+          "tallest"
         ],
         "difficulty": 2,
         "gameFile": null,
@@ -439,32 +349,39 @@
         "date": "2026-04-29",
         "approved": false
       }
+    ],
+    "completedAdventureNodeIds": [
+      "n-word-radar-hw-spelling_test-2da310ad",
+      "n-spell-check-hw-spelling_test-2da310ad",
+      "n-wheel-hw-spelling_test-2da310ad",
+      "n-mystery-hw-spelling_test-2da310ad",
+      "n-quest-hw-spelling_test-2da310ad"
     ]
   },
   "banditState": {
     "counts": [
-      1,
+      3,
       0,
       0,
       0,
-      2,
+      3,
       0,
       0,
-      2,
-      0,
-      0,
-      0,
+      3,
       0,
       0,
       0,
-      2
+      0,
+      0,
+      0,
+      3
     ],
     "values": [
-      0.3,
+      0.7666666666666666,
       0,
       0,
       0,
-      0.615,
+      0.53,
       0,
       0,
       1,
@@ -476,5 +393,7 @@
       0,
       1
     ]
-  }
+  },
+  "lastMysteryGame": "speed-catcher",
+  "companionCurrency": 1300
 }

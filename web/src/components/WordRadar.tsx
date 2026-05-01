@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo } from "react";
 import {
   useWordRadar,
   shouldShowPersonalBestBadge,
+  resolveWordRadarInputMode,
   type WordRadarGameEvent,
 } from "../hooks/useWordRadar";
 import { CompanionLayer } from "./CompanionLayer";
@@ -214,7 +215,7 @@ export function WordRadar({
     timerSeconds,
     startImmediately: false,
     showKeyboard,
-    inputMode,
+    inputMode: resolveWordRadarInputMode(inputMode),
     speakStyle,
     keyboardStyle,
     personalBests,
