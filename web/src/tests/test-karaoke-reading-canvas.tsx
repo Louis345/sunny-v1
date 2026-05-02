@@ -39,6 +39,71 @@ describe("KaraokeReadingCanvas", () => {
     });
   });
 
+  it("pressing Enter through the final highlighted word sends reading complete", async () => {
+    const user = userEvent.setup();
+    const sendMessage = vi.fn();
+    render(
+      <KaraokeReadingCanvas
+        words={["one", "two", "three"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    for (const expected of ["one", "two", "three"]) {
+      const hi = document.querySelector("[data-highlighted='true']");
+      expect(hi?.textContent).toContain(expected);
+      await user.type(hi as HTMLElement, "{enter}");
+    }
+
+    await waitFor(() => {
+      expect(sendMessage).toHaveBeenCalledWith(
+        "reading_progress",
+        expect.objectContaining({
+          event: "complete",
+          wordIndex: 3,
+          totalWords: 3,
+        }),
+      );
+    });
+  });
+
+  it("preview-only finish button completes the story without reading every word", async () => {
+    const user = userEvent.setup();
+    const sendMessage = vi.fn();
+    render(
+      <KaraokeReadingCanvas
+        words={["one", "two", "three"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        previewFinishEnabled
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Finish story preview" }));
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      "reading_progress",
+      expect.objectContaining({
+        event: "complete",
+        wordIndex: 3,
+        totalWords: 3,
+      }),
+    );
+  });
+
+  it("does not show the finish shortcut outside preview", () => {
+    render(
+      <KaraokeReadingCanvas
+        words={["one", "two", "three"]}
+        interimTranscript=""
+        sendMessage={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Finish story preview" })).toBeNull();
+  });
+
   it("clicking non-current word does not advance wordIndex", async () => {
     const user = userEvent.setup();
     render(
@@ -93,6 +158,36 @@ describe("KaraokeReadingCanvas", () => {
     expect(root.style.backgroundImage).toContain("example.com");
   });
 
+  it("uses a light reading card when map theme passes a dark card background", () => {
+    render(
+      <KaraokeReadingCanvas
+        words={["Reina", "stepped", "into", "the", "muddy", "training"]}
+        interimTranscript=""
+        sendMessage={() => {}}
+        cardBackground="#0f172a"
+      />,
+    );
+
+    const card = screen.getByTestId("karaoke-reading-card");
+    expect(card.style.background).toBe("rgb(255, 244, 226)");
+    expect(screen.getByText("stepped", { exact: true })).toBeTruthy();
+  });
+
+  it("renders punctuation from storyText while using words for matching", () => {
+    render(
+      <KaraokeReadingCanvas
+        words={["Reina", "stepped", "into", "the", "valley", "Water", "rushed"]}
+        storyText="Reina stepped into the valley. Water rushed."
+        interimTranscript=""
+        sendMessage={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("karaoke-reading-card").textContent).toContain(
+      "valley.",
+    );
+  });
+
   it("empty words array renders without crash", () => {
     const { container } = render(
       <KaraokeReadingCanvas
@@ -118,5 +213,43 @@ describe("KaraokeReadingCanvas", () => {
     expect(document.body.classList.contains("karaoke-active")).toBe(true);
     unmount();
     expect(document.body.classList.contains("karaoke-active")).toBe(false);
+  });
+
+  it("suppresses companion voice turns while karaoke is mounted", () => {
+    const sendMessage = vi.fn();
+    const { unmount } = render(
+      <KaraokeReadingCanvas
+        words={["rain", "rushed"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        childId="reina"
+      />,
+    );
+
+    expect(sendMessage).toHaveBeenCalledWith("game_event", {
+      event: {
+        type: "voice_control",
+        voiceEnabled: false,
+        payload: {
+          game: "karaoke",
+          childId: "reina",
+        },
+        version: "1.0",
+      },
+    });
+
+    unmount();
+
+    expect(sendMessage).toHaveBeenCalledWith("game_event", {
+      event: {
+        type: "voice_control",
+        voiceEnabled: true,
+        payload: {
+          game: "karaoke",
+          childId: "reina",
+        },
+        version: "1.0",
+      },
+    });
   });
 });

@@ -51,6 +51,19 @@ export interface HomeworkContentProfile {
   sourceEvidence: string[];
 }
 
+export interface CapturedHomeworkContentRecord {
+  title: string;
+  type: string;
+  rawText: string;
+  words: string[];
+  questions: unknown[];
+  sourceDocuments: Array<{
+    filename: string;
+    mediaType?: string;
+  }>;
+  contentProfile: HomeworkContentProfile;
+}
+
 export interface InterventionMeasurement {
   nodeId: string;
   nodeType: string;
@@ -67,6 +80,7 @@ export interface HomeworkCycle {
   subject: string;
   wordList: string[];
   contentProfile?: HomeworkContentProfile | null;
+  capturedContent?: CapturedHomeworkContentRecord | null;
   ingestedAt: string; // ISO date
   testDate: string | null;
 

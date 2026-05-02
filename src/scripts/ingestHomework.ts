@@ -17,8 +17,10 @@ import { runPsychologistSync } from "../agents/psychologist/sync";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 import { buildPreQuestTheory } from "../engine/homeworkCycleLoop";
 import {
+  buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
   normalizeContentProfile,
+  type CapturedHomeworkContent,
   type ContentProfile,
   type HomeworkType,
   type PlannedHomeworkNode,
@@ -33,6 +35,7 @@ type ExtractionShape = {
   testDate: string | null;
   words: string[];
   contentProfile: ContentProfile;
+  capturedContent: CapturedHomeworkContent;
   questions: Array<{
     id: number;
     question: string;
@@ -320,12 +323,14 @@ export function buildPendingHomeworkPayload(args: {
   homeworkId: string;
   nodes: PlannedNode[];
   contentProfile?: ContentProfile | null;
+  capturedContent?: CapturedHomeworkContent | null;
 }): NonNullable<LearningProfile["pendingHomework"]> & { homeworkId: string } {
   return {
     weekOf: args.weekOf,
     testDate: args.testDate,
     wordList: args.wordList,
     contentProfile: args.contentProfile ?? null,
+    capturedContent: args.capturedContent ?? null,
     homeworkId: args.homeworkId,
     generatedAt: new Date().toISOString(),
     nodes: args.nodes.map((node) => {
@@ -485,6 +490,7 @@ async function extractHomework(
   }]
 }`;
   const isPdf = filePath.toLowerCase().endsWith(".pdf");
+  const sourceText = isPdf ? "" : fs.readFileSync(filePath, "utf8");
   const content = isPdf
     ? [
         {
@@ -497,7 +503,7 @@ async function extractHomework(
         },
         { type: "text" as const, text: prompt },
       ]
-    : `${prompt}\n\nHomework text:\n${fs.readFileSync(filePath, "utf8")}`;
+    : `${prompt}\n\nHomework text:\n${sourceText}`;
   const msg = await client.messages.create({
     model: HAIKU_MODEL,
     max_tokens: 8192,
@@ -529,6 +535,20 @@ async function extractHomework(
     questions,
     contentProfile: parsed.contentProfile,
   });
+  const capturedContent = buildCapturedHomeworkContent({
+    title,
+    type: normalizedType,
+    rawText: sourceText,
+    words,
+    questions,
+    sourceDocuments: [
+      {
+        filename: path.basename(filePath),
+        mediaType: isPdf ? "application/pdf" : "text/plain",
+      },
+    ],
+    contentProfile,
+  });
   return {
     title,
     type: normalizedType,
@@ -536,6 +556,7 @@ async function extractHomework(
     testDate: parsed.testDate ? String(parsed.testDate) : null,
     words,
     contentProfile,
+    capturedContent,
     questions,
   };
 }
@@ -546,6 +567,7 @@ export function buildCycleStub(args: {
   subject: string;
   wordList: string[];
   contentProfile?: ContentProfile | null;
+  capturedContent?: CapturedHomeworkContent | null;
   ingestedAt: string;
   testDate: string | null;
 }): HomeworkCycle {
@@ -554,6 +576,7 @@ export function buildCycleStub(args: {
     subject: args.subject,
     wordList: args.wordList,
     contentProfile: args.contentProfile ?? null,
+    capturedContent: args.capturedContent ?? null,
     ingestedAt: args.ingestedAt,
     testDate: args.testDate,
     assumptions: null,
@@ -646,6 +669,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     subject: extracted.type,
     wordList: extracted.words,
     contentProfile: extracted.contentProfile,
+    capturedContent: extracted.capturedContent,
     ingestedAt: today,
     testDate,
   });
@@ -694,6 +718,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     testDate,
     wordList: extracted.words,
     contentProfile: extracted.contentProfile,
+    capturedContent: extracted.capturedContent,
     homeworkId,
     nodes: homeworkNodes,
   });

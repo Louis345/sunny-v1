@@ -132,6 +132,26 @@ export interface LearningProfile {
       concepts: string[];
       sourceEvidence: string[];
     } | null;
+    capturedContent?: {
+      title: string;
+      type: string;
+      rawText: string;
+      words: string[];
+      questions: unknown[];
+      sourceDocuments: Array<{
+        filename: string;
+        mediaType?: string;
+      }>;
+      contentProfile: {
+        practiceDomain: string;
+        contentDomain: string;
+        topic: string;
+        primarySkill: string;
+        assignmentFormat: string;
+        concepts: string[];
+        sourceEvidence: string[];
+      };
+    } | null;
     /** From last homework node misses — prioritized on next map load, then cleared. */
     reinforceWords?: string[];
     generatedAt: string;

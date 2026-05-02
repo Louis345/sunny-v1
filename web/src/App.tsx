@@ -48,6 +48,7 @@ import { CompanionShowroomPage } from "./CompanionShowroomPage";
 import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
+import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 
 const DIAG_READING_TEST_EXCERPT =
   "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
@@ -91,13 +92,19 @@ function resolveMapPreviewMode(): false | "free" | "go-live" {
     const p = new URLSearchParams(window.location.search).get("preview");
     if (p === "free" || p === "go-live") return p;
   }
-  const v = import.meta.env.VITE_PREVIEW_MODE;
+  const runtime = resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>);
+  const v =
+    runtime.previewMode === "off"
+      ? import.meta.env.VITE_PREVIEW_MODE
+      : runtime.previewMode;
   if (v === "free" || v === "go-live") return v;
   if (import.meta.env.VITE_PREVIEW_MODE === "true") return "free";
   return false;
 }
 
 const mapPreviewMode = resolveMapPreviewMode();
+const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>);
+const mapInspectAllMode = runtimeConfig.nodeAccess === "inspect-all";
 
 function childNameFromId(childId: string | null): string {
   if (!childId) return "Sunny";
@@ -384,6 +391,7 @@ function App() {
   const [sessionReady, setSessionReady] = useState(false);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
   const [loadingSafetyReleased, setLoadingSafetyReleased] = useState(false);
+  const autoStartedAdventureVoiceRef = useRef<string | null>(null);
 
   const {
     adventureChildId,
@@ -404,6 +412,18 @@ function App() {
   useEffect(() => {
     activeProfileIdRef.current = activeProfileChildId ?? null;
   }, [activeProfileChildId]);
+
+  useEffect(() => {
+    if (!adventureMapEnabled || !adventureChildId) {
+      autoStartedAdventureVoiceRef.current = null;
+      return;
+    }
+    if (state.phase !== "picker") return;
+    if (autoStartedAdventureVoiceRef.current === adventureChildId) return;
+    autoStartedAdventureVoiceRef.current = adventureChildId;
+    setSelectedChildName(childNameFromId(adventureChildId));
+    startSession(childNameFromId(adventureChildId));
+  }, [adventureChildId, adventureMapEnabled, startSession, state.phase]);
 
   /** Tamagotchi quips are suppressed on the adventure map — companion speaks via voice only. */
   const companionBubbleText = useMemo(() => {
@@ -438,6 +458,7 @@ function App() {
   const mapSession = useMapSession(
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
     mapPreviewMode,
+    mapInspectAllMode,
   );
 
   const prevMapProgRef = useRef<string | null>(null);
@@ -783,6 +804,7 @@ function App() {
     adventureMapEnabled && adventureChildId
       ? adventureChildId
       : activeProfileChildId;
+  const liveFlowStt = state.interimTranscript || state.gameTranscript;
 
   useEffect(() => {
     if (!profileApiChildId) {
@@ -959,6 +981,7 @@ function App() {
           childId={adventureChildId}
           mapSession={mapSession}
           previewMode={mapPreviewMode}
+          inspectAllMode={mapInspectAllMode}
           onLockedNodeTap={onLockedMapNodeTap}
           mapCompanion={effectiveCompanion}
           companionMutedForMap={companionMuted}
@@ -985,8 +1008,10 @@ function App() {
           }
           karaokeReadingForMapNode={{
             words: state.canvas.karaokeWords ?? [],
-            interimTranscript: state.gameTranscript,
+            interimTranscript: liveFlowStt,
             sendMessage,
+            companion: effectiveCompanion,
+            childId: activeProfileChildId ?? undefined,
             backgroundImageUrl: state.canvas.backgroundImageUrl,
             accentColor:
               mapSession.theme?.palette?.accent ?? state.companion?.accentColor,
@@ -1009,14 +1034,19 @@ function App() {
           companionCurrency={
             mapSession.liveMapCurrency ?? profileCompanionCurrency
           }
+          storyImageLoading={state.storyImageLoading}
+          storyImageUrl={state.storyImageUrl}
+          storyImageFailed={state.storyImageFailed}
         />
         {karaokeReadingActive &&
           mapSession.launchedNode?.type !== "karaoke" && (
             <div className="fixed inset-0 z-50">
               <KaraokeReadingCanvas
                 words={state.canvas.karaokeWords!}
-                interimTranscript={state.gameTranscript}
+                interimTranscript={liveFlowStt}
                 sendMessage={sendMessage}
+                companion={effectiveCompanion}
+                childId={activeProfileChildId ?? undefined}
                 backgroundImageUrl={state.canvas.backgroundImageUrl}
                 accentColor={
                   mapSession.theme?.palette?.accent ?? state.companion?.accentColor
@@ -1034,7 +1064,7 @@ function App() {
             <div className="fixed inset-0 z-50">
               <PronunciationGameCanvas
                 words={state.canvas.pronunciationWords!}
-                interimTranscript={state.gameTranscript}
+                interimTranscript={liveFlowStt}
                 sendMessage={sendMessage}
                 backgroundImageUrl={state.canvas.backgroundImageUrl}
                 accentColor={
@@ -1132,6 +1162,7 @@ function App() {
           readingCanvas={state.readingCanvas}
           storyImageLoading={state.storyImageLoading}
           storyImageUrl={state.storyImageUrl}
+          storyImageFailed={state.storyImageFailed}
           accentColor={state.companion?.accentColor ?? "#7C3AED"}
           accentBg={state.companion?.accentBg ?? "#F3E8FF"}
           sessionTheme={mapSession.theme}
@@ -1173,6 +1204,26 @@ function App() {
 
   return (
     <>
+      {state.warning ? (
+        <div
+          style={{
+            position: "fixed",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 10000,
+            padding: "10px 16px",
+            borderRadius: 12,
+            background: "rgba(120, 53, 15, 0.94)",
+            color: "#fff7ed",
+            fontSize: 14,
+            fontWeight: 600,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.24)",
+          }}
+        >
+          {state.warning}
+        </div>
+      ) : null}
       {main}
       {adventureMapEnabled &&
       diagMapPanelEnabled &&
@@ -1200,7 +1251,7 @@ function App() {
       <CompanionLayer
         childId={activeProfileChildId}
         companion={effectiveCompanion}
-        toggledOff={companionMuted}
+        toggledOff={false}
         mode={companionPortraitMode ? "portrait" : "full"}
         karaokeActive={
           state.phase === "active" &&
@@ -1239,7 +1290,7 @@ function App() {
         <FlowGameOverlay onBack={closeDiagFlowGame}>
           <KaraokeReadingCanvas
             words={DIAG_READING_TEST_WORDS}
-            interimTranscript={state.gameTranscript}
+            interimTranscript={liveFlowStt}
             sendMessage={sendMessage}
             backgroundImageUrl="https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600"
             accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
@@ -1256,7 +1307,7 @@ function App() {
         <FlowGameOverlay onBack={closeDiagFlowGame}>
           <PronunciationGameCanvas
             words={DIAG_PRONUNCIATION_WORDS}
-            interimTranscript={state.gameTranscript}
+            interimTranscript={liveFlowStt}
             sendMessage={sendMessage}
             backgroundImageUrl={state.canvas.backgroundImageUrl}
             accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
@@ -1271,7 +1322,7 @@ function App() {
         <FlowGameOverlay onBack={closeDiagFlowGame}>
           <WordRadar
             items={DIAG_WORD_RADAR_ITEMS}
-            interimTranscript={state.gameTranscript}
+            interimTranscript={liveFlowStt}
             sendMessage={sendMessage}
             autoStart={state.diagGameSessionReady}
             timerSeconds={profileWordRadar?.showTimer === true ? 10 : undefined}

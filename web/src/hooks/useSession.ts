@@ -31,6 +31,7 @@ import {
 import { isKaraokeReadingAssistSilence } from "./karaokeAssistSilence";
 import { flushBufferIfUnmuted } from "../../../src/shared/flushBuffer";
 import { mapNodeSessionAudioFlags } from "../../../src/shared/mapNodeSessionAudio";
+import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 
 type GameMode = keyof typeof TEACHING_TOOLS | keyof typeof REWARD_GAMES;
 
@@ -186,6 +187,8 @@ interface SessionState {
   canvasOwner: string;
   reward: RewardEvent | null;
   error: string | null;
+  errorFatal: boolean;
+  warning: string | null;
   loadingMessage: string | null;
   /** Server sets true when DEBUG_CLAUDE — show canvas test overlay off localhost if needed */
   debugMode: boolean;
@@ -194,6 +197,7 @@ interface SessionState {
   /** Optional Grok illustration after karaoke complete — diagnostics/reading polish */
   storyImageLoading: boolean;
   storyImageUrl: string | null;
+  storyImageFailed: boolean;
   /** Voice WebSocket `companion_event` payloads (merged with map in App). */
   companionEvents: CompanionEventPayload[];
   /** Voice WebSocket `companion_command` messages (merged with map in App). */
@@ -231,19 +235,20 @@ function storyIllustrationPatch(
   s: SessionState,
   mode: CanvasState["mode"],
   nextAnimationKey: number,
-): Pick<SessionState, "storyImageLoading" | "storyImageUrl"> {
+): Pick<SessionState, "storyImageLoading" | "storyImageUrl" | "storyImageFailed"> {
   if (mode !== "karaoke" && mode !== "idle") {
-    return { storyImageLoading: false, storyImageUrl: null };
+    return { storyImageLoading: false, storyImageUrl: null, storyImageFailed: false };
   }
   if (mode === "karaoke") {
     const prev = s.canvas.animationKey ?? 0;
     if (nextAnimationKey !== prev) {
-      return { storyImageLoading: false, storyImageUrl: null };
+      return { storyImageLoading: false, storyImageUrl: null, storyImageFailed: false };
     }
   }
   return {
     storyImageLoading: s.storyImageLoading,
     storyImageUrl: s.storyImageUrl,
+    storyImageFailed: s.storyImageFailed,
   };
 }
 
@@ -267,6 +272,25 @@ const DEFAULT_TURN_POLICY: TurnPolicy = {
   allowCaptureDuringPlayback: false,
   interruptible: true,
 };
+
+function micDeniedCanContinue(): boolean {
+  if (typeof window !== "undefined") {
+    const preview = new URLSearchParams(window.location.search).get("preview");
+    if (preview === "free" || preview === "go-live") return true;
+  }
+  const runtime = resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>);
+  return runtime.previewMode !== "off" || runtime.voiceMode !== "normal";
+}
+
+function storyImageWatchdogMs(): number {
+  if (typeof window !== "undefined") {
+    const preview = new URLSearchParams(window.location.search).get("preview");
+    if (preview === "free") return 20000;
+  }
+  const runtime = resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>);
+  if (runtime.previewMode === "free") return 20000;
+  return 75000;
+}
 
 function urlWantsBrowserTts(): boolean {
   if (typeof window === "undefined") return false;
@@ -302,6 +326,7 @@ export function useSession(options?: UseSessionOptions) {
   const debugBrowserTtsRef = useRef(false);
   const browserTtsAccumRef = useRef("");
   const browserTtsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const storyImageWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [state, setState] = useState<SessionState>({
     phase: "picker",
@@ -319,11 +344,14 @@ export function useSession(options?: UseSessionOptions) {
     canvasOwner: "companion",
     reward: null,
     error: null,
+    errorFatal: false,
+    warning: null,
     loadingMessage: null,
     debugMode: false,
     readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
     storyImageLoading: false,
     storyImageUrl: null,
+    storyImageFailed: false,
     companionEvents: [],
     companionCommands: [],
     karaokeStoryComplete: false,
@@ -375,10 +403,29 @@ export function useSession(options?: UseSessionOptions) {
 
   const sendMessage = useCallback((type: string, payload: Record<string, unknown> = {}) => {
     if (type === "reading_progress" && payload.event === "complete") {
-      setStateRef.current((s) => ({ ...s, karaokeStoryComplete: true }));
+      if (storyImageWatchdogRef.current) {
+        clearTimeout(storyImageWatchdogRef.current);
+      }
+      storyImageWatchdogRef.current = setTimeout(() => {
+        setStateRef.current((s) =>
+          s.storyImageLoading
+            ? { ...s, storyImageLoading: false, storyImageFailed: true }
+            : s,
+        );
+        storyImageWatchdogRef.current = null;
+      }, storyImageWatchdogMs());
+      setStateRef.current((s) => ({
+        ...s,
+        karaokeStoryComplete: true,
+        storyImageLoading: true,
+        storyImageUrl: null,
+        storyImageFailed: false,
+      }));
     }
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type, ...payload }));
+      // Put envelope `type` last so canvas payloads (e.g. NODE_REGISTRY.karaoke with type:karaoke)
+      // cannot overwrite the wire message kind — fixes server "Unknown type: karaoke" on canvas_show.
+      wsRef.current.send(JSON.stringify({ ...payload, type }));
     }
   }, []);
 
@@ -414,6 +461,8 @@ export function useSession(options?: UseSessionOptions) {
       setStateRef.current((s) => ({
         ...s,
         error: "Connection lost",
+        errorFatal: true,
+        warning: null,
         phase: s.phase === "active" || s.phase === "connecting" ? "picker" : s.phase,
       }));
     };
@@ -482,10 +531,14 @@ export function useSession(options?: UseSessionOptions) {
           ...s,
           phase: "active",
           loadingMessage: null,
+          error: null,
+          errorFatal: false,
+          warning: null,
           childName: m.childName ?? m.child ?? "",
           debugMode,
           storyImageLoading: false,
           storyImageUrl: null,
+          storyImageFailed: false,
           interimTranscript: "",
           gameTranscript: "",
           companionEvents: [],
@@ -881,20 +934,30 @@ export function useSession(options?: UseSessionOptions) {
 
       case "story_image_loading":
         console.log("[ws] story image loading...");
+        if (storyImageWatchdogRef.current) {
+          clearTimeout(storyImageWatchdogRef.current);
+          storyImageWatchdogRef.current = null;
+        }
         setStateRef.current((s) => ({
           ...s,
           storyImageLoading: true,
           storyImageUrl: null,
+          storyImageFailed: false,
         }));
         break;
 
       case "story_image": {
         const u = msg.url;
         console.log("[ws] story image received:", u);
+        if (storyImageWatchdogRef.current) {
+          clearTimeout(storyImageWatchdogRef.current);
+          storyImageWatchdogRef.current = null;
+        }
         setStateRef.current((s) => ({
           ...s,
           storyImageLoading: false,
           storyImageUrl: typeof u === "string" && u.length > 0 ? u : null,
+          storyImageFailed: !(typeof u === "string" && u.length > 0),
         }));
         break;
       }
@@ -1047,13 +1110,16 @@ export function useSession(options?: UseSessionOptions) {
             phase: "ended",
             canvas: preservePronunciationOverlay ? s.canvas : { mode: "idle" },
             blackboard: { gesture: null },
-            reward: null,
-            sessionState: "IDLE",
-            readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
-            karaokeStoryComplete: false,
-            diagGameSessionReady: false,
-            sessionBootReady: false,
-            firstAudioChunkReceived: false,
+          reward: null,
+          sessionState: "IDLE",
+          readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
+          karaokeStoryComplete: false,
+          error: null,
+          errorFatal: false,
+          warning: null,
+          diagGameSessionReady: false,
+          sessionBootReady: false,
+          firstAudioChunkReceived: false,
           };
         });
         stopMicRef.current();
@@ -1075,12 +1141,21 @@ export function useSession(options?: UseSessionOptions) {
         break;
 
       case "error":
-        setStateRef.current((s) => ({
-          ...s,
-          error: (msg.message as string) ?? "Unknown error",
-          diagGameSessionReady: false,
-          phase: s.phase === "active" || s.phase === "connecting" ? "picker" : s.phase,
-        }));
+        {
+          const fatal = msg.fatal !== false;
+          const message = (msg.message as string) ?? "Unknown error";
+          setStateRef.current((s) => ({
+            ...s,
+            error: fatal ? message : null,
+            errorFatal: fatal,
+            warning: fatal ? null : message,
+            diagGameSessionReady: fatal ? false : s.diagGameSessionReady,
+            phase:
+              fatal && (s.phase === "active" || s.phase === "connecting")
+                ? "picker"
+                : s.phase,
+          }));
+        }
         break;
     }
   }
@@ -1182,7 +1257,19 @@ export function useSession(options?: UseSessionOptions) {
         silence.connect(audioCtx.destination);
       } catch (err) {
         console.error("Mic access failed:", err);
-        setStateRef.current((s) => ({ ...s, error: "Microphone access denied" }));
+        if (micDeniedCanContinue()) {
+          setStateRef.current((s) => ({
+            ...s,
+            warning: "Microphone unavailable in preview; continuing without recording.",
+          }));
+          return;
+        }
+        setStateRef.current((s) => ({
+          ...s,
+          error: "Microphone access denied",
+          errorFatal: true,
+          warning: null,
+        }));
       }
     })();
   }, []);
@@ -1327,6 +1414,8 @@ export function useSession(options?: UseSessionOptions) {
         ...s,
         phase: "connecting",
         error: null,
+        errorFatal: false,
+        warning: null,
         diagGameSessionReady: false,
       }));
       connect();
@@ -1356,10 +1445,13 @@ export function useSession(options?: UseSessionOptions) {
         setStateRef.current((s) => ({
           ...s,
           error: "Connection timeout",
+          errorFatal: true,
+          warning: null,
           phase: "picker",
           debugMode: false,
           storyImageLoading: false,
           storyImageUrl: null,
+          storyImageFailed: false,
         }));
       }, 10000);
     },
@@ -1412,6 +1504,10 @@ export function useSession(options?: UseSessionOptions) {
   }, [micMuted]);
 
   const resetToPicker = useCallback(() => {
+    if (storyImageWatchdogRef.current) {
+      clearTimeout(storyImageWatchdogRef.current);
+      storyImageWatchdogRef.current = null;
+    }
     turnPolicyRef.current = DEFAULT_TURN_POLICY;
     setMicMuted(false);
     setTtsMuted(false);
@@ -1443,11 +1539,14 @@ export function useSession(options?: UseSessionOptions) {
       canvasOwner: "companion",
       reward: null,
       error: null,
+      errorFatal: false,
+      warning: null,
       loadingMessage: null,
       debugMode: false,
       readingCanvas: DEFAULT_READING_CANVAS_PREFERENCES,
       storyImageLoading: false,
       storyImageUrl: null,
+      storyImageFailed: false,
       companionEvents: [],
       companionCommands: [],
       karaokeStoryComplete: false,
@@ -1488,6 +1587,10 @@ export function useSession(options?: UseSessionOptions) {
 
   useEffect(() => {
     return () => {
+      if (storyImageWatchdogRef.current) {
+        clearTimeout(storyImageWatchdogRef.current);
+        storyImageWatchdogRef.current = null;
+      }
       stopMic();
       if (playContextRef.current) {
         playContextRef.current.close();

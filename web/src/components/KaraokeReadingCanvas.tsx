@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { useKaraokeReading } from "../hooks/useKaraokeReading";
+import type { CompanionConfig } from "../../../src/shared/companionTypes";
 
 const DEFAULT_ACCENT = "#6D5EF5";
 const DEFAULT_CARD_BG = "#FFF4E2";
@@ -16,6 +17,13 @@ function chunkWordsIntoLines(words: string[], wordsPerLine: number): string[][] 
     lines.push(words.slice(i, i + wpl));
   }
   return lines;
+}
+
+function storyTextTokens(storyText: string | undefined, words: string[]): string[] {
+  const raw = storyText?.trim();
+  if (!raw) return words;
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  return tokens.length === words.length ? tokens : words;
 }
 
 function locateWordInLines(
@@ -49,6 +57,23 @@ function accentPillBackground(accent: string): string {
   return `${DEFAULT_ACCENT}22`;
 }
 
+function relativeLuminance(hex: string): number | null {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!match) return null;
+  const raw = match[1];
+  const parts = [raw.slice(0, 2), raw.slice(2, 4), raw.slice(4, 6)].map((p) => {
+    const c = parseInt(p, 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * parts[0] + 0.7152 * parts[1] + 0.0722 * parts[2];
+}
+
+function readableCardBackground(cardBackground: string): string {
+  const lum = relativeLuminance(cardBackground);
+  if (lum === null) return cardBackground || DEFAULT_CARD_BG;
+  return lum < 0.55 ? DEFAULT_CARD_BG : cardBackground;
+}
+
 export interface KaraokeReadingCanvasProps {
   words: string[];
   interimTranscript: string;
@@ -60,7 +85,12 @@ export interface KaraokeReadingCanvasProps {
   lineHeight?: number;
   wordsPerLine?: number;
   storyTitle?: string;
+  storyText?: string;
   onComplete?: () => void;
+  /** Reserved for parent-level portrait ownership; karaoke canvas does not render its own companion. */
+  companion?: CompanionConfig | null;
+  childId?: string;
+  previewFinishEnabled?: boolean;
 }
 
 export function KaraokeReadingCanvas({
@@ -74,9 +104,13 @@ export function KaraokeReadingCanvas({
   lineHeight = DEFAULT_LINE_HEIGHT,
   wordsPerLine = 8,
   storyTitle,
+  storyText,
   onComplete,
+  companion: _companion,
+  childId,
+  previewFinishEnabled = false,
 }: KaraokeReadingCanvasProps): React.ReactElement {
-  const { wordIndex, skippedIndices, handleSkipWord } = useKaraokeReading({
+  const { wordIndex, skippedIndices, handleSkipWord, completeReading } = useKaraokeReading({
     words,
     interimTranscript,
     sendMessage,
@@ -86,20 +120,43 @@ export function KaraokeReadingCanvas({
   // Always add the karaoke-active class so CompanionLayer knows to minimize.
   useEffect(() => {
     document.body.classList.add("karaoke-active");
+    sendMessage("game_event", {
+      event: {
+        type: "voice_control",
+        voiceEnabled: false,
+        payload: {
+          game: "karaoke",
+          childId: childId || "unknown",
+        },
+        version: "1.0",
+      },
+    });
     return () => {
       document.body.classList.remove("karaoke-active");
+      sendMessage("game_event", {
+        event: {
+          type: "voice_control",
+          voiceEnabled: true,
+          payload: {
+            game: "karaoke",
+            childId: childId || "unknown",
+          },
+          version: "1.0",
+        },
+      });
     };
-  }, []);
+  }, [childId, sendMessage]);
 
   const accent = accentColor || DEFAULT_ACCENT;
+  const readingCardBackground = readableCardBackground(cardBackground);
   const skipped = useMemo(
     () => new Set(skippedIndices),
     [skippedIndices],
   );
 
   const lines = useMemo(
-    () => chunkWordsIntoLines(words, wordsPerLine),
-    [words, wordsPerLine],
+    () => chunkWordsIntoLines(storyTextTokens(storyText, words), wordsPerLine),
+    [storyText, words, wordsPerLine],
   );
 
   const safeWordIndex = Math.min(Math.max(0, wordIndex), Math.max(0, words.length));
@@ -318,6 +375,27 @@ export function KaraokeReadingCanvas({
               </div>
             </div>
           ) : null}
+
+          {previewFinishEnabled && words.length > 0 && !done ? (
+            <button
+              type="button"
+              onClick={() => completeReading("preview")}
+              style={{
+                border: "1px solid rgba(255,255,255,0.16)",
+                borderRadius: 999,
+                padding: "9px 14px",
+                background: "rgba(15,23,42,0.9)",
+                color: "#f8fafc",
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.28)",
+                cursor: "pointer",
+              }}
+            >
+              Finish story preview
+            </button>
+          ) : null}
         </div>
 
         {/* Reading card */}
@@ -333,6 +411,7 @@ export function KaraokeReadingCanvas({
           }}
         >
           <div
+            data-testid="karaoke-reading-card"
             style={{
               width: "100%",
               maxWidth: 820,
@@ -340,7 +419,7 @@ export function KaraokeReadingCanvas({
               boxSizing: "border-box",
               borderRadius: 28,
               padding: "36px 40px 44px",
-              background: cardBackground,
+              background: readingCardBackground,
               boxShadow:
                 "0 24px 48px rgba(0,0,0,0.35), 0 2px 0 rgba(255,255,255,0.35) inset",
               border: "1.5px solid #e7cfa2",

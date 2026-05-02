@@ -62,6 +62,13 @@ export type GameIframeOverlayState = {
   iframe: HTMLIFrameElement | null;
   url: string | null;
 };
+
+type PreviewStoryImageState = {
+  loading: boolean;
+  imageUrl: string | null;
+  failed: boolean;
+};
+
 import { evaluateVRR } from "../../../src/engine/vrrEngine";
 import {
   DEFAULT_TAMAGOTCHI,
@@ -83,10 +90,6 @@ export type MapPreviewMode = false | "free" | "go-live";
 
 /** Space below fixed preview banner (z-index 9999, height 40). */
 const PREVIEW_GAME_TOP_INSET_PX = 40;
-
-/** Mirrors server `DIAG_UNLOCK_MAP` — set in `npm run sunny:mode:diag:homework:as-*:unlocked` builds. */
-const DIAG_UNLOCK_MAP_UI =
-  import.meta.env.VITE_DIAG_UNLOCK_MAP === "true";
 
 export function displayNodesForAdventureMap(
   nodes: readonly NodeConfig[],
@@ -139,6 +142,114 @@ const NODE_PALETTES: Partial<Record<NodeType, Palette>> = {
 function nodeTransitionPalette(nodeType: string): Palette | "random" {
   if (Math.random() < 0.2) return "random";
   return NODE_PALETTES[nodeType as NodeType] ?? "random";
+}
+
+function StoryImageFinale(props: {
+  childId: string;
+  imageUrl: string | null;
+  loading: boolean;
+  failed: boolean;
+}) {
+  return (
+    <div
+      data-testid="map-story-image-finale"
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#fff8f0",
+        overflow: "hidden",
+        fontFamily: "Lexend, system-ui, sans-serif",
+      }}
+    >
+      {props.imageUrl ? (
+        <>
+          <img
+            src={props.imageUrl}
+            alt="Story finale"
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(transparent 45%, rgba(0,0,0,0.68))",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 28,
+              left: 24,
+              right: 24,
+              textAlign: "center",
+              color: "white",
+              fontSize: 24,
+              fontWeight: 800,
+              textShadow: "0 2px 14px rgba(0,0,0,0.45)",
+            }}
+          >
+            Reina's story came to life.
+          </div>
+        </>
+      ) : (
+        <div style={{ textAlign: "center", color: "#334155" }}>
+          <div
+            style={{
+              width: 108,
+              height: 108,
+              borderRadius: "50%",
+              margin: "0 auto 18px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "white",
+              border: "4px solid #fbbf24",
+              fontSize: 44,
+              fontWeight: 800,
+            }}
+          >
+            {props.childId.trim().charAt(0).toUpperCase() || "?"}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>
+            {props.loading
+              ? "Creating your story illustration..."
+              : props.failed
+                ? "Story complete. Image unavailable"
+                : "Story complete"}
+          </div>
+          <div
+            style={{
+              width: 280,
+              height: 10,
+              borderRadius: 999,
+              background: "#e2e8f0",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: props.loading ? "82%" : "100%",
+                height: "100%",
+                borderRadius: 999,
+                background: "linear-gradient(90deg, #6D5EF5, #fbbf24)",
+                transition: "width 0.4s ease",
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function profileLaunchNames(
@@ -199,6 +310,7 @@ export function AdventureMap(props: {
   childId: string;
   mapSession: ReturnType<typeof useMapSession>;
   previewMode?: MapPreviewMode;
+  inspectAllMode?: boolean;
   /**
    * When set (e.g. diag reading kiosk), fullscreen flow games get the same top inset + back control
    * as preview builds, without enabling free-preview STT / URL behavior.
@@ -215,6 +327,9 @@ export function AdventureMap(props: {
   onActiveNodeScreenChange?: (p: { x: number; y: number } | null) => void;
   /** Voice-session reading props when a map node of type \"karaoke\" is launched. */
   karaokeReadingForMapNode?: KaraokeReadingCanvasProps;
+  storyImageLoading?: boolean;
+  storyImageUrl?: string | null;
+  storyImageFailed?: boolean;
   /** From `/api/profile` — Word Radar UI + personal bests (server-derived). */
   wordRadarFromProfile?: {
     showTimer: boolean;
@@ -293,6 +408,8 @@ export function AdventureMap(props: {
   const [pathPositions, setPathPositions] = useState<Point[]>([]);
   const [hoveredNodeIndex, setHoveredNodeIndex] = useState<number | null>(null);
   const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
+  const [previewStoryImage, setPreviewStoryImage] =
+    useState<PreviewStoryImageState | null>(null);
   const gameIframeRef = useRef<HTMLIFrameElement>(null);
   const [showBossPlaceholder, setShowBossPlaceholder] = useState(false);
   const pathPositionsRef = useRef<Point[]>([]);
@@ -311,6 +428,7 @@ export function AdventureMap(props: {
     props.previewMode === "free" || props.previewMode === "go-live"
       ? PREVIEW_GAME_TOP_INSET_PX
       : 0;
+  const inspectAllMode = props.inspectAllMode === true;
 
   const quest = useQuestUnlockSequence({
     childId: resolved,
@@ -319,7 +437,7 @@ export function AdventureMap(props: {
     mapState,
     worldRef,
     pathPositionsRef,
-    diagUnlockMap: DIAG_UNLOCK_MAP_UI,
+    diagUnlockMap: inspectAllMode,
     previewTopOffsetPx,
     companionBubbleText: questUnlockCompanionBubbleText(
       resolved,
@@ -764,7 +882,7 @@ export function AdventureMap(props: {
         result.type === "quest" &&
         quest.canOpenQuestBriefing
       ) {
-        if (DIAG_UNLOCK_MAP_UI || mapPreview) {
+        if (inspectAllMode || mapPreview) {
           quest.beginQuestUnlockSequence({ force: true });
           window.setTimeout(() => briefing.show(result), 1300);
           return;
@@ -866,6 +984,64 @@ export function AdventureMap(props: {
   const chimpBg =
     "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600";
 
+  useEffect(() => {
+    if (props.previewMode !== "free" || launchedNode?.type !== "karaoke") {
+      setPreviewStoryImage(null);
+    }
+  }, [launchedNode?.id, launchedNode?.type, props.previewMode]);
+
+  function startPreviewStoryImageFinale(): void {
+    if (props.previewMode !== "free") return;
+    if (launchedNode?.type !== "karaoke") return;
+    const prompt =
+      launchedNode.storyImagePrompt?.trim() ||
+      launchedNode.storyText?.trim() ||
+      launchedNode.words?.join(" ").trim() ||
+      "";
+    if (!prompt) {
+      setPreviewStoryImage({ loading: false, imageUrl: null, failed: true });
+      return;
+    }
+    console.log(" 🎮 [story-image-preview] [start] preview finale image");
+    setPreviewStoryImage({ loading: true, imageUrl: null, failed: false });
+    void fetch(`/api/grok-image?prompt=${encodeURIComponent(prompt)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`story image ${r.status}`);
+        return (await r.json()) as { url?: unknown };
+      })
+      .then((data) => {
+        const imageUrl =
+          typeof data.url === "string" && data.url.length > 0 ? data.url : null;
+        setPreviewStoryImage({
+          loading: false,
+          imageUrl,
+          failed: imageUrl === null,
+        });
+        console.log(
+          ` 🎮 [story-image-preview] [result] ${imageUrl ? "image" : "empty"}`,
+        );
+      })
+      .catch((err) => {
+        console.warn(" 🎮 [story-image-preview] [error]", err);
+        setPreviewStoryImage({ loading: false, imageUrl: null, failed: true });
+      });
+  }
+
+  const handleKaraokeComplete = useCallback(() => {
+    props.karaokeReadingForMapNode?.onComplete?.();
+    startPreviewStoryImageFinale();
+  }, [launchedNode, props.karaokeReadingForMapNode, props.previewMode]);
+
+  const storyImageFinaleState =
+    previewStoryImage ??
+    (props.storyImageLoading || props.storyImageUrl || props.storyImageFailed
+      ? {
+          loading: props.storyImageLoading === true,
+          imageUrl: props.storyImageUrl ?? null,
+          failed: props.storyImageFailed === true,
+        }
+      : null);
+
   if (resolved && !mapState) {
     if (connectionStatus === "error") {
       return (
@@ -906,7 +1082,7 @@ export function AdventureMap(props: {
       ? displayNodesForAdventureMap(
           nodes,
           mapState?.completedNodes ?? [],
-          DIAG_UNLOCK_MAP_UI,
+          inspectAllMode,
         )
       : [];
   const activeIndex = mapState?.currentNodeIndex ?? 0;
@@ -1014,7 +1190,7 @@ export function AdventureMap(props: {
                     node={node}
                     position={pos}
                     thumbnail={thumbnail}
-                    allowReplayWhenCompleted={DIAG_UNLOCK_MAP_UI}
+                    allowReplayWhenCompleted={inspectAllMode}
                     onClick={() => void handleNodeLaunch(node)}
                     onLockedClick={() => props.onLockedNodeTap?.(node)}
                     isActive={isActive}
@@ -1112,48 +1288,58 @@ export function AdventureMap(props: {
             className="relative flex min-h-0 flex-1 flex-col"
             style={flowGameBackChrome ? { minHeight: 0 } : undefined}
           >
-          <KaraokeReadingCanvas
-            words={launchedNode.words}
-            interimTranscript={
-              props.karaokeReadingForMapNode?.interimTranscript ?? ""
-            }
-            sendMessage={
-              props.previewMode === "free"
-                ? (_type: string, _payload?: Record<string, unknown>) => {
-                    /* free preview: no voice WebSocket */
-                  }
-                : props.karaokeReadingForMapNode?.sendMessage ??
-                  ((_type: string, _payload?: Record<string, unknown>) => {
-                    void _type;
-                    void _payload;
-                  })
-            }
-            backgroundImageUrl={
-              diagReading
-                ? chimpBg
-                : launchedNode.thumbnailUrl ??
-                  props.karaokeReadingForMapNode?.backgroundImageUrl
-            }
-            accentColor={
-              props.karaokeReadingForMapNode?.accentColor ??
-              theme?.palette?.accent ??
-              mapState?.theme.palette.accent ??
-              accentColor
-            }
-            cardBackground={
-              props.karaokeReadingForMapNode?.cardBackground ??
-              mapState?.theme.palette.cardBackground
-            }
-            fontSize={props.karaokeReadingForMapNode?.fontSize}
-            lineHeight={props.karaokeReadingForMapNode?.lineHeight}
-            wordsPerLine={props.karaokeReadingForMapNode?.wordsPerLine}
-            storyTitle={
-              diagReading
-                ? "Chimpanzees"
-                : launchedNode.storyTitle ??
-                  props.karaokeReadingForMapNode?.storyTitle
-            }
-          />
+          {storyImageFinaleState ? (
+            <StoryImageFinale
+              childId={props.childId}
+              loading={storyImageFinaleState.loading}
+              imageUrl={storyImageFinaleState.imageUrl}
+              failed={storyImageFinaleState.failed}
+            />
+          ) : (
+            <KaraokeReadingCanvas
+              words={launchedNode.words}
+              storyText={launchedNode.storyText}
+              companion={props.mapCompanion ?? null}
+              childId={props.childId}
+              interimTranscript={
+                props.karaokeReadingForMapNode?.interimTranscript ?? ""
+              }
+              sendMessage={
+                props.karaokeReadingForMapNode?.sendMessage ??
+                ((_type: string, _payload?: Record<string, unknown>) => {
+                  void _type;
+                  void _payload;
+                })
+              }
+              backgroundImageUrl={
+                diagReading
+                  ? chimpBg
+                  : launchedNode.thumbnailUrl ??
+                    props.karaokeReadingForMapNode?.backgroundImageUrl
+              }
+              accentColor={
+                props.karaokeReadingForMapNode?.accentColor ??
+                theme?.palette?.accent ??
+                mapState?.theme.palette.accent ??
+                accentColor
+              }
+              cardBackground={
+                props.karaokeReadingForMapNode?.cardBackground ??
+                mapState?.theme.palette.cardBackground
+              }
+              fontSize={props.karaokeReadingForMapNode?.fontSize}
+              lineHeight={props.karaokeReadingForMapNode?.lineHeight}
+              wordsPerLine={props.karaokeReadingForMapNode?.wordsPerLine}
+              previewFinishEnabled={props.previewMode === "free"}
+              onComplete={handleKaraokeComplete}
+              storyTitle={
+                diagReading
+                  ? "Chimpanzees"
+                  : launchedNode.storyTitle ??
+                    props.karaokeReadingForMapNode?.storyTitle
+              }
+            />
+          )}
           {flowGameBackChrome ? (
             <button
               type="button"
