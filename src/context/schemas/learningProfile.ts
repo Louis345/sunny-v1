@@ -54,6 +54,78 @@ export interface BondPatterns {
   topicFrequency: Record<string, number>;
 }
 
+export interface ActivityModelEntry {
+  activityId: string;
+  plays: number;
+  completions: number;
+  completionRate: number;
+  averageAccuracy: number;
+  engagementScore: number;
+  frustrationScore: number;
+  lastPlayed: string;
+  domains: Record<string, number>;
+  missedWords: string[];
+}
+
+export interface LearningCalibrationEntry {
+  calibrationId: string;
+  homeworkId: string;
+  gradedAt: string;
+  theoryId?: string;
+  predictedPattern?: string;
+  predictedRiskWords: string[];
+  observedMisses: Array<{
+    target: string;
+    observedErrorType?: string;
+    note?: string;
+  }>;
+  score: number | null;
+  status: "supported" | "falsified" | "inconclusive";
+  teacherNotes?: string;
+  nextAdjustment: string;
+}
+
+export type LearningAlgorithmTarget =
+  | "spaced-repetition"
+  | "error-pattern-remediation"
+  | "retrieval-practice"
+  | "reading-comprehension"
+  | "pronunciation"
+  | "desirable-difficulty"
+  | "mastery-gating"
+  | "activity-affinity"
+  | "variable-reward";
+
+export interface AIContentCatalogItem {
+  contentId: string;
+  homeworkId?: string;
+  childId: string;
+  type: "story" | "image" | "video" | "game" | "quiz" | "countdown" | "reading-mode";
+  source: "generated" | "baseline" | "prototype" | "human";
+  title: string;
+  algorithmTargets: LearningAlgorithmTarget[];
+  targetSkills: string[];
+  targetConcepts: string[];
+  targetWords: string[];
+  engagementHooks: string[];
+  inputEvidence: {
+    contentFingerprint?: string;
+    patternIds?: string[];
+    activityEvidenceIds?: string[];
+    calibrationIds?: string[];
+  };
+  reuseStatus: "candidate" | "reuse" | "revise" | "retire";
+  reuseReason: string;
+  performanceSummary?: {
+    plays: number;
+    completionRate: number;
+    averageAccuracy: number;
+    engagementScore: number;
+    frustrationScore: number;
+    transferSupported?: boolean;
+  };
+}
+
 export interface LearningProfile {
   childId: string;
   version: number;
@@ -119,10 +191,20 @@ export interface LearningProfile {
     values: number[];
   };
 
+  /** Current activity-response model derived from node results. Raw attempts remain in attempts/*.ndjson. */
+  activityModel?: Record<string, ActivityModelEntry>;
+
+  /** Human-graded reality checks against Sunny's theories; newest first, capped by writers. */
+  learningCalibrationJournal?: LearningCalibrationEntry[];
+
+  /** Reusable/revisable/retired learning content. Generated content must declare algorithmTargets. */
+  aiContentCatalog?: AIContentCatalogItem[];
+
   pendingHomework?: {
     weekOf: string;
     testDate: string | null;
     wordList: string[];
+    homeworkId?: string;
     contentProfile?: {
       practiceDomain: string;
       contentDomain: string;

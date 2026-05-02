@@ -64,6 +64,26 @@ export interface CapturedHomeworkContentRecord {
   contentProfile: HomeworkContentProfile;
 }
 
+export type CalibrationStatus = "unverified" | "supported" | "falsified" | "inconclusive";
+
+export interface HomeworkCalibrationEntry {
+  calibrationId: string;
+  homeworkId: string;
+  gradedAt: string;
+  theoryId?: string;
+  predictedPattern?: string;
+  predictedRiskWords: string[];
+  observedMisses: Array<{
+    target: string;
+    observedErrorType?: string;
+    note?: string;
+  }>;
+  score: number | null;
+  status: Exclude<CalibrationStatus, "unverified">;
+  teacherNotes?: string;
+  nextAdjustment: string;
+}
+
 export interface InterventionMeasurement {
   nodeId: string;
   nodeType: string;
@@ -81,6 +101,9 @@ export interface HomeworkCycle {
   wordList: string[];
   contentProfile?: HomeworkContentProfile | null;
   capturedContent?: CapturedHomeworkContentRecord | null;
+  contentFingerprint?: string;
+  calibrationStatus?: CalibrationStatus;
+  calibrationJournal?: HomeworkCalibrationEntry[];
   ingestedAt: string; // ISO date
   testDate: string | null;
 
@@ -118,6 +141,36 @@ export function generateHomeworkId(subject: string, wordList: string[]): string 
   const sorted = [...wordList].map((w) => w.toLowerCase()).sort();
   const hash = crypto.createHash("sha256").update(sorted.join(",")).digest("hex").slice(0, 8);
   return `hw-${subject}-${hash}`;
+}
+
+function normalizeForFingerprint(value: unknown): string {
+  return JSON.stringify(value)
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function generateContentFingerprint(input: {
+  childId: string;
+  title: string;
+  rawText?: string | null;
+  words?: string[];
+  questions?: unknown[];
+  testDate?: string | null;
+  sourceDocuments?: Array<{ filename: string }>;
+}): string {
+  const payload = {
+    childId: input.childId.trim().toLowerCase(),
+    title: input.title.trim().toLowerCase(),
+    rawText: String(input.rawText ?? "").replace(/\s+/g, " ").trim().toLowerCase(),
+    words: [...(input.words ?? [])].map((w) => w.trim().toLowerCase()).sort(),
+    questions: input.questions ?? [],
+    testDate: input.testDate ?? null,
+    sourceDocuments: [...(input.sourceDocuments ?? [])]
+      .map((doc) => doc.filename.trim().toLowerCase())
+      .sort(),
+  };
+  return crypto.createHash("sha256").update(normalizeForFingerprint(payload)).digest("hex").slice(0, 16);
 }
 
 export function matchScanToHomework(

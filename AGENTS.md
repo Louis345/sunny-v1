@@ -154,6 +154,24 @@ Quest and boss rewards must not be plain fixed-position nodes. Treat the baselin
 - Weak performance routes to targeted support before quest generation.
 - Boss remains a mastery-gated finale after generated quest evidence, not an always-playable activity.
 
+### Law 11: AI Content Must Be Cataloged
+
+Every generated, reused, or prototype learning content artifact must declare what learning algorithm it serves before it can enter the active path.
+
+Required catalog fields:
+
+- Content identity: child, homework/cycle when applicable, source, type, title.
+- Algorithm targets: spaced repetition, error-pattern remediation, retrieval practice, reading comprehension, pronunciation, desirable difficulty, mastery gating, activity affinity, or variable reward.
+- Evidence used: captured homework fingerprint, error patterns, activity evidence, calibration ids, or human source.
+- Reuse decision: candidate, reuse, revise, or retire, with a reason.
+
+Never ship AI content as just "fun content." It must answer:
+
+- What learner evidence created this?
+- Which algorithm owns this?
+- How will we measure whether it worked?
+- Should we reuse it, revise it, or retire it after performance or graded calibration?
+
 ---
 
 ## Maintainability (Guidelines, Not Laws)

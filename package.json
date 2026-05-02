@@ -16,6 +16,7 @@
     "sunny:sync": "npx tsx src/scripts/sync.ts",
     "sunny:ingest:companion": "npx tsx src/scripts/ingestCompanions.ts",
     "sunny:ingest:homework": "npx tsx src/scripts/ingestHomework.ts",
+    "sunny:homework:upload": "npx tsx src/scripts/uploadGradedHomework.ts",
     "sunny:ingest:scan": "npx tsx src/scripts/ingestScanResult.ts --child=ila",
     "sunny:ingest:tutoring": "npx tsx src/scripts/ingestTutoring.ts",
     "sunny:homework": "cd web && VITE_ADVENTURE_MAP=true npm run build && cd .. && ADVENTURE_MAP=true SUNNY_SUBJECT=homework npx tsx src/scripts/launch-kiosk.ts",

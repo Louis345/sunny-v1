@@ -11,15 +11,20 @@ import type { LearningProfile } from "../context/schemas/learningProfile";
 import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
-import { generateHomeworkId } from "../context/schemas/homeworkCycle";
+import { generateContentFingerprint, generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 import { buildPreQuestTheory } from "../engine/homeworkCycleLoop";
 import {
+  buildHomeworkContentCatalogItems,
+  upsertProfileContentCatalog,
+} from "../engine/learningDecisionContext";
+import {
   buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
   normalizeContentProfile,
+  recommendBaselineActivities,
   type CapturedHomeworkContent,
   type ContentProfile,
   type HomeworkType,
@@ -36,6 +41,7 @@ type ExtractionShape = {
   words: string[];
   contentProfile: ContentProfile;
   capturedContent: CapturedHomeworkContent;
+  contentFingerprint: string;
   questions: Array<{
     id: number;
     question: string;
@@ -549,6 +555,15 @@ async function extractHomework(
     ],
     contentProfile,
   });
+  const contentFingerprint = generateContentFingerprint({
+    childId: "",
+    title,
+    rawText: sourceText,
+    words,
+    questions,
+    testDate: parsed.testDate ? String(parsed.testDate) : null,
+    sourceDocuments: capturedContent.sourceDocuments,
+  });
   return {
     title,
     type: normalizedType,
@@ -557,6 +572,7 @@ async function extractHomework(
     words,
     contentProfile,
     capturedContent,
+    contentFingerprint,
     questions,
   };
 }
@@ -568,6 +584,7 @@ export function buildCycleStub(args: {
   wordList: string[];
   contentProfile?: ContentProfile | null;
   capturedContent?: CapturedHomeworkContent | null;
+  contentFingerprint?: string | null;
   ingestedAt: string;
   testDate: string | null;
 }): HomeworkCycle {
@@ -577,6 +594,8 @@ export function buildCycleStub(args: {
     wordList: args.wordList,
     contentProfile: args.contentProfile ?? null,
     capturedContent: args.capturedContent ?? null,
+    contentFingerprint: args.contentFingerprint ?? undefined,
+    calibrationStatus: "unverified",
     ingestedAt: args.ingestedAt,
     testDate: args.testDate,
     assumptions: null,
@@ -664,12 +683,22 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const homeworkId = generateHomeworkId(extracted.type, extracted.words);
   const cyclesDir = path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
   fs.mkdirSync(cyclesDir, { recursive: true });
+  const contentFingerprint = generateContentFingerprint({
+    childId,
+    title: extracted.title,
+    rawText: extracted.capturedContent.rawText,
+    words: extracted.words,
+    questions: extracted.questions,
+    testDate,
+    sourceDocuments: extracted.capturedContent.sourceDocuments,
+  });
   const cycleStub = buildCycleStub({
     homeworkId,
     subject: extracted.type,
     wordList: extracted.words,
     contentProfile: extracted.contentProfile,
     capturedContent: extracted.capturedContent,
+    contentFingerprint,
     ingestedAt: today,
     testDate,
   });
@@ -722,7 +751,16 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     homeworkId,
     nodes: homeworkNodes,
   });
-  writeLearningProfile(childId, profileDoc);
+  const catalogItems = buildHomeworkContentCatalogItems({
+    childId,
+    homeworkId,
+    capturedContent: extracted.capturedContent,
+    contentFingerprint,
+    nodes: homeworkNodes,
+    baselineActivities: recommendBaselineActivities(extracted.capturedContent),
+  });
+  const profileWithCatalog = upsertProfileContentCatalog(profileDoc, catalogItems);
+  writeLearningProfile(childId, profileWithCatalog);
 
   console.log(`✅ Saved to src/context/${childId}/homework/pending/${today}/`);
 
