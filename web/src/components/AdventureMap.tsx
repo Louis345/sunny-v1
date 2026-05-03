@@ -9,6 +9,7 @@ import type {
   CompanionConfig,
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
+import type { CompanionCareView } from "../../../src/shared/companionCareTypes";
 import childrenCfg from "../../../children.config.json";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
@@ -84,6 +85,10 @@ import {
 import { QuestUnlockSequence } from "./quest/QuestUnlockSequence";
 import { useQuestUnlockSequence } from "./quest/useQuestUnlockSequence";
 import { useQuestBriefing } from "./quest/useQuestBriefing";
+import {
+  getCompanionReadinessNudge,
+  type CompanionReadinessNudge,
+} from "../utils/companionReadinessNudge";
 export { questBriefingWordsFromMap } from "./quest/questWords";
 
 export type MapPreviewMode = false | "free" | "go-live";
@@ -341,6 +346,7 @@ export function AdventureMap(props: {
   };
   /** From `/api/profile` — drives tamagotchi strip + VRR evaluation. */
   tamagotchi?: TamagotchiState;
+  companionCare?: CompanionCareView;
   /** When false, hides the tamagotchi strip until profile care data has loaded. */
   tamagotchHydrated?: boolean;
   /** After VRR claim persisted on server — parent should merge into profile state. */
@@ -389,6 +395,10 @@ export function AdventureMap(props: {
   const [ratingPrompt, setRatingPrompt] = useState<{
     nodeId: string;
     nodeType: string;
+  } | null>(null);
+  const [readinessNudge, setReadinessNudge] = useState<{
+    node: NodeConfig;
+    nudge: CompanionReadinessNudge;
   } | null>(null);
   const [celebration, setCelebration] = useState(false);
   const [pendingVrr, setPendingVrr] = useState<VRREvent | null>(null);
@@ -856,7 +866,24 @@ export function AdventureMap(props: {
     triggerQuestLaunch,
   });
 
-  async function handleNodeLaunch(node: NodeConfig) {
+  async function handleNodeLaunch(node: NodeConfig, bypassReadiness = false) {
+      const nudge = getCompanionReadinessNudge({
+        nodeType: node.type,
+        companionName:
+          props.companionCare?.displayName ??
+          props.mapCompanion?.companionId ??
+          "Companion",
+        readiness: props.companionCare?.readiness,
+      });
+      if (
+        !bypassReadiness &&
+        nudge.show &&
+        props.previewMode !== "free" &&
+        props.previewMode !== "go-live"
+      ) {
+        setReadinessNudge({ node, nudge });
+        return;
+      }
       const previewMode = props.previewMode;
       const mapPreview =
         previewMode === "free" || previewMode === "go-live";
@@ -1230,6 +1257,97 @@ export function AdventureMap(props: {
               nodeType={ratingPrompt.nodeType}
               onRate={(r) => void handleRate(r)}
             />
+          ) : null}
+        </AnimatePresence>
+        <AnimatePresence>
+          {readinessNudge ? (
+            <motion.div
+              key="readiness-nudge"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 22,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(15,23,42,0.55)",
+                pointerEvents: "auto",
+              }}
+            >
+              <div
+                style={{
+                  width: "min(420px, calc(100vw - 32px))",
+                  borderRadius: 8,
+                  background: "#f8fafc",
+                  color: "#0f172a",
+                  padding: 16,
+                  boxShadow: "0 18px 48px rgba(0,0,0,0.28)",
+                  border: "1px solid #cbd5e1",
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                }}
+              >
+                <div style={{ fontWeight: 800, marginBottom: 8 }}>
+                  Companion care
+                </div>
+                <div style={{ fontSize: 14, lineHeight: 1.45 }}>
+                  {readinessNudge.nudge.message}
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReadinessNudge(null);
+                      props.onOpenTamagotchiSheet?.();
+                    }}
+                    style={{
+                      border: "none",
+                      borderRadius: 8,
+                      background: "#4f46e5",
+                      color: "white",
+                      padding: "8px 12px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Feed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReadinessNudge(null)}
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 8,
+                      background: "white",
+                      color: "#0f172a",
+                      padding: "8px 12px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Warmup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = readinessNudge.node;
+                      setReadinessNudge(null);
+                      void handleNodeLaunch(next, true);
+                    }}
+                    style={{
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 8,
+                      background: "white",
+                      color: "#0f172a",
+                      padding: "8px 12px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Continue tired
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           ) : null}
         </AnimatePresence>
 

@@ -23,6 +23,12 @@ import { masteryGating as computeMasteryGating } from "../algorithms/masteryGati
 import { retrievalPractice as computeRetrievalPractice } from "../algorithms/retrievalPractice";
 import { DEFAULT_GAME_CONFIGS } from "../profile/gameConfigDefaults";
 import { verifyGameConfig } from "../profile/verifyProfile";
+import { getChildChart } from "./childChart";
+import { loadCompanionCarePlanForChart } from "./companionCarePlan";
+import {
+  companionCareToTamagotchi,
+  companionCareToView,
+} from "../engine/companionCareEngine";
 
 const PROFILE_SRC = path.resolve(__dirname, "..");
 
@@ -73,6 +79,7 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const childId = normalizeChildId(childIdRaw);
   const lp = readLearningProfile(childId);
   if (!lp) return null;
+  const chart = getChildChart(childId);
   const wordBank = readWordBank(childId);
   wordBank.words = (wordBank.words ?? []).filter((w) =>
     /^[a-z]{2,30}$/.test(w.word.toLowerCase()),
@@ -136,7 +143,16 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
 
   const now = new Date().toISOString();
   const baseT = lp.tamagotchi ?? { ...DEFAULT_TAMAGOTCHI, lastSeenAt: now };
-  const tamagotchi = applyPassiveDepletion(baseT);
+  const legacyTamagotchi = applyPassiveDepletion(baseT);
+  const companionCareLoaded = loadCompanionCarePlanForChart(chart, {
+    nowIso: now,
+    persistOnCreate: process.env.VITEST !== "true",
+  });
+  const companionCare = companionCareToView(
+    companionCareLoaded.plan,
+    chart.companion.displayName,
+  );
+  const tamagotchi = companionCareToTamagotchi(companionCareLoaded.plan);
 
   const { dueWords, sm2Stats } = sm2(wordBank);
   const { mathRotation } = interleaving(
@@ -166,7 +182,14 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const wrShowKeyboard =
     wordRadarGame?.inputMode === "keyboard" || childMeta?.showKeyboard === true;
 
-  const companionCurrency = Math.max(0, Math.floor(Number(lp.companionCurrency ?? 0)));
+  const companionCurrency = companionCare.economy.coins;
+  const careContext = [
+    "",
+    "## Companion care state",
+    `Care vitals: hunger ${Math.round(companionCare.vitals.hunger * 100)}%, energy ${Math.round(companionCare.vitals.energy * 100)}%, bond ${Math.round(companionCare.vitals.bond * 100)}%, usefulness ${Math.round(companionCare.vitals.usefulness * 100)}%, thought clarity ${Math.round(companionCare.vitals.thoughtClarity * 100)}%.`,
+    `Mood label: ${companionCare.moodLabel}. Last seen: ${companionCare.lastSeenLabel}.`,
+    "Care tone: visible consequences are allowed, but never guilt, blame, or blocking required homework. Offer repair paths like feeding, warmup, or continuing gently.",
+  ].join("\n");
 
   const profile: ChildProfile = {
     childId,
@@ -190,9 +213,12 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     attentionWindow_ms,
     childContext: getChildContext(childId),
     companion,
-    companionContext,
+    companionContext: companionContext
+      ? `${companionContext}${careContext}`
+      : careContext.trim(),
     pendingHomework: lp.pendingHomework ?? undefined,
-    tamagotchi,
+    tamagotchi: tamagotchi ?? legacyTamagotchi,
+    companionCare,
     wordRadar: {
       showTimer: wrShowTimer,
       showKeyboard: wrShowKeyboard,

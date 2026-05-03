@@ -1155,6 +1155,7 @@ export function handleMapClientMessage(
       childId: rec.mapState.childId,
       amount: pl.amount,
       dryRun: skipPersistence,
+      reason: String(pl.reason ?? "currency_award"),
     });
     if (!out.ok) {
       return [];
@@ -1222,7 +1223,8 @@ export async function applyNodeResult(
     throw new MapSessionError("unknown_node", 400);
   }
 
-  if (!st.completedNodes.includes(result.nodeId)) {
+  const wasAlreadyCompleted = st.completedNodes.includes(result.nodeId);
+  if (!wasAlreadyCompleted) {
     st.completedNodes.push(result.nodeId);
   }
 
@@ -1338,6 +1340,24 @@ export async function applyNodeResult(
       xpDelta += 50;
     }
     st.xp += xpDelta;
+  }
+
+  if (!skipSessionPersistence && result.completed && !wasAlreadyCompleted) {
+    const out = reconcileCompanionCurrencyAward({
+      childId: st.childId,
+      amount: 25,
+      dryRun: false,
+      reason: "node_complete",
+    });
+    if (out.ok) {
+      broadcastCompanionEventToMapChild(st.childId, {
+        type: "currency_update",
+        balance: out.balance,
+      });
+      console.log(
+        `  🎮 [companion-care] node_complete coins +25 balance=${out.balance}`,
+      );
+    }
   }
 
   if (!skipSessionPersistence) {

@@ -8,6 +8,12 @@ import { spawn } from "child_process";
 import { ELLI, MATILDA } from "../companions/loader";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { buildProfile } from "../profiles/buildProfile";
+import { getChildChart } from "../profiles/childChart";
+import {
+  loadCompanionCarePlanForChart,
+  mirrorCompanionCareToLearningProfile,
+  saveCompanionCarePlan,
+} from "../profiles/companionCarePlan";
 import type { NodeResult } from "../shared/adventureTypes";
 import {
   applyNodeResult,
@@ -38,6 +44,10 @@ import {
   applyTamagotchiFill,
 } from "../engine/vrrEngine";
 import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
+import {
+  applyCompanionFeedItem,
+  companionCareToView,
+} from "../engine/companionCareEngine";
 import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
@@ -405,6 +415,51 @@ export function setupRoutes(app: Express): void {
       res.status(500).json({ error: message });
     }
   });
+
+  app.post(
+    "/api/profile/:childId/companion-care/feed",
+    (req: Request, res: Response) => {
+      const childId =
+        typeof req.params.childId === "string" ? req.params.childId.trim() : "";
+      if (!childId) {
+        return res.status(400).json({ error: "Missing childId" });
+      }
+      const itemId = String(
+        (req.body as { itemId?: string } | undefined)?.itemId ?? "",
+      ).trim();
+      if (!itemId) {
+        return res.status(400).json({ error: "itemId required" });
+      }
+      try {
+        const chart = getChildChart(childId);
+        const loaded = loadCompanionCarePlanForChart(chart);
+        const nowIso = new Date().toISOString();
+        const result = applyCompanionFeedItem(loaded.plan, itemId, nowIso);
+        if (!result.ok) {
+          return res.status(400).json({ error: result.reason });
+        }
+        saveCompanionCarePlan(chart, result.plan);
+        const mirrored = mirrorCompanionCareToLearningProfile(chart, result.plan);
+        const companionCare = companionCareToView(
+          result.plan,
+          chart.companion.displayName,
+        );
+        console.log(
+          `  🎮 [companion-care] feed ${itemId} hunger ${loaded.plan.state.hunger.toFixed(2)} -> ${result.plan.state.hunger.toFixed(2)}`,
+        );
+        res.json({
+          ok: true,
+          companionCare,
+          tamagotchi: mirrored.tamagotchi,
+          companionCurrency: mirrored.companionCurrency,
+          animation: result.animation,
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        res.status(500).json({ error: message });
+      }
+    },
+  );
 
   app.post("/api/profile/:childId/vrr-claim", (req: Request, res: Response) => {
     const childId =
