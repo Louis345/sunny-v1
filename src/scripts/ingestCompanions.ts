@@ -45,9 +45,20 @@ type ShowroomConfig = {
   specialSkills?: unknown;
   role?: unknown;
   outfitChangeEffect?: unknown;
+  signatureMove?: unknown;
   gestureProfile?: unknown;
   voices?: unknown;
   scripts?: unknown;
+};
+
+type ShowroomSignatureMove = {
+  id: string;
+  name: string;
+  trait: string;
+  visibleLevels: string[];
+  voiceLine: string;
+  vfx: string[];
+  sfx: string[];
 };
 
 export type ShowroomVoiceOption = {
@@ -81,6 +92,7 @@ type CompanionManifestEntry = {
     specialSkills: string[];
     role?: string;
     outfitChangeEffect?: string;
+    signatureMove?: ShowroomSignatureMove;
     gestureProfile: {
       meet: string;
       intro: string[];
@@ -155,6 +167,28 @@ export function asGestureProfile(value: unknown): CompanionManifestShowroom["ges
     intro: intro.length > 0 ? intro : ["wave", "think"],
     plead: plead.length > 0 ? plead : ["dance_victory", "wave"],
     specialDance,
+  };
+}
+
+function asSignatureMove(value: unknown): ShowroomSignatureMove | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const obj = value as Record<string, unknown>;
+  const id = asString(obj.id);
+  const name = asString(obj.name);
+  const trait = asString(obj.trait);
+  const voiceLine = asString(obj.voiceLine);
+  const visibleLevels = asStringArray(obj.visibleLevels);
+  const vfx = asStringArray(obj.vfx);
+  const sfx = asStringArray(obj.sfx);
+  if (!id || !name || !trait || !voiceLine) return undefined;
+  return {
+    id,
+    name,
+    trait,
+    visibleLevels,
+    voiceLine,
+    vfx,
+    sfx,
   };
 }
 
@@ -263,6 +297,7 @@ function buildShowroom(
     specialSkills: asStringArray(showroom?.specialSkills),
     role: asString(showroom?.role),
     outfitChangeEffect: asString(showroom?.outfitChangeEffect),
+    signatureMove: asSignatureMove(showroom?.signatureMove),
     gestureProfile: asGestureProfile(showroom?.gestureProfile),
     scripts: resolveScripts(companionName, showroom),
   };
@@ -312,6 +347,15 @@ export type CompanionManifestEntry = {
     specialSkills: string[];
     role?: string;
     outfitChangeEffect?: string;
+    signatureMove?: {
+      id: string;
+      name: string;
+      trait: string;
+      visibleLevels: string[];
+      voiceLine: string;
+      vfx: string[];
+      sfx: string[];
+    };
     gestureProfile: {
       meet: string;
       intro: string[];

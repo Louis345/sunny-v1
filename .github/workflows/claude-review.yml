@@ -41,6 +41,10 @@ First, check the diff against **AGENTS.md Development Laws** (repo root). Flag v
 - **Law 6 (Architecting):** Touches more than ~2 files without clear necessity — flag and ask for split or justification.
 - **Law 7:** CI must pass build + tests; if the diff could break `npm run build` or Vitest, say so.
 - **Law 8 (Agent-assisted review):** Does this PR need a slimmer diff or missing tests per solo-maintainer safeguards?
+- **Law 9 (Story mode personalization):** Story/karaoke homework must be child-centered when a child profile exists. For Reina, flag generic stories, missing profile motivators such as challenge/competition/wrestling/strategy/personal bests or another profile-backed hook, `storyImagePrompt` values that do not match the chosen adaptive hook, or malformed empty word-list text. Do not require every story to make Reina the protagonist.
+- **Law 10 (Dynamic content domain gate):** Dynamic AI content must follow captured evidence -> domain gate -> child engagement hooks -> gap plan -> generated content. Flag baseline activities attached to the wrong domain, such as Reading Mode or Countdown on unrelated math assignments; flag generated content that ignores captured source text/questions/concepts/source documents; flag content that uses dopamine hooks without measured gap targets.
+- **Variable reward quest gate:** Flag PRs that make quest/boss a simple fixed-position reward. Quest should unlock from domain-valid captured content plus performance evidence (accuracy, recovery, streak, completed baseline work). Weak performance should route support before generated quest. Boss should stay mastery-gated behind quest evidence.
+- **Law 11 (AI content catalog):** Flag generated/prototype/reused content that enters the active path without a catalog item, non-empty algorithmTargets, input evidence, and reuse/revise/retire status. Flag "fun content" that does not name the learning algorithm it serves or how it will be measured.
 
 **Maintainability (AGENTS.md):** Prefer broad product rules over many narrow code branches; new server guards should ideally have tests.
 

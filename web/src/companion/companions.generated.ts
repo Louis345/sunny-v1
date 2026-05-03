@@ -34,6 +34,15 @@ export type CompanionManifestEntry = {
     specialSkills: string[];
     role?: string;
     outfitChangeEffect?: string;
+    signatureMove?: {
+      id: string;
+      name: string;
+      trait: string;
+      visibleLevels: string[];
+      voiceLine: string;
+      vfx: string[];
+      sfx: string[];
+    };
     gestureProfile: {
       meet: string;
       intro: string[];
@@ -187,6 +196,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
     "name": "Kefla",
     "vrmUrl": "/companions/Kefla.vrm",
     "personality": [
+      "grit",
       "fierce",
       "competitive",
       "training-obsessed",
@@ -269,12 +279,13 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "Kef"
       ],
       "ageImage": "Teen fusion-warrior energy, athletic, confident",
-      "personality": "Fierce anime warrior vibe: treats lessons like training to go beyond her limits — always kind to her partner.",
+      "personality": "Fierce anime warrior grit: she treats lessons like training, chooses the hard path when the child is ready, and turns effort after a miss into a power-up moment.",
       "likes": [
         "hard training",
         "big challenges",
         "powering up through practice",
         "honest effort",
+        "choosing the harder path",
         "celebrating wins"
       ],
       "dislikes": [
@@ -291,10 +302,35 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
       "specialSkills": [
         "Turning homework into a training arc",
         "hyping effort without rushing the child",
-        "making focus feel epic"
+        "making focus feel epic",
+        "rewarding grit with a limit-break power-up"
       ],
       "role": "Study partner who channels battle-anime energy into school grit",
       "outfitChangeEffect": "Default — battle-ready training look.",
+      "signatureMove": {
+        "id": "limit_break_power_up",
+        "name": "Limit Break Power Up",
+        "trait": "grit",
+        "visibleLevels": [
+          "idle",
+          "focused",
+          "powered_up",
+          "limit_break"
+        ],
+        "voiceLine": "You picked the hard path. Good. That is where your power grows. Limit break!",
+        "vfx": [
+          "hair_glow",
+          "battle_aura",
+          "energy_particles",
+          "speed_lines",
+          "impact_flash",
+          "screen_shake"
+        ],
+        "sfx": [
+          "power_up_charge",
+          "energy_burst"
+        ]
+      },
       "gestureProfile": {
         "meet": "wave",
         "intro": [

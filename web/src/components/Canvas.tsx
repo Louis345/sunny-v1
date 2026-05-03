@@ -311,6 +311,7 @@ interface Props {
   storyImageChildId?: string;
   storyImageLoading?: boolean;
   storyImageUrl?: string | null;
+  storyImageFailed?: boolean;
   sessionTheme?: SessionTheme | null;
 }
 
@@ -1742,6 +1743,7 @@ export function Canvas({
   storyImageChildId = "star",
   storyImageLoading = false,
   storyImageUrl = null,
+  storyImageFailed = false,
   sessionTheme = null,
 }: Props) {
   console.log("[Canvas] render:", {
@@ -1750,6 +1752,7 @@ export function Canvas({
     willRender: shouldRenderTeachingContent(canvas),
     storyImageLoading,
     hasStoryImageUrl: Boolean(storyImageUrl),
+    storyImageFailed,
   });
   const [displayContent, setDisplayContent] = useState("");
   const [riddleLabel, setRiddleLabel] = useState("");
@@ -2193,6 +2196,51 @@ export function Canvas({
           >
             ✨ Your adventure, illustrated
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (storyImageFailed) {
+    return (
+      <div
+        className="flex-1 w-full min-h-0 relative"
+        style={{ overflow: "hidden" }}
+      >
+        <style>{storyImageKeyframes}</style>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            gap: 18,
+            background: "#FFF8F0",
+            color: "#334155",
+            fontFamily: "Lexend, system-ui",
+          }}
+        >
+          <div
+            style={{
+              width: 112,
+              height: 112,
+              borderRadius: "50%",
+              border: "4px solid #FFD700",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 44,
+              fontWeight: 800,
+              background: "white",
+            }}
+            aria-hidden
+          >
+            {storyImageChildId.trim().charAt(0).toUpperCase() || "?"}
+          </div>
+          <p style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
+            Story complete. Image unavailable
+          </p>
         </div>
       </div>
     );

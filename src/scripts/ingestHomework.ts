@@ -11,14 +11,21 @@ import type { LearningProfile } from "../context/schemas/learningProfile";
 import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
-import { generateHomeworkId } from "../context/schemas/homeworkCycle";
+import { generateContentFingerprint, generateHomeworkId } from "../context/schemas/homeworkCycle";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 import { buildPreQuestTheory } from "../engine/homeworkCycleLoop";
 import {
+  buildHomeworkContentCatalogItems,
+  upsertProfileContentCatalog,
+} from "../engine/learningDecisionContext";
+import {
+  buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
   normalizeContentProfile,
+  recommendBaselineActivities,
+  type CapturedHomeworkContent,
   type ContentProfile,
   type HomeworkType,
   type PlannedHomeworkNode,
@@ -33,6 +40,8 @@ type ExtractionShape = {
   testDate: string | null;
   words: string[];
   contentProfile: ContentProfile;
+  capturedContent: CapturedHomeworkContent;
+  contentFingerprint: string;
   questions: Array<{
     id: number;
     question: string;
@@ -320,12 +329,14 @@ export function buildPendingHomeworkPayload(args: {
   homeworkId: string;
   nodes: PlannedNode[];
   contentProfile?: ContentProfile | null;
+  capturedContent?: CapturedHomeworkContent | null;
 }): NonNullable<LearningProfile["pendingHomework"]> & { homeworkId: string } {
   return {
     weekOf: args.weekOf,
     testDate: args.testDate,
     wordList: args.wordList,
     contentProfile: args.contentProfile ?? null,
+    capturedContent: args.capturedContent ?? null,
     homeworkId: args.homeworkId,
     generatedAt: new Date().toISOString(),
     nodes: args.nodes.map((node) => {
@@ -485,6 +496,7 @@ async function extractHomework(
   }]
 }`;
   const isPdf = filePath.toLowerCase().endsWith(".pdf");
+  const sourceText = isPdf ? "" : fs.readFileSync(filePath, "utf8");
   const content = isPdf
     ? [
         {
@@ -497,7 +509,7 @@ async function extractHomework(
         },
         { type: "text" as const, text: prompt },
       ]
-    : `${prompt}\n\nHomework text:\n${fs.readFileSync(filePath, "utf8")}`;
+    : `${prompt}\n\nHomework text:\n${sourceText}`;
   const msg = await client.messages.create({
     model: HAIKU_MODEL,
     max_tokens: 8192,
@@ -529,6 +541,29 @@ async function extractHomework(
     questions,
     contentProfile: parsed.contentProfile,
   });
+  const capturedContent = buildCapturedHomeworkContent({
+    title,
+    type: normalizedType,
+    rawText: sourceText,
+    words,
+    questions,
+    sourceDocuments: [
+      {
+        filename: path.basename(filePath),
+        mediaType: isPdf ? "application/pdf" : "text/plain",
+      },
+    ],
+    contentProfile,
+  });
+  const contentFingerprint = generateContentFingerprint({
+    childId: "",
+    title,
+    rawText: sourceText,
+    words,
+    questions,
+    testDate: parsed.testDate ? String(parsed.testDate) : null,
+    sourceDocuments: capturedContent.sourceDocuments,
+  });
   return {
     title,
     type: normalizedType,
@@ -536,6 +571,8 @@ async function extractHomework(
     testDate: parsed.testDate ? String(parsed.testDate) : null,
     words,
     contentProfile,
+    capturedContent,
+    contentFingerprint,
     questions,
   };
 }
@@ -546,6 +583,8 @@ export function buildCycleStub(args: {
   subject: string;
   wordList: string[];
   contentProfile?: ContentProfile | null;
+  capturedContent?: CapturedHomeworkContent | null;
+  contentFingerprint?: string | null;
   ingestedAt: string;
   testDate: string | null;
 }): HomeworkCycle {
@@ -554,6 +593,9 @@ export function buildCycleStub(args: {
     subject: args.subject,
     wordList: args.wordList,
     contentProfile: args.contentProfile ?? null,
+    capturedContent: args.capturedContent ?? null,
+    contentFingerprint: args.contentFingerprint ?? undefined,
+    calibrationStatus: "unverified",
     ingestedAt: args.ingestedAt,
     testDate: args.testDate,
     assumptions: null,
@@ -641,11 +683,22 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const homeworkId = generateHomeworkId(extracted.type, extracted.words);
   const cyclesDir = path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
   fs.mkdirSync(cyclesDir, { recursive: true });
+  const contentFingerprint = generateContentFingerprint({
+    childId,
+    title: extracted.title,
+    rawText: extracted.capturedContent.rawText,
+    words: extracted.words,
+    questions: extracted.questions,
+    testDate,
+    sourceDocuments: extracted.capturedContent.sourceDocuments,
+  });
   const cycleStub = buildCycleStub({
     homeworkId,
     subject: extracted.type,
     wordList: extracted.words,
     contentProfile: extracted.contentProfile,
+    capturedContent: extracted.capturedContent,
+    contentFingerprint,
     ingestedAt: today,
     testDate,
   });
@@ -694,10 +747,20 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     testDate,
     wordList: extracted.words,
     contentProfile: extracted.contentProfile,
+    capturedContent: extracted.capturedContent,
     homeworkId,
     nodes: homeworkNodes,
   });
-  writeLearningProfile(childId, profileDoc);
+  const catalogItems = buildHomeworkContentCatalogItems({
+    childId,
+    homeworkId,
+    capturedContent: extracted.capturedContent,
+    contentFingerprint,
+    nodes: homeworkNodes,
+    baselineActivities: recommendBaselineActivities(extracted.capturedContent),
+  });
+  const profileWithCatalog = upsertProfileContentCatalog(profileDoc, catalogItems);
+  writeLearningProfile(childId, profileWithCatalog);
 
   console.log(`✅ Saved to src/context/${childId}/homework/pending/${today}/`);
 

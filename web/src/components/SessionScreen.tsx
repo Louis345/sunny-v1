@@ -53,6 +53,7 @@ interface Props {
   readingCanvas: ReadingCanvasPreferences;
   storyImageLoading?: boolean;
   storyImageUrl?: string | null;
+  storyImageFailed?: boolean;
   accentColor: string;
   accentBg: string;
   sessionTheme?: SessionTheme | null;
@@ -80,6 +81,7 @@ export function SessionScreen({
   readingCanvas,
   storyImageLoading = false,
   storyImageUrl = null,
+  storyImageFailed = false,
   accentColor,
   accentBg,
   sessionTheme = null,
@@ -143,6 +145,7 @@ export function SessionScreen({
           storyImageChildId={childId}
           storyImageLoading={storyImageLoading}
           storyImageUrl={storyImageUrl}
+          storyImageFailed={storyImageFailed}
           sessionTheme={sessionTheme}
         />
       </div>

@@ -118,12 +118,13 @@ describe("Audit 2 — SM-2 homework words and map", () => {
 
   it("planSession returns homework words when priority exists", () => {
     const bank = createEmptyWordBank(childId);
+    const futureTestDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
     bank.words.push({
       word: "beta",
       addedAt: new Date().toISOString(),
       source: "homework",
       homeworkPriority: true,
-      testDate: "2026-05-01",
+      testDate: futureTestDate,
       tracks: { spelling: createFreshSM2Track("2026-04-21") },
     });
     writeWordBank(childId, bank);

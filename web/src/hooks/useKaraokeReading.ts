@@ -20,6 +20,7 @@ export interface UseKaraokeReadingResult {
   wordIndex: number;
   skippedIndices: number[];
   handleSkipWord: (idx: number) => void;
+  completeReading: (reason?: "preview") => void;
   isComplete: boolean;
   flaggedWords: string[];
   hitWordIndex: number | null;
@@ -106,6 +107,49 @@ export function useKaraokeReading(
     return () => window.clearTimeout(id);
   }, [hitWordIndex]);
 
+  const completeReading = useCallback(
+    (reason?: "preview") => {
+      if (mode === "multi") return;
+      if (isCompleteRef.current || words.length === 0) return;
+
+      const current = Math.min(Math.max(0, wordIndexRef.current), words.length);
+      if (reason === "preview" && current < words.length) {
+        const remainingIndices: number[] = [];
+        for (let i = current; i < words.length; i += 1) {
+          remainingIndices.push(i);
+          const norm = words[i]?.toLowerCase().trim();
+          if (norm) skippedWordsListRef.current.push(norm);
+        }
+        setSkippedIndices((prev) => Array.from(new Set([...prev, ...remainingIndices])));
+      }
+
+      wordIndexRef.current = words.length;
+      mismatchCountForCurrentRef.current = 0;
+      isCompleteRef.current = true;
+      setWordIndex(words.length);
+      setIsComplete(true);
+      if (reason === "preview") {
+        onComplete?.();
+      }
+      sendMessage(
+        "reading_progress",
+        buildKaraokeReadingProgressPayload({
+          wordIndex: words.length,
+          totalWords: words.length,
+          hesitations: hesitationsRef.current,
+          flaggedWords: Array.from(flaggedWordsSetRef.current),
+          skippedWords: [...skippedWordsListRef.current],
+          spelledWords: [...spelledWordsRef.current],
+          event: "complete",
+        }),
+      );
+      if (reason !== "preview") {
+        onComplete?.();
+      }
+    },
+    [mode, onComplete, sendMessage, words],
+  );
+
   const handleSkipWord = useCallback(
     (globalIdx: number) => {
       if (mode === "multi") return;
@@ -121,21 +165,7 @@ export function useKaraokeReading(
       setWordIndex(next);
       setSkippedIndices((prev) => [...prev, globalIdx]);
       if (next >= words.length) {
-        isCompleteRef.current = true;
-        setIsComplete(true);
-        sendMessage(
-          "reading_progress",
-          buildKaraokeReadingProgressPayload({
-            wordIndex: next,
-            totalWords: words.length,
-            hesitations: hesitationsRef.current,
-            flaggedWords: Array.from(flaggedWordsSetRef.current),
-            skippedWords: [...skippedWordsListRef.current],
-            spelledWords: [...spelledWordsRef.current],
-            event: "complete",
-          }),
-        );
-        onComplete?.();
+        completeReading();
         return;
       }
       sendMessage(
@@ -151,7 +181,7 @@ export function useKaraokeReading(
         }),
       );
     },
-    [words, sendMessage, onComplete, mode],
+    [words, sendMessage, mode, completeReading],
   );
 
   // Process interim transcript: sequential advance, or multi-belt match.
@@ -283,30 +313,16 @@ export function useKaraokeReading(
     wordIndexRef.current = next;
     setWordIndex(next);
     if (next >= words.length) {
-      isCompleteRef.current = true;
-      setIsComplete(true);
-      sendMessage(
-        "reading_progress",
-        buildKaraokeReadingProgressPayload({
-          wordIndex: next,
-          totalWords: words.length,
-          hesitations: hesitationsRef.current,
-          flaggedWords: Array.from(flaggedWordsSetRef.current),
-          skippedWords: [...skippedWordsListRef.current],
-          spelledWords: [...spelledWordsRef.current],
-          event: "complete",
-        }),
-      );
-      onComplete?.();
+      completeReading();
     }
   }, [
     interimTranscript,
     words,
     sendMessage,
-    onComplete,
     mode,
     activeWordIndices,
     leaderWordIndex,
+    completeReading,
   ]);
 
   // Periodic progress heartbeat every 3 seconds.
@@ -338,6 +354,7 @@ export function useKaraokeReading(
     wordIndex,
     skippedIndices,
     handleSkipWord,
+    completeReading,
     isComplete,
     flaggedWords,
     hitWordIndex,

@@ -13,6 +13,7 @@ import {
   pickIncomingHomeworkFile,
   shouldGenerateBossNode,
 } from "../scripts/ingestHomework";
+import { buildCapturedHomeworkContent, normalizeContentProfile } from "../scripts/contentAwareHomeworkPlanner";
 
 /** First `childProfiles` id from repo-root `children.config.json` (sorted for stability). */
 function sampleChildIdFromConfig(): string {
@@ -100,6 +101,46 @@ describe("ingestHomework", () => {
     });
     expect(pending.weekOf).toBe("2026-04-21");
     expect(pending.testDate).toBe("2026-04-25");
+  });
+
+  it("pendingHomework stores captured content for future dynamic AI nodes", () => {
+    const contentProfile = normalizeContentProfile({
+      title: "Erosion Study Guide",
+      type: "reading",
+      words: ["erosion"],
+      questions: [],
+      contentProfile: {
+        practiceDomain: "reading",
+        contentDomain: "science",
+        topic: "erosion",
+        primarySkill: "reading_comprehension",
+        assignmentFormat: "study_guide",
+        concepts: ["erosion", "water", "soil"],
+      },
+    });
+    const capturedContent = buildCapturedHomeworkContent({
+      title: "Erosion Study Guide",
+      type: "reading",
+      rawText: "Water carries soil downhill.",
+      words: ["erosion"],
+      questions: [{ id: 1, question: "What carries soil?", correctAnswer: "water" }],
+      sourceDocuments: [{ filename: "Test for May 6.pdf", mediaType: "application/pdf" }],
+      contentProfile,
+    });
+
+    const pending = buildPendingHomeworkPayload({
+      weekOf: "2026-04-21",
+      testDate: "2026-04-25",
+      wordList: ["erosion"],
+      homeworkId: "hw-reading-erosion",
+      nodes: [],
+      contentProfile,
+      capturedContent,
+    });
+
+    expect(pending.capturedContent?.rawText).toContain("Water carries soil");
+    expect(pending.capturedContent?.sourceDocuments[0]?.filename).toBe("Test for May 6.pdf");
+    expect(pending.capturedContent?.contentProfile.topic).toBe("erosion");
   });
 
   it("karaoke story embeds word list", () => {

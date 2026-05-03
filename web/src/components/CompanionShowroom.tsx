@@ -12,6 +12,11 @@ import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import { CompanionMotor } from "../companion/CompanionMotor";
 import {
+  CompanionVfxLayer,
+  type CompanionVfxLevel,
+  type CompanionVfxPreset,
+} from "../companion/CompanionVfxLayer";
+import {
   COMPANION_MANIFEST,
   type CompanionManifestEntry,
 } from "../companion/companions.generated";
@@ -106,6 +111,7 @@ type AmbientMusicHandle = {
 
 type SpeakingLine = "intro" | "plead";
 type GestureLine = SpeakingLine | "meet";
+type SignatureMoveLevel = "idle" | "focused" | "powered_up" | "limit_break";
 export type CompanionShowroomGestureProfile = {
   meet?: string;
   intro?: string[];
@@ -211,6 +217,62 @@ const sparkleSeeds = [
   { left: "50%", top: "52%", delay: "1.9s", size: 3 },
 ];
 
+function playPowerUpSfx(): AmbientMusicHandle | null {
+  const AudioContextCtor =
+    window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+  if (!AudioContextCtor) return null;
+  const ctx = new AudioContextCtor();
+  const master = ctx.createGain();
+  const rumble = ctx.createOscillator();
+  const charge = ctx.createOscillator();
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.55, ctx.sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < noiseData.length; i += 1) {
+    noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseData.length);
+  }
+  const burst = ctx.createBufferSource();
+  const burstGain = ctx.createGain();
+  burst.buffer = noiseBuffer;
+  rumble.type = "sawtooth";
+  charge.type = "triangle";
+  rumble.frequency.setValueAtTime(58, ctx.currentTime);
+  rumble.frequency.exponentialRampToValueAtTime(92, ctx.currentTime + 1.1);
+  charge.frequency.setValueAtTime(180, ctx.currentTime);
+  charge.frequency.exponentialRampToValueAtTime(780, ctx.currentTime + 1.15);
+  master.gain.setValueAtTime(0.0001, ctx.currentTime);
+  master.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.12);
+  master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.7);
+  burstGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+  burstGain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 1.05);
+  burstGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.55);
+  rumble.connect(master);
+  charge.connect(master);
+  burst.connect(burstGain);
+  burstGain.connect(master);
+  master.connect(ctx.destination);
+  void ctx.resume();
+  rumble.start();
+  charge.start();
+  burst.start(ctx.currentTime + 1.02);
+  rumble.stop(ctx.currentTime + 1.72);
+  charge.stop(ctx.currentTime + 1.72);
+  burst.stop(ctx.currentTime + 1.58);
+  const closeTimer = window.setTimeout(() => void ctx.close(), 1850);
+  return {
+    stop: () => {
+      window.clearTimeout(closeTimer);
+      try {
+        rumble.stop();
+        charge.stop();
+        burst.stop();
+      } catch {
+        // Oscillators may already be stopped by the scheduled power-up.
+      }
+      void ctx.close();
+    },
+  };
+}
+
 function createShowroomCommand(
   type: string,
   payload: Record<string, unknown>,
@@ -270,6 +332,14 @@ function resolveModelUrl(vrmUrl: string): string {
     return vrmUrl;
   }
   return `${window.location.origin}${vrmUrl.startsWith("/") ? "" : "/"}${vrmUrl}`;
+}
+
+function signatureMoveVfxPreset(
+  entry: CompanionManifestEntry,
+): CompanionVfxPreset | undefined {
+  return entry.showroom?.signatureMove?.vfx.includes("battle_aura")
+    ? "yellow_power_aura"
+    : undefined;
 }
 
 function createSlotEntries(
@@ -528,6 +598,8 @@ function CompanionSlot({
   active,
   soleFlankPair,
   contained = false,
+  vfxPreset,
+  vfxLevel = "idle",
   getAnalyser,
   onMotorReady,
   onLoadSettled,
@@ -542,6 +614,8 @@ function CompanionSlot({
   */
   soleFlankPair?: boolean;
   contained?: boolean;
+  vfxPreset?: CompanionVfxPreset;
+  vfxLevel?: CompanionVfxLevel;
   getAnalyser?: () => AnalyserNode | null;
   onMotorReady?: (slot: SlotName, motor: CompanionMotor | null) => void;
   onLoadSettled: (slotKey: string) => void;
@@ -553,6 +627,7 @@ function CompanionSlot({
   const rafRef = useRef<number | null>(null);
   const timerRef = useRef<THREE.Timer | null>(null);
   const motorRef = useRef<CompanionMotor | null>(null);
+  const vfxLayerRef = useRef<CompanionVfxLayer | null>(null);
   const rendererRef = useRef<CompanionRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -569,6 +644,10 @@ function CompanionSlot({
       ),
     [entry.companionConfig, entry.id, entry.vrmUrl],
   );
+
+  useEffect(() => {
+    vfxLayerRef.current?.setLevel(vfxLevel);
+  }, [vfxLevel]);
 
   useEffect(() => {
     const previousSlot = slotRef.current;
@@ -644,6 +723,7 @@ function CompanionSlot({
         activeNodeScreen: null,
         analyser: getAnalyser?.() ?? null,
       });
+      vfxLayerRef.current?.tick(dt, camera);
       renderer.render(scene, camera);
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -724,6 +804,11 @@ function CompanionSlot({
       const dir = new THREE.DirectionalLight(0xffffff, 0.88);
       dir.position.set(1.2, 2.2, 0.8);
       scene.add(dir);
+      if (vfxPreset) {
+        const vfxLayer = new CompanionVfxLayer(vfxPreset);
+        vfxLayerRef.current = vfxLayer;
+        scene.add(vfxLayer.group);
+      }
 
       loadCompanionVrm(resolveModelUrl(companionConfig.vrmUrl), { webgpu: webgpuMaterials })
         .then((vrm) => {
@@ -813,6 +898,8 @@ function CompanionSlot({
       timerRef.current = null;
       const renderer = rendererRef.current;
       rendererRef.current = null;
+      vfxLayerRef.current?.dispose();
+      vfxLayerRef.current = null;
       if (renderer) {
         renderer.domElement.remove();
         renderer.dispose();
@@ -830,6 +917,7 @@ function CompanionSlot({
     slotKey,
     startLoop,
     stopLoop,
+    vfxPreset,
   ]);
 
   return (
@@ -893,6 +981,8 @@ function CompanionInfoCard({
   onVoiceChange,
   onSpeak,
   onSpecialDance,
+  onSignatureMove,
+  signatureMoveLevel,
   onPick,
   onClose,
   onCardMotorReady,
@@ -911,6 +1001,8 @@ function CompanionInfoCard({
   onVoiceChange: (voiceId: string) => void;
   onSpeak: (line: SpeakingLine) => void;
   onSpecialDance: () => void;
+  onSignatureMove: () => void;
+  signatureMoveLevel: SignatureMoveLevel;
   onPick: () => void;
   onClose: () => void;
   onCardMotorReady: (motor: CompanionMotor | null) => void;
@@ -943,6 +1035,8 @@ function CompanionInfoCard({
   ].filter((row) => row.values.length > 0);
   const voices = entry.voices ?? [];
   const canSpeak = voices.length > 0;
+  const signatureMove = showroom?.signatureMove;
+  const signatureActive = signatureMoveLevel !== "idle";
 
   return (
     <motion.div
@@ -1250,6 +1344,30 @@ function CompanionInfoCard({
             >
               Signature Dance
             </button>
+            {signatureMove && (
+              <button
+                type="button"
+                onClick={onSignatureMove}
+                disabled={!cardPreviewVrmReady || speakingLine != null}
+                title={!cardPreviewVrmReady ? "Loading 3D preview…" : signatureMove.voiceLine}
+                style={{
+                  border: "1px solid rgba(250,204,21,0.58)",
+                  borderRadius: 999,
+                  background:
+                    "linear-gradient(135deg, rgba(34,197,94,0.24), rgba(250,204,21,0.24))",
+                  color: "#fef9c3",
+                  fontSize: 14,
+                  fontWeight: 900,
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                  padding: "11px 16px",
+                  cursor:
+                    cardPreviewVrmReady && speakingLine == null ? "pointer" : "not-allowed",
+                  boxShadow: signatureActive ? "0 0 26px rgba(250,204,21,0.34)" : undefined,
+                }}
+              >
+                {signatureMove.name}
+              </button>
+            )}
           </div>
 
           {speechError && (
@@ -1283,6 +1401,7 @@ function CompanionInfoCard({
       </div>
       <div
         aria-hidden
+        className={signatureActive ? "sunny-kefla-power-shake" : undefined}
         style={{
           position: "relative",
           minHeight: 0,
@@ -1296,6 +1415,8 @@ function CompanionInfoCard({
           slot="current"
           active
           contained
+          vfxPreset={signatureMoveVfxPreset(entry)}
+          vfxLevel={signatureMoveLevel}
           getAnalyser={getAnalyser}
           onMotorReady={handleCardSlotMotorReady}
           onLoadSettled={ignoreCardSlotLoadSettled}
@@ -1323,6 +1444,8 @@ export function CompanionShowroom({
   const [musicOn, setMusicOn] = useState(enableBackgroundMusic);
   const [speakingLine, setSpeakingLine] = useState<SpeakingLine | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [signatureMoveLevel, setSignatureMoveLevel] =
+    useState<SignatureMoveLevel>("idle");
   const [voiceSelections, setVoiceSelections] = useState<Record<string, string>>({});
   const [showroomDiagAnimation, setShowroomDiagAnimation] = useState<string>("idle");
   const [showroomDiagLastCommand, setShowroomDiagLastCommand] =
@@ -1345,6 +1468,7 @@ export function CompanionShowroom({
   const speechAnalyserRef = useRef<AnalyserNode | null>(null);
   const speechGestureIntervalRef = useRef<number | null>(null);
   const speechUrlRef = useRef<string | null>(null);
+  const powerUpSfxRef = useRef<AmbientMusicHandle | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
   const getSpeechAnalyser = useCallback(() => speechAnalyserRef.current, []);
 
@@ -1501,6 +1625,9 @@ export function CompanionShowroom({
 
   const stopSpeech = useCallback(() => {
     clearSpeechGestures();
+    setSignatureMoveLevel("idle");
+    powerUpSfxRef.current?.stop();
+    powerUpSfxRef.current = null;
     speechAudioRef.current?.audio.pause();
     void speechAudioRef.current?.context.close();
     speechAudioRef.current = null;
@@ -1638,6 +1765,36 @@ export function CompanionShowroom({
     );
   }, [current, playCurrentCompanionAnimation, stopSpeech]);
 
+  const playSignatureMove = useCallback(() => {
+    if (!current?.showroom?.signatureMove) return;
+    stopSpeech();
+    clearTimers();
+    setSpeechError(null);
+    setCurrentCompanionCamera("close-up", 260);
+    setSignatureMoveLevel("focused");
+    powerUpSfxRef.current?.stop();
+    powerUpSfxRef.current = playPowerUpSfx();
+    schedule(() => {
+      setSignatureMoveLevel("powered_up");
+    }, 520);
+    schedule(() => {
+      setSignatureMoveLevel("limit_break");
+    }, 1080);
+    schedule(() => {
+      setSignatureMoveLevel("powered_up");
+      setCurrentCompanionCamera("mid-shot", 420);
+    }, 1750);
+    schedule(() => {
+      setSignatureMoveLevel("idle");
+    }, 2600);
+  }, [
+    clearTimers,
+    current,
+    schedule,
+    setCurrentCompanionCamera,
+    stopSpeech,
+  ]);
+
   const speakCurrent = useCallback(
     async (line: SpeakingLine) => {
       const currentDefaultVoice =
@@ -1760,6 +1917,8 @@ export function CompanionShowroom({
       confettiCleanupRef.current = null;
       musicRef.current?.stop();
       musicRef.current = null;
+      powerUpSfxRef.current?.stop();
+      powerUpSfxRef.current = null;
     };
   }, [clearTimers, stopSpeech]);
 
@@ -1878,6 +2037,16 @@ export function CompanionShowroom({
           @keyframes sunny-showroom-bg-wait {
             0%, 100% { background-position: 0% 50%; opacity: 0.42; }
             50% { background-position: 100% 50%; opacity: 0.78; }
+          }
+          @keyframes sunny-kefla-shake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-2px, 1px); }
+            40% { transform: translate(2px, -1px); }
+            60% { transform: translate(-1px, -2px); }
+            80% { transform: translate(1px, 2px); }
+          }
+          .sunny-kefla-power-shake {
+            animation: sunny-kefla-shake 130ms linear infinite;
           }
           @media (max-width: 640px) {
             .sunny-showroom-stage { height: 58vh !important; }
@@ -2099,6 +2268,8 @@ export function CompanionShowroom({
               slot={slot.slot}
               active={!spotlightOpen}
               soleFlankPair={isPairDuo}
+              vfxPreset={slot.slot === "current" ? signatureMoveVfxPreset(slot.entry) : undefined}
+              vfxLevel={slot.slot === "current" ? signatureMoveLevel : "idle"}
               getAnalyser={getSpeechAnalyser}
               onMotorReady={setMotor}
               onLoadSettled={markSlotLoadSettled}
@@ -2213,30 +2384,63 @@ export function CompanionShowroom({
           transform: "translateX(-50%)",
           zIndex: 18,
           display: "flex",
+          gap: 12,
           justifyContent: "center",
+          alignItems: "center",
+          flexWrap: "wrap",
+          width: "min(94vw, 720px)",
         }}
       >
         {!spotlightOpen && (
-          <button
-            type="button"
-            onClick={openSpotlight}
-            disabled={initialStageLoading}
-            style={{
-              border: 0,
-              borderRadius: 999,
-              background: accent,
-              color: "#fff",
-              fontSize: 20,
-              fontWeight: 800,
-              fontFamily: "Lexend, system-ui, sans-serif",
-              padding: "16px 34px",
-              boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
-              cursor: initialStageLoading ? "wait" : "pointer",
-              opacity: initialStageLoading ? 0.68 : 1,
-            }}
-          >
-            Meet {current.name}
-          </button>
+          <>
+            {current.showroom?.signatureMove && (
+              <button
+                type="button"
+                aria-label={`Play ${current.showroom.signatureMove.name}`}
+                title={current.showroom.signatureMove.voiceLine}
+                onClick={playSignatureMove}
+                disabled={initialStageLoading}
+                style={{
+                  border: "1px solid rgba(254,240,138,0.46)",
+                  borderRadius: 999,
+                  background:
+                    "linear-gradient(135deg, rgba(250,204,21,0.95), rgba(202,138,4,0.88))",
+                  color: "#1f1300",
+                  fontSize: 17,
+                  fontWeight: 900,
+                  fontFamily: "Lexend, system-ui, sans-serif",
+                  padding: "15px 24px",
+                  boxShadow: "0 18px 44px rgba(250,204,21,0.24)",
+                  cursor: initialStageLoading ? "wait" : "pointer",
+                  opacity: initialStageLoading ? 0.68 : 1,
+                  maxWidth: "min(88vw, 300px)",
+                  overflowWrap: "anywhere",
+                }}
+              >
+                {current.showroom.signatureMove.name}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={openSpotlight}
+              disabled={initialStageLoading}
+              style={{
+                border: 0,
+                borderRadius: 999,
+                background: accent,
+                color: "#fff",
+                fontSize: 20,
+                fontWeight: 800,
+                fontFamily: "Lexend, system-ui, sans-serif",
+                padding: "16px 34px",
+                boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
+                cursor: initialStageLoading ? "wait" : "pointer",
+                opacity: initialStageLoading ? 0.68 : 1,
+              }}
+            >
+              Meet {current.name}
+            </button>
+          </>
         )}
       </div>
 
@@ -2307,6 +2511,8 @@ export function CompanionShowroom({
                   }
                   onSpeak={speakCurrent}
                   onSpecialDance={playSpecialDance}
+                  onSignatureMove={playSignatureMove}
+                  signatureMoveLevel={signatureMoveLevel}
                   onPick={confirmPick}
                   onClose={closeSpotlight}
                   onCardMotorReady={handleCardMotorReady}

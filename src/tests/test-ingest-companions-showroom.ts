@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import fs from "fs";
+import path from "path";
 import {
   asGestureProfile,
   asVoiceOptions,
@@ -95,5 +97,42 @@ describe("ingestCompanions showroom fields", () => {
     expect(config.companionId).toBe("melty");
     expect(config.vrmUrl).toBe("/companions/melty.vrm");
     expect(config.expressions.idle).toBe("neutral");
+  });
+
+  it("catalogs Kefla as the grit companion with a power-up signature move", () => {
+    const showroomPath = path.resolve(
+      process.cwd(),
+      "src/prompts/companions/kefla/showroom.json",
+    );
+    const showroom = JSON.parse(fs.readFileSync(showroomPath, "utf-8")) as {
+      personalityTags?: string[];
+      signatureMove?: {
+        id?: string;
+        name?: string;
+        trait?: string;
+        visibleLevels?: string[];
+        voiceLine?: string;
+        vfx?: string[];
+        sfx?: string[];
+      };
+    };
+
+    expect(showroom.personalityTags).toContain("grit");
+    expect(showroom.signatureMove).toMatchObject({
+      id: "limit_break_power_up",
+      name: "Limit Break Power Up",
+      trait: "grit",
+    });
+    expect(showroom.signatureMove?.visibleLevels).toEqual([
+      "idle",
+      "focused",
+      "powered_up",
+      "limit_break",
+    ]);
+    expect(showroom.signatureMove?.voiceLine).toMatch(/hard path/i);
+    expect(showroom.signatureMove?.vfx).toEqual(
+      expect.arrayContaining(["hair_glow", "battle_aura", "energy_particles"]),
+    );
+    expect(showroom.signatureMove?.sfx).toContain("power_up_charge");
   });
 });
