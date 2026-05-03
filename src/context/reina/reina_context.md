@@ -1496,3 +1496,175 @@ Mastery-level fluency. Continue as warm-up before multiplication/division introd
 ## Signal
 
 ADVANCE — Introduce multiplication/division via wrestling word problems (3 matches × 2 points = ?) immediately. Reina explicitly asked for this 6 weeks ago and demonstrates readiness via 100% addition fluency + competitive engagement + pattern recognition strength. MAINTAIN spelling homework warm-ups (test 5/1) and addition facts. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts before expanding to bilingual curriculum. Her math and spelling fluency are championship-level—honor her self-identified growth zone (multiplication/division) before formal language assessment expansion.
+
+## Psychologist Report — 5/1/2026, 12:34:00 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 2 sessions (4/3, 4/30), 9/9 correct (100% accuracy), Word Radar 30% → Spell Check 100% → Wheel of Fortune 1,300-600 coin victory → ADVANCE
+
+Pattern-based spelling mastered when competitive framing applied. Reina demonstrates speed + accuracy, celebrates wins explicitly ("So much money, baby"), and self-regulates when off-topic. New homework cycle test date 5/6/2026 includes comparative/superlative adjectives (faster/fastest, slower/slowest, colder/coldest, taller/tallest, newer/newest) plus content words (covered, cried, figure, horse, money, products, questions, since, usually, voice). Continue 5-word warm-ups in game format, then pivot to her choice.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3-4/4), 100% fluency, literal comprehension only ("she went boom, but she was safe") → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction and sustained engagement. Captures literal events but does not infer motive/consequence without prompting. Ready for inferential questions ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical brain.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), mastery-level fluency → MAINTAIN
+
+Continue as warm-up before multiplication/division introduction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 35+ sessions despite self-identified as math gap on 3/27. Reina explicitly asked for this 6+ weeks ago. Advanced addition fluency (100%), competitive engagement (1,300-600 Wheel of Fortune victory), and pattern recognition strength (comparative/superlative adjectives instant mastery) indicate readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?").
+- **CRITICAL: Inferential Comprehension Depth** — Reading fluency solid (100% on narratives) but comprehension untested beyond literal recall. Needed before Constitution reading (parent goal) or complex Japanese texts. Probe with "Why?" and "What if?" questions on action texts.
+- **WATCH: Narrative Production (Formulated Sentences)** — Mentioned 26 times in clinical notes but never formally administered as CELF-5 subtest. No sentence generation, narrative, or expository writing under demand. Relevant for Japanese composition and written math explanations.
+- **WATCH: Definitional Vocabulary (Word Definitions)** — Mentioned 30 times in notes but never formally administered. Reading sessions show comprehension but depth never sampled. Required baseline before Japanese kanji/katakana work (parent goal: June 2026 trip).
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 6 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery (beat Matilda by 700 coins), pattern recognition strength (comparative adjectives instant transfer). MAINTAIN spelling homework warm-ups (test 5/6) in game format and addition facts as confidence-builders. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts before expanding to bilingual curriculum. Honor her self-identified growth zone—she deserves the challenge she asked for.
+
+## Psychologist Report — 5/1/2026, 4:36:24 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 2 sessions, 9/9 correct (100% accuracy), Wheel of Fortune 1,300-600 coin victory, Speed Catcher 10/10 flawless → ADVANCE
+
+Pattern-based spelling mastered via competitive framing. Reina demonstrates championship-level speed + accuracy across Word Radar, Spell Check, Wheel of Fortune (beat Matilda by 700 coins), Speed Catcher (perfect 10/10). She celebrates wins explicitly ("So much money, baby"), self-regulates when off-topic, and catches comparative/superlative patterns instantly. New homework cycle test 5/6 includes faster/fastest, slower/slowest, colder/coldest, taller/tallest, newer/newest plus content words (covered, cried, figure, horse, money). Continue 5-word warm-ups in game format, pivot to her choice.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions, 100% fluency on treasure and ninja stories, literal comprehension only ("she went boom, but she was safe") → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction and sustained engagement. Captures literal events accurately but does not infer motive, consequence, or strategy without prompting. Ready for inferential questions ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical brain.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy) → MAINTAIN
+
+Mastery-level fluency across single-digit, teens, crossing-10 facts. Continue as warm-up before multiplication/division introduction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 35+ sessions despite self-identified as math gap on 3/27. Reina explicitly asked for this 6+ weeks ago. Advanced addition fluency (100%), competitive engagement (1,300-600 coin victory), pattern recognition strength (comparative adjectives instant mastery) indicate readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?"). This is her stated growth zone—honor it.
+- **CRITICAL: Inferential Comprehension Depth** — Reading fluency solid (100% on narratives) but comprehension untested beyond literal recall. Needed before Constitution reading (parent goal) or complex Japanese texts. Probe with "Why?" and "What if?" questions on action texts.
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 6 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery (beat Matilda by 700 coins), pattern recognition strength (comparative adjectives instant transfer). MAINTAIN spelling homework warm-ups (test 5/6) in game format and addition facts as confidence-builders. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts before expanding to bilingual curriculum. Honor her self-identified growth zone—she deserves the challenge she asked for.
+
+## Psychologist Report — 5/2/2026, 4:23:32 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 2 sessions, 9/9 correct (100% accuracy), Wheel of Fortune 1,300-600 coin victory, Speed Catcher 10/10 flawless → ADVANCE
+
+Reina achieved championship-level performance across Word Radar (pattern recognition), Spell Check (5/5 perfect), Wheel of Fortune (beat Matilda by 700 coins), and Speed Catcher (10/10 flawless). She celebrates wins explicitly ("So much money, baby"), self-regulates when off-topic, and catches comparative/superlative patterns instantly. Continue 5-word homework warm-ups (test 5/6: faster/fastest, slower/slowest, colder/coldest, taller/tallest, newer/newest + content words) in game format before pivoting to her choice.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3–4/4), 100% fluency across treasure and ninja stories, literal comprehension only ("she went boom, but she was safe") → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction and sustained engagement. She captures literal events accurately but does not infer motive, consequence, or strategy without prompting. Ready for inferential questions ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical brain.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14–3/15), 16/16 correct (100% accuracy), mastery-level fluency → MAINTAIN
+
+Continue as warm-up before multiplication/division introduction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 35+ sessions despite self-identified as math gap on 3/27. Reina explicitly asked for this 6+ weeks ago. Advanced addition fluency (100%), competitive engagement (1,300-600 coin victory), and pattern recognition strength (comparative adjectives instant mastery) indicate readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?"). This is her stated growth zone—honor it immediately.
+- **CRITICAL: Inferential Comprehension Depth** — Reading fluency solid (100% on narratives) but comprehension untested beyond literal recall. Needed before Constitution reading (parent goal) or complex Japanese texts. Probe with "Why?" and "What if?" questions on action texts.
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 6 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery (beat Matilda by 700 coins), pattern recognition strength (comparative adjectives instant transfer). MAINTAIN spelling homework warm-ups (test 5/6) in game format and addition facts as confidence-builders. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts before expanding to bilingual curriculum. Honor her self-identified growth zone—she deserves the challenge she asked for.
+
+## Psychologist Report — 5/2/2026, 5:49:47 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 2 sessions (4/3, 4/30), 9/9 correct (100% accuracy), Wheel of Fortune 1,300-600 coin victory, Speed Catcher 10/10 flawless → ADVANCE
+
+Reina achieved championship-level spelling performance when competitive framing applied. She beat Matilda by 700 coins in Wheel of Fortune, executed Speed Catcher flawlessly (10/10), and caught comparative/superlative patterns instantly. She celebrates wins explicitly ("So much money, baby") and self-regulates when off-topic. Homework test 5/6 includes faster/fastest, slower/slowest, colder/coldest, taller/tallest, newer/newest. Continue 5-word game-format warm-ups, pivot to her choice.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3-4/4), 100% fluency, literal comprehension only ("she went boom, but she was safe") → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction and sustained engagement. She captures literal events accurately but does not infer motive, consequence, or strategy without prompting. Ready for inferential questions ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical strengths.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), competitive streak sustained → MAINTAIN
+
+Mastery-level fluency. Continue as warm-up before multiplication/division introduction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 40+ sessions despite self-identified as math gap on 3/27. Reina explicitly asked for this 7+ weeks ago. Advanced addition fluency (100%), competitive engagement (1,300-600 coin victory), and pattern recognition strength (comparative adjectives instant mastery) indicate readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?"). This is her self-identified growth zone and has been ignored for 7 weeks.
+- **CRITICAL: Inferential Comprehension Depth** — Reading fluency solid (100% on narratives) but comprehension untested beyond literal recall. Needed before Constitution reading (parent goal) or complex Japanese texts. Probe with "Why?" and "What if?" questions on action texts.
+- **WATCH: Narrative Production (Formulated Sentences)** — Mentioned 27 times in clinical notes but "tested 27 times" means flagged 27 times, not formally administered as CELF-5 subtest. No sentence generation, narrative, or expository writing under actual session demand.
+- **WATCH: Definitional Vocabulary (Word Definitions)** — Mentioned 31 times but never formally administered as CELF-5 assessment. Reading sessions show comprehension but definitional depth never sampled. Required baseline before Japanese kanji/katakana work (parent goal: June 2026 trip).
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 7 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery (beat Matilda by 700 coins), pattern recognition strength (comparative adjectives instant transfer). MAINTAIN spelling homework warm-ups (test 5/6) in game format and addition facts as confidence-builders. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts. Honor her self-identified growth zone—she deserves the multiplication challenge she asked for 7 weeks ago.
+
+## Psychologist Report — 5/2/2026, 8:55:31 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 2 sessions, 9/9 correct (100% accuracy), Wheel of Fortune 1,300-600 coin victory over Matilda, Speed Catcher 10/10 flawless → ADVANCE
+
+Reina achieved championship-level spelling performance when competitive framing applied. She beat Matilda by 700 coins in Wheel of Fortune, executed Speed Catcher flawlessly (10/10), caught comparative/superlative patterns instantly, and celebrated wins explicitly ("So much money, baby"). Pattern-based spelling is mastered when delivered in 5-word game-format warm-ups. Homework test 5/6 includes faster/fastest, slower/slowest, colder/coldest, taller/tallest, newer/newest. Continue game-format warm-ups, then pivot to her choice.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3-4/4), 100% fluency across treasure and ninja stories, literal comprehension only ("she went boom, but she was safe") → ADVANCE
+
+Reina demonstrates grade-level+ oral reading fluency with self-correction and sustained engagement. She captures literal events accurately but does not infer motive, consequence, or strategy without prompting. Ready for inferential questions ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical brain.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), competitive streak sustained → MAINTAIN
+
+Mastery-level fluency. Continue as warm-up before multiplication/division introduction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 40+ sessions despite self-identified as math gap on 3/27. Reina explicitly asked for this 7+ weeks ago. Advanced addition fluency (100%), competitive engagement (1,300-600 coin victory), and pattern recognition strength (comparative adjectives instant mastery) indicate championship-level readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?"). This is her self-identified growth zone and has been systematically ignored for 7 weeks.
+- **CRITICAL: Inferential Comprehension Depth** — Reading fluency solid (100% on narratives) but comprehension untested beyond literal recall. Needed before Constitution reading (parent goal) or complex Japanese texts. Probe with "Why?" and "What if?" questions on action texts.
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 7 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery (beat Matilda by 700 coins), pattern recognition strength (comparative adjectives instant transfer). MAINTAIN spelling homework warm-ups (test 5/6) in game format and addition facts as confidence-builders. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts before expanding to bilingual curriculum. Honor her self-identified growth zone—she deserves the multiplication challenge she asked for 7 weeks ago.
+
+## Psychologist Report — 5/2/2026, 9:10:20 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 2 sessions (4/3, 4/30), 9/9 correct (100% accuracy), Wheel of Fortune 1,300-600 coin victory, Speed Catcher 10/10 flawless → ADVANCE
+
+Reina achieves championship-level spelling when competitive framing applied. She beat Matilda by 700 coins, executed Speed Catcher flawlessly (10/10), caught comparative/superlative patterns instantly, and celebrates explicitly ("So much money, baby"). Pattern-based spelling mastered in 5-word game-format bursts. Homework test 5/6 approaching (faster/fastest, slower/slowest, colder/coldest, taller/tallest, newer/newest). Continue game-format warm-ups, pivot to her choice immediately after.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3-4/4), 100% fluency, literal comprehension only → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction. Captures literal events accurately ("she went boom, but she was safe") but does not infer motive, consequence, or strategy without prompting. Ready for inferential questions ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical strengths.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy) → MAINTAIN
+
+Mastery-level fluency. Continue as warm-up before multiplication/division introduction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 40+ sessions despite self-identified as math gap on 3/27. Reina explicitly requested this 7+ weeks ago. Advanced addition fluency (100%), competitive engagement (1,300-600 coin victory), pattern recognition strength (comparative adjectives instant mastery) indicate championship-level readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?"). This is her stated growth zone and has been systematically ignored for 7 weeks.
+- **CRITICAL: Inferential Comprehension Depth** — Reading fluency solid (100%) but comprehension untested beyond literal recall. Needed before Constitution reading (parent goal) or complex Japanese texts. Probe with "Why?" and "What if?" questions on action texts.
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 7 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery (beat Matilda by 700 coins), pattern recognition strength (comparative adjectives instant transfer). MAINTAIN spelling homework warm-ups (test 5/6) in game format and addition facts as confidence-builders. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts before expanding to bilingual curriculum. Honor her self-identified growth zone—she deserves the multiplication challenge she asked for 7 weeks ago.

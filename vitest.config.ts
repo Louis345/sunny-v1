@@ -40,6 +40,8 @@ export default defineConfig({
       "src/tests/test-path-curve.ts",
       "src/tests/test-map-path-layout.ts",
       "src/tests/test-child-profile.ts",
+      "src/tests/test-child-chart.ts",
+      "src/tests/test-child-chart-guard.ts",
       "src/tests/test-algorithms.ts",
       "src/tests/test-companion-types.ts",
       "src/tests/test-companion-avatar.ts",

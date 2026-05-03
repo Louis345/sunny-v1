@@ -67,6 +67,17 @@ export interface ActivityModelEntry {
   missedWords: string[];
 }
 
+export interface AttentionModel {
+  source: "onboarding_baseline" | "session_vitals" | "mixed" | "legacy_demographic";
+  status: "provisional" | "measured" | "insufficient-data";
+  currentWindow_ms: number;
+  bestWindow_ms: number;
+  trend: "improving" | "stable" | "declining" | "unknown";
+  confidence: number;
+  lastMeasuredAt?: string;
+  evidence: string[];
+}
+
 export interface LearningCalibrationEntry {
   calibrationId: string;
   homeworkId: string;
@@ -94,7 +105,17 @@ export type LearningAlgorithmTarget =
   | "desirable-difficulty"
   | "mastery-gating"
   | "activity-affinity"
-  | "variable-reward";
+  | "variable-reward"
+  | "attention-vitals";
+
+export type ActivityPurpose =
+  | "attention_screening"
+  | "attention_intervention"
+  | "learning_intervention"
+  | "hybrid_learning_attention"
+  | "dopamine_reward"
+  | "mastery_gate"
+  | "calibration_task";
 
 export interface AIContentCatalogItem {
   contentId: string;
@@ -102,6 +123,7 @@ export interface AIContentCatalogItem {
   childId: string;
   type: "story" | "image" | "video" | "game" | "quiz" | "countdown" | "reading-mode";
   source: "generated" | "baseline" | "prototype" | "human";
+  purpose?: ActivityPurpose;
   title: string;
   algorithmTargets: LearningAlgorithmTarget[];
   targetSkills: string[];
@@ -193,6 +215,9 @@ export interface LearningProfile {
 
   /** Current activity-response model derived from node results. Raw attempts remain in attempts/*.ndjson. */
   activityModel?: Record<string, ActivityModelEntry>;
+
+  /** Measured attention vital sign model. Demographic attentionSpan is legacy/intake only. */
+  attentionModel?: AttentionModel;
 
   /** Human-graded reality checks against Sunny's theories; newest first, capped by writers. */
   learningCalibrationJournal?: LearningCalibrationEntry[];

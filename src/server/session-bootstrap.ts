@@ -24,7 +24,7 @@ import {
   extractHomeworkProblems,
   type HomeworkExtractionResult,
 } from "../agents/psychologist/psychologist";
-import { childIdFromName } from "../engine/learningEngine";
+import { childIdFromName, planSession } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
 import {
   CANONICAL_AGENT_TOOL_KEYS,

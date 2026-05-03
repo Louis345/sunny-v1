@@ -1,84 +1,130 @@
 {
   "todaysPlan": [
     {
-      "activity": "Multiplication Concept Introduction (Wrestling Scenarios)",
+      "activity": "Homework Reading – Erosion And Earth's Surface",
       "priority": 1,
       "required": true,
-      "reason": "Self-identified math gap never formally assessed across 25+ sessions; advanced addition fluency (16/16 correct, 100%) indicates readiness for multiplicative reasoning via familiar wrestling contexts",
-      "timeboxMinutes": 15,
-      "method": "Conceptual introduction through wrestling word problems: '3 matches × 2 points each = ? total points.' Use manipulatives or visual arrays if needed. Celebrate with Japanese (すごい, やった) and wrestling metaphors ('pin the problem').",
-      "source": "Profile math gaps (subtraction, multiplication, division); psychologist reports flagging multiplication as critical priority"
+      "reason": "Active uploaded homework is \"Erosion and Earth's Surface Study Guide\", so today's required work must anchor on erosion, Erosion, Beach Sand and Rocks, Reading a Map before broader profile goals.",
+      "timeboxMinutes": 12,
+      "method": "Read the assignment-aligned content, ask evidence-based checks, then use profile motivators only as framing.",
+      "source": "pendingHomework",
+      "words": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "probeSequence": [
+        "Read or preview the assignment content",
+        "Ask what changed or happened",
+        "Ask why it happened using text evidence",
+        "Have the child explain the concept back"
+      ]
     },
     {
-      "activity": "Inferential Reading Comprehension (Action/Adventure Text)",
+      "activity": "Homework Baseline Check",
       "priority": 2,
       "required": true,
-      "reason": "Reading fluency 100% but comprehension remains literal only ('she went boom, but she was safe'); needs depth before Constitution reading or complex Japanese texts",
-      "timeboxMinutes": 12,
-      "method": "Action/adventure text with 'why' and 'what if' questions: 'Why was the ninja in danger?' 'How did she outsmart them?' Match her chess/wrestling analytical brain with strategy analysis.",
-      "source": "Reading sessions 4/3, 4/4 showing literal comprehension only; parent goal of Constitution reading"
+      "reason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story.",
+      "timeboxMinutes": 5,
+      "method": "Measure: concept_recognition_accuracy; missed_concepts. Algorithm targets: retrieval-practice, reading-comprehension.",
+      "source": "pendingHomework:baseline-evaluator",
+      "words": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "probeSequence": [
+        "concept_recognition_accuracy",
+        "missed_concepts"
+      ]
     },
     {
-      "activity": "Homework Spelling Practice (Comparative/Superlative)",
+      "activity": "Homework Story Reading",
       "priority": 3,
-      "required": false,
-      "reason": "Pattern-based spelling mastered (classroom baseline 100%); maintain as brief warm-up aligned with current homework cycle",
-      "timeboxMinutes": 5,
-      "method": "5-word maximum from homework list (faster/fastest, slower/slowest, colder/coldest). Competitive framing: 'Beat your perfect streak!' Then pivot to her choice.",
+      "required": true,
+      "reason": "Build background knowledge and engagement around Erosion and Earth's Surface.",
+      "timeboxMinutes": 12,
+      "method": "Measure: reading_completion; hesitations; flagged_words. Algorithm targets: reading-comprehension, activity-affinity.",
+      "source": "pendingHomework:story",
       "words": [
         "faster",
-        "fastest",
-        "slower",
         "slowest",
-        "colder"
+        "add"
       ],
-      "skipConditions": [
-        "Low energy at session start",
-        "Requests different activity immediately",
-        "Previous session spelling accuracy below 80%"
-      ],
-      "minimumWords": 3
+      "probeSequence": [
+        "reading_completion",
+        "hesitations",
+        "flagged_words"
+      ]
     },
     {
-      "activity": "Math Fact Fluency Warm-Up (Addition/Subtraction)",
+      "activity": "Homework Pronunciation Practice",
       "priority": 4,
-      "required": false,
-      "reason": "Mastery-level foundation (100% accuracy) serves as confidence-builder before harder multiplication work",
-      "timeboxMinutes": 5,
-      "method": "Rapid-fire 5-problem set mixing single-digit and crossing-10 facts. Celebrate consecutive correct streak. Use as energizer before multiplication introduction.",
-      "skipConditions": [
-        "Session time below 25 minutes available",
-        "Reina requests immediate challenge without warm-up",
-        "Previous session showed sustained focus without warm-up needed"
+      "required": true,
+      "reason": "Academic words must be speakable before they can be explained confidently.",
+      "timeboxMinutes": 6,
+      "method": "Measure: pronunciation_accuracy; hesitation. Algorithm targets: pronunciation, desirable-difficulty.",
+      "source": "pendingHomework:pronunciation",
+      "words": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
       ],
-      "minimumWords": 0
+      "probeSequence": [
+        "pronunciation_accuracy",
+        "hesitation"
+      ]
     },
     {
-      "activity": "Word Definitions Probe (CELF-5 Subtest)",
+      "activity": "Homework Concept Builder",
       "priority": 5,
       "required": true,
-      "reason": "Advanced vocabulary claimed in profile but never formally assessed across 25+ sessions; required baseline before Japanese kanji/katakana work (June 2026 trip)",
-      "timeboxMinutes": 10,
-      "method": "CELF-5 Word Definitions subtest protocol: 'What does [word] mean?' Start with grade-level words (animal, color, story) then advance to academic vocabulary (multiply, strategy, champion). Record definitional depth vs. breadth.",
-      "source": "Flagged 25 times in clinical notes; parent goal Japanese prep requires vocabulary baseline"
+      "reason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface.",
+      "timeboxMinutes": 8,
+      "method": "Measure: construction_accuracy; attempted_value. Algorithm targets: retrieval-practice, desirable-difficulty.",
+      "source": "pendingHomework:concept-builder",
+      "words": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "probeSequence": [
+        "construction_accuracy",
+        "attempted_value"
+      ]
     },
     {
-      "activity": "Formulated Sentences Probe (CELF-5 Subtest)",
+      "activity": "Homework Exit Check",
       "priority": 6,
-      "required": false,
-      "reason": "No narrative production or sentence generation under demand across any session; relevant for Japanese composition and written math explanations",
-      "timeboxMinutes": 8,
-      "method": "CELF-5 Formulated Sentences subtest protocol: Present word and ask child to create sentence. Start with familiar words (wrestler, match, points) then advance to academic terms (multiply, product, strategy).",
-      "source": "Flagged 21 times in clinical notes; needed before bilingual curriculum expansion",
-      "skipConditions": [
-        "Session time below 30 minutes remaining",
-        "Energy level low after multiplication and reading work",
-        "Reina requests different activity"
+      "required": true,
+      "reason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content.",
+      "timeboxMinutes": 5,
+      "method": "Measure: exit_accuracy; improvement_from_baseline. Algorithm targets: mastery-gating, retrieval-practice.",
+      "source": "pendingHomework:exit-evaluator",
+      "words": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
       ],
-      "minimumWords": 0
+      "probeSequence": [
+        "exit_accuracy",
+        "improvement_from_baseline"
+      ]
     }
   ],
-  "childProfile": "Reina is an 8-year-old academically advanced learner (year ahead of peers) who thrives on challenge, competition, and speed. She is bilingual (English/Japanese), a competitive wrestler, and consistently scores 100% on spelling tests. She masters new concepts through applied contexts (store-game 86% accuracy) and competitive framing (math facts 100%, riddles 15+/15 correct) but disengages from mechanical drill (worksheet coins 26% accuracy). She has strong nonverbal reasoning, self-corrects errors, and self-advocates for harder material when bored. Wrestling metaphors, Japanese celebration (すごい, やった), and fast-paced energy matching work best. She gets frustrated with slow pacing, baby talk, or tasks that feel too easy. Her self-identified math gaps are subtraction, multiplication, and division—multiplication has never been formally assessed despite 25+ sessions.",
-  "stopAfter": "End session naturally when Reina completes multiplication introduction, inferential reading work, and at least one CELF-5 probe (Word Definitions priority), OR when she self-regulates exit on a winning streak. Typical session length 25-35 minutes. Stop immediately if she says she's done or requests Space Invaders—respect her boundary and celebrate wins before closing.",
-  "rewardPolicy": "Reina earns games/breaks through mastery and sustained effort, not as bribes. After completing required activities (multiplication intro, inferential reading, Word Definitions probe) at 80%+ engagement, offer Space Invaders or choice of next challenge. Use competitive framing: 'You pinned that multiplication problem—champion's choice: harder math or game break?' Match rewards to her identity (wrestler, smart kid who loves challenge). Japanese celebration (すごい, やった) and acknowledgment of her intelligence are intrinsic motivators—external rewards secondary."
+  "childProfile": "Reina is an 8-year-old academically advanced wrestler who thrives on hard challenges, competitive framing, and being pushed beyond grade-level work. She learns through application (store-game 86% vs worksheet 26%), competition (beat Matilda by 700 coins), and pattern recognition (instant comparative adjective mastery). She self-advocates clearly ('I wanted subtraction, multiplication, division' on 3/27), catches clinician errors mid-session, celebrates wins explicitly ('So much money, baby'), and self-regulates when off-topic. She's bilingual (English/Japanese), proud of her wrestling identity (uses takedown/pin language), and responds to すごい and やった when she succeeds. She disengages from mechanical drill but sustains 100% engagement when challenged appropriately. Fast pace, wrestling metaphors, acknowledgment of her intelligence, and honoring her explicit requests are essential.",
+  "stopAfter": "After the homework exit check shows the assignment concept is understood, or earlier if frustration is rising.",
+  "rewardPolicy": "Reward only after the homework care-plan sequence, not before the assignment is checked."
 }

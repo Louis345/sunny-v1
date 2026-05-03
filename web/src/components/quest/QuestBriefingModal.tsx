@@ -1,33 +1,26 @@
 import { useCallback } from "react";
 
-export type QuestBriefingCompanionKind = "ila" | "reina" | "other";
-
-export function resolveQuestBriefingCompanionKind(
-  childId: string,
-  companionId: string,
-): QuestBriefingCompanionKind {
-  const c = childId.trim().toLowerCase();
-  const comp = companionId.trim().toLowerCase();
-  if (c === "ila" || comp === "elli") return "ila";
-  if (c === "reina" || comp === "matilda") return "reina";
-  return "other";
+function displayNameFromChildId(childId: string): string {
+  return childId
+    .trim()
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
-function companionBriefLine(kind: QuestBriefingCompanionKind): string {
-  if (kind === "ila") {
-    return "You got this, Ila! I'll be right here 💪";
-  }
-  if (kind === "reina") {
-    return "Show 'em what you've got, Reina! ⚡";
-  }
-  return "You've got this! I'll be right here 💪";
+function companionBriefLine(childId: string): string {
+  const displayName = displayNameFromChildId(childId);
+  return displayName
+    ? `You've got this, ${displayName}! I'll be right here 💪`
+    : "You've got this! I'll be right here 💪";
 }
 
 export function questUnlockCompanionBubbleText(
   childId: string,
-  companionId: string,
+  _companionId: string,
 ): string {
-  return companionBriefLine(resolveQuestBriefingCompanionKind(childId, companionId));
+  return companionBriefLine(childId);
 }
 
 export function QuestBriefingModal(props: {
@@ -40,8 +33,8 @@ export function QuestBriefingModal(props: {
 }) {
   const { open, reinforceWords, childId, companionId, onDismiss, onStartQuest } =
     props;
-  const kind = resolveQuestBriefingCompanionKind(childId, companionId);
   const words = reinforceWords.slice(0, 5);
+  void companionId;
 
   const stop = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -173,7 +166,7 @@ export function QuestBriefingModal(props: {
               borderBottom: "8px solid rgba(255,255,255,0.08)",
             }}
           />
-          {companionBriefLine(kind)}
+          {companionBriefLine(childId)}
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "stretch" }}>
           <button

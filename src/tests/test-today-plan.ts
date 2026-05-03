@@ -13,6 +13,7 @@ import path from "path";
 import os from "os";
 import { generateObject } from "ai";
 import {
+  anchorTodaysPlanToPendingHomework,
   buildTodaysPlan,
   psychologistStructuredOutputSchema,
   assertTodaysPlanInvariants,
@@ -222,6 +223,256 @@ describe("todaysPlan invariants", () => {
         },
       ]),
     ).not.toThrow();
+  });
+});
+
+describe("today plan pending homework anchor", () => {
+  it("makes the active erosion homework the first required activity and demotes unrelated probes", () => {
+    const output = {
+      todaysPlan: [
+        {
+          activity: "Multiplication Foundations – Wrestling Tournament Scoring",
+          priority: 1,
+          required: true,
+          reason: "Long-term probe target from profile",
+          timeboxMinutes: 10,
+        },
+        {
+          activity: "Reward Game",
+          priority: 2,
+          required: false,
+          reason: "Motivation",
+          timeboxMinutes: 5,
+        },
+      ],
+      childProfile: "Competitive and challenge-oriented.",
+      stopAfter: "After required work.",
+      rewardPolicy: "Games after core work.",
+    };
+
+    const pendingHomework = {
+      weekOf: "2026-05-02",
+      testDate: "2026-05-06",
+      wordList: [],
+      homeworkId: "hw-reading-erosion",
+      generatedAt: "2026-05-02T00:00:00.000Z",
+      contentProfile: {
+        practiceDomain: "reading",
+        contentDomain: "science",
+        topic: "erosion",
+        primarySkill: "reading_comprehension",
+        assignmentFormat: "study_guide",
+        concepts: ["erosion", "soil", "water", "wind"],
+        sourceEvidence: ["Erosion and Earth's Surface Study Guide"],
+      },
+      capturedContent: {
+        title: "Erosion and Earth's Surface Study Guide",
+        type: "reading",
+        rawText: "Rain rushed down a hill and carried soil away.",
+        words: [],
+        questions: [],
+        sourceDocuments: [
+          {
+            filename: "Test for May 6.pdf",
+            mediaType: "application/pdf",
+          },
+        ],
+        contentProfile: {
+          practiceDomain: "reading",
+          contentDomain: "science",
+          topic: "erosion",
+          primarySkill: "reading_comprehension",
+          assignmentFormat: "study_guide",
+          concepts: ["erosion", "soil", "water", "wind"],
+          sourceEvidence: ["Erosion and Earth's Surface Study Guide"],
+        },
+      },
+      nodes: [],
+    };
+
+    const anchored = anchorTodaysPlanToPendingHomework(output, pendingHomework, {
+      planningMode: "homework",
+    });
+
+    expect(anchored.todaysPlan[0]?.activity).toContain("Erosion");
+    expect(anchored.todaysPlan[0]?.required).toBe(true);
+    expect(anchored.todaysPlan[0]?.source).toBe("pendingHomework");
+    expect(anchored.todaysPlan[1]?.activity).toContain("Multiplication");
+    expect(anchored.todaysPlan[1]?.required).toBe(false);
+  });
+
+  it("uses pending homework care-plan nodes as the homework-mode plan instead of broad review filler", () => {
+    const output = {
+      todaysPlan: [
+        {
+          activity: "Multiplication word problems using wrestling scenarios",
+          priority: 1,
+          required: true,
+          reason: "Global review target",
+          timeboxMinutes: 10,
+        },
+        {
+          activity: "Homework spelling warm-up: comparative/superlative cycle",
+          priority: 2,
+          required: false,
+          reason: "Old spelling cycle",
+          timeboxMinutes: 5,
+        },
+      ],
+      childProfile: "Competitive and challenge-oriented.",
+      stopAfter: "After required work.",
+      rewardPolicy: "Games after core work.",
+    };
+
+    const pendingHomework = {
+      weekOf: "2026-05-02",
+      testDate: "2026-05-06",
+      wordList: [],
+      homeworkId: "hw-reading-erosion",
+      generatedAt: "2026-05-02T00:00:00.000Z",
+      contentProfile: {
+        practiceDomain: "reading",
+        contentDomain: "science",
+        topic: "erosion",
+        primarySkill: "reading_comprehension",
+        assignmentFormat: "study_guide",
+        concepts: ["erosion", "soil", "water", "wind"],
+        sourceEvidence: ["Erosion and Earth's Surface Study Guide"],
+      },
+      capturedContent: {
+        title: "Erosion and Earth's Surface Study Guide",
+        type: "reading",
+        rawText: "Rain rushed down a hill and carried soil away.",
+        words: [],
+        questions: [],
+        sourceDocuments: [
+          {
+            filename: "Test for May 6.pdf",
+            mediaType: "application/pdf",
+          },
+        ],
+        contentProfile: {
+          practiceDomain: "reading",
+          contentDomain: "science",
+          topic: "erosion",
+          primarySkill: "reading_comprehension",
+          assignmentFormat: "study_guide",
+          concepts: ["erosion", "soil", "water", "wind"],
+          sourceEvidence: ["Erosion and Earth's Surface Study Guide"],
+        },
+      },
+      nodes: [
+        {
+          id: "baseline",
+          type: "word-radar",
+          words: ["erosion", "soil", "water", "wind"],
+          difficulty: 1,
+          gameFile: null,
+          storyFile: null,
+          carePlan: {
+            role: "baseline-evaluator",
+            targetSkills: ["reading_comprehension"],
+            targetConcepts: ["erosion", "soil", "water", "wind"],
+            targetWords: [],
+            algorithmTargets: ["retrieval-practice", "reading-comprehension"],
+            measures: ["baseline concept recognition"],
+            reason: "Find out what the child already understands about erosion.",
+          },
+        },
+        {
+          id: "story",
+          type: "karaoke",
+          words: [],
+          difficulty: 1,
+          gameFile: null,
+          storyFile: null,
+          carePlan: {
+            role: "story",
+            targetSkills: ["reading_comprehension"],
+            targetConcepts: ["erosion", "soil", "water", "wind"],
+            targetWords: ["coldest"],
+            algorithmTargets: ["reading-comprehension", "activity-affinity"],
+            measures: ["fluency", "literal recall"],
+            reason: "Teach the assignment through an engaging reading passage.",
+          },
+        },
+        {
+          id: "exit",
+          type: "word-radar",
+          words: ["erosion", "soil", "water", "wind"],
+          difficulty: 1,
+          gameFile: null,
+          storyFile: null,
+          carePlan: {
+            role: "exit-evaluator",
+            targetSkills: ["reading_comprehension"],
+            targetConcepts: ["erosion", "soil", "water", "wind"],
+            targetWords: [],
+            algorithmTargets: ["retrieval-practice", "mastery-gating"],
+            measures: ["post-story concept transfer"],
+            reason: "Check whether the erosion concept improved after the story.",
+          },
+        },
+      ],
+    };
+
+    const anchored = anchorTodaysPlanToPendingHomework(output, pendingHomework, {
+      planningMode: "homework",
+    });
+
+    expect(anchored.todaysPlan.map((activity) => activity.source)).toEqual([
+      "pendingHomework",
+      "pendingHomework:baseline-evaluator",
+      "pendingHomework:story",
+      "pendingHomework:exit-evaluator",
+    ]);
+    expect(anchored.todaysPlan.every((activity) => activity.required)).toBe(true);
+    expect(anchored.todaysPlan.map((activity) => activity.activity).join(" ")).not.toContain(
+      "Multiplication",
+    );
+  });
+
+  it("leaves broad review plans alone in review mode even when pending homework exists", () => {
+    const output = {
+      todaysPlan: [
+        {
+          activity: "Multiplication Foundations – Wrestling Tournament Scoring",
+          priority: 1,
+          required: true,
+          reason: "Long-term probe target from profile",
+          timeboxMinutes: 10,
+        },
+      ],
+      childProfile: "Competitive and challenge-oriented.",
+      stopAfter: "After required work.",
+      rewardPolicy: "Games after core work.",
+    };
+
+    const anchored = anchorTodaysPlanToPendingHomework(
+      output,
+      {
+        weekOf: "2026-05-02",
+        testDate: "2026-05-06",
+        wordList: [],
+        homeworkId: "hw-reading-erosion",
+        generatedAt: "2026-05-02T00:00:00.000Z",
+        contentProfile: {
+          practiceDomain: "reading",
+          contentDomain: "science",
+          topic: "erosion",
+          primarySkill: "reading_comprehension",
+          assignmentFormat: "study_guide",
+          concepts: ["erosion"],
+          sourceEvidence: ["Erosion and Earth's Surface Study Guide"],
+        },
+        nodes: [],
+      },
+      { planningMode: "review" },
+    );
+
+    expect(anchored).toBe(output);
+    expect(anchored.todaysPlan[0]?.activity).toContain("Multiplication");
+    expect(anchored.todaysPlan[0]?.required).toBe(true);
   });
 });
 

@@ -236,7 +236,11 @@ export function handleWsConnection(
 
       default:
         ws.send(
-          JSON.stringify({ type: "error", message: `Unknown type: ${msg.type}` })
+          JSON.stringify({
+            type: "error",
+            fatal: false,
+            message: `Unknown type: ${msg.type}`,
+          })
         );
     }
   });

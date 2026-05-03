@@ -251,6 +251,7 @@ function runGameIframeOnLoad(
   onCanvasDone();
   const w = iframe.contentWindow;
   if (!w) return;
+  const playerName = canvas.gamePlayerName?.trim() || "Player";
   if (canvas.mode === "word-builder") {
     w.postMessage(
       {
@@ -258,7 +259,7 @@ function runGameIframeOnLoad(
         word: canvas.gameWord ?? "",
         mode: canvas.wordBuilderMode ?? "fill_blanks",
         round: 1,
-        playerName: canvas.gamePlayerName ?? "Ila",
+        playerName,
         score: 0,
       },
       "*",
@@ -268,7 +269,7 @@ function runGameIframeOnLoad(
       {
         type: "start",
         word: canvas.gameWord ?? "",
-        playerName: canvas.gamePlayerName ?? "Ila",
+        playerName,
       },
       "*",
     );

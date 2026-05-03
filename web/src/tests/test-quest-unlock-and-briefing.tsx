@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { NodeCard } from "../components/NodeCard.tsx";
-import { QuestBriefingModal } from "../components/quest/QuestBriefingModal";
+import {
+  QuestBriefingModal,
+  questUnlockCompanionBubbleText,
+} from "../components/quest/QuestBriefingModal";
 import childrenCfg from "../../../children.config.json";
 import { isChildQuestUnlocked } from "../utils/childQuestConfig";
 import { questBriefingWordsFromMap } from "../components/AdventureMap";
@@ -67,6 +70,21 @@ describe("QuestBriefingModal", () => {
     fireEvent.click(screen.getByTestId("quest-briefing-start"));
     expect(onStart).toHaveBeenCalledTimes(1);
   });
+
+  it("uses childId-derived encouragement instead of child-specific copy branches", () => {
+    expect(questUnlockCompanionBubbleText("sam-river", "elli")).toContain(
+      "Sam River",
+    );
+    expect(questUnlockCompanionBubbleText("ila", "elli")).toBe(
+      "You've got this, Ila! I'll be right here 💪",
+    );
+    expect(questUnlockCompanionBubbleText("reina", "matilda")).toBe(
+      "You've got this, Reina! I'll be right here 💪",
+    );
+    expect(questUnlockCompanionBubbleText("", "elli")).toBe(
+      "You've got this! I'll be right here 💪",
+    );
+  });
 });
 
 describe("quest briefing word source", () => {
@@ -129,6 +147,34 @@ describe("NodeCard quest ceremony lock", () => {
     );
     fireEvent.click(screen.getByRole("button"));
     expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the node label when a saved thumbnail cannot load", () => {
+    const node: NodeConfig = {
+      id: "focus-1",
+      type: "bubble-pop" as NodeConfig["type"],
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 1,
+    };
+    const { container } = render(
+      <NodeCard
+        node={node}
+        position={{ x: 100, y: 100 }}
+        thumbnail="https://example.invalid/dead-thumbnail.jpeg"
+        onClick={() => {}}
+        onHoverChange={() => {}}
+        isActive={false}
+      />,
+    );
+
+    const img = container.querySelector("img");
+    expect(img).toBeTruthy();
+    fireEvent.error(img!);
+
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByText("F")).toBeTruthy();
   });
 });
 

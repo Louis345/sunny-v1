@@ -1,7 +1,7 @@
 {
   "childId": "ila",
   "version": 1,
-  "lastUpdated": "2026-05-01T03:31:18.070Z",
+  "lastUpdated": "2026-05-03T23:51:27.699Z",
   "words": [
     {
       "word": "attempt-1",
@@ -39,9 +39,9 @@
           "quality": 4,
           "easinessFactor": 2.5,
           "interval": 60,
-          "repetition": 301,
-          "nextReviewDate": "2026-06-30",
-          "lastReviewDate": "2026-05-01",
+          "repetition": 311,
+          "nextReviewDate": "2026-07-02",
+          "lastReviewDate": "2026-05-03",
           "scaffoldLevel": 0,
           "history": [
             {
@@ -1846,6 +1846,66 @@
             },
             {
               "date": "2026-05-01",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-01",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-01",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-01",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-01",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-01",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-02",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-02",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-02",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-02",
+              "quality": 4,
+              "scaffoldLevel": 1,
+              "correct": true
+            },
+            {
+              "date": "2026-05-03",
               "quality": 4,
               "scaffoldLevel": 1,
               "correct": true

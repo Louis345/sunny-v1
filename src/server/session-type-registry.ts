@@ -138,6 +138,8 @@ export function sessionTypeFromSubject(subject: SessionSubject): SessionType | u
     case "wilson":
     case "diag":
       return subject;
+    case "review":
+      return undefined;
     case "free":
     case "reversal":
     case "history":

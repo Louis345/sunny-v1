@@ -20,6 +20,8 @@ logs/sessions/
 
 # Homework — runtime data, never committed (repo root only; not src/tests/fixtures/homework)
 /homework/
+# Auditable homework care plans are regenerated on ingest and may contain private assignment details
+src/context/*/homework/pending/**/learning-plan.*
 
 # Document ingester — private documents not committed
 src/intake/ila/*.txt

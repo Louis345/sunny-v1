@@ -248,4 +248,47 @@ describe("useSession companion audio gate", () => {
     expect(result.current.state.firstAudioChunkReceived).toBe(false);
   });
 
+  it("keeps the session active when the server reports a non-fatal transport error", async () => {
+    const gateRef: MutableRefObject<boolean> = { current: false };
+    const { result } = renderHook(() =>
+      useSession({ gateCompanionAudioUntilCurtainRef: gateRef }),
+    );
+
+    act(() => {
+      result.current.startSession("ila");
+    });
+    const ws = wsInstances[0]!;
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      deliverJson(ws, {
+        type: "session_started",
+        childName: "Ila",
+        child: "ila",
+        companionName: "Elli",
+        companion: "elli",
+        emoji: "🌟",
+        accentColor: "#7C3AED",
+        accentBg: "#F3E8FF",
+        voiceId: "v1",
+        openingLine: "Hi!",
+        goodbye: "Bye",
+      });
+    });
+    expect(result.current.state.phase).toBe("active");
+
+    act(() => {
+      deliverJson(ws, {
+        type: "error",
+        fatal: false,
+        message: "Unknown type: karaoke",
+      });
+    });
+
+    expect(result.current.state.phase).toBe("active");
+    expect(result.current.state.warning).toBe("Unknown type: karaoke");
+  });
+
 });

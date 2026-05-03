@@ -51,4 +51,24 @@ describe("App companion overlay stack", () => {
     expect(src).toMatch(/diagFlowGameOpen === "reading"[\s\S]{0,80}"karaoke"/);
     expect(src).toMatch(/registerMapNodeType\(activeVoiceGameNodeType\)/);
   });
+
+  it("map karaoke and pronunciation use liveFlowStt instead of final-only gameTranscript", () => {
+    expect(src).toContain("const liveFlowStt = state.interimTranscript || state.gameTranscript");
+    expect(src).toMatch(/karaokeReadingForMapNode=\{\{[\s\S]{0,220}interimTranscript: liveFlowStt/);
+    expect(src).toMatch(/<KaraokeReadingCanvas[\s\S]{0,220}interimTranscript=\{liveFlowStt\}/);
+    expect(src).toMatch(/<PronunciationGameCanvas[\s\S]{0,220}interimTranscript=\{liveFlowStt\}/);
+  });
+
+  it("story karaoke keeps the companion visible as a muted portrait", () => {
+    expect(src).toMatch(/voiceGameCompanionMicMuted[\s\S]{0,260}karaokeReadingActive/);
+    expect(src).toMatch(/voiceGameCompanionMicMuted[\s\S]{0,260}mapSession\.launchedNode\?\.type === "karaoke"/);
+    expect(src).not.toContain("karaokeShellCompanionOff");
+    expect(src).toContain("toggledOff={false}");
+    expect(src).toContain("micMuted={micMuted || voiceGameCompanionMicMuted}");
+  });
+
+  it("preselected adventure map child starts companion voice once", () => {
+    expect(src).toContain("autoStartedAdventureVoiceRef");
+    expect(src).toMatch(/startSession\(childNameFromId\(adventureChildId\)/);
+  });
 });

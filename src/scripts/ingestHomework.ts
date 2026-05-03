@@ -1,10 +1,7 @@
 import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
-import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import readline from "readline/promises";
-import { stdin as input, stdout as output } from "process";
 import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import type { LearningProfile } from "../context/schemas/learningProfile";
@@ -16,6 +13,11 @@ import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 import { buildPreQuestTheory } from "../engine/homeworkCycleLoop";
+import {
+  buildHomeworkCarePlan,
+  renderHomeworkCarePlanMarkdown,
+  type HomeworkCarePlan,
+} from "../engine/homeworkCarePlan";
 import {
   buildHomeworkContentCatalogItems,
   upsertProfileContentCatalog,
@@ -30,6 +32,10 @@ import {
   type HomeworkType,
   type PlannedHomeworkNode,
 } from "./contentAwareHomeworkPlanner";
+import {
+  buildPreviewBoardCommand,
+  maybeLaunchPreviewBoard,
+} from "../utils/previewLauncher";
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
@@ -247,6 +253,55 @@ export function normalizeHomeworkType(raw: string): HomeworkType {
   return "generic";
 }
 
+export function resolveHomeworkTypeFromProfile(
+  raw: string,
+  contentProfile: ContentProfile,
+  title: string,
+  questions: unknown[],
+): HomeworkType {
+  const normalized = normalizeHomeworkType(raw);
+  if (normalized !== "generic") return normalized;
+
+  const haystack = [
+    title,
+    contentProfile.topic,
+    contentProfile.practiceDomain,
+    contentProfile.contentDomain,
+    contentProfile.primarySkill,
+    contentProfile.assignmentFormat,
+    ...contentProfile.concepts,
+    ...contentProfile.sourceEvidence,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    contentProfile.practiceDomain === "reading" ||
+    contentProfile.primarySkill.includes("comprehension") ||
+    contentProfile.assignmentFormat.includes("study") ||
+    questions.length > 0 ||
+    /\b(erosion|earth|surface|soil|landform|water|wind|rocks?|study guide)\b/.test(
+      haystack,
+    )
+  ) {
+    return "reading";
+  }
+
+  return normalized;
+}
+
+export function buildHomeworkPreviewCommand(childId: string): {
+  display: string;
+  command: string;
+  args: string[];
+} {
+  return buildPreviewBoardCommand({
+    childId,
+    subject: "homework",
+    sessionMode: "as-child",
+  });
+}
+
 export function ensureQuestHtmlContract(html: string): string {
   let out = html;
   if (!out.includes('_contract.js')) {
@@ -350,6 +405,7 @@ export function buildPendingHomeworkPayload(args: {
         storyText: node.storyText,
         storyTitle: node.storyTitle,
         storyImagePrompt: node.storyImagePrompt,
+        carePlan: node.carePlan,
         date: node.date ?? args.weekOf,
         approved: false,
       };
@@ -358,6 +414,22 @@ export function buildPendingHomeworkPayload(args: {
       }
       return base;
     }),
+  };
+}
+
+export function buildHomeworkLearningPlanArtifact(args: {
+  homeworkId: string;
+  childId: string;
+  title: string;
+  type: HomeworkType;
+  words: string[];
+  contentProfile: ContentProfile;
+  reinforcementWords?: string[];
+}): { plan: HomeworkCarePlan; markdown: string } {
+  const plan = buildHomeworkCarePlan(args);
+  return {
+    plan,
+    markdown: renderHomeworkCarePlanMarkdown(plan),
   };
 }
 
@@ -516,7 +588,7 @@ async function extractHomework(
     messages: [{ role: "user", content }],
   });
   const parsed = parseExtractedJson(textFromMessage(msg)) as Partial<ExtractionShape>;
-  const normalizedType = normalizeHomeworkType(String(parsed.type ?? "generic"));
+  const extractedType = normalizeHomeworkType(String(parsed.type ?? "generic"));
   const words = Array.isArray(parsed.words) ? parsed.words.map((w) => String(w)) : [];
   const questions = Array.isArray(parsed.questions)
     ? parsed.questions.map((q, idx) => ({
@@ -536,11 +608,27 @@ async function extractHomework(
   const title = String(parsed.title ?? "Untitled Homework");
   const contentProfile = normalizeContentProfile({
     title,
-    type: normalizedType,
+    type: extractedType,
     words,
     questions,
     contentProfile: parsed.contentProfile,
   });
+  const normalizedType = resolveHomeworkTypeFromProfile(
+    extractedType,
+    contentProfile,
+    title,
+    questions,
+  );
+  const finalContentProfile =
+    normalizedType === extractedType
+      ? contentProfile
+      : normalizeContentProfile({
+          title,
+          type: normalizedType,
+          words,
+          questions,
+          contentProfile,
+        });
   const capturedContent = buildCapturedHomeworkContent({
     title,
     type: normalizedType,
@@ -553,7 +641,7 @@ async function extractHomework(
         mediaType: isPdf ? "application/pdf" : "text/plain",
       },
     ],
-    contentProfile,
+    contentProfile: finalContentProfile,
   });
   const contentFingerprint = generateContentFingerprint({
     childId: "",
@@ -570,7 +658,7 @@ async function extractHomework(
     gradeLevel: Number(parsed.gradeLevel ?? 2),
     testDate: parsed.testDate ? String(parsed.testDate) : null,
     words,
-    contentProfile,
+    contentProfile: finalContentProfile,
     capturedContent,
     contentFingerprint,
     questions,
@@ -741,6 +829,14 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     testDate,
     contentProfile: extracted.contentProfile,
   });
+  const learningPlanArtifact = buildHomeworkLearningPlanArtifact({
+    homeworkId,
+    childId,
+    title: extracted.title,
+    type: extracted.type,
+    words: extracted.words,
+    contentProfile: extracted.contentProfile,
+  });
 
   profileDoc.pendingHomework = buildPendingHomeworkPayload({
     weekOf: today,
@@ -761,39 +857,33 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   });
   const profileWithCatalog = upsertProfileContentCatalog(profileDoc, catalogItems);
   writeLearningProfile(childId, profileWithCatalog);
+  fs.writeFileSync(
+    path.join(pendingDir, "learning-plan.json"),
+    JSON.stringify(learningPlanArtifact.plan, null, 2),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(pendingDir, "learning-plan.md"),
+    learningPlanArtifact.markdown,
+    "utf8",
+  );
 
   console.log(`✅ Saved to src/context/${childId}/homework/pending/${today}/`);
+  console.log("🧭 Learning plan → learning-plan.md");
 
   console.log("");
   console.log("🧠 Step 4/4: Psychologist + today's plan (shared with sunny:sync)…");
-  await runPsychologistSync(childId);
+  await runPsychologistSync(childId, { planningMode: "homework" });
 
-  if (process.env.SUNNY_NON_INTERACTIVE === "true" || !process.stdin.isTTY) {
-    console.log("");
-    console.log("Run preview:  npm run sunny:homework:preview");
-    console.log("Run session:  npm run sunny:homework");
-    return;
-  }
-
-  const rl = readline.createInterface({ input, output });
-  try {
-    const answerRaw = await rl.question("\nOpen preview? [Y/n] ");
-    const answer = answerRaw.trim().toLowerCase();
-    if (answer !== "n") {
-      spawnSync("npm run sunny:homework:preview", {
-        cwd: process.cwd(),
-        stdio: "inherit",
-        shell: true,
-        env: { ...process.env, VITE_DIAG_CHILD_ID: childId },
-      });
-    } else {
-      console.log("");
-      console.log("Run preview:  npm run sunny:homework:preview");
-      console.log("Run session:  npm run sunny:homework");
-    }
-  } finally {
-    rl.close();
-  }
+  await maybeLaunchPreviewBoard({
+    childId,
+    subject: "homework",
+    label: "homework",
+    sessionMode: "as-child",
+    prompt: process.env.SUNNY_NON_INTERACTIVE !== "true",
+    defaultOpen: true,
+  });
+  console.log("Run session:  npm run sunny:homework");
 }
 
 if (typeof require !== "undefined" && require.main === module) {

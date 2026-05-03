@@ -6,6 +6,9 @@ export type NodeType =
   | "mystery"
   | "word-builder"
   | "bubble-pop"
+  | "fish-flanker"
+  | "target-blaster"
+  | "hero-shield"
   | "karaoke"
   | "word-radar"
   | "clock-game"
@@ -50,6 +53,8 @@ export interface NodeConfig {
   date?: string;
   /** Optional node theme label (client / diag). */
   theme?: string;
+  /** Child-profile-derived activity config for attention screening/intervention nodes. */
+  attentionConfig?: unknown;
   isCastle?: boolean;
   /** Curtain / accent override for transitions (optional). */
   accentColor?: string;
@@ -75,6 +80,9 @@ export interface NodeResult {
   accuracy: number;
   timeSpent_ms: number;
   wordsAttempted: number;
+  activityId?: string;
+  purpose?: string;
+  vitalSigns?: Record<string, unknown>;
   /** Targets answered incorrectly (e.g. Word Radar) — primes next companion / map node. */
   missedWords?: string[];
   /** Targets answered correctly — optional companion context. */
@@ -138,6 +146,9 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "mystery",
   "word-builder",
   "bubble-pop",
+  "fish-flanker",
+  "target-blaster",
+  "hero-shield",
   "karaoke",
   "word-radar",
   "clock-game",

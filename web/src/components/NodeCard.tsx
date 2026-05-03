@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
 
@@ -45,6 +45,12 @@ export function NodeCard({
   const size = isGoal ? 120 : 88;
   const borderColor = isGoal ? "#FCD34D" : "white";
   const borderWidth = isGoal ? 5 : 4;
+  const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null);
+  const showThumbnail = Boolean(thumbnail && thumbnail !== failedThumbnail && !isLocked);
+
+  useEffect(() => {
+    setFailedThumbnail(null);
+  }, [thumbnail]);
 
   const baseShadow = isGoal
     ? "0 10px 28px rgba(0,0,0,0.35), 0 0 0 1px rgba(252,211,77,0.35)"
@@ -176,10 +182,11 @@ export function NodeCard({
           >
             {"\u2713"}
           </div>
-        ) : thumbnail && !isLocked ? (
+        ) : showThumbnail ? (
           <img
-            src={thumbnail}
+            src={thumbnail ?? ""}
             alt=""
+            onError={() => setFailedThumbnail(thumbnail ?? null)}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : isLocked ? (

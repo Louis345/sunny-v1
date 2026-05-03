@@ -99,6 +99,20 @@ export function initializeLearningProfile(intake: {
     moodHistory: [],
     moodTrend: "stable",
     moodAdjustment: false,
+    attentionModel: {
+      source: "legacy_demographic",
+      status: "insufficient-data",
+      currentWindow_ms: hasLearningDifference ? 180_000 : 300_000,
+      bestWindow_ms: hasLearningDifference ? 180_000 : 300_000,
+      trend: "unknown",
+      confidence: 0.15,
+      lastMeasuredAt: now,
+      evidence: [
+        hasLearningDifference
+          ? "Initial estimate from intake diagnoses until attention vitals are collected."
+          : "Initial estimate from intake defaults until attention vitals are collected.",
+      ],
+    },
 
     iepTargets: [],
 

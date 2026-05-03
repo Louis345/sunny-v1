@@ -1,4 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import fs from "fs";
+import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { MapState, NodeResult, NodeConfig } from "../shared/adventureTypes";
 import * as learningProfileIO from "../utils/learningProfileIO";
@@ -20,6 +22,15 @@ vi.mock("../agents/designer/designer", async (importOriginal) => {
 
 vi.mock("../engine/nodeSelection", () => ({
   buildNodeList: vi.fn(),
+}));
+
+vi.mock("../engine/attentionVitals", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../engine/attentionVitals")>();
+  return { ...actual, recordAttentionSignal: vi.fn() };
+});
+
+vi.mock("../server/learningAttemptEvents", () => ({
+  recordLearningAttempt: vi.fn(),
 }));
 
 vi.mock("../utils/nodeRatingIO", () => ({
@@ -92,6 +103,8 @@ import {
 import { generateTheme } from "../agents/designer/designer";
 import { buildNodeList } from "../engine/nodeSelection";
 import { appendNodeRating } from "../utils/nodeRatingIO";
+import { recordAttentionSignal } from "../engine/attentionVitals";
+import { recordLearningAttempt } from "../server/learningAttemptEvents";
 
 function mockTheme() {
   return {
@@ -132,6 +145,8 @@ function mockNodes(): MapState["nodes"] {
 }
 
 describe("map coordinator (TASK-010)", () => {
+  const cleanupPaths: string[] = [];
+
   beforeEach(() => {
     vi.unstubAllEnvs();
     __resetAdventureMapSessionsForTests();
@@ -149,7 +164,16 @@ describe("map coordinator (TASK-010)", () => {
       companionContext: "",
     });
     vi.mocked(generateTheme).mockResolvedValue(mockTheme() as never);
+    vi.mocked(generateTheme).mockClear();
     vi.mocked(buildNodeList).mockResolvedValue(mockNodes());
+    vi.mocked(recordAttentionSignal).mockClear();
+    vi.mocked(recordLearningAttempt).mockClear();
+  });
+
+  afterEach(() => {
+    for (const p of cleanupPaths.splice(0)) {
+      fs.rmSync(p, { recursive: true, force: true });
+    }
   });
 
   it("startMapSession returns mapState with nodes from buildNodeList", async () => {
@@ -183,6 +207,7 @@ describe("map coordinator (TASK-010)", () => {
       games: {} as never,
       wordRadar: {
         showTimer: true,
+        timerSeconds: 20,
         showKeyboard: false,
         personalBests: {},
         inputMode: "whole-word",
@@ -232,6 +257,7 @@ describe("map coordinator (TASK-010)", () => {
       games: {} as never,
       wordRadar: {
         showTimer: true,
+        timerSeconds: 20,
         showKeyboard: false,
         personalBests: {},
         inputMode: "whole-word",
@@ -255,6 +281,15 @@ describe("map coordinator (TASK-010)", () => {
             storyFile: null,
             storyText,
           },
+          {
+            id: "n-concept-builder",
+            type: "word-builder",
+            words: ["erosion", "water", "soil"],
+            difficulty: 2,
+            rationale: "Build erosion academic vocabulary.",
+            gameFile: null,
+            storyFile: null,
+          },
           ...buildHomeworkNodes({
             type: "spelling_test",
             words,
@@ -268,9 +303,11 @@ describe("map coordinator (TASK-010)", () => {
 
     const { mapState } = await startMapSession("qa_map");
 
-    expect(mapState.nodes[0]?.type).toBe("karaoke");
-    expect(mapState.nodes[0]?.storyText).toBe(storyText);
-    expect(mapState.nodes[0]?.words).toEqual(storyWords);
+    expect(mapState.nodes[0]?.type).toBe("word-radar");
+    expect(mapState.nodes[1]?.type).toBe("karaoke");
+    expect(mapState.nodes[1]?.storyText).toBe(storyText);
+    expect(mapState.nodes[1]?.words).toEqual(storyWords);
+    expect(mapState.nodes.map((n) => n.type)).toContain("word-builder");
     expect(mapState.nodes.map((n) => n.type)).toContain("spell-check");
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
   });
@@ -316,6 +353,7 @@ describe("map coordinator (TASK-010)", () => {
       games: {} as never,
       wordRadar: {
         showTimer: true,
+        timerSeconds: 20,
         showKeyboard: false,
         personalBests: {},
         inputMode: "whole-word",
@@ -385,6 +423,7 @@ describe("map coordinator (TASK-010)", () => {
       games: {} as never,
       wordRadar: {
         showTimer: true,
+        timerSeconds: 20,
         showKeyboard: false,
         personalBests: {},
         inputMode: "whole-word",
@@ -471,6 +510,7 @@ describe("map coordinator (TASK-010)", () => {
       games: {} as never,
       wordRadar: {
         showTimer: true,
+        timerSeconds: 20,
         showKeyboard: false,
         personalBests: {},
         inputMode: "whole-word",
@@ -578,11 +618,171 @@ describe("map coordinator (TASK-010)", () => {
     expect(mapState.nodes.slice(1).every((n) => n.isLocked)).toBe(true);
   });
 
-  it("SUNNY_MODE=diag leaves every map node unlocked after buildNodeList path", async () => {
+  it("SUNNY_MODE=diag no longer unlocks map nodes unless inspect-all is requested", async () => {
     vi.stubEnv("SUNNY_MODE", "diag");
     const { mapState } = await startMapSession("qa_map");
     expect(mapState.nodes.length).toBeGreaterThan(0);
-    expect(mapState.nodes.every((n) => !n.isLocked)).toBe(true);
+    expect(mapState.nodes[0]?.isLocked).toBe(false);
+    expect(mapState.nodes.slice(1).every((n) => n.isLocked)).toBe(true);
+  });
+
+  it("inspect-all runtime leaves nodes launchable without marking them completed", async () => {
+    const { mapState } = await startMapSession("qa_map", {
+      previewMode: "free",
+      nodeAccess: "inspect-all",
+    });
+    expect(mapState.nodes.length).toBeGreaterThan(0);
+    expect(mapState.completedNodes).toEqual([]);
+    expect(mapState.nodes.every((n) => !n.isCompleted)).toBe(true);
+    expect(
+      mapState.nodes.every((n) => !n.isLocked || (n.type === "boss" && !n.gameHtmlPath)),
+    ).toBe(true);
+  });
+
+  it("onboarding preview builds board nodes from the onboarding plan without completing them", async () => {
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId: "reina",
+      ttsName: "Reina",
+      level: 2,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+    });
+    const { mapState } = await startMapSession("reina", {
+      subject: "onboarding",
+      sessionMode: "as-child",
+      previewMode: "free",
+      nodeAccess: "inspect-all",
+      voiceMode: "muted",
+    });
+
+    expect(mapState.nodes.map((node) => node.id)).toEqual([
+      "onboarding-bubble-pop",
+      "onboarding-dopamine-break",
+      "onboarding-academic-load-check",
+    ]);
+    expect(mapState.nodes.map((node) => node.type)).toEqual([
+      "bubble-pop",
+      "mystery",
+      "karaoke",
+    ]);
+    expect(mapState.nodes.every((node) => !node.isCompleted)).toBe(true);
+    expect(mapState.completedNodes).toEqual([]);
+    expect(mapState.nodes.every((node) => !node.isLocked)).toBe(true);
+  });
+
+  it("attention screening completion records vitals without creating learning attempts", async () => {
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId: "reina",
+      ttsName: "Reina",
+      level: 2,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+    });
+    const { sessionId, mapState } = await startMapSession("reina", {
+      subject: "onboarding",
+      sessionMode: "real",
+      previewMode: "off",
+      nodeAccess: "inspect-all",
+    });
+    const node = mapState.nodes[0]!;
+
+    await applyNodeResult(sessionId, {
+      nodeId: node.id,
+      completed: true,
+      accuracy: 0.82,
+      timeSpent_ms: 64_000,
+      wordsAttempted: 12,
+      activityId: node.type,
+      purpose: "attention_screening",
+      vitalSigns: {
+        startedAt: "2026-05-03T18:00:00.000Z",
+        endedAt: "2026-05-03T18:01:04.000Z",
+        activeDuration_ms: 64_000,
+        idleEvents: 0,
+        abandonments: 0,
+        reengagements: 0,
+        omissions: 1,
+        commissions: 0,
+        frustrationSignals: [],
+        flowSignals: ["target_hit"],
+        practiceGate: { passed: true, accuracy: 0.82 },
+      },
+    });
+
+    expect(recordAttentionSignal).toHaveBeenCalledWith(
+      "reina",
+      expect.objectContaining({
+        activityId: node.type,
+        purpose: "attention_screening",
+        activeDuration_ms: 64_000,
+      }),
+    );
+    expect(recordLearningAttempt).not.toHaveBeenCalled();
+  });
+
+  it("preview reuses saved Grok themes instead of generating a new theme", async () => {
+    const childId = "qa_preview_theme";
+    const childDir = path.join(process.cwd(), "src", "context", childId);
+    const themeDir = path.join(childDir, "themes");
+    cleanupPaths.push(childDir);
+    fs.mkdirSync(themeDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(themeDir, "saved.json"),
+      JSON.stringify({
+        id: "saved",
+        name: "saved-preview-world",
+        generatedAt: "2026-05-03T12:00:00.000Z",
+        worldBackgroundUrl: "https://example.com/saved-world.jpeg",
+        palette: {
+          sky: "#6ec8ff",
+          ground: "#228b5c",
+          accent: "#2563eb",
+          particle: "#e0f2fe",
+          glow: "#fde68a",
+          cardBackground: "#f0f9ff",
+        },
+        thumbnails: {
+          "bubble-pop": "https://example.com/bubble.jpeg",
+          mystery: "https://example.com/mystery.jpeg",
+          karaoke: "https://example.com/karaoke.jpeg",
+        },
+        savedBy: "test",
+      }),
+      "utf8",
+    );
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId,
+      ttsName: "Qa",
+      level: 2,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+    });
+
+    const { mapState } = await startMapSession(childId, {
+      subject: "review",
+      sessionMode: "as-child",
+      previewMode: "free",
+      nodeAccess: "inspect-all",
+    });
+
+    expect(mapState.theme.source).toBe("saved");
+    expect(mapState.theme.backgroundUrl).toBe("https://example.com/saved-world.jpeg");
+    expect(vi.mocked(generateTheme)).not.toHaveBeenCalled();
   });
 });
 

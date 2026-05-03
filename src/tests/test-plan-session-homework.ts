@@ -6,7 +6,7 @@ import {
   planSession,
   reorderHomeworkNodesForSession,
 } from "../engine/learningEngine";
-import { writeLearningProfile } from "../utils/learningProfileIO";
+import { initializeLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 
 describe("planSession homework", () => {
   const childId = "hwtest";
@@ -169,6 +169,50 @@ describe("planSession homework", () => {
     expect(out.length).toBe(8);
   });
 
+  it("homework planning uses measured attention model to cap session length", () => {
+    const shortChildId = "hwtest-short-attention";
+    const shortCtxDir = path.join(process.cwd(), "src", "context", shortChildId);
+    const profile = initializeLearningProfile({
+      childId: shortChildId,
+      age: 8,
+      grade: 2,
+      diagnoses: [],
+      learningGoals: [],
+    });
+    profile.demographics.attentionSpan = "moderate";
+    profile.attentionModel = {
+      source: "session_vitals",
+      status: "measured",
+      currentWindow_ms: 150_000,
+      bestWindow_ms: 210_000,
+      trend: "declining",
+      confidence: 0.8,
+      evidence: ["attention dipped during homework nodes"],
+    };
+    profile.pendingHomework = {
+      weekOf: "2026-04-21",
+      testDate: null,
+      wordList: ["erosion"],
+      generatedAt: new Date().toISOString(),
+      nodes: Array.from({ length: 8 }).map((_, idx) => ({
+        id: `n${idx}`,
+        type: idx % 2 === 0 ? "word-radar" : "karaoke",
+        words: ["erosion"],
+        difficulty: 2,
+        gameFile: null,
+        storyFile: null,
+      })),
+    };
+
+    writeLearningProfile(shortChildId, profile);
+    try {
+      const plan = planSession(shortChildId, "homework");
+      expect(plan.activities.length).toBeLessThan(6);
+    } finally {
+      fs.rmSync(shortCtxDir, { recursive: true, force: true });
+    }
+  });
+
   it("SM-2 due words injected into node params", () => {
     const params = buildNodeParams(
       { id: "n1", type: "quest", difficulty: 2 },
@@ -181,7 +225,20 @@ describe("planSession homework", () => {
   });
 
   it("falls back to existing logic when no pendingHomework", () => {
-    const plan = planSession("fallback-child", "spelling");
-    expect(plan.mode).toBe("spelling");
+    const fallbackChildId = "fallback-child-runtime";
+    const fallbackCtxDir = path.join(process.cwd(), "src", "context", fallbackChildId);
+    writeLearningProfile(fallbackChildId, initializeLearningProfile({
+      childId: fallbackChildId,
+      age: 8,
+      grade: 2,
+      diagnoses: [],
+      learningGoals: [],
+    }));
+    try {
+      const plan = planSession(fallbackChildId, "spelling");
+      expect(plan.mode).toBe("spelling");
+    } finally {
+      fs.rmSync(fallbackCtxDir, { recursive: true, force: true });
+    }
   });
 });

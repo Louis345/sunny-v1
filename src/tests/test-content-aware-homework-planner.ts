@@ -458,12 +458,23 @@ describe("content-aware homework planner", () => {
       }),
     });
 
-    const storyNode = nodes[0];
+    const storyNode = nodes.find((node) => node.type === "karaoke");
     const story = storyNode?.storyText ?? "";
     const imagePrompt = storyNode?.storyImagePrompt ?? "";
     const reinaMentions = story.match(/\bReina\b/g)?.length ?? 0;
 
     expect(storyNode?.type).toBe("karaoke");
+    expect(nodes.map((n) => n.type)).toEqual([
+      "word-radar",
+      "karaoke",
+      "pronunciation",
+      "word-builder",
+      "word-radar",
+    ]);
+    expect(nodes[0]?.carePlan?.role).toBe("baseline-evaluator");
+    expect(nodes[0]?.wordRadarItems?.[0]?.label).toBe("Concept Check");
+    expect(nodes[3]?.rationale).toMatch(/academic vocabulary/i);
+    expect(nodes[4]?.carePlan?.role).toBe("exit-evaluator");
     expect(reinaMentions).toBeGreaterThanOrEqual(1);
     expect(story).toMatch(/\b(wrestling|challenge|competition|strategy|personal best)\b/i);
     expect(story).toMatch(/\b(mission|timer|round|training)\b/i);
@@ -496,8 +507,9 @@ describe("content-aware homework planner", () => {
       }),
     });
 
-    const story = nodes[0]?.storyText ?? "";
-    const imagePrompt = nodes[0]?.storyImagePrompt ?? "";
+    const storyNode = nodes.find((node) => node.type === "karaoke");
+    const story = storyNode?.storyText ?? "";
+    const imagePrompt = storyNode?.storyImagePrompt ?? "";
 
     expect(story).toMatch(/\bIla\b/);
     expect(imagePrompt).toMatch(/\bIla\b/);

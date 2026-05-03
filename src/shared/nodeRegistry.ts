@@ -5,6 +5,10 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   mystery: "Mystery",
   pronunciation: "Pronunciation",
   karaoke: "Story",
+  "bubble-pop": "Focus Check",
+  "fish-flanker": "Fish Flanker",
+  "target-blaster": "Target Blaster",
+  "hero-shield": "Hero Shield",
   "word-radar": "Word Radar",
   "spell-check": "Spell Check",
   wordle: "Wordle",
@@ -45,10 +49,11 @@ export type RoutableNodeConfig = Pick<
   | "storyText"
   | "storyTitle"
   | "storyImagePrompt"
+  | "attentionConfig"
 > & { type: string };
 
 export function buildNodeUrlSearchParams(
-  node: Pick<RoutableNodeConfig, "id" | "words"> & { difficulty?: number },
+  node: Pick<RoutableNodeConfig, "id" | "words" | "attentionConfig"> & { difficulty?: number },
   ctx: NodeContext,
 ): URLSearchParams {
   const params: Record<string, string> = {
@@ -66,6 +71,9 @@ export function buildNodeUrlSearchParams(
   if (ctx.sessionId) params.sessionId = ctx.sessionId;
   if (ctx.isQuest === true) params.isQuest = "true";
   if (ctx.dyslexiaMode === true) params.dyslexiaMode = "true";
+  if (node.attentionConfig != null) {
+    params.attentionConfig = JSON.stringify(node.attentionConfig);
+  }
   const cc = ctx.companionCurrency;
   params.companionCurrency =
     typeof cc === "number" && Number.isFinite(cc)
@@ -117,6 +125,18 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
   },
   "wheel-of-fortune": {
     getUrl: (node, ctx) => `/games/WheelOfFortune.html?${buildParams(node, ctx)}`,
+  },
+  "bubble-pop": {
+    getUrl: (node, ctx) => `/games/attention-bubble-pop.html?${buildParams(node, ctx)}`,
+  },
+  "fish-flanker": {
+    getUrl: (node, ctx) => `/games/attention-fish-flanker.html?${buildParams(node, ctx)}`,
+  },
+  "target-blaster": {
+    getUrl: (node, ctx) => `/games/attention-target-blaster.html?${buildParams(node, ctx)}`,
+  },
+  "hero-shield": {
+    getUrl: (node, ctx) => `/games/attention-hero-shield.html?${buildParams(node, ctx)}`,
   },
   mystery: {
     getUrl: (node, ctx) =>

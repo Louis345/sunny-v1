@@ -157,6 +157,7 @@ function mapPreviewQueryParam(
 export function useMapSession(
   childId: string,
   previewMode: MapClientPreviewMode = false,
+  inspectAllMode = false,
 ): {
   mapState: MapState | null;
   theme: SessionTheme | null;
@@ -223,7 +224,10 @@ export function useMapSession(
     setConnectionStatus("connecting");
     postJson<{ sessionId: string; mapState: MapState }>("/api/map/start", {
       childId,
-      ...(previewMode === "free" ? { preview: "free" } : {}),
+      runtime: {
+        previewMode: mapPreviewQueryParam(previewMode) ?? "off",
+        nodeAccess: inspectAllMode ? "inspect-all" : "normal",
+      },
     })
       .then((out) => {
         if (cancelled) return;
@@ -241,7 +245,7 @@ export function useMapSession(
     return () => {
       cancelled = true;
     };
-  }, [childId, previewMode]);
+  }, [childId, inspectAllMode, previewMode]);
 
   useEffect(() => {
     const id = childId.trim();

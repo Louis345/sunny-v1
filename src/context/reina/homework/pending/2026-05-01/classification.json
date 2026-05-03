@@ -1,0 +1,90 @@
+{
+  "title": "Erosion and Earth's Surface Study Guide",
+  "type": "generic",
+  "gradeLevel": 3,
+  "testDate": "Wednesday, May 6",
+  "words": [],
+  "contentProfile": {
+    "practiceDomain": "reading",
+    "contentDomain": "science",
+    "topic": "Erosion and Earth's Surface",
+    "primarySkill": "Understanding erosion processes and Earth's geography",
+    "assignmentFormat": "Study guide with sections covering key concepts",
+    "concepts": [
+      "erosion",
+      "soil",
+      "rocks",
+      "water",
+      "wind",
+      "Erosion definition and causes",
+      "Beach sand and rock formation",
+      "Map reading skills",
+      "River flow patterns",
+      "Compass rose directions",
+      "Landform identification"
+    ],
+    "sourceEvidence": [
+      "matched science term: erosion",
+      "matched science term: soil",
+      "matched science term: rocks",
+      "matched science term: water",
+      "matched science term: wind",
+      "What Is Erosion section",
+      "Beach Sand and Rocks section",
+      "Reading a Map section",
+      "How Rivers Flow section",
+      "Treasure Map Practice section",
+      "Quick Review section"
+    ]
+  },
+  "questions": [
+    {
+      "id": 1,
+      "question": "What causes erosion?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Wind, water, and ice wear away rocks and soil",
+      "hint": "Think about what natural forces can wear things away"
+    },
+    {
+      "id": 2,
+      "question": "Where does the color of beach sand come from?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "From the rocks nearby",
+      "hint": "Consider the source of sand particles"
+    },
+    {
+      "id": 3,
+      "question": "What do rivers and rain carry?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Tiny pieces of rock",
+      "hint": "What breaks down during erosion?"
+    },
+    {
+      "id": 4,
+      "question": "In which direction do rivers usually flow?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Downhill from mountains to oceans or lakes",
+      "hint": "Does water flow up or down?"
+    },
+    {
+      "id": 5,
+      "question": "What does a compass rose show?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Directions: North, South, East, West",
+      "hint": "This helps you navigate on a map"
+    },
+    {
+      "id": 6,
+      "question": "How are rounded hills different from pointy peaks?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Rounded hills are smaller and softer; pointy peaks are tall and sharp",
+      "hint": "Compare their shapes and sizes"
+    }
+  ]
+}

@@ -34,6 +34,15 @@ window.GameBridge = (function () {
       previewGoLive: previewGoLive,
       isQuest: p.get("isQuest") === "true",
       dyslexiaMode: p.get("dyslexiaMode") === "true",
+      attentionConfig: (function () {
+        var raw = p.get("attentionConfig");
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw);
+        } catch (_err) {
+          return null;
+        }
+      })(),
       companionCurrency: (function () {
         var raw = p.get("companionCurrency");
         var n =
@@ -91,6 +100,84 @@ window.GameBridge = (function () {
       if (!msg || msg.type !== "start") return;
       onStart(msg);
     });
+  }
+
+  function createAttentionFeedback(options) {
+    options = options || {};
+    var feedbackPolicy = options.feedbackPolicy || {};
+    var audioProfile = options.audioProfile || {};
+    var ctx = null;
+    var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+
+    function audioEnabled() {
+      return !!AudioContextCtor && audioProfile.baselineAudio !== "off";
+    }
+
+    function allowed(eventName) {
+      if (eventName === "practice_correct" || eventName === "practice_miss") {
+        return feedbackPolicy.practice === "corrective_audio_visual";
+      }
+      if (eventName === "measured_response" || eventName === "measured_advance") {
+        return feedbackPolicy.measured === "neutral_audio_only";
+      }
+      if (eventName === "results_complete") {
+        return feedbackPolicy.results === "reward_summary";
+      }
+      return false;
+    }
+
+    function ensureContext() {
+      if (!audioEnabled()) return null;
+      if (!ctx) ctx = new AudioContextCtor();
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(function (err) {
+          console.warn("🎮 [attention-audio] resume failed", err);
+        });
+      }
+      return ctx;
+    }
+
+    function tone(frequency, startOffset, duration, gainValue) {
+      var c = ensureContext();
+      if (!c) return;
+      var now = c.currentTime + startOffset;
+      var osc = c.createOscillator();
+      var gain = c.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(frequency, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(gainValue, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      osc.connect(gain);
+      gain.connect(c.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    }
+
+    function play(eventName) {
+      if (!allowed(eventName)) return;
+      try {
+        if (eventName === "practice_correct") {
+          tone(660, 0, 0.08, 0.045);
+          tone(880, 0.07, 0.1, 0.035);
+        } else if (eventName === "practice_miss") {
+          tone(220, 0, 0.09, 0.025);
+          tone(185, 0.08, 0.12, 0.02);
+        } else if (eventName === "measured_response") {
+          tone(420, 0, 0.035, 0.02);
+        } else if (eventName === "measured_advance") {
+          tone(300, 0, 0.025, 0.012);
+        } else if (eventName === "results_complete") {
+          tone(523, 0, 0.08, 0.035);
+          tone(659, 0.08, 0.09, 0.035);
+          tone(784, 0.17, 0.12, 0.03);
+        }
+      } catch (err) {
+        console.warn("🎮 [attention-audio] play failed", err);
+      }
+    }
+
+    return { play: play };
   }
 
   window.GAME_PARAMS = GAME_PARAMS;
@@ -228,6 +315,8 @@ window.GameBridge = (function () {
       if (!Number.isFinite(n)) return;
       post("currency_award", { amount: n, reason: String(reason || "") });
     },
+
+    createAttentionFeedback: createAttentionFeedback,
 
     fireEvent: function (trigger, payload) {
       if (!trigger) return;

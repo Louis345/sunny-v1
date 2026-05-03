@@ -227,6 +227,8 @@ describe("LearningDecisionContext", () => {
       now: new Date("2026-05-02T12:00:00.000Z"),
     });
 
+    expect(context.chart.childId).toBe(childId);
+    expect(context.chart.links.learningProfile).toContain("learning_profile.json");
     expect(context.homework?.topic).toBe("erosion");
     expect(context.homework?.urgency).toBe("high");
     expect(context.memory.dueWords).toEqual(["erosion"]);
@@ -237,8 +239,39 @@ describe("LearningDecisionContext", () => {
       "error-pattern-detector",
       "quest-threshold",
       "activity-affinity",
+      "attention-vitals",
       "calibration-journal",
     ]);
+  });
+
+  it("uses measured attention model instead of treating demographics.attentionSpan as static truth", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "ila";
+    const profile = baseProfile(childId);
+    profile.demographics.attentionSpan = "moderate";
+    profile.attentionModel = {
+      source: "session_vitals",
+      status: "measured",
+      currentWindow_ms: 150_000,
+      bestWindow_ms: 210_000,
+      trend: "declining",
+      confidence: 0.78,
+      lastMeasuredAt: "2026-05-03T12:00:00.000Z",
+      evidence: ["idle gap after 2m30s", "abandoned word-builder"],
+    };
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+
+    const context = buildLearningDecisionContext(childId, {
+      rootDir: root,
+      now: new Date("2026-05-03T13:00:00.000Z"),
+    });
+
+    expect(context.profile.attention.label).toBe("short");
+    expect(context.profile.attention.source).toBe("session_vitals");
+    expect(context.profile.attention.currentWindow_ms).toBe(150_000);
+    expect(context.profile.attention.legacyDemographicLabel).toBe("moderate");
+    expect(context.algorithmFeeds.map((feed) => feed.id)).toContain("attention-vitals");
   });
 
   it("appends activity evidence to the child profile as the current activity model", () => {

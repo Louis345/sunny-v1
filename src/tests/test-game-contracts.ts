@@ -5,6 +5,7 @@ import * as path from "node:path";
 /** Vitest runs with cwd = repo root. */
 const PROJECT_ROOT = process.cwd();
 const GAMES_DIR = path.join(PROJECT_ROOT, "web", "public", "games");
+const CONTRACT_JS_PATH = path.join(GAMES_DIR, "_contract.js");
 const SKIP_PATHS = new Set([
   "web/public/games/pronunciation-game.html",
   "web/public/games/pronunciation/index.html",
@@ -34,6 +35,12 @@ const REWARD_ONLY_GAMES = new Set([
   "web/public/games/space-frogger.html",
   "web/public/games/space-invaders.html",
 ]);
+const ATTENTION_SCREENING_GAMES = new Set([
+  "web/public/games/attention-bubble-pop.html",
+  "web/public/games/attention-fish-flanker.html",
+  "web/public/games/attention-hero-shield.html",
+  "web/public/games/attention-target-blaster.html",
+]);
 
 function collectHtmlFiles(dir: string, acc: string[] = []): string[] {
   if (!fs.existsSync(dir)) return acc;
@@ -58,6 +65,12 @@ function hasContractScript(html: string): boolean {
 }
 
 describe("game contract compliance (helper-based)", () => {
+  let contractJs: string;
+
+  beforeAll(() => {
+    contractJs = fs.readFileSync(CONTRACT_JS_PATH, "utf-8");
+  });
+
   it("discovers at least one game HTML file", () => {
     expect(GAME_HTML_PATHS.length).toBeGreaterThan(0);
   });
@@ -112,6 +125,55 @@ describe("game contract compliance (helper-based)", () => {
         if (REWARD_ONLY_GAMES.has(label)) {
           expect(html).toContain("sunny-attempt-contract-exempt: reward-only");
         }
+        if (ATTENTION_SCREENING_GAMES.has(label)) {
+          expect(html).toContain("sunny-attempt-contract-exempt: attention-screening-vitals-only");
+        }
+      });
+
+      it("attention screens report normalized vitals and read GAME_PARAMS config", () => {
+        if (!ATTENTION_SCREENING_GAMES.has(label)) return;
+        expect(html).toContain("GAME_PARAMS");
+        expect(html).toContain("vitalSigns");
+        expect(html).toContain("activeDuration_ms");
+        expect(html).toContain("idleEvents");
+        expect(html).toContain("reengagements");
+        expect(html).toContain("frustrationSignals");
+        expect(html).toContain("flowSignals");
+        expect(html).toContain("GameBridge.reportState");
+      });
+
+      it("attention screens expose the full parent-preview phase flow", () => {
+        if (!ATTENTION_SCREENING_GAMES.has(label)) return;
+        expect(html).toContain('data-phase="intro"');
+        expect(html).toContain('data-phase="practice"');
+        expect(html).toContain('data-phase="measured"');
+        expect(html).toContain('data-phase="results"');
+        expect(html).toContain("Practice/demo");
+        expect(html).toContain("Measured baseline");
+        expect(html).toContain("Would record in live mode");
+        expect(html).toContain("previewDryRun");
+      });
+
+      it("attention screens make parent preview trials playable", () => {
+        if (!ATTENTION_SCREENING_GAMES.has(label)) return;
+        expect(html).toContain('data-preview-control="wait"');
+        expect(html).toContain("setupPreviewControls");
+        expect(html).toContain("previewStimulusMs");
+        expect(html).toContain("handleOutcome(false)");
+      });
+
+      it("attention screens use phase-gated audio feedback", () => {
+        if (!ATTENTION_SCREENING_GAMES.has(label)) return;
+        expect(contractJs).toContain("createAttentionFeedback");
+        expect(html).toContain("attentionFeedback");
+        expect(html).toContain("feedbackPolicy");
+        expect(html).toMatch(/attentionFeedback\.play\([^)]*["']practice_correct/);
+        expect(html).toContain("practice_miss");
+        expect(html).toMatch(/attentionFeedback\.play\([^)]*["']measured_response/);
+        expect(html).toContain("measured_advance");
+        expect(html).toContain('attentionFeedback.play("results_complete"');
+        expect(html).not.toContain("measured_correct");
+        expect(html).not.toContain("measured_miss");
       });
     });
   }

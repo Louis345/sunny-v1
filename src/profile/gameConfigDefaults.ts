@@ -9,6 +9,7 @@ export const DEFAULT_GAME_CONFIGS: ChildProfileGames = {
     speakStyle: "option-a",
     keyboardStyle: "option-c",
     showTimer: true,
+    timerSeconds: 20,
     personalBestMetric: "accuracy",
   },
   "spell-check": {

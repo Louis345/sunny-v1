@@ -1,8 +1,8 @@
 {
-  "childId": "fallback-child",
+  "childId": "qa_content_planner",
   "version": 1,
-  "createdAt": "2026-04-20T16:04:17.398Z",
-  "lastUpdated": "2026-04-20T16:04:17.398Z",
+  "createdAt": "2026-05-03T19:34:13.045Z",
+  "lastUpdated": "2026-05-03T19:34:13.046Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -49,6 +49,18 @@
   "moodHistory": [],
   "moodTrend": "stable",
   "moodAdjustment": false,
+  "attentionModel": {
+    "source": "legacy_demographic",
+    "status": "insufficient-data",
+    "currentWindow_ms": 300000,
+    "bestWindow_ms": 300000,
+    "trend": "unknown",
+    "confidence": 0.15,
+    "lastMeasuredAt": "2026-05-03T19:34:13.045Z",
+    "evidence": [
+      "Initial estimate from intake defaults until attention vitals are collected."
+    ]
+  },
   "iepTargets": [],
   "readingProfile": {
     "currentReadingLevel": "CVC",
