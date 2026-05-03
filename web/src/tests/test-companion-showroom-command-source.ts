@@ -72,6 +72,80 @@ describe("CompanionShowroom command source", () => {
     expect(source).not.toContain("Object.values(motorsRef.current).forEach");
   });
 
+  it("keeps the signature move visual-only so it cannot reintroduce T-rex retarget poses", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+    const signatureMoveBody = source.match(
+      /const playSignatureMove = useCallback\([\s\S]*?\n  \}, \[/,
+    )?.[0];
+
+    expect(signatureMoveBody).toBeDefined();
+    expect(signatureMoveBody).toContain("playPowerUpSfx");
+    expect(signatureMoveBody).not.toContain("playCurrentCompanionAnimation");
+    expect(signatureMoveBody).not.toContain("createShowroomAnimateCommand");
+  });
+
+  it("uses one signature move VFX source for both the stage render and meet card render", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("signatureMoveVfxPreset");
+    expect(source).toContain('aria-label={`Play ${current.showroom.signatureMove.name}`}');
+    expect(source).toContain('vfxPreset={slot.slot === "current" ? signatureMoveVfxPreset(slot.entry) : undefined}');
+    expect(source).toContain('vfxPreset={signatureMoveVfxPreset(entry)}');
+  });
+
+  it("does not add generic humanoid bone pose writers that can break existing companions", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../companion/CompanionMotor.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toContain("applyNeutralPresentationPoseToVrm");
+    expect(source).not.toContain("getNormalizedBoneNode");
+    expect(source).not.toContain("getRawBoneNode");
+    expect(source).not.toContain("leftUpperArm");
+    expect(source).not.toContain("rightUpperArm");
+  });
+
+  it("renders Kefla's aura through a Three.js VFX layer instead of CSS pose hacks", () => {
+    const showroomSource = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+    const vfxSource = readFileSync(
+      resolve(__dirname, "../companion/CompanionVfxLayer.ts"),
+      "utf8",
+    );
+
+    expect(showroomSource).toContain("CompanionVfxLayer");
+    expect(showroomSource).toContain("vfxPreset=");
+    expect(showroomSource).toContain("vfxLevel=");
+    expect(vfxSource).toContain("new THREE.CanvasTexture");
+    expect(vfxSource).toContain("new THREE.Sprite");
+    expect(vfxSource).toContain("new THREE.Points");
+    expect(vfxSource).toContain("THREE.AdditiveBlending");
+    expect(vfxSource).not.toContain("playAnimation");
+    expect(vfxSource).not.toContain("createShowroomAnimateCommand");
+    expect(vfxSource).not.toContain("getNormalizedBoneNode");
+    expect(vfxSource).not.toContain("setNormalizedPose");
+  });
+
+  it("keeps power-up VFX fully off until the signature move is triggered", () => {
+    const vfxSource = readFileSync(
+      resolve(__dirname, "../companion/CompanionVfxLayer.ts"),
+      "utf8",
+    );
+
+    expect(vfxSource).toContain('if (level === "idle") return 0;');
+    expect(vfxSource).toContain("this.aura.visible = intensity > 0");
+    expect(vfxSource).toContain("this.light.intensity = intensity === 0 ? 0");
+  });
+
   it("opens with the meet gesture but restores idle before the card reveal", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),

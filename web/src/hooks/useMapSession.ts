@@ -157,6 +157,7 @@ function mapPreviewQueryParam(
 export function useMapSession(
   childId: string,
   previewMode: MapClientPreviewMode = false,
+  _inspectAllMode = false,
 ): {
   mapState: MapState | null;
   theme: SessionTheme | null;

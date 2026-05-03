@@ -17,6 +17,11 @@ import type {
 } from "../../../src/shared/companionTypes";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 import { CompanionMotor } from "../companion/CompanionMotor";
+import { CompanionVfxLayer } from "../companion/CompanionVfxLayer";
+import {
+  resolveSaiyanVfxLevel,
+  shouldUseSaiyanVfx,
+} from "../companion/companionVfxState";
 
 /** Interim animate→expression pulse keys (Opus will replace with procedural bones). */
 export const ANIMATE_TO_EXPRESSION_KEY = COMPANION_ANIMATE_TO_EXPRESSION_KEY;
@@ -30,6 +35,8 @@ export interface CompanionLayerProps {
   /** When true, shrink companion to bottom-right for karaoke reading space. Ignored in portrait mode. */
   karaokeActive?: boolean;
   companionEvents?: CompanionEventPayload[];
+  /** Current learning streak; Kefla uses this to enter Saiyan-style VFX states. */
+  correctStreak?: number;
   /** Validated `companionAct` commands (voice or map WebSocket). */
   companionCommands?: CompanionCommand[];
   /** Screen pixel for LookAt (viewport); null drifts gaze toward screen center. */
@@ -70,6 +77,7 @@ export function CompanionLayer({
   mode = "full",
   karaokeActive = false,
   companionEvents = [],
+  correctStreak = 0,
   companionCommands = [],
   activeNodeScreen = null,
   analyserNodeRef: analyserNodeRefProp,
@@ -94,6 +102,7 @@ export function CompanionLayer({
   const portraitHeadPosRef = useRef<THREE.Vector3 | null>(null);
 
   const motorRef = useRef<CompanionMotor | null>(null);
+  const vfxLayerRef = useRef<CompanionVfxLayer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<CompanionRenderer | null>(null);
@@ -101,16 +110,18 @@ export function CompanionLayer({
   const timerRef = useRef<THREE.Timer | null>(null);
 
   const companionEventsRef = useRef<CompanionEventPayload[]>(companionEvents);
+  const correctStreakRef = useRef(correctStreak);
   const childIdRef = useRef<string | null>(childId);
   const companionRef = useRef<CompanionConfig | null>(companion);
   const activeNodeScreenRef = useRef(activeNodeScreen);
   useLayoutEffect(() => {
     companionEventsRef.current = companionEvents;
+    correctStreakRef.current = correctStreak;
     toggledOffRef.current = toggledOff;
     childIdRef.current = childId;
     companionRef.current = companion;
     activeNodeScreenRef.current = activeNodeScreen;
-  }, [companionEvents, toggledOff, childId, companion, activeNodeScreen]);
+  }, [companionEvents, correctStreak, toggledOff, childId, companion, activeNodeScreen]);
 
   useLayoutEffect(() => {
     motorRef.current?.processCompanionCommands(
@@ -181,6 +192,15 @@ export function CompanionLayer({
         activeNodeScreen: activeNodeScreenRef.current,
         analyser: analyserNodeRef.current,
       });
+      const vfxLayer = vfxLayerRef.current;
+      if (vfxLayer) {
+        vfxLayer.setLevel(resolveSaiyanVfxLevel({
+          companionId: companionRef.current?.companionId,
+          correctStreak: correctStreakRef.current,
+          companionEvents: companionEventsRef.current,
+        }));
+        vfxLayer.tick(dt, camera);
+      }
       renderer.render(scene, camera);
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -214,6 +234,8 @@ export function CompanionLayer({
       stopLoop();
       const r = rendererRef.current;
       const s = sceneRef.current;
+      vfxLayerRef.current?.dispose();
+      vfxLayerRef.current = null;
       motorRef.current?.dispose();
       motorRef.current = null;
       rendererRef.current = null;
@@ -309,6 +331,18 @@ export function CompanionLayer({
     console.log("CompanionLayer: [effect] building scene for child", childId);
     const scene = new THREE.Scene();
     sceneRef.current = scene;
+    if (shouldUseSaiyanVfx(companion.companionId)) {
+      const vfxLayer = new CompanionVfxLayer("yellow_power_aura");
+      vfxLayer.setLevel(resolveSaiyanVfxLevel({
+        companionId: companion.companionId,
+        correctStreak,
+        companionEvents,
+      }));
+      scene.add(vfxLayer.group);
+      vfxLayerRef.current = vfxLayer;
+    } else {
+      vfxLayerRef.current = null;
+    }
 
     const { w: cw0, h: ch0 } = readMountSize();
     const camera = new THREE.PerspectiveCamera(22, cw0 / ch0, 0.05, 50);
@@ -485,6 +519,8 @@ export function CompanionLayer({
       mountResizeObserver?.disconnect();
       window.removeEventListener("resize", onResize);
       stopLoop();
+      vfxLayerRef.current?.dispose();
+      vfxLayerRef.current = null;
       motor.dispose();
       motorRef.current = null;
       sceneRef.current = null;
@@ -500,7 +536,7 @@ export function CompanionLayer({
         rendererRef.current = null;
       }
     };
-  }, [childId, companion?.vrmUrl, mode, startLoop, stopLoop]);
+  }, [childId, companion?.companionId, companion?.vrmUrl, mode, startLoop, stopLoop]);
 
   if (!childId || !companion) {
     return null;

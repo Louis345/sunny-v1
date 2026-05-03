@@ -1259,6 +1259,7 @@ function App() {
           !state.karaokeStoryComplete
         }
         companionEvents={mergedCompanionEvents}
+        correctStreak={state.correctStreak}
         companionCommands={mergedCompanionCommands}
         activeNodeScreen={activeNodeScreen}
         analyserNodeRef={analyserNodeRef}
