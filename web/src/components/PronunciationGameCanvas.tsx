@@ -20,6 +20,7 @@ const HIT_MS = 300;
 const YANK_OUT_MS = 300;
 const YANK_BACK_MS = 400;
 const WRONG_DEBOUNCE_MS = 1200;
+const HEARD_STICKY_MS = 450;
 
 let _audioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
@@ -150,6 +151,7 @@ export function PronunciationGameCanvas({
   const missSeqRef = useRef(0);
   const timeoutArmedRef = useRef(true);
   const interimRef = useRef(interimTranscript);
+  const heardClearTimeoutRef = useRef<number | null>(null);
   const wordIndexRef = useRef(0);
   const hitsRef = useRef(0);
   const wordsAttemptedRef = useRef(0);
@@ -172,6 +174,7 @@ export function PronunciationGameCanvas({
   const [hitStreak, setHitStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [heatBanner, setHeatBanner] = useState<"off" | "heating">("off");
+  const [heardTranscript, setHeardTranscript] = useState("");
 
   const {
     wordIndex,
@@ -186,7 +189,31 @@ export function PronunciationGameCanvas({
 
   useEffect(() => {
     interimRef.current = interimTranscript;
-  });
+    const trimmed = interimTranscript.trim();
+    if (trimmed) {
+      if (heardClearTimeoutRef.current !== null) {
+        window.clearTimeout(heardClearTimeoutRef.current);
+        heardClearTimeoutRef.current = null;
+      }
+      setHeardTranscript(trimmed.split(/\s+/).filter(Boolean).pop() ?? trimmed);
+      return;
+    }
+    if (heardClearTimeoutRef.current !== null) {
+      window.clearTimeout(heardClearTimeoutRef.current);
+    }
+    heardClearTimeoutRef.current = window.setTimeout(() => {
+      heardClearTimeoutRef.current = null;
+      setHeardTranscript("");
+    }, HEARD_STICKY_MS);
+  }, [interimTranscript]);
+
+  useEffect(() => {
+    return () => {
+      if (heardClearTimeoutRef.current !== null) {
+        window.clearTimeout(heardClearTimeoutRef.current);
+      }
+    };
+  }, []);
   useEffect(() => {
     wordIndexRef.current = wordIndex;
   });
@@ -199,8 +226,7 @@ export function PronunciationGameCanvas({
 
   const expectedWord =
     wordIndex < words.length ? (words[wordIndex] ?? "") : "";
-  const heard =
-    interimTranscript.trim().split(/\s+/).pop() || "—";
+  const heard = heardTranscript || "—";
 
   const burst = useCallback((x: number, y: number) => {
     const colors = ["#4ade80", "#86efac", "#bbf7d0", "#fff"];

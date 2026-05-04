@@ -26,6 +26,7 @@
     "sunny:diag": "npm run sunny:run -- --subject diag --session-mode diag --preview free --node-access inspect-all --child creator",
     "sunny:adventure": "npm run sunny:run -- --subject review",
     "sunny:homework:preview": "npm run sunny:preview",
+    "sunny:homework:preview:dev": "concurrently --names \"server,web,kiosk\" --prefix-colors \"green,magenta,blue\" \"PORT=3001 TTS_ENABLED=true SUNNY_SUBJECT=homework npx tsx src/server.ts\" \"cd web && npm run dev -- --host 0.0.0.0 --port 5173\" \"sleep 3 && (open -na 'Google Chrome' --args --kiosk --noerrdialogs --disable-infobars --disable-session-crashed-bubble --disable-restore-session-state --autoplay-policy=no-user-gesture-required --app=http://localhost:5173 || chromium --kiosk --app=http://localhost:5173 || chromium-browser --kiosk --app=http://localhost:5173 || google-chrome --kiosk --app=http://localhost:5173)\"",
     "sunny:playtest:as-child": "npm run sunny:run -- --subject homework --session-mode as-child --child ila",
     "sunny:mode:intro": "npm run sunny:ingest:companion && npm run sunny:run -- --session-mode intro --subject review",
     "sunny:mode:onboarding": "npx tsx src/scripts/onboardingMode.ts",
