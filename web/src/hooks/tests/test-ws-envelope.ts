@@ -136,6 +136,7 @@ describe("WS envelope vs canvas payload type", () => {
     expect(typeof raw).toBe("string");
     expect(JSON.parse(String(raw))).toMatchObject({
       type: "canvas_show",
+      canvasType: "karaoke",
       storyText: "Hello",
       words: ["Hello"],
     });

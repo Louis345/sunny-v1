@@ -1668,3 +1668,34 @@ Mastery-level fluency. Continue as warm-up before multiplication/division introd
 ## Signal
 
 ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 7 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery (beat Matilda by 700 coins), pattern recognition strength (comparative adjectives instant transfer). MAINTAIN spelling homework warm-ups (test 5/6) in game format and addition facts as confidence-builders. CONCURRENT PRIORITY: Deepen reading comprehension with inferential questions on action texts before expanding to bilingual curriculum. Honor her self-identified growth zone—she deserves the multiplication challenge she asked for 7 weeks ago.
+
+## Psychologist Report — 5/3/2026, 8:25:59 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 2 sessions (4/3, 4/30), 9/9 correct (100% accuracy), Wheel of Fortune 1,300-600 coin victory, Speed Catcher 10/10 flawless, new reading homework cycle ingested 5/4 (erosion, wear away, rocks, soil, wind, water, ice, rivers, rain, mountains, beaches, oceans, sand, compass rose, downhill) → ADVANCE
+
+Reina achieves championship-level spelling via competitive framing. She beat Matilda by 700 coins, executed Speed Catcher flawlessly (10/10), caught comparative/superlative patterns instantly. Spelling test 5/6 complete; new reading vocabulary cycle (science/geography) presents opportunity to probe definitional depth on content words (erosion, compass rose) before pure spelling drill. Continue game-format warm-ups on homework words (5-word bursts), pivot to her choice immediately.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3-4/4), 100% fluency, literal comprehension only ("she went boom, but she was safe"), no sessions in 30+ days → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction. Captures literal events but does not infer motive, consequence, or strategy without prompting. Ready for inferential questions ("Why was the ninja in danger?" "How did she outsmart them?") matching her chess/wrestling analytical brain. New reading homework (erosion vocabulary) creates natural bridge to content-area reading comprehension.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), no sessions in 45+ days → MAINTAIN
+
+Mastery-level fluency. Continue as warm-up before multiplication/division introduction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 50+ sessions despite self-identified as math gap on 3/27 (8+ weeks ago). Advanced addition fluency (100%), competitive engagement (1,300-600 coin victory), pattern recognition strength (comparative adjectives instant mastery) indicate championship-level readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?"). This is her stated growth zone and has been systematically ignored for 8 weeks straight.
+
+- **CRITICAL: Definitional Vocabulary (Word Definitions via Reading Homework)** — Mentioned 32 times in notes but "tested 32 times" means flagged, not formally assessed. New reading homework cycle (erosion, wear away, compass rose, downhill) presents natural probe opportunity. Ask "What does erosion mean?" before spelling drill to establish definitional baseline. Required before Japanese kanji/katakana work (parent goal: June 2026 trip, 2 months away).
+
+- **CRITICAL: Inferential Comprehension via Science Reading** — Reading fluency solid (100%) but comprehension depth untested beyond literal action narratives for 30+ days. Science vocabulary homework (erosion process, geography terms) creates natural inferential probe: "Why does erosion happen on mountains?" "What would happen to beaches without sand?" Needed before Constitution reading (parent goal).
+
+---
+
+## Signal
+
+ADVANCE — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 8 weeks ago and demonstrates championship-level readiness across all foundation skills. CONCURRENT PRIORITY: Use new reading homework cycle (erosion vocabulary) to probe definitional depth ("What does erosion mean?") and inferential reasoning ("Why does wind cause erosion?") before pure spelling drill. MAINTAIN spelling game-format warm-ups (5 words maximum) and addition facts as confidence-builders. She deserves the multiplication challenge she asked for 8 weeks ago, paired with content-area reading comprehension that matches her "year ahead academically" profile claim.

@@ -4,18 +4,26 @@
       "activity": "Homework Reading – Erosion And Earth's Surface",
       "priority": 1,
       "required": true,
-      "reason": "Active uploaded homework is \"Erosion and Earth's Surface Study Guide\", so today's required work must anchor on erosion, Erosion, Beach Sand and Rocks, Reading a Map before broader profile goals.",
+      "reason": "Active uploaded homework is \"Erosion and Earth's Surface Study Guide\", so today's required work must anchor on erosion, landform, landforms, soil before broader profile goals.",
       "timeboxMinutes": 12,
       "method": "Read the assignment-aligned content, ask evidence-based checks, then use profile motivators only as framing.",
       "source": "pendingHomework",
       "words": [
         "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "downhill"
       ],
       "probeSequence": [
         "Read or preview the assignment content",
@@ -34,10 +42,10 @@
       "source": "pendingHomework:baseline-evaluator",
       "words": [
         "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow"
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
       ],
       "probeSequence": [
         "concept_recognition_accuracy",
@@ -53,9 +61,9 @@
       "method": "Measure: reading_completion; hesitations; flagged_words. Algorithm targets: reading-comprehension, activity-affinity.",
       "source": "pendingHomework:story",
       "words": [
-        "faster",
-        "slowest",
-        "add"
+        "erosion",
+        "wear away",
+        "rocks"
       ],
       "probeSequence": [
         "reading_completion",
@@ -73,10 +81,10 @@
       "source": "pendingHomework:pronunciation",
       "words": [
         "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow"
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
       ],
       "probeSequence": [
         "pronunciation_accuracy",
@@ -93,10 +101,10 @@
       "source": "pendingHomework:concept-builder",
       "words": [
         "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow"
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
       ],
       "probeSequence": [
         "construction_accuracy",
@@ -113,10 +121,10 @@
       "source": "pendingHomework:exit-evaluator",
       "words": [
         "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow"
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
       ],
       "probeSequence": [
         "exit_accuracy",
@@ -124,7 +132,7 @@
       ]
     }
   ],
-  "childProfile": "Reina is an 8-year-old academically advanced wrestler who thrives on hard challenges, competitive framing, and being pushed beyond grade-level work. She learns through application (store-game 86% vs worksheet 26%), competition (beat Matilda by 700 coins), and pattern recognition (instant comparative adjective mastery). She self-advocates clearly ('I wanted subtraction, multiplication, division' on 3/27), catches clinician errors mid-session, celebrates wins explicitly ('So much money, baby'), and self-regulates when off-topic. She's bilingual (English/Japanese), proud of her wrestling identity (uses takedown/pin language), and responds to すごい and やった when she succeeds. She disengages from mechanical drill but sustains 100% engagement when challenged appropriately. Fast pace, wrestling metaphors, acknowledgment of her intelligence, and honoring her explicit requests are essential.",
+  "childProfile": "Reina is an 8-year-old academic powerhouse—a year ahead of peers, competitive wrestler, bilingual English/Japanese speaker, and strategic thinker (chess, wrestling takedowns). She thrives on challenge, speed, and competition. She learns through application and competitive framing, not mechanical drill (worksheet coins crashed to 26% accuracy; game-based spelling hit 100%). She celebrates wins explicitly ('So much money, baby'), self-regulates beautifully (exits on winning streaks, requests harder material), and catches errors instantly (corrected Matilda mid-session multiple times). Wrestling metaphors land hard ('pin that answer'), Japanese celebration (すごい, やった) reinforces success, and Matilda movie references honor her chosen identity (smart girl who doesn't back down). She disengages from rote work and over-simplification but sustains focus when appropriately challenged. She requested multiplication/division 8 weeks ago and deserves to finally get it. Her reading fluency is championship-level but comprehension depth is untested. She's kind about mistakes ('Everyone makes mistakes') and gives meta-feedback on learning itself ('next time say it rhymes with computer'). Match her energy, honor her self-advocacy, and push her hard—she's built for it.",
   "stopAfter": "After the homework exit check shows the assignment concept is understood, or earlier if frustration is rising.",
   "rewardPolicy": "Reward only after the homework care-plan sequence, not before the assignment is checked."
 }

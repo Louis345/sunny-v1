@@ -42,6 +42,29 @@ describe("karaoke reading transcript suppression", () => {
     expect(shouldSuppress("hello")).toBe(true);
   });
 
+  it("suppresses homework karaoke transcripts that end with repeated story words like bye", () => {
+    const sm = new SessionManager(mockWs(), "Reina");
+    (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =
+      createSessionContext({ childName: "Reina", sessionType: "homework" });
+    (sm as unknown as { currentCanvasState: Record<string, unknown> }).currentCanvasState =
+      { mode: "karaoke" };
+    sm.receiveReadingProgress({
+      wordIndex: 68,
+      totalWords: 123,
+      accuracy: 0.55,
+      hesitations: 29,
+      flaggedWords: [],
+      spelledWords: [],
+      event: "progress",
+    });
+    const shouldSuppress = (
+      sm as unknown as {
+        shouldSuppressTranscriptDuringKaraoke: (t: string) => boolean;
+      }
+    ).shouldSuppressTranscriptDuringKaraoke.bind(sm);
+    expect(shouldSuppress("by explaining why the... bye. Bye. Bye.")).toBe(true);
+  });
+
   it("does not suppress after reading_progress event=complete (lift flag)", () => {
     const sm = new SessionManager(mockWs(), "Ila");
     (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =

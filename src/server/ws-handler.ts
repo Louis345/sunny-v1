@@ -207,6 +207,17 @@ export function handleWsConnection(
         break;
       }
 
+      case "canvas_show": {
+        if (!session) return;
+        const m = msg as Record<string, unknown>;
+        const { type: _wireType, canvasType, ...rest } = m;
+        session.applyClientToolCall("canvasShow", {
+          ...rest,
+          type: typeof canvasType === "string" ? canvasType : rest.type,
+        });
+        break;
+      }
+
       case "reading_progress": {
         if (!session) return;
         session.receiveReadingProgress(msg as Record<string, unknown>);

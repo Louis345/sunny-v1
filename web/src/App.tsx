@@ -1017,13 +1017,17 @@ function App() {
           type="button"
           className="absolute top-3 left-3 z-[9100] rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
           onClick={() => {
+            if (mapSession.launchedNode) {
+              mapSession.clearLaunchedNode();
+              return;
+            }
             setCompanionSheetOpen(false);
             setAdventureChildId(null);
             setSelectedChildName(null);
             resetToPicker();
           }}
         >
-          Back
+          {mapSession.launchedNode ? "Back to map" : "Back"}
         </button>
         <AdventureMap
           childId={adventureChildId}
