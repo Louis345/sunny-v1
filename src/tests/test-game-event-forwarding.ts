@@ -104,6 +104,25 @@ describe("handleGameEventForSession companion_event server routing", () => {
     });
     expect(session.send).toHaveBeenCalled();
   });
+
+  it("routes companion_care_event to the live response path", async () => {
+    const runCompanionResponse = vi.fn(async (_message: string) => {});
+    const session = makeSession({ runCompanionResponse });
+    handleGameEventForSession(session, {
+      type: "companion_care_event",
+      itemId: "apple_bite",
+      animation: { reference: "animation-a", itemId: "apple_bite" },
+      companionCare: { moodLabel: "bright" },
+    });
+
+    await vi.waitFor(() => expect(runCompanionResponse).toHaveBeenCalled());
+    expect(runCompanionResponse.mock.calls[0]?.[0]).toContain("apple_bite");
+    expect(session.noteExternalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "companion_care_event",
+      }),
+    );
+  });
 });
 
 // ─── 3. useSession iframe allowlist includes companion_event ─────────────────

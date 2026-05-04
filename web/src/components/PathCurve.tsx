@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import {
   buildPixelPositionsFromWaypoints,
   buildPolylinePathD,
-  extendPathPolyline,
   resolveMapWaypoints,
+  trimPathPolyline,
 } from "../../../src/shared/mapPathLayout";
 import type { MapWaypoint } from "../../../src/shared/adventureTypes";
 import type { Point } from "../../../src/shared/pathCurve";
@@ -44,10 +44,10 @@ export function PathCurve({
       height,
       count,
     );
-    const pathPoints = extendPathPolyline(
+    const pathPoints = trimPathPolyline(
       positions,
-      Math.min(0.8, Math.max(0, startRadius) / 160),
-      Math.min(0.8, Math.max(0, endRadius) / 160),
+      Math.max(0, startRadius),
+      Math.max(0, endRadius),
     );
     setState({ pathD: buildPolylinePathD(pathPoints), positions });
   }, [count, startRadius, endRadius, waypoints]);

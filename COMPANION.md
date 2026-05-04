@@ -29,6 +29,21 @@ New adaptive or companion decision code should start from `getChildChart(childId
 
 The current `tamagotchi` and `companionCurrency` profile fields can remain as compatibility mirrors, but the source of truth is a named companion care plan for Elli, Matilda, Kefla, or any future companion.
 
+## Care Logic Boundary
+
+Keep companion care decisions in one direction:
+
+```text
+child chart / care engine -> profile care_plan.companion_care -> CompanionCareProvider -> CompanionLayer
+```
+
+- The server care engine owns durable welfare truth: absence decay, feed effects, readiness thresholds, mood labels, inventory, economy, and mirrors.
+- `CompanionCareProvider` owns frontend presentation state: current care view, feed in-flight state, animation event ids, and the derived behavior object used by the UI.
+- The companion layer is a renderer. It applies emotes, animation commands, visual treatment, and data attributes from context. It must not invent mood thresholds or decide which food maps to which animation.
+- The bookbag is a view of the care plan. It may show scarcity, quantities, and repair affordances, but it must not create hidden welfare math outside the engine.
+
+If a future UI needs a new mood state, add the durable rule to the engine/chart first or add an explicit presentation-only rule in the provider. Do not scatter ad hoc mood checks across map, bookbag, and companion render components.
+
 ## Companion Care Plan
 
 A companion care plan should answer:

@@ -170,6 +170,7 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     "## Companion care state",
     `Care vitals: hunger ${Math.round(companionCare.vitals.hunger * 100)}%, energy ${Math.round(companionCare.vitals.energy * 100)}%, bond ${Math.round(companionCare.vitals.bond * 100)}%, usefulness ${Math.round(companionCare.vitals.usefulness * 100)}%, thought clarity ${Math.round(companionCare.vitals.thoughtClarity * 100)}%.`,
     `Mood label: ${companionCare.moodLabel}. Last seen: ${companionCare.lastSeenLabel}.`,
+    "Mood behavior policy: bright/happy can sound upbeat; tired should sound gentle and lower-energy; hungry can suggest the bookbag snack repair path; moody/quiet should use shorter calmer responses.",
     "Care tone: visible consequences are allowed, but never guilt, blame, or blocking required homework. Offer repair paths like feeding, warmup, or continuing gently.",
   ].join("\n");
 
@@ -201,6 +202,9 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     pendingHomework: lp.pendingHomework ?? undefined,
     tamagotchi: tamagotchi ?? legacyTamagotchi,
     companionCare,
+    care_plan: {
+      companion_care: companionCare,
+    },
     wordRadar: {
       showTimer: wrShowTimer,
       timerSeconds: wrTimerSeconds,

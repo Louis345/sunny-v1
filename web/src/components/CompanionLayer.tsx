@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type RefObject,
 } from "react";
 import * as THREE from "three";
@@ -11,6 +12,7 @@ import {
   COMPANION_ANIMATE_TO_EXPRESSION_KEY,
   type CompanionCommand,
 } from "../../../src/shared/companions/companionContract";
+import type { CompanionCareView } from "../../../src/shared/companionCareTypes";
 import type {
   CompanionConfig,
   CompanionEventPayload,
@@ -22,6 +24,10 @@ import {
   resolveSaiyanVfxLevel,
   shouldUseSaiyanVfx,
 } from "../companion/companionVfxState";
+import {
+  deriveCompanionBehavior,
+  type CompanionBehavior,
+} from "../context/companionCareBehavior";
 
 /** Interim animate→expression pulse keys (Opus will replace with procedural bones). */
 export const ANIMATE_TO_EXPRESSION_KEY = COMPANION_ANIMATE_TO_EXPRESSION_KEY;
@@ -39,6 +45,10 @@ export interface CompanionLayerProps {
   correctStreak?: number;
   /** Validated `companionAct` commands (voice or map WebSocket). */
   companionCommands?: CompanionCommand[];
+  /** @deprecated Prefer companionBehavior from CompanionCareProvider. */
+  companionCare?: CompanionCareView | null;
+  /** Derived visible behavior from CompanionCareProvider. */
+  companionBehavior?: CompanionBehavior | null;
   /** Screen pixel for LookAt (viewport); null drifts gaze toward screen center. */
   activeNodeScreen?: { x: number; y: number } | null;
   /** Playback analyser from `useSession` for mouth sync; omit in diag/tests (no voice pipeline). */
@@ -67,6 +77,89 @@ function resolveModelUrl(vrmUrl: string): string {
   return `${window.location.origin}${vrmUrl.startsWith("/") ? "" : "/"}${vrmUrl}`;
 }
 
+const FEED_EMOJI: Record<string, string> = {
+  apple_bite: "🍎",
+  brain_berry: "🧠",
+  cozy_soup: "🍲",
+  star_candy: "🍬",
+  mystery_snack: "✨",
+};
+
+const COMBO_COLORS = ["#f8fafc", "#facc15", "#fb923c", "#fb7185", "#a855f7", "#ec4899"];
+const BURST_EMOJIS = ["✨", "⭐", "💛", "💥", "🌟", "🎉", "🌈", "💖"];
+
+interface FeedComboState {
+  count: number;
+  eventId: string;
+}
+
+let companionFeedAudioContext: AudioContext | null = null;
+
+function getCompanionFeedAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  const AudioContextCtor =
+    window.AudioContext ??
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (!AudioContextCtor) return null;
+  companionFeedAudioContext ??= new AudioContextCtor();
+  return companionFeedAudioContext;
+}
+
+function playTone(
+  ctx: AudioContext,
+  at: number,
+  fromHz: number,
+  toHz: number,
+  duration: number,
+  volume: number,
+  type: OscillatorType = "sine",
+) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(fromHz, at);
+  osc.frequency.exponentialRampToValueAtTime(toHz, at + duration);
+  gain.gain.setValueAtTime(volume, at);
+  gain.gain.exponentialRampToValueAtTime(0.001, at + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(at);
+  osc.stop(at + duration + 0.025);
+}
+
+function playCompanionFeedSfx(reference: string, comboCount: number) {
+  const ctx = getCompanionFeedAudioContext();
+  if (!ctx) return;
+  void ctx.resume?.().catch(() => undefined);
+  const now = ctx.currentTime;
+
+  if (reference === "animation-b") {
+    [523, 659, 784, 1046].forEach((hz, index) => {
+      playTone(ctx, now + index * 0.055, hz, hz * 1.32, 0.18, 0.055, "triangle");
+    });
+    playTone(ctx, now + 0.18, 196, 330, 0.32, 0.035, "sine");
+    return;
+  }
+
+  playTone(ctx, now, 180, 95, 0.075, 0.055, "triangle");
+  playTone(ctx, now + 0.075, 420, 760, 0.13, 0.035, "sine");
+  if (comboCount >= 2) {
+    const start = comboCount >= 5 ? 620 : 520;
+    [0, 1, 2].forEach((step) => {
+      playTone(
+        ctx,
+        now + 0.16 + step * 0.055,
+        start * (1 + step * 0.22),
+        start * (1.25 + step * 0.22),
+        0.13,
+        comboCount >= 4 ? 0.045 : 0.03,
+        "sine",
+      );
+    });
+  }
+}
+
 /**
  * Full-screen overlay (pointer-events none); WebGPU canvas when supported, else WebGL fallback (COMPANION-002).
  */
@@ -79,6 +172,8 @@ export function CompanionLayer({
   companionEvents = [],
   correctStreak = 0,
   companionCommands = [],
+  companionCare = null,
+  companionBehavior = null,
   activeNodeScreen = null,
   analyserNodeRef: analyserNodeRefProp,
   speechBubbleText,
@@ -114,6 +209,32 @@ export function CompanionLayer({
   const childIdRef = useRef<string | null>(childId);
   const companionRef = useRef<CompanionConfig | null>(companion);
   const activeNodeScreenRef = useRef(activeNodeScreen);
+  const behavior = companionBehavior ?? deriveCompanionBehavior(companionCare);
+  const feedEffect = behavior.feedAnimation;
+  const feedEmoji = feedEffect ? (FEED_EMOJI[feedEffect.itemId] ?? "🍎") : null;
+  const layerZIndex = feedEffect ? 12050 : 15;
+  const [feedCombo, setFeedCombo] = useState<FeedComboState | null>(null);
+  const feedComboRef = useRef<{ count: number; lastAt: number; eventId: string | null }>({
+    count: 0,
+    lastAt: 0,
+    eventId: null,
+  });
+  const comboCount = feedEffect?.reference === "animation-b" ? Math.max(feedCombo?.count ?? 1, 5) : feedCombo?.count ?? 0;
+  const comboColor = COMBO_COLORS[Math.min(comboCount, COMBO_COLORS.length - 1)] ?? COMBO_COLORS[0];
+  const comboLabel =
+    feedEffect?.reference === "animation-b"
+      ? "SUPER FULL!"
+      : comboCount >= 5
+        ? "SUPER!"
+        : comboCount >= 4
+          ? "4x MEGA!"
+          : comboCount >= 3
+            ? "3x COMBO!"
+            : comboCount >= 2
+              ? "2x COMBO!"
+              : null;
+  const burstCount = feedEffect?.reference === "animation-b" ? 24 : comboCount >= 5 ? 22 : comboCount >= 4 ? 18 : comboCount >= 3 ? 14 : comboCount >= 2 ? 9 : 0;
+  const behaviorRef = useRef(behavior);
   useLayoutEffect(() => {
     companionEventsRef.current = companionEvents;
     correctStreakRef.current = correctStreak;
@@ -121,7 +242,63 @@ export function CompanionLayer({
     childIdRef.current = childId;
     companionRef.current = companion;
     activeNodeScreenRef.current = activeNodeScreen;
+    behaviorRef.current = behavior;
   }, [companionEvents, correctStreak, toggledOff, childId, companion, activeNodeScreen]);
+
+  useLayoutEffect(() => {
+    behaviorRef.current = behavior;
+  }, [behavior]);
+
+  useEffect(() => {
+    if (!feedEffect) return;
+    const eventId = behavior.animationEventId ?? `${feedEffect.reference}:${feedEffect.itemId}`;
+    if (feedComboRef.current.eventId === eventId) return;
+
+    const now = Date.now();
+    const nextCount =
+      now - feedComboRef.current.lastAt <= 2500
+        ? Math.min(feedComboRef.current.count + 1, 5)
+        : 1;
+    feedComboRef.current = { count: nextCount, lastAt: now, eventId };
+    setFeedCombo({ count: nextCount, eventId });
+    playCompanionFeedSfx(feedEffect.reference, nextCount);
+  }, [behavior.animationEventId, feedEffect]);
+
+  const applyBehaviorToMotor = useCallback(
+    (nextBehavior: CompanionBehavior) => {
+      if (!childId || !motorRef.current?.hasVrm()) return;
+      const now = Date.now();
+      const commands: CompanionCommand[] = [
+        {
+          apiVersion: "1.0",
+          type: "emote",
+          payload: {
+            emote: nextBehavior.emote,
+            intensity: nextBehavior.intensity,
+          },
+          childId,
+          timestamp: now,
+          source: "diag",
+        },
+      ];
+      if (nextBehavior.animation) {
+        commands.push({
+          apiVersion: "1.0",
+          type: "animate",
+          payload: { animation: nextBehavior.animation, loop: false },
+          childId,
+          timestamp: now + 1,
+          source: "diag",
+        });
+      }
+      motorRef.current.processCompanionCommands(
+        commands,
+        childId,
+        companionRef.current,
+      );
+    },
+    [childId],
+  );
 
   useLayoutEffect(() => {
     motorRef.current?.processCompanionCommands(
@@ -130,6 +307,16 @@ export function CompanionLayer({
       companionRef.current,
     );
   }, [companionCommands, childId, companion]);
+
+  useLayoutEffect(() => {
+    applyBehaviorToMotor(behavior);
+  }, [
+    applyBehaviorToMotor,
+    behavior.animation,
+    behavior.animationEventId,
+    behavior.emote,
+    behavior.intensity,
+  ]);
 
   useLayoutEffect(() => {
     const mount = mountRef.current;
@@ -394,6 +581,7 @@ export function CompanionLayer({
         }
         const { w: mw, h: mh } = readMountSize();
         motor.attachVrm(vrm, scene, mw, mh);
+        applyBehaviorToMotor(behaviorRef.current);
 
         if (modeRef.current === "portrait") {
           // Sample head bone world position for accurate face+shoulders framing.
@@ -547,6 +735,9 @@ export function CompanionLayer({
       <div
         ref={wrapRef}
         data-testid="companion-portrait-stack"
+        data-companion-care-mood={behavior.mood}
+        data-companion-care-state={behavior.presentationState}
+        data-companion-care-low={behavior.low ? "true" : "false"}
         style={{
           position: "fixed",
           bottom: 16,
@@ -589,12 +780,74 @@ export function CompanionLayer({
             overflow: "hidden",
             cursor: "pointer",
             pointerEvents: "auto",
+            filter: behavior.visualTreatment.filter,
+            opacity: behavior.visualTreatment.opacity,
+            transition: "filter 220ms ease, opacity 220ms ease",
           }}
         >
           <div
             ref={mountRef}
             style={{ width: "100%", height: "100%", pointerEvents: "none" }}
           />
+          {feedEffect && feedEmoji ? (
+            <div
+              key={behavior.animationEventId ?? `${feedEffect.reference}:${feedEffect.itemId}`}
+              data-testid="companion-feed-effect"
+              data-feed-animation={feedEffect.reference}
+              style={{
+                position: "absolute",
+                left: feedEffect.reference === "animation-b" ? "50%" : "18%",
+                top: feedEffect.reference === "animation-b" ? "22%" : "72%",
+                fontSize: feedEffect.reference === "animation-b" ? 32 : 24,
+                transform: "translate(-50%, -50%)",
+                animation:
+                  feedEffect.reference === "animation-b"
+                    ? "companion-loot-pop 2300ms ease both"
+                    : "companion-food-arc 900ms ease both",
+                filter: "drop-shadow(0 4px 10px rgba(0,0,0,0.45))",
+                zIndex: 4,
+              }}
+            >
+              {feedEmoji}
+            </div>
+          ) : null}
+          {feedEffect?.reference === "animation-b" ? (
+            <div
+              key={`${behavior.animationEventId ?? feedEffect.itemId}:banner`}
+              data-testid="companion-loot-banner"
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "8%",
+                transform: "translateX(-50%)",
+                padding: "4px 8px",
+                borderRadius: 999,
+                border: "1px solid #fde68a",
+                background: "rgba(88,28,135,0.9)",
+                color: "#fde68a",
+                fontSize: 10,
+                fontWeight: 900,
+                whiteSpace: "nowrap",
+                animation: "companion-loot-pop 2300ms ease both",
+                zIndex: 5,
+              }}
+            >
+              RARE BOOST
+            </div>
+          ) : null}
+          <style>{`
+            @keyframes companion-food-arc {
+              0% { opacity: 0; transform: translate(-110px, 46px) scale(.7) rotate(-10deg); }
+              55% { opacity: 1; transform: translate(-40px, -40px) scale(1.18) rotate(8deg); }
+              100% { opacity: 0; transform: translate(-50%, -50%) scale(.55) rotate(0deg); }
+            }
+            @keyframes companion-loot-pop {
+              0% { opacity: 0; transform: translate(-50%, -50%) scale(.25); }
+              25% { opacity: 1; transform: translate(-50%, -50%) scale(1.18); }
+              75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+              100% { opacity: 0; transform: translate(-50%, -50%) scale(.82); }
+            }
+          `}</style>
           {micMuted && (
             <div
               data-testid="companion-muted-overlay"
@@ -619,8 +872,12 @@ export function CompanionLayer({
   return (
     <div
       ref={wrapRef}
-      className="fixed inset-0 z-[15]"
-      style={{ pointerEvents: "none" }}
+      data-testid="companion-layer-stack"
+      className="fixed inset-0"
+      data-companion-care-mood={behavior.mood}
+      data-companion-care-state={behavior.presentationState}
+      data-companion-care-low={behavior.low ? "true" : "false"}
+      style={{ pointerEvents: "none", zIndex: layerZIndex }}
       aria-hidden
     >
       {speechBubbleText ? (
@@ -644,6 +901,124 @@ export function CompanionLayer({
           {speechBubbleText}
         </div>
       ) : null}
+      {feedEffect && feedEmoji ? (
+        <div
+          key={behavior.animationEventId ?? `${feedEffect.reference}:${feedEffect.itemId}`}
+          data-testid="companion-feed-effect"
+          data-feed-animation={feedEffect.reference}
+          style={{
+            position: "fixed",
+            right: feedEffect.reference === "animation-b" ? "17vw" : "18vw",
+            bottom: feedEffect.reference === "animation-b" ? "56vh" : "42vh",
+            fontSize: feedEffect.reference === "animation-b" ? 56 : 44,
+            transform: "translate(-50%, -50%)",
+            animationName:
+              feedEffect.reference === "animation-b"
+                ? "companion-loot-drop"
+                : "companion-chomp-arc",
+            animationDuration: feedEffect.reference === "animation-b" ? "2600ms" : "1100ms",
+            animationTimingFunction: "cubic-bezier(.34,1.56,.64,1)",
+            animationFillMode: "both",
+            filter: "drop-shadow(0 5px 14px rgba(0,0,0,0.45))",
+            zIndex: 12060,
+          }}
+        >
+          {feedEmoji}
+        </div>
+      ) : null}
+      {feedEffect?.reference === "animation-b" ? (
+        <div
+          key={`${behavior.animationEventId ?? feedEffect.itemId}:banner`}
+          data-testid="companion-loot-banner"
+          style={{
+            position: "fixed",
+            right: "20vw",
+            bottom: "62vh",
+            transform: "translateX(50%)",
+            padding: "12px 18px",
+            borderRadius: 18,
+            border: "2px solid #fde68a",
+            background: "rgba(88,28,135,0.88)",
+            color: "#fde68a",
+            fontSize: 18,
+            fontWeight: 900,
+            boxShadow: "0 0 34px rgba(250,204,21,0.38)",
+            animation: "companion-loot-drop 2600ms cubic-bezier(.34,1.56,.64,1) both",
+            zIndex: 12061,
+          }}
+        >
+          ✨ RARE BOOST!
+        </div>
+      ) : null}
+      {comboLabel ? (
+        <div
+          key={`${feedCombo?.eventId ?? behavior.animationEventId ?? feedEffect?.itemId}:combo`}
+          data-testid="companion-combo-badge"
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: comboCount >= 5 ? "26%" : "30%",
+            transform: "translate(-50%, -50%)",
+            color: comboColor,
+            fontFamily: "Fredoka, ui-rounded, system-ui, sans-serif",
+            fontSize: comboCount >= 5 ? "clamp(42px, 7vw, 96px)" : "clamp(28px, 4.5vw, 58px)",
+            fontWeight: 900,
+            letterSpacing: 0,
+            textShadow: `0 0 28px ${comboColor}, 0 3px 10px rgba(0,0,0,0.72)`,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            animation: comboCount >= 5
+              ? "companion-super-badge 2600ms cubic-bezier(.34,1.56,.64,1) both"
+              : "companion-combo-pop 1350ms cubic-bezier(.34,1.56,.64,1) both",
+            zIndex: 12064,
+          }}
+        >
+          {comboCount >= 5 ? "🌈 " : null}
+          {comboLabel}
+        </div>
+      ) : null}
+      {burstCount > 0 ? (
+        <div
+          key={`${feedCombo?.eventId ?? behavior.animationEventId ?? feedEffect?.itemId}:burst`}
+          data-testid="companion-feed-burst"
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: comboCount >= 5 ? "34%" : "38%",
+            width: 1,
+            height: 1,
+            pointerEvents: "none",
+            zIndex: 12063,
+          }}
+        >
+          {Array.from({ length: burstCount }, (_, i) => {
+            const angle = (i / burstCount) * 360;
+            const distance = comboCount >= 5 ? 210 : feedEffect?.reference === "animation-b" ? 170 : 110;
+            const emoji =
+              feedEffect?.reference === "animation-b"
+                ? ["💎", "✨", "⭐", "🌟"][i % 4]
+                : BURST_EMOJIS[i % BURST_EMOJIS.length];
+            return (
+              <span
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  fontSize: comboCount >= 5 ? 28 : 22,
+                  transform: "translate(-50%, -50%)",
+                  animation: `companion-burst-particle ${feedEffect?.reference === "animation-b" ? 2400 : 1500}ms ease-out both`,
+                  animationDelay: `${(i % 5) * 35}ms`,
+                  ["--burst-x" as string]: `${Math.cos((angle * Math.PI) / 180) * distance}px`,
+                  ["--burst-y" as string]: `${Math.sin((angle * Math.PI) / 180) * distance}px`,
+                }}
+              >
+                {emoji}
+              </span>
+            );
+          })}
+        </div>
+      ) : null}
       <div
         ref={mountRef}
         className="pointer-events-none overflow-hidden"
@@ -654,10 +1029,45 @@ export function CompanionLayer({
           bottom: karaokeActive ? 12 : 0,
           right: karaokeActive ? 12 : "2vw",
           zIndex: 15,
+          filter: behavior.visualTreatment.filter,
+          opacity: behavior.visualTreatment.opacity,
+          transition: "filter 220ms ease, opacity 220ms ease",
           transform: karaokeActive ? "scale(0.2)" : undefined,
           transformOrigin: karaokeActive ? "bottom right" : undefined,
         }}
       />
+      <style>{`
+        @keyframes companion-chomp-arc {
+          0% { opacity: 0; transform: translate(-46vw, 34vh) scale(.65) rotate(-14deg); }
+          45% { opacity: 1; transform: translate(-20vw, -11vh) scale(1.2) rotate(9deg); }
+          78% { opacity: 1; transform: translate(-3vw, 1vh) scale(.9) rotate(0deg); }
+          100% { opacity: 0; transform: translate(0, 0) scale(.45) rotate(0deg); }
+        }
+        @keyframes companion-loot-drop {
+          0% { opacity: 0; transform: translate(-26vw, 24vh) scale(.35) rotate(-10deg); }
+          18% { opacity: 1; transform: translate(-12vw, -10vh) scale(1.22) rotate(8deg); }
+          78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(.82); }
+        }
+        @keyframes companion-combo-pop {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(.38); }
+          22% { opacity: 1; transform: translate(-50%, -50%) scale(1.18); }
+          76% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -60%) scale(.88); }
+        }
+        @keyframes companion-super-badge {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(.25) rotate(-3deg); filter: brightness(1); }
+          18% { opacity: 1; transform: translate(-50%, -50%) scale(1.16) rotate(2deg); filter: brightness(1.45); }
+          82% { opacity: 1; transform: translate(-50%, -50%) scale(1); filter: brightness(1.1); }
+          100% { opacity: 0; transform: translate(-50%, -64%) scale(.82); filter: brightness(1); }
+        }
+        @keyframes companion-burst-particle {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(.3) rotate(0deg); }
+          16% { opacity: 1; }
+          78% { opacity: 1; }
+          100% { opacity: 0; transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(.72) rotate(220deg); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -65,9 +65,7 @@ describe("PathCurve", () => {
     });
 
     const d = container.querySelector("path")?.getAttribute("d") ?? "";
-    expect(d).toContain(`${expected[0].x}`);
-    expect(d).toContain(`${expected[0].y}`);
-    expect(d).toContain(`${expected[3].x}`);
-    expect(d).toContain(`${expected[3].y}`);
+    expect(d).not.toContain(`M ${expected[0].x} ${expected[0].y}`);
+    expect(d).not.toContain(`L ${expected[3].x} ${expected[3].y}`);
   });
 });

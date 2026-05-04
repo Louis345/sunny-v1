@@ -31,5 +31,8 @@ describe("profile companionCare view", () => {
     });
     expect(profile.tamagotchi?.hunger).toBe(profile.companionCare.vitals.hunger);
     expect(profile.companionCurrency).toBe(profile.companionCare.economy.coins);
+    expect(profile.care_plan?.companion_care).toBe(profile.companionCare);
+    expect(profile.companionContext).toContain("Mood behavior policy");
+    expect(profile.companionContext).toContain("never guilt");
   });
 });

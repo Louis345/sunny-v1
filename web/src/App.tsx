@@ -20,7 +20,7 @@ import { AdventureMap } from "./components/AdventureMap";
 import type { GameIframeOverlayState } from "./components/AdventureMap";
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
-import { CompanionLayer } from "./components/CompanionLayer";
+import { CompanionLayer, type CompanionLayerProps } from "./components/CompanionLayer";
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
 import { PronunciationGameCanvas } from "./components/PronunciationGameCanvas";
@@ -41,7 +41,7 @@ import {
   getTamagotchiSpeechBubble,
   type TamagotchiState,
 } from "../../src/shared/vrrTypes";
-import { TamagotchiSheet } from "./components/TamagotchiSheet";
+import { TamagotchiSheet, type TamagotchiSheetProps } from "./components/TamagotchiSheet";
 import { RewardDiagOverlay } from "./components/RewardDiagOverlay";
 import { RewardTriggerPanel } from "./components/RewardTriggerPanel";
 import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
@@ -49,6 +49,11 @@ import { CompanionShowroomPage } from "./CompanionShowroomPage";
 import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
+import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
+import {
+  CompanionCareProvider,
+  useCompanionCare,
+} from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 
 const DIAG_READING_TEST_EXCERPT =
@@ -110,6 +115,36 @@ const mapInspectAllMode = runtimeConfig.nodeAccess === "inspect-all";
 function childNameFromId(childId: string | null): string {
   if (!childId) return "Sunny";
   return childId.charAt(0).toUpperCase() + childId.slice(1);
+}
+
+function CompanionLayerWithCare(props: CompanionLayerProps) {
+  const companionCare = useCompanionCare();
+  return (
+    <CompanionLayer
+      {...props}
+      companionCare={companionCare.care}
+      companionBehavior={companionCare.behavior}
+    />
+  );
+}
+
+function TamagotchiSheetWithCare(
+  props: Omit<
+    TamagotchiSheetProps,
+    "companionCare" | "onFeed" | "isFeeding"
+  >,
+) {
+  const companionCare = useCompanionCare();
+  return (
+    <TamagotchiSheet
+      {...props}
+      companionCare={companionCare.care ?? undefined}
+      onFeed={(itemId) => {
+        void companionCare.feed(itemId);
+      }}
+      isFeeding={companionCare.isFeeding}
+    />
+  );
 }
 
 function shouldUseSessionLoadingOverlay(): boolean {
@@ -835,6 +870,9 @@ function App() {
           avatarImagePath?: string | null;
           tamagotchi?: TamagotchiState;
           companionCare?: CompanionCareView;
+          care_plan?: {
+            companion_care?: CompanionCareView | null;
+          } | null;
           companionCurrency?: number;
           dyslexiaMode?: boolean;
           pendingHomework?: { reinforceWords?: unknown };
@@ -858,7 +896,7 @@ function App() {
             : null,
         );
         setProfileTamagotchi(data.tamagotchi ?? null);
-        setProfileCompanionCare(data.companionCare ?? null);
+        setProfileCompanionCare(getCompanionCareFromProfile(data));
         setTamagotchProfileReady(true);
         const cur =
           typeof data.companionCurrency === "number" && Number.isFinite(data.companionCurrency)
@@ -913,41 +951,6 @@ function App() {
       cancelled = true;
     };
   }, [profileApiChildId, profileReloadNonce]);
-
-  const handleCompanionFeed = useCallback(
-    (itemId: string) => {
-      if (!profileApiChildId) return;
-      fetch(
-        `/api/profile/${encodeURIComponent(profileApiChildId)}/companion-care/feed`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ itemId }),
-        },
-      )
-        .then(async (r) => {
-          if (!r.ok) {
-            throw new Error(`feed ${r.status}`);
-          }
-          return r.json() as Promise<{
-            companionCare?: CompanionCareView;
-            tamagotchi?: TamagotchiState;
-            companionCurrency?: number;
-          }>;
-        })
-        .then((data) => {
-          if (data.companionCare) setProfileCompanionCare(data.companionCare);
-          if (data.tamagotchi) setProfileTamagotchi(data.tamagotchi);
-          if (typeof data.companionCurrency === "number") {
-            setProfileCompanionCurrency(Math.max(0, Math.floor(data.companionCurrency)));
-          }
-        })
-        .catch((err) => {
-          console.error("  🔴 [companion-care] feed failed:", err);
-        });
-    },
-    [profileApiChildId],
-  );
 
   if (import.meta.env.VITE_MODE === "intro") {
     return <CompanionShowroomPage />;
@@ -1278,6 +1281,30 @@ function App() {
           {state.warning}
         </div>
       ) : null}
+      <CompanionCareProvider
+        childId={activeProfileChildId}
+        profile={{
+          companionCare: profileCompanionCare,
+          care_plan: { companion_care: profileCompanionCare },
+        }}
+        onCareChange={setProfileCompanionCare}
+        onTamagotchiChange={setProfileTamagotchi}
+        onCurrencyChange={setProfileCompanionCurrency}
+        onFeedEvent={(event) => {
+          console.log(
+            "  🎮 [companion-care] feed event",
+            event.itemId,
+            event.animation?.reference ?? "none",
+          );
+          sendMessage("companion_care_event", {
+            itemId: event.itemId,
+            animation: event.animation,
+            animationEventId: event.animationEventId,
+            companionCare: event.companionCare,
+            preview: event.preview,
+          });
+        }}
+      >
       {main}
       {adventureMapEnabled &&
       diagMapPanelEnabled &&
@@ -1302,7 +1329,7 @@ function App() {
           />
         </div>
       ) : null}
-      <CompanionLayer
+      <CompanionLayerWithCare
         childId={activeProfileChildId}
         companion={effectiveCompanion}
         toggledOff={false}
@@ -1325,18 +1352,17 @@ function App() {
       adventureChildId &&
       !companionPortraitMode &&
       tamagotchProfileReady ? (
-        <TamagotchiSheet
+        <TamagotchiSheetWithCare
           open={companionSheetOpen}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
-          companionCare={profileCompanionCare ?? undefined}
           companionName={effectiveCompanion?.companionId ?? "Companion"}
           companionCurrency={
             mapSession.liveMapCurrency ?? profileCompanionCurrency
           }
-          onFeed={handleCompanionFeed}
           onClose={() => setCompanionSheetOpen(false)}
         />
       ) : null}
+      </CompanionCareProvider>
       {isRewardDiagEnabled() ? (
         <>
           <RewardDiagBridge />

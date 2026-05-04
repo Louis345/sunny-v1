@@ -10,6 +10,7 @@ import type {
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
 import type { CompanionCareView } from "../../../src/shared/companionCareTypes";
+import { useCompanionCareOptional } from "../context/CompanionCareContext";
 import childrenCfg from "../../../children.config.json";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
@@ -380,6 +381,8 @@ export function AdventureMap(props: {
   companionCurrency?: number;
 }) {
   const resolved = props.childId.trim();
+  const companionCareContext = useCompanionCareOptional();
+  const companionCare = companionCareContext?.care ?? props.companionCare;
 
   const {
     mapState,
@@ -886,10 +889,10 @@ export function AdventureMap(props: {
       const nudge = getCompanionReadinessNudge({
         nodeType: node.type,
         companionName:
-          props.companionCare?.displayName ??
+          companionCare?.displayName ??
           props.mapCompanion?.companionId ??
           "Companion",
-        readiness: props.companionCare?.readiness,
+        readiness: companionCare?.readiness,
       });
       if (
         !bypassReadiness &&
@@ -1267,10 +1270,12 @@ export function AdventureMap(props: {
         ) : null}
         <TamagotchiStrip
           tamagotchi={props.tamagotchi ?? DEFAULT_TAMAGOTCHI}
+          companionCare={companionCare}
           hidden={
             Boolean(launchedNode) ||
-            props.tamagotchHydrated === false
+            (props.tamagotchHydrated === false && !companionCare)
           }
+          onOpenSheet={props.onOpenTamagotchiSheet}
         />
         <AnimatePresence>
           {ratingPrompt ? (
@@ -1765,7 +1770,7 @@ export function AdventureMap(props: {
                       ? id.charAt(0).toUpperCase() + id.slice(1)
                       : "Companion";
                   })();
-            return `🍎 ${label}'s Care`;
+            return `🎒 ${label}'s Bookbag`;
           })()}
         </button>
       ) : null}

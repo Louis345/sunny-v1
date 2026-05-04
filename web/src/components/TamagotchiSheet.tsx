@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
+import {
+  Apple,
+  Backpack,
+  Brain,
+  Candy,
+  CircleHelp,
+  Coins,
+  Soup,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import type { CompanionCareView } from "../../../src/shared/companionCareTypes";
 import type { TamagotchiState } from "../../../src/shared/vrrTypes";
-import { CompanionCurrencyHud } from "./CompanionCurrencyHud";
 
 export interface TamagotchiSheetProps {
   open: boolean;
@@ -12,10 +22,79 @@ export interface TamagotchiSheetProps {
   companionCurrency?: number;
   inventory?: { id: string; label: string }[];
   onFeed?: (foodId: string) => void;
+  isFeeding?: boolean;
   onClose: () => void;
 }
 
 const PANEL_MS = 320;
+
+const FOOD_ICONS: Record<string, LucideIcon> = {
+  apple_bite: Apple,
+  brain_berry: Brain,
+  cozy_soup: Soup,
+  star_candy: Candy,
+  mystery_snack: Sparkles,
+};
+
+function rarityStyle(rarity?: string): { border: string; background: string; accent: string } {
+  if (rarity === "rare") {
+    return {
+      border: "#facc15",
+      background: "linear-gradient(135deg, #2e1065, #581c87 52%, #713f12)",
+      accent: "#fde68a",
+    };
+  }
+  if (rarity === "uncommon") {
+    return {
+      border: "#38bdf8",
+      background: "linear-gradient(135deg, #0f172a, #164e63)",
+      accent: "#bae6fd",
+    };
+  }
+  return {
+    border: "#334155",
+    background: "linear-gradient(135deg, #111827, #1e293b)",
+    accent: "#cbd5e1",
+  };
+}
+
+function careStatus(care?: CompanionCareView): {
+  label: string;
+  background: string;
+  color: string;
+  border: string;
+} {
+  if (!care) {
+    return {
+      label: "Ready",
+      background: "#172554",
+      color: "#dbeafe",
+      border: "#1d4ed8",
+    };
+  }
+  if (care.readiness.highEnergyReluctance || care.moodLabel === "hungry" || care.moodLabel === "tired") {
+    return {
+      label: "Needs care",
+      background: "#431407",
+      color: "#fed7aa",
+      border: "#9a3412",
+    };
+  }
+  if (care.moodLabel === "bright") {
+    return {
+      label: "Bright",
+      background: "#052e16",
+      color: "#bbf7d0",
+      border: "#15803d",
+    };
+  }
+  return {
+    label: "Steady",
+    background: "#172554",
+    color: "#dbeafe",
+    border: "#1d4ed8",
+  };
+}
 
 /** Bottom sheet for meters + backpack (stub body — expand in Phase 4+). */
 export function TamagotchiSheet({
@@ -26,6 +105,7 @@ export function TamagotchiSheet({
   companionCurrency,
   inventory = [],
   onFeed,
+  isFeeding = false,
   onClose,
 }: TamagotchiSheetProps) {
   const [rendered, setRendered] = useState(open);
@@ -69,6 +149,7 @@ export function TamagotchiSheet({
   const careVitals = companionCare?.vitals;
   const careInventory = companionCare?.inventory.food ?? inventory;
   const coins = companionCurrency ?? companionCare?.economy.coins;
+  const status = careStatus(companionCare);
   const vitals: Array<[string, string, number]> = careVitals
     ? [
         ["🍎", "Hunger", careVitals.hunger],
@@ -91,167 +172,285 @@ export function TamagotchiSheet({
         position: "fixed",
         inset: 0,
         zIndex: 11000,
-        pointerEvents: slideIn ? "auto" : "none",
+        pointerEvents: "none",
       }}
     >
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        style={{
-          position: "absolute",
-          inset: 0,
-          border: "none",
-          padding: 0,
-          margin: 0,
-          background: slideIn ? "rgba(0,0,0,0.45)" : "transparent",
-          cursor: "pointer",
-          transition: `background ${PANEL_MS}ms ease`,
-        }}
-      />
       <div
         style={{
           position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          maxHeight: "70vh",
+          left: 16,
+          bottom: 16,
+          width: 440,
+          maxWidth: "calc(100vw - 32px)",
+          maxHeight: "min(500px, calc(100vh - 120px))",
           zIndex: 1,
           display: "flex",
           flexDirection: "column",
           background: "#0f172a",
           color: "#fff",
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
+          borderRadius: 14,
           padding: 16,
-          paddingTop: 20,
-          boxShadow: "0 -8px 32px rgba(0,0,0,0.35)",
-          overflowY: "auto",
-          transform: slideIn ? "translateY(0)" : "translateY(100%)",
-          transition: `transform ${PANEL_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+          paddingTop: 28,
+          boxShadow: "0 14px 44px rgba(0,0,0,0.42)",
+          overflow: "hidden",
+          pointerEvents: slideIn ? "auto" : "none",
+          transform: slideIn ? "translateY(0) scale(1)" : "translateY(16px) scale(0.98)",
+          opacity: slideIn ? 1 : 0,
+          transition: `transform ${PANEL_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${PANEL_MS}ms ease`,
         }}
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
       >
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
+        <div
+          data-testid="bookbag-sticky-header"
           style={{
-            position: "absolute",
-            top: 12,
-            right: 16,
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            border: "1px solid #475569",
-            background: "#1e293b",
-            color: "#e2e8f0",
-            fontSize: 20,
-            lineHeight: 1,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 0,
-            zIndex: 2,
+            position: "sticky",
+            top: 0,
+            zIndex: 3,
+            margin: "-28px -16px 12px",
+            padding: "18px 16px 12px",
+            background: "rgba(15, 23, 42, 0.96)",
+            backdropFilter: "blur(10px)",
+            borderTopLeftRadius: 14,
+            borderTopRightRadius: 14,
+            borderBottom: "1px solid rgba(148, 163, 184, 0.18)",
           }}
         >
-          ×
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          style={{
-            width: 48,
-            height: 5,
-            borderRadius: 3,
-            background: "#475569",
-            margin: "0 auto 12px",
-            border: "none",
-            padding: 0,
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        />
-        <div style={{ fontWeight: 700, marginBottom: 12, paddingRight: 44 }}>
-          {companionName} · care
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {vitals.map(([icon, label, v]) => (
-            <div key={String(label)} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 28 }}>{icon}</span>
-              <span style={{ width: 72, fontSize: 12 }}>{label}</span>
-              {bar(Number(v))}
-            </div>
-          ))}
-        </div>
-        {companionCare?.readiness.highEnergyReluctance ? (
-          <div
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
             style={{
-              marginTop: 12,
-              borderRadius: 8,
-              border: "1px solid #7c2d12",
-              background: "#431407",
-              color: "#fed7aa",
-              padding: 10,
-              fontSize: 12,
-              lineHeight: 1.4,
+              width: 48,
+              height: 5,
+              borderRadius: 3,
+              background: "#475569",
+              margin: "0 auto 12px",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              display: "block",
             }}
-          >
-            {companionName} is low-energy. Feed, warm up, or continue gently.
+          />
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#172554",
+                  color: "#dbeafe",
+                  border: "1px solid #1d4ed8",
+                }}
+              >
+                <Backpack size={20} aria-hidden="true" />
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 18 }}>{companionName}'s bookbag</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#cbd5e1" }}>
+                  Companion care
+                </div>
+              </div>
+              <div
+                style={{
+                  marginLeft: "auto",
+                  borderRadius: 999,
+                  border: `1px solid ${status.border}`,
+                  background: status.background,
+                  color: status.color,
+                  padding: "5px 9px",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {status.label}
+              </div>
+            </div>
           </div>
-        ) : null}
-        <div style={{ marginTop: 16, fontSize: 13, opacity: 0.8 }}>Your backpack</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {careInventory.map((it) => (
-            <button
-              key={it.id}
-              type="button"
-              onClick={() => onFeed?.(it.id)}
-              aria-label={`Feed ${it.label}`}
-              disabled={"quantity" in it && Number(it.quantity) <= 0}
+        </div>
+        <div
+          data-testid="bookbag-scroll-body"
+          style={{
+            minHeight: 0,
+            overflowY: "auto",
+            paddingRight: 2,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {vitals.map(([icon, label, v]) => (
+              <div key={String(label)} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 28 }}>{icon}</span>
+                <span style={{ width: 72, fontSize: 12 }}>{label}</span>
+                {bar(Number(v))}
+              </div>
+            ))}
+          </div>
+          {companionCare?.readiness.highEnergyReluctance ? (
+            <div
               style={{
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid #334155",
-                background: "#1e293b",
-                color: "#e2e8f0",
+                marginTop: 12,
+                borderRadius: 8,
+                border: "1px solid #7c2d12",
+                background: "#431407",
+                color: "#fed7aa",
+                padding: 10,
                 fontSize: 12,
+                lineHeight: 1.4,
               }}
             >
-              <span>{it.label}</span>
-              {"quantity" in it ? ` x${it.quantity}` : ""}
-            </button>
-          ))}
-          {careInventory.length === 0 && (
-            <span style={{ fontSize: 12, opacity: 0.6 }}>No snacks yet.</span>
-          )}
+              {companionName} is low-energy. Feed, warm up, or continue gently.
+            </div>
+          ) : null}
+          <div style={{ marginTop: 16 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 800 }}>Food pouch</div>
+              {coins !== undefined ? (
+                <div
+                  aria-label={`${coins} companion coins`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "5px 9px",
+                    borderRadius: 999,
+                    background: "#f8fafc",
+                    color: "#92400e",
+                    fontSize: 12,
+                    fontWeight: 900,
+                  }}
+                >
+                  <Coins size={14} aria-hidden="true" />
+                  {coins}
+                </div>
+              ) : null}
+            </div>
+            <div style={{ marginTop: 3, fontSize: 12, color: "#94a3b8" }}>
+              Earn more food by finishing map nodes.
+            </div>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: 10,
+              marginTop: 10,
+            }}
+          >
+            {careInventory.map((it) => {
+            const quantity = "quantity" in it ? Number(it.quantity) : 1;
+            const disabled = isFeeding || quantity <= 0;
+            const Icon = FOOD_ICONS[it.id] ?? CircleHelp;
+            const styles = rarityStyle("rarity" in it ? String(it.rarity) : undefined);
+            return (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => {
+                  onFeed?.(it.id);
+                  onClose();
+                }}
+                aria-label={`Feed ${it.label}`}
+                disabled={disabled}
+                style={{
+                  minHeight: 96,
+                  padding: 12,
+                  borderRadius: 8,
+                  border: `1px solid ${styles.border}`,
+                  background: styles.background,
+                  color: "#f8fafc",
+                  textAlign: "left",
+                  opacity: disabled ? 0.5 : 1,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  display: "grid",
+                  gridTemplateColumns: "44px 1fr",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  aria-label={`${it.label} icon`}
+                  role="img"
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(255,255,255,0.12)",
+                    color: styles.accent,
+                  }}
+                >
+                  <Icon size={24} aria-hidden="true" />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: "block", fontSize: 13, fontWeight: 900 }}>
+                    {it.label}
+                  </span>
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 4,
+                      color: styles.accent,
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    x{Math.max(0, Math.floor(quantity))} left
+                  </span>
+                  {"description" in it ? (
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: 4,
+                        color: "#cbd5e1",
+                        fontSize: 11,
+                        lineHeight: 1.25,
+                      }}
+                    >
+                      {String(it.description)}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            );
+            })}
+            {careInventory.length === 0 && (
+              <span style={{ fontSize: 12, opacity: 0.6 }}>No snacks yet.</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              marginTop: 16,
+              width: "100%",
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #334155",
+              background: "transparent",
+              color: "#94a3b8",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            Close
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            marginTop: 16,
-            width: "100%",
-            padding: 10,
-            borderRadius: 8,
-            border: "1px solid #334155",
-            background: "transparent",
-            color: "#94a3b8",
-            cursor: "pointer",
-            flexShrink: 0,
-          }}
-        >
-          Close
-        </button>
-        {coins !== undefined ? (
-          <CompanionCurrencyHud
-            companionCurrency={coins}
-            layout="panel"
-          />
-        ) : null}
       </div>
     </div>
   );

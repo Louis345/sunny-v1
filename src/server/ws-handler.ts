@@ -198,6 +198,19 @@ export function handleWsConnection(
         break;
       }
 
+      case "companion_care_event": {
+        if (!session) {
+          console.log("  🎮 [companion-care] live event skipped no active session");
+          return;
+        }
+        const { type, ...event } = msg as Record<string, unknown>;
+        session.handleGameEvent({
+          type: "companion_care_event",
+          ...event,
+        });
+        break;
+      }
+
       case "tool_call": {
         if (!session) return;
         const m = msg as Record<string, unknown>;

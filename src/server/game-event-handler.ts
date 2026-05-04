@@ -245,6 +245,40 @@ export function handleGameEventForSession(
     return;
   }
 
+  if (type === "companion_care_event") {
+    const itemId = typeof event.itemId === "string" ? event.itemId : "food";
+    const animation =
+      event.animation && typeof event.animation === "object"
+        ? (event.animation as Record<string, unknown>)
+        : {};
+    const reference =
+      typeof animation.reference === "string" ? animation.reference : "animation-a";
+    const care =
+      event.companionCare && typeof event.companionCare === "object"
+        ? (event.companionCare as Record<string, unknown>)
+        : {};
+    const moodLabel = typeof care.moodLabel === "string" ? care.moodLabel : "steady";
+    const summary = `Companion was fed ${itemId}; visible feed animation ${reference}; current care mood ${moodLabel}.`;
+    s.noteExternalEvent?.({
+      source: "companion_care_event",
+      summary,
+    });
+    console.log(`  🎮 [companion-care] live event item=${itemId} animation=${reference}`);
+    void s
+      .runCompanionResponse?.(
+        [
+          `The child just fed the companion ${itemId}.`,
+          `Care mood is ${moodLabel}.`,
+          `Visible animation already played: ${reference}.`,
+          "Respond briefly with warm repair/reward language if it helps, no guilt, no blame, and do not use browser TTS.",
+        ].join(" "),
+      )
+      .catch((err: unknown) => {
+        console.error("  🔴 [companion-care] live response failed:", err);
+      });
+    return;
+  }
+
   if (type === "attempt_event") {
     try {
       const recorded = recordLearningAttempt(event, childIdFromName(s.childName));

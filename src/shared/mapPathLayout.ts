@@ -196,3 +196,42 @@ export function extendPathPolyline(
 
   return [start, ...p, end];
 }
+
+/**
+ * Trim first/last polyline endpoints toward their adjacent points by node radii in pixels,
+ * so the dashed path reaches node edges without drawing through or beyond the circles.
+ */
+export function trimPathPolyline(
+  positions: ReadonlyArray<{ x: number; y: number }>,
+  startRadius: number,
+  endRadius: number,
+): { x: number; y: number }[] {
+  if (positions.length === 0) return [];
+  if (positions.length === 1) return [{ ...positions[0] }];
+  const p = positions.map((pt) => ({ ...pt }));
+
+  const first = p[0];
+  const second = p[1];
+  const dx0 = second.x - first.x;
+  const dy0 = second.y - first.y;
+  const len0 = Math.hypot(dx0, dy0) || 1;
+  const startInset = Math.max(0, Math.min(startRadius, len0 / 2));
+  p[0] = {
+    x: first.x + (dx0 / len0) * startInset,
+    y: first.y + (dy0 / len0) * startInset,
+  };
+
+  const n = p.length;
+  const last = p[n - 1];
+  const prev = p[n - 2];
+  const dxL = prev.x - last.x;
+  const dyL = prev.y - last.y;
+  const lenL = Math.hypot(dxL, dyL) || 1;
+  const endInset = Math.max(0, Math.min(endRadius, lenL / 2));
+  p[n - 1] = {
+    x: last.x + (dxL / lenL) * endInset,
+    y: last.y + (dyL / lenL) * endInset,
+  };
+
+  return p;
+}

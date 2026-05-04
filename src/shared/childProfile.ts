@@ -15,6 +15,11 @@ export interface ChildProfileUI {
   accentColor: string;
 }
 
+export interface ChildProfileCarePlan {
+  /** Hospital-chart source of truth for the named companion care plan. */
+  companion_care?: CompanionCareView;
+}
+
 export interface ChildProfileWordRadar {
   showTimer: boolean;
   timerSeconds: number;
@@ -149,6 +154,8 @@ export interface ChildProfile {
   tamagotchi?: TamagotchiState;
   /** Named companion source-of-truth care view; legacy tamagotchi/currency mirror this. */
   companionCare?: CompanionCareView;
+  /** Gradual hospital-chart migration home; legacy mirrors remain for old callers. */
+  care_plan?: ChildProfileCarePlan;
   /** Word Radar game settings + server-derived bests from word_bank. */
   wordRadar?: ChildProfileWordRadar;
 }

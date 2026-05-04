@@ -6,6 +6,7 @@ import {
   extendPathPolyline,
   resolveMapWaypoints,
   samplePolylineAt,
+  trimPathPolyline,
 } from "../shared/mapPathLayout";
 
 describe("mapPathLayout", () => {
@@ -39,6 +40,18 @@ describe("mapPathLayout", () => {
     expect(ext.length).toBe(4);
     expect(ext[1]).toEqual(base[0]);
     expect(ext[2]).toEqual(base[1]);
+  });
+
+  it("trimPathPolyline moves endpoints inward so the dashed line stops at node edges", () => {
+    const base = [
+      { x: 100, y: 200 },
+      { x: 300, y: 200 },
+    ];
+    const trimmed = trimPathPolyline(base, 44, 60);
+    expect(trimmed).toEqual([
+      { x: 144, y: 200 },
+      { x: 240, y: 200 },
+    ]);
   });
 
   it("exposes named layout presets for the adventure map", () => {

@@ -48,6 +48,10 @@ import {
   applyCompanionFeedItem,
   companionCareToView,
 } from "../engine/companionCareEngine";
+import {
+  companionCareFeedShouldPersist,
+  previewCompanionCareMirror,
+} from "./companionCareFeedRoute";
 import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
@@ -61,6 +65,7 @@ import {
   type ShowroomVoiceOption,
 } from "./companionShowroomVoice";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
+import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 
 const companions = {
   Ila: ELLI,
@@ -439,14 +444,20 @@ export function setupRoutes(app: Express): void {
         if (!result.ok) {
           return res.status(400).json({ error: result.reason });
         }
-        saveCompanionCarePlan(chart, result.plan);
-        const mirrored = mirrorCompanionCareToLearningProfile(chart, result.plan);
+        const runtime = resolveSunnyRuntimeConfig(process.env);
+        const shouldPersist = companionCareFeedShouldPersist(runtime);
+        if (shouldPersist) {
+          saveCompanionCarePlan(chart, result.plan);
+        }
+        const mirrored = shouldPersist
+          ? mirrorCompanionCareToLearningProfile(chart, result.plan)
+          : previewCompanionCareMirror(result.plan);
         const companionCare = companionCareToView(
           result.plan,
           chart.companion.displayName,
         );
         console.log(
-          `  🎮 [companion-care] feed ${itemId} hunger ${loaded.plan.state.hunger.toFixed(2)} -> ${result.plan.state.hunger.toFixed(2)}`,
+          `  🎮 [companion-care] feed ${itemId} hunger ${loaded.plan.state.hunger.toFixed(2)} -> ${result.plan.state.hunger.toFixed(2)}${shouldPersist ? "" : " preview=true"}`,
         );
         res.json({
           ok: true,
@@ -454,6 +465,7 @@ export function setupRoutes(app: Express): void {
           tamagotchi: mirrored.tamagotchi,
           companionCurrency: mirrored.companionCurrency,
           animation: result.animation,
+          preview: !shouldPersist,
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);

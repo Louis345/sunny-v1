@@ -68,6 +68,8 @@ vi.mock("three/webgpu", async (importOriginal) => {
 
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
 import { CompanionLayer } from "../components/CompanionLayer";
+import { CompanionMotor } from "../companion/CompanionMotor";
+import type { CompanionBehavior } from "../context/companionCareBehavior";
 
 const companion: CompanionConfig = cloneCompanionDefaults();
 
@@ -139,6 +141,262 @@ describe("CompanionLayer (COMPANION-002)", () => {
       <CompanionLayer childId="fixture" companion={companion} toggledOff={false} />,
     );
     expect(wrap.style.display).toBe("block");
+  });
+
+  it("reflects companion care mood on the live layer", () => {
+    const behavior: CompanionBehavior = {
+      mood: "tired",
+      presentationState: "needs-care",
+      low: true,
+      emote: "sad",
+      intensity: 0.48,
+      movementIntensity: 0.45,
+      visualTreatment: {
+        filter: "saturate(0.78) brightness(0.9)",
+        opacity: 0.84,
+      },
+    };
+    const { container } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={behavior}
+        toggledOff={false}
+      />,
+    );
+    const wrap = container.querySelector("[data-companion-care-mood]");
+    expect(wrap).toBeTruthy();
+    expect(wrap?.getAttribute("data-companion-care-mood")).toBe("tired");
+    expect(wrap?.getAttribute("data-companion-care-low")).toBe("true");
+    expect(wrap?.getAttribute("data-companion-care-state")).toBe("needs-care");
+  });
+
+  it("replays the same feed animation when the behavior event id changes", async () => {
+    const commandSpy = vi.spyOn(
+      CompanionMotor.prototype,
+      "processCompanionCommands",
+    );
+    const firstBehavior: CompanionBehavior = {
+      mood: "happy",
+      presentationState: "feeding",
+      low: false,
+      emote: "happy",
+      intensity: 0.62,
+      movementIntensity: 0.78,
+      visualTreatment: { filter: "none", opacity: 1 },
+      animation: "silly_laugh",
+      animationEventId: "feed-1",
+    };
+    const { rerender } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={firstBehavior}
+        toggledOff={false}
+      />,
+    );
+    await waitFor(() =>
+      expect(commandSpy.mock.calls.some(([commands]) =>
+        commands.some((cmd) => cmd.type === "animate" && cmd.payload.animation === "silly_laugh"),
+      )).toBe(true),
+    );
+    const animateCallsBefore = commandSpy.mock.calls.filter(([commands]) =>
+      commands.some((cmd) => cmd.type === "animate" && cmd.payload.animation === "silly_laugh"),
+    ).length;
+
+    rerender(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={{ ...firstBehavior, animationEventId: "feed-2" }}
+        toggledOff={false}
+      />,
+    );
+
+    await waitFor(() => {
+      const animateCallsAfter = commandSpy.mock.calls.filter(([commands]) =>
+        commands.some((cmd) => cmd.type === "animate" && cmd.payload.animation === "silly_laugh"),
+      ).length;
+      expect(animateCallsAfter).toBeGreaterThan(animateCallsBefore);
+    });
+  });
+
+  it("lifts feed effects above the bookbag overlay and renders the chomp arc contract", () => {
+    const behavior: CompanionBehavior = {
+      mood: "happy",
+      presentationState: "feeding",
+      low: false,
+      emote: "happy",
+      intensity: 0.66,
+      movementIntensity: 0.82,
+      visualTreatment: { filter: "none", opacity: 1 },
+      animation: "silly_laugh",
+      animationEventId: "feed-visible-1",
+      feedAnimation: {
+        kind: "normal-feed",
+        reference: "animation-a",
+        itemId: "apple_bite",
+      },
+    };
+
+    const { getByTestId } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={behavior}
+        toggledOff={false}
+      />,
+    );
+
+    const stack = getByTestId("companion-layer-stack");
+    const effect = getByTestId("companion-feed-effect");
+    expect(stack).toHaveStyle({ zIndex: "12050" });
+    expect(effect.getAttribute("data-feed-animation")).toBe("animation-a");
+    expect(effect).toHaveStyle({ animationName: "companion-chomp-arc" });
+  });
+
+  it("renders a prominent loot banner for rare feed animation-b", () => {
+    const behavior: CompanionBehavior = {
+      mood: "bright",
+      presentationState: "celebrating",
+      low: false,
+      emote: "celebrating",
+      intensity: 0.85,
+      movementIntensity: 1,
+      visualTreatment: { filter: "none", opacity: 1 },
+      animation: "dance_victory",
+      animationEventId: "feed-rare-1",
+      feedAnimation: {
+        kind: "rare-reward",
+        reference: "animation-b",
+        itemId: "mystery_snack",
+      },
+    };
+
+    const { getByTestId } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={behavior}
+        toggledOff={false}
+      />,
+    );
+
+    expect(getByTestId("companion-loot-banner")).toHaveTextContent("RARE");
+    expect(getByTestId("companion-feed-effect")).toHaveStyle({
+      animationName: "companion-loot-drop",
+      animationDuration: "2600ms",
+    });
+  });
+
+  it("escalates repeated feed events into combo badges and burst particles", async () => {
+    const firstBehavior: CompanionBehavior = {
+      mood: "happy",
+      presentationState: "feeding",
+      low: false,
+      emote: "happy",
+      intensity: 0.66,
+      movementIntensity: 0.82,
+      visualTreatment: { filter: "none", opacity: 1 },
+      animation: "silly_laugh",
+      animationEventId: "feed-combo-1",
+      feedAnimation: {
+        kind: "normal-feed",
+        reference: "animation-a",
+        itemId: "apple_bite",
+      },
+    };
+
+    const { getByTestId, rerender } = render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={firstBehavior}
+        toggledOff={false}
+      />,
+    );
+
+    rerender(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={{ ...firstBehavior, animationEventId: "feed-combo-2" }}
+        toggledOff={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId("companion-combo-badge")).toHaveTextContent("2x COMBO");
+    });
+    expect(getByTestId("companion-feed-burst").children.length).toBeGreaterThan(3);
+  });
+
+  it("plays local feed sound effects without browser speech synthesis", async () => {
+    const oscillatorStart = vi.fn();
+    const gainRamp = vi.fn();
+    const audioContext = {
+      currentTime: 0,
+      state: "running",
+      destination: {},
+      createGain: vi.fn(() => ({
+        gain: {
+          setValueAtTime: vi.fn(),
+          exponentialRampToValueAtTime: gainRamp,
+        },
+        connect: vi.fn(),
+      })),
+      createOscillator: vi.fn(() => ({
+        type: "sine",
+        frequency: {
+          setValueAtTime: vi.fn(),
+          exponentialRampToValueAtTime: vi.fn(),
+        },
+        connect: vi.fn(),
+        start: oscillatorStart,
+        stop: vi.fn(),
+      })),
+      resume: vi.fn().mockResolvedValue(undefined),
+    };
+    const AudioContextMock = vi.fn(() => audioContext);
+    const speechSpeak = vi.fn();
+    Object.defineProperty(window, "AudioContext", {
+      configurable: true,
+      value: AudioContextMock,
+    });
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { speak: speechSpeak },
+    });
+
+    const behavior: CompanionBehavior = {
+      mood: "happy",
+      presentationState: "feeding",
+      low: false,
+      emote: "happy",
+      intensity: 0.66,
+      movementIntensity: 0.82,
+      visualTreatment: { filter: "none", opacity: 1 },
+      animation: "silly_laugh",
+      animationEventId: "feed-sfx-1",
+      feedAnimation: {
+        kind: "normal-feed",
+        reference: "animation-a",
+        itemId: "apple_bite",
+      },
+    };
+
+    render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        companionBehavior={behavior}
+        toggledOff={false}
+      />,
+    );
+
+    await waitFor(() => expect(oscillatorStart).toHaveBeenCalled());
+    expect(gainRamp).toHaveBeenCalled();
+    expect(speechSpeak).not.toHaveBeenCalled();
   });
 });
 
