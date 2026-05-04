@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_MAP_WAYPOINTS,
+  MAP_PATH_PRESETS,
   buildPixelPositionsFromWaypoints,
   extendPathPolyline,
+  resolveMapWaypoints,
   samplePolylineAt,
 } from "../shared/mapPathLayout";
 
@@ -37,5 +39,31 @@ describe("mapPathLayout", () => {
     expect(ext.length).toBe(4);
     expect(ext[1]).toEqual(base[0]);
     expect(ext[2]).toEqual(base[1]);
+  });
+
+  it("exposes named layout presets for the adventure map", () => {
+    expect(Object.keys(MAP_PATH_PRESETS).sort()).toEqual([
+      "gentle-s-curve",
+      "rising-curve",
+      "stepping-stones",
+      "zigzag-climb",
+    ]);
+    expect(MAP_PATH_PRESETS["rising-curve"]).toEqual(DEFAULT_MAP_WAYPOINTS);
+    expect(MAP_PATH_PRESETS["zigzag-climb"]).not.toEqual(DEFAULT_MAP_WAYPOINTS);
+  });
+
+  it("falls back to rising-curve for unknown or missing preset names", () => {
+    expect(resolveMapWaypoints()).toEqual(DEFAULT_MAP_WAYPOINTS);
+    expect(resolveMapWaypoints("not-a-real-preset")).toEqual(DEFAULT_MAP_WAYPOINTS);
+  });
+
+  it("prefers explicit custom waypoints over a named preset", () => {
+    const custom = [
+      { x: 0.1, y: 0.8 },
+      { x: 0.5, y: 0.2 },
+      { x: 0.9, y: 0.7 },
+    ];
+
+    expect(resolveMapWaypoints("zigzag-climb", custom)).toEqual(custom);
   });
 });

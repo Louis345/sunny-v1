@@ -10,6 +10,7 @@ import childrenCfg from "../../../children.config.json";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { NODE_DISPLAY_LABELS } from "../../../src/shared/nodeRegistry";
 import { applyHomeworkStyleNodeLocks } from "../../../src/shared/mapNodeLocks";
+import { resolveMapWaypoints } from "../../../src/shared/mapPathLayout";
 import { useTransition, type Palette } from "../context/TransitionContext";
 import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
@@ -701,6 +702,11 @@ export function AdventureMap(props: {
   const bgUrl = theme?.backgroundUrl ?? mapState?.theme.backgroundUrl;
   const castleUrl = theme?.castleUrl ?? mapState?.theme.castleUrl;
   const thumbs = theme?.nodeThumbnails ?? mapState?.theme.nodeThumbnails;
+  const pathTheme = theme ?? mapState?.theme;
+  const mapWaypoints = resolveMapWaypoints(
+    pathTheme?.mapPathPreset,
+    pathTheme?.mapWaypoints,
+  );
 
   const nodes = mapState?.nodes ?? [];
   const previewActive =
@@ -790,6 +796,7 @@ export function AdventureMap(props: {
           count={displayNodes.length}
           startRadius={displayNodes[0]?.isGoal ? 60 : 44}
           endRadius={displayNodes[displayNodes.length - 1]?.isGoal ? 60 : 44}
+          waypoints={mapWaypoints}
           onPositionsChange={setPathPositions}
         >
           {(positions: Point[]) => (

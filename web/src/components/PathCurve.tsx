@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  buildCurve,
-  buildCurvePathD,
-  distributeNodes,
-  type CubicCurve,
-  type Point,
-} from "../../../src/shared/pathCurve";
+  buildPixelPositionsFromWaypoints,
+  buildPolylinePathD,
+  extendPathPolyline,
+  resolveMapWaypoints,
+} from "../../../src/shared/mapPathLayout";
+import type { MapWaypoint } from "../../../src/shared/adventureTypes";
+import type { Point } from "../../../src/shared/pathCurve";
 
 interface PathCurveProps {
   count: number;
   startRadius?: number;
   endRadius?: number;
+  waypoints?: ReadonlyArray<MapWaypoint>;
   /** Fired when node layout positions are recomputed (for companion LookAt, etc.). */
   onPositionsChange?: (positions: Point[]) => void;
   children: (positions: Point[]) => ReactNode;
@@ -21,12 +23,13 @@ export function PathCurve({
   count,
   startRadius = 44,
   endRadius = 44,
+  waypoints,
   onPositionsChange,
   children,
 }: PathCurveProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [state, setState] = useState<{ curve: CubicCurve | null; positions: Point[] }>({
-    curve: null,
+  const [state, setState] = useState<{ pathD: string; positions: Point[] }>({
+    pathD: "",
     positions: [],
   });
 
@@ -34,10 +37,20 @@ export function PathCurve({
     if (!svgRef.current) return;
     const { width, height } = svgRef.current.getBoundingClientRect();
     if (width < 1 || height < 1) return;
-    const curve = buildCurve(width, height);
-    const positions = distributeNodes(curve, count, startRadius, endRadius);
-    setState({ curve, positions });
-  }, [count, startRadius, endRadius]);
+    const resolvedWaypoints = resolveMapWaypoints(undefined, waypoints);
+    const positions = buildPixelPositionsFromWaypoints(
+      resolvedWaypoints,
+      width,
+      height,
+      count,
+    );
+    const pathPoints = extendPathPolyline(
+      positions,
+      Math.min(0.8, Math.max(0, startRadius) / 160),
+      Math.min(0.8, Math.max(0, endRadius) / 160),
+    );
+    setState({ pathD: buildPolylinePathD(pathPoints), positions });
+  }, [count, startRadius, endRadius, waypoints]);
 
   useEffect(() => {
     recompute();
@@ -68,9 +81,9 @@ export function PathCurve({
           overflow: "visible",
         }}
       >
-        {state.curve && (
+        {state.pathD ? (
           <path
-            d={buildCurvePathD(state.curve)}
+            d={state.pathD}
             fill="none"
             stroke="rgba(255,255,255,0.85)"
             strokeWidth={4}
@@ -78,7 +91,7 @@ export function PathCurve({
             strokeLinecap="round"
             style={{ animation: "pathCurveDashMove 1.2s linear infinite" }}
           />
-        )}
+        ) : null}
         <style>{`
           @keyframes pathCurveDashMove {
             to { stroke-dashoffset: -44; }

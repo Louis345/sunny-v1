@@ -3,16 +3,107 @@
  * then scaled to container pixels. Optional path extensions for dashed SVG trail.
  */
 
-import type { MapWaypoint } from "./adventureTypes";
+import type { MapPathPresetName, MapWaypoint } from "./adventureTypes";
 
-/** Default hill/river curve; first point inset from far-left to avoid edge props. */
-export const DEFAULT_MAP_WAYPOINTS: readonly MapWaypoint[] = [
-  { x: 0.2, y: 0.7 },
-  { x: 0.34, y: 0.56 },
-  { x: 0.52, y: 0.48 },
-  { x: 0.68, y: 0.42 },
-  { x: 0.86, y: 0.32 },
-] as const;
+export const MAP_PATH_PRESETS: Record<MapPathPresetName, readonly MapWaypoint[]> = {
+  /** Current hill/river curve; first point inset from far-left to avoid edge props. */
+  "rising-curve": [
+    { x: 0.2, y: 0.7 },
+    { x: 0.34, y: 0.56 },
+    { x: 0.52, y: 0.48 },
+    { x: 0.68, y: 0.42 },
+    { x: 0.86, y: 0.32 },
+  ],
+  "zigzag-climb": [
+    { x: 0.14, y: 0.76 },
+    { x: 0.32, y: 0.42 },
+    { x: 0.5, y: 0.66 },
+    { x: 0.68, y: 0.36 },
+    { x: 0.86, y: 0.22 },
+  ],
+  "gentle-s-curve": [
+    { x: 0.12, y: 0.72 },
+    { x: 0.3, y: 0.62 },
+    { x: 0.48, y: 0.42 },
+    { x: 0.66, y: 0.5 },
+    { x: 0.86, y: 0.28 },
+  ],
+  "stepping-stones": [
+    { x: 0.16, y: 0.74 },
+    { x: 0.32, y: 0.62 },
+    { x: 0.44, y: 0.48 },
+    { x: 0.6, y: 0.56 },
+    { x: 0.74, y: 0.4 },
+    { x: 0.88, y: 0.26 },
+  ],
+} as const;
+
+export const MAP_PATH_PRESET_NAMES = Object.keys(
+  MAP_PATH_PRESETS,
+) as MapPathPresetName[];
+
+export const DEFAULT_MAP_PATH_PRESET: MapPathPresetName = "rising-curve";
+
+export const DEFAULT_MAP_WAYPOINTS = MAP_PATH_PRESETS[DEFAULT_MAP_PATH_PRESET];
+
+function isMapPathPresetName(value: unknown): value is MapPathPresetName {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(MAP_PATH_PRESETS, value)
+  );
+}
+
+function hasUsableCustomWaypoints(
+  waypoints: ReadonlyArray<MapWaypoint> | undefined,
+): waypoints is ReadonlyArray<MapWaypoint> {
+  return (
+    Array.isArray(waypoints) &&
+    waypoints.length >= 2 &&
+    waypoints.every(
+      (p) =>
+        Number.isFinite(p.x) &&
+        Number.isFinite(p.y) &&
+        p.x >= 0 &&
+        p.x <= 1 &&
+        p.y >= 0 &&
+        p.y <= 1,
+    )
+  );
+}
+
+export function resolveMapPathPresetName(
+  name: string | undefined | null,
+): MapPathPresetName {
+  return isMapPathPresetName(name) ? name : DEFAULT_MAP_PATH_PRESET;
+}
+
+export function resolveMapWaypoints(
+  presetName?: string | null,
+  customWaypoints?: ReadonlyArray<MapWaypoint>,
+): readonly MapWaypoint[] {
+  if (hasUsableCustomWaypoints(customWaypoints)) return customWaypoints;
+  return MAP_PATH_PRESETS[resolveMapPathPresetName(presetName)];
+}
+
+export function mapPathPresetForTheme(seed: string): MapPathPresetName {
+  if (MAP_PATH_PRESET_NAMES.length === 0) return DEFAULT_MAP_PATH_PRESET;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return MAP_PATH_PRESET_NAMES[hash % MAP_PATH_PRESET_NAMES.length] ?? DEFAULT_MAP_PATH_PRESET;
+}
+
+export function buildPolylinePathD(
+  positions: ReadonlyArray<{ x: number; y: number }>,
+): string {
+  if (positions.length === 0) return "";
+  const [first, ...rest] = positions;
+  return [
+    `M ${first.x} ${first.y}`,
+    ...rest.map((p) => `L ${p.x} ${p.y}`),
+  ].join(" ");
+}
 
 /**
  * Sample a point at fraction t ∈ [0,1] along the polyline's total arc length.

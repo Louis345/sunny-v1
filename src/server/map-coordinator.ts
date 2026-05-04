@@ -10,7 +10,11 @@ import type {
   NodeType,
   SessionTheme,
 } from "../shared/adventureTypes";
-import { DEFAULT_MAP_WAYPOINTS } from "../shared/mapPathLayout";
+import {
+  MAP_PATH_PRESETS,
+  mapPathPresetForTheme,
+  resolveMapPathPresetName,
+} from "../shared/mapPathLayout";
 import type { ChildQuality } from "../algorithms/types";
 import type { ChildProfile } from "../shared/childProfile";
 import { buildProfile } from "../profiles/buildProfile";
@@ -92,6 +96,7 @@ export type SavedHomeworkThemeFile = {
   worldBackgroundUrl: string;
   palette: SessionTheme["palette"];
   thumbnails: Record<string, string | null | undefined>;
+  mapPathPreset?: string;
   savedBy: string;
 };
 
@@ -123,6 +128,9 @@ export function listSavedThemes(childId: string): SavedHomeworkThemeFile[] {
 
 function sessionThemeFromSaved(doc: SavedHomeworkThemeFile): SessionTheme {
   const p = doc.palette;
+  const mapPathPreset = resolveMapPathPresetName(
+    doc.mapPathPreset ?? mapPathPresetForTheme(doc.name),
+  );
   return {
     name: doc.name || "saved",
     palette: {
@@ -136,7 +144,8 @@ function sessionThemeFromSaved(doc: SavedHomeworkThemeFile): SessionTheme {
     castleUrl: null,
     backgroundUrl: doc.worldBackgroundUrl,
     nodeThumbnails: (doc.thumbnails ?? {}) as SessionTheme["nodeThumbnails"],
-    mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
+    mapPathPreset,
+    mapWaypoints: [...MAP_PATH_PRESETS[mapPathPreset]],
     source: "saved",
   };
 }
@@ -193,6 +202,7 @@ function persistHomeworkThemeSnapshot(childId: string, theme: SessionTheme): voi
     worldBackgroundUrl: worldImageUrl,
     palette: theme.palette,
     thumbnails: Object.fromEntries(Object.entries(nodeThumbnails).map(([k, v]) => [k, v])),
+    mapPathPreset: theme.mapPathPreset,
     savedBy: "auto",
   };
   fs.writeFileSync(themeFile, JSON.stringify(payload, null, 2), "utf8");
@@ -593,6 +603,7 @@ export function pendingHomeworkToNodeConfigs(
 /** Static theme — no Grok / designer image pipeline (`isDiagMapMode()` / diag map session). */
 function diagSessionTheme(): SessionTheme {
   const accent = "#1a56db";
+  const mapPathPreset = "rising-curve";
   return {
     name: "default",
     palette: {
@@ -609,7 +620,8 @@ function diagSessionTheme(): SessionTheme {
     castleVariant: "stone",
     castleUrl: null,
     nodeThumbnails: {},
-    mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
+    mapPathPreset,
+    mapWaypoints: [...MAP_PATH_PRESETS[mapPathPreset]],
   };
 }
 

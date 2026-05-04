@@ -9,7 +9,10 @@ import {
   type SessionTheme,
   type SessionThemePalette,
 } from "../../shared/adventureTypes";
-import { DEFAULT_MAP_WAYPOINTS } from "../../shared/mapPathLayout";
+import {
+  MAP_PATH_PRESETS,
+  mapPathPresetForTheme,
+} from "../../shared/mapPathLayout";
 import { getRandomUnlockedTheme } from "../../server/theme-registry";
 import { generateStoryImage } from "../../utils/generateStoryImage";
 import { isDiagMapMode } from "../../utils/runtimeMode";
@@ -108,6 +111,7 @@ export function paletteOnlyThemeFromProfile(
   const themeName = opts?.themeName ?? getRandomUnlockedTheme(profile);
   const accent = profile.ui.accentColor;
   const palette = paletteForBucket(accent, bucket);
+  const mapPathPreset = mapPathPresetForTheme(themeName);
 
   let pathStyle = "curve";
   if (process.env.SUNNY_SUBJECT?.trim() === "reading") {
@@ -121,7 +125,8 @@ export function paletteOnlyThemeFromProfile(
     nodeStyle: "rounded",
     pathStyle,
     castleVariant: "stone",
-    mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
+    mapPathPreset,
+    mapWaypoints: [...MAP_PATH_PRESETS[mapPathPreset]],
   };
 }
 

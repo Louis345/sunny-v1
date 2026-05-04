@@ -1,7 +1,12 @@
 import fs from "fs";
 import path from "path";
 import type { SessionTheme, SessionThemeAmbient, SessionThemePalette } from "../shared/adventureTypes";
-import { DEFAULT_MAP_WAYPOINTS } from "../shared/mapPathLayout";
+import {
+  MAP_PATH_PRESETS,
+  mapPathPresetForTheme,
+  resolveMapPathPresetName,
+  resolveMapWaypoints,
+} from "../shared/mapPathLayout";
 
 const BUNDLE_DIR = path.join(process.cwd(), "themes");
 
@@ -36,6 +41,7 @@ type HomeworkThemeBundle = {
   name?: string;
   palette?: SessionThemePalette;
   thumbnails?: Record<string, string | null | undefined>;
+  mapPathPreset?: string;
 };
 
 /**
@@ -66,8 +72,12 @@ export function bundledJsonToSessionTheme(raw: unknown): SessionTheme | null {
   /** Homework / bundle JSON on disk — image URLs expire; keep palette + layout metadata only. */
   if (isPalette(hw.palette) && typeof hw.worldBackgroundUrl === "string" && hw.worldBackgroundUrl) {
     const p = hw.palette;
+    const name = typeof hw.name === "string" && hw.name ? hw.name : "saved";
+    const mapPathPreset = resolveMapPathPresetName(
+      hw.mapPathPreset ?? mapPathPresetForTheme(name),
+    );
     return {
-      name: typeof hw.name === "string" && hw.name ? hw.name : "saved",
+      name,
       palette: {
         ...p,
         cardBackground: p.cardBackground ?? p.particle,
@@ -81,7 +91,8 @@ export function bundledJsonToSessionTheme(raw: unknown): SessionTheme | null {
       nodeStyle: "rounded",
       pathStyle: "curve",
       castleVariant: "stone",
-      mapWaypoints: [...DEFAULT_MAP_WAYPOINTS],
+      mapPathPreset,
+      mapWaypoints: [...MAP_PATH_PRESETS[mapPathPreset]],
       source: "saved",
     };
   }
@@ -95,6 +106,9 @@ export function bundledJsonToSessionTheme(raw: unknown): SessionTheme | null {
     typeof raw.castleVariant === "string"
   ) {
     const p = raw.palette as SessionThemePalette;
+    const mapPathPreset = resolveMapPathPresetName(
+      typeof raw.mapPathPreset === "string" ? raw.mapPathPreset : mapPathPresetForTheme(raw.name),
+    );
     const theme: SessionTheme = {
       name: raw.name,
       palette: {
@@ -105,9 +119,15 @@ export function bundledJsonToSessionTheme(raw: unknown): SessionTheme | null {
       nodeStyle: raw.nodeStyle,
       pathStyle: raw.pathStyle,
       castleVariant: raw.castleVariant,
-      mapWaypoints: Array.isArray(raw.mapWaypoints)
-        ? (raw.mapWaypoints as SessionTheme["mapWaypoints"])
-        : [...DEFAULT_MAP_WAYPOINTS],
+      mapPathPreset,
+      mapWaypoints: [
+        ...resolveMapWaypoints(
+          mapPathPreset,
+          Array.isArray(raw.mapWaypoints)
+            ? (raw.mapWaypoints as SessionTheme["mapWaypoints"])
+            : undefined,
+        ),
+      ],
       source: "saved",
     };
     return theme;

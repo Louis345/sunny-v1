@@ -98,6 +98,12 @@ export interface MapWaypoint {
   y: number;
 }
 
+export type MapPathPresetName =
+  | "rising-curve"
+  | "zigzag-climb"
+  | "gentle-s-curve"
+  | "stepping-stones";
+
 export interface SessionTheme {
   name: string;
   palette: SessionThemePalette;
@@ -114,6 +120,8 @@ export interface SessionTheme {
   nodeThumbnails?: Record<string, string | null>;
   /** Optional path polyline in normalized space; nodes spaced by arc length. */
   mapWaypoints?: ReadonlyArray<MapWaypoint>;
+  /** Named map layout preset; ignored when `mapWaypoints` has valid custom points. */
+  mapPathPreset?: MapPathPresetName;
 }
 
 export interface MapState {
