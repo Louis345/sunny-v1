@@ -2,7 +2,7 @@
 
 ## Product Rule
 
-Each child has a persistent relationship with a named companion. The companion has its own care plan, inventory, memory, and vitals. Learning earns care resources; care improves the companion's mood, energy, and helpfulness. Absence affects the companion gently through hunger and sleepiness, while return creates reunion and renewed bond.
+Each child has a persistent relationship with a named companion. The companion has its own care plan, inventory, memory, vitals, and economy. Learning earns care resources; care improves the companion's mood, energy, and helpfulness. Absence affects the companion gently through hunger and sleepiness, while return creates reunion and renewed bond.
 
 The companion is not a decorative mascot and not a separate pet game. It is the emotional interface for Sunny's learning system.
 
@@ -19,9 +19,15 @@ getChildChart(childId)
   -> vitals, memory, inventory, economy, store state
 ```
 
+The v1 source-of-truth file lives at:
+
+```text
+src/context/{childId}/companion_care/{companionId}.json
+```
+
 New adaptive or companion decision code should start from `getChildChart(childId)` and then read the active companion care plan through the chart. Do not make new decision code directly scatter reads across `learning_profile.json`, `children.config.json`, homework folders, attempts, or vitals unless the code is a low-level chart/care-plan adapter.
 
-The current `tamagotchi` profile field can remain as a compatibility bridge, but the target architecture is a named companion care plan for Elli, Matilda, or any future companion.
+The current `tamagotchi` and `companionCurrency` profile fields can remain as compatibility mirrors, but the source of truth is a named companion care plan for Elli, Matilda, Kefla, or any future companion.
 
 ## Companion Care Plan
 
@@ -117,10 +123,11 @@ Completing a node earns companion money. Money is for buying food, care items, b
 
 Until the store exists, children should receive a default starter inventory so the care loop can be tested:
 
-- 3 everyday foods
-- 1 comfort item
-- 1 focus/thought item
-- 1 rare reward placeholder
+- Apple Bite x3
+- Brain Berry x2
+- Cozy Soup x1
+- Star Candy x1
+- Mystery Snack x1
 
 Default items should be enough to demonstrate feeding, mood repair, energy repair, and a special reward animation without requiring the store.
 
@@ -246,4 +253,3 @@ Examples:
 ```
 
 If the care state changes and it is not logged, it did not happen.
-

@@ -33,6 +33,7 @@ import type {
   CompanionConfig,
   CompanionEventPayload,
 } from "../../src/shared/companionTypes";
+import type { CompanionCareView } from "../../src/shared/companionCareTypes";
 import { mergeCompanionConfigWithDefaults } from "../../src/shared/companionTypes";
 import {
   DEFAULT_TAMAGOTCHI,
@@ -354,6 +355,8 @@ function App() {
   const [profileTamagotchi, setProfileTamagotchi] = useState<TamagotchiState | null>(
     null,
   );
+  const [profileCompanionCare, setProfileCompanionCare] =
+    useState<CompanionCareView | null>(null);
   /** False until `/api/profile` completes for `activeProfileChildId` — avoids flashing DEFAULT care meters. */
   const [tamagotchProfileReady, setTamagotchProfileReady] = useState(false);
   const [profileCompanionCurrency, setProfileCompanionCurrency] = useState(0);
@@ -814,6 +817,7 @@ function App() {
       setProfileCompanion(null);
       setProfileAvatarImagePath(null);
       setProfileTamagotchi(null);
+      setProfileCompanionCare(null);
       setProfileWordRadar(null);
       setProfileReinforceWords(null);
       setProfileDyslexiaMode(false);
@@ -830,6 +834,7 @@ function App() {
           companion?: CompanionConfig;
           avatarImagePath?: string | null;
           tamagotchi?: TamagotchiState;
+          companionCare?: CompanionCareView;
           companionCurrency?: number;
           dyslexiaMode?: boolean;
           pendingHomework?: { reinforceWords?: unknown };
@@ -853,6 +858,7 @@ function App() {
             : null,
         );
         setProfileTamagotchi(data.tamagotchi ?? null);
+        setProfileCompanionCare(data.companionCare ?? null);
         setTamagotchProfileReady(true);
         const cur =
           typeof data.companionCurrency === "number" && Number.isFinite(data.companionCurrency)
@@ -896,6 +902,7 @@ function App() {
           setTamagotchProfileReady(false);
           setProfileAvatarImagePath(null);
           setProfileTamagotchi(null);
+          setProfileCompanionCare(null);
           setProfileWordRadar(null);
           setProfileReinforceWords(null);
           setProfileDyslexiaMode(false);
@@ -906,6 +913,41 @@ function App() {
       cancelled = true;
     };
   }, [profileApiChildId, profileReloadNonce]);
+
+  const handleCompanionFeed = useCallback(
+    (itemId: string) => {
+      if (!profileApiChildId) return;
+      fetch(
+        `/api/profile/${encodeURIComponent(profileApiChildId)}/companion-care/feed`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ itemId }),
+        },
+      )
+        .then(async (r) => {
+          if (!r.ok) {
+            throw new Error(`feed ${r.status}`);
+          }
+          return r.json() as Promise<{
+            companionCare?: CompanionCareView;
+            tamagotchi?: TamagotchiState;
+            companionCurrency?: number;
+          }>;
+        })
+        .then((data) => {
+          if (data.companionCare) setProfileCompanionCare(data.companionCare);
+          if (data.tamagotchi) setProfileTamagotchi(data.tamagotchi);
+          if (typeof data.companionCurrency === "number") {
+            setProfileCompanionCurrency(Math.max(0, Math.floor(data.companionCurrency)));
+          }
+        })
+        .catch((err) => {
+          console.error("  🔴 [companion-care] feed failed:", err);
+        });
+    },
+    [profileApiChildId],
+  );
 
   if (import.meta.env.VITE_MODE === "intro") {
     return <CompanionShowroomPage />;
@@ -992,6 +1034,7 @@ function App() {
           mapCompanion={effectiveCompanion}
           companionMutedForMap={companionMuted}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+          companionCare={profileCompanionCare ?? undefined}
           tamagotchHydrated={tamagotchProfileReady}
           onGameIframeMount={handleGameIframeMount}
           onTamagotchiSynced={(t) => setProfileTamagotchi(t)}
@@ -1281,10 +1324,12 @@ function App() {
         <TamagotchiSheet
           open={companionSheetOpen}
           tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
+          companionCare={profileCompanionCare ?? undefined}
           companionName={effectiveCompanion?.companionId ?? "Companion"}
           companionCurrency={
             mapSession.liveMapCurrency ?? profileCompanionCurrency
           }
+          onFeed={handleCompanionFeed}
           onClose={() => setCompanionSheetOpen(false)}
         />
       ) : null}

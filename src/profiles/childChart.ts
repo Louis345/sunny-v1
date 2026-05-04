@@ -33,6 +33,7 @@ export type ChildChartLinks = {
   attempts: string;
   vitals: string;
   carePlans: string;
+  companionCareDir: string;
 };
 
 export type ChildChart = {
@@ -67,6 +68,7 @@ export type ChildChart = {
   companion: {
     presetId: string;
     config: CompanionConfig;
+    displayName: string;
   };
 };
 
@@ -112,6 +114,7 @@ function defaultLinks(): ChildChartLinks {
     attempts: "attempts/",
     vitals: "vitals/",
     carePlans: "care_plans/",
+    companionCareDir: "companion_care/",
   };
 }
 
@@ -272,6 +275,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     companion: {
       presetId,
       config: companionConfig,
+      displayName: capitalize(presetId),
     },
   };
 }

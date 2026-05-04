@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import type { CompanionCareView } from "../../../src/shared/companionCareTypes";
 import type { TamagotchiState } from "../../../src/shared/vrrTypes";
 import { CompanionCurrencyHud } from "./CompanionCurrencyHud";
 
 export interface TamagotchiSheetProps {
   open: boolean;
-  tamagotchi: TamagotchiState;
+  tamagotchi?: TamagotchiState;
+  companionCare?: CompanionCareView;
   companionName: string;
   /** Shop coins — shown at bottom of this panel when set. */
   companionCurrency?: number;
@@ -19,6 +21,7 @@ const PANEL_MS = 320;
 export function TamagotchiSheet({
   open,
   tamagotchi,
+  companionCare,
   companionName,
   companionCurrency,
   inventory = [],
@@ -62,6 +65,25 @@ export function TamagotchiSheet({
   );
 
   if (!rendered) return null;
+
+  const careVitals = companionCare?.vitals;
+  const careInventory = companionCare?.inventory.food ?? inventory;
+  const coins = companionCurrency ?? companionCare?.economy.coins;
+  const vitals: Array<[string, string, number]> = careVitals
+    ? [
+        ["🍎", "Hunger", careVitals.hunger],
+        ["😊", "Mood", careVitals.mood],
+        ["💛", "Bond", careVitals.bond],
+        ["⚡", "Energy", careVitals.energy],
+        ["🧭", "Help", careVitals.usefulness],
+        ["🧠", "Thoughts", careVitals.thoughtClarity],
+      ]
+    : [
+        ["🍎", "Hunger", tamagotchi?.hunger ?? 0],
+        ["😊", "Happy", tamagotchi?.happiness ?? 0],
+        ["💛", "Bond", tamagotchi?.bond ?? 0],
+        ["🧠", "Intellect", tamagotchi?.intellect ?? 0],
+      ];
 
   return (
     <div
@@ -157,12 +179,7 @@ export function TamagotchiSheet({
           {companionName} · care
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {[
-            ["🍎", "Hunger", tamagotchi.hunger],
-            ["😊", "Happy", tamagotchi.happiness],
-            ["💛", "Bond", tamagotchi.bond],
-            ["🧠", "Intellect", tamagotchi.intellect],
-          ].map(([icon, label, v]) => (
+          {vitals.map(([icon, label, v]) => (
             <div key={String(label)} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ width: 28 }}>{icon}</span>
               <span style={{ width: 72, fontSize: 12 }}>{label}</span>
@@ -170,13 +187,31 @@ export function TamagotchiSheet({
             </div>
           ))}
         </div>
+        {companionCare?.readiness.highEnergyReluctance ? (
+          <div
+            style={{
+              marginTop: 12,
+              borderRadius: 8,
+              border: "1px solid #7c2d12",
+              background: "#431407",
+              color: "#fed7aa",
+              padding: 10,
+              fontSize: 12,
+              lineHeight: 1.4,
+            }}
+          >
+            {companionName} is low-energy. Feed, warm up, or continue gently.
+          </div>
+        ) : null}
         <div style={{ marginTop: 16, fontSize: 13, opacity: 0.8 }}>Your backpack</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-          {inventory.map((it) => (
+          {careInventory.map((it) => (
             <button
               key={it.id}
               type="button"
               onClick={() => onFeed?.(it.id)}
+              aria-label={`Feed ${it.label}`}
+              disabled={"quantity" in it && Number(it.quantity) <= 0}
               style={{
                 padding: "6px 10px",
                 borderRadius: 999,
@@ -186,10 +221,11 @@ export function TamagotchiSheet({
                 fontSize: 12,
               }}
             >
-              {it.label}
+              <span>{it.label}</span>
+              {"quantity" in it ? ` x${it.quantity}` : ""}
             </button>
           ))}
-          {inventory.length === 0 && (
+          {careInventory.length === 0 && (
             <span style={{ fontSize: 12, opacity: 0.6 }}>No snacks yet.</span>
           )}
         </div>
@@ -210,9 +246,9 @@ export function TamagotchiSheet({
         >
           Close
         </button>
-        {companionCurrency !== undefined ? (
+        {coins !== undefined ? (
           <CompanionCurrencyHud
-            companionCurrency={companionCurrency}
+            companionCurrency={coins}
             layout="panel"
           />
         ) : null}

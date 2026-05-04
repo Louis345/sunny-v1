@@ -1,4 +1,5 @@
 import type { LearningProfile } from "../context/schemas/learningProfile";
+import type { CompanionCareView } from "./companionCareTypes";
 import type { CompanionConfig } from "./companionTypes";
 import type { TamagotchiState } from "./vrrTypes";
 
@@ -146,6 +147,8 @@ export interface ChildProfile {
   pendingHomework?: LearningProfile["pendingHomework"];
   /** Optional companion care meters for map / VRR. */
   tamagotchi?: TamagotchiState;
+  /** Named companion source-of-truth care view; legacy tamagotchi/currency mirror this. */
+  companionCare?: CompanionCareView;
   /** Word Radar game settings + server-derived bests from word_bank. */
   wordRadar?: ChildProfileWordRadar;
 }
