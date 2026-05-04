@@ -423,9 +423,13 @@ export function useSession(options?: UseSessionOptions) {
       }));
     }
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const normalizedPayload =
+        type === "canvas_show" && typeof payload.type === "string"
+          ? { ...payload, canvasType: payload.type }
+          : payload;
       // Put envelope `type` last so canvas payloads (e.g. NODE_REGISTRY.karaoke with type:karaoke)
       // cannot overwrite the wire message kind — fixes server "Unknown type: karaoke" on canvas_show.
-      wsRef.current.send(JSON.stringify({ ...payload, type }));
+      wsRef.current.send(JSON.stringify({ ...normalizedPayload, type }));
     }
   }, []);
 

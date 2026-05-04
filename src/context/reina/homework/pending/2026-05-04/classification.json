@@ -1,7 +1,9 @@
 {
-  "homeworkId": "hw-reading-379a0afb",
-  "subject": "reading",
-  "wordList": [
+  "title": "Erosion and Earth's Surface Study Guide",
+  "type": "reading",
+  "gradeLevel": 3,
+  "testDate": "Wednesday, May 6",
+  "words": [
     "erosion",
     "wear away",
     "rocks",
@@ -186,37 +188,55 @@
       ]
     }
   },
-  "contentFingerprint": "d8ba4f0cdecd570c",
-  "calibrationStatus": "unverified",
-  "ingestedAt": "2026-05-04",
-  "testDate": "2026-05-06",
-  "assumptions": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: erosion, wear away, rocks, soil, wind\n\n## Intervention\ncontent-fit challenge that requires producing the answer, not recognition\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet.",
-  "postAnalysis": null,
-  "scanResult": null,
-  "delta": null,
-  "metrics": null,
-  "theory": {
-    "theoryId": "hw-reading-379a0afb:pre_quest:2026-05-04T00:25:34.044Z",
-    "stage": "pre_quest",
-    "createdAt": "2026-05-04T00:25:34.044Z",
-    "hypothesis": "No confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.",
-    "predictedPattern": "content_fit_gap",
-    "predictedRiskWords": [
-      "erosion",
-      "wear away",
-      "rocks",
-      "soil",
-      "wind"
-    ],
-    "intervention": "content-fit challenge that requires producing the answer, not recognition",
-    "successCriteria": {
-      "minAccuracy": 0.8,
-      "minImprovement": 0.15
+  "contentFingerprint": "9cbc2a0a3d5662c7",
+  "questions": [
+    {
+      "id": 1,
+      "question": "What is erosion?",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "Erosion happens when wind, water, or ice wear away rocks and soil",
+      "hint": "Think about what wears away rocks and soil over time"
     },
-    "evidence": [
-      "No confirmed diagnostic pattern yet."
-    ],
-    "status": "pending",
-    "markdown": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: erosion, wear away, rocks, soil, wind\n\n## Intervention\ncontent-fit challenge that requires producing the answer, not recognition\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet."
-  }
+    {
+      "id": 2,
+      "question": "Where do rivers and rain carry tiny pieces of rock?",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "From mountains to beaches or oceans",
+      "hint": "Think about the journey water takes from high places to low places"
+    },
+    {
+      "id": 3,
+      "question": "Why is beach sand a certain color?",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "The color of sand comes from the rocks nearby",
+      "hint": "Think about what breaks down to become sand"
+    },
+    {
+      "id": 4,
+      "question": "What do the four directions on a compass rose show?",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "North, South, East, West",
+      "hint": "A compass rose helps us find locations on a map"
+    },
+    {
+      "id": 5,
+      "question": "Which direction do rivers flow?",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "Downhill, from mountains to oceans or lakes",
+      "hint": "Water always flows downhill, never up"
+    },
+    {
+      "id": 6,
+      "question": "What is the difference between rounded hills and pointy peaks?",
+      "type": "written",
+      "options": null,
+      "correctAnswer": "Rounded hills are smaller and softer than pointy peaks. Pointy peaks are tall and sharp — like big mountains",
+      "hint": "Look at the shapes and sizes of landforms on maps"
+    }
+  ]
 }

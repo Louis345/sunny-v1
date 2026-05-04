@@ -143,6 +143,11 @@ export class WsTtsBridge {
 
       ws.on("error", (err) => {
         this.connectingPromise = null;
+        if (this.stopped || this.elevenWs !== ws) {
+          console.warn("  🔇 ElevenLabs TTS connect cancelled during shutdown");
+          resolve();
+          return;
+        }
         console.error("  🔴 ElevenLabs TTS error:", err.message);
         reject(err);
       });

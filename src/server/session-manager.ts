@@ -414,11 +414,9 @@ export class SessionManager {
   private shouldSuppressTranscriptDuringKaraoke(transcript: string): boolean {
     const mode = (this.currentCanvasState as { mode?: string } | null)?.mode;
     if (mode !== "karaoke" || this.karaokeReadingComplete) return false;
+    if (this.karaokeReadingInProgress()) { console.log("  📖 [karaoke] transcript suppressed during active reading"); return true; }
     const st = this.ctx?.sessionType;
-    if (st === "reading") {
-      console.log("  📖 [reading] transcript suppressed during karaoke");
-      return true;
-    }
+    if (st === "reading") { console.log("  📖 [reading] transcript suppressed during karaoke"); return true; }
     if (st === "diag") {
       const t = transcript.trim();
       const words = t.split(/\s+/).filter(Boolean);
@@ -426,10 +424,7 @@ export class SessionManager {
         t.includes("?") ||
         /^(hey|charlotte|stop|clear)\b/i.test(t) ||
         words.length > 8;
-      if (!looksLikeCommand) {
-        console.log("  📖 [diag-reading] transcript suppressed");
-        return true;
-      }
+      if (!looksLikeCommand) { console.log("  📖 [diag-reading] transcript suppressed"); return true; }
     }
     return false;
   }

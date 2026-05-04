@@ -268,19 +268,23 @@ function profileLaunchNames(
   fallbackCompanionId: string,
 ): { childName: string; companionName: string } {
   const p = profile as {
-    ttsName?: unknown;
     companion?: { companionId?: unknown };
   } | null;
-  const childName =
-    typeof p?.ttsName === "string" && p.ttsName.trim().length > 0
-      ? p.ttsName.trim()
-      : childId.charAt(0).toUpperCase() + childId.slice(1);
+  const childName = displayNameFromChildId(childId);
   const companionId =
     typeof p?.companion?.companionId === "string" && p.companion.companionId.trim().length > 0
       ? p.companion.companionId.trim()
       : fallbackCompanionId;
   const companionName = companionId.charAt(0).toUpperCase() + companionId.slice(1);
   return { childName, companionName };
+}
+
+function displayNameFromChildId(childId: string): string {
+  const normalized = childId.trim().toLowerCase();
+  if (normalized === "ila") return "Ila";
+  if (normalized === "reina") return "Reina";
+  if (normalized === "creator") return "Creator";
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : "Your";
 }
 
 function MapLoadingOverlay({ accent }: { accent: string }) {

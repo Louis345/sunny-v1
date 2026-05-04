@@ -4,6 +4,7 @@ import { cloneCompanionDefaults } from "../shared/companionTypes";
 import { ALL_NODE_TYPES } from "../shared/adventureTypes";
 import * as themeRegistry from "../server/theme-registry";
 import { generateTheme } from "../agents/designer/designer";
+import { resolveThemeForMapSession } from "../server/map-coordinator";
 
 vi.mock("../utils/generateStoryImage", () => ({
   generateStoryImage: vi.fn().mockResolvedValue(null),
@@ -86,5 +87,47 @@ describe("DesignerAgent generateTheme (TASK-008)", () => {
     process.env.SUNNY_SUBJECT = "reading";
     const t = (await generateTheme(baseProfile()))!;
     expect(t.pathStyle).toContain("reading");
+  });
+
+  it("generates a content-aware erosion theme for main homework sessions", async () => {
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    vi.mocked(generateStoryImage).mockResolvedValue("https://example.com/erosion-world.png");
+    const result = await resolveThemeForMapSession(
+      baseProfile({
+        pendingHomework: {
+          weekOf: "2026-05-04",
+          testDate: "2026-05-06",
+          wordList: ["erosion", "soil", "water"],
+          homeworkId: "hw-reading-erosion",
+          generatedAt: "2026-05-04T12:00:00.000Z",
+          contentProfile: {
+            practiceDomain: "reading",
+            contentDomain: "science",
+            topic: "Erosion and Earth's Surface",
+            primarySkill: "reading_comprehension",
+            assignmentFormat: "study_guide",
+            concepts: ["erosion", "soil", "water", "rivers"],
+            sourceEvidence: ["Erosion happens when water wears away soil."],
+          },
+          capturedContent: null,
+          nodes: [
+            {
+              id: "n-word-radar-hw-reading-erosion",
+              type: "word-radar",
+              words: ["erosion"],
+              difficulty: 1,
+              gameFile: null,
+              storyFile: null,
+              approved: false,
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result.theme.name).toBe("erosion");
+    expect(result.theme.source).toBe("generated");
+    expect(result.theme.backgroundUrl).toBe("https://example.com/erosion-world.png");
+    expect(result.shouldPersist).toBe(true);
   });
 });

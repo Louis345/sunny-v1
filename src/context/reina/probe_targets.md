@@ -1,11 +1,13 @@
 # Matilda Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-05-03T01:10:23.475Z*
+*Updated: 2026-05-04T00:26:02.989Z*
 
-• When Reina's crushing math games, surprise her with a wrestling word problem ("3 wrestlers, 2 points each—how many total?") and watch her go
+• During spelling warm-up, ask "What does erosion mean?" before we start the game—just curious what she thinks.
 
-• After reading an action story together, ask her "Why did that happen?" or "What would you do?" instead of just "What happened?"
+• When she reads her homework words, slip in "Why does wind wear away rocks?" to see if she connects the ideas.
 
-• Keep spelling and addition games as fun warm-ups—she loves winning, and those build her confidence before we try something new
+• Suggest wrestling word problems like "3 wrestlers score 2 points each—how many total?" since she loves wrestling and math challenges.
 
-• Let her pick what we do after the warm-up, every time—she's been asking for multiplication for weeks and deserves the challenge
+• After she reads an action story, ask "Why was she in trouble?" or "How did she fix it?" instead of just what happened.
+
+• Keep spelling games short (5 words tops) so we have time for multiplication practice—she asked for this weeks ago.

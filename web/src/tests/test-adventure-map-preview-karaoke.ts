@@ -29,6 +29,13 @@ describe("AdventureMap free preview karaoke", () => {
     expect(src).toContain("StoryImageFinale");
   });
 
+  it("uses child display name, not TTS pronunciation, for story finale labels", () => {
+    const src = readFileSync(adventureMapTsx, "utf8");
+    expect(src).toContain("function displayNameFromChildId");
+    expect(src).toContain("displayNameFromChildId(childId)");
+    expect(src).not.toMatch(/childName\s*=[\s\S]{0,120}p\?\.ttsName/);
+  });
+
   it("keeps a visible finale when story image generation returns no URL", () => {
     const src = readFileSync(adventureMapTsx, "utf8");
     expect(src).toContain("failed={storyImageFinaleState.failed}");
@@ -37,6 +44,15 @@ describe("AdventureMap free preview karaoke", () => {
     expect(src).toMatch(
       /props\.storyImageLoading\s*\|\|\s*props\.storyImageUrl\s*\|\|\s*props\.storyImageFailed/,
     );
+  });
+
+  it("top-level Back returns from an active map node before leaving the child session", () => {
+    const appSrc = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../App.tsx"),
+      "utf8",
+    );
+    expect(appSrc).toContain("if (mapSession.launchedNode)");
+    expect(appSrc).toContain("mapSession.clearLaunchedNode()");
   });
 
   it("does not treat microphone denial as fatal in preview mode", () => {

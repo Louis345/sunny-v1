@@ -171,13 +171,27 @@ function homeworkThemePersistenceContext(profile: ChildProfile): boolean {
   );
 }
 
+function homeworkThemeName(profile: ChildProfile): string | null {
+  const profileTopic = profile.pendingHomework?.contentProfile?.topic ?? "";
+  const concepts = profile.pendingHomework?.contentProfile?.concepts ?? [];
+  const haystack = [profileTopic, ...concepts].join(" ").toLowerCase();
+  if (haystack.includes("erosion")) return "erosion";
+  const topic = profileTopic.trim().toLowerCase();
+  if (!topic || topic === "homework") return null;
+  return topic.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || null;
+}
+
 export async function resolveThemeForMapSession(
   profile: ChildProfile,
   runtime?: SunnyRuntimeConfig,
 ): Promise<{ theme: SessionTheme; shouldPersist: boolean }> {
+  const contentThemeName = homeworkThemeName(profile);
   if (isDiagMapMode()) {
     return {
-      theme: { ...paletteOnlyThemeFromProfile(profile), source: "palette" },
+      theme: {
+        ...paletteOnlyThemeFromProfile(profile, contentThemeName ? { themeName: contentThemeName } : undefined),
+        source: "palette",
+      },
       shouldPersist: false,
     };
   }
@@ -187,7 +201,10 @@ export async function resolveThemeForMapSession(
   const previewCtx = runtime
     ? runtime.previewMode !== "off"
     : sunnyPreviewBlocksPersistence();
-  const saved = persistCtx || previewCtx ? listSavedThemes(key) : [];
+  const savedAll = persistCtx || previewCtx ? listSavedThemes(key) : [];
+  const saved = contentThemeName
+    ? savedAll.filter((theme) => theme.name === contentThemeName)
+    : savedAll;
   const useExisting =
     saved.length > 0 && (previewCtx || (persistCtx && Math.random() < 0.5));
   if (useExisting) {
@@ -195,11 +212,20 @@ export async function resolveThemeForMapSession(
     console.log(`  🎨 Reusing saved theme: ${picked.name}`);
     return { theme: sessionThemeFromSaved(picked), shouldPersist: false };
   }
-  const generated = await generateTheme(profile);
+  const generated = await generateTheme(
+    profile,
+    contentThemeName ? { themeName: contentThemeName } : undefined,
+  );
   const theme =
     generated != null
       ? { ...generated, source: "generated" as const }
-      : { ...paletteOnlyThemeFromProfile(profile), source: "palette" as const };
+      : {
+          ...paletteOnlyThemeFromProfile(
+            profile,
+            contentThemeName ? { themeName: contentThemeName } : undefined,
+          ),
+          source: "palette" as const,
+        };
   return { theme, shouldPersist: persistCtx };
 }
 
