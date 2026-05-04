@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { WorldBackground } from "../components/WorldBackground";
 
 afterEach(() => {
@@ -29,5 +29,21 @@ describe("WorldBackground", () => {
     const attr = el.getAttribute("style") ?? "";
     expect(attr).toContain("linear-gradient");
     expect(attr).not.toMatch(/:\s*#0{6}\b/);
+  });
+
+  it("falls back to palette gradient when saved theme image fails to load", () => {
+    render(
+      <WorldBackground
+        url="https://example.invalid/expired-grok-theme.jpeg"
+        paletteSky="#6ec8ff"
+        paletteGround="#228b5c"
+      />,
+    );
+
+    const img = screen.getByTestId("world-background-image");
+    fireEvent.error(img);
+
+    expect(screen.queryByTestId("world-background-image")).toBeNull();
+    expect(screen.getByTestId("world-background-gradient")).toBeTruthy();
   });
 });

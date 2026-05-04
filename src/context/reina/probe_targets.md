@@ -1,13 +1,11 @@
 # Matilda Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-04-30T23:40:43.937Z*
+*Updated: 2026-05-03T01:10:23.475Z*
 
-• When we read action stories, ask "Why did that happen?" and "What would happen if...?" to see how deep her thinking goes
+• When Reina's crushing math games, surprise her with a wrestling word problem ("3 wrestlers, 2 points each—how many total?") and watch her go
 
-• Bring up wrestling or chess and slip in multiplication like "If you win 3 matches and get 2 points each, how many points total?"
+• After reading an action story together, ask her "Why did that happen?" or "What would you do?" instead of just "What happened?"
 
-• Notice when she uses cool words and ask her to tell me what they mean in her own way
+• Keep spelling and addition games as fun warm-ups—she loves winning, and those build her confidence before we try something new
 
-• Keep our spelling warm-ups before we play—she's crushing those and loves winning at the games
-
-• Watch for chances to have her tell me a story or explain something, so I can hear how she puts sentences together
+• Let her pick what we do after the warm-up, every time—she's been asking for multiplication for weeks and deserves the challenge

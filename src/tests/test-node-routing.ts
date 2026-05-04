@@ -172,6 +172,10 @@ describe("map node routing", () => {
       "quest",
       "boss",
       "dopamine",
+      "bubble-pop",
+      "fish-flanker",
+      "target-blaster",
+      "hero-shield",
     ].sort();
     expect([...NODE_REGISTRY_KEYS].sort()).toEqual(required);
     for (const key of required) {
@@ -210,6 +214,56 @@ describe("map node routing", () => {
     if (action.kind !== "iframe") throw new Error("expected iframe action");
     expect(action.url).toContain("/games/spell-check.html");
     expect(action.url).toContain("farmer");
+  });
+
+  it("attention screening preview node launches the selected baseline activity iframe", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "onboarding-bubble-pop",
+        type: "bubble-pop",
+        words: ["fish-flanker"],
+        difficulty: 1,
+      } as const,
+      {
+        childId: "ila",
+        companion: "elli",
+        isDiagMode: true,
+        iframePreviewParam: "free",
+      },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/attention-bubble-pop.html");
+    expect(action.url).toContain("words=fish-flanker");
+    expect(action.url).toContain("preview=free");
+  });
+
+  it("each baseline attention task has its own enclosed activity route", () => {
+    const expected = new Map([
+      ["bubble-pop", "/games/attention-bubble-pop.html"],
+      ["fish-flanker", "/games/attention-fish-flanker.html"],
+      ["target-blaster", "/games/attention-target-blaster.html"],
+      ["hero-shield", "/games/attention-hero-shield.html"],
+    ]);
+    for (const [type, url] of expected) {
+      const action = buildNodeLaunchAction(
+        {
+          id: `attention-${type}`,
+          type,
+          words: [type],
+          difficulty: 1,
+        } as const,
+        {
+          childId: "ila",
+          companion: "elli",
+          isDiagMode: true,
+          iframePreviewParam: "free",
+        },
+      );
+      expect(action.kind).toBe("iframe");
+      if (action.kind !== "iframe") throw new Error("expected iframe action");
+      expect(action.url).toContain(url);
+    }
   });
 
   it("karaoke handler returns storyText from node", () => {

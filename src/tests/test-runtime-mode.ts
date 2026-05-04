@@ -2,139 +2,168 @@ import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import {
-  getSunnyMode,
-  isAdventureMapEnv,
-  isDiagMapMode,
-  isSunnyAsChildMode,
-  isSunnyDiagMode,
-  shouldPersistSessionData,
-  sunnyPreviewBlocksPersistence,
+  resolveSunnyRuntimeConfig,
+  type SunnyRuntimeConfig,
 } from "../utils/runtimeMode";
 
-describe("getSunnyMode", () => {
-  it('returns "diag" when SUNNY_MODE is diag', () => {
-    expect(getSunnyMode({ SUNNY_MODE: "diag" })).toBe("diag");
+describe("resolveSunnyRuntimeConfig", () => {
+  it("builds a canonical preview inspect-all config from env", () => {
+    const cfg = resolveSunnyRuntimeConfig({
+      SUNNY_SUBJECT: "homework",
+      SUNNY_MODE: "as-child",
+      SUNNY_CHILD: "Reina",
+      SUNNY_PREVIEW_MODE: "free",
+      SUNNY_NODE_ACCESS: "inspect-all",
+      SUNNY_VOICE_MODE: "normal",
+    });
+    expect(cfg).toEqual<SunnyRuntimeConfig>({
+      subject: "homework",
+      sessionMode: "as-child",
+      previewMode: "free",
+      nodeAccess: "inspect-all",
+      voiceMode: "normal",
+      persistenceMode: "blocked",
+      childId: "reina",
+    });
   });
 
-  it('returns "as-child" when SUNNY_MODE is as-child', () => {
-    expect(getSunnyMode({ SUNNY_MODE: "as-child" })).toBe("as-child");
+  it("builds a canonical onboarding board preview config from env", () => {
+    const cfg = resolveSunnyRuntimeConfig({
+      SUNNY_SUBJECT: "onboarding",
+      SUNNY_MODE: "as-child",
+      SUNNY_CHILD: "Ila",
+      SUNNY_PREVIEW_MODE: "free",
+      SUNNY_NODE_ACCESS: "inspect-all",
+      SUNNY_VOICE_MODE: "muted",
+    });
+    expect(cfg).toEqual<SunnyRuntimeConfig>({
+      subject: "onboarding",
+      sessionMode: "as-child",
+      previewMode: "free",
+      nodeAccess: "inspect-all",
+      voiceMode: "muted",
+      persistenceMode: "blocked",
+      childId: "ila",
+    });
   });
 
-  it('returns "real" when SUNNY_MODE is unset', () => {
-    expect(getSunnyMode({})).toBe("real");
-  });
-
-  it('returns "real" for unrecognized SUNNY_MODE', () => {
-    expect(getSunnyMode({ SUNNY_MODE: "garbage" })).toBe("real");
-  });
-});
-
-describe("isSunnyDiagMode", () => {
-  it("is true when SUNNY_MODE is diag", () => {
-    expect(isSunnyDiagMode({ SUNNY_MODE: "diag" })).toBe(true);
-  });
-
-  it("is false when SUNNY_MODE is real", () => {
-    expect(isSunnyDiagMode({ SUNNY_MODE: "real" })).toBe(false);
-  });
-});
-
-describe("isDiagMapMode", () => {
-  it("is true when SUNNY_MODE is diag even if SUNNY_SUBJECT is homework", () => {
-    expect(
-      isDiagMapMode({ SUNNY_MODE: "diag", SUNNY_SUBJECT: "homework" }),
-    ).toBe(true);
-  });
-
-  it("is true when SUNNY_SUBJECT is diag", () => {
-    expect(isDiagMapMode({ SUNNY_MODE: "real", SUNNY_SUBJECT: "diag" })).toBe(
-      true,
-    );
-  });
-
-  it("is false in real mode with non-diag subject", () => {
-    expect(isDiagMapMode({ SUNNY_MODE: "real", SUNNY_SUBJECT: "reading" })).toBe(
-      false,
-    );
-  });
-});
-
-describe("isSunnyAsChildMode", () => {
-  it("is true when SUNNY_MODE is as-child", () => {
-    expect(isSunnyAsChildMode({ SUNNY_MODE: "as-child" })).toBe(true);
-  });
-
-  it("is false when SUNNY_MODE is diag", () => {
-    expect(isSunnyAsChildMode({ SUNNY_MODE: "diag" })).toBe(false);
+  it("falls back to inspect-all when DIAG_UNLOCK_MAP is true", () => {
+    const cfg = resolveSunnyRuntimeConfig({
+      SUNNY_MODE: "real",
+      SUNNY_SUBJECT: "homework",
+      DIAG_UNLOCK_MAP: "true",
+    });
+    expect(cfg.nodeAccess).toBe("inspect-all");
+    expect(cfg.previewMode).toBe("off");
   });
 });
 
-describe("isAdventureMapEnv", () => {
-  it("is true when ADVENTURE_MAP is true", () => {
-    expect(isAdventureMapEnv({ ADVENTURE_MAP: "true" })).toBe(true);
-  });
-
-  it("is false when unset or not true", () => {
-    expect(isAdventureMapEnv({})).toBe(false);
-    expect(isAdventureMapEnv({ ADVENTURE_MAP: "false" })).toBe(false);
-    expect(isAdventureMapEnv({ ADVENTURE_MAP: "1" })).toBe(false);
-  });
-});
-
-describe("shouldPersistSessionData", () => {
-  it("is false when SUNNY_MODE is diag", () => {
-    expect(shouldPersistSessionData({ SUNNY_MODE: "diag" })).toBe(false);
-  });
-
-  it("is false when SUNNY_MODE is as-child", () => {
-    expect(shouldPersistSessionData({ SUNNY_MODE: "as-child" })).toBe(false);
-  });
-
-  it('is true when SUNNY_MODE is real', () => {
-    expect(shouldPersistSessionData({ SUNNY_MODE: "real" })).toBe(true);
-  });
-
-  it("defaults to true when SUNNY_MODE is unset (real mode)", () => {
-    expect(shouldPersistSessionData({})).toBe(true);
-  });
-});
-
-describe("package.json diag scripts", () => {
+describe("package.json runtime launcher scripts", () => {
   const pkg = JSON.parse(
     fs.readFileSync(path.join(__dirname, "../../package.json"), "utf-8"),
   ) as { scripts: Record<string, string> };
 
-  it('contains script "sunny:mode:diag:homework"', () => {
-    expect(pkg.scripts["sunny:mode:diag:homework"]).toBeDefined();
+  it('contains script "sunny:run"', () => {
+    expect(pkg.scripts["sunny:run"]).toBeDefined();
   });
 
-  it('contains script "sunny:mode:diag:pronunciation:as-ila"', () => {
-    expect(pkg.scripts["sunny:mode:diag:pronunciation:as-ila"]).toBeDefined();
+  it('contains script "sunny:preview"', () => {
+    expect(pkg.scripts["sunny:preview"]).toBeDefined();
   });
 
-  it("sunny:mode:diag:homework includes SUNNY_CHILD=ila and VITE_PREVIEW_MODE=free", () => {
-    const s = pkg.scripts["sunny:mode:diag:homework"] ?? "";
-    expect(s).toContain("SUNNY_CHILD=ila");
-    expect(s).toContain("VITE_PREVIEW_MODE=free");
+  it("contains visual onboarding preview script that delegates to canonical sunny:run", () => {
+    expect(pkg.scripts["sunny:mode:onboarding:board"]).toContain("sunny:run");
+    expect(pkg.scripts["sunny:mode:onboarding:board"]).toContain("--subject onboarding");
+    expect(pkg.scripts["sunny:mode:onboarding:board"]).toContain("--preview free");
+    expect(pkg.scripts["sunny:mode:onboarding:board"]).toContain("--node-access inspect-all");
   });
 
-  it("every :as-ila script sets SUNNY_CHILD=ila", () => {
-    const asIlaKeys = Object.keys(pkg.scripts).filter((k) => k.includes(":as-ila"));
-    expect(asIlaKeys.length).toBeGreaterThan(0);
-    for (const k of asIlaKeys) {
-      expect(pkg.scripts[k]).toContain("SUNNY_CHILD=ila");
-    }
+  it('contains script "sunny:homework"', () => {
+    expect(pkg.scripts["sunny:homework"]).toBeDefined();
+  });
+
+  it("plain sunny runs review mode, while sunny:homework focuses the latest homework", () => {
+    expect(pkg.scripts.sunny).toContain("--subject review");
+    expect(pkg.scripts["sunny:homework"]).toContain("--subject homework");
+  });
+
+  it('contains script "sunny:diag"', () => {
+    expect(pkg.scripts["sunny:diag"]).toBeDefined();
+  });
+
+  it('preserves the intro/showroom script as a public entry point', () => {
+    expect(pkg.scripts["sunny:mode:intro"]).toBeDefined();
+    expect(pkg.scripts["sunny:mode:intro"]).toContain("--session-mode intro");
+  });
+
+  it("preserves compatibility aliases for existing launch commands", () => {
+    expect(pkg.scripts["sunny:homework:preview"]).toBeDefined();
+    expect(pkg.scripts["sunny:mode:diag:homework:as-reina"]).toBeDefined();
+    expect(pkg.scripts["sunny:mode:reading"]).toBeDefined();
+    expect(pkg.scripts["sunny:mode:pronunciation"]).toBeDefined();
+  });
+
+  it("sunny:run delegates to the canonical runner", () => {
+    expect(pkg.scripts["sunny:run"]).toContain("src/scripts/sunnyRun.ts");
+  });
+
+  it("ignores regenerated homework learning-plan audit artifacts", () => {
+    const ignore = fs.readFileSync(
+      path.join(__dirname, "../../.gitignore"),
+      "utf-8",
+    );
+    expect(ignore).toContain("src/context/*/homework/pending/**/learning-plan.*");
+  });
+
+  it("AdventureMap uses profile-configured Word Radar timer seconds instead of hardcoded 10", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "../../web/src/components/AdventureMap.tsx"),
+      "utf-8",
+    );
+    expect(src).toContain("props.wordRadarFromProfile?.timerSeconds");
+    expect(src).not.toContain(
+      "timerSeconds={props.wordRadarFromProfile?.showTimer === true ? 10 : undefined}",
+    );
   });
 });
 
-describe("sunnyPreviewBlocksPersistence (unchanged)", () => {
-  it("still distinguishes preview modes", () => {
-    expect(sunnyPreviewBlocksPersistence({ SUNNY_PREVIEW_MODE: "go-live" })).toBe(
-      true,
+describe("shared preview launcher", () => {
+  it("builds canonical stateless board preview commands", async () => {
+    const { buildPreviewBoardCommand, previewBoardPrompt } = await import(
+      "../utils/previewLauncher"
     );
-    expect(sunnyPreviewBlocksPersistence({ SUNNY_PREVIEW_MODE: "free" })).toBe(true);
-    expect(sunnyPreviewBlocksPersistence({ SUNNY_PREVIEW_MODE: "false" })).toBe(
-      false,
+
+    expect(previewBoardPrompt({ childId: "ila", label: "onboarding" })).toContain(
+      "Open read-only onboarding board for ila?",
     );
+    expect(
+      buildPreviewBoardCommand({
+        childId: "ila",
+        subject: "onboarding",
+        sessionMode: "as-child",
+        voiceMode: "muted",
+      }),
+    ).toEqual({
+      display:
+        "npm run sunny:run -- --subject onboarding --child ila --session-mode as-child --preview free --node-access inspect-all --voice muted",
+      command: "npm",
+      args: [
+        "run",
+        "sunny:run",
+        "--",
+        "--subject",
+        "onboarding",
+        "--child",
+        "ila",
+        "--session-mode",
+        "as-child",
+        "--preview",
+        "free",
+        "--node-access",
+        "inspect-all",
+        "--voice",
+        "muted",
+      ],
+    });
   });
 });

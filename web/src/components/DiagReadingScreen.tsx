@@ -97,6 +97,7 @@ function WordRadarDiagPanel({
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   wordRadar: {
     showTimer: boolean;
+    timerSeconds?: number;
     showKeyboard: boolean;
     inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
     speakStyle?: "option-a" | "option-b";
@@ -230,6 +231,7 @@ export function DiagReadingScreen() {
   const [standaloneReadingVisible, setStandaloneReadingVisible] = useState(true);
   const [wordRadarFromProfile, setWordRadarFromProfile] = useState<{
     showTimer: boolean;
+    timerSeconds?: number;
     showKeyboard: boolean;
     inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
     speakStyle?: "option-a" | "option-b";
@@ -257,6 +259,7 @@ export function DiagReadingScreen() {
         if (cancelled || !data?.wordRadar) return;
         const wr = data.wordRadar as {
           showTimer?: boolean;
+          timerSeconds?: number;
           showKeyboard?: boolean;
           personalBests?: Record<string, number>;
           inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
@@ -267,11 +270,18 @@ export function DiagReadingScreen() {
               speakStyle?: "option-a" | "option-b";
               keyboardStyle?: "option-b" | "option-c";
               showTimer?: boolean;
+              timerSeconds?: number;
             }
           | undefined;
         const pb = wr.personalBests;
         setWordRadarFromProfile({
           showTimer: gameWr?.showTimer ?? (wr.showTimer === true),
+          timerSeconds:
+            typeof gameWr?.timerSeconds === "number" && gameWr.timerSeconds > 0
+              ? gameWr.timerSeconds
+              : typeof wr.timerSeconds === "number" && wr.timerSeconds > 0
+                ? wr.timerSeconds
+                : undefined,
           showKeyboard: gameWr?.inputMode === "keyboard" || wr.showKeyboard === true,
           inputMode: wr.inputMode ?? gameWr?.inputMode,
           speakStyle: gameWr?.speakStyle,
@@ -321,6 +331,7 @@ export function DiagReadingScreen() {
 
   const wordRadarUi = wordRadarFromProfile ?? {
     showTimer: true,
+    timerSeconds: 20,
     showKeyboard: false,
     inputMode: "letter-by-letter" as const,
     speakStyle: "option-a" as const,
@@ -343,6 +354,7 @@ export function DiagReadingScreen() {
             wordRadarFromProfile={
               wordRadarFromProfile ?? {
                 showTimer: true,
+                timerSeconds: 20,
                 showKeyboard: false,
                 inputMode: "letter-by-letter",
                 speakStyle: "option-a",

@@ -16,6 +16,7 @@ export interface ChildProfileUI {
 
 export interface ChildProfileWordRadar {
   showTimer: boolean;
+  timerSeconds: number;
   showKeyboard: boolean;
   personalBests: Record<string, number>;
   inputMode: "whole-word" | "letter-by-letter" | "keyboard";
@@ -32,6 +33,7 @@ export interface WordRadarGameConfig extends GameConfig {
   speakStyle: "option-a" | "option-b";
   keyboardStyle: "option-b" | "option-c";
   showTimer: boolean;
+  timerSeconds?: number;
   personalBestMetric: "speed" | "accuracy";
   /** Caps homework spelling list per node when no imminent test; defaults with spell-check maxWords. */
   maxWords?: number;

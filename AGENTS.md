@@ -172,12 +172,41 @@ Never ship AI content as just "fun content." It must answer:
 - How will we measure whether it worked?
 - Should we reuse it, revise it, or retire it after performance or graded calibration?
 
+### Law 12: Child Chart Is The Decision Doorway
+
+Sunny uses the hospital/care-plan model:
+
+- Child chart = patient chart entry point.
+- Learning profile = adaptive evidence.
+- Care plan = current treatment plan.
+- Activities = interventions.
+- Attempts = labs.
+- Attention vitals = vitals at each visit.
+
+New planner, generator, care-plan, and adaptive decision code must start from `getChildChart(childId)`.
+
+Do not directly read `children.config.json`, `learning_profile.json`, `word_bank.json`, homework folders, attempts, or vitals from new decision code unless you are writing a low-level IO adapter used by the chart. Existing legacy callers can migrate gradually, but new adaptive code should make decisions from the chart or from `LearningDecisionContext` built from the chart.
+
+### Law 13: Accountable To Reality
+
+Sunny must be accountable to reality, not vibes and not "AI says this is smart."
+
+The system should form theories, test them, learn from outcomes, and explain its reasoning. A care plan is only a hypothesis until attempts, attention vitals, activity outcomes, or graded homework calibration support it. In-app success is useful evidence, but it is not proof of transfer until real-world graded work or delayed reassessment confirms it.
+
+Every adaptive claim should answer:
+
+- What evidence created this theory?
+- What activity or intervention is testing it?
+- What outcome would support, revise, or falsify it?
+- Where will that result be recorded in the child chart?
+
 ---
 
 ## Maintainability (Guidelines, Not Laws)
 
 - **Broad rules beat narrow branches:** Prefer one clear **product rule** (e.g. in prompts or a single invariant) over many special cases scattered in code — easier to reason about when you’re one person.
 - **Every guard in code should have a test** that would fail if the guard were removed.
+- **Preview modes are wrappers:** When adding a new mode that needs preview/read-only/stateless behavior, keep the public npm mode stable but route preview prompting, stateless runtime flags, board launch, companion voice toggles, and image reuse/generation options through a shared preview wrapper utility. Mode-specific code should supply only its plan/content; it should not duplicate preview prompts or launch ceremonies.
 
 ---
 

@@ -35,6 +35,7 @@
         "word-radar": {
           "inputMode": "letter-by-letter",
           "showTimer": true,
+          "timerSeconds": 25,
           "personalBestMetric": "speed"
         },
         "quest": {

@@ -24,8 +24,8 @@ import {
 import { computeQuestThreshold } from "../engine/error-signals/questThreshold";
 import { recordHomeworkNodeMeasurement } from "../engine/homeworkCycleLoop";
 import { recordLearningAttempt } from "./learningAttemptEvents";
+import { recordAttentionSignal, type AttentionSignal } from "../engine/attentionVitals";
 import {
-  getSunnyMode,
   isDiagMapMode,
   sunnyPreviewBlocksPersistence,
 } from "../utils/runtimeMode";
@@ -49,6 +49,13 @@ import { generateStoryImage } from "../utils/generateStoryImage";
 import { reconcileCompanionCurrencyAward } from "./currencyAward";
 import childrenCfg from "../../children.config.json";
 import { getDopamineGameSlugsForChild } from "../profiles/childrenConfig";
+import {
+  applySunnyRuntimeOverrides,
+  resolveSunnyRuntimeConfig,
+  type SunnyRuntimeConfig,
+  type SunnyRuntimeOverrides,
+} from "../shared/runtimeConfig";
+import { createOnboardingPlan, type OnboardingNode } from "../engine/onboardingPlan";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -66,6 +73,10 @@ export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
     "open magical book with musical notes floating out, glowing pages, children's story, transparent background",
   "word-radar":
     "radar dish scanning a starfield with glowing word tiles, deep purple space, children's game icon, transparent background",
+  "bubble-pop": "A bright focus bubble with sparkles, kid-friendly attention check icon",
+  "fish-flanker": "A cheerful fish attention challenge icon with arrows, kid-friendly and uncluttered",
+  "target-blaster": "A clean target blaster attention icon with one highlighted target and simple decoys",
+  "hero-shield": "A friendly hero shield attention icon with a glowing shield and calm mission energy",
   quest:
     "treasure chest bursting open with gold stars and letters, adventure game icon, transparent background",
   boss: "epic castle with lightning bolts, final challenge, dramatic sky, game icon, transparent background",
@@ -162,6 +173,7 @@ function homeworkThemePersistenceContext(profile: ChildProfile): boolean {
 
 export async function resolveThemeForMapSession(
   profile: ChildProfile,
+  runtime?: SunnyRuntimeConfig,
 ): Promise<{ theme: SessionTheme; shouldPersist: boolean }> {
   if (isDiagMapMode()) {
     return {
@@ -172,9 +184,12 @@ export async function resolveThemeForMapSession(
 
   const key = mapCompanionWsKey(profile.childId);
   const persistCtx = homeworkThemePersistenceContext(profile);
-  const saved = persistCtx ? listSavedThemes(key) : [];
+  const previewCtx = runtime
+    ? runtime.previewMode !== "off"
+    : sunnyPreviewBlocksPersistence();
+  const saved = persistCtx || previewCtx ? listSavedThemes(key) : [];
   const useExisting =
-    persistCtx && saved.length > 0 && Math.random() < 0.5;
+    saved.length > 0 && (previewCtx || (persistCtx && Math.random() < 0.5));
   if (useExisting) {
     const picked = saved[saved.length - 1]!;
     console.log(`  🎨 Reusing saved theme: ${picked.name}`);
@@ -214,6 +229,7 @@ function persistHomeworkThemeSnapshot(childId: string, theme: SessionTheme): voi
 type SessionRecord = {
   childId: string;
   mapState: MapState;
+  runtime: SunnyRuntimeConfig;
 };
 
 const sessions = new Map<string, SessionRecord>();
@@ -535,9 +551,9 @@ export class MapSessionError extends Error {
   }
 }
 
-function syncNodeStatuses(state: MapState): void {
+function syncNodeStatuses(state: MapState, runtime: SunnyRuntimeConfig): void {
   const completed = new Set(state.completedNodes);
-  const unlockAll = getSunnyMode() !== "real";
+  const unlockAll = runtime.nodeAccess === "inspect-all";
   state.nodes = state.nodes.map((node, idx) => ({
     ...node,
     isCompleted: completed.has(node.id),
@@ -752,9 +768,13 @@ export function buildDiagMapSession(): { sessionId: string; mapState: MapState }
     xp: 0,
     level: 1,
   };
-  syncNodeStatuses(mapState);
+  const runtime = applySunnyRuntimeOverrides(
+    resolveSunnyRuntimeConfig(process.env),
+    { childId: "creator" },
+  );
+  syncNodeStatuses(mapState, runtime);
   const sessionId = randomUUID();
-  sessions.set(sessionId, { childId: "creator", mapState });
+  sessions.set(sessionId, { childId: "creator", mapState, runtime });
   return { sessionId, mapState };
 }
 
@@ -765,8 +785,10 @@ export function buildMapSummary(mapState: MapState): string {
 
 /** Spelling homework baseline order through wheel, then mystery, then quest/boss. */
 const HOMEWORK_NODE_ORDER = [
-  "karaoke",
   "word-radar",
+  "karaoke",
+  "pronunciation",
+  "word-builder",
   "spell-check",
   "wheel-of-fortune",
 ] as const;
@@ -823,23 +845,83 @@ function hasQuestUnlock(childId: string): boolean {
 }
 
 function orderHomeworkBaselineNodes(nodes: NodeConfig[]): NodeConfig[] {
-  const byType = new Map(nodes.map((n) => [n.type, n]));
   const out: NodeConfig[] = [];
   for (const t of HOMEWORK_NODE_ORDER) {
-    const n = byType.get(t);
-    if (n) out.push({ ...n, isGoal: false });
+    for (const n of nodes.filter((node) => node.type === t)) {
+      out.push({ ...n, isGoal: false });
+    }
   }
   return out;
 }
 
+function onboardingNodeToMapNode(
+  node: OnboardingNode,
+  theme: SessionTheme,
+  idx: number,
+  total: number,
+): NodeConfig {
+  const common = {
+    id: node.id,
+    isLocked: false,
+    isCompleted: false,
+    isGoal: idx === total - 1,
+    difficulty: 1 as const,
+  };
+  if (node.purpose === "attention_screening") {
+    return {
+      ...common,
+      type: node.activityId as NodeConfig["type"],
+      thumbnailUrl: theme.nodeThumbnails?.[node.activityId] ?? undefined,
+      thumbnailPrompt: NODE_THUMBNAIL_PROMPTS[node.activityId] ?? NODE_THUMBNAIL_PROMPTS["bubble-pop"],
+      words: [node.activityId],
+      attentionConfig: node.config,
+    };
+  }
+  if (node.purpose === "dopamine_reward") {
+    return {
+      ...common,
+      type: "mystery",
+      gameFile: "space-frogger.html",
+      thumbnailUrl: theme.nodeThumbnails?.mystery ?? undefined,
+      thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.mystery,
+      words: [],
+    };
+  }
+  return {
+    ...common,
+    type: "karaoke",
+    thumbnailUrl: theme.nodeThumbnails?.karaoke ?? undefined,
+    thumbnailPrompt: NODE_THUMBNAIL_PROMPTS.karaoke,
+    storyTitle: "Tiny academic load check",
+    storyText:
+      "Sunny checks how much learning you can handle today. Try a short question set, then take a breath.",
+    words: ["Sunny", "checks", "learning", "focus"],
+  };
+}
+
+function buildOnboardingPreviewNodes(childId: string, theme: SessionTheme): NodeConfig[] {
+  const plan = createOnboardingPlan(childId);
+  return plan.nodes.map((node, idx) =>
+    onboardingNodeToMapNode(node, theme, idx, plan.nodes.length),
+  );
+}
+
 export async function startMapSession(
   childId: string,
+  runtimeOverrides: SunnyRuntimeOverrides = {},
 ): Promise<{ sessionId: string; mapState: MapState }> {
+  const runtime = applySunnyRuntimeOverrides(
+    resolveSunnyRuntimeConfig(process.env),
+    {
+      ...runtimeOverrides,
+      childId: runtimeOverrides.childId ?? childId,
+    },
+  );
   const profile = await buildProfile(childId);
   if (!profile) {
     throw new MapSessionError("unknown_child", 404);
   }
-  const { theme, shouldPersist } = await resolveThemeForMapSession(profile);
+  const { theme, shouldPersist } = await resolveThemeForMapSession(profile, runtime);
   let nodes: NodeConfig[];
   const homeworkId =
     (
@@ -859,7 +941,9 @@ export async function startMapSession(
     generatedGamePath: bossConfig?.generatedGamePath,
     generationModel: bossConfig?.generationModel,
   });
-  if (profile.pendingHomework?.nodes?.length) {
+  if (runtime.subject === "onboarding") {
+    nodes = buildOnboardingPreviewNodes(profile.childId, theme);
+  } else if (profile.pendingHomework?.nodes?.length) {
     const hw = profile.pendingHomework;
     const sm2Plan = planSession(childId, "spelling", {
       homeworkFallbackWords: hw.wordList,
@@ -992,23 +1076,17 @@ export async function startMapSession(
     nodes = await buildNodeList(profile, theme);
   }
   console.log("🗺️ [map] final node order:", nodes.map((n) => n.type));
-  if (process.env.DIAG_UNLOCK_MAP === "true") {
+  if (runtime.nodeAccess === "inspect-all") {
     nodes.forEach((node) => {
-      if (node.type === "quest") {
-        node.isLocked = false;
-        node.isCompleted = false;
-        return;
-      }
       if (node.type === "boss") {
         node.isLocked = !node.gameHtmlPath;
         node.isCompleted = false;
         return;
       }
-      if (node.type === "mystery") return;
       node.isLocked = false;
-      node.isCompleted = true;
+      node.isCompleted = false;
     });
-    console.log("🔓 [diag] DIAG_UNLOCK_MAP active — all nodes unlocked");
+    console.log("🔓 [runtime] inspect-all active — all eligible nodes unlocked");
   }
   try {
     await enrichHomeworkNodeThumbnails(theme, nodes.map((n) => n.type as string));
@@ -1022,6 +1100,7 @@ export async function startMapSession(
   }
   if (
     shouldPersist &&
+    runtime.persistenceMode === "live" &&
     homeworkThemePersistenceContext(profile) &&
     theme.backgroundUrl
   ) {
@@ -1042,10 +1121,8 @@ export async function startMapSession(
     xp: 0,
     level: profile.level,
   };
-  if (process.env.DIAG_UNLOCK_MAP === "true") {
-    mapState.completedNodes = mapState.nodes
-      .filter((node) => node.type !== "mystery" && node.type !== "quest" && node.type !== "boss")
-      .map((node) => node.id);
+  if (runtime.nodeAccess === "inspect-all") {
+    mapState.completedNodes = [];
     mapState.currentNodeIndex = 0;
   } else if (profile.pendingHomework?.nodes?.length) {
     const persisted = profile.pendingHomework.completedAdventureNodeIds;
@@ -1053,14 +1130,21 @@ export async function startMapSession(
     const done = new Set(mapState.completedNodes);
     mapState.currentNodeIndex = firstIncompleteNodeIndex(mapState.nodes, done);
   }
-  syncNodeStatuses(mapState);
+  syncNodeStatuses(mapState, runtime);
   const sessionId = randomUUID();
-  sessions.set(sessionId, { childId: profile.childId, mapState });
+  sessions.set(sessionId, { childId: profile.childId, mapState, runtime });
   return { sessionId, mapState };
 }
 
 function currentNode(state: MapState): NodeConfig | undefined {
   return state.nodes[state.currentNodeIndex];
+}
+
+function isAttentionScreeningNodeType(type: string): boolean {
+  return type === "bubble-pop" ||
+    type === "fish-flanker" ||
+    type === "target-blaster" ||
+    type === "hero-shield";
 }
 
 export function handleMapClientMessage(
@@ -1076,13 +1160,13 @@ export function handleMapClientMessage(
 
   if (msg.type === "node_click") {
     const nodeId = String(msg.payload?.nodeId ?? "");
-    const diagUnlockMap = process.env.DIAG_UNLOCK_MAP === "true";
+    const inspectAll = rec.runtime.nodeAccess === "inspect-all";
     const clicked = rec.mapState.nodes.find((n) => n.id === nodeId);
     if (!clicked) {
       return [{ type: "map_error", payload: { reason: "unknown_node" } }];
     }
     const launchedNode = clicked;
-    if (!diagUnlockMap) {
+    if (!inspectAll) {
       const cur = currentNode(rec.mapState);
       if (!cur || cur.id !== nodeId) {
         return [{ type: "map_error", payload: { reason: "not_current_node" } }];
@@ -1150,7 +1234,7 @@ export function handleMapClientMessage(
         ? (msg.payload as Record<string, unknown>)
         : {};
     const skipPersistence =
-      sunnyPreviewBlocksPersistence() || Boolean(pl.skipPersistence);
+      rec.runtime.persistenceMode === "blocked" || Boolean(pl.skipPersistence);
     const out = reconcileCompanionCurrencyAward({
       childId: rec.mapState.childId,
       amount: pl.amount,
@@ -1228,7 +1312,7 @@ export async function applyNodeResult(
 
   const rating = ratingFromResult(nodeCfg.type, result);
   const skipSessionPersistence =
-    sunnyPreviewBlocksPersistence() || opts?.clientPreviewFreeOrGoLive === true;
+    rec.runtime.persistenceMode === "blocked" || opts?.clientPreviewFreeOrGoLive === true;
 
   if (!skipSessionPersistence) {
     await appendNodeRating({
@@ -1252,6 +1336,60 @@ export async function applyNodeResult(
       );
     } catch (err) {
       console.error("  🔴 [map-coordinator] recordReward failed:", err);
+    }
+  }
+
+  if (
+    !skipSessionPersistence &&
+    isAttentionScreeningNodeType(nodeCfg.type) &&
+    result.vitalSigns &&
+    typeof result.vitalSigns === "object"
+  ) {
+    const now = new Date().toISOString();
+    try {
+      recordAttentionSignal(st.childId, {
+        sessionId,
+        activityId: result.activityId ?? nodeCfg.type,
+        purpose: "attention_screening",
+        startedAt: String(result.vitalSigns.startedAt ?? st.sessionDate),
+        endedAt: String(result.vitalSigns.endedAt ?? now),
+        activeDuration_ms: Number(result.vitalSigns.activeDuration_ms ?? result.timeSpent_ms),
+        idleEvents: Number(result.vitalSigns.idleEvents ?? 0),
+        abandonments: Number(result.vitalSigns.abandonments ?? (result.completed ? 0 : 1)),
+        reengagements: Number(result.vitalSigns.reengagements ?? 0),
+        omissions: Number(result.vitalSigns.omissions ?? 0),
+        commissions: Number(result.vitalSigns.commissions ?? 0),
+        meanReactionTime_ms:
+          result.vitalSigns.meanReactionTime_ms == null
+            ? undefined
+            : Number(result.vitalSigns.meanReactionTime_ms),
+        reactionTimeVariability:
+          result.vitalSigns.reactionTimeVariability == null
+            ? undefined
+            : Number(result.vitalSigns.reactionTimeVariability),
+        dropoff:
+          result.vitalSigns.dropoff == null
+            ? undefined
+            : Number(result.vitalSigns.dropoff),
+        accuracyOverTime: Array.isArray(result.vitalSigns.accuracyOverTime)
+          ? result.vitalSigns.accuracyOverTime as AttentionSignal["accuracyOverTime"]
+          : undefined,
+        frustrationSignals: Array.isArray(result.vitalSigns.frustrationSignals)
+          ? result.vitalSigns.frustrationSignals.map(String)
+          : [],
+        flowSignals: Array.isArray(result.vitalSigns.flowSignals)
+          ? result.vitalSigns.flowSignals.map(String)
+          : [],
+        practiceGate:
+          result.vitalSigns.practiceGate &&
+          typeof result.vitalSigns.practiceGate === "object" &&
+          !Array.isArray(result.vitalSigns.practiceGate)
+            ? result.vitalSigns.practiceGate as AttentionSignal["practiceGate"]
+            : undefined,
+      });
+      console.log(`  🎮 [attention-vitals] recorded ${nodeCfg.type}`);
+    } catch (err) {
+      console.error("  🔴 [attention-vitals] record failed:", err);
     }
   }
 
@@ -1292,7 +1430,7 @@ export async function applyNodeResult(
     }
   }
 
-  if (nodeCfg.type !== "spell-check") {
+  if (nodeCfg.type !== "spell-check" && !isAttentionScreeningNodeType(nodeCfg.type)) {
     const pool =
       nodeCfg.words && nodeCfg.words.length > 0
         ? nodeCfg.words
@@ -1401,7 +1539,7 @@ export async function applyNodeResult(
   if (st.currentNodeIndex < st.nodes.length - 1) {
     st.currentNodeIndex++;
   }
-  syncNodeStatuses(st);
+  syncNodeStatuses(st, rec.runtime);
 
   const trigger =
     rating === "like" ? ("correct_answer" as const) : ("wrong_answer" as const);

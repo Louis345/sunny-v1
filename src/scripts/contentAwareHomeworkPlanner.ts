@@ -4,6 +4,11 @@ import { planSession } from "../engine/learningEngine";
 import { readChildMeta } from "../profiles/childrenConfig";
 import { daysUntilHomeworkTest, selectHomeworkSessionWords } from "../shared/homeworkWordSelection";
 import { readWordBank } from "../utils/wordBankIO";
+import {
+  buildHomeworkCarePlan,
+  type HomeworkCarePlan,
+  type HomeworkCarePlanIntervention,
+} from "../engine/homeworkCarePlan";
 
 export type HomeworkType =
   | "spelling_test"
@@ -140,6 +145,16 @@ export type PlannedHomeworkNode = {
   storyText?: string;
   storyTitle?: string;
   storyImagePrompt?: string;
+  carePlan?: {
+    interventionId: string;
+    role: HomeworkCarePlanIntervention["type"];
+    targetSkills: string[];
+    targetConcepts: string[];
+    targetWords: string[];
+    algorithmTargets: string[];
+    measures: string[];
+    reason: string;
+  };
   date?: string;
 };
 
@@ -522,6 +537,66 @@ function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedHome
   }));
 }
 
+function conceptCheckItems(concepts: string[]): NonNullable<PlannedHomeworkNode["wordRadarItems"]> {
+  return concepts.map((concept) => ({
+    display: concept,
+    acceptedResponses: [concept.toLowerCase()],
+    label: "Concept Check",
+    subject: "reading",
+  }));
+}
+
+function contentPracticeTerms(profile: ContentProfile, fallbackWords: string[]): string[] {
+  const terms = cleanList([
+    ...profile.concepts,
+    profile.topic,
+    ...fallbackWords,
+  ]).filter((term) => term.length > 1);
+  return terms.slice(0, 5);
+}
+
+function buildContentSupportNodes(args: {
+  carePlan: HomeworkCarePlan;
+}): PlannedHomeworkNode[] {
+  const idSuffix = args.carePlan.homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
+  return args.carePlan.interventions
+    .filter((intervention) => intervention.id !== "story")
+    .filter((intervention) =>
+      ["baseline-evaluator", "pronunciation", "concept-builder", "exit-evaluator"].includes(
+        intervention.type,
+      ),
+    )
+    .map((intervention): PlannedHomeworkNode => {
+      const words = intervention.targetWords;
+      const base = {
+        id: `n-${intervention.id}-${idSuffix}`,
+        type: intervention.nodeType,
+        words,
+        difficulty: intervention.type === "exit-evaluator" ? 2 : 1,
+        rationale: intervention.reason,
+        gameFile: null,
+        storyFile: null,
+        carePlan: {
+          interventionId: intervention.id,
+          role: intervention.type,
+          targetSkills: intervention.targetSkills,
+          targetConcepts: intervention.targetConcepts,
+          targetWords: intervention.targetWords,
+          algorithmTargets: intervention.algorithmTargets,
+          measures: intervention.measures,
+          reason: intervention.reason,
+        },
+      } satisfies PlannedHomeworkNode;
+      if (intervention.nodeType === "word-radar") {
+        return {
+          ...base,
+          wordRadarItems: conceptCheckItems(words),
+        };
+      }
+      return base;
+    });
+}
+
 function tokenizeStory(story: string): string[] {
   return story
     .replace(/[^A-Za-z0-9'\s-]/g, " ")
@@ -536,6 +611,18 @@ function childStoryName(childId: string): string {
   if (id === "reina") return "Reina";
   if (id === "creator") return "Creator";
   return id ? id.charAt(0).toUpperCase() + id.slice(1) : "the learner";
+}
+
+function sm2ReinforcementWords(childId: string, fallbackWords: string[]): string[] {
+  if (fallbackWords.length > 0) return fallbackWords.slice(0, 3);
+  try {
+    const plan = planSession(childId, "spelling", {
+      homeworkFallbackWords: [],
+    });
+    return [...plan.reviewWords, ...plan.newWords].slice(0, 3);
+  } catch {
+    return [];
+  }
 }
 
 function readChildContextSummary(childId: string): string {
@@ -730,15 +817,30 @@ export function buildContentAwareHomeworkNodes(args: {
     return spellingNodes;
   }
 
+  const carePlan = buildHomeworkCarePlan({
+    homeworkId: args.homeworkId,
+    childId: args.childId,
+    title: profile.topic,
+    type: args.type,
+    words: args.words,
+    contentProfile: profile,
+    reinforcementWords: sm2ReinforcementWords(args.childId, args.words),
+  });
   const childContextSummary = readChildContextSummary(args.childId);
+  const storyIntervention = carePlan.interventions.find((i) => i.id === "story");
   const story = storyForContent({
     childId: args.childId,
     profile,
-    words: args.words,
+    words: args.words.length > 0 ? args.words : carePlan.reinforcementWords,
     childInterests: childInterestTags(args.childId, childContextSummary),
     childContextSummary,
   });
   return [
+    ...(args.type === "spelling_test"
+      ? []
+      : buildContentSupportNodes({ carePlan }).filter(
+          (node) => node.carePlan?.role === "baseline-evaluator",
+        )),
     {
       id: `n-karaoke-${args.homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-")}`,
       type: "karaoke",
@@ -750,7 +852,24 @@ export function buildContentAwareHomeworkNodes(args: {
       storyText: story.text,
       storyTitle: story.title,
       storyImagePrompt: story.imagePrompt,
+      carePlan: storyIntervention
+        ? {
+            interventionId: storyIntervention.id,
+            role: storyIntervention.type,
+            targetSkills: storyIntervention.targetSkills,
+            targetConcepts: storyIntervention.targetConcepts,
+            targetWords: storyIntervention.targetWords,
+            algorithmTargets: storyIntervention.algorithmTargets,
+            measures: storyIntervention.measures,
+            reason: storyIntervention.reason,
+          }
+        : undefined,
     },
+    ...(args.type === "spelling_test"
+      ? []
+      : buildContentSupportNodes({ carePlan }).filter(
+          (node) => node.carePlan?.role !== "baseline-evaluator",
+        )),
     ...spellingNodes,
   ];
 }

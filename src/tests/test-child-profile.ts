@@ -89,6 +89,7 @@ describe("buildProfile (TASK-004)", () => {
     const profile = await buildProfile("reina");
     expect(profile).not.toBeNull();
     if (!profile) return;
+    expect(profile.ttsName).toBe("Ray-nah");
     expect(profile.companionContext).toContain("Matilda");
   });
 
@@ -161,6 +162,12 @@ describe("buildProfile (TASK-004)", () => {
   it('buildProfile("reina").wordRadar.inputMode === "letter-by-letter"', async () => {
     const p = await buildProfile("reina");
     expect(p?.wordRadar?.inputMode).toBe("letter-by-letter");
+  });
+
+  it('buildProfile("reina") exposes child-configured Word Radar timer seconds', async () => {
+    const p = await buildProfile("reina");
+    expect(p?.games?.["word-radar"]?.timerSeconds).toBeGreaterThan(10);
+    expect(p?.wordRadar?.timerSeconds).toBe(p?.games?.["word-radar"]?.timerSeconds);
   });
 
   it('buildProfile("creator").wordRadar.inputMode === "keyboard"', async () => {

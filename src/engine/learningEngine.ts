@@ -10,6 +10,7 @@ import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { TodaysPlanActivity } from "../agents/psychologist/today-plan";
 import type { RewardTrigger, SessionRewardState } from "./rewardEngine";
 import fs from "fs";
+import path from "path";
 import type { PlannedActivity, OrderedSession } from "./sessionPlanner";
 
 import { computeSM2, computeQualityFromAttempt } from "../algorithms/spacedRepetition";
@@ -33,6 +34,7 @@ import { getBondContextInjection } from "./bondProtocol";
 import { sunnyPreviewBlocksPersistence } from "../utils/runtimeMode";
 import { defaultDomainClassifiers } from "./error-signals/domainClassifierRegistry";
 import { extractErrorSignal } from "./error-signals/extractor";
+import { resolveAttentionModel } from "./attentionModel";
 
 export interface PlanSessionOptions {
   /** OCR / extracted homework list — used only when curriculum + bank yield no session words. */
@@ -145,6 +147,16 @@ function childIdFromName(childName: ChildName): string {
   return "creator";
 }
 
+function resolveTodaysPlanPathForChildId(childId: string): string {
+  return path.resolve(
+    process.cwd(),
+    "src",
+    "context",
+    childId.trim().toLowerCase(),
+    "todays_plan.json",
+  );
+}
+
 export function getHomeworkPriorityWords(childId: string, today: string): string[] {
   const bank = readWordBank(childId);
   return bank.words
@@ -240,7 +252,13 @@ export function planSession(
     const nodesAfterStruggling = spellingSpellCheckPlan
       ? baseNodes
       : promotePronunciationNode(baseNodes, strugglingWords);
-    const maxNodes = Math.max(2, Math.floor(profile.demographics.age > 0 ? (profile.demographics.attentionSpan === "short" ? 2 : 4) : 3) + 2);
+    const attention = resolveAttentionModel(profile);
+    const maxNodes =
+      attention.currentWindow_ms < 180_000
+        ? 4
+        : attention.currentWindow_ms <= 360_000
+          ? 6
+          : 8;
     const sliceLimit = spellingSpellCheckPlan
       ? Math.min(nodesAfterStruggling.length, Math.max(maxNodes, 6))
       : Math.min(maxNodes, nodesAfterStruggling.length);
@@ -281,9 +299,10 @@ export function planSession(
     console.log("  [engine] no word bank — using fallback");
   }
 
-  const childName: ChildName =
-    childId === "ila" ? "Ila" : childId === "reina" ? "Reina" : "creator";
-  const todaysPlanResult = readPersistedTodaysPlan(childName);
+  const todaysPlanResult = readPersistedTodaysPlan(
+    "creator",
+    resolveTodaysPlanPathForChildId(childId),
+  );
   const todaysPlan: TodaysPlanActivity[] = todaysPlanResult?.todaysPlan ?? [];
 
   const curriculumWords =

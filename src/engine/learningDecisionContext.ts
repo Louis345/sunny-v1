@@ -15,6 +15,8 @@ import type {
 } from "../context/schemas/homeworkCycle";
 import { evaluateQuestThreshold } from "./error-signals/questThreshold";
 import { scanChildErrorPatterns } from "./error-signals/patternDetector";
+import { resolveAttentionModel, type ResolvedAttentionModel } from "./attentionModel";
+import { getChildChart, type ChildChart } from "../profiles/childChart";
 
 type RootOptions = {
   rootDir?: string;
@@ -64,10 +66,19 @@ export type HomeworkCatalogBaselineActivity = {
 
 export type LearningDecisionContext = {
   childId: string;
+  chart: {
+    childId: string;
+    manifestSource: ChildChart["manifestSource"];
+    links: ChildChart["links"];
+    wordBankSummary: ChildChart["wordBankSummary"];
+    economy: ChildChart["economy"];
+  };
   profile: {
     age: number;
     grade: number;
+    /** @deprecated intake/static label. Prefer attention.legacyDemographicLabel. */
     attentionSpan: string;
+    attention: ResolvedAttentionModel;
     activityModel: Record<string, ActivityModelEntry>;
   };
   homework: {
@@ -375,7 +386,8 @@ export function buildLearningDecisionContext(
 ): LearningDecisionContext {
   const rootDir = opts.rootDir ?? process.cwd();
   const now = opts.now ?? new Date();
-  const profile = readProfile(rootDir, childId);
+  const chart = getChildChart(childId, { rootDir });
+  const profile = chart.learningProfile;
   const cycles = readCycles(rootDir, childId);
   const cycle = currentCycle(profile, cycles);
   const pending = profile.pendingHomework;
@@ -400,12 +412,21 @@ export function buildLearningDecisionContext(
       }
     : null;
   const calibrationJournal = profile.learningCalibrationJournal ?? [];
+  const attention = chart.attention ?? resolveAttentionModel(profile);
   return {
     childId,
+    chart: {
+      childId: chart.childId,
+      manifestSource: chart.manifestSource,
+      links: chart.links,
+      wordBankSummary: chart.wordBankSummary,
+      economy: chart.economy,
+    },
     profile: {
       age: profile.demographics.age,
       grade: profile.demographics.grade,
       attentionSpan: profile.demographics.attentionSpan,
+      attention,
       activityModel: profile.activityModel ?? {},
     },
     homework,
@@ -423,6 +444,7 @@ export function buildLearningDecisionContext(
       { id: "error-pattern-detector", status: patternResult.patterns.length ? "ready" : "empty", summary: `${patternResult.patterns.length} strong pattern(s).` },
       { id: "quest-threshold", status: questThreshold.unlocked ? "ready" : "empty", summary: questThreshold.reason },
       { id: "activity-affinity", status: Object.keys(profile.activityModel ?? {}).length ? "ready" : "empty", summary: "Child activity response model from profile." },
+      { id: "attention-vitals", status: attention.status === "measured" ? "ready" : "empty", summary: `${attention.label} attention window from ${attention.source} (${Math.round(attention.confidence * 100)}% confidence).` },
       { id: "calibration-journal", status: calibrationJournal.length ? "ready" : "empty", summary: `${calibrationJournal.length} graded reality check(s).` },
     ],
   };

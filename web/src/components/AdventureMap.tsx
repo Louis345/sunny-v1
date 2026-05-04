@@ -146,10 +146,20 @@ function nodeTransitionPalette(nodeType: string): Palette | "random" {
 
 function StoryImageFinale(props: {
   childId: string;
+  childDisplayName?: string;
   imageUrl: string | null;
   loading: boolean;
   failed: boolean;
 }) {
+  const displayName =
+    props.childDisplayName?.trim() || props.childId.trim() || "Your";
+  const storyOwner =
+    displayName === "Your"
+      ? "Your"
+      : displayName.endsWith("s")
+        ? `${displayName}'`
+        : `${displayName}'s`;
+
   return (
     <div
       data-testid="map-story-image-finale"
@@ -198,7 +208,7 @@ function StoryImageFinale(props: {
               textShadow: "0 2px 14px rgba(0,0,0,0.45)",
             }}
           >
-            Reina's story came to life.
+            {storyOwner} story came to life.
           </div>
         </>
       ) : (
@@ -333,6 +343,7 @@ export function AdventureMap(props: {
   /** From `/api/profile` — Word Radar UI + personal bests (server-derived). */
   wordRadarFromProfile?: {
     showTimer: boolean;
+    timerSeconds?: number;
     showKeyboard: boolean;
     inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
     speakStyle?: "option-a" | "option-b";
@@ -1291,6 +1302,7 @@ export function AdventureMap(props: {
           {storyImageFinaleState ? (
             <StoryImageFinale
               childId={props.childId}
+              childDisplayName={profileNames?.childName}
               loading={storyImageFinaleState.loading}
               imageUrl={storyImageFinaleState.imageUrl}
               failed={storyImageFinaleState.failed}
@@ -1375,7 +1387,11 @@ export function AdventureMap(props: {
                   void _payload;
                 })
               }
-              timerSeconds={props.wordRadarFromProfile?.showTimer === true ? 10 : undefined}
+              timerSeconds={
+                props.wordRadarFromProfile?.showTimer === true
+                  ? props.wordRadarFromProfile?.timerSeconds
+                  : undefined
+              }
               showKeyboard={props.wordRadarFromProfile?.showKeyboard === true}
               inputMode={props.wordRadarFromProfile?.inputMode}
               speakStyle={props.wordRadarFromProfile?.speakStyle}

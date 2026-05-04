@@ -1,0 +1,200 @@
+{
+  "homeworkId": "hw-reading-379a0afb",
+  "subject": "reading",
+  "wordList": [
+    "erosion",
+    "wear away",
+    "rocks",
+    "soil",
+    "wind",
+    "water",
+    "ice",
+    "rivers",
+    "rain",
+    "mountains",
+    "beaches",
+    "oceans",
+    "sand",
+    "compass rose",
+    "downhill"
+  ],
+  "contentProfile": {
+    "practiceDomain": "reading",
+    "contentDomain": "science",
+    "topic": "Erosion and Earth's Surface",
+    "primarySkill": "Understanding erosion processes and map reading",
+    "assignmentFormat": "Study Guide with sections and bullet points",
+    "concepts": [
+      "erosion",
+      "soil",
+      "rocks",
+      "water",
+      "wind",
+      "What is Erosion",
+      "Beach Sand and Rocks",
+      "Reading a Map",
+      "How Rivers Flow",
+      "Treasure Map Practice",
+      "Quick Review"
+    ],
+    "sourceEvidence": [
+      "matched science term: erosion",
+      "matched science term: soil",
+      "matched science term: rocks",
+      "matched science term: water",
+      "matched science term: wind",
+      "Erosion happens when wind, water, or ice wear away rocks and soil",
+      "Rivers and rain can carry tiny pieces of rock from mountains to beaches or oceans",
+      "The color of sand comes from the rocks nearby",
+      "Water and wind break down the rocks and move them to the beach",
+      "Maps show land and water like mountains, rivers, lakes, and oceans",
+      "A compass rose shows directions: North, South, East, West",
+      "Rivers usually flow downhill from mountains to oceans or lakes",
+      "Rivers start high in the mountains",
+      "They flow down to lower places like lakes or oceans",
+      "Water always flows downhill, never up",
+      "If you float on a river, you'll end up in a lake or ocean"
+    ]
+  },
+  "capturedContent": {
+    "title": "Erosion and Earth's Surface Study Guide",
+    "type": "reading",
+    "rawText": "",
+    "words": [
+      "erosion",
+      "wear away",
+      "rocks",
+      "soil",
+      "wind",
+      "water",
+      "ice",
+      "rivers",
+      "rain",
+      "mountains",
+      "beaches",
+      "oceans",
+      "sand",
+      "compass rose",
+      "downhill"
+    ],
+    "questions": [
+      {
+        "id": 1,
+        "question": "What are three things that can wear away rocks and soil?",
+        "type": "written",
+        "options": null,
+        "correctAnswer": "Wind, water, and ice",
+        "hint": "Think about weather and natural forces"
+      },
+      {
+        "id": 2,
+        "question": "Where do rivers usually flow?",
+        "type": "written",
+        "options": null,
+        "correctAnswer": "Downhill from mountains to oceans or lakes",
+        "hint": "Water always flows down, never up"
+      },
+      {
+        "id": 3,
+        "question": "What does a compass rose show?",
+        "type": "written",
+        "options": null,
+        "correctAnswer": "Directions: North, South, East, West",
+        "hint": "It helps you find directions on a map"
+      },
+      {
+        "id": 4,
+        "question": "Why is beach sand sometimes red?",
+        "type": "written",
+        "options": null,
+        "correctAnswer": "Because the rocks nearby are red",
+        "hint": "Sand comes from rocks that break down"
+      },
+      {
+        "id": 5,
+        "question": "What is the difference between rounded hills and pointy peaks?",
+        "type": "written",
+        "options": null,
+        "correctAnswer": "Rounded hills are smaller and softer; pointy peaks are tall and sharp like mountains",
+        "hint": "Look at the treasure map practice section"
+      }
+    ],
+    "sourceDocuments": [
+      {
+        "filename": "Test for May 6.pdf",
+        "mediaType": "application/pdf"
+      }
+    ],
+    "contentProfile": {
+      "practiceDomain": "reading",
+      "contentDomain": "science",
+      "topic": "Erosion and Earth's Surface",
+      "primarySkill": "Understanding erosion processes and map reading",
+      "assignmentFormat": "Study Guide with sections and bullet points",
+      "concepts": [
+        "erosion",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "sourceEvidence": [
+        "matched science term: erosion",
+        "matched science term: soil",
+        "matched science term: rocks",
+        "matched science term: water",
+        "matched science term: wind",
+        "Erosion happens when wind, water, or ice wear away rocks and soil",
+        "Rivers and rain can carry tiny pieces of rock from mountains to beaches or oceans",
+        "The color of sand comes from the rocks nearby",
+        "Water and wind break down the rocks and move them to the beach",
+        "Maps show land and water like mountains, rivers, lakes, and oceans",
+        "A compass rose shows directions: North, South, East, West",
+        "Rivers usually flow downhill from mountains to oceans or lakes",
+        "Rivers start high in the mountains",
+        "They flow down to lower places like lakes or oceans",
+        "Water always flows downhill, never up",
+        "If you float on a river, you'll end up in a lake or ocean"
+      ]
+    }
+  },
+  "contentFingerprint": "2b7cbd1ed91aba96",
+  "calibrationStatus": "unverified",
+  "ingestedAt": "2026-05-02",
+  "testDate": "2026-05-06",
+  "assumptions": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: erosion, wear away, rocks, soil, wind\n\n## Intervention\ncontent-fit challenge that requires producing the answer, not recognition\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet.",
+  "postAnalysis": null,
+  "scanResult": null,
+  "delta": null,
+  "metrics": null,
+  "theory": {
+    "theoryId": "hw-reading-379a0afb:pre_quest:2026-05-02T21:49:26.517Z",
+    "stage": "pre_quest",
+    "createdAt": "2026-05-02T21:49:26.517Z",
+    "hypothesis": "No confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.",
+    "predictedPattern": "content_fit_gap",
+    "predictedRiskWords": [
+      "erosion",
+      "wear away",
+      "rocks",
+      "soil",
+      "wind"
+    ],
+    "intervention": "content-fit challenge that requires producing the answer, not recognition",
+    "successCriteria": {
+      "minAccuracy": 0.8,
+      "minImprovement": 0.15
+    },
+    "evidence": [
+      "No confirmed diagnostic pattern yet."
+    ],
+    "status": "pending",
+    "markdown": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: erosion, wear away, rocks, soil, wind\n\n## Intervention\ncontent-fit challenge that requires producing the answer, not recognition\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet."
+  }
+}

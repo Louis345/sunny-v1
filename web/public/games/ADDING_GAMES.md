@@ -23,6 +23,7 @@
 - [ ] Call `sendNodeComplete()` on game end
 - [ ] Call `fireCompanionEvent()` on key moments
 - [ ] Call `fireAttemptEvent()` once for every assessable interaction
+- [ ] Report vital signs: attention, mood/frustration, idle/reengagement signals
 - [ ] Dyslexia mode: check `childId === "ila" || dyslexiaMode === true`
 
 ### Platform registration (4 files, always all 4)
@@ -75,6 +76,17 @@ No exceptions. No `max-width`. No fixed height. `FlowGameOverlay` handles the fu
 
 Every game MUST follow this contract so the companion always
 knows what the child is doing without needing a screenshot.
+
+Sunny treats games as care-plan interventions. A game is viable adaptive
+content only if it can report:
+
+- learning attempts, when the child answers or produces something assessable
+- vital signs, especially attention and mood/frustration signals
+- completion evidence, including time on task
+
+Pure dopamine games may have no assessable attempts, but they still need vital
+sign evidence: time on task, abandonment, reengagement, and obvious frustration
+or flow signals.
 
 Include `_contract.js` in your `<head>`:
 
@@ -173,6 +185,55 @@ fireAttemptEvent({
 });
 ```
 
+### 7. Vital Signs — REQUIRED for adaptive care plans
+
+Every game must make attention visible to Sunny. The first version can be
+simple: include vital-sign fields inside `reportState()` extras and
+`GameBridge.complete()`.
+
+```javascript
+GameBridge.reportState("Round 2 — child is still engaged", {
+  phase: "playing",
+  currentWord: currentWord,
+  activeDuration_ms: Date.now() - startedAt,
+  idleEvents: idleCount,
+  reengagements: reengagementCount,
+  frustrationSignals: frustrationSignals,
+  flowSignals: flowSignals
+});
+```
+
+Completion payloads should include the same summary:
+
+```javascript
+GameBridge.complete({
+  completed: true,
+  accuracy: 0.85,
+  xpEarned: 30,
+  timeSpent_ms: Date.now() - startedAt,
+  vitalSigns: {
+    activeDuration_ms: activeDurationMs,
+    idleEvents: idleCount,
+    abandonments: abandoned ? 1 : 0,
+    reengagements: reengagementCount,
+    frustrationSignals: frustrationSignals,
+    flowSignals: flowSignals
+  }
+});
+```
+
+Minimum viable vital signs:
+
+- `activeDuration_ms`: meaningful time on task
+- `idleEvents`: count of notable inactivity periods
+- `abandonments`: `0` or `1` for the activity
+- `reengagements`: count of returns after idle/help/backtracking
+- `frustrationSignals`: short strings, e.g. `"rapid_wrong_taps"`, `"quit_attempt"`
+- `flowSignals`: short strings, e.g. `"self_corrected"`, `"completed_streak"`
+
+If a game cannot measure vital signs, it can still be a toy, but it should not
+be used as adaptive learning content or AI-generated quest content.
+
 ---
 
 ## Voice path vs map path
@@ -188,6 +249,7 @@ Both paths now work for all event types:
 - Do NOT call `reportState` only at round boundaries — call it on every tap
 - Do NOT omit structured `extras` — prose strings give weak context to Claude
 - Do NOT forget to `clearInterval(hb)` when the game ends
+- Do NOT ship a care-plan game that cannot report attention/mood vital signs
 
 ---
 

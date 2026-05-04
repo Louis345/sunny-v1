@@ -360,6 +360,7 @@ function App() {
   const [profileReloadNonce, setProfileReloadNonce] = useState(0);
   const [profileWordRadar, setProfileWordRadar] = useState<{
     showTimer: boolean;
+    timerSeconds?: number;
     showKeyboard: boolean;
     personalBests: Record<string, number>;
     inputMode: "whole-word" | "letter-by-letter" | "keyboard";
@@ -834,6 +835,7 @@ function App() {
           pendingHomework?: { reinforceWords?: unknown };
           wordRadar?: {
             showTimer?: boolean;
+            timerSeconds?: number;
             showKeyboard?: boolean;
             personalBests?: Record<string, number>;
             inputMode?: string;
@@ -873,6 +875,10 @@ function App() {
               : "letter-by-letter";
           setProfileWordRadar({
             showTimer: wr.showTimer === true,
+            timerSeconds:
+              typeof wr.timerSeconds === "number" && wr.timerSeconds > 0
+                ? wr.timerSeconds
+                : undefined,
             showKeyboard: wr.showKeyboard === true,
             personalBests:
               pb && typeof pb === "object" && !Array.isArray(pb)
@@ -1024,6 +1030,7 @@ function App() {
           wordRadarFromProfile={
             profileWordRadar ?? {
               showTimer: true,
+              timerSeconds: 20,
               showKeyboard: false,
               personalBests: {},
               inputMode: "letter-by-letter",
@@ -1326,7 +1333,11 @@ function App() {
             interimTranscript={liveFlowStt}
             sendMessage={sendMessage}
             autoStart={state.diagGameSessionReady}
-            timerSeconds={profileWordRadar?.showTimer === true ? 10 : undefined}
+            timerSeconds={
+              profileWordRadar?.showTimer === true
+                ? profileWordRadar.timerSeconds
+                : undefined
+            }
             showKeyboard={profileWordRadar?.showKeyboard ?? false}
             inputMode={profileWordRadar?.inputMode}
             personalBests={profileWordRadar?.personalBests ?? {}}

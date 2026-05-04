@@ -1,4 +1,17 @@
-export type RuntimeEnv = Partial<Record<string, string | undefined>>;
+import {
+  resolveSunnyRuntimeConfig as resolveSunnyRuntimeConfigShared,
+  type RuntimeEnv,
+  type SunnyRuntimeConfig,
+  type SunnySessionMode,
+} from "../shared/runtimeConfig";
+
+export type { RuntimeEnv, SunnyRuntimeConfig };
+
+export function resolveSunnyRuntimeConfig(
+  env: RuntimeEnv = process.env,
+): SunnyRuntimeConfig {
+  return resolveSunnyRuntimeConfigShared(env);
+}
 
 export function isDemoMode(env: RuntimeEnv = process.env): boolean {
   return env.DEMO_MODE === "true";
@@ -18,15 +31,13 @@ export function isStatelessRun(env: RuntimeEnv = process.env): boolean {
 
 /** Homework map free / go-live preview: no SM-2, word bank, session notes, or attempt logs. */
 export function sunnyPreviewBlocksPersistence(env: RuntimeEnv = process.env): boolean {
-  const v = env.SUNNY_PREVIEW_MODE?.trim().toLowerCase();
-  return v === "free" || v === "go-live";
+  return resolveSunnyRuntimeConfig(env).previewMode !== "off";
 }
 
 export function shouldPersistSessionData(env: RuntimeEnv = process.env): boolean {
   return (
     !isStatelessRun(env) &&
-    !sunnyPreviewBlocksPersistence(env) &&
-    getSunnyMode(env) === "real"
+    resolveSunnyRuntimeConfig(env).persistenceMode === "live"
   );
 }
 
@@ -41,13 +52,10 @@ export function shouldLoadPersistedHistory(env: RuntimeEnv = process.env): boole
   return !isStatelessRun(env);
 }
 
-export type SunnyMode = "real" | "diag" | "as-child";
+export type SunnyMode = SunnySessionMode;
 
 export function getSunnyMode(env: RuntimeEnv = process.env): SunnyMode {
-  const v = env.SUNNY_MODE?.trim().toLowerCase();
-  if (v === "diag") return "diag";
-  if (v === "as-child") return "as-child";
-  return "real";
+  return resolveSunnyRuntimeConfig(env).sessionMode;
 }
 
 export function isSunnyDiagMode(env: RuntimeEnv = process.env): boolean {
@@ -59,10 +67,8 @@ export function isSunnyDiagMode(env: RuntimeEnv = process.env): boolean {
  * or legacy `SUNNY_SUBJECT=diag` static map.
  */
 export function isDiagMapMode(env: RuntimeEnv = process.env): boolean {
-  return (
-    getSunnyMode(env) === "diag" ||
-    env.SUNNY_SUBJECT?.trim().toLowerCase() === "diag"
-  );
+  const runtime = resolveSunnyRuntimeConfig(env);
+  return runtime.sessionMode === "diag" || runtime.subject === "diag";
 }
 
 export function isSunnyAsChildMode(env: RuntimeEnv = process.env): boolean {

@@ -1,0 +1,161 @@
+{
+  "homeworkId": "hw-reading-e3b0c442",
+  "subject": "reading",
+  "wordList": [],
+  "contentProfile": {
+    "practiceDomain": "reading",
+    "contentDomain": "science",
+    "topic": "Erosion and Earth's Surface",
+    "primarySkill": "Understanding erosion processes and Earth's geological features",
+    "assignmentFormat": "Study Guide with sections on key concepts",
+    "concepts": [
+      "erosion",
+      "Erosion",
+      "Beach Sand and Rocks",
+      "Reading a Map",
+      "How Rivers Flow",
+      "Treasure Map Practice",
+      "Quick Review"
+    ],
+    "sourceEvidence": [
+      "matched science term: erosion",
+      "Erosion happens when wind, water, or ice wear away rocks and soil",
+      "Rivers and rain can carry tiny pieces of rock from mountains to beaches or oceans",
+      "The color of sand comes from the rocks nearby",
+      "Water and wind break down the rocks and move them to the beach",
+      "Maps show land and water like mountains, rivers, lakes, and oceans",
+      "A compass rose shows directions: North, South, East, West",
+      "Rivers usually flow downhill from mountains to oceans or lakes",
+      "Rivers start high in the mountains and flow down to lower places like lakes or oceans",
+      "Water always flows downhill, never up",
+      "If you float on a river, you'll end up in a lake or ocean",
+      "Rounded hills are smaller and softer than pointy peaks",
+      "Pointy peaks are tall and sharp — like big mountains",
+      "Use clues and directions (North, South, East, West) to find locations on a map"
+    ]
+  },
+  "capturedContent": {
+    "title": "Erosion and Earth's Surface Study Guide",
+    "type": "reading",
+    "rawText": "",
+    "words": [],
+    "questions": [],
+    "sourceDocuments": [
+      {
+        "filename": "Test for May 6.pdf",
+        "mediaType": "application/pdf"
+      }
+    ],
+    "contentProfile": {
+      "practiceDomain": "reading",
+      "contentDomain": "science",
+      "topic": "Erosion and Earth's Surface",
+      "primarySkill": "Understanding erosion processes and Earth's geological features",
+      "assignmentFormat": "Study Guide with sections on key concepts",
+      "concepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "sourceEvidence": [
+        "matched science term: erosion",
+        "Erosion happens when wind, water, or ice wear away rocks and soil",
+        "Rivers and rain can carry tiny pieces of rock from mountains to beaches or oceans",
+        "The color of sand comes from the rocks nearby",
+        "Water and wind break down the rocks and move them to the beach",
+        "Maps show land and water like mountains, rivers, lakes, and oceans",
+        "A compass rose shows directions: North, South, East, West",
+        "Rivers usually flow downhill from mountains to oceans or lakes",
+        "Rivers start high in the mountains and flow down to lower places like lakes or oceans",
+        "Water always flows downhill, never up",
+        "If you float on a river, you'll end up in a lake or ocean",
+        "Rounded hills are smaller and softer than pointy peaks",
+        "Pointy peaks are tall and sharp — like big mountains",
+        "Use clues and directions (North, South, East, West) to find locations on a map"
+      ]
+    }
+  },
+  "contentFingerprint": "953591037e5f4eb4",
+  "calibrationStatus": "unverified",
+  "ingestedAt": "2026-05-03",
+  "testDate": "2026-05-06",
+  "assumptions": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: none\n\n## Intervention\ncontent-fit challenge that requires producing the answer, not recognition\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet.",
+  "postAnalysis": null,
+  "scanResult": null,
+  "delta": null,
+  "metrics": null,
+  "theory": {
+    "theoryId": "hw-reading-e3b0c442:pre_quest:2026-05-03T01:10:04.800Z",
+    "stage": "pre_quest",
+    "createdAt": "2026-05-03T01:10:04.800Z",
+    "hypothesis": "No confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.",
+    "predictedPattern": "content_fit_gap",
+    "predictedRiskWords": [],
+    "intervention": "content-fit challenge that requires producing the answer, not recognition",
+    "successCriteria": {
+      "minAccuracy": 0.8,
+      "minImprovement": 0.15
+    },
+    "evidence": [
+      "No confirmed diagnostic pattern yet."
+    ],
+    "status": "pending",
+    "markdown": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: none\n\n## Intervention\ncontent-fit challenge that requires producing the answer, not recognition\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet."
+  },
+  "interventionHistory": [
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-03T21:57:03.718Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-03T22:27:53.623Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-03T22:52:55.324Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-03T23:34:51.026Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-03T23:51:28.549Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    }
+  ]
+}

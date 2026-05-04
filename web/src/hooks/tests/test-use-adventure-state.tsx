@@ -8,6 +8,7 @@ function makeState(overrides: Partial<AdventureVoiceState> = {}): AdventureVoice
     canvas: { mode: "idle" },
     karaokeStoryComplete: false,
     error: null,
+    errorFatal: false,
     childName: null,
     ...overrides,
   };
@@ -67,7 +68,7 @@ describe("useAdventureState", () => {
     expect(result.current.companionMuted).toBe(false);
   });
 
-  it("effectiveChildId is null when state.error is set", () => {
+  it("effectiveChildId is null when state.error is fatal", () => {
     const { result, rerender } = renderHook(
       (state: AdventureVoiceState) => useAdventureState(state, true),
       { initialProps: makeState({ phase: "active" }) },
@@ -77,8 +78,34 @@ describe("useAdventureState", () => {
     });
     expect(result.current.adventureChildId).toBe("ila");
 
-    rerender(makeState({ phase: "picker", error: "connection timeout" }));
+    rerender(
+      makeState({
+        phase: "picker",
+        error: "connection timeout",
+        errorFatal: true,
+      }),
+    );
     expect(result.current.adventureChildId).toBeNull();
+  });
+
+  it("preserves adventureChildId when state.error is non-fatal", () => {
+    const { result, rerender } = renderHook(
+      (state: AdventureVoiceState) => useAdventureState(state, true),
+      { initialProps: makeState({ phase: "active" }) },
+    );
+    act(() => {
+      result.current.setAdventureChildId("reina");
+    });
+    expect(result.current.adventureChildId).toBe("reina");
+
+    rerender(
+      makeState({
+        phase: "active",
+        error: "Unknown type: karaoke",
+        errorFatal: false,
+      }),
+    );
+    expect(result.current.adventureChildId).toBe("reina");
   });
 
   it("effectiveNodeScreen is null when adventureChildId is null", () => {

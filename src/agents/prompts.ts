@@ -509,6 +509,7 @@ export function parseCompanionNameFromMarkdown(md: string): string {
 }
 
 export type SessionSubject =
+  | "review"
   | "spelling"
   | "math"
   | "free"
@@ -526,6 +527,7 @@ export function normalizeSessionSubject(
 ): SessionSubject {
   const s = (raw ?? "spelling").toLowerCase().trim();
   const allowed = new Set<SessionSubject>([
+    "review",
     "spelling",
     "math",
     "free",

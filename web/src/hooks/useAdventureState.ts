@@ -1,4 +1,5 @@
 import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
+import { resolveSunnyRuntimeConfig } from "../../../src/shared/runtimeConfig";
 
 /** Minimal slice of voice session state the hook needs. */
 export interface AdventureVoiceState {
@@ -9,6 +10,7 @@ export interface AdventureVoiceState {
   };
   karaokeStoryComplete?: boolean;
   error?: string | null;
+  errorFatal?: boolean;
   childName?: string | null;
 }
 
@@ -34,9 +36,7 @@ export function useAdventureState(
   // Lazy init: read VITE_DIAG_CHILD_ID once at mount; no mount effect needed.
   const [adventureChildId, setAdventureChildId] = useState<string | null>(() => {
     if (!adventureMapEnabled) return null;
-    const raw = import.meta.env.VITE_DIAG_CHILD_ID as string | undefined;
-    const id = raw?.trim().toLowerCase();
-    return id || null;
+    return resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>).childId;
   });
 
   const [activeNodeScreen, setActiveNodeScreen] = useState<{
@@ -57,14 +57,21 @@ export function useAdventureState(
   // so the picker error UI can surface. The derived effectiveChildId is already null
   // in the same render; this effect cleans up the stored value for future renders.
   useEffect(() => {
-    if (adventureMapEnabled && adventureChildId && voiceState.error) {
+    if (
+      adventureMapEnabled &&
+      adventureChildId &&
+      voiceState.error &&
+      voiceState.errorFatal
+    ) {
       setAdventureChildId(null);
     }
-  }, [adventureMapEnabled, adventureChildId, voiceState.error]);
+  }, [adventureMapEnabled, adventureChildId, voiceState.error, voiceState.errorFatal]);
 
   // Derived: suppress child ID display while an error is active.
   const effectiveChildId =
-    adventureMapEnabled && voiceState.error ? null : adventureChildId;
+    adventureMapEnabled && voiceState.error && voiceState.errorFatal
+      ? null
+      : adventureChildId;
 
   // Derived: activeNodeScreen is only meaningful when a child is on the map.
   const effectiveNodeScreen = effectiveChildId ? activeNodeScreen : null;

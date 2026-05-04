@@ -76,13 +76,9 @@ describe("VITE_REWARD_DIAG gate", () => {
 });
 
 describe("package.json", () => {
-  it('contains "sunny:mode:diag:rewards" script', () => {
-    expect(
-      (rootPackage as { scripts?: Record<string, string> }).scripts?.[
-        "sunny:mode:diag:rewards"
-      ],
-    ).toBe(
-      "cd web && VITE_MODE=diag VITE_ADVENTURE_MAP=true VITE_REWARD_DIAG=true npm run build && cd .. && SUNNY_MODE=diag SUNNY_CHILD=ila ADVENTURE_MAP=true npx tsx src/scripts/launch-kiosk.ts",
-    );
+  it("uses the canonical sunny:run launcher instead of a dedicated reward-diag script", () => {
+    const scripts = (rootPackage as { scripts?: Record<string, string> }).scripts ?? {};
+    expect(scripts["sunny:run"]).toContain("src/scripts/sunnyRun.ts");
+    expect(scripts["sunny:mode:diag:rewards"]).toBeUndefined();
   });
 });

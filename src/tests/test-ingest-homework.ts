@@ -2,7 +2,9 @@ import fs from "fs";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildHomeworkPreviewCommand,
   buildHomeworkNodes,
+  buildHomeworkLearningPlanArtifact,
   buildPendingHomeworkPayload,
   ensureQuestHtmlContract,
   finalizePlannedHomeworkNodes,
@@ -11,6 +13,7 @@ import {
   nextFriday,
   parseCliArgs,
   pickIncomingHomeworkFile,
+  resolveHomeworkTypeFromProfile,
   shouldGenerateBossNode,
 } from "../scripts/ingestHomework";
 import { buildCapturedHomeworkContent, normalizeContentProfile } from "../scripts/contentAwareHomeworkPlanner";
@@ -69,6 +72,53 @@ describe("ingestHomework", () => {
   it("Haiku extraction returns correct type for spelling PDF", () => {
     expect(normalizeHomeworkType("spelling_test")).toBe("spelling_test");
     expect(normalizeHomeworkType("spelling")).toBe("spelling_test");
+  });
+
+  it("promotes science study guides from generic to reading homework", () => {
+    const profile = normalizeContentProfile({
+      title: "Erosion and Earth's Surface Study Guide",
+      type: "generic",
+      words: [],
+      questions: [],
+      contentProfile: {
+        practiceDomain: "reading",
+        contentDomain: "science",
+        topic: "erosion",
+        primarySkill: "reading_comprehension",
+        assignmentFormat: "study_guide",
+        concepts: ["erosion", "soil", "water"],
+      },
+    });
+
+    expect(
+      resolveHomeworkTypeFromProfile(
+        "generic",
+        profile,
+        "Erosion and Earth's Surface Study Guide",
+        [],
+      ),
+    ).toBe("reading");
+  });
+
+  it("preview command uses the current sunny:run path, not the removed homework preview script", () => {
+    const command = buildHomeworkPreviewCommand("reina");
+    expect(command.command).toBe("npm");
+    expect(command.args).toEqual([
+      "run",
+      "sunny:run",
+      "--",
+      "--subject",
+      "homework",
+      "--child",
+      "reina",
+      "--session-mode",
+      "as-child",
+      "--preview",
+      "free",
+      "--node-access",
+      "inspect-all",
+    ]);
+    expect(command.display).not.toContain("sunny:homework:preview");
   });
 
   it("node plan written to pending/", () => {
@@ -141,6 +191,45 @@ describe("ingestHomework", () => {
     expect(pending.capturedContent?.rawText).toContain("Water carries soil");
     expect(pending.capturedContent?.sourceDocuments[0]?.filename).toBe("Test for May 6.pdf");
     expect(pending.capturedContent?.contentProfile.topic).toBe("erosion");
+  });
+
+  it("builds an auditable learning plan for the assignment", () => {
+    const contentProfile = normalizeContentProfile({
+      title: "Erosion Study Guide",
+      type: "reading",
+      words: [],
+      questions: [],
+      contentProfile: {
+        practiceDomain: "reading",
+        contentDomain: "science",
+        topic: "erosion",
+        primarySkill: "reading_comprehension",
+        assignmentFormat: "study_guide",
+        concepts: ["erosion", "water", "soil"],
+      },
+    });
+
+    const artifact = buildHomeworkLearningPlanArtifact({
+      homeworkId: "hw-reading-erosion",
+      childId: "reina",
+      title: "Erosion Study Guide",
+      type: "reading",
+      words: [],
+      contentProfile,
+      reinforcementWords: ["coldest"],
+    });
+
+    expect(artifact.plan.interventions.map((i) => i.type)).toEqual([
+      "baseline-evaluator",
+      "story",
+      "pronunciation",
+      "concept-builder",
+      "exit-evaluator",
+    ]);
+    expect(artifact.plan.reinforcementWords).toEqual(["coldest"]);
+    expect(artifact.markdown).toContain("Homework Learning Plan");
+    expect(artifact.markdown).toContain("Baseline check");
+    expect(artifact.markdown).toContain("exit-evaluator");
   });
 
   it("karaoke story embeds word list", () => {

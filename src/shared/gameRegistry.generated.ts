@@ -12,6 +12,26 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "attention-bubble-pop": {
+    "url": "/games/attention-bubble-pop.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
+  "attention-fish-flanker": {
+    "url": "/games/attention-fish-flanker.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
+  "attention-hero-shield": {
+    "url": "/games/attention-hero-shield.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
+  "attention-target-blaster": {
+    "url": "/games/attention-target-blaster.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "bd-reversal": {
     "url": "/games/bd-reversal-game.html",
     "defaultConfig": {

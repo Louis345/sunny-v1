@@ -50,6 +50,7 @@ import {
   resolveAllowedShowroomVoiceId,
   type ShowroomVoiceOption,
 } from "./companionShowroomVoice";
+import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 
 const companions = {
   Ila: ELLI,
@@ -852,11 +853,17 @@ Return plain text only.`,
   app.post("/api/map/start", async (req: Request, res: Response) => {
     const childId =
       typeof req.body?.childId === "string" ? req.body.childId : "";
+    const runtime =
+      req.body?.runtime != null &&
+      typeof req.body.runtime === "object" &&
+      !Array.isArray(req.body.runtime)
+        ? (req.body.runtime as SunnyRuntimeOverrides)
+        : undefined;
     if (!childId.trim()) {
       return res.status(400).json({ error: "childId required" });
     }
     try {
-      const out = await startMapSession(childId);
+      const out = await startMapSession(childId, runtime);
       res.json(out);
     } catch (err: unknown) {
       if (err instanceof MapSessionError) {

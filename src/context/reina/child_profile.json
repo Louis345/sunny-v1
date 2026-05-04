@@ -1,0 +1,26 @@
+{
+  "childId": "reina",
+  "identity": {
+    "displayName": "Reina",
+    "ttsName": "Ray-nah",
+    "avatarImagePath": "/characters/reina.png"
+  },
+  "demographics": {
+    "age": 8,
+    "grade": 2,
+    "diagnoses": [],
+    "iepActive": false
+  },
+  "companion": {
+    "companionId": "matilda"
+  },
+  "economy": {},
+  "links": {
+    "learningProfile": "learning_profile.json",
+    "wordBank": "word_bank.json",
+    "homework": "homework/",
+    "attempts": "attempts/",
+    "vitals": "vitals/",
+    "carePlans": "care_plans/"
+  }
+}

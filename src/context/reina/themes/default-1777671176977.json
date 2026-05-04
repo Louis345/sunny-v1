@@ -1,0 +1,33 @@
+{
+  "id": "default-1777671176977",
+  "name": "default",
+  "generatedAt": "2026-05-01T21:32:56.977Z",
+  "worldBackgroundUrl": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-c5a0ed98-2804-4acb-8a75-89412fcc00b7.jpeg",
+  "palette": {
+    "sky": "#6ec8ff",
+    "ground": "#228b5c",
+    "accent": "#2563eb",
+    "particle": "#e0f2fe",
+    "glow": "#2563eb",
+    "cardBackground": "#f0f9ff"
+  },
+  "thumbnails": {
+    "mystery": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-62b7e565-4355-475a-9b6a-ef942d78b41f.jpeg",
+    "word-builder": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-c7b580c9-52b2-4110-8123-0e7e37da7f83.jpeg",
+    "bubble-pop": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-d4a13e8c-78d1-4cfd-9d92-fe19efdd3433.jpeg",
+    "karaoke": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-293366af-fa0f-4706-ae7c-ce694bb51975.jpeg",
+    "word-radar": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-09c51011-58aa-439d-b316-218ca32f6e18.jpeg",
+    "clock-game": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-91f140e7-6c9e-4c4e-8fc8-8f27ddec8db0.jpeg",
+    "coin-counter": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-77d1a661-0f88-49cb-ba4a-1f66e92e0e16.jpeg",
+    "spell-check": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-bb9b157c-c4c0-4990-a073-32b979f6ef70.jpeg",
+    "wordle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-842e00ab-a73a-4722-bda9-dbeb6ad2c691.jpeg",
+    "riddle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-88e650c0-4a63-4e4c-aff0-d3eacb8d08e3.jpeg",
+    "space-invaders": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-00b6397b-1b39-45ae-ba17-024d9811ee49.jpeg",
+    "asteroid": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-e622df11-5cde-46dd-987b-b5d3f9ada783.jpeg",
+    "space-frogger": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-204735dd-c529-4599-94c4-ff14c036cf93.jpeg",
+    "boss": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-cfd936cf-af51-4693-aca2-59887b9a91f5.jpeg",
+    "wheel-of-fortune": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-addc0705-f38b-427d-9d8c-0848e59abd77.jpeg",
+    "quest": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-98376b71-fe57-4a5b-a412-8d2af0c2bae2.jpeg"
+  },
+  "savedBy": "auto"
+}

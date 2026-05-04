@@ -2,20 +2,12 @@ import fs from "fs";
 import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { ChildProfile, ChildProfileGames } from "../shared/childProfile";
-import { mergeCompanionPresetWithLearningProfile } from "../shared/companionTypes";
-import {
-  companionConfigFromPreset,
-  getTtsNameForChildId,
-  readChildrenConfig,
-} from "./childrenConfig";
-import { readLearningProfile } from "../utils/learningProfileIO";
 import { getNodeRatings } from "../utils/nodeRatingIO";
 import { computeAttentionWindow, computeUnlockedThemes } from "./profileCompute";
 import { DEFAULT_TAMAGOTCHI } from "../shared/vrrTypes";
 import { applyPassiveDepletion } from "../engine/vrrEngine";
 import { CompanionRegistry } from "../prompts/companions/registry";
 import { buildWordRadarPersonalBests } from "../utils/wordRadarProfile";
-import { readWordBank } from "../utils/wordBankIO";
 import { sm2 } from "../algorithms/sm2";
 import { desirableDifficulty } from "../algorithms/desirableDifficulty";
 import { interleaving } from "../algorithms/interleaving";
@@ -23,6 +15,7 @@ import { masteryGating as computeMasteryGating } from "../algorithms/masteryGati
 import { retrievalPractice as computeRetrievalPractice } from "../algorithms/retrievalPractice";
 import { DEFAULT_GAME_CONFIGS } from "../profile/gameConfigDefaults";
 import { verifyGameConfig } from "../profile/verifyProfile";
+import { getChildChart } from "./childChart";
 
 const PROFILE_SRC = path.resolve(__dirname, "..");
 
@@ -71,9 +64,14 @@ function levelFromLearningProfile(lp: LearningProfile): number {
  */
 export async function buildProfile(childIdRaw: string): Promise<ChildProfile | null> {
   const childId = normalizeChildId(childIdRaw);
-  const lp = readLearningProfile(childId);
-  if (!lp) return null;
-  const wordBank = readWordBank(childId);
+  let chart: ReturnType<typeof getChildChart>;
+  try {
+    chart = getChildChart(childId);
+  } catch {
+    return null;
+  }
+  const lp = chart.learningProfile;
+  const wordBank = chart.wordBank;
   wordBank.words = (wordBank.words ?? []).filter((w) =>
     /^[a-z]{2,30}$/.test(w.word.toLowerCase()),
   );
@@ -97,29 +95,11 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     interestTags.push(`reading:${lp.readingProfile.currentReadingLevel}`);
   }
 
-  const childrenCfg = readChildrenConfig();
-  const childMeta = childrenCfg.childProfiles?.[childId];
-  const presetFromLp =
-    lp.companion?.companionId &&
-    childrenCfg.companions[lp.companion.companionId]
-      ? lp.companion.companionId
-      : undefined;
-  const presetId =
-    presetFromLp ??
-    childrenCfg.childCompanionIds[childId] ??
-    childrenCfg.defaultCompanionId;
-  const presetBlock = childrenCfg.companions[presetId];
-  if (!presetBlock) {
-    throw new Error(
-      `children.config.json: unknown companion preset "${presetId}" for child "${childId}"`,
-    );
-  }
-  const preset = companionConfigFromPreset(presetId, presetBlock);
-  const companion = mergeCompanionPresetWithLearningProfile(preset, lp.companion);
+  const childMeta = chart.childMeta;
+  const companion = chart.companion.config;
 
   const companionIdForRegistry =
-    companion.companionId?.trim() ||
-    (childId === "reina" ? "matilda" : "elli");
+    companion.companionId?.trim() || chart.companion.presetId || "elli";
 
   let companionContext = "";
   try {
@@ -163,6 +143,10 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   ) as ChildProfileGames;
   const wordRadarGame = games["word-radar"];
   const wrShowTimer = wordRadarGame?.showTimer ?? (childMeta?.showTimer !== false);
+  const wrTimerSeconds =
+    typeof wordRadarGame?.timerSeconds === "number" && wordRadarGame.timerSeconds > 0
+      ? wordRadarGame.timerSeconds
+      : DEFAULT_GAME_CONFIGS["word-radar"]?.timerSeconds ?? 20;
   const wrShowKeyboard =
     wordRadarGame?.inputMode === "keyboard" || childMeta?.showKeyboard === true;
 
@@ -170,10 +154,10 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
 
   const profile: ChildProfile = {
     childId,
-    ttsName: getTtsNameForChildId(childId),
-    avatarImagePath: childMeta?.avatarImagePath,
+    ttsName: chart.identity.ttsName,
+    avatarImagePath: chart.identity.avatarImagePath,
     level,
-    companionCurrency,
+    companionCurrency: chart.economy.coinBalance || companionCurrency,
     xp: Math.max(0, (lp.sessionStats?.totalWordsMastered ?? 0) * 10 + (lp.sessionStats?.totalSessions ?? 0) * 5),
     interests: { tags: interestTags },
     dyslexiaMode: lp.readingProfile?.dyslexiaMode ?? false,
@@ -188,13 +172,14 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     ui: { accentColor: accent },
     unlockedThemes,
     attentionWindow_ms,
-    childContext: getChildContext(childId),
+    childContext: chart.childContext || getChildContext(childId),
     companion,
     companionContext,
     pendingHomework: lp.pendingHomework ?? undefined,
     tamagotchi,
     wordRadar: {
       showTimer: wrShowTimer,
+      timerSeconds: wrTimerSeconds,
       showKeyboard: wrShowKeyboard,
       personalBests: buildWordRadarPersonalBests(childId),
       inputMode:

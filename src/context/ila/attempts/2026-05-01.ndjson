@@ -5,3 +5,17 @@
 {"word":"slowest","correct":true,"timestamp":"2026-05-01T00:03:54.743Z"}
 {"word":"slowest","correct":true,"timestamp":"2026-05-01T00:04:04.836Z"}
 {"word":"coldest","correct":true,"timestamp":"2026-05-01T00:09:20.879Z"}
+{"word":"farmer","domain":"spelling","correct":false,"sessionId":"178462b5-cc1d-40f1-a742-b9777be87a7c","timestamp":"2026-05-01T21:59:59.366Z"}
+{"word":"teacher","domain":"spelling","correct":false,"sessionId":"178462b5-cc1d-40f1-a742-b9777be87a7c","timestamp":"2026-05-01T21:59:59.376Z"}
+{"word":"farmer","domain":"spelling","correct":false,"sessionId":"aa93af87-6bd4-4e38-98af-27ad54f9b73c","timestamp":"2026-05-01T22:08:00.466Z"}
+{"word":"teacher","domain":"spelling","correct":false,"sessionId":"aa93af87-6bd4-4e38-98af-27ad54f9b73c","timestamp":"2026-05-01T22:08:00.467Z"}
+{"word":"farmer","domain":"spelling","correct":false,"sessionId":"9eb4085e-e1b0-4b93-9092-99e4e87de396","timestamp":"2026-05-01T22:08:17.949Z"}
+{"word":"teacher","domain":"spelling","correct":false,"sessionId":"9eb4085e-e1b0-4b93-9092-99e4e87de396","timestamp":"2026-05-01T22:08:17.950Z"}
+{"word":"farmer","domain":"spelling","correct":false,"sessionId":"d9ffb492-93b8-4587-b503-401fa9e4537f","timestamp":"2026-05-01T22:10:53.860Z"}
+{"word":"teacher","domain":"spelling","correct":false,"sessionId":"d9ffb492-93b8-4587-b503-401fa9e4537f","timestamp":"2026-05-01T22:10:53.860Z"}
+{"word":"farmer","domain":"spelling","correct":false,"sessionId":"aa70c1d3-1f11-48a5-83f4-106a898da630","timestamp":"2026-05-01T22:12:38.503Z"}
+{"word":"teacher","domain":"spelling","correct":false,"sessionId":"aa70c1d3-1f11-48a5-83f4-106a898da630","timestamp":"2026-05-01T22:12:38.503Z"}
+{"word":"farmer","domain":"spelling","correct":false,"sessionId":"473b02c6-e010-4669-9f20-15059db8970b","timestamp":"2026-05-01T23:45:44.449Z"}
+{"word":"teacher","domain":"spelling","correct":false,"sessionId":"473b02c6-e010-4669-9f20-15059db8970b","timestamp":"2026-05-01T23:45:44.450Z"}
+{"word":"farmer","domain":"spelling","correct":false,"sessionId":"e81ca295-6e16-457a-a42b-6baafdc6de4e","timestamp":"2026-05-01T23:57:05.415Z"}
+{"word":"teacher","domain":"spelling","correct":false,"sessionId":"e81ca295-6e16-457a-a42b-6baafdc6de4e","timestamp":"2026-05-01T23:57:05.415Z"}
