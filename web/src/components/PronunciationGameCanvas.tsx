@@ -160,7 +160,7 @@ export function PronunciationGameCanvas({
   const missCountByWordRef = useRef<Map<string, number>>(new Map());
 
   const [cameraOk, setCameraOk] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [hasStarted, setHasStarted] = useState(true);
   const [cycleKey, setCycleKey] = useState(0);
   const [blockPhase, setBlockPhase] = useState<BlockPhase>("approaching");
   const [missSeq, setMissSeq] = useState(0);
@@ -226,7 +226,8 @@ export function PronunciationGameCanvas({
 
   const expectedWord =
     wordIndex < words.length ? (words[wordIndex] ?? "") : "";
-  const heard = heardTranscript || "—";
+  const heard =
+    heardTranscript || interimTranscript.trim().split(/\s+/).filter(Boolean).pop() || "—";
 
   const burst = useCallback((x: number, y: number) => {
     const colors = ["#4ade80", "#86efac", "#bbf7d0", "#fff"];
