@@ -1,29 +1,26 @@
 import React, {
   useCallback,
   useEffect,
-  useMemo,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { classifyKaraokeWordMatch } from "../../../src/shared/karaokeMatchWord";
 import { useKaraokeReading } from "../hooks/useKaraokeReading";
 
 const FONT_LINK =
-  "https://fonts.googleapis.com/css2?family=Fredoka:wght@700&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Fredoka:wght@700;800;900&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap";
 
-const PALETTE: [string, string][] = [
-  ["#8b7cff", "#6D5EF5"],
-  ["#f9a8d4", "#f472b6"],
-  ["#22d3ee", "#06b6d4"],
-  ["#34d399", "#10b981"],
-  ["#fbbf24", "#f59e0b"],
-  ["#a78bfa", "#8b5cf6"],
-];
-
-const BELT_MODE = "depth" as const;
-const SPAWN_MS = 1400;
-const TRAVEL_MS = 3800;
+const TRAVEL_MS = 3000;
+const ZONE_MS = 1800;
+const TOTAL_MS = TRAVEL_MS + ZONE_MS;
 const GAME_MS = 60_000;
-const MAX_ACTIVE = 3;
+const HEAT_THRESHOLD = 3;
+const HIT_MS = 300;
+const MISS_MS = 700;
+const WRONG_DEBOUNCE_MS = 900;
+const HEARD_STICKY_MS = 450;
+const AUTO_SKIP_MISSES = 3;
 
 export type PronunciationCompleteResult = {
   wordsHit: number;
@@ -42,63 +39,8 @@ export interface PronunciationGameCanvasProps {
   onComplete?: (result: PronunciationCompleteResult) => void;
 }
 
-/** Port of pronunciation-game.html `beltPosition` (depth lane). */
-export function beltPosition(
-  t: number,
-  mode: "depth" | "horizontal" = "depth",
-): {
-  x: number;
-  y: number;
-  scale: number;
-  opacity: number;
-  inSayZone: boolean;
-} {
-  const clamped = Math.max(0, Math.min(1, t));
-
-  if (mode === "depth") {
-    const x = 50;
-    const y = 30 + 40 * clamped;
-    const scale = 0.35 + (1.15 - 0.35) * clamped;
-    const opacity = Math.min(1.0, 0.5 + (0.5 * clamped) / 0.75);
-    const inSayZone = y >= 55 && y <= 75;
-    return { x, y, scale, opacity, inSayZone };
-  }
-
-  if (mode === "horizontal") {
-    const x = 100 - 100 * clamped;
-    const y = 50;
-    let scale: number;
-    if (clamped <= 0.5) {
-      scale = 0.5 + (1.15 - 0.5) * (clamped / 0.5);
-    } else {
-      scale = 1.15 - (1.15 - 0.7) * ((clamped - 0.5) / 0.5);
-    }
-    const opacity = 1.0;
-    const inSayZone = x >= 35 && x <= 65;
-    return { x, y, scale, opacity, inSayZone };
-  }
-
-  throw new Error(`Unknown belt mode: ${mode}`);
-}
-
-function streakMultiplier(streak: number): number {
-  if (streak >= 10) return 2.0;
-  if (streak >= 5) return 1.5;
-  return 1.0;
-}
-
-function scoreForHit(streak: number): number {
-  return Math.round(10 * streakMultiplier(streak));
-}
-
-type BeltPill = {
-  id: number;
-  wordIndex: number;
-  spawnedAt: number;
-  travelMs: number;
-  palette: [string, string];
-  phase: "live" | "hit" | "miss";
-};
+type BlockPhase = "approaching" | "hit" | "miss";
+type HeatState = "off" | "heating";
 
 type Particle = {
   x: number;
@@ -111,6 +53,15 @@ type Particle = {
   maxLife: number;
 };
 
+function scoreForHit(hitStreakAfterHit: number): number {
+  return hitStreakAfterHit >= HEAT_THRESHOLD ? 20 : 10;
+}
+
+function debugPronunciationHit(payload: Record<string, unknown>): void {
+  if (!import.meta.env.DEV) return;
+  console.debug("[PG-HIT]", payload);
+}
+
 export function PronunciationGameCanvas({
   words,
   interimTranscript,
@@ -120,55 +71,174 @@ export function PronunciationGameCanvas({
   onComplete,
 }: PronunciationGameCanvasProps): React.ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const starsRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<HTMLCanvasElement>(null);
-  const beltRef = useRef<HTMLDivElement>(null);
-  const nextIdRef = useRef(1);
-  const nextSpawnIdxRef = useRef(0);
+  const blockWrapRef = useRef<HTMLDivElement>(null);
   const particlesRefData = useRef<Particle[]>([]);
-  const rafTickRef = useRef<number>(0);
-  const rafParticlesRef = useRef<number>(0);
+  const rafParticlesRef = useRef(0);
   const completeSentRef = useRef(false);
-  const processedHitKeysRef = useRef<Set<string>>(new Set());
+  const prevWordIndexRef = useRef(0);
+  const wordIndexRef = useRef(0);
+  const blockPhaseRef = useRef<BlockPhase>("approaching");
+  const cycleStartRef = useRef(0);
+  const timeoutArmedRef = useRef(true);
+  const wrongTimerRef = useRef<number | null>(null);
+  const heardClearTimeoutRef = useRef<number | null>(null);
+  const interimRef = useRef(interimTranscript);
+  const missesForWordRef = useRef(0);
   const hitsRef = useRef(0);
   const wordsAttemptedRef = useRef(0);
   const xpRef = useRef(0);
   const flaggedWordsRef = useRef<string[]>([]);
 
   const [cameraOk, setCameraOk] = useState(false);
-  const [pills, setPills] = useState<BeltPill[]>([]);
-  const [nowTick, setNowTick] = useState(0);
+  const [cycleKey, setCycleKey] = useState(0);
+  const [blockPhase, setBlockPhaseState] =
+    useState<BlockPhase>("approaching");
+  const [showWrongBadge, setShowWrongBadge] = useState(false);
+  const [showHitBadge, setShowHitBadge] = useState(false);
+  const [ended, setEnded] = useState(false);
   const [hits, setHits] = useState(0);
   const [wordsAttempted, setWordsAttempted] = useState(0);
   const [xp, setXp] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [hitStreak, setHitStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
-  const [ended, setEnded] = useState(false);
+  const [heatState, setHeatState] = useState<HeatState>("off");
+  const [cooledDownStamp, setCooledDownStamp] = useState(false);
+  const [heardTranscript, setHeardTranscript] = useState("");
 
-  hitsRef.current = hits;
-  wordsAttemptedRef.current = wordsAttempted;
-  xpRef.current = xp;
+  const { wordIndex, flaggedWords, isComplete, handleSkipWord } =
+    useKaraokeReading({
+      words,
+      interimTranscript,
+      sendMessage,
+      mode: "sequential",
+    });
 
-  const activeWordIndices = useMemo(() => {
-    const t = nowTick;
-    const idxs: number[] = [];
-    for (const p of pills) {
-      if (p.phase !== "live") continue;
-      const u = (t - p.spawnedAt) / Math.max(1, p.travelMs);
-      const pos = beltPosition(Math.min(1, u), BELT_MODE);
-      if (pos.inSayZone) idxs.push(p.wordIndex);
+  const setBlockPhase = useCallback((phase: BlockPhase) => {
+    blockPhaseRef.current = phase;
+    setBlockPhaseState(phase);
+  }, []);
+
+  useEffect(() => {
+    interimRef.current = interimTranscript;
+    const trimmed = interimTranscript.trim();
+    if (trimmed) {
+      if (heardClearTimeoutRef.current !== null) {
+        window.clearTimeout(heardClearTimeoutRef.current);
+        heardClearTimeoutRef.current = null;
+      }
+      setHeardTranscript(trimmed);
+      return;
     }
-    return idxs;
-  }, [pills, nowTick]);
+    if (heardClearTimeoutRef.current !== null) {
+      window.clearTimeout(heardClearTimeoutRef.current);
+    }
+    heardClearTimeoutRef.current = window.setTimeout(() => {
+      heardClearTimeoutRef.current = null;
+      setHeardTranscript("");
+    }, HEARD_STICKY_MS);
+  }, [interimTranscript]);
 
-  const { hitWordIndex, flaggedWords } = useKaraokeReading({
-    words,
-    interimTranscript,
-    sendMessage,
-    mode: "multi",
-    activeWordIndices,
-  });
-  flaggedWordsRef.current = flaggedWords;
+  useEffect(() => {
+    wordIndexRef.current = wordIndex;
+    hitsRef.current = hits;
+    wordsAttemptedRef.current = wordsAttempted;
+    xpRef.current = xp;
+    flaggedWordsRef.current = flaggedWords;
+  }, [wordIndex, hits, wordsAttempted, xp, flaggedWords]);
+
+  const expectedWord =
+    wordIndex < words.length ? (words[wordIndex] ?? "") : "";
+  const heard = heardTranscript.split(/\s+/).filter(Boolean).pop() || "—";
+  const listening =
+    !ended && !isComplete && wordIndex < words.length && cameraOk;
+
+  const clearWrongTimer = useCallback(() => {
+    if (wrongTimerRef.current !== null) {
+      window.clearTimeout(wrongTimerRef.current);
+      wrongTimerRef.current = null;
+    }
+  }, []);
+
+  const burst = useCallback((x: number, y: number, heat: HeatState) => {
+    const colors =
+      heat === "heating"
+        ? ["#f97316", "#fb923c", "#fbbf24", "#fff7ed"]
+        : ["#4ade80", "#86efac", "#bbf7d0", "#ffffff"];
+    for (let i = 0; i < 48; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2.5 + Math.random() * 5;
+      particlesRefData.current.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 2,
+        r: 2 + Math.random() * 3,
+        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fff",
+        life: 0.5 + Math.random() * 0.35,
+        maxLife: 0.85,
+      });
+    }
+  }, []);
+
+  const coolDown = useCallback(() => {
+    if (heatState === "off") return;
+    setHeatState("off");
+    setCooledDownStamp(true);
+    window.setTimeout(() => setCooledDownStamp(false), 800);
+  }, [heatState]);
+
+  const markMiss = useCallback(
+    (reason: "wrong_word" | "timeout") => {
+      if (blockPhaseRef.current !== "approaching" || ended || isComplete) {
+        return;
+      }
+      if (!timeoutArmedRef.current) return;
+      timeoutArmedRef.current = false;
+      clearWrongTimer();
+      missesForWordRef.current += 1;
+      const currentWord = words[wordIndexRef.current] ?? "";
+      if (currentWord) {
+        flaggedWordsRef.current = Array.from(
+          new Set([...flaggedWordsRef.current, currentWord.toLowerCase().trim()]),
+        ).filter(Boolean);
+      }
+      debugPronunciationHit({
+        event: "miss",
+        reason,
+        wordIndex: wordIndexRef.current,
+        word: currentWord,
+      });
+      setShowWrongBadge(true);
+      setBlockPhase("miss");
+      setWordsAttempted((w) => w + 1);
+      setStreak(0);
+      setHitStreak(0);
+      coolDown();
+      window.setTimeout(() => {
+        setShowWrongBadge(false);
+        if (missesForWordRef.current >= AUTO_SKIP_MISSES) {
+          handleSkipWord(wordIndexRef.current);
+          missesForWordRef.current = 0;
+          return;
+        }
+        setCycleKey((k) => k + 1);
+        cycleStartRef.current = performance.now();
+        timeoutArmedRef.current = true;
+        setBlockPhase("approaching");
+      }, MISS_MS);
+    },
+    [
+      clearWrongTimer,
+      coolDown,
+      ended,
+      handleSkipWord,
+      isComplete,
+      setBlockPhase,
+      words,
+    ],
+  );
 
   useEffect(() => {
     const elId = "pronunciation-game-fonts";
@@ -183,71 +253,57 @@ export function PronunciationGameCanvas({
 
   useEffect(() => {
     let cancelled = false;
+    let stream: MediaStream | null = null;
     void (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" },
           audio: false,
         });
-        if (cancelled) return;
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
         const v = videoRef.current;
         if (v) {
           v.srcObject = stream;
-          setCameraOk(true);
+          void v.play().catch(() => {});
         }
+        setCameraOk(true);
       } catch {
         setCameraOk(false);
       }
     })();
     return () => {
       cancelled = true;
-      const v = videoRef.current;
-      const s = v?.srcObject as MediaStream | null;
-      s?.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
-  const burst = useCallback((x: number, y: number, colors: string[]) => {
-    for (let i = 0; i < 50; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 3 + Math.random() * 5;
-      particlesRefData.current.push({
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 2,
-        r: 2 + Math.random() * 3,
-        color: colors[Math.floor(Math.random() * colors.length)] ?? "#fff",
-        life: 0.5 + Math.random() * 0.3,
-        maxLife: 0.8,
-      });
-    }
-  }, []);
-
-  useEffect(() => {
-    const spawnId = window.setInterval(() => {
-      setPills((prev) => {
-        const active = prev.filter((p) => p.phase === "live");
-        if (active.length >= MAX_ACTIVE || words.length === 0) return prev;
-        const wi = nextSpawnIdxRef.current % words.length;
-        nextSpawnIdxRef.current += 1;
-        const pal = PALETTE[nextIdRef.current % PALETTE.length]!;
-        const id = nextIdRef.current++;
-        return [
-          ...prev,
-          {
-            id,
-            wordIndex: wi,
-            spawnedAt: performance.now(),
-            travelMs: TRAVEL_MS,
-            palette: pal,
-            phase: "live",
-          },
-        ];
-      });
-    }, SPAWN_MS);
-    return () => window.clearInterval(spawnId);
-  }, [words]);
+  useLayoutEffect(() => {
+    prevWordIndexRef.current = 0;
+    wordIndexRef.current = 0;
+    missesForWordRef.current = 0;
+    cycleStartRef.current = performance.now();
+    timeoutArmedRef.current = true;
+    completeSentRef.current = false;
+    clearWrongTimer();
+    queueMicrotask(() => {
+      setCycleKey((k) => k + 1);
+      setBlockPhase("approaching");
+      setShowWrongBadge(false);
+      setShowHitBadge(false);
+      setHits(0);
+      setWordsAttempted(0);
+      setXp(0);
+      setStreak(0);
+      setHitStreak(0);
+      setBestStreak(0);
+      setHeatState("off");
+      setCooledDownStamp(false);
+      setEnded(false);
+    });
+  }, [words, clearWrongTimer, setBlockPhase]);
 
   useEffect(() => {
     if (ended) return;
@@ -256,98 +312,117 @@ export function PronunciationGameCanvas({
   }, [ended]);
 
   useEffect(() => {
-    if (hitWordIndex === null) {
-      processedHitKeysRef.current.clear();
-      return;
-    }
-    const t = performance.now();
-    const match = pills.find(
-      (p) =>
-        p.phase === "live" &&
-        p.wordIndex === hitWordIndex &&
-        beltPosition(
-          Math.min(1, (t - p.spawnedAt) / Math.max(1, p.travelMs)),
-          BELT_MODE,
-        ).inSayZone,
-    );
-    if (!match) return;
-    const key = `${hitWordIndex}:${match.id}`;
-    if (processedHitKeysRef.current.has(key)) return;
-    processedHitKeysRef.current.add(key);
-
-    setPills((prev) =>
-      prev.map((p) =>
-        p.id === match.id ? { ...p, phase: "hit" as const } : p,
-      ),
-    );
-
-    setHits((h) => h + 1);
-    setWordsAttempted((w) => w + 1);
-    setStreak((s) => {
-      const ns = s + 1;
-      setBestStreak((b) => (ns > b ? ns : b));
-      setXp((x) => x + scoreForHit(ns));
-      return ns;
-    });
-
-    const id = match.id;
-    requestAnimationFrame(() => {
-      const el = beltRef.current?.querySelector(
-        `[data-pill-id="${id}"]`,
-      ) as HTMLElement | null;
-      if (el) {
-        const r = el.getBoundingClientRect();
-        burst(r.left + r.width / 2, r.top + r.height / 2, [
-          match.palette[0],
-          match.palette[1],
-        ]);
-      }
-    });
-
-    window.setTimeout(() => {
-      setPills((prev) => prev.filter((p) => p.id !== id));
-    }, 220);
-  }, [hitWordIndex, pills, burst]);
+    if (!isComplete || ended) return;
+    queueMicrotask(() => setEnded(true));
+  }, [isComplete, ended]);
 
   useEffect(() => {
-    const c = starsRef.current;
-    if (!c) return;
-    const resize = () => {
-      c.width = window.innerWidth;
-      c.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    const stars = Array.from({ length: 80 }, () => ({
-      x: Math.random() * c.width,
-      y: Math.random() * c.height,
-      r: Math.random() * 1.5 + 0.3,
-      a: Math.random(),
-      s: (Math.random() * 0.02 + 0.005) * (Math.random() < 0.5 ? -1 : 1),
-    }));
-    const ctx = c.getContext("2d");
-    if (!ctx) return () => window.removeEventListener("resize", resize);
-    let raf = 0;
-    const draw = () => {
-      ctx.clearRect(0, 0, c.width, c.height);
-      for (const s of stars) {
-        s.a += s.s;
-        if (s.a > 1 || s.a < 0.2) s.s = -s.s;
-        ctx.globalAlpha = s.a * 0.55;
-        ctx.fillStyle = "white";
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fill();
+    if (!ended || completeSentRef.current) return;
+    completeSentRef.current = true;
+    const wa = wordsAttemptedRef.current;
+    const h = hitsRef.current;
+    const accuracy = wa > 0 ? h / wa : 0;
+    onComplete?.({
+      wordsHit: h,
+      wordsAttempted: wa,
+      accuracy,
+      flaggedWords: [...flaggedWordsRef.current],
+      xpEarned: xpRef.current,
+    });
+  }, [ended, onComplete]);
+
+  useEffect(() => {
+    if (blockPhase !== "approaching" || ended || isComplete) return;
+    cycleStartRef.current = performance.now();
+    timeoutArmedRef.current = true;
+    const id = window.setInterval(() => {
+      if (!timeoutArmedRef.current) return;
+      if (performance.now() - cycleStartRef.current >= TOTAL_MS) {
+        markMiss("timeout");
       }
-      ctx.globalAlpha = 1;
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-    return () => {
-      window.removeEventListener("resize", resize);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
+    }, 160);
+    return () => window.clearInterval(id);
+  }, [blockPhase, cycleKey, ended, isComplete, markMiss]);
+
+  useEffect(() => {
+    clearWrongTimer();
+    if (blockPhase !== "approaching" || ended || isComplete) return;
+    const last = interimTranscript.trim().split(/\s+/).filter(Boolean).pop() ?? "";
+    if (last.length <= 2) return;
+    const expected = words[wordIndex];
+    if (!expected) return;
+    if (classifyKaraokeWordMatch(last, expected) === "match") return;
+
+    wrongTimerRef.current = window.setTimeout(() => {
+      wrongTimerRef.current = null;
+      if (blockPhaseRef.current !== "approaching") return;
+      const latest =
+        interimRef.current.trim().split(/\s+/).filter(Boolean).pop() ?? "";
+      if (latest.length <= 3) return;
+      const currentExpected = words[wordIndexRef.current];
+      if (!currentExpected) return;
+      if (classifyKaraokeWordMatch(latest, currentExpected) === "match") {
+        return;
+      }
+      markMiss("wrong_word");
+    }, WRONG_DEBOUNCE_MS);
+    return clearWrongTimer;
+  }, [
+    blockPhase,
+    clearWrongTimer,
+    ended,
+    interimTranscript,
+    isComplete,
+    markMiss,
+    wordIndex,
+    words,
+  ]);
+
+  useEffect(() => {
+    if (wordIndex <= prevWordIndexRef.current) return;
+    if (ended) return;
+    clearWrongTimer();
+    missesForWordRef.current = 0;
+    prevWordIndexRef.current = wordIndex;
+    timeoutArmedRef.current = false;
+    const advancedTo = wordIndex;
+    debugPronunciationHit({
+      event: "accept",
+      wordIndex: advancedTo - 1,
+      word: words[advancedTo - 1] ?? "",
+    });
+    queueMicrotask(() => {
+      setShowHitBadge(true);
+      setBlockPhase("hit");
+      setHits((h) => h + 1);
+      setWordsAttempted((wa) => wa + 1);
+      setStreak((s) => {
+        const ns = s + 1;
+        setBestStreak((b) => (ns > b ? ns : b));
+        setHitStreak((hs) => {
+          const nhs = hs + 1;
+          setXp((x) => x + scoreForHit(nhs));
+          if (nhs >= HEAT_THRESHOLD) setHeatState("heating");
+          return nhs;
+        });
+        return ns;
+      });
+    });
+    requestAnimationFrame(() => {
+      const el = blockWrapRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      burst(r.left + r.width / 2, r.top + r.height / 2, heatState);
+    });
+    window.setTimeout(() => {
+      setShowHitBadge(false);
+      if (advancedTo >= words.length) return;
+      setCycleKey((k) => k + 1);
+      cycleStartRef.current = performance.now();
+      timeoutArmedRef.current = true;
+      setBlockPhase("approaching");
+    }, HIT_MS);
+  }, [wordIndex, words, ended, burst, clearWrongTimer, heatState, setBlockPhase]);
 
   useEffect(() => {
     const c = particlesRef.current;
@@ -358,17 +433,17 @@ export function PronunciationGameCanvas({
     };
     resize();
     window.addEventListener("resize", resize);
-    const ctx = c.getContext("2d");
-    if (!ctx) return () => window.removeEventListener("resize", resize);
-    const draw = () => {
+    const tick = () => {
+      const ctx = c.getContext("2d");
+      if (!ctx) return;
       ctx.clearRect(0, 0, c.width, c.height);
       const arr = particlesRefData.current;
       for (let i = arr.length - 1; i >= 0; i--) {
         const p = arr[i]!;
+        p.life -= 1 / 60;
         p.x += p.vx;
         p.y += p.vy;
         p.vy += 0.15;
-        p.life -= 1 / 60;
         if (p.life <= 0) {
           arr.splice(i, 1);
           continue;
@@ -380,9 +455,9 @@ export function PronunciationGameCanvas({
         ctx.fill();
       }
       ctx.globalAlpha = 1;
-      rafParticlesRef.current = requestAnimationFrame(draw);
+      rafParticlesRef.current = requestAnimationFrame(tick);
     };
-    draw();
+    rafParticlesRef.current = requestAnimationFrame(tick);
     return () => {
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(rafParticlesRef.current);
@@ -390,71 +465,60 @@ export function PronunciationGameCanvas({
   }, []);
 
   useEffect(() => {
-    if (ended) return;
-    const tick = () => {
-      const t = performance.now();
-      setNowTick(t);
-      setPills((prev) => {
-        let changed = false;
-        const next = prev.map((p) => {
-          if (p.phase !== "live") return p;
-          const u = (t - p.spawnedAt) / Math.max(1, p.travelMs);
-          if (u >= 1) {
-            changed = true;
-            setWordsAttempted((w) => w + 1);
-            setStreak(0);
-            return { ...p, phase: "miss" as const };
-          }
-          return p;
-        });
-        return changed ? next : prev;
-      });
-      rafTickRef.current = requestAnimationFrame(tick);
+    return () => {
+      clearWrongTimer();
+      if (heardClearTimeoutRef.current !== null) {
+        window.clearTimeout(heardClearTimeoutRef.current);
+      }
     };
-    rafTickRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafTickRef.current);
-  }, [ended]);
+  }, [clearWrongTimer]);
 
-  useEffect(() => {
-    if (!ended || completeSentRef.current) return;
-    completeSentRef.current = true;
-    const wa = wordsAttemptedRef.current;
-    const h = hitsRef.current;
-    const x = xpRef.current;
-    const accuracy = wa > 0 ? h / wa : 0;
-    onComplete?.({
-      wordsHit: h,
-      wordsAttempted: wa,
-      accuracy,
-      flaggedWords: [...flaggedWordsRef.current],
-      xpEarned: x,
-    });
-  }, [ended, onComplete]);
-
-  useEffect(() => {
-    const missIds = pills.filter((p) => p.phase === "miss").map((p) => p.id);
-    if (missIds.length === 0) return;
-    const tid = window.setTimeout(() => {
-      setPills((prev) => prev.filter((p) => p.phase !== "miss"));
-    }, 330);
-    return () => window.clearTimeout(tid);
-  }, [pills]);
-
-  const heard =
-    interimTranscript.trim().split(/\s+/).pop() || "—";
+  const blockAnim =
+    blockPhase === "approaching"
+      ? `pg-approach ${TRAVEL_MS}ms linear forwards`
+      : blockPhase === "hit"
+        ? `pg-hit-pass ${HIT_MS}ms ease-out forwards`
+        : `pg-miss-shatter ${MISS_MS}ms cubic-bezier(0.33, 1, 0.68, 1) forwards`;
 
   const css = `
-    @keyframes pg-spring-in {
-      from { transform: translate(-50%, -50%) scale(0); }
-      to { transform: translate(-50%, -50%) scale(var(--enter-scale, 0.35)); }
+    @keyframes pg-approach {
+      0% { transform: translate(-50%, -62%) scale(0.36); opacity: 0.62; }
+      72% { transform: translate(-50%, -54%) scale(1.18); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1.42); opacity: 1; }
     }
-    @keyframes pg-pill-hit {
-      0% { transform: translate(-50%, -50%) scaleX(1.15) scaleY(0.7); }
-      100% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    @keyframes pg-ring-expand {
+      0% { width: 30px; height: 30px; opacity: 1; border-width: 4px; }
+      100% { width: 280px; height: 280px; opacity: 0; border-width: 1px; }
     }
-    @keyframes pg-pill-miss {
-      0% { filter: brightness(1.6) hue-rotate(-60deg); }
-      100% { transform: translate(-50%, -50%) scale(0); opacity: 0; filter: brightness(1); }
+    @keyframes pg-xp-float {
+      0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+      30% { transform: translate(-50%, -82%) scale(1.4); opacity: 1; }
+      100% { transform: translate(-50%, -165%) scale(0.8); opacity: 0; }
+    }
+    @keyframes pg-hit-pass {
+      0% { transform: translate(-50%, -50%) scale(1.42); }
+      50% { transform: translate(-50%, -50%) scale(2); filter: brightness(1.8); }
+      100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    }
+    @keyframes pg-miss-shatter {
+      0%, 5%, 15%, 25% { transform: translate(-50%, -50%) scale(1.42); }
+      10% { transform: translate(calc(-50% + 8px), -50%) scale(1.42); filter: brightness(2) hue-rotate(-40deg); }
+      20% { transform: translate(calc(-50% - 8px), -50%) scale(1.42); }
+      100% { transform: translate(-50%, -52%) scale(0.34) rotate(12deg); opacity: 0; filter: grayscale(1); }
+    }
+    @keyframes pg-miss-stamp {
+      0% { transform: translate(-50%, -50%) rotate(4deg) scale(0); }
+      50% { transform: translate(-50%, -50%) rotate(4deg) scale(1.25); opacity: 1; }
+      100% { transform: translate(-50%, -50%) rotate(4deg) scale(1); opacity: 0.85; }
+    }
+    @keyframes pg-heat-banner-in {
+      from { transform: translateY(-120%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes pg-cooled {
+      0% { transform: translate(-50%, -50%) scale(0.4) rotate(-5deg); opacity: 0; }
+      35% { transform: translate(-50%, -50%) scale(1.1) rotate(-5deg); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(0.8) rotate(-5deg); opacity: 0; }
     }
     @keyframes pg-mic-pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -480,7 +544,7 @@ export function PronunciationGameCanvas({
           inset: 0,
           zIndex: 0,
           background:
-            "radial-gradient(ellipse at center, #0e172a 0%, #05070c 75%)",
+            "radial-gradient(ellipse at center, #111827 0%, #05070c 74%)",
           display: cameraOk ? "none" : "block",
         }}
       />
@@ -501,70 +565,145 @@ export function PronunciationGameCanvas({
           display: cameraOk ? "block" : "none",
         }}
       />
-      <canvas
-        ref={starsRef}
+      {heatState === "heating" ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2,
+            pointerEvents: "none",
+            background:
+              "radial-gradient(circle at center, rgba(255, 120, 40, 0.2), rgba(255, 120, 40, 0.02) 55%, transparent 75%)",
+          }}
+        />
+      ) : null}
+      <div
         style={{
           position: "fixed",
-          inset: 0,
+          left: "50%",
+          top: "18%",
+          bottom: "14%",
+          width: 2,
+          transform: "translateX(-50%)",
           zIndex: 2,
+          background:
+            "linear-gradient(to bottom, transparent, rgba(255,255,255,0.08), transparent)",
           pointerEvents: "none",
         }}
       />
-      <div
-        ref={beltRef}
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 3,
-          pointerEvents: "none",
-        }}
-      >
-        {pills.map((p) => {
-          const w = words[p.wordIndex] ?? "";
-          const t = Math.min(
-            1,
-            (nowTick - p.spawnedAt) / Math.max(1, p.travelMs),
-          );
-          const pos = beltPosition(t, BELT_MODE);
-          const anim =
-            p.phase === "hit"
-              ? "pg-pill-hit 200ms ease-out forwards"
-              : p.phase === "miss"
-                ? "pg-pill-miss 320ms ease-out forwards"
-                : "pg-spring-in 180ms cubic-bezier(.34, 1.56, .64, 1) forwards";
-          return (
+
+      {!ended && !isComplete && expectedWord ? (
+        <div
+          key={`${cycleKey}-${wordIndex}`}
+          ref={blockWrapRef}
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            zIndex: 3,
+            pointerEvents: "none",
+            animation: blockAnim,
+            willChange: "transform, opacity",
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              minWidth: 280,
+              padding: "24px 48px",
+              borderRadius: 22,
+              border: "3px solid rgba(255,255,255,0.56)",
+              background:
+                heatState === "heating"
+                  ? "linear-gradient(135deg, #f97316, #fbbf24)"
+                  : "linear-gradient(135deg, #6D5EF5, #a78bfa)",
+              boxShadow:
+                heatState === "heating"
+                  ? "0 0 70px rgba(251, 146, 60, 0.78)"
+                  : "0 0 62px rgba(109,94,245,0.62)",
+              color: "white",
+              fontFamily: "'Fredoka', sans-serif",
+              fontSize: 72,
+              fontWeight: 800,
+              lineHeight: 1.1,
+              textAlign: "center",
+              textShadow: "0 2px 8px rgba(0,0,0,0.36)",
+              userSelect: "none",
+              zIndex: 2,
+            }}
+          >
+            {expectedWord}
+          </div>
+
+          {showHitBadge
+            ? [0, 100, 200].map((delay, i) => (
+                <div
+                  key={delay}
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    borderRadius: "50%",
+                    border: `3px solid ${
+                      i === 0 ? "#fbbf24" : i === 1 ? "#f472b6" : "#22d3ee"
+                    }`,
+                    transform: "translate(-50%, -50%)",
+                    animation: `pg-ring-expand 700ms ease-out ${delay}ms both`,
+                    pointerEvents: "none",
+                    zIndex: 0,
+                    boxSizing: "border-box",
+                  }}
+                />
+              ))
+            : null}
+
+          {showHitBadge ? (
             <div
-              key={p.id}
-              data-pill-id={p.id}
               style={{
                 position: "absolute",
-                left: `${pos.x}%`,
-                top: `${pos.y}%`,
-                transform: `translate(-50%, -50%) scale(${pos.scale})`,
-                opacity: pos.opacity,
-                padding: "14px 28px",
-                borderRadius: 18,
-                border: "2px solid rgba(255, 255, 255, 0.45)",
-                boxShadow: `0 10px 24px rgba(0,0,0,0.45), 0 0 40px ${p.palette[1]}44`,
+                left: "50%",
+                top: "50%",
                 fontFamily: "'Fredoka', sans-serif",
-                fontWeight: 700,
-                fontSize: 32,
-                lineHeight: 1,
+                fontWeight: 900,
+                fontSize: 30,
+                color: "#fbbf24",
+                textShadow: "0 0 12px #fbbf24",
+                animation: "pg-xp-float 900ms ease-out both",
+                pointerEvents: "none",
                 whiteSpace: "nowrap",
-                color: "white",
-                textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                userSelect: "none",
-                willChange: "transform, opacity",
-                background: `linear-gradient(135deg, ${p.palette[0]}, ${p.palette[1]})`,
-                animation: anim,
-                ["--enter-scale" as string]: String(pos.scale),
+                zIndex: 3,
               }}
             >
-              {w}
+              +{scoreForHit(hitStreak)} XP
             </div>
-          );
-        })}
-      </div>
+          ) : null}
+
+          {showWrongBadge ? (
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                fontFamily: "'Fredoka', sans-serif",
+                fontWeight: 900,
+                fontSize: 54,
+                color: "#FFF4E2",
+                WebkitTextStroke: "3px #000",
+                textShadow: "3px 3px 0 #6366f1, 4px 4px 0 #3730a3",
+                animation:
+                  "pg-miss-stamp 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
+                animationDelay: "80ms",
+                pointerEvents: "none",
+                whiteSpace: "nowrap",
+                zIndex: 20,
+              }}
+            >
+              ✕ MISS!
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <canvas
         ref={particlesRef}
         style={{
@@ -574,6 +713,55 @@ export function PronunciationGameCanvas({
           pointerEvents: "none",
         }}
       />
+
+      {heatState === "heating" ? (
+        <div
+          style={{
+            position: "fixed",
+            top: 42,
+            left: 0,
+            right: 0,
+            zIndex: 6,
+            display: "flex",
+            justifyContent: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "'Caveat', cursive",
+              fontSize: 52,
+              fontWeight: 700,
+              color: "#fbbf24",
+              textShadow: "0 2px 14px rgba(0,0,0,0.58)",
+              animation:
+                "pg-heat-banner-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+            }}
+          >
+            HEATING UP
+          </div>
+        </div>
+      ) : null}
+
+      {cooledDownStamp ? (
+        <div
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            zIndex: 7,
+            fontFamily: "'Fredoka', sans-serif",
+            fontSize: 34,
+            fontWeight: 900,
+            color: "#dbeafe",
+            textShadow: "0 2px 10px rgba(0,0,0,0.5)",
+            animation: "pg-cooled 800ms ease-out both",
+            pointerEvents: "none",
+          }}
+        >
+          COOLED DOWN
+        </div>
+      ) : null}
 
       <div
         style={{
@@ -607,16 +795,12 @@ export function PronunciationGameCanvas({
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: activeWordIndices.length ? "#10b981" : "#ef4444",
-              boxShadow: activeWordIndices.length
-                ? "0 0 10px #10b981"
-                : undefined,
-              animation: activeWordIndices.length
-                ? "pg-mic-pulse 1.4s infinite"
-                : undefined,
+              background: listening ? "#10b981" : "#ef4444",
+              boxShadow: listening ? "0 0 10px #10b981" : undefined,
+              animation: listening ? "pg-mic-pulse 1.4s infinite" : undefined,
             }}
           />
-          {activeWordIndices.length ? "listening" : "waiting"}
+          {listening ? "listening" : "waiting"}
         </div>
         <div
           style={{
@@ -633,7 +817,24 @@ export function PronunciationGameCanvas({
             pointerEvents: "auto",
           }}
         >
-          🔥 {streak}
+          FIRE {hitStreak}
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            top: 20,
+            right: 104,
+            padding: "10px 18px",
+            borderRadius: 999,
+            background:
+              "linear-gradient(135deg, rgba(52, 211, 153, 0.75), rgba(16, 185, 129, 0.85))",
+            fontSize: 15,
+            fontWeight: 600,
+            border: "1px solid rgba(255, 255, 255, 0.1)",
+            pointerEvents: "auto",
+          }}
+        >
+          STREAK {streak}
         </div>
         <div
           style={{
@@ -650,7 +851,7 @@ export function PronunciationGameCanvas({
             pointerEvents: "auto",
           }}
         >
-          ✨ {xp} XP
+          XP {xp}
         </div>
         <div
           style={{
@@ -702,7 +903,7 @@ export function PronunciationGameCanvas({
             }}
           >
             {wordsAttempted > 0 && hits / wordsAttempted >= 0.7
-              ? "🎉 amazing!"
+              ? "amazing!"
               : "keep practicing!"}
           </h1>
           <div
@@ -718,9 +919,9 @@ export function PronunciationGameCanvas({
               { v: hits, l: "words hit" },
               { v: xp, l: "xp earned" },
               { v: bestStreak, l: "best streak" },
-            ].map((s) => (
+            ].map((st) => (
               <div
-                key={s.l}
+                key={st.l}
                 style={{
                   padding: "18px 28px",
                   borderRadius: 18,
@@ -737,7 +938,7 @@ export function PronunciationGameCanvas({
                     lineHeight: 1,
                   }}
                 >
-                  {s.v}
+                  {st.v}
                 </div>
                 <div
                   style={{
@@ -748,49 +949,11 @@ export function PronunciationGameCanvas({
                     letterSpacing: "0.05em",
                   }}
                 >
-                  {s.l}
+                  {st.l}
                 </div>
               </div>
             ))}
           </div>
-          {flaggedWords.length > 0 ? (
-            <div style={{ marginTop: 14 }}>
-              <p style={{ fontSize: 15, opacity: 0.7 }}>tap to hear</p>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  justifyContent: "center",
-                  maxWidth: 600,
-                }}
-              >
-                {flaggedWords.map((fw) => (
-                  <button
-                    key={fw}
-                    type="button"
-                    style={{
-                      padding: "8px 16px",
-                      borderRadius: 999,
-                      background: "rgba(239, 68, 68, 0.18)",
-                      border: "1px solid rgba(239, 68, 68, 0.45)",
-                      cursor: "pointer",
-                      fontFamily: "'Fredoka', sans-serif",
-                      fontSize: 15,
-                      color: "white",
-                    }}
-                    onClick={() => {
-                      const u = new SpeechSynthesisUtterance(fw);
-                      u.rate = 0.8;
-                      speechSynthesis.speak(u);
-                    }}
-                  >
-                    🔊 {fw}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>
