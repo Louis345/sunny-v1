@@ -10,6 +10,7 @@ export type NodeType =
   | "target-blaster"
   | "hero-shield"
   | "karaoke"
+  | "pronunciation"
   | "word-radar"
   | "clock-game"
   | "coin-counter"

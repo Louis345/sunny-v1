@@ -85,6 +85,7 @@ export default defineConfig({
       "src/tests/test-mute-gate.ts",
       "src/tests/test-homework-word-selection.ts",
       "src/tests/test-homework-cycle.ts",
+      "src/tests/test-homework-selector.ts",
       "src/tests/test-ingest-homework-phase2.ts",
       "src/tests/test-ingest-scan-result.ts",
       "src/tests/test-companion-registry.ts",

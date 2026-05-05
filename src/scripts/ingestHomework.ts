@@ -84,6 +84,7 @@ export function buildHomeworkNodes(args: {
   /** Prior session misses — highest priority in SM-2 ordering (same as map `reinforceWords`). */
   missedWords?: string[];
   contentProfile?: ContentProfile | null;
+  capturedContent?: import("./contentAwareHomeworkPlanner").CapturedHomeworkContent;
 }): PlannedNode[] {
   return buildContentAwareHomeworkNodes(args);
 }

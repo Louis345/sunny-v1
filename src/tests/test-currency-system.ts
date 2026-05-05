@@ -3,6 +3,11 @@ import type { LearningProfile } from "../context/schemas/learningProfile";
 import type { MapState } from "../shared/adventureTypes";
 import * as learningProfileIO from "../utils/learningProfileIO";
 import { reconcileCompanionCurrencyAward } from "../server/currencyAward";
+import {
+  STORY_MOVIE_MAX_COST,
+  STORY_MOVIE_MIN_COST,
+  computeStoryMovieCost,
+} from "../shared/rewardEconomy";
 
 vi.mock("../utils/generateStoryImage", () => ({
   generateStoryImage: vi.fn().mockResolvedValue(null),
@@ -195,6 +200,13 @@ describe("companionCurrency — profile reconciliation", () => {
     expect(out.balance).toBe(105);
     expect(learningProfileIO.writeLearningProfile).not.toHaveBeenCalled();
   });
+
+  it("story movie price stays kid-friendly and capped", () => {
+    expect(computeStoryMovieCost(0)).toBe(STORY_MOVIE_MIN_COST);
+    expect(computeStoryMovieCost(9)).toBe(STORY_MOVIE_MIN_COST);
+    expect(computeStoryMovieCost(40)).toBe(8);
+    expect(computeStoryMovieCost(400)).toBe(STORY_MOVIE_MAX_COST);
+  });
 });
 
 describe("companionCurrency — map coordinator broadcast", () => {
@@ -247,5 +259,27 @@ describe("companionCurrency — map coordinator broadcast", () => {
     expect(send).toHaveBeenCalledTimes(1);
     const frame = JSON.parse(String(send.mock.calls[0]![0]));
     expect(frame).toEqual({ type: "currency_update", balance: 35 });
+  });
+
+  it("story movie purchase subtracts real coins and broadcasts the lower balance", async () => {
+    const send = vi.fn();
+    const ws = {
+      readyState: 1,
+      send,
+      once: vi.fn(),
+      off: vi.fn(),
+    } as unknown as WebSocket;
+    mapCoordinator.registerMapSessionWebSocket("ila", ws);
+    const { sessionId } = await mapCoordinator.startMapSession("ila");
+
+    const out = mapCoordinator.purchaseStoryMovieReward(sessionId, false);
+
+    expect(out).toEqual({ ok: true, cost: 8, balance: 12 });
+    expect(learningProfileIO.writeLearningProfile).toHaveBeenCalledWith(
+      "ila",
+      expect.objectContaining({ companionCurrency: 12 }),
+    );
+    const frame = JSON.parse(String(send.mock.calls.at(-1)?.[0]));
+    expect(frame).toEqual({ type: "currency_update", balance: 12 });
   });
 });

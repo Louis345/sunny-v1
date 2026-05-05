@@ -1,0 +1,108 @@
+{
+  "title": "Benchmark Advance Spelling Unit 9 Week 1",
+  "type": "spelling_test",
+  "gradeLevel": 2,
+  "testDate": null,
+  "words": [
+    "shiny",
+    "slowly",
+    "lucky",
+    "neatly",
+    "sunny",
+    "likely",
+    "messy",
+    "quickly",
+    "rainy",
+    "friendly",
+    "able",
+    "behind",
+    "carefully",
+    "common",
+    "easy",
+    "fact",
+    "remember",
+    "sure",
+    "vowel",
+    "whole"
+  ],
+  "contentProfile": {
+    "practiceDomain": "spelling",
+    "contentDomain": "language_arts",
+    "topic": "Words with -y or -ly Endings and High-Frequency Words",
+    "primarySkill": "Spelling accuracy with adjectival and adverbial endings",
+    "assignmentFormat": "Spelling word list with writing practice lines",
+    "concepts": [
+      "Adjectives ending in -y",
+      "Adverbs ending in -ly",
+      "High-frequency words",
+      "Vowel recognition",
+      "Phonetic patterns"
+    ],
+    "sourceEvidence": [
+      "No explicit cross-domain topic detected.",
+      "Left column header: 'Words with -y or -ly Endings'",
+      "Right column header: 'High-Frequency Words'",
+      "Words listed: shiny, slowly, lucky, neatly, sunny, likely, messy, quickly, rainy, friendly",
+      "High-frequency words: able, behind, carefully, common, easy, fact, remember, sure, vowel, whole",
+      "Practice lines provided for student writing"
+    ]
+  },
+  "capturedContent": {
+    "title": "Benchmark Advance Spelling Unit 9 Week 1",
+    "type": "spelling_test",
+    "rawText": "",
+    "words": [
+      "shiny",
+      "slowly",
+      "lucky",
+      "neatly",
+      "sunny",
+      "likely",
+      "messy",
+      "quickly",
+      "rainy",
+      "friendly",
+      "able",
+      "behind",
+      "carefully",
+      "common",
+      "easy",
+      "fact",
+      "remember",
+      "sure",
+      "vowel",
+      "whole"
+    ],
+    "questions": [],
+    "sourceDocuments": [
+      {
+        "filename": "5_4 spelling .pdf",
+        "mediaType": "application/pdf"
+      }
+    ],
+    "contentProfile": {
+      "practiceDomain": "spelling",
+      "contentDomain": "language_arts",
+      "topic": "Words with -y or -ly Endings and High-Frequency Words",
+      "primarySkill": "Spelling accuracy with adjectival and adverbial endings",
+      "assignmentFormat": "Spelling word list with writing practice lines",
+      "concepts": [
+        "Adjectives ending in -y",
+        "Adverbs ending in -ly",
+        "High-frequency words",
+        "Vowel recognition",
+        "Phonetic patterns"
+      ],
+      "sourceEvidence": [
+        "No explicit cross-domain topic detected.",
+        "Left column header: 'Words with -y or -ly Endings'",
+        "Right column header: 'High-Frequency Words'",
+        "Words listed: shiny, slowly, lucky, neatly, sunny, likely, messy, quickly, rainy, friendly",
+        "High-frequency words: able, behind, carefully, common, easy, fact, remember, sure, vowel, whole",
+        "Practice lines provided for student writing"
+      ]
+    }
+  },
+  "contentFingerprint": "b641cf24eb82f71e",
+  "questions": []
+}

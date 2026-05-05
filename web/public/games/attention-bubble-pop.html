@@ -61,7 +61,7 @@
       <h1>Preview results</h1>
       <p class="phase-note" id="writeMode">Would record in live mode</p>
       <pre id="summary"></pre>
-      <div class="actions"><button class="btn secondary" type="button" onclick="history.back()">Back to map</button></div>
+      <div class="actions"><button class="btn secondary" type="button" onclick="window.parent.postMessage({type:'map_back'}, '*')">Back to map</button></div>
     </div>
   </section>
 </div>

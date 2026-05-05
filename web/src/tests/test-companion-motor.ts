@@ -109,6 +109,90 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     expect(vrm.update).toHaveBeenCalled();
   });
 
+  it("frames humanoid bones instead of far mesh outliers", () => {
+    const scene = new THREE.Scene();
+    const root = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.45, 1.6, 0.28),
+      new THREE.MeshBasicMaterial(),
+    );
+    body.position.y = 0.8;
+    root.add(body);
+    const outlier = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.1, 0.1),
+      new THREE.MeshBasicMaterial(),
+    );
+    outlier.position.set(0, 60, 0);
+    root.add(outlier);
+    const head = new THREE.Bone();
+    head.position.set(0, 1.6, 0);
+    const leftFoot = new THREE.Bone();
+    leftFoot.position.set(-0.12, 0, 0);
+    const rightFoot = new THREE.Bone();
+    rightFoot.position.set(0.12, 0, 0);
+    root.add(head, leftFoot, rightFoot);
+    const bones: Record<string, THREE.Object3D> = { head, leftFoot, rightFoot };
+    const vrm = {
+      scene: root,
+      humanoid: {
+        getRawBoneNode: vi.fn((name: string) => bones[name] ?? null),
+      },
+      expressionManager: {
+        setValue: vi.fn(),
+        getExpression: vi.fn(() => ({})),
+      },
+      update: vi.fn(),
+    } as unknown as VRM;
+
+    motor.attachVrm(vrm, scene, 320, 480);
+
+    expect(camera.position.z).toBeLessThan(10);
+    expect(camera.position.y).toBeLessThan(2);
+  });
+
+  it("uses companion displayScale as a camera framing multiplier", () => {
+    const scene = new THREE.Scene();
+    const root = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.45, 1.6, 0.28),
+      new THREE.MeshBasicMaterial(),
+    );
+    body.position.y = 0.8;
+    root.add(body);
+    const vrm = {
+      scene: root,
+      humanoid: { getRawBoneNode: vi.fn(() => null) },
+      expressionManager: {
+        setValue: vi.fn(),
+        getExpression: vi.fn(() => ({})),
+      },
+      update: vi.fn(),
+    } as unknown as VRM;
+
+    motor.attachVrm(vrm, scene, 320, 480, {
+      companionId: "princess",
+      vrmUrl: "/companions/princess.vrm",
+      expressions: {},
+      faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
+      displayScale: 2,
+      dopamineGames: [],
+      sensitivity: {
+        session_start: 0,
+        correct_answer: 0,
+        wrong_answer: 0,
+        mastery_unlock: 0,
+        session_complete: 0,
+        session_end: 0,
+        idle_too_long: 0,
+      },
+      idleFrequency_ms: 8000,
+      randomMomentProbability: 0,
+      toggledOff: false,
+    });
+
+    expect(vrm.scene.scale.x).toBeCloseTo(2);
+  });
+
   it("returns through playAnimation idle path after a one-shot animation finishes", async () => {
     const removeEventListener = vi.fn();
     let finishedHandler: ((event?: unknown) => void) | undefined;

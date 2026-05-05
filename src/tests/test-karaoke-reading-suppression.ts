@@ -88,6 +88,34 @@ describe("karaoke reading transcript suppression", () => {
     expect(shouldSuppress("comprehension answer")).toBe(false);
   });
 
+  it("records skipped reading words as incorrect evidence when the story completes", () => {
+    const sm = new SessionManager(mockWs(), "Reina");
+    (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =
+      createSessionContext({ childName: "Reina", sessionType: "homework" });
+    (sm as unknown as { currentCanvasState: Record<string, unknown> }).currentCanvasState =
+      { mode: "karaoke" };
+
+    sm.receiveReadingProgress({
+      wordIndex: 3,
+      totalWords: 3,
+      accuracy: 1,
+      hesitations: 2,
+      flaggedWords: [],
+      skippedWords: ["evidence"],
+      spelledWords: ["moved", "soil", "shifted"],
+      event: "complete",
+    });
+
+    expect(recordAttemptMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        word: "evidence",
+        domain: "reading",
+        correct: false,
+      }),
+    );
+  });
+
   it("suppresses again after a new karaoke canvas is dispatched", () => {
     const sm = new SessionManager(mockWs(), "Ila");
     (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =

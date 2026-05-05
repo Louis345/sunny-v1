@@ -127,7 +127,7 @@ describe("TamagotchiSheet companion care", () => {
     expect(screen.getByText("Earn more food by finishing map nodes.")).toBeTruthy();
   });
 
-  it("uses a compact non-modal drawer and closes after feeding so the companion stays visible", () => {
+  it("uses a compact non-modal drawer and keeps food visible after feeding so quantities can update", () => {
     const onFeed = vi.fn();
     const onClose = vi.fn();
     render(
@@ -149,7 +149,7 @@ describe("TamagotchiSheet companion care", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /feed apple bite/i }));
     expect(onFeed).toHaveBeenCalledWith("apple_bite");
-    expect(onClose).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("keeps overflow inside the drawer body instead of stretching over the map", () => {

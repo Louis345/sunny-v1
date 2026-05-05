@@ -123,6 +123,27 @@ describe("handleGameEventForSession companion_event server routing", () => {
       }),
     );
   });
+
+  it("does not start a second spoken companion turn for companion_care_event while a turn is already in flight", async () => {
+    const runCompanionResponse = vi.fn(async (_message: string) => {});
+    const session = makeSession({ runCompanionResponse });
+    session.turnSM.onStartCompanionFromIdle();
+
+    handleGameEventForSession(session, {
+      type: "companion_care_event",
+      itemId: "apple_bite",
+      animation: { reference: "animation-a", itemId: "apple_bite" },
+      companionCare: { moodLabel: "bright" },
+    });
+
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(runCompanionResponse).not.toHaveBeenCalled();
+    expect(session.noteExternalEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "companion_care_event",
+      }),
+    );
+  });
 });
 
 // ─── 3. useSession iframe allowlist includes companion_event ─────────────────

@@ -125,7 +125,7 @@ describe("CompanionCareProvider", () => {
     const { result } = renderHook(() => useCompanionCare(), { wrapper });
 
     await result.current.feed("apple_bite");
-    await waitFor(() => expect(result.current.behavior.animation).toBe("silly_laugh"));
+    await waitFor(() => expect(result.current.behavior.presentationState).toBe("feeding"));
     const firstEventId = result.current.behavior.animationEventId;
 
     await result.current.feed("apple_bite");
@@ -133,7 +133,7 @@ describe("CompanionCareProvider", () => {
       expect(result.current.behavior.animationEventId).not.toBe(firstEventId),
     );
 
-    expect(result.current.behavior.animation).toBe("silly_laugh");
+    expect(result.current.behavior.animation).toBeUndefined();
     expect(result.current.behavior.presentationState).toBe("feeding");
     expect(firstEventId).toBeTruthy();
   });
@@ -223,6 +223,7 @@ describe("CompanionCareProvider", () => {
       expect(latest?.care).toBe(nextCare);
       expect(latest?.lastFeedAnimation?.reference).toBe("animation-a");
       expect(latest?.behavior.presentationState).toBe("feeding");
+      expect(latest?.behavior.animation).toBeUndefined();
       expect(latest?.behavior.feedAnimation?.itemId).toBe("apple_bite");
     });
   });

@@ -22,6 +22,7 @@ import {
   broadcastTestMapCompanionEvent,
   handleMapClientMessage,
   MapSessionError,
+  purchaseStoryMovieReward,
   recordExplicitMapRating,
   startMapSession,
   listSavedThemes,
@@ -1014,6 +1015,32 @@ Return plain text only.`,
       }
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/map/story-reward-purchase", (req: Request, res: Response) => {
+    const body = req.body as {
+      sessionId?: string;
+      preview?: string | boolean;
+    };
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId required" });
+    }
+    try {
+      const pv = body.preview;
+      const clientPreviewFree = pv === "free" || pv === true;
+      const out = purchaseStoryMovieReward(sessionId, clientPreviewFree);
+      if (!out.ok) {
+        return res.status(409).json(out);
+      }
+      return res.json(out);
+    } catch (err: unknown) {
+      if (err instanceof MapSessionError) {
+        return res.status(err.statusCode).json({ error: err.message });
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ error: message });
     }
   });
 

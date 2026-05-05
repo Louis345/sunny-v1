@@ -86,7 +86,6 @@ describe("deriveCompanionBehavior", () => {
       feedAnimation: normal,
       presentationState: "feeding",
       emote: "happy",
-      animation: "silly_laugh",
     });
     expect(deriveCompanionBehavior(care("happy"), rare)).toMatchObject({
       feedAnimation: rare,

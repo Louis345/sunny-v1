@@ -24,6 +24,7 @@ const INGEST_INFERRED_ANIMATION_EMOTES: Partial<
 > = {
   "blow_a_kiss": "happy",
   "defeated": "sad",
+  "fireball": "neutral",
   "hip_hop_dancing": "celebrating",
   "hip_hop_dancing_2": "celebrating",
   "idle_stand": "neutral",

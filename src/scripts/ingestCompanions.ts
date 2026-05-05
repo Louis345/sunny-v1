@@ -18,6 +18,7 @@ type PromptCompanionConfig = {
   ttsName?: unknown;
   unlockCost?: unknown;
   vrmPath?: unknown;
+  displayScale?: unknown;
   showInShowroom?: unknown;
   defaultFor?: unknown;
   /** When true, excluded from CompanionRegistry; still listed in intro showroom manifest. */
@@ -55,8 +56,10 @@ type ShowroomSignatureMove = {
   id: string;
   name: string;
   trait: string;
+  animation?: string;
   visibleLevels: string[];
   voiceLine: string;
+  audioUrl?: string;
   vfx: string[];
   sfx: string[];
 };
@@ -176,7 +179,9 @@ function asSignatureMove(value: unknown): ShowroomSignatureMove | undefined {
   const id = asString(obj.id);
   const name = asString(obj.name);
   const trait = asString(obj.trait);
+  const animation = asString(obj.animation);
   const voiceLine = asString(obj.voiceLine);
+  const audioUrl = asString(obj.audioUrl);
   const visibleLevels = asStringArray(obj.visibleLevels);
   const vfx = asStringArray(obj.vfx);
   const sfx = asStringArray(obj.sfx);
@@ -185,8 +190,10 @@ function asSignatureMove(value: unknown): ShowroomSignatureMove | undefined {
     id,
     name,
     trait,
+    ...(animation ? { animation } : {}),
     visibleLevels,
     voiceLine,
+    ...(audioUrl ? { audioUrl } : {}),
     vfx,
     sfx,
   };
@@ -235,15 +242,31 @@ export function asVoiceOptions(
 export function buildManifestCompanionConfig(
   companionId: string,
   showroomVrmUrl: string,
-  childrenConfig: Pick<ChildrenConfigFile, "companions"> = readChildrenConfig(),
+  configOrChildren:
+    | PromptCompanionConfig
+    | Pick<ChildrenConfigFile, "companions"> = {},
+  childrenConfigArg?: Pick<ChildrenConfigFile, "companions">,
 ): SharedCompanionConfig {
+  const config =
+    "companions" in configOrChildren
+      ? {}
+      : (configOrChildren as PromptCompanionConfig);
+  const childrenConfig =
+    "companions" in configOrChildren
+      ? configOrChildren
+      : childrenConfigArg ?? readChildrenConfig();
   const preset = childrenConfig.companions[companionId];
   if (preset) {
     return companionConfigFromPreset(companionId, preset);
   }
+  const displayScale =
+    typeof config.displayScale === "number" && Number.isFinite(config.displayScale)
+      ? config.displayScale
+      : undefined;
   return mergeCompanionConfigWithDefaults({
     companionId,
     vrmUrl: showroomVrmUrl,
+    ...(displayScale === undefined ? {} : { displayScale }),
   });
 }
 
@@ -351,8 +374,10 @@ export type CompanionManifestEntry = {
       id: string;
       name: string;
       trait: string;
+      animation?: string;
       visibleLevels: string[];
       voiceLine: string;
+      audioUrl?: string;
       vfx: string[];
       sfx: string[];
     };
@@ -440,7 +465,7 @@ export function main(): void {
       unlockCost,
       voiceAvailable: voices.length > 0,
       voices,
-      companionConfig: buildManifestCompanionConfig(dir.name, vrmUrl),
+      companionConfig: buildManifestCompanionConfig(dir.name, vrmUrl, config),
       defaultFor: asDefaultFor(config.defaultFor),
       ...(config.introOnly === true ? { introOnly: true as const } : {}),
       showroom: buildShowroom(name, showroom),

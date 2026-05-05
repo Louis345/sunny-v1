@@ -962,18 +962,6 @@ function App() {
     if (!sessionReady) {
       main = (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-          <button
-            type="button"
-            className="absolute top-3 left-3 z-[9100] rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
-            onClick={() => {
-              setCompanionSheetOpen(false);
-              setAdventureChildId(null);
-              setSelectedChildName(null);
-              resetToPicker();
-            }}
-          >
-            Back
-          </button>
           {theaterLoadingEnabled ? (
             <SessionLoadingOverlay
               childName={
@@ -1016,22 +1004,6 @@ function App() {
     } else {
     main = (
       <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-        <button
-          type="button"
-          className="absolute top-3 left-3 z-[9100] rounded-lg bg-white/90 px-3 py-1.5 text-sm text-zinc-900 shadow"
-          onClick={() => {
-            if (mapSession.launchedNode) {
-              mapSession.clearLaunchedNode();
-              return;
-            }
-            setCompanionSheetOpen(false);
-            setAdventureChildId(null);
-            setSelectedChildName(null);
-            resetToPicker();
-          }}
-        >
-          {mapSession.launchedNode ? "Back to map" : "Back"}
-        </button>
         <AdventureMap
           childId={adventureChildId}
           mapSession={mapSession}
@@ -1130,6 +1102,7 @@ function App() {
                 onComplete={(result) => {
                   sendMessage("pronunciation_complete", result);
                 }}
+                onExit={sendCanvasDone}
               />
             </div>
           )}
@@ -1398,6 +1371,7 @@ function App() {
               sendMessage("pronunciation_complete", result);
               closeDiagFlowGame();
             }}
+            onExit={closeDiagFlowGame}
           />
         </FlowGameOverlay>
       ) : null}

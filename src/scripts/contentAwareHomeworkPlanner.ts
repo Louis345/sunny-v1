@@ -664,59 +664,102 @@ function moodPhraseForStoryImage(tags: string[], fallback: string): string {
   return `${selected.join(", ")} adventure mood`;
 }
 
+function childHookLine(name: string, tags: string[]): string {
+  const interestText = tags.join(" ").toLowerCase();
+  const isReina = name.trim().toLowerCase() === "reina";
+  if (isReina && interestText.includes("wrestling")) {
+    return `${name} treated it like a wrestling challenge and looked for the smartest next move.`;
+  }
+  if (interestText.includes("strategy")) {
+    return `${name} turned it into a strategy challenge and searched for the strongest clue first.`;
+  }
+  if (interestText.includes("competition")) {
+    return `${name} treated it like a competition and tried to beat the challenge with careful thinking.`;
+  }
+  if (interestText.includes("personal best")) {
+    return `${name} focused on beating a personal best by explaining the idea more clearly each round.`;
+  }
+  return `${name} turned it into a focused learning challenge.`;
+}
+
+function capturedQuestionAnswers(captured: CapturedHomeworkContent | undefined): string[] {
+  const questions = Array.isArray(captured?.questions) ? captured.questions : [];
+  return cleanList(
+    questions.flatMap((question) => {
+      if (!question || typeof question !== "object") return [];
+      const record = question as Record<string, unknown>;
+      return [record.correctAnswer, record.hint, record.question];
+    }),
+  );
+}
+
+function storyEvidenceLines(args: {
+  profile: ContentProfile;
+  capturedContent?: CapturedHomeworkContent;
+}): string[] {
+  const { profile, capturedContent } = args;
+  const rawParts = cleanList([
+    ...(capturedContent?.rawText ? capturedContent.rawText.split(/[\n.]+/) : []),
+    ...capturedQuestionAnswers(capturedContent),
+    ...profile.sourceEvidence,
+  ]);
+  const normalized = rawParts.map((part) => part.replace(/\s+/g, " ").trim());
+  const matches: string[] = [];
+  for (const line of normalized) {
+    const lower = line.toLowerCase();
+    if (
+      profile.topic.toLowerCase().includes("erosion") &&
+      lower.includes("wear away rocks and soil")
+    ) {
+      matches.push("Erosion happens when wind, water, or ice wear away rocks and soil.");
+      continue;
+    }
+    if (profile.topic.toLowerCase().includes("erosion") && lower.includes("downhill")) {
+      matches.push("Rivers and water flow downhill, often from mountains toward lakes, beaches, or oceans.");
+      continue;
+    }
+    if (profile.topic.toLowerCase().includes("erosion") && lower.includes("sand")) {
+      matches.push("Sand and soil can move to new places when water keeps carrying them along.");
+      continue;
+    }
+  }
+  return cleanList(matches).slice(0, 3);
+}
+
 function storyForContent(args: {
   childId: string;
   profile: ContentProfile;
   words: string[];
   childInterests: string[];
   childContextSummary: string;
+  capturedContent?: CapturedHomeworkContent;
 }): {
   title: string;
   text: string;
   imagePrompt: string;
 } {
-  const { childId, profile, words, childInterests } = args;
+  const { childId, profile, words, childInterests, capturedContent } = args;
   const topic = profile.topic || "today's homework";
   const conceptLine = profile.concepts.slice(0, 5).join(", ") || topic;
   const name = childStoryName(childId);
   const practiceSentence = practiceWordsSentence(name, words);
-  const isReina = childId.trim().toLowerCase() === "reina";
-  const interestText = childInterests.join(" ").toLowerCase();
-  if (profile.contentDomain === "science" && topic.toLowerCase().includes("erosion")) {
-    const reinaOpening = interestText.includes("wrestling")
-      ? "Reina stepped into the muddy training valley like it was a wrestling mat and studied the first move."
-      : "Reina stepped into the muddy training valley like it was a high-challenge course and studied the first move.";
-    const reinaStrategy = interestText.includes("personal best")
-      ? "Her mission was to use strategy, compare faster and slower water, and beat her personal best by explaining why the landform changed."
-      : "Her mission was to use strategy, compare faster and slower water, and explain why the landform changed.";
-    const text = isReina
-      ? [
-          reinaOpening,
-          "A storm timer started, and water rushed downhill, pushed soil loose, and carried tiny rocks into a new channel.",
-          "Reina called the pattern erosion: land slowly changing when water, wind, and gravity keep working.",
-          reinaStrategy,
-          practiceSentence,
-          "At the finish, Reina won the round by pointing to the evidence: moved soil, shifted sand, and a hill that looked different than before.",
-        ].filter(Boolean).join(" ")
-      : [
-          `${name} watched rain rush down a small hill and carry bits of soil away.`,
-          `${name} learned that this slow change is called erosion.`,
-          "When water moved faster, it covered more ground and pulled tiny rocks along.",
-          "When the water moved slower, the soil settled in a new place and formed a changed landform.",
-          practiceSentence,
-          `${name} used the clues from water, wind, rocks, and soil to explain how the hill changed.`,
-        ].filter(Boolean).join(" ");
+  const evidenceLines = storyEvidenceLines({ profile, capturedContent });
+  if (capturedContent && evidenceLines.length > 0) {
+    const text = [
+      `${name} opened the homework like a real mission and searched for the most important clues first.`,
+      childHookLine(name, childInterests),
+      ...evidenceLines,
+      `${name} used those clues to explain ${topic} in a way that matched the worksheet evidence.`,
+      practiceSentence,
+    ].filter(Boolean).join(" ");
     return {
-      title: isReina ? "Reina and the Hill That Changed" : `${name} and the Hill That Changed`,
+      title: `${name} and ${topic}`,
       text,
       imagePrompt:
-        `A child-friendly illustrated scene of ${name} as the central visible character studying erosion outdoors: rainwater flowing down a hill, soil and small rocks moving, landforms changing, ${isReina ? moodPhraseForStoryImage(childInterests, "confident strategy adventure mood") : "curious learning mood"}.`,
+        `A child-friendly illustrated scene of ${name} as the central visible character learning about ${topic}. Use a homework-relevant background that shows ${conceptLine}. Keep the child recognizable and visually distinct with strong foreground/background contrast. Mood: ${moodPhraseForStoryImage(childInterests, "curious learning mood")}.`,
     };
   }
-  const interestLine =
-    childInterests.length > 0
-      ? `${name} turned it into a ${childInterests.slice(0, 3).join(", ")} challenge.`
-      : `${name} turned it into a focused learning challenge.`;
+  const interestLine = childHookLine(name, childInterests);
   const text = [
     `${name} is learning about ${topic}.`,
     `Key ideas include ${conceptLine}.`,
@@ -799,6 +842,7 @@ export function buildContentAwareHomeworkNodes(args: {
   testDate?: string | null;
   missedWords?: string[];
   contentProfile?: ContentProfile | null;
+  capturedContent?: CapturedHomeworkContent;
 }): PlannedHomeworkNode[] {
   const spellingNodes =
     args.type === "spelling_test"
@@ -834,6 +878,7 @@ export function buildContentAwareHomeworkNodes(args: {
     words: args.words.length > 0 ? args.words : carePlan.reinforcementWords,
     childInterests: childInterestTags(args.childId, childContextSummary),
     childContextSummary,
+    capturedContent: args.capturedContent,
   });
   return [
     ...(args.type === "spelling_test"

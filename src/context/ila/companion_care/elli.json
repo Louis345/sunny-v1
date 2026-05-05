@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "childId": "ila",
+  "companionId": "elli",
+  "state": {
+    "hunger": 1,
+    "mood": 0.8500000000000001,
+    "bond": 0.3,
+    "energy": 0.8,
+    "usefulness": 0.9,
+    "thoughtClarity": 0.7,
+    "lastSeenAt": "2026-05-05T00:45:27.120Z",
+    "lastFedAt": "2026-05-05T00:45:27.120Z"
+  },
+  "memory": {
+    "firstMetAt": "2026-05-04T19:53:18.358Z"
+  },
+  "inventory": {
+    "food": [
+      {
+        "id": "apple_bite",
+        "label": "Apple Bite",
+        "description": "A crisp snack for quick hunger repair.",
+        "quantity": 2,
+        "rarity": "common"
+      },
+      {
+        "id": "brain_berry",
+        "label": "Brain Berry",
+        "description": "Helps the companion think clearly.",
+        "quantity": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "cozy_soup",
+        "label": "Cozy Soup",
+        "description": "Restores energy after hard work.",
+        "quantity": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "star_candy",
+        "label": "Star Candy",
+        "description": "A small celebration treat.",
+        "quantity": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "mystery_snack",
+        "label": "Mystery Snack",
+        "description": "A rare earned reward.",
+        "quantity": 1,
+        "rarity": "rare"
+      }
+    ],
+    "careItems": []
+  },
+  "economy": {
+    "coins": 4475,
+    "storeUnlocks": []
+  },
+  "updatedAt": "2026-05-05T00:52:56.597Z"
+}

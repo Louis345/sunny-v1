@@ -72,7 +72,18 @@ describe("CompanionShowroom command source", () => {
     expect(source).not.toContain("Object.values(motorsRef.current).forEach");
   });
 
-  it("keeps the signature move visual-only so it cannot reintroduce T-rex retarget poses", () => {
+  it("does not let hidden companion slots block the showroom opening curtain", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain(".filter((slot) => slot.slot !== \"hidden\")");
+    expect(source).toContain("visibleSlotKeys.every((slotKey)");
+    expect(source).not.toContain("expectedSlotKeys.every((slotKey)");
+  });
+
+  it("keeps the signature move on authored audio and animation paths", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
       "utf8",
@@ -82,9 +93,42 @@ describe("CompanionShowroom command source", () => {
     )?.[0];
 
     expect(signatureMoveBody).toBeDefined();
-    expect(signatureMoveBody).toContain("playPowerUpSfx");
-    expect(signatureMoveBody).not.toContain("playCurrentCompanionAnimation");
+    expect(signatureMoveBody).toContain("playSignatureMoveAudio");
+    expect(signatureMoveBody).toContain("playCurrentCompanionAnimation(signatureMove.animation");
     expect(signatureMoveBody).not.toContain("createShowroomAnimateCommand");
+    expect(signatureMoveBody).not.toContain(".playAnimation(");
+  });
+
+  it("maps Kefla's signature move to the MP3 and authored fireball animation", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+    const generatedSource = readFileSync(
+      resolve(__dirname, "../companion/companions.generated.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("function playSignatureMoveAudio");
+    expect(source).toContain("new Audio(audioUrl)");
+    expect(generatedSource).toContain('"animation": "fireball"');
+    expect(generatedSource).toContain('"audioUrl": "/sfx/kefla-power-up.mp3"');
+  });
+
+  it("keeps the power-up visual active until the signature MP3 ends", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+    const signatureMoveBody = source.match(
+      /const playSignatureMove = useCallback\([\s\S]*?\n  \}, \[/,
+    )?.[0];
+
+    expect(source).toContain("onEnded: () => {");
+    expect(source).toContain('audio.addEventListener("ended", onEnded');
+    expect(signatureMoveBody).toBeDefined();
+    expect(signatureMoveBody).toContain("onEnded: () =>");
+    expect(signatureMoveBody).not.toContain('setSignatureMoveLevel("idle");\n    }, 2600)');
   });
 
   it("uses one signature move VFX source for both the stage render and meet card render", () => {
@@ -106,10 +150,9 @@ describe("CompanionShowroom command source", () => {
     );
 
     expect(source).not.toContain("applyNeutralPresentationPoseToVrm");
-    expect(source).not.toContain("getNormalizedBoneNode");
-    expect(source).not.toContain("getRawBoneNode");
-    expect(source).not.toContain("leftUpperArm");
-    expect(source).not.toContain("rightUpperArm");
+    expect(source).not.toContain("setRawPose");
+    expect(source).not.toContain("setNormalizedPose");
+    expect(source).toContain("resolveHumanoidBounds");
   });
 
   it("renders Kefla's aura through a Three.js VFX layer instead of CSS pose hacks", () => {
@@ -173,6 +216,16 @@ describe("CompanionShowroom command source", () => {
     expect(source).toContain('motor?.setCameraAngle("mid-shot", 680)');
     expect(source).toContain('motor.setCameraAngle("mid-shot", 0)');
     expect(source).not.toContain('contained ? "mid-shot" : "full-body"');
+  });
+
+  it("honors companion displayScale without adding pose writers", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("companionConfig.displayScale");
+    expect(source).toContain("transformOrigin: \"50% 92%\"");
   });
 
   it("ticks showroom motors with a companion config instead of null like the diag path", () => {

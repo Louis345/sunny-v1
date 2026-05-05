@@ -442,6 +442,40 @@ describe("content-aware homework planner", () => {
       childId: "reina",
       type: "reading",
       words: [],
+      capturedContent: buildCapturedHomeworkContent({
+        title: "Erosion reading comprehension",
+        type: "reading",
+        rawText:
+          "Erosion happens when wind, water, or ice wear away rocks and soil. Rivers flow downhill from mountains to oceans or lakes.",
+        words: ["erosion", "wear away", "rocks", "soil", "wind", "water", "ice", "rivers"],
+        questions: [
+          {
+            id: 1,
+            question: "What is erosion?",
+            correctAnswer:
+              "Erosion happens when wind, water, or ice wear away rocks and soil",
+          },
+          {
+            id: 2,
+            question: "How do rivers usually flow?",
+            correctAnswer: "Downhill, from mountains to oceans or lakes",
+          },
+        ],
+        contentProfile: normalizeContentProfile({
+          title: "Erosion reading comprehension",
+          type: "reading",
+          words: [],
+          questions: [],
+          contentProfile: {
+            practiceDomain: "reading",
+            contentDomain: "science",
+            topic: "erosion",
+            primarySkill: "reading_comprehension",
+            assignmentFormat: "study_guide",
+            concepts: ["erosion", "water", "wind", "rocks", "soil", "landforms"],
+          },
+        }),
+      }),
       contentProfile: normalizeContentProfile({
         title: "Erosion reading comprehension",
         type: "reading",
@@ -476,13 +510,19 @@ describe("content-aware homework planner", () => {
     expect(nodes[3]?.rationale).toMatch(/academic vocabulary/i);
     expect(nodes[4]?.carePlan?.role).toBe("exit-evaluator");
     expect(reinaMentions).toBeGreaterThanOrEqual(1);
+    expect(story).toMatch(/wind, water, or ice wear away rocks and soil/i);
+    expect(story).toMatch(/downhill/i);
     expect(story).toMatch(/\b(wrestling|challenge|competition|strategy|personal best)\b/i);
     expect(story).toMatch(/\b(mission|timer|round|training)\b/i);
     expect(imagePrompt).toMatch(/\bReina\b/);
     expect(imagePrompt).toMatch(/\berosion\b/i);
+    expect(imagePrompt).toMatch(/\bcentral visible character\b/i);
+    expect(imagePrompt).toMatch(/\bbackground\b/i);
+    expect(imagePrompt).toMatch(/\bcontrast\b/i);
     expect(imagePrompt).not.toMatch(/\bchallenge challenge\b/i);
     expect(story).not.toContain("noticed the words  while");
     expect(story).not.toContain("The practice words are .");
+    expect(story).not.toContain("Reina stepped into the muddy training valley like it was a wrestling mat");
   });
 
   it("personalizes non-Reina stories without Reina-specific framing", () => {

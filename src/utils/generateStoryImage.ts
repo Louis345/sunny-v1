@@ -57,6 +57,8 @@ export async function generateStoryImage(
     Pixar 3D animation quality,
     warm vibrant colors, soft lighting.
     Scene: ${scene}.
+    Use a homework-relevant background that reinforces the concept in the scene.
+    Keep the child or main subject as the clear focal point with strong foreground/background contrast.
     Style: joyful, age 7, no text in image,
     wide cinematic composition,
     magical storybook feeling.`;

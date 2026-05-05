@@ -2,25 +2,72 @@ import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { classifyKaraokeWordMatch } from "../../../src/shared/karaokeMatchWord";
 import { useKaraokeReading } from "../hooks/useKaraokeReading";
+import { playGameSfx } from "../utils/gameSfx";
 
 const FONT_LINK =
   "https://fonts.googleapis.com/css2?family=Fredoka:wght@700;800;900&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap";
 
 const TRAVEL_MS = 3000;
 const ZONE_MS = 2000;
-const TOTAL_MS = TRAVEL_MS + ZONE_MS;
 const GAME_MS = 60_000;
 const HEAT_THRESHOLD = 3;
+const COMBO_BREAKER_STREAK = 8;
+const COMBO_BREAKER_BANNER_MS = 1800;
 const HIT_MS = 300;
 const YANK_OUT_MS = 300;
 const YANK_BACK_MS = 400;
 const WRONG_DEBOUNCE_MS = 1200;
 const HEARD_STICKY_MS = 450;
+
+function transcriptWords(text: string): string[] {
+  return text.trim().split(/\s+/).filter(Boolean);
+}
+
+function lastTranscriptWord(text: string): string {
+  return transcriptWords(text).at(-1) ?? "";
+}
+
+function transcriptMatchesExpectedPhrase(
+  heardWords: string[],
+  expected: string,
+): "match" | "partial" | "mismatch" {
+  const expectedTokens = expected.split(/\s+/).filter(Boolean);
+  if (expectedTokens.length <= 1) {
+    let result: "match" | "partial" | "mismatch" = "mismatch";
+    for (const heardWord of heardWords) {
+      const candidate = classifyKaraokeWordMatch(heardWord, expected);
+      if (candidate === "match") return "match";
+      if (candidate === "partial") result = "partial";
+    }
+    return result;
+  }
+  const normalizedExpected = expectedTokens.join(" ");
+  for (let start = 0; start <= heardWords.length - expectedTokens.length; start += 1) {
+    const phrase = heardWords.slice(start, start + expectedTokens.length).join(" ");
+    if (classifyKaraokeWordMatch(phrase, normalizedExpected) === "match") {
+      return "match";
+    }
+    if (
+      classifyKaraokeWordMatch(
+        phrase.replace(/\s+/g, ""),
+        normalizedExpected.replace(/\s+/g, ""),
+      ) === "match"
+    ) {
+      return "match";
+    }
+  }
+  const partialPhrase = heardWords.slice(-expectedTokens.length).join(" ");
+  return partialPhrase &&
+    classifyKaraokeWordMatch(partialPhrase, normalizedExpected) === "partial"
+    ? "partial"
+    : "mismatch";
+}
 
 let _audioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
@@ -96,6 +143,7 @@ export interface PronunciationGameCanvasProps {
   backgroundImageUrl?: string;
   accentColor?: string;
   onComplete?: (result: PronunciationCompleteResult) => void;
+  onExit?: () => void;
   /** Extra top padding (px) to clear a fixed banner above the component. */
   topInset?: number;
 }
@@ -125,15 +173,80 @@ function scoreForHit(hitStreakAfterHit: number, displayStreak: number): number {
   return Math.round(10 * mult);
 }
 
+function pronunciationSpeedMultiplier(hitStreak: number): number {
+  if (hitStreak >= COMBO_BREAKER_STREAK) return 1.4;
+  if (hitStreak >= 5) return 1.25;
+  if (hitStreak >= HEAT_THRESHOLD) return 1.12;
+  return 1;
+}
+
+const LOW_VALUE_PRONUNCIATION_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "away",
+  "by",
+  "down",
+  "for",
+  "from",
+  "in",
+  "into",
+  "of",
+  "on",
+  "or",
+  "out",
+  "over",
+  "the",
+  "to",
+  "under",
+  "up",
+  "with",
+]);
+
+function pronunciationTargetTokens(rawWord: string): string[] {
+  const tokens = rawWord
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const meaningfulTokens = tokens.filter(
+    (token) => token.length >= 3 && !LOW_VALUE_PRONUNCIATION_WORDS.has(token),
+  );
+  return meaningfulTokens.length > 0 ? meaningfulTokens : tokens.slice(0, 1);
+}
+
+function dedupePronunciationWords(words: string[]): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const word of words) {
+    for (const target of pronunciationTargetTokens(word)) {
+      if (!target || seen.has(target)) continue;
+      seen.add(target);
+      deduped.push(target);
+    }
+  }
+  return deduped;
+}
+
+function pronunciationWordsKey(words: string[]): string {
+  return words.flatMap(pronunciationTargetTokens).join("\u0001");
+}
+
 export function PronunciationGameCanvas({
-  words,
+  words: rawWords,
   interimTranscript,
   sendMessage,
   backgroundImageUrl: _backgroundImageUrl, // eslint-disable-line @typescript-eslint/no-unused-vars
   accentColor: _accentColor, // eslint-disable-line @typescript-eslint/no-unused-vars
   onComplete,
+  onExit,
   topInset = 0,
 }: PronunciationGameCanvasProps): React.ReactElement {
+  const rawWordsKey = pronunciationWordsKey(rawWords);
+  const words = useMemo(() => dedupePronunciationWords(rawWords), [rawWordsKey]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const particlesRef = useRef<HTMLCanvasElement>(null);
   const particlesDataRef = useRef<Particle[]>([]);
@@ -152,12 +265,14 @@ export function PronunciationGameCanvas({
   const timeoutArmedRef = useRef(true);
   const interimRef = useRef(interimTranscript);
   const heardClearTimeoutRef = useRef<number | null>(null);
+  const comboBannerTimeoutRef = useRef<number | null>(null);
   const wordIndexRef = useRef(0);
   const hitsRef = useRef(0);
   const wordsAttemptedRef = useRef(0);
   const xpRef = useRef(0);
   const flaggedWordsRef = useRef<string[]>([]);
   const missCountByWordRef = useRef<Map<string, number>>(new Map());
+  const bonusWordIndexRef = useRef<number | null>(null);
 
   const [cameraOk, setCameraOk] = useState(false);
   const [hasStarted, setHasStarted] = useState(true);
@@ -175,6 +290,10 @@ export function PronunciationGameCanvas({
   const [bestStreak, setBestStreak] = useState(0);
   const [heatBanner, setHeatBanner] = useState<"off" | "heating">("off");
   const [heardTranscript, setHeardTranscript] = useState("");
+  const [bonusWordIndex, setBonusWordIndex] = useState<number | null>(null);
+  const [comboBreakerBanner, setComboBreakerBanner] = useState(false);
+  const [lastHitXp, setLastHitXp] = useState(0);
+  const [lastHitWasBonus, setLastHitWasBonus] = useState(false);
 
   const {
     wordIndex,
@@ -185,6 +304,7 @@ export function PronunciationGameCanvas({
     interimTranscript,
     sendMessage,
     mode: "sequential",
+    suppressDuplicateTranscriptMatches: true,
   });
 
   useEffect(() => {
@@ -195,7 +315,14 @@ export function PronunciationGameCanvas({
         window.clearTimeout(heardClearTimeoutRef.current);
         heardClearTimeoutRef.current = null;
       }
-      setHeardTranscript(trimmed.split(/\s+/).filter(Boolean).pop() ?? trimmed);
+      const expected = words[wordIndexRef.current] ?? "";
+      const expectedTokenCount = expected.split(/\s+/).filter(Boolean).length;
+      const heardWords = transcriptWords(trimmed);
+      setHeardTranscript(
+        expectedTokenCount > 1
+          ? heardWords.slice(-expectedTokenCount).join(" ") || trimmed
+          : heardWords.at(-1) ?? trimmed,
+      );
       return;
     }
     if (heardClearTimeoutRef.current !== null) {
@@ -211,6 +338,9 @@ export function PronunciationGameCanvas({
     return () => {
       if (heardClearTimeoutRef.current !== null) {
         window.clearTimeout(heardClearTimeoutRef.current);
+      }
+      if (comboBannerTimeoutRef.current !== null) {
+        window.clearTimeout(comboBannerTimeoutRef.current);
       }
     };
   }, []);
@@ -228,6 +358,11 @@ export function PronunciationGameCanvas({
     wordIndex < words.length ? (words[wordIndex] ?? "") : "";
   const heard =
     heardTranscript || interimTranscript.trim().split(/\s+/).filter(Boolean).pop() || "—";
+  const speedMultiplier = pronunciationSpeedMultiplier(hitStreak);
+  const travelMs = Math.round(TRAVEL_MS / speedMultiplier);
+  const zoneMs = Math.round(ZONE_MS / speedMultiplier);
+  const totalMs = travelMs + zoneMs;
+  const heatedUp = hitStreak >= HEAT_THRESHOLD;
 
   const burst = useCallback((x: number, y: number) => {
     const colors = ["#4ade80", "#86efac", "#bbf7d0", "#fff"];
@@ -303,11 +438,57 @@ export function PronunciationGameCanvas({
       setHitStreak(0);
       setBestStreak(0);
       setHeatBanner("off");
+      bonusWordIndexRef.current = null;
+      setBonusWordIndex(null);
+      setComboBreakerBanner(false);
+      setLastHitXp(0);
+      setLastHitWasBonus(false);
       completeSentRef.current = false;
       setEnded(false);
       missCountByWordRef.current = new Map();
     });
   }, [words, hasStarted]);
+
+  const triggerComboBreaker = useCallback(
+    (streakCount: number, nextWordIndex: number) => {
+      const bonusIndex = nextWordIndex < words.length ? nextWordIndex : null;
+      const bonusWord = bonusIndex !== null ? words[bonusIndex] ?? "" : "";
+      if (bonusIndex !== null) {
+        bonusWordIndexRef.current = bonusIndex;
+        setBonusWordIndex(bonusIndex);
+      }
+
+      console.log(" 🎮 [pronunciation] combo_breaker fired", {
+        streak: streakCount,
+        bonusWord,
+      });
+      playGameSfx("pronunciation", "comboBreaker");
+      sendMessage("game_event", {
+        event: {
+          type: "combo_breaker",
+          payload: {
+            game: "pronunciation",
+            streak: streakCount,
+            bonusWord,
+            bonusMultiplier: 2,
+            difficulty: "super_hard",
+            reason: "huge_streak",
+          },
+          version: "1.0",
+        },
+      });
+
+      setComboBreakerBanner(true);
+      if (comboBannerTimeoutRef.current !== null) {
+        window.clearTimeout(comboBannerTimeoutRef.current);
+      }
+      comboBannerTimeoutRef.current = window.setTimeout(() => {
+        comboBannerTimeoutRef.current = null;
+        setComboBreakerBanner(false);
+      }, COMBO_BREAKER_BANNER_MS);
+    },
+    [sendMessage, words],
+  );
 
   useEffect(() => {
     if (!hasStarted) return;
@@ -368,6 +549,10 @@ export function PronunciationGameCanvas({
     setStreak(0);
     setHitStreak(0);
     setHeatBanner("off");
+    if (bonusWordIndexRef.current === wordIndexRef.current) {
+      bonusWordIndexRef.current = null;
+      setBonusWordIndex(null);
+    }
     window.setTimeout(() => {
       setCycleKey((k) => k + 1);
       setBlockPhase("approaching");
@@ -383,7 +568,7 @@ export function PronunciationGameCanvas({
     timeoutArmedRef.current = true;
     timeoutIntervalRef.current = window.setInterval(() => {
       if (!timeoutArmedRef.current) return;
-      if (performance.now() - cycleStartRef.current >= TOTAL_MS) {
+      if (performance.now() - cycleStartRef.current >= totalMs) {
         console.log(
           "[PG] TIMEOUT | elapsed:",
           performance.now() - cycleStartRef.current,
@@ -399,7 +584,7 @@ export function PronunciationGameCanvas({
         timeoutIntervalRef.current = null;
       }
     };
-  }, [blockPhase, cycleKey, ended, isComplete, triggerMissYank, words]);
+  }, [blockPhase, cycleKey, ended, isComplete, totalMs, triggerMissYank, words]);
 
   useEffect(() => {
     if (wrongTimerRef.current) {
@@ -408,7 +593,8 @@ export function PronunciationGameCanvas({
     }
     if (blockPhase !== "approaching" || ended || isComplete) return;
     const t = interimTranscript.trim();
-    const last = t.split(/\s+/).filter(Boolean).pop() ?? "";
+    const heardWords = transcriptWords(t);
+    const last = heardWords.at(-1) ?? "";
     console.log(
       "[PG] interim changed | heard:",
       last,
@@ -422,20 +608,27 @@ export function PronunciationGameCanvas({
     if (last.length <= 2) return;
     const w = words[wordIndex];
     if (!w) return;
-    if (classifyKaraokeWordMatch(last, w) === "match") return;
+    if (transcriptMatchesExpectedPhrase(heardWords, w) === "match") return;
 
-    if (performance.now() < hitCooldownUntilRef.current) return;
+    const lastHitWord = lastTranscriptWord(lastHitInterimRef.current);
+    if (performance.now() < hitCooldownUntilRef.current && last === lastHitWord) {
+      return;
+    }
 
     wrongTimerRef.current = window.setTimeout(() => {
       wrongTimerRef.current = null;
-      if (performance.now() < hitCooldownUntilRef.current) return;
       const t2 = interimRef.current.trim();
-      const last2 = t2.split(/\s+/).filter(Boolean).pop() ?? "";
+      const heardWords2 = transcriptWords(t2);
+      const last2 = heardWords2.at(-1) ?? "";
+      const lastHitWord2 = lastTranscriptWord(lastHitInterimRef.current);
+      if (performance.now() < hitCooldownUntilRef.current && last2 === lastHitWord2) {
+        return;
+      }
       if (last2.length <= 3) return;
       const wi = wordIndexRef.current;
       const w2 = words[wi];
       if (!w2) return;
-      const result2 = classifyKaraokeWordMatch(last2, w2);
+      const result2 = transcriptMatchesExpectedPhrase(heardWords2, w2);
       if (result2 === "match" || result2 === "partial") return;
       // If the interim hasn't changed since the last hit, it's stale — ignore
       if (last2 === lastHitInterimRef.current) return;
@@ -445,10 +638,10 @@ export function PronunciationGameCanvas({
         "| expected:",
         words[wordIndexRef.current],
         "| match result:",
-        classifyKaraokeWordMatch(
-          last2,
-          words[wordIndexRef.current] ?? "",
-        ),
+          transcriptMatchesExpectedPhrase(
+            heardWords2,
+            words[wordIndexRef.current] ?? "",
+          ),
       );
       triggerMissYank();
     }, WRONG_DEBOUNCE_MS);
@@ -500,6 +693,12 @@ export function PronunciationGameCanvas({
     hitCooldownUntilRef.current = performance.now() + 1500;
     // Record the interim at hit time so debounce can ignore stale values
     lastHitInterimRef.current = interimRef.current.trim();
+    const hitWordIndex = advancedTo - 1;
+    const wasBonusHit = bonusWordIndexRef.current === hitWordIndex;
+    if (wasBonusHit) {
+      bonusWordIndexRef.current = null;
+      setBonusWordIndex(null);
+    }
     queueMicrotask(() => {
       playHitChime();
       setShowHitBadge(true);
@@ -511,8 +710,14 @@ export function PronunciationGameCanvas({
         setBestStreak((b) => (ns > b ? ns : b));
         setHitStreak((hs) => {
           const nhs = hs + 1;
-          setXp((x) => x + scoreForHit(nhs, ns));
+          const earnedXp = scoreForHit(nhs, ns) * (wasBonusHit ? 2 : 1);
+          setLastHitXp(earnedXp);
+          setLastHitWasBonus(wasBonusHit);
+          setXp((x) => x + earnedXp);
           if (nhs >= HEAT_THRESHOLD) setHeatBanner("heating");
+          if (nhs === COMBO_BREAKER_STREAK) {
+            triggerComboBreaker(nhs, advancedTo);
+          }
           return nhs;
         });
         return ns;
@@ -535,7 +740,7 @@ export function PronunciationGameCanvas({
     }, HIT_MS);
     // Diagnostic log reads words/blockPhase; effect timing unchanged from pre-log version.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- PG diagnostics only
-  }, [wordIndex, words.length, ended, burst]);
+  }, [wordIndex, words.length, ended, burst, triggerComboBreaker]);
 
   useEffect(() => {
     const c = particlesRef.current;
@@ -621,6 +826,25 @@ export function PronunciationGameCanvas({
       from { transform: translateY(-120%); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
     }
+    @keyframes pg-flame-trail {
+      0% { transform: translate(-50%, -50%) scale(0.7) rotate(-8deg); opacity: 0.15; }
+      45% { opacity: 0.9; }
+      100% { transform: translate(-50%, -50%) scale(1.5) rotate(8deg); opacity: 0; }
+    }
+    @keyframes pg-heat-flame {
+      0% { transform: translate(-50%, 0) scale(0.75); opacity: 0.15; }
+      35% { opacity: 0.85; }
+      100% { transform: translate(-50%, -42px) scale(1.15); opacity: 0; }
+    }
+    @keyframes pg-heat-flicker {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.25) saturate(1.2); }
+    }
+    @keyframes pg-combo-pop {
+      0% { transform: translateY(-20px) scale(0.8); opacity: 0; }
+      55% { transform: translateY(0) scale(1.08); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
     @keyframes pg-mic-pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.55; transform: scale(0.75); }
@@ -629,10 +853,11 @@ export function PronunciationGameCanvas({
 
   const blockAnim =
     blockPhase === "approaching"
-      ? `pg-approach ${TRAVEL_MS}ms linear forwards`
+      ? `pg-approach ${travelMs}ms linear forwards`
       : blockPhase === "hit"
         ? `pg-hit-pass ${HIT_MS}ms ease-out forwards`
         : `pg-miss-shatter ${YANK_OUT_MS + YANK_BACK_MS}ms cubic-bezier(0.33, 1, 0.68, 1) forwards`;
+  const isBonusWord = bonusWordIndex === wordIndex && blockPhase === "approaching";
 
   if (!hasStarted) {
     return (
@@ -725,6 +950,12 @@ export function PronunciationGameCanvas({
       }}
     >
       <style>{css}</style>
+      <span
+        data-testid="pronunciation-speed-state"
+        style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+      >
+        {speedMultiplier.toFixed(2)}x
+      </span>
       <div
         style={{
           position: "fixed",
@@ -762,6 +993,39 @@ export function PronunciationGameCanvas({
         />
       ) : null}
 
+      {comboBreakerBanner ? (
+        <div
+          style={{
+            position: "fixed",
+            top: Math.max(108, topInset + 64),
+            left: 0,
+            right: 0,
+            zIndex: 41,
+            display: "flex",
+            justifyContent: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "'Fredoka', sans-serif",
+              fontSize: 34,
+              fontWeight: 900,
+              color: "#fff7ed",
+              padding: "12px 26px",
+              borderRadius: 999,
+              background: "linear-gradient(135deg, #f97316, #dc2626)",
+              border: "2px solid rgba(254,240,138,0.85)",
+              boxShadow: "0 0 42px rgba(249,115,22,0.65)",
+              textShadow: "0 3px 0 rgba(0,0,0,0.35)",
+              animation: "pg-combo-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
+            }}
+          >
+            COMBO BREAKER! BONUS WORD x2
+          </div>
+        </div>
+      ) : null}
+
       <div
         key={`${cycleKey}-${wordIndex}-${missSeq}`}
         ref={blockWrapRef}
@@ -776,6 +1040,64 @@ export function PronunciationGameCanvas({
           willChange: "transform, opacity",
         }}
       >
+        {heatedUp && !isBonusWord ? (
+          <div
+            data-testid="pronunciation-heat-fire"
+            style={{
+              position: "absolute",
+              inset: "-42px -38px",
+              zIndex: 0,
+              pointerEvents: "none",
+            }}
+          >
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <span
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: `${14 + i * 14}%`,
+                  bottom: -18,
+                  width: 56,
+                  height: 86,
+                  borderRadius: "50% 50% 45% 45%",
+                  background:
+                    "radial-gradient(circle at 50% 72%, rgba(254,240,138,0.95) 0%, rgba(249,115,22,0.82) 38%, rgba(220,38,38,0) 72%)",
+                  filter: "blur(1px)",
+                  animation: `pg-heat-flame ${520 - Math.min(120, hitStreak * 12)}ms ease-out ${i * 65}ms infinite`,
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
+        {isBonusWord ? (
+          <div
+            data-testid="pronunciation-bonus-word"
+            style={{
+              position: "absolute",
+              inset: "-30px -48px",
+              zIndex: 0,
+              pointerEvents: "none",
+            }}
+          >
+            {[0, 1, 2, 3, 4].map((i) => (
+              <span
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: `${18 + i * 16}%`,
+                  top: `${44 + (i % 2) * 18}%`,
+                  width: 92,
+                  height: 92,
+                  borderRadius: "50%",
+                  background:
+                    "radial-gradient(circle, rgba(254,240,138,0.95) 0%, rgba(249,115,22,0.7) 42%, rgba(220,38,38,0) 72%)",
+                  filter: "blur(2px)",
+                  animation: `pg-flame-trail 800ms ease-out ${i * 90}ms infinite`,
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
         <div
           style={{
             position: "relative",
@@ -788,14 +1110,43 @@ export function PronunciationGameCanvas({
             color: "white",
             textAlign: "center",
             minWidth: 280,
-            background: "linear-gradient(135deg, #6D5EF5, #a78bfa)",
-            border: "3px solid rgba(255,255,255,0.5)",
-            boxShadow: "0 0 60px rgba(109,94,245,0.6)",
+            background: isBonusWord
+              ? "linear-gradient(135deg, #f97316, #facc15 48%, #dc2626)"
+              : "linear-gradient(135deg, #6D5EF5, #a78bfa)",
+            border: isBonusWord
+              ? "4px solid rgba(254,240,138,0.95)"
+              : "3px solid rgba(255,255,255,0.5)",
+            boxShadow: isBonusWord
+              ? "0 0 80px rgba(249,115,22,0.85), 0 0 18px rgba(254,240,138,0.8) inset"
+              : heatedUp
+                ? "0 0 86px rgba(249,115,22,0.72), 0 0 26px rgba(254,240,138,0.32) inset"
+                : "0 0 60px rgba(109,94,245,0.6)",
             textShadow: "0 2px 8px rgba(0,0,0,0.35)",
             userSelect: "none",
             zIndex: 2,
+            animation: heatedUp && !isBonusWord ? "pg-heat-flicker 720ms ease-in-out infinite" : undefined,
           }}
         >
+          {isBonusWord ? (
+            <div
+              style={{
+                position: "absolute",
+                top: -18,
+                right: 18,
+                padding: "5px 12px",
+                borderRadius: 999,
+                background: "#111827",
+                color: "#fef08a",
+                fontFamily: "'Fredoka', sans-serif",
+                fontSize: 16,
+                fontWeight: 900,
+                letterSpacing: "0.04em",
+                boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+              }}
+            >
+              x2 SUPER HARD
+            </div>
+          ) : null}
           <span style={{ position: "relative", zIndex: 1 }}>
             {expectedWord || "—"}
           </span>
@@ -839,7 +1190,7 @@ export function PronunciationGameCanvas({
               zIndex: 3,
             }}
           >
-            +{scoreForHit(hitStreak, streak)} XP
+            +{lastHitXp || scoreForHit(hitStreak, streak)} XP{lastHitWasBonus ? " x2" : ""}
           </div>
         ) : null}
 
@@ -902,7 +1253,7 @@ export function PronunciationGameCanvas({
                 "pg-heat-banner-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
             }}
           >
-            HEATING UP 🔥
+            THEY'RE HEATING UP 🔥
           </div>
         </div>
       ) : null}
@@ -1118,6 +1469,28 @@ export function PronunciationGameCanvas({
                 ))}
               </div>
             </div>
+          ) : null}
+          {onExit ? (
+            <button
+              type="button"
+              onClick={onExit}
+              aria-label="Back to map"
+              style={{
+                marginTop: 28,
+                border: "none",
+                borderRadius: 999,
+                padding: "12px 24px",
+                background: "linear-gradient(135deg, #fbbf24, #f97316)",
+                color: "#111827",
+                cursor: "pointer",
+                fontFamily: "'Fredoka', sans-serif",
+                fontSize: 18,
+                fontWeight: 900,
+                boxShadow: "0 12px 30px rgba(249,115,22,0.28)",
+              }}
+            >
+              Back to map
+            </button>
           ) : null}
         </div>
       ) : null}

@@ -23,6 +23,20 @@ export function applyConfusionPairs(word: string): string {
     .replace(/w/g, "v");
 }
 
+const STT_HOMOPHONE_GROUPS = [
+  ["wear", "where"],
+] as const;
+
+const STT_HOMOPHONE_CANONICAL = new Map<string, string>(
+  STT_HOMOPHONE_GROUPS.flatMap((group) =>
+    group.map((word) => [word, group[0]] as const),
+  ),
+);
+
+function normalizeSttHomophone(word: string): string {
+  return STT_HOMOPHONE_CANONICAL.get(word) ?? word;
+}
+
 function levenshtein1OrLess(a: string, b: string): boolean {
   const m = a.length;
   const n = b.length;
@@ -66,7 +80,16 @@ export function classifyKaraokeWordMatch(
   // Step 3: exact match after normalization
   if (normH === normE) return "match";
 
-  // Step 4: confusion pairs (dyslexia — only for pure alpha words)
+  // Step 4: targeted STT homophones — speech recognition cannot reliably spell these.
+  if (
+    /^[a-z]+$/.test(normH) &&
+    /^[a-z]+$/.test(normE) &&
+    normalizeSttHomophone(normH) === normalizeSttHomophone(normE)
+  ) {
+    return "match";
+  }
+
+  // Step 5: confusion pairs (dyslexia — only for pure alpha words)
   if (/^[a-z]+$/.test(normH) && /^[a-z]+$/.test(normE)) {
     if (applyConfusionPairs(normH) === applyConfusionPairs(normE)) {
       return "match";
@@ -86,10 +109,10 @@ export function classifyKaraokeWordMatch(
     return "partial";
   }
 
-  // Step 5: short expected token — no fuzzy/prefix beyond steps above
+  // Step 6: short expected token — no fuzzy/prefix beyond steps above
   if (normE.length <= 4) return "mismatch";
 
-  // Step 6: at most one edit for longer tokens (STT / pronunciation slack)
+  // Step 7: at most one edit for longer tokens (STT / pronunciation slack)
   if (levenshtein1OrLess(normH, normE)) return "match";
 
   return "mismatch";

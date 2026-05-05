@@ -1,0 +1,216 @@
+{
+  "title": "Erosion and Earth's Surface Study Guide",
+  "type": "reading",
+  "gradeLevel": 3,
+  "testDate": "2026-05-06",
+  "words": [
+    "erosion",
+    "wear away",
+    "rocks",
+    "soil",
+    "wind",
+    "water",
+    "ice",
+    "rivers",
+    "rain",
+    "mountains",
+    "beaches",
+    "oceans",
+    "sand",
+    "compass rose",
+    "North",
+    "South",
+    "East",
+    "West",
+    "downhill"
+  ],
+  "contentProfile": {
+    "practiceDomain": "reading",
+    "contentDomain": "science",
+    "topic": "Erosion and Earth's Surface",
+    "primarySkill": "Understanding erosion processes and map reading",
+    "assignmentFormat": "Study guide with definitions, explanations, and concepts",
+    "concepts": [
+      "erosion",
+      "landform",
+      "soil",
+      "rocks",
+      "water",
+      "wind",
+      "What is erosion",
+      "Beach sand and rocks",
+      "Reading a map",
+      "How rivers flow",
+      "Treasure map practice",
+      "Cardinal directions",
+      "Topographic features"
+    ],
+    "sourceEvidence": [
+      "matched science term: erosion",
+      "matched science term: landform",
+      "matched science term: soil",
+      "matched science term: rocks",
+      "matched science term: water",
+      "matched science term: wind",
+      "Erosion happens when wind, water, or ice wear away rocks and soil",
+      "The color of sand comes from the rocks nearby",
+      "A compass rose shows directions: North, South, East, West",
+      "Rivers usually flow downhill from mountains to oceans or lakes",
+      "Water always flows downhill, never up",
+      "Rounded hills are smaller and softer than pointy peaks"
+    ]
+  },
+  "capturedContent": {
+    "title": "Erosion and Earth's Surface Study Guide",
+    "type": "reading",
+    "rawText": "",
+    "words": [
+      "erosion",
+      "wear away",
+      "rocks",
+      "soil",
+      "wind",
+      "water",
+      "ice",
+      "rivers",
+      "rain",
+      "mountains",
+      "beaches",
+      "oceans",
+      "sand",
+      "compass rose",
+      "North",
+      "South",
+      "East",
+      "West",
+      "downhill"
+    ],
+    "questions": [
+      {
+        "id": 1,
+        "question": "What causes erosion?",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "Wind, water, or ice wear away rocks and soil",
+        "hint": "Think about what forces shape the Earth's surface"
+      },
+      {
+        "id": 2,
+        "question": "Where does the color of beach sand come from?",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "The rocks nearby",
+        "hint": "Think about what happens to rocks over time"
+      },
+      {
+        "id": 3,
+        "question": "What are the four cardinal directions shown on a compass rose?",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "North, South, East, West",
+        "hint": "Remember the compass rose shown in the guide"
+      },
+      {
+        "id": 4,
+        "question": "In which direction do rivers flow?",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "Downhill from mountains to oceans or lakes",
+        "hint": "Water always moves in one direction"
+      },
+      {
+        "id": 5,
+        "question": "What is the difference between rounded hills and pointy peaks?",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "Rounded hills are smaller and softer; pointy peaks are tall and sharp like big mountains",
+        "hint": "Think about map symbols and landform shapes"
+      }
+    ],
+    "sourceDocuments": [
+      {
+        "filename": "erosions.pdf",
+        "mediaType": "application/pdf"
+      }
+    ],
+    "contentProfile": {
+      "practiceDomain": "reading",
+      "contentDomain": "science",
+      "topic": "Erosion and Earth's Surface",
+      "primarySkill": "Understanding erosion processes and map reading",
+      "assignmentFormat": "Study guide with definitions, explanations, and concepts",
+      "concepts": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is erosion",
+        "Beach sand and rocks",
+        "Reading a map",
+        "How rivers flow",
+        "Treasure map practice",
+        "Cardinal directions",
+        "Topographic features"
+      ],
+      "sourceEvidence": [
+        "matched science term: erosion",
+        "matched science term: landform",
+        "matched science term: soil",
+        "matched science term: rocks",
+        "matched science term: water",
+        "matched science term: wind",
+        "Erosion happens when wind, water, or ice wear away rocks and soil",
+        "The color of sand comes from the rocks nearby",
+        "A compass rose shows directions: North, South, East, West",
+        "Rivers usually flow downhill from mountains to oceans or lakes",
+        "Water always flows downhill, never up",
+        "Rounded hills are smaller and softer than pointy peaks"
+      ]
+    }
+  },
+  "contentFingerprint": "b15799c73c63c777",
+  "questions": [
+    {
+      "id": 1,
+      "question": "What causes erosion?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Wind, water, or ice wear away rocks and soil",
+      "hint": "Think about what forces shape the Earth's surface"
+    },
+    {
+      "id": 2,
+      "question": "Where does the color of beach sand come from?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "The rocks nearby",
+      "hint": "Think about what happens to rocks over time"
+    },
+    {
+      "id": 3,
+      "question": "What are the four cardinal directions shown on a compass rose?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "North, South, East, West",
+      "hint": "Remember the compass rose shown in the guide"
+    },
+    {
+      "id": 4,
+      "question": "In which direction do rivers flow?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Downhill from mountains to oceans or lakes",
+      "hint": "Water always moves in one direction"
+    },
+    {
+      "id": 5,
+      "question": "What is the difference between rounded hills and pointy peaks?",
+      "type": "fill_in",
+      "options": null,
+      "correctAnswer": "Rounded hills are smaller and softer; pointy peaks are tall and sharp like big mountains",
+      "hint": "Think about map symbols and landform shapes"
+    }
+  ]
+}

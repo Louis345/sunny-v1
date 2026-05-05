@@ -559,7 +559,8 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
       "The adventure map controls which activities appear on screen. " +
       "Do not use canvasShow, canvasClear, or canvasStatus. " +
       "Stay in voice: narrate, encourage, and use companionAct. " +
-      "Use sessionLog and sessionStatus as usual.\n\n" +
+      "Use sessionLog and sessionStatus as usual. " +
+      "The child earns digital food by finishing map nodes; remind them naturally that food lives in the companion Bookbag and can help their companion feel ready.\n\n" +
       "## Your tools\n" +
       generateAdventureMapVoiceToolDocs() +
       "\n\n" +

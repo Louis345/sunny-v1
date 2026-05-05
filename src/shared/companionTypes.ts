@@ -30,6 +30,8 @@ export interface CompanionConfig {
   /** Semantic expression id → VRM blend shape name (see children.config.json). */
   expressions: Record<string, string>;
   faceCamera: CompanionFaceCamera;
+  /** Optional visual framing multiplier for unusually authored VRMs. Does not mutate bones or poses. */
+  displayScale?: number;
   dopamineGames: string[];
   sensitivity: CompanionSensitivity;
   idleFrequency_ms: number;
@@ -73,6 +75,7 @@ export const COMPANION_DEFAULTS: CompanionConfig = {
     position: [0, 1.4, 0.8],
     target: [0, 1.4, 0],
   },
+  displayScale: 1,
   dopamineGames: ["space-invaders", "asteroid", "space-frogger"],
   sensitivity: {
     session_start: 0.8,
@@ -97,6 +100,7 @@ export function cloneCompanionDefaults(): CompanionConfig {
       position: [...COMPANION_DEFAULTS.faceCamera.position],
       target: [...COMPANION_DEFAULTS.faceCamera.target],
     },
+    displayScale: COMPANION_DEFAULTS.displayScale,
     dopamineGames: [...COMPANION_DEFAULTS.dopamineGames],
   };
 }
@@ -123,6 +127,10 @@ export function mergeCompanionConfigWithDefaults(
           position: [...d.faceCamera.position] as [number, number, number],
           target: [...d.faceCamera.target] as [number, number, number],
         },
+    displayScale:
+      typeof partial.displayScale === "number" && Number.isFinite(partial.displayScale)
+        ? partial.displayScale
+        : d.displayScale,
     dopamineGames:
       partial.dopamineGames && partial.dopamineGames.length > 0
         ? [...partial.dopamineGames]
@@ -148,6 +156,7 @@ export function mergeCompanionPresetWithLearningProfile(
         position: [...preset.faceCamera.position],
         target: [...preset.faceCamera.target],
       },
+      displayScale: preset.displayScale,
       dopamineGames: [...preset.dopamineGames],
     };
   }
@@ -160,6 +169,7 @@ export function mergeCompanionPresetWithLearningProfile(
       position: [...preset.faceCamera.position],
       target: [...preset.faceCamera.target],
     },
+    displayScale: preset.displayScale,
     dopamineGames: [...preset.dopamineGames],
     sensitivity: { ...preset.sensitivity, ...(partial.sensitivity ?? {}) },
     idleFrequency_ms: partial.idleFrequency_ms ?? preset.idleFrequency_ms,

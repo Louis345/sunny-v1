@@ -30,6 +30,49 @@ describe("useKaraokeReading", () => {
     expect(result.current.wordIndex).toBe(0);
   });
 
+  it("advances when the expected word appears before later words in the same interim phrase", () => {
+    const words = ["wear", "away"];
+    const sendMsg = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "wear away" },
+    );
+    expect(result.current.wordIndex).toBeGreaterThanOrEqual(1);
+  });
+
+  it("advances once for a multi-word homework phrase like wear away", () => {
+    const words = ["wear away", "erosion"];
+    const sendMsg = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({ words, interimTranscript: interim, sendMessage: sendMsg }),
+      { initialProps: "wear away" },
+    );
+    expect(result.current.wordIndex).toBe(1);
+    expect(result.current.isComplete).toBe(false);
+  });
+
+  it("can suppress punctuation/case variants of the same transcript from scoring again", () => {
+    const words = ["erosion", "erosion", "rocks"];
+    const sendMsg = vi.fn();
+    const { result, rerender } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({
+          words,
+          interimTranscript: interim,
+          sendMessage: sendMsg,
+          suppressDuplicateTranscriptMatches: true,
+        }),
+      { initialProps: "" },
+    );
+
+    rerender("erosion");
+    expect(result.current.wordIndex).toBe(1);
+    rerender("Erosion.");
+    expect(result.current.wordIndex).toBe(1);
+  });
+
   it("handleSkipWord advances wordIndex and adds to skippedIndices", () => {
     const words = ["one", "two", "three"];
     const sendMsg = vi.fn();
@@ -43,6 +86,30 @@ describe("useKaraokeReading", () => {
     });
     expect(result.current.wordIndex).toBe(1);
     expect(result.current.skippedIndices).toContain(0);
+  });
+
+  it("reports skipped words to onComplete so the next practice can adapt", () => {
+    const words = ["erosion"];
+    const sendMsg = vi.fn();
+    const onComplete = vi.fn();
+    const { result } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({
+          words,
+          interimTranscript: interim,
+          sendMessage: sendMsg,
+          onComplete,
+        }),
+      { initialProps: "" },
+    );
+
+    act(() => {
+      result.current.handleSkipWord(0);
+    });
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ skippedWords: ["erosion"] }),
+    );
   });
 
   it("handleSkipWord on non-current index does nothing", () => {

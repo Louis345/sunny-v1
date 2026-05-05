@@ -1,13 +1,13 @@
 ## Focus Area
-Multiplication conceptual foundations through wrestling competition frameworks, building from concrete equal-groups scenarios to automatic fact recall via Reina's competitive drive and pattern recognition strengths.
+Multiplication and division foundations using competitive framing and wrestling metaphors, targeting conceptual understanding of repeated addition/groups and building toward multiplication facts mastery.
 
 ## Words for Next 3 Sessions
-Session 1: groups, equal, times, total, points
-Session 2: multiply, matches, score, altogether, wrestling  
-Session 3: division, share, split, tournament, champion
+Session 1: 3×2, 4×2, 5×2, 2×6, 3×3 (wrestling scenarios: "3 matches × 2 points each")
+Session 2: 6×2, 4×3, 5×3, 2×8, 4×4 (expanding group sizes and products)
+Session 3: 7×2, 6×3, 5×4, 8×3, 6×4 (building toward harder facts with confidence)
 
 ## Clinical Reasoning
-Reina explicitly requested multiplication/division as her math gaps 7+ weeks ago (3/27) and demonstrates championship-level readiness: 100% accuracy on addition/subtraction facts (16/16), competitive mastery (beat Matilda by 700 coins), and instant pattern recognition (comparative adjectives). Wrestling application connects multiplicative reasoning to her core identity ("3 wrestlers each score 2 points—how many total?") while honoring her self-advocacy. Her engagement crashes with mechanical drill (worksheet coins 26%) but peaks with competition framing (rapid-fire facts 100%). Begin with concrete wrestling scenarios, build to automatic recall through visual arrays and systematic pattern progression.
+Reina explicitly requested multiplication/division work 9 weeks ago (3/27) and has demonstrated championship-level readiness: 100% addition fluency (16/16 correct), competitive mastery (1,300-600 coin victory in spelling games), and pattern recognition strength (comparative adjectives instant transfer). Her wrestling background provides natural multiplicative scenarios ("3 wrestlers each score 2 points—how many total?"). Starting with 2s and 3s builds on her solid addition foundation while honoring her need for challenge and competition. The progression from concrete wrestling scenarios to abstract multiplication facts matches her analytical chess/wrestling brain.
 
 ## Success Looks Like
-Reina explains multiplication as "equal groups" using wrestling tournaments with 90%+ accuracy, achieves personal records on timed facts (0-5 tables), maintains 10+ problem streaks using wrestling celebration language ("I pinned that 6×4!"), and explicitly requests advancement to division concepts after demonstrating conceptual mastery and applied problem-solving with multi-step tournament scenarios.
+Reina demonstrates 85%+ accuracy on basic multiplication facts through 5×5, explains multiplication as "groups of" using wrestling examples, shows excitement about beating her previous speed/accuracy records, requests harder multiplication challenges or division introduction, and transfers multiplicative reasoning to word problems involving her interests (wrestling points, chess pieces, Japanese counting).

@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo } from "react";
-import { useKaraokeReading } from "../hooks/useKaraokeReading";
+import {
+  useKaraokeReading,
+  type KaraokeReadingCompleteResult,
+} from "../hooks/useKaraokeReading";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
 
 const DEFAULT_ACCENT = "#6D5EF5";
@@ -86,7 +89,7 @@ export interface KaraokeReadingCanvasProps {
   wordsPerLine?: number;
   storyTitle?: string;
   storyText?: string;
-  onComplete?: () => void;
+  onComplete?: (result: KaraokeReadingCompleteResult) => void;
   /** Reserved for parent-level portrait ownership; karaoke canvas does not render its own companion. */
   companion?: CompanionConfig | null;
   childId?: string;

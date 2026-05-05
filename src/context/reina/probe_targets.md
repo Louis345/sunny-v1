@@ -1,13 +1,8 @@
 # Matilda Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-05-04T00:26:02.989Z*
+*Updated: 2026-05-05T00:25:52.888Z*
 
-• During spelling warm-up, ask "What does erosion mean?" before we start the game—just curious what she thinks.
-
-• When she reads her homework words, slip in "Why does wind wear away rocks?" to see if she connects the ideas.
-
-• Suggest wrestling word problems like "3 wrestlers score 2 points each—how many total?" since she loves wrestling and math challenges.
-
-• After she reads an action story, ask "Why was she in trouble?" or "How did she fix it?" instead of just what happened.
-
-• Keep spelling games short (5 words tops) so we have time for multiplication practice—she asked for this weeks ago.
+• When we do spelling warm-ups, ask Reina what each word means before we play—just curious, like we're getting ready
+• She's been asking about multiplication forever—let's try wrestling word problems ("3 wrestlers, 2 points each") before moving to her spelling homework
+• During erosion homework, ask "What does erosion mean?" and "Why does wind wear away rocks?" to see what she's really thinking
+• Keep spelling games going first—she loves beating me, and it gets her confident for harder stuff

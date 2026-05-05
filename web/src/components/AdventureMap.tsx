@@ -20,17 +20,20 @@ import { useTransition, type Palette } from "../context/TransitionContext";
 import { useMapSession } from "../hooks/useMapSession";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
 import type { KaraokeReadingCanvasProps } from "./KaraokeReadingCanvas";
+import type { KaraokeReadingCompleteResult } from "../hooks/useKaraokeReading";
 import { WordRadar } from "./WordRadar";
 import type { RadarItem, WordRadarResult } from "./WordRadar";
 import { PronunciationGameCanvas } from "./PronunciationGameCanvas";
 import { NodeCard } from "./NodeCard.tsx";
 import { PathCurve } from "./PathCurve.tsx";
 import { RatingOverlay } from "./RatingOverlay.tsx";
+import { StoryImageFinale } from "./StoryImageFinale";
 import { WorldBackground } from "./WorldBackground.tsx";
 import { XPBar } from "./XPBar.tsx";
 import "./AdventureMap.css";
 
 import type { NodeType } from "../../../src/shared/adventureTypes";
+import { computeStoryMovieCost } from "../../../src/shared/rewardEconomy";
 
 function nodeResultFromWordRadar(nodeId: string, r: WordRadarResult): NodeResult {
   const missedWords = [
@@ -58,6 +61,45 @@ function nodeResultFromWordRadar(nodeId: string, r: WordRadarResult): NodeResult
     missedWords,
     correctWords,
   };
+}
+
+function normalizePracticeWord(word: string): string {
+  return word.toLowerCase().replace(/[^a-z0-9'\s-]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function uniquePracticeWords(words: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of words) {
+    const normalized = normalizePracticeWord(raw);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function nodeTargetWords(node: NodeConfig | null): string[] {
+  const carePlan = (node as unknown as { carePlan?: { targetWords?: unknown } } | null)?.carePlan;
+  return Array.isArray(carePlan?.targetWords)
+    ? carePlan.targetWords.filter((word): word is string => typeof word === "string")
+    : [];
+}
+
+function practiceWordsFromReadingComplete(
+  result: KaraokeReadingCompleteResult,
+  node: NodeConfig | null,
+): string[] {
+  const evidence = uniquePracticeWords([
+    ...result.skippedWords,
+    ...result.flaggedWords,
+  ]);
+  const evidenceSet = new Set(evidence);
+  const targetMatches = nodeTargetWords(node).filter((target) => {
+    const tokens = normalizePracticeWord(target).split(/\s+/).filter(Boolean);
+    return tokens.length > 0 && tokens.every((token) => evidenceSet.has(token));
+  });
+  return uniquePracticeWords([...targetMatches, ...evidence]).slice(0, 5);
 }
 
 export type GameIframeOverlayState = {
@@ -149,124 +191,6 @@ const NODE_PALETTES: Partial<Record<NodeType, Palette>> = {
 function nodeTransitionPalette(nodeType: string): Palette | "random" {
   if (Math.random() < 0.2) return "random";
   return NODE_PALETTES[nodeType as NodeType] ?? "random";
-}
-
-function StoryImageFinale(props: {
-  childId: string;
-  childDisplayName?: string;
-  imageUrl: string | null;
-  loading: boolean;
-  failed: boolean;
-}) {
-  const displayName =
-    props.childDisplayName?.trim() || props.childId.trim() || "Your";
-  const storyOwner =
-    displayName === "Your"
-      ? "Your"
-      : displayName.endsWith("s")
-        ? `${displayName}'`
-        : `${displayName}'s`;
-
-  return (
-    <div
-      data-testid="map-story-image-finale"
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#fff8f0",
-        overflow: "hidden",
-        fontFamily: "Lexend, system-ui, sans-serif",
-      }}
-    >
-      {props.imageUrl ? (
-        <>
-          <img
-            src={props.imageUrl}
-            alt="Story finale"
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background:
-                "linear-gradient(transparent 45%, rgba(0,0,0,0.68))",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              bottom: 28,
-              left: 24,
-              right: 24,
-              textAlign: "center",
-              color: "white",
-              fontSize: 24,
-              fontWeight: 800,
-              textShadow: "0 2px 14px rgba(0,0,0,0.45)",
-            }}
-          >
-            {storyOwner} story came to life.
-          </div>
-        </>
-      ) : (
-        <div style={{ textAlign: "center", color: "#334155" }}>
-          <div
-            style={{
-              width: 108,
-              height: 108,
-              borderRadius: "50%",
-              margin: "0 auto 18px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "white",
-              border: "4px solid #fbbf24",
-              fontSize: 44,
-              fontWeight: 800,
-            }}
-          >
-            {props.childId.trim().charAt(0).toUpperCase() || "?"}
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 10 }}>
-            {props.loading
-              ? "Creating your story illustration..."
-              : props.failed
-                ? "Story complete. Image unavailable"
-                : "Story complete"}
-          </div>
-          <div
-            style={{
-              width: 280,
-              height: 10,
-              borderRadius: 999,
-              background: "#e2e8f0",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: props.loading ? "82%" : "100%",
-                height: "100%",
-                borderRadius: 999,
-                background: "linear-gradient(90deg, #6D5EF5, #fbbf24)",
-                transition: "width 0.4s ease",
-              }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function profileLaunchNames(
@@ -398,6 +322,7 @@ export function AdventureMap(props: {
     forwardMapIframeCompanionEvent,
     forwardMapIframeGameStateUpdate,
     forwardMapIframeCurrencyAward,
+    purchaseStoryMovie,
   } = props.mapSession;
 
   const { triggerTransition } = useTransition();
@@ -439,9 +364,12 @@ export function AdventureMap(props: {
   const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
   const [previewStoryImage, setPreviewStoryImage] =
     useState<PreviewStoryImageState | null>(null);
+  const [adaptiveStoryPracticeWords, setAdaptiveStoryPracticeWords] = useState<string[]>([]);
   const gameIframeRef = useRef<HTMLIFrameElement>(null);
   const [showBossPlaceholder, setShowBossPlaceholder] = useState(false);
   const pathPositionsRef = useRef<Point[]>([]);
+  const karaokeNodeCompletionSentRef = useRef<string | null>(null);
+  const purchaseCost = computeStoryMovieCost(props.companionCurrency ?? 0);
 
   useEffect(() => {
     pathPositionsRef.current = pathPositions;
@@ -562,6 +490,11 @@ export function AdventureMap(props: {
       const d = ev.data;
       if (!d || typeof d !== "object") return;
       const t = (d as { type?: string }).type;
+      if (t === "map_back") {
+        clearLaunchedNode();
+        setLaunchedUrl(null);
+        return;
+      }
       if (t === "node_result") {
         void sendNodeResult(d as NodeResult).then(() => {
           setLaunchedUrl(null);
@@ -686,6 +619,7 @@ export function AdventureMap(props: {
     forwardMapIframeCompanionEvent,
     forwardMapIframeGameStateUpdate,
     forwardMapIframeCurrencyAward,
+    clearLaunchedNode,
     quest.beginQuestUnlockSequence,
   ]);
 
@@ -1031,13 +965,24 @@ export function AdventureMap(props: {
     "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600";
 
   useEffect(() => {
-    if (props.previewMode !== "free" || launchedNode?.type !== "karaoke") {
+    if (launchedNode?.type !== "karaoke") {
       setPreviewStoryImage(null);
     }
-  }, [launchedNode?.id, launchedNode?.type, props.previewMode]);
+  }, [launchedNode?.id, launchedNode?.type]);
 
-  function startPreviewStoryImageFinale(): void {
-    if (props.previewMode !== "free") return;
+  useEffect(() => {
+    if (launchedNode?.type === "karaoke") {
+      setAdaptiveStoryPracticeWords([]);
+    }
+  }, [launchedNode?.id, launchedNode?.type]);
+
+  useEffect(() => {
+    if (launchedNode?.type !== "karaoke") {
+      karaokeNodeCompletionSentRef.current = null;
+    }
+  }, [launchedNode?.id, launchedNode?.type]);
+
+  function startStoryImageFinale(): void {
     if (launchedNode?.type !== "karaoke") return;
     const prompt =
       launchedNode.storyImagePrompt?.trim() ||
@@ -1048,7 +993,7 @@ export function AdventureMap(props: {
       setPreviewStoryImage({ loading: false, imageUrl: null, failed: true });
       return;
     }
-    console.log(" 🎮 [story-image-preview] [start] preview finale image");
+    console.log(" 🎮 [story-image] [start] finale image");
     setPreviewStoryImage({ loading: true, imageUrl: null, failed: false });
     void fetch(`/api/grok-image?prompt=${encodeURIComponent(prompt)}`)
       .then(async (r) => {
@@ -1064,19 +1009,36 @@ export function AdventureMap(props: {
           failed: imageUrl === null,
         });
         console.log(
-          ` 🎮 [story-image-preview] [result] ${imageUrl ? "image" : "empty"}`,
+          ` 🎮 [story-image] [result] ${imageUrl ? "image" : "empty"}`,
         );
       })
       .catch((err) => {
-        console.warn(" 🎮 [story-image-preview] [error]", err);
+        console.warn(" 🎮 [story-image] [error]", err);
         setPreviewStoryImage({ loading: false, imageUrl: null, failed: true });
       });
   }
 
-  const handleKaraokeComplete = useCallback(() => {
-    props.karaokeReadingForMapNode?.onComplete?.();
-    startPreviewStoryImageFinale();
-  }, [launchedNode, props.karaokeReadingForMapNode, props.previewMode]);
+  const handleKaraokeComplete = useCallback((result: KaraokeReadingCompleteResult) => {
+    const practiceWords = practiceWordsFromReadingComplete(result, launchedNode);
+    setAdaptiveStoryPracticeWords(practiceWords);
+    if (
+      launchedNode?.type === "karaoke" &&
+      karaokeNodeCompletionSentRef.current !== launchedNode.id
+    ) {
+      karaokeNodeCompletionSentRef.current = launchedNode.id;
+      void sendNodeResult({
+        nodeId: launchedNode.id,
+        completed: true,
+        accuracy: 1,
+        timeSpent_ms: 0,
+        wordsAttempted: result.totalWords,
+        correctWords: result.spelledWords,
+        missedWords: practiceWords,
+      }, { keepLaunchedNode: true });
+    }
+    props.karaokeReadingForMapNode?.onComplete?.(result);
+    startStoryImageFinale();
+  }, [launchedNode, props.karaokeReadingForMapNode, sendNodeResult]);
 
   const storyImageFinaleState =
     previewStoryImage ??
@@ -1087,6 +1049,13 @@ export function AdventureMap(props: {
           failed: props.storyImageFailed === true,
         }
       : null);
+  const pronunciationWordsForNode =
+    launchedNode?.type === "pronunciation"
+      ? uniquePracticeWords([
+          ...adaptiveStoryPracticeWords,
+          ...(launchedNode.words ?? []),
+        ]).slice(0, Math.max(3, launchedNode.words?.length ?? 0))
+      : [];
 
   if (resolved && !mapState) {
     if (connectionStatus === "error") {
@@ -1435,11 +1404,19 @@ export function AdventureMap(props: {
           >
           {storyImageFinaleState ? (
             <StoryImageFinale
+              key={`${props.previewMode ?? "live"}:${launchedNode.id}:${storyImageFinaleState.imageUrl ?? "no-image"}:${storyImageFinaleState.loading ? "loading" : "ready"}:${storyImageFinaleState.failed ? "failed" : "ok"}`}
               childId={props.childId}
               childDisplayName={profileNames?.childName}
               loading={storyImageFinaleState.loading}
               imageUrl={storyImageFinaleState.imageUrl}
               failed={storyImageFinaleState.failed}
+              companionCurrency={props.companionCurrency ?? 0}
+              purchaseCost={purchaseCost}
+              onPurchaseMovie={() => purchaseStoryMovie()}
+              onExit={() => {
+                setPreviewStoryImage(null);
+                clearLaunchedNode();
+              }}
             />
           ) : (
             <KaraokeReadingCanvas
@@ -1554,7 +1531,7 @@ export function AdventureMap(props: {
       {props.previewMode === "free" &&
       launchedNode != null &&
       (launchedNode.type as string) === "pronunciation" &&
-      (launchedNode.words?.length ?? 0) > 0 ? (
+      pronunciationWordsForNode.length > 0 ? (
         <div className="fixed inset-0 z-[45] flex flex-col">
           <div
             aria-hidden
@@ -1562,7 +1539,7 @@ export function AdventureMap(props: {
           />
           <div className="relative min-h-0 flex-1">
           <PronunciationGameCanvas
-            words={launchedNode.words ?? []}
+            words={pronunciationWordsForNode}
             interimTranscript={
               props.karaokeReadingForMapNode?.interimTranscript ?? ""
             }
@@ -1578,6 +1555,7 @@ export function AdventureMap(props: {
             onComplete={() => {
               clearLaunchedNode();
             }}
+            onExit={() => clearLaunchedNode()}
             topInset={props.previewMode ? PREVIEW_GAME_TOP_INSET_PX : 0}
           />
           <button

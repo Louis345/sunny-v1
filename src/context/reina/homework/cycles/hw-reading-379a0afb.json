@@ -218,5 +218,107 @@
     ],
     "status": "pending",
     "markdown": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: erosion, wear away, rocks, soil, wind\n\n## Intervention\ncontent-fit challenge that requires producing the answer, not recognition\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet."
-  }
+  },
+  "interventionHistory": [
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-04T20:31:18.347Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-04T21:08:12.702Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-04T21:11:03.458Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-04T21:12:23.585Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-04T23:20:35.499Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-baseline-evaluator-hw-reading-379a0afb",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-05-05T00:17:51.048Z",
+      "baselineAccuracy": 0.4,
+      "interventionAccuracy": 0.4,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-exit-evaluator-hw-reading-379a0afb",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-05-05T00:18:49.283Z",
+      "baselineAccuracy": 0.2,
+      "interventionAccuracy": 0.2,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-karaoke-hw-reading-379a0afb",
+      "nodeType": "karaoke",
+      "measuredAt": "2026-05-05T00:20:29.729Z",
+      "baselineAccuracy": 1,
+      "interventionAccuracy": 1,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-05T04:04:54.386Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "onboarding-bubble-pop",
+      "nodeType": "bubble-pop",
+      "measuredAt": "2026-05-05T04:06:14.770Z",
+      "baselineAccuracy": 0.82,
+      "interventionAccuracy": 0.82,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    }
+  ]
 }

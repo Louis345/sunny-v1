@@ -14,8 +14,10 @@
     "id": "limit_break_power_up",
     "name": "Limit Break Power Up",
     "trait": "grit",
+    "animation": "fireball",
     "visibleLevels": ["idle", "focused", "powered_up", "limit_break"],
     "voiceLine": "You picked the hard path. Good. That is where your power grows. Limit break!",
+    "audioUrl": "/sfx/kefla-power-up.mp3",
     "vfx": ["hair_glow", "battle_aura", "energy_particles", "speed_lines", "impact_flash", "screen_shake"],
     "sfx": ["power_up_charge", "energy_burst"]
   },

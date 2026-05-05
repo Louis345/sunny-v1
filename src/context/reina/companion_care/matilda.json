@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "childId": "reina",
+  "companionId": "matilda",
+  "state": {
+    "hunger": 0.8,
+    "mood": 0.8,
+    "bond": 0.3,
+    "energy": 0.8,
+    "usefulness": 0.8,
+    "thoughtClarity": 0.5,
+    "lastSeenAt": "2026-05-04T21:17:03.135Z"
+  },
+  "memory": {
+    "firstMetAt": "2026-05-04T21:17:03.135Z"
+  },
+  "inventory": {
+    "food": [
+      {
+        "id": "apple_bite",
+        "label": "Apple Bite",
+        "description": "A crisp snack for quick hunger repair.",
+        "quantity": 3,
+        "rarity": "common"
+      },
+      {
+        "id": "brain_berry",
+        "label": "Brain Berry",
+        "description": "Helps the companion think clearly.",
+        "quantity": 2,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "cozy_soup",
+        "label": "Cozy Soup",
+        "description": "Restores energy after hard work.",
+        "quantity": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "star_candy",
+        "label": "Star Candy",
+        "description": "A small celebration treat.",
+        "quantity": 1,
+        "rarity": "uncommon"
+      },
+      {
+        "id": "mystery_snack",
+        "label": "Mystery Snack",
+        "description": "A rare earned reward.",
+        "quantity": 1,
+        "rarity": "rare"
+      }
+    ],
+    "careItems": []
+  },
+  "economy": {
+    "coins": 1500,
+    "storeUnlocks": []
+  },
+  "updatedAt": "2026-05-05T00:20:29.728Z"
+}

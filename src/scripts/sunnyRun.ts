@@ -10,6 +10,10 @@ import {
   type SunnySubject,
   type SunnyVoiceMode,
 } from "../shared/runtimeConfig";
+import {
+  hydratePendingHomeworkFromCycle,
+  type HomeworkDomainFilter,
+} from "./homeworkSelector";
 
 type ParsedArgs = {
   subject?: SunnySubject;
@@ -18,6 +22,7 @@ type ParsedArgs = {
   previewMode?: SunnyPreviewMode;
   nodeAccess?: SunnyNodeAccess;
   voiceMode?: SunnyVoiceMode;
+  homeworkDomain?: HomeworkDomainFilter;
   noBrowser: boolean;
 };
 
@@ -56,6 +61,10 @@ function parseArgs(argv: string[]): ParsedArgs {
         break;
       case "--voice":
         out.voiceMode = value as SunnyVoiceMode;
+        if (inline == null) i += 1;
+        break;
+      case "--homework-domain":
+        out.homeworkDomain = value as HomeworkDomainFilter;
         if (inline == null) i += 1;
         break;
       default:
@@ -101,6 +110,9 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
+  if (args.subject === "homework" && args.childId) {
+    hydratePendingHomeworkFromCycle(args.childId, { domain: args.homeworkDomain });
+  }
   const env = buildRuntimeEnv(args);
   const root = path.resolve(process.cwd());
   execSync("npm run build", {

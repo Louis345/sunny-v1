@@ -618,5 +618,15 @@
     "childVerbalReaction": null,
     "sessionPhase": "learning",
     "correctStreakAtTime": 1
+  },
+  {
+    "timestamp": "2026-05-05T00:21:34.550Z",
+    "rewardStyle": "flash",
+    "displayDuration_ms": 2000,
+    "timeToNextUtterance_ms": -1,
+    "nextAnswerCorrect": null,
+    "childVerbalReaction": null,
+    "sessionPhase": "learning",
+    "correctStreakAtTime": 1
   }
 ]

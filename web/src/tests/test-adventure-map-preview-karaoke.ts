@@ -7,6 +7,10 @@ const adventureMapTsx = join(
   dirname(fileURLToPath(import.meta.url)),
   "../components/AdventureMap.tsx",
 );
+const storyImageFinaleTsx = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../components/StoryImageFinale.tsx",
+);
 const useSessionTs = join(
   dirname(fileURLToPath(import.meta.url)),
   "../hooks/useSession.ts",
@@ -37,22 +41,31 @@ describe("AdventureMap free preview karaoke", () => {
   });
 
   it("keeps a visible finale when story image generation returns no URL", () => {
-    const src = readFileSync(adventureMapTsx, "utf8");
-    expect(src).toContain("failed={storyImageFinaleState.failed}");
-    expect(src).toContain("failed: props.storyImageFailed === true");
-    expect(src).toContain("Story complete. Image unavailable");
-    expect(src).toMatch(
+    const mapSrc = readFileSync(adventureMapTsx, "utf8");
+    const finaleSrc = readFileSync(storyImageFinaleTsx, "utf8");
+    expect(mapSrc).toContain("failed={storyImageFinaleState.failed}");
+    expect(mapSrc).toMatch(
       /props\.storyImageLoading\s*\|\|\s*props\.storyImageUrl\s*\|\|\s*props\.storyImageFailed/,
     );
+    expect(finaleSrc).toContain("Story complete. Image unavailable");
+    expect(finaleSrc).toContain("data-testid=\"story-movie-purchase-sheet\"");
   });
 
-  it("top-level Back returns from an active map node before leaving the child session", () => {
+  it("keeps Back routing inside the adventure map instead of the child picker", () => {
     const appSrc = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "../App.tsx"),
       "utf8",
     );
-    expect(appSrc).toContain("if (mapSession.launchedNode)");
-    expect(appSrc).toContain("mapSession.clearLaunchedNode()");
+    const adventureStart = appSrc.indexOf("if (adventureMapEnabled && adventureChildId)");
+    const adventureEnd = appSrc.indexOf('} else if (state.phase === "picker")');
+    const adventureBranch = appSrc.slice(adventureStart, adventureEnd);
+    const mapSrc = readFileSync(adventureMapTsx, "utf8");
+
+    expect(adventureBranch).not.toContain("resetToPicker()");
+    expect(adventureBranch).not.toContain("setSelectedChildName(null)");
+    expect(mapSrc).toContain('if (t === "map_back")');
+    expect(mapSrc).toContain("clearLaunchedNode()");
+    expect(mapSrc).toContain("setLaunchedUrl(null)");
   });
 
   it("does not treat microphone denial as fatal in preview mode", () => {
@@ -69,14 +82,15 @@ describe("AdventureMap free preview karaoke", () => {
     expect(src).toContain("storyImageWatchdogRef");
   });
 
-  it("keeps preview-only troubleshooting controls out of live mode", () => {
+  it("keeps troubleshooting controls preview-only while allowing story image fallback in live mode", () => {
     const mapSrc = readFileSync(adventureMapTsx, "utf8");
     const sessionSrc = readFileSync(useSessionTs, "utf8");
     expect(mapSrc).toContain('previewFinishEnabled={props.previewMode === "free"}');
-    expect(mapSrc).toContain("function startPreviewStoryImageFinale");
-    expect(mapSrc).toContain('if (props.previewMode !== "free") return;');
+    expect(mapSrc).toContain("function startStoryImageFinale");
+    expect(mapSrc).not.toContain('if (props.previewMode !== "free") return;');
     expect(mapSrc).toContain("/api/grok-image?prompt=");
     expect(mapSrc).toContain("onComplete={handleKaraokeComplete}");
+    expect(mapSrc).toContain("void sendNodeResult(");
     expect(sessionSrc).toContain("function storyImageWatchdogMs()");
     expect(sessionSrc).toContain('preview === "free"');
     expect(sessionSrc).toContain("return 20000");

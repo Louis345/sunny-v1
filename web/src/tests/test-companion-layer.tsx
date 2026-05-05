@@ -184,7 +184,6 @@ describe("CompanionLayer (COMPANION-002)", () => {
       intensity: 0.62,
       movementIntensity: 0.78,
       visualTreatment: { filter: "none", opacity: 1 },
-      animation: "silly_laugh",
       animationEventId: "feed-1",
     };
     const { rerender } = render(
@@ -197,11 +196,11 @@ describe("CompanionLayer (COMPANION-002)", () => {
     );
     await waitFor(() =>
       expect(commandSpy.mock.calls.some(([commands]) =>
-        commands.some((cmd) => cmd.type === "animate" && cmd.payload.animation === "silly_laugh"),
+        commands.some((cmd) => cmd.type === "emote" && cmd.payload.emote === "happy"),
       )).toBe(true),
     );
-    const animateCallsBefore = commandSpy.mock.calls.filter(([commands]) =>
-      commands.some((cmd) => cmd.type === "animate" && cmd.payload.animation === "silly_laugh"),
+    const happyCallsBefore = commandSpy.mock.calls.filter(([commands]) =>
+      commands.some((cmd) => cmd.type === "emote" && cmd.payload.emote === "happy"),
     ).length;
 
     rerender(
@@ -214,10 +213,10 @@ describe("CompanionLayer (COMPANION-002)", () => {
     );
 
     await waitFor(() => {
-      const animateCallsAfter = commandSpy.mock.calls.filter(([commands]) =>
-        commands.some((cmd) => cmd.type === "animate" && cmd.payload.animation === "silly_laugh"),
+      const happyCallsAfter = commandSpy.mock.calls.filter(([commands]) =>
+        commands.some((cmd) => cmd.type === "emote" && cmd.payload.emote === "happy"),
       ).length;
-      expect(animateCallsAfter).toBeGreaterThan(animateCallsBefore);
+      expect(happyCallsAfter).toBeGreaterThan(happyCallsBefore);
     });
   });
 
@@ -230,7 +229,6 @@ describe("CompanionLayer (COMPANION-002)", () => {
       intensity: 0.66,
       movementIntensity: 0.82,
       visualTreatment: { filter: "none", opacity: 1 },
-      animation: "silly_laugh",
       animationEventId: "feed-visible-1",
       feedAnimation: {
         kind: "normal-feed",
@@ -298,7 +296,6 @@ describe("CompanionLayer (COMPANION-002)", () => {
       intensity: 0.66,
       movementIntensity: 0.82,
       visualTreatment: { filter: "none", opacity: 1 },
-      animation: "silly_laugh",
       animationEventId: "feed-combo-1",
       feedAnimation: {
         kind: "normal-feed",

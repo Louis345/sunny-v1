@@ -40,6 +40,12 @@ describe("matchKaraokeWord", () => {
     expect(classifyKaraokeWordMatch("cat", "dog")).toBe("mismatch");
   });
 
+  it("accepts STT homophones for pronunciation targets without broad fuzzy matching", () => {
+    expect(classifyKaraokeWordMatch("where", "wear")).toBe("match");
+    expect(classifyKaraokeWordMatch("wear", "where")).toBe("match");
+    expect(classifyKaraokeWordMatch("when", "wear")).toBe("mismatch");
+  });
+
   it("maps spoken number words to digits for match", () => {
     expect(matchKaraokeWord("fifteen", "15")).toBe(true);
     expect(matchKaraokeWord("hundred", "15")).toBe(false);

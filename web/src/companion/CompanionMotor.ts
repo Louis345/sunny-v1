@@ -154,9 +154,11 @@ export class CompanionMotor {
     scene: THREE.Scene,
     mountW: number,
     mountH: number,
+    companion: CompanionConfig | null = null,
   ): void {
     this.detachVrmFromScene();
     this.vrm = vrm;
+    this.expressionCompanionHint = companion;
     // const lookTarget = new THREE.Object3D();
     // Place look target in front of the camera so the character looks
     // straight ahead on the first frame (before tick() repositions it).
@@ -173,6 +175,7 @@ export class CompanionMotor {
     vrm.scene.rotation.y = metaVersion.startsWith("0") ? Math.PI : 0;
     // Reset position before measuring so we get a clean bbox.
     vrm.scene.position.set(0, 0, 0);
+    vrm.scene.scale.setScalar(1);
     // Pre-simulate spring bones so hair settles at rest instead of launching on first render.
     if (vrm.springBoneManager) {
       vrm.springBoneManager.reset();
@@ -183,11 +186,11 @@ export class CompanionMotor {
     // Floor-snap: shift the scene so its lowest point sits at world Y=0.
     // Works for any VRM height — no magic number needed.
     try {
-      const snapBox = new THREE.Box3().setFromObject(vrm.scene);
+      const snapBox = this.resolveUsefulVrmBounds(vrm);
       if (!snapBox.isEmpty() && snapBox.min.y !== 0) {
         vrm.scene.position.y -= snapBox.min.y;
       }
-      const centerBox = new THREE.Box3().setFromObject(vrm.scene);
+      const centerBox = this.resolveUsefulVrmBounds(vrm);
       if (!centerBox.isEmpty()) {
         const center = new THREE.Vector3();
         centerBox.getCenter(center);
@@ -226,6 +229,9 @@ export class CompanionMotor {
     const camera = this.camera;
     if (!vrm || vrm !== this.vrm || !camera) return;
 
+    const displayScale = this.getDisplayScale();
+    vrm.scene.scale.setScalar(1);
+    vrm.scene.updateMatrixWorld(true);
     const aspect = Math.max(1e-6, mountW) / Math.max(1e-6, mountH);
     camera.aspect = aspect;
     camera.fov = COMPANION_CAMERA_BASE_FOV;
@@ -234,12 +240,7 @@ export class CompanionMotor {
     const vFovRad = (COMPANION_CAMERA_BASE_FOV * Math.PI) / 180;
     const hFovRad = 2 * Math.atan(Math.tan(vFovRad / 2) * aspect);
 
-    const box = new THREE.Box3();
-    try {
-      box.setFromObject(vrm.scene);
-    } catch {
-      // Minimal / degenerate meshes (e.g. tests) can throw inside SkinnedMesh bbox — use human-scale fallback.
-    }
+    const box = this.resolveUsefulVrmBounds(vrm);
     if (box.isEmpty()) {
       box.setFromCenterAndSize(
         new THREE.Vector3(0, 0.8, 0),
@@ -267,6 +268,93 @@ export class CompanionMotor {
     };
 
     this.applyCameraFraming(this.currentCameraAngle, { instant: true });
+    vrm.scene.scale.setScalar(displayScale);
+    vrm.scene.updateMatrixWorld(true);
+  }
+
+  private getDisplayScale(): number {
+    return typeof this.expressionCompanionHint?.displayScale === "number" &&
+      Number.isFinite(this.expressionCompanionHint.displayScale)
+      ? Math.max(0.1, this.expressionCompanionHint.displayScale)
+      : 1;
+  }
+
+  private resolveUsefulVrmBounds(vrm: VRM): THREE.Box3 {
+    const meshBox = new THREE.Box3();
+    try {
+      meshBox.setFromObject(vrm.scene);
+    } catch {
+      // Minimal / degenerate meshes can throw inside SkinnedMesh bbox.
+    }
+
+    const humanoidBox = this.resolveHumanoidBounds(vrm);
+    if (humanoidBox.isEmpty()) return meshBox;
+    if (meshBox.isEmpty()) return humanoidBox;
+
+    const meshSize = new THREE.Vector3();
+    const humanoidSize = new THREE.Vector3();
+    meshBox.getSize(meshSize);
+    humanoidBox.getSize(humanoidSize);
+    const humanoidHeight = Math.max(humanoidSize.y, 1e-4);
+    const meshHeight = Math.max(meshSize.y, 1e-4);
+
+    return meshHeight > humanoidHeight * 2.5 ? humanoidBox : meshBox;
+  }
+
+  private resolveHumanoidBounds(vrm: VRM): THREE.Box3 {
+    const humanoid = vrm.humanoid as
+      | { getRawBoneNode?: (name: string) => THREE.Object3D | null }
+      | { getNormalizedBoneNode?: (name: string) => THREE.Object3D | null }
+      | null
+      | undefined;
+    const getBoneNode =
+      "getRawBoneNode" in (humanoid ?? {})
+        ? (humanoid as { getRawBoneNode?: (name: string) => THREE.Object3D | null })
+            .getRawBoneNode
+        : (humanoid as
+            | { getNormalizedBoneNode?: (name: string) => THREE.Object3D | null }
+            | null
+            | undefined)?.getNormalizedBoneNode;
+    if (!getBoneNode) return new THREE.Box3();
+
+    const points: THREE.Vector3[] = [];
+    const addBone = (name: string) => {
+      const bone = getBoneNode.call(humanoid, name);
+      if (!bone) return;
+      const point = new THREE.Vector3();
+      bone.getWorldPosition(point);
+      points.push(point);
+    };
+    for (const name of [
+      "head",
+      "neck",
+      "chest",
+      "spine",
+      "hips",
+      "leftUpperArm",
+      "rightUpperArm",
+      "leftHand",
+      "rightHand",
+      "leftUpperLeg",
+      "rightUpperLeg",
+      "leftFoot",
+      "rightFoot",
+    ]) {
+      addBone(name);
+    }
+    if (points.length < 2) return new THREE.Box3();
+
+    const box = new THREE.Box3().setFromPoints(points);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const height = Math.max(size.y, 1e-4);
+    const padX = Math.max(height * 0.18, 0.18);
+    const padZ = Math.max(height * 0.12, 0.12);
+    box.min.x -= padX;
+    box.max.x += padX;
+    box.min.z -= padZ;
+    box.max.z += padZ;
+    return box;
   }
 
   private applyCameraFraming(

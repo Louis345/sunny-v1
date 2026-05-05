@@ -4,7 +4,7 @@ import { tryLoadIntroOnlyShowroomCompanion } from "../server/introOnlyShowroomCo
 
 describe("CompanionRegistry", () => {
   it("discovers all prompt companions (elli, matilda, showroom chars)", () => {
-    expect(CompanionRegistry.getAll().length).toBe(6);
+    expect(CompanionRegistry.getAll().length).toBe(7);
   });
 
   it("getById returns elli", () => {

@@ -264,6 +264,10 @@ export function handleGameEventForSession(
       summary,
     });
     console.log(`  🎮 [companion-care] live event item=${itemId} animation=${reference}`);
+    if (s.turnSM?.getState?.() !== "IDLE") {
+      console.log("  🎮 [companion-care] skip spoken reply — companion already owns the turn");
+      return;
+    }
     void s
       .runCompanionResponse?.(
         [

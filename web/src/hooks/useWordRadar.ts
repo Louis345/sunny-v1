@@ -258,11 +258,14 @@ function tokenMatchesLetter(token: string, expected: string): boolean {
   );
 }
 
-/** word-radar always uses whole-word STT regardless of profile.inputMode. */
+export type WordRadarInputMode = "whole-word" | "letter-by-letter" | "keyboard";
+
+/** Keep Word Radar's three product modes auditable instead of flattening them. */
 export function resolveWordRadarInputMode(
   mode: string | undefined,
-): "whole-word" | "keyboard" {
-  return mode === "keyboard" ? "keyboard" : "whole-word";
+): WordRadarInputMode {
+  if (mode === "keyboard" || mode === "letter-by-letter") return mode;
+  return "whole-word";
 }
 
 export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {

@@ -20,6 +20,7 @@ export const COMPANION_ANIMATION_IDS = [
   "blow_a_kiss",
   "dance_victory",
   "defeated",
+  "fireball",
   "hip_hop_dancing",
   "hip_hop_dancing_2",
   "idle",

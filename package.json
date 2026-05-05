@@ -22,6 +22,7 @@
     "sunny:run": "npx tsx src/scripts/sunnyRun.ts",
     "sunny": "npm run sunny:run -- --subject review",
     "sunny:homework": "npm run sunny:run -- --subject homework",
+    "sunny:spelling": "npm run sunny:run -- --subject homework --homework-domain spelling",
     "sunny:preview": "npm run sunny:run -- --subject homework --preview free --node-access inspect-all",
     "sunny:diag": "npm run sunny:run -- --subject diag --session-mode diag --preview free --node-access inspect-all --child creator",
     "sunny:adventure": "npm run sunny:run -- --subject review",

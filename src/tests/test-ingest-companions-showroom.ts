@@ -110,8 +110,10 @@ describe("ingestCompanions showroom fields", () => {
         id?: string;
         name?: string;
         trait?: string;
+        animation?: string;
         visibleLevels?: string[];
         voiceLine?: string;
+        audioUrl?: string;
         vfx?: string[];
         sfx?: string[];
       };
@@ -122,6 +124,8 @@ describe("ingestCompanions showroom fields", () => {
       id: "limit_break_power_up",
       name: "Limit Break Power Up",
       trait: "grit",
+      animation: "fireball",
+      audioUrl: "/sfx/kefla-power-up.mp3",
     });
     expect(showroom.signatureMove?.visibleLevels).toEqual([
       "idle",
@@ -134,5 +138,38 @@ describe("ingestCompanions showroom fields", () => {
       expect.arrayContaining(["hair_glow", "battle_aura", "energy_particles"]),
     );
     expect(showroom.signatureMove?.sfx).toContain("power_up_charge");
+  });
+
+  it("catalogs Princess with her VRM and randomized showroom voice choices", () => {
+    const companionPath = path.resolve(
+      process.cwd(),
+      "src/prompts/companions/princess/companion.json",
+    );
+    const showroomPath = path.resolve(
+      process.cwd(),
+      "src/prompts/companions/princess/showroom.json",
+    );
+    const companion = JSON.parse(fs.readFileSync(companionPath, "utf-8")) as {
+      name?: string;
+      vrmPath?: string;
+      voiceId?: string;
+      displayScale?: number;
+    };
+    const showroom = JSON.parse(fs.readFileSync(showroomPath, "utf-8")) as {
+      personalityTags?: string[];
+      voices?: Array<{ id?: string; label?: string; default?: boolean }>;
+    };
+
+    expect(companion).toMatchObject({
+      name: "Princess",
+      vrmPath: "/companions/princess.vrm",
+      displayScale: 2,
+    });
+    expect(showroom.personalityTags).toEqual(
+      expect.arrayContaining(["royal", "curious", "encouraging"]),
+    );
+    expect(showroom.voices?.length).toBeGreaterThanOrEqual(4);
+    expect(showroom.voices?.some((voice) => voice.id === companion.voiceId)).toBe(true);
+    expect(showroom.voices?.filter((voice) => voice.default)).toHaveLength(1);
   });
 });

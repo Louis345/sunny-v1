@@ -57,7 +57,6 @@ export function deriveCompanionBehavior(
       intensity: 0.66,
       movementIntensity: 0.82,
       visualTreatment: { filter: "none", opacity: 1 },
-      animation: "silly_laugh",
       animationEventId: animationEventId ?? undefined,
       feedAnimation,
     };

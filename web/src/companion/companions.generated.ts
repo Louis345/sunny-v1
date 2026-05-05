@@ -38,8 +38,10 @@ export type CompanionManifestEntry = {
       id: string;
       name: string;
       trait: string;
+      animation?: string;
       visibleLevels: string[];
       voiceLine: string;
+      audioUrl?: string;
       vfx: string[];
       sfx: string[];
     };
@@ -253,6 +255,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           0
         ]
       },
+      "displayScale": 1,
       "dopamineGames": [
         "space-invaders",
         "asteroid",
@@ -311,6 +314,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
         "id": "limit_break_power_up",
         "name": "Limit Break Power Up",
         "trait": "grit",
+        "animation": "fireball",
         "visibleLevels": [
           "idle",
           "focused",
@@ -318,6 +322,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           "limit_break"
         ],
         "voiceLine": "You picked the hard path. Good. That is where your power grows. Limit break!",
+        "audioUrl": "/sfx/kefla-power-up.mp3",
         "vfx": [
           "hair_glow",
           "battle_aura",
@@ -549,6 +554,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           0
         ]
       },
+      "displayScale": 1,
       "dopamineGames": [
         "space-invaders",
         "asteroid",
@@ -624,6 +630,144 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
     }
   },
   {
+    "id": "princess",
+    "name": "Princess",
+    "vrmUrl": "/companions/princess.vrm",
+    "personality": [
+      "royal",
+      "curious",
+      "encouraging"
+    ],
+    "unlockCost": 850,
+    "voiceAvailable": true,
+    "voices": [
+      {
+        "id": "Nggzl2QAXh3OijoXD116",
+        "label": "Candy - Young and Sweet",
+        "language": "en",
+        "default": true
+      },
+      {
+        "id": "piI8Kku0DcvcL6TTSeQt",
+        "label": "Fairy",
+        "language": "en"
+      },
+      {
+        "id": "oWAxZDx7w5VEj9dCyTzz",
+        "label": "Grace",
+        "language": "en"
+      },
+      {
+        "id": "T7eLpgAAhoXHlrNajG8v",
+        "label": "Natasha",
+        "language": "en"
+      },
+      {
+        "id": "n7Wi4g1bhpw4Bs8HK5ph",
+        "label": "Gigi - Energetic",
+        "language": "en"
+      }
+    ],
+    "companionConfig": {
+      "companionId": "princess",
+      "vrmUrl": "/companions/princess.vrm",
+      "expressions": {
+        "idle": "neutral",
+        "happy": "happy",
+        "thinking": "lookDown",
+        "celebrating": "happy",
+        "concerned": "sad",
+        "winking": "blinkLeft",
+        "surprised": "surprised",
+        "angry": "angry",
+        "blink": "blink"
+      },
+      "faceCamera": {
+        "position": [
+          0,
+          1.4,
+          0.8
+        ],
+        "target": [
+          0,
+          1.4,
+          0
+        ]
+      },
+      "displayScale": 2,
+      "dopamineGames": [
+        "space-invaders",
+        "asteroid",
+        "space-frogger"
+      ],
+      "sensitivity": {
+        "session_start": 0.8,
+        "correct_answer": 0.9,
+        "wrong_answer": 0.6,
+        "mastery_unlock": 1,
+        "session_complete": 0.85,
+        "session_end": 0.7,
+        "idle_too_long": 0.5
+      },
+      "idleFrequency_ms": 8000,
+      "randomMomentProbability": 0.3,
+      "toggledOff": false
+    },
+    "showroom": {
+      "modelName": "Princess VRM",
+      "recommendedNames": [
+        "Princess",
+        "Pippa",
+        "Ruby Royal"
+      ],
+      "ageImage": "Bright young princess companion with playful royal energy",
+      "personality": "Curious, encouraging princess who treats hard homework like a brave quest",
+      "likes": [
+        "sparkly crowns",
+        "story quests",
+        "kind bravery",
+        "finding hidden clues",
+        "celebrating tiny wins"
+      ],
+      "dislikes": [
+        "giving up too soon",
+        "bossy shortcuts",
+        "messy promises"
+      ],
+      "catchphrases": [
+        "A brave try is royal work.",
+        "Let us choose the clever path.",
+        "Tiny wins still sparkle."
+      ],
+      "specialSkills": [
+        "Turning worksheets into quests",
+        "spotting brave effort",
+        "making corrections feel kind"
+      ],
+      "role": "Your daughter's royal quest buddy who makes practice feel brave, kind, and a little magical",
+      "outfitChangeEffect": "Royal sparkle mode -> extra brave quest energy",
+      "gestureProfile": {
+        "meet": "quick_formal_bow",
+        "intro": [
+          "quick_formal_bow",
+          "wave",
+          "think"
+        ],
+        "plead": [
+          "wave",
+          "quick_formal_bow"
+        ],
+        "specialDance": "salsa_dancing"
+      },
+      "scripts": {
+        "en": {
+          "intro": "Hello, I am Princess. I turn hard practice into brave little quests, and I always notice a real try.",
+          "plead": "Pick me and we shall make every correction sparkle. The royal rule is simple: brave tries first, crowns after."
+        }
+      }
+    }
+  },
+  {
     "id": "tene",
     "name": "Tene",
     "vrmUrl": "/companions/1537416846714225126.vrm",
@@ -693,6 +837,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           0
         ]
       },
+      "displayScale": 1,
       "dopamineGames": [
         "space-invaders",
         "asteroid",
@@ -839,6 +984,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           0
         ]
       },
+      "displayScale": 1,
       "dopamineGames": [
         "space-invaders",
         "asteroid",
@@ -984,6 +1130,7 @@ export const COMPANION_MANIFEST: CompanionManifestEntry[] = [
           0
         ]
       },
+      "displayScale": 1,
       "dopamineGames": [
         "space-invaders",
         "asteroid",

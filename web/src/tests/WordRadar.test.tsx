@@ -53,6 +53,38 @@ describe("WordRadar", () => {
     expect(screen.getByTestId("word-radar-phase").textContent).toBe("intro");
   });
 
+  it("labels letter-by-letter mode so the UI is not deceptive", () => {
+    renderRadar({ inputMode: "letter-by-letter" });
+    expect(screen.getByTestId("word-radar-mode-label").textContent).toContain(
+      "Spell it out loud",
+    );
+  });
+
+  it("sends a config audit event to explain hidden-word and input-mode choices", () => {
+    const sendMessage = vi.fn();
+    renderRadar({
+      childId: "ila",
+      inputMode: "letter-by-letter",
+      speakStyle: "option-a",
+      sendMessage,
+    });
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_event",
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "word_radar_config_audit",
+          payload: expect.objectContaining({
+            childId: "ila",
+            requestedInputMode: "letter-by-letter",
+            resolvedInputMode: "letter-by-letter",
+            speakStyle: "option-a",
+            hiddenDuringSpeech: false,
+          }),
+        }),
+      }),
+    );
+  });
+
   it("renders starfield", () => {
     renderRadar();
     expect(screen.getByTestId("word-radar-starfield")).toBeTruthy();

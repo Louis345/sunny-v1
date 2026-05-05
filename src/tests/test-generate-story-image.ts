@@ -56,6 +56,18 @@ describe("generateStoryImage", () => {
     expect(body.prompt).toContain("Scene: forest");
   });
 
+  it("asks Grok for a homework-relevant background and stronger foreground/background contrast", async () => {
+    process.env.GROK_API_KEY = "test-key";
+    await generateStoryImage("Reina studies erosion near a changing hill.", {
+      useDirectScene: true,
+    });
+    const body = JSON.parse(
+      (vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string,
+    );
+    expect(body.prompt).toMatch(/homework-relevant background/i);
+    expect(body.prompt).toMatch(/foreground\/background contrast/i);
+  });
+
   it("does not call Grok when SUNNY_MODE=diag", async () => {
     vi.stubEnv("SUNNY_MODE", "diag");
     process.env.GROK_API_KEY = "test-key";

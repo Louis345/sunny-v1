@@ -273,6 +273,93 @@ function playPowerUpSfx(): AmbientMusicHandle | null {
   };
 }
 
+function playSignatureMoveAudio(
+  audioUrl: string | undefined,
+  opts: { onEnded?: () => void } = {},
+): AmbientMusicHandle | null {
+  if (!audioUrl) {
+    const synth = playPowerUpSfx();
+    const synthEndTimer = window.setTimeout(() => opts.onEnded?.(), 1900);
+    return {
+      stop: () => {
+        window.clearTimeout(synthEndTimer);
+        synth?.stop();
+      },
+    };
+  }
+  const audio = new Audio(audioUrl);
+  audio.preload = "auto";
+  audio.volume = 0.9;
+  let stopped = false;
+  let fallbackSfx: AmbientMusicHandle | null = null;
+  let fallbackStartTimer: number | null = null;
+  let endTimer: number | null = null;
+  const clearEndTimer = () => {
+    if (endTimer !== null) {
+      window.clearTimeout(endTimer);
+      endTimer = null;
+    }
+  };
+  const cleanupListeners = () => {
+    audio.removeEventListener("ended", onEnded);
+    audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+  };
+  const finish = () => {
+    if (stopped) return;
+    stopped = true;
+    clearEndTimer();
+    cleanupListeners();
+    opts.onEnded?.();
+  };
+  const onEnded = () => {
+    finish();
+  };
+  const onLoadedMetadata = () => {
+    clearEndTimer();
+    const durationMs = Number.isFinite(audio.duration)
+      ? (audio.duration + 0.2) * 1000
+      : 7000;
+    endTimer = window.setTimeout(
+      finish,
+      Math.min(Math.max(durationMs, 1900), 12000),
+    );
+  };
+  audio.addEventListener("ended", onEnded);
+  audio.addEventListener("loadedmetadata", onLoadedMetadata);
+  endTimer = window.setTimeout(finish, 7000);
+  const fallbackTimer = window.setTimeout(() => {
+    if (audio.paused) {
+      fallbackSfx = playPowerUpSfx();
+    }
+  }, 350);
+  fallbackStartTimer = fallbackTimer;
+  void audio.play().catch((err: unknown) => {
+    if (fallbackStartTimer !== null) {
+      window.clearTimeout(fallbackStartTimer);
+      fallbackStartTimer = null;
+    }
+    clearEndTimer();
+    console.warn("CompanionShowroom: signature move MP3 failed; using synth fallback", err);
+    fallbackSfx = playPowerUpSfx();
+    endTimer = window.setTimeout(finish, 1900);
+  });
+  return {
+    stop: () => {
+      stopped = true;
+      if (fallbackStartTimer !== null) {
+        window.clearTimeout(fallbackStartTimer);
+        fallbackStartTimer = null;
+      }
+      clearEndTimer();
+      cleanupListeners();
+      fallbackSfx?.stop();
+      fallbackSfx = null;
+      audio.pause();
+      audio.currentTime = 0;
+    },
+  };
+}
+
 function createShowroomCommand(
   type: string,
   payload: Record<string, unknown>,
@@ -644,6 +731,23 @@ function CompanionSlot({
       ),
     [entry.companionConfig, entry.id, entry.vrmUrl],
   );
+  const displayScale =
+    typeof companionConfig.displayScale === "number" &&
+    Number.isFinite(companionConfig.displayScale)
+      ? Math.min(Math.max(companionConfig.displayScale, 1), 4)
+      : 1;
+  const slotStyle = slotFrameStyle(slot, {
+    soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
+  });
+  const scaledSlotStyle =
+    displayScale > 1 && !contained
+      ? {
+          ...slotStyle,
+          top: "0%",
+          width: "min(64vw, 620px)",
+          height: "min(76vh, 660px)",
+        }
+      : slotStyle;
 
   useEffect(() => {
     vfxLayerRef.current?.setLevel(vfxLevel);
@@ -817,7 +921,7 @@ function CompanionSlot({
             return;
           }
           const size = readMountSize();
-          motor.attachVrm(vrm, scene, size.w, size.h);
+          motor.attachVrm(vrm, scene, size.w, size.h, companionConfig);
           motor.setCameraAngle("mid-shot", 0);
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
@@ -937,9 +1041,7 @@ function CompanionSlot({
               transform: "scale(1.38)",
               transformOrigin: "50% 58%",
             }
-          : slotFrameStyle(slot, {
-              soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
-            })
+          : scaledSlotStyle
       }
     >
       <motion.div
@@ -953,7 +1055,18 @@ function CompanionSlot({
           animation: active ? "sunny-showroom-breathe 3s ease-in-out infinite alternate" : undefined,
         }}
       >
-        <div ref={mountRef} style={{ width: "100%", height: "100%" }} />
+        <div
+          ref={mountRef}
+          style={{
+            width: "100%",
+            height: "100%",
+            transform:
+              displayScale > 1 && !contained
+                ? `translateY(-22%) scale(${displayScale})`
+                : undefined,
+            transformOrigin: "50% 92%",
+          }}
+        />
       </motion.div>
     </motion.div>
   );
@@ -1480,11 +1593,14 @@ export function CompanionShowroom({
     () => createPersistentSlotEntries(entries, currentIndex),
     [entries, currentIndex],
   );
-  const expectedSlotKeys = useMemo(
-    () => slots.map((slot) => slot.entry.id),
+  const visibleSlotKeys = useMemo(
+    () =>
+      slots
+        .filter((slot) => slot.slot !== "hidden")
+        .map((slot) => slot.entry.id),
     [slots],
   );
-  const visibleSlotsSettled = expectedSlotKeys.every((slotKey) =>
+  const visibleSlotsSettled = visibleSlotKeys.every((slotKey) =>
     settledSlotKeys.has(slotKey),
   );
   const showroomReady = visibleSlotsSettled && !generatedBackgroundLoading;
@@ -1766,14 +1882,24 @@ export function CompanionShowroom({
   }, [current, playCurrentCompanionAnimation, stopSpeech]);
 
   const playSignatureMove = useCallback(() => {
-    if (!current?.showroom?.signatureMove) return;
+    const signatureMove = current?.showroom?.signatureMove;
+    if (!signatureMove) return;
     stopSpeech();
     clearTimers();
     setSpeechError(null);
     setCurrentCompanionCamera("close-up", 260);
+    if (signatureMove.animation) {
+      playCurrentCompanionAnimation(signatureMove.animation, { loop: false });
+    }
     setSignatureMoveLevel("focused");
     powerUpSfxRef.current?.stop();
-    powerUpSfxRef.current = playPowerUpSfx();
+    powerUpSfxRef.current = playSignatureMoveAudio(signatureMove.audioUrl, {
+      onEnded: () => {
+        setSignatureMoveLevel("idle");
+        setCurrentCompanionCamera("mid-shot", 420);
+        powerUpSfxRef.current = null;
+      },
+    });
     schedule(() => {
       setSignatureMoveLevel("powered_up");
     }, 520);
@@ -1781,15 +1907,12 @@ export function CompanionShowroom({
       setSignatureMoveLevel("limit_break");
     }, 1080);
     schedule(() => {
-      setSignatureMoveLevel("powered_up");
       setCurrentCompanionCamera("mid-shot", 420);
     }, 1750);
-    schedule(() => {
-      setSignatureMoveLevel("idle");
-    }, 2600);
   }, [
     clearTimers,
     current,
+    playCurrentCompanionAnimation,
     schedule,
     setCurrentCompanionCamera,
     stopSpeech,

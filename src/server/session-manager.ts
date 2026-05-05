@@ -2330,20 +2330,20 @@ export class SessionManager {
         timestamp: Date.now(),
       });
       const flagged = this.ctx?.readingProgress?.flaggedWords ?? [];
-      for (const word of flagged) {
+      const skipped = this.ctx?.readingProgress?.skippedWords ?? [];
+      for (const word of [...flagged, ...skipped]) {
+        const w = word.toLowerCase().trim();
+        if (!w) continue;
         try {
           recordAttempt(childId, {
-            word: word.toLowerCase().trim(),
+            word: w,
             domain: "reading",
             correct: false,
             quality: 1,
             scaffoldLevel: 0,
           });
         } catch (err) {
-          console.error(
-            `  [engine] reading flaggedWord failed for "${word}":`,
-            err,
-          );
+          console.error(`  [engine] reading word failed for "${word}":`, err);
         }
       }
       for (const word of spelledWords) {
@@ -2365,7 +2365,7 @@ export class SessionManager {
         }
       }
       console.log(
-        `  🎮 [engine] reading complete: ${flagged.length} flagged → word bank, ${spelledWords.length} spelled → word bank (${childId})`,
+        `  🎮 [engine] reading complete: ${flagged.length} flagged, ${skipped.length} skipped, ${spelledWords.length} spelled → word bank (${childId})`,
       );
 
       void this.handleEndOfTurn(

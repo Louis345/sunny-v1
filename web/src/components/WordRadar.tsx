@@ -75,6 +75,25 @@ function timerColor(ratio: number): string {
   return "#ef4444";
 }
 
+function wordRadarModeCopy(
+  mode: "whole-word" | "letter-by-letter" | "keyboard",
+  hiddenDuringSpeech: boolean,
+): { label: string; helper: string } {
+  if (mode === "keyboard") {
+    return { label: "Type the word", helper: "Use the keyboard to answer." };
+  }
+  if (mode === "letter-by-letter") {
+    return { label: "Spell it out loud", helper: "Say one letter at a time." };
+  }
+  if (hiddenDuringSpeech) {
+    return {
+      label: "Memory mode",
+      helper: "The word hides after the flash, then Sunny listens.",
+    };
+  }
+  return { label: "Say the whole word", helper: "Read the word out loud." };
+}
+
 /** Confidence bar label + colors for speakStyle option-b (STT partial match). */
 function wordRadarConfidencePresentation(
   matchRatio: number,
@@ -209,13 +228,18 @@ export function WordRadar({
     onComplete(result);
   };
 
+  const resolvedInputMode = resolveWordRadarInputMode(inputMode);
+  const effectiveSpeakStyle = speakStyle ?? "option-a";
+  const hiddenDuringSpeech = effectiveSpeakStyle === "option-b";
+  const modeCopy = wordRadarModeCopy(resolvedInputMode, hiddenDuringSpeech);
+
   const hook = useWordRadar({
     items,
     interimTranscript,
     timerSeconds,
     startImmediately: false,
     showKeyboard,
-    inputMode: resolveWordRadarInputMode(inputMode),
+    inputMode: resolvedInputMode,
     speakStyle,
     keyboardStyle,
     personalBests,
@@ -260,7 +284,33 @@ export function WordRadar({
     };
   }, [childId, sendMessage]);
 
-  const effectiveSpeakStyle = speakStyle ?? "option-a";
+  useEffect(() => {
+    sendMessage("game_event", {
+      event: {
+        type: "word_radar_config_audit",
+        payload: {
+          game: "word-radar",
+          childId: childId || "unknown",
+          requestedInputMode: inputMode ?? null,
+          resolvedInputMode,
+          showKeyboard,
+          speakStyle: effectiveSpeakStyle,
+          hiddenDuringSpeech,
+          keyboardVisible: showKeyboard || resolvedInputMode === "keyboard",
+        },
+        version: "1.0",
+      },
+    });
+  }, [
+    childId,
+    effectiveSpeakStyle,
+    hiddenDuringSpeech,
+    inputMode,
+    resolvedInputMode,
+    sendMessage,
+    showKeyboard,
+  ]);
+
   const confidencePresentation = useMemo(() => {
     if (hook.phase !== "response" || effectiveSpeakStyle !== "option-b") return null;
     return wordRadarConfidencePresentation(hook.matchRatio, false);
@@ -293,9 +343,8 @@ export function WordRadar({
   const subjectMeta = SUBJECT_META[subjectKey] ?? SUBJECT_META.reading!;
   const tileCount = Math.max(display.length, 1);
   const hideLetterTilesInResponse =
-    hook.phase === "response" && effectiveSpeakStyle === "option-b";
-  const activeInputMode = inputMode ?? (showKeyboard ? "keyboard" : "whole-word");
-  const keyboardVisible = showKeyboard || activeInputMode === "keyboard";
+    hook.phase === "response" && hiddenDuringSpeech;
+  const keyboardVisible = showKeyboard || resolvedInputMode === "keyboard";
 
   return (
     <>
@@ -317,6 +366,37 @@ export function WordRadar({
       >
         {hook.phase}
       </span>
+      <div
+        data-testid="word-radar-mode-label"
+        style={{
+          position: "absolute",
+          top: 52,
+          left: 24,
+          zIndex: 7,
+          padding: "10px 14px",
+          borderRadius: 16,
+          background: "rgba(15,23,42,0.62)",
+          border: "1px solid rgba(255,255,255,0.14)",
+          color: "#f8fafc",
+          fontSize: 13,
+          fontWeight: 900,
+          letterSpacing: "0.04em",
+          boxShadow: "0 12px 30px rgba(0,0,0,0.22)",
+        }}
+      >
+        <div>{modeCopy.label}</div>
+        <div
+          style={{
+            marginTop: 3,
+            color: "rgba(226,232,240,0.68)",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: 0,
+          }}
+        >
+          {modeCopy.helper}
+        </div>
+      </div>
       <style>{`
         @keyframes wr-twinkle {
           0%, 100% { opacity: 0.35; }
@@ -521,7 +601,7 @@ export function WordRadar({
                 margin: "0 auto 28px",
               }}
             >
-              Things will flash fast. Say what you see.
+              Things will flash fast. {modeCopy.helper}
             </p>
             <button
               type="button"

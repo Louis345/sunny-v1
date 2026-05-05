@@ -1,0 +1,9 @@
+{
+  "name": "Princess",
+  "voiceId": "Nggzl2QAXh3OijoXD116",
+  "voiceModelId": "eleven_multilingual_v2",
+  "ttsName": "PRIN-sess",
+  "unlockCost": 850,
+  "vrmPath": "/companions/princess.vrm",
+  "displayScale": 2
+}

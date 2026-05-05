@@ -167,7 +167,10 @@ export function useMapSession(
   commitLaunchedNode: (node: NodeConfig) => void;
   launchedNode: NodeConfig | null;
   clearLaunchedNode: () => void;
-  sendNodeResult: (result: NodeResult) => Promise<MapState | null>;
+  sendNodeResult: (
+    result: NodeResult,
+    opts?: { keepLaunchedNode?: boolean },
+  ) => Promise<MapState | null>;
   sendNodeRating: (
     nodeId: string,
     rating: "like" | "dislike" | null,
@@ -176,7 +179,8 @@ export function useMapSession(
   companionCommands: CompanionCommand[];
   forwardMapIframeCompanionEvent: (payload: CompanionEventPayload) => void;
   forwardMapIframeGameStateUpdate: (payload: Record<string, unknown>) => void;
-  forwardMapIframeCurrencyAward: (amount: number, reason: string) => void;
+  forwardMapIframeCurrencyAward: (amount: number, reason: string) => Promise<void>;
+  purchaseStoryMovie: () => Promise<{ balance: number; cost: number }>;
   /** Server-pushed balance while map WS is open; null = use profile-only value from parent. */
   liveMapCurrency: number | null;
   sessionStarted: boolean;
@@ -406,9 +410,9 @@ export function useMapSession(
   );
 
   const forwardMapIframeCurrencyAward = useCallback(
-    (amount: number, reason: string) => {
+    async (amount: number, reason: string) => {
       if (!sessionId) return;
-      void postJson<{ events?: unknown[] }>("/api/map/node-complete", {
+      await postJson<{ events?: unknown[] }>("/api/map/node-complete", {
         sessionId,
         phase: "currency_award",
         amount,
@@ -418,20 +422,38 @@ export function useMapSession(
           : {}),
       }).catch((err) => {
         console.error("  🔴 [useMapSession] currency_award failed:", err);
+        throw err;
       });
     },
     [sessionId, previewMode],
   );
 
+  const purchaseStoryMovie = useCallback(async () => {
+    if (!sessionId) {
+      throw new Error("map_session_required");
+    }
+    return postJson<{ balance: number; cost: number }>(
+      "/api/map/story-reward-purchase",
+      {
+        sessionId,
+        ...(mapPreviewQueryParam(previewMode)
+          ? { preview: mapPreviewQueryParam(previewMode) }
+          : {}),
+      },
+    );
+  }, [sessionId, previewMode]);
+
   const sendNodeResult = useCallback(
-    async (result: NodeResult) => {
+    async (result: NodeResult, opts: { keepLaunchedNode?: boolean } = {}) => {
       if (previewMode === "free" || previewMode === "go-live") {
         const cur = mapStateRef.current;
         if (!cur) return null;
         const next = applyDiagReadingFirstNode(applyLocalNodeResult(cur, result));
         setMapState(next);
         setTheme(next.theme);
-        setLaunchedNode(null);
+        if (opts.keepLaunchedNode !== true) {
+          setLaunchedNode(null);
+        }
         return next;
       }
       if (!sessionId) return null;
@@ -445,7 +467,9 @@ export function useMapSession(
         });
         setMapState(applyDiagReadingFirstNode(res.mapState));
         setTheme(res.mapState.theme);
-        setLaunchedNode(null);
+        if (opts.keepLaunchedNode !== true) {
+          setLaunchedNode(null);
+        }
         if (res.companionEvent && isCompanionEvent(res.companionEvent)) {
           const ev = res.companionEvent;
           console.log("companion_event received (REST):", ev);
@@ -498,6 +522,7 @@ export function useMapSession(
     forwardMapIframeCompanionEvent,
     forwardMapIframeGameStateUpdate,
     forwardMapIframeCurrencyAward,
+    purchaseStoryMovie,
     liveMapCurrency,
     sessionStarted,
   };

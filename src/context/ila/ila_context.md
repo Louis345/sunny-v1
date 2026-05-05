@@ -2172,3 +2172,91 @@ Session 4/30 shows Ila stated "This gonna get mad at me" and "Why? What did I do
 ## Signal
 
 **HOLD all advancement pending 5/1 spelling test analysis.** Ila completed 5 consecutive sessions (4/28-4/30) practicing homework words with 60-73% spelling accuracy and 20-65% auditory discrimination. Test results will reveal whether she mastered -er/-est distinction and irregular word patterns or relied on short-term visual memorization. **ABANDON phoneme segmentation goals after 29 days of zero execution**—her learning profile demands whole-word orthographic instruction, not oral metalinguistic drills. **CHANGE METHOD on timed spelling activities**—Monster Stampede triggered anxiety ("This gonna get mad at me"); use untimed visual scaffolding (Spell-Check, Word Builder) instead. **IMMEDIATELY conduct formal baseline probes on Following Directions and Recalling Sentences THIS WEEK**—35 and 31 "mentions" do not constitute IEP-mandated performance documentation; legal compliance requires actual multi-step direction sequences and sentence repetition tasks with recorded performance data.
+
+## Psychologist Report — 5/4/2026, 8:39:00 PM
+Now I'll analyze the complete data and write my report:
+
+---
+
+## Curriculum Status
+
+**Reading comprehension homework cycle (erosion, wear away, rocks, soil, wind, water, ice, rivers, rain, mountains, beaches, oceans, sand, compass rose, North, South, East, West, downhill) — NEW CYCLE INGESTED 5/5, test 5/6 (24 hours)** → **URGENT PRIORITY**
+
+New homework ingested 5/5 for Wednesday 5/6 test: 19 science/social studies vocabulary words (erosion, wear away, rocks, soil, wind, water, ice, rivers, rain, mountains, beaches, oceans, sand, compass rose, North, South, East, West, downhill). This is **expository content vocabulary**, not phonics or spelling patterns. WIAT-4 shows Ila's reading comprehension split: 64% narrative vs. 13% expository—**she understands stories, not textbooks.** CELF-5 Sentence Comprehension is 63rd percentile (her strength) but only when pictures are present. Hypothesis predicts "content_fit_gap" with high-risk words: erosion, wear away, rocks, soil, wind. querySessions shows ZERO recent work on content vocabulary or reading comprehension—last 5 sessions (4/28-4/30) focused exclusively on spelling homework (comparative/superlative morphology). **She has 24 hours to master 19 abstract science terms she cannot visualize or decode phonetically.**
+
+**Phoneme segmentation diagnostic — 34+ DAYS OVERDUE, abandoned in practice** → **FORMALLY ABANDON**
+
+querySessions 4/28-4/30 confirms complete abandonment: zero phoneme segmentation work across 34+ consecutive days since 4/3 diagnostic was specified. Algorithm data shows Wilson Step 1 gate = REGRESSED, 0 attempts across all recent sessions, only 2/61 words mastered (3%). The mixed-vowel discrimination probe (sit→sat→hit→hat→bit) has never been executed across 34 days and 10+ sessions. Previous 4/30 report recommended formal abandonment—this recommendation stands. Ila's dyslexia + ADHD profile indicates she cannot sustain oral phoneme segmentation drills; she learns through whole-word orthographic patterns (visual spelling games).
+
+**Comparative/superlative morphology spelling test (5/1) — POST-TEST DATA MISSING** → **CANNOT ASSESS**
+
+Previous homework cycle (faster/fastest, slower/slowest, colder/coldest, etc.) had test date 5/1. querySessions shows 5 consecutive prep sessions (4/28-4/30) with 60-87% spelling accuracy and 20-65% auditory discrimination. However, **no post-test scan or results have been ingested.** Cannot determine if Ila mastered -er/-est distinction or if errors occurred on predicted irregular words (figure, money, voice, products, questions). Without test data, cannot confirm whether comparative morphology is mastered or requires continued instruction. New homework cycle (reading comprehension) shifts focus away from morphology entirely.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Content vocabulary comprehension with visual support (TEST IN 24 HOURS—5/6)** — Homework words erosion, wear away, rocks, soil, wind, water, ice, rivers, rain, mountains, beaches, oceans, sand, compass rose, North, South, East, West, downhill are abstract science concepts. WIAT-4 shows 13% expository comprehension vs. 64% narrative. CELF-5 shows 100% Word Classes accuracy WITH pictures, 37.5% without. Must implement visual anchoring IMMEDIATELY: (1) Show picture of erosion + label "erosion = rocks wearing away from wind and water," (2) Compass rose visual with North/South/East/West labeled, (3) Photo cards for concrete nouns (mountains, beaches, oceans, sand, rivers, rain). Test format unknown—if definitions required, she needs explicit meaning instruction, not just word recognition.
+
+- **CRITICAL: Meaning-based comprehension probes for abstract terms** — Words like "erosion," "wear away," "compass rose" are not decodable or sight-memorizable. Must probe meaning comprehension: (1) "What does erosion mean?" (definition recall), (2) "Point to the picture that shows erosion" (visual matching), (3) "The wind and rain made the rocks ___ away" (cloze/context use), (4) "Which direction is North on the compass rose?" (application). If she cannot define or use these words in context, rote memorization for test will fail.
+
+- **CRITICAL: Directional language (North, South, East, West, downhill)** — Compass rose and directional vocabulary require spatial reasoning and left/right orientation. CELF-5 Following Directions at 2nd percentile documents spatial/directional language deficits. Must probe: (1) "Point to North on the compass rose" (visual identification), (2) "If you go from here to the mountains, are you going uphill or downhill?" (application), (3) "The river flows from North to ___" (spatial reasoning). She may memorize labels but not understand directional relationships.
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 37 "mentions" but evidence shows planning references only)** — flagGap shows "tested 37 times" (increased from 35) but querySessions review confirms sessions use only single-step game instructions across all recent sessions. Zero documented 2-step or 3-step sequences with modifiers. **Must formally probe THIS WEEK:** "Touch the big red circle, then clap your hands twice" (2-step + size/color modifier). Record exact performance (completed/partially completed/failed) for IEP baseline documentation. **Legal compliance requirement—cannot delay further.**
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 33 "mentions" but no sentence repetition tasks)** — flagGap shows "tested 33 times" (increased from 31) but querySessions confirms zero sentence repetition across ALL sessions. Every recent session is word-level spelling games. **Must probe THIS WEEK:** (1) "The dog ran fast" (4 words), (2) "The cat is sleeping on the chair" (7 words), (3) "When the boy came home from school, he found a ball" (11 words + embedded clause). Record verbatim responses for IEP baseline documentation. **Legal requirement—34+ days overdue.**
+
+- **WATCH: Content-fit hypothesis for reading homework** — Homework system predicts "content_fit_gap" with high-risk words erosion, wear away, rocks, soil, wind. This hypothesis suggests the homework format itself (abstract expository vocabulary vs. narrative context) creates the performance gap. If Ila scores low on 5/6 test, this confirms WIAT-4 pattern (13% expository vs. 64% narrative comprehension). Future reading homework must embed vocabulary in story context, not isolated definitions.
+
+---
+
+## Signal
+
+**URGENT PRIORITY: Reading comprehension homework test in 24 hours (5/6) with ZERO session preparation.** Ila has 19 abstract science vocabulary words (erosion, compass rose, wear away, directional language) requiring immediate visual anchoring and meaning instruction. WIAT-4 predicts 13% expository comprehension vs. 64% narrative—this homework targets her documented weakness. **Implement visual supports TODAY:** photo cards for concrete nouns, labeled diagrams for compass rose/erosion processes, explicit meaning instruction for abstract terms. **FORMALLY ABANDON phoneme segmentation goals after 34+ days zero execution**—recommendation from 4/30 stands; shift to whole-word sight vocabulary and morphological pattern instruction exclusively. **IMMEDIATE IEP COMPLIANCE REQUIREMENT:** Conduct formal baseline probes on Following Directions and Recalling Sentences THIS WEEK—37 and 33 "mentions" are planning references, not documented performance data; legal requirement for IEP progress monitoring cannot be delayed beyond 34+ days.
+
+## Session — 5/4/2026, 8:56:49 PM
+I'm ready to write your SOAP note now. Here's what I observed from this session:
+
+---
+
+## SOAP NOTE
+
+**Date:** [Session Date]  
+**Client:** Ila (8y3m)  
+**Session Duration:** [Approximately 10-12 minutes based on activity sequence]  
+**Clinician:** Elli (Companion)
+
+### **SUBJECTIVE**
+Ila initiated session engagement after brief companion care activity (apple bite, brain berry feeding). Stated "I'm hungry" early in session and required redirection to map-based learning activities. Demonstrated willingness to participate in Word Radar and pronunciation activities related to erosion/Earth science vocabulary.
+
+### **OBJECTIVE**
+
+**Word Radar Activity (Run 1):**
+- Accuracy: 80% (4/5 correct)
+- Duration: 65 seconds
+- Words attempted: erosion ✓, landform ✓, soil ✓, rocks ✗, water ✓
+- Noted difficulty with "rocks"; required second attempt for accuracy
+
+**Word Radar Activity (Run 2):**
+- Accuracy: 80% (5/5 correct - improved performance on repeat)
+- Duration: 52 seconds
+- Words: erosion ✓, landform ✓, soil ✓, rocks ✓, water ✓
+
+**Reading Passage Comprehension:**
+- Tracking accuracy: 100%
+- Successfully identified clue words: erosion, wear away, rocks, soil, wind, water, ice, rivers
+
+**Pronunciation Activity:**
+- Demonstrated clear articulation on: "erosion," "wear away," "water," "ice," "river," "mountain," "ocean"
+- Articulation rated good across target vocabulary
+- Minor self-corrections on multi-syllabic words ("river" - required 2-3 attempts before accurate production)
+
+**Behavioral Observations:**
+- Impulsivity present: frequent topic shifts ("railway" repeated multiple times off-target)
+- Self-regulation: used verbal strategies ("relax, relax," "it's okay") to manage frustration mid-activity
+- Fatigue indicators: increased verbal repetition ("well, wait" x5 sequential utterances) toward end of pronunciation segment
+- Responsiveness: redirected back to target task with minimal prompting; accepted encouragement positively
+
+### **ASSESSMENT**
+
+Ila demonstrated solid performance on vocabulary-based Earth science activities with 80% accuracy on repeated Word Radar trials and 100% reading passage tracking. Pronunciation of target words (erosion, landform, soil, rocks, water, wear away) produced with good intelligibility;

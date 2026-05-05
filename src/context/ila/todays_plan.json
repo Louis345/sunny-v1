@@ -1,106 +1,142 @@
 {
   "todaysPlan": [
     {
-      "activity": "Comparative/Superlative Meaning Comprehension (faster/fastest, slower/slowest, newer/newest, colder/coldest, taller/tallest)",
+      "activity": "Homework Reading – Erosion And Earth's Surface",
       "priority": 1,
       "required": true,
-      "reason": "Spelling test is May 1 (72 hours away). Session 4/28 Word Radar showed only 40% auditory discrimination of -er/-est forms (missed faster/fastest/slowest). Ila can spell these words with visual support (87% Spell-Check accuracy) but does not understand what -er = 'more' and -est = 'most' mean. CELF-5 Word Structure at 5th percentile documents morphological errors. She needs explicit meaning instruction before test, not just spelling practice.",
-      "timeboxMinutes": 10,
-      "method": "Visual three-way comparison with pictures: show three objects (fast car, faster train, fastest rocket). Ask 'Point to fast. Point to faster. Point to fastest.' Then oral production: 'The dog is slow. The cat is ___. The turtle is the ___.' (slower, slowest). Confirm she understands -er compares TWO things, -est compares THREE OR MORE. Use Sentence Comprehension strength (63rd percentile) to frame comparisons as stories.",
+      "reason": "Active uploaded homework is \"Erosion and Earth's Surface Study Guide\", so today's required work must anchor on erosion, landform, soil, rocks before broader profile goals.",
+      "timeboxMinutes": 12,
+      "method": "Read the assignment-aligned content, ask evidence-based checks, then use profile motivators only as framing.",
+      "source": "pendingHomework",
       "words": [
-        "faster",
-        "fastest",
-        "slower",
-        "slowest",
-        "newer",
-        "newest",
-        "colder",
-        "coldest",
-        "taller",
-        "tallest"
+        "erosion",
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "North",
+        "South",
+        "East",
+        "West",
+        "downhill"
       ],
       "probeSequence": [
-        "Visual comprehension: point to fast/faster/fastest pictures",
-        "Oral production: The dog is slow. The cat is ___ (slower). The turtle is the ___ (slowest).",
-        "Concept check: How many things do you need to use 'faster'? (2) How many for 'fastest'? (3 or more)"
+        "Read or preview the assignment content",
+        "Ask what changed or happened",
+        "Ask why it happened using text evidence",
+        "Have the child explain the concept back"
       ]
     },
     {
-      "activity": "Irregular Spelling Pattern Visual Memory (sailor, figure, horse, money, voice)",
+      "activity": "Homework Baseline Check",
       "priority": 2,
       "required": true,
-      "reason": "Spell-Check 4/28 showed 'sailor' incomplete (5 wrong attempts: 'e r o o r', 'o r e r'). These homework words have irregular orthography without predictable phonics. WIAT-4 spelling at 55th percentile in isolation but collapses under cognitive load. Dyslexia profile demands visual memory anchors, not phonetic analysis. Test is 5/1 (72 hours)—these are the words most likely to fail.",
-      "timeboxMinutes": 8,
-      "method": "Visual memory strategies with semantic anchors: (1) Sailor = AI like 'rail' + OR like 'or'—write 5x while chanting letters. (2) Figure = silent U—draw stick figure and label it. (3) Money = ONE 'e' but sounds like two—circle the weird part, relate to coins. (4) Horse = OR like 'or' + SE—draw horse. (5) Voice = OI like 'oil' + CE—point to throat. Each word gets a visual mnemonic she creates, not teacher-imposed.",
+      "reason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story.",
+      "timeboxMinutes": 5,
+      "method": "Measure: concept_recognition_accuracy; missed_concepts. Algorithm targets: retrieval-practice, reading-comprehension.",
+      "source": "pendingHomework:baseline-evaluator",
       "words": [
-        "sailor",
-        "figure",
-        "horse",
-        "money",
-        "voice"
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water"
+      ],
+      "probeSequence": [
+        "concept_recognition_accuracy",
+        "missed_concepts"
       ]
     },
     {
-      "activity": "Following Directions Formal Baseline Probe (2-step then 3-step with modifiers)",
+      "activity": "Homework Story Reading",
       "priority": 3,
       "required": true,
-      "reason": "IEP-mandated baseline missing after 33 'mentions' in notes across 25+ sessions. CELF-5: 2nd percentile, documented failure with multi-step directions and modifiers. All sessions use single-step instructions only. CSE requires actual performance data for progress monitoring, not planning references. This is a legal compliance requirement.",
-      "timeboxMinutes": 5,
-      "method": "Formal probe with exact wording documented: (1) 'Touch the big blue circle, then tap your head twice.' Record: completed/partially completed/failed. (2) 'Pick up the red pen, put it next to the book, then clap your hands.' Record verbatim. Do NOT provide 'wait until I say Go' scaffolding on first attempt—test raw baseline. If she fails, repeat WITH scaffolding and document difference.",
+      "reason": "Build background knowledge and engagement around Erosion and Earth's Surface.",
+      "timeboxMinutes": 12,
+      "method": "Measure: reading_completion; hesitations; flagged_words. Algorithm targets: reading-comprehension, activity-affinity.",
+      "source": "pendingHomework:story",
+      "words": [
+        "erosion",
+        "wear away",
+        "rocks"
+      ],
       "probeSequence": [
-        "Touch the big blue circle, then tap your head twice (2-step + size/color modifiers)",
-        "Pick up the red pen, put it next to the book, then clap your hands (3-step + color/spatial modifiers)",
-        "If failed: repeat with 'Wait until I say Go' scaffolding and document performance change"
+        "reading_completion",
+        "hesitations",
+        "flagged_words"
       ]
     },
     {
-      "activity": "Recalling Sentences Formal Baseline Probe (4-word, 9-word, 16-word)",
+      "activity": "Homework Pronunciation Practice",
       "priority": 4,
       "required": true,
-      "reason": "IEP-mandated baseline missing after 29 'mentions' across 25+ sessions. CELF-5: 5th percentile auditory memory with breakdown at longer sentence length. Zero sentence repetition tasks documented—all work is word-level (spelling, Word Radar). CSE requires baseline for progress monitoring. Legal compliance requirement.",
-      "timeboxMinutes": 5,
-      "method": "Sentence repetition probe with length progression: (1) 'The dog ran fast' (4 words). (2) 'The big cat is sleeping on the soft chair' (9 words + modifiers). (3) 'When the boy came home from school yesterday, he found his red ball by the fence' (16 words, embedded clause, past tense). Record verbatim responses. Do NOT repeat sentences—this tests auditory memory, not comprehension. Document where breakdown occurs (word count threshold).",
+      "reason": "Academic words must be speakable before they can be explained confidently.",
+      "timeboxMinutes": 6,
+      "method": "Measure: pronunciation_accuracy; hesitation. Algorithm targets: pronunciation, desirable-difficulty.",
+      "source": "pendingHomework:pronunciation",
+      "words": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water"
+      ],
       "probeSequence": [
-        "The dog ran fast (4 words)",
-        "The big cat is sleeping on the soft chair (9 words)",
-        "When the boy came home from school yesterday, he found his red ball by the fence (16 words)"
+        "pronunciation_accuracy",
+        "hesitation"
       ]
     },
     {
-      "activity": "Homework Word Spell-Check Rehearsal (game format, front-load hard words)",
+      "activity": "Homework Concept Builder",
       "priority": 5,
-      "required": false,
-      "reason": "Session 4/28 showed 87% accuracy across 20 homework words with visual scaffolding, but fatigue hit after ~10 minutes ('It's just bad'). Test is 5/1 (72 hours). Final rehearsal confirms mastery and identifies last-minute gaps. Front-load hardest words (sailor, figure, voice, products, questions) at session start before ADHD-driven attention collapse.",
-      "timeboxMinutes": 10,
-      "skipConditions": [
-        "If previous activities exceeded 25 minutes",
-        "If Ila shows frustration or requests break after comparative/superlative work"
+      "required": true,
+      "reason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface.",
+      "timeboxMinutes": 8,
+      "method": "Measure: construction_accuracy; attempted_value. Algorithm targets: retrieval-practice, desirable-difficulty.",
+      "source": "pendingHomework:concept-builder",
+      "words": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water"
       ],
-      "minimumWords": 10
+      "probeSequence": [
+        "construction_accuracy",
+        "attempted_value"
+      ]
     },
     {
-      "activity": "Mixed-Vowel Discrimination Diagnostic (sit, sat, hit, hat, bit)",
+      "activity": "Homework Exit Check",
       "priority": 6,
-      "required": false,
-      "reason": "24 days overdue since 4/3 specification. Actively avoided across 6 sessions (resisted 4/4, deferred 4/5, incomplete 4/18/4/26, zero phoneme work 4/28). Algorithm shows 0 attempts last 5 sessions, Wilson Step 1 gate = REGRESSED. However, spelling test on 5/1 is higher priority—phoneme work can wait until after test. Include ONLY if time allows and Ila does not resist.",
-      "timeboxMinutes": 8,
-      "method": "Embed in Word Builder game format with visual sound boxes (NOT oral segmentation drills). Alternating sequence: sit → sat → hit → hat → bit. 80%+ accuracy = advance to CCVC. <60% = abandon oral phoneme work, focus on whole-word spelling patterns only.",
+      "required": true,
+      "reason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content.",
+      "timeboxMinutes": 5,
+      "method": "Measure: exit_accuracy; improvement_from_baseline. Algorithm targets: mastery-gating, retrieval-practice.",
+      "source": "pendingHomework:exit-evaluator",
       "words": [
-        "sit",
-        "sat",
-        "hit",
-        "hat",
-        "bit"
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water"
       ],
-      "skipConditions": [
-        "If Ila requests to skip",
-        "If session time <5 minutes remaining",
-        "If previous activities caused frustration"
-      ],
-      "minimumWords": 3
+      "probeSequence": [
+        "exit_accuracy",
+        "improvement_from_baseline"
+      ]
     }
   ],
-  "childProfile": "Ila is 8 years 3 months old with ADHD combined type and dyslexia. She has mild language delays (12th percentile receptive, 4th percentile expressive) but average sentence comprehension (63rd percentile). She depends heavily on visual support—100% accuracy with pictures, 37% without. Multi-step directions fail (2nd percentile); always break tasks into single steps with clear 'Ready? Go!' signals. She spells at 55th percentile in isolation but collapses under cognitive load. Sustained attention lasts 10-15 minutes before fatigue hits. She actively avoids phoneme segmentation work (prefers reading/spelling games) but engages when tasks are game-based with immediate feedback. Comparative/superlative morphology is new territory—she can spell -er/-est words but does not understand their meanings. Irregular spelling words (sailor, figure, money) require visual memory anchors, not phonetic analysis. She is friendly, willing, and pride-motivated—celebrates effort over accuracy. Homework spelling test is May 1 (72 hours), making test preparation the top priority. IEP baseline probes on Following Directions and Recalling Sentences are legally required documentation that has been deferred for 25+ sessions—must complete this week.",
-  "stopAfter": "30 minutes total or when Ila shows frustration/fatigue signs ('It's just bad', requests help repeatedly, false starts increase). Spelling test is 5/1—prioritize meaning comprehension and irregular word rehearsal over IEP probes if time is limited. Front-load hardest activities (comparative meanings, irregular spellings) at session start before ADHD attention collapse.",
-  "rewardPolicy": "Ila responds well to game-based formats (Word Builder, Spell-Check, Wheel of Fortune) and brief breaks between tasks. After completing required comparative/superlative meaning work and irregular spelling rehearsal, offer 3-5 minute game break (Space Frogger, Space Invaders) before IEP baseline probes. If she completes all homework rehearsal + both IEP probes without resistance, end session with 5-minute free choice game. Do NOT offer games as negotiation tools before work starts—she will derail the session. Use praise heavily ('You're on fire today!', 'That's incredible!') and celebrate effort, not just accuracy. Avoid any hint of 'wrong'—she shuts down. If she shows frustration during irregular spelling (like 'sailor' on 4/28), redirect to easier word, celebrate small wins, then return to hard word at end."
+  "childProfile": "Ila is an 8-year-old with ADHD combined type and dyslexia who learns best through visual-motor pathways and narrative context. Her CELF-5 profile shows 100% accuracy with pictures but only 37% without—visual support is not optional, it's essential for her success. She has a dramatic comprehension split: 64% on narrative (stories) vs 13% on expository (textbook) material, which makes tomorrow's science vocabulary test a direct challenge to her documented weakness. Her working memory is low (2nd percentile Following Directions) and auditory sentence recall collapses at longer lengths (5th percentile), so instructions must be broken into single steps with visual anchors. She engages enthusiastically with game-based formats (Word Builder, Spell-Check, Wheel of Fortune) but has actively avoided oral phoneme segmentation for 34+ consecutive days—this tells us metalinguistic drills trigger shutdown, while whole-word visual learning feels safe. She's kind, hard-working, and wants to please; recent sessions show emerging performance anxiety ('This gonna get mad at me') when errors occur under timed pressure. Sustained focus lasts 10-15 minutes before ADHD fatigue hits. She needs front-loaded priority work, frequent movement breaks, and error-neutral language that celebrates effort over accuracy.",
+  "stopAfter": "After the homework exit check shows the assignment concept is understood, or earlier if frustration is rising.",
+  "rewardPolicy": "Reward only after the homework care-plan sequence, not before the assignment is checked."
 }

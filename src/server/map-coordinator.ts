@@ -51,6 +51,7 @@ import { COMPANION_CAPABILITIES } from "../shared/companions/registry";
 import { validateCompanionCommand } from "../shared/companions/validateCompanionCommand";
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { reconcileCompanionCurrencyAward } from "./currencyAward";
+import { computeStoryMovieCost } from "../shared/rewardEconomy";
 import childrenCfg from "../../children.config.json";
 import { getDopamineGameSlugsForChild } from "../profiles/childrenConfig";
 import {
@@ -1296,6 +1297,60 @@ export function handleMapClientMessage(
   }
 
   return [{ type: "map_error", payload: { reason: "unknown_message" } }];
+}
+
+export function purchaseStoryMovieReward(
+  sessionId: string,
+  clientPreviewFree: boolean,
+): { ok: true; cost: number; balance: number } | {
+  ok: false;
+  reason: string;
+  cost: number;
+  balance: number;
+} {
+  const rec = sessions.get(sessionId);
+  if (!rec) {
+    throw new MapSessionError("unknown_session", 404);
+  }
+  const skipPersistence =
+    rec.runtime.persistenceMode === "blocked" || clientPreviewFree;
+  const current = reconcileCompanionCurrencyAward({
+    childId: rec.mapState.childId,
+    amount: 0,
+    dryRun: true,
+    reason: "story_movie_quote",
+  });
+  if (!current.ok) {
+    return { ok: false, reason: current.reason, cost: 0, balance: 0 };
+  }
+  const cost = computeStoryMovieCost(current.balance);
+  if (current.balance < cost) {
+    return {
+      ok: false,
+      reason: "insufficient_funds",
+      cost,
+      balance: current.balance,
+    };
+  }
+  const out = reconcileCompanionCurrencyAward({
+    childId: rec.mapState.childId,
+    amount: -cost,
+    dryRun: skipPersistence,
+    reason: "story_movie_purchase",
+  });
+  if (!out.ok) {
+    return { ok: false, reason: out.reason, cost, balance: current.balance };
+  }
+  if (!skipPersistence) {
+    broadcastCompanionEventToMapChild(rec.mapState.childId, {
+      type: "currency_update",
+      balance: out.balance,
+    });
+  }
+  console.log(
+    `  🎮 [story-movie] purchase cost=${cost} balance=${out.balance} dryRun=${skipPersistence}`,
+  );
+  return { ok: true, cost, balance: out.balance };
 }
 
 function ratingFromResult(nodeType: NodeType, result: NodeResult): NodeRatingLike {

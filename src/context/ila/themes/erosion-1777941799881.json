@@ -1,0 +1,38 @@
+{
+  "id": "erosion-1777941799881",
+  "name": "erosion",
+  "generatedAt": "2026-05-05T00:43:19.881Z",
+  "worldBackgroundUrl": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-42c57c30-d478-4046-a0b4-645959d53592.jpeg",
+  "palette": {
+    "sky": "#0b1b3a",
+    "ground": "#0f3d2e",
+    "accent": "#1a56db",
+    "particle": "#a7c7ff",
+    "glow": "#fde68a",
+    "cardBackground": "#0f172a"
+  },
+  "thumbnails": {
+    "mystery": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-7d48f680-f5a0-4395-852e-d67e22638d30.jpeg",
+    "word-builder": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-a1f72c1e-9e0b-46f9-a595-1c1f47c51392.jpeg",
+    "bubble-pop": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-0367c6a5-7f77-4eb2-9fa2-ee5c39834717.jpeg",
+    "fish-flanker": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-30bcb770-0300-4f63-bcba-a7ba261f347d.jpeg",
+    "target-blaster": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-db546164-c83c-4a19-a8a3-15dd0588f995.jpeg",
+    "hero-shield": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-51a8c553-47a7-405a-aa18-fc706f217b31.jpeg",
+    "karaoke": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-5e1b2ce5-b9fa-4fbb-a5c6-b9ed1ae48640.jpeg",
+    "word-radar": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-7cf38f59-3583-4c19-809d-3d14576f5b7a.jpeg",
+    "clock-game": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-52483aeb-1c78-4d2d-8864-67644c230a30.jpeg",
+    "coin-counter": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-61767a09-8c78-4b22-8797-9d33fcb8ca0c.jpeg",
+    "spell-check": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-75aae1a1-3a84-45d5-ad11-e18d99907b4d.jpeg",
+    "wordle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-63c04962-cef2-4aa1-a48c-0f1cad1377d0.jpeg",
+    "riddle": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-9b8140e8-2b4d-44d3-96e1-2d9eedf601c5.jpeg",
+    "space-invaders": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-acea2710-8a93-4874-b941-7709750ce4e8.jpeg",
+    "asteroid": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-ac056fda-ed2c-401e-91b8-88e7e6836b78.jpeg",
+    "space-frogger": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-0e02e445-2b80-40f3-898d-3639a0dacfef.jpeg",
+    "boss": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-d9d50e4a-abba-4242-ac8f-acedb68ce00f.jpeg",
+    "wheel-of-fortune": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-0998a1d1-60b3-4944-9e30-45d32c9f865c.jpeg",
+    "quest": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-c1b8de0a-c09b-4fe0-9d84-65cc48159fa4.jpeg",
+    "pronunciation": "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-14a7189c-d869-42c7-84e4-c152353b2027.jpeg"
+  },
+  "mapPathPreset": "stepping-stones",
+  "savedBy": "auto"
+}

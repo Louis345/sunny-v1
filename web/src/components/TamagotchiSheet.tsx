@@ -361,7 +361,6 @@ export function TamagotchiSheet({
                 type="button"
                 onClick={() => {
                   onFeed?.(it.id);
-                  onClose();
                 }}
                 aria-label={`Feed ${it.label}`}
                 disabled={disabled}

@@ -5,16 +5,70 @@ import {
   isInterimPhraseRestart,
 } from "../../../src/shared/karaokeReadingMetrics";
 
+function transcriptMatchesExpectedPhrase(
+  heardWords: string[],
+  expected: string,
+): "match" | "partial" | "mismatch" {
+  const expectedTokens = expected.split(/\s+/).filter(Boolean);
+  if (expectedTokens.length <= 1) {
+    let result: "match" | "partial" | "mismatch" = "mismatch";
+    for (const heardWord of heardWords) {
+      const candidate = classifyKaraokeWordMatch(heardWord, expected);
+      if (candidate === "match") return "match";
+      if (candidate === "partial") result = "partial";
+    }
+    return result;
+  }
+
+  const normalizedExpected = expectedTokens.join(" ");
+  for (let start = 0; start <= heardWords.length - expectedTokens.length; start += 1) {
+    const phrase = heardWords.slice(start, start + expectedTokens.length).join(" ");
+    if (classifyKaraokeWordMatch(phrase, normalizedExpected) === "match") {
+      return "match";
+    }
+    const compactPhrase = phrase.replace(/\s+/g, "");
+    const compactExpected = normalizedExpected.replace(/\s+/g, "");
+    if (classifyKaraokeWordMatch(compactPhrase, compactExpected) === "match") {
+      return "match";
+    }
+  }
+
+  const lastWords = heardWords.slice(-expectedTokens.length);
+  const partialPhrase = lastWords.join(" ");
+  if (
+    partialPhrase &&
+    classifyKaraokeWordMatch(partialPhrase, normalizedExpected) === "partial"
+  ) {
+    return "partial";
+  }
+  return "mismatch";
+}
+
+function transcriptFingerprint(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 export interface UseKaraokeReadingArgs {
   words: string[];
   interimTranscript: string;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
-  onComplete?: () => void;
+  onComplete?: (result: KaraokeReadingCompleteResult) => void;
   mode?: "sequential" | "multi";
   activeWordIndices?: number[];
   /** When set (pronunciation belt), only this word index is eligible for hits — stays in sync with the leader pill. Omit for generic multi (match any active index). */
   leaderWordIndex?: number | null;
+  /** Pronunciation STT can replay the same word with punctuation/case changes. Suppress those replays from scoring again. */
+  suppressDuplicateTranscriptMatches?: boolean;
 }
+
+export type KaraokeReadingCompleteResult = {
+  skippedWords: string[];
+  flaggedWords: string[];
+  spelledWords: string[];
+  hesitations: number;
+  wordIndex: number;
+  totalWords: number;
+};
 
 export interface UseKaraokeReadingResult {
   wordIndex: number;
@@ -41,6 +95,7 @@ export function useKaraokeReading(
     mode = "sequential",
     activeWordIndices = [],
     leaderWordIndex = null,
+    suppressDuplicateTranscriptMatches = false,
   } = args;
 
   const [wordIndex, setWordIndex] = useState(0);
@@ -64,6 +119,7 @@ export function useKaraokeReading(
     "match",
   );
   const pendingHitBlockRef = useRef<Set<number>>(new Set());
+  const lastMatchedSequentialFingerprintRef = useRef("");
 
   // Reset all state when the words array reference changes (new story).
   const prevWordsRef = useRef(words);
@@ -81,6 +137,7 @@ export function useKaraokeReading(
     lastInterimLengthRef.current = 0;
     lastClassifyResultRef.current = "match";
     pendingHitBlockRef.current = new Set();
+    lastMatchedSequentialFingerprintRef.current = "";
     setWordIndex(0);
     setSkippedIndices([]);
     setIsComplete(false);
@@ -128,23 +185,26 @@ export function useKaraokeReading(
       isCompleteRef.current = true;
       setWordIndex(words.length);
       setIsComplete(true);
+      const completeResult: KaraokeReadingCompleteResult = {
+        wordIndex: words.length,
+        totalWords: words.length,
+        hesitations: hesitationsRef.current,
+        flaggedWords: Array.from(flaggedWordsSetRef.current),
+        skippedWords: [...skippedWordsListRef.current],
+        spelledWords: [...spelledWordsRef.current],
+      };
       if (reason === "preview") {
-        onComplete?.();
+        onComplete?.(completeResult);
       }
       sendMessage(
         "reading_progress",
         buildKaraokeReadingProgressPayload({
-          wordIndex: words.length,
-          totalWords: words.length,
-          hesitations: hesitationsRef.current,
-          flaggedWords: Array.from(flaggedWordsSetRef.current),
-          skippedWords: [...skippedWordsListRef.current],
-          spelledWords: [...spelledWordsRef.current],
+          ...completeResult,
           event: "complete",
         }),
       );
       if (reason !== "preview") {
-        onComplete?.();
+        onComplete?.(completeResult);
       }
     },
     [mode, onComplete, sendMessage, words],
@@ -293,19 +353,28 @@ export function useKaraokeReading(
     lastInterimRef.current = t;
 
     const heardWords = t.split(/\s+/).filter(Boolean);
-    const lastWord = heardWords[heardWords.length - 1] ?? "";
-    if (!lastWord) return;
+    if (heardWords.length === 0) return;
+    const fingerprint = transcriptFingerprint(t);
+    if (
+      suppressDuplicateTranscriptMatches &&
+      fingerprint &&
+      fingerprint === lastMatchedSequentialFingerprintRef.current
+    ) {
+      return;
+    }
 
     const prev = wordIndexRef.current;
     if (prev >= words.length) return;
     const expected = words[prev];
     if (!expected) return;
 
-    const result = classifyKaraokeWordMatch(lastWord, expected);
+    const result = transcriptMatchesExpectedPhrase(heardWords, expected);
     lastClassifyResultRef.current = result;
-
     if (result !== "match") return;
 
+    if (suppressDuplicateTranscriptMatches) {
+      lastMatchedSequentialFingerprintRef.current = fingerprint;
+    }
     const spelledToken = expected.toLowerCase().trim();
     if (spelledToken) spelledWordsRef.current.push(spelledToken);
     mismatchCountForCurrentRef.current = 0;
@@ -322,6 +391,7 @@ export function useKaraokeReading(
     mode,
     activeWordIndices,
     leaderWordIndex,
+    suppressDuplicateTranscriptMatches,
     completeReading,
   ]);
 

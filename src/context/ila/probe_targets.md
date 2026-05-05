@@ -1,13 +1,13 @@
 # Elli Session Targets
 *Auto-generated — do not edit manually*
-*Updated: 2026-05-01T00:11:59.109Z*
+*Updated: 2026-05-05T00:39:02.644Z*
 
-• Let's play a spelling game where there's no timer—just you and me taking our time with words like "figure" and "money"
+• Show her pictures of rocks, wind, and water together, then say "that's erosion" — help her see what the word actually looks like
 
-• I'll say a short sentence, and you repeat it back—like "The dog ran fast"—and we'll see how many words you remember
+• When she learns a new word, ask "what does that mean?" or "point to the picture" instead of just memorizing it
 
-• When you're learning a tricky word, let's write it in rainbow colors or in the air with big arm movements instead of just looking at it
+• Draw a simple compass rose together and ask her which way is North, South, East, West while pointing around the room
 
-• I'll give you two directions in a row, like "touch the red circle, then clap twice," and we'll do them together
+• Give her two things to do in a row: "touch the picture of mountains, then tell me if that's uphill or downhill"
 
-• If you make a mistake, I'll say "let's try another way" instead of "wrong"—because trying new strategies is how we learn
+• After she hears you say a sentence, ask her to say it back — start with short ones like "the dog is sleeping"

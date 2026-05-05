@@ -77,6 +77,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "Colorful alphabet blocks stacked playfully, bright primary colors, cartoon style",
   karaoke:
     "An open storybook with stars floating out, warm golden light, illustrated style",
+  pronunciation:
+    "A friendly microphone with sound waves and sparkling word bubbles, energetic arcade practice, child-friendly cartoon",
   "word-radar":
     "A radar dish scanning a starfield with glowing word tiles, deep purple space, child-friendly cartoon",
   "spell-check":
