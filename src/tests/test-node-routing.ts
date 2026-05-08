@@ -17,8 +17,21 @@ describe("map node routing", () => {
     expect(ALL_NODE_TYPES).toContain("wordle");
   });
 
+  it("ALL_NODE_TYPES includes letter-rush", () => {
+    expect(ALL_NODE_TYPES).toContain("letter-rush");
+  });
+
   it('isWordDrivenHomeworkNodeType("wordle") returns true', () => {
     expect(isWordDrivenHomeworkNodeType("wordle")).toBe(true);
+  });
+
+  it('isWordDrivenHomeworkNodeType("letter-rush") returns true', () => {
+    expect(isWordDrivenHomeworkNodeType("letter-rush")).toBe(true);
+  });
+
+  it('NODE_THUMBNAIL_PROMPTS["letter-rush"] is defined', () => {
+    expect(NODE_THUMBNAIL_PROMPTS["letter-rush"]).toBeDefined();
+    expect(String(NODE_THUMBNAIL_PROMPTS["letter-rush"]).length).toBeGreaterThan(0);
   });
 
   it('NODE_THUMBNAIL_PROMPTS["wordle"] is defined', () => {
@@ -166,13 +179,16 @@ describe("map node routing", () => {
       "word-radar",
       "word-builder",
       "spell-check",
+      "letter-rush",
       "wordle",
       "wheel-of-fortune",
       "mystery",
       "quest",
       "boss",
       "dopamine",
+      "concept-check",
       "bubble-pop",
+      "cpt-low-reward",
       "fish-flanker",
       "target-blaster",
       "hero-shield",
@@ -216,6 +232,49 @@ describe("map node routing", () => {
     expect(action.url).toContain("farmer");
   });
 
+  it("concept-check node builds iframe URL with activity config path", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "n-concept-check",
+        type: "concept-check",
+        words: [],
+        difficulty: 1,
+        activityConfigPath: "/api/activity-config/ila/hw-reading-erosion/concept-check.json",
+      } as const,
+      { childId: "ila", companion: "elli", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/concept-check.html");
+    expect(action.url).toContain("config=");
+    expect(decodeURIComponent(action.url)).toContain(
+      "/api/activity-config/ila/hw-reading-erosion/concept-check.json",
+    );
+    expect(action.url).toContain("nodeId=n-concept-check");
+  });
+
+  it("letter-rush node builds iframe URL with activity config path", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "n-letter-rush",
+        type: "letter-rush",
+        words: ["farmer", "sailor"],
+        difficulty: 1,
+        activityConfigPath: "/api/activity-config/ila/hw-spelling-week-5/letter-rush.json",
+      } as const,
+      { childId: "ila", companion: "elli", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/letter-rush.html");
+    expect(action.url).toContain("config=");
+    expect(decodeURIComponent(action.url)).toContain(
+      "/api/activity-config/ila/hw-spelling-week-5/letter-rush.json",
+    );
+    expect(action.url).toContain("nodeId=n-letter-rush");
+    expect(action.url).toContain("childId=ila");
+  });
+
   it("attention screening preview node launches the selected baseline activity iframe", () => {
     const action = buildNodeLaunchAction(
       {
@@ -241,6 +300,7 @@ describe("map node routing", () => {
   it("each baseline attention task has its own enclosed activity route", () => {
     const expected = new Map([
       ["bubble-pop", "/games/attention-bubble-pop.html"],
+      ["cpt-low-reward", "/games/attention-cpt-low-reward.html"],
       ["fish-flanker", "/games/attention-fish-flanker.html"],
       ["target-blaster", "/games/attention-target-blaster.html"],
       ["hero-shield", "/games/attention-hero-shield.html"],

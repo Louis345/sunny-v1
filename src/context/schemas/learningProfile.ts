@@ -245,6 +245,39 @@ export interface LearningProfile {
       rawText: string;
       words: string[];
       questions: unknown[];
+      wordGroups?: Array<{
+        id: string;
+        label: string;
+        purpose: string;
+        words: string[];
+        confidence: number;
+        evidence: string[];
+        scheduleAfter?: string;
+      }>;
+      assignmentInterpretation?: {
+        schemaVersion: number;
+        status?: string;
+        wordGroups: Array<{
+          id: string;
+          label: string;
+          purpose: string;
+          words: string[];
+          confidence: number;
+          evidence: string[];
+          scheduleAfter?: string;
+        }>;
+        assertions: Array<{
+          id: string;
+          claim: string;
+          confidence: number;
+          evidence: string[];
+        }>;
+        selectedTargets: unknown[];
+        heldTargets: unknown[];
+        clarificationQuestions?: unknown[];
+        humanAnswers?: unknown[];
+        memoryMatches?: unknown[];
+      };
       sourceDocuments: Array<{
         filename: string;
         mediaType?: string;
@@ -273,6 +306,8 @@ export interface LearningProfile {
       storyText?: string;
       storyTitle?: string;
       storyImagePrompt?: string;
+      /** Validated JSON config endpoint for reusable activity engines. */
+      activityConfigPath?: string;
       /** Word Radar drills when `type === "word-radar"` (ingest / map). */
       wordRadarItems?: Array<{
         display: string;
@@ -287,6 +322,15 @@ export interface LearningProfile {
     /** Adventure map node ids completed for this homework week (persisted across sessions). */
     completedAdventureNodeIds?: string[];
   };
+
+  /** Parent-confirmed assignment-interpretation patterns used to reduce future clarification prompts. */
+  homeworkInterpretationMemory?: Array<{
+    patternKey: string;
+    confirmedAt: string;
+    useCount: number;
+    confidenceBoost: number;
+    evidence: string[];
+  }>;
 
   /**
    * Companion reaction overrides (merged onto preset from repo-root `children.config.json` in `buildProfile`).

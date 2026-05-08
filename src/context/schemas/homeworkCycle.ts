@@ -57,6 +57,39 @@ export interface CapturedHomeworkContentRecord {
   rawText: string;
   words: string[];
   questions: unknown[];
+  wordGroups?: Array<{
+    id: string;
+    label: string;
+    purpose: string;
+    words: string[];
+    confidence: number;
+    evidence: string[];
+    scheduleAfter?: string;
+  }>;
+  assignmentInterpretation?: {
+    schemaVersion: number;
+    status?: string;
+    wordGroups: Array<{
+      id: string;
+      label: string;
+      purpose: string;
+      words: string[];
+      confidence: number;
+      evidence: string[];
+      scheduleAfter?: string;
+    }>;
+    assertions: Array<{
+      id: string;
+      claim: string;
+      confidence: number;
+      evidence: string[];
+    }>;
+    selectedTargets: unknown[];
+    heldTargets: unknown[];
+    clarificationQuestions?: unknown[];
+    humanAnswers?: unknown[];
+    memoryMatches?: unknown[];
+  };
   sourceDocuments: Array<{
     filename: string;
     mediaType?: string;

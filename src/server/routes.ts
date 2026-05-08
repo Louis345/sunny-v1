@@ -7,6 +7,7 @@ import path from "path";
 import { spawn } from "child_process";
 import { ELLI, MATILDA } from "../companions/loader";
 import { generateStoryImage } from "../utils/generateStoryImage";
+import { generateStoryVideo } from "../utils/generateStoryVideo";
 import { buildProfile } from "../profiles/buildProfile";
 import { getChildChart } from "../profiles/childChart";
 import {
@@ -53,12 +54,30 @@ import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
 } from "./companionCareFeedRoute";
-import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
+import {
+  buildPendingHomeworkPayload,
+  ensureQuestHtmlContract,
+  writeActivityConfigArtifacts,
+} from "../scripts/ingestHomework";
+import {
+  applyHomeworkClarificationAnswer,
+  buildContentAwareHomeworkNodes,
+  type CapturedHomeworkContent,
+  type HomeworkTargetPurpose,
+} from "../scripts/contentAwareHomeworkPlanner";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 import { readHomeworkCycle } from "../engine/homeworkCycleLoop";
+import {
+  buildAdaptiveEvidenceSnapshot,
+  questGateFromSnapshot,
+} from "../engine/adaptiveEvidenceSnapshot";
+import {
+  validateActivityEngineConfig,
+  validateLetterRushConfig,
+} from "../engine/activityEngineConfig";
 import { CompanionRegistry } from "../prompts/companions/registry";
 import { tryLoadIntroOnlyShowroomCompanion } from "./introOnlyShowroomCompanion";
 import {
@@ -126,6 +145,12 @@ type ShowroomLine = "intro" | "plead";
 type ShowroomJson = {
   scripts?: Record<string, Partial<Record<ShowroomLine, unknown>>>;
 };
+
+function activityIdFromConfig(config: unknown): string {
+  if (!config || typeof config !== "object" || Array.isArray(config)) return "";
+  const value = (config as { activityId?: unknown }).activityId;
+  return typeof value === "string" ? value.trim() : "";
+}
 
 function getPronunciationLocators():
   | Array<{ pronunciationDictionaryId: string; versionId: string }>
@@ -399,6 +424,23 @@ export function setupRoutes(app: Express): void {
     }
     try {
       const url = await generateStoryImage(prompt, { useDirectScene: true });
+      res.json({ url });
+    } catch (e: unknown) {
+      res.status(500).json({ error: String(e) });
+    }
+  });
+
+  app.post("/api/grok-story-video", async (req: Request, res: Response) => {
+    if (getSunnyMode() === "diag") {
+      return res.status(403).json({ error: "Grok disabled in diag mode" });
+    }
+    const body = req.body as { imageUrl?: unknown; prompt?: unknown };
+    const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
+    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    if (!imageUrl) return res.status(400).json({ error: "imageUrl required" });
+    if (!prompt) return res.status(400).json({ error: "prompt required" });
+    try {
+      const url = await generateStoryVideo({ imageUrl, prompt });
       res.json({ url });
     } catch (e: unknown) {
       res.status(500).json({ error: String(e) });
@@ -717,6 +759,114 @@ export function setupRoutes(app: Express): void {
     return res.sendFile(resolved);
   });
 
+  app.post("/api/homework/clarification", (req: Request, res: Response) => {
+    try {
+    const childId =
+      typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+    const date = typeof req.body?.date === "string" ? req.body.date.trim() : "";
+    const questionId =
+      typeof req.body?.questionId === "string" ? req.body.questionId.trim() : "";
+    const answer = typeof req.body?.answer === "string" ? req.body.answer.trim() : "";
+    const answeredBy =
+      typeof req.body?.answeredBy === "string" ? req.body.answeredBy.trim() : "parent";
+    const allowedAnswers = new Set<HomeworkTargetPurpose>([
+      "spell_from_memory",
+      "recognize",
+      "read_fluently",
+      "pronounce",
+      "define",
+      "unknown",
+    ]);
+    if (!childId || !date || !questionId || !allowedAnswers.has(answer as HomeworkTargetPurpose)) {
+      return res.status(400).json({
+        ok: false,
+        error: "childId, date, questionId, and valid answer required",
+      });
+    }
+    const profile = readLearningProfile(childId);
+    const pending = profile?.pendingHomework;
+    const captured = pending?.capturedContent as CapturedHomeworkContent | null | undefined;
+    const interpretation = captured?.assignmentInterpretation;
+    if (!profile || !pending || !captured || !interpretation) {
+      return res.status(404).json({ ok: false, error: "no pending homework interpretation" });
+    }
+    const homeworkId = pending.homeworkId ?? pending.weekOf;
+    const clarified = applyHomeworkClarificationAnswer(interpretation, {
+      questionId,
+      answer: answer as HomeworkTargetPurpose,
+      answeredBy,
+      answeredAt: new Date().toISOString(),
+    });
+    captured.assignmentInterpretation = clarified;
+    captured.wordGroups = clarified.wordGroups;
+
+    const nodes = buildContentAwareHomeworkNodes({
+      type: captured.type,
+      words: pending.wordList,
+      homeworkId,
+      childId,
+      testDate: pending.testDate,
+      contentProfile: captured.contentProfile,
+      capturedContent: captured,
+    });
+    writeActivityConfigArtifacts({ childId, homeworkId, nodes });
+    profile.pendingHomework = buildPendingHomeworkPayload({
+      weekOf: pending.weekOf,
+      testDate: pending.testDate,
+      wordList: pending.wordList,
+      homeworkId,
+      contentProfile: captured.contentProfile,
+      capturedContent: captured,
+      nodes,
+    });
+    const patternKey = [
+      captured.title,
+      ...clarified.wordGroups.map((group) => `${group.label}:${group.purpose}`),
+    ]
+      .join("|")
+      .toLowerCase()
+      .replace(/[^a-z0-9|:-]+/g, "-")
+      .slice(0, 160);
+    const existingMemory = profile.homeworkInterpretationMemory ?? [];
+    const previous = existingMemory.find((item) => item.patternKey === patternKey);
+    profile.homeworkInterpretationMemory = [
+      {
+        patternKey,
+        confirmedAt: new Date().toISOString(),
+        useCount: (previous?.useCount ?? 0) + 1,
+        confidenceBoost: previous?.confidenceBoost ?? 0.12,
+        evidence: clarified.humanAnswers.map((item) => `${item.questionId}:${item.answer}`),
+      },
+      ...existingMemory.filter((item) => item.patternKey !== patternKey),
+    ].slice(0, 20);
+    writeLearningProfile(childId, profile);
+
+    const pendingDir = path.join(
+      process.cwd(),
+      "src",
+      "context",
+      childId,
+      "homework",
+      "pending",
+      date,
+    );
+    if (fs.existsSync(pendingDir)) {
+      fs.writeFileSync(
+        path.join(pendingDir, "assignment-interpretation.json"),
+        JSON.stringify(clarified, null, 2),
+        "utf8",
+      );
+    }
+    console.log(
+      ` 🎮 [homework-clarification] [saved] child=${childId} homeworkId=${homeworkId} question=${questionId} answer=${answer}`,
+    );
+      return res.json({ ok: true, interpretation: clarified, nodes: profile.pendingHomework.nodes });
+    } catch (err) {
+      console.error(" 🎮 [homework-clarification] [failed]", err);
+      return res.status(500).json({ ok: false, error: "homework_clarification_failed" });
+    }
+  });
+
   app.post("/api/homework/approve", (req: Request, res: Response) => {
     const childId =
       typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
@@ -732,6 +882,23 @@ export function setupRoutes(app: Express): void {
     const node = profile.pendingHomework.nodes.find((n) => n.id === nodeId);
     if (!node) {
       return res.status(404).json({ ok: false, error: "node not found" });
+    }
+    if (node.type === "quest" || node.type === "boss") {
+      const pending = profile.pendingHomework as typeof profile.pendingHomework & {
+        homeworkId?: string;
+      };
+      const snapshot = buildAdaptiveEvidenceSnapshot(childId, {
+        homeworkId: pending.homeworkId ?? pending.weekOf,
+      });
+      const gate = questGateFromSnapshot(snapshot);
+      if (!gate.canOpenQuest) {
+        return res.status(409).json({
+          ok: false,
+          error: "quest_gate_blocked",
+          reason: gate.reason,
+          requiredMissingEvidence: gate.requiredMissingEvidence,
+        });
+      }
     }
     node.approved = true;
     const allApproved = profile.pendingHomework.nodes.every((n) => n.approved === true);
@@ -916,6 +1083,55 @@ Return plain text only.`,
       res.type("html");
     }
     res.sendFile(filePath);
+  });
+
+  app.get("/api/activity-config/:childId/:homeworkId/:filename", (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    const homeworkId = typeof req.params.homeworkId === "string" ? req.params.homeworkId.trim() : "";
+    const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
+    if (!childId || !homeworkId || !/^[\w.\-]+\.json$/.test(filename)) {
+      return res.status(400).json({ error: "invalid_activity_config_request" });
+    }
+    const base = path.resolve(
+      process.cwd(),
+      "src",
+      "context",
+      childId,
+      "homework",
+      "games",
+      homeworkId,
+    );
+    const filePath = path.resolve(base, filename);
+    if (!filePath.startsWith(base)) {
+      return res.status(400).json({ error: "invalid_activity_config_path" });
+    }
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "activity_config_not_found" });
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    } catch {
+      return res.status(422).json({ error: "invalid_activity_config", findings: ["invalid_json"] });
+    }
+    const activityId = activityIdFromConfig(parsed);
+    if (activityId !== "concept-check" && activityId !== "letter-rush") {
+      return res.status(422).json({
+        error: "unsupported_activity_engine",
+        activityId: activityId || null,
+      });
+    }
+    const validation = activityId === "letter-rush"
+      ? validateLetterRushConfig(parsed)
+      : validateActivityEngineConfig(parsed);
+    if (!validation.ok) {
+      return res.status(422).json({
+        error: "invalid_activity_config",
+        findings: validation.errors,
+      });
+    }
+    res.json(validation.normalized);
   });
 
   app.post("/api/map/start", async (req: Request, res: Response) => {

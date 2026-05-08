@@ -17,6 +17,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "attention-cpt-low-reward": {
+    "url": "/games/attention-cpt-low-reward.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "attention-fish-flanker": {
     "url": "/games/attention-fish-flanker.html",
     "defaultConfig": {},
@@ -64,6 +69,16 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
   },
   "coin-counter": {
     "url": "/games/coin-counter.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
+  "concept-check": {
+    "url": "/games/concept-check.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
+  "letter-rush": {
+    "url": "/games/letter-rush.html",
     "defaultConfig": {},
     "voiceEnabled": true
   },

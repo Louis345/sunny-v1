@@ -6,10 +6,13 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   pronunciation: "Pronunciation",
   karaoke: "Story",
   "bubble-pop": "Focus Check",
+  "cpt-low-reward": "Quiet Focus",
   "fish-flanker": "Fish Flanker",
   "target-blaster": "Target Blaster",
   "hero-shield": "Hero Shield",
   "word-radar": "Word Radar",
+  "concept-check": "Concept Check",
+  "letter-rush": "Letter Rush",
   "spell-check": "Spell Check",
   wordle: "Wordle",
   "word-builder": "Word Builder",
@@ -50,6 +53,7 @@ export type RoutableNodeConfig = Pick<
   | "storyTitle"
   | "storyImagePrompt"
   | "attentionConfig"
+  | "activityConfigPath"
 > & { type: string };
 
 export function buildNodeUrlSearchParams(
@@ -114,6 +118,26 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       wordRadarItems: node.wordRadarItems ?? [],
     }),
   },
+  "concept-check": {
+    getUrl: (node, ctx) => {
+      const params = buildNodeUrlSearchParams(node, ctx);
+      const config =
+        node.activityConfigPath ||
+        `/api/activity-config/${ctx.childId}/${node.date ?? "sample"}/concept-check.json`;
+      params.set("config", config);
+      return `/games/concept-check.html?${params.toString()}`;
+    },
+  },
+  "letter-rush": {
+    getUrl: (node, ctx) => {
+      const params = buildNodeUrlSearchParams(node, ctx);
+      const config =
+        node.activityConfigPath ||
+        `/api/activity-config/${ctx.childId}/${node.date ?? "sample"}/letter-rush.json`;
+      params.set("config", config);
+      return `/games/letter-rush.html?${params.toString()}`;
+    },
+  },
   "word-builder": {
     getUrl: (node, ctx) => `/games/word-builder.html?${buildParams(node, ctx)}`,
   },
@@ -128,6 +152,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
   },
   "bubble-pop": {
     getUrl: (node, ctx) => `/games/attention-bubble-pop.html?${buildParams(node, ctx)}`,
+  },
+  "cpt-low-reward": {
+    getUrl: (node, ctx) => `/games/attention-cpt-low-reward.html?${buildParams(node, ctx)}`,
   },
   "fish-flanker": {
     getUrl: (node, ctx) => `/games/attention-fish-flanker.html?${buildParams(node, ctx)}`,

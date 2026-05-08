@@ -17,6 +17,7 @@ type RoutableNode = {
   storyText?: string;
   storyTitle?: string;
   storyImagePrompt?: string;
+  activityConfigPath?: string;
 };
 
 type RoutingContext = {

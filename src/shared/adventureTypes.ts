@@ -4,8 +4,11 @@
 
 export type NodeType =
   | "mystery"
+  | "concept-check"
+  | "letter-rush"
   | "word-builder"
   | "bubble-pop"
+  | "cpt-low-reward"
   | "fish-flanker"
   | "target-blaster"
   | "hero-shield"
@@ -56,6 +59,8 @@ export interface NodeConfig {
   theme?: string;
   /** Child-profile-derived activity config for attention screening/intervention nodes. */
   attentionConfig?: unknown;
+  /** Validated JSON config endpoint for reusable activity engines. */
+  activityConfigPath?: string;
   isCastle?: boolean;
   /** Curtain / accent override for transitions (optional). */
   accentColor?: string;
@@ -83,11 +88,27 @@ export interface NodeResult {
   wordsAttempted: number;
   activityId?: string;
   purpose?: string;
+  mode?: string;
+  bonusRound?: Record<string, unknown>;
+  letterResults?: unknown[];
   vitalSigns?: Record<string, unknown>;
   /** Targets answered incorrectly (e.g. Word Radar) — primes next companion / map node. */
   missedWords?: string[];
   /** Targets answered correctly — optional companion context. */
   correctWords?: string[];
+  /** Per-target evidence used to retarget later adaptive practice nodes. */
+  targetResults?: Array<{
+    target: string;
+    correct: boolean;
+    attempts?: number;
+    attemptedValue?: string;
+    responseTime_ms?: number;
+    scaffoldLevel?: number;
+    concept?: string;
+    misconception?: string | null;
+    mode?: string;
+    masteryEligible?: boolean;
+  }>;
 }
 
 export interface SessionThemePalette {
@@ -153,8 +174,11 @@ export interface MapState {
 /** Canonical arm ordering for bandit / registry (TASK-005). */
 export const ALL_NODE_TYPES: readonly NodeType[] = [
   "mystery",
+  "concept-check",
+  "letter-rush",
   "word-builder",
   "bubble-pop",
+  "cpt-low-reward",
   "fish-flanker",
   "target-blaster",
   "hero-shield",
