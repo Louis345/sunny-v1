@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Concept Check</title>
+  <script src="_contract.js"></script>
+  <style>
+    :root{
+      --bg1:#f2aa55;
+      --bg2:#df7841;
+      --bg3:#51281f;
+      --accent:#ffe17b;
+      --cream:#fffdf8;
+      --card:#ffffff;
+      --ink:#201313;
+      --ink-soft:#5b463f;
+      --tile:#f5f3f0;
+      --tile-strong:#eae7e1;
+      --good:#25a96b;
+      --bad:#d75147;
+      --display-font:Georgia,"Times New Roman",serif;
+      --body-font:"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{min-height:100%;margin:0}
+    body{
+      min-height:100dvh;
+      color:var(--ink);
+      font-family:var(--body-font);
+      background:
+        radial-gradient(circle at 8% 6%,color-mix(in srgb,var(--accent) 35%,transparent) 0 15%,transparent 32%),
+        radial-gradient(circle at 96% 94%,color-mix(in srgb,var(--accent) 52%,transparent) 0 6%,transparent 18%),
+        linear-gradient(165deg,var(--bg1) 0%,var(--bg2) 50%,var(--bg3) 100%);
+      overflow-x:hidden;
+    }
+    button{font:inherit;color:inherit;border:0;cursor:pointer}
+    .shell{
+      min-height:100dvh;
+      width:min(1180px,100%);
+      margin:0 auto;
+      padding:clamp(16px,3vw,34px) clamp(16px,3vw,34px) 0;
+      display:grid;
+      grid-template-rows:auto minmax(360px,1fr) auto;
+      position:relative;
+    }
+    .topbar{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto minmax(48px,1fr);
+      align-items:center;
+      gap:14px;
+      z-index:4;
+    }
+    .topic-chip{
+      justify-self:start;
+      min-width:min(320px,68vw);
+      display:inline-flex;
+      align-items:center;
+      gap:12px;
+      padding:13px 18px;
+      border-radius:999px;
+      background:rgba(255,253,248,.95);
+      box-shadow:0 8px 0 rgba(80,37,14,.22);
+      font-size:clamp(16px,2vw,22px);
+      font-weight:1000;
+      overflow:hidden;
+    }
+    .topic-icon,.glyph{
+      display:inline-grid;
+      place-items:center;
+      line-height:1;
+      filter:drop-shadow(0 2px 0 rgba(0,0,0,.16));
+    }
+    .topic-icon{width:28px;height:28px;font-size:24px;flex:0 0 auto}
+    .topic-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dots,.progress-dots{
+      justify-self:center;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .dot,.progress-dot{
+      width:18px;
+      height:18px;
+      border-radius:50%;
+      border:3px solid rgba(255,253,248,.58);
+      background:rgba(255,253,248,.18);
+      box-shadow:0 2px 0 rgba(108,55,23,.18);
+    }
+    .dot.on,.progress-dot.on{background:var(--cream);border-color:var(--accent)}
+    .back{
+      justify-self:end;
+      width:58px;
+      aspect-ratio:1;
+      display: grid;
+      place-items: center;
+      border-radius:50%;
+      background:rgba(255,253,248,.94);
+      box-shadow:0 8px 0 rgba(77,34,15,.18);
+      font-size:30px;
+      font-weight:1000;
+      z-index:8;
+    }
+    .stage{
+      display:grid;
+      justify-items:center;
+      align-content:center;
+      text-align:center;
+      padding:8px 0 46px;
+      min-width:0;
+    }
+    .eyebrow{
+      margin:0 0 10px;
+      color:#fff7d9;
+      font-size:clamp(13px,1.8vw,18px);
+      font-weight:1000;
+      letter-spacing:6px;
+      text-transform:uppercase;
+      text-shadow:0 3px 0 rgba(77,39,17,.26);
+    }
+    .title{
+      width:min(760px,92vw);
+      margin:0 auto;
+      color:var(--cream);
+      font-family:var(--display-font);
+      font-size:clamp(40px,6vw,74px);
+      line-height:.94;
+      letter-spacing:0;
+      text-shadow:0 8px 0 rgba(80,38,19,.27);
+    }
+    .title em{font-style:inherit}
+    .scene{
+      position:relative;
+      width:clamp(260px,46vw,420px);
+      --particle-radius:clamp(112px,18vw,178px);
+      aspect-ratio:1/1;
+      display:grid;
+      place-items:center;
+      margin-top:22px;
+    }
+    .orbit,.artifact-orbit{
+      position:absolute;
+      inset:0;
+      border:5px dashed rgba(255,253,248,.55);
+      border-radius:50%;
+      animation:slowTurn 22s linear infinite;
+    }
+    .orbit::after,.artifact-orbit::after{
+      content:"";
+      position:absolute;
+      inset:14%;
+      border:4px dashed rgba(89,46,26,.12);
+      border-radius:50%;
+    }
+    .hero-glyph,.hero{
+      position:relative;
+      z-index:2;
+      font-size:clamp(140px,22vw,220px);
+      line-height:1;
+      filter:drop-shadow(0 20px 5px rgba(70,29,12,.28));
+      animation:heroBob 4.5s ease-in-out infinite;
+    }
+    .particle{
+      position:absolute;
+      left:50%;
+      top:50%;
+      z-index:3;
+      font-size:clamp(28px,4.5vw,42px);
+      filter:drop-shadow(0 4px 0 rgba(70,29,12,.2));
+      animation:orbitParticle 9s linear infinite;
+      transform-origin:center;
+    }
+    .particle.p1{animation-delay:0s}
+    .particle.p2{animation-delay:-3s;animation-duration:11s}
+    .particle.p3{animation-delay:-6s;animation-duration:13s}
+    .round-pill,.round-ribbon{
+      position:absolute;
+      bottom:-22px;
+      left:50%;
+      max-width:min(820px,92vw);
+      transform:translateX(-50%);
+      padding:11px 24px;
+      border-radius:999px;
+      background:#1a0e0a;
+      color:var(--accent);
+      box-shadow:0 6px 0 rgba(0,0,0,.3);
+      font-size:clamp(13px,2vw,19px);
+      font-weight:1000;
+      letter-spacing:3px;
+      text-transform:uppercase;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      z-index:5;
+    }
+    .card,.question-card{
+      position:relative;
+      width:min(850px,100%);
+      margin:-34px auto 0;
+      padding:clamp(38px,5vw,54px) clamp(22px,4vw,40px) 38px;
+      border-radius:28px 28px 0 0;
+      background:var(--card);
+      box-shadow:0 -12px 32px rgba(0,0,0,.18);
+      z-index:4;
+    }
+    .q,.prompt{
+      margin:0 0 28px;
+      color:var(--ink);
+      font-family:var(--display-font);
+      font-size:clamp(30px,4.3vw,54px);
+      font-weight:900;
+      line-height:1.12;
+      letter-spacing:0;
+      text-wrap:balance;
+    }
+    .options,.choices{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:clamp(14px,2vw,20px);
+    }
+    .opt,.choice{
+      position:relative;
+      min-height:92px;
+      padding:22px 58px 22px 24px;
+      border-radius:24px;
+      background:var(--tile);
+      color:var(--ink);
+      box-shadow:inset 0 -4px 0 rgba(78,46,31,.04);
+      font-size:clamp(18px,2.5vw,30px);
+      font-weight:1000;
+      line-height:1.08;
+      text-align:left;
+      transition:transform .12s ease,background .12s ease,box-shadow .12s ease;
+    }
+    .opt:hover:not(:disabled),.choice:hover:not(:disabled){
+      transform:translateY(-3px);
+      background:var(--tile-strong);
+    }
+    .opt.selected,.choice.selected{background:#fff;box-shadow:inset 0 0 0 3px var(--bg2)}
+    .opt.correct,.choice.correct{background:#e6f7ed;box-shadow:inset 0 0 0 3px var(--good);color:#104d33}
+    .opt.wrong,.choice.wrong{background:#fbeae8;box-shadow:inset 0 0 0 3px var(--bad);color:#72221c}
+    .key,.choice-letter{
+      position:absolute;
+      top:16px;
+      right:18px;
+      width:34px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:rgba(0,0,0,.05);
+      color:rgba(32,19,19,.36);
+      font-size:19px;
+      font-weight:1000;
+    }
+    .actions{display:flex;gap:12px;margin-top:16px}
+    .btn,.next{
+      flex:1;
+      padding:16px 20px;
+      border-radius:999px;
+      background:var(--bg2);
+      color:#fff;
+      box-shadow:0 6px 0 rgba(0,0,0,.35);
+      font-size:16px;
+      font-weight:1000;
+      letter-spacing:.04em;
+      transition:transform .08s,box-shadow .08s,opacity .12s;
+    }
+    .btn:active,.next:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.35)}
+    .btn[disabled]{opacity:.42;pointer-events:none}
+    .reveal{
+      display:none;
+      margin-top:14px;
+      padding:16px 18px;
+      border-radius:18px;
+      background:#fff8e3;
+      color:var(--ink-soft);
+      font-weight:800;
+      line-height:1.5;
+    }
+    .reveal.show{display:block;animation:revealIn .35s cubic-bezier(.2,.8,.2,1.2)}
+    .completion{display:none;text-align:center;padding:18px 0 4px}
+    .completion.show{display:block}
+    .completion-title{
+      margin:0 0 8px;
+      font-family:var(--display-font);
+      font-size:clamp(34px,5vw,58px);
+      line-height:1;
+    }
+    .evidence-stream{
+      position:fixed;
+      left:18px;
+      bottom:18px;
+      z-index:6;
+      width:min(330px,calc(100vw - 36px));
+      min-height:74px;
+      padding:16px 18px;
+      border-radius:14px;
+      background:#18191f;
+      color:#b7f7d4;
+      border:2px solid rgba(183,247,212,.26);
+      box-shadow:0 8px 0 rgba(11,16,28,.34);
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      align-items:center;
+      gap:12px;
+    }
+    .evidence-stream[hidden],.standalone-companion[hidden]{display:none}
+    .stream-dot{
+      width:17px;
+      height:17px;
+      border-radius:50%;
+      background:radial-gradient(circle at 35% 35%,#fff,#9bdcff 40%,#5b78ff 80%);
+      box-shadow:12px 4px 0 -5px rgba(255,255,255,.5);
+    }
+    .stream-title{
+      margin:0;
+      color:#b7f7d4;
+      font-size:15px;
+      font-weight:1000;
+      letter-spacing:3px;
+      text-transform:uppercase;
+    }
+    .stream-status{color:#92d7ac;font-size:24px;font-weight:1000}
+    .elli{
+      position:fixed;
+      right:clamp(18px,4vw,54px);
+      bottom:clamp(22px,5vw,58px);
+      z-index:6;
+      display:flex;
+      align-items:flex-end;
+      gap:10px;
+      pointer-events:none;
+    }
+    .elli .bub{
+      max-width:min(260px,48vw);
+      padding:10px 14px;
+      border-radius:16px 16px 4px 16px;
+      background:var(--cream);
+      color:var(--ink);
+      box-shadow:0 7px 18px rgba(35,16,8,.25);
+      font-size:clamp(13px,1.8vw,16px);
+      font-weight:1000;
+      opacity:0;
+      transform:translateY(6px);
+      transition:.25s;
+    }
+    .elli .bub.on{opacity:1;transform:none}
+    .elli .av,.companion-orb{
+      width:clamp(78px,11vw,118px);
+      aspect-ratio:1;
+      border-radius:50%;
+      background:radial-gradient(circle at 38% 32%,#fff3a3,#ffe170 48%,#f7be4d 100%);
+      box-shadow:0 0 42px rgba(255,229,114,.55),0 15px 0 rgba(64,31,14,.22);
+      display:grid;
+      place-items:center;
+      font-size:clamp(42px,7vw,70px);
+      line-height:1;
+    }
+    @keyframes slowTurn{to{transform:rotate(360deg)}}
+    @keyframes heroBob{
+      0%,100%{transform:translateY(0) rotate(-1deg)}
+      50%{transform:translateY(-10px) rotate(1deg)}
+    }
+    @keyframes orbitParticle{
+      0%{transform:translate(-50%,-50%) rotate(0deg) translateX(var(--particle-radius)) rotate(0deg)}
+      100%{transform:translate(-50%,-50%) rotate(360deg) translateX(var(--particle-radius)) rotate(-360deg)}
+    }
+    @keyframes revealIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @media (max-width:760px){
+      .shell{grid-template-rows:auto minmax(300px,1fr) auto;padding:14px 14px 0}
+      .topbar{grid-template-columns:1fr auto}
+      .progress-dots{grid-column:1 / -1;order:3}
+      .back{width:52px}
+      .title{font-size:clamp(36px,12vw,58px)}
+      .scene{width:min(290px,78vw)}
+      .card{margin-top:-26px;border-radius:24px 24px 0 0}
+      .options{grid-template-columns:1fr}
+      .opt{min-height:76px}
+      .elli .bub{display:none}
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="topic-chip">
+        <span class="topic-icon glyph" id="chipGlyph" aria-hidden="true">🏔️</span>
+        <span class="topic-text" id="chipText">Erosion</span>
+      </div>
+      <div class="dots progress-dots" id="dots" aria-label="Round progress"></div>
+      <button class="back" id="back" type="button" aria-label="Back to Map">&lt;</button>
+    </header>
+
+    <section class="stage" aria-live="polite">
+      <p class="eyebrow">Concept Check</p>
+      <h1 class="title" id="headline">What do you already know about <em id="titleTopic">Erosion</em>?</h1>
+      <div class="scene centered-artifact" aria-hidden="true">
+        <div class="orbit artifact-orbit"></div>
+        <span class="glyph hero hero-glyph" id="hero">🏔️</span>
+        <span class="glyph particle p1" id="part1">💧</span>
+        <span class="glyph particle p2" id="part2">🪨</span>
+        <span class="glyph particle p3" id="part3">💧</span>
+        <div class="round-pill round-ribbon" id="roundPill">Predict-then-reveal - Round 1/3</div>
+      </div>
+    </section>
+
+    <section class="card question-card">
+      <p class="q prompt" id="question">Loading...</p>
+      <div class="options choices" id="options"></div>
+      <div class="actions" id="actions">
+        <button class="btn primary next" id="commitBtn" type="button" disabled>Lock in answer</button>
+      </div>
+      <div class="reveal" id="reveal"></div>
+      <div class="completion" id="completion">
+        <p class="completion-title">Scout complete</p>
+        <p id="completionCopy">Sunny has clues for what should come next.</p>
+      </div>
+    </section>
+
+    <aside class="evidence-stream" data-debug-panel="evidence-stream" aria-live="polite" hidden>
+      <span class="stream-dot" aria-hidden="true"></span>
+      <p class="stream-title">Evidence Stream</p>
+      <span class="stream-status" id="streamStatus">-</span>
+    </aside>
+
+    <div class="standalone-companion" id="standalone-companion" hidden>
+      <div class="elli">
+        <div class="bub" id="elliBub">Pick what you really think.</div>
+        <div class="av companion-orb" aria-label="Sunny companion"><span id="companionGlyph">☀️</span></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+      var params = window.GAME_PARAMS || {};
+      var configUrl = params.config;
+      var config = null;
+      var index = 0;
+      var selectedOption = null;
+      var locked = false;
+      var correctCount = 0;
+      var targetResults = [];
+      var roundStartedAt = Date.now();
+      var heartbeat = null;
+      var letters = ["A", "B", "C", "D", "E", "F"];
+      var glyphs = {
+        air:"💨",
+        building:"🏛️",
+        drop:"💧",
+        heart:"🫀",
+        leaf:"🍃",
+        letter:"A",
+        letters:"ABC",
+        mountain:"🏔️",
+        rock:"🪨",
+        scale:"⚖️",
+        scroll:"📜",
+        spark:"✦",
+        star:"★",
+        sun:"☀️",
+        sunny:"☀️",
+        tree:"🌳",
+        water:"💧"
+      };
+      var fontStacks = {
+        rounded:'"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif',
+        serif:'Georgia,"Times New Roman",serif',
+        system:'system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+      };
+
+      function byId(id) { return document.getElementById(id); }
+      function currentRound() { return config && config.rounds ? config.rounds[index] : null; }
+      function roundCount() { return config && Array.isArray(config.rounds) ? config.rounds.length : 0; }
+      function safeText(value, fallback) {
+        return typeof value === "string" && value.trim() ? value.trim() : fallback;
+      }
+      function glyphFor(token, fallback) {
+        var key = safeText(token, fallback).toLowerCase();
+        return glyphs[key] || token || glyphs[fallback] || "✦";
+      }
+      function particleGlyph(appearance, particleIndex) {
+        var particles = appearance && appearance.visuals && Array.isArray(appearance.visuals.particles)
+          ? appearance.visuals.particles
+          : [];
+        return glyphFor(particles[particleIndex] || particles[0] || "spark", "spark");
+      }
+      function currentTarget(round) {
+        return (config.targets || []).find(function (target) { return target.id === round.targetId; }) || null;
+      }
+      function postActivityEvent(payload) {
+        window.parent.postMessage(payload, "*");
+      }
+      function backToMap() {
+        window.parent.postMessage({ type: "back_to_map", nodeId: params.nodeId }, "*");
+      }
+      function configureCompanionFallback() {
+        var fallback = byId("standalone-companion");
+        if (!fallback) return;
+        fallback.hidden = !(window.parent === window);
+      }
+      function flashCompanion(textValue) {
+        var fallback = byId("standalone-companion");
+        if (fallback && fallback.hidden) return;
+        var bubble = byId("elliBub");
+        if (!bubble) return;
+        bubble.textContent = textValue;
+        bubble.classList.add("on");
+        clearTimeout(flashCompanion.timer);
+        flashCompanion.timer = setTimeout(function () {
+          bubble.classList.remove("on");
+        }, 2200);
+      }
+      function setStream(value) {
+        var stream = byId("streamStatus");
+        if (stream) stream.textContent = value;
+      }
+      function appearanceFallback(topic) {
+        var normalized = safeText(topic, "erosion").toLowerCase();
+        if (normalized.indexOf("blood") >= 0 || normalized.indexOf("cell") >= 0) {
+          return {
+            palette: { bg1: "#ffb3b3", bg2: "#c81d3a", bg3: "#3a0a14", accent: "#fff1c2" },
+            typography: { display: "serif", body: "rounded" },
+            visuals: { heroGlyph: "heart", particles: ["drop", "heart", "drop"], companionGlyph: "sunny" }
+          };
+        }
+        if (normalized.indexOf("tree") >= 0 || normalized.indexOf("photo") >= 0 || normalized.indexOf("oxygen") >= 0) {
+          return {
+            palette: { bg1: "#a8e6a3", bg2: "#3aa861", bg3: "#0e3a1f", accent: "#fff58a" },
+            typography: { display: "serif", body: "rounded" },
+            visuals: { heroGlyph: "tree", particles: ["sun", "leaf", "air"], companionGlyph: "sunny" }
+          };
+        }
+        if (normalized.indexOf("constitution") >= 0 || normalized.indexOf("government") >= 0) {
+          return {
+            palette: { bg1: "#e3d6b5", bg2: "#a8845c", bg3: "#3a2812", accent: "#ffd66b" },
+            typography: { display: "serif", body: "rounded" },
+            visuals: { heroGlyph: "building", particles: ["scroll", "scale", "star"], companionGlyph: "sunny" }
+          };
+        }
+        if (normalized.indexOf("spell") >= 0 || normalized.indexOf("word") >= 0) {
+          return {
+            palette: { bg1: "#a7d8ff", bg2: "#3276c7", bg3: "#0d2547", accent: "#fff08a" },
+            typography: { display: "rounded", body: "rounded" },
+            visuals: { heroGlyph: "letters", particles: ["letter", "spark", "letter"], companionGlyph: "sunny" }
+          };
+        }
+        return {
+          palette: { bg1: "#f2aa55", bg2: "#df7841", bg3: "#51281f", accent: "#ffe17b" },
+          typography: { display: "serif", body: "rounded" },
+          visuals: { heroGlyph: "mountain", particles: ["water", "rock", "water"], companionGlyph: "sunny" }
+        };
+      }
+      function applyAppearance() {
+        var appearance = config.appearance || appearanceFallback(config.topic);
+        var root = document.documentElement.style;
+        var palette = appearance.palette || {};
+        root.setProperty("--bg1", safeText(palette.bg1, "#f2aa55"));
+        root.setProperty("--bg2", safeText(palette.bg2, "#df7841"));
+        root.setProperty("--bg3", safeText(palette.bg3, "#51281f"));
+        root.setProperty("--accent", safeText(palette.accent, "#ffe17b"));
+        var typography = appearance.typography || {};
+        root.setProperty("--display-font", fontStacks[typography.display] || fontStacks.serif);
+        root.setProperty("--body-font", fontStacks[typography.body] || fontStacks.rounded);
+        byId("chipGlyph").textContent = glyphFor(appearance.visuals && appearance.visuals.heroGlyph, "spark");
+        byId("hero").textContent = glyphFor(appearance.visuals && appearance.visuals.heroGlyph, "spark");
+        byId("part1").textContent = particleGlyph(appearance, 0);
+        byId("part2").textContent = particleGlyph(appearance, 1);
+        byId("part3").textContent = particleGlyph(appearance, 2);
+        byId("companionGlyph").textContent = glyphFor(appearance.visuals && appearance.visuals.companionGlyph, "sunny");
+      }
+      function report() {
+        var round = currentRound();
+        if (!round || !window.GameBridge) return;
+        window.GameBridge.reportState("Concept Check round " + (index + 1), {
+          phase: locked ? "feedback" : "playing",
+          activityId: "concept-check",
+          itemIndex: index,
+          totalItems: roundCount(),
+          target: round.targetId
+        });
+      }
+      function fireCompanion(trigger, payload) {
+        if (window.GameBridge && typeof window.GameBridge.fireEvent === "function") {
+          window.GameBridge.fireEvent(trigger, payload || {});
+        }
+      }
+      function renderDots() {
+        var dots = byId("dots");
+        dots.innerHTML = "";
+        config.rounds.forEach(function (_round, i) {
+          var dot = document.createElement("span");
+          dot.className = "dot progress-dot" + (i === index ? " on" : "");
+          dots.appendChild(dot);
+        });
+      }
+      function selectOption(option, button) {
+        if (locked) return;
+        selectedOption = { option: option, button: button };
+        Array.prototype.forEach.call(document.querySelectorAll(".opt"), function (btn) {
+          btn.classList.toggle("selected", btn === button);
+        });
+        byId("commitBtn").disabled = false;
+        report();
+      }
+      function commitAnswer() {
+        if (locked) {
+          nextRound();
+          return;
+        }
+        if (!selectedOption) return;
+        locked = true;
+        var round = currentRound();
+        var target = currentTarget(round);
+        var option = selectedOption.option;
+        var elapsed = Date.now() - roundStartedAt;
+        var correct = option.correct === true;
+        if (correct) correctCount += 1;
+        Array.prototype.forEach.call(document.querySelectorAll(".opt"), function (btn) {
+          btn.disabled = true;
+          btn.classList.remove("selected");
+          if (btn.dataset.correct === "true") btn.classList.add("correct");
+        });
+        if (!correct) selectedOption.button.classList.add("wrong");
+        var result = {
+          type: "activity_target_result",
+          activityId: "concept-check",
+          nodeId: params.nodeId,
+          target: round.targetId,
+          correct: correct,
+          attemptedValue: option.label,
+          responseTime_ms: elapsed,
+          scaffoldLevel: Number(round.scaffoldLevel) || 0,
+          concept: target ? target.label : round.targetId,
+          misconception: option.misconception || null
+        };
+        targetResults.push(result);
+        postActivityEvent(result);
+        if (window.fireAttemptEvent) {
+          window.fireAttemptEvent({
+            domain: config.domain || "reading",
+            target: round.targetId,
+            correct: correct,
+            quality: correct ? 5 : 1,
+            scaffoldLevel: Number(round.scaffoldLevel) || 0,
+            responseTimeMs: elapsed,
+            attemptedValue: option.label
+          });
+        }
+        fireCompanion(correct ? "target_correct" : "target_missed", {
+          activityId: "concept-check",
+          target: round.targetId,
+          misconception: option.misconception || null
+        });
+        byId("reveal").textContent = correct ? "Prediction locked." : "Clue saved for Sunny.";
+        byId("reveal").classList.add("show");
+        byId("commitBtn").textContent = index < roundCount() - 1 ? "Next" : "Finish";
+        flashCompanion(correct ? "Nice. I saved that as a strong clue." : "Good try. I saved the pattern.");
+        setStream(correctCount + "/" + roundCount());
+        report();
+      }
+      function complete() {
+        if (heartbeat) clearInterval(heartbeat);
+        var accuracy = roundCount() ? correctCount / roundCount() : 0;
+        postActivityEvent({
+          type: "activity_complete",
+          activityId: "concept-check",
+          nodeId: params.nodeId,
+          completed: true,
+          accuracy: accuracy,
+          targetResults: targetResults.slice()
+        });
+        // GameBridge.complete is reached through sendNodeComplete for the shared iframe contract.
+        sendNodeComplete({
+          completed: true,
+          accuracy: accuracy,
+          flaggedWords: targetResults.filter(function (row) { return !row.correct; }).map(function (row) { return row.target; }),
+          xpEarned: Math.round(accuracy * 50),
+          timeSpent_ms: targetResults.reduce(function (sum, row) {
+            return sum + (Number(row.responseTime_ms) || 0);
+          }, 0),
+          wordsAttempted: targetResults.length,
+          activityId: "concept-check",
+          purpose: "evaluate",
+          targetResults: targetResults.map(function (row) {
+            return {
+              target: row.target,
+              correct: row.correct,
+              attemptedValue: row.attemptedValue,
+              responseTime_ms: row.responseTime_ms,
+              attempts: 1
+            };
+          })
+        });
+        fireCompanion("session_complete", { activityId: "concept-check", accuracy: accuracy });
+        byId("headline").textContent = "Scout mission complete";
+        byId("question").textContent = "";
+        byId("options").innerHTML = "";
+        byId("actions").hidden = true;
+        byId("reveal").classList.remove("show");
+        byId("roundPill").textContent = "Evidence saved";
+        byId("completion").classList.add("show");
+        setStream(correctCount + "/" + roundCount());
+      }
+      function nextRound() {
+        index += 1;
+        if (index >= roundCount()) {
+          complete();
+          return;
+        }
+        renderRound();
+      }
+      function renderRound() {
+        var round = currentRound();
+        locked = false;
+        selectedOption = null;
+        roundStartedAt = Date.now();
+        byId("chipText").textContent = config.topic || "Concept Check";
+        byId("titleTopic").textContent = config.topic || "this";
+        byId("headline").innerHTML = "What do you already know about <em id=\"titleTopic\">" + (config.topic || "this") + "</em>?";
+        byId("question").textContent = round.prompt;
+        byId("roundPill").textContent = "Predict-then-reveal - Round " + (index + 1) + "/" + roundCount();
+        byId("reveal").classList.remove("show");
+        byId("reveal").textContent = "";
+        byId("completion").classList.remove("show");
+        byId("actions").hidden = false;
+        byId("commitBtn").disabled = true;
+        byId("commitBtn").textContent = "Lock in answer";
+        renderDots();
+        setStream(correctCount + "/" + roundCount());
+        var options = byId("options");
+        options.innerHTML = "";
+        (round.options || []).forEach(function (option, optionIndex) {
+          var button = document.createElement("button");
+          var label = document.createElement("span");
+          var key = document.createElement("span");
+          button.type = "button";
+          button.className = "opt choice";
+          button.dataset.correct = option.correct ? "true" : "false";
+          label.className = "text";
+          label.textContent = option.label;
+          key.className = "key choice-letter";
+          key.textContent = letters[optionIndex] || "?";
+          button.appendChild(label);
+          button.appendChild(key);
+          button.addEventListener("click", function () { selectOption(option, button); });
+          options.appendChild(button);
+        });
+        report();
+      }
+      function sampleConfig(sampleTheme) {
+        var base = {
+          schemaVersion: 1,
+          activityId: "concept-check",
+          engine: { id: "concept-check", mode: "diagnostic" },
+          topic: "Erosion",
+          domain: "science",
+          learningGoal: "Check what the child already understands about erosion.",
+          gradeBand: "early_elementary",
+          appearance: {
+            palette: { bg1: "#f2aa55", bg2: "#df7841", bg3: "#51281f", accent: "#ffe17b" },
+            typography: { display: "serif", body: "rounded" },
+            visuals: { heroGlyph: "mountain", particles: ["water", "rock", "water"], companionGlyph: "sunny" }
+          },
+          targets: [
+            { id: "erosion", label: "Erosion", type: "concept" },
+            { id: "weathering", label: "Weathering", type: "concept" },
+            { id: "deposition", label: "Deposition", type: "concept" }
+          ],
+          rounds: [
+            {
+              id: "erosion-water-rock",
+              mechanic: "choose",
+              targetId: "erosion",
+              prompt: "When water flows over rock for a long time, what happens?",
+              options: [
+                { id: "same", label: "The rock stays the same", correct: false, misconception: "water_does_not_change_land" },
+                { id: "wears-away", label: "The rock slowly wears away", correct: true },
+                { id: "disappears", label: "The water disappears", correct: false, misconception: "water_vanishes" },
+                { id: "grows", label: "The rock grows bigger", correct: false, misconception: "erosion_adds_material" }
+              ],
+              scaffoldLevel: 0
+            },
+            {
+              id: "erosion-cause",
+              mechanic: "choose",
+              targetId: "erosion",
+              prompt: "What can cause erosion?",
+              options: [
+                { id: "water-wind", label: "Water and wind", correct: true },
+                { id: "sunlight", label: "Only sunlight", correct: false, misconception: "sunlight_causes_erosion" },
+                { id: "reading", label: "Reading a map", correct: false, misconception: "unrelated_action" },
+                { id: "quiet", label: "A quiet room", correct: false, misconception: "no_force_needed" }
+              ],
+              scaffoldLevel: 0
+            },
+            {
+              id: "deposition-place",
+              mechanic: "choose",
+              targetId: "deposition",
+              prompt: "When moved sand settles in a new place, what is happening?",
+              options: [
+                { id: "melting", label: "Melting", correct: false, misconception: "state_change_confusion" },
+                { id: "deposition", label: "Deposition", correct: true },
+                { id: "sunburn", label: "Sunburn", correct: false, misconception: "sun_process_confusion" },
+                { id: "orbit", label: "Orbiting", correct: false, misconception: "space_process_confusion" }
+              ],
+              scaffoldLevel: 0
+            }
+          ],
+          evidencePolicy: {
+            writesPracticeEvidence: true,
+            writesMasteryEvidence: true,
+            requiresPerTargetResult: true,
+            allowedEvidence: ["practice", "mastery"]
+          }
+        };
+        // Isolated visual review themes: sample-blood, sample-photosynthesis,
+        // sample-constitution, sample-spelling.
+        if (sampleTheme === "sample-blood") {
+          base.topic = "Red blood cells";
+          base.appearance = appearanceFallback(base.topic);
+          base.targets = [{ id: "red-blood-cells", label: "Red blood cells", type: "concept" }];
+          base.rounds = [{
+            id: "blood-cells-job",
+            mechanic: "choose",
+            targetId: "red-blood-cells",
+            prompt: "What important job do red blood cells do?",
+            options: [
+              { id: "carry-oxygen", label: "Carry oxygen through the body", correct: true },
+              { id: "make-bones", label: "Build bones by themselves", correct: false, misconception: "blood_cells_make_bones" },
+              { id: "digest-food", label: "Digest food in the stomach", correct: false, misconception: "blood_cells_digest_food" },
+              { id: "think", label: "Help the brain think thoughts", correct: false, misconception: "blood_cells_are_neurons" }
+            ],
+            scaffoldLevel: 0
+          }];
+        }
+        if (sampleTheme === "sample-photosynthesis") {
+          base.topic = "Trees and photosynthesis";
+          base.appearance = appearanceFallback(base.topic);
+          base.targets = [{ id: "photosynthesis", label: "Photosynthesis", type: "process" }];
+          base.rounds = [{
+            id: "trees-use-sunlight",
+            mechanic: "choose",
+            targetId: "photosynthesis",
+            prompt: "What helps a tree make its own food?",
+            options: [
+              { id: "sunlight-air-water", label: "Sunlight, air, and water", correct: true },
+              { id: "pizza", label: "Eating tiny pizza", correct: false, misconception: "plants_eat_food_like_people" },
+              { id: "moonlight-only", label: "Only moonlight", correct: false, misconception: "moonlight_drives_photosynthesis" },
+              { id: "rocks", label: "Chewing rocks", correct: false, misconception: "plants_eat_rocks" }
+            ],
+            scaffoldLevel: 0
+          }];
+        }
+        if (sampleTheme === "sample-constitution") {
+          base.topic = "The Constitution";
+          base.domain = "social_studies";
+          base.appearance = appearanceFallback(base.topic);
+          base.targets = [{ id: "constitution", label: "The Constitution", type: "concept" }];
+          base.rounds = [{
+            id: "constitution-job",
+            mechanic: "choose",
+            targetId: "constitution",
+            prompt: "What does the Constitution help do?",
+            options: [
+              { id: "rules-government", label: "Set rules for the government", correct: true },
+              { id: "weather", label: "Control the weather", correct: false, misconception: "constitution_controls_weather" },
+              { id: "cookbook", label: "Give recipes for dinner", correct: false, misconception: "constitution_is_cookbook" },
+              { id: "map", label: "Show every road", correct: false, misconception: "constitution_is_map" }
+            ],
+            scaffoldLevel: 0
+          }];
+        }
+        if (sampleTheme === "sample-spelling") {
+          base.topic = "Spelling words";
+          base.domain = "spelling";
+          base.appearance = appearanceFallback(base.topic);
+          base.targets = [{ id: "spelling-pattern", label: "Spelling pattern", type: "word" }];
+          base.rounds = [{
+            id: "spelling-pattern-choice",
+            mechanic: "choose",
+            targetId: "spelling-pattern",
+            prompt: "Which word has the long a sound?",
+            options: [
+              { id: "cake", label: "cake", correct: true },
+              { id: "cat", label: "cat", correct: false, misconception: "short_a_for_long_a" },
+              { id: "cup", label: "cup", correct: false, misconception: "wrong_vowel_sound" },
+              { id: "dog", label: "dog", correct: false, misconception: "wrong_vowel_family" }
+            ],
+            scaffoldLevel: 0
+          }];
+        }
+        return base;
+      }
+      function start(loaded) {
+        config = loaded;
+        if (!config || !Array.isArray(config.rounds) || config.rounds.length === 0) {
+          byId("question").textContent = "No Concept Check config found.";
+          return;
+        }
+        if (window.GameBridge) {
+          heartbeat = window.GameBridge.startHeartbeat(function () {
+            return "Concept Check active";
+          }, function () {
+            var round = currentRound();
+            return {
+              phase: locked ? "feedback" : "playing",
+              activityId: "concept-check",
+              itemIndex: index,
+              totalItems: roundCount(),
+              target: round ? round.targetId : ""
+            };
+          });
+        }
+        applyAppearance();
+        configureCompanionFallback();
+        renderRound();
+      }
+      byId("back").addEventListener("click", backToMap);
+      byId("commitBtn").addEventListener("click", commitAnswer);
+      if (!configUrl || configUrl.indexOf("sample") === 0) {
+        start(sampleConfig(configUrl || "sample"));
+      } else {
+        fetch(configUrl)
+          .then(function (res) {
+            if (!res.ok) throw new Error("config " + res.status);
+            return res.json();
+          })
+          .then(start)
+          .catch(function (err) {
+            console.error("Concept Check config failed", err);
+            byId("question").textContent = "Config failed validation.";
+            byId("reveal").textContent = String(err.message || err);
+            byId("reveal").classList.add("show");
+          });
+      }
+    })();
+  </script>
+</body>
+</html>

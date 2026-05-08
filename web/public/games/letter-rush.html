@@ -1,0 +1,2327 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Letter Rush</title>
+  <script src="_contract.js"></script>
+  <style>
+    :root{
+      --bg1:#1B0B3A;
+      --bg2:#5B21B6;
+      --bg3:#070010;
+      --accent:#F59E0B;
+      --good:#34D399;
+      --bad:#EF4444;
+      --ink:#FFFFFF;
+      --card:#1F1147;
+      --hot:#FB7185;
+      --cold:#06B6D4;
+      --bg-image:none;
+      --fallback-bg:radial-gradient(ellipse 100% 70% at 50% 0%,var(--bg2) 0%,var(--bg1) 50%,var(--bg3) 100%);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{
+      min-height:100dvh;
+      overflow:hidden;
+      color:var(--ink);
+      font-family:"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;
+      background:var(--fallback-bg);
+    }
+    button{font:inherit;border:0;cursor:pointer}
+    .letter-rush-backdrop{
+      position:fixed;
+      inset:0;
+      z-index:-2;
+      background-image:
+        linear-gradient(180deg,rgba(7,0,16,.16),rgba(7,0,16,.72)),
+        var(--bg-image),
+        var(--fallback-bg);
+      background-size:cover,cover,cover;
+      background-position:center;
+      transform:scale(1.02);
+    }
+    .starfield{
+      position:fixed;
+      inset:0;
+      z-index:-1;
+      pointer-events:none;
+      overflow:hidden;
+    }
+    .star{
+      position:absolute;
+      width:2px;
+      height:2px;
+      border-radius:50%;
+      background:#fff;
+      opacity:.62;
+      animation:twinkle 3s infinite;
+    }
+    @keyframes twinkle{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:.95;transform:scale(1.3)}}
+    body.flash-good{animation:flashGood .25s}
+	    body.flash-bad{animation:flashBad .35s}
+	    @keyframes flashGood{0%{background:radial-gradient(ellipse 100% 70% at 50% 0%,var(--good) 0%,var(--bg2) 60%,var(--bg3) 100%)}100%{}}
+	    @keyframes flashBad{0%{background:radial-gradient(ellipse 100% 70% at 50% 0%,var(--bad) 0%,var(--bg2) 60%,var(--bg3) 100%)}100%{}}
+	    body.combo-rush{animation:comboRush .75s}
+	    @keyframes comboRush{
+	      0%{filter:saturate(1) brightness(1)}
+	      35%{filter:saturate(1.65) brightness(1.18)}
+	      100%{filter:saturate(1) brightness(1)}
+	    }
+	    body.shake{animation:bShake .3s}
+    @keyframes bShake{0%,100%{transform:translate(0,0)}25%{transform:translate(-6px,2px)}75%{transform:translate(6px,-2px)}}
+    .shell{
+      width:min(720px,100%);
+      height:100dvh;
+      margin:0 auto;
+      padding:18px 14px 14px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:12px;
+      position:relative;
+    }
+    .hud{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      z-index:30;
+    }
+    .mode-pill{
+      min-width:0;
+      background:rgba(255,255,255,.15);
+      backdrop-filter:blur(8px);
+      padding:8px 14px;
+      border-radius:999px;
+      font-weight:1000;
+      font-size:12px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 4px 0 rgba(0,0,0,.22);
+    }
+    .mode-pill span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .coins{
+      background:linear-gradient(135deg,var(--accent),#FB923C);
+      color:var(--bg3);
+      padding:8px 14px;
+      border-radius:999px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      font-weight:900;
+      font-size:15px;
+      box-shadow:0 4px 0 rgba(0,0,0,.3);
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .streak{
+      width:100%;
+      min-height:20px;
+      font-size:13px;
+      font-weight:1000;
+      letter-spacing:.04em;
+      color:var(--accent);
+      text-align:center;
+      text-shadow:0 0 12px var(--accent);
+    }
+    .word-card{
+      width:100%;
+      background:color-mix(in srgb,var(--card) 90%,#000 10%);
+      border-radius:24px;
+      padding:22px;
+      box-shadow:0 12px 0 rgba(0,0,0,.4),0 0 60px rgba(91,33,182,.4);
+      text-align:center;
+      position:relative;
+      z-index:20;
+    }
+    .def{
+      min-height:36px;
+      display:grid;
+      place-items:center;
+      color:rgba(255,255,255,.72);
+      font-size:13px;
+      font-weight:900;
+      letter-spacing:.04em;
+      line-height:1.35;
+    }
+    .target-row{
+      margin-top:14px;
+      display:flex;
+      justify-content:center;
+      gap:8px;
+      flex-wrap:wrap;
+      min-height:60px;
+    }
+    .tile{
+      width:48px;
+      height:60px;
+      border-radius:10px;
+      background:rgba(255,255,255,.06);
+      border:2px solid rgba(255,255,255,.15);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-family:Georgia,"Times New Roman",serif;
+      font-size:32px;
+      font-weight:900;
+      color:transparent;
+      transition:all .18s cubic-bezier(.2,.8,.2,1.3);
+      position:relative;
+    }
+    .tile.next{
+      border-color:var(--accent);
+      animation:tileNext 1.2s ease-in-out infinite;
+    }
+    .tile.filled{
+      background:var(--good);
+      border-color:#fff;
+      color:var(--bg3);
+      transform:translateY(-4px);
+      box-shadow:0 4px 0 rgba(0,0,0,.3),0 0 20px var(--good);
+    }
+    .tile.visible{
+      color:#fff;
+      background:rgba(255,255,255,.09);
+    }
+    .tile.miss{
+      background:var(--bad);
+      border-color:#fff;
+      color:#fff;
+      animation:tileMiss .4s;
+    }
+    .trap-frame{
+      min-width:min(340px,100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .trap-word{
+      padding:12px 18px;
+      border-radius:16px;
+      background:rgba(255,255,255,.08);
+      border:2px solid rgba(255,255,255,.18);
+      font-family:Georgia,"Times New Roman",serif;
+      font-size:clamp(34px,8vw,56px);
+      font-weight:900;
+      letter-spacing:.04em;
+      box-shadow:0 6px 0 rgba(0,0,0,.22);
+    }
+    .trap-goal{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      width:100%;
+      margin-top:6px;
+      color:rgba(255,255,255,.72);
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+    .trap-dot{
+      width:16px;
+      height:16px;
+      border-radius:50%;
+      border:2px solid rgba(255,255,255,.3);
+      background:rgba(255,255,255,.08);
+    }
+    .trap-dot.filled{
+      background:var(--good);
+      border-color:#fff;
+      box-shadow:0 0 14px var(--good);
+    }
+    @keyframes tileNext{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.6)}50%{box-shadow:0 0 0 10px rgba(245,158,11,0)}}
+    @keyframes tileMiss{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+    .speak-btn{
+      appearance:none;
+      margin-top:14px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:12px 22px;
+      border-radius:999px;
+      background:linear-gradient(135deg,var(--accent),#FB923C);
+      color:var(--bg3);
+      box-shadow:0 5px 0 rgba(0,0,0,.4);
+      font-weight:1000;
+      font-size:14px;
+    }
+    .type-panel{
+      display:none;
+      width:min(520px,100%);
+      margin:16px auto 0;
+      gap:10px;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+    .type-panel.on{display:flex}
+    .spelling-input{
+      flex:1 1 230px;
+      min-height:58px;
+      padding:0 18px;
+      border-radius:18px;
+      border:3px solid rgba(255,255,255,.2);
+      background:rgba(255,255,255,.95);
+      color:var(--bg3);
+      font-size:26px;
+      font-weight:1000;
+      text-align:center;
+      outline:none;
+      box-shadow:0 6px 0 rgba(0,0,0,.32);
+    }
+    .spelling-input:focus{
+      border-color:var(--accent);
+      box-shadow:0 6px 0 rgba(0,0,0,.32),0 0 28px rgba(245,158,11,.5);
+    }
+    .type-submit{
+      min-height:58px;
+      padding:0 22px;
+      border-radius:18px;
+      background:var(--good);
+      color:var(--bg3);
+      font-weight:1000;
+      box-shadow:0 6px 0 rgba(0,0,0,.34);
+    }
+    .meter-wrap{
+      width:100%;
+      z-index:20;
+    }
+    .meter{
+      height:18px;
+      background:rgba(0,0,0,.4);
+      border-radius:999px;
+      overflow:hidden;
+      border:2px solid rgba(255,255,255,.15);
+      position:relative;
+    }
+    .meter .fill{
+      position:absolute;
+      inset:0;
+      width:0%;
+      background:linear-gradient(90deg,var(--cold) 0%,var(--good) 50%,var(--accent) 80%,var(--hot) 100%);
+      transition:width .25s cubic-bezier(.2,.8,.2,1);
+    }
+    .meter .label{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      font-size:11px;
+      font-weight:1000;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      text-shadow:0 1px 2px rgba(0,0,0,.6);
+    }
+    .timer-ring{
+      width:100%;
+      height:6px;
+      background:rgba(255,255,255,.08);
+      border-radius:999px;
+      margin-top:8px;
+      overflow:hidden;
+    }
+    .timer-ring .tfill{
+      height:100%;
+      background:var(--accent);
+      width:100%;
+      transition:width .1s linear;
+    }
+    .timer-ring.danger .tfill{
+      background:var(--bad);
+      box-shadow:0 0 14px var(--bad);
+    }
+    .mastery-hud{
+      display:none;
+      width:100%;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      padding:0;
+      color:#fff;
+      font-weight:1000;
+      font-size:14px;
+      z-index:20;
+    }
+    .mastery-hud.on{display:flex}
+    .lives-card,.stars-card,.clock-card{
+      min-height:50px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      padding:8px 14px;
+      border-radius:18px;
+      background:rgba(0,0,0,.48);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 5px 0 rgba(0,0,0,.28),0 0 24px rgba(245,158,11,.12);
+      backdrop-filter:blur(8px);
+    }
+    .lives-card{
+      background:linear-gradient(135deg,rgba(127,29,29,.78),rgba(31,17,71,.62));
+      border-color:rgba(251,113,133,.32);
+    }
+    .stakes-label{
+      font-size:10px;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      color:rgba(255,255,255,.72);
+    }
+    .life-bank{display:flex;align-items:center;gap:6px}
+    .life-token{
+      width:24px;
+      height:24px;
+      border-radius:8px;
+      display:inline-block;
+      transform:rotate(45deg);
+      background:linear-gradient(135deg,#FB7185,#F97316);
+      box-shadow:0 0 14px rgba(251,113,133,.7),inset 0 0 0 2px rgba(255,255,255,.34);
+    }
+    .life-token.spent{
+      background:rgba(255,255,255,.08);
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.16);
+      opacity:.55;
+    }
+    .arena{
+      flex:1;
+      width:100%;
+      position:relative;
+      border-radius:20px;
+      overflow:hidden;
+      background:radial-gradient(ellipse at 50% 100%,rgba(91,33,182,.4) 0%,transparent 70%);
+      min-height:280px;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .falling{
+      position:absolute;
+      min-width:88px;
+      min-height:88px;
+      padding:0 18px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-family:Georgia,"Times New Roman",serif;
+      font-size:32px;
+      font-weight:900;
+      color:#fff;
+      cursor:pointer;
+      user-select:none;
+      background:linear-gradient(135deg,var(--bg2),#7C3AED);
+      border:2px solid rgba(255,255,255,.25);
+      box-shadow:0 6px 0 rgba(0,0,0,.4),0 0 20px rgba(124,58,237,.5);
+      transition:transform .12s;
+      will-change:transform;
+      touch-action:manipulation;
+    }
+    .falling.chunk{
+      min-width:96px;
+      letter-spacing:.04em;
+    }
+    .falling.tap-target-wide{
+      min-width:104px;
+      min-height:92px;
+    }
+    .falling.tap-target-default{
+      min-width:92px;
+      min-height:88px;
+    }
+    .falling::after{
+      content:"";
+      position:absolute;
+      inset:-28px;
+      border-radius:24px;
+    }
+    .falling:active{transform:scale(.92)}
+    .falling.popped{animation:popOut .35s forwards;pointer-events:none}
+    .falling.trapped{
+      animation:trapSuccess .38s forwards;
+      pointer-events:none;
+      background:var(--good);
+      color:var(--bg3);
+      border-color:#fff;
+    }
+    .falling.zapped{animation:zap .25s forwards;pointer-events:none}
+    @keyframes popOut{0%{transform:scale(1);opacity:1}100%{transform:scale(1.4);opacity:0;filter:blur(4px)}}
+    @keyframes trapSuccess{
+      0%{transform:scale(1);opacity:1;filter:brightness(1)}
+      45%{transform:scale(1.18);opacity:1;filter:brightness(1.8);box-shadow:0 0 28px var(--good)}
+      100%{transform:scale(.2) rotate(-18deg);opacity:0;filter:blur(3px)}
+    }
+    @keyframes zap{0%{filter:brightness(3) hue-rotate(60deg)}100%{transform:scale(.4) rotate(40deg);opacity:0}}
+	    .flash-word{
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%,-50%);
+      font-family:Georgia,"Times New Roman",serif;
+      font-size:clamp(52px,13vw,86px);
+      font-weight:900;
+      color:#fff;
+      text-shadow:0 0 40px var(--accent),0 0 80px var(--accent);
+      letter-spacing:.04em;
+      z-index:5;
+      pointer-events:none;
+	      animation:flashWord 1.2s ease-out forwards;
+	    }
+	    .flash-word.combo-breaker{
+	      font-size:clamp(42px,10vw,78px);
+	      color:#fff;
+	      text-shadow:0 0 18px #fff,0 0 42px var(--accent),0 8px 0 var(--bg3);
+	      animation:comboBreakerFlash 1.4s cubic-bezier(.2,.9,.2,1) forwards;
+	    }
+	    @keyframes flashWord{
+      0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}
+      20%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}
+      70%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+	      100%{opacity:0;transform:translate(-50%,-50%) scale(.95);filter:blur(8px)}
+	    }
+	    @keyframes comboBreakerFlash{
+	      0%{opacity:0;transform:translate(-50%,-50%) scale(.5) rotate(-5deg)}
+	      18%{opacity:1;transform:translate(-50%,-50%) scale(1.12) rotate(2deg)}
+	      42%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}
+	      100%{opacity:0;transform:translate(-50%,-60%) scale(1.2);filter:blur(6px)}
+	    }
+    .banner{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:radial-gradient(circle at 50% 50%,rgba(245,158,11,.4) 0%,rgba(7,0,16,.95) 70%);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .3s;
+    }
+    .banner.on{opacity:1;pointer-events:auto}
+    .banner .inner{text-align:center;animation:bannerPop .5s cubic-bezier(.2,.8,.2,1.3)}
+    @keyframes bannerPop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+    .banner .big{
+      font-family:Georgia,"Times New Roman",serif;
+      font-weight:900;
+      font-size:clamp(58px,12vw,86px);
+      line-height:.9;
+      color:var(--accent);
+      text-shadow:0 0 40px var(--accent),0 6px 0 var(--bg3);
+      letter-spacing:.04em;
+    }
+    .banner .sub{
+      margin-top:14px;
+      font-size:18px;
+      font-weight:1000;
+      color:#fff;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+    }
+	    .banner button{
+	      margin-top:20px;
+	      background:var(--accent);
+	      color:var(--bg3);
+	      padding:16px 32px;
+      border-radius:999px;
+      font-weight:1000;
+	      font-size:16px;
+	      box-shadow:0 6px 0 rgba(0,0,0,.4);
+	    }
+	    .banner button.secondary{
+	      margin-left:10px;
+	      background:rgba(255,255,255,.12);
+	      color:#fff;
+	      box-shadow:0 6px 0 rgba(0,0,0,.28);
+	      border:1px solid rgba(255,255,255,.18);
+	    }
+    .coin{
+      position:fixed;
+      width:30px;
+      height:30px;
+      border-radius:50%;
+      background:radial-gradient(circle at 35% 35%,#FBBF24,#D97706);
+      box-shadow:0 0 12px var(--accent);
+      z-index:55;
+      pointer-events:none;
+      animation:coinFly 1s ease-out forwards;
+    }
+    @keyframes coinFly{0%{transform:translate(0,0) scale(.4);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1) rotate(360deg);opacity:0}}
+    .debug-stream{
+      position:fixed;
+      right:14px;
+      bottom:14px;
+      z-index:31;
+      width:min(320px,calc(100vw - 28px));
+      max-height:34vh;
+      overflow:auto;
+      border-radius:14px;
+      padding:12px;
+      background:rgba(15,18,26,.92);
+      border:1px solid rgba(158,230,196,.3);
+      color:#9ee6c4;
+      font:10px/1.45 ui-monospace,monospace;
+    }
+    .debug-stream[hidden]{display:none}
+    .demo-panel{
+      position:absolute;
+      inset:18px;
+      z-index:12;
+      display:grid;
+      place-items:center;
+      border-radius:22px;
+      background:rgba(7,0,16,.86);
+      border:1px solid rgba(255,255,255,.16);
+      box-shadow:0 12px 0 rgba(0,0,0,.34),0 0 40px rgba(245,158,11,.2);
+      text-align:center;
+      padding:18px;
+    }
+    .demo-panel h2{
+      margin:0 0 8px;
+      font-size:18px;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      color:var(--accent);
+    }
+    .demo-panel p{
+      margin:0 auto 16px;
+      max-width:420px;
+      color:rgba(255,255,255,.78);
+      font-weight:900;
+      line-height:1.35;
+    }
+    .demo-chips{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:12px 0 18px;
+    }
+    .demo-chip{
+      min-width:70px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(255,255,255,.08);
+      box-shadow:0 5px 0 rgba(0,0,0,.28);
+      font-family:Georgia,"Times New Roman",serif;
+      font-size:28px;
+      font-weight:900;
+    }
+    .demo-chip.safe{border:2px solid var(--good)}
+    .demo-chip.bad{border:2px solid var(--bad)}
+    .demo-panel button{
+      border-radius:999px;
+      padding:13px 24px;
+      color:var(--bg3);
+      background:var(--accent);
+      font-weight:1000;
+      box-shadow:0 5px 0 rgba(0,0,0,.36);
+    }
+    @media (max-width:640px){
+      .shell{padding:12px 10px 10px;gap:9px}
+      .hud{gap:6px}
+      .mode-pill{font-size:10px;padding:8px 10px}
+      .coins{font-size:12px;padding:8px 10px}
+      .word-card{padding:16px;border-radius:20px}
+      .tile{width:40px;height:52px;font-size:27px}
+      .falling{min-width:82px;min-height:82px;font-size:29px}
+      .arena{min-height:250px}
+    }
+  </style>
+</head>
+<body>
+  <div class="letter-rush-backdrop"></div>
+  <div class="starfield" id="starfield" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="hud">
+      <div class="mode-pill"><span id="modeEmoji">🔊</span><span id="modeName">Hear &amp; Spell</span></div>
+      <div class="coins"><span>🪙</span><span id="coins">0</span></div>
+    </header>
+    <div class="streak" id="streak"></div>
+
+    <section class="word-card" aria-live="polite">
+      <div class="def" id="definition">Loading word list...</div>
+      <div class="target-row" id="targetRow"></div>
+      <button class="speak-btn" id="speakBtn" type="button">🔊 Hear it again</button>
+      <form class="type-panel" id="typeWordPrompt">
+        <input class="spelling-input" id="spellingInput" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Type the spelling word" />
+        <button class="type-submit" id="submitTypedAnswer" type="submit">Lock it</button>
+      </form>
+    </section>
+
+    <section class="meter-wrap" aria-label="Progress">
+      <div class="meter"><div class="fill" id="meterFill"></div><div class="label" id="meterLabel">STAKE METER</div></div>
+      <div class="timer-ring" id="timerRing"><div class="tfill" id="timerFill"></div></div>
+    </section>
+
+    <section class="mastery-hud" id="masteryHud">
+      <div class="lives-card" aria-label="Mastery lives">
+        <span class="stakes-label">Lives</span>
+        <span class="life-bank" id="masteryLives"></span>
+      </div>
+      <div class="stars-card"><span class="stakes-label">Stars</span><span>⭐ <span id="masteryStars">0</span></span></div>
+      <div class="clock-card"><span class="stakes-label">Time</span><span id="masteryTimer">4.0s</span></div>
+    </section>
+
+    <section class="arena" id="arena" aria-label="Letter arena"></section>
+  </main>
+
+  <section class="banner on" id="startBanner">
+    <div class="inner">
+      <div class="big">LETTER<br />RUSH</div>
+      <div class="sub" id="startSub">Config loading...</div>
+      <button id="startBtn" type="button">Start</button>
+    </div>
+  </section>
+
+	  <section class="banner" id="jackpotBanner">
+	    <div class="inner">
+	      <div class="big" id="jackpotBig">WORD!</div>
+	      <div class="sub" id="jackpotSub">+100 coins</div>
+	      <button id="nextBtn" type="button">Next word →</button>
+	    </div>
+	  </section>
+
+	  <section class="banner" id="bonusBanner">
+	    <div class="inner">
+	      <div class="big" id="bonusBig">BONUS?</div>
+	      <div class="sub" id="bonusSub">Risk coins for a bigger win</div>
+	      <button id="bonusStartBtn" type="button">Take bonus run</button>
+	      <button id="bonusSkipBtn" class="secondary" type="button">Keep coins</button>
+	    </div>
+	  </section>
+
+	  <section class="banner" id="endBanner">
+    <div class="inner">
+      <div class="big" id="endBig">DONE</div>
+      <div class="sub" id="endSub">Evidence saved</div>
+      <button id="doneBtn" type="button">Back to Map</button>
+    </div>
+  </section>
+
+  <pre class="debug-stream" id="debugStream" hidden></pre>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var LETTER_RUSH_MODES = {
+        "type-and-spell": {
+          label: "Type & Spell",
+          emoji: "⌨️",
+          purpose: "evaluate",
+          writesMasteryEvidence: true,
+          intro: "Listen, then type the whole word."
+        },
+        "hear-and-spell": {
+          label: "Hear & Spell",
+          emoji: "🔊",
+          purpose: "evaluate",
+          writesMasteryEvidence: true,
+          intro: "Listen, then catch the letters in order."
+        },
+        "read-and-race": {
+          label: "Read & Race",
+          emoji: "👁",
+          purpose: "fluency",
+          writesMasteryEvidence: false,
+          intro: "Read it fast, then rebuild it."
+        },
+        "trap-the-imposter": {
+          label: "Trap Imposter",
+          emoji: "🎯",
+          purpose: "practice",
+          writesMasteryEvidence: false,
+          intro: "Trap imposters. Let the correct chunk pass."
+        },
+        "mastery-run": {
+          label: "Mastery Run",
+          emoji: "⭐",
+          purpose: "evaluate",
+          writesMasteryEvidence: true,
+          intro: "One clean run. No hints."
+        }
+      };
+
+      var params = window.GAME_PARAMS || {};
+      var configUrl = params.config;
+      var config = null;
+      var heartbeat = null;
+      var state = {
+        started: false,
+        paused: true,
+        index: 0,
+        word: null,
+        targetLetters: [],
+        typed: [],
+        wordStartedAt: 0,
+        currentLetterStartedAt: 0,
+        spawnTimer: null,
+        masteryTimer: null,
+        promptTimer: null,
+        masteryDeadline: 0,
+        trapDeadline: 0,
+        lives: 3,
+        stars: 0,
+        streak: 0,
+        coins: 0,
+        targetResults: [],
+        letterResults: [],
+        wordHadMiss: false,
+        wordOutcomeLocked: false,
+        trapRound: null,
+        trapHits: 0,
+        bonusRoundActive: false,
+        bonusRoundOffered: false,
+        bonusRoundResolved: false,
+        bonusStake: 0,
+        bonusPayout: 0,
+        currencyAwardSent: false,
+        normalRoundStreakPeak: 0,
+        demoSeen: false,
+        completedWordIds: []
+      };
+      var sfx = null;
+
+      function byId(id) { return document.getElementById(id); }
+      function modeDef() { return LETTER_RUSH_MODES[config.mode] || LETTER_RUSH_MODES["hear-and-spell"]; }
+      function roundCount() { return config && Array.isArray(config.words) ? config.words.length : 0; }
+      function normalizeWord(value) { return String(value || "").trim().toLowerCase().replace(/[^a-z]/g, ""); }
+      var positiveFeedbackByMode = {
+        "type-and-spell": ["LOCKED!", "CLEAN!", "YES!", "GOT IT!"],
+        "hear-and-spell": ["NICE!", "CLEAR!", "GOT IT!", "YES!"],
+        "read-and-race": ["GO!", "FAST!", "ZIP!", "NICE!"],
+        "trap-the-imposter": ["TRAP!", "SNAGGED!", "CAUGHT!"],
+        "mastery-run": ["HIT!", "LOCKED!", "CLEAN!", "NICE!"]
+      };
+      function isMasteryEligibleMode(mode) {
+        return mode === "type-and-spell" || mode === "hear-and-spell" || mode === "mastery-run";
+      }
+      function escapeRegExp(value) {
+        return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+      function visiblePromptForWord(word) {
+        var text = word && word.text ? String(word.text).trim() : "";
+        var candidate = word && word.definition ? String(word.definition).trim() : "";
+        if (!candidate) return modeDef().intro;
+        if (!text) return candidate;
+        var leakedAnswer = new RegExp("(^|[^a-z])" + escapeRegExp(text.toLowerCase()) + "([^a-z]|$)", "i").test(candidate);
+        if (!leakedAnswer) return candidate;
+        if (config.mode === "type-and-spell") return "Spell the word you hear.";
+        if (config.mode === "hear-and-spell" || config.mode === "mastery-run") return "Build the word you hear.";
+        return modeDef().intro;
+      }
+      function scaffoldLevelForMode() {
+        if (!config || !config.scaffolds) return 1;
+        return config.scaffolds.showWord || config.scaffolds.letterBank || config.scaffolds.allowRetryBeforeScore || config.scaffolds.companionHints ? 1 : 0;
+      }
+      function canWriteMasteryEvidence() {
+        return !!(config && config.evidencePolicy && config.evidencePolicy.writesMasteryEvidence && isMasteryEligibleMode(config.mode) && scaffoldLevelForMode() === 0);
+      }
+      function hidesTargetFromCompanion() {
+        return config && (
+          config.mode === "type-and-spell" ||
+          config.mode === "hear-and-spell" ||
+          config.mode === "mastery-run"
+        );
+      }
+      function companionVisibleWord() {
+        return hidesTargetFromCompanion() ? "" : (state.word ? state.word.text : "");
+      }
+      function safeCssUrl(value) {
+        var raw = String(value || "").trim();
+        if (!raw) return "";
+        if (raw.indexOf("http://") === 0 || raw.indexOf("https://") === 0) return "";
+        if (!(raw.indexOf("/") === 0 || raw.indexOf("./") === 0 || raw.indexOf("../") === 0 || raw.indexOf("data:image/") === 0)) return "";
+        return raw.replace(/["\\\n\r]/g, "");
+      }
+      function applyBackground() {
+        var appearance = config.appearance || {};
+        var palette = appearance.palette || {};
+        var root = document.documentElement.style;
+        if (palette.bg1) root.setProperty("--bg1", palette.bg1);
+        if (palette.bg2) root.setProperty("--bg2", palette.bg2);
+        if (palette.bg3) root.setProperty("--bg3", palette.bg3);
+        if (palette.accent) root.setProperty("--accent", palette.accent);
+        if (appearance.fallbackBackground) root.setProperty("--fallback-bg", appearance.fallbackBackground);
+        var image = safeCssUrl(appearance.backgroundImage);
+        root.setProperty("--bg-image", image ? "url(\"" + image + "\")" : "none");
+      }
+      function postActivityEvent(payload) {
+        window.parent.postMessage(payload, "*");
+        pushDebug(payload);
+      }
+      function postGameStateUpdate(payload) {
+        if (window.GameBridge && typeof window.GameBridge.reportState === "function") {
+          window.GameBridge.reportState(String(payload.phase || "Letter Rush update"), payload);
+        } else {
+          window.parent.postMessage({ type: "game_state_update", payload: payload }, "*");
+        }
+        pushDebug({ type: "game_state_update", payload: payload });
+      }
+      function postCurrencyAward(amount, reason) {
+        var payload = {
+          amount: amount,
+          reason: reason || "letter_rush_session",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          bonusRound: state.bonusRoundResolved
+        };
+        if (window.GameBridge && typeof window.GameBridge.awardCurrency === "function") {
+          window.GameBridge.awardCurrency(amount, payload.reason);
+        } else {
+          window.parent.postMessage({ type: "currency_award", payload: payload }, "*");
+        }
+        pushDebug({ type: "currency_award", payload: payload });
+      }
+      function fireCompanion(trigger, payload) {
+        if (window.GameBridge && typeof window.GameBridge.fireEvent === "function") {
+          window.GameBridge.fireEvent(trigger, payload || {});
+        }
+      }
+      function report(progress, extras) {
+        if (!window.GameBridge || typeof window.GameBridge.reportState !== "function") return;
+        window.GameBridge.reportState(progress, Object.assign({
+          phase: state.paused ? "paused" : "playing",
+          activityId: "letter-rush",
+          mode: config.mode,
+          currentWord: companionVisibleWord(),
+          itemIndex: state.index,
+          totalItems: roundCount(),
+          score: state.coins
+        }, extras || {}));
+      }
+      function pushDebug(payload) {
+        var panel = byId("debugStream");
+        if (!panel || panel.hidden) return;
+        panel.textContent = JSON.stringify(payload, null, 2) + "\n\n" + panel.textContent;
+      }
+      function configureStandalonePreview() {
+        var debugEvidence = params.debugEvidence === "1" || params.preview === "debug";
+        byId("debugStream").hidden = !debugEvidence;
+      }
+      function isStandalonePreview() {
+        return window.parent === window;
+      }
+      function flashCompanion(text) {
+        report(text || "Letter Rush update", { lastAction: "companion_message" });
+      }
+      function positiveFeedbackCopy() {
+        var feedback = config && config.feedback && typeof config.feedback === "object" ? config.feedback : {};
+        var byMode = feedback.positiveByMode && typeof feedback.positiveByMode === "object" ? feedback.positiveByMode : {};
+        var configured = Array.isArray(byMode[config.mode]) ? byMode[config.mode] : feedback.positive;
+        var list = Array.isArray(configured) ? configured : positiveFeedbackByMode[config.mode];
+        var safeList = (Array.isArray(list) ? list : positiveFeedbackByMode["hear-and-spell"]).filter(function (item) {
+          return typeof item === "string" && item.trim();
+        });
+        if (!safeList.length) safeList = positiveFeedbackByMode["hear-and-spell"];
+        return safeList[Math.floor(Math.random() * safeList.length)];
+      }
+      function estimateNarrationMs(word) {
+        return Math.min(2600, Math.max(1100, 700 + String(word || "").length * 150));
+      }
+      function standaloneSpeechFallback(payload) {
+        if (!isStandalonePreview()) return false;
+        if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+          flashCompanion("Voice is waiting for Sunny.");
+          return false;
+        }
+        try {
+          var utterance = new SpeechSynthesisUtterance(String(payload.word || ""));
+          utterance.rate = 0.82;
+          utterance.pitch = 1.08;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+          console.log(" 🎮 [letter-rush] narration standalone-fallback");
+          return true;
+        } catch (err) {
+          console.warn(" 🎮 [letter-rush] narration fallback failed", err);
+          flashCompanion("Voice is waiting for Sunny.");
+          return false;
+        }
+      }
+      function createSfx() {
+        if (sfx) return sfx;
+        var AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return null;
+        try {
+          sfx = { ctx: new AudioContextCtor(), enabled: true };
+          return sfx;
+        } catch (err) {
+          console.warn(" 🎮 [letter-rush] sfx unavailable", err);
+          return null;
+        }
+      }
+      function playTone(freq, startOffset, duration, type, volume) {
+        var engine = createSfx();
+        if (!engine || !engine.enabled) return;
+        var ctx = engine.ctx;
+        if (ctx.state === "suspended") ctx.resume().catch(function () {});
+        var start = ctx.currentTime + startOffset;
+        var oscillator = ctx.createOscillator();
+        var gain = ctx.createGain();
+        oscillator.type = type || "sine";
+        oscillator.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(volume || 0.06, start + 0.018);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(start);
+        oscillator.stop(start + duration + 0.03);
+      }
+      function sfxSettings() {
+        var raw = config && config.sfx && typeof config.sfx === "object" ? config.sfx : {};
+        var milestones = Array.isArray(raw.comboMilestones) ? raw.comboMilestones.filter(function (item) {
+          return item && typeof item === "object" && Number.isFinite(Number(item.minStreak));
+        }).sort(function (a, b) {
+          return Number(a.minStreak) - Number(b.minStreak);
+        }) : [];
+        return {
+          enabled: raw.enabled !== false,
+          arcadeCombos: raw.arcadeCombos !== false,
+          comboThreshold: clampInteger(raw.comboThreshold, 3, 2, 12),
+          heatingUpEvery: clampInteger(raw.heatingUpEvery, 5, 0, 20),
+          comboBreakerStreak: clampInteger(raw.comboBreakerStreak, 8, 3, 30),
+          comboBreakerEvery: clampInteger(raw.comboBreakerEvery, 5, 0, 30),
+          comboMilestoneEvery: clampInteger(raw.comboMilestoneEvery, raw.comboBreakerEvery || 5, 0, 30),
+          comboVolume: clampNumber(raw.comboVolume, 0.9, 0, 1),
+          comboBreakerSrc: typeof raw.comboBreakerSrc === "string" && raw.comboBreakerSrc
+            ? raw.comboBreakerSrc
+            : "/sfx/pronunciation/combo_breaker.mp3",
+          eventMap: normalizeSfxEventMap(raw.eventMap),
+          comboMilestones: milestones
+        };
+      }
+      function defaultSfxEventMap() {
+        return {
+          start: { effect: "start" },
+          prompt: { effect: "prompt-chime" },
+          correct: { effect: "letter-correct" },
+          combo: { effect: "combo" },
+          heatingUp: { effect: "heating-up" },
+          wordClear: { effect: "word-clear" },
+          lifeLost: { effect: "life-lost" },
+          bonusStart: { effect: "heating-up" },
+          bonusWin: { effect: "word-clear" }
+        };
+      }
+      function normalizeSfxEventMap(rawMap) {
+        var defaults = defaultSfxEventMap();
+        var eventMap = {};
+        Object.keys(defaults).forEach(function (eventName) {
+          var raw = rawMap && typeof rawMap === "object" ? rawMap[eventName] : null;
+          var fallback = defaults[eventName];
+          eventMap[eventName] = {
+            enabled: !raw || raw.enabled !== false,
+            effect: raw && typeof raw.effect === "string" && raw.effect ? raw.effect : fallback.effect,
+            src: raw && typeof raw.src === "string" ? raw.src : "",
+            volume: raw && Number.isFinite(Number(raw.volume)) ? clampNumber(raw.volume, 1, 0, 1) : 1
+          };
+        });
+        return eventMap;
+      }
+      function sfxEventSettings(eventName) {
+        var settings = sfxSettings();
+        var map = settings.eventMap || defaultSfxEventMap();
+        return map[eventName] || defaultSfxEventMap()[eventName] || { effect: String(eventName || "") };
+      }
+      function resolveGameAssetUrl(src) {
+        var raw = String(src || "").trim();
+        if (!raw) return "";
+        if (raw.indexOf("data:") === 0 || raw.indexOf("http://") === 0 || raw.indexOf("https://") === 0) return raw;
+        if (location.protocol === "file:" && raw.charAt(0) === "/") {
+          return "../" + raw.replace(/^\/+/, "");
+        }
+        return raw;
+      }
+      function playAudioSfx(src, volume) {
+        var settings = sfxSettings();
+        if (!settings.enabled || !src || typeof Audio === "undefined") return false;
+        try {
+          var audio = new Audio(resolveGameAssetUrl(src));
+          audio.volume = clampNumber(volume, 0.85, 0, 1);
+          audio.currentTime = 0;
+          audio.play().catch(function (err) {
+            console.warn(" 🎮 [letter-rush] audio sfx play failed", err);
+          });
+          return true;
+        } catch (err) {
+          console.warn(" 🎮 [letter-rush] audio sfx create failed", err);
+          return false;
+        }
+      }
+      function playArcadeComboSfx(kind) {
+        var settings = sfxSettings();
+        if (!settings.enabled || !settings.arcadeCombos) return false;
+        var volume = settings.comboVolume;
+        if (kind === "on-fire") {
+          playTone(330, 0, 0.07, "sawtooth", volume * 0.06);
+          playTone(660, 0.055, 0.07, "square", volume * 0.07);
+          playTone(990, 0.11, 0.09, "triangle", volume * 0.075);
+          playTone(1320, 0.18, 0.12, "square", volume * 0.06);
+          return true;
+        }
+        if (kind === "mega-streak") {
+          playTone(220, 0, 0.08, "sawtooth", volume * 0.07);
+          playTone(440, 0.06, 0.08, "square", volume * 0.075);
+          playTone(880, 0.12, 0.1, "square", volume * 0.075);
+          playTone(1760, 0.22, 0.16, "triangle", volume * 0.07);
+          return true;
+        }
+        if (kind === "legendary") {
+          playTone(196, 0, 0.11, "sawtooth", volume * 0.08);
+          playTone(392, 0.08, 0.1, "square", volume * 0.08);
+          playTone(784, 0.16, 0.12, "triangle", volume * 0.085);
+          playTone(1568, 0.28, 0.2, "triangle", volume * 0.08);
+          return true;
+        }
+        if (kind === "heating-up") {
+          playTone(392, 0, 0.08, "sawtooth", volume * 0.07);
+          playTone(784, 0.055, 0.08, "triangle", volume * 0.08);
+          playTone(1175, 0.12, 0.11, "square", volume * 0.07);
+          playTone(1568, 0.205, 0.14, "triangle", volume * 0.06);
+          return true;
+        }
+        playTone(587, 0, 0.055, "square", volume * 0.06);
+        playTone(740, 0.045, 0.06, "triangle", volume * 0.06);
+        playTone(988, 0.09, 0.075, "square", volume * 0.055);
+        return true;
+      }
+      function playComboMilestoneSfx(milestone) {
+        var settings = sfxSettings();
+        var effect = milestone && milestone.effect ? String(milestone.effect) : "combo-breaker";
+        var src = milestone && milestone.src ? String(milestone.src) : "";
+        if (src && playAudioSfx(src, settings.comboVolume)) return true;
+        if (effect === "combo-breaker" && playAudioSfx(settings.comboBreakerSrc, settings.comboVolume)) return true;
+        return playArcadeComboSfx(effect);
+      }
+      function playSfx(name, volume) {
+        var settings = sfxSettings();
+        if (!settings.enabled) return;
+        var effect = String(name || "");
+        var eventVolume = clampNumber(volume, 1, 0, 1);
+        if (effect === "combo-breaker" && settings.arcadeCombos && playAudioSfx(settings.comboBreakerSrc, 0.85 * eventVolume)) {
+          return;
+        }
+        if ((effect === "combo" || effect === "heating-up") && playArcadeComboSfx(effect)) {
+          return;
+        }
+        if (effect === "prompt-chime") {
+          playTone(659, 0, 0.12, "sine", 0.055 * eventVolume);
+          playTone(988, 0.08, 0.16, "sine", 0.045 * eventVolume);
+        } else if (effect === "letter-correct") {
+          playTone(740, 0, 0.08, "triangle", 0.05 * eventVolume);
+          playTone(1110, 0.045, 0.08, "triangle", 0.035 * eventVolume);
+        } else if (effect === "combo") {
+          playTone(660, 0, 0.07, "square", 0.035 * eventVolume);
+          playTone(880, 0.055, 0.08, "square", 0.035 * eventVolume);
+          playTone(1320, 0.12, 0.12, "triangle", 0.04 * eventVolume);
+        } else if (effect === "heating-up") {
+          playTone(784, 0, 0.07, "triangle", 0.045 * eventVolume);
+          playTone(988, 0.055, 0.08, "triangle", 0.045 * eventVolume);
+          playTone(1480, 0.12, 0.14, "square", 0.035 * eventVolume);
+        } else if (effect === "word-clear") {
+          playTone(523, 0, 0.09, "triangle", 0.05 * eventVolume);
+          playTone(784, 0.08, 0.11, "triangle", 0.05 * eventVolume);
+          playTone(1047, 0.18, 0.16, "triangle", 0.04 * eventVolume);
+        } else if (effect === "combo-breaker") {
+          playTone(196, 0, 0.18, "sawtooth", 0.055 * eventVolume);
+          playTone(147, 0.1, 0.2, "sawtooth", 0.04 * eventVolume);
+        } else if (effect === "life-lost") {
+          playTone(330, 0, 0.1, "sawtooth", 0.045 * eventVolume);
+          playTone(220, 0.08, 0.18, "sawtooth", 0.045 * eventVolume);
+        } else if (effect === "miss") {
+          playTone(180, 0, 0.12, "sawtooth", 0.035 * eventVolume);
+        } else if (effect === "start") {
+          playTone(392, 0, 0.08, "triangle", 0.04 * eventVolume);
+          playTone(587, 0.065, 0.1, "triangle", 0.04 * eventVolume);
+        }
+      }
+      function playConfiguredSfxEvent(eventName) {
+        var settings = sfxSettings();
+        var event = sfxEventSettings(eventName);
+        if (!settings.enabled || !event || event.enabled === false) return false;
+        if (event.src && playAudioSfx(event.src, event.volume)) return true;
+        playSfx(event.effect || eventName, event.volume);
+        return true;
+      }
+      function requestNarration(reason) {
+        var word = state.word ? state.word.text : "";
+        var payload = {
+          type: "narration_request",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          word: word,
+          reason: reason || "word_prompt"
+        };
+        playConfiguredSfxEvent("prompt");
+        window.parent.postMessage(payload, "*");
+        fireCompanion("narration_request", payload);
+        var spoke = standaloneSpeechFallback(payload);
+        flashCompanion(spoke ? "Listen closely." : "Voice request sent.");
+        pushDebug(payload);
+        return estimateNarrationMs(word);
+      }
+      function backToMap() {
+        window.parent.postMessage({ type: "back_to_map", nodeId: params.nodeId }, "*");
+      }
+      function setBanner(id, on) {
+        byId(id).classList.toggle("on", !!on);
+      }
+      function makeStars() {
+        var field = byId("starfield");
+        field.innerHTML = "";
+        for (var i = 0; i < 58; i += 1) {
+          var star = document.createElement("span");
+          star.className = "star";
+          star.style.left = Math.random() * 100 + "%";
+          star.style.top = Math.random() * 100 + "%";
+          star.style.animationDelay = Math.random() * 3 + "s";
+          field.appendChild(star);
+        }
+      }
+      function updateHud() {
+        byId("coins").textContent = String(state.coins);
+        byId("streak").textContent = state.streak >= 2 ? "x" + state.streak + " STREAK" : "";
+        var meterNumerator = isTrapMode() ? state.trapHits : state.typed.length;
+        var meterDenominator = isTrapMode() && state.trapRound ? state.trapRound.goal : state.targetLetters.length;
+        byId("meterFill").style.width = Math.min(100, Math.round((meterNumerator / Math.max(1, meterDenominator)) * 100)) + "%";
+        byId("meterLabel").textContent = config.mode === "mastery-run" ? "MASTERY METER" : isTrapMode() ? "IMPOSTER METER" : "STAKE METER";
+        byId("masteryStars").textContent = String(state.stars);
+        renderMasteryLives();
+      }
+      function renderMasteryLives() {
+        var bank = byId("masteryLives");
+        var maxLives = startingLivesForSession();
+        bank.innerHTML = "";
+        for (var i = 0; i < maxLives; i += 1) {
+          var token = document.createElement("span");
+          token.className = "life-token" + (i >= state.lives ? " spent" : "");
+          token.setAttribute("aria-hidden", "true");
+          bank.appendChild(token);
+        }
+        bank.setAttribute("aria-label", state.lives + " of " + maxLives + " lives left");
+      }
+      function renderTiles() {
+        var row = byId("targetRow");
+        row.innerHTML = "";
+        if (isTrapMode()) {
+          var round = state.trapRound || buildTrapRound(state.word || {});
+          var shell = document.createElement("div");
+          shell.className = "trap-frame";
+          var word = document.createElement("span");
+          word.className = "trap-word";
+          word.textContent = round.frame.toUpperCase();
+          shell.appendChild(word);
+          var goal = document.createElement("div");
+          goal.className = "trap-goal";
+          goal.appendChild(document.createTextNode("Trap imposters"));
+          for (var i = 0; i < round.goal; i += 1) {
+            var dot = document.createElement("span");
+            dot.className = "trap-dot" + (i < state.trapHits ? " filled" : "");
+            goal.appendChild(dot);
+          }
+          shell.appendChild(goal);
+          row.appendChild(shell);
+          return;
+        }
+        var showWord = !!(config.scaffolds && config.scaffolds.showWord) || config.mode === "read-and-race";
+        state.targetLetters.forEach(function (letter, idx) {
+          var tile = document.createElement("span");
+          tile.className = "tile" + (idx < state.typed.length ? " filled" : "") + (idx === state.typed.length ? " next" : "") + (showWord && idx >= state.typed.length ? " visible" : "");
+          tile.textContent = idx < state.typed.length || showWord ? letter.toUpperCase() : letter.toUpperCase();
+          row.appendChild(tile);
+        });
+      }
+      function currentExpectedLetter() {
+        return state.targetLetters[state.typed.length] || "";
+      }
+      function isTrapMode() {
+        return config && config.mode === "trap-the-imposter";
+      }
+      function clampNumber(value, fallback, min, max) {
+        var n = Number(value);
+        if (!Number.isFinite(n)) return fallback;
+        return Math.max(min, Math.min(max, n));
+      }
+      function clampInteger(value, fallback, min, max) {
+        return Math.round(clampNumber(value, fallback, min, max));
+      }
+      function trapSettings() {
+        var trap = config && config.trap && typeof config.trap === "object" ? config.trap : {};
+        return {
+          goal: clampInteger(trap.goal, 4, 2, 8),
+          timerSeconds: clampNumber(trap.timerSeconds, 20, 0, 90),
+          imposterSpawnRate: clampNumber(trap.imposterSpawnRate, 0.74, 0.2, 0.95),
+          maxVisibleChunks: clampInteger(trap.maxVisibleChunks, 5, 2, 8),
+          spawnInterval_ms: clampInteger(trap.spawnInterval_ms, 820, 360, 1800),
+          fallDuration_ms: clampInteger(trap.fallDuration_ms, 4200, 1400, 9000)
+        };
+      }
+      function bonusRoundSettings() {
+        var bonus = config && config.bonusRound && typeof config.bonusRound === "object" ? config.bonusRound : {};
+        return {
+          enabled: bonus.enabled === true,
+          goal: clampInteger(bonus.goal, 5, 2, 10),
+          timerSeconds: clampNumber(bonus.timerSeconds, 12, 0, 90),
+          imposterSpawnRate: clampNumber(bonus.imposterSpawnRate, 0.82, 0.2, 0.98),
+          maxVisibleChunks: clampInteger(bonus.maxVisibleChunks, 6, 2, 10),
+          spawnInterval_ms: clampInteger(bonus.spawnInterval_ms, 640, 280, 1600),
+          fallDuration_ms: clampInteger(bonus.fallDuration_ms, 3400, 1100, 9000),
+          unlockAccuracy: clampNumber(bonus.unlockAccuracy, 0.8, 0, 1),
+          unlockStreak: clampInteger(bonus.unlockStreak, 4, 1, 20),
+          speedMultiplier: clampNumber(bonus.speedMultiplier, 1.25, 1, 2),
+          stake: clampInteger(bonus.stake, 20, 0, 500),
+          multiplier: clampNumber(bonus.multiplier, 3, 1, 10),
+          riskSource: typeof bonus.riskSource === "string" ? bonus.riskSource : "session_earnings"
+        };
+      }
+      function activeTrapSettings() {
+        return state.bonusRoundActive ? bonusRoundSettings() : trapSettings();
+      }
+      function tapTargetSettings(kind) {
+        var trapLike = kind === "trap" || kind === "bonus";
+        return {
+          className: trapLike ? "tap-target-wide" : "tap-target-default",
+          layoutWidth: trapLike ? 122 : 104
+        };
+      }
+      function applyTapTargetClass(el, kind) {
+        var settings = tapTargetSettings(kind);
+        el.classList.add(settings.className);
+        el.dataset.hitbox = settings.className;
+        return settings;
+      }
+      function uniqueList(values) {
+        var seen = {};
+        return values.map(function (value) { return normalizeWord(value); }).filter(function (value) {
+          if (!value || seen[value]) return false;
+          seen[value] = true;
+          return true;
+        });
+      }
+      function endingChunkFromPattern(word) {
+        var patterns = Array.isArray(word.targetPatterns) ? word.targetPatterns.join(" ") : "";
+        var explicit = normalizeWord(word.correctChunk || "");
+        if (explicit) return explicit;
+        if (patterns.indexOf("er-ending") >= 0) return "er";
+        if (patterns.indexOf("or-ending") >= 0) return "or";
+        if (patterns.indexOf("ed-ending") >= 0) return "ed";
+        if (patterns.indexOf("ing-ending") >= 0) return "ing";
+        var size = Math.max(1, Math.min(4, Number(word.chunkLength) || 2));
+        return normalizeWord(word.text).slice(-size);
+      }
+      function buildTrapRound(word) {
+        var settings = activeTrapSettings();
+        var target = normalizeWord(word.text);
+        var correctChunk = endingChunkFromPattern(word);
+        var frameBase = target.slice(0, Math.max(1, target.length - correctChunk.length));
+        var configuredChunks = Array.isArray(word.imposterChunks) ? word.imposterChunks : [];
+        var chunksFromTrapWords = Array.isArray(word.traps) ? word.traps.map(function (trapWord) {
+          return normalizeWord(trapWord).slice(-correctChunk.length);
+        }) : [];
+        var fallbackChunks = ["er", "or", "ar", "ed", "en", "ing"];
+        var sourceChunks = configuredChunks.length ? configuredChunks : chunksFromTrapWords.concat(fallbackChunks);
+        if (configuredChunks.length > 0 && configuredChunks.length < 2) sourceChunks = configuredChunks.concat(chunksFromTrapWords, fallbackChunks);
+        var imposterChunks = uniqueList(sourceChunks).filter(function (chunk) {
+          return chunk !== correctChunk;
+        }).slice(0, 4);
+        return {
+          frame: frameBase + "_",
+          correctChunk: correctChunk,
+          imposterChunks: imposterChunks,
+          target: target,
+          goal: Math.max(2, Math.min(10, Number(word.trapGoal) || settings.goal)),
+          concept: "pattern_discrimination"
+        };
+      }
+      function trapCandidatePool() {
+        var round = state.trapRound || buildTrapRound(state.word || {});
+        var candidates = round.imposterChunks.map(function (chunk) {
+          return { letter: chunk, chunk: chunk, imposter: true, kind: "trap-imposter" };
+        });
+        candidates.push({ letter: round.correctChunk, chunk: round.correctChunk, imposter: false, kind: "safe-chunk" });
+        return candidates;
+      }
+      function randomLetter() {
+        return "abcdefghijklmnopqrstuvwxyz".charAt(Math.floor(Math.random() * 26));
+      }
+      function randomTrapLetter() {
+        var traps = state.word && Array.isArray(state.word.traps) ? state.word.traps.join("").toLowerCase().replace(/[^a-z]/g, "") : "";
+        return traps ? traps.charAt(Math.floor(Math.random() * traps.length)) : randomLetter();
+      }
+      function distractorLetter(expected) {
+        var traps = state.word && Array.isArray(state.word.traps) ? state.word.traps.join("").toLowerCase().replace(/[^a-z]/g, "") : "";
+        var candidates = (traps + "abcdefghijklmnopqrstuvwxyz").split("").filter(function (letter) {
+          return letter && letter !== expected;
+        });
+        return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : randomLetter();
+      }
+      function chooseFallingLetter() {
+        if (isTrapMode()) {
+          var pool = trapCandidatePool();
+          var imposters = pool.filter(function (pick) { return pick.imposter; });
+          var safe = pool.filter(function (pick) { return !pick.imposter; });
+          var source = Math.random() < activeTrapSettings().imposterSpawnRate && imposters.length ? imposters : safe;
+          return source[Math.floor(Math.random() * source.length)];
+        }
+        var expected = currentExpectedLetter() || randomLetter();
+        var correctLetterChance = config.mode === "mastery-run" ? 0.42 : 0.5;
+        if (Math.random() < correctLetterChance) return { letter: expected, imposter: false };
+        return { letter: distractorLetter(expected), imposter: false };
+      }
+      function streakSpeedMultiplier() {
+        var streakBoost = Math.min(1.45, 1 + Math.max(0, state.streak - 2) * 0.045);
+        return streakBoost * (state.bonusRoundActive ? bonusRoundSettings().speedMultiplier : 1);
+      }
+      function spawnLetter() {
+        if (state.paused || !state.word) return;
+        var arena = byId("arena");
+        if (isTrapMode() && arena.querySelectorAll(".falling").length >= activeTrapSettings().maxVisibleChunks) return;
+        var pick = chooseFallingLetter();
+        var el = document.createElement("button");
+        el.type = "button";
+        el.className = "falling" + (isTrapMode() ? " chunk" : "");
+        var tapSettings = applyTapTargetClass(
+          el,
+          state.bonusRoundActive ? "bonus" : isTrapMode() ? "trap" : "letter"
+        );
+        var tapWidth = tapSettings.layoutWidth;
+        var left = Math.random() * Math.max(1, arena.clientWidth - tapWidth);
+        var baseDuration = config.mode === "mastery-run" ? 2600 : isTrapMode() ? activeTrapSettings().fallDuration_ms : 4300;
+        var duration = Math.round(baseDuration / streakSpeedMultiplier());
+        el.textContent = pick.letter.toUpperCase();
+        el.dataset.letter = pick.letter;
+        el.dataset.kind = pick.kind || "letter";
+        el.dataset.imposter = pick.imposter ? "1" : "0";
+        el.style.left = left + "px";
+        el.style.top = "-72px";
+        arena.appendChild(el);
+        var started = Date.now();
+        var raf = null;
+        function fall() {
+          if (!document.body.contains(el) || state.paused) return;
+          var pct = Math.min(1, (Date.now() - started) / duration);
+          el.style.top = (-72 + pct * (arena.clientHeight + 90)) + "px";
+          if (pct >= 1) {
+            handleFallingExpired(el);
+            el.remove();
+            return;
+          }
+          raf = requestAnimationFrame(fall);
+        }
+        el.addEventListener("click", function () {
+          if (raf) cancelAnimationFrame(raf);
+          handleLetterTap(el);
+        });
+        fall();
+      }
+      function handleFallingExpired(el) {
+        if (!isTrapMode() || state.paused || !state.word) return;
+        var chunk = normalizeWord(el.dataset.letter);
+        var imposter = el.dataset.imposter === "1";
+        if (imposter) {
+          state.letterResults.push({ word: state.word.text, letter: chunk, expectedLetter: state.trapRound.correctChunk, correct: null, childAction: false, responseTime_ms: Date.now() - state.currentLetterStartedAt, kind: "escaped-imposter" });
+          report("Imposter escaped " + chunk.toUpperCase(), { correct: false, lastAction: "imposter_escaped" });
+          return;
+        }
+        state.letterResults.push({ word: state.word.text, letter: chunk, expectedLetter: state.trapRound.correctChunk, correct: null, childAction: false, responseTime_ms: Date.now() - state.currentLetterStartedAt, kind: "safe-chunk" });
+        report("Safe chunk avoided " + chunk.toUpperCase(), { correct: true, lastAction: "safe_chunk_avoided" });
+      }
+      function startSpawning() {
+        clearInterval(state.spawnTimer);
+        state.spawnTimer = setInterval(spawnLetter, config.mode === "mastery-run" ? 560 : isTrapMode() ? activeTrapSettings().spawnInterval_ms : 880);
+        spawnLetter();
+      }
+      function stopWordTimers() {
+        clearTimeout(state.promptTimer);
+        state.promptTimer = null;
+        clearInterval(state.spawnTimer);
+        state.spawnTimer = null;
+        if (state.masteryTimer) cancelAnimationFrame(state.masteryTimer);
+        state.masteryTimer = null;
+      }
+      function masteryWordDurationMs() {
+        return Math.max(10000, state.targetLetters.length * 1800);
+      }
+      function trapWordDurationMs() {
+        return Math.round(activeTrapSettings().timerSeconds * 1000);
+      }
+      function resetMasteryTimerDisplay() {
+        if (config.mode !== "mastery-run") return;
+        byId("masteryTimer").textContent = (masteryWordDurationMs() / 1000).toFixed(1) + "s";
+        byId("timerFill").style.width = "100%";
+        byId("timerRing").classList.remove("danger");
+      }
+      function resetTrapTimerDisplay() {
+        if (!isTrapMode()) return;
+        byId("timerFill").style.width = "100%";
+        byId("timerRing").classList.toggle("danger", false);
+      }
+      function tickMasteryTimer() {
+        if (state.paused || config.mode !== "mastery-run") return;
+        var left = Math.max(0, state.masteryDeadline - Date.now());
+        byId("masteryTimer").textContent = (left / 1000).toFixed(1) + "s";
+        byId("timerFill").style.width = Math.round((left / Math.max(1, state.masteryDeadline - state.wordStartedAt)) * 100) + "%";
+        byId("timerRing").classList.toggle("danger", left < 1800);
+        if (left <= 0) {
+          markWordMiss("timeout");
+          return;
+        }
+        state.masteryTimer = requestAnimationFrame(tickMasteryTimer);
+      }
+      function tickTrapTimer() {
+        if (state.paused || !isTrapMode()) return;
+        var duration = trapWordDurationMs();
+        if (duration <= 0) return;
+        var left = Math.max(0, state.trapDeadline - Date.now());
+        byId("timerFill").style.width = Math.round((left / Math.max(1, state.trapDeadline - state.wordStartedAt)) * 100) + "%";
+        byId("timerRing").classList.toggle("danger", left < 2500);
+        if (left <= 0) {
+          markWordMiss("trap_timer_timeout");
+          return;
+        }
+        state.masteryTimer = requestAnimationFrame(tickTrapTimer);
+      }
+      function emitTargetResult(word, correct, attemptedValue, misconception) {
+        var result = {
+          type: "activity_target_result",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          target: word.id || normalizeWord(word.text),
+          correct: !!correct,
+          attemptedValue: attemptedValue || state.typed.join(""),
+          responseTime_ms: Date.now() - state.wordStartedAt,
+          scaffoldLevel: scaffoldLevelForMode(),
+          concept: "spelling:" + word.text,
+          misconception: misconception || null,
+          mode: config.mode,
+          masteryEligible: canWriteMasteryEvidence()
+        };
+        state.targetResults.push(result);
+        postActivityEvent(result);
+        if (window.fireAttemptEvent) {
+          window.fireAttemptEvent({
+            domain: "spelling",
+            word: word.text,
+            target: word.text,
+            correct: !!correct,
+            quality: correct ? 5 : 1,
+            scaffoldLevel: result.scaffoldLevel,
+            responseTimeMs: result.responseTime_ms,
+            attemptedValue: result.attemptedValue,
+            activityId: "letter-rush",
+            mode: config.mode,
+            masteryEligible: result.masteryEligible
+          });
+        }
+        fireCompanion(correct ? "target_correct" : "target_missed", {
+          activityId: "letter-rush",
+          mode: config.mode,
+          target: word.text,
+          misconception: misconception || null
+        });
+      }
+      function startingLivesForSession() {
+        var configured = config && config.mastery && Number(config.mastery.lives);
+        return Number.isFinite(configured) && configured > 0 ? Math.min(5, Math.round(configured)) : 3;
+      }
+      function resetSessionState() {
+        var startingLives = startingLivesForSession();
+        state.index = 0;
+        state.word = null;
+        state.targetLetters = [];
+        state.typed = [];
+        state.wordStartedAt = 0;
+        state.currentLetterStartedAt = 0;
+        state.lives = startingLives;
+        state.stars = 0;
+        state.streak = 0;
+        state.coins = 0;
+        state.targetResults = [];
+        state.letterResults = [];
+        state.wordHadMiss = false;
+        state.wordOutcomeLocked = false;
+        state.trapRound = null;
+        state.trapHits = 0;
+        state.trapDeadline = 0;
+        state.bonusRoundActive = false;
+        state.bonusRoundOffered = false;
+        state.bonusRoundResolved = false;
+        state.bonusStake = 0;
+        state.bonusPayout = 0;
+        state.currencyAwardSent = false;
+        state.normalRoundStreakPeak = 0;
+        state.demoSeen = false;
+        state.completedWordIds = [];
+        updateHud();
+      }
+	      function breakStreak(_fallbackSfx) {
+	        var previous = state.streak;
+	        state.streak = 0;
+	        if (previous > 0) emitStreakEvent("streak_changed", { previousStreak: previous, streak: 0, reason: "broken" });
+	      }
+      function emitStreakEvent(type, extra) {
+        var payload = Object.assign({
+          type: type,
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          streak: state.streak,
+          speedMultiplier: streakSpeedMultiplier()
+        }, extra || {});
+	        postActivityEvent(payload);
+	        fireCompanion(type, payload);
+	      }
+	      function selectComboMilestone() {
+	        var settings = sfxSettings();
+	        var milestones = settings.comboMilestones;
+	        if (milestones.length) {
+	          var every = settings.comboMilestoneEvery || settings.comboBreakerEvery || 5;
+	          var milestoneIndex = every > 0 ? Math.max(0, Math.floor(state.streak / every) - 1) : 0;
+	          return milestones[Math.min(milestones.length - 1, milestoneIndex)] || milestones[0];
+	        }
+	        return { minStreak: state.streak, label: "COMBO BREAKER!", effect: "combo-breaker", src: settings.comboBreakerSrc };
+	      }
+	      function triggerComboBreakerMilestone(action) {
+	        var milestone = selectComboMilestone();
+	        playComboMilestoneSfx(milestone);
+	        document.body.classList.add("combo-rush");
+	        setTimeout(function () { document.body.classList.remove("combo-rush"); }, 760);
+	        flashWord(milestone.label || "COMBO BREAKER!", "combo-breaker");
+	        emitStreakEvent("combo_breaker", {
+	          action: action || "correct_action",
+	          reason: "massive_streak",
+	          milestone: state.streak,
+	          effect: milestone.effect || "combo-breaker"
+	        });
+	      }
+	      function addCorrectStreak(action) {
+	        state.streak += 1;
+        if (!state.bonusRoundActive) {
+          state.normalRoundStreakPeak = Math.max(state.normalRoundStreakPeak, state.streak);
+        }
+	        emitStreakEvent("streak_changed", { action: action || "correct_action" });
+	        var settings = sfxSettings();
+	        var comboActive = settings.arcadeCombos && state.streak >= settings.comboThreshold;
+	        var milestoneEvery = settings.comboMilestoneEvery || settings.comboBreakerEvery;
+	        var comboBreakerMilestone = settings.arcadeCombos && comboActive && (
+	          (milestoneEvery > 0 && state.streak % milestoneEvery === 0) ||
+	          (settings.comboBreakerEvery === 0 && state.streak === settings.comboBreakerStreak)
+	        );
+	        if (comboBreakerMilestone) {
+	          triggerComboBreakerMilestone(action);
+	          return;
+	        }
+        var heatingMilestone = comboActive && (
+          state.streak === settings.comboThreshold ||
+          (settings.heatingUpEvery > 0 && state.streak % settings.heatingUpEvery === 0)
+        );
+        if (heatingMilestone) {
+          playConfiguredSfxEvent("heatingUp");
+          emitStreakEvent("heating_up", { action: action || "correct_action" });
+        } else if (comboActive) {
+          playConfiguredSfxEvent("combo");
+        } else {
+          playConfiguredSfxEvent("correct");
+        }
+      }
+      function handleLetterTap(el) {
+        if (state.paused || !state.word) return;
+        if (isTrapMode()) {
+          handleTrapTap(el);
+          return;
+        }
+        var letter = normalizeWord(el.dataset.letter).charAt(0);
+        var imposter = el.dataset.imposter === "1";
+        var expected = currentExpectedLetter();
+        var ms = Date.now() - state.currentLetterStartedAt;
+        if (config.mode === "trap-the-imposter" && imposter) {
+          el.classList.add("zapped");
+          state.wordHadMiss = true;
+          breakStreak("miss");
+          state.letterResults.push({ word: state.word.text, letter: letter, expectedLetter: expected, correct: false, responseTime_ms: ms, kind: "imposter" });
+          document.body.classList.add("flash-bad");
+          setTimeout(function () { document.body.classList.remove("flash-bad"); }, 220);
+          report("Tapped imposter " + letter, { correct: false, lastAction: "imposter_tapped" });
+          if (config.mode === "mastery-run") markWordMiss("imposter");
+          return;
+        }
+        if (letter === expected) {
+          el.classList.add("popped");
+          state.typed.push(letter);
+          state.currentLetterStartedAt = Date.now();
+          addCorrectStreak("letter_correct");
+          extendMasteryTimer();
+          state.coins += 10 + Math.min(50, state.streak * 2);
+          state.letterResults.push({ word: state.word.text, letter: letter, expectedLetter: expected, correct: true, responseTime_ms: ms, kind: "letter" });
+          document.body.classList.add("flash-good");
+          setTimeout(function () { document.body.classList.remove("flash-good"); }, 180);
+          coinBurst(el);
+          flashWord(positiveFeedbackCopy());
+          renderTiles();
+          updateHud();
+          report("Caught " + letter.toUpperCase(), { correct: true, lastAction: "letter_correct" });
+          if (state.typed.length >= state.targetLetters.length) {
+            completeWord(true);
+          }
+          return;
+        }
+        el.classList.add("zapped");
+        state.wordHadMiss = true;
+        breakStreak("miss");
+        state.letterResults.push({ word: state.word.text, letter: letter, expectedLetter: expected, correct: false, responseTime_ms: ms, kind: "wrong-letter" });
+        document.body.classList.add("shake", "flash-bad");
+        setTimeout(function () { document.body.classList.remove("shake", "flash-bad"); }, 260);
+        report("Missed " + expected.toUpperCase(), { correct: false, lastAction: "letter_wrong" });
+        if (config.mode === "mastery-run") markWordMiss("wrong-letter");
+      }
+      function handleTrapTap(el) {
+        var chunk = normalizeWord(el.dataset.letter);
+        var imposter = el.dataset.imposter === "1";
+        var ms = Date.now() - state.currentLetterStartedAt;
+        if (imposter) {
+          el.classList.add("trapped");
+          state.trapHits += 1;
+          state.typed.push(chunk);
+          state.currentLetterStartedAt = Date.now();
+          addCorrectStreak("trap_imposter");
+          state.coins += 14 + Math.min(60, state.streak * 3);
+          state.letterResults.push({ word: state.word.text, letter: chunk, expectedLetter: state.trapRound.correctChunk, correct: true, responseTime_ms: ms, kind: "trap-imposter", concept: "pattern_discrimination" });
+          document.body.classList.add("flash-good");
+          setTimeout(function () { document.body.classList.remove("flash-good"); }, 180);
+          coinBurst(el);
+          flashWord(positiveFeedbackCopy());
+          renderTiles();
+          updateHud();
+          report("Trapped imposter " + chunk.toUpperCase(), { correct: true, lastAction: "trap_imposter" });
+          if (state.trapHits >= state.trapRound.goal) completeWord(true, "pattern_discrimination");
+          return;
+        }
+        el.classList.add("zapped");
+        state.wordHadMiss = true;
+        breakStreak("miss");
+        state.letterResults.push({ word: state.word.text, letter: chunk, expectedLetter: state.trapRound.correctChunk, correct: false, responseTime_ms: ms, kind: "safe-chunk", concept: "pattern_discrimination" });
+        document.body.classList.add("shake", "flash-bad");
+        setTimeout(function () { document.body.classList.remove("shake", "flash-bad"); }, 260);
+        report("Trapped safe chunk " + chunk.toUpperCase(), { correct: false, lastAction: "safe_chunk_trapped" });
+        markWordMiss("safe_chunk_trapped");
+      }
+      function coinBurst(anchor) {
+        var rect = anchor.getBoundingClientRect();
+        for (var i = 0; i < 5; i += 1) {
+          var coin = document.createElement("span");
+          coin.className = "coin";
+          coin.style.left = rect.left + rect.width / 2 + "px";
+          coin.style.top = rect.top + rect.height / 2 + "px";
+          coin.style.setProperty("--dx", (Math.random() * 160 - 80) + "px");
+          coin.style.setProperty("--dy", (-60 - Math.random() * 110) + "px");
+          document.body.appendChild(coin);
+          setTimeout(function (node) { node.remove(); }, 1000, coin);
+        }
+      }
+      function extendMasteryTimer() {
+        if (config.mode !== "mastery-run" || !state.masteryDeadline) return;
+        state.masteryDeadline += Math.min(1400, 650 + state.streak * 120);
+      }
+      function markWordMiss(reason) {
+        if (state.paused || !state.word || state.wordOutcomeLocked) return;
+        state.wordHadMiss = true;
+        if (config.mode === "mastery-run") {
+          state.lives = Math.max(0, state.lives - 1);
+          playConfiguredSfxEvent("lifeLost");
+          updateHud();
+        } else {
+          breakStreak("miss");
+        }
+        completeWord(false, reason || "miss");
+      }
+      function completeWord(correct, reason) {
+        if (!state.word || state.paused || state.wordOutcomeLocked) return;
+        state.wordOutcomeLocked = true;
+        state.paused = true;
+        stopWordTimers();
+        byId("arena").innerHTML = "";
+        var word = state.word;
+        var finalCorrect = !!correct && !state.wordHadMiss;
+        if (state.bonusRoundActive) {
+          completeBonusRound(finalCorrect, finalCorrect ? "bonus_goal_met" : reason || "bonus_round_miss");
+          return;
+        }
+        if (finalCorrect && config.mode === "mastery-run") state.stars += 1;
+        if (finalCorrect) playConfiguredSfxEvent("wordClear");
+        if (!finalCorrect && config.mode === "mastery-run" && state.lives > 0) {
+          updateHud();
+          retrySameWordAfterMiss(reason || "letter_sequence_miss");
+          return;
+        }
+        emitTargetResult(word, finalCorrect, state.typed.join(""), finalCorrect ? null : reason || "letter_sequence_miss");
+        state.completedWordIds.push(word.id || normalizeWord(word.text));
+        updateHud();
+        if (!finalCorrect) {
+          retrySameWordAfterMiss(reason || "letter_sequence_miss");
+          return;
+        }
+        var outcome = wordOutcomeCopy(word);
+        byId("jackpotBig").textContent = outcome.title;
+        byId("jackpotSub").textContent = outcome.subtitle;
+        byId("nextBtn").textContent = outcome.button;
+        setBanner("jackpotBanner", true);
+      }
+      function wordOutcomeCopy(word) {
+        var label = word.text.toUpperCase();
+        return {
+          title: "WORD!",
+          subtitle: "+" + (80 + state.streak * 3) + " coins · " + label,
+          button: "Next word →"
+        };
+      }
+      function emitBonusEvent(type, extra) {
+        var payload = Object.assign({
+          type: type,
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          stake: state.bonusStake,
+          coins: state.coins
+        }, extra || {});
+        postActivityEvent(payload);
+        fireCompanion(type, payload);
+      }
+      function currentAccuracy() {
+        var scored = state.targetResults.filter(function (row) { return typeof row.correct === "boolean"; });
+        if (!scored.length) return 0;
+        return scored.filter(function (row) { return row.correct; }).length / scored.length;
+      }
+      function shouldOfferBonusRound() {
+        var bonus = bonusRoundSettings();
+        if (!isTrapMode() || !bonus.enabled) return false;
+        if (state.bonusRoundOffered || state.bonusRoundResolved || state.bonusRoundActive) return false;
+        if (state.targetResults.length === 0) return false;
+        if (bonus.stake > 0 && state.coins < bonus.stake) return false;
+        return currentAccuracy() >= bonus.unlockAccuracy || state.normalRoundStreakPeak >= bonus.unlockStreak;
+      }
+      function showBonusOffer() {
+        var bonus = bonusRoundSettings();
+        state.bonusRoundOffered = true;
+        byId("bonusBig").textContent = "BONUS?";
+        byId("bonusSub").textContent = "Risk " + bonus.stake + " coins · win " + Math.round(bonus.stake * bonus.multiplier);
+        setBanner("bonusBanner", true);
+        emitBonusEvent("bonus_round_unlocked", {
+          unlockAccuracy: bonus.unlockAccuracy,
+          unlockStreak: bonus.unlockStreak,
+          accuracy: currentAccuracy(),
+          peakStreak: state.normalRoundStreakPeak
+        });
+        postGameStateUpdate({
+          phase: "bonus_round_unlocked",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          coins: state.coins
+        });
+        report("Letter Rush bonus round unlocked", { lastAction: "bonus_round_unlocked" });
+      }
+      function selectBonusWord() {
+        var words = Array.isArray(config.words) && config.words.length ? config.words : [{ text: "farmer", targetPatterns: ["er-ending"] }];
+        return words[Math.floor(Math.random() * words.length)];
+      }
+      function beginBonusRound() {
+        var bonus = bonusRoundSettings();
+        setBanner("bonusBanner", false);
+        state.bonusRoundActive = true;
+        state.bonusRoundResolved = false;
+        state.bonusStake = Math.min(state.coins, bonus.stake);
+        state.bonusPayout = 0;
+        state.coins = Math.max(0, state.coins - state.bonusStake);
+        state.word = selectBonusWord();
+        state.trapRound = buildTrapRound(state.word);
+        state.targetLetters = [];
+        state.typed = [];
+        state.trapHits = 0;
+        state.wordHadMiss = false;
+        state.wordOutcomeLocked = false;
+        state.wordStartedAt = 0;
+        state.currentLetterStartedAt = 0;
+        state.trapDeadline = 0;
+        state.paused = true;
+        byId("arena").innerHTML = "";
+        byId("definition").textContent = "Bonus run: trap imposters fast. Let the safe chunk pass.";
+        resetTrapTimerDisplay();
+        renderTiles();
+        updateHud();
+        playConfiguredSfxEvent("bonusStart");
+        emitBonusEvent("bonus_round_started", {
+          goal: state.trapRound.goal,
+          timerSeconds: bonus.timerSeconds,
+          multiplier: bonus.multiplier,
+          riskSource: bonus.riskSource
+        });
+        postGameStateUpdate({
+          phase: "bonus_round_started",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          stake: state.bonusStake,
+          coins: state.coins
+        });
+        report("Letter Rush bonus round started", { lastAction: "bonus_round_started" });
+        state.promptTimer = setTimeout(startWordPlay, 500);
+      }
+      function completeBonusRound(correct, reason) {
+        var bonus = bonusRoundSettings();
+        state.bonusRoundActive = false;
+        state.bonusRoundResolved = true;
+        state.paused = true;
+        stopWordTimers();
+        byId("arena").innerHTML = "";
+        state.bonusPayout = correct ? Math.round(state.bonusStake * bonus.multiplier) : 0;
+        if (state.bonusPayout > 0) {
+          state.coins += state.bonusPayout;
+          playConfiguredSfxEvent("bonusWin");
+        }
+        emitBonusEvent("bonus_round_complete", {
+          correct: !!correct,
+          reason: reason || null,
+          payout: state.bonusPayout,
+          net: state.bonusPayout - state.bonusStake,
+          target: companionVisibleWord()
+        });
+        postGameStateUpdate({
+          phase: "bonus_round_complete",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          correct: !!correct,
+          stake: state.bonusStake,
+          payout: state.bonusPayout,
+          coins: state.coins
+        });
+        finishSession();
+      }
+      function skipBonusRound() {
+        state.bonusRoundResolved = true;
+        setBanner("bonusBanner", false);
+        emitBonusEvent("bonus_round_skipped", { payout: 0, net: 0 });
+        report("Letter Rush bonus round skipped", { lastAction: "bonus_round_skipped" });
+        finishSession();
+      }
+      function retrySameWordAfterMiss(reason) {
+        var cue = reason === "timeout" || reason === "trap_timer_timeout" ? "TIME!" : "MISS";
+        flashWord(cue);
+        flashCompanion("Same word. Keep going.");
+        report("Letter Rush miss same-word retry", { correct: false, lastAction: "word_missed", reason: reason });
+        setTimeout(function () {
+          if (config.mode === "mastery-run" && state.lives <= 0) {
+            finishSession();
+            return;
+          }
+          beginWord();
+        }, 650);
+      }
+      function advanceToNextWord() {
+        setBanner("jackpotBanner", false);
+        state.index += 1;
+        if (state.index >= roundCount()) {
+          if (shouldOfferBonusRound()) {
+            showBonusOffer();
+            return;
+          }
+          finishSession();
+          return;
+        }
+        beginWord();
+      }
+      function nextWord() {
+        advanceToNextWord();
+      }
+      function beginWord() {
+        // beginWord does not reset mastery lives; lives belong to the whole session.
+        state.word = config.words[state.index];
+        state.trapRound = isTrapMode() ? buildTrapRound(state.word) : null;
+        state.targetLetters = isTrapMode() ? [] : normalizeWord(state.word.text).split("");
+        state.typed = [];
+        state.trapHits = 0;
+        state.wordHadMiss = false;
+        state.wordOutcomeLocked = false;
+        state.wordStartedAt = 0;
+        state.currentLetterStartedAt = 0;
+        state.paused = true;
+        byId("arena").innerHTML = "";
+        byId("typeWordPrompt").classList.remove("on");
+        byId("spellingInput").value = "";
+        byId("definition").textContent = visiblePromptForWord(state.word);
+        resetMasteryTimerDisplay();
+        resetTrapTimerDisplay();
+        renderTiles();
+        updateHud();
+        if (config.mode === "read-and-race") flashWord(state.word.text);
+        var promptDelay =
+          config.mode === "type-and-spell" || config.mode === "hear-and-spell" || config.mode === "mastery-run"
+            ? requestNarration("word_prompt")
+            : 650;
+        flashCompanion(modeDef().intro);
+        fireCompanion("activity_started", {
+          activityId: "letter-rush",
+          mode: config.mode,
+          target: companionVisibleWord(),
+          itemIndex: state.index,
+          totalItems: roundCount()
+        });
+        report("Letter Rush word " + (state.index + 1) + " prompted", { lastAction: "word_prompted" });
+        state.promptTimer = setTimeout(startWordPlay, promptDelay);
+      }
+      function startWordPlay() {
+        if (!state.word || !state.paused) return;
+        state.paused = false;
+        state.wordStartedAt = Date.now();
+        state.currentLetterStartedAt = Date.now();
+        if (config.mode === "type-and-spell") {
+          byId("typeWordPrompt").classList.add("on");
+          byId("spellingInput").focus();
+          report("Letter Rush typed word started", { lastAction: "type_word_started" });
+          return;
+        }
+        if (config.mode === "mastery-run") {
+          state.masteryDeadline = Date.now() + masteryWordDurationMs();
+          tickMasteryTimer();
+        }
+        if (isTrapMode()) {
+          var trapDuration = trapWordDurationMs();
+          if (trapDuration > 0) {
+            state.trapDeadline = Date.now() + trapDuration;
+            tickTrapTimer();
+          }
+        }
+        report("Letter Rush word " + (state.index + 1) + " started", { lastAction: "word_started" });
+        startSpawning();
+      }
+      function submitTypedAnswer(event) {
+        if (event && event.preventDefault) event.preventDefault();
+        if (state.paused || !state.word || config.mode !== "type-and-spell") return;
+        var attempted = normalizeWord(byId("spellingInput").value);
+        var expected = normalizeWord(state.word.text);
+        if (!attempted) {
+          playConfiguredSfxEvent("prompt");
+          return;
+        }
+        byId("typeWordPrompt").classList.remove("on");
+        state.typed = attempted.split("");
+        if (attempted === expected) {
+          addCorrectStreak("typed_word_correct");
+          state.coins += 40 + Math.min(60, state.streak * 4);
+          renderTiles();
+          completeWord(true);
+          return;
+        }
+        state.wordHadMiss = true;
+        breakStreak("typed_miss");
+        document.body.classList.add("shake", "flash-bad");
+        setTimeout(function () { document.body.classList.remove("shake", "flash-bad"); }, 260);
+        completeWord(false, "typed_spelling_miss");
+      }
+	      function flashWord(word, extraClass) {
+	        var el = document.createElement("div");
+	        el.className = "flash-word" + (extraClass ? " " + extraClass : "");
+	        el.textContent = String(word || "").toUpperCase();
+        byId("arena").appendChild(el);
+        setTimeout(function () { el.remove(); }, 1300);
+      }
+      function runTrapDemo() {
+        state.demoSeen = true;
+        state.paused = true;
+        byId("arena").innerHTML = "";
+        var demoWord = config.words[0] || { text: "farmer", traps: ["farmar", "farmor"], targetPatterns: ["er-ending"] };
+        var round = buildTrapRound(demoWord);
+        postActivityEvent({
+          type: "trap_demo_started",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          mode: config.mode,
+          target: demoWord.text,
+          correctChunk: round.correctChunk,
+          imposterChunks: round.imposterChunks.slice()
+        });
+        fireCompanion("trap_demo_started", {
+          activityId: "letter-rush",
+          mode: config.mode,
+          correctChunk: round.correctChunk,
+          imposterChunks: round.imposterChunks.slice()
+        });
+        byId("definition").textContent = "Trap the wrong ending. Let " + round.correctChunk.toUpperCase() + " pass.";
+        byId("targetRow").innerHTML = '<div class="trap-frame"><span class="trap-word">' + round.frame.toUpperCase() + '</span><div class="trap-goal">Demo first</div></div>';
+        var panel = document.createElement("div");
+        panel.className = "demo-panel";
+        panel.innerHTML = '<div><h2>Demo</h2><p>Trap imposters. Let the correct chunk pass.</p><div class="demo-chips"><span class="demo-chip safe">' + round.correctChunk.toUpperCase() + ' ✓ safe</span><span class="demo-chip bad">' + round.imposterChunks[0].toUpperCase() + ' trap</span><span class="demo-chip bad">' + round.imposterChunks[1].toUpperCase() + ' trap</span></div><button type="button">Start real round</button></div>';
+        byId("arena").appendChild(panel);
+        panel.querySelector("button").addEventListener("click", function () {
+          playConfiguredSfxEvent("start");
+          byId("arena").innerHTML = "";
+          postActivityEvent({
+            type: "trap_demo_complete",
+            activityId: "letter-rush",
+            nodeId: params.nodeId,
+            mode: config.mode,
+            demoSeen: state.demoSeen
+          });
+          fireCompanion("trap_demo_complete", {
+            activityId: "letter-rush",
+            mode: config.mode,
+            demoSeen: state.demoSeen
+          });
+          beginWord();
+        });
+      }
+      function finishSession() {
+        state.paused = true;
+        stopWordTimers();
+        if (heartbeat) clearInterval(heartbeat);
+        byId("arena").innerHTML = "";
+        var correctCount = state.targetResults.filter(function (row) { return row.correct; }).length;
+        var accuracy = state.targetResults.length ? correctCount / state.targetResults.length : 0;
+        if (!state.currencyAwardSent && state.coins !== 0) {
+          state.currencyAwardSent = true;
+          postCurrencyAward(state.coins, state.bonusRoundResolved ? "letter_rush_bonus_round" : "letter_rush_session");
+        }
+        var completeEvent = {
+          type: "activity_complete",
+          activityId: "letter-rush",
+          nodeId: params.nodeId,
+          completed: true,
+          accuracy: accuracy,
+          mode: config.mode,
+          masteryEligible: canWriteMasteryEvidence(),
+          targetResults: state.targetResults.slice()
+        };
+        postActivityEvent(completeEvent);
+        // GameBridge.complete is invoked by sendNodeComplete for the shared iframe contract.
+        sendNodeComplete({
+          completed: true,
+          accuracy: accuracy,
+          flaggedWords: state.targetResults.filter(function (row) { return !row.correct; }).map(function (row) { return row.target; }),
+          wordsCorrect: state.targetResults.filter(function (row) { return row.correct; }).map(function (row) { return row.target; }),
+          wordsStruggled: state.targetResults.filter(function (row) { return !row.correct; }).map(function (row) { return row.target; }),
+          xpEarned: Math.round(accuracy * 60 + state.coins / 20),
+          timeSpent_ms: state.targetResults.reduce(function (sum, row) { return sum + (Number(row.responseTime_ms) || 0); }, 0),
+          wordsAttempted: state.targetResults.length,
+          activityId: "letter-rush",
+          mode: config.mode,
+          purpose: modeDef().purpose,
+          bonusRound: {
+            offered: state.bonusRoundOffered,
+            resolved: state.bonusRoundResolved,
+            stake: state.bonusStake,
+            payout: state.bonusPayout
+          },
+          targetResults: state.targetResults,
+          letterResults: state.letterResults
+        });
+        fireCompanion("activity_complete", {
+          activityId: "letter-rush",
+          mode: config.mode,
+          accuracy: accuracy,
+          masteryEligible: canWriteMasteryEvidence()
+        });
+        byId("endSub").textContent = correctCount + " of " + state.targetResults.length + " words solved";
+        setBanner("jackpotBanner", false);
+        setBanner("bonusBanner", false);
+        setBanner("endBanner", true);
+      }
+      function validateRuntimeConfig(candidate) {
+        if (!candidate || typeof candidate !== "object") return sampleConfig("sample");
+        var mode = candidate.mode;
+        if (!LETTER_RUSH_MODES[mode]) candidate.mode = "hear-and-spell";
+        if (!Array.isArray(candidate.words) || candidate.words.length === 0) candidate.words = sampleConfig("sample").words;
+        candidate.scaffolds = candidate.scaffolds || {};
+        candidate.demo = !!candidate.demo;
+        candidate.trap = candidate.trap || sampleConfig("sample-trap").trap;
+        candidate.bonusRound = candidate.bonusRound || sampleConfig("sample-trap").bonusRound;
+        candidate.sfx = candidate.sfx || sampleConfig("sample-trap").sfx;
+        candidate.evidencePolicy = candidate.evidencePolicy || {
+          writesPracticeEvidence: true,
+          writesMasteryEvidence: isMasteryEligibleMode(candidate.mode),
+          requiresPerTargetResult: true,
+          allowedEvidence: isMasteryEligibleMode(candidate.mode) ? ["practice", "mastery"] : ["practice"]
+        };
+        return candidate;
+      }
+      function sampleConfig(key) {
+        var mode = key === "sample-type" ? "type-and-spell"
+          : key === "sample-read" ? "read-and-race"
+          : key === "sample-trap" ? "trap-the-imposter"
+            : key === "sample-mastery" ? "mastery-run"
+              : "hear-and-spell";
+        return {
+          schemaVersion: 1,
+          activityId: "letter-rush",
+          mode: mode,
+          demo: mode === "trap-the-imposter",
+          topic: "Week 5 spelling",
+          domain: "spelling",
+          learningGoal: "Build fast, accurate spelling recall from the weekly list.",
+          gradeBand: "early_elementary",
+          trap: {
+            goal: 4,
+            timerSeconds: 20,
+            imposterSpawnRate: 0.76,
+            maxVisibleChunks: 5,
+            spawnInterval_ms: 780,
+            fallDuration_ms: 4100
+          },
+          bonusRound: {
+            enabled: true,
+            unlockAccuracy: 0.8,
+            unlockStreak: 4,
+            goal: 5,
+            timerSeconds: 12,
+            imposterSpawnRate: 0.84,
+            maxVisibleChunks: 6,
+            spawnInterval_ms: 620,
+            fallDuration_ms: 3300,
+            speedMultiplier: 1.25,
+            stake: 20,
+            multiplier: 3,
+            riskSource: "session_earnings"
+          },
+          sfx: {
+            enabled: true,
+            arcadeCombos: true,
+            comboThreshold: 3,
+            heatingUpEvery: 5,
+            comboBreakerStreak: 8,
+            comboBreakerEvery: 5,
+            comboMilestoneEvery: 5,
+            comboVolume: 0.9,
+            comboBreakerSrc: "/sfx/pronunciation/combo_breaker.mp3",
+            eventMap: {
+              start: { effect: "start" },
+              prompt: { effect: "prompt-chime" },
+              correct: { effect: "letter-correct" },
+              combo: { effect: "combo" },
+              heatingUp: { effect: "heating-up" },
+              wordClear: { effect: "word-clear" },
+              lifeLost: { effect: "life-lost" },
+              bonusStart: { effect: "heating-up" },
+              bonusWin: { effect: "word-clear" }
+            },
+            comboMilestones: [
+              { minStreak: 5, label: "COMBO BREAKER!", effect: "combo-breaker", src: "/sfx/pronunciation/combo_breaker.mp3" },
+              { minStreak: 10, label: "ON FIRE!", effect: "on-fire" },
+              { minStreak: 15, label: "MEGA STREAK!", effect: "mega-streak" },
+              { minStreak: 20, label: "LEGENDARY!", effect: "legendary" }
+            ]
+          },
+          appearance: {
+            palette: { bg1: "#1B0B3A", bg2: "#5B21B6", bg3: "#070010", accent: "#F59E0B" },
+            backgroundImage: "",
+            fallbackBackground: "radial-gradient(ellipse 100% 70% at 50% 0%, #5B21B6 0%, #1B0B3A 50%, #070010 100%)"
+          },
+          feedback: {
+            positiveByMode: {
+	              "hear-and-spell": ["NICE!", "CLEAR!", "GOT IT!", "YES!"],
+              "type-and-spell": ["LOCKED!", "CLEAN!", "YES!", "GOT IT!"],
+	              "read-and-race": ["GO!", "FAST!", "ZIP!", "NICE!"],
+              "trap-the-imposter": ["TRAP!", "SNAGGED!", "CAUGHT!"],
+              "mastery-run": ["HIT!", "LOCKED!", "CLEAN!", "NICE!"]
+            }
+          },
+          scaffolds: {
+            showWord: mode === "read-and-race",
+            letterBank: false,
+            allowRetryBeforeScore: mode !== "mastery-run",
+            companionHints: false
+          },
+          words: [
+            { id: "farmer", text: "farmer", definition: "A person who grows food or raises animals.", sentence: "The farmer planted seeds.", traps: ["farmar", "farmor"], imposterChunks: ["ar", "or", "ur", "ir"], targetPatterns: ["er-ending"] },
+            { id: "sailor", text: "sailor", definition: "A person who works on a boat.", sentence: "The sailor tied the rope.", traps: ["sailer", "sailar"], imposterChunks: ["er", "ar", "ur", "ir"], targetPatterns: ["or-ending"] },
+            { id: "teacher", text: "teacher", definition: "A person who helps students learn.", sentence: "The teacher read the class a story.", traps: ["teachar", "teachor"], imposterChunks: ["ar", "or", "ur", "ir"], targetPatterns: ["er-ending"] },
+            { id: "doctor", text: "doctor", definition: "A person who helps people feel better.", sentence: "The doctor checked the patient.", traps: ["docter", "doctar"], imposterChunks: ["er", "ar", "ur", "ir"], targetPatterns: ["or-ending"] }
+          ],
+          evidencePolicy: {
+            writesPracticeEvidence: true,
+            writesMasteryEvidence: isMasteryEligibleMode(mode),
+            requiresPerTargetResult: true,
+            allowedEvidence: isMasteryEligibleMode(mode) ? ["practice", "mastery"] : ["practice"]
+          }
+        };
+      }
+      function start(loaded) {
+        config = validateRuntimeConfig(loaded);
+        applyBackground();
+        configureStandalonePreview();
+        makeStars();
+        var def = modeDef();
+        byId("modeEmoji").textContent = def.emoji;
+        byId("modeName").textContent = def.label;
+        byId("startSub").textContent = def.label + " · " + (config.topic || "Spelling");
+        byId("speakBtn").style.display = (config.mode === "type-and-spell" || config.mode === "hear-and-spell" || config.mode === "mastery-run") ? "inline-flex" : "none";
+        byId("masteryHud").classList.toggle("on", config.mode === "mastery-run");
+        byId("definition").textContent = def.intro;
+        updateHud();
+        heartbeat = window.GameBridge && window.GameBridge.startHeartbeat
+          ? window.GameBridge.startHeartbeat(function () {
+              return "Letter Rush active: " + config.mode;
+            }, function () {
+              return {
+                phase: state.paused ? "paused" : "playing",
+                activityId: "letter-rush",
+                mode: config.mode,
+                currentWord: companionVisibleWord(),
+                itemIndex: state.index,
+                totalItems: roundCount(),
+                score: state.coins
+              };
+            })
+          : null;
+      }
+      function loadConfig() {
+        if (!configUrl || configUrl.indexOf("sample") === 0) {
+          start(sampleConfig(configUrl || "sample-mastery"));
+          return;
+        }
+        fetch(configUrl)
+          .then(function (res) {
+            if (!res.ok) throw new Error("config " + res.status);
+            return res.json();
+          })
+          .then(start)
+          .catch(function (err) {
+            console.error("Letter Rush config failed", err);
+            start(sampleConfig("sample"));
+          });
+      }
+
+      byId("startBtn").addEventListener("click", function () {
+        if (state.started) return;
+        playConfiguredSfxEvent("start");
+        state.started = true;
+        setBanner("startBanner", false);
+        resetSessionState();
+        fireCompanion("activity_started", { activityId: "letter-rush", mode: config.mode, totalItems: roundCount() });
+        if (isTrapMode() && config.demo && !state.demoSeen) {
+          runTrapDemo();
+          return;
+        }
+        beginWord();
+      });
+      byId("nextBtn").addEventListener("click", nextWord);
+      byId("doneBtn").addEventListener("click", backToMap);
+      byId("bonusStartBtn").addEventListener("click", beginBonusRound);
+      byId("bonusSkipBtn").addEventListener("click", skipBonusRound);
+      byId("speakBtn").addEventListener("click", function () { requestNarration("repeat_word"); });
+      byId("typeWordPrompt").addEventListener("submit", submitTypedAnswer);
+
+      loadConfig();
+    })();
+  </script>
+</body>
+</html>

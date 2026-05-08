@@ -30,6 +30,7 @@ window.GameBridge = (function () {
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
       nodeId: p.get("nodeId") || "unknown",
       sessionId: p.get("sessionId") || null,
+      config: p.get("config") || null,
       previewDryRun: previewDryRun,
       previewGoLive: previewGoLive,
       isQuest: p.get("isQuest") === "true",
