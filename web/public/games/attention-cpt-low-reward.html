@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="_contract.js"></script>
+<!-- sunny-attempt-contract-exempt: attention-screening-vitals-only -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Attention CPT Low Reward</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#0f1116;color:#e7e9ee;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+.wrap{min-height:100vh;display:grid;grid-template-rows:auto 1fr;padding:18px;gap:16px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.badge{border:1px solid rgba(231,233,238,.12);border-radius:8px;padding:8px 12px;background:#151820;color:#c6cad3;font-size:13px;font-weight:700;letter-spacing:.02em}
+.badge.muted{color:#7e8493}
+.panel{display:none;place-items:center;text-align:center;min-height:calc(100vh - 92px);padding:20px}
+.panel.on{display:grid}
+.card{width:min(720px,94vw);border:1px solid rgba(231,233,238,.10);border-radius:8px;background:#151820;padding:24px;box-shadow:0 18px 52px rgba(0,0,0,.28)}
+h1{margin:0 0 12px;font-size:34px;line-height:1.05;color:#f3f4f8;font-weight:750;letter-spacing:0}
+.copy{color:#aeb4c0;font-size:18px;line-height:1.45;margin:0 0 16px}
+.copy.parent{margin-top:18px;color:#8c92a1;font-size:14px;text-align:left}
+.rule-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+.rule-chip{display:flex;gap:10px;align-items:center;border:1px solid rgba(231,233,238,.10);border-radius:8px;background:#11141a;padding:10px 12px;color:#d7dae1}
+.swatch{width:20px;height:20px;display:inline-block;background:#dfe2ea}
+.swatch.circle{border-radius:50%}
+.swatch.square{border-radius:4px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.step{border:1px solid rgba(231,233,238,.10);border-radius:8px;padding:12px;background:#11141a;color:#b8bdc7;font-weight:700}
+.step .n{display:block;color:#6f7684;font-size:11px;letter-spacing:.06em;margin-bottom:4px}
+.prompt{min-height:34px;color:#d7dae1;font-size:22px;font-weight:750;margin:0 0 10px}
+.sub{color:#8f96a5;font-weight:650;min-height:26px;margin:12px 0 0}
+.sub.ok{color:#8fb39a}
+.sub.miss{color:#c2a185}
+.stimulus-stage{height:220px;display:grid;place-items:center}
+.stimulus{width:156px;height:156px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer}
+.stimulus:before{content:"";display:block;width:130px;height:130px;background:#dfe2ea;box-shadow:none}
+.stimulus[data-shape="circle"]:before{border-radius:50%}
+.stimulus[data-shape="square"]:before{border-radius:8px}
+.stimulus[data-shape="empty"]:before{width:92px;height:92px;border-radius:50%;background:#20242e}
+.actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:18px}
+.btn{border:1px solid rgba(231,233,238,.14);border-radius:8px;background:#20242e;color:#f3f4f8;font-size:17px;font-weight:750;padding:12px 18px;cursor:pointer}
+.btn.primary{background:#e7e9ee;color:#151820}
+.btn.ghost{background:#11141a;color:#c6cad3}
+.preview-control{display:none}
+.preview-control.on{display:inline-flex}
+.hidden{display:none!important}
+pre{white-space:pre-wrap;text-align:left;background:#0b0d12;border:1px solid rgba(231,233,238,.10);border-radius:8px;padding:14px;color:#b9bdc8;font-size:12px;line-height:1.45;max-height:280px;overflow:auto;font-family:"SF Mono",Menlo,Consolas,monospace}
+.phase-note{color:#8fb39a;font-weight:700;font-size:13px;margin:0 0 8px}
+.results-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 14px}
+.results-meta .item{border:1px solid rgba(231,233,238,.08);border-radius:8px;padding:10px 12px;background:#11141a;text-align:left}
+.results-meta .k{display:block;font-size:11px;color:#7e8493;font-weight:650;letter-spacing:.04em;text-transform:uppercase}
+.results-meta .v{display:block;font-size:16px;color:#f3f4f8;font-weight:750;margin-top:2px}
+@media (max-width:640px){.steps,.results-meta{grid-template-columns:1fr}.card{padding:18px}.stimulus-stage{height:190px}h1{font-size:28px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="badge">Focus Check: CPT</div>
+    <div class="badge muted" id="phaseLabel">Parent preview</div>
+    <div class="badge muted" id="counter">0 / 24</div>
+  </div>
+
+  <section class="panel on" id="intro" data-phase="intro">
+    <div class="card">
+      <h1>Quiet shapes</h1>
+      <p class="copy">Watch one shape at a time. Tap the circles. Let the squares pass.</p>
+      <div class="rule-row">
+        <span class="rule-chip"><span class="swatch circle"></span><span><strong>Circle</strong>: tap</span></span>
+        <span class="rule-chip"><span class="swatch square"></span><span><strong>Square</strong>: wait</span></span>
+      </div>
+      <div class="steps">
+        <div class="step"><span class="n">01</span>Rule</div>
+        <div class="step"><span class="n">02</span>Practice/demo</div>
+        <div class="step"><span class="n">03</span>Measured baseline</div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="startPractice" type="button">Start practice/demo</button>
+      </div>
+      <p class="copy parent">
+        Parent note: this is a low-reward sustained-attention probe inspired by CPT/SART tasks. Baseline mode runs about 5.5 minutes; quick screen mode is shorter and lower-confidence. It is a behavioral signal for Sunny's care plan, not a diagnostic test.
+      </p>
+    </div>
+  </section>
+
+  <section class="panel" id="practice" data-phase="practice">
+    <div class="card">
+      <h1>Practice/demo</h1>
+      <p class="prompt" id="practicePrompt">Tap circles. Let squares pass.</p>
+      <div class="stimulus-stage">
+        <button class="stimulus" data-shape="empty" data-role="target" type="button" aria-label="shape"></button>
+      </div>
+      <p class="sub" id="practiceFeedback">This part checks that the rule is clear. It is not the baseline.</p>
+      <div class="actions">
+        <button class="btn ghost preview-control" data-preview-control="wait" type="button">Let it pass</button>
+        <button class="btn primary hidden" id="startMeasured" type="button">Start measured baseline</button>
+        <button class="btn ghost hidden" id="retryPractice" type="button">Try practice again</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="measured" data-phase="measured">
+    <div class="card">
+      <h1>Measured baseline</h1>
+      <p class="prompt" id="measuredPrompt">Same rule. Tap circles. Wait on squares.</p>
+      <div class="stimulus-stage">
+        <button class="stimulus" data-shape="empty" data-role="target" type="button" aria-label="shape"></button>
+      </div>
+      <p class="sub">Sunny is quiet. This part records attention vitals.</p>
+      <div class="actions">
+        <button class="btn ghost preview-control" data-preview-control="wait" type="button">Let it pass</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="results" data-phase="results">
+    <div class="card">
+      <h1>Preview results</h1>
+      <p class="phase-note" id="writeMode">Would record in live mode</p>
+      <div class="results-meta" id="resultsMeta"></div>
+      <pre id="summary"></pre>
+      <div class="actions">
+        <button class="btn ghost" type="button" onclick="window.parent.postMessage({type:'map_back'}, '*')">Back to map</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  var ACTIVITY_ID = "cpt-low-reward";
+  var CONDITION = "low_reward";
+  var PARADIGM = "cpt";
+  var params = window.GAME_PARAMS || {};
+  var cfg = params.attentionConfig || {};
+  var pacing = cfg.childPacing || {};
+  var policy = cfg.transitionPolicy || {};
+  var feedbackPolicy = cfg.feedbackPolicy || {practice:"corrective_audio_visual",measured:"neutral_audio_only",results:"reward_summary"};
+  var total = Number(pacing.trialCount) || 24;
+  var practiceTotal = Number(pacing.practiceTrials) || 5;
+  var passThreshold = Number(policy.practicePassAccuracy) || 0.75;
+  var maxPracticeRepeats = Number(policy.maxPracticeRepeats) || 1;
+  var previewDryRun = !!params.previewDryRun;
+  var requestedMode = String(cfg.measurementMode || params.measurementMode || "").toLowerCase();
+  var measurementMode = requestedMode === "quick_screen" ? "quick_screen" : "baseline";
+  var recommendedDuration_ms = measurementMode === "quick_screen" ? 90000 : 330000;
+  var confidenceCeiling = measurementMode === "quick_screen" ? "low" : "medium";
+  var baseStimulusMs = Number(pacing.stimulusDuration_ms) || 1100;
+  var previewStimulusMs = Math.max(baseStimulusMs, 3200);
+  var stimulusMs = previewDryRun ? previewStimulusMs : baseStimulusMs;
+  var maxFocusedWindow_ms = Number(pacing.maxFocusedWindow_ms) || recommendedDuration_ms;
+  var TARGET_PROBABILITY = 0.78;
+  var ITI_MIN = 350, ITI_MAX = 700;
+  var attentionFeedback = GameBridge.createAttentionFeedback({feedbackPolicy:feedbackPolicy,audioProfile:cfg.audioProfile || {},sensoryLoad:cfg.sensoryLoad || "low",rewardDensity:cfg.rewardDensity || "none"});
+
+  var mode = "intro", trial = 0, practiceSeen = 0, practiceCorrect = 0, practiceRepeats = 0;
+  var measuredSeen = 0, measuredCorrect = 0, omissions = 0, commissions = 0, idleEvents = 0, reengagements = 0, abandonments = 0;
+  var rts = [], trialOutcomes = [], accuracyOverTime = [], frustrationSignals = [], flowSignals = [];
+  var timer = null, itiTimer = null, heartbeat = null, focusedWindowTimer = null;
+  var current = null, currentStart = 0, lastActionAt = Date.now(), measuredStartedAt = null, measuredStartedIso = null, sessionStartedIso = new Date().toISOString();
+  var sections = {intro: byId("intro"), practice: byId("practice"), measured: byId("measured"), results: byId("results")};
+  var phaseLabel = byId("phaseLabel"), counter = byId("counter"), practicePrompt = byId("practicePrompt"), measuredPrompt = byId("measuredPrompt"), practiceFeedback = byId("practiceFeedback"), summary = byId("summary"), writeMode = byId("writeMode"), resultsMeta = byId("resultsMeta");
+  var stimuli = Array.prototype.slice.call(document.querySelectorAll("[data-role=target]"));
+
+  function byId(id){return document.getElementById(id);}
+  function rand(min,max){return min + Math.random() * (max - min);}
+  function mean(values){return values.length ? values.reduce(function(a,b){return a + b;},0) / values.length : 0;}
+  function show(name){
+    Object.keys(sections).forEach(function(k){sections[k].className = "panel" + (k === name ? " on" : "");});
+    phaseLabel.textContent = name === "measured" ? "Measured baseline" : name === "practice" ? "Practice/demo" : name === "results" ? "Preview results" : "Parent preview";
+  }
+  function setupPreviewControls(){
+    if(!previewDryRun) return;
+    Array.prototype.slice.call(document.querySelectorAll("[data-preview-control=wait]")).forEach(function(btn){
+      btn.classList.add("on");
+      btn.addEventListener("click", function(){handleOutcome(false);});
+    });
+  }
+  function ensureHeartbeat(){
+    if(heartbeat) return;
+    heartbeat = GameBridge.startHeartbeat(function(){return "Attention CPT active: " + ACTIVITY_ID;}, function(){return state(mode);});
+  }
+  function state(phase){
+    return {phase:phase,activityId:ACTIVITY_ID,condition:CONDITION,paradigm:PARADIGM,measurementMode:measurementMode,purpose:"attention_screening",itemIndex:trial,totalItems:mode === "practice" ? practiceTotal : total,activeDuration_ms:(measuredStartedAt ? Date.now() - measuredStartedAt : 0),idleEvents:idleEvents,reengagements:reengagements,frustrationSignals:frustrationSignals.slice(-5),flowSignals:flowSignals.slice(-5)};
+  }
+  function report(label, phase){GameBridge.reportState(label, state(phase));}
+  function makeStimulus(forcedShape){
+    var shape = forcedShape || (Math.random() < TARGET_PROBABILITY ? "circle" : "square");
+    return {shape:shape,isTarget:shape === "circle",prompt:shape === "circle" ? "Circle: tap." : "Square: wait."};
+  }
+  function renderStimulus(){
+    stimuli.forEach(function(btn){btn.setAttribute("data-shape", current.shape); btn.disabled = false;});
+    if(mode === "practice") practicePrompt.textContent = current.prompt;
+    else measuredPrompt.textContent = "Same rule.";
+  }
+  function clearStimulus(){stimuli.forEach(function(btn){btn.setAttribute("data-shape", "empty"); btn.disabled = true;});}
+  function nextTrial(){
+    clearTimeout(timer);
+    if(mode === "practice" && trial >= practiceTotal) return finishPractice();
+    if(mode === "measured" && trial >= total) return finishMeasured(false);
+    trial += 1;
+    var forced = null;
+    if(mode === "practice") forced = (trial === 2 || trial === 4) ? "square" : "circle";
+    current = makeStimulus(forced);
+    currentStart = Date.now();
+    counter.textContent = trial + " / " + (mode === "practice" ? practiceTotal : total);
+    renderStimulus();
+    report("Trial " + trial + " started", mode === "practice" ? "practice" : "playing");
+    timer = setTimeout(function(){handleOutcome(false);}, stimulusMs);
+  }
+  function handleOutcome(responded){
+    if(!current || mode === "intro" || mode === "results") return;
+    clearTimeout(timer);
+    var now = Date.now();
+    if(responded && now - lastActionAt > 3000) reengagements += 1;
+    if(responded) lastActionAt = now;
+    var correct = responded ? current.isTarget : !current.isTarget;
+    if(mode === "practice"){
+      practiceSeen += 1;
+      if(correct) practiceCorrect += 1;
+      attentionFeedback.play(correct ? "practice_correct" : "practice_miss");
+      practiceFeedback.className = "sub " + (correct ? "ok" : "miss");
+      practiceFeedback.textContent = correct ? "Good. Rule held." : (current.isTarget ? "That was a circle. Circles get a tap." : "That was a square. Squares wait.");
+      report(correct ? "Practice correct" : "Practice miss", "practice");
+      clearStimulus();
+      itiTimer = setTimeout(nextTrial, 600);
+      return;
+    }
+    attentionFeedback.play(responded ? "measured_response" : "measured_advance");
+    measuredSeen += 1;
+    if(correct) measuredCorrect += 1;
+    if(current.isTarget && !responded) omissions += 1;
+    if(!current.isTarget && responded) commissions += 1;
+    if(current.isTarget && responded) rts.push(now - currentStart);
+    trialOutcomes.push(correct ? 1 : 0);
+    if(correct) flowSignals.push("rule_followed");
+    else frustrationSignals.push(current.isTarget ? "omission" : "commission");
+    accuracyOverTime.push({elapsed_ms:Date.now() - measuredStartedAt, accuracy: measuredSeen ? measuredCorrect / measuredSeen : 0, trial: trial});
+    report(correct ? "Measured trial logged correct" : "Measured trial logged", "playing");
+    clearStimulus();
+    itiTimer = setTimeout(nextTrial, rand(ITI_MIN, ITI_MAX));
+  }
+  function finishPractice(){
+    var acc = practiceSeen ? practiceCorrect / practiceSeen : 0;
+    byId("startMeasured").classList.add("hidden");
+    byId("retryPractice").classList.add("hidden");
+    if(acc >= passThreshold){
+      flowSignals.push("practice_gate_passed");
+      practiceFeedback.className = "sub ok";
+      practiceFeedback.textContent = "Practice passed. The measured baseline is next.";
+      byId("startMeasured").classList.remove("hidden");
+      report("Practice gate passed", "practice");
+      return;
+    }
+    if(practiceRepeats < maxPracticeRepeats){
+      practiceRepeats += 1;
+      practiceFeedback.className = "sub miss";
+      practiceFeedback.textContent = "Let's try practice once more.";
+      byId("retryPractice").classList.remove("hidden");
+      report("Practice gate retry", "practice");
+      return;
+    }
+    frustrationSignals.push("practice_gate_failed");
+    finishInvalid(acc);
+  }
+  function startPractice(){
+    mode = "practice";
+    trial = 0; practiceSeen = 0; practiceCorrect = 0; current = null;
+    show("practice");
+    ensureHeartbeat();
+    byId("startMeasured").classList.add("hidden");
+    byId("retryPractice").classList.add("hidden");
+    practiceFeedback.className = "sub";
+    practiceFeedback.textContent = "This part checks that the rule is clear. It is not the baseline.";
+    nextTrial();
+  }
+  function startMeasured(){
+    mode = "measured";
+    trial = 0; measuredSeen = 0; measuredCorrect = 0; current = null;
+    measuredStartedAt = Date.now();
+    measuredStartedIso = new Date().toISOString();
+    show("measured");
+    report("Measured baseline started", "playing");
+    focusedWindowTimer = setTimeout(function(){
+      if(mode === "measured"){flowSignals.push("focused_window_limit_reached"); finishMeasured(false);}
+    }, maxFocusedWindow_ms);
+    nextTrial();
+  }
+  function finishInvalid(acc){showResults(false, {completed:false, accuracy:0, practiceAccuracy:acc, activeDuration_ms:0});}
+  function finishMeasured(abandoned){
+    var active = measuredStartedAt ? Date.now() - measuredStartedAt : 0;
+    var accuracy = measuredSeen ? measuredCorrect / measuredSeen : 0;
+    if(abandoned) abandonments += 1;
+    showResults(true, {completed:!abandoned, accuracy:accuracy, practiceAccuracy:practiceSeen ? practiceCorrect / practiceSeen : 0, activeDuration_ms:active});
+  }
+  function computeRtVariability(){
+    if(rts.length < 2) return 0;
+    var m = mean(rts);
+    var sd = Math.sqrt(rts.reduce(function(a,b){var d = b - m; return a + d * d;},0) / rts.length);
+    return Math.round((sd / Math.max(m, 1)) * 100) / 100;
+  }
+  function computeDropoff(){
+    if(trialOutcomes.length < 4) return null;
+    var split = Math.floor(trialOutcomes.length / 2);
+    return Math.round((mean(trialOutcomes.slice(0, split)) - mean(trialOutcomes.slice(split))) * 100) / 100;
+  }
+  function showResults(valid, extra){
+    clearTimeout(timer); clearTimeout(itiTimer); clearTimeout(focusedWindowTimer);
+    if(heartbeat) clearInterval(heartbeat);
+    mode = "results";
+    show("results");
+    attentionFeedback.play("results_complete");
+    var active = extra.activeDuration_ms || 0;
+    var meanRt = mean(rts);
+    var vitalSigns = {
+      startedAt: measuredStartedIso || sessionStartedIso,
+      endedAt: new Date().toISOString(),
+      activeDuration_ms: active,
+      idleEvents: idleEvents,
+      abandonments: extra.completed ? 0 : abandonments + 1,
+      reengagements: reengagements,
+      omissions: omissions,
+      commissions: commissions,
+      meanReactionTime_ms: Math.round(meanRt),
+      reactionTimeVariability: computeRtVariability(),
+      dropoff: computeDropoff(),
+      accuracyOverTime: accuracyOverTime,
+      frustrationSignals: frustrationSignals,
+      flowSignals: flowSignals,
+      practiceGate: {passed:valid, accuracy:Math.round((extra.practiceAccuracy || 0) * 100) / 100},
+      condition: CONDITION,
+      paradigm: PARADIGM,
+      rewardDensity: cfg.rewardDensity || "none",
+      sensoryLoad: cfg.sensoryLoad || "low",
+      academicLoad: "none",
+      measurementMode: measurementMode,
+      recommendedDuration_ms: recommendedDuration_ms,
+      confidenceCeiling: confidenceCeiling,
+      maxFocusedWindow_ms: maxFocusedWindow_ms
+    };
+    writeMode.textContent = previewDryRun ? "Would record in live mode" : "Recording to child chart";
+    resultsMeta.innerHTML = [
+      {k:"Trials", v: measuredSeen + " / " + total},
+      {k:"Accuracy", v: Math.round((extra.accuracy || 0) * 100) + "%"},
+      {k:"Mean RT", v: Math.round(meanRt) + " ms"},
+      {k:"Active time", v: Math.round(active / 1000) + " s"}
+    ].map(function(m){return '<div class="item"><span class="k">'+m.k+'</span><span class="v">'+m.v+'</span></div>';}).join("");
+    summary.textContent = JSON.stringify({validBaseline:valid,activityId:ACTIVITY_ID,purpose:"attention_screening",vitalSigns:vitalSigns}, null, 2);
+    sendNodeComplete({completed:!!extra.completed,accuracy:extra.accuracy || 0,xpEarned:Math.round((extra.accuracy || 0) * 30),timeSpent_ms:active,wordsAttempted:total,wordsCorrect:[],wordsStruggled:[],flaggedWords:[],activityId:ACTIVITY_ID,purpose:"attention_screening",vitalSigns:vitalSigns});
+    fireCompanionEvent("session_complete", {activityId:ACTIVITY_ID});
+  }
+
+  stimuli.forEach(function(btn){btn.addEventListener("click", function(){if(btn.disabled) return; handleOutcome(true);});});
+  byId("startPractice").addEventListener("click", startPractice);
+  byId("retryPractice").addEventListener("click", startPractice);
+  byId("startMeasured").addEventListener("click", startMeasured);
+  setupPreviewControls();
+  document.addEventListener("visibilitychange", function(){if(document.hidden){idleEvents += 1; if(mode === "measured") frustrationSignals.push("tab_hidden");}});
+  setInterval(function(){if(mode !== "measured" || !measuredStartedAt) return; if(Date.now() - lastActionAt > 25000){frustrationSignals.push("long_silence"); lastActionAt = Date.now();}}, 5000);
+  GameBridge.init(function(){report("Parent preview intro ready", "idle");});
+})();
+</script>
+</body>
+</html>
