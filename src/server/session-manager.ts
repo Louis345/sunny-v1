@@ -174,6 +174,7 @@ import {
   finalizeSessionDebugPacket,
   type SessionDebugRecorder,
 } from "./session-debug-recorder";
+import { buildPronunciationCompleteFields, buildReadingProgressFields } from "./flow-game-debug";
 
 type CanvasActivitySnapshot = {
   mode: ActivityMode;
@@ -1152,6 +1153,8 @@ export class SessionManager {
       content: `[background: ${event.source}] ${event.summary}`,
     });
   }
+
+  public async speakGameNarration(text: string, metadata: Record<string, unknown> = {}): Promise<void> { const spoken = rewriteChildNameForTts(text.trim().slice(0, 120), this.childName, this.sessionTtsLabel); if (!spoken) return; this.debugRecorder.recordEvent("game_narration", "speak", { text: spoken, activityId: metadata.activityId, nodeId: metadata.nodeId, reason: metadata.reason }); this.noteExternalEvent({ source: "game_narration", summary: `Game narration requested: ${spoken}`, occurredAt: Date.now() }); if (this.ttsBridge) { await this.ttsBridge.connect().catch(() => {}); this.ttsBridge.sendText(spoken); await this.ttsBridge.finish().catch((err) => console.error("  🔴 [game_narration] TTS finish failed:", err)); } this.send("audio_done"); }
 
   private recordWorksheetAttempt(transcript: string, correct: boolean): void {
     if (!this.ctx?.assignment) return;
@@ -2305,6 +2308,7 @@ export class SessionManager {
       event,
     });
     this.broadcastContext();
+    this.debugRecorder.recordEvent("flow_game", event === "complete" ? "karaoke_complete" : "karaoke_progress", buildReadingProgressFields({ ...payload, wordIndex, totalWords, accuracy: Number.isFinite(accuracy) ? accuracy : 0, hesitations, flaggedWords, skippedWords, spelledWords, event }));
     const accPct =
       Number.isFinite(accuracy) && accuracy <= 1 && accuracy >= 0
         ? Math.round(accuracy * 100)
@@ -2456,6 +2460,7 @@ export class SessionManager {
     console.log(
       `  🎮 [pronunciation_complete] words=${correctCount}/${totalWords} acc=${accPct}%`,
     );
+    this.debugRecorder.recordEvent("flow_game", "pronunciation_complete", buildPronunciationCompleteFields({ ...msg, accuracy, totalWords, correctCount }));
   }
 
   private evaluateSpelling(

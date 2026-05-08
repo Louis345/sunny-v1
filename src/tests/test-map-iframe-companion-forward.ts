@@ -10,6 +10,7 @@ import {
 import {
   getActiveVoiceSessionIdForChild,
   registerActiveVoiceSession,
+  registerActiveVoiceSessionManager,
   unregisterActiveVoiceSessionIfCurrent,
   __resetVoiceSessionRegistryForTests,
 } from "../server/voice-session-registry";
@@ -82,6 +83,50 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     });
     fire.mockRestore();
     unregisterActiveVoiceSessionIfCurrent("ila", "voice-sid-test");
+  });
+
+  it("routes narration_request to the active voice session without treating it as a companion trigger", () => {
+    const fire = vi.spyOn(sessionEventBus, "fire");
+    const warnSpy = vi.spyOn(console, "warn");
+    const ws = { once: vi.fn(), off: vi.fn() } as unknown as WebSocket;
+    const sm = {
+      noteExternalEvent: vi.fn(),
+      speakGameNarration: vi.fn(),
+    };
+    registerMapSessionWebSocket("reina", ws);
+    registerActiveVoiceSessionManager("reina", sm);
+
+    const ok = handleMapSocketIframeCompanionEvent(ws, {
+      type: "map_iframe_companion_event",
+      payload: {
+        trigger: "narration_request",
+        childId: "reina",
+        timestamp: 123,
+        word: "sunny",
+        reason: "word_prompt",
+        activityId: "letter-rush",
+        nodeId: "n-letter-rush-baseline",
+      },
+    });
+
+    expect(ok).toBe(true);
+    expect(sm.speakGameNarration).toHaveBeenCalledWith(
+      "sunny.",
+      expect.objectContaining({
+        activityId: "letter-rush",
+        nodeId: "n-letter-rush-baseline",
+        reason: "word_prompt",
+        source: "map_iframe_companion_event",
+      }),
+    );
+    expect(fire).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("invalid trigger"),
+      "narration_request",
+    );
+
+    fire.mockRestore();
+    warnSpy.mockRestore();
   });
 
   it("uses empty voice session id when no active voice session", () => {

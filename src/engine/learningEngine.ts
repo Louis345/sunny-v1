@@ -70,6 +70,7 @@ type HomeworkNodeLike = {
   gameFile?: string | null;
   storyFile?: string | null;
   storyText?: string;
+  activityConfigPath?: string;
   date?: string;
   wordRadarItems?: Array<{
     display: string;
@@ -650,7 +651,7 @@ function estimateWordConfidence(bank: WordEntry[], wordRaw: string): number {
 }
 
 function modalityForNode(nodeType: string): string {
-  if (nodeType === "spell-check" || nodeType === "word-radar") return "spelling";
+  if (nodeType === "spell-check" || nodeType === "word-radar" || nodeType === "letter-rush") return "spelling";
   if (nodeType === "pronunciation" || nodeType === "word-builder") return "phonics";
   if (nodeType === "karaoke") return "reading";
   if (nodeType === "quest" || nodeType === "boss") return "quest";
@@ -664,7 +665,7 @@ export function reorderHomeworkNodesForSession(nodes: HomeworkNodeLike[]): Homew
     const [boss] = out.splice(bossIdx, 1);
     out.push(boss!);
   }
-  if (out.some((n) => n.type === "spell-check")) {
+  if (out.some((n) => n.type === "spell-check" || n.type === "letter-rush")) {
     return out;
   }
   for (let i = 1; i < out.length; i++) {

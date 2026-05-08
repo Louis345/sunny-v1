@@ -104,6 +104,10 @@ export interface WordEntry {
   homeworkPriority?: boolean;
   /** Spelling test date (YYYY-MM-DD); priority applies while today <= testDate. */
   testDate?: string;
+  /** Source-derived homework target role; planners should not flatten all homework words into spelling. */
+  homeworkTargetPurpose?: string;
+  /** Source heading/group that produced this word for the current homework cycle. */
+  homeworkSourceGroup?: string;
   /** Best Word Radar response time (ms) for this word; optional. */
   wordRadarBestTime_ms?: number;
 }

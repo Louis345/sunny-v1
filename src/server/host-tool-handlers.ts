@@ -350,5 +350,11 @@ export async function hostSessionEnd(
   session: any,
   args: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-    return { ended: true, childName: args.childName };
+    const childName = args.childName;
+    const reason = String(args.reason ?? "tool_call");
+    session.pendingSessionEndRequest = { childName, reason };
+    console.log(
+      `  🎮 [session-end] tool_call requested child=${childName ?? "unknown"} reason=${reason}`,
+    );
+    return { ended: true, childName, reason, finalization: "after_agent_turn" };
   }

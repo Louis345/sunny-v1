@@ -20,8 +20,8 @@ export function recordWordRadarAttempts(
         target: word,
         domain: "spelling",
         correct: row.correct,
-        quality: row.correct ? 5 : 1,
-        scaffoldLevel: 0,
+        quality: row.correct ? 3 : 1,
+        scaffoldLevel: 2,
         responseTimeMs: row.responseTime_ms > 0 ? row.responseTime_ms : undefined,
         sessionId,
       });

@@ -127,8 +127,10 @@ export function runHandleToolCall(
     });
 
     if (tool === "endSession" || tool === "sessionEnd") {
-      session.send("session_ended", {});
-      setTimeout(() => process.exit(0), 500);
+      console.log(
+        "  🎮 [session-end] tool_call deferred until companion turn is recorded",
+      );
+      return;
     }
 
     if (tool === "startSession") {

@@ -1,7 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { execSync } from "child_process";
+import { execSync, spawn } from "child_process";
 import { ttsLogLabel } from "./audit-log";
 import { shouldPersistSessionData } from "../utils/runtimeMode";
 
@@ -184,6 +184,30 @@ export function finalizeSessionDebugPacket(
   });
   session.debugPacketFinalized = true;
   console.log(`  🎮 [debug] session packet saved: ${session.debugRecorder.sessionDir}`);
+  enqueueSessionLogUpload();
+}
+
+function enqueueSessionLogUpload(): void {
+  if (process.env.VITEST === "true") return;
+  if (process.env.SUNNY_LOG_UPLOAD_ON_END === "false") return;
+  const child = spawn("npx", [
+    "tsx",
+    "src/scripts/uploadSessionLogs.ts",
+    "--delete-local-after-days=7",
+  ], {
+    cwd: process.cwd(),
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      SUNNY_LOG_REPO_URL:
+        process.env.SUNNY_LOG_REPO_URL ?? "https://github.com/Louis345/sunny-logs.git",
+      SUNNY_LOG_REPO_DIR:
+        process.env.SUNNY_LOG_REPO_DIR ?? path.resolve(process.cwd(), "..", "sunny-logs"),
+    },
+  });
+  child.unref();
+  console.log("  🎮 [debug] session log upload queued");
 }
 
 export class SessionDebugRecorder {

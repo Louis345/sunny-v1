@@ -222,7 +222,12 @@ function contentCatalogBuckets(items: AIContentCatalogItem[] | undefined): Learn
 function contentItemTypeForNode(node: HomeworkCatalogNode): AIContentCatalogItem["type"] | null {
   if (node.type === "karaoke") return "story";
   if (node.type === "quest" || node.type === "boss" || node.type === "wheel-of-fortune") return "game";
-  if (node.type === "word-radar" || node.type === "spell-check" || node.type === "word-builder") return "quiz";
+  if (
+    node.type === "word-radar" ||
+    node.type === "spell-check" ||
+    node.type === "word-builder" ||
+    node.type === "letter-rush"
+  ) return "quiz";
   return null;
 }
 
@@ -239,7 +244,12 @@ function algorithmTargetsForNode(
   if (node.type === "boss") {
     return ["mastery-gating", "retrieval-practice"];
   }
-  if (node.type === "word-radar" || node.type === "spell-check" || node.type === "word-builder") {
+  if (
+    node.type === "word-radar" ||
+    node.type === "spell-check" ||
+    node.type === "word-builder" ||
+    node.type === "letter-rush"
+  ) {
     return ["spaced-repetition", "retrieval-practice"];
   }
   if (node.type === "wheel-of-fortune") {

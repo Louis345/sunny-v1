@@ -60,6 +60,15 @@ function nodeResultFromWordRadar(nodeId: string, r: WordRadarResult): NodeResult
     wordsAttempted: r.rawResults.length,
     missedWords,
     correctWords,
+    targetResults: r.rawResults.map((row) => ({
+      target: row.item.display.trim(),
+      correct: row.correct,
+      attempts: row.attempts,
+      ...(row.heardTranscript || row.heardToken
+        ? { attemptedValue: row.heardTranscript ?? row.heardToken }
+        : {}),
+      responseTime_ms: row.responseTime_ms,
+    })),
   };
 }
 
@@ -594,11 +603,67 @@ export function AdventureMap(props: {
         wordsAttempted:
           typeof pl.wordsAttempted === "number" ? pl.wordsAttempted : 0,
       };
+      if (typeof pl.activityId === "string") {
+        nr.activityId = pl.activityId;
+      }
+      if (typeof pl.purpose === "string") {
+        nr.purpose = pl.purpose;
+      }
+      if (typeof pl.mode === "string") {
+        nr.mode = pl.mode;
+      }
+      if (pl.bonusRound && typeof pl.bonusRound === "object" && !Array.isArray(pl.bonusRound)) {
+        nr.bonusRound = pl.bonusRound as Record<string, unknown>;
+      }
+      if (Array.isArray(pl.letterResults)) {
+        nr.letterResults = pl.letterResults;
+      }
       if (Array.isArray(pl.missedWords)) {
         nr.missedWords = pl.missedWords.map(String).filter(Boolean);
       }
       if (Array.isArray(pl.correctWords)) {
         nr.correctWords = pl.correctWords.map(String).filter(Boolean);
+      }
+      if (Array.isArray(pl.targetResults)) {
+        nr.targetResults = pl.targetResults
+          .map((row) => {
+            if (!row || typeof row !== "object") return null;
+            const record = row as Record<string, unknown>;
+            const target = String(record.target ?? "").trim();
+            if (!target || typeof record.correct !== "boolean") return null;
+            const attempts = Number(record.attempts);
+            const responseTime = Number(record.responseTime_ms);
+            const scaffoldLevel = Number(record.scaffoldLevel);
+            return {
+              target,
+              correct: record.correct,
+              ...(Number.isFinite(attempts) ? { attempts } : {}),
+              ...(typeof record.attemptedValue === "string"
+                ? { attemptedValue: record.attemptedValue }
+                : {}),
+              ...(Number.isFinite(responseTime)
+                ? { responseTime_ms: responseTime }
+                : {}),
+              ...(Number.isFinite(scaffoldLevel)
+                ? { scaffoldLevel }
+                : {}),
+              ...(typeof record.concept === "string"
+                ? { concept: record.concept }
+                : {}),
+              ...(typeof record.misconception === "string"
+                ? { misconception: record.misconception }
+                : record.misconception === null
+                  ? { misconception: null }
+                  : {}),
+              ...(typeof record.mode === "string"
+                ? { mode: record.mode }
+                : {}),
+              ...(typeof record.masteryEligible === "boolean"
+                ? { masteryEligible: record.masteryEligible }
+                : {}),
+            };
+          })
+          .filter((row): row is NonNullable<typeof row> => row != null);
       }
       if (
         node?.type === "mystery" &&
@@ -1018,6 +1083,29 @@ export function AdventureMap(props: {
       });
   }
 
+  async function generateStoryMovie(imageUrl: string): Promise<string | null> {
+    if (launchedNode?.type !== "karaoke") return null;
+    const prompt =
+      launchedNode.storyImagePrompt?.trim() ||
+      launchedNode.storyText?.trim() ||
+      launchedNode.words?.join(" ").trim() ||
+      "";
+    if (!prompt) return null;
+    console.log(" 🎮 [story-movie] [start] video");
+    const res = await fetch("/api/grok-story-video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrl, prompt }),
+    });
+    if (!res.ok) {
+      throw new Error(`story movie ${res.status}`);
+    }
+    const data = (await res.json()) as { url?: unknown };
+    const videoUrl = typeof data.url === "string" && data.url.length > 0 ? data.url : null;
+    console.log(` 🎮 [story-movie] [result] ${videoUrl ? "video" : "empty"}`);
+    return videoUrl;
+  }
+
   const handleKaraokeComplete = useCallback((result: KaraokeReadingCompleteResult) => {
     const practiceWords = practiceWordsFromReadingComplete(result, launchedNode);
     setAdaptiveStoryPracticeWords(practiceWords);
@@ -1054,6 +1142,7 @@ export function AdventureMap(props: {
       ? uniquePracticeWords([
           ...adaptiveStoryPracticeWords,
           ...(launchedNode.words ?? []),
+          ...nodeTargetWords(launchedNode),
         ]).slice(0, Math.max(3, launchedNode.words?.length ?? 0))
       : [];
 
@@ -1412,6 +1501,7 @@ export function AdventureMap(props: {
               failed={storyImageFinaleState.failed}
               companionCurrency={props.companionCurrency ?? 0}
               purchaseCost={purchaseCost}
+              onGenerateMovie={(imageUrl) => generateStoryMovie(imageUrl)}
               onPurchaseMovie={() => purchaseStoryMovie()}
               onExit={() => {
                 setPreviewStoryImage(null);
@@ -1528,15 +1618,16 @@ export function AdventureMap(props: {
           </div>
         </div>
       ) : null}
-      {props.previewMode === "free" &&
-      launchedNode != null &&
+      {launchedNode != null &&
       (launchedNode.type as string) === "pronunciation" &&
       pronunciationWordsForNode.length > 0 ? (
         <div className="fixed inset-0 z-[45] flex flex-col">
-          <div
-            aria-hidden
-            style={{ height: PREVIEW_GAME_TOP_INSET_PX, flexShrink: 0, background: "#0f172a" }}
-          />
+          {flowGameBackChrome ? (
+            <div
+              aria-hidden
+              style={{ height: PREVIEW_GAME_TOP_INSET_PX, flexShrink: 0, background: "#0f172a" }}
+            />
+          ) : null}
           <div className="relative min-h-0 flex-1">
           <PronunciationGameCanvas
             words={pronunciationWordsForNode}
@@ -1556,15 +1647,17 @@ export function AdventureMap(props: {
               clearLaunchedNode();
             }}
             onExit={() => clearLaunchedNode()}
-            topInset={props.previewMode ? PREVIEW_GAME_TOP_INSET_PX : 0}
+            topInset={flowGameBackChrome ? PREVIEW_GAME_TOP_INSET_PX : 0}
           />
-          <button
-            type="button"
-            className="absolute top-4 right-4 z-[50] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
-            onClick={() => clearLaunchedNode()}
-          >
-            ← Back to map
-          </button>
+          {flowGameBackChrome ? (
+            <button
+              type="button"
+              className="absolute top-4 right-4 z-[50] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
+              onClick={() => clearLaunchedNode()}
+            >
+              ← Back to map
+            </button>
+          ) : null}
           </div>
         </div>
       ) : null}

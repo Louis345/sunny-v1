@@ -154,7 +154,7 @@ describe("post-node pipeline (TASK-014)", () => {
     appendSpy.mockRestore();
   });
 
-  it("runs appendNodeRating then recordReward then recordAttempt per word then session note", async () => {
+  it("runs appendNodeRating then recordReward without synthesizing per-word attempts", async () => {
     const { sessionId, mapState } = await startMapSession("qa_pipeline");
     const nodeId = mapState.nodes[0].id;
     const result: NodeResult = {
@@ -167,14 +167,7 @@ describe("post-node pipeline (TASK-014)", () => {
     await applyNodeResult(sessionId, result);
     expect(pipelineOrder[0]).toBe("appendNodeRating");
     expect(pipelineOrder[1]).toBe("recordReward");
-    const attempts = pipelineOrder.filter((s) => s === "recordAttempt");
-    expect(attempts.length).toBe(2);
-    expect(recordLearningAttemptMock).toHaveBeenCalledWith(
-      expect.objectContaining({ childId: "qa_pipeline", target: "w1" }),
-    );
-    expect(recordLearningAttemptMock).toHaveBeenCalledWith(
-      expect.objectContaining({ childId: "qa_pipeline", target: "w2" }),
-    );
+    expect(recordLearningAttemptMock).not.toHaveBeenCalled();
     expect(appendSpy).toHaveBeenCalled();
     expect(recordRewardMock).toHaveBeenCalledWith(
       "qa_pipeline",

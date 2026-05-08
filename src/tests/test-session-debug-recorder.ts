@@ -96,4 +96,14 @@ describe("SessionDebugRecorder", () => {
       }),
     ).toBe("2026-05-04T15-32-10_ila_reading-homework_a8f31c");
   });
+
+  it("enqueues upload with seven-day local retention, not immediate deletion", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "src", "server", "session-debug-recorder.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toContain('"--delete-local"');
+    expect(source).toContain('"--delete-local-after-days=7"');
+  });
 });

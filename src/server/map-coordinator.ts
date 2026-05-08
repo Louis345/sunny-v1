@@ -15,7 +15,6 @@ import {
   mapPathPresetForTheme,
   resolveMapPathPresetName,
 } from "../shared/mapPathLayout";
-import type { ChildQuality } from "../algorithms/types";
 import type { ChildProfile } from "../shared/childProfile";
 import { buildProfile } from "../profiles/buildProfile";
 import { generateTheme, paletteOnlyThemeFromProfile } from "../agents/designer/designer";
@@ -27,7 +26,6 @@ import {
 } from "../engine/learningEngine";
 import { computeQuestThreshold } from "../engine/error-signals/questThreshold";
 import { recordHomeworkNodeMeasurement } from "../engine/homeworkCycleLoop";
-import { recordLearningAttempt } from "./learningAttemptEvents";
 import { recordAttentionSignal, type AttentionSignal } from "../engine/attentionVitals";
 import {
   isDiagMapMode,
@@ -61,6 +59,13 @@ import {
   type SunnyRuntimeOverrides,
 } from "../shared/runtimeConfig";
 import { createOnboardingPlan, type OnboardingNode } from "../engine/onboardingPlan";
+import { selectTargetedPracticePlan } from "../engine/targetedPracticeSelector";
+import {
+  validateActivityPlan,
+  type ActivityPlanNode,
+  type ActivityPlanValidationResult,
+  type DomainEvidence,
+} from "../engine/activityPlanValidator";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -70,6 +75,8 @@ export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
     "microphone with colorful sound waves, children's educational app icon, bright purple background, cute cartoon style, transparent background",
   "spell-check":
     "golden pencil writing glowing letters, spelling bee trophy, stars, children's game icon, transparent background",
+  "letter-rush":
+    "glowing arcade letter tiles rushing through a colorful spelling obstacle course, children's learning game icon, transparent background",
   wordle:
     "colorful letter tiles floating in space, word puzzle game, children's game icon, transparent background",
   "word-builder":
@@ -79,6 +86,7 @@ export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
   "word-radar":
     "radar dish scanning a starfield with glowing word tiles, deep purple space, children's game icon, transparent background",
   "bubble-pop": "A bright focus bubble with sparkles, kid-friendly attention check icon",
+  "cpt-low-reward": "A calm simple circle and square focus check icon, quiet and low reward",
   "fish-flanker": "A cheerful fish attention challenge icon with arrows, kid-friendly and uncluttered",
   "target-blaster": "A clean target blaster attention icon with one highlighted target and simple decoys",
   "hero-shield": "A friendly hero shield attention icon with a glowing shield and calm mission energy",
@@ -292,6 +300,42 @@ function isCompanionTriggerValue(v: unknown): v is CompanionTrigger {
   return typeof v === "string" && COMPANION_TRIGGER_SET.has(v);
 }
 
+function narrationTextFromPayload(payload: Record<string, unknown>): string {
+  const direct = typeof payload.text === "string" ? payload.text.trim() : "";
+  const word = typeof payload.word === "string" ? payload.word.trim() : "";
+  const prompt = direct || word;
+  if (!prompt) return "";
+  return /[.!?]$/.test(prompt) ? prompt : `${prompt}.`;
+}
+
+function handleGameNarrationRequest(
+  childId: string,
+  payload: Record<string, unknown>,
+  source: string,
+): void {
+  const text = narrationTextFromPayload(payload);
+  if (!text) {
+    console.warn("[map-coordinator] narration_request ignored: missing text");
+    return;
+  }
+  const sm = getActiveVoiceSessionManagerForChild(childId);
+  if (!sm?.speakGameNarration) {
+    console.warn("[map-coordinator] narration_request ignored: no active voice session");
+    return;
+  }
+  void Promise.resolve(
+    sm.speakGameNarration(text, {
+      ...payload,
+      source,
+    }),
+  ).catch((err) => {
+    console.error("  🔴 [map-coordinator] narration_request failed:", err);
+  });
+  console.log(
+    `  🎮 [map-coordinator] narration_request queued child=${childId} text=${JSON.stringify(text)}`,
+  );
+}
+
 /** Map iframe `CompanionTrigger` → `SessionEventType` when the bus + companion bridge support it. */
 export function companionTriggerToSessionEventType(
   t: CompanionTrigger,
@@ -341,6 +385,19 @@ export function handleMapSocketIframeCompanionEvent(
   }
   const pl = payload as Record<string, unknown>;
   const triggerRaw = pl.trigger;
+  const childPayload =
+    typeof pl.childId === "string" ? pl.childId.trim().toLowerCase() : "";
+  if (!childPayload || mapCompanionWsKey(childPayload) !== regKey) {
+    console.warn(
+      "[map-coordinator] map_iframe_companion_event ignored: childId mismatch",
+      { regKey, childPayload },
+    );
+    return true;
+  }
+  if (triggerRaw === "narration_request") {
+    handleGameNarrationRequest(regKey, pl, "map_iframe_companion_event");
+    return true;
+  }
   if (!isCompanionTriggerValue(triggerRaw)) {
     // Emote-only events (e.g. quest unlock animations) have no trigger — silently drop.
     if (!isCompanionEmote(pl.emote)) {
@@ -349,15 +406,6 @@ export function handleMapSocketIframeCompanionEvent(
         triggerRaw,
       );
     }
-    return true;
-  }
-  const childPayload =
-    typeof pl.childId === "string" ? pl.childId.trim().toLowerCase() : "";
-  if (!childPayload || mapCompanionWsKey(childPayload) !== regKey) {
-    console.warn(
-      "[map-coordinator] map_iframe_companion_event ignored: childId mismatch",
-      { regKey, childPayload },
-    );
     return true;
   }
   const st = companionTriggerToSessionEventType(triggerRaw);
@@ -636,11 +684,97 @@ export function isWordDrivenHomeworkNodeType(t: string): boolean {
     t === "karaoke" ||
     t === "word-builder" ||
     t === "spell-check" ||
+    t === "letter-rush" ||
     t === "wordle" ||
     t === "wheel-of-fortune" ||
     t === "quest" ||
     t === "boss"
   );
+}
+
+function isRetargetablePracticeNodeType(t: string): boolean {
+  return (
+    t === "word-radar" ||
+    t === "pronunciation" ||
+    t === "word-builder" ||
+    t === "spell-check" ||
+    t === "letter-rush" ||
+    t === "wordle" ||
+    t === "wheel-of-fortune"
+  );
+}
+
+function nodePracticeTargets(node: NodeConfig): string[] {
+  const fromRadar = (node.wordRadarItems ?? [])
+    .map((item) => item.display)
+    .filter(Boolean);
+  return fromRadar.length > 0 ? fromRadar : [...(node.words ?? [])];
+}
+
+function wordRadarItemsForTargets(
+  node: NodeConfig,
+  targets: string[],
+): NonNullable<NodeConfig["wordRadarItems"]> {
+  const normalized = new Set(targets.map((word) => word.trim().toLowerCase()));
+  const existing = (node.wordRadarItems ?? []).filter((item) =>
+    normalized.has(item.display.trim().toLowerCase()),
+  );
+  if (existing.length > 0 || targets.length === 0) return existing;
+  return targets.map((word) => ({
+    display: word,
+    acceptedResponses: [word.toLowerCase()],
+    label: "Practice",
+  }));
+}
+
+function retargetFuturePracticeNodes(
+  nodes: NodeConfig[],
+  completedNode: NodeConfig,
+  result: NodeResult,
+): string[] {
+  if (!isWordDrivenHomeworkNodeType(completedNode.type)) return [];
+  const evidenceRows = result.targetResults ?? [];
+  const hasFallbackEvidence =
+    (result.correctWords?.length ?? 0) > 0 || (result.missedWords?.length ?? 0) > 0;
+  if (evidenceRows.length === 0 && !hasFallbackEvidence) return [];
+
+  const plan = selectTargetedPracticePlan({
+    nodeId: result.nodeId,
+    nodeType: completedNode.type,
+    targets: nodePracticeTargets(completedNode),
+    correctWords: result.correctWords,
+    missedWords: result.missedWords,
+    targetResults: evidenceRows,
+  });
+  if (plan.status !== "ready") return [];
+
+  const completedIdx = nodes.findIndex((node) => node.id === completedNode.id);
+  if (completedIdx < 0) return [];
+  let updatedCount = 0;
+  const skippedNodeIds: string[] = [];
+  for (let i = completedIdx + 1; i < nodes.length; i += 1) {
+    const node = nodes[i]!;
+    if (!isRetargetablePracticeNodeType(node.type)) continue;
+    node.words = [...plan.nextTargets];
+    if (node.type === "word-radar") {
+      node.wordRadarItems = wordRadarItemsForTargets(node, plan.nextTargets);
+    }
+    if (plan.nextTargets.length === 0 && plan.masteredTargets.length > 0) {
+      skippedNodeIds.push(node.id);
+    }
+    updatedCount += 1;
+  }
+  if (updatedCount > 0) {
+    console.log(
+      `  🎮 [targeted-practice] retargeted ${updatedCount} future node(s) after ${completedNode.type}: ${plan.nextTargets.join(", ") || "none"}`,
+    );
+  }
+  if (skippedNodeIds.length > 0) {
+    console.log(
+      `  🎮 [targeted-practice] skipped ${skippedNodeIds.length} empty practice node(s) after mastered baseline`,
+    );
+  }
+  return skippedNodeIds;
 }
 
 /** Adventure map path from `ChildProfile.pendingHomework` (via `buildProfile`). Exported for tests. */
@@ -678,6 +812,7 @@ export function pendingHomeworkToNodeConfigs(
       storyText: node.storyText,
       storyTitle: node.storyTitle,
       storyImagePrompt: node.storyImagePrompt,
+      activityConfigPath: node.activityConfigPath,
       date: node.date ?? hw.weekOf,
       isCastle: node.type === "boss",
       thumbnailUrl: undefined,
@@ -824,6 +959,8 @@ export function buildMapSummary(mapState: MapState): string {
 
 /** Spelling homework baseline order through wheel, then mystery, then quest/boss. */
 const HOMEWORK_NODE_ORDER = [
+  "concept-check",
+  "letter-rush",
   "word-radar",
   "karaoke",
   "pronunciation",
@@ -884,6 +1021,9 @@ function hasQuestUnlock(childId: string): boolean {
 }
 
 function orderHomeworkBaselineNodes(nodes: NodeConfig[]): NodeConfig[] {
+  if (nodes.some((node) => node.type === "letter-rush")) {
+    return nodes.map((node) => ({ ...node, isGoal: false }));
+  }
   const out: NodeConfig[] = [];
   for (const t of HOMEWORK_NODE_ORDER) {
     for (const n of nodes.filter((node) => node.type === t)) {
@@ -891,6 +1031,162 @@ function orderHomeworkBaselineNodes(nodes: NodeConfig[]): NodeConfig[] {
     }
   }
   return out;
+}
+
+type HomeworkForActivityValidation = NonNullable<ChildProfile["pendingHomework"]> & {
+  homeworkId?: string;
+};
+
+function normalizeActivityDomain(value: string | null | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function homeworkDomainEvidence(hw: HomeworkForActivityValidation): DomainEvidence {
+  const profile = hw.contentProfile ?? hw.capturedContent?.contentProfile ?? null;
+  if (profile) {
+    return {
+      practiceDomain: profile.practiceDomain,
+      contentDomain: profile.contentDomain,
+      primarySkill: profile.primarySkill,
+      confidence: 0.9,
+      source: "captured_homework_profile",
+    };
+  }
+
+  const homeworkId = normalizeActivityDomain(hw.homeworkId ?? hw.weekOf);
+  if (homeworkId.includes("spelling")) {
+    return {
+      practiceDomain: "spelling",
+      contentDomain: "spelling",
+      primarySkill: "spelling_recall",
+      confidence: 0.82,
+      source: "homework_id",
+    };
+  }
+
+  return {
+    practiceDomain: "unknown",
+    contentDomain: "unknown",
+    primarySkill: "unknown",
+    confidence: 0.25,
+    source: "fallback",
+  };
+}
+
+function evidenceIsHighConfidenceSpelling(evidence: DomainEvidence): boolean {
+  return evidence.confidence >= 0.75 &&
+    (
+      normalizeActivityDomain(evidence.practiceDomain) === "spelling" ||
+      normalizeActivityDomain(evidence.contentDomain) === "spelling" ||
+      normalizeActivityDomain(evidence.primarySkill).includes("spell")
+    );
+}
+
+function repairHomeworkNodesForActivityPlan(
+  childId: string,
+  nodes: NodeConfig[],
+  evidence: DomainEvidence,
+): NodeConfig[] {
+  if (!evidenceIsHighConfidenceSpelling(evidence) || nodes[0]?.type !== "word-radar") {
+    return nodes;
+  }
+  const spellCheckIdx = nodes.findIndex((node) => node.type === "spell-check");
+  if (spellCheckIdx <= 0) return nodes;
+  const out = [...nodes];
+  const [spellCheck] = out.splice(spellCheckIdx, 1);
+  out.unshift(spellCheck!);
+  console.log(
+    `🎮 [activity-plan] repaired spelling node order child=${childId} first=spell-check before=word-radar`,
+  );
+  return out;
+}
+
+function activityNodeForMapNode(
+  node: NodeConfig,
+  idx: number,
+  evidence: DomainEvidence,
+): ActivityPlanNode {
+  const highConfidenceSpelling = evidenceIsHighConfidenceSpelling(evidence);
+  const baselineSpellCheck = highConfidenceSpelling && idx === 0 && node.type === "spell-check";
+  const letterRushEvaluator =
+    node.type === "letter-rush" &&
+    (
+      node.activityConfigPath?.includes("baseline") ||
+      node.activityConfigPath?.includes("mastery")
+    );
+  const toolId = baselineSpellCheck ? "spelling-recall" : node.type;
+  const purpose =
+    baselineSpellCheck
+      ? "evaluate"
+      : node.type === "concept-check"
+        ? "evaluate"
+        : letterRushEvaluator
+        ? "evaluate"
+        : node.type === "letter-rush"
+          ? "practice"
+          : node.type === "word-radar" || node.type === "wheel-of-fortune"
+            ? "practice"
+            : node.type === "mystery"
+              ? "reward"
+              : node.type === "karaoke" || node.type === "word-builder" || node.type === "pronunciation"
+                ? "guided-practice"
+                : node.type === "spell-check"
+                  ? "evaluate"
+                  : node.type;
+
+  return {
+    id: node.id,
+    toolId,
+    purpose,
+    writesMasteryEvidence: baselineSpellCheck || letterRushEvaluator ? true : undefined,
+    emitsPerTargetResults:
+      baselineSpellCheck ||
+      node.type === "concept-check" ||
+      node.type === "letter-rush" ||
+      node.type === "word-radar" ||
+      node.type === "spell-check" ||
+      node.type === "word-builder" ||
+      node.type === "pronunciation" ||
+      node.type === "wheel-of-fortune",
+  };
+}
+
+function logActivityPlanValidation(
+  childId: string,
+  validation: ActivityPlanValidationResult,
+): void {
+  for (const warning of validation.warnings) {
+    console.warn(
+      `🎮 [activity-plan] warning child=${childId} code=${warning.code} node=${warning.nodeId ?? "plan"} tool=${warning.toolId ?? "plan"} recommendation=${warning.recommendation ?? "none"}`,
+    );
+  }
+  for (const blocker of validation.blockers) {
+    console.error(
+      `🔴 [activity-plan] blocker child=${childId} code=${blocker.code} node=${blocker.nodeId ?? "plan"} tool=${blocker.toolId ?? "plan"} recommendation=${blocker.recommendation ?? "none"}`,
+    );
+  }
+}
+
+function validateHomeworkMapActivityPlan(
+  childId: string,
+  hw: HomeworkForActivityValidation,
+  nodes: NodeConfig[],
+): NodeConfig[] {
+  const evidence = homeworkDomainEvidence(hw);
+  const repaired = repairHomeworkNodesForActivityPlan(childId, nodes, evidence);
+  const validation = validateActivityPlan({
+    learnerState: "unknown",
+    domainEvidence: evidence,
+    nodes: repaired.map((node, idx) => activityNodeForMapNode(node, idx, evidence)),
+  });
+  logActivityPlanValidation(childId, validation);
+  if (!validation.ok) {
+    throw new MapSessionError(
+      `activity_plan_blocked: ${validation.blockers.map((finding) => finding.code).join(", ")}`,
+      422,
+    );
+  }
+  return repaired;
 }
 
 function onboardingNodeToMapNode(
@@ -1110,7 +1406,7 @@ export async function startMapSession(
     ordered.forEach((node, i) => {
       node.isGoal = i === ordered.length - 1;
     });
-    nodes = ordered;
+    nodes = validateHomeworkMapActivityPlan(profile.childId, hw, ordered);
   } else {
     nodes = await buildNodeList(profile, theme);
   }
@@ -1181,6 +1477,7 @@ function currentNode(state: MapState): NodeConfig | undefined {
 
 function isAttentionScreeningNodeType(type: string): boolean {
   return type === "bubble-pop" ||
+    type === "cpt-low-reward" ||
     type === "fish-flanker" ||
     type === "target-blaster" ||
     type === "hero-shield";
@@ -1385,6 +1682,63 @@ function appendMapSessionNote(
   }
 }
 
+function appendActivityResultFlightRecorder(input: {
+  childId: string;
+  sessionDate: string;
+  sessionId: string;
+  node: NodeConfig;
+  result: NodeResult;
+}): void {
+  if (process.env.VITEST && !process.env.SUNNY_ACTIVITY_RESULT_LOG_ROOT) {
+    return;
+  }
+  try {
+    const dateStr = input.sessionDate.slice(0, 10);
+    const root =
+      process.env.SUNNY_ACTIVITY_RESULT_LOG_ROOT ||
+      path.join(process.cwd(), "src", "context");
+    const dir = path.join(
+      root,
+      input.childId,
+      "activity_results",
+    );
+    fs.mkdirSync(dir, { recursive: true });
+    const row = {
+      type: "activity_node_result",
+      version: 1,
+      recordedAt: new Date().toISOString(),
+      sessionId: input.sessionId,
+      childId: input.childId,
+      sessionDate: input.sessionDate,
+      nodeId: input.result.nodeId,
+      nodeType: input.node.type,
+      activityId: input.result.activityId ?? input.node.type,
+      purpose: input.result.purpose ?? null,
+      mode: input.result.mode ?? null,
+      activityConfigPath: input.node.activityConfigPath ?? null,
+      completed: input.result.completed,
+      accuracy: input.result.accuracy,
+      timeSpent_ms: input.result.timeSpent_ms,
+      wordsAttempted: input.result.wordsAttempted,
+      missedWords: input.result.missedWords ?? [],
+      correctWords: input.result.correctWords ?? [],
+      targetResults: input.result.targetResults ?? [],
+      bonusRound: input.result.bonusRound ?? null,
+      letterResults: input.result.letterResults ?? [],
+    };
+    fs.appendFileSync(
+      path.join(dir, `${dateStr}.ndjson`),
+      `${JSON.stringify(row)}\n`,
+      "utf-8",
+    );
+    console.log(
+      `  🎮 [activity-results] recorded ${input.node.type} ${input.result.nodeId} targets=${row.targetResults.length}`,
+    );
+  } catch (err) {
+    console.error("  🔴 [activity-results] record failed:", err);
+  }
+}
+
 export async function applyNodeResult(
   sessionId: string,
   result: NodeResult,
@@ -1525,33 +1879,9 @@ export async function applyNodeResult(
     }
   }
 
-  if (nodeCfg.type !== "spell-check" && !isAttentionScreeningNodeType(nodeCfg.type)) {
-    const pool =
-      nodeCfg.words && nodeCfg.words.length > 0
-        ? nodeCfg.words
-        : null;
-    if (pool) {
-      const nAttempt = Math.max(0, Math.floor(result.wordsAttempted));
-      const count = Math.min(nAttempt, pool.length);
-      for (let i = 0; i < count; i++) {
-        const word = pool[i]!;
-        const correct = result.completed && result.accuracy >= 0.5;
-        try {
-          recordLearningAttempt({
-            childId: st.childId,
-            target: word,
-            domain: "spelling",
-            correct,
-            quality: (correct ? 4 : 2) as ChildQuality,
-            scaffoldLevel: 2,
-            responseTimeMs: result.timeSpent_ms,
-            sessionId: sessionId,
-          });
-        } catch (err) {
-          console.error("  🔴 [map-coordinator] recordAttempt failed:", err);
-        }
-      }
-    }
+  const skippedPracticeNodeIds = retargetFuturePracticeNodes(st.nodes, nodeCfg, result);
+  for (const skippedId of skippedPracticeNodeIds) {
+    if (!st.completedNodes.includes(skippedId)) st.completedNodes.push(skippedId);
   }
 
   if (result.completed) {
@@ -1592,6 +1922,13 @@ export async function applyNodeResult(
   }
 
   if (!skipSessionPersistence) {
+    appendActivityResultFlightRecorder({
+      childId: st.childId,
+      sessionDate: st.sessionDate,
+      sessionId,
+      node: nodeCfg,
+      result,
+    });
     appendMapSessionNote(
       st.childId,
       st.sessionDate,
@@ -1649,9 +1986,7 @@ export async function applyNodeResult(
     }
   }
 
-  if (st.currentNodeIndex < st.nodes.length - 1) {
-    st.currentNodeIndex++;
-  }
+  st.currentNodeIndex = firstIncompleteNodeIndex(st.nodes, new Set(st.completedNodes));
   syncNodeStatuses(st, rec.runtime);
 
   const trigger =

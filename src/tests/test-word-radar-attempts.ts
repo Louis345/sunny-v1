@@ -26,7 +26,7 @@ describe("recordWordRadarAttempts (BUG 3)", () => {
     expect(mockRecordLearningAttempt).toHaveBeenCalledTimes(2);
   });
 
-  it("passes correct:true and quality:5 for correct words", () => {
+  it("records correct Word Radar words as scaffolded practice, not unscaffolded mastery", () => {
     recordWordRadarAttempts("ila", [
       { item: { display: "fast" }, correct: true, responseTime_ms: 500 },
     ]);
@@ -35,8 +35,8 @@ describe("recordWordRadarAttempts (BUG 3)", () => {
       target: "fast",
       domain: "spelling",
       correct: true,
-      quality: 5,
-      scaffoldLevel: 0,
+      quality: 3,
+      scaffoldLevel: 2,
       responseTimeMs: 500,
     });
   });
@@ -51,7 +51,7 @@ describe("recordWordRadarAttempts (BUG 3)", () => {
       domain: "spelling",
       correct: false,
       quality: 1,
-      scaffoldLevel: 0,
+      scaffoldLevel: 2,
       responseTimeMs: undefined,
     });
   });

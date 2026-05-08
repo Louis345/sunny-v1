@@ -12,6 +12,7 @@ import {
   WORD_BUILDER_ROUND_FAILED,
   WORD_BUILDER_SESSION_COMPLETE,
 } from "../agents/prompts";
+import { buildFlowGameEventFields } from "./flow-game-debug";
 
 export const WB_ACTIVITY_MS = 90_000;
 
@@ -172,6 +173,16 @@ export function handleGameEventForSession(
   }
 
   const type = event.type as string;
+
+  if (
+    type === "combo_breaker" ||
+    type === "pronunciation_hit" ||
+    type === "pronunciation_miss" ||
+    type === "voice_control" ||
+    type === "game_state_update"
+  ) {
+    s.recordDebugEvent?.("flow_game", type, buildFlowGameEventFields(event));
+  }
 
   if (type === "voice_control") {
     const voiceEnabled = event.voiceEnabled === true;

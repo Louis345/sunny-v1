@@ -132,8 +132,11 @@ export type PronunciationCompleteResult = {
   wordsHit: number;
   wordsAttempted: number;
   accuracy: number;
+  totalWords: number;
+  correctCount: number;
   flaggedWords: string[];
   xpEarned: number;
+  bestStreak: number;
 };
 
 export interface PronunciationGameCanvasProps {
@@ -270,6 +273,7 @@ export function PronunciationGameCanvas({
   const hitsRef = useRef(0);
   const wordsAttemptedRef = useRef(0);
   const xpRef = useRef(0);
+  const bestStreakRef = useRef(0);
   const flaggedWordsRef = useRef<string[]>([]);
   const missCountByWordRef = useRef<Map<string, number>>(new Map());
   const bonusWordIndexRef = useRef<number | null>(null);
@@ -351,6 +355,7 @@ export function PronunciationGameCanvas({
     hitsRef.current = hits;
     wordsAttemptedRef.current = wordsAttempted;
     xpRef.current = xp;
+    bestStreakRef.current = bestStreak;
     flaggedWordsRef.current = flaggedWords;
   });
 
@@ -503,16 +508,20 @@ export function PronunciationGameCanvas({
     const h = hitsRef.current;
     const wa = wordsAttemptedRef.current;
     const x = xpRef.current;
+    const bs = bestStreakRef.current;
     const fw = flaggedWordsRef.current;
     const acc = wa > 0 ? Math.round((h / wa) * 100) : 0;
     onComplete?.({
       wordsHit: h,
       wordsAttempted: wa,
       accuracy: acc,
+      totalWords: words.length,
+      correctCount: h,
       flaggedWords: [...fw],
       xpEarned: x,
+      bestStreak: bs,
     });
-  }, [onComplete]);
+  }, [onComplete, words.length]);
 
   useEffect(() => {
     if (!ended) return;
@@ -542,6 +551,18 @@ export function PronunciationGameCanvas({
     missCountByWordRef.current.set(w, newCount);
     playMissBuzz(newCount);
     const seq = (missSeqRef.current += 1);
+    sendMessage("game_event", {
+      event: {
+        type: "pronunciation_miss",
+        payload: {
+          game: "pronunciation",
+          word: w,
+          wordIndex: wordIndexRef.current,
+          attempt: newCount,
+        },
+        version: "1.0",
+      },
+    });
     setMissSeq(seq);
     setShowWrongBadge(true);
     setBlockPhase("miss");
@@ -694,6 +715,7 @@ export function PronunciationGameCanvas({
     // Record the interim at hit time so debounce can ignore stale values
     lastHitInterimRef.current = interimRef.current.trim();
     const hitWordIndex = advancedTo - 1;
+    const hitWord = words[hitWordIndex] ?? "";
     const wasBonusHit = bonusWordIndexRef.current === hitWordIndex;
     if (wasBonusHit) {
       bonusWordIndexRef.current = null;
@@ -711,6 +733,19 @@ export function PronunciationGameCanvas({
         setHitStreak((hs) => {
           const nhs = hs + 1;
           const earnedXp = scoreForHit(nhs, ns) * (wasBonusHit ? 2 : 1);
+          sendMessage("game_event", {
+            event: {
+              type: "pronunciation_hit",
+              payload: {
+                game: "pronunciation",
+                word: hitWord,
+                wordIndex: hitWordIndex,
+                streak: ns,
+                bonusMultiplier: wasBonusHit ? 2 : 1,
+              },
+              version: "1.0",
+            },
+          });
           setLastHitXp(earnedXp);
           setLastHitWasBonus(wasBonusHit);
           setXp((x) => x + earnedXp);

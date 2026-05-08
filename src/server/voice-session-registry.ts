@@ -41,6 +41,10 @@ export function __resetVoiceSessionRegistryForTests(): void {
  */
 export interface VoiceSessionManagerHandle {
   noteExternalEvent(event: unknown): void;
+  speakGameNarration?: (
+    text: string,
+    metadata?: Record<string, unknown>,
+  ) => Promise<void> | void;
   end?: () => Promise<void>;
 }
 
@@ -71,11 +75,18 @@ export function getActiveVoiceSessionManagerForChild(
 
 export async function endActiveVoiceSessions(): Promise<void> {
   const sessions = [...new Set(activeVoiceSessionManagerByChildId.values())];
-  await Promise.all(
+  const results = await Promise.allSettled(
     sessions.map(async (session) => {
-      if (typeof session.end === "function") {
-        await session.end();
-      }
+      if (typeof session.end !== "function") return;
+      await session.end();
     }),
   );
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      console.error(
+        `  🔴 [session-end] shutdown finalizer failed index=${index}`,
+        result.reason,
+      );
+    }
+  });
 }

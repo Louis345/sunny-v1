@@ -18,6 +18,17 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 
+export async function finalizePendingSessionEnd(session: any): Promise<boolean> {
+  const request = session.pendingSessionEndRequest;
+  if (!request) return false;
+  session.pendingSessionEndRequest = null;
+  console.log(
+    `  🎮 [session-end] deferred_finalize child=${request.childName ?? "unknown"} reason=${request.reason ?? "tool_call"}`,
+  );
+  await session.end();
+  return true;
+}
+
 export async function runCompanionResponseForSession(
   session: any,
   userMessage: string,
@@ -549,6 +560,10 @@ export async function runCompanionResponseForSession(
         { role: "assistant", content: fullResponse },
       );
       session.recordDebugTranscript?.("assistant", fullResponse);
+
+      if (await finalizePendingSessionEnd(session)) {
+        return;
+      }
 
       if (checkAssistantGoodbye(fullResponse)) {
         console.log("  👋 Companion said goodbye");

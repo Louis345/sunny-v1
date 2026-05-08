@@ -86,9 +86,15 @@ export function resolveSpellingWordListForHomework(opts: {
   worksheetMode: boolean;
   extractSpellingWords: boolean;
   pendingWordList?: string[] | null;
+  pendingNodes?: Array<{ type?: string; words?: string[] }> | null;
   rawContent: string;
 }): string[] {
   if (opts.worksheetMode || !opts.extractSpellingWords) return [];
+  const firstSpellingNodeWords = (opts.pendingNodes ?? [])
+    .find((node) => node.type === "letter-rush" || node.type === "spell-check")
+    ?.words?.map((x) => String(x).trim())
+    .filter(Boolean) ?? [];
+  if (firstSpellingNodeWords.length > 0) return firstSpellingNodeWords;
   const pending = (opts.pendingWordList ?? []).map((x) => String(x).trim()).filter(Boolean);
   if (pending.length > 0) return pending;
   return extractWordsFromHomework(opts.rawContent);
@@ -673,6 +679,7 @@ export async function runSessionStart(
           worksheetMode: session.worksheetMode,
           extractSpellingWords,
           pendingWordList: sessionLearningProfile?.pendingHomework?.wordList,
+          pendingNodes: sessionLearningProfile?.pendingHomework?.nodes,
           rawContent: homeworkPayload.rawContent,
         });
         if (!session.worksheetMode && extractSpellingWords && wordList.length > 0) {
@@ -1013,7 +1020,9 @@ This is a safe space to test everything.
       console.log(
         `  ⏰ Session timeout reached (${Math.round((Date.now() - session.sessionStartTime) / 60000)} min wall)`,
       );
-      session.end();
+      void session.end().catch((err) => {
+        console.error("  🔴 [session-end] timeout finalizer failed:", err);
+      });
     });
 
     resetMathProbeSession(session.childName);
