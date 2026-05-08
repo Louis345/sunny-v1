@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyHomeworkClarificationAnswer,
   buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
   buildDynamicContentBrief,
   buildVariableRewardPlan,
+  interpretHomeworkAssignment,
   normalizeContentProfile,
   recommendBaselineActivities,
 } from "../scripts/contentAwareHomeworkPlanner";
@@ -93,6 +95,253 @@ describe("content-aware homework planner", () => {
     expect(captured.contentProfile.topic).toBe("erosion");
     expect(captured.contentProfile.sourceEvidence).toContain(
       "Teacher page says water carries soil downhill.",
+    );
+  });
+
+  it("preserves worksheet word groups so high-frequency words are not flattened into spelling production", () => {
+    const interpretation = interpretHomeworkAssignment({
+      title: "Benchmark Advance Spelling Unit 9 Week 1",
+      type: "spelling_test",
+      words: [
+        "shiny",
+        "slowly",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "behind",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole",
+      ],
+      questions: [],
+      wordGroups: [
+        {
+          id: "y-ly-spelling",
+          label: "Words with -y or -ly Endings",
+          purpose: "spell_from_memory",
+          words: [
+            "shiny",
+            "slowly",
+            "lucky",
+            "neatly",
+            "sunny",
+            "likely",
+            "messy",
+            "quickly",
+            "rainy",
+            "friendly",
+          ],
+          confidence: 0.94,
+          evidence: ["Left column header: 'Words with -y or -ly Endings'"],
+        },
+        {
+          id: "high-frequency",
+          label: "High-Frequency Words",
+          purpose: "read_fluently",
+          words: [
+            "able",
+            "behind",
+            "carefully",
+            "common",
+            "easy",
+            "fact",
+            "remember",
+            "sure",
+            "vowel",
+            "whole",
+          ],
+          confidence: 0.88,
+          evidence: ["Right column header: 'High-Frequency Words'"],
+          scheduleAfter: "spelling_measured",
+        },
+      ],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "Words with -y or -ly Endings and High-Frequency Words",
+        primarySkill: "Spelling words with -y and -ly endings; recognizing high-frequency words",
+        assignmentFormat: "Spelling word list with writing practice lines",
+        concepts: [
+          "Adjectives ending in -y",
+          "Adverbs ending in -ly",
+          "High-frequency sight words",
+          "Word spelling patterns",
+        ],
+        sourceEvidence: [
+          "Left column header: 'Words with -y or -ly Endings'",
+          "Right column header: 'High-Frequency Words'",
+          "Words like 'shiny', 'slowly', 'lucky', 'neatly' show -y/-ly pattern",
+          "High-frequency words include 'able', 'behind', 'common', 'easy', 'fact', 'remember', 'sure', 'vowel', 'whole'",
+        ],
+      },
+    });
+
+    const spellingGroup = interpretation.wordGroups.find((group) => group.purpose === "spell_from_memory");
+    const highFrequencyGroup = interpretation.wordGroups.find((group) => group.label === "High-Frequency Words");
+
+    expect(spellingGroup?.words).toEqual([
+      "shiny",
+      "slowly",
+      "lucky",
+      "neatly",
+      "sunny",
+      "likely",
+      "messy",
+      "quickly",
+      "rainy",
+      "friendly",
+    ]);
+    expect(highFrequencyGroup).toMatchObject({
+      purpose: "read_fluently",
+      scheduleAfter: "spelling_measured",
+    });
+    expect(highFrequencyGroup?.words).toEqual([
+      "able",
+      "behind",
+      "carefully",
+      "common",
+      "easy",
+      "fact",
+      "remember",
+      "sure",
+      "vowel",
+      "whole",
+    ]);
+    expect(interpretation.assertions.map((assertion) => assertion.id)).toContain(
+      "high-frequency-source-interpretation",
+    );
+    expect(interpretation.status).toBe("ready");
+    expect(interpretation.clarificationQuestions).toEqual([]);
+  });
+
+  it("asks for human clarification instead of flattening ambiguous spelling words", () => {
+    const interpretation = interpretHomeworkAssignment({
+      title: "Weekly Words",
+      type: "spelling_test",
+      words: ["shiny", "slowly", "able", "behind"],
+      questions: [],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "Weekly Words",
+        primarySkill: "unknown word practice",
+        assignmentFormat: "word list",
+        concepts: [],
+        sourceEvidence: ["The worksheet only shows a word list; directions were not captured."],
+      },
+    });
+
+    expect(interpretation.status).toBe("needs_clarification");
+    expect(interpretation.selectedTargets).toEqual([]);
+    expect(interpretation.heldTargets[0]).toMatchObject({
+      purpose: "unknown",
+      words: ["shiny", "slowly", "able", "behind"],
+    });
+    expect(interpretation.clarificationQuestions[0]).toMatchObject({
+      id: "clarify-weekly-words-purpose",
+      targetGroupIds: ["weekly-words"],
+    });
+
+    const nodes = buildContentAwareHomeworkNodes({
+      homeworkId: "hw-ambiguous-spelling",
+      childId: isolatedChildId,
+      type: "spelling_test",
+      words: ["shiny", "slowly", "able", "behind"],
+      contentProfile: normalizeContentProfile({
+        title: "Weekly Words",
+        type: "spelling_test",
+        words: ["shiny", "slowly", "able", "behind"],
+        questions: [],
+        contentProfile: {
+          practiceDomain: "spelling",
+          contentDomain: "language_arts",
+          topic: "Weekly Words",
+          primarySkill: "unknown word practice",
+          assignmentFormat: "word list",
+          concepts: [],
+          sourceEvidence: ["The worksheet only shows a word list; directions were not captured."],
+        },
+      }),
+    });
+
+    expect(nodes.filter((node) => node.type === "letter-rush")).toEqual([]);
+  });
+
+  it("applies parent clarification and replans from the confirmed target purpose", () => {
+    const interpretation = interpretHomeworkAssignment({
+      title: "Weekly Words",
+      type: "spelling_test",
+      words: ["shiny", "slowly", "able", "behind"],
+      questions: [],
+    });
+
+    const clarified = applyHomeworkClarificationAnswer(interpretation, {
+      questionId: "clarify-weekly-words-purpose",
+      answer: "spell_from_memory",
+      answeredBy: "parent",
+      answeredAt: "2026-05-08T00:00:00.000Z",
+    });
+
+    expect(clarified.status).toBe("human_confirmed");
+    expect(clarified.humanAnswers).toHaveLength(1);
+    expect(clarified.selectedTargets[0]).toMatchObject({
+      purpose: "spell_from_memory",
+      words: ["shiny", "slowly", "able", "behind"],
+      confidence: 0.99,
+    });
+    expect(clarified.clarificationQuestions).toEqual([]);
+  });
+
+  it("records memory matches so confirmed worksheet patterns ask for less help later", () => {
+    const interpretation = interpretHomeworkAssignment({
+      title: "Benchmark Advance Spelling Unit 9 Week 1",
+      type: "spelling_test",
+      words: ["shiny", "slowly", "able", "behind"],
+      questions: [],
+      wordGroups: [
+        {
+          id: "y-ly-spelling",
+          label: "Words with -y or -ly Endings",
+          purpose: "spell_from_memory",
+          words: ["shiny", "slowly"],
+          confidence: 0.78,
+          evidence: ["Left column header matched prior parent-confirmed worksheet pattern."],
+        },
+        {
+          id: "high-frequency",
+          label: "High-Frequency Words",
+          purpose: "read_fluently",
+          words: ["able", "behind"],
+          confidence: 0.76,
+          evidence: ["Right column header matched prior parent-confirmed worksheet pattern."],
+          scheduleAfter: "spelling_measured",
+        },
+      ],
+      interpretationMemoryMatches: [
+        {
+          patternKey: "benchmark-advance-y-ly-high-frequency",
+          confirmedAt: "2026-05-08T00:00:00.000Z",
+          useCount: 2,
+          confidenceBoost: 0.12,
+          evidence: ["Parent confirmed the same two-column pattern before."],
+        },
+      ],
+    });
+
+    expect(interpretation.status).toBe("ready");
+    expect(interpretation.memoryMatches[0]?.patternKey).toBe(
+      "benchmark-advance-y-ly-high-frequency",
     );
   });
 
@@ -395,33 +644,52 @@ describe("content-aware homework planner", () => {
   });
 
   it("creates a karaoke concept-builder before spelling drills for erosion spelling homework", () => {
+    const contentProfile = normalizeContentProfile({
+      title: "Erosion spelling",
+      type: "spelling_test",
+      words: ["faster", "fastest", "slower", "slowest", "covered"],
+      questions: [],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "science",
+        topic: "erosion",
+        primarySkill: "comparative_and_superlative_adjectives",
+        assignmentFormat: "picture_code_decode",
+        concepts: ["erosion", "water", "wind", "rocks", "soil"],
+      },
+    });
     const nodes = buildContentAwareHomeworkNodes({
       homeworkId: "hw-spelling_test-erosion",
       childId: isolatedChildId,
       type: "spelling_test",
       words: ["faster", "fastest", "slower", "slowest", "covered"],
       testDate: "2026-05-06",
-      contentProfile: normalizeContentProfile({
+      contentProfile,
+      capturedContent: buildCapturedHomeworkContent({
         title: "Erosion spelling",
         type: "spelling_test",
+        rawText: "Picture code spelling practice for erosion words.",
         words: ["faster", "fastest", "slower", "slowest", "covered"],
         questions: [],
-        contentProfile: {
-          practiceDomain: "spelling",
-          contentDomain: "science",
-          topic: "erosion",
-          primarySkill: "comparative_and_superlative_adjectives",
-          assignmentFormat: "picture_code_decode",
-          concepts: ["erosion", "water", "wind", "rocks", "soil"],
-        },
+        wordGroups: [
+          {
+            id: "erosion-spelling-production",
+            label: "Erosion spelling words",
+            purpose: "spell_from_memory",
+            words: ["faster", "fastest", "slower", "slowest", "covered"],
+            confidence: 0.91,
+            evidence: ["AI interpretation: picture code page asks for spelling production."],
+          },
+        ],
+        contentProfile,
       }),
     });
 
     expect(nodes.map((n) => n.type)).toEqual([
       "karaoke",
-      "word-radar",
-      "spell-check",
-      "wheel-of-fortune",
+      "letter-rush",
+      "letter-rush",
+      "letter-rush",
     ]);
     expect(nodes[0]?.storyText?.toLowerCase()).toContain("erosion");
     expect(nodes[0]?.storyText?.toLowerCase()).toContain("water");
@@ -434,6 +702,138 @@ describe("content-aware homework planner", () => {
       "slowest",
       "covered",
     ]);
+    expect(nodes[1]?.activityConfigPath).toBe(
+      "/api/activity-config/qa_content_planner/hw-spelling_test-erosion/letter-rush-baseline.json",
+    );
+    expect((nodes[1]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
+      "type-and-spell",
+    );
+    expect((nodes[2]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
+      "trap-the-imposter",
+    );
+    expect((nodes[3]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
+      "mastery-run",
+    );
+  });
+
+  it("uses only spelling-production words for Letter Rush and holds high-frequency words for later recognition", () => {
+    const capturedContent = buildCapturedHomeworkContent({
+      title: "Benchmark Advance Spelling Unit 9 Week 1",
+      type: "spelling_test",
+      rawText: "",
+      words: [
+        "shiny",
+        "slowly",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "behind",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole",
+      ],
+      questions: [],
+      wordGroups: [
+        {
+          id: "y-ly-spelling",
+          label: "Words with -y or -ly Endings",
+          purpose: "spell_from_memory",
+          words: [
+            "shiny",
+            "slowly",
+            "lucky",
+            "neatly",
+            "sunny",
+            "likely",
+            "messy",
+            "quickly",
+            "rainy",
+            "friendly",
+          ],
+          confidence: 0.94,
+          evidence: ["Left column header: 'Words with -y or -ly Endings'"],
+        },
+        {
+          id: "high-frequency",
+          label: "High-Frequency Words",
+          purpose: "read_fluently",
+          words: [
+            "able",
+            "behind",
+            "carefully",
+            "common",
+            "easy",
+            "fact",
+            "remember",
+            "sure",
+            "vowel",
+            "whole",
+          ],
+          confidence: 0.88,
+          evidence: ["Right column header: 'High-Frequency Words'"],
+          scheduleAfter: "spelling_measured",
+        },
+      ],
+      contentProfile: normalizeContentProfile({
+        title: "Benchmark Advance Spelling Unit 9 Week 1",
+        type: "spelling_test",
+        words: [],
+        questions: [],
+        contentProfile: {
+          practiceDomain: "spelling",
+          contentDomain: "language_arts",
+          topic: "Words with -y or -ly Endings and High-Frequency Words",
+          primarySkill: "Spelling words with -y and -ly endings; recognizing high-frequency words",
+          assignmentFormat: "Spelling word list with writing practice lines",
+          concepts: ["Adjectives ending in -y", "Adverbs ending in -ly", "High-frequency sight words"],
+          sourceEvidence: [
+            "Left column header: 'Words with -y or -ly Endings'",
+            "Right column header: 'High-Frequency Words'",
+            "High-frequency words include 'able', 'behind', 'common', 'easy', 'fact', 'remember', 'sure', 'vowel', 'whole'",
+          ],
+        },
+      }),
+    });
+
+    const nodes = buildContentAwareHomeworkNodes({
+      homeworkId: "hw-spelling_test-unit9",
+      childId: isolatedChildId,
+      type: "spelling_test",
+      words: capturedContent.words,
+      testDate: "2026-05-08",
+      contentProfile: capturedContent.contentProfile,
+      capturedContent,
+    });
+
+    const letterRushNodes = nodes.filter((node) => node.type === "letter-rush");
+    expect(letterRushNodes[0]?.words).toEqual([
+      "shiny",
+      "slowly",
+      "lucky",
+      "neatly",
+      "sunny",
+    ]);
+    expect(
+      (letterRushNodes[0]?.activityConfig as { words?: Array<{ text?: string }> } | undefined)
+        ?.words?.map((word) => word.text),
+    ).toEqual(["shiny", "slowly", "lucky", "neatly", "sunny"]);
+    expect(letterRushNodes[0]?.adaptivePlan?.heldTargets).toContainEqual(
+      expect.objectContaining({
+        purpose: "read_fluently",
+        words: expect.arrayContaining(["able", "behind", "whole"]),
+      }),
+    );
   });
 
   it("uses Reina profile motivators without allowing generic erosion story mode", () => {
@@ -499,16 +899,24 @@ describe("content-aware homework planner", () => {
 
     expect(storyNode?.type).toBe("karaoke");
     expect(nodes.map((n) => n.type)).toEqual([
-      "word-radar",
+      "concept-check",
       "karaoke",
       "pronunciation",
       "word-builder",
-      "word-radar",
+      "concept-check",
     ]);
     expect(nodes[0]?.carePlan?.role).toBe("baseline-evaluator");
-    expect(nodes[0]?.wordRadarItems?.[0]?.label).toBe("Concept Check");
+    expect(nodes[0]?.activityConfigPath).toBe(
+      "/api/activity-config/reina/hw-reading-erosion-reina/concept-check-baseline.json",
+    );
+    expect((nodes[0]?.activityConfig as { activityId?: string } | undefined)?.activityId).toBe(
+      "concept-check",
+    );
     expect(nodes[3]?.rationale).toMatch(/academic vocabulary/i);
     expect(nodes[4]?.carePlan?.role).toBe("exit-evaluator");
+    expect(nodes[4]?.activityConfigPath).toBe(
+      "/api/activity-config/reina/hw-reading-erosion-reina/concept-check-exit.json",
+    );
     expect(reinaMentions).toBeGreaterThanOrEqual(1);
     expect(story).toMatch(/wind, water, or ice wear away rocks and soil/i);
     expect(story).toMatch(/downhill/i);

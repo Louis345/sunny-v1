@@ -265,8 +265,8 @@ describe("buildHomeworkNodes + SM-2 selection", () => {
       childId: "qa_map",
       testDate: null,
     });
-    const wr = nodes.find((n) => n.type === "word-radar");
-    expect(wr?.words?.includes("faster")).toBe(false);
+    const spellingNode = nodes.find((n) => n.type === "letter-rush");
+    expect(spellingNode?.words?.includes("faster")).toBe(false);
   });
 
   it("buildHomeworkNodes falls back to full wordList only when SM-2 pool is empty", () => {

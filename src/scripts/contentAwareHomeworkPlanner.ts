@@ -9,6 +9,19 @@ import {
   type HomeworkCarePlan,
   type HomeworkCarePlanIntervention,
 } from "../engine/homeworkCarePlan";
+import {
+  buildAdaptiveHomeworkPlan,
+  type AdaptiveHomeworkPlan,
+  type AdaptivePlanNode,
+} from "../engine/adaptiveHomeworkPlan";
+import type {
+  ActivityEvidenceKind,
+  ActivityEngineConfig,
+  LetterRushConfig,
+  LetterRushMode,
+  LetterRushWord,
+} from "../engine/activityEngineConfig";
+import { buildConceptCheckConfigFromCapturedHomework } from "../engine/activityEngineConfig";
 
 export type HomeworkType =
   | "spelling_test"
@@ -42,12 +55,81 @@ export type ContentProfile = {
   sourceEvidence: string[];
 };
 
+export type HomeworkTargetPurpose =
+  | "spell_from_memory"
+  | "recognize"
+  | "read_fluently"
+  | "pronounce"
+  | "define"
+  | "unknown";
+
+export type HomeworkWordGroup = {
+  id: string;
+  label: string;
+  purpose: HomeworkTargetPurpose;
+  words: string[];
+  confidence: number;
+  evidence: string[];
+  scheduleAfter?: "spelling_measured";
+};
+
+export type AssignmentInterpretationStatus =
+  | "ready"
+  | "needs_clarification"
+  | "human_confirmed"
+  | "low_confidence_probe";
+
+export type HomeworkClarificationQuestion = {
+  id: string;
+  prompt: string;
+  options: HomeworkTargetPurpose[];
+  targetGroupIds: string[];
+  reason: string;
+  confidenceBefore: number;
+};
+
+export type HomeworkClarificationAnswer = {
+  questionId: string;
+  answer: HomeworkTargetPurpose;
+  answeredBy: string;
+  answeredAt: string;
+};
+
+export type HomeworkInterpretationMemoryMatch = {
+  patternKey: string;
+  confirmedAt: string;
+  useCount: number;
+  confidenceBoost: number;
+  evidence: string[];
+};
+
+export type HomeworkInterpretationAssertion = {
+  id: string;
+  claim: string;
+  confidence: number;
+  evidence: string[];
+};
+
+export type AssignmentInterpretation = {
+  schemaVersion: 1;
+  status: AssignmentInterpretationStatus;
+  wordGroups: HomeworkWordGroup[];
+  assertions: HomeworkInterpretationAssertion[];
+  selectedTargets: HomeworkWordGroup[];
+  heldTargets: HomeworkWordGroup[];
+  clarificationQuestions: HomeworkClarificationQuestion[];
+  humanAnswers: HomeworkClarificationAnswer[];
+  memoryMatches: HomeworkInterpretationMemoryMatch[];
+};
+
 export type CapturedHomeworkContent = {
   title: string;
   type: HomeworkType;
   rawText: string;
   words: string[];
   questions: unknown[];
+  wordGroups?: HomeworkWordGroup[];
+  assignmentInterpretation?: AssignmentInterpretation;
   sourceDocuments: Array<{
     filename: string;
     mediaType?: string;
@@ -128,6 +210,8 @@ export type PlannedHomeworkNode = {
     | "pronunciation"
     | "karaoke"
     | "word-builder"
+    | "concept-check"
+    | "letter-rush"
     | "quest"
     | "boss"
     | "wheel-of-fortune";
@@ -142,6 +226,11 @@ export type PlannedHomeworkNode = {
   rationale: string;
   gameFile?: string | null;
   storyFile?: string | null;
+  activityId?: string;
+  activityMode?: string;
+  activityConfigPath?: string;
+  activityConfig?: unknown;
+  adaptivePlan?: AdaptiveHomeworkPlan;
   storyText?: string;
   storyTitle?: string;
   storyImagePrompt?: string;
@@ -163,6 +252,8 @@ type NormalizableExtraction = {
   type: HomeworkType | string;
   words: string[];
   questions: unknown[];
+  wordGroups?: HomeworkWordGroup[];
+  interpretationMemoryMatches?: HomeworkInterpretationMemoryMatch[];
   contentProfile?: Partial<ContentProfile> | null;
 };
 
@@ -182,6 +273,202 @@ function evidenceText(extraction: NormalizableExtraction): string {
       .map((q) => JSON.stringify(q))
       .join(" "),
   ].join(" ").toLowerCase();
+}
+
+function normalizeWordKey(word: string): string {
+  return String(word).trim().toLowerCase();
+}
+
+function safeGroupId(label: string, fallback: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || fallback;
+}
+
+function memoryBoost(matches: HomeworkInterpretationMemoryMatch[]): number {
+  return Math.max(0, ...matches.map((match) => Number(match.confidenceBoost) || 0));
+}
+
+function applyInterpretationMemory(
+  groups: HomeworkWordGroup[],
+  matches: HomeworkInterpretationMemoryMatch[],
+): HomeworkWordGroup[] {
+  const boost = memoryBoost(matches);
+  if (boost <= 0) return groups;
+  const evidence = matches.flatMap((match) => match.evidence).slice(0, 3);
+  return groups.map((group) => ({
+    ...group,
+    confidence: Math.min(0.99, group.confidence + boost),
+    evidence: cleanList([...group.evidence, ...evidence]),
+  }));
+}
+
+function clarificationQuestionsFor(
+  groups: HomeworkWordGroup[],
+  spellingDomain: boolean,
+): HomeworkClarificationQuestion[] {
+  if (!spellingDomain) return [];
+  return groups
+    .filter((group) => group.purpose === "unknown" || group.confidence < 0.6 || group.evidence.length === 0)
+    .map((group) => ({
+      id: `clarify-${group.id}-purpose`,
+      prompt: `What should Sunny do with "${group.label}"?`,
+      options: ["spell_from_memory", "read_fluently", "pronounce", "recognize", "define", "unknown"],
+      targetGroupIds: [group.id],
+      reason:
+        group.purpose === "unknown"
+          ? "Sunny could not prove whether this group should be spelled from memory or used for fluency/recognition."
+          : "Sunny has a low-confidence assignment-purpose inference.",
+      confidenceBefore: group.confidence,
+    }));
+}
+
+function statusForInterpretation(args: {
+  selectedTargets: HomeworkWordGroup[];
+  clarificationQuestions: HomeworkClarificationQuestion[];
+  humanAnswers?: HomeworkClarificationAnswer[];
+}): AssignmentInterpretationStatus {
+  if ((args.humanAnswers ?? []).length > 0) return "human_confirmed";
+  if (args.clarificationQuestions.length > 0) {
+    return args.selectedTargets.length > 0 ? "low_confidence_probe" : "needs_clarification";
+  }
+  return "ready";
+}
+
+function buildAssignmentInterpretation(args: {
+  wordGroups: HomeworkWordGroup[];
+  assertions: HomeworkInterpretationAssertion[];
+  spellingDomain: boolean;
+  humanAnswers?: HomeworkClarificationAnswer[];
+  memoryMatches?: HomeworkInterpretationMemoryMatch[];
+}): AssignmentInterpretation {
+  const selectedTargets = args.wordGroups.filter((group) => group.purpose === "spell_from_memory");
+  const heldTargets = args.wordGroups.filter((group) => group.purpose !== "spell_from_memory");
+  const clarificationQuestions = clarificationQuestionsFor(args.wordGroups, args.spellingDomain);
+  return {
+    schemaVersion: 1,
+    status: statusForInterpretation({
+      selectedTargets,
+      clarificationQuestions,
+      humanAnswers: args.humanAnswers,
+    }),
+    wordGroups: args.wordGroups,
+    assertions: args.assertions,
+    selectedTargets,
+    heldTargets,
+    clarificationQuestions,
+    humanAnswers: args.humanAnswers ?? [],
+    memoryMatches: args.memoryMatches ?? [],
+  };
+}
+
+export function interpretHomeworkAssignment(
+  extraction: NormalizableExtraction,
+): AssignmentInterpretation {
+  const words = cleanList(extraction.words);
+  const spellingDomain = practiceDomainFor(String(extraction.type)) === "spelling";
+  const memoryMatches = (extraction.interpretationMemoryMatches ?? []).filter((match) =>
+    String(match?.patternKey ?? "").trim(),
+  );
+  const explicitGroups = applyInterpretationMemory((extraction.wordGroups ?? [])
+    .filter((group) => group && Array.isArray(group.words) && group.words.length > 0)
+    .map((group): HomeworkWordGroup => ({
+      id: group.id || safeGroupId(group.label, "word-group"),
+      label: group.label || group.id || "Word Group",
+      purpose: group.purpose || "unknown",
+      words: cleanList(group.words).filter((word) =>
+        words.some((sourceWord) => normalizeWordKey(sourceWord) === normalizeWordKey(word)),
+      ),
+      confidence: Number.isFinite(Number(group.confidence)) ? Number(group.confidence) : 0.5,
+      evidence: cleanList(group.evidence),
+      ...(group.scheduleAfter ? { scheduleAfter: group.scheduleAfter } : {}),
+    }))
+    .filter((group) => group.words.length > 0), memoryMatches);
+  if (explicitGroups.length > 0) {
+    return buildAssignmentInterpretation({
+      wordGroups: explicitGroups,
+      assertions: explicitGroups.map((group) => ({
+        id: `${group.id}-source-interpretation`,
+        claim: `${group.label} should be treated as ${group.purpose}.`,
+        confidence: group.confidence,
+        evidence: group.evidence.length ? group.evidence : [`Source group ${group.label}`],
+      })),
+      spellingDomain,
+      memoryMatches,
+    });
+  }
+  const sourceEvidence = cleanList(extraction.contentProfile?.sourceEvidence);
+  const wordGroups: HomeworkWordGroup[] = [];
+  const assertions: HomeworkInterpretationAssertion[] = [];
+
+  if (wordGroups.length === 0 && words.length > 0) {
+    const groupId = safeGroupId(extraction.title, "homework-words");
+    wordGroups.push({
+      id: groupId,
+      label: extraction.title || "Homework Words",
+      purpose: "unknown",
+      words,
+      confidence: 0.5,
+      evidence: sourceEvidence.length > 0
+        ? sourceEvidence
+        : ["No explicit source grouping was captured."],
+    });
+    assertions.push({
+      id: "low-confidence-word-group",
+      claim: "The word group needs human clarification or a light probe before aggressive drill.",
+      confidence: 0.5,
+      evidence: sourceEvidence.length > 0
+        ? sourceEvidence
+        : ["No explicit source grouping was captured."],
+    });
+  }
+
+  return buildAssignmentInterpretation({
+    wordGroups,
+    assertions,
+    spellingDomain,
+    memoryMatches,
+  });
+}
+
+export function applyHomeworkClarificationAnswer(
+  interpretation: AssignmentInterpretation,
+  answer: HomeworkClarificationAnswer,
+): AssignmentInterpretation {
+  const question = interpretation.clarificationQuestions.find((item) => item.id === answer.questionId);
+  const targetGroupIds = new Set(
+    question?.targetGroupIds.length ? question.targetGroupIds : interpretation.wordGroups.map((group) => group.id),
+  );
+  const wordGroups = interpretation.wordGroups.map((group) => {
+    if (!targetGroupIds.has(group.id)) return group;
+    return {
+      ...group,
+      purpose: answer.answer,
+      confidence: 0.99,
+      evidence: cleanList([
+        ...group.evidence,
+        `Human clarification by ${answer.answeredBy}: ${answer.answer}`,
+      ]),
+      ...(answer.answer === "spell_from_memory" ? {} : { scheduleAfter: "spelling_measured" as const }),
+    };
+  });
+  const humanAnswers = [...interpretation.humanAnswers, answer];
+  return buildAssignmentInterpretation({
+    wordGroups,
+    assertions: [
+      ...interpretation.assertions,
+      {
+        id: `${answer.questionId}-human-confirmed`,
+        claim: `Human clarified ${question?.targetGroupIds.join(", ") || "homework words"} as ${answer.answer}.`,
+        confidence: 0.99,
+        evidence: [`answeredBy:${answer.answeredBy}`, `answeredAt:${answer.answeredAt}`],
+      },
+    ],
+    spellingDomain: true,
+    humanAnswers,
+    memoryMatches: interpretation.memoryMatches,
+  });
 }
 
 function practiceDomainFor(type: string): PracticeDomain {
@@ -271,6 +558,8 @@ export function buildCapturedHomeworkContent(args: {
   rawText?: string | null;
   words: string[];
   questions: unknown[];
+  wordGroups?: HomeworkWordGroup[];
+  interpretationMemoryMatches?: HomeworkInterpretationMemoryMatch[];
   sourceDocuments?: Array<{
     filename: string;
     mediaType?: string;
@@ -289,12 +578,23 @@ export function buildCapturedHomeworkContent(args: {
     questions,
     contentProfile: args.contentProfile,
   });
+  const assignmentInterpretation = interpretHomeworkAssignment({
+    title: args.title,
+    type,
+    words,
+    questions,
+    wordGroups: args.wordGroups,
+    interpretationMemoryMatches: args.interpretationMemoryMatches,
+    contentProfile,
+  });
   return {
     title: String(args.title ?? "Untitled Homework").trim() || "Untitled Homework",
     type,
     rawText: String(args.rawText ?? "").trim(),
     words,
     questions,
+    wordGroups: assignmentInterpretation.wordGroups,
+    assignmentInterpretation,
     sourceDocuments: cleanSourceDocuments(args.sourceDocuments),
     contentProfile,
   };
@@ -555,10 +855,84 @@ function contentPracticeTerms(profile: ContentProfile, fallbackWords: string[]):
   return terms.slice(0, 5);
 }
 
+function conceptCheckCapturedFallback(args: {
+  profile: ContentProfile;
+  words: string[];
+}): CapturedHomeworkContent {
+  const profile = args.profile;
+  return {
+    title: profile.topic || "homework",
+    type: "reading",
+    rawText: cleanList([
+      profile.topic,
+      ...profile.concepts,
+      ...profile.sourceEvidence,
+      ...args.words,
+    ]).join(". "),
+    words: cleanList([...profile.concepts, ...args.words]),
+    questions: [],
+    sourceDocuments: [],
+    contentProfile: profile,
+  };
+}
+
+function conceptCheckConfigPath(childId: string, homeworkId: string, filename: string): string {
+  return `/api/activity-config/${childId}/${homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-")}/${filename}`;
+}
+
+function buildConceptCheckPlannedNode(args: {
+  childId: string;
+  homeworkId: string;
+  intervention: HomeworkCarePlanIntervention;
+  idSuffix: string;
+  captured: CapturedHomeworkContent;
+  filename: string;
+  difficulty: 1 | 2 | 3;
+}): PlannedHomeworkNode {
+  const nodeId = `n-${args.intervention.id}-${args.idSuffix}`;
+  const config: ActivityEngineConfig = buildConceptCheckConfigFromCapturedHomework({
+    childId: args.childId,
+    homeworkId: args.homeworkId,
+    nodeId,
+    captured: args.captured,
+  });
+  return {
+    id: nodeId,
+    type: "concept-check",
+    words: args.intervention.targetWords,
+    difficulty: args.difficulty,
+    rationale: args.intervention.reason,
+    gameFile: null,
+    storyFile: null,
+    activityId: "concept-check",
+    activityMode: config.engine.mode,
+    activityConfigPath: conceptCheckConfigPath(args.childId, args.homeworkId, args.filename),
+    activityConfig: config,
+    carePlan: {
+      interventionId: args.intervention.id,
+      role: args.intervention.type,
+      targetSkills: args.intervention.targetSkills,
+      targetConcepts: args.intervention.targetConcepts,
+      targetWords: args.intervention.targetWords,
+      algorithmTargets: args.intervention.algorithmTargets,
+      measures: args.intervention.measures,
+      reason: args.intervention.reason,
+    },
+  };
+}
+
 function buildContentSupportNodes(args: {
   carePlan: HomeworkCarePlan;
+  childId: string;
+  homeworkId: string;
+  profile: ContentProfile;
+  capturedContent?: CapturedHomeworkContent;
 }): PlannedHomeworkNode[] {
   const idSuffix = args.carePlan.homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
+  const captured = args.capturedContent ?? conceptCheckCapturedFallback({
+    profile: args.profile,
+    words: args.carePlan.reinforcementWords,
+  });
   return args.carePlan.interventions
     .filter((intervention) => intervention.id !== "story")
     .filter((intervention) =>
@@ -567,12 +941,25 @@ function buildContentSupportNodes(args: {
       ),
     )
     .map((intervention): PlannedHomeworkNode => {
+      if (intervention.type === "baseline-evaluator" || intervention.type === "exit-evaluator") {
+        return buildConceptCheckPlannedNode({
+          childId: args.childId,
+          homeworkId: args.homeworkId,
+          intervention,
+          idSuffix,
+          captured,
+          filename: intervention.type === "baseline-evaluator"
+            ? "concept-check-baseline.json"
+            : "concept-check-exit.json",
+          difficulty: intervention.type === "exit-evaluator" ? 2 : 1,
+        });
+      }
       const words = intervention.targetWords;
       const base = {
         id: `n-${intervention.id}-${idSuffix}`,
         type: intervention.nodeType,
         words,
-        difficulty: intervention.type === "exit-evaluator" ? 2 : 1,
+        difficulty: 1,
         rationale: intervention.reason,
         gameFile: null,
         storyFile: null,
@@ -726,6 +1113,193 @@ function storyEvidenceLines(args: {
   return cleanList(matches).slice(0, 3);
 }
 
+function safeHomeworkId(homeworkId: string): string {
+  return homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
+}
+
+function safeWordId(word: string): string {
+  return word
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "word";
+}
+
+function spellingPatternForWord(word: string): {
+  targetPatterns: string[];
+  imposterChunks: string[];
+  traps: string[];
+} {
+  const lower = word.toLowerCase();
+  const suffixes = ["er", "or", "ar", "ir", "ur", "est", "ed", "ing", "y"];
+  const suffix = suffixes.find((candidate) => lower.endsWith(candidate));
+  if (!suffix) {
+    return {
+      targetPatterns: ["whole-word"],
+      imposterChunks: [],
+      traps: [],
+    };
+  }
+  const vowelFamily = ["er", "or", "ar", "ir", "ur"].filter((chunk) => chunk !== suffix);
+  const comparativeFamily = ["er", "est"].filter((chunk) => chunk !== suffix);
+  const imposterChunks = suffix === "er" || suffix === "or" || suffix === "ar" || suffix === "ir" || suffix === "ur"
+    ? vowelFamily
+    : suffix === "est"
+      ? comparativeFamily
+      : [];
+  return {
+    targetPatterns: [`${suffix}-ending`],
+    imposterChunks,
+    traps: imposterChunks,
+  };
+}
+
+function letterRushWords(words: string[], mode: LetterRushMode): LetterRushWord[] {
+  return words.map((word) => {
+    const patterns = spellingPatternForWord(word);
+    const base: LetterRushWord = {
+      id: safeWordId(word),
+      text: word,
+      definition: "Spell the word you hear.",
+      sentence: "Listen, then choose carefully.",
+      targetPatterns: patterns.targetPatterns,
+    };
+    if (mode === "trap-the-imposter" && patterns.imposterChunks.length > 0) {
+      return {
+        ...base,
+        traps: patterns.traps,
+        imposterChunks: patterns.imposterChunks,
+        trapGoal: Math.min(4, Math.max(2, patterns.imposterChunks.length)),
+      };
+    }
+    return base;
+  });
+}
+
+function letterRushEvidencePolicy(mode: LetterRushMode): LetterRushConfig["evidencePolicy"] {
+  const masteryEligible =
+    mode === "type-and-spell" || mode === "hear-and-spell" || mode === "mastery-run";
+  return {
+    writesPracticeEvidence: true,
+    writesMasteryEvidence: masteryEligible,
+    requiresPerTargetResult: masteryEligible,
+    allowedEvidence: (masteryEligible ? ["practice", "mastery"] : ["practice"]) as ActivityEvidenceKind[],
+  };
+}
+
+function letterRushScaffolds(mode: LetterRushMode): LetterRushConfig["scaffolds"] {
+  if (mode === "trap-the-imposter") {
+    return {
+      showWord: true,
+      letterBank: false,
+      allowRetryBeforeScore: true,
+      companionHints: false,
+    };
+  }
+  if (mode === "read-and-race") {
+    return {
+      showWord: true,
+      letterBank: true,
+      allowRetryBeforeScore: true,
+      companionHints: false,
+    };
+  }
+  return {
+    showWord: false,
+    letterBank: false,
+    allowRetryBeforeScore: false,
+    companionHints: false,
+  };
+}
+
+function buildLetterRushConfig(args: {
+  mode: LetterRushMode;
+  topic: string;
+  words: string[];
+}): LetterRushConfig {
+  const config: LetterRushConfig = {
+    schemaVersion: 1,
+    activityId: "letter-rush",
+    mode: args.mode,
+    topic: args.topic,
+    domain: "spelling",
+    learningGoal: `Build accurate spelling for ${args.topic}.`,
+    gradeBand: "early_elementary",
+    scaffolds: letterRushScaffolds(args.mode),
+    words: letterRushWords(args.words, args.mode),
+    sfx: {
+      enabled: true,
+      arcadeCombos: true,
+      comboThreshold: 3,
+      comboMilestoneEvery: 5,
+      comboMilestones: [
+        { minStreak: 5, label: "COMBO BREAKER", effect: "combo-breaker" },
+        { minStreak: 10, label: "HEATING UP", effect: "heating-up" },
+        { minStreak: 15, label: "ON FIRE", effect: "on-fire" },
+      ],
+    },
+    evidencePolicy: letterRushEvidencePolicy(args.mode),
+  };
+  if (args.mode === "trap-the-imposter") {
+    config.trap = {
+      goal: 4,
+      timerSeconds: 45,
+      imposterSpawnRate: 0.72,
+      maxVisibleChunks: 5,
+      spawnInterval_ms: 950,
+      fallDuration_ms: 5200,
+    };
+    config.bonusRound = {
+      enabled: true,
+      unlockAccuracy: 0.85,
+      unlockStreak: 5,
+      timerSeconds: 20,
+      goal: 3,
+      speedMultiplier: 1.2,
+      stake: 10,
+      multiplier: 2,
+      riskSource: "child_profile_currency",
+    };
+  }
+  return config;
+}
+
+function letterRushConfigPath(childId: string, homeworkId: string, filename: string): string {
+  return `/api/activity-config/${childId}/${safeHomeworkId(homeworkId)}/${filename}`;
+}
+
+export function buildSpellingActivityNodes(args: {
+  childId: string;
+  homeworkId: string;
+  topic: string;
+  selectedWords: string[];
+  difficulty: 1 | 2 | 3;
+  adaptivePlan: AdaptiveHomeworkPlan;
+}): PlannedHomeworkNode[] {
+  const idSuffix = safeHomeworkId(args.homeworkId);
+  return args.adaptivePlan.nodes.map((planNode: AdaptivePlanNode, index): PlannedHomeworkNode => {
+    const mode = (planNode.mode ?? "hear-and-spell") as LetterRushMode;
+    const config = buildLetterRushConfig({
+      mode,
+      topic: args.topic,
+      words: args.selectedWords,
+    });
+    return {
+      id: `n-${planNode.id}-${idSuffix}`,
+      type: "letter-rush",
+      words: [...args.selectedWords],
+      difficulty: index === 0 ? 1 : args.difficulty,
+      rationale: planNode.rationale,
+      gameFile: null,
+      storyFile: null,
+      activityId: planNode.activityId,
+      activityMode: mode,
+      activityConfigPath: letterRushConfigPath(args.childId, args.homeworkId, planNode.configFilename),
+      activityConfig: config,
+      ...(index === 0 ? { adaptivePlan: args.adaptivePlan } : {}),
+    };
+  });
+}
+
 function storyForContent(args: {
   childId: string;
   profile: ContentProfile;
@@ -780,19 +1354,45 @@ function buildSpellingNodes(args: {
   words: string[];
   testDate?: string | null;
   missedWords?: string[];
+  topic?: string;
+  contentProfile?: ContentProfile | null;
+  capturedContent?: CapturedHomeworkContent;
 }): PlannedHomeworkNode[] {
   const childMeta = readChildMeta(args.childId);
+  const letterRushGame = childMeta?.games?.["letter-rush"] as { maxWords?: number } | undefined;
   const maxWords =
+    letterRushGame?.maxWords ??
     childMeta?.games?.["word-radar"]?.maxWords ??
     childMeta?.games?.["spell-check"]?.maxWords ??
     5;
   const today = new Date().toISOString().slice(0, 10);
   const bank = readWordBank(args.childId);
+  const interpretation =
+    args.capturedContent?.assignmentInterpretation ??
+    interpretHomeworkAssignment({
+      title: args.topic ?? "spelling",
+      type: "spelling_test",
+      words: args.words,
+      questions: [],
+      contentProfile: args.contentProfile ?? undefined,
+    });
+  const spellingWordList =
+    interpretation.selectedTargets.flatMap((group) => group.words).length > 0
+      ? interpretation.selectedTargets.flatMap((group) => group.words)
+      : !args.capturedContent && !args.contentProfile
+        ? args.words
+        : [];
+  if (spellingWordList.length === 0) {
+    console.log(
+      ` 🎮 [homework-planner] [clarification-needed] homeworkId=${args.homeworkId} status=${interpretation.status}`,
+    );
+    return [];
+  }
   const sm2Plan = planSession(args.childId, "spelling", {
-    homeworkFallbackWords: args.words,
+    homeworkFallbackWords: spellingWordList,
   });
   const selected = selectHomeworkSessionWords({
-    wordList: args.words,
+    wordList: spellingWordList,
     sm2Plan,
     missedWords: args.missedWords ?? [],
     testDate: args.testDate ?? null,
@@ -801,37 +1401,28 @@ function buildSpellingNodes(args: {
     wordBankWords: bank.words,
     todayIso: today,
   });
-  const idSuffix = args.homeworkId.replace(/[^a-zA-Z0-9-_]/g, "-");
-  return [
-    {
-      id: `n-word-radar-${idSuffix}`,
-      type: "word-radar",
-      words: [...selected],
-      wordRadarItems: wordRadarItemsFromWordList(selected),
-      difficulty: 1,
-      rationale: "Word radar warms up recognition for the spelling-list words.",
-      gameFile: null,
-      storyFile: null,
-    },
-    {
-      id: `n-spell-check-${idSuffix}`,
-      type: "spell-check",
-      words: [...selected],
-      difficulty: 2,
-      rationale: "Spell-check captures spelling production attempts for diagnostics.",
-      gameFile: null,
-      storyFile: null,
-    },
-    {
-      id: `n-wheel-${idSuffix}`,
-      type: "wheel-of-fortune",
-      words: [...selected],
-      difficulty: 2,
-      rationale: "Wheel of Fortune gives competitive retrieval practice with the same list.",
-      gameFile: null,
-      storyFile: null,
-    },
-  ];
+  const topic = args.topic?.trim() || "spelling";
+  const adaptivePlan = buildAdaptiveHomeworkPlan({
+    childId: args.childId,
+    homeworkId: args.homeworkId,
+    type: "spelling_test",
+    topic,
+    words: selected,
+    childSignals: [
+      `maxWords:${maxWords}`,
+      `testImminent:${daysUntilHomeworkTest(args.testDate ?? null, today) <= 5}`,
+      ...interpretation.assertions.map((assertion) => `assignment:${assertion.id}`),
+    ],
+    targetGroups: interpretation.wordGroups,
+  });
+  return buildSpellingActivityNodes({
+    childId: args.childId,
+    homeworkId: args.homeworkId,
+    topic,
+    selectedWords: selected,
+    difficulty: 2,
+    adaptivePlan,
+  });
 }
 
 export function buildContentAwareHomeworkNodes(args: {
@@ -846,7 +1437,7 @@ export function buildContentAwareHomeworkNodes(args: {
 }): PlannedHomeworkNode[] {
   const spellingNodes =
     args.type === "spelling_test"
-      ? buildSpellingNodes(args)
+      ? buildSpellingNodes({ ...args, topic: args.contentProfile?.topic })
       : [];
   const profile = args.contentProfile;
   const hasContentContext =
@@ -883,7 +1474,13 @@ export function buildContentAwareHomeworkNodes(args: {
   return [
     ...(args.type === "spelling_test"
       ? []
-      : buildContentSupportNodes({ carePlan }).filter(
+      : buildContentSupportNodes({
+          carePlan,
+          childId: args.childId,
+          homeworkId: args.homeworkId,
+          profile,
+          capturedContent: args.capturedContent,
+        }).filter(
           (node) => node.carePlan?.role === "baseline-evaluator",
         )),
     {
@@ -912,7 +1509,13 @@ export function buildContentAwareHomeworkNodes(args: {
     },
     ...(args.type === "spelling_test"
       ? []
-      : buildContentSupportNodes({ carePlan }).filter(
+      : buildContentSupportNodes({
+          carePlan,
+          childId: args.childId,
+          homeworkId: args.homeworkId,
+          profile,
+          capturedContent: args.capturedContent,
+        }).filter(
           (node) => node.carePlan?.role !== "baseline-evaluator",
         )),
     ...spellingNodes,

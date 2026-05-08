@@ -7,6 +7,7 @@ import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { buildHomeworkNodes, buildPendingHomeworkPayload, normalizeHomeworkType } from "./ingestHomework";
 import {
+  buildCapturedHomeworkContent,
   normalizeContentProfile,
   type CapturedHomeworkContent,
   type ContentProfile,
@@ -87,14 +88,23 @@ export function selectHomeworkCycle(
   childId: string,
   opts: { domain?: HomeworkDomainFilter } = {},
 ): HomeworkCycle | null {
-  const candidates = readHomeworkCycles(childId).filter((cycle) => matchesDomain(cycle, opts.domain));
+  let candidates = readHomeworkCycles(childId).filter((cycle) => matchesDomain(cycle, opts.domain));
+  if (!opts.domain) {
+    const nonSpellingCandidates = candidates.filter((cycle) => !matchesDomain(cycle, "spelling"));
+    if (nonSpellingCandidates.length > 0) {
+      candidates = nonSpellingCandidates;
+    }
+  }
+  const allExpired = candidates.length > 0 && candidates.every((cycle) => isExpired(cycle));
   const activeCandidates =
-    opts.domain || candidates.every((cycle) => isExpired(cycle))
+    opts.domain || allExpired
       ? candidates
       : candidates.filter((cycle) => !isExpired(cycle));
   activeCandidates.sort((a, b) =>
     opts.domain
       ? ingestedTime(b) - ingestedTime(a) || dueTime(a) - dueTime(b)
+      : allExpired
+        ? dueTime(b) - dueTime(a) || ingestedTime(b) - ingestedTime(a)
       : dueTime(a) - dueTime(b) || ingestedTime(b) - ingestedTime(a),
   );
   return activeCandidates[0] ?? null;
@@ -120,11 +130,15 @@ function capturedContentForCycle(
   contentProfile: ContentProfile | null,
 ): CapturedHomeworkContent | null {
   if (!cycle.capturedContent || !contentProfile) return null;
-  return {
-    ...cycle.capturedContent,
+  return buildCapturedHomeworkContent({
+    title: cycle.capturedContent.title,
     type: homeworkTypeForCycle(cycle),
+    rawText: cycle.capturedContent.rawText,
+    words: cycle.capturedContent.words,
+    questions: cycle.capturedContent.questions,
+    sourceDocuments: cycle.capturedContent.sourceDocuments,
     contentProfile,
-  };
+  });
 }
 
 function updateHomeworkPriorityWords(childId: string, cycle: HomeworkCycle): void {

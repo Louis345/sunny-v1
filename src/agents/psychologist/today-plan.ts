@@ -181,43 +181,6 @@ function pendingHomeworkAnchorActivity(
   };
 }
 
-function planText(activity: TodaysPlanActivity): string {
-  return [
-    activity.activity,
-    activity.reason,
-    activity.method,
-    activity.source,
-    ...(activity.words ?? []),
-    ...(activity.probeSequence ?? []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
-
-function activityMatchesPendingHomework(
-  activity: TodaysPlanActivity,
-  pendingHomework: NonNullable<LearningProfile["pendingHomework"]>,
-): boolean {
-  if (activity.source === "pendingHomework") return true;
-  const captured = pendingHomework.capturedContent ?? null;
-  const profile = pendingHomework.contentProfile ?? captured?.contentProfile ?? null;
-  const signals = [
-    captured?.title,
-    captured?.type,
-    profile?.topic,
-    profile?.practiceDomain,
-    profile?.contentDomain,
-    profile?.primarySkill,
-    ...(profile?.concepts ?? []),
-    ...pendingHomework.wordList,
-  ]
-    .filter((signal): signal is string => Boolean(signal && signal.trim()))
-    .map((signal) => signal.toLowerCase());
-  const text = planText(activity);
-  return signals.some((signal) => signal.length >= 3 && text.includes(signal));
-}
-
 type PendingHomeworkNode = NonNullable<
   LearningProfile["pendingHomework"]
 >["nodes"][number] & {
@@ -310,23 +273,16 @@ export function anchorTodaysPlanToPendingHomework(
     };
   }
 
-  const rest = data.todaysPlan
-    .filter((activity) => activity.source !== "pendingHomework")
-    .map((activity) => {
-      if (activityMatchesPendingHomework(activity, pendingHomework)) return activity;
-      return {
-        ...activity,
-        required: false,
-        skipConditions: activity.skipConditions ?? ["after active homework anchor"],
-      };
-    });
-
   return {
     ...data,
-    todaysPlan: [anchor, ...rest].map((activity, idx) => ({
+    todaysPlan: [anchor].map((activity, idx) => ({
       ...activity,
       priority: idx + 1,
     })),
+    stopAfter:
+      "After the active homework check is complete, or earlier if frustration is rising.",
+    rewardPolicy:
+      "Reward only after the active homework is checked; broader review goals belong in review mode.",
   };
 }
 

@@ -300,16 +300,17 @@ describe("ingestHomework", () => {
     expect(pending.nodes[0]?.gameFile).toBe("quest-2026-04-21.html");
   });
 
-  it("spelling_test merge uses word-radar first, full word list, mandatory quest before boss", () => {
+  it("spelling_test merge uses evaluator-first Letter Rush nodes before quest and boss", () => {
     const words = Array.from({ length: 20 }, (_, i) => `w${i}`);
     const out = mergeNormalizedPlan([], words, 2, {
       homeworkType: "spelling_test",
       daysUntilTest: 5,
     });
-    expect(out[0]?.type).toBe("word-radar");
+    expect(out[0]?.type).toBe("letter-rush");
     expect(out.map((n) => n.type)).toEqual([
-      "word-radar",
-      "spell-check",
+      "letter-rush",
+      "letter-rush",
+      "letter-rush",
       "pronunciation",
       "word-builder",
       "quest",
@@ -319,6 +320,35 @@ describe("ingestHomework", () => {
     const quest = out.find((n) => n.type === "quest");
     expect(quest?.rationale).toContain("AI-generated");
     expect(out[0]?.difficulty).toBe(1);
+    expect((out[0]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
+      "type-and-spell",
+    );
+  });
+
+  it("pending homework payload preserves activity config paths for standalone engines", () => {
+    const pending = buildPendingHomeworkPayload({
+      weekOf: "2026-04-21",
+      testDate: null,
+      wordList: ["farmer"],
+      homeworkId: "hw-spelling-week-5",
+      nodes: [
+        {
+          id: "n-letter-rush-baseline",
+          type: "letter-rush",
+          words: ["farmer"],
+          difficulty: 1,
+          rationale: "baseline",
+          gameFile: null,
+          storyFile: null,
+          activityConfigPath:
+            "/api/activity-config/ila/hw-spelling-week-5/letter-rush-baseline.json",
+        },
+      ],
+    });
+
+    expect(pending.nodes[0]?.activityConfigPath).toBe(
+      "/api/activity-config/ila/hw-spelling-week-5/letter-rush-baseline.json",
+    );
   });
 
   it("boss placeholder appended when plan has no boss node", () => {
@@ -349,7 +379,7 @@ describe("buildHomeworkNodes testDate urgency", () => {
     vi.useRealTimers();
   });
 
-  it("serves all words when test is within 5 days", () => {
+  it("keeps imminent spelling tests in short playable bursts instead of serving all words", () => {
     vi.setSystemTime(new Date(Date.UTC(2026, 3, 26, 12, 0, 0)));
     const testDate = new Date(Date.UTC(2026, 3, 26, 12, 0, 0) + 3 * 86400000).toISOString().slice(0, 10);
     const words = Array.from({ length: 20 }, (_, i) => `word${i}`);
@@ -362,9 +392,11 @@ describe("buildHomeworkNodes testDate urgency", () => {
       testDate,
     });
     expect(nodes.length).toBeGreaterThan(0);
-    expect(nodes.every((n) => n.words.length === 20)).toBe(true);
-    const wr = nodes.find((n) => n.type === "word-radar");
-    expect(wr?.wordRadarItems?.length).toBe(20);
+    expect(nodes.every((n) => n.words.length <= 5)).toBe(true);
+    const baseline = nodes.find((n) => n.type === "letter-rush");
+    expect(
+      (baseline?.activityConfig as { words?: unknown[] } | undefined)?.words?.length,
+    ).toBe(5);
   });
 
   it("caps at maxWords when test is more than 5 days away", () => {
@@ -381,8 +413,10 @@ describe("buildHomeworkNodes testDate urgency", () => {
     });
     const maxWords = 5;
     expect(nodes.every((n) => n.words.length === maxWords)).toBe(true);
-    const wr = nodes.find((n) => n.type === "word-radar");
-    expect(wr?.wordRadarItems?.length).toBe(maxWords);
+    const baseline = nodes.find((n) => n.type === "letter-rush");
+    expect(
+      (baseline?.activityConfig as { words?: unknown[] } | undefined)?.words?.length,
+    ).toBe(maxWords);
   });
 });
 

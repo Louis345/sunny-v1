@@ -25,13 +25,17 @@ import {
 import {
   buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
+  buildSpellingActivityNodes,
+  interpretHomeworkAssignment,
   normalizeContentProfile,
   recommendBaselineActivities,
   type CapturedHomeworkContent,
   type ContentProfile,
   type HomeworkType,
+  type HomeworkWordGroup,
   type PlannedHomeworkNode,
 } from "./contentAwareHomeworkPlanner";
+import { buildAdaptiveHomeworkPlan } from "../engine/adaptiveHomeworkPlan";
 import {
   buildPreviewBoardCommand,
   maybeLaunchPreviewBoard,
@@ -45,6 +49,15 @@ type ExtractionShape = {
   gradeLevel: number;
   testDate: string | null;
   words: string[];
+  wordGroups?: Array<{
+    id: string;
+    label: string;
+    purpose: "spell_from_memory" | "recognize" | "read_fluently" | "pronounce" | "define" | "unknown";
+    words: string[];
+    confidence: number;
+    evidence: string[];
+    scheduleAfter?: "spelling_measured" | null;
+  }>;
   contentProfile: ContentProfile;
   capturedContent: CapturedHomeworkContent;
   contentFingerprint: string;
@@ -122,16 +135,6 @@ const REQUIRED_NODE_ORDER = [
   "boss",
 ] as const;
 
-/** Spelling test: word-radar first, then templates + mandatory AI quest before boss. */
-const SPELLING_TEST_NODE_ORDER = [
-  "word-radar",
-  "spell-check",
-  "pronunciation",
-  "word-builder",
-  "quest",
-  "boss",
-] as const;
-
 const SPELLING_QUEST_RATIONALE =
   "AI-generated game provides fresh dynamic content to complement pre-built template practice";
 
@@ -179,9 +182,43 @@ export function mergeNormalizedPlan(
   opts?: { homeworkType?: HomeworkType; daysUntilTest?: number },
 ): PlannedNode[] {
   const spelling = opts?.homeworkType === "spelling_test";
-  const order = spelling ? SPELLING_TEST_NODE_ORDER : REQUIRED_NODE_ORDER;
-  const allowed = new Set<string>([...order]);
   const spellingDiff = spellingDifficultyFromDaysUntil(opts?.daysUntilTest ?? 4);
+  if (spelling) {
+    const homeworkId = "hw-spelling";
+    const adaptivePlan = buildAdaptiveHomeworkPlan({
+      childId: "unknown",
+      homeworkId,
+      type: "spelling_test",
+      topic: "spelling",
+      words: wordList,
+    });
+    const spellingNodes = buildSpellingActivityNodes({
+      childId: "unknown",
+      homeworkId,
+      topic: "spelling",
+      selectedWords: [...wordList],
+      difficulty: spellingDiff,
+      adaptivePlan,
+    });
+    const supportNodes = (["pronunciation", "word-builder", "quest", "boss"] as const).map(
+      (type, index) => {
+        const created = defaultPlannedNode(
+          type,
+          spellingNodes.length + index + 1,
+          wordList,
+          spellingDiff,
+          true,
+        );
+        if (type === "quest") {
+          return { ...created, rationale: SPELLING_QUEST_RATIONALE };
+        }
+        return created;
+      },
+    );
+    return [...spellingNodes, ...supportNodes];
+  }
+  const order = REQUIRED_NODE_ORDER;
+  const allowed = new Set<string>([...order]);
   const byType = new Map<string, PlannedNode>();
   for (const n of raw) {
     const t = n?.type;
@@ -403,6 +440,7 @@ export function buildPendingHomeworkPayload(args: {
         difficulty: node.difficulty,
         gameFile: homeworkGameBasename(node.gameFile ?? null),
         storyFile: node.storyFile ?? null,
+        activityConfigPath: node.activityConfigPath,
         storyText: node.storyText,
         storyTitle: node.storyTitle,
         storyImagePrompt: node.storyImagePrompt,
@@ -416,6 +454,40 @@ export function buildPendingHomeworkPayload(args: {
       return base;
     }),
   };
+}
+
+export function writeActivityConfigArtifacts(args: {
+  childId: string;
+  homeworkId: string;
+  nodes: PlannedNode[];
+}): string[] {
+  const outDir = path.join(
+    process.cwd(),
+    "src",
+    "context",
+    args.childId,
+    "homework",
+    "games",
+    args.homeworkId,
+  );
+  const written: string[] = [];
+  const adaptivePlan = args.nodes.find((node) => node.adaptivePlan)?.adaptivePlan;
+  if (adaptivePlan) {
+    fs.mkdirSync(outDir, { recursive: true });
+    const planPath = path.join(outDir, "adaptive-session-plan.json");
+    fs.writeFileSync(planPath, JSON.stringify(adaptivePlan, null, 2), "utf8");
+    written.push(planPath);
+  }
+  for (const node of args.nodes) {
+    if (!node.activityConfig || !node.activityConfigPath) continue;
+    const filename = path.basename(node.activityConfigPath);
+    if (!/^[\w.\-]+\.json$/.test(filename)) continue;
+    fs.mkdirSync(outDir, { recursive: true });
+    const configPath = path.join(outDir, filename);
+    fs.writeFileSync(configPath, JSON.stringify(node.activityConfig, null, 2), "utf8");
+    written.push(configPath);
+  }
+  return written;
 }
 
 export function buildHomeworkLearningPlanArtifact(args: {
@@ -542,6 +614,7 @@ export function archiveHomeworkReasoningToHistory(args: {
 async function extractHomework(
   client: Anthropic,
   filePath: string,
+  interpretationMemoryMatches: import("./contentAwareHomeworkPlanner").HomeworkInterpretationMemoryMatch[] = [],
 ): Promise<ExtractionShape> {
   const prompt = `Extract as JSON only:
 {
@@ -550,6 +623,15 @@ async function extractHomework(
   "gradeLevel": number,
   "testDate": string | null,
   "words": string[],
+  "wordGroups": [{
+    "id": string,
+    "label": string,
+    "purpose": "spell_from_memory"|"recognize"|"read_fluently"|"pronounce"|"define"|"unknown",
+    "words": string[],
+    "confidence": number,
+    "evidence": string[],
+    "scheduleAfter": "spelling_measured" | null
+  }],
   "contentProfile": {
     "practiceDomain": "spelling"|"reading"|"math"|"writing"|"generic",
     "contentDomain": "science"|"social_studies"|"language_arts"|"math"|"generic",
@@ -591,6 +673,43 @@ async function extractHomework(
   const parsed = parseExtractedJson(textFromMessage(msg)) as Partial<ExtractionShape>;
   const extractedType = normalizeHomeworkType(String(parsed.type ?? "generic"));
   const words = Array.isArray(parsed.words) ? parsed.words.map((w) => String(w)) : [];
+  const allowedGroupPurposes = new Set([
+    "spell_from_memory",
+    "recognize",
+    "read_fluently",
+    "pronounce",
+    "define",
+    "unknown",
+  ]);
+  const wordGroups: HomeworkWordGroup[] = Array.isArray(parsed.wordGroups)
+    ? parsed.wordGroups.flatMap((group): HomeworkWordGroup[] => {
+        if (!group || typeof group !== "object") return [];
+        const raw = group as {
+          id?: unknown;
+          label?: unknown;
+          purpose?: unknown;
+          words?: unknown;
+          confidence?: unknown;
+          evidence?: unknown;
+          scheduleAfter?: unknown;
+        };
+        const groupWords = Array.isArray(raw.words) ? raw.words.map((word) => String(word)) : [];
+        if (groupWords.length === 0) return [];
+        const rawPurpose = String(raw.purpose ?? "unknown");
+        const purpose = allowedGroupPurposes.has(rawPurpose)
+          ? rawPurpose as HomeworkWordGroup["purpose"]
+          : "unknown";
+        return [{
+          id: String(raw.id ?? raw.label ?? "word-group"),
+          label: String(raw.label ?? raw.id ?? "Word Group"),
+          purpose,
+          words: groupWords,
+          confidence: Number.isFinite(Number(raw.confidence)) ? Number(raw.confidence) : 0.5,
+          evidence: Array.isArray(raw.evidence) ? raw.evidence.map((item) => String(item)) : [],
+          ...(raw.scheduleAfter === "spelling_measured" ? { scheduleAfter: "spelling_measured" as const } : {}),
+        }];
+      })
+    : [];
   const questions = Array.isArray(parsed.questions)
     ? parsed.questions.map((q, idx) => ({
         id: Number((q as { id?: number }).id ?? idx + 1),
@@ -611,6 +730,7 @@ async function extractHomework(
     title,
     type: extractedType,
     words,
+    wordGroups,
     questions,
     contentProfile: parsed.contentProfile,
   });
@@ -635,6 +755,8 @@ async function extractHomework(
     type: normalizedType,
     rawText: sourceText,
     words,
+    wordGroups,
+    interpretationMemoryMatches,
     questions,
     sourceDocuments: [
       {
@@ -715,8 +837,13 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     throw new Error(`Homework file must be a .pdf or .txt file: ${incomingFile}`);
   }
 
+  const existingProfileDoc = readLearningProfile(childId);
   console.log("📄 Step 1/4: Reading homework...");
-  const extracted = await extractHomework(client, incomingFile);
+  const extracted = await extractHomework(
+    client,
+    incomingFile,
+    existingProfileDoc?.homeworkInterpretationMemory ?? [],
+  );
   const testDate = cliTestDate ?? extracted.testDate ?? nextFriday();
   const daysUntilTest = daysUntil(testDate);
   const wordsLine =
@@ -731,6 +858,22 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     JSON.stringify(extracted, null, 2),
     "utf8",
   );
+  fs.writeFileSync(
+    path.join(pendingDir, "assignment-interpretation.json"),
+    JSON.stringify(
+      extracted.capturedContent.assignmentInterpretation ??
+        interpretHomeworkAssignment({
+          title: extracted.title,
+          type: extracted.type,
+          words: extracted.words,
+          questions: extracted.questions,
+          contentProfile: extracted.contentProfile,
+        }),
+      null,
+      2,
+    ),
+    "utf8",
+  );
 
   console.log("");
   console.log("📦 Step 2/4: Seeding word bank and creating cycle record...");
@@ -740,10 +883,16 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   for (const entry of wordBank.words) {
     entry.homeworkPriority = false;
   }
+  const groups = extracted.capturedContent.assignmentInterpretation?.wordGroups ?? [];
+  const groupForWord = (word: string) => groups.find((group) =>
+    group.words.some((candidate) => candidate.toLowerCase() === word.toLowerCase()),
+  );
   for (const raw of extracted.words) {
     const word = String(raw ?? "").trim();
     if (!word) continue;
     const lower = word.toLowerCase();
+    const sourceGroup = groupForWord(word);
+    const purpose = sourceGroup?.purpose ?? "spell_from_memory";
     let entry = wordBank.words.find((w) => w.word.toLowerCase() === lower);
     if (!entry) {
       entry = {
@@ -754,12 +903,17 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
       };
       wordBank.words.push(entry);
     }
-    entry.homeworkPriority = true;
+    entry.homeworkPriority = purpose === "spell_from_memory";
     entry.testDate = testDate;
-    if (!entry.tracks.spelling) {
+    entry.homeworkTargetPurpose = purpose;
+    entry.homeworkSourceGroup = sourceGroup?.label;
+    if (purpose === "spell_from_memory" && !entry.tracks.spelling) {
       entry.tracks.spelling = createFreshSM2Track(today);
     }
-    const st = entry.tracks.spelling;
+    if (purpose !== "spell_from_memory" && !entry.tracks.reading) {
+      entry.tracks.reading = createFreshSM2Track(today);
+    }
+    const st = purpose === "spell_from_memory" ? entry.tracks.spelling : entry.tracks.reading;
     if (st && st.nextReviewDate > today) {
       st.nextReviewDate = today;
     }
@@ -829,6 +983,12 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     childId,
     testDate,
     contentProfile: extracted.contentProfile,
+    capturedContent: extracted.capturedContent,
+  });
+  const activityArtifacts = writeActivityConfigArtifacts({
+    childId,
+    homeworkId,
+    nodes: homeworkNodes,
   });
   const learningPlanArtifact = buildHomeworkLearningPlanArtifact({
     homeworkId,
@@ -871,6 +1031,9 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
 
   console.log(`✅ Saved to src/context/${childId}/homework/pending/${today}/`);
   console.log("🧭 Learning plan → learning-plan.md");
+  if (activityArtifacts.length > 0) {
+    console.log(`🎮 [ingestHomework] activity-configs wrote ${activityArtifacts.length}`);
+  }
 
   console.log("");
   console.log("🧠 Step 4/4: Psychologist + today's plan (shared with sunny:sync)…");

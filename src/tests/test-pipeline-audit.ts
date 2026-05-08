@@ -13,26 +13,30 @@ import { resolveSpellingWordListForHomework } from "../server/session-bootstrap"
 import * as childrenConfig from "../profiles/childrenConfig";
 import type { ChildProfileEntry } from "../profiles/childrenConfig";
 
-describe("pipeline audit — word-radar homework wiring", () => {
+describe("pipeline audit — spelling activity wiring", () => {
   it('isWordDrivenHomeworkNodeType("word-radar") returns true', () => {
     expect(isWordDrivenHomeworkNodeType("word-radar")).toBe(true);
+  });
+
+  it('isWordDrivenHomeworkNodeType("letter-rush") returns true', () => {
+    expect(isWordDrivenHomeworkNodeType("letter-rush")).toBe(true);
   });
 
   it('BANDIT_POOL includes "word-radar"', () => {
     expect(BANDIT_POOL).toContain("word-radar");
   });
 
-  it("ingestHomework spelling_test merge puts word-radar first with items", () => {
+  it("ingestHomework spelling_test merge puts evaluator Letter Rush first with config", () => {
     const words = ["Cat", "dog"];
     const nodes = mergeNormalizedPlan([], words, 2, {
       homeworkType: "spelling_test",
       daysUntilTest: 4,
     });
-    expect(nodes[0]?.type).toBe("word-radar");
-    expect(nodes[0]?.wordRadarItems).toEqual([
-      { display: "Cat", acceptedResponses: ["cat"], label: "Spelling", subject: "spelling" },
-      { display: "dog", acceptedResponses: ["dog"], label: "Spelling", subject: "spelling" },
-    ]);
+    expect(nodes[0]?.type).toBe("letter-rush");
+    expect((nodes[0]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
+      "type-and-spell",
+    );
+    expect((nodes[0]?.activityConfig as { words?: unknown[] } | undefined)?.words).toHaveLength(2);
   });
 
   it("pendingHomeworkToNodeConfigs maps word-radar items from profile", () => {
@@ -71,37 +75,43 @@ describe("ingest homework nodes + spelling word list", () => {
     vi.restoreAllMocks();
   });
 
-  it('buildHomeworkNodes({ type: "spelling_test", ... }) puts word-radar first', () => {
+  it('buildHomeworkNodes({ type: "spelling_test", ... }) puts evaluator Letter Rush first', () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["farmer", "teacher"],
       homeworkId: "hw-spelling_test-x",
       childId: "ila",
     });
-    expect(nodes[0]?.type).toBe("word-radar");
+    expect(nodes[0]?.type).toBe("letter-rush");
+    expect((nodes[0]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
+      "type-and-spell",
+    );
   });
 
-  it("buildHomeworkNodes maps wordRadarItems for every spelling word", () => {
+  it("buildHomeworkNodes maps Letter Rush config words for every selected spelling word", () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["farmer", "teacher"],
       homeworkId: "x",
       childId: "ila",
     });
-    expect(nodes[0]?.wordRadarItems?.length).toBe(2);
+    expect((nodes[0]?.activityConfig as { words?: unknown[] } | undefined)?.words).toHaveLength(2);
   });
 
-  it("buildHomeworkNodes second node is spell-check", () => {
+  it("buildHomeworkNodes second node is trap-the-imposter practice", () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["a", "b"],
       homeworkId: "x",
       childId: "ila",
     });
-    expect(nodes[1]?.type).toBe("spell-check");
+    expect(nodes[1]?.type).toBe("letter-rush");
+    expect((nodes[1]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
+      "trap-the-imposter",
+    );
   });
 
-  it("buildHomeworkNodes spelling_test order: word-radar, spell-check, wheel-of-fortune", () => {
+  it("buildHomeworkNodes spelling_test order: baseline, practice, mastery Letter Rush", () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["a", "b"],
@@ -109,9 +119,14 @@ describe("ingest homework nodes + spelling word list", () => {
       childId: "ila",
     });
     expect(nodes.map((n) => n.type)).toEqual([
-      "word-radar",
-      "spell-check",
-      "wheel-of-fortune",
+      "letter-rush",
+      "letter-rush",
+      "letter-rush",
+    ]);
+    expect(nodes.map((n) => (n.activityConfig as { mode?: string } | undefined)?.mode)).toEqual([
+      "type-and-spell",
+      "trap-the-imposter",
+      "mastery-run",
     ]);
   });
 
@@ -124,13 +139,12 @@ describe("ingest homework nodes + spelling word list", () => {
       childId: "no_profile_child_xyz",
     });
     for (const n of nodes) {
-      const items = n.type === "word-radar" ? n.wordRadarItems ?? [] : n.words;
-      expect(items.length).toBeLessThanOrEqual(5);
       expect(n.words.length).toBe(5);
+      expect((n.activityConfig as { words?: unknown[] } | undefined)?.words).toHaveLength(5);
     }
   });
 
-  it("buildHomeworkNodes respects maxWords from child profile (spell-check game)", () => {
+  it("buildHomeworkNodes respects maxWords from child profile spelling games", () => {
     vi.spyOn(childrenConfig, "readChildMeta").mockReturnValue({
       games: { "spell-check": { maxWords: 3 } },
     } as ChildProfileEntry);
@@ -142,7 +156,7 @@ describe("ingest homework nodes + spelling word list", () => {
       childId: "custom",
     });
     expect(nodes[0]?.words).toHaveLength(3);
-    expect(nodes[0]?.wordRadarItems).toHaveLength(3);
+    expect((nodes[0]?.activityConfig as { words?: unknown[] } | undefined)?.words).toHaveLength(3);
     expect(nodes[1]?.words).toHaveLength(3);
   });
 
@@ -168,8 +182,9 @@ describe("ingest homework nodes + spelling word list", () => {
       nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
     });
     expect(pending.nodes.length).toBe(3);
-    expect(pending.nodes[0]?.type).toBe("word-radar");
-    expect(pending.nodes[2]?.type).toBe("wheel-of-fortune");
+    expect(pending.nodes[0]?.type).toBe("letter-rush");
+    expect(pending.nodes[0]?.activityConfigPath).toContain("letter-rush-baseline.json");
+    expect(pending.nodes[2]?.activityConfigPath).toContain("letter-rush-mastery-check.json");
   });
 
   it("resolveSpellingWordListForHomework prefers pending wordList over raw extraction", () => {
@@ -181,6 +196,24 @@ describe("ingest homework nodes + spelling word list", () => {
       rawContent: raw,
     });
     expect(fromPending).toEqual(["farmer", "teacher", "visitor"]);
+  });
+
+  it("resolveSpellingWordListForHomework prefers the planned spelling chunk over the full captured list", () => {
+    const raw = "shiny slowly lucky neatly sunny able behind carefully common easy";
+    const selectedChunk = resolveSpellingWordListForHomework({
+      worksheetMode: false,
+      extractSpellingWords: true,
+      pendingWordList: ["shiny", "slowly", "lucky", "neatly", "sunny", "able", "behind"],
+      pendingNodes: [
+        {
+          type: "letter-rush",
+          words: ["shiny", "slowly", "lucky", "neatly", "sunny"],
+        },
+      ],
+      rawContent: raw,
+    });
+
+    expect(selectedChunk).toEqual(["shiny", "slowly", "lucky", "neatly", "sunny"]);
   });
 
   it("resolveSpellingWordListForHomework falls back to raw when pending empty", () => {

@@ -73,7 +73,8 @@ function uniquePush(out: string[], w: string): void {
  * Ordered homework words for map / ingest nodes. Uses `planSession(..., "spelling")` output only.
  *
  * Priority: missed → plan due queue (whitelist) → reviewWords by easiness ASC → whitelist fallback.
- * When `testImminent`, the full whitelist is ordered (easiness; long-interval+high-rep words last).
+ * Even when `testImminent`, return a short playable burst; the full whitelist
+ * stays in pending homework / word bank for later adaptive sessions.
  */
 export function selectHomeworkSessionWords(opts: {
   wordList: string[];
@@ -91,7 +92,7 @@ export function selectHomeworkSessionWords(opts: {
   if (wl.length === 0) return [];
 
   const bank = opts.wordBankWords;
-  const maxNeed = opts.testImminent ? wl.length : Math.max(1, opts.maxWords);
+  const maxNeed = Math.max(1, opts.maxWords);
 
   const missed = cleanWordList(opts.missedWords).filter((w) => inWhitelist(w, wl));
   const dueFromPlan = cleanWordList(planDueWords(opts.sm2Plan)).filter((w) => inWhitelist(w, wl));
@@ -121,7 +122,7 @@ export function selectHomeworkSessionWords(opts: {
     const byEase = [...rest].sort((a, b) => easiness(bank, a) - easiness(bank, b));
     const low = byEase.filter((w) => !deprioritized(bank, w));
     const tail = byEase.filter((w) => deprioritized(bank, w));
-    return [...primary, ...low, ...tail];
+    return [...primary, ...low, ...tail].slice(0, maxNeed);
   }
 
   if (sm2Pool.length >= maxNeed) {

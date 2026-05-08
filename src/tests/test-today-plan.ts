@@ -227,7 +227,7 @@ describe("todaysPlan invariants", () => {
 });
 
 describe("today plan pending homework anchor", () => {
-  it("makes the active erosion homework the first required activity and demotes unrelated probes", () => {
+  it("makes the active erosion homework the plan and removes unrelated review probes", () => {
     const output = {
       todaysPlan: [
         {
@@ -297,8 +297,10 @@ describe("today plan pending homework anchor", () => {
     expect(anchored.todaysPlan[0]?.activity).toContain("Erosion");
     expect(anchored.todaysPlan[0]?.required).toBe(true);
     expect(anchored.todaysPlan[0]?.source).toBe("pendingHomework");
-    expect(anchored.todaysPlan[1]?.activity).toContain("Multiplication");
-    expect(anchored.todaysPlan[1]?.required).toBe(false);
+    expect(anchored.todaysPlan.map((activity) => activity.activity).join(" ")).not.toContain(
+      "Multiplication",
+    );
+    expect(anchored.todaysPlan).toHaveLength(1);
   });
 
   it("uses pending homework care-plan nodes as the homework-mode plan instead of broad review filler", () => {
