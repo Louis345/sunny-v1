@@ -68,6 +68,32 @@ describe("AdventureMap free preview karaoke", () => {
     expect(mapSrc).toContain("setLaunchedUrl(null)");
   });
 
+  it("renders pronunciation map nodes in live sessions, not only free preview", () => {
+    const mapSrc = readFileSync(adventureMapTsx, "utf8");
+    const pronunciationGateIndex = mapSrc.indexOf(
+      'launchedNode != null &&\n      (launchedNode.type as string) === "pronunciation"',
+    );
+    expect(pronunciationGateIndex).toBeGreaterThan(0);
+
+    const gatePrefix = mapSrc.slice(
+      Math.max(0, pronunciationGateIndex - 120),
+      pronunciationGateIndex,
+    );
+    expect(gatePrefix).not.toContain('props.previewMode === "free"');
+  });
+
+  it("pads retargeted pronunciation nodes from care-plan target words", () => {
+    const mapSrc = readFileSync(adventureMapTsx, "utf8");
+    const pronunciationWordsStart = mapSrc.indexOf("const pronunciationWordsForNode =");
+    const pronunciationWordsEnd = mapSrc.indexOf("if (resolved && !mapState)");
+    const block = mapSrc.slice(pronunciationWordsStart, pronunciationWordsEnd);
+
+    expect(block).toContain("nodeTargetWords(launchedNode)");
+    expect(block.indexOf("adaptiveStoryPracticeWords")).toBeLessThan(
+      block.indexOf("nodeTargetWords(launchedNode)"),
+    );
+  });
+
   it("does not treat microphone denial as fatal in preview mode", () => {
     const src = readFileSync(useSessionTs, "utf8");
     expect(src).toContain("function micDeniedCanContinue()");

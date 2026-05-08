@@ -81,6 +81,10 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "A friendly microphone with sound waves and sparkling word bubbles, energetic arcade practice, child-friendly cartoon",
   "word-radar":
     "A radar dish scanning a starfield with glowing word tiles, deep purple space, child-friendly cartoon",
+  "concept-check":
+    "A bright scout badge with question sparks and target bubbles, arcade learning diagnostic, child-friendly cartoon",
+  "letter-rush":
+    "Glowing arcade letter tiles rushing through a spelling challenge lane, energetic child-friendly cartoon",
   "spell-check":
     "Colorful letters bouncing in bubbles, blue tones, cartoon style",
   wordle:
@@ -97,6 +101,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "A tiny green frog on lily pads over stylized lanes, arcade-cute, bright colors",
   "bubble-pop":
     "Cheerful cartoon bubbles with letters inside, pastel colors, child-friendly",
+  "cpt-low-reward":
+    "A calm circle and square focus check icon, quiet low reward design, child-friendly",
   "fish-flanker":
     "A cheerful fish attention challenge icon with simple arrows, clean child-friendly style",
   "target-blaster":

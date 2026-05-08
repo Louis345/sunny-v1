@@ -42,6 +42,7 @@ export type StoryImageFinaleProps = {
   failed: boolean;
   companionCurrency: number;
   purchaseCost: number;
+  onGenerateMovie?: (imageUrl: string) => Promise<string | null>;
   onPurchaseMovie: (cost: number) => Promise<PurchaseResult>;
   onExit: () => void;
 };
@@ -63,6 +64,7 @@ export function StoryImageFinale(props: StoryImageFinaleProps) {
   );
   const [movieUnlocked, setMovieUnlocked] = useState(false);
   const [moviePlaying, setMoviePlaying] = useState(false);
+  const [movieUrl, setMovieUrl] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const timersRef = useRef<number[]>([]);
@@ -119,13 +121,21 @@ export function StoryImageFinale(props: StoryImageFinaleProps) {
 
   async function handlePurchase(): Promise<void> {
     if (purchasing || moviePlaying || movieUnlocked) return;
+    if (!props.imageUrl) return;
     setPurchasing(true);
     setPurchaseError(null);
     const currentBalance = Math.max(0, Math.floor(Number(displayBalance) || 0));
     try {
+      const generatedMovieUrl = props.onGenerateMovie
+        ? await props.onGenerateMovie(props.imageUrl)
+        : null;
+      if (!generatedMovieUrl) {
+        throw new Error("Movie generation failed. Coins were not spent.");
+      }
       const out = await props.onPurchaseMovie(props.purchaseCost);
       playSpendSound();
       await animateBalance(currentBalance, out.balance);
+      setMovieUrl(generatedMovieUrl);
       setMovieUnlocked(true);
       setMoviePlaying(true);
       finishMoviePlayback();
@@ -276,6 +286,26 @@ export function StoryImageFinale(props: StoryImageFinaleProps) {
           transition: "transform 1.8s ease",
         }}
       />
+      {movieUrl ? (
+        <video
+          key={movieUrl}
+          data-testid="story-movie-video"
+          src={movieUrl}
+          autoPlay={moviePlaying}
+          playsInline
+          muted
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: moviePlaying ? 1 : 0,
+            transition: "opacity 0.3s ease",
+          }}
+          onEnded={() => setMoviePlaying(false)}
+        />
+      ) : null}
       <div
         style={{
           position: "absolute",
@@ -395,7 +425,7 @@ export function StoryImageFinale(props: StoryImageFinaleProps) {
                     : "pointer",
               }}
             >
-              {purchasing ? "Coins flying..." : `Play movie for ${props.purchaseCost} coins`}
+              {purchasing ? "Making movie..." : `Play movie for ${props.purchaseCost} coins`}
             </button>
           ) : (
             <button

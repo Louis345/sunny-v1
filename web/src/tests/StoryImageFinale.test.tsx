@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StoryImageFinale } from "../components/StoryImageFinale";
 
@@ -33,8 +33,41 @@ describe("StoryImageFinale purchase flow", () => {
     ).not.toBeNull();
   });
 
+  it("generates a real movie before spending coins", async () => {
+    const onGenerateMovie = vi.fn().mockResolvedValue("https://example.com/erosion.mp4");
+    const onPurchaseMovie = vi.fn().mockResolvedValue({ balance: 17, cost: 8 });
+    render(
+      <StoryImageFinale
+        childId="reina"
+        childDisplayName="Reina"
+        imageUrl="https://example.com/erosion.png"
+        loading={false}
+        failed={false}
+        companionCurrency={25}
+        purchaseCost={8}
+        onGenerateMovie={onGenerateMovie}
+        onPurchaseMovie={onPurchaseMovie}
+        onExit={vi.fn()}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Play movie for 8 coins" }));
+    });
+
+    expect(onGenerateMovie).toHaveBeenCalledWith("https://example.com/erosion.png");
+    await waitFor(() => {
+      expect(screen.getByTestId("story-movie-video")).not.toBeNull();
+    });
+    expect(onPurchaseMovie).toHaveBeenCalledWith(8);
+    expect(screen.getByTestId("story-movie-video").getAttribute("src")).toBe(
+      "https://example.com/erosion.mp4",
+    );
+  });
+
   it("subtracts coins through purchase, then unlocks in-session replay", async () => {
     vi.useFakeTimers();
+    const onGenerateMovie = vi.fn().mockResolvedValue("https://example.com/erosion.mp4");
     const onPurchaseMovie = vi
       .fn()
       .mockResolvedValue({ balance: 17, cost: 8 });
@@ -48,6 +81,7 @@ describe("StoryImageFinale purchase flow", () => {
         failed={false}
         companionCurrency={25}
         purchaseCost={8}
+        onGenerateMovie={onGenerateMovie}
         onPurchaseMovie={onPurchaseMovie}
         onExit={vi.fn()}
       />,
@@ -56,6 +90,7 @@ describe("StoryImageFinale purchase flow", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Play movie for 8 coins" }));
     });
+    expect(onGenerateMovie).toHaveBeenCalled();
     expect(onPurchaseMovie).toHaveBeenCalledWith(8);
 
     await act(async () => {
