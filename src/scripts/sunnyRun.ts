@@ -4,6 +4,7 @@ import {
   encodeSunnyRuntimeConfig,
   resolveSunnyRuntimeConfig,
   type RuntimeEnv,
+  type SunnyDemoRoute,
   type SunnyNodeAccess,
   type SunnyPreviewMode,
   type SunnySessionMode,
@@ -22,6 +23,7 @@ type ParsedArgs = {
   previewMode?: SunnyPreviewMode;
   nodeAccess?: SunnyNodeAccess;
   voiceMode?: SunnyVoiceMode;
+  demoRoute?: SunnyDemoRoute;
   homeworkDomain?: HomeworkDomainFilter;
   noBrowser: boolean;
 };
@@ -63,6 +65,10 @@ function parseArgs(argv: string[]): ParsedArgs {
         out.voiceMode = value as SunnyVoiceMode;
         if (inline == null) i += 1;
         break;
+      case "--demo":
+        out.demoRoute = value as SunnyDemoRoute;
+        if (inline == null) i += 1;
+        break;
       case "--homework-domain":
         out.homeworkDomain = value as HomeworkDomainFilter;
         if (inline == null) i += 1;
@@ -82,6 +88,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
     previewMode: args.previewMode,
     nodeAccess: args.nodeAccess,
     voiceMode: args.voiceMode,
+    demoRoute: args.demoRoute,
   });
   const encoded = encodeSunnyRuntimeConfig(config);
   return {
@@ -95,6 +102,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
     SUNNY_PREVIEW_MODE: config.previewMode === "off" ? "" : config.previewMode,
     SUNNY_NODE_ACCESS: config.nodeAccess,
     SUNNY_VOICE_MODE: config.voiceMode,
+    SUNNY_DEMO_ROUTE: config.demoRoute ?? "",
     DIAG_UNLOCK_MAP: config.nodeAccess === "inspect-all" ? "true" : "",
     VITE_ADVENTURE_MAP: "true",
     VITE_DIAG_UNLOCK_MAP: config.nodeAccess === "inspect-all" ? "true" : "",
@@ -104,6 +112,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
         ? config.sessionMode
         : "",
     VITE_DIAG_CHILD_ID: config.childId ?? "",
+    VITE_DEMO_ROUTE: config.demoRoute ?? "",
     TTS_ENABLED: config.voiceMode === "normal" ? "true" : "false",
   };
 }

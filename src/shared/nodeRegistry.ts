@@ -11,6 +11,7 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   "target-blaster": "Target Blaster",
   "hero-shield": "Hero Shield",
   "word-radar": "Word Radar",
+  "visual-explainer": "Visual Explainer",
   "concept-check": "Concept Check",
   "letter-rush": "Letter Rush",
   "spell-check": "Spell Check",

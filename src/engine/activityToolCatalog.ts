@@ -141,6 +141,7 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContract[] = [
   {
     id: "visual-explainer",
     label: "Visual Explainer",
+    nodeType: "visual-explainer",
     purposes: ["teach"],
     domains: ["reading", "science", "math", "vocabulary"],
     strengths: [

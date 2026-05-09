@@ -5,6 +5,7 @@
 export type NodeType =
   | "mystery"
   | "concept-check"
+  | "visual-explainer"
   | "letter-rush"
   | "word-builder"
   | "bubble-pop"
@@ -175,6 +176,7 @@ export interface MapState {
 export const ALL_NODE_TYPES: readonly NodeType[] = [
   "mystery",
   "concept-check",
+  "visual-explainer",
   "letter-rush",
   "word-builder",
   "bubble-pop",

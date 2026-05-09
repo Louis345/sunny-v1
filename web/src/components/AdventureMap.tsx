@@ -24,6 +24,8 @@ import type { KaraokeReadingCompleteResult } from "../hooks/useKaraokeReading";
 import { WordRadar } from "./WordRadar";
 import type { RadarItem, WordRadarResult } from "./WordRadar";
 import { PronunciationGameCanvas } from "./PronunciationGameCanvas";
+import { VisualExplainerDemo } from "./VisualExplainer/VisualExplainerDemo";
+import type { ActivityCompleteEvent } from "./VisualExplainer/visualExplainerMachine";
 import { NodeCard } from "./NodeCard.tsx";
 import { PathCurve } from "./PathCurve.tsx";
 import { RatingOverlay } from "./RatingOverlay.tsx";
@@ -195,6 +197,7 @@ const NODE_PALETTES: Partial<Record<NodeType, Palette>> = {
   "space-frogger": { from: "#22c55e", to: "#06b6d4" }, // mint breeze
   "bubble-pop":    { from: "#f472b6", to: "#fb923c" }, // pink sunset
   "word-radar":    { from: "#7c3aed", to: "#ec4899" }, // radar sweep
+  "visual-explainer": { from: "#0ea5e9", to: "#10b981" }, // concept lab
 };
 
 function nodeTransitionPalette(nodeType: string): Palette | "random" {
@@ -945,6 +948,16 @@ export function AdventureMap(props: {
         briefing.show(result);
         return;
       }
+      if (result.type === "visual-explainer") {
+        triggerTransition({
+          palette: nodeTransitionPalette(result.type),
+          onComplete: () => {
+            commitLaunchedNode(result);
+            console.log("  🎮 [AdventureMap] node_committed visual-explainer");
+          },
+        });
+        return;
+      }
       const muted = props.companionMutedForMap === true;
       const presetId =
         props.mapCompanion?.companionId ?? childrenCfg.defaultCompanionId;
@@ -1145,6 +1158,31 @@ export function AdventureMap(props: {
           ...nodeTargetWords(launchedNode),
         ]).slice(0, Math.max(3, launchedNode.words?.length ?? 0))
       : [];
+
+  function handleVisualExplainerComplete(event: ActivityCompleteEvent): void {
+    const node = launchedNodeRef.current;
+    if (!node) return;
+    void sendNodeResult({
+      nodeId: node.id,
+      activityId: event.activityId,
+      completed: event.completed,
+      accuracy: event.accuracy,
+      timeSpent_ms: event.durationMs,
+      wordsAttempted: event.targetResults.length,
+      purpose: "teaching_intervention",
+      mode: event.mechanic,
+      targetResults: event.targetResults.map((target) => ({
+        target: target.target.roundId,
+        correct: target.correct,
+        attemptedValue: target.attemptedValue,
+        responseTime_ms: target.responseTime_ms,
+        scaffoldLevel: target.scaffoldLevel,
+        concept: target.concept,
+        misconception: target.misconception,
+        mode: target.target.mechanic,
+      })),
+    });
+  }
 
   if (resolved && !mapState) {
     if (connectionStatus === "error") {
@@ -1616,6 +1654,24 @@ export function AdventureMap(props: {
               </button>
             ) : null}
           </div>
+        </div>
+      ) : null}
+      {launchedNode != null && launchedNode.type === "visual-explainer" ? (
+        <div className="fixed inset-0 z-[45] flex flex-col bg-[#f5fbff]">
+          <VisualExplainerDemo
+            mapMode
+            childId={props.childId}
+            mapNodeId={launchedNode.id}
+            sendMessage={
+              props.karaokeReadingForMapNode?.sendMessage ??
+              ((_type: string, _payload?: Record<string, unknown>) => {
+                void _type;
+                void _payload;
+              })
+            }
+            onComplete={handleVisualExplainerComplete}
+            onExit={() => clearLaunchedNode()}
+          />
         </div>
       ) : null}
       {launchedNode != null &&

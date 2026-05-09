@@ -23,6 +23,7 @@ describe("resolveSunnyRuntimeConfig", () => {
       nodeAccess: "inspect-all",
       voiceMode: "normal",
       persistenceMode: "blocked",
+      demoRoute: null,
       childId: "reina",
     });
   });
@@ -43,6 +44,7 @@ describe("resolveSunnyRuntimeConfig", () => {
       nodeAccess: "inspect-all",
       voiceMode: "muted",
       persistenceMode: "blocked",
+      demoRoute: null,
       childId: "ila",
     });
   });
@@ -55,6 +57,18 @@ describe("resolveSunnyRuntimeConfig", () => {
     });
     expect(cfg.nodeAccess).toBe("inspect-all");
     expect(cfg.previewMode).toBe("off");
+  });
+
+  it("carries the visual explainer demo route through runtime config", () => {
+    const cfg = resolveSunnyRuntimeConfig({
+      SUNNY_MODE: "diag",
+      SUNNY_SUBJECT: "diag",
+      SUNNY_PREVIEW_MODE: "free",
+      SUNNY_DEMO_ROUTE: "visual-explainer-map",
+    });
+
+    expect(cfg.demoRoute).toBe("visual-explainer-map");
+    expect(cfg.persistenceMode).toBe("blocked");
   });
 });
 
@@ -76,6 +90,13 @@ describe("package.json runtime launcher scripts", () => {
     expect(pkg.scripts["sunny:mode:onboarding:board"]).toContain("--subject onboarding");
     expect(pkg.scripts["sunny:mode:onboarding:board"]).toContain("--preview free");
     expect(pkg.scripts["sunny:mode:onboarding:board"]).toContain("--node-access inspect-all");
+  });
+
+  it("contains visual explainer demo script that delegates to canonical sunny:run", () => {
+    expect(pkg.scripts["sunny:demo:visual"]).toContain("sunny:run");
+    expect(pkg.scripts["sunny:demo:visual"]).toContain("--preview free");
+    expect(pkg.scripts["sunny:demo:visual"]).toContain("--voice muted");
+    expect(pkg.scripts["sunny:demo:visual"]).toContain("--demo visual-explainer-map");
   });
 
   it('contains script "sunny:homework"', () => {

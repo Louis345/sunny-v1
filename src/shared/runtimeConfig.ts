@@ -15,6 +15,7 @@ export type SunnyPreviewMode = "off" | "free" | "go-live";
 export type SunnyNodeAccess = "normal" | "inspect-all";
 export type SunnyVoiceMode = "normal" | "muted" | "off";
 export type SunnyPersistenceMode = "live" | "blocked";
+export type SunnyDemoRoute = "visual-explainer" | "visual-explainer-map";
 
 export interface SunnyRuntimeConfig {
   subject: SunnySubject;
@@ -23,13 +24,20 @@ export interface SunnyRuntimeConfig {
   nodeAccess: SunnyNodeAccess;
   voiceMode: SunnyVoiceMode;
   persistenceMode: SunnyPersistenceMode;
+  demoRoute: SunnyDemoRoute | null;
   childId: string | null;
 }
 
 export type SunnyRuntimeOverrides = Partial<
   Pick<
     SunnyRuntimeConfig,
-    "subject" | "sessionMode" | "previewMode" | "nodeAccess" | "voiceMode" | "childId"
+    | "subject"
+    | "sessionMode"
+    | "previewMode"
+    | "nodeAccess"
+    | "voiceMode"
+    | "demoRoute"
+    | "childId"
   >
 >;
 
@@ -78,6 +86,13 @@ function normalizeVoiceMode(raw: string | undefined): SunnyVoiceMode | null {
   return null;
 }
 
+function normalizeDemoRoute(raw: string | undefined | null): SunnyDemoRoute | null {
+  const value = raw?.trim().toLowerCase();
+  if (value === "visual-explainer") return value;
+  if (value === "visual-explainer-map") return value;
+  return null;
+}
+
 function normalizeChildId(raw: string | undefined | null): string | null {
   const value = raw?.trim().toLowerCase();
   return value ? value : null;
@@ -109,6 +124,10 @@ function parseRuntimeJson(env: RuntimeEnv): SunnyRuntimeOverrides {
         typeof parsed.voiceMode === "string"
           ? normalizeVoiceMode(parsed.voiceMode) ?? undefined
           : undefined,
+      demoRoute:
+        typeof parsed.demoRoute === "string" || parsed.demoRoute === null
+          ? normalizeDemoRoute(parsed.demoRoute as string | null)
+          : undefined,
       childId:
         typeof parsed.childId === "string" || parsed.childId === null
           ? normalizeChildId(parsed.childId as string | null)
@@ -138,6 +157,10 @@ export function applySunnyRuntimeOverrides(
     previewMode: overrides.previewMode ?? base.previewMode,
     nodeAccess: overrides.nodeAccess ?? base.nodeAccess,
     voiceMode: overrides.voiceMode ?? base.voiceMode,
+    demoRoute:
+      overrides.demoRoute === undefined
+        ? base.demoRoute
+        : normalizeDemoRoute(overrides.demoRoute),
     childId:
       overrides.childId === undefined ? base.childId : normalizeChildId(overrides.childId),
     persistenceMode: base.persistenceMode,
@@ -179,6 +202,11 @@ export function resolveSunnyRuntimeConfig(
     parsed.subject ??
     normalizeSubject(env.SUNNY_SUBJECT) ??
     (sessionMode === "diag" ? "diag" : "review");
+  const demoRoute =
+    overrides.demoRoute ??
+    parsed.demoRoute ??
+    normalizeDemoRoute(env.SUNNY_DEMO_ROUTE) ??
+    normalizeDemoRoute(env.VITE_DEMO_ROUTE);
   const childId =
     overrides.childId ??
     parsed.childId ??
@@ -192,6 +220,7 @@ export function resolveSunnyRuntimeConfig(
     nodeAccess,
     voiceMode,
     persistenceMode: derivePersistenceMode(previewMode, sessionMode),
+    demoRoute,
     childId: normalizeChildId(childId),
   };
   return applySunnyRuntimeOverrides(base, overrides);
