@@ -10,12 +10,99 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function payloadPoints(progress: number) {
-  return Array.from({ length: 12 }, (_, index) => ({
-    id: index,
-    x: lerp(306 + index * 8, 472 + index * 14, clamp01((progress - 0.32) / 0.55)),
-    y: lerp(200 + (index % 4) * 12, 252 + (index % 5) * 8, clamp01((progress - 0.32) / 0.55)),
-  }));
+function revealAmount(progress: number): number {
+  return clamp01((progress - 0.55) / 0.28);
+}
+
+function buildViewBox(brief: VisualBrief, progress: number): string {
+  const reveal = revealAmount(progress);
+  if (reveal <= 0) return "0 0 1600 900";
+  const target =
+    brief.world === "bloodstream"
+      ? { x: 430, y: 112, w: 900, h: 506 }
+      : { x: 290, y: 170, w: 980, h: 551 };
+  return [
+    Math.round(lerp(0, target.x, reveal)),
+    Math.round(lerp(0, target.y, reveal)),
+    Math.round(lerp(1600, target.w, reveal)),
+    Math.round(lerp(900, target.h, reveal)),
+  ].join(" ");
+}
+
+function Carrier(props: {
+  shape: "cell" | "droplet" | "grain";
+  x: number;
+  y: number;
+  size: number;
+  fill: string;
+  cargoFill?: string;
+  cargoOpacity?: number;
+  label?: string;
+  motionDelay?: number;
+  isPlaying: boolean;
+}): React.ReactElement {
+  const {
+    shape,
+    x,
+    y,
+    size,
+    fill,
+    cargoFill,
+    cargoOpacity = 1,
+    label,
+    motionDelay = 0,
+    isPlaying,
+  } = props;
+  const animate = isPlaying ? { y: [0, -10, 0] } : undefined;
+
+  if (shape === "droplet") {
+    return (
+      <motion.g
+        data-testid="carrier-flow-carrier"
+        transform={`translate(${x} ${y}) scale(${size / 64})`}
+        animate={animate}
+        transition={{ duration: 1.2, repeat: Infinity, delay: motionDelay }}
+        aria-label={label}
+      >
+        <path d="M0 -34 C22 -8 30 10 18 28 C8 43 -15 43 -25 28 C-38 8 -24 -10 0 -34Z" fill={fill} />
+        <ellipse cx="-8" cy="-2" rx="8" ry="16" fill="#fff" opacity="0.28" transform="rotate(24)" />
+      </motion.g>
+    );
+  }
+
+  if (shape === "grain") {
+    return (
+      <motion.g
+        data-testid="carrier-flow-carrier"
+        transform={`translate(${x} ${y}) scale(${size / 24})`}
+        animate={isPlaying ? { x: [0, 12, 0], y: [0, 5, 0] } : undefined}
+        transition={{ duration: 2.1, repeat: Infinity, delay: motionDelay }}
+        aria-label={label}
+      >
+        <circle cx="0" cy="0" r="11" fill={fill} stroke="#fff1c8" strokeWidth="2" />
+        <circle cx="5" cy="5" r="5" fill="#794519" opacity="0.2" />
+        <circle cx="-3" cy="-4" r="3" fill="#fff" opacity="0.26" />
+      </motion.g>
+    );
+  }
+
+  return (
+    <motion.g
+      data-testid="carrier-flow-carrier"
+      transform={`translate(${x} ${y}) scale(${size / 130})`}
+      animate={animate}
+      transition={{ duration: 3.2, repeat: Infinity, delay: motionDelay }}
+      aria-label={label}
+    >
+      <ellipse cx="0" cy="0" rx="72" ry="46" fill={fill} />
+      <ellipse cx="2" cy="3" rx="38" ry="24" fill="#7f1534" opacity="0.34" />
+      <ellipse cx="-24" cy="-23" rx="28" ry="12" fill="#fff" opacity="0.24" />
+      <g opacity={cargoOpacity}>
+        <circle cx="-25" cy="-18" r="10" fill={cargoFill} />
+        <circle cx="-3" cy="-23" r="9" fill={cargoFill} />
+      </g>
+    </motion.g>
+  );
 }
 
 function ErosionWorld(props: {
@@ -25,132 +112,167 @@ function ErosionWorld(props: {
 }): React.ReactElement {
   const { brief, progress, isPlaying } = props;
   const palette = brief.palette;
-  const rainOpacity = clamp01((progress - 0.08) / 0.2);
-  const flowOpacity = clamp01((progress - 0.22) / 0.16);
-  const payloadOpacity = clamp01((progress - 0.38) / 0.18);
-  const revealOpacity = clamp01((progress - 0.62) / 0.2);
-  const notch = lerp(0, 42, progress);
+  const rainOpacity = clamp01((progress - 0.12) / 0.22);
+  const waterOpacity = clamp01((progress - 0.28) / 0.2);
+  const sedimentOpacity = clamp01((progress - 0.4) / 0.2);
+  const transport = clamp01((progress - 0.36) / 0.48);
+  const deltaOpacity = clamp01((progress - 0.58) / 0.22);
+  const reveal = revealAmount(progress);
+  const channelDrop = lerp(0, 72, reveal);
+
+  const sediment = Array.from({ length: 18 }, (_, index) => ({
+    x: lerp(444 + index * 18, 955 + index * 16, transport),
+    y: lerp(432 + (index % 4) * 18, 536 + (index % 5) * 14, transport),
+  }));
 
   return (
-    <svg
-      aria-label={`${brief.topic} carrier-flow visual model`}
-      data-testid="visual-explainer-scene"
-      role="img"
-      viewBox="0 0 900 520"
-      className="h-full w-full"
-    >
+    <>
       <defs>
-        <linearGradient id={`${brief.id}-sky`} x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id="erosion-sky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={palette.sceneBgTop} />
-          <stop offset="100%" stopColor={palette.sceneBgBottom} />
+          <stop offset="72%" stopColor={palette.sceneBgBottom} />
+          <stop offset="100%" stopColor="#f7ba79" />
         </linearGradient>
-        <linearGradient id={`${brief.id}-hill`} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor={palette.land} />
+        <linearGradient id="erosion-hill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#7fb96e" />
           <stop offset="100%" stopColor={palette.landDark} />
         </linearGradient>
-        <filter id={`${brief.id}-scene-shadow`}>
-          <feDropShadow dx="0" dy="18" stdDeviation="18" floodOpacity="0.2" />
+        <linearGradient id="erosion-soil" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#9a642f" />
+          <stop offset="100%" stopColor="#70431f" />
+        </linearGradient>
+        <filter id="erosion-soft">
+          <feDropShadow dx="0" dy="22" stdDeviation="20" floodOpacity="0.22" />
         </filter>
       </defs>
 
-      <rect width="900" height="520" rx="34" fill={`url(#${brief.id}-sky)`} />
-      <circle cx="112" cy="86" r="42" fill="#ffe482" opacity="0.92" />
-      <path
-        d="M58 150 C140 94 208 108 252 152 C308 214 162 224 72 194 C12 174 4 186 58 150Z"
-        fill="#fff7d5"
-        opacity="0.7"
-      />
-      <path
-        d="M610 118 C684 74 764 88 812 132 C872 186 716 202 626 166 C572 144 562 148 610 118Z"
-        fill="#fff3c8"
-        opacity="0.62"
-      />
+      <g data-layer="bgFar">
+        <rect width="1600" height="900" rx="48" fill="url(#erosion-sky)" />
+        <circle cx="245" cy="160" r="66" fill="#ffe074" opacity="0.9" />
+        <circle cx="245" cy="160" r="150" fill="#ffe074" opacity="0.14" />
+      </g>
 
-      <g opacity={rainOpacity}>
+      <g data-layer="bgMid" opacity="0.9">
+        <path d="M410 140 C488 96 572 104 617 133 C670 168 548 184 454 174 C365 164 350 166 410 140Z" fill="#fff8e6" />
+        <path d="M1090 204 C1176 156 1280 168 1331 205 C1395 252 1260 272 1144 252 C1057 238 1030 236 1090 204Z" fill="#fff8e6" opacity="0.9" />
+      </g>
+
+      <g data-layer="terrain">
+        <path d="M0 574 C190 532 350 502 515 508 C640 512 746 548 874 544 C1038 538 1190 492 1600 468 L1600 596 C1230 558 1035 586 858 604 C642 626 424 574 240 598 C142 610 65 638 0 658 Z" fill="#f0c77c" opacity="0.22" />
+        <path
+          d="M0 640 C250 558 412 456 628 404 C842 352 1010 378 1182 475 C1320 552 1464 586 1600 612 L1600 900 L0 900 Z"
+          fill="url(#erosion-soil)"
+        />
+        <path
+          d={`M0 594 C224 528 404 430 626 382 C840 336 1008 372 1182 ${475 + channelDrop * 0.22} C1320 552 1464 586 1600 612 L1600 674 C1358 630 1220 590 1112 520 C980 438 794 410 622 442 C410 482 232 588 0 652 Z`}
+          fill="url(#erosion-hill)"
+          filter="url(#erosion-soft)"
+        />
+        <path
+          d={`M360 430 C520 458 602 466 704 ${514 + channelDrop} C818 ${566 + channelDrop * 0.45} 940 562 1042 542`}
+          fill="none"
+          stroke="#426b38"
+          strokeWidth={14 + reveal * 24}
+          strokeLinecap="round"
+          opacity={0.28 + reveal * 0.18}
+        />
+        <g opacity="0.95">
+          <rect x="600" y="330" width="16" height="58" rx="4" fill="#5c3b20" />
+          <circle cx="584" cy="318" r="42" fill="#2f7c54" />
+          <circle cx="622" cy="304" r="40" fill="#3b8c5f" />
+          <rect x="838" y="364" width="14" height="46" rx="4" fill="#5c3b20" />
+          <circle cx="842" cy="346" r="35" fill="#34754e" />
+        </g>
+      </g>
+
+      <g data-layer="medium" opacity={waterOpacity}>
+        <path
+          d="M360 430 C520 458 602 466 704 514 C818 566 940 562 1042 542"
+          fill="none"
+          stroke={palette.carrier}
+          strokeWidth="36"
+          strokeLinecap="round"
+        />
+        <path
+          d="M360 430 C520 458 602 466 704 514 C818 566 940 562 1042 542"
+          fill="none"
+          stroke={palette.carrierLight}
+          strokeWidth="9"
+          strokeLinecap="round"
+          opacity="0.8"
+        />
+      </g>
+
+      <g data-layer="actors" opacity={rainOpacity}>
         {Array.from({ length: 22 }, (_, index) => (
-          <motion.line
+          <Carrier
             key={index}
-            x1={240 + (index % 8) * 44}
-            x2={226 + (index % 8) * 44}
-            y1={76 + Math.floor(index / 8) * 34}
-            y2={114 + Math.floor(index / 8) * 34}
-            stroke={palette.carrier}
-            strokeWidth="4"
-            strokeLinecap="round"
-            animate={isPlaying ? { y1: [76, 92, 76], y2: [114, 130, 114] } : undefined}
-            transition={{ duration: 0.95, repeat: Infinity, delay: index * 0.025 }}
+            shape="droplet"
+            x={420 + (index % 8) * 74}
+            y={150 + Math.floor(index / 8) * 72}
+            size={42}
+            fill={palette.carrier}
+            isPlaying={isPlaying}
+            motionDelay={index * 0.04}
           />
         ))}
       </g>
 
-      <path
-        d={`M40 386 C158 274 286 218 400 ${222 + notch * 0.25} C516 ${232 + notch * 0.35} 596 ${314 + notch} 844 280 L844 475 L40 475 Z`}
-        fill={`url(#${brief.id}-hill)`}
-        filter={`url(#${brief.id}-scene-shadow)`}
-      />
-      <path
-        d={`M286 238 C330 ${270 + notch} 404 ${260 + notch} 468 ${290 + notch * 0.55} C550 ${326 + notch * 0.4} 628 324 728 322`}
-        fill="none"
-        stroke={palette.landDark}
-        strokeWidth={12 + notch * 0.14}
-        strokeLinecap="round"
-        opacity={0.35 + revealOpacity * 0.25}
-      />
-      <path
-        d="M284 240 C332 272 394 266 466 292 C554 322 646 316 728 324"
-        fill="none"
-        stroke={palette.carrier}
-        strokeWidth="24"
-        strokeLinecap="round"
-        opacity={flowOpacity}
-      />
-      <path
-        d="M284 240 C332 272 394 266 466 292 C554 322 646 316 728 324"
-        fill="none"
-        stroke={palette.carrierLight}
-        strokeWidth="7"
-        strokeLinecap="round"
-        opacity={flowOpacity * 0.85}
-      />
+      <g data-layer="terrainNear">
+        <path
+          d="M0 646 C190 626 340 608 456 604 C600 600 692 620 874 618 C1088 616 1332 606 1600 646 L1600 900 L0 900 Z"
+          fill="#7f4d24"
+          opacity="0.5"
+        />
+        <path d="M0 700 C220 666 414 662 610 688 C832 718 1060 698 1600 720" fill="none" stroke="#956432" strokeWidth="7" opacity="0.32" />
+        <path d="M0 764 C212 730 420 728 645 752 C890 778 1110 762 1600 788" fill="none" stroke="#5f3418" strokeWidth="8" opacity="0.28" />
+      </g>
 
-      <g opacity={payloadOpacity}>
-        {payloadPoints(progress).map((point) => (
-          <motion.circle
-            key={point.id}
-            cx={point.x}
-            cy={point.y}
-            r={point.id % 3 === 0 ? 6 : 4.5}
-            fill={point.id % 2 === 0 ? palette.payload : palette.payloadGlow}
-            animate={
-              isPlaying
-                ? { cx: [point.x - 14, point.x + 16, point.x - 14], cy: [point.y, point.y + 5, point.y] }
-                : undefined
-            }
-            transition={{ duration: 2.2, repeat: Infinity, delay: point.id * 0.07 }}
+      <g data-layer="result-deposit" opacity={deltaOpacity}>
+        <path
+          d="M1000 566 C1092 594 1172 606 1254 590 C1220 648 1138 696 1012 710 C928 678 910 620 1000 566Z"
+          fill={palette.payload}
+          opacity="0.72"
+        />
+        <path
+          d="M1044 592 C1114 612 1168 616 1224 604"
+          fill="none"
+          stroke={palette.payloadGlow}
+          strokeWidth="12"
+          strokeLinecap="round"
+          opacity="0.55"
+        />
+      </g>
+
+      <g data-layer="actors-payload" opacity={sedimentOpacity}>
+        {sediment.map((point, index) => (
+          <Carrier
+            key={index}
+            shape="grain"
+            x={point.x}
+            y={point.y}
+            size={30 + (index % 3) * 5}
+            fill={index % 2 === 0 ? palette.payload : palette.payloadGlow}
+            isPlaying={isPlaying}
+            motionDelay={index * 0.06}
+            label={brief.actors.payload.label}
           />
         ))}
       </g>
 
-      <path
-        d="M648 332 C710 314 768 332 816 362 C750 374 698 372 636 354 Z"
-        fill={palette.payloadGlow}
-        opacity={revealOpacity * 0.75}
-      />
-      <g opacity={revealOpacity}>
-        <circle cx="458" cy="270" r="74" fill="rgba(255,255,255,0.2)" stroke="#fff" strokeWidth="5" />
-        <circle cx="438" cy="254" r="8" fill={palette.payload} />
-        <circle cx="462" cy="276" r="7" fill={palette.payloadGlow} />
-        <circle cx="486" cy="260" r="6" fill={palette.payload} />
-        <path d="M505 320 L552 372" stroke="#fff" strokeWidth="9" strokeLinecap="round" />
+      <g data-testid="carrier-flow-region-labels" data-layer="regionLabels" fontFamily="Inter, system-ui, sans-serif" fontWeight="900">
+        <text x="118" y="565" fill={palette.ink} fontSize="28">before</text>
+        <text x="1110" y="594" fill={palette.payload} fontSize="26" opacity={reveal}>sediment fan</text>
       </g>
 
-      <g fontFamily="Inter, system-ui, sans-serif" fontWeight="800" fill={palette.ink}>
-        <text x="72" y="446" fontSize="24">{brief.actors.source.label}</text>
-        <text x="568" y="356" fontSize="22" fill={palette.carrier} opacity={flowOpacity}>{brief.actors.carrier.label}</text>
-        <text x="386" y="196" fontSize="22" fill={palette.payload} opacity={payloadOpacity}>{brief.actors.payload.label}</text>
-        <text x="654" y="404" fontSize="20" fill={palette.payload} opacity={revealOpacity}>{brief.actors.destination.label}</text>
+      <g data-layer="accents" opacity={reveal}>
+        <circle cx="760" cy="512" r="116" fill="rgba(255,255,255,0.2)" stroke="#fff" strokeWidth="7" />
+        <path d="M832 600 L910 688" stroke="#fff" strokeWidth="14" strokeLinecap="round" />
+        <text x="704" y="526" fill={palette.payload} fontSize="34" fontWeight="900" fontFamily="Inter, system-ui, sans-serif">
+          {brief.actors.payload.label}
+        </text>
       </g>
-    </svg>
+    </>
   );
 }
 
@@ -161,94 +283,125 @@ function BloodstreamWorld(props: {
 }): React.ReactElement {
   const { brief, progress, isPlaying } = props;
   const palette = brief.palette;
-  const payloadOpacity = clamp01((progress - 0.26) / 0.2);
-  const revealOpacity = clamp01((progress - 0.62) / 0.2);
-  const carrierShift = lerp(0, 280, progress);
+  const cargoOpacity = clamp01((progress - 0.22) / 0.2);
+  const reveal = revealAmount(progress);
+  const shift = lerp(0, 420, progress);
   const cells = [
-    { x: 188, y: 260, s: 1.08 },
-    { x: 318, y: 218, s: 0.88 },
-    { x: 444, y: 292, s: 1 },
-    { x: 584, y: 236, s: 0.9 },
+    { x: 190, y: 565, s: 1.05 },
+    { x: 430, y: 385, s: 0.78 },
+    { x: 720, y: 565, s: 0.86 },
+    { x: 1040, y: 395, s: 0.78 },
+    { x: 1300, y: 575, s: 0.92 },
   ];
 
   return (
-    <svg
-      aria-label={`${brief.topic} carrier-flow visual model`}
-      data-testid="visual-explainer-scene"
-      role="img"
-      viewBox="0 0 900 520"
-      className="h-full w-full"
-    >
+    <>
       <defs>
-        <radialGradient id={`${brief.id}-vessel`} cx="50%" cy="50%" r="70%">
-          <stop offset="0%" stopColor={palette.land} />
-          <stop offset="100%" stopColor={palette.landDark} />
-        </radialGradient>
-        <filter id={`${brief.id}-glow`}>
-          <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor={palette.payloadGlow} floodOpacity="0.65" />
+        <linearGradient id="rbc-bg" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffd6cf" />
+          <stop offset="100%" stopColor="#ff9d98" />
+        </linearGradient>
+        <linearGradient id="rbc-plasma" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#ffd9d2" />
+          <stop offset="100%" stopColor="#f28d98" />
+        </linearGradient>
+        <filter id="rbc-cell-shadow">
+          <feDropShadow dx="0" dy="12" stdDeviation="12" floodOpacity="0.22" />
+        </filter>
+        <filter id="rbc-cargo-glow">
+          <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor={palette.payloadGlow} floodOpacity="0.7" />
         </filter>
       </defs>
-      <rect width="900" height="520" rx="34" fill={palette.sceneBgTop} />
-      <path
-        d="M-20 310 C154 188 302 172 460 252 C612 330 734 300 924 184 L924 554 L-20 554 Z"
-        fill="url(#red-blood-cells-vessel)"
-        opacity="0.95"
-      />
-      <path
-        d="M-20 164 C156 70 308 88 462 168 C616 248 740 218 924 96"
-        fill="none"
-        stroke={palette.carrierLight}
-        strokeWidth="26"
-        opacity="0.16"
-      />
-      <g opacity="0.45">
-        {Array.from({ length: 32 }, (_, index) => (
+
+      <g data-layer="bgFar">
+        <rect width="1600" height="900" rx="48" fill="url(#rbc-bg)" />
+      </g>
+
+      <g data-layer="bgMid" opacity="0.75">
+        <path d="M0 268 C260 235 480 246 705 270 C930 294 1180 244 1600 288" fill="none" stroke="#c26771" strokeWidth="5" />
+        <path d="M0 304 C260 275 488 288 705 306 C930 326 1180 286 1600 322" fill="none" stroke="#fff" strokeWidth="4" opacity="0.55" />
+        {Array.from({ length: 38 }, (_, index) => (
           <circle
             key={index}
-            cx={(index * 67) % 900}
-            cy={132 + ((index * 43) % 280)}
-            r={index % 4 === 0 ? 2.8 : 1.8}
+            cx={(index * 97) % 1600}
+            cy={142 + ((index * 61) % 650)}
+            r={index % 5 === 0 ? 6 : 3}
+            fill="#ef7c82"
+            opacity="0.28"
+          />
+        ))}
+      </g>
+
+      <g data-layer="terrain">
+        <path
+          d="M0 706 C226 636 420 620 624 655 C858 696 1038 716 1218 664 C1368 622 1486 552 1600 484 L1600 900 L0 900 Z"
+          fill="url(#rbc-plasma)"
+        />
+      </g>
+
+      <g data-layer="medium" opacity="0.55">
+        <path d="M-40 650 C250 594 496 620 754 662 C1032 706 1288 682 1640 570" fill="none" stroke="#bf5266" strokeWidth="5" />
+        <path d="M-40 290 C242 220 512 222 772 332 C1010 434 1260 392 1640 172" fill="none" stroke="#8f3f79" strokeWidth="46" opacity="0.34" />
+      </g>
+
+      <g data-layer="actorTrail" opacity="0.46">
+        {Array.from({ length: 44 }, (_, index) => (
+          <circle
+            key={index}
+            cx={(index * 71 + shift * 0.45) % 1600}
+            cy={290 + ((index * 47) % 430)}
+            r={index % 4 === 0 ? 4 : 2.5}
             fill="#fff"
           />
         ))}
       </g>
 
-      <g>
+      <g data-layer="actors">
         {cells.map((cell, index) => {
-          const x = ((cell.x + carrierShift + index * 18) % 760) + 70;
+          const x = ((cell.x + shift + index * 24) % 1500) + 50;
           return (
-            <motion.g
-              key={index}
-              transform={`translate(${x} ${cell.y}) scale(${cell.s})`}
-              animate={isPlaying ? { y: [0, -8, 0] } : undefined}
-              transition={{ duration: 2.6, repeat: Infinity, delay: index * 0.2 }}
-            >
-              <ellipse cx="0" cy="0" rx="58" ry="38" fill={palette.carrier} />
-              <ellipse cx="0" cy="0" rx="30" ry="18" fill={palette.landDark} opacity="0.35" />
-              <ellipse cx="-16" cy="-14" rx="22" ry="10" fill="#fff" opacity="0.18" />
-              <g opacity={payloadOpacity} filter={`url(#${brief.id}-glow)`}>
-                <circle cx="-34" cy="-32" r="8" fill={palette.payload} />
-                <circle cx="-12" cy="-40" r="7" fill={palette.payloadGlow} />
-                <circle cx="20" cy="-34" r="8" fill={palette.payload} />
-              </g>
-            </motion.g>
+            <g key={index} filter="url(#rbc-cell-shadow)">
+              <Carrier
+                shape="cell"
+                x={x}
+                y={cell.y}
+                size={130 * cell.s}
+                fill={palette.carrier}
+                cargoFill={palette.payload}
+                cargoOpacity={cargoOpacity}
+                isPlaying={isPlaying}
+                motionDelay={index * 0.18}
+                label={brief.actors.carrier.label}
+              />
+            </g>
           );
         })}
       </g>
 
-      <g opacity={revealOpacity}>
-        <circle cx="658" cy="244" r="82" fill="rgba(255,255,255,0.14)" stroke="#fff" strokeWidth="5" />
-        <text x="625" y="252" fill={palette.payloadGlow} fontSize="34" fontWeight="900" fontFamily="Inter, system-ui, sans-serif">O₂</text>
-        <path d="M712 300 L760 360" stroke="#fff" strokeWidth="9" strokeLinecap="round" />
+      <g data-layer="terrainNear">
+        <path
+          d="M0 748 C230 696 436 690 660 718 C902 748 1105 770 1288 720 C1415 685 1505 632 1600 574 L1600 900 L0 900 Z"
+          fill="#d86171"
+          opacity="0.68"
+        />
       </g>
 
-      <g fontFamily="Inter, system-ui, sans-serif" fontWeight="850">
-        <text x="76" y="128" fontSize="23" fill={palette.payloadGlow}>{brief.actors.source.label}</text>
-        <text x="280" y="410" fontSize="22" fill="#fff">{brief.actors.carrier.label}</text>
-        <text x="592" y="170" fontSize="22" fill={palette.payloadGlow} opacity={payloadOpacity}>{brief.actors.payload.label}</text>
-        <text x="650" y="434" fontSize="21" fill="#fff">{brief.actors.destination.label}</text>
+      <g data-testid="carrier-flow-region-labels" data-layer="regionLabels" fontFamily="Inter, system-ui, sans-serif" fontWeight="900">
+        <text x="126" y="286" fill="#fff" fontSize="26">lungs</text>
+        <text x="1300" y="286" fill="#fff" fontSize="24" textAnchor="middle">tissue · deliver</text>
       </g>
-    </svg>
+
+      <g data-layer="accents" opacity={reveal}>
+        <circle cx="770" cy="510" r="138" fill="rgba(255,255,255,0.18)" stroke="#fff" strokeWidth="8" />
+        <text x="720" y="524" fill={palette.payloadGlow} filter="url(#rbc-cargo-glow)" fontSize="56" fontWeight="900" fontFamily="Inter, system-ui, sans-serif">
+          O₂
+        </text>
+        <text x="696" y="578" fill="#fff" fontSize="28" fontWeight="900" fontFamily="Inter, system-ui, sans-serif">
+          oxygen
+        </text>
+        <path d="M872 610 L956 708" stroke="#fff" strokeWidth="14" strokeLinecap="round" />
+      </g>
+    </>
   );
 }
 
@@ -257,9 +410,25 @@ export function CarrierFlowScene(props: {
   progress: number;
   isPlaying: boolean;
 }): React.ReactElement {
-  return props.brief.world === "bloodstream" ? (
-    <BloodstreamWorld {...props} />
-  ) : (
-    <ErosionWorld {...props} />
+  const { brief, progress } = props;
+
+  return (
+    <motion.svg
+      aria-label={`${brief.topic} carrier-flow visual model`}
+      data-testid="visual-explainer-scene"
+      role="img"
+      viewBox={buildViewBox(brief, progress)}
+      className="h-full w-full rounded-[1.5rem]"
+      initial={false}
+      animate={{ viewBox: buildViewBox(brief, progress) }}
+      transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
+      preserveAspectRatio="xMidYMid slice"
+    >
+      {brief.world === "bloodstream" ? (
+        <BloodstreamWorld {...props} />
+      ) : (
+        <ErosionWorld {...props} />
+      )}
+    </motion.svg>
   );
 }

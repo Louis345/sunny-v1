@@ -172,9 +172,6 @@ function CompanionCoach(props: {
               {expressionLabel[props.line.expression]}
             </span>
             <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-              state: {props.state}
-            </span>
-            <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
               voice: {props.config.companion.provider}
             </span>
             <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
@@ -584,7 +581,7 @@ export function VisualExplainerDemo(props: {
         <section className="grid gap-5">
           {props.mapMode && props.onExit ? (
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
                   Adventure Map Room
                 </div>
@@ -602,20 +599,20 @@ export function VisualExplainerDemo(props: {
             </div>
           ) : null}
           {showDeveloperPanels ? (
-          <div className="rounded-lg border border-sky-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="rounded-[1rem] border border-sky-200 bg-white/95 px-5 py-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">
                   Teaching Intervention Room
                 </div>
-                <h1 className="mt-2 text-3xl font-black tracking-normal text-slate-950">
+                <h1 className="mt-1 text-2xl font-black tracking-normal text-slate-950 sm:text-3xl">
                   {config.topic} Visual Explainer
                 </h1>
-                <p className="mt-2 max-w-3xl text-base leading-7 text-slate-700">
+                <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-slate-700">
                   {config.learningGoal}
                 </p>
               </div>
-              <label className="grid min-w-56 gap-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              <label className="grid min-w-48 shrink-0 gap-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500 sm:min-w-56">
                 Preview Theme
                 <select
                   data-testid="visual-brief-switcher"
@@ -633,20 +630,20 @@ export function VisualExplainerDemo(props: {
                 </select>
               </label>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg bg-sky-50 p-4">
-                <div className="text-xs font-black uppercase tracking-[0.16em] text-sky-900">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div className="rounded-lg bg-sky-50 px-3 py-2">
+                <div className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-900">
                   Assumption
                 </div>
-                <p className="mt-1 text-sm leading-6 text-slate-800">
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-800">
                   {config.carePlanNote.assumption}
                 </p>
               </div>
-              <div className="rounded-lg bg-emerald-50 p-4">
-                <div className="text-xs font-black uppercase tracking-[0.16em] text-emerald-900">
+              <div className="rounded-lg bg-emerald-50 px-3 py-2">
+                <div className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-900">
                   Intervention
                 </div>
-                <p className="mt-1 text-sm leading-6 text-slate-800">
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-800">
                   {config.carePlanNote.intervention}
                 </p>
               </div>
@@ -654,45 +651,82 @@ export function VisualExplainerDemo(props: {
           </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
-              <div>
-                <div
-                  data-testid="visual-explainer-state"
-                  className="text-xs font-black uppercase tracking-[0.18em] text-slate-500"
-                >
-                  State: {currentState}
+          <div className="overflow-hidden rounded-[1.25rem] border border-[#ece5f5] bg-white shadow-[0_24px_60px_-30px_rgba(20,16,46,0.35)]">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#ece5f5] px-5 py-4">
+              <div className="min-w-0">
+                <div className="inline-flex rounded-full border border-[#ece5f5] bg-white px-4 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#5a5273] shadow-sm">
+                  {currentState === "intro"
+                    ? "Ready"
+                    : currentState === "pausedForPrediction"
+                      ? "Prediction"
+                      : currentState === "complete"
+                        ? "Complete"
+                        : "In progress"}
                 </div>
-                <p className="mt-1 text-sm font-semibold text-slate-800">{config.childHook}</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-[#1b1530]">
+                  {config.childHook}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={start}
-                className="inline-flex items-center gap-2 rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white shadow-sm"
-              >
-                <Play size={16} />
-                Start Treatment
-              </button>
+              {currentState === "intro" ? (
+                <button
+                  type="button"
+                  onClick={start}
+                  className="inline-flex min-h-12 items-center gap-2 rounded-[0.875rem] bg-[#1b1530] px-5 py-3 text-sm font-black text-white shadow-[0_12px_24px_-14px_rgba(20,16,46,0.9)]"
+                >
+                  <Play size={17} />
+                  Start Treatment
+                </button>
+              ) : (
+                <div className="rounded-[0.875rem] border border-[#ece5f5] bg-[#f7f2ff] px-4 py-3 text-sm font-black text-[#5a5273]">
+                  {currentState === "pausedForPrediction"
+                    ? "Answer the prediction below"
+                    : currentState === "complete"
+                      ? "Treatment complete"
+                      : "Treatment running"}
+                </div>
+              )}
             </div>
 
-            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="relative aspect-[16/9] min-h-[360px] p-4">
+            <div
+              data-testid="visual-explainer-scene-band"
+              className="bg-white px-4 py-5 sm:px-6 sm:py-6"
+            >
+              <div className="mx-auto aspect-[16/9] max-w-[1040px] overflow-hidden rounded-[1.5rem] bg-slate-100 shadow-[0_24px_60px_-20px_rgba(20,16,46,0.45)]">
                 <CarrierFlowScene
                   brief={visualBrief}
                   progress={progress}
                   isPlaying={isPlaying}
                 />
-                <motion.div
-                  className="absolute bottom-5 left-5 right-5 rounded-lg bg-white/92 p-4 shadow-lg backdrop-blur"
-                  initial={false}
-                  animate={{ y: 0, opacity: 1 }}
+              </div>
+            </div>
+
+            <div
+              data-testid="visual-explainer-controls-band"
+              className="border-t border-[#ece5f5] bg-white px-5 py-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-lg font-semibold leading-7 text-[#1b1530] md:text-xl">
+                  {checkpointCaption}
+                </p>
+                <span className="rounded-full bg-[#f7f2ff] px-3 py-1 text-xs font-black text-[#5a5273]">
+                  {Math.round(progress * 100)}%
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4">
+                <button
+                  type="button"
+                  onClick={start}
+                  aria-label="Play visual explainer"
+                  className="grid h-14 w-14 place-items-center rounded-full bg-[#1b1530] text-white shadow-[0_12px_24px_-14px_rgba(20,16,46,0.9)]"
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="text-sm font-bold text-slate-800">{checkpointCaption}</p>
-                    <span className="text-xs font-black text-slate-500">
-                      {Math.round(progress * 100)}%
-                    </span>
-                  </div>
+                  <Play size={18} />
+                </button>
+                <div className="relative min-h-14">
+                  <div className="absolute left-0 right-0 top-5 h-2 rounded-full bg-[#ede7df]" />
+                  <div
+                    className="absolute left-0 top-5 h-2 rounded-full bg-[#6e3fcb]"
+                    style={{ width: `${Math.round(progress * 100)}%` }}
+                  />
                   <input
                     aria-label={`${config.topic} time scrubber`}
                     data-testid="visual-explainer-scrubber"
@@ -701,112 +735,145 @@ export function VisualExplainerDemo(props: {
                     max={100}
                     value={Math.round(progress * 100)}
                     onChange={(event) => setScrubProgress(Number(event.target.value) / 100)}
-                    className="mt-3 w-full accent-sky-600"
+                    className="absolute inset-x-0 top-0 h-11 w-full cursor-pointer opacity-0"
                   />
-                </motion.div>
+                  {config.checkpoints.map((checkpoint) => {
+                    const pct = Math.round(checkpoint.t * 100);
+                    const active = Math.abs(progress - checkpoint.t) < 0.08;
+                    return (
+                      <button
+                        key={checkpoint.id}
+                        type="button"
+                        onClick={() => setScrubProgress(checkpoint.t)}
+                        className="absolute top-2 grid min-h-11 min-w-11 -translate-x-1/2 place-items-center"
+                        style={{ left: `${pct}%` }}
+                        aria-label={`Jump to ${checkpoint.id}`}
+                      >
+                        <span
+                          className={
+                            active
+                              ? "h-5 w-5 rounded-full border-4 border-white bg-[#6e3fcb] shadow-[0_0_0_4px_rgba(110,63,203,0.18)]"
+                              : "h-4 w-4 rounded-full border-[3px] border-[#e5dcd1] bg-white"
+                          }
+                        />
+                        <span className="absolute top-9 hidden whitespace-nowrap text-[11px] font-black uppercase tracking-[0.08em] text-[#8d8275] sm:block">
+                          {visualBrief.checkpoints.find((item) => item.id === checkpoint.id)?.label ??
+                            checkpoint.id}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+            </div>
 
-              <aside className="grid content-start gap-4 border-t border-slate-200 p-4 lg:border-l lg:border-t-0">
-                {currentState === "intro" || currentState === "playing" ? (
-                  <div className="rounded-lg bg-slate-50 p-4">
-                    <h2 className="text-lg font-black">Watch for the evidence.</h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-700">
-                      The model will pause before the reveal so the child commits to a prediction.
-                    </p>
-                  </div>
-                ) : null}
+            <div className="border-t border-[#ece5f5] bg-[#fbf9ff] px-5 py-4">
+              {currentState === "intro" || currentState === "playing" ? (
+                <div className="rounded-[1rem] bg-white p-4 shadow-[0_8px_18px_-14px_rgba(20,16,46,0.4)]">
+                  <h2 className="text-lg font-black text-[#1b1530]">Watch for the evidence.</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#5a5273]">
+                    The model will pause before the reveal so the child commits to a prediction.
+                  </p>
+                </div>
+              ) : null}
 
-                {currentState === "pausedForPrediction" ? (
-                  <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
-                    <h2
-                      data-testid="visual-explainer-prediction-prompt"
-                      className="text-xl font-black"
-                    >
-                      {config.prediction.prompt}
-                    </h2>
-                    <div className="mt-4 grid gap-2">
-                      {config.prediction.options.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => answerPrediction(option)}
-                          className="rounded-md border border-sky-200 bg-white px-3 py-3 text-left text-sm font-bold text-slate-900 shadow-sm hover:border-sky-500"
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
+              {currentState === "pausedForPrediction" ? (
+                <motion.div
+                  className="rounded-[1rem] border border-[#e4d8f7] bg-white p-5 shadow-[0_18px_38px_-24px_rgba(20,16,46,0.5)]"
+                  initial={{ y: 14, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                >
+                  <h2
+                    data-testid="visual-explainer-prediction-prompt"
+                    className="text-2xl font-black leading-tight text-[#1b1530]"
+                  >
+                    {config.prediction.prompt}
+                  </h2>
+                  <div className="mt-4 grid gap-2 md:grid-cols-3">
+                    {config.prediction.options.map((option, index) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => answerPrediction(option)}
+                        className="rounded-[0.875rem] border border-[#ece5f5] bg-[#fffcf7] px-4 py-4 text-left text-sm font-black text-[#1b1530] shadow-sm hover:border-[#6e3fcb]"
+                      >
+                        <span className="mr-2 inline-grid h-7 w-7 place-items-center rounded-lg bg-white text-xs text-[#5a5273] shadow-inner">
+                          {index + 1}
+                        </span>
+                        {option.label}
+                      </button>
+                    ))}
                   </div>
-                ) : null}
+                </motion.div>
+              ) : null}
 
-                {currentState === "reveal" ? (
-                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                    <h2 className="text-lg font-black text-emerald-950">Reveal</h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-800">
-                      {config.prediction.reveal}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => actor.send({ type: "CONTINUE" })}
-                      className="mt-4 rounded-md bg-emerald-700 px-4 py-2 text-sm font-black text-white"
-                    >
-                      Continue
-                    </button>
-                  </div>
-                ) : null}
+              {currentState === "reveal" ? (
+                <div className="rounded-[1rem] border border-emerald-200 bg-white p-5">
+                  <h2 className="text-lg font-black text-emerald-950">Reveal</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-800">
+                    {config.prediction.reveal}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => actor.send({ type: "CONTINUE" })}
+                    className="mt-4 rounded-[0.875rem] bg-[#1b1530] px-4 py-2 text-sm font-black text-white"
+                  >
+                    Continue
+                  </button>
+                </div>
+              ) : null}
 
-                {currentState === "replayOrContinue" ? (
-                  <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        hasReachedPrediction.current = true;
-                        setProgress(config.animation.predictionAt);
-                        actor.send({ type: "REPLAY" });
-                      }}
-                      className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-black"
-                    >
-                      <RotateCcw size={16} />
-                      Replay from reveal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => actor.send({ type: "EXIT_READY" })}
-                      className="rounded-md bg-slate-950 px-4 py-2 text-sm font-black text-white"
-                    >
-                      Exit Check
-                    </button>
-                  </div>
-                ) : null}
+              {currentState === "replayOrContinue" ? (
+                <div className="flex flex-wrap gap-2 rounded-[1rem] border border-[#ece5f5] bg-white p-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      hasReachedPrediction.current = true;
+                      setProgress(config.animation.predictionAt);
+                      actor.send({ type: "REPLAY" });
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-[0.875rem] border border-[#ece5f5] bg-white px-4 py-2 text-sm font-black"
+                  >
+                    <RotateCcw size={16} />
+                    Replay from reveal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => actor.send({ type: "EXIT_READY" })}
+                    className="rounded-[0.875rem] bg-[#1b1530] px-4 py-2 text-sm font-black text-white"
+                  >
+                    Exit Check
+                  </button>
+                </div>
+              ) : null}
 
-                {currentState === "exitCheck" ? (
-                  <div className="rounded-lg border border-violet-200 bg-violet-50 p-4">
-                    <h2 className="text-lg font-black text-violet-950">
-                      {config.exitCheck.prompt}
-                    </h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-800">
-                      {config.exitCheck.answer}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={finish}
-                      className="mt-4 inline-flex items-center gap-2 rounded-md bg-violet-700 px-4 py-2 text-sm font-black text-white"
-                    >
-                      <CheckCircle2 size={16} />
-                      Complete
-                    </button>
-                  </div>
-                ) : null}
+              {currentState === "exitCheck" ? (
+                <div className="rounded-[1rem] border border-violet-200 bg-white p-5">
+                  <h2 className="text-lg font-black text-violet-950">
+                    {config.exitCheck.prompt}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-800">
+                    {config.exitCheck.answer}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={finish}
+                    className="mt-4 inline-flex items-center gap-2 rounded-[0.875rem] bg-[#1b1530] px-4 py-2 text-sm font-black text-white"
+                  >
+                    <CheckCircle2 size={16} />
+                    Complete
+                  </button>
+                </div>
+              ) : null}
 
-                {currentState === "complete" ? (
-                  <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4">
-                    <h2 className="text-lg font-black text-emerald-950">Treatment complete</h2>
-                    <p className="mt-2 text-sm leading-6 text-slate-800">
-                      The demo has emitted the same kind of evidence a future map node can persist.
-                    </p>
-                  </div>
-                ) : null}
-              </aside>
+              {currentState === "complete" ? (
+                <div className="rounded-[1rem] border border-emerald-300 bg-white p-5">
+                  <h2 className="text-lg font-black text-emerald-950">Treatment complete</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-800">
+                    The demo has emitted the same kind of evidence a future map node can persist.
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>

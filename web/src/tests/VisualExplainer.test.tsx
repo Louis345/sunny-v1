@@ -211,7 +211,52 @@ describe("VisualExplainerDemo", () => {
 
     expect(screen.getByText("Red Blood Cells Visual Explainer")).toBeInTheDocument();
     expect(screen.getByTestId("visual-explainer-scene")).toHaveTextContent("oxygen");
+    expect(screen.getByTestId("carrier-flow-region-labels")).toHaveTextContent("lungs");
+    expect(screen.getAllByTestId("carrier-flow-carrier").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/cells are the carriers/i).length).toBeGreaterThan(0);
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the art, caption, and scrubber in separate non-overlapping bands", () => {
+    vi.stubGlobal("SpeechSynthesisUtterance", MockSpeechSynthesisUtterance);
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { speak: vi.fn(), cancel: vi.fn() },
+    });
+
+    render(<VisualExplainerDemo />);
+
+    const sceneBand = screen.getByTestId("visual-explainer-scene-band");
+    const controlsBand = screen.getByTestId("visual-explainer-controls-band");
+    const scene = screen.getByTestId("visual-explainer-scene");
+    const scrubber = screen.getByTestId("visual-explainer-scrubber");
+
+    expect(sceneBand).toContainElement(scene);
+    expect(sceneBand).not.toContainElement(scrubber);
+    expect(controlsBand).toContainElement(scrubber);
+    expect(controlsBand).toHaveTextContent("A smooth hill waits before the rain starts.");
+    expect(screen.queryByText(/State:/i)).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("replaces the start action with a prediction cue once the scene pauses", () => {
+    vi.stubGlobal("SpeechSynthesisUtterance", MockSpeechSynthesisUtterance);
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { speak: vi.fn(), cancel: vi.fn() },
+    });
+
+    render(<VisualExplainerDemo />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Start Treatment/i }));
+    act(() => {
+      fireEvent.change(screen.getByTestId("visual-explainer-scrubber"), {
+        target: { value: "48" },
+      });
+    });
+
+    expect(screen.queryByRole("button", { name: /Start Treatment/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Answer the prediction below")).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
 
