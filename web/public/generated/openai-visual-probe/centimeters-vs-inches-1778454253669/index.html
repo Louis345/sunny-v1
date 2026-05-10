@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sunny Visual Explainer — Centimeters vs Inches</title>
+  <style>
+    :root{
+      --ink:#17324d;
+      --ink-soft:#46627c;
+      --deep:#0f2237;
+      --panel:#ffffff;
+      --panel-soft:#f5f9ff;
+      --sun:#ffd166;
+      --sun-deep:#f6a800;
+      --teal:#4ecdc4;
+      --teal-deep:#149a91;
+      --blue:#75a7ff;
+      --blue-deep:#376fe0;
+      --coral:#ff6b6b;
+      --cream:#fff7df;
+      --line:#d7e4f5;
+      --shadow:0 22px 60px rgba(15,34,55,.18);
+      --radius:26px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(255,209,102,.34), transparent 28%),
+        radial-gradient(circle at 90% 18%, rgba(117,167,255,.34), transparent 30%),
+        linear-gradient(135deg,#eef7ff 0%,#f8fbff 44%,#fff4e6 100%);
+    }
+    .page{
+      width:min(1500px, calc(100vw - 36px));
+      margin:0 auto;
+      padding:18px 0 24px;
+    }
+    .care-card{
+      display:flex;
+      gap:16px;
+      align-items:center;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(215,228,245,.95);
+      border-radius:22px;
+      box-shadow:0 12px 40px rgba(15,34,55,.10);
+      padding:14px 18px;
+      margin-bottom:16px;
+    }
+    .care-icon{
+      width:44px;height:44px;flex:0 0 auto;
+      border-radius:16px;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--sun),#fff2b8);
+      box-shadow:inset 0 -5px 0 rgba(246,168,0,.18);
+      font-size:25px;
+    }
+    .care-card p{margin:0;line-height:1.35;font-size:15px}
+    .care-card strong{color:#0f2a45}
+    .probeMarker{
+      margin-left:auto;
+      align-self:flex-start;
+      font-size:11px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#6e88a3;
+      background:#eef5ff;
+      border:1px solid #dbe9fb;
+      border-radius:999px;
+      padding:6px 9px;
+      white-space:nowrap;
+    }
+    .app{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 370px;
+      gap:18px;
+      align-items:start;
+    }
+    .canvas-card,.side-card{
+      background:rgba(255,255,255,.86);
+      border:1px solid rgba(215,228,245,.98);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .canvas-card{
+      overflow:hidden;
+      position:relative;
+    }
+    .canvas-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:16px 18px 8px;
+    }
+    .title-block h1{
+      margin:0;
+      font-size:24px;
+      letter-spacing:-.02em;
+    }
+    .title-block p{
+      margin:4px 0 0;
+      color:var(--ink-soft);
+      font-size:14px;
+    }
+    .companion-bubble{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      max-width:430px;
+      background:linear-gradient(135deg,#ffffff,#fff8df);
+      border:1px solid rgba(255,209,102,.55);
+      box-shadow:0 12px 35px rgba(246,168,0,.16);
+      border-radius:22px;
+      padding:10px 12px;
+    }
+    .sunny-face{
+      width:42px;height:42px;flex:0 0 auto;
+      border-radius:50%;
+      background:
+        radial-gradient(circle at 50% 42%,#fff6b5 0 16%, transparent 17%),
+        linear-gradient(135deg,#ffd166,#ffb703);
+      border:2px solid rgba(255,255,255,.8);
+      position:relative;
+      box-shadow:0 5px 16px rgba(246,168,0,.25);
+    }
+    .sunny-face:before,.sunny-face:after{
+      content:"";
+      position:absolute;
+      top:16px;
+      width:5px;height:5px;border-radius:50%;
+      background:#6b4a00;
+    }
+    .sunny-face:before{left:12px}
+    .sunny-face:after{right:12px}
+    .smile{
+      position:absolute;
+      width:16px;height:9px;
+      border-bottom:3px solid #6b4a00;
+      border-radius:0 0 20px 20px;
+      left:11px;top:23px;
+    }
+    .companion-bubble p{
+      margin:0;
+      font-size:14px;
+      line-height:1.28;
+      color:#2d4964;
+      font-weight:650;
+    }
+    .svg-wrap{
+      padding:0 14px 8px;
+    }
+    svg{
+      width:100%;
+      height:auto;
+      display:block;
+      border-radius:24px;
+      filter:drop-shadow(0 14px 35px rgba(15,34,55,.12));
+      touch-action:manipulation;
+    }
+    .controls{
+      display:grid;
+      grid-template-columns:auto minmax(260px,1fr);
+      gap:14px;
+      align-items:center;
+      padding:12px 18px 18px;
+      border-top:1px solid #e8f0fb;
+      background:linear-gradient(180deg,rgba(255,255,255,.65),rgba(246,250,255,.95));
+    }
+    .play-btn{
+      border:0;
+      border-radius:18px;
+      min-width:112px;
+      padding:13px 18px;
+      color:#10233a;
+      font-weight:850;
+      background:linear-gradient(135deg,var(--sun),#ffe59a);
+      box-shadow:0 10px 24px rgba(246,168,0,.22), inset 0 -3px 0 rgba(182,124,0,.14);
+      cursor:pointer;
+    }
+    .play-btn:focus-visible,.checkpoint:focus-visible,.choice:focus-visible,.reveal-btn:focus-visible{
+      outline:4px solid rgba(78,205,196,.42);
+      outline-offset:3px;
+    }
+    .scrub-area{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:12px;
+      align-items:center;
+    }
+    .scrub-area label{
+      color:#405d78;
+      font-size:13px;
+      font-weight:800;
+    }
+    input[type="range"]{
+      width:100%;
+      accent-color:var(--teal-deep);
+      cursor:pointer;
+    }
+    output{
+      min-width:46px;
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+      color:#405d78;
+      font-weight:800;
+      font-size:13px;
+    }
+    .checkpoints{
+      grid-column:1 / -1;
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0,1fr));
+      gap:8px;
+    }
+    .checkpoint{
+      border:1px solid #d8e6f7;
+      background:#fff;
+      color:#34536f;
+      border-radius:15px;
+      padding:9px 7px;
+      font-size:12px;
+      font-weight:850;
+      cursor:pointer;
+      box-shadow:0 5px 12px rgba(15,34,55,.06);
+    }
+    .checkpoint.active{
+      background:linear-gradient(135deg,#e8fffb,#f4fbff);
+      border-color:rgba(78,205,196,.75);
+      color:#0d746e;
+      box-shadow:0 8px 18px rgba(78,205,196,.16);
+    }
+    .side-stack{
+      display:grid;
+      gap:18px;
+    }
+    .side-card{
+      padding:18px;
+    }
+    .side-card h2{
+      margin:0 0 10px;
+      font-size:18px;
+      letter-spacing:-.01em;
+    }
+    .prediction-card{
+      background:
+        linear-gradient(135deg,rgba(255,247,223,.98),rgba(255,255,255,.92));
+      border-color:rgba(255,209,102,.72);
+    }
+    .prediction-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      color:#8a6200;
+      background:#fff1bf;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:10px;
+    }
+    .prediction-card p{
+      margin:0 0 12px;
+      color:#304c67;
+      line-height:1.35;
+      font-weight:700;
+    }
+    .choice-grid{
+      display:grid;
+      gap:9px;
+      margin:12px 0;
+    }
+    .choice{
+      text-align:left;
+      border:1px solid #ead99d;
+      background:#fff;
+      color:#263f59;
+      border-radius:16px;
+      padding:11px 12px;
+      cursor:pointer;
+      font-weight:850;
+    }
+    .choice.selected{
+      border-color:#f4b000;
+      background:#fff6d4;
+      box-shadow:0 8px 18px rgba(246,168,0,.16);
+    }
+    .reveal-btn{
+      width:100%;
+      border:0;
+      border-radius:16px;
+      padding:12px 14px;
+      font-weight:900;
+      color:#ffffff;
+      background:linear-gradient(135deg,var(--teal),#25b3aa);
+      cursor:pointer;
+      box-shadow:0 10px 20px rgba(20,154,145,.20);
+    }
+    .reveal-btn:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+      box-shadow:none;
+    }
+    .pred-feedback{
+      min-height:38px;
+      margin-top:10px;
+      padding:10px 11px;
+      border-radius:14px;
+      background:rgba(255,255,255,.72);
+      color:#4c6680;
+      font-size:13px;
+      line-height:1.3;
+      font-weight:750;
+    }
+    .console{
+      background:linear-gradient(180deg,#10253b,#0d1c2d);
+      color:#eaf6ff;
+      border-color:rgba(16,37,59,.8);
+    }
+    .console h2{
+      color:#ffffff;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .console h2 span{
+      display:inline-block;
+      width:10px;height:10px;border-radius:50%;
+      background:#4ee6a8;
+      box-shadow:0 0 0 5px rgba(78,230,168,.13);
+    }
+    .evidence-list{
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:grid;
+      gap:10px;
+      max-height:330px;
+      overflow:auto;
+    }
+    .evidence-list li{
+      border:1px solid rgba(196,222,245,.17);
+      background:rgba(255,255,255,.07);
+      border-radius:15px;
+      padding:10px 11px;
+      line-height:1.28;
+    }
+    .evidence-list b{
+      display:block;
+      color:#9ee8ff;
+      font-size:12px;
+      margin-bottom:4px;
+      letter-spacing:.02em;
+    }
+    .evidence-list span{
+      font-size:13px;
+      color:#e6f2ff;
+    }
+    .mini-note{
+      color:#5a748c;
+      font-size:13px;
+      line-height:1.38;
+      margin:0;
+    }
+
+    .scene-title{font-size:28px;font-weight:900;fill:#eff8ff;letter-spacing:-.02em}
+    .scene-small{font-size:16px;font-weight:750;fill:#bfd7ee}
+    .ruler-label{font-size:20px;font-weight:900;fill:#203d59}
+    .ruler-sub{font-size:14px;font-weight:800;fill:#667f98}
+    .ruler-num{font-size:13px;font-weight:900;fill:#496783}
+    .tile-text{font-size:18px;font-weight:950;fill:white;text-anchor:middle;dominant-baseline:middle}
+    .count-main{font-size:32px;font-weight:950;text-anchor:middle;fill:#ffffff}
+    .count-sub{font-size:13px;font-weight:850;text-anchor:middle;fill:rgba(255,255,255,.88)}
+    .gate-title{font-size:21px;font-weight:950;fill:#17324d;text-anchor:middle}
+    .gate-sub{font-size:16px;font-weight:850;fill:#405b75;text-anchor:middle}
+    .rule-text{font-size:18px;font-weight:950;fill:#14314b;text-anchor:middle}
+    .rule-small{font-size:13px;font-weight:800;fill:#54708a;text-anchor:middle}
+
+    @media (max-width:1100px){
+      .app{grid-template-columns:1fr}
+      .companion-bubble{max-width:100%}
+      .canvas-top{align-items:flex-start;gap:12px;flex-direction:column}
+      .side-stack{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width:800px){
+      .page{width:min(100vw - 20px, 760px);padding-top:10px}
+      .care-card{align-items:flex-start}
+      .probeMarker{display:none}
+      .controls{grid-template-columns:1fr}
+      .play-btn{width:100%}
+      .scrub-area{grid-template-columns:1fr}
+      output{text-align:left}
+      .checkpoints{grid-template-columns:1fr 1fr}
+      .side-stack{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="care-card" aria-label="Care-plan assumption">
+      <div class="care-icon" aria-hidden="true">☀️</div>
+      <p><strong>Care-plan assumption preview:</strong> Your child may be treating centimeters and inches like they change the object. This room tests one model: the object stays the same; the measuring step changes.</p>
+      <span class="probeMarker">sunny-visual-probe</span>
+    </section>
+
+    <section class="app" aria-label="Sunny visual explainer">
+      <div class="canvas-card">
+        <div class="canvas-top">
+          <div class="title-block">
+            <h1>Centimeters vs Inches</h1>
+            <p>One pencil. Two step sizes. Different counts.</p>
+          </div>
+          <div class="companion-bubble" aria-live="polite">
+            <div class="sunny-face" aria-hidden="true"><span class="smile"></span></div>
+            <p id="companionText">This pencil stays the same. We only change the size of the measuring step.</p>
+          </div>
+        </div>
+
+        <div class="svg-wrap">
+          <svg id="sceneSvg" viewBox="0 0 1200 620" role="img" aria-labelledby="sceneTitle sceneDesc">
+            <title id="sceneTitle">Sunny measuring steps visual</title>
+            <desc id="sceneDesc">A pencil is measured with centimeter steps and inch steps to show that smaller units make bigger counts.</desc>
+            <defs>
+              <linearGradient id="stageGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#163553"/>
+                <stop offset=".55" stop-color="#10243a"/>
+                <stop offset="1" stop-color="#223d5e"/>
+              </linearGradient>
+              <linearGradient id="tableGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#f9fcff"/>
+                <stop offset="1" stop-color="#eaf3ff"/>
+              </linearGradient>
+              <linearGradient id="pencilGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#ffd66b"/>
+                <stop offset=".55" stop-color="#ffbd3d"/>
+                <stop offset="1" stop-color="#f59f00"/>
+              </linearGradient>
+              <linearGradient id="eraserGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffb3c1"/>
+                <stop offset="1" stop-color="#ff6b8f"/>
+              </linearGradient>
+              <linearGradient id="cmGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#75a7ff"/>
+                <stop offset="1" stop-color="#376fe0"/>
+              </linearGradient>
+              <linearGradient id="inchGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#4ecdc4"/>
+                <stop offset="1" stop-color="#149a91"/>
+              </linearGradient>
+              <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#07182a" flood-opacity=".22"/>
+              </filter>
+              <filter id="glow" x="-40%" y="-80%" width="180%" height="260%">
+                <feGaussianBlur stdDeviation="8" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            <rect x="18" y="18" width="1164" height="584" rx="38" fill="url(#stageGrad)"/>
+            <circle cx="1060" cy="98" r="86" fill="#75a7ff" opacity=".10"/>
+            <circle cx="150" cy="540" r="120" fill="#ffd166" opacity=".11"/>
+            <path d="M68 96 C230 48, 338 84, 486 56 S820 40, 1116 78" fill="none" stroke="#ffffff" stroke-opacity=".10" stroke-width="18" stroke-linecap="round"/>
+
+            <text class="scene-title" x="64" y="72">Unit Step Theater</text>
+            <text id="sceneMessage" class="scene-small" x="64" y="101">One pencil. Change the step, not the pencil.</text>
+
+            <g id="pencilGroup" filter="url(#softShadow)">
+              <ellipse cx="600" cy="209" rx="382" ry="30" fill="#07182a" opacity=".20"/>
+              <rect x="250" y="134" width="76" height="60" rx="16" fill="url(#eraserGrad)"/>
+              <rect x="318" y="134" width="34" height="60" rx="7" fill="#c7d2de"/>
+              <path d="M345 134 H866 L950 164 L866 194 H345 Z" fill="url(#pencilGrad)"/>
+              <path d="M866 134 L950 164 L866 194 Z" fill="#ffd8a8"/>
+              <path d="M919 153 L950 164 L919 175 Z" fill="#2b3744"/>
+              <path d="M352 150 H850" stroke="#fff4bf" stroke-width="6" stroke-linecap="round" opacity=".72"/>
+              <path d="M354 181 H860" stroke="#d47c00" stroke-width="4" stroke-linecap="round" opacity=".32"/>
+              <text x="600" y="170" text-anchor="middle" dominant-baseline="middle" font-size="22" font-weight="950" fill="#7a4b00">same pencil</text>
+            </g>
+
+            <g id="sameLengthGlow" opacity="0" filter="url(#glow)">
+              <line x1="250" y1="235" x2="950" y2="235" stroke="#ffd166" stroke-width="7" stroke-linecap="round"/>
+            </g>
+            <g id="bracket">
+              <line x1="250" y1="232" x2="950" y2="232" stroke="#e9f4ff" stroke-width="3" stroke-linecap="round"/>
+              <line x1="250" y1="220" x2="250" y2="244" stroke="#e9f4ff" stroke-width="3" stroke-linecap="round"/>
+              <line x1="950" y1="220" x2="950" y2="244" stroke="#e9f4ff" stroke-width="3" stroke-linecap="round"/>
+              <text id="bracketText" x="600" y="258" text-anchor="middle" font-size="15" font-weight="850" fill="#d9ecff">same length every time</text>
+            </g>
+
+            <g id="cmTrack">
+              <rect x="218" y="270" width="764" height="118" rx="26" fill="url(#tableGrad)" opacity=".97"/>
+              <text class="ruler-label" x="250" y="296">centimeters</text>
+              <text class="ruler-sub" x="392" y="296">small steps</text>
+              <g id="cmTiles"></g>
+              <g id="cmMarks"></g>
+              <g id="cmWalker" opacity="0">
+                <circle cx="0" cy="0" r="22" fill="#75a7ff" stroke="#ffffff" stroke-width="4"/>
+                <text x="0" y="1" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="950" fill="#ffffff">cm</text>
+              </g>
+              <g id="cmCount" opacity="0" filter="url(#softShadow)">
+                <rect x="1004" y="296" width="128" height="76" rx="22" fill="#376fe0"/>
+                <text class="count-main" x="1068" y="328">10</text>
+                <text class="count-sub" x="1068" y="352">cm steps</text>
+              </g>
+            </g>
+
+            <g id="inchTrack">
+              <rect x="218" y="406" width="764" height="118" rx="26" fill="url(#tableGrad)" opacity=".97"/>
+              <text class="ruler-label" x="250" y="432">inches</text>
+              <text class="ruler-sub" x="344" y="432">bigger steps</text>
+              <g id="inchTiles"></g>
+              <g id="inchMarks"></g>
+              <g id="inchWalker" opacity="0">
+                <circle cx="0" cy="0" r="24" fill="#4ecdc4" stroke="#ffffff" stroke-width="4"/>
+                <text x="0" y="1" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="950" fill="#ffffff">in</text>
+              </g>
+              <g id="inchCount" opacity="0" filter="url(#softShadow)">
+                <rect x="1004" y="432" width="128" height="76" rx="22" fill="#149a91"/>
+                <text class="count-main" x="1068" y="464">≈ 4</text>
+                <text class="count-sub" x="1068" y="488">inch steps</text>
+              </g>
+            </g>
+
+            <g id="predictionGate" opacity="0" filter="url(#softShadow)">
+              <rect x="380" y="244" width="440" height="112" rx="30" fill="#fff7df" stroke="#ffd166" stroke-width="4"/>
+              <circle cx="430" cy="300" r="27" fill="#ffd166"/>
+              <text x="430" y="308" text-anchor="middle" font-size="28" font-weight="950" fill="#6b4a00">?</text>
+              <text class="gate-title" x="620" y="286">Prediction Pause</text>
+              <text class="gate-sub" x="620" y="318">Same pencil. Which count is bigger?</text>
+            </g>
+
+            <g id="revealBurst" opacity="0">
+              <path d="M108 140 l10 22 24 3 -18 16 5 24 -21 -12 -21 12 5 -24 -18 -16 24 -3z" fill="#ffd166"/>
+              <path d="M1030 205 l8 18 20 2 -15 13 4 20 -17 -10 -18 10 4 -20 -15 -13 20-2z" fill="#4ecdc4"/>
+              <path d="M1020 548 l7 15 17 2 -13 11 4 16 -15 -8 -14 8 3 -16 -12 -11 16-2z" fill="#75a7ff"/>
+              <circle cx="170" cy="325" r="9" fill="#ffdf7e"/>
+              <circle cx="1090" cy="390" r="7" fill="#ff8b8b"/>
+              <circle cx="142" cy="455" r="6" fill="#7ee3dd"/>
+            </g>
+
+            <g id="ruleCard" opacity="0" filter="url(#softShadow)">
+              <rect x="365" y="546" width="470" height="54" rx="22" fill="#ffffff" opacity=".95"/>
+              <text class="rule-text" x="600" y="570">Bigger unit step → fewer steps</text>
+              <text class="rule-small" x="600" y="590">The pencil did not grow or shrink.</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="controls" aria-label="Scene controls">
+          <button id="playPause" class="play-btn" type="button" aria-label="Play visual explainer">▶ Play</button>
+          <div class="scrub-area">
+            <label for="scrubber">Progress</label>
+            <input id="scrubber" type="range" min="0" max="100" value="0" step="1" aria-label="Scene progress" />
+            <output id="progressOut" for="scrubber">0%</output>
+          </div>
+          <div class="checkpoints" aria-label="Checkpoints">
+            <button class="checkpoint active" type="button" data-progress="0" aria-label="Jump to checkpoint one: same pencil">1 Same pencil</button>
+            <button class="checkpoint" type="button" data-progress="24" aria-label="Jump to checkpoint two: centimeter steps">2 cm steps</button>
+            <button class="checkpoint" type="button" data-progress="45" aria-label="Jump to checkpoint three: prediction">3 Predict</button>
+            <button class="checkpoint" type="button" data-progress="64" aria-label="Jump to checkpoint four: reveal">4 Reveal</button>
+            <button class="checkpoint" type="button" data-progress="88" aria-label="Jump to checkpoint five: evidence rule">5 Rule</button>
+          </div>
+        </div>
+      </div>
+
+      <aside class="side-stack">
+        <section class="side-card prediction-card" id="predictionPanel" aria-live="polite">
+          <div class="prediction-kicker">☀️ Prediction pause</div>
+          <h2>Before the reveal</h2>
+          <p>Same pencil. Which number will be bigger?</p>
+          <div class="choice-grid" role="group" aria-label="Prediction choices">
+            <button class="choice" type="button" data-choice="cm" aria-pressed="false">Centimeters</button>
+            <button class="choice" type="button" data-choice="inch" aria-pressed="false">Inches</button>
+            <button class="choice" type="button" data-choice="same" aria-pressed="false">Same number</button>
+          </div>
+          <button id="revealButton" class="reveal-btn" type="button" disabled aria-label="Reveal the measurement answer">Reveal with Sunny</button>
+          <div id="predFeedback" class="pred-feedback">Make your prediction when Sunny pauses.</div>
+        </section>
+
+        <section class="side-card console" aria-label="Evidence console">
+          <h2><span aria-hidden="true"></span>Evidence console</h2>
+          <ol id="evidenceList" class="evidence-list" aria-live="polite">
+            <li data-evidence-event="scene-loaded"><b>scene-loaded</b><span>sunny-visual-probe ready.</span></li>
+          </ol>
+        </section>
+
+        <section class="side-card">
+          <h2>Sunny’s mental model</h2>
+          <p class="mini-note">Small unit steps need more counts. Bigger unit steps need fewer counts. The object’s length stays the same.</p>
+        </section>
+      </aside>
+    </section>
+
+    <script type="application/json" id="recallGame">
+{
+  "gameId": "sunny-coop-centimeters-vs-inches",
+  "source": "sunny-visual-probe",
+  "mode": "co-op quiz against Sunny",
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "For the same pencil, which count was bigger?",
+      "choices": ["centimeters", "inches", "same number"],
+      "answer": "centimeters",
+      "sunCoinStake": 2,
+      "targetEvidenceIds": ["reveal-counts"]
+    },
+    {
+      "id": "q2",
+      "prompt": "Why did centimeters make a bigger number?",
+      "choices": ["centimeter steps are smaller", "the pencil got longer", "inches are tiny"],
+      "answer": "centimeter steps are smaller",
+      "sunCoinStake": 3,
+      "targetEvidenceIds": ["cm-small-steps", "rule-fewer"]
+    },
+    {
+      "id": "q3",
+      "prompt": "If you measure the same shelf with a bigger unit step, what happens to the count?",
+      "choices": ["the count gets smaller", "the shelf shrinks", "the count must be 100"],
+      "answer": "the count gets smaller",
+      "sunCoinStake": 4,
+      "targetEvidenceIds": ["rule-fewer"]
+    }
+  ]
+}
+    </script>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const NS = "http://www.w3.org/2000/svg";
+      const x0 = 250;
+      const x1 = 950;
+      const len = x1 - x0;
+      const predictionPoint = 45;
+
+      const state = {
+        progress: 0,
+        playing: false,
+        rafId: 0,
+        lastTs: 0,
+        predictionMade: false,
+        selectedChoice: "",
+        pausedForPrediction: false,
+        evidence: new Set(["scene-loaded"])
+      };
+
+      const el = {
+        playPause: document.getElementById("playPause"),
+        scrubber: document.getElementById("scrubber"),
+        progressOut: document.getElementById("progressOut"),
+        companionText: document.getElementById("companionText"),
+        sceneMessage: document.getElementById("sceneMessage"),
+        sameLengthGlow: document.getElementById("sameLengthGlow"),
+        cmTiles: document.getElementById("cmTiles"),
+        cmMarks: document.getElementById("cmMarks"),
+        inchTiles: document.getElementById("inchTiles"),
+        inchMarks: document.getElementById("inchMarks"),
+        cmWalker: document.getElementById("cmWalker"),
+        inchWalker: document.getElementById("inchWalker"),
+        cmCount: document.getElementById("cmCount"),
+        inchCount: document.getElementById("inchCount"),
+        predictionGate: document.getElementById("predictionGate"),
+        revealBurst: document.getElementById("revealBurst"),
+        ruleCard: document.getElementById("ruleCard"),
+        predictionPanel: document.getElementById("predictionPanel"),
+        predFeedback: document.getElementById("predFeedback"),
+        revealButton: document.getElementById("revealButton"),
+        evidenceList: document.getElementById("evidenceList"),
+        choices: Array.from(document.querySelectorAll(".choice")),
+        checkpoints: Array.from(document.querySelectorAll(".checkpoint"))
+      };
+
+      const cmTileGroups = [];
+      const inchTileGroups = [];
+
+      function clamp01(n){ return Math.max(0, Math.min(1, n)); }
+      function lerp(a,b,t){ return a + (b-a) * t; }
+      function smooth(t){ t = clamp01(t); return t*t*(3-2*t); }
+
+      function svgEl(tag, attrs){
+        const node = document.createElementNS(NS, tag);
+        Object.keys(attrs).forEach(key => node.setAttribute(key, attrs[key]));
+        return node;
+      }
+
+      function makeRulers(){
+        for(let i=0;i<10;i++){
+          const g = svgEl("g", {opacity:"0"});
+          const rx = x0 + i * 70 + 4;
+          g.appendChild(svgEl("rect", {
+            x: rx, y: 309, width: 62, height: 44, rx: 10,
+            fill: "url(#cmGrad)"
+          }));
+          const t = svgEl("text", {
+            x: rx + 31, y: 332, class: "tile-text"
+          });
+          t.textContent = String(i + 1);
+          g.appendChild(t);
+          el.cmTiles.appendChild(g);
+          cmTileGroups.push(g);
+        }
+
+        for(let k=0;k<=20;k++){
+          const isMajor = k % 2 === 0;
+          const x = x0 + k * 35;
+          el.cmMarks.appendChild(svgEl("line", {
+            x1:x, y1:isMajor ? 356 : 363, x2:x, y2:374,
+            stroke:"#67819a", "stroke-width": isMajor ? 3 : 1.5,
+            "stroke-linecap":"round", opacity: isMajor ? ".92" : ".55"
+          }));
+          if(isMajor){
+            const label = svgEl("text", {x:x, y:386, class:"ruler-num", "text-anchor":"middle"});
+            label.textContent = String(k/2);
+            el.cmMarks.appendChild(label);
+          }
+        }
+
+        for(let i=0;i<4;i++){
+          const g = svgEl("g", {opacity:"0"});
+          const rx = x0 + i * 175 + 6;
+          g.appendChild(svgEl("rect", {
+            x: rx, y: 445, width: 163, height: 44, rx: 12,
+            fill: "url(#inchGrad)"
+          }));
+          const t = svgEl("text", {
+            x: rx + 81.5, y: 468, class: "tile-text"
+          });
+          t.textContent = String(i + 1);
+          g.appendChild(t);
+          el.inchTiles.appendChild(g);
+          inchTileGroups.push(g);
+        }
+
+        for(let i=0;i<=4;i++){
+          const x = x0 + i * 175;
+          el.inchMarks.appendChild(svgEl("line", {
+            x1:x, y1:492, x2:x, y2:510,
+            stroke:"#52728d", "stroke-width":3, "stroke-linecap":"round", opacity:".9"
+          }));
+          const label = svgEl("text", {x:x, y:522, class:"ruler-num", "text-anchor":"middle"});
+          label.textContent = String(i);
+          el.inchMarks.appendChild(label);
+        }
+      }
+
+      function setGroupOpacity(node, value){
+        node.setAttribute("opacity", String(clamp01(value)));
+      }
+
+      function emitEvidence(id, text){
+        if(state.evidence.has(id)) return;
+        state.evidence.add(id);
+        const li = document.createElement("li");
+        li.setAttribute("data-evidence-event", id);
+        const b = document.createElement("b");
+        b.textContent = id;
+        const span = document.createElement("span");
+        span.textContent = text;
+        li.appendChild(b);
+        li.appendChild(span);
+        el.evidenceList.appendChild(li);
+        el.evidenceList.scrollTop = el.evidenceList.scrollHeight;
+      }
+
+      function checkEvidence(p){
+        if(p >= 4) emitEvidence("same-object", "The pencil stayed anchored between the same endpoints.");
+        if(p >= 24) emitEvidence("cm-small-steps", "Centimeter steps are small, so many fit across the pencil.");
+        if(p >= predictionPoint) emitEvidence("prediction-pause", "Prediction pause reached before showing inch count.");
+        if(p >= 61) emitEvidence("reveal-counts", "Reveal: 10 cm steps fit; about 4 inch steps fit.");
+        if(p >= 86) emitEvidence("rule-fewer", "Rule formed: bigger unit step means fewer steps for the same length.");
+      }
+
+      function updateCompanion(p){
+        let text = "This pencil stays the same. We only change the size of the measuring step.";
+        let scene = "One pencil. Change the step, not the pencil.";
+
+        if(p >= 16 && p < 43){
+          text = "Centimeters are little steps, so Sunny needs lots of them.";
+          scene = "Centimeters are small steps.";
+        } else if(p >= 43 && p < 56){
+          text = "Prediction time: same pencil, which count will be bigger?";
+          scene = "Pause. Predict the bigger count.";
+        } else if(p >= 56 && p < 82){
+          text = "Reveal: ten centimeter steps fit, but only about four inch steps fit.";
+          scene = "Reveal: same length, different counts.";
+        } else if(p >= 82){
+          text = "Mental model: bigger unit step means a smaller count.";
+          scene = "Bigger step → fewer steps.";
+        }
+
+        el.companionText.textContent = text;
+        el.sceneMessage.textContent = scene;
+      }
+
+      function updatePredictionPanel(){
+        const p = state.progress;
+        const labels = {
+          cm: "centimeters",
+          inch: "inches",
+          same: "same number"
+        };
+
+        el.choices.forEach(btn => {
+          const selected = btn.dataset.choice === state.selectedChoice;
+          btn.classList.toggle("selected", selected);
+          btn.setAttribute("aria-pressed", selected ? "true" : "false");
+        });
+
+        el.revealButton.disabled = !state.predictionMade;
+
+        if(!state.predictionMade){
+          el.predFeedback.textContent = p >= 43 ? "Make your prediction before the answer opens." : "Make your prediction when Sunny pauses.";
+        } else if(p < 60){
+          el.predFeedback.textContent = "Prediction saved: " + labels[state.selectedChoice] + ".";
+        } else if(state.selectedChoice === "cm"){
+          el.predFeedback.textContent = "Reveal: yes — centimeters make the bigger count because each step is smaller.";
+        } else {
+          el.predFeedback.textContent = "Reveal: centimeters make the bigger count because each cm step is smaller.";
+        }
+      }
+
+      function updateCheckpoints(p){
+        const points = el.checkpoints.map(btn => Number(btn.dataset.progress));
+        let activeIndex = 0;
+        points.forEach((point, idx) => {
+          if(p >= point) activeIndex = idx;
+        });
+        el.checkpoints.forEach((btn, idx) => btn.classList.toggle("active", idx === activeIndex));
+      }
+
+      function updateScene(){
+        const p = state.progress;
+        const cmProgress = p < 56 ? smooth((p - 14) / 27) : 1;
+        const inchProgress = p < 56 ? 0 : smooth((p - 56) / 20);
+        const reveal = smooth((p - 58) / 13);
+        const rule = smooth((p - 80) / 12);
+
+        setGroupOpacity(el.sameLengthGlow, smooth((p - 3) / 12) * (p < 92 ? 1 : .65));
+
+        cmTileGroups.forEach((g, i) => {
+          const amount = clamp01(cmProgress * 10 - i);
+          g.setAttribute("opacity", String(amount));
+          g.setAttribute("transform", "translate(0 " + ((1 - amount) * 8).toFixed(2) + ")");
+        });
+
+        inchTileGroups.forEach((g, i) => {
+          const amount = clamp01(inchProgress * 4 - i);
+          g.setAttribute("opacity", String(amount));
+          g.setAttribute("transform", "translate(0 " + ((1 - amount) * 8).toFixed(2) + ")");
+        });
+
+        const cmX = lerp(x0, x1, cmProgress);
+        el.cmWalker.setAttribute("transform", "translate(" + cmX.toFixed(2) + " 332)");
+        setGroupOpacity(el.cmWalker, p > 15 && p < 55 ? smooth((p-15)/6) : p >= 55 && p < 78 ? .22 : 0);
+
+        const inchX = lerp(x0, x1, inchProgress);
+        el.inchWalker.setAttribute("transform", "translate(" + inchX.toFixed(2) + " 468)");
+        setGroupOpacity(el.inchWalker, p > 55 && p < 82 ? smooth((p-55)/7) : 0);
+
+        setGroupOpacity(el.cmCount, reveal);
+        setGroupOpacity(el.inchCount, reveal);
+        setGroupOpacity(el.predictionGate, (!state.predictionMade && p >= 42 && p <= 55) ? smooth((p-42)/3) : 0);
+
+        const burstOpacity = smooth((p - 59) / 7) * (1 - smooth((p - 82) / 10));
+        setGroupOpacity(el.revealBurst, burstOpacity);
+        el.revealBurst.setAttribute("transform", "rotate(" + ((p - 60) * 0.35).toFixed(2) + " 600 310)");
+
+        setGroupOpacity(el.ruleCard, rule);
+
+        el.scrubber.value = String(Math.round(p));
+        el.progressOut.textContent = Math.round(p) + "%";
+
+        updateCompanion(p);
+        updatePredictionPanel();
+        updateCheckpoints(p);
+        checkEvidence(p);
+      }
+
+      function setProgress(value){
+        state.progress = Math.max(0, Math.min(100, value));
+        updateScene();
+      }
+
+      function pause(){
+        if(state.rafId){
+          cancelAnimationFrame(state.rafId);
+          state.rafId = 0;
+        }
+        state.playing = false;
+        state.lastTs = 0;
+        el.playPause.textContent = "▶ Play";
+        el.playPause.setAttribute("aria-label", "Play visual explainer");
+      }
+
+      function play(){
+        if(state.progress >= 100) setProgress(0);
+        state.playing = true;
+        el.playPause.textContent = "Ⅱ Pause";
+        el.playPause.setAttribute("aria-label", "Pause visual explainer");
+        state.lastTs = 0;
+        state.rafId = requestAnimationFrame(tick);
+      }
+
+      function tick(ts){
+        if(!state.playing) return;
+        if(!state.lastTs) state.lastTs = ts;
+        const dt = ts - state.lastTs;
+        state.lastTs = ts;
+        let next = state.progress + dt * 0.0062;
+
+        if(!state.predictionMade && state.progress < predictionPoint && next >= predictionPoint){
+          next = predictionPoint;
+          state.pausedForPrediction = true;
+          setProgress(next);
+          pause();
+          return;
+        }
+
+        if(next >= 100){
+          setProgress(100);
+          emitEvidence("scene-complete", "Visual explainer completed with evidence ready for recall.");
+          pause();
+          return;
+        }
+
+        setProgress(next);
+        state.rafId = requestAnimationFrame(tick);
+      }
+
+      el.playPause.addEventListener("click", () => {
+        if(state.playing) pause();
+        else play();
+      });
+
+      el.scrubber.addEventListener("input", () => {
+        pause();
+        let value = Number(el.scrubber.value);
+        if(!state.predictionMade && value > predictionPoint){
+          value = predictionPoint;
+          state.pausedForPrediction = true;
+          emitEvidence("prediction-pause", "Prediction pause reached before showing inch count.");
+        }
+        setProgress(value);
+      });
+
+      el.checkpoints.forEach(btn => {
+        btn.addEventListener("click", () => {
+          pause();
+          let value = Number(btn.dataset.progress);
+          if(!state.predictionMade && value > predictionPoint){
+            value = predictionPoint;
+            state.pausedForPrediction = true;
+            emitEvidence("prediction-pause", "Prediction pause reached before showing inch count.");
+          }
+          setProgress(value);
+        });
+      });
+
+      el.choices.forEach(btn => {
+        btn.addEventListener("click", () => {
+          state.predictionMade = true;
+          state.selectedChoice = btn.dataset.choice;
+          state.pausedForPrediction = false;
+          const label = btn.textContent.trim();
+          emitEvidence("prediction-choice", "Prediction recorded: " + label + ".");
+          updatePredictionPanel();
+        });
+      });
+
+      el.revealButton.addEventListener("click", () => {
+        if(!state.predictionMade) return;
+        if(state.progress < 56) setProgress(56);
+        play();
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if(document.hidden) pause();
+      });
+
+      makeRulers();
+      setProgress(0);
+    })();
+  </script>
+</body>
+</html>

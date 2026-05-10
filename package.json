@@ -83,7 +83,8 @@
     "dev:live": "concurrently --names \"server,web\" --prefix-colors \"green,magenta\" \"npx tsx src/server.ts\" \"cd web && npm run dev\"",
     "prepare": "husky",
     "postinstall": "node scripts/download-companion-vrms.mjs",
-    "sunny:download:companion-vrms": "node scripts/download-companion-vrms.mjs"
+    "sunny:download:companion-vrms": "node scripts/download-companion-vrms.mjs",
+    "sunny:visuallearner:openai": "npx tsx scripts/openaiVisualLearnerProbe.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

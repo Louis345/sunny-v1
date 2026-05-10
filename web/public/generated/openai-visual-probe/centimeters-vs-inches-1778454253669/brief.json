@@ -1,0 +1,20 @@
+{
+  "id": "centimeters-vs-inches-1778454253669",
+  "provider": "openai",
+  "model": "gpt-5.5",
+  "concept": "centimeters vs inches",
+  "promotedFromRejected": "centimeters-vs-inches-rejected-1778454253669",
+  "promotedReason": "The only rejected URL was the standard SVG namespace, not a network dependency.",
+  "createdAt": "2026-05-10T23:05:17.302Z",
+  "usage": {
+    "input_tokens": 464,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 19638,
+    "output_tokens_details": {
+      "reasoning_tokens": 9159
+    },
+    "total_tokens": 20102
+  }
+}
