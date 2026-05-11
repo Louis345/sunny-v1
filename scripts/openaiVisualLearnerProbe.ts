@@ -110,8 +110,21 @@ function validateHtmlContract(html: string): string[] {
   if (!lower.includes("play")) {
     errors.push("Output must include a play control.");
   }
-  if (/<script[^>]+\bsrc\s*=/i.test(html)) {
-    errors.push("Output must not load external scripts.");
+  const disallowedScriptSources = Array.from(
+    html.matchAll(/<script[^>]+\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi),
+  )
+    .map((match) => match[1] ?? "")
+    .filter(
+      (src) =>
+        src !== "/games/_contract.js" &&
+        src !== "/generated/openai-visual-probe/artifact-shell.js",
+    );
+  if (disallowedScriptSources.length > 0) {
+    errors.push(
+      `Output must not load scripts outside Sunny's reusable shell: ${disallowedScriptSources
+        .slice(0, 5)
+        .join(", ")}`,
+    );
   }
   if (externalUrls.length > 0) {
     errors.push(`Output must not reference external network URLs: ${externalUrls.slice(0, 5).join(", ")}`);
@@ -162,8 +175,9 @@ Sunny product context:
 - The next node may be a co-op quiz against the AI companion, so include a small JSON data island for recall questions.
 
 Hard output rules:
-- Return one complete standalone HTML document only. No Markdown fences.
-- Use inline HTML, CSS, SVG, and vanilla JavaScript only.
+- Return one complete Sunny artifact HTML document only. No Markdown fences.
+- Use inline HTML, CSS, SVG, and vanilla JavaScript for the scene-specific visual only.
+- Load only these local Sunny scripts: /games/_contract.js and /generated/openai-visual-probe/artifact-shell.js.
 - Do not load external scripts, fonts, images, stylesheets, or network URLs.
 - Do not use fetch, XMLHttpRequest, WebSocket, localStorage, sessionStorage, indexedDB, or eval.
 - Include the text marker "sunny-visual-probe" in the document.
@@ -172,6 +186,16 @@ Hard output rules:
 - Make the visual feel polished enough to compare with a Claude Design canvas mock: layered composition, clear focal motion, tuned palette, child-friendly but not generic clipart.
 - The scene should be interactive SVG, not a static poster. The scrubber must visibly change the scene.
 - Keep text concise and avoid explaining the UI itself.
+
+Reusable artifact shell requirements:
+- Use /generated/openai-visual-probe/artifact-shell.js and call SunnyVisualLearnerArtifactShell.mount.
+- The generated page should provide scene-specific SVG, renderScene, getPhase, checkEvidence, and formatPredictionFeedback hooks.
+- The child mode must show the prediction question as a centered modal dialog, not a bottom panel or scroll target.
+- When the child selects an answer and clicks reveal/continue, dismiss the modal immediately and continue the reveal animation.
+- If the child replays from the end, reset prediction state when replaying so the prediction pause appears again.
+- parent/preview may keep diagnostics in a side rail, including evidence events, care-plan note, cost/model metadata, and playthrough toggle.
+- Do not reimplement modal, replay reset, narration sync, parent/child chrome, completion, or GameBridge event flow in the generated page.
+- Keep generated topic-specific visuals separate from shell behavior: the shell owns modal, replay reset, parent/child chrome, and GameBridge event flow.
 
 Pedagogy requirements:
 - Include a care-plan assumption at the top in parent/preview tone.

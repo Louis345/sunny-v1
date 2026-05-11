@@ -212,6 +212,40 @@ describe("_contract.js GameBridge.startHeartbeat", () => {
     expect(typeof gb?.startHeartbeat).toBe("function");
   });
 
+  it("exposes chrome mode for generated visual learner child/parent views", () => {
+    const mockDoc = {
+      addEventListener: (_event: string, cb: () => void) => cb(),
+      title: "Test Game",
+      createElement: () => ({ style: { cssText: "" }, textContent: "" }),
+      body: { appendChild: () => {} },
+    };
+    const mockWindow = {
+      parent: { postMessage: () => {} },
+      GAME_PARAMS: null,
+      GameBridge: undefined as unknown,
+      sendNodeComplete: undefined as unknown,
+      fireCompanionEvent: undefined as unknown,
+      showPreviewBanner: undefined as unknown,
+      addEventListener: () => {},
+    };
+    const context = {
+      window: mockWindow,
+      document: mockDoc,
+      location: { search: "?childId=ila&nodeId=n1&chrome=child" },
+      URLSearchParams,
+      setInterval: (fn: () => void, _ms: number) => {
+        fn();
+        return 1;
+      },
+      clearInterval: () => {},
+    };
+    vm.runInNewContext(contractSrc, context);
+
+    expect((context.window.GAME_PARAMS as unknown as { chrome?: string }).chrome).toBe(
+      "child",
+    );
+  });
+
   it("startHeartbeat calls reportState via setInterval", () => {
     const calls: string[] = [];
     const mockDoc = {
@@ -331,6 +365,66 @@ describe("_contract.js GameBridge.startHeartbeat", () => {
           lastAction: "letter_selected",
           boardState: "I _ _ _ _ _ _ _",
           guessedLetters: ["I"],
+        }),
+      }),
+    );
+  });
+
+  it("GameBridge.reportCompanionAnchor posts visual learner context for the outer companion", () => {
+    const posts: unknown[] = [];
+    const mockDoc = {
+      title: "Visual Learner",
+      addEventListener: (_name: string, fn: () => void) => fn(),
+      createElement: () => ({ style: {}, textContent: "" }),
+      body: { appendChild: () => {} },
+    };
+    const context = {
+      window: {
+        parent: {
+          postMessage: (msg: unknown) => posts.push(msg),
+        },
+        GAME_PARAMS: null,
+        GameBridge: undefined as unknown,
+        addEventListener: () => {},
+      },
+      document: mockDoc,
+      location: {
+        search:
+          "?childId=reina&childName=Reina&companion=matilda&companionName=Matilda&nodeId=visual-learner-centimeters&preview=go-live",
+      },
+      URLSearchParams,
+      setInterval: () => 1,
+      clearInterval: () => {},
+      Date,
+    };
+    vm.runInNewContext(contractSrc, context);
+    const gb = context.window.GameBridge as {
+      reportCompanionAnchor: (anchor: Record<string, unknown>) => void;
+    };
+
+    gb.reportCompanionAnchor({
+      artifactId: "centimeters-vs-inches-1778454253669",
+      concept: "centimeters vs inches",
+      phase: "prediction",
+      question: "Same pencil. Which number will be bigger?",
+      selectedAnswer: null,
+      allowedRole: "hint_only",
+    });
+
+    expect(posts).toContainEqual(
+      expect.objectContaining({
+        type: "companion_anchor",
+        payload: expect.objectContaining({
+          artifactId: "centimeters-vs-inches-1778454253669",
+          childId: "reina",
+          childName: "Reina",
+          companion: "matilda",
+          companionName: "Matilda",
+          nodeId: "visual-learner-centimeters",
+          concept: "centimeters vs inches",
+          phase: "prediction",
+          allowedRole: "hint_only",
+          source: "visual_learner_artifact",
         }),
       }),
     );

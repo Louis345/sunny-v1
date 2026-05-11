@@ -1,0 +1,119 @@
+{
+  "artifactId": "centimeters-vs-inches-1778454253669",
+  "type": "visual-explainer",
+  "concept": "centimeters vs inches",
+  "learningGoal": "The same object can have different measurement counts because centimeters and inches are different-sized unit steps.",
+  "misconception": "The number changes because the object changes length.",
+  "sourceEvidence": {
+    "source": "openai-visual-probe",
+    "capturedAt": "2026-05-10T23:05:17.302Z",
+    "summary": "Discovery artifact generated from the concept prompt: centimeters vs inches."
+  },
+  "algorithmTargets": [
+    "visual_modeling",
+    "retrieval_practice",
+    "error_pattern_remediation",
+    "activity_affinity"
+  ],
+  "reuseDecision": {
+    "status": "candidate",
+    "reason": "First approved golden artifact for testing high-fidelity visual learner generation."
+  },
+  "parentApproval": {
+    "status": "approved",
+    "reviewer": "jamal",
+    "reviewedAt": "2026-05-11T08:30:00-04:00",
+    "notes": "Golden sample for the v0 visual learner artifact pipeline."
+  },
+  "mode": {
+    "default": "pause-for-question"
+  },
+  "preview": {
+    "allowPlaythrough": true
+  },
+  "narration": {
+    "enabled": true,
+    "provider": "elevenlabs",
+    "voiceId": "052jzHJceQiZr7ltnY0C",
+    "modelId": "eleven_multilingual_v2",
+    "audioPath": "./audio/narration-052jzHJceQiZr7ltnY0C.mp3",
+    "scriptPath": "./audio/narration.txt",
+    "timings": [
+      {
+        "id": "same-pencil",
+        "startProgress": 0,
+        "endProgress": 16,
+        "text": "This pencil stays the same. We only change the size of the measuring step."
+      },
+      {
+        "id": "centimeters",
+        "startProgress": 16,
+        "endProgress": 43,
+        "text": "Centimeters are little steps, so Sunny needs lots of them."
+      },
+      {
+        "id": "predict",
+        "startProgress": 43,
+        "endProgress": 56,
+        "text": "Prediction time: same pencil, which count will be bigger?"
+      },
+      {
+        "id": "reveal",
+        "startProgress": 56,
+        "endProgress": 82,
+        "text": "Reveal: ten centimeter steps fit, but only about four inch steps fit."
+      },
+      {
+        "id": "rule",
+        "startProgress": 82,
+        "endProgress": 100,
+        "text": "Mental model: bigger unit step means a smaller count."
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "prediction-unit-count",
+      "prompt": "Same pencil. Which number will be bigger?",
+      "options": [
+        {
+          "id": "cm",
+          "label": "Centimeters",
+          "correct": true
+        },
+        {
+          "id": "inch",
+          "label": "Inches",
+          "misconceptionTag": "bigger_unit_bigger_count"
+        },
+        {
+          "id": "same",
+          "label": "Same number",
+          "misconceptionTag": "same_object_same_count"
+        }
+      ],
+      "correctOptionId": "cm",
+      "targetConcept": "measurement_units",
+      "misconceptionTag": "unit_size_controls_count",
+      "pauseAtProgress": 45,
+      "scaffoldLevel": 2
+    }
+  ],
+  "companionContext": {
+    "role": "hint_only",
+    "maxSentences": 2,
+    "canRevealAnswer": false
+  },
+  "evidence": {
+    "targetResults": [
+      "measurement_units"
+    ],
+    "completion": "activity_complete"
+  },
+  "chrome": {
+    "childShowsEvidence": false,
+    "parentShowsEvidence": true,
+    "childShowsCarePlan": false,
+    "parentShowsCarePlan": true
+  }
+}

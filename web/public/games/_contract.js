@@ -31,6 +31,8 @@ window.GameBridge = (function () {
       nodeId: p.get("nodeId") || "unknown",
       sessionId: p.get("sessionId") || null,
       config: p.get("config") || null,
+      chrome: p.get("chrome") || "",
+      visualLearnerFlowMode: p.get("visualLearnerFlow") || "",
       previewDryRun: previewDryRun,
       previewGoLive: previewGoLive,
       isQuest: p.get("isQuest") === "true",
@@ -276,6 +278,37 @@ window.GameBridge = (function () {
           action: action,
           lastAction: state.lastAction || action,
         }),
+      );
+    },
+
+    /**
+     * Report the current learning context for the outer companion layer.
+     * This is intentionally non-speaking: it gives VRM / future helper agents
+     * the child's current visual learner phase without forcing a response.
+     *
+     * @param anchor Structured visual learner context, e.g.
+     *   {
+     *     artifactId, concept, learningGoal, phase, progress,
+     *     question, selectedAnswer, correct, allowedRole
+     *   }
+     */
+    reportCompanionAnchor: function (anchor) {
+      if (!anchor || typeof anchor !== "object" || Array.isArray(anchor)) return;
+      post(
+        "companion_anchor",
+        Object.assign(
+          {
+            source: "visual_learner_artifact",
+            childId: GAME_PARAMS.childId,
+            childName: GAME_PARAMS.childName,
+            companion: GAME_PARAMS.companion,
+            companionName: GAME_PARAMS.companionName,
+            nodeId: GAME_PARAMS.nodeId,
+            sessionId: GAME_PARAMS.sessionId,
+            timestamp: Date.now(),
+          },
+          anchor,
+        ),
       );
     },
 

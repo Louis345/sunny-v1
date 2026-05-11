@@ -6,6 +6,14 @@
   "promotedFromRejected": "centimeters-vs-inches-rejected-1778454253669",
   "promotedReason": "The only rejected URL was the standard SVG namespace, not a network dependency.",
   "createdAt": "2026-05-10T23:05:17.302Z",
+  "artifactConfigPath": "./artifact.config.json",
+  "narration": {
+    "provider": "elevenlabs",
+    "voiceId": "052jzHJceQiZr7ltnY0C",
+    "modelId": "eleven_multilingual_v2",
+    "audioPath": "./audio/narration-052jzHJceQiZr7ltnY0C.mp3",
+    "scriptPath": "./audio/narration.txt"
+  },
   "usage": {
     "input_tokens": 464,
     "input_tokens_details": {

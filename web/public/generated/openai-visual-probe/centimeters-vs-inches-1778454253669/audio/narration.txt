@@ -1,0 +1,7 @@
+Today we are measuring the same pencil in two different ways. The pencil does not change. Only the size of our measuring steps changes.
+
+Centimeters are small steps, so it takes more of them to cover the pencil. Inches are bigger steps, so it takes fewer of them to cover the same pencil.
+
+Before we reveal the answer, make a prediction: if the measuring step gets smaller, will the number of steps go up or down?
+
+Ready? The number goes up. Smaller units make bigger counts. Bigger units make smaller counts. Same pencil, different measuring steps.

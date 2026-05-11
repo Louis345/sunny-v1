@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Sunny Visual Explainer — Centimeters vs Inches</title>
+  <script src="/games/_contract.js"></script>
+  <script src="/generated/openai-visual-probe/artifact-shell.js"></script>
   <style>
     :root{
       --ink:#17324d;
@@ -50,6 +52,45 @@
       padding:14px 18px;
       margin-bottom:16px;
     }
+    body.child-mode [data-parent-only]{
+      display:none !important;
+    }
+    body.parent-preview [data-child-only="finish"]{
+      display:none;
+    }
+    body.child-mode .page{
+      width:min(1240px, calc(100vw - 28px));
+      padding-top:14px;
+    }
+    body.child-mode .app{
+      grid-template-columns:1fr;
+      gap:12px;
+    }
+    body.child-mode:not(.question-active) .side-stack{
+      display:none;
+    }
+    body.child-mode.question-active .side-stack{
+      position:fixed;
+      inset:0;
+      z-index:120;
+      display:grid;
+      place-items:center;
+      width:100%;
+      margin:0;
+      padding:clamp(18px, 4vw, 44px);
+      background:rgba(15,34,55,.52);
+      backdrop-filter:blur(7px);
+    }
+    body.child-mode.question-active .prediction-card{
+      width:min(620px, calc(100vw - 44px));
+      padding:18px 20px 20px;
+      border:1px solid rgba(255,209,102,.85);
+      box-shadow:0 28px 80px rgba(15,34,55,.34);
+    }
+    body.child-mode .prediction-kicker,
+    body.child-mode .prediction-card h2{
+      display:none;
+    }
     .care-icon{
       width:44px;height:44px;flex:0 0 auto;
       border-radius:16px;
@@ -72,6 +113,56 @@
       border-radius:999px;
       padding:6px 9px;
       white-space:nowrap;
+    }
+    .narration-card{
+      display:flex;
+      gap:14px;
+      align-items:center;
+      justify-content:space-between;
+      background:linear-gradient(135deg,rgba(23,50,77,.94),rgba(20,154,145,.9));
+      color:white;
+      border:1px solid rgba(255,255,255,.34);
+      border-radius:22px;
+      box-shadow:0 16px 44px rgba(15,34,55,.18);
+      padding:13px 16px;
+      margin:-4px 0 16px;
+    }
+    .narration-copy{
+      display:grid;
+      gap:2px;
+      min-width:0;
+    }
+    .narration-copy strong{
+      font-size:14px;
+      letter-spacing:.02em;
+    }
+    .narration-copy span{
+      color:rgba(255,255,255,.8);
+      font-size:12px;
+      line-height:1.35;
+    }
+    .narration-card audio{
+      width:min(420px, 48vw);
+      min-width:260px;
+      height:38px;
+    }
+    .flow-toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid rgba(255,255,255,.38);
+      border-radius:999px;
+      padding:8px 11px;
+      background:rgba(255,255,255,.12);
+      color:white;
+      font-size:12px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+    .flow-toggle input{
+      width:17px;
+      height:17px;
+      accent-color:var(--sun);
     }
     .app{
       display:grid;
@@ -162,7 +253,7 @@
     }
     .controls{
       display:grid;
-      grid-template-columns:auto minmax(260px,1fr);
+      grid-template-columns:auto minmax(260px,1fr) auto auto;
       gap:14px;
       align-items:center;
       padding:12px 18px 18px;
@@ -179,6 +270,17 @@
       background:linear-gradient(135deg,var(--sun),#ffe59a);
       box-shadow:0 10px 24px rgba(246,168,0,.22), inset 0 -3px 0 rgba(182,124,0,.14);
       cursor:pointer;
+    }
+    .secondary-btn{
+      border:1px solid #d8e6f7;
+      border-radius:18px;
+      padding:13px 16px;
+      color:#25435f;
+      font-weight:850;
+      background:#fff;
+      box-shadow:0 8px 18px rgba(15,34,55,.07);
+      cursor:pointer;
+      white-space:nowrap;
     }
     .play-btn:focus-visible,.checkpoint:focus-visible,.choice:focus-visible,.reveal-btn:focus-visible{
       outline:4px solid rgba(78,205,196,.42);
@@ -386,6 +488,9 @@
     @media (max-width:800px){
       .page{width:min(100vw - 20px, 760px);padding-top:10px}
       .care-card{align-items:flex-start}
+      .narration-card{align-items:flex-start;flex-direction:column}
+      .narration-card audio{width:100%;min-width:0}
+      .flow-toggle{white-space:normal}
       .probeMarker{display:none}
       .controls{grid-template-columns:1fr}
       .play-btn{width:100%}
@@ -396,12 +501,26 @@
     }
   </style>
 </head>
-<body>
+<body class="parent-preview">
   <main class="page">
-    <section class="care-card" aria-label="Care-plan assumption">
+    <section class="care-card" data-parent-only="care-plan" aria-label="Care-plan assumption">
       <div class="care-icon" aria-hidden="true">☀️</div>
       <p><strong>Care-plan assumption preview:</strong> Your child may be treating centimeters and inches like they change the object. This room tests one model: the object stays the same; the measuring step changes.</p>
       <span class="probeMarker">sunny-visual-probe</span>
+    </section>
+
+    <section class="narration-card" data-parent-only="narration-debug" aria-label="Narration preview">
+      <div class="narration-copy">
+        <strong>Voice narration preview</strong>
+        <span id="narrationMeta">Narration provider is loaded from artifact config.</span>
+      </div>
+      <label class="flow-toggle">
+        <input id="cinemaMode" data-testid="visual-learner-playthrough-toggle" type="checkbox" />
+        Play through without questions
+      </label>
+      <audio id="narrationAudio" controls preload="metadata">
+        Your browser does not support audio playback.
+      </audio>
     </section>
 
     <section class="app" aria-label="Sunny visual explainer">
@@ -563,13 +682,15 @@
             <button class="checkpoint" type="button" data-progress="64" aria-label="Jump to checkpoint four: reveal">4 Reveal</button>
             <button class="checkpoint" type="button" data-progress="88" aria-label="Jump to checkpoint five: evidence rule">5 Rule</button>
           </div>
+          <button id="finishButton" class="secondary-btn" data-child-only="finish" type="button">Finish</button>
+          <button id="backButton" class="secondary-btn" type="button">Back</button>
         </div>
       </div>
 
       <aside class="side-stack">
-        <section class="side-card prediction-card" id="predictionPanel" aria-live="polite">
+        <section class="side-card prediction-card" id="predictionPanel" aria-live="polite" role="dialog" aria-modal="true" aria-labelledby="predictionTitle">
           <div class="prediction-kicker">☀️ Prediction pause</div>
-          <h2>Before the reveal</h2>
+          <h2 id="predictionTitle">Before the reveal</h2>
           <p>Same pencil. Which number will be bigger?</p>
           <div class="choice-grid" role="group" aria-label="Prediction choices">
             <button class="choice" type="button" data-choice="cm" aria-pressed="false">Centimeters</button>
@@ -580,16 +701,17 @@
           <div id="predFeedback" class="pred-feedback">Make your prediction when Sunny pauses.</div>
         </section>
 
-        <section class="side-card console" aria-label="Evidence console">
+        <section class="side-card console" data-parent-only="evidence-console" aria-label="Evidence console">
           <h2><span aria-hidden="true"></span>Evidence console</h2>
           <ol id="evidenceList" class="evidence-list" aria-live="polite">
             <li data-evidence-event="scene-loaded"><b>scene-loaded</b><span>sunny-visual-probe ready.</span></li>
           </ol>
         </section>
 
-        <section class="side-card">
+        <section class="side-card" data-parent-only="artifact-debug">
           <h2>Sunny’s mental model</h2>
           <p class="mini-note">Small unit steps need more counts. Bigger unit steps need fewer counts. The object’s length stays the same.</p>
+          <p id="artifactDebug" class="mini-note">Artifact config loading.</p>
         </section>
       </aside>
     </section>
@@ -636,24 +758,53 @@
       const NS = "http://www.w3.org/2000/svg";
       const x0 = 250;
       const x1 = 950;
-      const len = x1 - x0;
-      const predictionPoint = 45;
-
-      const state = {
-        progress: 0,
-        playing: false,
-        rafId: 0,
-        lastTs: 0,
-        predictionMade: false,
-        selectedChoice: "",
-        pausedForPrediction: false,
-        evidence: new Set(["scene-loaded"])
+      const DEFAULT_CONFIG_PATH = "./artifact.config.json";
+      const DEFAULT_ARTIFACT_CONFIG = {
+        artifactId: "centimeters-vs-inches-1778454253669",
+        type: "visual-explainer",
+        concept: "centimeters vs inches",
+        learningGoal: "The same object can have different measurement counts because centimeters and inches are different-sized unit steps.",
+        misconception: "The number changes because the object changes length.",
+        mode: { default: "pause-for-question" },
+        preview: { allowPlaythrough: true },
+        narration: {
+          enabled: true,
+          provider: "elevenlabs",
+          voiceId: "052jzHJceQiZr7ltnY0C",
+          modelId: "eleven_multilingual_v2",
+          audioPath: "./audio/narration-052jzHJceQiZr7ltnY0C.mp3",
+          scriptPath: "./audio/narration.txt",
+          timings: []
+        },
+        questions: [{
+          id: "prediction-unit-count",
+          prompt: "Same pencil. Which number will be bigger?",
+          correctOptionId: "cm",
+          targetConcept: "measurement_units",
+          misconceptionTag: "unit_size_controls_count",
+          pauseAtProgress: 45,
+          scaffoldLevel: 2,
+          options: [
+            { id: "cm", label: "Centimeters", correct: true },
+            { id: "inch", label: "Inches", misconceptionTag: "bigger_unit_bigger_count" },
+            { id: "same", label: "Same number", misconceptionTag: "same_object_same_count" }
+          ]
+        }],
+        companionContext: { role: "hint_only", maxSentences: 2, canRevealAnswer: false },
+        chrome: {
+          childShowsEvidence: false,
+          parentShowsEvidence: true,
+          childShowsCarePlan: false,
+          parentShowsCarePlan: true
+        }
       };
 
       const el = {
         playPause: document.getElementById("playPause"),
         scrubber: document.getElementById("scrubber"),
         progressOut: document.getElementById("progressOut"),
+        narrationAudio: document.getElementById("narrationAudio"),
+        playthroughToggle: document.getElementById("cinemaMode"),
         companionText: document.getElementById("companionText"),
         sceneMessage: document.getElementById("sceneMessage"),
         sameLengthGlow: document.getElementById("sameLengthGlow"),
@@ -669,9 +820,14 @@
         revealBurst: document.getElementById("revealBurst"),
         ruleCard: document.getElementById("ruleCard"),
         predictionPanel: document.getElementById("predictionPanel"),
+        predictionPrompt: document.querySelector("#predictionPanel p"),
         predFeedback: document.getElementById("predFeedback"),
         revealButton: document.getElementById("revealButton"),
+        finishButton: document.getElementById("finishButton"),
+        backButton: document.getElementById("backButton"),
         evidenceList: document.getElementById("evidenceList"),
+        narrationMeta: document.getElementById("narrationMeta"),
+        artifactDebug: document.getElementById("artifactDebug"),
         choices: Array.from(document.querySelectorAll(".choice")),
         checkpoints: Array.from(document.querySelectorAll(".checkpoint"))
       };
@@ -753,27 +909,13 @@
         node.setAttribute("opacity", String(clamp01(value)));
       }
 
-      function emitEvidence(id, text){
-        if(state.evidence.has(id)) return;
-        state.evidence.add(id);
-        const li = document.createElement("li");
-        li.setAttribute("data-evidence-event", id);
-        const b = document.createElement("b");
-        b.textContent = id;
-        const span = document.createElement("span");
-        span.textContent = text;
-        li.appendChild(b);
-        li.appendChild(span);
-        el.evidenceList.appendChild(li);
-        el.evidenceList.scrollTop = el.evidenceList.scrollHeight;
-      }
-
-      function checkEvidence(p){
-        if(p >= 4) emitEvidence("same-object", "The pencil stayed anchored between the same endpoints.");
-        if(p >= 24) emitEvidence("cm-small-steps", "Centimeter steps are small, so many fit across the pencil.");
-        if(p >= predictionPoint) emitEvidence("prediction-pause", "Prediction pause reached before showing inch count.");
-        if(p >= 61) emitEvidence("reveal-counts", "Reveal: 10 cm steps fit; about 4 inch steps fit.");
-        if(p >= 86) emitEvidence("rule-fewer", "Rule formed: bigger unit step means fewer steps for the same length.");
+      function getPhase(p){
+        if(p < 16) return "intro";
+        if(p < 43) return "centimeters";
+        if(p < 56) return "prediction";
+        if(p < 82) return "reveal";
+        if(p < 100) return "rule";
+        return "complete";
       }
 
       function updateCompanion(p){
@@ -798,44 +940,23 @@
         el.sceneMessage.textContent = scene;
       }
 
-      function updatePredictionPanel(){
-        const p = state.progress;
-        const labels = {
-          cm: "centimeters",
-          inch: "inches",
-          same: "same number"
-        };
-
-        el.choices.forEach(btn => {
-          const selected = btn.dataset.choice === state.selectedChoice;
-          btn.classList.toggle("selected", selected);
-          btn.setAttribute("aria-pressed", selected ? "true" : "false");
-        });
-
-        el.revealButton.disabled = !state.predictionMade;
-
-        if(!state.predictionMade){
-          el.predFeedback.textContent = p >= 43 ? "Make your prediction before the answer opens." : "Make your prediction when Sunny pauses.";
-        } else if(p < 60){
-          el.predFeedback.textContent = "Prediction saved: " + labels[state.selectedChoice] + ".";
-        } else if(state.selectedChoice === "cm"){
-          el.predFeedback.textContent = "Reveal: yes — centimeters make the bigger count because each step is smaller.";
-        } else {
-          el.predFeedback.textContent = "Reveal: centimeters make the bigger count because each cm step is smaller.";
+      function checkEvidence({ progress, shell }){
+        if(progress >= 4) shell.emitEvidence("same-object", "The pencil stayed anchored between the same endpoints.");
+        if(progress >= 24) shell.emitEvidence("cm-small-steps", "Centimeter steps are small, so many fit across the pencil.");
+        if(progress >= shell.predictionPoint) {
+          shell.emitEvidence(
+            "prediction-pause",
+            shell.isPlaythroughMode()
+              ? "Cinema preview passed the prediction point without stopping."
+              : "Prediction pause reached before showing inch count."
+          );
         }
+        if(progress >= 61) shell.emitEvidence("reveal-counts", "Reveal: 10 cm steps fit; about 4 inch steps fit.");
+        if(progress >= 86) shell.emitEvidence("rule-fewer", "Rule formed: bigger unit step means fewer steps for the same length.");
       }
 
-      function updateCheckpoints(p){
-        const points = el.checkpoints.map(btn => Number(btn.dataset.progress));
-        let activeIndex = 0;
-        points.forEach((point, idx) => {
-          if(p >= point) activeIndex = idx;
-        });
-        el.checkpoints.forEach((btn, idx) => btn.classList.toggle("active", idx === activeIndex));
-      }
-
-      function updateScene(){
-        const p = state.progress;
+      function renderScene({ progress, state, shell }){
+        const p = progress;
         const cmProgress = p < 56 ? smooth((p - 14) / 27) : 1;
         const inchProgress = p < 56 ? 0 : smooth((p - 56) / 20);
         const reveal = smooth((p - 58) / 13);
@@ -865,126 +986,44 @@
 
         setGroupOpacity(el.cmCount, reveal);
         setGroupOpacity(el.inchCount, reveal);
-        setGroupOpacity(el.predictionGate, (!state.predictionMade && p >= 42 && p <= 55) ? smooth((p-42)/3) : 0);
+        setGroupOpacity(el.predictionGate, (!shell.isPlaythroughMode() && !state.predictionMade && p >= 42 && p <= 55) ? smooth((p-42)/3) : 0);
 
         const burstOpacity = smooth((p - 59) / 7) * (1 - smooth((p - 82) / 10));
         setGroupOpacity(el.revealBurst, burstOpacity);
         el.revealBurst.setAttribute("transform", "rotate(" + ((p - 60) * 0.35).toFixed(2) + " 600 310)");
 
         setGroupOpacity(el.ruleCard, rule);
-
-        el.scrubber.value = String(Math.round(p));
-        el.progressOut.textContent = Math.round(p) + "%";
-
         updateCompanion(p);
-        updatePredictionPanel();
-        updateCheckpoints(p);
-        checkEvidence(p);
       }
 
-      function setProgress(value){
-        state.progress = Math.max(0, Math.min(100, value));
-        updateScene();
-      }
-
-      function pause(){
-        if(state.rafId){
-          cancelAnimationFrame(state.rafId);
-          state.rafId = 0;
+      function formatPredictionFeedback({ progress, state, question, selectedOption, isPlaythrough }){
+        if(isPlaythrough && !state.predictionMade && progress >= 43 && progress < 60){
+          return "Cinema preview: question pause skipped so you can feel the full flow.";
         }
-        state.playing = false;
-        state.lastTs = 0;
-        el.playPause.textContent = "▶ Play";
-        el.playPause.setAttribute("aria-label", "Play visual explainer");
-      }
-
-      function play(){
-        if(state.progress >= 100) setProgress(0);
-        state.playing = true;
-        el.playPause.textContent = "Ⅱ Pause";
-        el.playPause.setAttribute("aria-label", "Pause visual explainer");
-        state.lastTs = 0;
-        state.rafId = requestAnimationFrame(tick);
-      }
-
-      function tick(ts){
-        if(!state.playing) return;
-        if(!state.lastTs) state.lastTs = ts;
-        const dt = ts - state.lastTs;
-        state.lastTs = ts;
-        let next = state.progress + dt * 0.0062;
-
-        if(!state.predictionMade && state.progress < predictionPoint && next >= predictionPoint){
-          next = predictionPoint;
-          state.pausedForPrediction = true;
-          setProgress(next);
-          pause();
-          return;
+        if(!state.predictionMade){
+          return progress >= question.pauseAtProgress - 2 ? "Make your prediction before the answer opens." : "Make your prediction when Sunny pauses.";
         }
-
-        if(next >= 100){
-          setProgress(100);
-          emitEvidence("scene-complete", "Visual explainer completed with evidence ready for recall.");
-          pause();
-          return;
+        if(progress < 60){
+          return "Prediction saved: " + (selectedOption ? selectedOption.label : state.selectedChoice) + ".";
         }
-
-        setProgress(next);
-        state.rafId = requestAnimationFrame(tick);
+        if(state.selectedChoice === question.correctOptionId){
+          return "Reveal: yes — centimeters make the bigger count because each step is smaller.";
+        }
+        return "Reveal: centimeters make the bigger count because each cm step is smaller.";
       }
-
-      el.playPause.addEventListener("click", () => {
-        if(state.playing) pause();
-        else play();
-      });
-
-      el.scrubber.addEventListener("input", () => {
-        pause();
-        let value = Number(el.scrubber.value);
-        if(!state.predictionMade && value > predictionPoint){
-          value = predictionPoint;
-          state.pausedForPrediction = true;
-          emitEvidence("prediction-pause", "Prediction pause reached before showing inch count.");
-        }
-        setProgress(value);
-      });
-
-      el.checkpoints.forEach(btn => {
-        btn.addEventListener("click", () => {
-          pause();
-          let value = Number(btn.dataset.progress);
-          if(!state.predictionMade && value > predictionPoint){
-            value = predictionPoint;
-            state.pausedForPrediction = true;
-            emitEvidence("prediction-pause", "Prediction pause reached before showing inch count.");
-          }
-          setProgress(value);
-        });
-      });
-
-      el.choices.forEach(btn => {
-        btn.addEventListener("click", () => {
-          state.predictionMade = true;
-          state.selectedChoice = btn.dataset.choice;
-          state.pausedForPrediction = false;
-          const label = btn.textContent.trim();
-          emitEvidence("prediction-choice", "Prediction recorded: " + label + ".");
-          updatePredictionPanel();
-        });
-      });
-
-      el.revealButton.addEventListener("click", () => {
-        if(!state.predictionMade) return;
-        if(state.progress < 56) setProgress(56);
-        play();
-      });
-
-      document.addEventListener("visibilitychange", () => {
-        if(document.hidden) pause();
-      });
 
       makeRulers();
-      setProgress(0);
+      const shell = window.SunnyVisualLearnerArtifactShell.mount({
+        defaultConfig: DEFAULT_ARTIFACT_CONFIG,
+        defaultConfigPath: DEFAULT_CONFIG_PATH,
+        elements: el,
+        revealStartProgress: 56,
+        getPhase,
+        renderScene,
+        checkEvidence,
+        formatPredictionFeedback
+      });
+      shell.start();
     })();
   </script>
 </body>

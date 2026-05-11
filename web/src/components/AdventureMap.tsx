@@ -125,6 +125,8 @@ type PreviewStoryImageState = {
   failed: boolean;
 };
 
+type VisualLearnerCompanionAnchorState = Record<string, unknown>;
+
 import { evaluateVRR } from "../../../src/engine/vrrEngine";
 import {
   DEFAULT_TAMAGOTCHI,
@@ -315,6 +317,8 @@ export function AdventureMap(props: {
   dyslexiaMode?: boolean;
   /** Persisted companion shop balance — passed to iframe games (e.g. Wheel of Fortune child score). */
   companionCurrency?: number;
+  /** Visual learner demo flow: normal prediction pause or parent playthrough. */
+  visualLearnerFlowMode?: "pause-for-question" | "playthrough";
 }) {
   const resolved = props.childId.trim();
   const companionCareContext = useCompanionCareOptional();
@@ -374,6 +378,10 @@ export function AdventureMap(props: {
   const [pathPositions, setPathPositions] = useState<Point[]>([]);
   const [hoveredNodeIndex, setHoveredNodeIndex] = useState<number | null>(null);
   const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
+  const [
+    visualLearnerCompanionAnchor,
+    setVisualLearnerCompanionAnchor,
+  ] = useState<VisualLearnerCompanionAnchorState | null>(null);
   const [previewStoryImage, setPreviewStoryImage] =
     useState<PreviewStoryImageState | null>(null);
   const [adaptiveStoryPracticeWords, setAdaptiveStoryPracticeWords] = useState<string[]>([]);
@@ -448,6 +456,7 @@ export function AdventureMap(props: {
         url: null,
       });
       props.onGameIframeMount?.(null);
+      setVisualLearnerCompanionAnchor(null);
     }
   }, [launchedUrl, props.onGameIframeOverlayChange, props.onGameIframeMount]);
 
@@ -511,6 +520,18 @@ export function AdventureMap(props: {
         void sendNodeResult(d as NodeResult).then(() => {
           setLaunchedUrl(null);
         });
+        return;
+      }
+      if (t === "companion_anchor") {
+        const inner = (d as { payload?: unknown }).payload;
+        if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+          const anchor = inner as VisualLearnerCompanionAnchorState;
+          setVisualLearnerCompanionAnchor(anchor);
+          console.log("  🎮 [AdventureMap] companion_anchor_received", {
+            phase: anchor.phase,
+            concept: anchor.concept,
+          });
+        }
         return;
       }
       if (t === "companion_event") {
@@ -948,16 +969,6 @@ export function AdventureMap(props: {
         briefing.show(result);
         return;
       }
-      if (result.type === "visual-explainer") {
-        triggerTransition({
-          palette: nodeTransitionPalette(result.type),
-          onComplete: () => {
-            commitLaunchedNode(result);
-            console.log("  🎮 [AdventureMap] node_committed visual-explainer");
-          },
-        });
-        return;
-      }
       const muted = props.companionMutedForMap === true;
       const presetId =
         props.mapCompanion?.companionId ?? childrenCfg.defaultCompanionId;
@@ -992,6 +1003,7 @@ export function AdventureMap(props: {
         vrmUrl: props.mapCompanion?.vrmUrl,
         companionMuted: muted,
         companionCurrency: props.companionCurrency,
+        visualLearnerFlowMode: props.visualLearnerFlowMode,
       });
       console.log("  🎮 [AdventureMap] node_launch_action", {
         nodeType: result.type,
@@ -1656,7 +1668,7 @@ export function AdventureMap(props: {
           </div>
         </div>
       ) : null}
-      {launchedNode != null && launchedNode.type === "visual-explainer" ? (
+      {launchedNode != null && launchedNode.type === "visual-explainer" && !launchedUrl ? (
         <div className="fixed inset-0 z-[45] flex flex-col bg-[#f5fbff]">
           <VisualExplainerDemo
             mapMode
@@ -1771,10 +1783,19 @@ export function AdventureMap(props: {
                 fontFamily: "Lexend, sans-serif",
                 fontWeight: 600,
               }}
-            >
-              ← Back to map
+          >
+            ← Back to map
             </button>
           </div>
+          {visualLearnerCompanionAnchor ? (
+            <output
+              aria-hidden="true"
+              data-testid="visual-learner-companion-anchor"
+              hidden
+            >
+              {JSON.stringify(visualLearnerCompanionAnchor)}
+            </output>
+          ) : null}
           <iframe
             ref={gameIframeRef}
             src={launchedUrl}

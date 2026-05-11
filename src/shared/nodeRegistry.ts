@@ -37,6 +37,8 @@ export type NodeContext = {
   dyslexiaMode?: boolean;
   /** Persisted shop/HUD balance from learning_profile — iframe games may seed UI (e.g. WoF child score). */
   companionCurrency?: number;
+  /** Visual learner artifact preview flow: normal question pause or parent playthrough. */
+  visualLearnerFlowMode?: "pause-for-question" | "playthrough";
 };
 
 /** Homework / map nodes may use types not in `NodeType` (cast at map boundary). */
@@ -97,6 +99,12 @@ export type NodeHandler = {
   getUrl?: (node: RoutableNodeConfig, ctx: NodeContext) => string;
 };
 
+const DEFAULT_VISUAL_LEARNER_ARTIFACT_ID = "centimeters-vs-inches-1778454253669";
+const DEFAULT_VISUAL_LEARNER_ARTIFACT_URL =
+  `/generated/openai-visual-probe/${DEFAULT_VISUAL_LEARNER_ARTIFACT_ID}/index.html`;
+const DEFAULT_VISUAL_LEARNER_CONFIG_URL =
+  `/generated/openai-visual-probe/${DEFAULT_VISUAL_LEARNER_ARTIFACT_ID}/artifact.config.json`;
+
 export const NODE_REGISTRY: Record<string, NodeHandler> = {
   pronunciation: {
     canvasMessage: (node) => ({
@@ -137,6 +145,23 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
         `/api/activity-config/${ctx.childId}/${node.date ?? "sample"}/letter-rush.json`;
       params.set("config", config);
       return `/games/letter-rush.html?${params.toString()}`;
+    },
+  },
+  "visual-explainer": {
+    getUrl: (node, ctx) => {
+      const params = buildNodeUrlSearchParams(node, ctx);
+      const config = node.activityConfigPath || DEFAULT_VISUAL_LEARNER_CONFIG_URL;
+      params.set("config", config);
+      params.set(
+        "chrome",
+        ctx.previewParam === "free" || ctx.previewParam === "go-live"
+          ? "parent"
+          : "child",
+      );
+      if (ctx.visualLearnerFlowMode) {
+        params.set("visualLearnerFlow", ctx.visualLearnerFlowMode);
+      }
+      return `${DEFAULT_VISUAL_LEARNER_ARTIFACT_URL}?${params.toString()}`;
     },
   },
   "word-builder": {

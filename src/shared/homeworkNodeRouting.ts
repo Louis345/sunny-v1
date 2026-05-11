@@ -33,6 +33,7 @@ type RoutingContext = {
   isQuest?: boolean;
   dyslexiaMode?: boolean;
   companionCurrency?: number;
+  visualLearnerFlowMode?: "pause-for-question" | "playthrough";
 };
 
 type CanvasLaunchAction = {
@@ -72,6 +73,7 @@ export function buildNodeLaunchParams(
     isQuest: ctx.isQuest,
     dyslexiaMode: ctx.dyslexiaMode,
     companionCurrency: ctx.companionCurrency,
+    visualLearnerFlowMode: ctx.visualLearnerFlowMode,
   };
   return buildNodeUrlSearchParams(node, nctx);
 }
@@ -95,6 +97,7 @@ export function buildNodeLaunchAction(
     isQuest: ctx.isQuest,
     dyslexiaMode: ctx.dyslexiaMode,
     companionCurrency: ctx.companionCurrency,
+    visualLearnerFlowMode: ctx.visualLearnerFlowMode,
   };
   const rc = node as RoutableNodeConfig;
   if (handler.canvasMessage) {

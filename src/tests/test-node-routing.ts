@@ -187,6 +187,7 @@ describe("map node routing", () => {
       "boss",
       "dopamine",
       "concept-check",
+      "visual-explainer",
       "bubble-pop",
       "cpt-low-reward",
       "fish-flanker",
