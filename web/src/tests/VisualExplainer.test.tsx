@@ -168,6 +168,12 @@ describe("VisualExplainerDemo", () => {
     expect(screen.getByTestId("visual-explainer-companion")).toHaveTextContent(
       "Watch the hill first",
     );
+    expect(screen.getByTestId("visual-studio-plan")).toHaveTextContent(
+      "Erosion moves sediment",
+    );
+    expect(screen.getByTestId("visual-studio-plan")).toHaveTextContent(
+      "sunny-coop-jeopardy",
+    );
     expect(speak).toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /Start Treatment/i }));
@@ -211,6 +217,9 @@ describe("VisualExplainerDemo", () => {
 
     expect(screen.getByText("Red Blood Cells Visual Explainer")).toBeInTheDocument();
     expect(screen.getByTestId("visual-explainer-scene")).toHaveTextContent("oxygen");
+    expect(screen.getByTestId("visual-studio-plan")).toHaveTextContent(
+      "Red blood cells carry oxygen",
+    );
     expect(screen.getByTestId("carrier-flow-region-labels")).toHaveTextContent("lungs");
     expect(screen.getAllByTestId("carrier-flow-carrier").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/cells are the carriers/i).length).toBeGreaterThan(0);
@@ -342,7 +351,13 @@ describe("VisualExplainerDemo", () => {
     expect(main).toContain('runtimeConfig.demoRoute === "visual-explainer-map"');
     expect(mapDemo).toContain('type: "visual-explainer"');
     expect(mapDemo).toContain("<CompanionLayer");
+    expect(mapDemo).toContain("visual-learner-map-mode-switcher");
+    expect(mapDemo).toContain("visualLearnerFlowMode");
+    expect(mapDemo).toContain("speechBubbleText={null}");
+    expect(mapDemo).not.toContain("I am watching the model with you.");
+    expect(mapDemo).not.toContain("I will stay quiet while the model plays all the way through.");
     expect(adventureMap).toContain('launchedNode.type === "visual-explainer"');
+    expect(adventureMap).toContain("visualLearnerFlowMode");
     expect(adventureMap).toContain("VisualExplainerDemo");
     expect(activityCatalog).toContain('nodeType: "visual-explainer"');
   });

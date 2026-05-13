@@ -6,12 +6,14 @@ import { CompanionDiag } from "./components/CompanionDiag";
 import { DiagReadingScreen } from "./components/DiagReadingScreen";
 import { VisualExplainerDemo } from "./components/VisualExplainer/VisualExplainerDemo";
 import { VisualExplainerMapDemo } from "./components/VisualExplainer/VisualExplainerMapDemo";
+import { VisualExplainerRenderRoute } from "./components/VisualExplainer/VisualExplainerRenderRoute";
 import { TransitionProvider } from "./context/TransitionContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
 const companionDiagEnabled = import.meta.env.VITE_COMPANION_DIAG === "true";
+const visualExplainerRenderEnabled = window.location.pathname === "/__render";
 const visualExplainerDemoEnabled =
   runtimeConfig.demoRoute === "visual-explainer" ||
   window.location.pathname === "/visual-explainer" ||
@@ -24,7 +26,9 @@ const visualExplainerMapDemoEnabled =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TransitionProvider>
-      {visualExplainerMapDemoEnabled ? (
+      {visualExplainerRenderEnabled ? (
+        <VisualExplainerRenderRoute />
+      ) : visualExplainerMapDemoEnabled ? (
         <VisualExplainerMapDemo />
       ) : visualExplainerDemoEnabled ? (
         <VisualExplainerDemo />

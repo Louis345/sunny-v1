@@ -8,6 +8,7 @@ import {
   getVisualBrief,
   visualBriefs,
 } from "./visualBriefs";
+import { getVisualStudioBrief } from "./studioBriefs";
 import type { VisualBriefId } from "./visualBriefSchema";
 import {
   validateVisualExplainerConfig,
@@ -77,6 +78,16 @@ function useVisualExplainerActor() {
   }, []);
 
   return { actor: actorRef.current, snapshot };
+}
+
+function getInitialVisualBriefId(): VisualBriefId {
+  const candidate =
+    typeof window === "undefined"
+      ? null
+      : new URLSearchParams(window.location.search).get("brief");
+  return candidate && Object.prototype.hasOwnProperty.call(visualBriefs, candidate)
+    ? (candidate as VisualBriefId)
+    : "erosion";
 }
 
 function EventConsole(props: { events: VisualExplainerEvidenceEvent[] }): React.ReactElement {
@@ -322,13 +333,16 @@ export function VisualExplainerDemo(props: {
   onComplete?: (event: ActivityCompleteEvent) => void;
   onExit?: () => void;
 } = {}): React.ReactElement {
-  const [visualBriefId, setVisualBriefId] = useState<VisualBriefId>("erosion");
+  const [visualBriefId, setVisualBriefId] = useState<VisualBriefId>(() =>
+    getInitialVisualBriefId(),
+  );
   const visualBrief = getVisualBrief(visualBriefId);
+  const studioBrief = getVisualStudioBrief(visualBriefId);
   const [config, setConfig] = useState(() =>
     validateVisualExplainerConfig(
       buildVisualExplainerConfigFromBrief(
-        getVisualBrief("erosion"),
-        props.mapNodeId ?? "demo-erosion-treatment",
+        getVisualBrief(getInitialVisualBriefId()),
+        props.mapNodeId ?? `demo-${getInitialVisualBriefId()}-treatment`,
       ),
     ),
   );
@@ -646,6 +660,38 @@ export function VisualExplainerDemo(props: {
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-800">
                   {config.carePlanNote.intervention}
                 </p>
+              </div>
+            </div>
+            <div
+              data-testid="visual-studio-plan"
+              className="mt-3 rounded-lg border border-violet-100 bg-violet-50/70 px-3 py-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-black uppercase tracking-[0.16em] text-violet-900">
+                    Studio Plan
+                  </div>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-800">
+                    Concept: {studioBrief.concept.target}
+                  </p>
+                </div>
+                <div className="grid gap-1 text-right text-[11px] font-black uppercase tracking-[0.12em] text-violet-900">
+                  <span>Template: {studioBrief.concept.mentalModel}</span>
+                  <span>Next: {studioBrief.recall.template}</span>
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {studioBrief.evidence.writes.map((write) => (
+                  <span
+                    key={write}
+                    className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-violet-900 shadow-sm"
+                  >
+                    {write}
+                  </span>
+                ))}
+                <span className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-violet-900 shadow-sm">
+                  {studioBrief.recall.questions.length} recall checks
+                </span>
               </div>
             </div>
           </div>

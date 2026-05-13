@@ -19,6 +19,8 @@ import { applyLocalNodeResult } from "../../../../src/shared/mapLocalProgress";
 import type { useMapSession } from "../../hooks/useMapSession";
 import type { FlowGameSendMessage } from "../../utils/flowGameEvents";
 
+type VisualLearnerMapDemoMode = "child" | "parent" | "playthrough";
+
 const visualExplainerNode: NodeConfig = {
   id: "demo-erosion-treatment",
   type: "visual-explainer",
@@ -29,6 +31,34 @@ const visualExplainerNode: NodeConfig = {
   thumbnailUrl: "/thumbnails/mystery-fallback.svg",
   theme: "Erosion Treatment",
 };
+
+function readInitialDemoMode(): VisualLearnerMapDemoMode {
+  if (typeof window === "undefined") return "child";
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("chrome") || params.get("mode") || "";
+  if (raw === "parent") return "parent";
+  if (raw === "playthrough") return "playthrough";
+  return "child";
+}
+
+function updateDemoModeUrl(mode: VisualLearnerMapDemoMode): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("chrome", mode);
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function previewModeForDemoMode(
+  mode: VisualLearnerMapDemoMode,
+): false | "free" {
+  return mode === "child" ? false : "free";
+}
+
+function flowModeForDemoMode(
+  mode: VisualLearnerMapDemoMode,
+): "pause-for-question" | "playthrough" {
+  return mode === "playthrough" ? "playthrough" : "pause-for-question";
+}
 
 const demoTheme: SessionTheme = {
   name: "Care Plan Hills",
@@ -113,6 +143,11 @@ export function VisualExplainerMapDemo(): React.ReactElement {
   const [mapState, setMapState] = useState<MapState>(() => createInitialMapState());
   const [launchedNode, setLaunchedNode] = useState<NodeConfig | null>(null);
   const [companionEvents, setCompanionEvents] = useState<CompanionEventPayload[]>([]);
+  const [demoMode, setDemoMode] = useState<VisualLearnerMapDemoMode>(() =>
+    readInitialDemoMode(),
+  );
+  const previewMode = previewModeForDemoMode(demoMode);
+  const visualLearnerFlowMode = flowModeForDemoMode(demoMode);
   const companion = useMemo<CompanionConfig>(() => {
     const raw = childrenCfg.companions.matilda;
     return mergeCompanionConfigWithDefaults({
@@ -130,6 +165,7 @@ export function VisualExplainerMapDemo(): React.ReactElement {
       theme: mapState.theme,
       sessionId: "visual-explainer-map-demo",
       connectionStatus: "open",
+      connectionError: null,
       onNodeClick: async (nodeId: string) =>
         mapState.nodes.find((node) => node.id === nodeId) ?? null,
       commitLaunchedNode: (node: NodeConfig) => {
@@ -185,12 +221,76 @@ export function VisualExplainerMapDemo(): React.ReactElement {
     }
   };
 
+  const changeDemoMode = (next: VisualLearnerMapDemoMode) => {
+    if (next === demoMode) return;
+    console.log("  🎮 [VisualExplainerMapDemo] mode_changed", {
+      from: demoMode,
+      to: next,
+    });
+    setLaunchedNode(null);
+    setDemoMode(next);
+    updateDemoModeUrl(next);
+  };
+
   return (
     <>
+      <div
+        data-testid="visual-learner-map-mode-switcher"
+        style={{
+          position: "fixed",
+          top: 14,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 10050,
+          display: "flex",
+          gap: 6,
+          alignItems: "center",
+          padding: "7px",
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.92)",
+          border: "1px solid rgba(15,34,55,0.16)",
+          boxShadow: "0 10px 28px rgba(15,34,55,0.18)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        {[
+          ["child", "Child"],
+          ["parent", "Parent"],
+          ["playthrough", "Playthrough"],
+        ].map(([mode, label]) => {
+          const active = demoMode === mode;
+          return (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={active}
+              onClick={() => changeDemoMode(mode as VisualLearnerMapDemoMode)}
+              style={{
+                border: 0,
+                borderRadius: 999,
+                padding: "8px 13px",
+                fontWeight: 850,
+                cursor: "pointer",
+                color: active ? "#ffffff" : "#17324d",
+                background: active
+                  ? "linear-gradient(135deg,#6d5ef5,#8b5cf6)"
+                  : "transparent",
+                boxShadow: active
+                  ? "0 8px 18px rgba(109,94,245,0.28)"
+                  : "none",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
       <AdventureMap
+        key={demoMode}
         childId="creator"
         mapSession={mapSession}
-        previewMode="free"
+        previewMode={previewMode}
+        visualLearnerFlowMode={visualLearnerFlowMode}
         inspectAllMode
         companionMutedForMap
         mapCompanion={companion}
@@ -210,11 +310,7 @@ export function VisualExplainerMapDemo(): React.ReactElement {
         mode={launchedNode?.type === "visual-explainer" ? "portrait" : "full"}
         companionEvents={companionEvents}
         micMuted
-        speechBubbleText={
-          launchedNode?.type === "visual-explainer"
-            ? "I am watching the model with you."
-            : null
-        }
+        speechBubbleText={null}
       />
     </>
   );
