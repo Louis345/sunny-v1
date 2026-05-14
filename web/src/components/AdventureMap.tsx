@@ -1452,6 +1452,12 @@ export function AdventureMap(props: {
           ...nodeTargetWords(launchedNode),
         ])
       : [];
+  const pronunciationConfigForNode =
+    launchedNode?.type === "pronunciation" ? launchedNode.pronunciationConfig : undefined;
+  const pronunciationBaseWordCount =
+    pronunciationConfigForNode?.baseWordCount ?? Math.max(3, launchedNode?.words?.length ?? 0);
+  const pronunciationMaxWordCount =
+    pronunciationConfigForNode?.maxWordCount ?? Math.max(10, launchedNode?.words?.length ?? 0);
   const pronunciationReplayWordsForNode =
     launchedNode?.type === "pronunciation"
       ? uniquePracticeWords([
@@ -1460,14 +1466,11 @@ export function AdventureMap(props: {
             ...(node.words ?? []),
             ...nodeTargetWords(node),
           ]),
-        ]).slice(0, Math.max(10, launchedNode.words?.length ?? 0))
+        ]).slice(0, pronunciationMaxWordCount)
       : [];
   const pronunciationWordsForNode =
     launchedNode?.type === "pronunciation"
-      ? pronunciationReplayWordsForNode.slice(
-          0,
-          Math.max(3, launchedNode.words?.length ?? 0),
-        )
+      ? pronunciationReplayWordsForNode.slice(0, pronunciationBaseWordCount)
       : [];
 
   function handleVisualExplainerComplete(event: ActivityCompleteEvent): void {
@@ -2021,6 +2024,7 @@ export function AdventureMap(props: {
           <PronunciationGameCanvas
             words={pronunciationWordsForNode}
             replayWords={pronunciationReplayWordsForNode}
+            pronunciationConfig={pronunciationConfigForNode}
             interimTranscript={
               props.karaokeReadingForMapNode?.interimTranscript ?? ""
             }

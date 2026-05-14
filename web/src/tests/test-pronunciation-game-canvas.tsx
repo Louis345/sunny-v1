@@ -541,6 +541,92 @@ describe("PronunciationGameCanvas", () => {
     );
   });
 
+  it("uses the planner pronunciation config for harder replay dosage", async () => {
+    const sendMessage = vi.fn();
+    const teaserWords = ["able", "common", "behind", "whole", "easy"];
+    const replayWords = [
+      ...teaserWords,
+      "carefully",
+      "remember",
+      "vowel",
+      "likely",
+      "friendly",
+    ];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={teaserWords}
+        replayWords={replayWords}
+        pronunciationConfig={{
+          baseWordCount: 5,
+          targetFlowWordCount: 7,
+          maxWordCount: 10,
+          expansionPolicy: "on_mastery_or_child_replay",
+          masteryGate: {
+            accuracyAtLeast: 0.85,
+            minStreak: 5,
+            noFrustrationSignal: true,
+          },
+          supportPolicy: "slow_on_help_or_repeated_miss",
+        }}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    for (let i = 0; i < teaserWords.length; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={teaserWords}
+          replayWords={replayWords}
+          pronunciationConfig={{
+            baseWordCount: 5,
+            targetFlowWordCount: 7,
+            maxWordCount: 10,
+            expansionPolicy: "on_mastery_or_child_replay",
+            masteryGate: {
+              accuracyAtLeast: 0.85,
+              minStreak: 5,
+              noFrustrationSignal: true,
+            },
+            supportPolicy: "slow_on_help_or_repeated_miss",
+          }}
+          interimTranscript={teaserWords.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    act(() => {
+      screen.getByRole("button", { name: /harder replay/i }).click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_event",
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "replay_requested",
+          payload: expect.objectContaining({
+            game: "pronunciation",
+            mode: "hard",
+            wordCount: 7,
+          }),
+        }),
+      }),
+    );
+    expect(screen.getByTestId("pronunciation-progress").textContent).toContain(
+      "/ 7",
+    );
+  });
+
   it("fires combo breaker event and marks the next word as x2 after a huge streak", async () => {
     const sendMessage = vi.fn();
     const words = [

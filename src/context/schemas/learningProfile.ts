@@ -12,6 +12,7 @@ import type {
   ChoiceEventSource,
   MasteryUnlockState,
   NodeType,
+  PronunciationNodeConfig,
   WordRadarNodeConfig,
 } from "../../shared/adventureTypes";
 
@@ -105,6 +106,7 @@ export interface ActiveSessionPlan {
     choiceSource?: ChoiceEventSource;
     masteryUnlockState?: MasteryUnlockState;
     locked?: boolean;
+    pronunciationConfig?: PronunciationNodeConfig;
     wordRadarConfig?: WordRadarNodeConfig;
   }>;
   variationPolicy: {

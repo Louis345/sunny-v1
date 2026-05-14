@@ -52,6 +52,19 @@ export interface WordRadarNodeConfig {
   requiresCapturedResponse: boolean;
 }
 
+export interface PronunciationNodeConfig {
+  baseWordCount: number;
+  targetFlowWordCount: number;
+  maxWordCount: number;
+  expansionPolicy: "on_mastery_or_child_replay";
+  masteryGate: {
+    accuracyAtLeast: number;
+    minStreak: number;
+    noFrustrationSignal: boolean;
+  };
+  supportPolicy: "slow_on_help_or_repeated_miss";
+}
+
 export type MysteryActivityKind =
   | "dopamine_game"
   | "learning_activity"
@@ -118,6 +131,8 @@ export interface NodeConfig {
   }>;
   /** Planner-selected Word Radar measurement mode; profile config is only fallback. */
   wordRadarConfig?: WordRadarNodeConfig;
+  /** Planner-selected pronunciation dosage; the game renders this instead of choosing word counts. */
+  pronunciationConfig?: PronunciationNodeConfig;
   /** Homework node metadata (quest/boss routing). */
   gameFile?: string;
   gameHtmlPath?: string;

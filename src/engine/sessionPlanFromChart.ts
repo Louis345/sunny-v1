@@ -13,6 +13,7 @@ import type {
   MysteryChoiceOption,
   NodeConfig,
   NodeType,
+  PronunciationNodeConfig,
   WordRadarNodeConfig,
 } from "../shared/adventureTypes";
 
@@ -190,6 +191,34 @@ function wordRadarConfigForEvidence(strongEvidence: boolean): WordRadarNodeConfi
   };
 }
 
+function pronunciationConfigForEvidence(input: {
+  homeworkWordCount: number;
+  cohortSize: number;
+  strongEvidence: boolean;
+}): PronunciationNodeConfig {
+  const available = Math.max(1, input.homeworkWordCount || input.cohortSize);
+  const maxWordCount = Math.min(12, available);
+  const baseWordCount = input.strongEvidence
+    ? Math.min(maxWordCount, Math.max(8, input.cohortSize))
+    : Math.min(maxWordCount, Math.max(5, Math.min(input.cohortSize, 5)));
+  const targetFlowWordCount = input.strongEvidence
+    ? Math.min(maxWordCount, Math.max(baseWordCount, 10))
+    : Math.min(maxWordCount, Math.max(baseWordCount, 8));
+
+  return {
+    baseWordCount,
+    targetFlowWordCount,
+    maxWordCount,
+    expansionPolicy: "on_mastery_or_child_replay",
+    masteryGate: {
+      accuracyAtLeast: 0.85,
+      minStreak: 5,
+      noFrustrationSignal: true,
+    },
+    supportPolicy: "slow_on_help_or_repeated_miss",
+  };
+}
+
 function sourceNodeType(raw: string): NodeType | null {
   return raw as NodeType;
 }
@@ -225,17 +254,37 @@ export function planHomeworkSessionFromChart(
     .sort((a, b) => nodeTypeRank(a.type, strongEvidence) - nodeTypeRank(b.type, strongEvidence));
 
   const targets = wordPlan.words.map((word) => word.text);
-  const nodePlan: ActiveSessionPlan["nodePlan"] = baselineNodes.map(({ source, type }) => ({
-    id: source.id,
-    type,
-    activityId: type,
-    targets: WORD_DRIVEN_NODE_TYPES.has(type) ? [...targets] : [...(source.words ?? [])],
-    difficulty: strongEvidence && type === "word-radar" ? 3 : (Math.max(1, Math.min(3, source.difficulty)) as 1 | 2 | 3),
-    source: "pending_homework",
-    ...(type === "word-radar"
-      ? { wordRadarConfig: wordRadarConfigForEvidence(strongEvidence) }
-      : {}),
-  }));
+  const allHomeworkTargets = uniqueWords([
+    ...targets,
+    ...rotate(uniqueWords(pending.wordList ?? []), strongEvidence ? Math.max(1, completedCount) : 0),
+  ]);
+  const pronunciationConfig = pronunciationConfigForEvidence({
+    homeworkWordCount: uniqueWords(pending.wordList ?? []).length,
+    cohortSize: wordPlan.cohortSize,
+    strongEvidence,
+  });
+  const nodePlan: ActiveSessionPlan["nodePlan"] = baselineNodes.map(({ source, type }) => {
+    const plannedTargets =
+      type === "pronunciation"
+        ? allHomeworkTargets.slice(0, pronunciationConfig.maxWordCount)
+        : WORD_DRIVEN_NODE_TYPES.has(type)
+          ? [...targets]
+          : [...(source.words ?? [])];
+    return {
+      id: source.id,
+      type,
+      activityId: type,
+      targets: plannedTargets,
+      difficulty: strongEvidence && type === "word-radar" ? 3 : (Math.max(1, Math.min(3, source.difficulty)) as 1 | 2 | 3),
+      source: "pending_homework",
+      ...(type === "word-radar"
+        ? { wordRadarConfig: wordRadarConfigForEvidence(strongEvidence) }
+        : {}),
+      ...(type === "pronunciation"
+        ? { pronunciationConfig }
+        : {}),
+    };
+  });
 
   nodePlan.push({
     id: `n-mystery-${homeworkId ?? "homework"}`,
@@ -455,6 +504,7 @@ export function buildAdventureMapFromSessionPlan(
             }))
           : source?.wordRadarItems,
       wordRadarConfig: planned.type === "word-radar" ? planned.wordRadarConfig : undefined,
+      pronunciationConfig: planned.type === "pronunciation" ? planned.pronunciationConfig : undefined,
       difficulty: planned.difficulty,
       gameFile: source?.gameFile ?? undefined,
       storyFile: source?.storyFile ?? undefined,

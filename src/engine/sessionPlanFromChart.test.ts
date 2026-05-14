@@ -207,6 +207,18 @@ describe("patient-chart session plan", () => {
       hideWordDuringResponse: true,
       requiresCapturedResponse: true,
     });
+    expect(plan.nodePlan.find((node) => node.type === "pronunciation")?.pronunciationConfig).toMatchObject({
+      baseWordCount: 10,
+      targetFlowWordCount: 10,
+      maxWordCount: 10,
+      expansionPolicy: "on_mastery_or_child_replay",
+      masteryGate: {
+        accuracyAtLeast: 0.85,
+        minStreak: 5,
+        noFrustrationSignal: true,
+      },
+      supportPolicy: "slow_on_help_or_repeated_miss",
+    });
     expect(plan.nodePlan.map((node) => node.type).slice(0, 4)).toEqual([
       "word-radar",
       "monster-stampede",
@@ -239,6 +251,13 @@ describe("patient-chart session plan", () => {
       hideWordDuringResponse: false,
       requiresCapturedResponse: true,
     });
+    expect(plan.nodePlan.find((node) => node.type === "pronunciation")?.pronunciationConfig).toMatchObject({
+      baseWordCount: 5,
+      targetFlowWordCount: 8,
+      maxWordCount: 10,
+      expansionPolicy: "on_mastery_or_child_replay",
+      supportPolicy: "slow_on_help_or_repeated_miss",
+    });
   });
 
   it("renders the adventure map from the chart plan without making failed quest artifacts playable", () => {
@@ -264,6 +283,11 @@ describe("patient-chart session plan", () => {
 
     expect(nodesAgain).toEqual(nodes);
     expect(nodes.find((node) => node.type === "pronunciation")?.words).toHaveLength(10);
+    expect(nodes.find((node) => node.type === "pronunciation")?.pronunciationConfig).toMatchObject({
+      baseWordCount: 10,
+      targetFlowWordCount: 10,
+      maxWordCount: 10,
+    });
     expect(nodes.map((node) => node.type)).toEqual(expect.arrayContaining(["quest", "boss"]));
     expect(nodes.find((node) => node.type === "mystery")?.choiceOptions).toHaveLength(3);
     expect(
