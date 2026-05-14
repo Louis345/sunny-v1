@@ -8,6 +8,12 @@ import { companionConfigFromPreset } from "./childrenConfig";
 import type { CompanionConfig } from "../shared/companionTypes";
 import { COMPANION_DEFAULTS, mergeCompanionPresetWithLearningProfile } from "../shared/companionTypes";
 import { resolveAttentionModel, type ResolvedAttentionModel } from "../engine/attentionModel";
+import { companionCareToView } from "../engine/companionCareEngine";
+import type {
+  CompanionCarePlan,
+  CompanionCareView,
+} from "../shared/companionCareTypes";
+import { loadCompanionCarePlanForChart } from "./companionCarePlan";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -71,6 +77,12 @@ export type ChildChart = {
     presetId: string;
     config: CompanionConfig;
     displayName: string;
+  };
+  companionCare: {
+    plan: CompanionCarePlan;
+    view: CompanionCareView;
+    filePath: string;
+    existed: boolean;
   };
 };
 
@@ -189,7 +201,9 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
   const baseDir = contextDir(rootDir, childId);
   const manifestFile = path.join(baseDir, "child_profile.json");
   const manifestFromFile = readJson<ChildProfileManifest>(manifestFile);
-  const manifestSource = manifestFromFile ? "manifest" : "fallback";
+  const manifestSource: ChildChart["manifestSource"] = manifestFromFile
+    ? "manifest"
+    : "fallback";
   const cfg = readChildrenConfigFromRoot(rootDir);
   const childMeta = cfg?.childProfiles?.[childId];
   const manifest: ChildProfileManifest = manifestFromFile ?? {
@@ -243,9 +257,13 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     presetConfig,
     learningProfile.companion,
   );
+  const companion = {
+    presetId,
+    config: companionConfig,
+    displayName: capitalize(presetId),
+  };
   const today = new Date().toISOString().slice(0, 10);
-
-  return {
+  const chartBase = {
     childId,
     rootDir,
     manifestSource,
@@ -276,10 +294,19 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     },
     childContext: readChildContext(rootDir, childId),
     childMeta,
-    companion: {
-      presetId,
-      config: companionConfig,
-      displayName: capitalize(presetId),
+    companion,
+  };
+  const companionCareLoaded = loadCompanionCarePlanForChart(chartBase, {
+    persistOnCreate: false,
+  });
+
+  return {
+    ...chartBase,
+    companionCare: {
+      plan: companionCareLoaded.plan,
+      view: companionCareToView(companionCareLoaded.plan, companion.displayName),
+      filePath: companionCareLoaded.filePath,
+      existed: !companionCareLoaded.created,
     },
   };
 }

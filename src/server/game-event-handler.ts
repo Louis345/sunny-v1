@@ -13,6 +13,7 @@ import {
   WORD_BUILDER_SESSION_COMPLETE,
 } from "../agents/prompts";
 import { buildFlowGameEventFields } from "./flow-game-debug";
+import { buildGameContextSummary } from "./gameContextSummary";
 
 export const WB_ACTIVITY_MS = 90_000;
 
@@ -269,7 +270,14 @@ export function handleGameEventForSession(
         ? (event.companionCare as Record<string, unknown>)
         : {};
     const moodLabel = typeof care.moodLabel === "string" ? care.moodLabel : "steady";
-    const summary = `Companion was fed ${itemId}; visible feed animation ${reference}; current care mood ${moodLabel}.`;
+    const liveContext =
+      s.currentActivityState && typeof s.currentActivityState === "object"
+        ? buildGameContextSummary(s.currentActivityState as Record<string, unknown>)
+        : "";
+    const summary = [
+      `Companion was fed ${itemId}; visible feed animation ${reference}; current care mood ${moodLabel}.`,
+      liveContext ? `Current live board context:\n${liveContext}` : "",
+    ].filter(Boolean).join("\n");
     s.noteExternalEvent?.({
       source: "companion_care_event",
       summary,
@@ -285,8 +293,9 @@ export function handleGameEventForSession(
           `The child just fed the companion ${itemId}.`,
           `Care mood is ${moodLabel}.`,
           `Visible animation already played: ${reference}.`,
+          liveContext ? `Current live board context:\n${liveContext}` : "",
           "Respond briefly with warm repair/reward language if it helps, no guilt, no blame, and do not use browser TTS.",
-        ].join(" "),
+        ].filter(Boolean).join(" "),
       )
       .catch((err: unknown) => {
         console.error("  🔴 [companion-care] live response failed:", err);

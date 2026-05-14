@@ -107,7 +107,16 @@ describe("handleGameEventForSession companion_event server routing", () => {
 
   it("routes companion_care_event to the live response path", async () => {
     const runCompanionResponse = vi.fn(async (_message: string) => {});
-    const session = makeSession({ runCompanionResponse });
+    const session = makeSession({
+      runCompanionResponse,
+      currentActivityState: {
+        game: "pronunciation",
+        phase: "response",
+        currentWord: "able",
+        itemIndex: 5,
+        totalItems: 10,
+      },
+    });
     handleGameEventForSession(session, {
       type: "companion_care_event",
       itemId: "apple_bite",
@@ -117,9 +126,11 @@ describe("handleGameEventForSession companion_event server routing", () => {
 
     await vi.waitFor(() => expect(runCompanionResponse).toHaveBeenCalled());
     expect(runCompanionResponse.mock.calls[0]?.[0]).toContain("apple_bite");
+    expect(runCompanionResponse.mock.calls[0]?.[0]).toContain("Word: able");
     expect(session.noteExternalEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         source: "companion_care_event",
+        summary: expect.stringContaining("Word: able"),
       }),
     );
   });

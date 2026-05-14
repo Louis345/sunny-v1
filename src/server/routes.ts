@@ -11,7 +11,6 @@ import { generateStoryVideo } from "../utils/generateStoryVideo";
 import { buildProfile } from "../profiles/buildProfile";
 import { getChildChart } from "../profiles/childChart";
 import {
-  loadCompanionCarePlanForChart,
   mirrorCompanionCareToLearningProfile,
   saveCompanionCarePlan,
 } from "../profiles/companionCarePlan";
@@ -491,9 +490,9 @@ export function setupRoutes(app: Express): void {
       }
       try {
         const chart = getChildChart(childId);
-        const loaded = loadCompanionCarePlanForChart(chart);
+        const startingPlan = chart.companionCare.plan;
         const nowIso = new Date().toISOString();
-        const result = applyCompanionFeedItem(loaded.plan, itemId, nowIso);
+        const result = applyCompanionFeedItem(startingPlan, itemId, nowIso);
         if (!result.ok) {
           return res.status(400).json({ error: result.reason });
         }
@@ -510,7 +509,7 @@ export function setupRoutes(app: Express): void {
           chart.companion.displayName,
         );
         console.log(
-          `  🎮 [companion-care] feed ${itemId} hunger ${loaded.plan.state.hunger.toFixed(2)} -> ${result.plan.state.hunger.toFixed(2)}${shouldPersist ? "" : " preview=true"}`,
+          `  🎮 [companion-care] feed ${itemId} hunger ${startingPlan.state.hunger.toFixed(2)} -> ${result.plan.state.hunger.toFixed(2)}${shouldPersist ? "" : " preview=true"}`,
         );
         res.json({
           ok: true,

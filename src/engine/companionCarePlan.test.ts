@@ -44,6 +44,52 @@ function minimalProfile(): LearningProfile {
 }
 
 describe("companionCarePlan IO", () => {
+  it("getChildChart exposes companion care without creating a live care file", () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-care-chart-"));
+    writeJson(path.join(rootDir, "children.config.json"), {
+      defaultCompanionId: "matilda",
+      childCompanionIds: { reina: "matilda" },
+      childProfiles: {},
+      companions: {
+        matilda: {
+          name: "Matilda",
+          vrmUrl: "/companions/matilda.vrm",
+          expressions: {},
+          faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
+          dopamineGames: ["wheel-of-fortune"],
+        },
+      },
+    });
+    writeJson(
+      path.join(rootDir, "src/context/reina/learning_profile.json"),
+      minimalProfile(),
+    );
+
+    const chart = getChildChart("reina", { rootDir });
+    const careFile = path.join(rootDir, "src/context/reina/companion_care/matilda.json");
+
+    expect(chart.companionCare).toMatchObject({
+      filePath: careFile,
+      existed: false,
+      plan: {
+        childId: "reina",
+        companionId: "matilda",
+        state: expect.objectContaining({
+          hunger: 0.44,
+          mood: 0.55,
+          bond: 0.66,
+          thoughtClarity: 0.77,
+        }),
+      },
+      view: expect.objectContaining({
+        childId: "reina",
+        companionId: "matilda",
+        displayName: "Matilda",
+      }),
+    });
+    expect(fs.existsSync(careFile)).toBe(false);
+  });
+
   it("lazy-creates a named companion care plan from child chart and legacy mirrors", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-care-"));
     writeJson(path.join(rootDir, "children.config.json"), {

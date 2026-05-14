@@ -16,11 +16,8 @@ import { retrievalPractice as computeRetrievalPractice } from "../algorithms/ret
 import { DEFAULT_GAME_CONFIGS } from "../profile/gameConfigDefaults";
 import { verifyGameConfig } from "../profile/verifyProfile";
 import { getChildChart } from "./childChart";
-import { loadCompanionCarePlanForChart } from "./companionCarePlan";
-import {
-  companionCareToTamagotchi,
-  companionCareToView,
-} from "../engine/companionCareEngine";
+import { saveCompanionCarePlan } from "./companionCarePlan";
+import { companionCareToTamagotchi } from "../engine/companionCareEngine";
 
 const PROFILE_SRC = path.resolve(__dirname, "..");
 
@@ -122,15 +119,11 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const now = new Date().toISOString();
   const baseT = lp.tamagotchi ?? { ...DEFAULT_TAMAGOTCHI, lastSeenAt: now };
   const legacyTamagotchi = applyPassiveDepletion(baseT);
-  const companionCareLoaded = loadCompanionCarePlanForChart(chart, {
-    nowIso: now,
-    persistOnCreate: process.env.VITEST !== "true",
-  });
-  const companionCare = companionCareToView(
-    companionCareLoaded.plan,
-    chart.companion.displayName,
-  );
-  const tamagotchi = companionCareToTamagotchi(companionCareLoaded.plan);
+  if (!chart.companionCare.existed && process.env.VITEST !== "true") {
+    saveCompanionCarePlan(chart, chart.companionCare.plan);
+  }
+  const companionCare = chart.companionCare.view;
+  const tamagotchi = companionCareToTamagotchi(chart.companionCare.plan);
 
   const { dueWords, sm2Stats } = sm2(wordBank);
   const { mathRotation } = interleaving(

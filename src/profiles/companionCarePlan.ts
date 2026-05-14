@@ -6,7 +6,21 @@ import {
   createStarterCompanionCarePlan,
 } from "../engine/companionCareEngine";
 import type { CompanionCarePlan } from "../shared/companionCareTypes";
-import type { ChildChart } from "./childChart";
+
+export type CompanionCareChartInput = {
+  childId: string;
+  links: {
+    companionCareDir: string;
+    learningProfile: string;
+  };
+  companion: {
+    presetId: string;
+  };
+  learningProfile: LearningProfile;
+  economy: {
+    coinBalance: number;
+  };
+};
 
 export type LoadedCompanionCarePlan = {
   plan: CompanionCarePlan;
@@ -14,7 +28,7 @@ export type LoadedCompanionCarePlan = {
   created: boolean;
 };
 
-function carePlanPath(chart: ChildChart): string {
+function carePlanPath(chart: CompanionCareChartInput): string {
   return path.join(
     chart.links.companionCareDir,
     `${chart.companion.presetId}.json`,
@@ -37,7 +51,7 @@ function writeJson(file: string, value: unknown): void {
 
 function normalizeLoadedPlan(
   plan: CompanionCarePlan,
-  chart: ChildChart,
+  chart: CompanionCareChartInput,
 ): CompanionCarePlan {
   const coins = Math.max(0, Math.floor(Number(plan.economy?.coins ?? 0) || 0));
   return {
@@ -61,7 +75,7 @@ function normalizeLoadedPlan(
 }
 
 export function loadCompanionCarePlanForChart(
-  chart: ChildChart,
+  chart: CompanionCareChartInput,
   opts: { nowIso?: string; persistOnCreate?: boolean } = {},
 ): LoadedCompanionCarePlan {
   const filePath = carePlanPath(chart);
@@ -88,7 +102,7 @@ export function loadCompanionCarePlanForChart(
 }
 
 export function saveCompanionCarePlan(
-  chart: ChildChart,
+  chart: CompanionCareChartInput,
   plan: CompanionCarePlan,
 ): void {
   writeJson(carePlanPath(chart), {
@@ -100,7 +114,7 @@ export function saveCompanionCarePlan(
 }
 
 export function mirrorCompanionCareToLearningProfile(
-  chart: ChildChart,
+  chart: CompanionCareChartInput,
   plan: CompanionCarePlan,
 ): LearningProfile {
   const existing = readJson<LearningProfile>(chart.links.learningProfile);
