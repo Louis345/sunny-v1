@@ -80,6 +80,18 @@ fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 
     expect(r.score).toBe(80);
   });
 
+  it("blocks boss validation when spelling targets are visible", () => {
+    const html = compliantHtml("ila", '<div class="word-chip">apple</div>\n');
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "ila",
+      generationStage: "boss",
+    });
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((f) => f.includes("Visible spelling targets"))).toBe(true);
+  });
+
   it("rejects generated games that do not report attempt events", () => {
     const html = `${BASE}
 <div id="sunny-companion"></div>

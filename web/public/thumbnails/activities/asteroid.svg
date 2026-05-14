@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Asteroid thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="1" stop-color="#581c87"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <circle cx="55" cy="42" r="4" fill="#e0e7ff"/>
+  <circle cx="185" cy="34" r="3" fill="#e0e7ff"/>
+  <circle cx="200" cy="115" r="4" fill="#e0e7ff"/>
+  <path d="M82 105l24-63 22 63-23-13z" fill="#38bdf8"/>
+  <path d="M92 107h27l-14 25z" fill="#f97316"/>
+  <path d="M157 63l20 8 7 21-17 15-24-5-8-24z" fill="#a3a3a3"/>
+  <path d="M158 79h14M149 94h18" stroke="#525252" stroke-width="6" stroke-linecap="round"/>
+</svg>

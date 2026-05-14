@@ -498,6 +498,7 @@ function App() {
     adventureMapEnabled && adventureChildId ? adventureChildId : "",
     mapPreviewMode,
     mapInspectAllMode,
+    runtimeConfig.homeworkDomain,
   );
 
   const prevMapProgRef = useRef<string | null>(null);

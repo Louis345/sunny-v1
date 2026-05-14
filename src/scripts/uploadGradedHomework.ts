@@ -11,6 +11,7 @@ export type GradedHomeworkUpload = {
   childId: string;
   sourceFile: string;
   title?: string;
+  returnTag?: string;
   rawText?: string;
   words: string[];
   concepts: string[];
@@ -52,6 +53,22 @@ const MIN_CONFIDENT_MATCH = 0.3;
 
 function normalize(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function normalizeIdSegment(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function fallbackReturnTag(childId: string, homeworkId: string): string {
+  return `#sunny_${normalizeIdSegment(childId)}_${normalizeIdSegment(homeworkId)}`;
+}
+
+function extractReturnTag(value: string): string | null {
+  return value.match(/#sunny_[a-z0-9_]+/i)?.[0] ?? null;
 }
 
 function tokens(value: string): Set<string> {
@@ -96,6 +113,20 @@ export function scoreHomeworkCycleCandidate(
 ): HomeworkMatchCandidate {
   let score = 0;
   const evidence: string[] = [];
+  const expectedReturnTag = cycle.returnTag ?? fallbackReturnTag(upload.childId, cycle.homeworkId);
+  const tagHaystack = normalize(
+    [
+      upload.returnTag,
+      upload.rawText,
+      upload.title,
+      path.basename(upload.sourceFile),
+    ].filter(Boolean).join(" "),
+  );
+  if (tagHaystack && normalize(expectedReturnTag) && tagHaystack.includes(normalize(expectedReturnTag))) {
+    score += 0.7;
+    evidence.push("return tag match");
+  }
+
   if (upload.contentFingerprint && cycle.contentFingerprint === upload.contentFingerprint) {
     score += 0.55;
     evidence.push("exact content fingerprint");
@@ -195,25 +226,52 @@ function uploadFromFile(args: CliArgs): GradedHomeworkUpload {
   const sourceFile = path.resolve(args.pdfPath);
   const isText = /\.(txt|md|json)$/i.test(sourceFile);
   const rawText = isText && fs.existsSync(sourceFile) ? fs.readFileSync(sourceFile, "utf8") : "";
+  let structured: Partial<GradedHomeworkUpload> = {};
+  if (/\.json$/i.test(sourceFile) && rawText.trim()) {
+    try {
+      structured = JSON.parse(rawText) as Partial<GradedHomeworkUpload>;
+    } catch {
+      structured = {};
+    }
+  }
   const sourceName = path.basename(sourceFile);
+  const title = structured.title ?? sourceName.replace(/\.[^.]+$/, "");
+  const words = Array.isArray(structured.words)
+    ? structured.words.map((word) => String(word).toLowerCase())
+    : rawText.split(/\s+/).map((w) => w.replace(/[^A-Za-z]/g, "").toLowerCase()).filter((w) => w.length >= 4);
+  const concepts = Array.isArray(structured.concepts)
+    ? structured.concepts.map((concept) => String(concept).toLowerCase())
+    : rawText.match(/\b(erosion|sediment|soil|water|wind|landform|rocks?)\b/gi)?.map((x) => x.toLowerCase()) ?? [];
+  const questions = Array.isArray(structured.questions)
+    ? structured.questions.map((question) => String(question))
+    : [];
+  const gradedItems = Array.isArray(structured.gradedItems)
+    ? structured.gradedItems
+    : [];
+  const testDate = typeof structured.testDate === "string" ? structured.testDate : null;
+  const returnTag =
+    typeof structured.returnTag === "string"
+      ? structured.returnTag
+      : extractReturnTag(`${sourceName}\n${rawText}`) ?? undefined;
   return {
     childId: args.childId,
     sourceFile,
-    title: sourceName.replace(/\.[^.]+$/, ""),
+    title,
+    returnTag,
     rawText,
-    words: rawText.split(/\s+/).map((w) => w.replace(/[^A-Za-z]/g, "").toLowerCase()).filter((w) => w.length >= 4),
-    concepts: rawText.match(/\b(erosion|sediment|soil|water|wind|landform|rocks?)\b/gi)?.map((x) => x.toLowerCase()) ?? [],
-    questions: [],
-    testDate: null,
-    score: null,
-    gradedItems: [],
+    words,
+    concepts,
+    questions,
+    testDate,
+    score: typeof structured.score === "number" ? structured.score : null,
+    gradedItems,
     contentFingerprint: generateContentFingerprint({
       childId: args.childId,
-      title: sourceName.replace(/\.[^.]+$/, ""),
+      title,
       rawText,
-      words: [],
-      questions: [],
-      testDate: null,
+      words,
+      questions,
+      testDate,
       sourceDocuments: [{ filename: sourceName }],
     }),
   };

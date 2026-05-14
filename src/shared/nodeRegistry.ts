@@ -14,6 +14,7 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   "visual-explainer": "Visual Explainer",
   "concept-check": "Concept Check",
   "letter-rush": "Letter Rush",
+  "monster-stampede": "Monster Stampede",
   "spell-check": "Spell Check",
   wordle: "Wordle",
   "word-builder": "Word Builder",
@@ -57,6 +58,7 @@ export type RoutableNodeConfig = Pick<
   | "storyImagePrompt"
   | "attentionConfig"
   | "activityConfigPath"
+  | "adaptiveArtifact"
 > & { type: string };
 
 export function buildNodeUrlSearchParams(
@@ -147,6 +149,9 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       return `/games/letter-rush.html?${params.toString()}`;
     },
   },
+  "monster-stampede": {
+    getUrl: (node, ctx) => `/games/monster-stampede.html?${buildParams(node, ctx)}`,
+  },
   "visual-explainer": {
     getUrl: (node, ctx) => {
       const params = buildNodeUrlSearchParams(node, ctx);
@@ -197,6 +202,15 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
   },
   quest: {
     getUrl: (node, ctx) => {
+      if (node.gameHtmlPath) {
+        const filename = node.gameHtmlPath.split("/").pop();
+        if (filename) {
+          return `/api/homework/game/${ctx.childId}/${encodeURIComponent(filename)}?${buildParams(node, ctx)}`;
+        }
+      }
+      if (node.adaptiveArtifact && node.date && node.gameFile) {
+        return `/homework/${ctx.childId}/${node.date}/${node.gameFile}?${buildParams(node, ctx)}`;
+      }
       if (node.gameFile) {
         return `/games/${node.gameFile}?${buildParams(node, ctx)}`;
       }

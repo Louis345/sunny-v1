@@ -56,12 +56,23 @@ export interface CapturedHomeworkContentRecord {
   type: string;
   rawText: string;
   words: string[];
+  homeworkWords?: Array<{
+    homeworkWordId: string;
+    text: string;
+    normalizedText: string;
+    wordGroupId?: string;
+    wordBankEntryId?: string;
+    purpose: string;
+    positionIndex: number;
+  }>;
   questions: unknown[];
   wordGroups?: Array<{
     id: string;
+    wordGroupId?: string;
     label: string;
     purpose: string;
     words: string[];
+    homeworkWordIds?: string[];
     confidence: number;
     evidence: string[];
     scheduleAfter?: string;
@@ -71,9 +82,11 @@ export interface CapturedHomeworkContentRecord {
     status?: string;
     wordGroups: Array<{
       id: string;
+      wordGroupId?: string;
       label: string;
       purpose: string;
       words: string[];
+      homeworkWordIds?: string[];
       confidence: number;
       evidence: string[];
       scheduleAfter?: string;
@@ -98,6 +111,12 @@ export interface CapturedHomeworkContentRecord {
 }
 
 export type CalibrationStatus = "unverified" | "supported" | "falsified" | "inconclusive";
+
+export type HomeworkTestDateSource =
+  | "cli"
+  | "extracted"
+  | "inferred_next_friday"
+  | "human_confirmed";
 
 export interface HomeworkCalibrationEntry {
   calibrationId: string;
@@ -139,6 +158,9 @@ export interface HomeworkCycle {
   calibrationJournal?: HomeworkCalibrationEntry[];
   ingestedAt: string; // ISO date
   testDate: string | null;
+  testDateSource?: HomeworkTestDateSource;
+  testDateConfirmed?: boolean;
+  returnTag?: string;
 
   // Written by Psychologist BEFORE session cycle
   assumptions: string | null; // markdown — what the system predicted

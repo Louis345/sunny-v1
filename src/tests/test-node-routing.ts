@@ -21,6 +21,10 @@ describe("map node routing", () => {
     expect(ALL_NODE_TYPES).toContain("letter-rush");
   });
 
+  it("ALL_NODE_TYPES includes monster-stampede", () => {
+    expect(ALL_NODE_TYPES).toContain("monster-stampede");
+  });
+
   it('isWordDrivenHomeworkNodeType("wordle") returns true', () => {
     expect(isWordDrivenHomeworkNodeType("wordle")).toBe(true);
   });
@@ -29,9 +33,18 @@ describe("map node routing", () => {
     expect(isWordDrivenHomeworkNodeType("letter-rush")).toBe(true);
   });
 
+  it('isWordDrivenHomeworkNodeType("monster-stampede") returns true', () => {
+    expect(isWordDrivenHomeworkNodeType("monster-stampede")).toBe(true);
+  });
+
   it('NODE_THUMBNAIL_PROMPTS["letter-rush"] is defined', () => {
     expect(NODE_THUMBNAIL_PROMPTS["letter-rush"]).toBeDefined();
     expect(String(NODE_THUMBNAIL_PROMPTS["letter-rush"]).length).toBeGreaterThan(0);
+  });
+
+  it('NODE_THUMBNAIL_PROMPTS["monster-stampede"] is defined', () => {
+    expect(NODE_THUMBNAIL_PROMPTS["monster-stampede"]).toBeDefined();
+    expect(String(NODE_THUMBNAIL_PROMPTS["monster-stampede"]).length).toBeGreaterThan(0);
   });
 
   it('NODE_THUMBNAIL_PROMPTS["wordle"] is defined', () => {
@@ -180,6 +193,7 @@ describe("map node routing", () => {
       "word-builder",
       "spell-check",
       "letter-rush",
+      "monster-stampede",
       "wordle",
       "wheel-of-fortune",
       "mystery",
@@ -274,6 +288,23 @@ describe("map node routing", () => {
     );
     expect(action.url).toContain("nodeId=n-letter-rush");
     expect(action.url).toContain("childId=ila");
+  });
+
+  it("monster-stampede node builds iframe URL with homework words", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "n-monster",
+        type: "monster-stampede",
+        words: ["above", "ago"],
+        difficulty: 2,
+      } as const,
+      { childId: "reina", companion: "matilda", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/monster-stampede.html");
+    expect(action.url).toContain("words=above%2Cago");
+    expect(action.url).toContain("childId=reina");
   });
 
   it("attention screening preview node launches the selected baseline activity iframe", () => {
@@ -382,7 +413,7 @@ describe("map node routing", () => {
     expect(action.reason).toBe("missing-homework-file");
   });
 
-  it("SM-2 dueWords injected into node words at session start (map payload)", () => {
+  it("pending homework preserves node words and uses SM-2 dueWords only as fallback", () => {
     const hw = {
       weekOf: "2026-04-21",
       testDate: null as string | null,
@@ -400,7 +431,7 @@ describe("map node routing", () => {
         {
           id: "n2",
           type: "quest",
-          words: ["static"],
+          words: [],
           difficulty: 2,
           gameFile: "quest-2026-04-21.html",
           storyFile: null,
@@ -418,7 +449,7 @@ describe("map node routing", () => {
     const due = ["due1", "due2"];
     const out = pendingHomeworkToNodeConfigs(hw, due);
     expect(out.length).toBe(3);
-    expect(out[0]?.words).toEqual(due);
+    expect(out[0]?.words).toEqual(["static"]);
     expect(out[1]?.words).toEqual(due);
     expect(out[2]?.words).toEqual([]);
   });

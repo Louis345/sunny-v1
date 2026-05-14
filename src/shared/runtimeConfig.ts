@@ -16,6 +16,7 @@ export type SunnyNodeAccess = "normal" | "inspect-all";
 export type SunnyVoiceMode = "normal" | "muted" | "off";
 export type SunnyPersistenceMode = "live" | "blocked";
 export type SunnyDemoRoute = "visual-explainer" | "visual-explainer-map";
+export type SunnyHomeworkDomain = "spelling" | "science" | "reading" | "math";
 
 export interface SunnyRuntimeConfig {
   subject: SunnySubject;
@@ -26,6 +27,7 @@ export interface SunnyRuntimeConfig {
   persistenceMode: SunnyPersistenceMode;
   demoRoute: SunnyDemoRoute | null;
   childId: string | null;
+  homeworkDomain: SunnyHomeworkDomain | null;
 }
 
 export type SunnyRuntimeOverrides = Partial<
@@ -38,6 +40,7 @@ export type SunnyRuntimeOverrides = Partial<
     | "voiceMode"
     | "demoRoute"
     | "childId"
+    | "homeworkDomain"
   >
 >;
 
@@ -93,6 +96,14 @@ function normalizeDemoRoute(raw: string | undefined | null): SunnyDemoRoute | nu
   return null;
 }
 
+function normalizeHomeworkDomain(raw: string | undefined | null): SunnyHomeworkDomain | null {
+  const value = raw?.trim().toLowerCase();
+  if (value === "spelling" || value === "science" || value === "reading" || value === "math") {
+    return value;
+  }
+  return null;
+}
+
 function normalizeChildId(raw: string | undefined | null): string | null {
   const value = raw?.trim().toLowerCase();
   return value ? value : null;
@@ -132,6 +143,10 @@ function parseRuntimeJson(env: RuntimeEnv): SunnyRuntimeOverrides {
         typeof parsed.childId === "string" || parsed.childId === null
           ? normalizeChildId(parsed.childId as string | null)
           : undefined,
+      homeworkDomain:
+        typeof parsed.homeworkDomain === "string" || parsed.homeworkDomain === null
+          ? normalizeHomeworkDomain(parsed.homeworkDomain as string | null) ?? undefined
+          : undefined,
     };
   } catch {
     return {};
@@ -163,6 +178,10 @@ export function applySunnyRuntimeOverrides(
         : normalizeDemoRoute(overrides.demoRoute),
     childId:
       overrides.childId === undefined ? base.childId : normalizeChildId(overrides.childId),
+    homeworkDomain:
+      overrides.homeworkDomain === undefined
+        ? base.homeworkDomain
+        : normalizeHomeworkDomain(overrides.homeworkDomain),
     persistenceMode: base.persistenceMode,
   };
   next.persistenceMode = derivePersistenceMode(next.previewMode, next.sessionMode);
@@ -212,6 +231,11 @@ export function resolveSunnyRuntimeConfig(
     parsed.childId ??
     normalizeChildId(env.SUNNY_CHILD) ??
     normalizeChildId(env.VITE_DIAG_CHILD_ID);
+  const homeworkDomain =
+    overrides.homeworkDomain ??
+    parsed.homeworkDomain ??
+    normalizeHomeworkDomain(env.SUNNY_HOMEWORK_DOMAIN) ??
+    normalizeHomeworkDomain(env.VITE_SUNNY_HOMEWORK_DOMAIN);
 
   const base: SunnyRuntimeConfig = {
     subject,
@@ -222,6 +246,7 @@ export function resolveSunnyRuntimeConfig(
     persistenceMode: derivePersistenceMode(previewMode, sessionMode),
     demoRoute,
     childId: normalizeChildId(childId),
+    homeworkDomain,
   };
   return applySunnyRuntimeOverrides(base, overrides);
 }

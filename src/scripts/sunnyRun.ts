@@ -10,9 +10,10 @@ import {
   type SunnySessionMode,
   type SunnySubject,
   type SunnyVoiceMode,
+  type SunnyHomeworkDomain,
 } from "../shared/runtimeConfig";
 import {
-  hydratePendingHomeworkFromCycle,
+  ensureFreshPendingHomework,
   type HomeworkDomainFilter,
 } from "./homeworkSelector";
 
@@ -89,6 +90,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
     nodeAccess: args.nodeAccess,
     voiceMode: args.voiceMode,
     demoRoute: args.demoRoute,
+    homeworkDomain: args.homeworkDomain as SunnyHomeworkDomain | undefined,
   });
   const encoded = encodeSunnyRuntimeConfig(config);
   return {
@@ -103,6 +105,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
     SUNNY_NODE_ACCESS: config.nodeAccess,
     SUNNY_VOICE_MODE: config.voiceMode,
     SUNNY_DEMO_ROUTE: config.demoRoute ?? "",
+    SUNNY_HOMEWORK_DOMAIN: config.homeworkDomain ?? "",
     DIAG_UNLOCK_MAP: config.nodeAccess === "inspect-all" ? "true" : "",
     VITE_ADVENTURE_MAP: "true",
     VITE_DIAG_UNLOCK_MAP: config.nodeAccess === "inspect-all" ? "true" : "",
@@ -113,6 +116,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
         : "",
     VITE_DIAG_CHILD_ID: config.childId ?? "",
     VITE_DEMO_ROUTE: config.demoRoute ?? "",
+    VITE_SUNNY_HOMEWORK_DOMAIN: config.homeworkDomain ?? "",
     TTS_ENABLED: config.voiceMode === "normal" ? "true" : "false",
   };
 }
@@ -120,7 +124,7 @@ function buildRuntimeEnv(args: ParsedArgs): RuntimeEnv {
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
   if (args.subject === "homework" && args.childId) {
-    hydratePendingHomeworkFromCycle(args.childId, { domain: args.homeworkDomain });
+    ensureFreshPendingHomework(args.childId, { domain: args.homeworkDomain });
   }
   const env = buildRuntimeEnv(args);
   const root = path.resolve(process.cwd());

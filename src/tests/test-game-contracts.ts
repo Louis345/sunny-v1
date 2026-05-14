@@ -278,6 +278,22 @@ describe("game contract compliance (helper-based)", () => {
         expect(html).toContain("narration_request");
       });
 
+      it("Monster Stampede does not render a placeholder companion portrait", () => {
+        if (label !== "web/public/games/monster-stampede.html") return;
+        expect(html).not.toContain("CompanionPortrait");
+        expect(html).not.toContain("COMPANION_NAME");
+        expect(html).not.toContain("companion-bounce");
+      });
+
+      it("Monster Stampede gives the child a spoken target cue", () => {
+        if (label !== "web/public/games/monster-stampede.html") return;
+        expect(html).toContain("requestNarration");
+        expect(html).toContain("narration_request");
+        expect(html).toContain("Hear target");
+        expect(html).toContain("speechSynthesis.speak");
+        expect(html).not.toContain("currentWord:");
+      });
+
       it("Letter Rush keeps evaluator miss overlays out of prototype reward language", () => {
         if (!LETTER_RUSH_ENGINE_GAMES.has(label)) return;
         expect(html).not.toContain("Clue saved");

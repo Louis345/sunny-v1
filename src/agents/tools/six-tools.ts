@@ -2,6 +2,17 @@ import { tool } from "ai";
 import { z } from "zod";
 import { REWARD_CHARACTER_SVG } from "../../server/canvas/registry";
 import { COMPANION_EMOTES } from "../../shared/companionEmotes";
+import {
+  CHILD_SIGNAL_DIMENSIONS,
+  CHILD_SIGNAL_SOURCES,
+  CHILD_SIGNAL_TYPES,
+  CHILD_SIGNAL_VALENCES,
+} from "../../engine/childSignals";
+import {
+  PRODUCT_ISSUE_SEVERITIES,
+  PRODUCT_ISSUE_SOURCES,
+  PRODUCT_ISSUE_TYPES,
+} from "../../engine/productIssues";
 
 /** Implemented by SessionManager (or test harness). */
 export interface SixToolsHost {
@@ -12,12 +23,48 @@ export interface SixToolsHost {
   sessionStatus(): Promise<Record<string, unknown>>;
   spinWheel(): Promise<Record<string, unknown>>;
   sessionEnd(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+  recordChildSignal(args: Record<string, unknown>): Promise<Record<string, unknown>>;
+  recordProductIssue(args: Record<string, unknown>): Promise<Record<string, unknown>>;
   expressCompanion(
     args: Record<string, unknown>,
   ): Promise<Record<string, unknown>>;
 }
 
 const companionEmoteSchema = z.enum(COMPANION_EMOTES);
+const childSignalTypeSchema = z.enum(CHILD_SIGNAL_TYPES);
+const childSignalDimensionSchema = z.enum(CHILD_SIGNAL_DIMENSIONS);
+const childSignalValenceSchema = z.enum(CHILD_SIGNAL_VALENCES);
+const childSignalSourceSchema = z.enum(CHILD_SIGNAL_SOURCES);
+const productIssueTypeSchema = z.enum(PRODUCT_ISSUE_TYPES);
+const productIssueSeveritySchema = z.enum(PRODUCT_ISSUE_SEVERITIES);
+const productIssueSourceSchema = z.enum(PRODUCT_ISSUE_SOURCES);
+const recordChildSignalSchema = z.object({
+  childId: z.string(),
+  activityId: z.string(),
+  domain: z.string(),
+  signalType: childSignalTypeSchema,
+  dimension: childSignalDimensionSchema,
+  valence: childSignalValenceSchema,
+  confidence: z.number().min(0).max(1),
+  evidenceText: z.string().min(1),
+  source: childSignalSourceSchema,
+  sessionId: z.string().optional(),
+  nodeId: z.string().optional(),
+  choiceSetId: z.string().optional(),
+});
+const recordProductIssueSchema = z.object({
+  activityId: z.string().optional(),
+  issueType: productIssueTypeSchema,
+  severity: productIssueSeveritySchema,
+  childUtterance: z.string().min(1),
+  evidenceText: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  source: productIssueSourceSchema,
+  sessionId: z.string().optional(),
+  nodeId: z.string().optional(),
+  choiceSetId: z.string().optional(),
+  screenshotId: z.string().optional(),
+});
 
 const placeValueColumn = z.enum(["hundreds", "tens", "ones"]);
 
@@ -406,7 +453,7 @@ export function createSixTools(host: SixToolsHost) {
     }),
     spinWheel: tool({
       description:
-        "Spin the active Wheel of Fortune wheel when the game state says it is Elli/the companion's turn or Jamal asks you to spin. Do not use for other games.",
+        "Spin the active Wheel of Fortune wheel when the game state says it is the companion's turn or the parent/caregiver asks you to spin. Do not use for other games.",
       inputSchema: z.object({}),
       execute: async () => host.spinWheel(),
     }),
@@ -418,6 +465,20 @@ export function createSixTools(host: SixToolsHost) {
         reason: z.enum(["child_requested", "session_complete", "goodbye"]),
       }),
       execute: async (args) => host.sessionEnd(args as Record<string, unknown>),
+    }),
+    recordChildSignal: tool({
+      description:
+        "Record one narrow adaptive signal after a natural micro-probe or clear observed behavior. Use rarely and conversationally, never as a survey. Stated preferences are not truth; record what was said or observed with confidence and evidenceText.",
+      inputSchema: recordChildSignalSchema,
+      execute: async (args) =>
+        host.recordChildSignal(recordChildSignalSchema.parse(args)),
+    }),
+    recordProductIssue: tool({
+      description:
+        "Record one bounded product issue when the child or parent/caregiver reports a bug, confusing flow, companion lag, content mismatch, or UI blocker. This is product evidence, not learning preference. Use sessionStatus first when state matters; keep evidenceText concrete.",
+      inputSchema: recordProductIssueSchema,
+      execute: async (args) =>
+        host.recordProductIssue(recordProductIssueSchema.parse(args)),
     }),
     expressCompanion: tool({
       description:

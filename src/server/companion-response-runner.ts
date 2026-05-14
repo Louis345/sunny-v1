@@ -187,6 +187,8 @@ export async function runCompanionResponseForSession(
             if (toolName === "session_log") toolName = "sessionLog";
             if (toolName === "session_status") toolName = "sessionStatus";
             if (toolName === "session_end") toolName = "sessionEnd";
+            if (toolName === "record_child_signal") toolName = "recordChildSignal";
+            if (toolName === "record_product_issue") toolName = "recordProductIssue";
             if (toolName === "express_companion") toolName = "expressCompanion";
             if (toolName === "companion_act") toolName = "companionAct";
             let args = (tc.args ?? tc.input ?? {}) as Record<string, unknown>;

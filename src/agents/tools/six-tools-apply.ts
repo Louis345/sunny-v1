@@ -167,6 +167,8 @@ export function applyCanvasClear(prev: SixToolDrawState): {
 export class SixToolsMemoryHarness {
   draw: SixToolDrawState = { mode: "idle", revision: 0 };
   logs: Array<Record<string, unknown>> = [];
+  childSignals: Array<Record<string, unknown>> = [];
+  productIssues: Array<Record<string, unknown>> = [];
   lastLatencyMs: number | null = null;
 
   async canvasShow(args: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -210,6 +212,16 @@ export class SixToolsMemoryHarness {
 
   async sessionEnd(): Promise<Record<string, unknown>> {
     return { ended: true };
+  }
+
+  async recordChildSignal(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    this.childSignals.push({ ...args });
+    return { ok: true, persisted: true };
+  }
+
+  async recordProductIssue(args: Record<string, unknown>): Promise<Record<string, unknown>> {
+    this.productIssues.push({ ...args });
+    return { ok: true, persisted: true };
   }
 
   async expressCompanion(

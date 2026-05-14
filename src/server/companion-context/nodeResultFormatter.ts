@@ -18,6 +18,8 @@ function describeWords(node: NodeConfig): string {
 const FORMATTERS: Partial<Record<NodeType, Formatter>> = {
   "spell-check": (n, r) =>
     `Finished ${describeWords(n)} on a spell-check activity (${pct(r.accuracy)} accuracy, ${secs(r.timeSpent_ms)}s).`,
+  "monster-stampede": (n, r) =>
+    `Finished ${describeWords(n)} on Monster Stampede (${pct(r.accuracy)} accuracy, ${secs(r.timeSpent_ms)}s).`,
   "word-builder": (n, r) =>
     `Finished word-builder${n.words?.length ? ` with ${n.words.join(", ")}` : ""} — ${pct(r.accuracy)} accuracy.`,
   "karaoke": (_n, r) =>

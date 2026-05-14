@@ -53,6 +53,18 @@ describe("getChildChart", () => {
       diagnoses: [],
       learningGoals: [],
     });
+    profile.plannerTrust = {
+      approvedCount: 5,
+      rejectedCount: 1,
+      autoPlanEnabled: true,
+      autoPlanThreshold: 5,
+      lastDecision: {
+        planId: "plan-5",
+        status: "approved",
+        reviewer: "jamal",
+        decidedAt: "2026-05-13T12:00:00.000Z",
+      },
+    };
     writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
     writeJson(root, `src/context/${childId}/word_bank.json`, createEmptyWordBank(childId));
 
@@ -64,6 +76,8 @@ describe("getChildChart", () => {
     expect(chart.identity.ttsName).toBe("Fallbackkid");
     expect(chart.demographics.age).toBe(7);
     expect(chart.links.learningProfile).toContain("learning_profile.json");
+    expect(chart.plannerTrust?.autoPlanEnabled).toBe(true);
+    expect(chart.plannerTrust?.approvedCount).toBe(5);
   });
 
   it("uses the configured default companion instead of child-name fallback branches", () => {

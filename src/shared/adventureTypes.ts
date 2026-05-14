@@ -7,6 +7,7 @@ export type NodeType =
   | "concept-check"
   | "visual-explainer"
   | "letter-rush"
+  | "monster-stampede"
   | "word-builder"
   | "bubble-pop"
   | "cpt-low-reward"
@@ -27,6 +28,59 @@ export type NodeType =
   | "space-frogger"
   | "boss"
   | "wheel-of-fortune";
+
+export type ChoiceEventSource =
+  | "child_choice"
+  | "parent_choice"
+  | "system_recommendation"
+  | "system_required";
+
+export type MysteryMode = "choice_lab" | "surprise_drop";
+
+export type MysteryActivityKind =
+  | "dopamine_game"
+  | "learning_activity"
+  | "generated_learning";
+
+export type MysteryLockedReason =
+  | "evidence-gate"
+  | "permission"
+  | "fatigue"
+  | "domain-mismatch"
+  | string;
+
+export type MasteryUnlockState =
+  | "teased_locked"
+  | "preparing"
+  | "pending_ceremony"
+  | "unlocked"
+  | "completed";
+
+export type AdaptiveArtifactValidationStatus = "passed" | "failed" | "warning";
+
+export interface AdaptiveArtifactValidationReport {
+  passed: boolean;
+  score: number;
+  failures: string[];
+  warnings: string[];
+  attempts: number;
+  validatedAt: string;
+}
+
+export interface MysteryChoiceOption {
+  optionId: string;
+  activityId: string;
+  nodeType?: NodeType;
+  label: string;
+  purposeLabel: string;
+  thumbnailUrl?: string;
+  gameFile?: string;
+  domain?: string;
+  activityKind?: MysteryActivityKind;
+  contentId?: string;
+  locked?: boolean;
+  lockedReason?: MysteryLockedReason;
+}
 
 export interface NodeConfig {
   id: string;
@@ -58,6 +112,33 @@ export interface NodeConfig {
   date?: string;
   /** Optional node theme label (client / diag). */
   theme?: string;
+  /** Learning content catalog id when this node is generated/reused learning content. */
+  contentId?: string;
+  /** Quest/boss artifact contract carried from homework generation into map evidence. */
+  adaptiveArtifact?: {
+    artifactId: string;
+    contentId: string;
+    homeworkId: string;
+    theoryId: string;
+    generationStage: "quest" | "boss";
+    targetGroupIds: string[];
+    homeworkWordIds: string[];
+    baselineEvidenceIds: string[];
+    generatedPath?: string;
+    validationStatus?: AdaptiveArtifactValidationStatus;
+    validationReport?: AdaptiveArtifactValidationReport;
+  };
+  /** Locked mastery nodes can be visible while generated content is still being prepared. */
+  artifactStatus?: "ready" | "preparing";
+  /** Mystery node preference-lab/surprise-drop payload. */
+  mysteryMode?: MysteryMode;
+  choiceSetId?: string;
+  choiceOptions?: MysteryChoiceOption[];
+  surpriseOption?: MysteryChoiceOption;
+  choiceSource?: ChoiceEventSource;
+  /** Child-facing mastery reward state for quest/boss ceremony timing. */
+  masteryUnlockState?: MasteryUnlockState;
+  lockedReason?: string;
   /** Child-profile-derived activity config for attention screening/intervention nodes. */
   attentionConfig?: unknown;
   /** Validated JSON config endpoint for reusable activity engines. */
@@ -178,6 +259,7 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "concept-check",
   "visual-explainer",
   "letter-rush",
+  "monster-stampede",
   "word-builder",
   "bubble-pop",
   "cpt-low-reward",
@@ -185,6 +267,7 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "target-blaster",
   "hero-shield",
   "karaoke",
+  "pronunciation",
   "word-radar",
   "clock-game",
   "coin-counter",
@@ -194,6 +277,7 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "space-invaders",
   "asteroid",
   "space-frogger",
+  "quest",
   "boss",
   "wheel-of-fortune",
 ] as const;

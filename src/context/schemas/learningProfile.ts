@@ -5,8 +5,127 @@ import type {
   InterleavingParams,
   StepSessionRecord,
 } from "../../algorithms/types";
+import type { HomeworkTestDateSource } from "./homeworkCycle";
 import type { CompanionConfig } from "../../shared/companionTypes";
 import type { TamagotchiState } from "../../shared/vrrTypes";
+import type { ChoiceEventSource, MasteryUnlockState, NodeType } from "../../shared/adventureTypes";
+
+export type ActiveSessionPlanSource =
+  | "ingest_human_loop"
+  | "runtime_fallback"
+  | "psychologist_sync";
+
+export type PlannerApprovalStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "auto_approved";
+
+export interface PlannerReviewDecision {
+  planId: string;
+  status: "approved" | "rejected";
+  reviewer?: string;
+  notes?: string;
+  decidedAt: string;
+}
+
+export interface PlannerTrustState {
+  approvedCount: number;
+  rejectedCount: number;
+  autoPlanEnabled: boolean;
+  autoPlanThreshold: number;
+  lastDecision?: PlannerReviewDecision;
+}
+
+export interface PlanTheory {
+  hypothesis: string;
+  evidenceSummary: string[];
+  intervention: string;
+  supportCriteria: string[];
+  reviseCriteria: string[];
+  falsifyCriteria: string[];
+}
+
+export interface PlannedMeasurement {
+  id: string;
+  activityId: string;
+  target: string;
+  evidenceType: string;
+  supportCriteria: string;
+  reviseCriteria: string;
+  falsifyCriteria: string;
+}
+
+export interface GeneratedExperienceBrief {
+  briefId: string;
+  kind: "quest" | "boss" | "visual-explainer";
+  title: string;
+  learningGoal: string;
+  targetSkills: string[];
+  targetConcepts: string[];
+  targetWords: string[];
+  engagementHooks: string[];
+  algorithmTargets: string[];
+  evidenceUsed: string[];
+  artifactStatus: "brief_only" | "generated" | "validated" | "failed";
+  validationRequired: boolean;
+}
+
+export interface ActiveSessionPlan {
+  planId: string;
+  childId: string;
+  createdAt: string;
+  source: ActiveSessionPlanSource;
+  activeHomeworkId?: string;
+  domain: string;
+  testDate: string | null;
+  parentNote?: string;
+  wordPlan: {
+    cohortSize: number;
+    orderStrategy: "chart_seeded_rotation" | "targeted_support" | "homework_order";
+    words: Array<{
+      text: string;
+      purpose: "baseline" | "challenge" | "reinforce" | "review";
+      reason: string;
+    }>;
+  };
+  nodePlan: Array<{
+    id: string;
+    type: NodeType;
+    activityId: string;
+    targets: string[];
+    difficulty: 1 | 2 | 3;
+    source: "pending_homework" | "chart_planner";
+    choiceMode?: "choice_lab" | "surprise_drop";
+    choiceSource?: ChoiceEventSource;
+    masteryUnlockState?: MasteryUnlockState;
+    locked?: boolean;
+  }>;
+  variationPolicy: {
+    avoidExactPreviousNodeOrder: boolean;
+    avoidExactPreviousWordOrder: boolean;
+    seed: string;
+    previousCompletedNodeCount: number;
+  };
+  companionPolicy: {
+    companionId: string;
+    displayName: string;
+    openingLinePolicy: "context_start_short" | "silent" | "none";
+    verbosity: "low" | "medium" | "high";
+    maxMicroProbes: number;
+  };
+  evidenceUsed: Array<{
+    id: string;
+    type: string;
+    summary: string;
+  }>;
+  openQuestions: string[];
+  plannerConfidence?: number;
+  approvalStatus?: PlannerApprovalStatus;
+  planTheory?: PlanTheory;
+  plannedMeasurements?: PlannedMeasurement[];
+  generatedExperienceBriefs?: GeneratedExperienceBrief[];
+}
 
 export interface MoodEntry {
   date: string;
@@ -60,11 +179,46 @@ export interface ActivityModelEntry {
   completions: number;
   completionRate: number;
   averageAccuracy: number;
+  averageTimePerTarget_ms?: number;
   engagementScore: number;
   frustrationScore: number;
+  likedCount?: number;
+  dislikedCount?: number;
+  lastRating?: "like" | "dislike" | "implicit";
   lastPlayed: string;
   domains: Record<string, number>;
   missedWords: string[];
+}
+
+export interface ActivityTraitModelEntry {
+  dimension: string;
+  positiveWeight: number;
+  negativeWeight: number;
+  mixedWeight: number;
+  evidenceCount: number;
+  confidence: number;
+  lastUpdated: string;
+  activityCounts: Record<string, number>;
+}
+
+export interface AdaptiveLoadDomainState {
+  domain: string;
+  currentCohortSize: number;
+  maxRecentSuccessfulCohort: number;
+  challengeRecommendation:
+    | "expand_cohort"
+    | "harder_valid_node"
+    | "maintain"
+    | "targeted_support";
+  lastLoadEvidence: {
+    activityId: string;
+    completed: boolean;
+    accuracy: number;
+    targetCount: number;
+    frustrationScore: number;
+    strongEvidence: boolean;
+    occurredAt: string;
+  };
 }
 
 export interface AttentionModel {
@@ -138,6 +292,15 @@ export interface AIContentCatalogItem {
   };
   reuseStatus: "candidate" | "reuse" | "revise" | "retire";
   reuseReason: string;
+  validationStatus?: "passed" | "failed" | "warning";
+  validationReport?: {
+    passed: boolean;
+    score: number;
+    failures: string[];
+    warnings: string[];
+    attempts: number;
+    validatedAt: string;
+  };
   performanceSummary?: {
     plays: number;
     completionRate: number;
@@ -216,6 +379,12 @@ export interface LearningProfile {
   /** Current activity-response model derived from node results. Raw attempts remain in attempts/*.ndjson. */
   activityModel?: Record<string, ActivityModelEntry>;
 
+  /** Child-level trait response model derived from choice events and narrow companion micro-probes. */
+  activityTraitModel?: Record<string, ActivityTraitModelEntry>;
+
+  /** Domain-specific mental-load/cohort sizing learned from recent intervention evidence. */
+  adaptiveLoadState?: Record<string, AdaptiveLoadDomainState>;
+
   /** Measured attention vital sign model. Demographic attentionSpan is legacy/intake only. */
   attentionModel?: AttentionModel;
 
@@ -225,9 +394,18 @@ export interface LearningProfile {
   /** Reusable/revisable/retired learning content. Generated content must declare algorithmTargets. */
   aiContentCatalog?: AIContentCatalogItem[];
 
+  /** Human trust state for AI psychologist experience plans. */
+  plannerTrust?: PlannerTrustState;
+
+  /** Chart-attached plan the next kid session should render instead of rebuilding a script. */
+  activeSessionPlan?: ActiveSessionPlan;
+
   pendingHomework?: {
     weekOf: string;
     testDate: string | null;
+    testDateSource?: HomeworkTestDateSource;
+    testDateConfirmed?: boolean;
+    returnTag?: string;
     wordList: string[];
     homeworkId?: string;
     contentProfile?: {
@@ -244,12 +422,23 @@ export interface LearningProfile {
       type: string;
       rawText: string;
       words: string[];
+      homeworkWords?: Array<{
+        homeworkWordId: string;
+        text: string;
+        normalizedText: string;
+        wordGroupId?: string;
+        wordBankEntryId?: string;
+        purpose: string;
+        positionIndex: number;
+      }>;
       questions: unknown[];
       wordGroups?: Array<{
         id: string;
+        wordGroupId?: string;
         label: string;
         purpose: string;
         words: string[];
+        homeworkWordIds?: string[];
         confidence: number;
         evidence: string[];
         scheduleAfter?: string;
@@ -259,9 +448,11 @@ export interface LearningProfile {
         status?: string;
         wordGroups: Array<{
           id: string;
+          wordGroupId?: string;
           label: string;
           purpose: string;
           words: string[];
+          homeworkWordIds?: string[];
           confidence: number;
           evidence: string[];
           scheduleAfter?: string;
@@ -318,6 +509,26 @@ export interface LearningProfile {
       }>;
       approved?: boolean;
       date?: string;
+      adaptiveArtifact?: {
+        artifactId: string;
+        contentId: string;
+        homeworkId: string;
+        theoryId: string;
+        generationStage: "quest" | "boss";
+        targetGroupIds: string[];
+        homeworkWordIds: string[];
+        baselineEvidenceIds: string[];
+        generatedPath?: string;
+        validationStatus?: "passed" | "failed" | "warning";
+        validationReport?: {
+          passed: boolean;
+          score: number;
+          failures: string[];
+          warnings: string[];
+          attempts: number;
+          validatedAt: string;
+        };
+      };
     }>;
     /** Adventure map node ids completed for this homework week (persisted across sessions). */
     completedAdventureNodeIds?: string[];

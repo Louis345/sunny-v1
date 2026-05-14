@@ -30,7 +30,6 @@
     @keyframes wrongFlash{0%,100%{background:rgba(239,68,68,0)}50%{background:rgba(239,68,68,.18)}}
     @keyframes wordComplete{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
     @keyframes xpTick{0%{transform:translateY(10px);opacity:0}50%{opacity:1}100%{transform:translateY(-20px);opacity:0}}
-    @keyframes companion-bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-20px) scale(1.06)}80%{transform:translateY(-8px)}}
     @keyframes hintPulse{0%,100%{opacity:.4}50%{opacity:1}}
     @keyframes arenaLight{0%,100%{opacity:.15}50%{opacity:.35}}
   </style>
@@ -87,8 +86,7 @@ const GP = window.GAME_PARAMS || {};
 const WORDS_RAW    = (GP.words || []).map(w=>w.toLowerCase().replace(/[^a-z]/g,'')).filter(Boolean);
 const CHILD_ID     = GP.childId        ?? 'child';
 const CHILD_NAME   = GP.childName      || 'Player';
-const COMPANION_ID = GP.companion      ?? 'matilda';
-const COMPANION_NAME = GP.companionName || 'Matilda';
+const NODE_ID      = GP.nodeId         ?? 'monster-stampede';
 const THEME_ID     = GP.theme          ?? 'cosmos';
 const CATEGORY     = GP.category       ?? 'Spelling';
 const LIVES_MAX    = GP.livesCount     ?? 3;
@@ -325,35 +323,6 @@ function Lives({count,max}){
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   COMPANION
-═══════════════════════════════════════════════════════════════ */
-function CompanionPortrait({mood,speech}){
-  const face=mood==='celebrating'?'🤩':mood==='shocked'?'😱':mood==='thinking'?'🤔':'⭐';
-  const anim=mood==='celebrating'?'companion-bounce .7s ease-in-out infinite':
-             mood==='shocked'?'monsterShake .5s ease-in-out':'float 3.5s ease-in-out infinite';
-  return (
-    <div style={{position:'absolute',bottom:14,right:14,zIndex:15,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
-      {speech&&(
-        <div style={{
-          background:'rgba(14,7,40,.92)',border:`2px solid ${T.accent}`,
-          borderRadius:'14px 14px 4px 14px',padding:'8px 13px',
-          maxWidth:200,fontSize:12,fontWeight:600,color:'white',lineHeight:1.5,
-          boxShadow:`0 0 16px ${T.glow}`,textAlign:'right',
-        }}>{speech}</div>
-      )}
-      <div style={{
-        width:72,height:72,borderRadius:'50%',
-        background:`radial-gradient(circle,#3b1069,#150030)`,
-        border:`3px solid ${T.accent}`,fontSize:36,
-        display:'flex',alignItems:'center',justifyContent:'center',
-        boxShadow:`0 0 24px ${T.glow}`,animation:anim,
-      }}>{face}</div>
-      <div style={{fontSize:11,fontWeight:700,color:T.accent,textAlign:'center',letterSpacing:'.1em',textTransform:'uppercase'}}>{COMPANION_NAME}</div>
-    </div>
-  );
-}
-
-/* ═══════════════════════════════════════════════════════════════
    APP
 ═══════════════════════════════════════════════════════════════ */
 function App(){
@@ -368,8 +337,6 @@ function App(){
   const [shakeIdx,setShakeIdx]   = useState(-1);
   const [flash,setFlash]         = useState(null);
   const [completeAnim,setCompleteAnim] = useState(false);
-  const [compMood,setCompMood]   = useState('happy');
-  const [compSpeech,setCompSpeech] = useState('');
   const [xpPopup,setXpPopup]     = useState(null);
   const [showHint,setShowHint]   = useState(false);
 
@@ -389,6 +356,33 @@ function App(){
   const reportState=(msg,ex={})=>{ if(window.GameBridge?.reportState) window.GameBridge.reportState(msg,{game:'monster-stampede',wordIdx,score,lives,...ex}); };
   const reportAction=(action,msg,ex={})=>{ if(window.GameBridge?.reportAction) window.GameBridge.reportAction(action,msg,{game:'monster-stampede',wordIdx,score,lives,...ex}); };
   const fireComp=(t,p={})=>{ if(window.fireCompanionEvent) window.fireCompanionEvent(t,p); };
+  function speakTargetFallback(word){
+    if(window.parent!==window) return false;
+    if(!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return false;
+    try{
+      const u=new SpeechSynthesisUtterance(word);
+      u.rate=.82;
+      u.pitch=1.08;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(u);
+      return true;
+    }catch{
+      return false;
+    }
+  }
+  function requestNarration(word=currentWord,idx=wordIdx,reason='repeat_word'){
+    if(!word) return;
+    const payload={type:'narration_request',activityId:'monster-stampede',nodeId:NODE_ID,word,reason};
+    window.parent?.postMessage(payload,'*');
+    speakTargetFallback(word);
+    reportState(`Target word spoken for Monster Stampede word ${idx+1}/${WORDS_RAW.length}.`,{
+      phase:'playing',
+      itemIndex:idx,
+      totalItems:WORDS_RAW.length,
+      wordLength:word.length,
+      targetMasked:true,
+    });
+  }
 
   /* ── Start word ─────────────────────────────────────────────── */
   const startWord = useCallback((idx)=>{
@@ -403,14 +397,14 @@ function App(){
     setShakeIdx(-1);
     setCompleteAnim(false);
 
-    const opens=[
-      `Spell "${word.toUpperCase()}" to stop the monster! 🌟`,
-      `Tap the letters in order! "${word.toUpperCase()}"`,
-      `You've got this — spell "${word.toUpperCase()}"! 💪`,
-    ];
-    setCompSpeech(opens[idx%opens.length]);
-    setCompMood('happy');
-    reportState(`Word ${idx+1}/${WORDS_RAW.length}: "${word}". Monster ready.`,{currentWord:word,round:idx+1});
+    reportState(`Monster Stampede word ${idx+1}/${WORDS_RAW.length} ready.`,{
+      phase:'playing',
+      itemIndex:idx,
+      totalItems:WORDS_RAW.length,
+      wordLength:word.length,
+      targetMasked:true,
+    });
+    window.setTimeout(()=>requestNarration(word,idx,'word_prompt'),250);
   },[]);
 
   /* ── Tile tapped ─────────────────────────────────────────────── */
@@ -447,10 +441,15 @@ function App(){
           quality:wrongCount.current===0 ? 5 : 4,
           scaffoldLevel:showHint ? 1 : 0
         });
-        setCompMood('celebrating');
-        setCompSpeech(`AMAZING! "${word.toUpperCase()}" is correct! 🎉`);
         wordsCorrect.current.push(word);
-        reportAction('word_complete',`"${word}" spelled correctly. +${earned} pts. Monster fled!`,{word,earned,correct:true});
+        reportAction('word_complete',`Word ${wordIdx+1}/${WORDS_RAW.length} spelled correctly. +${earned} pts. Monster fled!`,{
+          itemIndex:wordIdx,
+          totalItems:WORDS_RAW.length,
+          wordLength:word.length,
+          earned,
+          correct:true,
+          targetMasked:true,
+        });
         setTimeout(()=>{
           if(wordIdx+1 >= WORDS_RAW.length) endGame(true);
           else { setWordIdx(w=>{ const n=w+1; startWord(n); return n; }); }
@@ -482,21 +481,10 @@ function App(){
           else {
             // Give hint after 4 wrong
             setShowHint(true);
-            setCompSpeech(`Try again! Next letter is "${expected.toUpperCase()}" 💡`);
-            setCompMood('thinking');
           }
           return nl;
         });
         wrongCount.current=0;
-      } else {
-        const hints = [
-          `Hmm, not that one — keep looking!`,
-          `What sound comes next? Think carefully!`,
-          chunks.length>0 ? `Remember: "${chunks[0].tip}"!` : `You can do it! Try again!`,
-        ];
-        setCompSpeech(hints[wrongCount.current%hints.length]);
-        setCompMood('shocked');
-        setTimeout(()=>setCompMood('happy'),1000);
       }
 
       fireComp('wrong_answer',{word,tapped:tile.letter,expected,wrongCount:wrongCount.current});
@@ -508,17 +496,25 @@ function App(){
         quality:1,
         scaffoldLevel:showHint ? 1 : 0
       });
-      reportAction('wrong_letter',`Wrong: tapped "${tile.letter}", expected "${expected}" for "${word}".`,{word,tapped:tile.letter,expected,correct:false});
+      reportAction('wrong_letter',`Wrong letter tapped on Monster Stampede word ${wordIdx+1}/${WORDS_RAW.length}.`,{
+        itemIndex:wordIdx,
+        totalItems:WORDS_RAW.length,
+        wordLength:word.length,
+        typedLength:typed.length,
+        tapped:tile.letter,
+        correct:false,
+        targetMasked:true,
+      });
     }
-  },[typed,wordIdx,monsterScale,chunks,showHint]);
+  },[typed,wordIdx,monsterScale,showHint]);
 
   /* ── End game ────────────────────────────────────────────────── */
   const endGame = useCallback((won)=>{
     if(completedRef.current) return;
     completedRef.current=true;
     setPhase(won?'won':'lost');
-    if(won){ SE.fanfare(); setCompMood('celebrating'); setCompSpeech('You stopped ALL the monsters! Hero! 🏆'); }
-    else { SE.gameover(); setCompMood('shocked'); setCompSpeech('The monsters got away! But you did great! 💪'); }
+    if(won) SE.fanfare();
+    else SE.gameover();
     const result={
       completed:won,
       accuracy:wordsCorrect.current.length/WORDS_RAW.length,
@@ -540,7 +536,17 @@ function App(){
     if(phase!=='playing') return;
     const id=window.GameBridge?.startHeartbeat?.(
       ()=>`Monster Stampede — word ${wordIdx+1}/${WORDS_RAW.length}, typed ${typed.length}/${currentWord.length}, score ${score}`,
-      ()=>({game:'monster-stampede',wordIdx,typed:typed.join(''),target:currentWord,score,lives})
+      ()=>({
+        game:'monster-stampede',
+        phase:'playing',
+        itemIndex:wordIdx,
+        totalItems:WORDS_RAW.length,
+        typed:typed.join(''),
+        wordLength:currentWord.length,
+        targetMasked:true,
+        score,
+        lives,
+      })
     );
     return ()=>id&&clearInterval(id);
   },[phase,wordIdx,typed,score,lives,currentWord]);
@@ -639,6 +645,9 @@ function App(){
             <div style={{fontSize:12,fontWeight:700,letterSpacing:'.2em',textTransform:'uppercase',color:'rgba(255,255,255,.35)'}}>
               Spell it to stop the monster:
             </div>
+            <button onClick={()=>requestNarration(currentWord,wordIdx,'repeat_word')} style={{border:'none',borderRadius:999,padding:'10px 18px',background:`linear-gradient(135deg,${T.accent},${T.accent2})`,color:'white',fontSize:14,fontWeight:900,cursor:'pointer',boxShadow:`0 6px 22px ${T.glow}`}}>
+              🔊 Hear target
+            </button>
 
             <WordBlanks word={currentWord} typed={typed} shakeIdx={shakeIdx} completeAnim={completeAnim}/>
 
@@ -696,8 +705,6 @@ function App(){
           </button>
         </div>
       )}
-
-      <CompanionPortrait mood={compMood} speech={compSpeech}/>
     </div>
   );
 }

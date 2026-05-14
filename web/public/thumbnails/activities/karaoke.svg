@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Story mission thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#7c2d12"/>
+      <stop offset="1" stop-color="#facc15"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <path d="M50 43h103c12 0 22 10 22 22v49c0 8-6 14-14 14H58c-12 0-22-10-22-22V57c0-8 6-14 14-14z" fill="#fff7ed"/>
+  <path d="M61 67h79M61 88h93M61 109h61" stroke="#7c2d12" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="184" cy="55" r="18" fill="#0f172a"/>
+  <path d="M185 70v42c0 14-11 23-24 18-10-4-11-18-1-24 8-5 17-2 20 2V55h11v15z" fill="#0f172a"/>
+</svg>

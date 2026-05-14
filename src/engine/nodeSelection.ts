@@ -10,6 +10,7 @@ const WORD_DRIVEN_MAP_TYPES = new Set<string>([
   "pronunciation",
   "karaoke",
   "word-builder",
+  "monster-stampede",
   "spell-check",
   "wordle",
   "quest",

@@ -484,7 +484,7 @@ function buildDiagCanvasContextMessage(
 
   if (c.mode === "karaoke" && c.content) {
     lines.push(
-      "Karaoke story is already on screen; highlighting follows Jamal's speech.",
+      "Karaoke story is already on screen; highlighting follows the reader's speech.",
     );
   } else if (c.content) {
     const t = String(c.content);

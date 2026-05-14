@@ -19,6 +19,7 @@ export type SessionDebugRecorderOptions = {
   childName: string;
   subject: string;
   mode: string;
+  enabled?: boolean;
   startedAt?: Date;
   command?: string;
   gitCommit?: string;
@@ -126,6 +127,7 @@ export function currentSessionEnvFlags(): Record<string, string | undefined> {
     SUNNY_MODE: process.env.SUNNY_MODE,
     SUNNY_CHILD: process.env.SUNNY_CHILD,
     SUNNY_SUBJECT: process.env.SUNNY_SUBJECT,
+    SUNNY_PREVIEW_MODE: process.env.SUNNY_PREVIEW_MODE,
     ADVENTURE_MAP: process.env.ADVENTURE_MAP,
     SUNNY_STATELESS: process.env.SUNNY_STATELESS,
   };
@@ -136,6 +138,7 @@ export function createProcessSessionDebugRecorder(
 ): SessionDebugRecorder {
   return new SessionDebugRecorder({
     ...input,
+    enabled: shouldPersistSessionData(),
     command: currentSessionCommand(),
     gitCommit: currentGitCommit(),
     envFlags: currentSessionEnvFlags(),
@@ -172,6 +175,11 @@ export function finalizeSessionDebugPacket(
   artifacts: Record<string, unknown>,
 ): void {
   if (session.debugPacketFinalized) return;
+  if (session.debugRecorder.enabled === false) {
+    session.debugPacketFinalized = true;
+    console.log("  🎮 [debug] [preview-skip] session packet not written");
+    return;
+  }
   session.debugRecorder.finalize({
     result,
     finalState: buildSessionDebugFinalState(session),
@@ -212,6 +220,7 @@ function enqueueSessionLogUpload(): void {
 
 export class SessionDebugRecorder {
   readonly sessionDir: string;
+  readonly enabled: boolean;
 
   private readonly startedAt: Date;
   private readonly sessionId: string;
@@ -226,6 +235,7 @@ export class SessionDebugRecorder {
   private finalized = false;
 
   constructor(options: SessionDebugRecorderOptions) {
+    this.enabled = options.enabled ?? true;
     this.startedAt = options.startedAt ?? new Date();
     this.sessionId = options.sessionId;
     this.childName = options.childName;
@@ -234,6 +244,11 @@ export class SessionDebugRecorder {
     this.command = options.command || process.env.npm_lifecycle_event || "unknown";
     this.gitCommit = options.gitCommit || "unknown";
     this.envFlags = options.envFlags ?? {};
+
+    if (!this.enabled) {
+      this.sessionDir = "";
+      return;
+    }
 
     const dayDir = path.join(
       options.rootDir ?? defaultSessionLogRoot(),
@@ -267,7 +282,7 @@ export class SessionDebugRecorder {
     action: string,
     fields: Record<string, unknown> = {},
   ): void {
-    if (this.finalized) return;
+    if (!this.enabled || this.finalized) return;
     const event: StoredEvent = {
       ts: new Date().toISOString(),
       sessionId: this.sessionId,
@@ -289,7 +304,7 @@ export class SessionDebugRecorder {
   }
 
   recordTranscript(role: "user" | "assistant" | "system", text: string): void {
-    if (this.finalized) return;
+    if (!this.enabled || this.finalized) return;
     const clean = text.trim();
     if (!clean) return;
     fs.appendFileSync(
@@ -300,7 +315,7 @@ export class SessionDebugRecorder {
   }
 
   recordError(message: string, detail?: unknown): void {
-    if (this.finalized) return;
+    if (!this.enabled || this.finalized) return;
     const line = [
       `[${new Date().toISOString()}] ${message}`,
       detail instanceof Error ? detail.stack || detail.message : detail,
@@ -312,7 +327,7 @@ export class SessionDebugRecorder {
   }
 
   finalize(input: SessionDebugFinalizeInput): void {
-    if (this.finalized) return;
+    if (!this.enabled || this.finalized) return;
     const endedAt = input.endedAt ?? new Date();
     const durationMs = endedAt.getTime() - this.startedAt.getTime();
     writeJson(path.join(this.sessionDir, "final-state.json"), input.finalState);

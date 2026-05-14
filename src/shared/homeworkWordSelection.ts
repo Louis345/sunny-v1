@@ -69,8 +69,29 @@ function uniquePush(out: string[], w: string): void {
   out.push(w);
 }
 
+export function homeworkOnlySelectionPlan(childId: string): SessionPlan {
+  return {
+    childId,
+    mode: "homework",
+    activities: [],
+    newWords: [],
+    reviewWords: [],
+    focusWords: [],
+    totalWordCount: 0,
+    estimatedMinutes: 0,
+    bondContext: "",
+    difficultyParams: {} as SessionPlan["difficultyParams"],
+    moodAdjustment: false,
+    wilsonStep: 1,
+    sessionRecommendation: undefined,
+    dueWords: [],
+  };
+}
+
 /**
- * Ordered homework words for map / ingest nodes. Uses `planSession(..., "spelling")` output only.
+ * Ordered homework words for map / ingest nodes. The caller supplies any SM-2
+ * session queue, but active homework callers should pass `homeworkOnlySelectionPlan`
+ * so unrelated due words cannot become the assignment source.
  *
  * Priority: missed → plan due queue (whitelist) → reviewWords by easiness ASC → whitelist fallback.
  * Even when `testImminent`, return a short playable burst; the full whitelist

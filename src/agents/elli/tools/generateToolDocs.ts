@@ -47,6 +47,8 @@ const ADVENTURE_MAP_VOICE_TOOL_KEYS = [
   "sessionLog",
   "sessionStatus",
   "spinWheel",
+  "recordChildSignal",
+  "recordProductIssue",
 ] as const satisfies ReadonlyArray<keyof typeof ALL_TOOLS>;
 
 /** Markdown tool docs when canvas tools are omitted (ADVENTURE_MAP voice companion). */

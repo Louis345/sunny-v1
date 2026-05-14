@@ -161,7 +161,8 @@ function buildFinalResult(
     if (bucket === "known") knownItems.push(r.item);
     else weakItems.push(r.item);
   }
-  const accuracy = items.length ? knownItems.length / items.length : 0;
+  const correctCount = raw.filter((r) => r.correct).length;
+  const accuracy = items.length ? correctCount / items.length : 0;
   return {
     knownItems,
     weakItems,
@@ -656,7 +657,8 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     const spelledWord = spokenLetters.join("");
     const displayWord = item.display.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (
-      classifyKaraokeWordMatch(lastTok, item.display) === "match" ||
+      classifyKaraokeWordMatch(lastTok, item.display, { mode: "spelling" }) ===
+        "match" ||
       (displayWord.length > 0 && spelledWord === displayWord)
     ) {
       if (lastSttResolvedTokenRef.current === lastTok) return;

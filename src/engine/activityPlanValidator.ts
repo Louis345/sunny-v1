@@ -83,6 +83,13 @@ function isIndependentRecall(contract: ActivityToolContract): boolean {
   return contract.purposes.includes("independent-retrieval") && contract.evidence.writesMasteryEvidence;
 }
 
+function hasImmediateIndependentRecall(nodes: ActivityPlanNode[]): boolean {
+  return nodes.slice(1, 3).some((node) => {
+    const contract = safeContract(node.toolId);
+    return contract ? isIndependentRecall(contract) : false;
+  });
+}
+
 function isEvaluatorOrTeachingStart(contract: ActivityToolContract): boolean {
   return (
     contract.purposes.includes("evaluate") ||
@@ -188,11 +195,12 @@ export function validateActivityPlan(input: ActivityPlanValidationInput): Activi
       highConfidence &&
       domainHasSpellingSignals(input.domainEvidence) &&
       startsWithScaffoldedPractice &&
-      !isIndependentRecall(firstContract)
+      !isIndependentRecall(firstContract) &&
+      !hasImmediateIndependentRecall(input.nodes)
     ) {
       blockers.push({
         code: "high_confidence_spelling_requires_independent_recall",
-        message: "High-confidence spelling homework should begin with hidden-word independent recall.",
+        message: "High-confidence spelling homework needs hidden-word independent recall before scaffolded practice can be treated as evidence.",
         nodeId: firstNode.id,
         toolId: firstNode.toolId,
         recommendation: "start-with-spelling-recall",

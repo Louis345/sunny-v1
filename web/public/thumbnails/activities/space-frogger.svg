@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Space Frogger thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#172554"/>
+      <stop offset="1" stop-color="#4ade80"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <path d="M33 54h174M33 84h174M33 114h174" stroke="#dbeafe" stroke-width="9" stroke-linecap="round" opacity=".65"/>
+  <circle cx="115" cy="100" r="30" fill="#bbf7d0"/>
+  <circle cx="99" cy="76" r="14" fill="#bbf7d0"/>
+  <circle cx="131" cy="76" r="14" fill="#bbf7d0"/>
+  <circle cx="99" cy="76" r="5" fill="#052e16"/>
+  <circle cx="131" cy="76" r="5" fill="#052e16"/>
+  <path d="M100 105c10 8 20 8 30 0" fill="none" stroke="#052e16" stroke-width="6" stroke-linecap="round"/>
+</svg>

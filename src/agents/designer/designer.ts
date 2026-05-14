@@ -87,6 +87,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "A bright science room window showing water carrying tiny soil pieces down a hill, visual learning model, child-friendly cartoon",
   "letter-rush":
     "Glowing arcade letter tiles rushing through a spelling challenge lane, energetic child-friendly cartoon",
+  "monster-stampede":
+    "Friendly cartoon monsters dashing through glowing spelling word gates, energetic child-friendly arcade icon",
   "spell-check":
     "Colorful letters bouncing in bubbles, blue tones, cartoon style",
   wordle:

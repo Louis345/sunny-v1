@@ -160,6 +160,8 @@ import {
   hostCanvasClear,
   hostCanvasShow,
   hostCanvasStatus,
+  hostRecordChildSignal,
+  hostRecordProductIssue,
   hostSessionEnd,
   hostSessionLog,
   hostSessionStatus,
@@ -175,6 +177,29 @@ import {
   type SessionDebugRecorder,
 } from "./session-debug-recorder";
 import { buildPronunciationCompleteFields, buildReadingProgressFields } from "./flow-game-debug";
+import {
+  clearCreatorDiagSessionForReadingTest,
+  setCreatorDiagSessionForReadingTest,
+} from "./creatorDiagControls";
+import {
+  detectUrgentLearningRoute,
+  handleUrgentLearningTranscript,
+  recordPronunciationReadingStruggleSignal,
+  runSessionLearningSignalAudit,
+  shouldSuppressTranscriptDuringActiveLearningGame,
+} from "./urgentLearningRuntime";
+import {
+  isSpellingAttempt,
+  parseSunnyChildEnv,
+  rewriteChildNameForTts,
+  stripSvgFences,
+} from "./sessionTextHelpers";
+
+export {
+  tryPushCreatorDiagPronunciation,
+  tryPushCreatorDiagReadingKaraoke,
+} from "./creatorDiagControls";
+export { isSpellingAttempt, stripSvgFences } from "./sessionTextHelpers";
 
 type CanvasActivitySnapshot = {
   mode: ActivityMode;
@@ -201,132 +226,6 @@ type PendingGameStart = {
   config: Record<string, unknown>;
 };
 
-/**
- * Strip markdown fences from SVG output.
- * Called at the rendering boundary, before SVG is sent to the browser.
- * This is the canonical place for fence stripping — avoid duplicating elsewhere.
- */
-export function stripSvgFences(raw: string): string {
-  let cleaned = raw.trim();
-  cleaned = cleaned.replace(/^```(?:svg|xml|html)?\s*\n?/i, "");
-  cleaned = cleaned.replace(/\n?```\s*$/i, "");
-  return cleaned.trim();
-}
-
-function stripSvgField(obj: Record<string, unknown>): void {
-  const svg = obj.svg;
-  if (typeof svg === "string") obj.svg = stripSvgFences(svg);
-}
-
-/** Homework + classifier path: SUNNY_CHILD=reina|ila overrides WebSocket session child. */
-function parseSunnyChildEnv(): ChildName | null {
-  const v = process.env.SUNNY_CHILD?.trim().toLowerCase();
-  if (v === "ila") return "Ila";
-  if (v === "reina") return "Reina";
-  if (v === "creator") return "creator";
-  return null;
-}
-
-/** Replace display child name with phonetic label for ElevenLabs. */
-function rewriteChildNameForTts(
-  text: string,
-  childName: ChildName,
-  ttsLabel: string,
-): string {
-  if (!text) return text;
-  if (childName === "Ila") return text.replace(/\bIla\b/g, ttsLabel);
-  if (childName === "Reina") return text.replace(/\bReina\b/g, ttsLabel);
-  return text.replace(/\bcreator\b/gi, ttsLabel);
-}
-
-/** True only when the child is likely spelling the active word (not social chat). */
-export function isSpellingAttempt(text: string, word: string): boolean {
-  const w = word.toLowerCase().trim();
-  if (!w) return false;
-  const raw = text.trim();
-  const t = raw.toLowerCase();
-
-  const socialPhrases = [
-    "thank you",
-    "what's next",
-    "whats next",
-    "what next",
-    "got it",
-    "all right",
-  ];
-  if (socialPhrases.some((p) => t.includes(p))) {
-    return false;
-  }
-  // Word-boundary match avoids false positives (e.g. "notebook", "yesterday").
-  if (/\b(okay|ok|yes|no|alright|thanks)\b/i.test(t)) {
-    return false;
-  }
-
-  const compact = raw.replace(/\s+/g, " ").trim();
-  if (/^([a-z]\s*)+$/i.test(compact)) {
-    return true;
-  }
-
-  const lettersOnly = t.replace(/[^a-z]/g, "");
-  const wLetters = w.replace(/[^a-z]/g, "");
-  if (lettersOnly.length > 0 && lettersOnly === wLetters) {
-    return true;
-  }
-
-  const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const asWord = new RegExp(`(^|[^a-z])${escaped}([^a-z]|$)`, "i");
-  return asWord.test(t);
-}
-
-/** Creator diag voice session — `POST /api/map/test-reading-mode` pushes karaoke here. */
-let creatorDiagSessionForReadingTest: SessionManager | null = null;
-
-export function tryPushCreatorDiagReadingKaraoke(
-  text: string,
-): { ok: true } | { ok: false; error: string } {
-  const s = creatorDiagSessionForReadingTest;
-  if (!s) return { ok: false, error: "no_active_creator_diag_voice_session" };
-  const trimmed = text.trim();
-  if (!trimmed) return { ok: false, error: "text_required" };
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  s.applyClientToolCall("canvasShow", {
-    type: "karaoke",
-    storyText: trimmed,
-    words,
-    backgroundImageUrl:
-      "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600",
-  });
-  return { ok: true };
-}
-
-const TEST_PRONUNCIATION_WORDS = [
-  "blister",
-  "carpet",
-  "thirteen",
-  "orbit",
-  "harvest",
-  "confirm",
-  "interrupt",
-  "perfume",
-  "hamburger",
-  "corner",
-  "kindergarten",
-  "chimp",
-  "inhabit",
-  "instruments",
-  "band",
-];
-
-export function tryPushCreatorDiagPronunciation(): { ok: true } | { ok: false; error: string } {
-  const s = creatorDiagSessionForReadingTest;
-  if (!s) return { ok: false, error: "no_active_creator_diag_voice_session" };
-  s.applyClientToolCall("canvasShow", {
-    type: "pronunciation",
-    pronunciationWords: TEST_PRONUNCIATION_WORDS,
-  });
-  return { ok: true };
-}
-
 /** Options passed from the client on `start_session` (see ws-handler). */
 export type SessionManagerOptions = {
   silentTts?: boolean;
@@ -346,6 +245,7 @@ export class SessionManager {
   /** Map node `applyNodeResult` rollup — prepended on next take before iframe game_state text. */
   private pendingNodeCompletionContext: string | null = null;
   private currentActivityState: Record<string, unknown> | null = null;
+  private pronunciationStruggleSignals = new Set<string>();
 
   private ws: WebSocket;
   private childName: ChildName;
@@ -413,6 +313,13 @@ export class SessionManager {
    * Diag: suppress unless utterance looks like a command to the assistant.
    */
   private shouldSuppressTranscriptDuringKaraoke(transcript: string): boolean {
+    if (
+      shouldSuppressTranscriptDuringActiveLearningGame({
+        transcript,
+        currentActivityState: this.currentActivityState,
+        currentCanvasState: this.currentCanvasState,
+      })
+    ) return true;
     const mode = (this.currentCanvasState as { mode?: string } | null)?.mode;
     if (mode !== "karaoke" || this.karaokeReadingComplete) return false;
     if (this.karaokeReadingInProgress()) { console.log("  📖 [karaoke] transcript suppressed during active reading"); return true; }
@@ -1127,9 +1034,7 @@ export class SessionManager {
       companionName: this.companion.name,
     });
     await runSessionStart(this, {
-      registerCreatorDiagReadingSession: (s) => {
-        creatorDiagSessionForReadingTest = s as SessionManager;
-      },
+      registerCreatorDiagReadingSession: (s) => setCreatorDiagSessionForReadingTest(s),
     });
     this.debugRecorder.recordEvent("session", "started", {
       sessionType: this.ctx?.sessionType,
@@ -1334,12 +1239,18 @@ export class SessionManager {
       this.screenshotPending = null;
     }
 
-    if (creatorDiagSessionForReadingTest === this) {
-      creatorDiagSessionForReadingTest = null;
-    }
+    clearCreatorDiagSessionForReadingTest(this);
 
     const ts = new Date().toISOString();
     console.log(`  🏁 [${ts}] Ending session for ${this.childName}`);
+    await runSessionLearningSignalAudit({
+      childId: endChildId,
+      sessionId: this.sessionId,
+      conversationHistory: this.conversationHistory,
+      recentActivityState: this.currentActivityState,
+      hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
+      hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
+    });
 
     if (this.clearSessionTimer) {
       this.clearSessionTimer();
@@ -1421,7 +1332,7 @@ export class SessionManager {
       this.send("session_ended", {
         summary: `Session ended. ${this.conversationHistory.length} turns.`,
         duration_ms: Date.now() - this.sessionStartTime,
-        debugPacketPath: this.debugRecorder.sessionDir,
+        debugPacketPath: this.debugRecorder.sessionDir || undefined,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1433,7 +1344,7 @@ export class SessionManager {
       console.error("  🔴 Post-session chain error:", message);
       this.send("error", {
         message: "Post-session processing failed",
-        debugPacketPath: this.debugRecorder.sessionDir,
+        debugPacketPath: this.debugRecorder.sessionDir || undefined,
       });
     }
   }
@@ -1591,23 +1502,56 @@ export class SessionManager {
       return;
     }
 
+    const state = this.turnSM.getState();
+    const urgentRoute =
+      !isReplay && !opts?.fromReadingComplete
+        ? detectUrgentLearningRoute({
+            transcript,
+            childName: this.childName,
+            companionName: this.companion.name,
+            currentActivityState: this.currentActivityState,
+            currentCanvasState: this.currentCanvasState,
+          })
+        : null;
+
+    if (urgentRoute && !checkUserGoodbye(transcript)) {
+      await handleUrgentLearningTranscript({
+        transcript,
+        stateBefore: state,
+        auditRound,
+        auditChild,
+        tts,
+        context: urgentRoute.context,
+        intent: urgentRoute.intent,
+        sessionId: this.sessionId,
+        debugRecorder: this.debugRecorder,
+        conversationHistory: this.conversationHistory,
+        send: (type, payload) => this.send(type, payload),
+        bargeIn: () => this.bargeIn(),
+        clearPendingTranscript: (reason) => this.turnSM.clearPendingTranscript(reason),
+        recordDebugTranscript: (role, text) => this.recordDebugTranscript(role, text),
+        handleCompanionTurn: (text) => this.handleCompanionTurn(text),
+        hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
+        hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
+      });
+      return;
+    }
+
     if (
       !opts?.fromReadingComplete &&
-      this.turnSM.getState() === "IDLE" &&
+      state === "IDLE" &&
       this.shouldSuppressTranscriptDuringKaraoke(transcript)
     ) {
       // Still forward to client for karaoke word-match; do not pass to LLM below.
       this.debugRecorder.recordEvent("transcript", "suppressed", {
         reason: "karaoke_reading",
-        turnState: this.turnSM.getState(),
+        turnState: state,
         round: auditRound,
         transcriptLength: transcript.length,
       });
       this.send("interim", { text: transcript });
       return;
     }
-
-    const state = this.turnSM.getState();
 
     if (state === "PROCESSING") {
       if (!this.shouldAcceptInterruptedTranscript(transcript)) {
@@ -1785,6 +1729,8 @@ export class SessionManager {
       sessionStatus: () => this.hostSessionStatus(),
       spinWheel: () => this.hostSpinWheel(),
       sessionEnd: (a) => this.hostSessionEnd(a),
+      recordChildSignal: (a) => this.hostRecordChildSignal(a),
+      recordProductIssue: (a) => this.hostRecordProductIssue(a),
       expressCompanion: (a) => this.companionBridge.expressCompanion(a),
     });
     const companionActTool = createCompanionActTool({
@@ -1800,6 +1746,8 @@ export class SessionManager {
           sessionStatus: six.sessionStatus,
           spinWheel: six.spinWheel,
           sessionEnd: six.sessionEnd,
+          recordChildSignal: six.recordChildSignal,
+          recordProductIssue: six.recordProductIssue,
           expressCompanion: six.expressCompanion,
           companionAct: companionActTool,
         }
@@ -1889,6 +1837,18 @@ export class SessionManager {
     return hostSessionStatus(this as never);
   }
 
+  private async hostRecordChildSignal(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return hostRecordChildSignal(this as never, args);
+  }
+
+  private async hostRecordProductIssue(
+    args: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return hostRecordProductIssue(this as never, args);
+  }
+
   private async hostSpinWheel(): Promise<Record<string, unknown>> {
     const state = this.currentActivityState;
     const game = String(state?.game ?? "").toLowerCase();
@@ -1929,6 +1889,8 @@ export class SessionManager {
     if (tool === "session_log") return "sessionLog";
     if (tool === "session_status") return "sessionStatus";
     if (tool === "session_end") return "sessionEnd";
+    if (tool === "record_child_signal") return "recordChildSignal";
+    if (tool === "record_product_issue") return "recordProductIssue";
     if (tool === "express_companion") return "expressCompanion";
     if (tool === "companion_act") return "companionAct";
     if (tool === "request_pause_for_check_in") return "requestPauseForCheckIn";
@@ -2373,7 +2335,7 @@ export class SessionManager {
       );
 
       void this.handleEndOfTurn(
-        "[reading_progress] event=complete — the reader finished the karaoke story. Reply with exactly one short sentence acknowledging the reading. Do not call canvasShow or refresh karaoke unless the child or Jamal explicitly asks for something new.",
+        "[reading_progress] event=complete — the reader finished the karaoke story. Reply with exactly one short sentence acknowledging the reading. Do not call canvasShow or refresh karaoke unless the child or parent/caregiver explicitly asks for something new.",
         true,
         { fromReadingComplete: true },
       ).catch((err) => console.error(err));
@@ -2461,6 +2423,15 @@ export class SessionManager {
       `  🎮 [pronunciation_complete] words=${correctCount}/${totalWords} acc=${accPct}%`,
     );
     this.debugRecorder.recordEvent("flow_game", "pronunciation_complete", buildPronunciationCompleteFields({ ...msg, accuracy, totalWords, correctCount }));
+    recordPronunciationReadingStruggleSignal({
+      totalWords,
+      accPct,
+      correctCount,
+      childName: this.childName,
+      sessionId: this.sessionId,
+      emittedKeys: this.pronunciationStruggleSignals,
+      hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
+    });
   }
 
   private evaluateSpelling(

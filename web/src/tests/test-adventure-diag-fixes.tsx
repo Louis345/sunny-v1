@@ -1,10 +1,11 @@
-import { cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import childrenCfg from "../../../children.config.json"; // IDs from repo config (never hard-coded child labels)
 import { CompanionCurrencyHud } from "../components/CompanionCurrencyHud";
 import { NodeCard } from "../components/NodeCard.tsx";
 import { TamagotchiSheet } from "../components/TamagotchiSheet";
+import { useMapSession } from "../hooks/useMapSession";
 
 const SAMPLE_NODE: NodeConfig = {
   id: "node-x",
@@ -81,5 +82,63 @@ describe("diag / adventure map regressions", () => {
     const html = container.innerHTML;
     expect(html.includes("width: 11%")).toBe(true);
     expect(html.includes("width: 80%")).toBe(false);
+  });
+
+  it("map load errors expose the server reason instead of only connection copy", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: () =>
+        Promise.resolve({
+          error: "activity_plan_blocked: high_confidence_spelling_requires_independent_recall",
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useMapSession("reina", "free", true));
+
+    await waitFor(() => {
+      expect(result.current.connectionStatus).toBe("error");
+    });
+    expect(result.current.connectionError).toBe(
+      "activity_plan_blocked: high_confidence_spelling_requires_independent_recall",
+    );
+  });
+
+  it("passes homework domain intent with the child picked for map startup", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          sessionId: "map-1",
+          mapState: {
+            childId: "reina",
+            sessionId: "map-1",
+            sessionDate: "2026-05-12",
+            nodes: [],
+            completedNodes: [],
+            currentNodeId: null,
+            xp: 0,
+            level: 1,
+            theme: {
+              name: "test",
+              palette: { sky: "#fff", ground: "#fff", accent: "#000" },
+            },
+          },
+        }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderHook(() => useMapSession("reina", false, false, "spelling"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      childId: "reina",
+      runtime: {
+        homeworkDomain: "spelling",
+      },
+    });
   });
 });

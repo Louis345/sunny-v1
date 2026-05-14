@@ -2,14 +2,16 @@ import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
+import readline from "readline/promises";
+import { stdin as input, stdout as output } from "process";
 import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
-import type { LearningProfile } from "../context/schemas/learningProfile";
+import type { ActiveSessionPlan, LearningProfile } from "../context/schemas/learningProfile";
 import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateContentFingerprint, generateHomeworkId } from "../context/schemas/homeworkCycle";
-import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
+import type { HomeworkCycle, HomeworkTestDateSource } from "../context/schemas/homeworkCycle";
 import { runPsychologistSync } from "../agents/psychologist/sync";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 import { buildPreQuestTheory } from "../engine/homeworkCycleLoop";
@@ -22,6 +24,13 @@ import {
   buildHomeworkContentCatalogItems,
   upsertProfileContentCatalog,
 } from "../engine/learningDecisionContext";
+import { getChildChart } from "../profiles/childChart";
+import { writeActiveSessionPlan } from "../engine/sessionPlanFromChart";
+import {
+  buildExperiencePlannerInput,
+  planPsychologistExperience,
+  recordPlannerReview,
+} from "../engine/experiencePlanner";
 import {
   buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
@@ -73,6 +82,37 @@ type ExtractionShape = {
 
 type PlannedNode = PlannedHomeworkNode;
 
+export type IngestHomeworkDomain = "spelling" | "reading" | "math" | "science";
+
+type PromptFn = (prompt: string) => Promise<string> | string;
+
+function readCliValue(argv: string[], flags: string[]): string | null {
+  for (let i = 0; i < argv.length; i += 1) {
+    const part = argv[i] ?? "";
+    for (const flag of flags) {
+      if (part === flag) {
+        const next = argv[i + 1];
+        return next && !next.startsWith("--") ? next.trim() : "";
+      }
+      if (part.startsWith(`${flag}=`)) {
+        return part.slice(flag.length + 1).trim();
+      }
+    }
+  }
+  return null;
+}
+
+function normalizeIngestDomain(raw: string | null): IngestHomeworkDomain | undefined {
+  const value = raw?.trim().toLowerCase();
+  if (value === "spelling" || value === "reading" || value === "math" || value === "science") {
+    return value;
+  }
+  if (value) {
+    throw new Error(`Invalid homework domain: ${raw}`);
+  }
+  return undefined;
+}
+
 function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode["wordRadarItems"]> {
   return wordList.map((w) => ({
     display: w,
@@ -113,6 +153,155 @@ export function nextFriday(): string {
   const daysToAdd = day < 5 ? 5 - day : day === 5 ? 7 : 6;
   d.setDate(d.getDate() + daysToAdd);
   return d.toISOString().slice(0, 10);
+}
+
+function normalizeIdSegment(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+export function buildHomeworkReturnTag(childId: string, homeworkId: string): string {
+  return `#sunny_${normalizeIdSegment(childId)}_${normalizeIdSegment(homeworkId)}`;
+}
+
+function validIsoDate(value: string | null | undefined): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  return Number.isFinite(Date.parse(`${value}T00:00:00.000Z`));
+}
+
+async function promptForLine(prompt: string): Promise<string> {
+  const rl = readline.createInterface({ input, output });
+  try {
+    return await rl.question(prompt);
+  } finally {
+    rl.close();
+  }
+}
+
+async function promptForTestDate(prompt: string): Promise<string> {
+  return promptForLine(prompt);
+}
+
+async function promptForSessionPlanNote(interactive: boolean): Promise<string | undefined> {
+  if (!interactive) return undefined;
+  const answer = String(
+    await promptForLine(
+      "Any session-plan note for Sunny? Press Enter for the adaptive plan, or type a short focus/avoid note: ",
+    ),
+  ).trim();
+  return answer || undefined;
+}
+
+function printExperiencePlanReview(plan: ActiveSessionPlan): void {
+  console.log("");
+  console.log("🧠 AI psychologist experience plan");
+  console.log(`  🎮 [experience-planner] [plan] id=${plan.planId} status=${plan.approvalStatus ?? "pending"} confidence=${plan.plannerConfidence ?? "unknown"}`);
+  console.log(`  Theory: ${plan.planTheory?.hypothesis ?? "No theory recorded."}`);
+  console.log(`  Nodes: ${plan.nodePlan.map((node) => `${node.type}(${node.targets.length})`).join(" → ")}`);
+  if (plan.generatedExperienceBriefs?.length) {
+    for (const brief of plan.generatedExperienceBriefs) {
+      console.log(
+        `  Brief: ${brief.kind} "${brief.title}" status=${brief.artifactStatus} validation=${brief.validationRequired ? "required" : "not-required"}`,
+      );
+    }
+  }
+  console.log("");
+}
+
+async function reviewExperiencePlan(
+  childId: string,
+  plan: ActiveSessionPlan,
+  interactive: boolean,
+): Promise<ActiveSessionPlan> {
+  printExperiencePlanReview(plan);
+  if (!interactive || plan.approvalStatus === "auto_approved") {
+    return plan;
+  }
+  const answer = String(
+    await promptForLine("Approve this AI session plan for the next child session? [Y/n] "),
+  ).trim().toLowerCase();
+  if (answer === "n" || answer === "no") {
+    recordPlannerReview(childId, {
+      planId: plan.planId,
+      status: "rejected",
+      reviewer: process.env.SUNNY_REVIEWER?.trim() || "parent",
+      decidedAt: new Date().toISOString(),
+      notes: "Rejected during homework ingestion.",
+    });
+    throw new Error("experience_plan_rejected: rerun ingestion with a parent note or adjust the chart evidence");
+  }
+  recordPlannerReview(childId, {
+    planId: plan.planId,
+    status: "approved",
+    reviewer: process.env.SUNNY_REVIEWER?.trim() || "parent",
+    decidedAt: new Date().toISOString(),
+  });
+  return {
+    ...plan,
+    approvalStatus: "approved",
+  };
+}
+
+export async function resolveIngestedTestDate(args: {
+  cliTestDate: string | null;
+  extractedTestDate: string | null;
+  inferredTestDate: string;
+  interactive: boolean;
+  ask?: (prompt: string) => Promise<string> | string;
+}): Promise<{
+  testDate: string;
+  testDateSource: HomeworkTestDateSource;
+  testDateConfirmed: boolean;
+}> {
+  if (args.cliTestDate) {
+    if (!validIsoDate(args.cliTestDate)) {
+      throw new Error(`Invalid --testDate. Expected YYYY-MM-DD, got ${args.cliTestDate}`);
+    }
+    return {
+      testDate: args.cliTestDate,
+      testDateSource: "cli",
+      testDateConfirmed: true,
+    };
+  }
+
+  if (validIsoDate(args.extractedTestDate)) {
+    return {
+      testDate: args.extractedTestDate,
+      testDateSource: "extracted",
+      testDateConfirmed: false,
+    };
+  }
+
+  if (!validIsoDate(args.inferredTestDate)) {
+    throw new Error(`Invalid inferred test date. Expected YYYY-MM-DD, got ${args.inferredTestDate}`);
+  }
+
+  if (args.interactive) {
+    const ask = args.ask ?? promptForTestDate;
+    const answer = String(
+      await ask(
+        `I think this test is due ${args.inferredTestDate}. Press Enter to accept or type another date: `,
+      ),
+    ).trim();
+    const testDate = answer || args.inferredTestDate;
+    if (!validIsoDate(testDate)) {
+      throw new Error(`Invalid test date. Expected YYYY-MM-DD, got ${testDate}`);
+    }
+    return {
+      testDate,
+      testDateSource: "human_confirmed",
+      testDateConfirmed: true,
+    };
+  }
+
+  return {
+    testDate: args.inferredTestDate,
+    testDateSource: "inferred_next_friday",
+    testDateConfirmed: false,
+  };
 }
 
 function daysUntil(dateStr: string): number {
@@ -418,6 +607,9 @@ export function finalizePlannedHomeworkNodes(
 export function buildPendingHomeworkPayload(args: {
   weekOf: string;
   testDate: string | null;
+  testDateSource?: HomeworkTestDateSource;
+  testDateConfirmed?: boolean;
+  returnTag?: string;
   wordList: string[];
   homeworkId: string;
   nodes: PlannedNode[];
@@ -427,6 +619,9 @@ export function buildPendingHomeworkPayload(args: {
   return {
     weekOf: args.weekOf,
     testDate: args.testDate,
+    testDateSource: args.testDateSource,
+    testDateConfirmed: args.testDateConfirmed,
+    returnTag: args.returnTag,
     wordList: args.wordList,
     contentProfile: args.contentProfile ?? null,
     capturedContent: args.capturedContent ?? null,
@@ -445,6 +640,7 @@ export function buildPendingHomeworkPayload(args: {
         storyTitle: node.storyTitle,
         storyImagePrompt: node.storyImagePrompt,
         carePlan: node.carePlan,
+        adaptiveArtifact: node.adaptiveArtifact,
         date: node.date ?? args.weekOf,
         approved: false,
       };
@@ -454,6 +650,17 @@ export function buildPendingHomeworkPayload(args: {
       return base;
     }),
   };
+}
+
+export function resolveHomeworkWordPurpose(
+  word: string,
+  groups: HomeworkWordGroup[],
+): HomeworkWordGroup["purpose"] | "unknown" {
+  const normalized = word.trim().toLowerCase();
+  const sourceGroup = groups.find((group) =>
+    group.words.some((candidate) => candidate.trim().toLowerCase() === normalized),
+  );
+  return sourceGroup?.purpose ?? "unknown";
 }
 
 export function writeActivityConfigArtifacts(args: {
@@ -507,31 +714,102 @@ export function buildHomeworkLearningPlanArtifact(args: {
 }
 
 export function parseCliArgs(argv: string[]): {
-  childId: string;
+  childId: string | null;
   opus: boolean;
   testDate: string | null;
   pdfOverridePath: string | null;
+  homeworkDomain?: IngestHomeworkDomain;
 } {
-  const childArg = argv.find((a) => a.startsWith("--child="));
-  if (!childArg) {
-    throw new Error("Missing required argument --child=<childId>");
-  }
-  const childId = childArg.slice("--child=".length).trim().toLowerCase();
-  if (!childId) {
-    throw new Error("Missing required argument --child=<childId>");
-  }
-  const testDateArg = argv.find((a) => a.startsWith("--testDate="));
-  const testDateRaw = testDateArg ? testDateArg.slice("--testDate=".length).trim() : "";
+  const childRaw = readCliValue(argv, ["--child"]);
+  const childId = childRaw?.trim() ? childRaw.trim().toLowerCase() : null;
+  const testDateRaw = readCliValue(argv, ["--testDate", "--test-date"]) ?? "";
   const testDate = testDateRaw.length > 0 ? testDateRaw : null;
-  const pdfArg = argv.find((a) => a.startsWith("--pdf="));
-  const pdfRaw = pdfArg ? pdfArg.slice("--pdf=".length).trim() : "";
+  const pdfRaw = readCliValue(argv, ["--pdf"]) ?? "";
   const pdfOverridePath = pdfRaw ? path.resolve(process.cwd(), pdfRaw) : null;
-  return { childId, opus: argv.includes("--opus"), testDate, pdfOverridePath };
+  const homeworkDomain = normalizeIngestDomain(
+    readCliValue(argv, ["--domain", "--homework-domain"]),
+  );
+  return {
+    childId,
+    opus: argv.includes("--opus"),
+    testDate,
+    pdfOverridePath,
+    ...(homeworkDomain ? { homeworkDomain } : {}),
+  };
 }
 
 function listIncomingFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).map((name) => path.join(dir, name));
+}
+
+export function listIngestChildIds(rootDir = process.cwd()): string[] {
+  const configPath = path.join(rootDir, "children.config.json");
+  if (!fs.existsSync(configPath)) return [];
+  const cfg = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+    childProfiles?: Record<string, unknown>;
+  };
+  return Object.keys(cfg.childProfiles ?? {})
+    .map((id) => id.trim().toLowerCase())
+    .filter((id) => id && id !== "creator")
+    .sort();
+}
+
+export async function resolveIngestChildId(args: {
+  childId: string | null;
+  childIds: string[];
+  interactive: boolean;
+  ask?: PromptFn;
+}): Promise<string> {
+  const explicit = args.childId?.trim().toLowerCase();
+  if (explicit) return explicit;
+  const childIds = args.childIds.map((id) => id.trim().toLowerCase()).filter(Boolean);
+  if (!args.interactive) {
+    throw new Error("Missing required argument --child=<childId>");
+  }
+  if (childIds.length === 0) {
+    throw new Error("No child profiles found for homework intake.");
+  }
+  const choices = childIds.map((id, index) => `${index + 1}. ${id}`).join("\n");
+  const ask = args.ask ?? promptForLine;
+  const answer = String(await ask(`Which child is this homework for?\n${choices}\nChild: `))
+    .trim()
+    .toLowerCase();
+  if (!answer) return childIds[0]!;
+  const asNumber = Number(answer);
+  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= childIds.length) {
+    return childIds[asNumber - 1]!;
+  }
+  const match = childIds.find((id) => id === answer || id.startsWith(answer));
+  if (match) return match;
+  throw new Error(`Unknown child "${answer}". Expected one of: ${childIds.join(", ")}`);
+}
+
+export async function resolveIngestHomeworkFile(args: {
+  pdfOverridePath: string | null;
+  incomingFiles: string[];
+  interactive: boolean;
+  ask?: PromptFn;
+}): Promise<string | null> {
+  if (args.pdfOverridePath) return args.pdfOverridePath;
+  const candidates = args.incomingFiles.filter((file) => /\.(pdf|txt)$/i.test(file));
+  const picked = pickIncomingHomeworkFile(candidates);
+  if (!picked || !args.interactive || candidates.length <= 1) return picked;
+
+  const choices = candidates.map((file, index) => `${index + 1}. ${path.basename(file)}`).join("\n");
+  const defaultIndex = candidates.indexOf(picked) + 1;
+  const ask = args.ask ?? promptForLine;
+  const answer = String(
+    await ask(`Which homework file should I ingest? Press Enter for ${defaultIndex}.\n${choices}\nFile: `),
+  ).trim();
+  if (!answer) return picked;
+  const asNumber = Number(answer);
+  if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= candidates.length) {
+    return candidates[asNumber - 1]!;
+  }
+  const match = candidates.find((file) => path.basename(file).toLowerCase() === answer.toLowerCase());
+  if (match) return match;
+  throw new Error(`Unknown homework file "${answer}".`);
 }
 
 function readLastNSessionNotes(childId: string, n: number): string[] {
@@ -798,6 +1076,9 @@ export function buildCycleStub(args: {
   contentFingerprint?: string | null;
   ingestedAt: string;
   testDate: string | null;
+  testDateSource?: HomeworkTestDateSource;
+  testDateConfirmed?: boolean;
+  returnTag?: string;
 }): HomeworkCycle {
   return {
     homeworkId: args.homeworkId,
@@ -809,6 +1090,9 @@ export function buildCycleStub(args: {
     calibrationStatus: "unverified",
     ingestedAt: args.ingestedAt,
     testDate: args.testDate,
+    testDateSource: args.testDateSource,
+    testDateConfirmed: args.testDateConfirmed,
+    returnTag: args.returnTag,
     assumptions: null,
     postAnalysis: null,
     scanResult: null,
@@ -818,7 +1102,20 @@ export function buildCycleStub(args: {
 }
 
 export async function runIngestHomework(argv: string[]): Promise<void> {
-  const { childId, testDate: cliTestDate, pdfOverridePath } = parseCliArgs(argv);
+  const {
+    childId: cliChildId,
+    testDate: cliTestDate,
+    pdfOverridePath,
+    homeworkDomain,
+  } = parseCliArgs(argv);
+  const interactive = Boolean(
+    input.isTTY && output.isTTY && process.env.SUNNY_NON_INTERACTIVE !== "true",
+  );
+  const childId = await resolveIngestChildId({
+    childId: cliChildId,
+    childIds: listIngestChildIds(),
+    interactive,
+  });
   const client = new Anthropic();
   const today = new Date().toISOString().slice(0, 10);
   const contextBase = path.join(process.cwd(), "src", "context", childId, "homework");
@@ -826,7 +1123,14 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const pendingDir = path.join(contextBase, "pending", today);
   fs.mkdirSync(pendingDir, { recursive: true });
 
-  const incomingFile = pdfOverridePath ?? pickIncomingHomeworkFile(listIncomingFiles(incomingDir));
+  console.log(
+    `🏥 Sunny intake — ${homeworkDomain ? `${homeworkDomain} ` : ""}homework for ${childId}`,
+  );
+  const incomingFile = await resolveIngestHomeworkFile({
+    pdfOverridePath,
+    incomingFiles: listIncomingFiles(incomingDir),
+    interactive,
+  });
   if (!incomingFile) {
     throw new Error(`No homework found in ${incomingDir}. Expected .pdf or .txt file.`);
   }
@@ -839,12 +1143,19 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
 
   const existingProfileDoc = readLearningProfile(childId);
   console.log("📄 Step 1/4: Reading homework...");
+  console.log(`   Intake file: ${path.basename(incomingFile)}`);
   const extracted = await extractHomework(
     client,
     incomingFile,
     existingProfileDoc?.homeworkInterpretationMemory ?? [],
   );
-  const testDate = cliTestDate ?? extracted.testDate ?? nextFriday();
+  const resolvedTestDate = await resolveIngestedTestDate({
+    cliTestDate,
+    extractedTestDate: extracted.testDate,
+    inferredTestDate: nextFriday(),
+    interactive,
+  });
+  const { testDate, testDateSource, testDateConfirmed } = resolvedTestDate;
   const daysUntilTest = daysUntil(testDate);
   const wordsLine =
     extracted.words.length <= 5
@@ -852,10 +1163,12 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
       : `${extracted.words.slice(0, 5).join(", ")}... (${extracted.words.length} words)`;
   console.log(`✅ Found: ${extracted.title}`);
   console.log(`   Words: ${wordsLine}`);
-  console.log(`   Test date: ${testDate} (${daysUntilTest} days away)`);
+  console.log(
+    `   Test date: ${testDate} (${daysUntilTest} days away, source=${testDateSource}, confirmed=${testDateConfirmed})`,
+  );
   fs.writeFileSync(
     path.join(pendingDir, "classification.json"),
-    JSON.stringify(extracted, null, 2),
+    JSON.stringify({ ...extracted, testDate }, null, 2),
     "utf8",
   );
   fs.writeFileSync(
@@ -892,7 +1205,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     if (!word) continue;
     const lower = word.toLowerCase();
     const sourceGroup = groupForWord(word);
-    const purpose = sourceGroup?.purpose ?? "spell_from_memory";
+    const purpose = resolveHomeworkWordPurpose(word, groups);
     let entry = wordBank.words.find((w) => w.word.toLowerCase() === lower);
     if (!entry) {
       entry = {
@@ -910,10 +1223,14 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     if (purpose === "spell_from_memory" && !entry.tracks.spelling) {
       entry.tracks.spelling = createFreshSM2Track(today);
     }
-    if (purpose !== "spell_from_memory" && !entry.tracks.reading) {
+    if (purpose !== "spell_from_memory" && purpose !== "unknown" && !entry.tracks.reading) {
       entry.tracks.reading = createFreshSM2Track(today);
     }
-    const st = purpose === "spell_from_memory" ? entry.tracks.spelling : entry.tracks.reading;
+    const st = purpose === "spell_from_memory"
+      ? entry.tracks.spelling
+      : purpose === "unknown"
+        ? undefined
+        : entry.tracks.reading;
     if (st && st.nextReviewDate > today) {
       st.nextReviewDate = today;
     }
@@ -924,6 +1241,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   );
 
   const homeworkId = generateHomeworkId(extracted.type, extracted.words);
+  const returnTag = buildHomeworkReturnTag(childId, homeworkId);
   const cyclesDir = path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
   fs.mkdirSync(cyclesDir, { recursive: true });
   const contentFingerprint = generateContentFingerprint({
@@ -944,6 +1262,9 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     contentFingerprint,
     ingestedAt: today,
     testDate,
+    testDateSource,
+    testDateConfirmed,
+    returnTag,
   });
   const patternResult = scanChildErrorPatterns(childId);
   const theory = buildPreQuestTheory({
@@ -964,7 +1285,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const preMdPath = path.join(assumptionsDir, `${today}-pre.md`);
   fs.writeFileSync(
     preMdPath,
-    `## Homework ingested\n\n**homeworkId:** ${homeworkId}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n\n${theory.markdown}\n`,
+    `## Homework ingested\n\n**homeworkId:** ${homeworkId}\n**returnTag:** ${returnTag}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n**testDateSource:** ${testDateSource}\n**testDateConfirmed:** ${testDateConfirmed}\n\n${theory.markdown}\n`,
     "utf8",
   );
   console.log(`📋 Pre-quest theory → assumptions/${today}-pre.md`);
@@ -1002,6 +1323,9 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   profileDoc.pendingHomework = buildPendingHomeworkPayload({
     weekOf: today,
     testDate,
+    testDateSource,
+    testDateConfirmed,
+    returnTag,
     wordList: extracted.words,
     contentProfile: extracted.contentProfile,
     capturedContent: extracted.capturedContent,
@@ -1018,6 +1342,17 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   });
   const profileWithCatalog = upsertProfileContentCatalog(profileDoc, catalogItems);
   writeLearningProfile(childId, profileWithCatalog);
+  const parentPlanNote = await promptForSessionPlanNote(interactive);
+  const chartForPlan = getChildChart(childId);
+  const plannerInput = buildExperiencePlannerInput(chartForPlan, {
+    parentNote: parentPlanNote,
+    companionConversationAudit: parentPlanNote ? [`parent_note:${parentPlanNote}`] : [],
+  });
+  const activeSessionPlan = await planPsychologistExperience(plannerInput, {
+    useAi: process.env.SUNNY_AI_EXPERIENCE_PLANNER === "true",
+    parentNote: parentPlanNote,
+  });
+  writeActiveSessionPlan(childId, await reviewExperiencePlan(childId, activeSessionPlan, interactive));
   fs.writeFileSync(
     path.join(pendingDir, "learning-plan.json"),
     JSON.stringify(learningPlanArtifact.plan, null, 2),
@@ -1030,6 +1365,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   );
 
   console.log(`✅ Saved to src/context/${childId}/homework/pending/${today}/`);
+  console.log(`🏷️  Return tag: ${returnTag}`);
   console.log("🧭 Learning plan → learning-plan.md");
   if (activityArtifacts.length > 0) {
     console.log(`🎮 [ingestHomework] activity-configs wrote ${activityArtifacts.length}`);
@@ -1042,12 +1378,16 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   await maybeLaunchPreviewBoard({
     childId,
     subject: "homework",
-    label: "homework",
+    label: homeworkDomain ? `${homeworkDomain} homework` : "homework",
     sessionMode: "as-child",
     prompt: process.env.SUNNY_NON_INTERACTIVE !== "true",
     defaultOpen: true,
   });
-  console.log("Run session:  npm run sunny:homework");
+  console.log(
+    `Run session:  ${
+      homeworkDomain === "spelling" ? "npm run sunny:homework:spelling" : "npm run sunny:homework"
+    }`,
+  );
 }
 
 if (typeof require !== "undefined" && require.main === module) {

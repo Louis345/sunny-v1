@@ -40,7 +40,67 @@ export type EvidenceKind =
   | "companion"
   | "quest-gate";
 
-export type ActivityToolContract = {
+export type ActivitySkillTarget =
+  | "spell_from_memory"
+  | "read_fluently"
+  | "pronounce"
+  | "auditory_retrieval"
+  | "visual_recognition"
+  | "concept_understanding"
+  | "reading_comprehension"
+  | "vocabulary_meaning"
+  | "retrieval_practice"
+  | "typing_fluency"
+  | "attention_control"
+  | "reward_recovery"
+  | "generated_transfer"
+  | "mastery_gate"
+  | "math_reasoning";
+
+export type ActivityFriction = "low" | "medium" | "high";
+export type ActivityPacing = "slow" | "medium" | "fast" | "burst";
+export type ActivityInputMode =
+  | "voice"
+  | "typing"
+  | "click"
+  | "touch"
+  | "reading"
+  | "visual"
+  | "mixed";
+export type ActivityScaffoldLevel = "none" | "low" | "medium" | "high";
+export type ActivityEvidenceType =
+  | "practice"
+  | "diagnostic"
+  | "mastery"
+  | "reward"
+  | "generated";
+export type ActivityPreferenceDimension =
+  | "speed"
+  | "voice"
+  | "typing"
+  | "challenge"
+  | "story"
+  | "competition"
+  | "control"
+  | "novelty"
+  | "calm"
+  | "social"
+  | "visual"
+  | "movement"
+  | "low-writing-load"
+  | "confidence";
+
+export type ActivityTraits = {
+  skillTargets: ActivitySkillTarget[];
+  friction: ActivityFriction;
+  pacing: ActivityPacing;
+  inputModes: ActivityInputMode[];
+  scaffoldLevel: ActivityScaffoldLevel;
+  evidenceType: ActivityEvidenceType;
+  preferenceDimensions: ActivityPreferenceDimension[];
+};
+
+type ActivityToolContractSource = {
   id: string;
   label: string;
   nodeType?: string;
@@ -58,6 +118,10 @@ export type ActivityToolContract = {
     allowedEvidence: EvidenceKind[];
     contaminationRisks: ScaffoldKind[];
   };
+};
+
+export type ActivityToolContract = ActivityToolContractSource & {
+  traits: ActivityTraits;
 };
 
 export type LearnerState = "unknown" | "none" | "partial" | "ready" | "mastered";
@@ -110,7 +174,168 @@ export type ActivityToolAudit = {
   blockers: string[];
 };
 
-const ACTIVITY_TOOL_CONTRACTS: ActivityToolContract[] = [
+const DEFAULT_ACTIVITY_TRAITS: ActivityTraits = {
+  skillTargets: ["retrieval_practice"],
+  friction: "medium",
+  pacing: "medium",
+  inputModes: ["mixed"],
+  scaffoldLevel: "medium",
+  evidenceType: "practice",
+  preferenceDimensions: ["challenge"],
+};
+
+const ACTIVITY_TRAITS_BY_ID = {
+  "concept-check": {
+    skillTargets: ["concept_understanding", "reading_comprehension", "vocabulary_meaning"],
+    friction: "medium",
+    pacing: "medium",
+    inputModes: ["voice", "click"],
+    scaffoldLevel: "low",
+    evidenceType: "diagnostic",
+    preferenceDimensions: ["challenge", "control", "social"],
+  },
+  "visual-explainer": {
+    skillTargets: ["concept_understanding", "reading_comprehension", "vocabulary_meaning"],
+    friction: "low",
+    pacing: "slow",
+    inputModes: ["visual", "reading"],
+    scaffoldLevel: "high",
+    evidenceType: "practice",
+    preferenceDimensions: ["visual", "story", "calm", "novelty"],
+  },
+  "picture-question": {
+    skillTargets: ["concept_understanding", "reading_comprehension", "visual_recognition"],
+    friction: "low",
+    pacing: "medium",
+    inputModes: ["click", "touch", "visual"],
+    scaffoldLevel: "medium",
+    evidenceType: "diagnostic",
+    preferenceDimensions: ["visual", "control", "challenge"],
+  },
+  "spelling-recall": {
+    skillTargets: ["spell_from_memory", "retrieval_practice"],
+    friction: "high",
+    pacing: "slow",
+    inputModes: ["voice", "typing"],
+    scaffoldLevel: "none",
+    evidenceType: "diagnostic",
+    preferenceDimensions: ["challenge", "typing", "control"],
+  },
+  "word-radar": {
+    skillTargets: ["visual_recognition", "read_fluently", "vocabulary_meaning"],
+    friction: "low",
+    pacing: "fast",
+    inputModes: ["voice", "visual", "click"],
+    scaffoldLevel: "high",
+    evidenceType: "practice",
+    preferenceDimensions: ["speed", "visual", "low-writing-load", "confidence"],
+  },
+  "spell-check": {
+    skillTargets: ["spell_from_memory", "auditory_retrieval", "retrieval_practice"],
+    friction: "medium",
+    pacing: "medium",
+    inputModes: ["voice", "typing"],
+    scaffoldLevel: "low",
+    evidenceType: "diagnostic",
+    preferenceDimensions: ["typing", "challenge", "control", "confidence"],
+  },
+  "monster-stampede": {
+    skillTargets: ["spell_from_memory", "typing_fluency", "retrieval_practice"],
+    friction: "medium",
+    pacing: "fast",
+    inputModes: ["typing", "visual"],
+    scaffoldLevel: "medium",
+    evidenceType: "practice",
+    preferenceDimensions: ["speed", "challenge", "competition", "movement"],
+  },
+  "letter-rush": {
+    skillTargets: ["spell_from_memory", "typing_fluency", "visual_recognition"],
+    friction: "medium",
+    pacing: "burst",
+    inputModes: ["typing", "click", "visual"],
+    scaffoldLevel: "low",
+    evidenceType: "diagnostic",
+    preferenceDimensions: ["speed", "challenge", "competition", "control"],
+  },
+  karaoke: {
+    skillTargets: ["read_fluently", "reading_comprehension", "vocabulary_meaning"],
+    friction: "low",
+    pacing: "medium",
+    inputModes: ["voice", "reading", "visual"],
+    scaffoldLevel: "high",
+    evidenceType: "practice",
+    preferenceDimensions: ["story", "voice", "calm", "social"],
+  },
+  "word-builder": {
+    skillTargets: ["spell_from_memory", "visual_recognition", "retrieval_practice"],
+    friction: "medium",
+    pacing: "medium",
+    inputModes: ["touch", "typing", "visual"],
+    scaffoldLevel: "high",
+    evidenceType: "practice",
+    preferenceDimensions: ["control", "typing", "challenge", "visual"],
+  },
+  pronunciation: {
+    skillTargets: ["read_fluently", "pronounce", "auditory_retrieval"],
+    friction: "low",
+    pacing: "fast",
+    inputModes: ["voice"],
+    scaffoldLevel: "medium",
+    evidenceType: "practice",
+    preferenceDimensions: ["voice", "speed", "low-writing-load", "confidence"],
+  },
+  mystery: {
+    skillTargets: ["reward_recovery"],
+    friction: "low",
+    pacing: "burst",
+    inputModes: ["click", "touch", "mixed"],
+    scaffoldLevel: "low",
+    evidenceType: "reward",
+    preferenceDimensions: ["novelty", "control", "competition", "social"],
+  },
+  "wheel-of-fortune": {
+    skillTargets: ["reward_recovery", "retrieval_practice"],
+    friction: "low",
+    pacing: "burst",
+    inputModes: ["click", "touch", "visual"],
+    scaffoldLevel: "medium",
+    evidenceType: "reward",
+    preferenceDimensions: ["novelty", "competition", "control", "visual"],
+  },
+  quest: {
+    skillTargets: ["generated_transfer", "retrieval_practice", "concept_understanding"],
+    friction: "medium",
+    pacing: "medium",
+    inputModes: ["mixed"],
+    scaffoldLevel: "low",
+    evidenceType: "generated",
+    preferenceDimensions: ["story", "challenge", "novelty", "competition"],
+  },
+  boss: {
+    skillTargets: ["mastery_gate", "generated_transfer", "retrieval_practice"],
+    friction: "high",
+    pacing: "medium",
+    inputModes: ["mixed"],
+    scaffoldLevel: "none",
+    evidenceType: "mastery",
+    preferenceDimensions: ["challenge", "competition", "novelty", "control"],
+  },
+} satisfies Record<string, ActivityTraits>;
+
+function cloneTraits(traits: ActivityTraits): ActivityTraits {
+  return {
+    ...traits,
+    skillTargets: [...traits.skillTargets],
+    inputModes: [...traits.inputModes],
+    preferenceDimensions: [...traits.preferenceDimensions],
+  };
+}
+
+function traitsForActivity(id: string): ActivityTraits {
+  return cloneTraits(ACTIVITY_TRAITS_BY_ID[id as keyof typeof ACTIVITY_TRAITS_BY_ID] ?? DEFAULT_ACTIVITY_TRAITS);
+}
+
+const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
   {
     id: "concept-check",
     label: "Concept Check",
@@ -252,7 +477,7 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContract[] = [
     id: "spell-check",
     label: "Spell Check",
     nodeType: "spell-check",
-    purposes: ["practice", "evaluate"],
+    purposes: ["practice", "evaluate", "independent-retrieval"],
     domains: ["spelling", "vocabulary"],
     strengths: [
       "Can verify targeted spelling after practice if the target word is hidden.",
@@ -274,6 +499,34 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContract[] = [
       requiresPerTargetResult: true,
       allowedEvidence: ["practice", "mastery"],
       contaminationRisks: ["retry"],
+    },
+  },
+  {
+    id: "monster-stampede",
+    label: "Monster Stampede",
+    nodeType: "monster-stampede",
+    purposes: ["practice", "fluency", "reward"],
+    domains: ["spelling", "vocabulary"],
+    strengths: [
+      "Reinforces a bounded spelling cohort after initial measurement.",
+      "Adds high-energy repetition without pretending to be the clean baseline.",
+    ],
+    weakFor: ["initial-baseline", "mastery-gating", "independent-retrieval"],
+    goodFitWhen: [
+      "Word Radar and Spell Check have already scoped the target cohort.",
+      "Sunny wants whole-list spelling exposure to feel like movement, not another drill.",
+    ],
+    badFitWhen: [
+      "It is used as the first source of evidence for unknown words.",
+      "Aggregate arcade success would be treated as proof of transfer or mastery.",
+    ],
+    scaffolds: ["visible-word", "retry"],
+    evidence: {
+      writesPracticeEvidence: true,
+      writesMasteryEvidence: false,
+      requiresPerTargetResult: false,
+      allowedEvidence: ["practice", "reward"],
+      contaminationRisks: ["visible-word", "retry"],
     },
   },
   {
@@ -566,6 +819,7 @@ export function listActivityToolContracts(): ActivityToolContract[] {
     goodFitWhen: [...contract.goodFitWhen],
     badFitWhen: [...contract.badFitWhen],
     scaffolds: [...contract.scaffolds],
+    traits: traitsForActivity(contract.id),
     evidence: {
       ...contract.evidence,
       allowedEvidence: [...contract.evidence.allowedEvidence],
@@ -597,6 +851,9 @@ export function auditActivityToolContracts(): ActivityToolAudit {
       (contract.scaffolds.includes("visible-word") || contract.scaffolds.includes("letter-tiles"))
     ) {
       issues.push("mastery-contaminated-by-visible-answer");
+    }
+    if (!(contract.id in ACTIVITY_TRAITS_BY_ID)) {
+      issues.push("missing-activity-traits");
     }
     return {
       id: contract.id,

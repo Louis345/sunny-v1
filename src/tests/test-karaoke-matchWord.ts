@@ -46,6 +46,22 @@ describe("matchKaraokeWord", () => {
     expect(classifyKaraokeWordMatch("when", "wear")).toBe("mismatch");
   });
 
+  it("accepts phonetic equivalents in speech mode but not spelling mode", () => {
+    expect(classifyKaraokeWordMatch("pair", "pear")).toBe("match");
+    expect(classifyKaraokeWordMatch("pear", "pair")).toBe("match");
+    expect(classifyKaraokeWordMatch("see", "sea")).toBe("match");
+    expect(classifyKaraokeWordMatch("two", "to")).toBe("match");
+    expect(
+      classifyKaraokeWordMatch("pair", "pear", { mode: "spelling" }),
+    ).toBe("mismatch");
+    expect(
+      classifyKaraokeWordMatch("see", "sea", { mode: "spelling" }),
+    ).toBe("mismatch");
+    expect(classifyKaraokeWordMatch("two", "to", { mode: "spelling" })).toBe(
+      "mismatch",
+    );
+  });
+
   it("maps spoken number words to digits for match", () => {
     expect(matchKaraokeWord("fifteen", "15")).toBe(true);
     expect(matchKaraokeWord("hundred", "15")).toBe(false);

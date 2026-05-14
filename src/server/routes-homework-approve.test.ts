@@ -64,6 +64,13 @@ describe("POST /api/homework/approve", () => {
         topicFrequency: {},
       },
       algorithmParams: {
+        sm2: {
+          defaultEasinessFactor: 2.5,
+          minEasinessFactor: 1.3,
+          intervalModifier: 1,
+          maxNewWordsPerSession: 5,
+          maxReviewWordsPerSession: 12,
+        },
         difficulty: {
           targetAccuracy: 0.7,
           easyThreshold: 0.85,
@@ -114,6 +121,13 @@ describe("POST /api/homework/approve", () => {
         topicFrequency: {},
       },
       algorithmParams: {
+        sm2: {
+          defaultEasinessFactor: 2.5,
+          minEasinessFactor: 1.3,
+          intervalModifier: 1,
+          maxNewWordsPerSession: 5,
+          maxReviewWordsPerSession: 12,
+        },
         difficulty: {
           targetAccuracy: 0.7,
           easyThreshold: 0.85,
@@ -195,9 +209,7 @@ describe("POST /api/homework/approve", () => {
       homeworkInterpretationMemory?: unknown[];
     };
     expect(saved.pendingHomework?.nodes?.map((node) => node.type)).toEqual([
-      "letter-rush",
-      "letter-rush",
-      "letter-rush",
+      "spell-check",
     ]);
     expect(saved.homeworkInterpretationMemory).toHaveLength(1);
   });

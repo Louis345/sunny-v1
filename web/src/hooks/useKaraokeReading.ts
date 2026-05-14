@@ -59,6 +59,8 @@ export interface UseKaraokeReadingArgs {
   leaderWordIndex?: number | null;
   /** Pronunciation STT can replay the same word with punctuation/case changes. Suppress those replays from scoring again. */
   suppressDuplicateTranscriptMatches?: boolean;
+  /** Defaults to karaoke reading progress; pass null when another activity owns progress/completion events. */
+  progressMessageType?: string | null;
 }
 
 export type KaraokeReadingCompleteResult = {
@@ -96,6 +98,7 @@ export function useKaraokeReading(
     activeWordIndices = [],
     leaderWordIndex = null,
     suppressDuplicateTranscriptMatches = false,
+    progressMessageType = "reading_progress",
   } = args;
 
   const [wordIndex, setWordIndex] = useState(0);
@@ -120,6 +123,14 @@ export function useKaraokeReading(
   );
   const pendingHitBlockRef = useRef<Set<number>>(new Set());
   const lastMatchedSequentialFingerprintRef = useRef("");
+
+  const sendProgress = useCallback(
+    (payload: ReturnType<typeof buildKaraokeReadingProgressPayload>) => {
+      if (!progressMessageType) return;
+      sendMessage(progressMessageType, payload);
+    },
+    [progressMessageType, sendMessage],
+  );
 
   // Reset all state when the words array reference changes (new story).
   const prevWordsRef = useRef(words);
@@ -196,8 +207,7 @@ export function useKaraokeReading(
       if (reason === "preview") {
         onComplete?.(completeResult);
       }
-      sendMessage(
-        "reading_progress",
+      sendProgress(
         buildKaraokeReadingProgressPayload({
           ...completeResult,
           event: "complete",
@@ -207,7 +217,7 @@ export function useKaraokeReading(
         onComplete?.(completeResult);
       }
     },
-    [mode, onComplete, sendMessage, words],
+    [mode, onComplete, sendProgress, words],
   );
 
   const handleSkipWord = useCallback(
@@ -228,8 +238,7 @@ export function useKaraokeReading(
         completeReading();
         return;
       }
-      sendMessage(
-        "reading_progress",
+      sendProgress(
         buildKaraokeReadingProgressPayload({
           wordIndex: next,
           totalWords: words.length,
@@ -241,7 +250,7 @@ export function useKaraokeReading(
         }),
       );
     },
-    [words, sendMessage, mode, completeReading],
+    [words, sendProgress, mode, completeReading],
   );
 
   // Process interim transcript: sequential advance, or multi-belt match.
@@ -309,8 +318,7 @@ export function useKaraokeReading(
           const spelledToken = expected.toLowerCase().trim();
           if (spelledToken) spelledWordsRef.current.push(spelledToken);
           setHitWordIndex(i);
-          sendMessage(
-            "reading_progress",
+          sendProgress(
             buildKaraokeReadingProgressPayload({
               wordIndex: wordIndexRef.current,
               totalWords: words.length,
@@ -387,7 +395,7 @@ export function useKaraokeReading(
   }, [
     interimTranscript,
     words,
-    sendMessage,
+    sendProgress,
     mode,
     activeWordIndices,
     leaderWordIndex,
@@ -400,8 +408,7 @@ export function useKaraokeReading(
     if (words.length === 0) return;
     const id = window.setInterval(() => {
       if (isCompleteRef.current) return;
-      sendMessage(
-        "reading_progress",
+      sendProgress(
         buildKaraokeReadingProgressPayload({
           wordIndex: wordIndexRef.current,
           totalWords: words.length,
@@ -414,7 +421,7 @@ export function useKaraokeReading(
       );
     }, 3000);
     return () => window.clearInterval(id);
-  }, [words, sendMessage]);
+  }, [words, sendProgress]);
 
   const clearHitBlock = useCallback((wordIndex: number) => {
     pendingHitBlockRef.current.delete(wordIndex);

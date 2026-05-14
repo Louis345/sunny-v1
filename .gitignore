@@ -14,9 +14,22 @@ CANVAS_CAPABILITIES.md
 
 # Session prompt cache (buildSessionPrompt, 24h TTL)
 .prompt-cache/
+.sunny-local/
 
 # Runtime server audit logs (local only; may contain transcripts)
 logs/sessions/
+
+# Runtime child-chart evidence (local/private; code should use fixtures for tests)
+src/context/*/activity_results/
+src/context/*/attempts/*.ndjson
+src/context/*/choice_events/
+src/context/*/ratings/*.ndjson
+src/context/*/session_notes/*.md
+src/context/*/themes/*.json
+src/context/*/assumptions/*-pre.md
+src/context/*/companion_care/*.json
+src/context/*/homework/games/hw-*/
+src/context/*/homework/pending/[0-9]*/
 
 # Homework — runtime data, never committed (repo root only; not src/tests/fixtures/homework)
 /homework/

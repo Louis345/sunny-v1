@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import { describe, expect, it } from "vitest";
 import {
   applyHomeworkClarificationAnswer,
@@ -223,6 +225,280 @@ describe("content-aware homework planner", () => {
     );
     expect(interpretation.status).toBe("ready");
     expect(interpretation.clarificationQuestions).toEqual([]);
+  });
+
+  it("repairs spelling-test interpretations that mislabeled every group as recognition", () => {
+    const captured = buildCapturedHomeworkContent({
+      title: "Benchmark Advance Spelling Unit 9 Week 2",
+      type: "spelling_test",
+      rawText: "",
+      words: [
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away",
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again",
+        "government",
+        "half",
+        "machine",
+        "pair",
+        "quickly",
+        "scientist",
+        "thousand",
+        "understood",
+        "wait",
+      ],
+      questions: [],
+      wordGroups: [
+        {
+          id: "schwa_words",
+          label: "Schwa Words",
+          purpose: "recognize",
+          words: [
+            "above",
+            "ago",
+            "about",
+            "ahead",
+            "away",
+            "alone",
+            "alike",
+            "awake",
+            "along",
+            "again",
+          ],
+          confidence: 0.95,
+          evidence: ["Section labeled 'Schwa'"],
+        },
+        {
+          id: "high_frequency_words",
+          label: "High-Frequency Words",
+          purpose: "recognize",
+          words: [
+            "government",
+            "half",
+            "machine",
+            "pair",
+            "quickly",
+            "scientist",
+            "thousand",
+            "understood",
+            "wait",
+          ],
+          confidence: 0.95,
+          evidence: ["Section explicitly labeled 'High-Frequency Words'"],
+        },
+      ],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "Schwa sound and high-frequency words",
+        primarySkill:
+          "Spelling words with schwa vowel and common high-frequency vocabulary",
+        assignmentFormat: "Spelling word list with categorization exercises",
+        concepts: [
+          "Schwa sound",
+          "Word families beginning with 'a'",
+          "High-frequency words",
+          "Vowel sounds",
+        ],
+        sourceEvidence: ["Benchmark Advance Spelling curriculum"],
+      },
+    });
+
+    const interpretation = captured.assignmentInterpretation!;
+    expect(interpretation.selectedTargets).toContainEqual(
+      expect.objectContaining({
+        id: "schwa_words",
+        purpose: "spell_from_memory",
+      }),
+    );
+    expect(interpretation.heldTargets).toContainEqual(
+      expect.objectContaining({
+        id: "high_frequency_words",
+        purpose: "recognize",
+      }),
+    );
+
+    const capturedGroups = captured.wordGroups ?? [];
+    const staleCaptured = {
+      ...captured,
+      wordGroups: capturedGroups.map((group) => ({
+        ...group,
+        purpose: "recognize" as const,
+      })),
+      assignmentInterpretation: {
+        ...interpretation,
+        wordGroups: capturedGroups.map((group) => ({
+          ...group,
+          purpose: "recognize" as const,
+        })),
+        selectedTargets: [],
+        heldTargets: capturedGroups.map((group) => ({
+          ...group,
+          purpose: "recognize" as const,
+        })),
+      },
+    } satisfies typeof captured;
+    const nodes = buildContentAwareHomeworkNodes({
+      type: "spelling_test",
+      words: captured.words,
+      homeworkId: "hw-spelling_test-bb11de93",
+      childId: isolatedChildId,
+      testDate: "2026-05-15",
+      contentProfile: captured.contentProfile,
+      capturedContent: staleCaptured,
+    });
+
+    expect(nodes.map((node) => node.type)).toEqual([
+      "word-radar",
+      "spell-check",
+      "monster-stampede",
+      "pronunciation",
+    ]);
+    expect(nodes.find((node) => node.type === "pronunciation")?.words).toEqual([
+      "government",
+      "half",
+      "machine",
+      "pair",
+      "quickly",
+    ]);
+  });
+
+  it("assigns stable homework word ids so identical text can carry different assignment meanings", () => {
+    const highFrequency = buildCapturedHomeworkContent({
+      title: "Benchmark Advance Spelling Unit 9 Week 1",
+      type: "spelling_test",
+      words: ["whole"],
+      questions: [],
+      wordGroups: [
+        {
+          id: "high-frequency",
+          label: "High-Frequency Words",
+          purpose: "read_fluently",
+          words: ["whole"],
+          confidence: 0.88,
+          evidence: ["AI extracted this as a high-frequency word group."],
+          scheduleAfter: "spelling_measured",
+        },
+      ],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "High-frequency words",
+        primarySkill: "reading fluency",
+        assignmentFormat: "two-column word list",
+        concepts: ["High-frequency sight words"],
+        sourceEvidence: ["The word appears under High-Frequency Words."],
+      },
+    });
+    const spelling = buildCapturedHomeworkContent({
+      title: "Benchmark Advance Spelling Unit 10 Week 1",
+      type: "spelling_test",
+      words: ["whole"],
+      questions: [],
+      wordGroups: [
+        {
+          id: "spelling-pattern",
+          label: "Spelling Words",
+          purpose: "spell_from_memory",
+          words: ["whole"],
+          confidence: 0.9,
+          evidence: ["AI extracted this as a spelling production group."],
+        },
+      ],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "Spelling words",
+        primarySkill: "spelling production",
+        assignmentFormat: "word list",
+        concepts: ["Word spelling patterns"],
+        sourceEvidence: ["The word appears under Spelling Words."],
+      },
+    });
+
+    const highFrequencyWord = highFrequency.homeworkWords?.[0];
+    const spellingWord = spelling.homeworkWords?.[0];
+
+    expect(highFrequencyWord).toMatchObject({
+      text: "whole",
+      wordGroupId: "high-frequency",
+      purpose: "read_fluently",
+      normalizedText: "whole",
+    });
+    expect(spellingWord).toMatchObject({
+      text: "whole",
+      wordGroupId: "spelling-pattern",
+      purpose: "spell_from_memory",
+      normalizedText: "whole",
+    });
+    expect(highFrequencyWord?.homeworkWordId).not.toBe(spellingWord?.homeworkWordId);
+    expect(highFrequency.assignmentInterpretation?.heldTargets).toContainEqual(
+      expect.objectContaining({ id: "high-frequency", purpose: "read_fluently" }),
+    );
+    expect(spelling.assignmentInterpretation?.selectedTargets).toContainEqual(
+      expect.objectContaining({ id: "spelling-pattern", purpose: "spell_from_memory" }),
+    );
+  });
+
+  it("creates separate homework word occurrences when the same text appears in two groups on one worksheet", () => {
+    const captured = buildCapturedHomeworkContent({
+      title: "Benchmark Advance Spelling Unit 9 Week 2",
+      type: "spelling_test",
+      words: ["above", "ago", "government"],
+      questions: [],
+      wordGroups: [
+        {
+          id: "schwa_words",
+          label: "Schwa Words",
+          purpose: "recognize",
+          words: ["above", "ago"],
+          confidence: 0.95,
+          evidence: ["Words listed under Schwa section."],
+        },
+        {
+          id: "high_frequency_words",
+          label: "High-Frequency Words",
+          purpose: "spell_from_memory",
+          words: ["ago", "government"],
+          confidence: 0.95,
+          evidence: ["Words listed under High-Frequency Words section."],
+        },
+      ],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "Schwa and high-frequency words",
+        primarySkill: "assignment-scoped spelling and recognition",
+        assignmentFormat: "two-column word list",
+        concepts: ["Schwa", "High-frequency words"],
+        sourceEvidence: ["The worksheet lists ago in both groups."],
+      },
+    });
+
+    const agoOccurrences = captured.homeworkWords?.filter((word) => word.normalizedText === "ago");
+    const schwaGroup = captured.wordGroups?.find((group) => group.id === "schwa_words");
+    const highFrequencyGroup = captured.wordGroups?.find((group) => group.id === "high_frequency_words");
+
+    expect(agoOccurrences).toHaveLength(2);
+    expect(agoOccurrences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ wordGroupId: "schwa_words", purpose: "recognize" }),
+        expect.objectContaining({ wordGroupId: "high_frequency_words", purpose: "spell_from_memory" }),
+      ]),
+    );
+    expect(new Set(agoOccurrences?.map((word) => word.homeworkWordId)).size).toBe(2);
+    expect(schwaGroup?.homeworkWordIds).toEqual(
+      expect.arrayContaining([expect.stringContaining(":schwa_words:ago:")]),
+    );
+    expect(highFrequencyGroup?.homeworkWordIds).toEqual(
+      expect.arrayContaining([expect.stringContaining(":high_frequency_words:ago:")]),
+    );
   });
 
   it("asks for human clarification instead of flattening ambiguous spelling words", () => {
@@ -687,9 +963,7 @@ describe("content-aware homework planner", () => {
 
     expect(nodes.map((n) => n.type)).toEqual([
       "karaoke",
-      "letter-rush",
-      "letter-rush",
-      "letter-rush",
+      "spell-check",
     ]);
     expect(nodes[0]?.storyText?.toLowerCase()).toContain("erosion");
     expect(nodes[0]?.storyText?.toLowerCase()).toContain("water");
@@ -702,21 +976,10 @@ describe("content-aware homework planner", () => {
       "slowest",
       "covered",
     ]);
-    expect(nodes[1]?.activityConfigPath).toBe(
-      "/api/activity-config/qa_content_planner/hw-spelling_test-erosion/letter-rush-baseline.json",
-    );
-    expect((nodes[1]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
-      "type-and-spell",
-    );
-    expect((nodes[2]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
-      "trap-the-imposter",
-    );
-    expect((nodes[3]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
-      "mastery-run",
-    );
+    expect(nodes[1]?.rationale).toContain("independent recall");
   });
 
-  it("uses only spelling-production words for Letter Rush and holds high-frequency words for later recognition", () => {
+  it("uses a cohort plan for spelling-production words and holds high-frequency words for recognition", () => {
     const capturedContent = buildCapturedHomeworkContent({
       title: "Benchmark Advance Spelling Unit 9 Week 1",
       type: "spelling_test",
@@ -816,24 +1079,239 @@ describe("content-aware homework planner", () => {
       capturedContent,
     });
 
-    const letterRushNodes = nodes.filter((node) => node.type === "letter-rush");
-    expect(letterRushNodes[0]?.words).toEqual([
+    expect(nodes.map((node) => node.type)).toEqual([
+      "word-radar",
+      "spell-check",
+      "monster-stampede",
+      "pronunciation",
+    ]);
+    const wordRadarNode = nodes.find((node) => node.type === "word-radar");
+    const spellCheckNode = nodes.find((node) => node.type === "spell-check");
+    const arcadeNode = nodes.find((node) => node.type === "monster-stampede");
+    const pronunciationNode = nodes.find((node) => node.type === "pronunciation");
+    expect(wordRadarNode?.words).toEqual([
       "shiny",
       "slowly",
       "lucky",
       "neatly",
       "sunny",
     ]);
-    expect(
-      (letterRushNodes[0]?.activityConfig as { words?: Array<{ text?: string }> } | undefined)
-        ?.words?.map((word) => word.text),
-    ).toEqual(["shiny", "slowly", "lucky", "neatly", "sunny"]);
-    expect(letterRushNodes[0]?.adaptivePlan?.heldTargets).toContainEqual(
+    expect(spellCheckNode?.words).toEqual([
+      "likely",
+      "messy",
+      "quickly",
+      "rainy",
+      "friendly",
+    ]);
+    expect(arcadeNode?.words).toEqual([
+      "shiny",
+      "slowly",
+      "lucky",
+      "neatly",
+      "sunny",
+      "likely",
+      "messy",
+      "quickly",
+      "rainy",
+      "friendly",
+    ]);
+    expect(arcadeNode?.rationale).toContain("cohort memory");
+    expect(pronunciationNode?.words).toEqual([
+      "able",
+      "behind",
+      "carefully",
+      "common",
+      "easy",
+    ]);
+    expect(wordRadarNode?.adaptivePlan?.heldTargets).toContainEqual(
       expect.objectContaining({
         purpose: "read_fluently",
         words: expect.arrayContaining(["able", "behind", "whole"]),
       }),
     );
+  });
+
+  it("uses learned adaptive load to start pronunciation with 10 held fluency words", () => {
+    const adaptiveChildId = "qa_content_planner_adaptive_load";
+    const adaptiveContextDir = path.join(
+      process.cwd(),
+      "src",
+      "context",
+      adaptiveChildId,
+    );
+    fs.mkdirSync(adaptiveContextDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(adaptiveContextDir, "learning_profile.json"),
+      JSON.stringify(
+        {
+          childId: adaptiveChildId,
+          version: 1,
+          createdAt: "2026-05-12T00:00:00.000Z",
+          lastUpdated: "2026-05-12T00:00:00.000Z",
+          adaptiveLoadState: {
+            spelling: {
+              domain: "spelling",
+              currentCohortSize: 10,
+              maxRecentSuccessfulCohort: 10,
+              challengeRecommendation: "harder_valid_node",
+              lastLoadEvidence: {
+                activityId: "spell-check",
+                completed: true,
+                accuracy: 1,
+                targetCount: 5,
+                frustrationScore: 0.1,
+                strongEvidence: true,
+                occurredAt: "2026-05-12T00:00:00.000Z",
+              },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    try {
+      const spellingWords = [
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away",
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again",
+      ];
+      const fluencyWords = [
+        "government",
+        "half",
+        "machine",
+        "pair",
+        "quickly",
+        "scientist",
+        "thousand",
+        "understood",
+        "wait",
+        "young",
+      ];
+      const capturedContent = buildCapturedHomeworkContent({
+        title: "Benchmark Advance Spelling Unit 9 Week 2",
+        type: "spelling_test",
+        rawText: "",
+        words: [...spellingWords, ...fluencyWords],
+        questions: [],
+        wordGroups: [
+          {
+            id: "schwa_words",
+            label: "Schwa Words",
+            purpose: "spell_from_memory",
+            words: spellingWords,
+            confidence: 0.95,
+            evidence: ["Left column header: Schwa Words"],
+          },
+          {
+            id: "high_frequency_words",
+            label: "High-Frequency Words",
+            purpose: "read_fluently",
+            words: fluencyWords,
+            confidence: 0.95,
+            evidence: ["Right column header: High-Frequency Words"],
+          },
+        ],
+        contentProfile: normalizeContentProfile({
+          title: "Benchmark Advance Spelling Unit 9 Week 2",
+          type: "spelling_test",
+          words: [],
+          questions: [],
+          contentProfile: {
+            practiceDomain: "spelling",
+            contentDomain: "language_arts",
+            topic: "Schwa sound and high-frequency words",
+            primarySkill: "spelling_recall_and_read_fluently",
+            assignmentFormat: "two-column word list",
+            concepts: ["Schwa", "High-frequency words"],
+          },
+        }),
+      });
+
+      const nodes = buildContentAwareHomeworkNodes({
+        homeworkId: "hw-spelling_test-adaptive-pronunciation",
+        childId: adaptiveChildId,
+        type: "spelling_test",
+        words: capturedContent.words,
+        testDate: "2026-05-15",
+        contentProfile: capturedContent.contentProfile,
+        capturedContent,
+      });
+
+      expect(nodes.find((node) => node.type === "pronunciation")?.words).toEqual(
+        fluencyWords,
+      );
+    } finally {
+      fs.rmSync(adaptiveContextDir, { recursive: true, force: true });
+    }
+  });
+
+  it("routes recognition-only spelling homework to pronunciation instead of creating no practice", () => {
+    const capturedContent = buildCapturedHomeworkContent({
+      title: "Benchmark Advance Spelling Unit 9 Week 2",
+      type: "spelling_test",
+      rawText: "",
+      words: ["above", "ago", "government", "wait"],
+      questions: [],
+      wordGroups: [
+        {
+          id: "schwa",
+          label: "Schwa",
+          purpose: "recognize",
+          words: ["above", "ago"],
+          confidence: 0.95,
+          evidence: ["Worksheet section asks Reina to recognize schwa patterns."],
+        },
+        {
+          id: "high_frequency",
+          label: "High-Frequency Words",
+          purpose: "read_fluently",
+          words: ["government", "wait"],
+          confidence: 0.9,
+          evidence: ["Worksheet section labels these as high-frequency words."],
+        },
+      ],
+      contentProfile: normalizeContentProfile({
+        title: "Benchmark Advance Spelling Unit 9 Week 2",
+        type: "spelling_test",
+        words: [],
+        questions: [],
+        contentProfile: {
+          practiceDomain: "spelling",
+          contentDomain: "language_arts",
+          topic: "Schwa Sounds and High-Frequency Words",
+          primarySkill: "recognizing schwa and reading high-frequency words",
+          assignmentFormat: "two-column word list",
+          concepts: ["Schwa", "High-frequency words"],
+        },
+      }),
+    });
+
+    const nodes = buildContentAwareHomeworkNodes({
+      homeworkId: "hw-spelling_test-recognition",
+      childId: isolatedChildId,
+      type: "spelling_test",
+      words: capturedContent.words,
+      testDate: "2026-05-15",
+      contentProfile: capturedContent.contentProfile,
+      capturedContent,
+    });
+
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      type: "pronunciation",
+      words: ["above", "ago", "government", "wait"],
+    });
+    expect(nodes[0]?.rationale).toContain("recognition/fluency");
   });
 
   it("uses Reina profile motivators without allowing generic erosion story mode", () => {

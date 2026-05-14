@@ -64,7 +64,16 @@ describe("applyHomeworkStyleNodeLocks", () => {
 });
 
 describe("displayNodesForAdventureMap", () => {
-  it("diag unlock mode leaves all non-boss nodes inspectable while boss teaser stays locked", () => {
+  it("diag unlock mode leaves practice nodes inspectable while quest and boss stay locked", () => {
+    const quest: NodeConfig = {
+      id: "quest",
+      type: "quest",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 2,
+      gameFile: "monster-stampede.html",
+    };
     const boss: NodeConfig = {
       id: "boss",
       type: "boss",
@@ -77,15 +86,18 @@ describe("displayNodesForAdventureMap", () => {
       [
         { ...wr("n1"), isCompleted: true },
         { ...sc("n2"), isLocked: true, isCompleted: true },
+        quest,
         boss,
       ],
       [],
+      true,
       true,
     );
 
     expect(out[0]?.isLocked).toBe(false);
     expect(out[1]?.isLocked).toBe(false);
     expect(out[2]?.isLocked).toBe(true);
+    expect(out[3]?.isLocked).toBe(true);
   });
 });
 
@@ -132,5 +144,129 @@ describe("applyLocalNodeResult (preview client path)", () => {
     });
     expect(next.completedNodes).toContain("n1");
     expect(next.nodes[1]?.isLocked).toBe(false);
+  });
+
+  it("reveals a pending quest ceremony after a valid preview node completion", () => {
+    const theme: MapState["theme"] = {
+      name: "t",
+      palette: { sky: "#1", ground: "#2", accent: "#3", particle: "#4", glow: "#5" },
+      ambient: { type: "dots", count: 1, speed: 1, color: "#fff" },
+      nodeStyle: "rounded",
+      pathStyle: "curve",
+      castleVariant: "stone",
+      mapWaypoints: [],
+    };
+    const quest: NodeConfig = {
+      id: "quest",
+      type: "quest",
+      isLocked: true,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 2,
+      gameFile: "quest.html",
+      masteryUnlockState: "pending_ceremony",
+      adaptiveArtifact: {
+        artifactId: "artifact-1",
+        contentId: "content-1",
+        homeworkId: "hw-1",
+        theoryId: "theory-1",
+        generationStage: "quest",
+        targetGroupIds: ["g1"],
+        homeworkWordIds: ["w1"],
+        baselineEvidenceIds: ["n1"],
+        validationStatus: "passed",
+        validationReport: {
+          passed: true,
+          score: 100,
+          failures: [],
+          warnings: [],
+          attempts: 1,
+          validatedAt: "2026-05-12T20:12:00.000Z",
+        },
+      },
+    };
+    const ms: MapState = {
+      childId: "reina",
+      sessionDate: "2026-05-12",
+      nodes: [wr("n1"), quest],
+      currentNodeIndex: 0,
+      completedNodes: [],
+      theme,
+      xp: 0,
+      level: 1,
+    };
+
+    const next = applyLocalNodeResult(ms, {
+      nodeId: "n1",
+      completed: true,
+      accuracy: 1,
+      timeSpent_ms: 1,
+      wordsAttempted: 1,
+    });
+
+    expect(next.nodes[1]?.masteryUnlockState).toBe("unlocked");
+    expect(next.nodes[1]?.isLocked).toBe(false);
+  });
+
+  it("does not reveal a quest ceremony when the adaptive artifact failed validation", () => {
+    const theme: MapState["theme"] = {
+      name: "t",
+      palette: { sky: "#1", ground: "#2", accent: "#3", particle: "#4", glow: "#5" },
+      ambient: { type: "dots", count: 1, speed: 1, color: "#fff" },
+      nodeStyle: "rounded",
+      pathStyle: "curve",
+      castleVariant: "stone",
+      mapWaypoints: [],
+    };
+    const quest: NodeConfig = {
+      id: "quest",
+      type: "quest",
+      isLocked: true,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 2,
+      gameFile: "quest.html",
+      masteryUnlockState: "pending_ceremony",
+      adaptiveArtifact: {
+        artifactId: "artifact-1",
+        contentId: "content-1",
+        homeworkId: "hw-1",
+        theoryId: "theory-1",
+        generationStage: "quest",
+        targetGroupIds: ["g1"],
+        homeworkWordIds: ["w1"],
+        baselineEvidenceIds: ["n1"],
+        validationStatus: "failed",
+        validationReport: {
+          passed: false,
+          score: 20,
+          failures: ["Missing fireAttemptEvent call for assessable interactions"],
+          warnings: [],
+          attempts: 2,
+          validatedAt: "2026-05-12T20:12:00.000Z",
+        },
+      },
+    };
+    const ms: MapState = {
+      childId: "reina",
+      sessionDate: "2026-05-12",
+      nodes: [wr("n1"), quest],
+      currentNodeIndex: 0,
+      completedNodes: [],
+      theme,
+      xp: 0,
+      level: 1,
+    };
+
+    const next = applyLocalNodeResult(ms, {
+      nodeId: "n1",
+      completed: true,
+      accuracy: 1,
+      timeSpent_ms: 1,
+      wordsAttempted: 1,
+    });
+
+    expect(next.nodes[1]?.masteryUnlockState).toBe("pending_ceremony");
+    expect(next.nodes[1]?.isLocked).toBe(true);
   });
 });

@@ -40,12 +40,31 @@ describe("map button audit", () => {
     expect(src).toContain("setLaunchedUrl(null)");
   });
 
+  it("AdventureMap forwards direct iframe narration requests for preview-safe Say It audio", () => {
+    const src = read("src/components/AdventureMap.tsx");
+    expect(src).toContain('if (t === "narration_request")');
+    expect(src).toContain('trigger: "narration_request"');
+    expect(src).toContain("forwardMapIframeCompanionEvent");
+  });
+
   it("pronunciation completion includes an explicit Back to map exit", () => {
     const mapSrc = read("src/components/AdventureMap.tsx");
     const pronunciationSrc = read("src/components/PronunciationGameCanvas.tsx");
     expect(pronunciationSrc).toContain("onExit?: () => void");
     expect(pronunciationSrc).toContain("Back to map");
     expect(mapSrc).toContain("onExit={() => clearLaunchedNode()}");
+  });
+
+  it("map-owned pronunciation completion records a node result without closing the overlay", () => {
+    const src = read("src/components/AdventureMap.tsx");
+    const start = src.indexOf("<PronunciationGameCanvas");
+    const block = src.slice(start, start + 2600);
+    expect(block).toContain("sendNodeResult");
+    expect(block).toContain('activityId: "pronunciation"');
+    expect(block).toContain("wordsAttempted: result.wordsAttempted");
+    expect(block).not.toContain(
+      "}).then(() => {\n                clearLaunchedNode();\n              });",
+    );
   });
 
   it("adapts pronunciation words from story words the child skipped or flagged", () => {

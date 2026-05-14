@@ -120,6 +120,51 @@ describe("activity tool catalog", () => {
     ]));
   });
 
+  it("catalogs Monster Stampede as whole-cohort practice, not mastery evidence", () => {
+    const monsterStampede = getActivityToolContract("monster-stampede");
+
+    expect(monsterStampede.label).toBe("Monster Stampede");
+    expect(monsterStampede.nodeType).toBe("monster-stampede");
+    expect(monsterStampede.domains).toEqual(expect.arrayContaining(["spelling", "vocabulary"]));
+    expect(monsterStampede.purposes).toEqual(expect.arrayContaining(["practice", "fluency", "reward"]));
+    expect(monsterStampede.weakFor).toEqual(expect.arrayContaining([
+      "initial-baseline",
+      "mastery-gating",
+    ]));
+    expect(monsterStampede.evidence.writesPracticeEvidence).toBe(true);
+    expect(monsterStampede.evidence.writesMasteryEvidence).toBe(false);
+    expect(monsterStampede.evidence.requiresPerTargetResult).toBe(false);
+  });
+
+  it("exposes lightweight traits for every activity so preference can learn why a child likes it", () => {
+    const pronunciation = getActivityToolContract("pronunciation");
+
+    expect(pronunciation.traits).toMatchObject({
+      friction: "low",
+      pacing: "fast",
+      scaffoldLevel: "medium",
+      evidenceType: "practice",
+    });
+    expect(pronunciation.traits.skillTargets).toEqual(expect.arrayContaining([
+      "read_fluently",
+      "pronounce",
+      "auditory_retrieval",
+    ]));
+    expect(pronunciation.traits.inputModes).toEqual(expect.arrayContaining(["voice"]));
+    expect(pronunciation.traits.preferenceDimensions).toEqual(expect.arrayContaining([
+      "voice",
+      "speed",
+      "low-writing-load",
+      "confidence",
+    ]));
+
+    for (const contract of listActivityToolContracts()) {
+      expect(contract.traits.skillTargets.length, contract.id).toBeGreaterThan(0);
+      expect(contract.traits.inputModes.length, contract.id).toBeGreaterThan(0);
+      expect(contract.traits.preferenceDimensions.length, contract.id).toBeGreaterThan(0);
+    }
+  });
+
   it("audits every contract so scaffolded tools cannot write mastery", () => {
     const audit = auditActivityToolContracts();
     const contracts = listActivityToolContracts();

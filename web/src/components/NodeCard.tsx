@@ -41,7 +41,17 @@ export function NodeCard({
   const isDone = node.isCompleted;
   const doneButReplayable = isDone && allowReplayWhenCompleted;
   const interactionLocked = isDone && !doneButReplayable;
-  const typeLabel = NODE_DISPLAY_LABELS[node.type] ?? node.type;
+	  const typeLabel = NODE_DISPLAY_LABELS[node.type] ?? node.type;
+	  const lockGlyph =
+	    lockGlyphOverride && lockGlyphOverride.length > 0
+	      ? lockGlyphOverride
+	      : node.masteryUnlockState === "preparing"
+	        ? "..."
+	        : node.masteryUnlockState === "pending_ceremony"
+	          ? "*"
+	          : node.masteryUnlockState === "teased_locked"
+	            ? "?"
+	            : "\u{1F512}";
   const size = isGoal ? 120 : 88;
   const borderColor = isGoal ? "#FCD34D" : "white";
   const borderWidth = isGoal ? 5 : 4;
@@ -201,9 +211,7 @@ export function NodeCard({
               fontSize: isGoal ? 34 : 28,
             }}
           >
-            {lockGlyphOverride && lockGlyphOverride.length > 0
-              ? lockGlyphOverride
-              : "\u{1F512}"}
+	            {lockGlyph}
           </div>
         ) : (
           <div

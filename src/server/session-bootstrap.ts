@@ -50,6 +50,8 @@ import {
   buildMapSummaryFromPendingNodes,
   MAP_SUMMARY_NATURAL_USE_INSTRUCTION,
 } from "../shared/mapSummary";
+import { ensureFreshPendingHomework } from "../scripts/homeworkSelector";
+import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 import {
   applyDebugClaudeOpeningLineForSession,
   prependDebugClaudeDeveloperBlock,
@@ -100,6 +102,229 @@ export function resolveSpellingWordListForHomework(opts: {
   return extractWordsFromHomework(opts.rawContent);
 }
 
+export function shouldLoadLegacyHomeworkFolder(opts: {
+  diagKioskFast: boolean;
+  homeworkMode: boolean;
+  subject: string;
+  pendingHomework?: {
+    homeworkId?: string | null;
+    wordList?: string[] | null;
+    nodes?: Array<{ type?: string; words?: string[] }> | null;
+  } | null;
+}): boolean {
+  if (opts.diagKioskFast) return false;
+  if (opts.homeworkMode) return true;
+  const hasPendingHomework =
+    Boolean(String(opts.pendingHomework?.homeworkId ?? "").trim()) ||
+    Boolean(opts.pendingHomework?.wordList?.length) ||
+    Boolean(opts.pendingHomework?.nodes?.length);
+  if ((opts.subject === "homework" || opts.subject === "spelling") && hasPendingHomework) {
+    return false;
+  }
+  return true;
+}
+
+function pendingHomeworkHasContent(pendingHomework?: {
+  homeworkId?: string | null;
+  wordList?: string[] | null;
+  nodes?: Array<{ type?: string; words?: string[] }> | null;
+} | null): boolean {
+  return (
+    Boolean(String(pendingHomework?.homeworkId ?? "").trim()) ||
+    Boolean(pendingHomework?.wordList?.length) ||
+    Boolean(pendingHomework?.nodes?.length)
+  );
+}
+
+export function shouldUsePendingHomeworkChildPrompt(opts: {
+  subject: string;
+  homeworkPayloadPresent: boolean;
+  pendingHomework?: {
+    homeworkId?: string | null;
+    wordList?: string[] | null;
+    nodes?: Array<{ type?: string; words?: string[] }> | null;
+  } | null;
+}): boolean {
+  if (opts.homeworkPayloadPresent) return false;
+  if (!(opts.subject === "homework" || opts.subject === "spelling")) return false;
+  return pendingHomeworkHasContent(opts.pendingHomework);
+}
+
+function compactList(items?: unknown[] | null, max = 30): string {
+  const list = (items ?? [])
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+  if (list.length <= max) return list.join(", ");
+  return `${list.slice(0, max).join(", ")} (+${list.length - max} more)`;
+}
+
+export function buildPendingHomeworkPromptContent(pendingHomework: {
+  homeworkId?: string | null;
+  weekOf?: string | null;
+  testDate?: string | null;
+  testDateSource?: string | null;
+  testDateConfirmed?: boolean | null;
+  returnTag?: string | null;
+  wordList?: string[] | null;
+  contentProfile?: {
+    topic?: string | null;
+    primarySkill?: string | null;
+    practiceDomain?: string | null;
+    assignmentFormat?: string | null;
+    concepts?: string[] | null;
+  } | null;
+  capturedContent?: {
+    title?: string | null;
+    type?: string | null;
+    words?: string[] | null;
+    wordGroups?: Array<{
+      label?: string | null;
+      purpose?: string | null;
+      words?: string[] | null;
+      confidence?: number | null;
+    }> | null;
+    assignmentInterpretation?: {
+      wordGroups?: Array<{
+        label?: string | null;
+        purpose?: string | null;
+        words?: string[] | null;
+        confidence?: number | null;
+      }> | null;
+    } | null;
+  } | null;
+  nodes?: Array<{ type?: string; words?: string[] | null }> | null;
+}): string {
+  const contentProfile = pendingHomework.contentProfile ?? null;
+  const capturedContent = pendingHomework.capturedContent ?? null;
+  const interpretedGroups =
+    capturedContent?.assignmentInterpretation?.wordGroups ??
+    capturedContent?.wordGroups ??
+    [];
+  const lines: string[] = [
+    "## Active homework cycle",
+    `homeworkId: ${pendingHomework.homeworkId ?? "unknown"}`,
+  ];
+
+  if (pendingHomework.weekOf) lines.push(`weekOf: ${pendingHomework.weekOf}`);
+  if (pendingHomework.testDate) lines.push(`testDate: ${pendingHomework.testDate}`);
+  if (pendingHomework.testDateSource) {
+    lines.push(`testDateSource: ${pendingHomework.testDateSource}`);
+  }
+  if (pendingHomework.testDateConfirmed !== undefined) {
+    lines.push(`testDateConfirmed: ${Boolean(pendingHomework.testDateConfirmed)}`);
+  }
+  if (pendingHomework.returnTag) lines.push(`returnTag: ${pendingHomework.returnTag}`);
+  if (capturedContent?.title) lines.push(`title: ${capturedContent.title}`);
+  if (capturedContent?.type) lines.push(`assignmentType: ${capturedContent.type}`);
+  if (contentProfile?.practiceDomain) {
+    lines.push(`practiceDomain: ${contentProfile.practiceDomain}`);
+  }
+  if (contentProfile?.topic) lines.push(`topic: ${contentProfile.topic}`);
+  if (contentProfile?.primarySkill) {
+    lines.push(`primarySkill: ${contentProfile.primarySkill}`);
+  }
+  if (contentProfile?.assignmentFormat) {
+    lines.push(`assignmentFormat: ${contentProfile.assignmentFormat}`);
+  }
+  if (contentProfile?.concepts?.length) {
+    lines.push(`concepts: ${compactList(contentProfile.concepts)}`);
+  }
+  if (pendingHomework.wordList?.length) {
+    lines.push(`words: ${compactList(pendingHomework.wordList)}`);
+  }
+
+  if (interpretedGroups.length > 0) {
+    lines.push("", "## Assignment interpretation");
+    for (const group of interpretedGroups) {
+      const groupMeta = [
+        group.purpose ?? "unknown",
+        typeof group.confidence === "number"
+          ? `confidence=${group.confidence.toFixed(2)}`
+          : null,
+      ].filter(Boolean).join("; ");
+      lines.push(
+        `- ${group.label ?? "word group"} (${groupMeta}): ${compactList(group.words)}`,
+      );
+    }
+  }
+
+  if (pendingHomework.nodes?.length) {
+    lines.push("", "## Planned adventure nodes");
+    for (const node of pendingHomework.nodes) {
+      lines.push(`- ${node.type ?? "unknown"}: ${compactList(node.words)}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+export function buildHomeworkSessionStartPrompt(opts: {
+  childName: string;
+  pendingHomework?: {
+    homeworkId?: string | null;
+    testDate?: string | null;
+    contentProfile?: {
+      topic?: string | null;
+      primarySkill?: string | null;
+      practiceDomain?: string | null;
+      assignmentFormat?: string | null;
+      concepts?: string[] | null;
+    } | null;
+    capturedContent?: {
+      title?: string | null;
+      type?: string | null;
+    } | null;
+    nodes?: Array<{ type?: string | null; words?: string[] | null }> | null;
+  } | null;
+}): string {
+  const pendingHomework = opts.pendingHomework ?? null;
+  const contentProfile = pendingHomework?.contentProfile ?? null;
+  const capturedContent = pendingHomework?.capturedContent ?? null;
+  const firstNode = pendingHomework?.nodes?.[0] ?? null;
+  const firstNodeWords = compactList(firstNode?.words, 6);
+  const lines = [
+    "[Session start — homework map mounted]",
+    `Speak to ${opts.childName} as the child, not the parent.`,
+    "Do not address the parent or caregiver.",
+    "Generate exactly one short sentence.",
+    "No random greeting, standard opener, capability list, or demo language.",
+    "Use this active homework context naturally:",
+    `homeworkId: ${pendingHomework?.homeworkId ?? "unknown"}`,
+  ];
+  if (pendingHomework?.testDate) lines.push(`testDate: ${pendingHomework.testDate}`);
+  if (capturedContent?.title) lines.push(`title: ${capturedContent.title}`);
+  if (capturedContent?.type) lines.push(`assignmentType: ${capturedContent.type}`);
+  if (contentProfile?.practiceDomain) {
+    lines.push(`practiceDomain: ${contentProfile.practiceDomain}`);
+  }
+  if (contentProfile?.topic) lines.push(`topic: ${contentProfile.topic}`);
+  if (contentProfile?.primarySkill) {
+    lines.push(`primarySkill: ${contentProfile.primarySkill}`);
+  }
+  if (contentProfile?.assignmentFormat) {
+    lines.push(`assignmentFormat: ${contentProfile.assignmentFormat}`);
+  }
+  if (contentProfile?.concepts?.length) {
+    lines.push(`concepts: ${compactList(contentProfile.concepts, 8)}`);
+  }
+  if (firstNode?.type) {
+    lines.push(`First map node: ${firstNode.type}`);
+  }
+  if (firstNodeWords) {
+    lines.push(`First node words: ${firstNodeWords}`);
+  }
+  lines.push("Invite the child to start the first map node when ready.");
+  return lines.join("\n");
+}
+
+export function resolveBootstrapSubject(opts: {
+  diagKioskFast: boolean;
+  envSubject?: string;
+}): ReturnType<typeof normalizeSessionSubject> {
+  const envSubject = normalizeSessionSubject(opts.envSubject);
+  return opts.diagKioskFast ? "diag" : envSubject;
+}
+
 export async function runSessionStart(
   session: any,
   hooks: SessionStartHooks = {},
@@ -121,15 +346,24 @@ export async function runSessionStart(
       `  🌟 [${ts}] Starting session: ${session.childName} with ${session.companion.name}`,
     );
 
-    const envSubject = normalizeSessionSubject(process.env.SUNNY_SUBJECT);
-    const subject =
-      (session.diagKioskFast || getSunnyMode() === "diag") ? "diag" : envSubject;
+    const subject = resolveBootstrapSubject({
+      diagKioskFast: session.diagKioskFast,
+      envSubject: process.env.SUNNY_SUBJECT,
+    });
+    const runtime = resolveSunnyRuntimeConfig(process.env);
 
     const detectedChild = session.childName;
     const homeworkChild = session.diagKioskFast
       ? session.childName
       : (parseSunnyChildEnv() ?? detectedChild ?? "Ila");
     console.log(`  👤 Child override: ${homeworkChild}`);
+
+    if (!session.diagKioskFast && subject === "homework") {
+      ensureFreshPendingHomework(String(homeworkChild).toLowerCase(), {
+        domain: runtime.homeworkDomain ?? undefined,
+      });
+      session.bustPromptCache?.();
+    }
 
     const sessionLearningProfile = !session.diagKioskFast
       ? readLearningProfile(String(homeworkChild).toLowerCase())
@@ -164,8 +398,21 @@ export async function runSessionStart(
         );
       }
 
-      // Folder-based homework — load in demo too when a folder exists (worksheet + vision)
-      homeworkPayload = await loadHomeworkPayload(homeworkChild);
+      // Folder-based homework — load in demo too when a folder exists (worksheet + vision).
+      if (
+        shouldLoadLegacyHomeworkFolder({
+          diagKioskFast: session.diagKioskFast,
+          homeworkMode: isHomeworkMode(),
+          subject,
+          pendingHomework: sessionLearningProfile?.pendingHomework,
+        })
+      ) {
+        homeworkPayload = await loadHomeworkPayload(homeworkChild);
+      } else {
+        console.log(
+          "  📚 Active pending homework found — skipping legacy homework folder",
+        );
+      }
     } else {
       console.log(
         "  ⚡ [diag-kiosk] fast path — no classifier, no homework folder, no extraction",
@@ -332,6 +579,70 @@ export async function runSessionStart(
       );
       console.log(`  📚 Subject mode: ${subject}`);
       session.send("loading_status", { message: "Starting demo session..." });
+    } else if (
+      shouldUsePendingHomeworkChildPrompt({
+        subject,
+        homeworkPayloadPresent: Boolean(homeworkPayload),
+        pendingHomework: sessionLearningProfile?.pendingHomework,
+      })
+    ) {
+      const pendingHomework = sessionLearningProfile.pendingHomework;
+      session.send("loading_status", {
+        message: "Preparing homework adventure...",
+      });
+      const homeworkForPrompt = buildPendingHomeworkPromptContent(pendingHomework);
+      const extractSpellingWords = subject === "spelling" || subject === "homework";
+      const wordList = resolveSpellingWordListForHomework({
+        worksheetMode: false,
+        extractSpellingWords,
+        pendingWordList: pendingHomework.wordList,
+        pendingNodes: pendingHomework.nodes,
+        rawContent: homeworkForPrompt,
+      });
+
+      if (extractSpellingWords && wordList.length > 0) {
+        console.log(`  📋 Spelling words extracted: ${wordList.join(", ")}`);
+        session.spellingHomeworkWordsByNorm = [
+          ...new Set(
+            wordList.map((w) => String(w).toLowerCase().trim()).filter(Boolean),
+          ),
+        ];
+      } else {
+        session.spellingHomeworkWordsByNorm = [];
+      }
+      session.refreshSpellingHomeworkGate();
+
+      const sessionPrompt = isDebugClaude()
+        ? buildDebugPrompt(
+            homeworkChild,
+            session.companion.name,
+            generateCanvasCapabilitiesManifest(),
+            generateToolDocs(),
+          )
+        : await buildSessionPrompt(
+            homeworkChild,
+            session.companion.markdownPath,
+            homeworkForPrompt,
+            wordList,
+            subject,
+          );
+      const homeworkCompanionSystemPrompt = isDebugClaude()
+        ? sessionPrompt
+        : prependDebugClaudeDeveloperBlock(sessionPrompt);
+      sessionSystemPromptSnapshot = homeworkCompanionSystemPrompt;
+      session.companion = {
+        ...session.companion,
+        systemPrompt: homeworkCompanionSystemPrompt,
+      };
+      session.isSpellingSession = extractSpellingWords;
+      console.log(
+        `  🎮 [homework-pending] child prompt active homework=${pendingHomework.homeworkId ?? "unknown"} words=${wordList.length}`,
+      );
+      console.log(`  ✅ Session prompt ready (${sessionPrompt.length} chars)`);
+      if (session.isSpellingSession) {
+        console.log("  📝 Spelling session mode active");
+      }
+      console.log(`  📚 Subject mode: ${subject}`);
     } else if (homeworkPayload) {
       console.log(
         `  📚 Homework loaded for ${homeworkChild}: ` +
@@ -346,7 +657,7 @@ export async function runSessionStart(
         homeworkPayload.folderPath,
         "extraction.json",
       );
-      /** Jamal / true diag map: kiosk prompt, no worksheet extraction pipeline. */
+      /** Creator / true diag map: kiosk prompt, no worksheet extraction pipeline. */
       const useDiagHomeworkPrompt = isDiagMapMode() || subject === "diag";
       /** Impersonate child: same buildSessionPrompt as production, but no psychologist API and no extraction.json writes (cache read-only if present). */
       const playtestAsChild = getSunnyMode() === "as-child";
@@ -1051,14 +1362,33 @@ This is a safe space to test everything.
         await session.handleEndOfTurn(
           `[Session started at: ${sessionTime}]\n\n` +
             "[Session start — diagnostics] The current time is above. " +
-            "dateTime has already been resolved for this session — do not call the dateTime tool unless Jamal explicitly asks for the time or date again.\n\n" +
-            "At most two short sentences: (1) greet Jamal as your creator using the time of day naturally, (2) ask who is with him. " +
+            "dateTime has already been resolved for this session — do not call the dateTime tool unless the creator/developer explicitly asks for the time or date again.\n\n" +
+            "At most two short sentences: (1) greet the creator/developer using the time of day naturally, (2) ask who is with them. " +
             "Stop — do not list capabilities or adventure map modes unless he asks.",
           true,
         );
       }
     } else {
-      await session.handleCompanionTurn(session.companion.openingLine);
+      const openingLine = session.companion.openingLine.trim();
+      if (openingLine) {
+        await session.handleCompanionTurn(openingLine);
+      } else if (
+        (subject === "homework" || subject === "spelling") &&
+        sessionLearningProfile?.pendingHomework
+      ) {
+        console.log(
+          "  🎮 [session-bootstrap] [context-start] homework opener requested",
+        );
+        await session.handleEndOfTurn(
+          buildHomeworkSessionStartPrompt({
+            childName: String(homeworkChild),
+            pendingHomework: sessionLearningProfile.pendingHomework,
+          }),
+          true,
+        );
+      } else {
+        console.log("  🎮 [session-bootstrap] [opening-line] skipped");
+      }
     }
 
     if (session.diagKioskFast && session.childName === "creator") {

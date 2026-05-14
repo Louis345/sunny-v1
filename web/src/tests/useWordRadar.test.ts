@@ -310,6 +310,34 @@ describe("useWordRadar", () => {
     expect(r.rawResults[0]?.attempts).toBe(2);
   });
 
+  it("counts weak-but-correct responses toward accuracy", async () => {
+    const onFinish = vi.fn();
+    const { result, rerender } = renderHook(
+      (props: { interim: string }) =>
+        useWordRadar({
+          items: [catItem],
+          interimTranscript: props.interim,
+          personalBests: {},
+          onFinish,
+        }),
+      { initialProps: { interim: "" } },
+    );
+    await enterResponse();
+    await act(async () => {
+      result.current.handleTryAgain();
+    });
+    rerender({ interim: "cat" });
+    await flushMicrotasks();
+    await act(async () => {
+      vi.advanceTimersByTime(WORD_RADAR_FEEDBACK_MS + WORD_RADAR_END_SCREEN_MS);
+    });
+
+    const r = onFinish.mock.calls[0]![0] as WordRadarResult;
+    expect(r.weakItems).toHaveLength(1);
+    expect(r.accuracy).toBe(1);
+  });
+
+
   it("timer expiry auto-advances and marks unknown without any button tap", async () => {
     const onEvent = vi.fn();
     const onFinish = vi.fn();
@@ -741,7 +769,7 @@ describe("useWordRadar", () => {
     expect(r.weakItems).toHaveLength(1);
   });
 
-  it("accuracy = knownItems.length / totalItems", async () => {
+  it("accuracy = correct raw results / totalItems", async () => {
     const onFinish = vi.fn();
     const { rerender } = renderHook(
       (props: { interim: string }) =>

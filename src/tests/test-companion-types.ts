@@ -1,4 +1,5 @@
 import { beforeEach, describe, it, expect } from "vitest";
+import { ELLI, MATILDA } from "../companions/loader";
 import { buildProfile } from "../profiles/buildProfile";
 import { clearChildrenConfigCache } from "../profiles/childrenConfig";
 import { isCompanionEmote } from "../shared/companionEmotes";
@@ -92,6 +93,11 @@ describe("companion types (COMPANION-001)", () => {
   it("default vrmUrl and toggledOff", () => {
     expect(COMPANION_DEFAULTS.vrmUrl).toBe("/companions/sample.vrm");
     expect(COMPANION_DEFAULTS.toggledOff).toBe(false);
+  });
+
+  it("child companions do not auto-greet before the session has context", () => {
+    expect(ELLI.openingLine).toBe("");
+    expect(MATILDA.openingLine).toBe("");
   });
 
   it("isCompanionEmote accepts expressCompanion enum and rejects unknown", () => {

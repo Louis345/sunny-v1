@@ -508,6 +508,8 @@ describe("sessionLog skipped → deferred context line", () => {
       sessionStatus: vi.fn(async () => ({})),
       spinWheel: vi.fn(async () => ({ ok: true })),
       sessionEnd: vi.fn(async () => ({})),
+      recordChildSignal: vi.fn(async () => ({ ok: true })),
+      recordProductIssue: vi.fn(async () => ({ ok: true })),
       expressCompanion: vi.fn(async () => ({ ok: true })),
     };
     const tools = createSixTools(host);

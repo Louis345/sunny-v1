@@ -23,11 +23,12 @@ import {
   broadcastTestMapCompanionEvent,
   handleMapClientMessage,
   MapSessionError,
-  purchaseStoryMovieReward,
-  recordExplicitMapRating,
-  startMapSession,
-  listSavedThemes,
-} from "./map-coordinator";
+	  purchaseStoryMovieReward,
+	  recordExplicitMapRating,
+	  recordMapChoiceEvent,
+	  startMapSession,
+	  listSavedThemes,
+	} from "./map-coordinator";
 import {
   tryPushCreatorDiagPronunciation,
   tryPushCreatorDiagReadingKaraoke,
@@ -66,10 +67,19 @@ import {
   type HomeworkTargetPurpose,
 } from "../scripts/contentAwareHomeworkPlanner";
 import { generateQuestGameHtml } from "../scripts/generateGame";
+import { validateGeneratedGame } from "../scripts/validateGeneratedGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 import { readHomeworkCycle } from "../engine/homeworkCycleLoop";
+import {
+  attachArtifactToHomeworkNode,
+  catalogAdaptiveQuestArtifact,
+  type AdaptiveQuestArtifact,
+  generateAdaptiveQuestArtifact,
+  markAdaptiveArtifactValidation,
+} from "../engine/adaptiveQuestArtifact";
+import { upsertProfileContentCatalog } from "../engine/learningDecisionContext";
 import {
   buildAdaptiveEvidenceSnapshot,
   questGateFromSnapshot,
@@ -1001,16 +1011,126 @@ Return plain text only.`,
           node.type === "boss"
             ? cycle?.bossTheory?.markdown ?? cycle?.theory?.markdown
             : cycle?.theory?.markdown ?? cycle?.assumptions ?? undefined;
+        if (!cycle) {
+          return res.status(404).json({ ok: false, error: "homework_cycle_not_found" });
+        }
+        const theory = node.type === "boss"
+          ? cycle.bossTheory ?? cycle.theory
+          : cycle.theory;
+        const generatedName = node.gameFile || `${node.type}-${date}.html`;
+        let artifact: AdaptiveQuestArtifact;
+        try {
+          artifact = generateAdaptiveQuestArtifact({
+            childChart: getChildChart(childId),
+            homeworkCycle: cycle,
+            assignmentInterpretation: cycle.capturedContent?.assignmentInterpretation,
+            carePlan: null,
+            theory,
+            baselineEvidence: (cycle.interventionHistory ?? []).filter((item) =>
+              node.type === "boss"
+                ? item.nodeType !== "boss"
+                : item.nodeType !== "quest" && item.nodeType !== "boss",
+            ),
+            contentCatalogMemory: profile.aiContentCatalog ?? [],
+            generationStage: node.type,
+            generatedPath: generatedName,
+          });
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          return res.status(409).json({ ok: false, error: "adaptive_artifact_blocked", reason: message });
+        }
         const client = new Anthropic();
-        const html = await generateQuestGameHtml({
+        const errorSignals = scanChildErrorPatterns(childId).patterns;
+        const buildGenerationPayload = (validationFeedback?: Record<string, unknown>) =>
+          JSON.stringify({
+            ...extracted,
+            feedback,
+            adaptiveArtifactBrief: artifact.brief,
+            ...(validationFeedback ? { validationFeedback } : {}),
+          }, null, 2);
+        let html = await generateQuestGameHtml({
           client,
-          extractedJsonPretty: JSON.stringify({ ...extracted, feedback }, null, 2),
+          extractedJsonPretty: buildGenerationPayload(),
           learningTheory,
-          errorSignals: scanChildErrorPatterns(childId).patterns,
+          errorSignals,
         });
-        newFile = node.gameFile || `${node.type}-${date}.html`;
-        fs.writeFileSync(path.join(pendingDir, newFile), ensureQuestHtmlContract(html), "utf8");
-        node.gameFile = newFile;
+        let contractedHtml = ensureQuestHtmlContract(html);
+        let attempts = 1;
+        let validation = validateGeneratedGame(contractedHtml, {
+          words: artifact.targetWords,
+          homeworkType: cycle.subject,
+          childId,
+          generationStage: node.type,
+        });
+        if (!validation.passed && validation.shouldRegenerate) {
+          attempts = 2;
+          console.log(
+            `  🎮 [generated-game-validation] [retry] child=${childId} node=${node.type} failures=${validation.failures.join(" | ")}`,
+          );
+          html = await generateQuestGameHtml({
+            client,
+            extractedJsonPretty: buildGenerationPayload({
+              failures: validation.failures,
+              warnings: validation.warnings,
+              instruction: "Revise the generated HTML so it passes Sunny's game contract validation.",
+            }),
+            learningTheory,
+            errorSignals,
+          });
+          contractedHtml = ensureQuestHtmlContract(html);
+          validation = validateGeneratedGame(contractedHtml, {
+            words: artifact.targetWords,
+            homeworkType: cycle.subject,
+            childId,
+            generationStage: node.type,
+          });
+        }
+        const validationReport = {
+          passed: validation.passed,
+          score: validation.score,
+          failures: [...validation.failures],
+          warnings: [...validation.warnings],
+          attempts,
+          validatedAt: new Date().toISOString(),
+        };
+        artifact = markAdaptiveArtifactValidation(artifact, {
+          ...validationReport,
+          status: validation.passed
+            ? validation.warnings.length
+              ? "warning"
+              : "passed"
+            : "failed",
+        });
+        if (!validation.passed) {
+          const failedCatalogItem = {
+            ...catalogAdaptiveQuestArtifact(artifact, {
+              childId,
+              title: `${cycle.capturedContent?.title ?? homeworkId} ${node.type} failed validation`,
+            }),
+            reuseStatus: "retire" as const,
+            reuseReason: `Generated ${node.type} failed validation and was not made playable.`,
+          };
+          const nextProfile = upsertProfileContentCatalog(profile, [failedCatalogItem]);
+          Object.assign(profile, nextProfile);
+          writeLearningProfile(childId, profile);
+          console.log(
+            `  🎮 [generated-game-validation] [blocked] child=${childId} node=${node.type} score=${validation.score}`,
+          );
+          return res.status(409).json({
+            ok: false,
+            error: "generated_game_validation_failed",
+            validationReport,
+          });
+        }
+        newFile = generatedName;
+        fs.writeFileSync(path.join(pendingDir, newFile), contractedHtml, "utf8");
+        Object.assign(node, attachArtifactToHomeworkNode(node as never, artifact));
+        const catalogItem = catalogAdaptiveQuestArtifact(artifact, {
+          childId,
+          title: `${cycle.capturedContent?.title ?? homeworkId} ${node.type}`,
+        });
+        const nextProfile = upsertProfileContentCatalog(profile, [catalogItem]);
+        Object.assign(profile, nextProfile);
       } else {
         return res.json({ ok: true, newFile: "" });
       }
@@ -1206,14 +1326,28 @@ Return plain text only.`,
         });
         return res.json({ events });
       }
-      if (body.phase === "rating" && typeof body.nodeId === "string") {
-        const raw = body.rating;
-        const norm: "like" | "dislike" | null =
-          raw === "like" ? "like" : raw === "dislike" ? "dislike" : null;
-        await recordExplicitMapRating(sessionId, body.nodeId, norm);
-        return res.json({ ok: true });
-      }
-      if (body.result) {
+	      if (body.phase === "rating" && typeof body.nodeId === "string") {
+	        const raw = body.rating;
+	        const norm: "like" | "dislike" | null =
+	          raw === "like" ? "like" : raw === "dislike" ? "dislike" : null;
+	        await recordExplicitMapRating(sessionId, body.nodeId, norm);
+	        return res.json({ ok: true });
+	      }
+	      if (
+	        body.phase === "choice_event" &&
+	        body.payload != null &&
+	        typeof body.payload === "object"
+	      ) {
+	        const pv = body.preview;
+	        const skipPersistence = pv === "free" || pv === "go-live" || pv === true;
+	        const out = await recordMapChoiceEvent(
+	          sessionId,
+	          body.payload as Parameters<typeof recordMapChoiceEvent>[1],
+	          { skipPersistence },
+	        );
+	        return res.json(out);
+	      }
+	      if (body.result) {
         const pv = body.preview;
         const clientPreviewFreeOrGoLive =
           pv === "free" || pv === "go-live" || pv === true;

@@ -12,6 +12,9 @@ import type { AttemptInput, ScaffoldLevel } from "../algorithms/types";
 import { appendAttemptLine } from "../utils/attempts";
 import { getReward } from "./games/registry";
 import * as gev from "./game-event-handler";
+import { recordChildSignal } from "../engine/childSignals";
+import { recordProductIssue } from "../engine/productIssues";
+import { shouldPersistSessionData } from "../utils/runtimeMode";
 
 export async function hostCanvasShow(
   session: any,
@@ -343,8 +346,72 @@ export async function hostSessionStatus(session: any): Promise<Record<string, un
       wordBuilderRound: session.wbActive && session.wbRound > 0 ? session.wbRound : null,
       lastChildUtterance: session.lastTranscript || null,
       currentActivityState: session.currentActivityState ?? null,
-    };
-  }
+  };
+}
+
+export async function hostRecordChildSignal(
+  session: any,
+  args: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const childId = childIdFromName(session.childName);
+  const result = recordChildSignal(
+    {
+      childId,
+      activityId: String(args.activityId ?? session.currentActivityState?.game ?? "unknown_activity"),
+      domain: String(args.domain ?? session.ctx?.sessionType ?? "general"),
+      signalType: args.signalType as never,
+      dimension: args.dimension as never,
+      valence: args.valence as never,
+      confidence: Number(args.confidence),
+      evidenceText: String(args.evidenceText ?? ""),
+      source: args.source as never,
+      sessionId: String(args.sessionId ?? session.sessionId ?? ""),
+      ...(args.nodeId ? { nodeId: String(args.nodeId) } : {}),
+      ...(args.choiceSetId ? { choiceSetId: String(args.choiceSetId) } : {}),
+    },
+    { skipPersistence: !shouldPersistSessionData() },
+  );
+  return {
+    ok: true,
+    persisted: result.persisted,
+    childSignalId: result.record.childSignalId,
+  };
+}
+
+export async function hostRecordProductIssue(
+  session: any,
+  args: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const childId = childIdFromName(session.childName);
+  const activityState =
+    session.currentActivityState && typeof session.currentActivityState === "object"
+      ? session.currentActivityState
+      : null;
+  const result = recordProductIssue(
+    {
+      childId,
+      activityId: String(args.activityId ?? activityState?.game ?? "unknown_activity"),
+      issueType: args.issueType as never,
+      severity: args.severity as never,
+      childUtterance: String(args.childUtterance ?? ""),
+      evidenceText: String(args.evidenceText ?? ""),
+      confidence: Number(args.confidence),
+      source: args.source as never,
+      sessionId: String(args.sessionId ?? session.sessionId ?? ""),
+      ...(args.nodeId ? { nodeId: String(args.nodeId) } : {}),
+      ...(args.choiceSetId ? { choiceSetId: String(args.choiceSetId) } : {}),
+      ...(args.screenshotId ? { screenshotId: String(args.screenshotId) } : {}),
+      turnState: String(session.turnSM?.getState?.() ?? ""),
+      activityState,
+    },
+    { skipPersistence: !shouldPersistSessionData() },
+  );
+  return {
+    ok: true,
+    persisted: result.persisted,
+    productIssueId: result.record.productIssueId,
+  };
+}
 
 export async function hostSessionEnd(
   session: any,

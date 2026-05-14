@@ -1,6 +1,12 @@
 import { normalizeNumberWord } from "./numberWords";
 
 export type KaraokeWordClass = "match" | "partial" | "mismatch";
+export type KaraokeMatchMode = "speech" | "spelling";
+
+export interface KaraokeMatchOptions {
+  /** Speech tolerates STT orthography; spelling measures the actual written target. */
+  mode?: KaraokeMatchMode;
+}
 
 /** Dyslexia-friendly confusions — paired letters fold to one canonical form. */
 export const CONFUSION_PAIRS: [string, string][] = [
@@ -25,6 +31,12 @@ export function applyConfusionPairs(word: string): string {
 
 const STT_HOMOPHONE_GROUPS = [
   ["wear", "where"],
+  ["be", "bee"],
+  ["by", "buy", "bye"],
+  ["for", "fore", "four"],
+  ["one", "won"],
+  ["there", "their", "theyre"],
+  ["to", "too", "two"],
 ] as const;
 
 const STT_HOMOPHONE_CANONICAL = new Map<string, string>(
@@ -35,6 +47,62 @@ const STT_HOMOPHONE_CANONICAL = new Map<string, string>(
 
 function normalizeSttHomophone(word: string): string {
   return STT_HOMOPHONE_CANONICAL.get(word) ?? word;
+}
+
+function hasAmbiguousSpeechSpelling(word: string): boolean {
+  return (
+    STT_HOMOPHONE_CANONICAL.has(word) ||
+    /(?:air|are|ear|eir|ere|ee|ea|ei|ie|ey|igh|ai|ay|oa|oe|ow|oo|ou|ew|ue|augh|ough|ph|gh|ck|kn|gn|pn|wr|wh|mb$|bt$|lk$|lm$|tion|sion)/.test(
+      word,
+    )
+  );
+}
+
+function speechPhoneticKey(word: string): string {
+  const closedClass = normalizeSttHomophone(word);
+  if (closedClass !== word) return closedClass;
+
+  return word
+    .replace(/^kn|^gn|^pn/, "n")
+    .replace(/^wr/, "r")
+    .replace(/^wh(?=o)/, "h")
+    .replace(/^wh/, "w")
+    .replace(/qu/g, "kw")
+    .replace(/ph/g, "f")
+    .replace(/ck/g, "k")
+    .replace(/mb$/g, "m")
+    .replace(/gh(?=$|t)/g, "")
+    .replace(/(?:air|are|ear|eir|ere)/g, "er")
+    .replace(/(?:eigh|ai|ay)/g, "a")
+    .replace(/(?:ee|ea|ei|ie|ey)/g, "i")
+    .replace(/(?:oa|oe|ow)/g, "o")
+    .replace(/(?:oo|ou|ew|ue)/g, "u")
+    .replace(/igh/g, "i")
+    .replace(/c(?=[eiy])/g, "s")
+    .replace(/c/g, "k")
+    .replace(/g(?=[eiy])/g, "j")
+    .replace(/x/g, "ks")
+    .replace(/e$/, "")
+    .replace(/([^aeiou])\1+/g, "$1");
+}
+
+function speechPhoneticEquivalent(heard: string, expected: string): boolean {
+  if (!/^[a-z]+$/.test(heard) || !/^[a-z]+$/.test(expected)) return false;
+  if (normalizeSttHomophone(heard) === normalizeSttHomophone(expected)) {
+    return true;
+  }
+  if (Math.min(heard.length, expected.length) < 3) {
+    return false;
+  }
+  if (
+    !hasAmbiguousSpeechSpelling(heard) &&
+    !hasAmbiguousSpeechSpelling(expected)
+  ) {
+    return false;
+  }
+  const heardKey = speechPhoneticKey(heard);
+  const expectedKey = speechPhoneticKey(expected);
+  return heardKey.length >= 2 && heardKey === expectedKey;
 }
 
 function levenshtein1OrLess(a: string, b: string): boolean {
@@ -68,10 +136,17 @@ function levenshtein1OrLess(a: string, b: string): boolean {
 export function classifyKaraokeWordMatch(
   heard: string,
   expected: string,
+  options: KaraokeMatchOptions = {},
 ): KaraokeWordClass {
+  const mode = options.mode ?? "speech";
+
   // Step 1: clean
   const cleanH = heard.toLowerCase().replace(/[^a-z0-9]/g, "");
   const cleanE = expected.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  if (mode === "speech" && speechPhoneticEquivalent(cleanH, cleanE)) {
+    return "match";
+  }
 
   // Step 2: normalize numbers (word → digit)
   const normH = normalizeNumberWord(cleanH);
@@ -80,17 +155,17 @@ export function classifyKaraokeWordMatch(
   // Step 3: exact match after normalization
   if (normH === normE) return "match";
 
-  // Step 4: targeted STT homophones — speech recognition cannot reliably spell these.
-  if (
-    /^[a-z]+$/.test(normH) &&
-    /^[a-z]+$/.test(normE) &&
-    normalizeSttHomophone(normH) === normalizeSttHomophone(normE)
-  ) {
+  // Step 4: speech equivalence — STT cannot reliably choose the intended spelling.
+  if (mode === "speech" && speechPhoneticEquivalent(normH, normE)) {
     return "match";
   }
 
-  // Step 5: confusion pairs (dyslexia — only for pure alpha words)
-  if (/^[a-z]+$/.test(normH) && /^[a-z]+$/.test(normE)) {
+  // Step 5: confusion pairs (dyslexia — only for pure alpha speech practice)
+  if (
+    mode === "speech" &&
+    /^[a-z]+$/.test(normH) &&
+    /^[a-z]+$/.test(normE)
+  ) {
     if (applyConfusionPairs(normH) === applyConfusionPairs(normE)) {
       return "match";
     }
@@ -113,7 +188,7 @@ export function classifyKaraokeWordMatch(
   if (normE.length <= 4) return "mismatch";
 
   // Step 7: at most one edit for longer tokens (STT / pronunciation slack)
-  if (levenshtein1OrLess(normH, normE)) return "match";
+  if (mode === "speech" && levenshtein1OrLess(normH, normE)) return "match";
 
   return "mismatch";
 }
@@ -122,6 +197,10 @@ export function classifyKaraokeWordMatch(
  * Karaoke word match: strict for short expected tokens (avoids "Matt" → mat),
  * at most one Levenshtein edit for longer words (STT / kid pronunciation slack).
  */
-export function matchKaraokeWord(heard: string, expected: string): boolean {
-  return classifyKaraokeWordMatch(heard, expected) === "match";
+export function matchKaraokeWord(
+  heard: string,
+  expected: string,
+  options?: KaraokeMatchOptions,
+): boolean {
+  return classifyKaraokeWordMatch(heard, expected, options) === "match";
 }

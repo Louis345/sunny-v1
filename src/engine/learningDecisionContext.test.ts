@@ -302,6 +302,46 @@ describe("LearningDecisionContext", () => {
     expect(persisted.activityModel?.["countdown-comprehension"]?.plays).toBe(1);
   });
 
+  it("updates bounded adaptive load from strong and weak activity evidence", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, baseProfile(childId));
+
+    const strong = appendChildActivityEvidence(childId, {
+      activityId: "monster-stampede",
+      domain: "spelling",
+      completed: true,
+      accuracy: 0.95,
+      engagementScore: 0.9,
+      frustrationScore: 0.05,
+      targetCount: 5,
+      timeSpent_ms: 25_000,
+      occurredAt: "2026-05-02T13:00:00.000Z",
+    }, { rootDir: root });
+
+    expect(strong.adaptiveLoadState?.spelling?.currentCohortSize).toBe(10);
+    expect(strong.adaptiveLoadState?.spelling?.challengeRecommendation).toBe("expand_cohort");
+    expect(strong.adaptiveLoadState?.spelling?.lastLoadEvidence.activityId).toBe("monster-stampede");
+
+    const weak = appendChildActivityEvidence(childId, {
+      activityId: "letter-rush",
+      domain: "spelling",
+      completed: false,
+      accuracy: 0.4,
+      engagementScore: 0.3,
+      frustrationScore: 0.8,
+      targetCount: 10,
+      timeSpent_ms: 90_000,
+      missedWords: ["above"],
+      occurredAt: "2026-05-02T13:10:00.000Z",
+    }, { rootDir: root });
+
+    expect(weak.adaptiveLoadState?.spelling?.currentCohortSize).toBe(5);
+    expect(weak.adaptiveLoadState?.spelling?.challengeRecommendation).toBe("targeted_support");
+    expect(weak.adaptiveLoadState?.spelling?.lastLoadEvidence.strongEvidence).toBe(false);
+  });
+
   it("records graded homework calibration so theory can be supported or falsified by reality", () => {
     const root = makeRoot();
     roots.push(root);
@@ -544,6 +584,48 @@ describe("LearningDecisionContext", () => {
     expect(candidates[0]?.homeworkId).toBe("hw-reading-erosion");
     expect(candidates[0]?.confidence).toBeGreaterThan(candidates[1]?.confidence ?? 0);
     expect(candidates[0]?.evidence.join(" ")).toContain("same source filename");
+  });
+
+  it("ranks a returned graded upload by homework return tag even when filenames differ", () => {
+    const taggedCycle = erosionCycle({
+      homeworkId: "hw-spelling_test-bb11de93",
+      subject: "spelling_test",
+      wordList: ["above", "ago"],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "schwa words",
+        primarySkill: "spelling",
+        assignmentFormat: "word_list",
+        concepts: ["schwa"],
+        sourceEvidence: ["fixture"],
+      },
+      capturedContent: null,
+      testDate: "2026-05-15",
+      returnTag: "#sunny_reina_hw_spelling_test_bb11de93",
+    });
+    const otherCycle = erosionCycle({
+      homeworkId: "hw-spelling_test-other",
+      subject: "spelling_test",
+      wordList: ["above", "ago"],
+      capturedContent: null,
+      testDate: "2026-05-15",
+    });
+
+    const candidates = rankHomeworkCycleCandidates({
+      childId: "reina",
+      sourceFile: "/Users/jamaltaylor/Downloads/returned-test-photo.txt",
+      title: "returned test photo",
+      rawText: "Teacher returned #sunny_reina_hw_spelling_test_bb11de93 with one miss.",
+      words: [],
+      concepts: [],
+      questions: [],
+      testDate: null,
+      gradedItems: [],
+    }, [otherCycle, taggedCycle]);
+
+    expect(candidates[0]?.homeworkId).toBe("hw-spelling_test-bb11de93");
+    expect(candidates[0]?.evidence.join(" ")).toContain("return tag");
   });
 
   it("upload dry-run ranks prior assignments and writes no calibration or unmatched file", async () => {

@@ -28,8 +28,11 @@ export type ActivityEvidence = {
   domain: string;
   completed: boolean;
   accuracy: number;
+  targetCount?: number;
+  timeSpent_ms?: number;
   engagementScore?: number;
   frustrationScore?: number;
+  liked?: boolean | null;
   missedWords?: string[];
   occurredAt?: string;
   contentId?: string;
@@ -56,6 +59,17 @@ export type HomeworkCatalogNode = {
   storyTitle?: string;
   storyImagePrompt?: string;
   gameFile?: string | null;
+  adaptiveArtifact?: {
+    artifactId: string;
+    contentId: string;
+    homeworkId: string;
+    theoryId: string;
+    generationStage: "quest" | "boss";
+    targetGroupIds: string[];
+    homeworkWordIds: string[];
+    baselineEvidenceIds: string[];
+    generatedPath?: string;
+  };
 };
 
 export type HomeworkCatalogBaselineActivity = {
@@ -72,6 +86,7 @@ export type LearningDecisionContext = {
     links: ChildChart["links"];
     wordBankSummary: ChildChart["wordBankSummary"];
     economy: ChildChart["economy"];
+    activeSessionPlan: ChildChart["activeSessionPlan"];
   };
   profile: {
     age: number;
@@ -322,6 +337,12 @@ export function buildHomeworkContentCatalogItems(args: {
       engagementHooks: [],
       inputEvidence: {
         contentFingerprint: args.contentFingerprint,
+        ...(node.adaptiveArtifact
+          ? {
+              patternIds: [node.adaptiveArtifact.theoryId, ...node.adaptiveArtifact.targetGroupIds],
+              activityEvidenceIds: node.adaptiveArtifact.baselineEvidenceIds,
+            }
+          : {}),
       },
       reuseStatus: "candidate",
       reuseReason: node.rationale ?? "Cataloged from the homework node plan.",
@@ -431,6 +452,7 @@ export function buildLearningDecisionContext(
       links: chart.links,
       wordBankSummary: chart.wordBankSummary,
       economy: chart.economy,
+      activeSessionPlan: chart.activeSessionPlan,
     },
     profile: {
       age: profile.demographics.age,
@@ -460,6 +482,67 @@ export function buildLearningDecisionContext(
   };
 }
 
+function normalizedDomain(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "_") || "general";
+}
+
+function updateAdaptiveLoadState(
+  profile: LearningProfile,
+  evidence: ActivityEvidence,
+  opts: RootOptions,
+): LearningProfile["adaptiveLoadState"] {
+  const domain = normalizedDomain(evidence.domain);
+  const priorAll = profile.adaptiveLoadState ?? {};
+  const prior = priorAll[domain];
+  const accuracy = clamp01(evidence.accuracy, 0);
+  const targetCount = Math.max(0, Math.floor(evidence.targetCount ?? 0));
+  const frustrationScore = clamp01(evidence.frustrationScore ?? 0, 0);
+  const strongEvidence =
+    evidence.completed &&
+    accuracy >= 0.85 &&
+    targetCount >= 3 &&
+    frustrationScore < 0.5;
+  const weakEvidence =
+    !evidence.completed || accuracy < 0.65 || frustrationScore >= 0.65;
+  const priorSize = Math.max(1, Math.floor(prior?.currentCohortSize ?? 5));
+  let currentCohortSize = priorSize;
+  let challengeRecommendation: NonNullable<
+    LearningProfile["adaptiveLoadState"]
+  >[string]["challengeRecommendation"] = "maintain";
+  if (strongEvidence) {
+    currentCohortSize = Math.min(10, Math.max(priorSize, targetCount >= 5 ? 10 : 5));
+    challengeRecommendation =
+      currentCohortSize > priorSize ? "expand_cohort" : "harder_valid_node";
+  } else if (weakEvidence) {
+    currentCohortSize = Math.min(5, priorSize);
+    challengeRecommendation = "targeted_support";
+  }
+  return {
+    ...priorAll,
+    [domain]: {
+      domain,
+      currentCohortSize,
+      maxRecentSuccessfulCohort: strongEvidence
+        ? Math.max(
+            prior?.maxRecentSuccessfulCohort ?? 0,
+            currentCohortSize,
+            targetCount,
+          )
+        : prior?.maxRecentSuccessfulCohort ?? 0,
+      challengeRecommendation,
+      lastLoadEvidence: {
+        activityId: evidence.activityId,
+        completed: evidence.completed,
+        accuracy,
+        targetCount,
+        frustrationScore,
+        strongEvidence,
+        occurredAt: evidence.occurredAt ?? isoNow(opts),
+      },
+    },
+  };
+}
+
 export function appendChildActivityEvidence(
   childId: string,
   evidence: ActivityEvidence,
@@ -473,26 +556,51 @@ export function appendChildActivityEvidence(
   const completions = (prior?.completions ?? 0) + (evidence.completed ? 1 : 0);
   const avg = (oldValue: number | undefined, nextValue: number | undefined, fallback: number) =>
     round((((oldValue ?? fallback) * (plays - 1)) + clamp01(nextValue ?? fallback, fallback)) / plays);
+  const avgRaw = (oldValue: number | undefined, nextValue: number | undefined) => {
+    if (nextValue == null || !Number.isFinite(nextValue)) return oldValue;
+    return round((((oldValue ?? nextValue) * (plays - 1)) + nextValue) / plays);
+  };
   const domains = { ...(prior?.domains ?? {}) };
-  domains[evidence.domain] = (domains[evidence.domain] ?? 0) + 1;
+  const domain = normalizedDomain(evidence.domain);
+  domains[domain] = (domains[domain] ?? 0) + 1;
   const missedWords = [
     ...new Set([...(prior?.missedWords ?? []), ...(evidence.missedWords ?? [])]
       .map((word) => word.trim())
       .filter(Boolean)),
   ].slice(-20);
+  const targetCount = Math.max(0, Math.floor(evidence.targetCount ?? 0));
+  const timePerTarget =
+    targetCount > 0 && evidence.timeSpent_ms != null
+      ? Math.max(0, Math.round(evidence.timeSpent_ms / targetCount))
+      : undefined;
+  const averageTimePerTarget_ms = avgRaw(prior?.averageTimePerTarget_ms, timePerTarget);
   activityModel[evidence.activityId] = {
     activityId: evidence.activityId,
     plays,
     completions,
     completionRate: round(completions / plays),
     averageAccuracy: avg(prior?.averageAccuracy, evidence.accuracy, 0),
+    ...(averageTimePerTarget_ms != null ? { averageTimePerTarget_ms } : {}),
     engagementScore: avg(prior?.engagementScore, evidence.engagementScore, 0.5),
     frustrationScore: avg(prior?.frustrationScore, evidence.frustrationScore, 0),
+    likedCount: (prior?.likedCount ?? 0) + (evidence.liked === true ? 1 : 0),
+    dislikedCount: (prior?.dislikedCount ?? 0) + (evidence.liked === false ? 1 : 0),
+    lastRating:
+      evidence.liked === true
+        ? "like"
+        : evidence.liked === false
+          ? "dislike"
+          : "implicit",
     lastPlayed: evidence.occurredAt ?? isoNow(opts),
     domains,
     missedWords,
   };
-  const next: LearningProfile = { ...profile, activityModel, lastUpdated: isoNow(opts) };
+  const next: LearningProfile = {
+    ...profile,
+    activityModel,
+    adaptiveLoadState: updateAdaptiveLoadState(profile, evidence, opts),
+    lastUpdated: isoNow(opts),
+  };
   writeJson(profilePath(rootDir, childId), next);
   return next;
 }

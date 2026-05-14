@@ -19,12 +19,19 @@ export async function runPsychologistSync(
   options: { planningMode?: TodaysPlanningMode } = {},
 ): Promise<void> {
   const childName = childIdToName(childId);
+  const planningMode = options.planningMode ?? "review";
 
-  await runPsychologist(childName, false);
-  console.log("\n  ✅ Psychologist complete\n");
+  if (planningMode === "homework") {
+    console.log(
+      "\n  🎮 [psychologist-sync] homework mode — skipping global curriculum report\n",
+    );
+  } else {
+    await runPsychologist(childName, false);
+    console.log("\n  ✅ Psychologist complete\n");
+  }
 
   const plan = await buildTodaysPlan(childName, {
-    planningMode: options.planningMode ?? "review",
+    planningMode,
   });
   console.log("\n  ✅ Today's plan written (todays_plan.json)\n");
   console.log(`  📋 ${plan.todaysPlan.length} activities planned`);

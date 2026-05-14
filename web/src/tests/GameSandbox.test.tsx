@@ -56,7 +56,7 @@ describe("GameSandbox", () => {
     } as Response);
     render(<GameSandbox interimTranscript="" sendMessage={vi.fn()} />);
     const wholeWord = (await screen.findAllByLabelText("inputMode whole-word"))[0];
-    expect(wholeWord).toHaveProperty("checked", true);
+    await waitFor(() => expect(wholeWord).toHaveProperty("checked", true));
   });
 
   it("Launch button renders WordRadar with sandbox config", async () => {

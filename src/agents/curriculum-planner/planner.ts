@@ -1,4 +1,4 @@
-// Curriculum Planner Agent — written by Jamal
+// Curriculum Planner Agent
 
 import fs from "fs";
 import path from "path";

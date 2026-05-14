@@ -58,6 +58,8 @@ export type ChildChart = {
     pending: LearningProfile["pendingHomework"] | null;
     cyclesDir: string;
   };
+  plannerTrust: LearningProfile["plannerTrust"] | null;
+  activeSessionPlan: LearningProfile["activeSessionPlan"] | null;
   attention: ResolvedAttentionModel;
   latestAttentionVitals: unknown | null;
   economy: {
@@ -265,6 +267,8 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
       pending: learningProfile.pendingHomework ?? null,
       cyclesDir: path.join(links.homework, "cycles"),
     },
+    plannerTrust: learningProfile.plannerTrust ?? null,
+    activeSessionPlan: learningProfile.activeSessionPlan ?? null,
     attention: resolveAttentionModel({ ...learningProfile, demographics }),
     latestAttentionVitals: readLatestVitals(links.vitals),
     economy: {

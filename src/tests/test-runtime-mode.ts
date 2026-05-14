@@ -25,6 +25,7 @@ describe("resolveSunnyRuntimeConfig", () => {
       persistenceMode: "blocked",
       demoRoute: null,
       childId: "reina",
+      homeworkDomain: null,
     });
   });
 
@@ -46,6 +47,7 @@ describe("resolveSunnyRuntimeConfig", () => {
       persistenceMode: "blocked",
       demoRoute: null,
       childId: "ila",
+      homeworkDomain: null,
     });
   });
 
@@ -69,6 +71,17 @@ describe("resolveSunnyRuntimeConfig", () => {
 
     expect(cfg.demoRoute).toBe("visual-explainer-map");
     expect(cfg.persistenceMode).toBe("blocked");
+  });
+
+  it("carries homework domain intent through runtime config before child selection", () => {
+    const cfg = resolveSunnyRuntimeConfig({
+      SUNNY_SUBJECT: "homework",
+      SUNNY_HOMEWORK_DOMAIN: "spelling",
+    });
+
+    expect(cfg.subject).toBe("homework");
+    expect(cfg.childId).toBeNull();
+    expect(cfg.homeworkDomain).toBe("spelling");
   });
 });
 
@@ -106,6 +119,21 @@ describe("package.json runtime launcher scripts", () => {
   it("plain sunny runs review mode, while sunny:homework focuses the latest homework", () => {
     expect(pkg.scripts.sunny).toContain("--subject review");
     expect(pkg.scripts["sunny:homework"]).toContain("--subject homework");
+  });
+
+  it("has parent-facing homework domain scripts that delegate to child-picker startup", () => {
+    expect(pkg.scripts["sunny:homework:spelling"]).toContain("--subject homework");
+    expect(pkg.scripts["sunny:homework:spelling"]).toContain("--homework-domain spelling");
+    expect(pkg.scripts["sunny:homework:spelling"]).not.toContain("--child");
+    expect(pkg.scripts["sunny:spelling"]).toContain("sunny:homework:spelling");
+  });
+
+  it("has parent-facing ingest domain scripts that start intake without child flags", () => {
+    expect(pkg.scripts["sunny:ingest:spelling"]).toContain("sunny:ingest:homework");
+    expect(pkg.scripts["sunny:ingest:spelling"]).toContain("--domain spelling");
+    expect(pkg.scripts["sunny:ingest:spelling"]).not.toContain("--child");
+    expect(pkg.scripts["sunny:ingest:reading"]).toContain("--domain reading");
+    expect(pkg.scripts["sunny:ingest:math"]).toContain("--domain math");
   });
 
   it('contains script "sunny:diag"', () => {

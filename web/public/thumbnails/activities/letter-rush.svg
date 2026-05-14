@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Letter Rush thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#be123c"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <path d="M34 110h172" stroke="#fff7ed" stroke-width="12" stroke-linecap="round" opacity=".5"/>
+  <g fill="#fff7ed">
+    <rect x="44" y="50" width="43" height="43" rx="8"/>
+    <rect x="99" y="36" width="43" height="43" rx="8"/>
+    <rect x="154" y="64" width="43" height="43" rx="8"/>
+  </g>
+  <g fill="#7f1d1d" font-family="Arial, sans-serif" font-size="30" font-weight="700">
+    <text x="56" y="81">A</text>
+    <text x="112" y="67">B</text>
+    <text x="167" y="95">C</text>
+  </g>
+</svg>

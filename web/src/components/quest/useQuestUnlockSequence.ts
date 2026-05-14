@@ -20,7 +20,7 @@ export type QuestUnlockState = {
   companionId: string;
   childId: string;
   previewTopOffsetPx: number;
-  beginQuestUnlockSequence: (options?: { force?: boolean }) => void;
+  beginQuestUnlockSequence: (options?: { force?: boolean; nodeType?: "quest" | "boss" }) => void;
   forceQuestLock: (node: NodeConfig) => boolean;
   lockGlyphOverrideFor: (node: NodeConfig) => string | null;
   canOpenQuestBriefing: boolean;
@@ -115,17 +115,23 @@ export function useQuestUnlockSequence(args: {
     [companionId, onCompanionEvent, resolved],
   );
 
-  const beginQuestUnlockSequence = useCallback((options?: { force?: boolean }) => {
-    if (!isChildQuestUnlocked(resolved, childProfiles)) return;
+  const beginQuestUnlockSequence = useCallback((options?: { force?: boolean; nodeType?: "quest" | "boss" }) => {
     const ms = mapStateRef.current;
-    if (!ms?.nodes.some((n) => n.type === "quest")) return;
+    const targetType = options?.nodeType ?? "quest";
+    const targetNode = ms?.nodes.find((n) => n.type === targetType);
+    if (!ms || !targetNode) return;
+    const stateAllowsCeremony =
+      targetNode.masteryUnlockState === "unlocked" ||
+      targetNode.masteryUnlockState === "pending_ceremony" ||
+      isChildQuestUnlocked(resolved, childProfiles);
+    if (!stateAllowsCeremony) return;
     if (consumedForSessionRef.current && options?.force !== true) return;
     if (options?.force !== true) {
       consumedForSessionRef.current = true;
     }
 
     const world = worldRef.current;
-    const qi = ms.nodes.findIndex((n) => n.type === "quest");
+    const qi = ms.nodes.findIndex((n) => n.type === targetType);
     const pos = pathPositionsRef.current[qi];
     if (world && pos) {
       const r = world.getBoundingClientRect();
@@ -181,19 +187,27 @@ export function useQuestUnlockSequence(args: {
     worldRef,
   ]);
 
-  const forceQuestLock = useCallback(
-    (node: NodeConfig) =>
-      !diagUnlockMap &&
-      node.type === "quest" &&
-      isChildQuestUnlocked(resolved, childProfiles) &&
-      !questCeremonyTapAllowed,
-    [childProfiles, diagUnlockMap, questCeremonyTapAllowed, resolved],
-  );
+	  const forceQuestLock = useCallback(
+	    (node: NodeConfig) =>
+	      !diagUnlockMap &&
+	      (node.type === "quest" || node.type === "boss") &&
+	      (
+	        node.masteryUnlockState === "pending_ceremony" ||
+	        node.masteryUnlockState === "preparing" ||
+	        node.masteryUnlockState === "teased_locked" ||
+	        (
+	          node.type === "quest" &&
+	          isChildQuestUnlocked(resolved, childProfiles) &&
+	          !questCeremonyTapAllowed
+	        )
+	      ),
+	    [childProfiles, diagUnlockMap, questCeremonyTapAllowed, resolved],
+	  );
 
-  const lockGlyphOverrideFor = useCallback(
-    (node: NodeConfig) => (node.type === "quest" ? lockGlyphOverride : null),
-    [lockGlyphOverride],
-  );
+	  const lockGlyphOverrideFor = useCallback(
+	    (node: NodeConfig) => (node.type === "quest" || node.type === "boss" ? lockGlyphOverride : null),
+	    [lockGlyphOverride],
+	  );
 
   return {
     overlayActive,
@@ -212,6 +226,13 @@ export function useQuestUnlockSequence(args: {
     beginQuestUnlockSequence,
     forceQuestLock,
     lockGlyphOverrideFor,
-    canOpenQuestBriefing: questCeremonyTapAllowed || diagUnlockMap,
-  };
-}
+	    canOpenQuestBriefing:
+	      questCeremonyTapAllowed ||
+	      diagUnlockMap ||
+	      Boolean(
+	        mapState?.nodes.some(
+	          (node) => node.type === "quest" && node.masteryUnlockState === "unlocked",
+	        ),
+	      ),
+	  };
+	}

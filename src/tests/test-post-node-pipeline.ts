@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
+import path from "path";
+import type {
+  AIContentCatalogItem,
+  LearningProfile,
+} from "../context/schemas/learningProfile";
 import type { MapState, NodeResult } from "../shared/adventureTypes";
+import { initializeLearningProfile } from "../utils/learningProfileIO";
 
 function mockNodeNoWordPool(): MapState["nodes"] {
   return [
@@ -52,6 +58,7 @@ vi.mock("../utils/wordBankIO", () => ({
 import {
   __resetAdventureMapSessionsForTests,
   applyNodeResult,
+  recordExplicitMapRating,
   startMapSession,
 } from "../server/map-coordinator";
 import { buildProfile } from "../profiles/buildProfile";
@@ -116,6 +123,70 @@ function mockCastleBoss(): MapState["nodes"] {
   ];
 }
 
+function profilePath(childId: string): string {
+  return path.join(process.cwd(), "src", "context", childId, "learning_profile.json");
+}
+
+function baseLearningProfile(childId: string): LearningProfile {
+  const profile = initializeLearningProfile({
+    childId,
+    age: 8,
+    grade: 2,
+    diagnoses: [],
+    learningGoals: [],
+  });
+  profile.sessionStats.totalSessions = 4;
+  profile.pendingHomework = {
+    weekOf: "2026-05-11",
+    testDate: "2026-05-15",
+    homeworkId: "hw-spelling-test",
+    wordList: ["above", "about", "ahead", "away", "ago"],
+    contentProfile: {
+      practiceDomain: "spelling",
+      contentDomain: "spelling",
+      topic: "a words",
+      primarySkill: "spell_from_memory",
+      assignmentFormat: "spelling_test",
+      concepts: ["a words"],
+      sourceEvidence: ["test fixture"],
+    },
+    capturedContent: null,
+    generatedAt: "2026-05-11T12:00:00.000Z",
+    nodes: [],
+  };
+  profile.aiContentCatalog = [catalogItem(childId)];
+  return profile;
+}
+
+function catalogItem(childId: string): AIContentCatalogItem {
+  return {
+    contentId: "content-monster-1",
+    homeworkId: "hw-spelling-test",
+    childId,
+    type: "game",
+    source: "generated",
+    title: "Monster spelling challenge",
+    algorithmTargets: ["retrieval-practice", "activity-affinity"],
+    targetSkills: ["spell_from_memory"],
+    targetConcepts: ["a words"],
+    targetWords: ["above", "about"],
+    engagementHooks: ["competition"],
+    inputEvidence: { activityEvidenceIds: ["baseline-1"] },
+    reuseStatus: "candidate",
+    reuseReason: "Needs map evidence.",
+  };
+}
+
+function writeBaseLearningProfile(childId: string): void {
+  const file = profilePath(childId);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(baseLearningProfile(childId), null, 2), "utf8");
+}
+
+function readProfile(childId: string): LearningProfile {
+  return JSON.parse(fs.readFileSync(profilePath(childId), "utf8")) as LearningProfile;
+}
+
 describe("post-node pipeline (TASK-014)", () => {
   let appendSpy: ReturnType<typeof vi.spyOn>;
   const pipelineOrder: string[] = [];
@@ -123,13 +194,16 @@ describe("post-node pipeline (TASK-014)", () => {
   beforeEach(() => {
     __resetAdventureMapSessionsForTests();
     pipelineOrder.length = 0;
+    writeBaseLearningProfile("qa_pipeline");
     appendSpy = vi.spyOn(fs, "appendFileSync").mockImplementation(() => undefined);
     appendNodeRatingMock.mockImplementation(async () => {
       pipelineOrder.push("appendNodeRating");
     });
+    appendNodeRatingMock.mockClear();
     recordRewardMock.mockImplementation(async () => {
       pipelineOrder.push("recordReward");
     });
+    recordRewardMock.mockClear();
     recordLearningAttemptMock.mockImplementation(() => {
       pipelineOrder.push("recordAttempt");
       return {};
@@ -152,6 +226,11 @@ describe("post-node pipeline (TASK-014)", () => {
 
   afterEach(() => {
     appendSpy.mockRestore();
+    try {
+      fs.unlinkSync(profilePath("qa_pipeline"));
+    } catch {
+      // best-effort test cleanup
+    }
   });
 
   it("runs appendNodeRating then recordReward without synthesizing per-word attempts", async () => {
@@ -233,5 +312,68 @@ describe("post-node pipeline (TASK-014)", () => {
     };
     await applyNodeResult(sessionId, result);
     expect(recordLearningAttemptMock).not.toHaveBeenCalled();
+  });
+
+  it("writes node evidence into activity model, bounded load, and linked content catalog", async () => {
+    vi.mocked(buildNodeList).mockResolvedValue([
+      {
+        id: "n-monster",
+        type: "monster-stampede",
+        isLocked: false,
+        isCompleted: false,
+        isGoal: false,
+        difficulty: 2,
+        words: ["above", "about", "ahead", "away", "ago"],
+        contentId: "content-monster-1",
+      },
+    ]);
+
+    const { sessionId, mapState } = await startMapSession("qa_pipeline");
+    await applyNodeResult(sessionId, {
+      nodeId: mapState.nodes[0]!.id,
+      completed: true,
+      accuracy: 0.96,
+      timeSpent_ms: 25_000,
+      wordsAttempted: 5,
+      targetResults: [
+        { target: "above", correct: true },
+        { target: "about", correct: true },
+        { target: "ahead", correct: true },
+        { target: "away", correct: true },
+        { target: "ago", correct: true },
+      ],
+    });
+
+    const profile = readProfile("qa_pipeline");
+    expect(profile.activityModel?.["monster-stampede"]?.plays).toBe(1);
+    expect(profile.activityModel?.["monster-stampede"]?.averageAccuracy).toBe(0.96);
+    expect(profile.adaptiveLoadState?.spelling?.currentCohortSize).toBe(10);
+    expect(profile.adaptiveLoadState?.spelling?.challengeRecommendation).toBe("expand_cohort");
+    const catalog = profile.aiContentCatalog?.find((item) => item.contentId === "content-monster-1");
+    expect(catalog?.performanceSummary?.plays).toBe(1);
+    expect(catalog?.reuseStatus).toBe("reuse");
+  });
+
+  it("explicit like and dislike feed the same child-scoped bandit loop", async () => {
+    const { sessionId, mapState } = await startMapSession("qa_pipeline");
+    const node = mapState.nodes[0]!;
+
+    await recordExplicitMapRating(sessionId, node.id, "like");
+    await recordExplicitMapRating(sessionId, node.id, "dislike");
+
+    expect(recordRewardMock).toHaveBeenCalledWith(
+      "qa_pipeline",
+      node.type,
+      true,
+      true,
+      1,
+    );
+    expect(recordRewardMock).toHaveBeenCalledWith(
+      "qa_pipeline",
+      node.type,
+      false,
+      false,
+      0,
+    );
   });
 });

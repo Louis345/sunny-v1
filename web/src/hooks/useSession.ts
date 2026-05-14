@@ -1092,6 +1092,13 @@ export function useSession(options?: UseSessionOptions) {
       case "game_message": {
         const forward = msg.forward as Record<string, unknown> | undefined;
         if (forward) {
+          if (forward.type === "pronunciation_support") {
+            window.dispatchEvent(
+              new CustomEvent("sunny_pronunciation_support", {
+                detail: forward,
+              }),
+            );
+          }
           const activeIframe = adventureGameIframeSourceRef.current?.current;
           if (activeIframe?.contentWindow) {
             activeIframe.contentWindow.postMessage(forward, "*");

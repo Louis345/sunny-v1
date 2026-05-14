@@ -9,7 +9,13 @@ import {
   buildHomeworkNodes,
   buildPendingHomeworkPayload,
 } from "../scripts/ingestHomework";
-import { resolveSpellingWordListForHomework } from "../server/session-bootstrap";
+import {
+  buildHomeworkSessionStartPrompt,
+  buildPendingHomeworkPromptContent,
+  resolveSpellingWordListForHomework,
+  shouldUsePendingHomeworkChildPrompt,
+  shouldLoadLegacyHomeworkFolder,
+} from "../server/session-bootstrap";
 import * as childrenConfig from "../profiles/childrenConfig";
 import type { ChildProfileEntry } from "../profiles/childrenConfig";
 
@@ -68,6 +74,44 @@ describe("pipeline audit — spelling activity wiring", () => {
       acceptedResponses: ["sun"],
     });
   });
+
+  it("pendingHomeworkToNodeConfigs preserves per-node homework targets", () => {
+    const hw = {
+      weekOf: "2026-05-11",
+      testDate: "2026-05-15",
+      wordList: ["above", "ago", "government", "wait"],
+      generatedAt: "2026-05-11T00:00:00.000Z",
+      nodes: [
+        {
+          id: "n-spell-check",
+          type: "spell-check",
+          words: ["above", "ago"],
+          difficulty: 1,
+          gameFile: null,
+          storyFile: null,
+        },
+        {
+          id: "n-pronunciation",
+          type: "pronunciation",
+          words: ["government", "wait"],
+          difficulty: 1,
+          gameFile: null,
+          storyFile: null,
+        },
+      ],
+    } as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>;
+
+    const configs = pendingHomeworkToNodeConfigs(hw, ["above", "ago"]);
+
+    expect(configs.find((node) => node.type === "spell-check")?.words).toEqual([
+      "above",
+      "ago",
+    ]);
+    expect(configs.find((node) => node.type === "pronunciation")?.words).toEqual([
+      "government",
+      "wait",
+    ]);
+  });
 });
 
 describe("ingest homework nodes + spelling word list", () => {
@@ -75,62 +119,38 @@ describe("ingest homework nodes + spelling word list", () => {
     vi.restoreAllMocks();
   });
 
-  it('buildHomeworkNodes({ type: "spelling_test", ... }) puts evaluator Letter Rush first', () => {
+  it('buildHomeworkNodes({ type: "spelling_test", ... }) puts Spell Check first', () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["farmer", "teacher"],
       homeworkId: "hw-spelling_test-x",
       childId: "ila",
     });
-    expect(nodes[0]?.type).toBe("letter-rush");
-    expect((nodes[0]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
-      "type-and-spell",
-    );
+    expect(nodes[0]?.type).toBe("spell-check");
+    expect(nodes[0]?.words).toEqual(["farmer", "teacher"]);
   });
 
-  it("buildHomeworkNodes maps Letter Rush config words for every selected spelling word", () => {
+  it("buildHomeworkNodes maps selected spelling words onto Spell Check", () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["farmer", "teacher"],
       homeworkId: "x",
       childId: "ila",
     });
-    expect((nodes[0]?.activityConfig as { words?: unknown[] } | undefined)?.words).toHaveLength(2);
+    expect(nodes[0]?.words).toHaveLength(2);
   });
 
-  it("buildHomeworkNodes second node is trap-the-imposter practice", () => {
-    const nodes = buildHomeworkNodes({
-      type: "spelling_test",
-      words: ["a", "b"],
-      homeworkId: "x",
-      childId: "ila",
-    });
-    expect(nodes[1]?.type).toBe("letter-rush");
-    expect((nodes[1]?.activityConfig as { mode?: string } | undefined)?.mode).toBe(
-      "trap-the-imposter",
-    );
-  });
-
-  it("buildHomeworkNodes spelling_test order: baseline, practice, mastery Letter Rush", () => {
+  it("buildHomeworkNodes spelling_test avoids repeated drill nodes", () => {
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
       words: ["a", "b"],
       homeworkId: "hw-x",
       childId: "ila",
     });
-    expect(nodes.map((n) => n.type)).toEqual([
-      "letter-rush",
-      "letter-rush",
-      "letter-rush",
-    ]);
-    expect(nodes.map((n) => (n.activityConfig as { mode?: string } | undefined)?.mode)).toEqual([
-      "type-and-spell",
-      "trap-the-imposter",
-      "mastery-run",
-    ]);
+    expect(nodes.map((n) => n.type)).toEqual(["spell-check"]);
   });
 
-  it("buildHomeworkNodes with default maxWords=5 caps spelling nodes at five words", () => {
+  it("buildHomeworkNodes with default maxWords=5 builds a measured spelling cohort", () => {
     const words = ["w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8"];
     const nodes = buildHomeworkNodes({
       type: "spelling_test",
@@ -138,10 +158,24 @@ describe("ingest homework nodes + spelling word list", () => {
       homeworkId: "hw-cap",
       childId: "no_profile_child_xyz",
     });
-    for (const n of nodes) {
-      expect(n.words.length).toBe(5);
-      expect((n.activityConfig as { words?: unknown[] } | undefined)?.words).toHaveLength(5);
-    }
+    expect(nodes.map((node) => node.type)).toEqual([
+      "word-radar",
+      "spell-check",
+      "monster-stampede",
+    ]);
+    expect(nodes.find((node) => node.type === "word-radar")?.words).toEqual([
+      "w1",
+      "w2",
+      "w3",
+      "w4",
+      "w5",
+    ]);
+    expect(nodes.find((node) => node.type === "spell-check")?.words).toEqual([
+      "w6",
+      "w7",
+      "w8",
+    ]);
+    expect(nodes.find((node) => node.type === "monster-stampede")?.words).toEqual(words);
   });
 
   it("buildHomeworkNodes respects maxWords from child profile spelling games", () => {
@@ -156,8 +190,6 @@ describe("ingest homework nodes + spelling word list", () => {
       childId: "custom",
     });
     expect(nodes[0]?.words).toHaveLength(3);
-    expect((nodes[0]?.activityConfig as { words?: unknown[] } | undefined)?.words).toHaveLength(3);
-    expect(nodes[1]?.words).toHaveLength(3);
   });
 
   it("buildHomeworkNodes passes childId through to readChildMeta", () => {
@@ -171,7 +203,7 @@ describe("ingest homework nodes + spelling word list", () => {
     expect(spy).toHaveBeenCalledWith("reina");
   });
 
-  it("buildPendingHomeworkPayload with buildHomeworkNodes yields three persisted spelling nodes", () => {
+  it("buildPendingHomeworkPayload with buildHomeworkNodes yields one persisted spelling baseline", () => {
     const words = ["farmer", "teacher"];
     const homeworkId = "hw-spelling_test-testid";
     const pending = buildPendingHomeworkPayload({
@@ -181,10 +213,9 @@ describe("ingest homework nodes + spelling word list", () => {
       homeworkId,
       nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
     });
-    expect(pending.nodes.length).toBe(3);
-    expect(pending.nodes[0]?.type).toBe("letter-rush");
-    expect(pending.nodes[0]?.activityConfigPath).toContain("letter-rush-baseline.json");
-    expect(pending.nodes[2]?.activityConfigPath).toContain("letter-rush-mastery-check.json");
+    expect(pending.nodes.length).toBe(1);
+    expect(pending.nodes[0]?.type).toBe("spell-check");
+    expect(pending.nodes[0]?.words).toEqual(["farmer", "teacher"]);
   });
 
   it("resolveSpellingWordListForHomework prefers pending wordList over raw extraction", () => {
@@ -225,5 +256,99 @@ describe("ingest homework nodes + spelling word list", () => {
       rawContent: raw,
     });
     expect(out).toEqual(["cat", "dog", "star"]);
+  });
+
+  it("homework sessions prefer active pending homework over legacy root folders", () => {
+    expect(
+      shouldLoadLegacyHomeworkFolder({
+        diagKioskFast: false,
+        homeworkMode: false,
+        subject: "homework",
+        pendingHomework: {
+          homeworkId: "hw-spelling_test-current",
+          wordList: ["above"],
+          nodes: [{ type: "letter-rush", words: ["above"] }],
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("parent homework review mode can still load legacy worksheet folders", () => {
+    expect(
+      shouldLoadLegacyHomeworkFolder({
+        diagKioskFast: false,
+        homeworkMode: true,
+        subject: "homework",
+        pendingHomework: {
+          homeworkId: "hw-spelling_test-current",
+          wordList: ["above"],
+          nodes: [{ type: "letter-rush", words: ["above"] }],
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("active pending homework without a legacy worksheet still uses the child homework prompt", () => {
+    const pendingHomework = {
+      homeworkId: "hw-spelling_test-current",
+      wordList: ["above", "ago"],
+      nodes: [{ type: "spell-check", words: ["above", "ago"] }],
+    };
+
+    expect(
+      shouldUsePendingHomeworkChildPrompt({
+        subject: "homework",
+        homeworkPayloadPresent: false,
+        pendingHomework,
+      }),
+    ).toBe(true);
+    expect(
+      shouldUsePendingHomeworkChildPrompt({
+        subject: "diag",
+        homeworkPayloadPresent: false,
+        pendingHomework,
+      }),
+    ).toBe(false);
+  });
+
+  it("active pending homework prompt content carries assignment-scoped context", () => {
+    const content = buildPendingHomeworkPromptContent({
+      homeworkId: "hw-spelling_test-current",
+      testDate: "2026-05-15",
+      returnTag: "#sunny_reina_hw_spelling_test_current",
+      wordList: ["above", "ago"],
+      nodes: [{ type: "spell-check", words: ["above", "ago"] }],
+    });
+
+    expect(content).toContain("## Active homework cycle");
+    expect(content).toContain("homeworkId: hw-spelling_test-current");
+    expect(content).toContain("testDate: 2026-05-15");
+    expect(content).toContain("spell-check: above, ago");
+    expect(content).not.toMatch(/demonstrate any capability/i);
+  });
+
+  it("homework session start prompt is context-aware instead of a random greeting", () => {
+    const prompt = buildHomeworkSessionStartPrompt({
+      childName: "Reina",
+      pendingHomework: {
+        homeworkId: "hw-spelling_test-current",
+        testDate: "2026-05-15",
+        contentProfile: {
+          topic: "Schwa sound and high-frequency words",
+          primarySkill: "spelling recall",
+          practiceDomain: "spelling",
+          assignmentFormat: "spelling test",
+          concepts: ["schwa"],
+        },
+        nodes: [{ type: "word-radar", words: ["above", "ago"] }],
+      },
+    });
+
+    expect(prompt).toContain("Speak to Reina");
+    expect(prompt).toContain("hw-spelling_test-current");
+    expect(prompt).toContain("2026-05-15");
+    expect(prompt).toContain("First map node: word-radar");
+    expect(prompt).toContain("Do not address the parent or caregiver.");
+    expect(prompt).not.toContain("Jamal");
   });
 });

@@ -8,6 +8,7 @@ import {
   resolveSessionType,
   sessionTypeFromSubject,
 } from "../server/session-type-registry";
+import { resolveBootstrapSubject } from "../server/session-bootstrap";
 
 describe("SUNNY_SUBJECT=diag", () => {
   it("normalizeSessionSubject accepts diag", () => {
@@ -39,6 +40,18 @@ describe("SUNNY_SUBJECT=diag", () => {
         explicitType: "diag",
       }),
     ).toBe("diag");
+  });
+
+  it("SUNNY_MODE=diag does not turn child homework sessions into creator diagnostics", () => {
+    expect(resolveBootstrapSubject({ diagKioskFast: false, envSubject: "homework" })).toBe(
+      "homework",
+    );
+  });
+
+  it("creator kiosk still uses diagnostic subject", () => {
+    expect(resolveBootstrapSubject({ diagKioskFast: true, envSubject: "homework" })).toBe(
+      "diag",
+    );
   });
 
   it("buildCanvasContextMessage for diag omits learning engine and focus words", () => {

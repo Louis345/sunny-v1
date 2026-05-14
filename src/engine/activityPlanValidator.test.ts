@@ -155,6 +155,27 @@ describe("activity plan validator", () => {
     }));
   });
 
+  it("allows a high-confidence spelling cohort to warm up when independent recall follows immediately", () => {
+    const result = validateActivityPlan({
+      learnerState: "unknown",
+      domainEvidence: {
+        practiceDomain: "spelling",
+        contentDomain: "spelling",
+        primarySkill: "spelling_recall",
+        confidence: 0.88,
+        source: "classifier",
+      },
+      nodes: [
+        { id: "n1", toolId: "word-radar", purpose: "practice", emitsPerTargetResults: true },
+        { id: "n2", toolId: "spell-check", purpose: "evaluate", emitsPerTargetResults: true },
+        { id: "n3", toolId: "monster-stampede", purpose: "practice" },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.blockers).toEqual([]);
+  });
+
   it("allows high-confidence science to start with an evaluator before Word Radar practice", () => {
     const result = validateActivityPlan({
       learnerState: "unknown",

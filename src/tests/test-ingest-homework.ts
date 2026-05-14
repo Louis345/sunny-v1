@@ -6,13 +6,19 @@ import {
   buildHomeworkNodes,
   buildHomeworkLearningPlanArtifact,
   buildPendingHomeworkPayload,
+  buildHomeworkReturnTag,
   ensureQuestHtmlContract,
   finalizePlannedHomeworkNodes,
+  listIngestChildIds,
   mergeNormalizedPlan,
   normalizeHomeworkType,
   nextFriday,
   parseCliArgs,
   pickIncomingHomeworkFile,
+  resolveIngestChildId,
+  resolveIngestHomeworkFile,
+  resolveIngestedTestDate,
+  resolveHomeworkWordPurpose,
   resolveHomeworkTypeFromProfile,
   shouldGenerateBossNode,
 } from "../scripts/ingestHomework";
@@ -37,6 +43,16 @@ describe("ingestHomework", () => {
       testDate: "2026-05-03",
       opus: false,
       pdfOverridePath: null,
+    });
+  });
+
+  it("parseCliArgs supports domain-specific intake without requiring child up front", () => {
+    expect(parseCliArgs(["--domain=spelling"])).toEqual({
+      childId: null,
+      testDate: null,
+      opus: false,
+      pdfOverridePath: null,
+      homeworkDomain: "spelling",
     });
   });
 
@@ -67,6 +83,56 @@ describe("ingestHomework", () => {
       "/tmp/incoming/b.PDF",
     ]);
     expect(picked?.toLowerCase().endsWith(".pdf")).toBe(true);
+  });
+
+  it("resolves child during interactive intake", async () => {
+    await expect(
+      resolveIngestChildId({
+        childId: null,
+        childIds: ["ila", "reina"],
+        interactive: true,
+        ask: async () => "2",
+      }),
+    ).resolves.toBe("reina");
+
+    await expect(
+      resolveIngestChildId({
+        childId: null,
+        childIds: ["ila", "reina"],
+        interactive: false,
+      }),
+    ).rejects.toThrow("Missing required argument --child=<childId>");
+  });
+
+  it("resolves homework file during interactive intake", async () => {
+    const files = [
+      "/tmp/incoming/a.txt",
+      "/tmp/incoming/b.pdf",
+      "/tmp/incoming/c.pdf",
+    ];
+    await expect(
+      resolveIngestHomeworkFile({
+        pdfOverridePath: null,
+        incomingFiles: files,
+        interactive: true,
+        ask: async () => "3",
+      }),
+    ).resolves.toBe("/tmp/incoming/c.pdf");
+
+    await expect(
+      resolveIngestHomeworkFile({
+        pdfOverridePath: "/tmp/override.pdf",
+        incomingFiles: files,
+        interactive: true,
+        ask: async () => "1",
+      }),
+    ).resolves.toBe("/tmp/override.pdf");
+  });
+
+  it("lists configured ingest children without creator", () => {
+    expect(listIngestChildIds()).toContain("ila");
+    expect(listIngestChildIds()).toContain("reina");
+    expect(listIngestChildIds()).not.toContain("creator");
   });
 
   it("Haiku extraction returns correct type for spelling PDF", () => {
@@ -148,9 +214,104 @@ describe("ingestHomework", () => {
       wordList: ["cat"],
       homeworkId: "hw-spelling_test-test0002",
       nodes: [],
+      testDateSource: "cli",
+      testDateConfirmed: true,
+      returnTag: "#sunny_sample_hw_spelling_test_test0002",
     });
     expect(pending.weekOf).toBe("2026-04-21");
     expect(pending.testDate).toBe("2026-04-25");
+    expect(pending.testDateSource).toBe("cli");
+    expect(pending.testDateConfirmed).toBe(true);
+    expect(pending.returnTag).toBe("#sunny_sample_hw_spelling_test_test0002");
+  });
+
+  it("builds stable homework return tags from child and homework id", () => {
+    expect(buildHomeworkReturnTag("Reina", "hw-spelling_test-bb11de93")).toBe(
+      "#sunny_reina_hw_spelling_test_bb11de93",
+    );
+  });
+
+  it("resolves CLI, extracted, interactive, and non-interactive test dates with source metadata", async () => {
+    await expect(
+      resolveIngestedTestDate({
+        cliTestDate: "2026-05-15",
+        extractedTestDate: "2026-05-16",
+        inferredTestDate: "2026-05-22",
+        interactive: false,
+      }),
+    ).resolves.toEqual({
+      testDate: "2026-05-15",
+      testDateSource: "cli",
+      testDateConfirmed: true,
+    });
+
+    await expect(
+      resolveIngestedTestDate({
+        cliTestDate: null,
+        extractedTestDate: "2026-05-16",
+        inferredTestDate: "2026-05-22",
+        interactive: false,
+      }),
+    ).resolves.toEqual({
+      testDate: "2026-05-16",
+      testDateSource: "extracted",
+      testDateConfirmed: false,
+    });
+
+    await expect(
+      resolveIngestedTestDate({
+        cliTestDate: null,
+        extractedTestDate: null,
+        inferredTestDate: "2026-05-22",
+        interactive: true,
+        ask: async () => "",
+      }),
+    ).resolves.toEqual({
+      testDate: "2026-05-22",
+      testDateSource: "human_confirmed",
+      testDateConfirmed: true,
+    });
+
+    await expect(
+      resolveIngestedTestDate({
+        cliTestDate: null,
+        extractedTestDate: null,
+        inferredTestDate: "2026-05-22",
+        interactive: true,
+        ask: async () => "2026-05-20",
+      }),
+    ).resolves.toEqual({
+      testDate: "2026-05-20",
+      testDateSource: "human_confirmed",
+      testDateConfirmed: true,
+    });
+
+    await expect(
+      resolveIngestedTestDate({
+        cliTestDate: null,
+        extractedTestDate: null,
+        inferredTestDate: "2026-05-22",
+        interactive: false,
+      }),
+    ).resolves.toEqual({
+      testDate: "2026-05-22",
+      testDateSource: "inferred_next_friday",
+      testDateConfirmed: false,
+    });
+  });
+
+  it("does not default ungrouped homework words to spelling production", () => {
+    expect(resolveHomeworkWordPurpose("whole", [])).toBe("unknown");
+    expect(resolveHomeworkWordPurpose("whole", [
+      {
+        id: "high-frequency",
+        label: "High-Frequency Words",
+        purpose: "read_fluently",
+        words: ["whole"],
+        confidence: 0.8,
+        evidence: ["AI grouped this as high-frequency reading."],
+      },
+    ])).toBe("read_fluently");
   });
 
   it("pendingHomework stores captured content for future dynamic AI nodes", () => {
@@ -391,12 +552,17 @@ describe("buildHomeworkNodes testDate urgency", () => {
       childId,
       testDate,
     });
-    expect(nodes.length).toBeGreaterThan(0);
-    expect(nodes.every((n) => n.words.length <= 5)).toBe(true);
-    const baseline = nodes.find((n) => n.type === "letter-rush");
-    expect(
-      (baseline?.activityConfig as { words?: unknown[] } | undefined)?.words?.length,
-    ).toBe(5);
+    expect(nodes.map((node) => node.type)).toEqual([
+      "word-radar",
+      "spell-check",
+      "monster-stampede",
+    ]);
+    const radar = nodes.find((n) => n.type === "word-radar");
+    const baseline = nodes.find((n) => n.type === "spell-check");
+    const reinforcement = nodes.find((n) => n.type === "monster-stampede");
+    expect(radar?.words.length).toBe(5);
+    expect(baseline?.words.length).toBe(5);
+    expect(reinforcement?.words.length).toBe(10);
   });
 
   it("caps at maxWords when test is more than 5 days away", () => {
@@ -412,11 +578,17 @@ describe("buildHomeworkNodes testDate urgency", () => {
       testDate,
     });
     const maxWords = 5;
-    expect(nodes.every((n) => n.words.length === maxWords)).toBe(true);
-    const baseline = nodes.find((n) => n.type === "letter-rush");
-    expect(
-      (baseline?.activityConfig as { words?: unknown[] } | undefined)?.words?.length,
-    ).toBe(maxWords);
+    expect(nodes.map((node) => node.type)).toEqual([
+      "word-radar",
+      "spell-check",
+      "monster-stampede",
+    ]);
+    const radar = nodes.find((n) => n.type === "word-radar");
+    const baseline = nodes.find((n) => n.type === "spell-check");
+    const reinforcement = nodes.find((n) => n.type === "monster-stampede");
+    expect(radar?.words.length).toBe(maxWords);
+    expect(baseline?.words.length).toBe(maxWords);
+    expect(reinforcement?.words.length).toBe(maxWords * 2);
   });
 });
 

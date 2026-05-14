@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
+  MysteryChoiceOption,
   NodeConfig,
   NodeResult,
 } from "../../../src/shared/adventureTypes";
@@ -27,6 +28,7 @@ import { PronunciationGameCanvas } from "./PronunciationGameCanvas";
 import { VisualExplainerDemo } from "./VisualExplainer/VisualExplainerDemo";
 import type { ActivityCompleteEvent } from "./VisualExplainer/visualExplainerMachine";
 import { NodeCard } from "./NodeCard.tsx";
+import { MysteryChoiceOverlay } from "./MysteryChoiceOverlay";
 import { PathCurve } from "./PathCurve.tsx";
 import { RatingOverlay } from "./RatingOverlay.tsx";
 import { StoryImageFinale } from "./StoryImageFinale";
@@ -157,6 +159,7 @@ export function displayNodesForAdventureMap(
   nodes: readonly NodeConfig[],
   completedNodeIds: readonly string[],
   diagUnlockMap: boolean,
+  previewActive = false,
 ): NodeConfig[] {
   if (!diagUnlockMap) {
     return applyHomeworkStyleNodeLocks(
@@ -167,7 +170,12 @@ export function displayNodesForAdventureMap(
 
   return nodes.map((node) => ({
     ...node,
-    isLocked: node.type === "boss" && !node.gameHtmlPath ? true : false,
+    isLocked:
+      previewActive && (node.type === "quest" || node.type === "boss")
+        ? true
+        : node.type === "boss" && !node.gameHtmlPath
+          ? true
+          : false,
   }));
 }
 
@@ -182,6 +190,41 @@ function ensurePreviewQueryParam(url: string, mode: MapPreviewMode): string {
     if (hasPreview) return url;
     return url.includes("?") ? `${url}&preview=${mode}` : `${url}?preview=${mode}`;
   }
+}
+
+type MysteryChoiceOverlayState = {
+  node: NodeConfig;
+  openedAt: number;
+};
+
+type ActiveMysteryChoiceRun = {
+  nodeId: string;
+  choiceSetId: string;
+  source: NonNullable<NodeConfig["choiceSource"]>;
+  shownOptions: MysteryChoiceOption[];
+  selectedOption: MysteryChoiceOption;
+  selectedAt: number;
+  launchedAt?: number;
+};
+
+function optionNodeType(option: MysteryChoiceOption, fallback: NodeConfig["type"]): NodeConfig["type"] {
+  return option.nodeType ?? fallback;
+}
+
+function nodeFromMysteryOption(node: NodeConfig, option: MysteryChoiceOption): NodeConfig {
+  const nextType = optionNodeType(option, node.type);
+  return {
+    ...node,
+    type: nextType,
+    gameFile: option.gameFile ?? node.gameFile,
+    thumbnailUrl: option.thumbnailUrl ?? node.thumbnailUrl,
+    contentId: option.contentId ?? node.contentId,
+    choiceOptions: undefined,
+    surpriseOption: undefined,
+    mysteryMode: undefined,
+    choiceSetId: node.choiceSetId,
+    choiceSource: node.choiceSource,
+  };
 }
 
 /** Home palette per node type. 20% of activations pick "random" instead. */
@@ -328,6 +371,7 @@ export function AdventureMap(props: {
     mapState,
     theme,
     connectionStatus,
+    connectionError,
     sessionId,
     onNodeClick,
     commitLaunchedNode,
@@ -377,7 +421,11 @@ export function AdventureMap(props: {
   const worldRef = useRef<HTMLDivElement>(null);
   const [pathPositions, setPathPositions] = useState<Point[]>([]);
   const [hoveredNodeIndex, setHoveredNodeIndex] = useState<number | null>(null);
-  const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
+	  const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
+	  const [mysteryChoiceOverlay, setMysteryChoiceOverlay] =
+	    useState<MysteryChoiceOverlayState | null>(null);
+	  const activeMysteryChoiceRef = useRef<ActiveMysteryChoiceRun | null>(null);
+	  const priorMasteryStatesRef = useRef<Record<string, NodeConfig["masteryUnlockState"]>>({});
   const [
     visualLearnerCompanionAnchor,
     setVisualLearnerCompanionAnchor,
@@ -438,17 +486,91 @@ export function AdventureMap(props: {
     },
   });
 
-  const publishIframeOverlay = useCallback(() => {
-    const el = gameIframeRef.current;
-    if (!el || !launchedUrl) return;
-    props.onGameIframeOverlayChange?.({
-      active: true,
-      iframe: el,
-      url: launchedUrl,
-    });
-  }, [launchedUrl, props.onGameIframeOverlayChange]);
+	  const publishIframeOverlay = useCallback(() => {
+	    const el = gameIframeRef.current;
+	    if (!el || !launchedUrl) return;
+	    props.onGameIframeOverlayChange?.({
+	      active: true,
+	      iframe: el,
+	      url: launchedUrl,
+	    });
+	  }, [launchedUrl, props.onGameIframeOverlayChange]);
 
-  useEffect(() => {
+	  const recordMysteryChoiceEvent = useCallback(
+	    (payload: {
+	      eventName:
+	        | "mystery_node_tap"
+	        | "impression"
+	        | "option_selected"
+	        | "option_skipped"
+	        | "mystery_dismissed"
+	        | "surprise_revealed"
+	        | "activity_launched"
+	        | "activity_completed"
+	        | "replay_requested";
+	      node: NodeConfig;
+	      selectedOption?: MysteryChoiceOption | null;
+	      skippedOptionIds?: string[];
+	      started?: boolean;
+	      completed?: boolean;
+	      accuracy?: number;
+	      activePlayTime_ms?: number;
+	      timeToChoose_ms?: number;
+	      explicitSentiment?: "like" | "dislike" | "neutral";
+	    }) => {
+	      const choiceSetId = payload.node.choiceSetId;
+	      const shownOptions = payload.node.choiceOptions ?? (
+	        payload.node.surpriseOption ? [payload.node.surpriseOption] : []
+	      );
+	      if (!sessionId || !choiceSetId || shownOptions.length === 0) return;
+	      const selectedOptionId = payload.selectedOption?.optionId ?? null;
+	      const skippedOptionIds =
+	        payload.skippedOptionIds ??
+	        shownOptions
+	          .map((option) => option.optionId)
+	          .filter((optionId) => optionId !== selectedOptionId);
+	      const body = {
+	        sessionId,
+	        phase: "choice_event",
+	        preview:
+	          props.previewMode === "free" || props.previewMode === "go-live"
+	            ? props.previewMode
+	            : undefined,
+	        payload: {
+	          eventName: payload.eventName,
+	          choiceSetId,
+	          nodeId: payload.node.id,
+	          context: "mystery",
+	          domain: shownOptions[0]?.domain ?? "general",
+	          source: payload.node.choiceSource ?? "system_required",
+	          shownOptions,
+	          selectedOptionId,
+	          skippedOptionIds,
+	          started: payload.started,
+	          completed: payload.completed,
+	          accuracy: payload.accuracy,
+	          activePlayTime_ms: payload.activePlayTime_ms,
+	          timeToChoose_ms: payload.timeToChoose_ms,
+	          explicitSentiment: payload.explicitSentiment,
+	          createdAt: new Date().toISOString(),
+	        },
+	      };
+	      if (props.previewMode === "free" || props.previewMode === "go-live") {
+	        console.log("  🎮 [mystery-choice] [preview]", body.payload);
+	        return;
+	      }
+	      void fetch("/api/map/node-complete", {
+	        method: "POST",
+	        headers: { "Content-Type": "application/json" },
+	        body: JSON.stringify(body),
+	      }).catch((err) => {
+	        console.error("  🔴 [mystery-choice] choice_event failed:", err);
+	      });
+	    },
+	    [props.previewMode, sessionId],
+	  );
+
+	  useEffect(() => {
     if (!launchedUrl) {
       props.onGameIframeOverlayChange?.({
         active: false,
@@ -544,6 +666,17 @@ export function AdventureMap(props: {
         ) {
           forwardMapIframeCompanionEvent(inner as CompanionEventPayload);
         }
+        return;
+      }
+      if (t === "narration_request") {
+        const payload = d as Record<string, unknown>;
+        forwardMapIframeCompanionEvent({
+          ...payload,
+          trigger: "narration_request",
+          childId: resolved,
+          timestamp:
+            typeof payload.timestamp === "number" ? payload.timestamp : Date.now(),
+        } as unknown as CompanionEventPayload);
         return;
       }
       if (t === "game_state_update") {
@@ -689,15 +822,33 @@ export function AdventureMap(props: {
           })
           .filter((row): row is NonNullable<typeof row> => row != null);
       }
-      if (
-        node?.type === "mystery" &&
-        (pl.completed === true || pl.completed === undefined)
-      ) {
-        quest.beginQuestUnlockSequence();
-      }
-      void sendNodeResult(nr).then(() => {
-        setLaunchedUrl(null);
-      });
+	      const mysteryRun = activeMysteryChoiceRef.current;
+	      if (mysteryRun && node?.id === mysteryRun.nodeId) {
+	        recordMysteryChoiceEvent({
+	          eventName: "activity_completed",
+	          node: {
+	            ...node,
+	            choiceSetId: mysteryRun.choiceSetId,
+	            choiceSource: mysteryRun.source,
+	            choiceOptions: mysteryRun.shownOptions,
+	          },
+	          selectedOption: mysteryRun.selectedOption,
+	          started: true,
+	          completed: nr.completed,
+	          accuracy: nr.accuracy,
+	          activePlayTime_ms:
+	            typeof nr.timeSpent_ms === "number" && nr.timeSpent_ms > 0
+	              ? nr.timeSpent_ms
+	              : mysteryRun.launchedAt
+	                ? Date.now() - mysteryRun.launchedAt
+	                : undefined,
+	          explicitSentiment: nr.completed ? "like" : "neutral",
+	        });
+	        activeMysteryChoiceRef.current = null;
+	      }
+	      void sendNodeResult(nr).then(() => {
+	        setLaunchedUrl(null);
+	      });
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -707,27 +858,45 @@ export function AdventureMap(props: {
     props.previewMode,
     forwardMapIframeCompanionEvent,
     forwardMapIframeGameStateUpdate,
-    forwardMapIframeCurrencyAward,
-    clearLaunchedNode,
-    quest.beginQuestUnlockSequence,
-  ]);
+	    forwardMapIframeCurrencyAward,
+	    clearLaunchedNode,
+	    recordMysteryChoiceEvent,
+	  ]);
 
-  useEffect(() => {
-    if (!mapState) {
-      lastCompletedLenRef.current = 0;
-      sessionStampRef.current = "";
-      const clearId = requestAnimationFrame(() => setRatingPrompt(null));
-      return () => cancelAnimationFrame(clearId);
-    }
-    const stamp = `${mapState.childId}|${mapState.sessionDate}`;
-    if (stamp !== sessionStampRef.current) {
-      sessionStampRef.current = stamp;
-      vrrDroppedRef.current = false;
-      lastCompletedLenRef.current = mapState.completedNodes.length;
-      const clearId = requestAnimationFrame(() => setRatingPrompt(null));
-      return () => cancelAnimationFrame(clearId);
-    }
-    const n = mapState.completedNodes.length;
+	  useEffect(() => {
+	    if (!mapState) {
+	      lastCompletedLenRef.current = 0;
+	      sessionStampRef.current = "";
+	      priorMasteryStatesRef.current = {};
+	      const clearId = requestAnimationFrame(() => setRatingPrompt(null));
+	      return () => cancelAnimationFrame(clearId);
+	    }
+	    const stamp = `${mapState.childId}|${mapState.sessionDate}`;
+	    if (stamp !== sessionStampRef.current) {
+	      sessionStampRef.current = stamp;
+	      vrrDroppedRef.current = false;
+	      lastCompletedLenRef.current = mapState.completedNodes.length;
+	      priorMasteryStatesRef.current = Object.fromEntries(
+	        mapState.nodes
+	          .filter((node) => node.type === "quest" || node.type === "boss")
+	          .map((node) => [node.id, node.masteryUnlockState]),
+	      );
+	      const clearId = requestAnimationFrame(() => setRatingPrompt(null));
+	      return () => cancelAnimationFrame(clearId);
+	    }
+	    for (const node of mapState.nodes) {
+	      if (node.type !== "quest" && node.type !== "boss") continue;
+	      const prev = priorMasteryStatesRef.current[node.id];
+	      if (prev !== "unlocked" && node.masteryUnlockState === "unlocked") {
+	        quest.beginQuestUnlockSequence({ force: true, nodeType: node.type });
+	      }
+	    }
+	    priorMasteryStatesRef.current = Object.fromEntries(
+	      mapState.nodes
+	        .filter((node) => node.type === "quest" || node.type === "boss")
+	        .map((node) => [node.id, node.masteryUnlockState]),
+	    );
+	    const n = mapState.completedNodes.length;
     if (n > lastCompletedLenRef.current) {
       lastCompletedLenRef.current = n;
       const nid = mapState.completedNodes[n - 1];
@@ -767,7 +936,7 @@ export function AdventureMap(props: {
       }
     }
     return undefined;
-  }, [mapState, props.previewMode, props.tamagotchi]);
+	  }, [mapState, props.previewMode, props.tamagotchi, quest.beginQuestUnlockSequence]);
 
   useEffect(() => {
     if (!mapState || mapState.nodes.length === 0) {
@@ -906,9 +1075,9 @@ export function AdventureMap(props: {
     setProfileNames,
     commitLaunchedNode,
     triggerQuestLaunch,
-  });
+	  });
 
-  async function handleNodeLaunch(node: NodeConfig, bypassReadiness = false) {
+	  async function handleNodeLaunch(node: NodeConfig, bypassReadiness = false) {
       const nudge = getCompanionReadinessNudge({
         nodeType: node.type,
         companionName:
@@ -929,15 +1098,44 @@ export function AdventureMap(props: {
       const previewMode = props.previewMode;
       const mapPreview =
         previewMode === "free" || previewMode === "go-live";
-      console.log("  🎮 [AdventureMap] node_click", {
-        nodeId: node?.id,
-        nodeType: node?.type,
-        isLocked: node?.isLocked,
-        previewMode,
-        mapPreview,
-      });
-      playFairyShimmer();
-      const result = mapPreview ? node : await onNodeClick(node.id);
+	      console.log("  🎮 [AdventureMap] node_click", {
+	        nodeId: node?.id,
+	        nodeType: node?.type,
+	        isLocked: node?.isLocked,
+	        previewMode,
+	        mapPreview,
+	      });
+	      playFairyShimmer();
+	      if (
+	        !bypassReadiness &&
+	        node.type === "mystery" &&
+	        (node.choiceOptions?.length || node.surpriseOption)
+	      ) {
+	        setMysteryChoiceOverlay({ node, openedAt: Date.now() });
+	        recordMysteryChoiceEvent({
+	          eventName: "mystery_node_tap",
+	          node,
+	          started: true,
+	        });
+	        window.setTimeout(() => {
+	          recordMysteryChoiceEvent({
+	            eventName: "impression",
+	            node,
+	            started: true,
+	          });
+	        }, 80);
+	        return;
+	      }
+	      let result = mapPreview ? node : await onNodeClick(node.id);
+	      if (result && bypassReadiness && result.id === node.id) {
+	        result = {
+	          ...result,
+	          ...node,
+	          isLocked: result.isLocked,
+	          isCompleted: result.isCompleted,
+	          isGoal: result.isGoal,
+	        };
+	      }
       if (!result) {
         console.log("  🎮 [AdventureMap] node_click skipped no-result");
         return;
@@ -1020,8 +1218,12 @@ export function AdventureMap(props: {
           onComplete: () => {
             commitLaunchedNode(result);
             console.log("  🎮 [AdventureMap] node_committed canvas");
-            // Word Radar is client-only — never canvas_show. Other canvas nodes: skip in map preview (no server canvas sync).
-            if (result.type !== "word-radar" && !mapPreview) {
+            // Map-owned flow games render here; avoid opening a second app-level canvas over the map.
+            if (
+              result.type !== "word-radar" &&
+              result.type !== "pronunciation" &&
+              !mapPreview
+            ) {
               props.karaokeReadingForMapNode?.sendMessage?.(
                 "canvas_show",
                 payload,
@@ -1045,10 +1247,76 @@ export function AdventureMap(props: {
             console.log("  🎮 [AdventureMap] iframe_url_ready", { iframeUrl });
           },
         });
-      }
-    }
+	      }
+	    }
 
-  const diagReading = import.meta.env.VITE_DIAG_READING === "true";
+	  const handleMysteryChoiceSelect = useCallback(
+	    (option: MysteryChoiceOption) => {
+	      const overlay = mysteryChoiceOverlay;
+	      if (!overlay) return;
+	      const elapsed = Date.now() - overlay.openedAt;
+	      const selectedNode = nodeFromMysteryOption(overlay.node, option);
+	      activeMysteryChoiceRef.current = {
+	        nodeId: overlay.node.id,
+	        choiceSetId: overlay.node.choiceSetId ?? "",
+	        source: overlay.node.choiceSource ?? "system_required",
+	        shownOptions: overlay.node.choiceOptions ?? [option],
+	        selectedOption: option,
+	        selectedAt: Date.now(),
+	      };
+	      recordMysteryChoiceEvent({
+	        eventName:
+	          overlay.node.mysteryMode === "surprise_drop"
+	            ? "surprise_revealed"
+	            : "option_selected",
+	        node: overlay.node,
+	        selectedOption: option,
+	        started: true,
+	        timeToChoose_ms: elapsed,
+	        explicitSentiment: overlay.node.mysteryMode === "choice_lab" ? "like" : undefined,
+	      });
+	      if (overlay.node.mysteryMode === "choice_lab") {
+	        recordMysteryChoiceEvent({
+	          eventName: "option_skipped",
+	          node: overlay.node,
+	          selectedOption: option,
+	          skippedOptionIds: (overlay.node.choiceOptions ?? [])
+	            .map((candidate) => candidate.optionId)
+	            .filter((id) => id !== option.optionId),
+	          started: true,
+	        });
+	      }
+	      setMysteryChoiceOverlay(null);
+	      void handleNodeLaunch(selectedNode, true).then(() => {
+	        const run = activeMysteryChoiceRef.current;
+	        if (run?.nodeId === overlay.node.id) {
+	          run.launchedAt = Date.now();
+	        }
+	        recordMysteryChoiceEvent({
+	          eventName: "activity_launched",
+	          node: overlay.node,
+	          selectedOption: option,
+	          started: true,
+	          timeToChoose_ms: elapsed,
+	        });
+	      });
+	    },
+	    [mysteryChoiceOverlay, recordMysteryChoiceEvent],
+	  );
+
+	  const handleMysteryChoiceDismiss = useCallback(() => {
+	    const overlay = mysteryChoiceOverlay;
+	    if (overlay) {
+	      recordMysteryChoiceEvent({
+	        eventName: "mystery_dismissed",
+	        node: overlay.node,
+	        started: false,
+	      });
+	    }
+	    setMysteryChoiceOverlay(null);
+	  }, [mysteryChoiceOverlay, recordMysteryChoiceEvent]);
+
+	  const diagReading = import.meta.env.VITE_DIAG_READING === "true";
   const flowGameBackChrome =
     Boolean(props.previewMode) || props.showFlowGameBackChrome === true;
   const chimpBg =
@@ -1216,7 +1484,7 @@ export function AdventureMap(props: {
             Could not load your adventure map.
           </div>
           <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, textAlign: "center" }}>
-            Check your connection and try again.
+            {connectionError ?? "Check your connection and try again."}
           </div>
         </div>
       );
@@ -1242,6 +1510,7 @@ export function AdventureMap(props: {
           nodes,
           mapState?.completedNodes ?? [],
           inspectAllMode,
+          previewActive,
         )
       : [];
   const activeIndex = mapState?.currentNodeIndex ?? 0;
@@ -1350,7 +1619,7 @@ export function AdventureMap(props: {
                     node={node}
                     position={pos}
                     thumbnail={thumbnail}
-                    allowReplayWhenCompleted={inspectAllMode}
+                    allowReplayWhenCompleted
                     onClick={() => void handleNodeLaunch(node)}
                     onLockedClick={() => props.onLockedNodeTap?.(node)}
                     isActive={isActive}
@@ -1702,17 +1971,56 @@ export function AdventureMap(props: {
             interimTranscript={
               props.karaokeReadingForMapNode?.interimTranscript ?? ""
             }
-            sendMessage={() => {
-              /* preview: no voice WebSocket */
-            }}
+            sendMessage={
+              props.karaokeReadingForMapNode?.sendMessage ??
+              (() => {
+                /* preview: no voice WebSocket */
+              })
+            }
             accentColor={
               props.karaokeReadingForMapNode?.accentColor ??
               theme?.palette?.accent ??
               mapState?.theme.palette.accent ??
               accentColor
             }
-            onComplete={() => {
-              clearLaunchedNode();
+            onComplete={(result) => {
+              const node = launchedNodeRef.current;
+              if (!node || (node.type as string) !== "pronunciation") {
+                clearLaunchedNode();
+                return;
+              }
+              const accuracy =
+                result.accuracy > 1 ? result.accuracy / 100 : result.accuracy;
+              const missed = new Set(result.flaggedWords.map(normalizePracticeWord));
+              const correctLimit = Math.min(
+                result.wordsHit,
+                pronunciationWordsForNode.length,
+              );
+              void props.karaokeReadingForMapNode?.sendMessage?.(
+                "pronunciation_complete",
+                result as unknown as Record<string, unknown>,
+              );
+              void sendNodeResult({
+                nodeId: node.id,
+                activityId: "pronunciation",
+                completed: true,
+                accuracy,
+                timeSpent_ms: 0,
+                wordsAttempted: result.wordsAttempted,
+                correctWords: pronunciationWordsForNode.filter(
+                  (word, idx) =>
+                    idx < correctLimit && !missed.has(normalizePracticeWord(word)),
+                ),
+                missedWords: result.flaggedWords,
+                targetResults: pronunciationWordsForNode.map((word, idx) => ({
+                  target: word,
+                  correct:
+                    idx < correctLimit &&
+                    !missed.has(normalizePracticeWord(word)),
+                })),
+              }).catch((error: unknown) => {
+                console.error(" 🎮 [pronunciation] [node-result] failed", error);
+              });
             }}
             onExit={() => clearLaunchedNode()}
             topInset={flowGameBackChrome ? PREVIEW_GAME_TOP_INSET_PX : 0}
@@ -1921,8 +2229,15 @@ export function AdventureMap(props: {
             return `🎒 ${label}'s Bookbag`;
           })()}
         </button>
-      ) : null}
-      <QuestUnlockSequence {...quest} />
+	      ) : null}
+	      <MysteryChoiceOverlay
+	        node={mysteryChoiceOverlay?.node ?? null}
+	        open={mysteryChoiceOverlay !== null}
+	        previewMode={props.previewMode ?? false}
+	        onSelect={handleMysteryChoiceSelect}
+	        onDismiss={handleMysteryChoiceDismiss}
+	      />
+	      <QuestUnlockSequence {...quest} />
       <QuestBriefingModal {...briefing.modalProps} />
       {false && pendingVrr && (
         <SlotMachineOverlay

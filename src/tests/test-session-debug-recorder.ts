@@ -1,10 +1,11 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   SessionDebugRecorder,
   buildSessionLogFolderName,
+  finalizeSessionDebugPacket,
 } from "../server/session-debug-recorder";
 
 describe("SessionDebugRecorder", () => {
@@ -95,6 +96,68 @@ describe("SessionDebugRecorder", () => {
         sessionId: "a8f31c-bbbb",
       }),
     ).toBe("2026-05-04T15-32-10_ila_reading-homework_a8f31c");
+  });
+
+  it("does not write a session packet when debug recording is disabled for preview", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-session-logs-disabled-"));
+    const recorder = new SessionDebugRecorder({
+      rootDir: root,
+      sessionId: "preview-1",
+      childName: "Reina",
+      subject: "homework",
+      mode: "as-child",
+      enabled: false,
+    });
+    recorder.recordEvent("session", "start", { turnState: "IDLE" });
+    recorder.recordTranscript("assistant", "Preview only.");
+    recorder.recordError("Preview error that should not be written");
+    recorder.finalize({
+      result: "completed",
+      finalState: { turnState: "IDLE" },
+      artifacts: { preview: true },
+    });
+
+    expect(recorder.sessionDir).toBe("");
+    expect(fs.readdirSync(root)).toEqual([]);
+  });
+
+  it("finalizeSessionDebugPacket skips packet save logging when recorder is disabled", () => {
+    const recorder = new SessionDebugRecorder({
+      sessionId: "preview-2",
+      childName: "Reina",
+      subject: "homework",
+      mode: "as-child",
+      enabled: false,
+    });
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const session = {
+      debugPacketFinalized: false,
+      debugRecorder: recorder,
+      turnSM: { getState: () => "IDLE" },
+      roundNumber: 0,
+      isEnding: false,
+      childName: "Reina",
+      sessionId: "preview-2",
+      currentCanvasState: null,
+      pendingGameStart: null,
+      wbActive: false,
+      wbRound: 0,
+      spellCheckSessionActive: false,
+      activeSpellCheckWord: "",
+      conversationHistory: [],
+      rewardEngine: { getRewardLog: () => [] },
+    };
+
+    finalizeSessionDebugPacket(session, "completed", { preview: true });
+
+    expect(session.debugPacketFinalized).toBe(true);
+    expect(logSpy).toHaveBeenCalledWith(
+      "  🎮 [debug] [preview-skip] session packet not written",
+    );
+    expect(logSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("session packet saved"),
+    );
+    logSpy.mockRestore();
   });
 
   it("enqueues upload with seven-day local retention, not immediate deletion", () => {

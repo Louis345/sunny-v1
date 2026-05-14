@@ -12,6 +12,7 @@ export function validateGeneratedGame(
     words: string[];
     homeworkType: string;
     childId: string;
+    generationStage?: "quest" | "boss";
   },
 ): GameValidationResult {
   const failures: string[] = [];
@@ -66,9 +67,12 @@ export function validateGeneratedGame(
         firstWord.length > 0 &&
         html.includes(firstWord));
     if (hasWordChips) {
-      warnings.push(
-        "Word list may be visible during spelling — " + "defeats assessment purpose",
-      );
+      const message = "Word list may be visible during spelling — defeats assessment purpose";
+      if (ctx.generationStage === "boss") {
+        failures.push(`Visible spelling targets during boss validation: ${message}`);
+      } else {
+        warnings.push(message);
+      }
       score -= 20;
     }
   }
@@ -79,7 +83,8 @@ export function validateGeneratedGame(
     return (
       fl.includes("correct and wrong") ||
       fl.includes("hardcoded") ||
-      fl.includes("fireattemptevent")
+      fl.includes("fireattemptevent") ||
+      fl.includes("visible spelling targets")
     );
   });
 

@@ -57,6 +57,85 @@ describe("six tools (harness)", () => {
     expect(h.logs[0]).toMatchObject({ correct: true, childSaid: "27 cents" });
   });
 
+  it("recordChildSignal tool executes against host with narrow adaptive signal payload", async () => {
+    const h = new SixToolsMemoryHarness();
+    const tools = createSixTools(h);
+    const exec = tools.recordChildSignal.execute;
+    expect(exec).toBeDefined();
+
+    const out = await exec!(
+      {
+        childId: "reina",
+        activityId: "pronunciation",
+        domain: "spelling",
+        signalType: "stated_preference",
+        dimension: "voice",
+        valence: "positive",
+        confidence: 0.7,
+        evidenceText: "child said she likes saying the words",
+        source: "companion_micro_probe",
+      },
+      { toolCallId: "signal-1", messages: [] },
+    );
+
+    expect(out).toMatchObject({ ok: true, persisted: true });
+    expect(h.childSignals[0]).toMatchObject({
+      activityId: "pronunciation",
+      dimension: "voice",
+      source: "companion_micro_probe",
+    });
+  });
+
+  it("recordChildSignal rejects survey-shaped vague signals before host execution", async () => {
+    const h = new SixToolsMemoryHarness();
+    const tools = createSixTools(h);
+
+    await expect(
+      tools.recordChildSignal.execute!(
+        {
+          childId: "reina",
+          activityId: "pronunciation",
+          domain: "spelling",
+          signalType: "stated_preference",
+          dimension: "chaos" as never,
+          valence: "positive",
+          confidence: 0.7,
+          evidenceText: "child said something",
+          source: "companion_micro_probe",
+        },
+        { toolCallId: "signal-2", messages: [] },
+      ),
+    ).rejects.toThrow();
+    expect(h.childSignals).toHaveLength(0);
+  });
+
+  it("recordProductIssue tool executes against host with bounded complaint payload", async () => {
+    const h = new SixToolsMemoryHarness();
+    const tools = createSixTools(h);
+    const exec = tools.recordProductIssue.execute;
+    expect(exec).toBeDefined();
+
+    const out = await exec!(
+      {
+        activityId: "word-radar",
+        issueType: "flow_complaint",
+        severity: "medium",
+        childUtterance: "I only got to do that one time.",
+        evidenceText: "child said Word Radar moved from missing letters to whole-word spelling too quickly",
+        confidence: 0.82,
+        source: "child_utterance",
+      },
+      { toolCallId: "issue-1", messages: [] },
+    );
+
+    expect(out).toMatchObject({ ok: true, persisted: true });
+    expect(h.productIssues[0]).toMatchObject({
+      activityId: "word-radar",
+      issueType: "flow_complaint",
+      source: "child_utterance",
+    });
+  });
+
   it("two consecutive canvas.show — second overwrites first", async () => {
     const h = new SixToolsMemoryHarness();
     await h.canvasShow({ type: "text", content: "A" });

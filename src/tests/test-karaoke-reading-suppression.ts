@@ -42,6 +42,38 @@ describe("karaoke reading transcript suppression", () => {
     expect(shouldSuppress("hello")).toBe(true);
   });
 
+  it("suppresses pronunciation target words while allowing clear companion commands", () => {
+    const sm = new SessionManager(mockWs(), "Reina");
+    (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =
+      createSessionContext({ childName: "Reina", sessionType: "homework" });
+    (sm as unknown as { currentActivityState: Record<string, unknown> }).currentActivityState =
+      { game: "pronunciation", currentWord: "government", progress: "Word 2/10" };
+    const shouldSuppress = (
+      sm as unknown as {
+        shouldSuppressTranscriptDuringKaraoke: (t: string) => boolean;
+      }
+    ).shouldSuppressTranscriptDuringKaraoke.bind(sm);
+
+    expect(shouldSuppress("government")).toBe(true);
+    expect(shouldSuppress("Matilda are you there")).toBe(false);
+  });
+
+  it("suppresses active map game target words while allowing clear companion commands", () => {
+    const sm = new SessionManager(mockWs(), "Reina");
+    (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =
+      createSessionContext({ childName: "Reina", sessionType: "homework" });
+    (sm as unknown as { currentActivityState: Record<string, unknown> }).currentActivityState =
+      { game: "word-radar", currentWord: "about", progress: "Word 3/10" };
+    const shouldSuppress = (
+      sm as unknown as {
+        shouldSuppressTranscriptDuringKaraoke: (t: string) => boolean;
+      }
+    ).shouldSuppressTranscriptDuringKaraoke.bind(sm);
+
+    expect(shouldSuppress("about")).toBe(true);
+    expect(shouldSuppress("Matilda are you there")).toBe(false);
+  });
+
   it("suppresses homework karaoke transcripts that end with repeated story words like bye", () => {
     const sm = new SessionManager(mockWs(), "Reina");
     (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =

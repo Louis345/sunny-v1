@@ -551,6 +551,16 @@ function useAdventureMapVoiceSlimPrompt(subject: SessionSubject): boolean {
   );
 }
 
+function adaptiveMicroProbeInstructions(): string {
+  return [
+    "## Adaptive micro-probes",
+    "You may use recordChildSignal only for narrow learning signals after a natural moment: a real choice, strong reaction, repeated error, hint request, stop/change request, parent comment, or visible frustration.",
+    "If the child or parent/caregiver reports a Sunny bug, confusing activity flow, companion lag, content mismatch, or UI blocker, use recordProductIssue. That is product evidence, not preference evidence.",
+    "Ask at most one playful micro-probe around an activity, never a survey. Example: \"Monster Stampede again? Was it the speed or the chaos you wanted?\"",
+    "If the child answers, record it as stated_preference with evidenceText. If you directly observe a behavior, record it as observed_behavior. A stated preference is useful evidence, not truth.",
+  ].join("\n");
+}
+
 /** Canvas manifest + companion capabilities, or adventure-map voice tail without canvas manifest. */
 function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
   if (useAdventureMapVoiceSlimPrompt(subject)) {
@@ -561,6 +571,8 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
       "Stay in voice: narrate, encourage, and use companionAct. " +
       "Use sessionLog and sessionStatus as usual. " +
       "The child earns digital food by finishing map nodes; remind them naturally that food lives in the companion Bookbag and can help their companion feel ready.\n\n" +
+      adaptiveMicroProbeInstructions() +
+      "\n\n" +
       "## Your tools\n" +
       generateAdventureMapVoiceToolDocs() +
       "\n\n" +
@@ -571,18 +583,20 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
     "\n\n" +
     generateCanvasCapabilitiesManifest() +
     "\n\n" +
+    adaptiveMicroProbeInstructions() +
+    "\n\n" +
     generateCompanionCapabilities()
   );
 }
 
 /** Diagnostics-only focus block; `creatorContext` is the body of src/context/creator/creator.md */
 function buildDiagModeInstructions(creatorContext: string): string {
-  return `You are Project Sunny, an adaptive learning companion built by Jamal Taylor.
+  return `You are Project Sunny, an adaptive learning companion.
 
 ${creatorContext}
 
 You are in diagnostic mode.
-You are speaking directly to Jamal — your creator. Not a child.
+You are speaking directly to the creator/developer. Not a child.
 
 Personality:
   British English dialect.
@@ -603,7 +617,7 @@ When asked to show a capability:
 When something isn't working:
   Acknowledge it plainly.
   One sentence. No child comfort language.
-  Ask what Jamal would like to try next.
+  Ask what the creator/developer would like to try next.
 
 You know what you are built with.
 You know your tool capabilities from the [Tool capabilities] manifest.
@@ -612,7 +626,7 @@ You know the available games from sessionStatus when needed.
 When a node shows karaoke (reading mode):
 You are in PASSIVE mode.
 The browser handles ALL word tracking.
-You will NOT receive Jamal's reading-aloud transcripts as ordinary user turns — only when reading_progress event=complete fires, or when Jamal speaks a clear command (not story words).
+You will NOT receive reading-aloud transcripts as ordinary user turns — only when reading_progress event=complete fires, or when the parent/caregiver speaks a clear command (not story words).
 On complete: respond with ONE sentence. Acknowledge the reading. That is all.
 Do NOT call canvasShow. Do NOT refresh karaoke. Do NOT call any tools unless explicitly asked.
 
@@ -651,7 +665,7 @@ function buildDiagSessionPrompt(
 
   const imageRequestBlock = `
 
-When Jamal asks for an image (explicit request; the server may also illustrate after reading):
+When the parent/caregiver asks for an image (explicit request; the server may also illustrate after reading):
   One short acknowledgment, then sessionLog with action "generate_image" and the scene in observation.`;
 
   const personaBlock =

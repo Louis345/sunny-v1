@@ -16,6 +16,8 @@ export const CANONICAL_AGENT_TOOL_KEYS = [
   "sessionLog",
   "sessionStatus",
   "sessionEnd",
+  "recordChildSignal",
+  "recordProductIssue",
   "expressCompanion",
   "companionAct",
   "launchGame",

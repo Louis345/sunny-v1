@@ -265,7 +265,7 @@ describe("buildHomeworkNodes + SM-2 selection", () => {
       childId: "qa_map",
       testDate: null,
     });
-    const spellingNode = nodes.find((n) => n.type === "letter-rush");
+    const spellingNode = nodes.find((n) => n.type === "spell-check");
     expect(spellingNode?.words?.includes("faster")).toBe(false);
   });
 

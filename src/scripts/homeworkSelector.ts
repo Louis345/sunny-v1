@@ -5,13 +5,19 @@ import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
-import { buildHomeworkNodes, buildPendingHomeworkPayload, normalizeHomeworkType } from "./ingestHomework";
+import {
+  buildHomeworkNodes,
+  buildHomeworkReturnTag,
+  buildPendingHomeworkPayload,
+  normalizeHomeworkType,
+} from "./ingestHomework";
 import {
   buildCapturedHomeworkContent,
   normalizeContentProfile,
   type CapturedHomeworkContent,
   type ContentProfile,
   type HomeworkType,
+  type HomeworkWordGroup,
 } from "./contentAwareHomeworkPlanner";
 
 export type HomeworkDomainFilter = "spelling" | "science" | "reading" | "math";
@@ -79,6 +85,46 @@ function isExpired(cycle: HomeworkCycle): boolean {
   return due < todayStartTime();
 }
 
+function activeCycleForPending(
+  cycles: HomeworkCycle[],
+  pendingHomeworkId: string,
+): HomeworkCycle | null {
+  if (!pendingHomeworkId) return null;
+  return cycles.find((cycle) => cycle.homeworkId === pendingHomeworkId) ?? null;
+}
+
+function withCycleMetadata(
+  childId: string,
+  pendingHomework: NonNullable<LearningProfile["pendingHomework"]>,
+  cycle: HomeworkCycle,
+): NonNullable<LearningProfile["pendingHomework"]> {
+  return {
+    ...pendingHomework,
+    testDateSource: pendingHomework.testDateSource ?? cycle.testDateSource,
+    testDateConfirmed: pendingHomework.testDateConfirmed ?? cycle.testDateConfirmed,
+    returnTag:
+      pendingHomework.returnTag ??
+      cycle.returnTag ??
+      buildHomeworkReturnTag(childId, cycle.homeworkId),
+  };
+}
+
+function pendingNodeSignature(
+  pendingHomework: NonNullable<LearningProfile["pendingHomework"]>,
+): string {
+  return JSON.stringify(
+    (pendingHomework.nodes ?? []).map((node) => ({
+      id: node.id,
+      type: node.type,
+      words: node.words ?? [],
+      wordRadarItems: node.wordRadarItems ?? [],
+      gameFile: node.gameFile ?? null,
+      storyFile: node.storyFile ?? null,
+      activityConfigPath: node.activityConfigPath ?? null,
+    })),
+  );
+}
+
 function ingestedTime(cycle: HomeworkCycle): number {
   const time = new Date(cycle.ingestedAt).getTime();
   return Number.isFinite(time) ? time : 0;
@@ -136,6 +182,7 @@ function capturedContentForCycle(
     rawText: cycle.capturedContent.rawText,
     words: cycle.capturedContent.words,
     questions: cycle.capturedContent.questions,
+    wordGroups: cycle.capturedContent.wordGroups as HomeworkWordGroup[] | undefined,
     sourceDocuments: cycle.capturedContent.sourceDocuments,
     contentProfile,
   });
@@ -187,10 +234,14 @@ export function pendingHomeworkFromCycle(
     childId,
     testDate: cycle.testDate,
     contentProfile,
+    capturedContent: capturedContent ?? undefined,
   });
   return buildPendingHomeworkPayload({
     weekOf: cycle.ingestedAt,
     testDate: cycle.testDate,
+    testDateSource: cycle.testDateSource,
+    testDateConfirmed: cycle.testDateConfirmed,
+    returnTag: cycle.returnTag ?? buildHomeworkReturnTag(childId, cycle.homeworkId),
     wordList: cycle.wordList,
     homeworkId: cycle.homeworkId,
     nodes,
@@ -206,6 +257,28 @@ export function hydratePendingHomeworkFromCycle(
   const profile = readLearningProfile(childId);
   if (!profile) {
     throw new Error(`Could not read learning_profile.json for child: ${childId}`);
+  }
+  const pendingHomeworkId = String(profile.pendingHomework?.homeworkId ?? "").trim();
+  if (!opts.domain && pendingHomeworkId) {
+    const activeCycle = activeCycleForPending(readHomeworkCycles(childId), pendingHomeworkId);
+    if (activeCycle && !isExpired(activeCycle)) {
+      const pendingHomework = withCycleMetadata(
+        childId,
+        profile.pendingHomework as NonNullable<LearningProfile["pendingHomework"]>,
+        activeCycle,
+      );
+      if (
+        pendingHomework.returnTag !== profile.pendingHomework?.returnTag ||
+        pendingHomework.testDateSource !== profile.pendingHomework?.testDateSource ||
+        pendingHomework.testDateConfirmed !== profile.pendingHomework?.testDateConfirmed
+      ) {
+        writeLearningProfile(childId, { ...profile, pendingHomework });
+      }
+      console.log(
+        `🎮 [homeworkSelector] keep-active ${activeCycle.homeworkId} (${activeCycle.subject})`,
+      );
+      return pendingHomework;
+    }
   }
   const cycle = selectHomeworkCycle(childId, opts);
   if (!cycle) {
@@ -225,4 +298,64 @@ export function hydratePendingHomeworkFromCycle(
     `🎮 [homeworkSelector] hydrate ${cycle.homeworkId} (${cycle.subject})`,
   );
   return pendingHomework;
+}
+
+export function ensureFreshPendingHomework(
+  childId: string,
+  opts: { domain?: HomeworkDomainFilter } = {},
+): NonNullable<LearningProfile["pendingHomework"]> & { homeworkId?: string } {
+  const profile = readLearningProfile(childId);
+  if (!profile) {
+    throw new Error(`Could not read learning_profile.json for child: ${childId}`);
+  }
+  const cycles = readHomeworkCycles(childId);
+  const pendingHomeworkId = String(profile.pendingHomework?.homeworkId ?? "").trim();
+  const activeCycle = activeCycleForPending(cycles, pendingHomeworkId);
+  const domainMismatch = activeCycle ? !matchesDomain(activeCycle, opts.domain) : Boolean(opts.domain);
+  const stale = !activeCycle || isExpired(activeCycle) || domainMismatch;
+
+  if (!stale && profile.pendingHomework) {
+    const pendingHomework = withCycleMetadata(childId, profile.pendingHomework, activeCycle);
+    const rebuilt = withCycleMetadata(
+      childId,
+      pendingHomeworkFromCycle(childId, activeCycle),
+      activeCycle,
+    );
+    const hasStarted =
+      (pendingHomework.completedAdventureNodeIds?.length ?? 0) > 0;
+    if (!hasStarted && pendingNodeSignature(pendingHomework) !== pendingNodeSignature(rebuilt)) {
+      const refreshed = {
+        ...rebuilt,
+        reinforceWords: pendingHomework.reinforceWords,
+        completedAdventureNodeIds: pendingHomework.completedAdventureNodeIds,
+      };
+      writeLearningProfile(childId, { ...profile, pendingHomework: refreshed });
+      updateHomeworkPriorityWords(childId, activeCycle);
+      console.log(
+        `🎮 [homeworkSelector] repaired-active ${activeCycle.homeworkId} (${activeCycle.subject})`,
+      );
+      return refreshed;
+    }
+    if (
+      pendingHomework.returnTag !== profile.pendingHomework.returnTag ||
+      pendingHomework.testDateSource !== profile.pendingHomework.testDateSource ||
+      pendingHomework.testDateConfirmed !== profile.pendingHomework.testDateConfirmed
+    ) {
+      writeLearningProfile(childId, { ...profile, pendingHomework });
+    }
+    console.log(
+      `🎮 [homeworkSelector] fresh ${activeCycle.homeworkId} (${activeCycle.subject})`,
+    );
+    return pendingHomework;
+  }
+
+  const reason = !activeCycle
+    ? "missing"
+    : isExpired(activeCycle)
+      ? "expired"
+      : "domain-mismatch";
+  console.log(
+    `🎮 [homeworkSelector] refresh-active reason=${reason} current=${pendingHomeworkId || "none"}`,
+  );
+  return hydratePendingHomeworkFromCycle(childId, opts);
 }

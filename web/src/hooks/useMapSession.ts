@@ -14,9 +14,20 @@ import type {
   NodeResult,
   SessionTheme,
 } from "../../../src/shared/adventureTypes";
+import type { SunnyHomeworkDomain } from "../../../src/shared/runtimeConfig";
 import { applyLocalNodeResult } from "../../../src/shared/mapLocalProgress";
 
 export type MapConnectionStatus = "idle" | "connecting" | "open" | "error";
+
+export class MapRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "MapRequestError";
+    this.status = status;
+  }
+}
 
 function isCompanionEvent(msg: unknown): msg is CompanionEvent {
   if (!msg || typeof msg !== "object") return false;
@@ -135,9 +146,21 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const detail = `http_${res.status}`;
+    let detail = `http_${res.status}`;
+    try {
+      const payload = await res.json() as { error?: unknown; message?: unknown };
+      const serverMessage =
+        typeof payload.error === "string"
+          ? payload.error
+          : typeof payload.message === "string"
+            ? payload.message
+            : "";
+      if (serverMessage.trim()) detail = serverMessage.trim();
+    } catch {
+      /* keep HTTP status fallback */
+    }
     console.error("  🔴 [useMapSession] POST failed", url, detail);
-    throw new Error(detail);
+    throw new MapRequestError(res.status, detail);
   }
   return res.json() as Promise<T>;
 }
@@ -158,11 +181,13 @@ export function useMapSession(
   childId: string,
   previewMode: MapClientPreviewMode = false,
   inspectAllMode = false,
+  homeworkDomain?: SunnyHomeworkDomain | null,
 ): {
   mapState: MapState | null;
   theme: SessionTheme | null;
   sessionId: string | null;
   connectionStatus: MapConnectionStatus;
+  connectionError: string | null;
   onNodeClick: (nodeId: string) => Promise<NodeConfig | null>;
   commitLaunchedNode: (node: NodeConfig) => void;
   launchedNode: NodeConfig | null;
@@ -190,6 +215,7 @@ export function useMapSession(
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<MapConnectionStatus>("idle");
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [launchedNode, setLaunchedNode] = useState<NodeConfig | null>(null);
   const [companionEvents, setCompanionEvents] = useState<CompanionEventPayload[]>(
     [],
@@ -216,6 +242,7 @@ export function useMapSession(
       setSessionStarted(false);
       setLiveMapCurrency(null);
       setConnectionStatus("idle");
+      setConnectionError(null);
       const w = window as unknown as { _mapWs?: WebSocket };
       w._mapWs = undefined;
       return;
@@ -226,11 +253,13 @@ export function useMapSession(
     setLiveMapCurrency(null);
     let cancelled = false;
     setConnectionStatus("connecting");
+    setConnectionError(null);
     postJson<{ sessionId: string; mapState: MapState }>("/api/map/start", {
       childId,
       runtime: {
         previewMode: mapPreviewQueryParam(previewMode) ?? "off",
         nodeAccess: inspectAllMode ? "inspect-all" : "normal",
+        homeworkDomain: homeworkDomain ?? null,
       },
     })
       .then((out) => {
@@ -239,17 +268,21 @@ export function useMapSession(
         setMapState(applyDiagReadingFirstNode(out.mapState));
         setTheme(out.mapState.theme);
         setConnectionStatus("open");
+        setConnectionError(null);
         setSessionStarted(true);
         console.log("  🎮 [useMapSession] map session ready");
       })
       .catch((err) => {
         console.error("  🔴 [useMapSession] map /start failed:", err);
-        if (!cancelled) setConnectionStatus("error");
+        if (!cancelled) {
+          setConnectionStatus("error");
+          setConnectionError(err instanceof Error ? err.message : "Could not load map.");
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [childId, inspectAllMode, previewMode]);
+  }, [childId, homeworkDomain, inspectAllMode, previewMode]);
 
   useEffect(() => {
     const id = childId.trim();
@@ -511,6 +544,7 @@ export function useMapSession(
     theme,
     sessionId,
     connectionStatus,
+    connectionError,
     onNodeClick,
     commitLaunchedNode,
     launchedNode,
