@@ -12,6 +12,7 @@ export const NODE_DISPLAY_LABELS: Record<string, string> = {
   "hero-shield": "Hero Shield",
   "word-radar": "Word Radar",
   "visual-explainer": "Visual Explainer",
+  "visual-recall-quiz": "Recall Game",
   "concept-check": "Concept Check",
   "letter-rush": "Letter Rush",
   "spell-check": "Spell Check",
@@ -162,6 +163,15 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
         params.set("visualLearnerFlow", ctx.visualLearnerFlowMode);
       }
       return `${DEFAULT_VISUAL_LEARNER_ARTIFACT_URL}?${params.toString()}`;
+    },
+  },
+  "visual-recall-quiz": {
+    getUrl: (node, ctx) => {
+      const params = buildNodeUrlSearchParams(node, ctx);
+      if (node.activityConfigPath) {
+        params.set("config", node.activityConfigPath);
+      }
+      return `/games/visual-learner-coop-quiz.html?${params.toString()}`;
     },
   },
   "word-builder": {

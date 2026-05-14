@@ -6,6 +6,7 @@ export type NodeType =
   | "mystery"
   | "concept-check"
   | "visual-explainer"
+  | "visual-recall-quiz"
   | "letter-rush"
   | "word-builder"
   | "bubble-pop"
@@ -58,6 +59,8 @@ export interface NodeConfig {
   date?: string;
   /** Optional node theme label (client / diag). */
   theme?: string;
+  /** Learning content catalog id when this node is generated/reused learning content. */
+  contentId?: string;
   /** Child-profile-derived activity config for attention screening/intervention nodes. */
   attentionConfig?: unknown;
   /** Validated JSON config endpoint for reusable activity engines. */
@@ -177,6 +180,7 @@ export const ALL_NODE_TYPES: readonly NodeType[] = [
   "mystery",
   "concept-check",
   "visual-explainer",
+  "visual-recall-quiz",
   "letter-rush",
   "word-builder",
   "bubble-pop",

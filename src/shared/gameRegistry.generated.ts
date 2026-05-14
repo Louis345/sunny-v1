@@ -119,6 +119,11 @@ export const TEACHING_TOOLS: Record<string, GameDefinition> = {
     "defaultConfig": {},
     "voiceEnabled": true
   },
+  "visual-learner-coop-quiz": {
+    "url": "/games/visual-learner-coop-quiz.html",
+    "defaultConfig": {},
+    "voiceEnabled": true
+  },
   "word-builder": {
     "url": "/games/word-builder.html",
     "defaultConfig": {},

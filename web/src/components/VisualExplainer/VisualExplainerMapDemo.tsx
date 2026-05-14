@@ -19,16 +19,49 @@ import { applyLocalNodeResult } from "../../../../src/shared/mapLocalProgress";
 import type { useMapSession } from "../../hooks/useMapSession";
 import type { FlowGameSendMessage } from "../../utils/flowGameEvents";
 
-const visualExplainerNode: NodeConfig = {
-  id: "demo-erosion-treatment",
-  type: "visual-explainer",
-  isLocked: false,
-  isCompleted: false,
-  isGoal: false,
-  difficulty: 1,
-  thumbnailUrl: "/thumbnails/mystery-fallback.svg",
-  theme: "Erosion Treatment",
-};
+const SOLID_FACES_CONFIG_PATH =
+  "/generated/openai-visual-probe/2d-faces-of-3d-solids-cube-square-prism-rectangle-cylinder-cone-circle-b-1778718658762/artifact.config.json";
+
+function buildVisualLearnerFeedbackDemoNodes(): NodeConfig[] {
+  return [
+    {
+      id: "visual-demo-concept-check",
+      type: "concept-check",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 1,
+      thumbnailUrl: "/thumbnails/mystery-fallback.svg",
+      activityConfigPath: "/games/demo-configs/visual-learner-solid-faces-concept-check.json",
+      contentId: "visual-learner:reina:solid-faces",
+      theme: "Baseline Check",
+    },
+    {
+      id: "visual-demo-explainer",
+      type: "visual-explainer",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 1,
+      thumbnailUrl: "/thumbnails/mystery-fallback.svg",
+      activityConfigPath: SOLID_FACES_CONFIG_PATH,
+      contentId: "visual-learner:reina:solid-faces",
+      theme: "Whimsical Quest",
+    },
+    {
+      id: "visual-demo-coop-recall",
+      type: "visual-recall-quiz",
+      isLocked: true,
+      isCompleted: false,
+      isGoal: true,
+      difficulty: 2,
+      thumbnailUrl: "/thumbnails/mystery-fallback.svg",
+      activityConfigPath: SOLID_FACES_CONFIG_PATH,
+      contentId: "visual-learner:reina:solid-faces",
+      theme: "Co-op Recall",
+    },
+  ];
+}
 
 const demoTheme: SessionTheme = {
   name: "Care Plan Hills",
@@ -54,6 +87,7 @@ const demoTheme: SessionTheme = {
   castleUrl: null,
   nodeThumbnails: {
     "visual-explainer": "/thumbnails/mystery-fallback.svg",
+    "visual-recall-quiz": "/thumbnails/mystery-fallback.svg",
     quest: "/thumbnails/mystery-fallback.svg",
     boss: null,
   },
@@ -74,38 +108,7 @@ function createInitialMapState(): MapState {
     xp: 25,
     level: 2,
     theme: demoTheme,
-    nodes: [
-      {
-        id: "map-intake",
-        type: "concept-check",
-        isLocked: false,
-        isCompleted: true,
-        isGoal: false,
-        difficulty: 1,
-        thumbnailUrl: "/thumbnails/mystery-fallback.svg",
-        theme: "Baseline Check",
-      },
-      visualExplainerNode,
-      {
-        id: "map-quest-after-care",
-        type: "quest",
-        isLocked: true,
-        isCompleted: false,
-        isGoal: false,
-        difficulty: 2,
-        thumbnailUrl: "/thumbnails/mystery-fallback.svg",
-        theme: "Quest unlocks after evidence",
-      },
-      {
-        id: "map-boss-transfer",
-        type: "boss",
-        isLocked: true,
-        isCompleted: false,
-        isGoal: true,
-        difficulty: 3,
-        theme: "Transfer Boss",
-      },
-    ],
+    nodes: buildVisualLearnerFeedbackDemoNodes(),
   };
 }
 
@@ -210,11 +213,6 @@ export function VisualExplainerMapDemo(): React.ReactElement {
         mode={launchedNode?.type === "visual-explainer" ? "portrait" : "full"}
         companionEvents={companionEvents}
         micMuted
-        speechBubbleText={
-          launchedNode?.type === "visual-explainer"
-            ? "I am watching the model with you."
-            : null
-        }
       />
     </>
   );

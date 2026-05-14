@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sunny-visual-probe 2D Faces of 3D Solids</title>
+<script src="/games/_contract.js"></script>
+<script src="/generated/openai-visual-probe/artifact-shell.js?v=companion-contract-1"></script>
+<style>
+  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#fff7c8;color:#2b2418}
+  #app{min-height:100%}
+  .sunny-wrap{display:grid;place-items:center;padding:10px}
+  svg{width:min(980px,100%);height:auto;display:block;border-radius:26px;background:linear-gradient(#8ee7ff 0 58%,#ffe891 58%);box-shadow:0 10px 28px #d79d3d55}
+  .label{font-weight:800;font-size:18px;fill:#49351e}
+  .small{font-weight:700;font-size:13px;fill:#5c4529}
+  .title{font-weight:900;font-size:28px;fill:#fff;paint-order:stroke;stroke:#e78825;stroke-width:7px}
+  .stampText{font-weight:900;font-size:22px;fill:#7b3cff}
+  .face{filter:drop-shadow(0 3px 2px #0003)}
+  .artifact{min-height:100%;padding:18px;box-sizing:border-box}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 auto 14px;max-width:1100px}
+  .topbar h1{margin:0;font-size:28px;line-height:1.05}
+  .topbar p{margin:5px 0 0;color:#6b5a34;font-weight:700}
+  .shell-card{max-width:1100px;margin:0 auto;background:#fffdf4;border:1px solid #f1d98c;border-radius:28px;box-shadow:0 18px 45px #d79d3d44;overflow:hidden}
+  #sceneMount{min-height:420px;display:grid;place-items:center;background:#fff3b7;padding:18px;box-sizing:border-box}
+  #sceneMount .sunny-wrap{width:100%;padding:0}
+  #sceneMount svg{width:min(1060px,100%);max-height:590px}
+  .controls{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;padding:14px 18px;background:#fffef8;border-top:1px solid #f1d98c}
+  .play-btn,.secondary-btn,.reveal-btn,.choice{border:0;border-radius:999px;font-weight:900;cursor:pointer}
+  .play-btn{background:#211642;color:white;font-size:18px;padding:15px 24px}
+  .secondary-btn{background:#f4e9c6;color:#3e321e;padding:12px 17px}
+  .scrub-area{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;font-weight:900;color:#6b5a34}
+  #scrubber{width:100%;accent-color:#7b3cff}
+  .checkpoints{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+  .checkpoint{border:1px solid #ead081;background:#fff;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900;color:#7a6231}
+  .checkpoint.active{background:#7b3cff;color:white;border-color:#7b3cff}
+  .prediction-card{position:fixed;inset:auto 18px 18px 18px;max-width:620px;margin:auto;background:#fffdf7;border:1px solid #e6c66c;border-radius:24px;box-shadow:0 24px 70px #3d290866;padding:20px;z-index:20;display:none}
+  .question-active .prediction-card{display:block}
+  .prediction-kicker{font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:1000;color:#7b3cff}
+  .prediction-card h2{margin:5px 0 4px;font-size:24px}
+  .prediction-card p{margin:0 0 14px;color:#5d4b2c;font-weight:800}
+  .choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
+  .choice{background:#fff3c4;border:2px solid #ead081;color:#3d321c;padding:13px}
+  .choice.selected{background:#7b3cff;color:white;border-color:#7b3cff}
+  .reveal-btn{width:100%;background:#211642;color:#fff;padding:13px;margin-bottom:10px}
+  .reveal-btn:disabled{opacity:.45;cursor:not-allowed}
+  .pred-feedback{font-weight:800;color:#6b5a34}
+  .parent-only{display:none}
+  .parent-preview .parent-only{display:block}
+  .child-mode .parent-only{display:none}
+  .evidence-list{max-height:120px;overflow:auto;margin:0;padding-left:18px;font-size:12px}
+  .companion-help{position:fixed;right:18px;bottom:18px;border:0;border-radius:999px;background:#2b1b58;color:#fff;padding:12px 16px;font-weight:900;box-shadow:0 16px 34px #2b1b5838;z-index:10}
+  @media (max-width:760px){.controls{grid-template-columns:1fr}.choice-grid{grid-template-columns:1fr}.topbar{display:block}}
+</style>
+</head>
+<body>
+<main id="app" class="artifact">
+  <div class="topbar">
+    <div>
+      <h1>Stamp Quest</h1>
+      <p>Help the shapes test the magic stamp pad.</p>
+    </div>
+    <button id="backButton" class="secondary-btn" type="button">Back</button>
+  </div>
+  <section class="shell-card" aria-label="Sunny visual learner artifact">
+    <div id="sceneMount"></div>
+    <div class="controls" aria-label="Scene controls">
+      <button id="playPause" class="play-btn" type="button" aria-label="Play visual explainer">▶ Play</button>
+      <div class="scrub-area">
+        <label for="scrubber">Progress</label>
+        <input id="scrubber" type="range" min="0" max="100" value="0" step="1" aria-label="Scene progress">
+        <output id="progressOut" for="scrubber">0%</output>
+      </div>
+      <button id="finishButton" class="secondary-btn" type="button">Finish</button>
+      <label class="parent-only"><input id="cinemaMode" type="checkbox"> Play through</label>
+      <div class="checkpoints" aria-label="Checkpoints">
+        <button class="checkpoint active" type="button" data-progress="0">1 Meet</button>
+        <button class="checkpoint" type="button" data-progress="34">2 Stamp</button>
+        <button class="checkpoint" type="button" data-progress="62">3 Pick</button>
+        <button class="checkpoint" type="button" data-progress="78">4 Prints</button>
+        <button class="checkpoint" type="button" data-progress="96">5 Review</button>
+      </div>
+    </div>
+  </section>
+  <section class="prediction-card" id="predictionPanel" aria-live="polite" role="dialog" aria-modal="true" aria-labelledby="predictionTitle">
+    <div class="prediction-kicker">Quest check</div>
+    <h2 id="predictionTitle">One shape is trouble</h2>
+    <p>Which one rolls away without making a flat print?</p>
+    <div class="choice-grid" role="group" aria-label="Prediction choices">
+      <button class="choice" type="button" data-choice="cube" aria-pressed="false">Cube</button>
+      <button class="choice" type="button" data-choice="cylinder" aria-pressed="false">Cylinder</button>
+      <button class="choice" type="button" data-choice="pyramid" aria-pressed="false">Pyramid</button>
+      <button class="choice" type="button" data-choice="sphere" aria-pressed="false">Sphere</button>
+    </div>
+    <button id="revealButton" class="reveal-btn" type="button" disabled>Check the stamp pad</button>
+    <div id="predFeedback" class="pred-feedback">Pick the shape that cannot press down flat.</div>
+  </section>
+  <button id="companionHelp" class="companion-help" type="button">Ask companion</button>
+  <section class="parent-only" style="max-width:1100px;margin:14px auto;background:#fffdf4;border-radius:18px;padding:14px">
+    <p id="narrationMeta">Narration disabled for this probe.</p>
+    <p id="artifactDebug">Artifact config loading.</p>
+    <ol id="evidenceList" class="evidence-list"><li data-evidence-event="scene-loaded"><b>scene-loaded</b><span>solid faces probe ready.</span></li></ol>
+  </section>
+  <audio id="narrationAudio" preload="auto"></audio>
+</main>
+<div data-evidence-event="sunny-visual-probe face-stamp-choice" hidden></div>
+<script type="application/json" id="recallGame">
+{"questions":[{"q":"What 2D face can a cube stamp?","a":"square","choices":["square","circle","triangle"]},{"q":"Which solids can stamp circle bases?","a":"cylinder and cone","choices":["pyramid and cube","cylinder and cone","sphere and prism"]},{"q":"Why does the sphere roll away?","a":"It has no flat face","choices":["It is too small","It has no flat face","It stamps a square"]}]}
+</script>
+<script>
+(function(){
+const artifactId="sunny-visual-probe-2d-faces-3d-solids";
+const concept="2D faces of 3D solids";
+const learningGoal="Match common 3D solids to the flat 2D faces they can stamp: cube-square, prism-rectangle, cylinder/cone-circle, pyramid-triangle, sphere-none.";
+const misconception="A curved surface is not a flat face, so a sphere cannot stamp a flat 2D face.";
+const checkpoints=[
+ {id:"intro",label:"Meet the solids"},
+ {id:"rotate",label:"Rotate to find a flat face"},
+ {id:"stamp",label:"Press onto the glowing stamp pad"},
+ {id:"predict",label:"Predict the no-flat-face solid"},
+ {id:"reveal",label:"Reveal each 2D stamp"},
+ {id:"review",label:"Review the matches"}
+];
+function getPhase(p){return p<.16?"intro":p<.34?"rotate":p<.52?"stamp":p<.68?"predict":p<.86?"reveal":"review"}
+function checkEvidence(choice){return String(choice).toLowerCase()==="sphere"}
+function formatPredictionFeedback(choice){
+ return checkEvidence(choice)?"Nice pick. The sphere is all curve, so it rolls instead of stamping.":"Close. Look for the shape that cannot press a flat side onto the pad."
+}
+function solid(x,y,type,rot,active){
+ const glow=active?' filter="url(#glow)"':'';
+ if(type==="cube")return `<g transform="translate(${x} ${y}) rotate(${rot})"${glow}><polygon points="-36,-26 8,-44 44,-20 0,0" fill="#ffd15c" stroke="#9b6b18" stroke-width="3"/><polygon points="-36,-26 0,0 0,48 -36,22" fill="#ffb13b" stroke="#9b6b18" stroke-width="3"/><polygon points="0,0 44,-20 44,28 0,48" fill="#e98c2e" stroke="#9b6b18" stroke-width="3"/></g>`;
+ if(type==="prism")return `<g transform="translate(${x} ${y}) rotate(${rot})"${glow}><polygon points="-50,-25 18,-40 55,-17 -15,0" fill="#8ee48b" stroke="#267934" stroke-width="3"/><polygon points="-50,-25 -15,0 -15,42 -50,17" fill="#55c96a" stroke="#267934" stroke-width="3"/><polygon points="-15,0 55,-17 55,25 -15,42" fill="#38ad55" stroke="#267934" stroke-width="3"/></g>`;
+ if(type==="cylinder")return `<g transform="translate(${x} ${y}) rotate(${rot})"${glow}><rect x="-36" y="-38" width="72" height="78" fill="#62c8ff" stroke="#116d9c" stroke-width="3"/><ellipse cx="0" cy="-38" rx="36" ry="13" fill="#a8ecff" stroke="#116d9c" stroke-width="3"/><ellipse cx="0" cy="40" rx="36" ry="13" fill="#2fa7dc" stroke="#116d9c" stroke-width="3"/></g>`;
+ if(type==="cone")return `<g transform="translate(${x} ${y}) rotate(${rot})"${glow}><path d="M0-58 L-42 35 Q0 55 42 35 Z" fill="#ff8cb8" stroke="#a72658" stroke-width="3"/><ellipse cx="0" cy="35" rx="42" ry="15" fill="#ffbdd5" stroke="#a72658" stroke-width="3"/></g>`;
+ if(type==="pyramid")return `<g transform="translate(${x} ${y}) rotate(${rot})"${glow}><polygon points="0,-58 -48,35 6,52" fill="#cfa2ff" stroke="#65309b" stroke-width="3"/><polygon points="0,-58 6,52 52,30" fill="#a56ee6" stroke="#65309b" stroke-width="3"/><polygon points="-48,35 6,52 52,30 0,15" fill="#8c54d8" stroke="#65309b" stroke-width="3"/></g>`;
+ return `<g transform="translate(${x} ${y}) rotate(${rot})"${glow}><circle r="42" fill="url(#ball)" stroke="#3150a8" stroke-width="3"/><ellipse cx="-12" cy="-14" rx="13" ry="8" fill="#fff8" transform="rotate(-25)"/><path d="M-28 20 Q0 38 30 18" fill="none" stroke="#3150a866" stroke-width="4"/></g>`;
+}
+function renderScene(progress,phase,state){
+ const ph=phase||getPhase(progress),t=progress*1,spin=ph==="rotate"?Math.sin(t*32)*10:0,stamp=ph==="stamp"||ph==="reveal"||ph==="review",rev=ph==="reveal"||ph==="review",pred=ph==="predict";
+ const names=[["cube","square",105],["prism","rectangle",245],["cylinder","circle",390],["cone","circle",535],["pyramid","triangle",680],["sphere","no flat face",825]];
+ const activeIndex=Math.min(4,Math.floor(Math.max(0,progress-.18)/.11));
+ const solids=names.map((n,i)=>{
+   let y=270+(stamp&&i<5?34:0),x=n[2],r=spin+(i-2)*2;
+   if(n[0]==="sphere"&&(pred||rev||ph==="review"))x+=30+80*Math.min(1,(progress-.52)/.34),y-=10*Math.sin(progress*18);
+   return solid(x,y,n[0],r,ph==="rotate"&&i===activeIndex);
+ }).join("");
+ const faces=rev?`<g class="face">
+  <rect x="78" y="424" width="54" height="54" rx="4" fill="#ffd15c" stroke="#9b6b18" stroke-width="4"/><text x="105" y="500" text-anchor="middle" class="small">cube → square</text>
+  <rect x="207" y="431" width="76" height="40" rx="4" fill="#55c96a" stroke="#267934" stroke-width="4"/><text x="245" y="500" text-anchor="middle" class="small">prism → rectangle</text>
+  <circle cx="390" cy="451" r="28" fill="#a8ecff" stroke="#116d9c" stroke-width="4"/><text x="390" y="500" text-anchor="middle" class="small">cylinder → circle</text>
+  <circle cx="535" cy="451" r="28" fill="#ffbdd5" stroke="#a72658" stroke-width="4"/><text x="535" y="500" text-anchor="middle" class="small">cone → circle</text>
+  <polygon points="680,420 644,478 716,478" fill="#cfa2ff" stroke="#65309b" stroke-width="4"/><text x="680" y="500" text-anchor="middle" class="small">pyramid → triangle</text>
+  <path d="M800 454 q28-30 56 0" fill="none" stroke="#3150a8" stroke-width="5" stroke-linecap="round" stroke-dasharray="8 7"/><text x="825" y="500" text-anchor="middle" class="small">sphere → no flat face</text>
+ </g>`:"";
+ const msg={intro:"Six shapes enter the stamp pad.",rotate:"Look for a side that can press flat.",stamp:"Flat sides make prints.",predict:"Which one just rolls away?",reveal:"The stamp pad shows the prints.",review:"Flat side makes a print. Curved side rolls."}[ph];
+ return `<div class="sunny-wrap"><svg viewBox="0 0 930 560" role="img" aria-label="Sunny visual learner scene about 2D faces of 3D solids">
+ <defs><filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <radialGradient id="ball"><stop offset="0" stop-color="#b8d4ff"/><stop offset=".65" stop-color="#5f8cff"/><stop offset="1" stop-color="#3866da"/></radialGradient>
+ <radialGradient id="pad"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#ffe66b"/><stop offset="1" stop-color="#ff9f2f"/></radialGradient></defs>
+ <circle cx="82" cy="70" r="42" fill="#ffd34d"/><g stroke="#ffd34d" stroke-width="6" stroke-linecap="round"><path d="M82 12v-18M82 146v18M24 70H6M158 70h18M39 27 27 15M125 27l12-12M39 113l-12 12M125 113l12 12"/></g>
+ <text x="465" y="55" text-anchor="middle" class="title">Stamp Quest</text>
+ <text x="465" y="92" text-anchor="middle" class="label">${msg}</text>
+ <ellipse cx="465" cy="450" rx="420" ry="74" fill="url(#pad)" opacity="${(stamp||rev)?0.95:0.38}" stroke="#f59d28" stroke-width="5"/>
+ <text x="465" y="396" text-anchor="middle" class="stampText">${pred?"Quick pick!":stamp||rev?"STAMP PAD":"watch them spin"}</text>
+ <path d="M34 348 C170 330 260 360 400 340 S690 322 895 350" fill="none" stroke="#7ac943" stroke-width="12" stroke-linecap="round"/>
+ ${solids}${faces}
+ <text x="105" y="196" text-anchor="middle" class="label">cube</text><text x="245" y="196" text-anchor="middle" class="label">prism</text><text x="390" y="196" text-anchor="middle" class="label">cylinder</text><text x="535" y="196" text-anchor="middle" class="label">cone</text><text x="680" y="196" text-anchor="middle" class="label">pyramid</text><text x="825" y="196" text-anchor="middle" class="label">sphere</text>
+ <g opacity="${pred||rev||ph==="review"?1:.15}"><path d="M780 332 C818 315 866 315 900 340" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/><text x="834" y="378" text-anchor="middle" class="label">rolls away</text></g>
+ </svg></div>`;
+}
+const DEFAULT_ARTIFACT_CONFIG={
+ artifactId,type:"visual-explainer",concept,learningGoal,misconception,
+ mode:{default:"pause-for-question"},preview:{allowPlaythrough:true},
+ narration:{enabled:false,provider:"none",voiceId:"",modelId:"",audioPath:"",scriptPath:"",timings:[]},
+ questions:[{id:"prediction-no-flat-face",prompt:"Which one rolls away without making a flat print?",correctOptionId:"sphere",targetConcept:"flat_faces_of_solids",misconceptionTag:"curved_surface_as_flat_face",pauseAtProgress:62,scaffoldLevel:1,options:[
+  {id:"cube",label:"Cube",misconceptionTag:"all_solids_have_same_face"},
+  {id:"cylinder",label:"Cylinder",misconceptionTag:"circle_base_not_seen"},
+  {id:"pyramid",label:"Pyramid",misconceptionTag:"triangle_face_not_seen"},
+  {id:"sphere",label:"Sphere",correct:true}
+ ]}],
+ companionContext:{role:"hint_only",maxSentences:2,canRevealAnswer:false},
+ chrome:{childShowsEvidence:false,parentShowsEvidence:true,childShowsCarePlan:false,parentShowsCarePlan:true}
+};
+const sceneMount=document.getElementById("sceneMount");
+const generatedRenderScene=renderScene;
+const generatedGetPhase=getPhase;
+const shell=SunnyVisualLearnerArtifactShell.mount({
+ defaultConfig:DEFAULT_ARTIFACT_CONFIG,
+ defaultConfigPath:"./artifact.config.json",
+ revealStartProgress:62,
+ elements:{
+  playPause:document.getElementById("playPause"),
+  scrubber:document.getElementById("scrubber"),
+  progressOut:document.getElementById("progressOut"),
+  narrationAudio:document.getElementById("narrationAudio"),
+  playthroughToggle:document.getElementById("cinemaMode"),
+  predictionPanel:document.getElementById("predictionPanel"),
+  predictionPrompt:document.querySelector("#predictionPanel p"),
+  predFeedback:document.getElementById("predFeedback"),
+  revealButton:document.getElementById("revealButton"),
+  finishButton:document.getElementById("finishButton"),
+  backButton:document.getElementById("backButton"),
+ evidenceList:document.getElementById("evidenceList"),
+  companionHelp:document.getElementById("companionHelp"),
+  narrationMeta:document.getElementById("narrationMeta"),
+  artifactDebug:document.getElementById("artifactDebug"),
+  choices:Array.from(document.querySelectorAll(".choice")),
+  checkpoints:Array.from(document.querySelectorAll(".checkpoint"))
+ },
+ getPhase:function(progress){return generatedGetPhase(progress/100);},
+ renderScene:function(ctx){
+ const p=ctx.progress/100;
+  const phase=ctx.state.revealOpened&&p>=0.62?"reveal":generatedGetPhase(p);
+  sceneMount.innerHTML=generatedRenderScene(p,phase,ctx.state);
+ },
+ checkEvidence:function(){},
+ formatPredictionFeedback:function(ctx){
+  const selected=ctx.selectedOption?ctx.selectedOption.id:"";
+  if(!selected)return "Make your prediction when Sunny pauses.";
+  return formatPredictionFeedback(selected);
+ }
+});
+shell.start();
+})();
+</script>
+</body>
+</html>

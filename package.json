@@ -84,7 +84,8 @@
     "prepare": "husky",
     "postinstall": "node scripts/download-companion-vrms.mjs",
     "sunny:download:companion-vrms": "node scripts/download-companion-vrms.mjs",
-    "sunny:visuallearner:openai": "npx tsx scripts/openaiVisualLearnerProbe.ts"
+    "sunny:visuallearner:openai": "npx tsx scripts/openaiVisualLearnerProbe.ts",
+    "sunny:visuallearner:narrate": "npx tsx scripts/generateVisualLearnerNarration.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

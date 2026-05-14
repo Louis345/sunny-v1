@@ -25,6 +25,46 @@ const narrationTimingSchema = z.object({
   text: z.string().min(1),
 });
 
+const researchNoteSchema = z.object({
+  source: z.string().min(1),
+  summary: z.string().min(1),
+  url: z.string().min(1).optional(),
+});
+
+const engagementWrapperSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  promptLanguage: z.string().min(1),
+});
+
+const recallQuestionSchema = z.object({
+  id: z.string().min(1),
+  category: z.string().min(1).optional(),
+  prompt: z.string().min(1),
+  answer: z.string().min(1),
+  targetConcept: z.string().min(1),
+  evidenceTarget: z.string().min(1),
+  difficulty: z.number().min(0).max(1),
+  stake: z.number().int().min(1).optional(),
+  misconceptionTag: z.string().min(1).optional(),
+});
+
+const recallGameSchema = z.object({
+  type: z.literal("co-op-recall"),
+  sourceInterventionId: z.string().min(1),
+  turnMode: z.enum(["child-and-companion"]),
+  stakes: z.object({
+    currency: z.string().min(1),
+    lossMode: z.enum(["half-stake-floor-zero", "opportunity-cost"]).default("half-stake-floor-zero"),
+  }),
+  companionPolicy: z.object({
+    accuracyMode: z.enum(["match-child-mastery", "configured"]),
+    configuredAccuracy: z.number().min(0).max(1).optional(),
+    helperRole: z.literal("accurate-hint-only"),
+  }),
+  questions: z.array(recallQuestionSchema).min(1),
+});
+
 export const visualLearnerArtifactConfigSchema = z.object({
   artifactId: z.string().min(1),
   type: z.literal("visual-explainer"),
@@ -41,10 +81,14 @@ export const visualLearnerArtifactConfigSchema = z.object({
     status: z.enum(["candidate", "reuse", "revise", "retire"]),
     reason: z.string().min(1),
   }),
+  engagementWrapper: engagementWrapperSchema.optional(),
+  assumptions: z.array(z.string().min(1)).default([]),
+  falsifyCriteria: z.array(z.string().min(1)).default([]),
+  researchNotes: z.array(researchNoteSchema).default([]),
   parentApproval: z.object({
     status: z.enum(["pending", "approved", "rejected", "regenerating"]),
-    reviewer: z.string().min(1).optional(),
-    reviewedAt: z.string().min(1).optional(),
+    reviewer: z.string().min(1).nullable().optional(),
+    reviewedAt: z.string().min(1).nullable().optional(),
     notes: z.string().optional(),
   }),
   mode: z.object({
@@ -72,6 +116,7 @@ export const visualLearnerArtifactConfigSchema = z.object({
     targetResults: z.array(z.string().min(1)).min(1),
     completion: z.string().min(1),
   }),
+  recallGame: recallGameSchema.optional(),
   chrome: z.object({
     childShowsEvidence: z.boolean(),
     parentShowsEvidence: z.boolean(),

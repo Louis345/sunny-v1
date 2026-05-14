@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "activityId": "concept-check",
+  "engine": {
+    "id": "concept-check",
+    "mode": "diagnostic"
+  },
+  "topic": "2D faces of 3D solids",
+  "domain": "math",
+  "learningGoal": "Check whether the child knows which flat faces belong to common 3D solids.",
+  "gradeBand": "early_elementary",
+  "appearance": {
+    "palette": {
+      "bg1": "#fff4d8",
+      "bg2": "#f7b267",
+      "bg3": "#3f2a56",
+      "accent": "#8b5cf6"
+    },
+    "typography": {
+      "display": "rounded",
+      "body": "rounded"
+    },
+    "visuals": {
+      "heroGlyph": "cube",
+      "particles": ["square", "circle", "triangle"],
+      "companionGlyph": "sunny"
+    }
+  },
+  "targets": [
+    {
+      "id": "flat_faces_of_solids",
+      "label": "Flat faces of solids",
+      "type": "concept"
+    }
+  ],
+  "rounds": [
+    {
+      "id": "sphere-no-flat-face",
+      "mechanic": "choose",
+      "targetId": "flat_faces_of_solids",
+      "prompt": "Which shape has no flat face to stamp?",
+      "options": [
+        {
+          "id": "sphere",
+          "label": "Sphere",
+          "correct": true
+        },
+        {
+          "id": "cube",
+          "label": "Cube",
+          "correct": false,
+          "misconception": "all_solids_have_same_face"
+        },
+        {
+          "id": "pyramid",
+          "label": "Pyramid",
+          "correct": false,
+          "misconception": "triangle_face_not_seen"
+        }
+      ],
+      "scaffoldLevel": 0
+    },
+    {
+      "id": "cube-square-face",
+      "mechanic": "choose",
+      "targetId": "flat_faces_of_solids",
+      "prompt": "Which flat print can a cube make?",
+      "options": [
+        {
+          "id": "square",
+          "label": "Square",
+          "correct": true
+        },
+        {
+          "id": "circle",
+          "label": "Circle",
+          "correct": false,
+          "misconception": "shape_face_mismatch"
+        },
+        {
+          "id": "triangle",
+          "label": "Triangle",
+          "correct": false,
+          "misconception": "shape_face_mismatch"
+        }
+      ],
+      "scaffoldLevel": 0
+    }
+  ],
+  "evidencePolicy": {
+    "writesPracticeEvidence": true,
+    "writesMasteryEvidence": true,
+    "requiresPerTargetResult": true,
+    "allowedEvidence": ["practice", "mastery"]
+  }
+}

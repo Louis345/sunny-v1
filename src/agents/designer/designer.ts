@@ -85,6 +85,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
     "A bright scout badge with question sparks and target bubbles, arcade learning diagnostic, child-friendly cartoon",
   "visual-explainer":
     "A bright science room window showing water carrying tiny soil pieces down a hill, visual learning model, child-friendly cartoon",
+  "visual-recall-quiz":
+    "A playful quiz podium with a child avatar and AI companion taking turns for gold coins, bright cooperative challenge, child-friendly cartoon",
   "letter-rush":
     "Glowing arcade letter tiles rushing through a spelling challenge lane, energetic child-friendly cartoon",
   "spell-check":

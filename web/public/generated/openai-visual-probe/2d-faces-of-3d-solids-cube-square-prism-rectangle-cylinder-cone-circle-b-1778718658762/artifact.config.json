@@ -1,0 +1,218 @@
+{
+  "artifactId": "2d-faces-of-3d-solids-cube-square-prism-rectangle-cylinder-cone-circle-b-1778718658762",
+  "type": "visual-explainer",
+  "concept": "2D faces of 3D solids",
+  "learningGoal": "Help Reina notice that flat sides can leave prints, while curved surfaces roll and do not make flat 2D faces.",
+  "misconception": "A curved surface can act like a flat face.",
+  "sourceEvidence": {
+    "source": "5_11 math.pdf",
+    "capturedAt": "2026-05-13T20:30:00-04:00",
+    "summary": "Homework asks the child to identify flat faces of three-dimensional shapes."
+  },
+  "algorithmTargets": [
+    "visual-modeling",
+    "retrieval-practice",
+    "error-pattern-remediation",
+    "activity-affinity"
+  ],
+  "engagementWrapper": {
+    "id": "whimsical-quest",
+    "label": "Whimsical Quest",
+    "promptLanguage": "Make it whimsical, cute, playful, warm, and quest-like. Use wonder and tiny surprises, not academic lecture language."
+  },
+  "assumptions": [
+    "Reina may need a visual model before independent retrieval on 2D faces of 3D solids.",
+    "A Stamp Quest wrapper may make the geometry feel like a playful investigation instead of a worksheet lecture.",
+    "The explainer is an intervention, not proof of mastery."
+  ],
+  "falsifyCriteria": [
+    "follow-up co-op recall accuracy below 0.65",
+    "high frustration or abandonment",
+    "delayed concept-check or graded homework contradicts the in-app result"
+  ],
+  "researchNotes": [
+    {
+      "source": "WWC math intervention",
+      "url": "https://ies.ed.gov/ncee/wwc/practiceguide/2",
+      "summary": "Math intervention should include visual representations when the child needs a concrete model."
+    },
+    {
+      "source": "CMU retrieval practice",
+      "url": "https://www.cmu.edu/teaching/resources/instructionalstrategies/activelearningstrategies/retrievalpractice/index.html",
+      "summary": "Follow the explanation with feedback-rich retrieval; watching is not mastery."
+    }
+  ],
+  "reuseDecision": {
+    "status": "candidate",
+    "reason": "Discovery artifact for a geometry/spatial visual explainer trigger."
+  },
+  "parentApproval": {
+    "status": "pending",
+    "reviewer": null,
+    "reviewedAt": null,
+    "notes": "Needs parent review for visual quality and narration pacing."
+  },
+  "mode": {
+    "default": "pause-for-question"
+  },
+  "preview": {
+    "allowPlaythrough": true
+  },
+  "narration": {
+    "enabled": true,
+    "provider": "elevenlabs",
+    "voiceId": "052jzHJceQiZr7ltnY0C",
+    "modelId": "eleven_multilingual_v2",
+    "audioPath": "./audio/narration-052jzHJceQiZr7ltnY0C.mp3",
+    "scriptPath": "./audio/narration.txt",
+    "timings": [
+      {
+        "id": "meet-solids",
+        "startProgress": 0,
+        "endProgress": 18,
+        "text": "Welcome to Stamp Quest. Six shapes are lining up for the magic stamp pad."
+      },
+      {
+        "id": "find-flat-face",
+        "startProgress": 18,
+        "endProgress": 36,
+        "text": "Watch each shape spin. If it has a flat side, it can press down and leave a print."
+      },
+      {
+        "id": "stamp-pad",
+        "startProgress": 36,
+        "endProgress": 52,
+        "text": "Here comes the test. Flat sides touch the pad like a stamp."
+      },
+      {
+        "id": "predict",
+        "startProgress": 52,
+        "endProgress": 62,
+        "text": "Quick pick. One shape is all curve, and it is going to roll away. Which one is it?"
+      },
+      {
+        "id": "reveal",
+        "startProgress": 62,
+        "endProgress": 84,
+        "text": "The prints are in. Cube makes square. Prism makes rectangle. Cylinder and cone make circles. Pyramid makes triangle."
+      },
+      {
+        "id": "sphere-rule",
+        "startProgress": 84,
+        "endProgress": 100,
+        "text": "The sphere cannot press down flat, so it rolls off with no print. Flat makes a face. Curved makes a roll."
+      }
+    ],
+    "alignmentPath": "./audio/narration-052jzHJceQiZr7ltnY0C.alignment.json",
+    "characterCount": 527,
+    "estimatedCostCents": 6,
+    "generatedAt": "2026-05-14T14:25:25.562Z"
+  },
+  "questions": [
+    {
+      "id": "prediction-no-flat-face",
+      "prompt": "Which one rolls away without making a flat print?",
+      "options": [
+        {
+          "id": "cube",
+          "label": "Cube",
+          "misconceptionTag": "all_solids_have_same_face"
+        },
+        {
+          "id": "cylinder",
+          "label": "Cylinder",
+          "misconceptionTag": "circle_base_not_seen"
+        },
+        {
+          "id": "pyramid",
+          "label": "Pyramid",
+          "misconceptionTag": "triangle_face_not_seen"
+        },
+        {
+          "id": "sphere",
+          "label": "Sphere",
+          "correct": true
+        }
+      ],
+      "correctOptionId": "sphere",
+      "targetConcept": "flat_faces_of_solids",
+      "misconceptionTag": "curved_surface_as_flat_face",
+      "pauseAtProgress": 62,
+      "scaffoldLevel": 1
+    }
+  ],
+  "companionContext": {
+    "role": "hint_only",
+    "maxSentences": 2,
+    "canRevealAnswer": false,
+    "hintText": "Look for the shape that cannot touch the pad with a flat side.",
+    "hintsByPhase": {
+      "intro": "Watch for which shapes have a flat side that can touch the pad.",
+      "rotate": "If the side can press down flat, it can make a print.",
+      "stamp": "The stamp pad only works when a flat side touches it.",
+      "prediction": "Look for the shape that is all curve and no flat side.",
+      "reveal": "Compare the prints on the pad to the shape that rolled away.",
+      "review": "Flat makes a print. Curved rolls."
+    }
+  },
+  "evidence": {
+    "targetResults": [
+      "flat_faces_of_solids"
+    ],
+    "completion": "activity_complete"
+  },
+  "recallGame": {
+    "type": "co-op-recall",
+    "sourceInterventionId": "2d-faces-of-3d-solids-cube-square-prism-rectangle-cylinder-cone-circle-b-1778718658762",
+    "turnMode": "child-and-companion",
+    "stakes": {
+      "currency": "sun-coins",
+      "lossMode": "half-stake-floor-zero"
+    },
+    "companionPolicy": {
+      "accuracyMode": "configured",
+      "configuredAccuracy": 0.68,
+      "helperRole": "accurate-hint-only"
+    },
+    "questions": [
+      {
+        "id": "flat-face-square",
+        "category": "Stamp Match",
+        "prompt": "Which solid can stamp a square?",
+        "answer": "cube",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.35,
+        "stake": 10
+      },
+      {
+        "id": "no-flat-face",
+        "category": "Roll Away",
+        "prompt": "Which shape rolls away without making a flat print?",
+        "answer": "sphere",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.55,
+        "stake": 20,
+        "misconceptionTag": "curved_surface_as_flat_face"
+      },
+      {
+        "id": "circle-base",
+        "category": "Sneaky Circle",
+        "prompt": "Which solids can stamp a circle with a flat base?",
+        "answer": "cylinder and cone",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.7,
+        "stake": 30,
+        "misconceptionTag": "circle_base_not_seen"
+      }
+    ]
+  },
+  "chrome": {
+    "childShowsEvidence": false,
+    "parentShowsEvidence": true,
+    "childShowsCarePlan": false,
+    "parentShowsCarePlan": true
+  }
+}

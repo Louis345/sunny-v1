@@ -1,0 +1,18 @@
+{
+  "status": "completed",
+  "incomplete_details": null,
+  "error": null,
+  "usage": {
+    "input_tokens": 329,
+    "input_tokens_details": {
+      "cached_tokens": 0
+    },
+    "output_tokens": 3143,
+    "output_tokens_details": {
+      "reasoning_tokens": 31
+    },
+    "total_tokens": 3472
+  },
+  "responseId": "resp_06f7e6938648b960006a051797748881a0a06fb7cfe0964fc1",
+  "validation": []
+}

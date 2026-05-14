@@ -1,0 +1,11 @@
+Welcome to Stamp Quest. Six shapes are lining up for the magic stamp pad.
+
+Watch each shape spin. If it has a flat side, it can press down and leave a print.
+
+Here comes the test. Flat sides touch the pad like a stamp.
+
+Quick pick. One shape is all curve, and it is going to roll away. Which one is it?
+
+The prints are in. Cube makes square. Prism makes rectangle. Cylinder and cone make circles. Pyramid makes triangle.
+
+The sphere cannot press down flat, so it rolls off with no print. Flat makes a face. Curved makes a roll.

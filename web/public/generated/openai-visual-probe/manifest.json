@@ -8,5 +8,15 @@
     "configUrl": "/generated/openai-visual-probe/centimeters-vs-inches-1778454253669/artifact.config.json",
     "approvalStatus": "approved",
     "createdAt": "2026-05-10T23:05:17.302Z"
+  },
+  {
+    "id": "2d-faces-of-3d-solids-cube-square-prism-rectangle-cylinder-cone-circle-b-1778718658762",
+    "concept": "2D faces of 3D solids: cube square, prism rectangle, cylinder cone circle bases, pyramid triangle faces, sphere no flat face",
+    "type": "visual-explainer",
+    "model": "gpt-5.5",
+    "url": "/generated/openai-visual-probe/2d-faces-of-3d-solids-cube-square-prism-rectangle-cylinder-cone-circle-b-1778718658762/index.html",
+    "configUrl": "/generated/openai-visual-probe/2d-faces-of-3d-solids-cube-square-prism-rectangle-cylinder-cone-circle-b-1778718658762/artifact.config.json",
+    "approvalStatus": "candidate",
+    "createdAt": "2026-05-14T00:30:58.767Z"
   }
 ]

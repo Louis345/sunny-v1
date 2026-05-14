@@ -67,6 +67,17 @@ export interface ActivityModelEntry {
   missedWords: string[];
 }
 
+export interface ActivityTraitModelEntry {
+  dimension: string;
+  positiveWeight: number;
+  negativeWeight: number;
+  mixedWeight: number;
+  evidenceCount: number;
+  confidence: number;
+  lastUpdated: string;
+  activityCounts: Record<string, number>;
+}
+
 export interface AttentionModel {
   source: "onboarding_baseline" | "session_vitals" | "mixed" | "legacy_demographic";
   status: "provisional" | "measured" | "insufficient-data";
@@ -98,6 +109,7 @@ export interface LearningCalibrationEntry {
 
 export type LearningAlgorithmTarget =
   | "spaced-repetition"
+  | "visual-modeling"
   | "error-pattern-remediation"
   | "retrieval-practice"
   | "reading-comprehension"
@@ -213,8 +225,17 @@ export interface LearningProfile {
     values: number[];
   };
 
+  /** Visual Learner creative wrapper bandit. It selects framing only; academic routing stays evidence-driven. */
+  visualLearnerEngagementBanditState?: {
+    counts: Record<string, number>;
+    values: Record<string, number>;
+  };
+
   /** Current activity-response model derived from node results. Raw attempts remain in attempts/*.ndjson. */
   activityModel?: Record<string, ActivityModelEntry>;
+
+  /** Child-level trait response model derived from choice events and narrow companion micro-probes. */
+  activityTraitModel?: Record<string, ActivityTraitModelEntry>;
 
   /** Measured attention vital sign model. Demographic attentionSpan is legacy/intake only. */
   attentionModel?: AttentionModel;

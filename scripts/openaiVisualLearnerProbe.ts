@@ -173,6 +173,7 @@ Sunny product context:
 - The visual explainer is a teaching intervention room selected from a care-plan hypothesis.
 - The scene must teach first, then pause for prediction, then reveal, then emit evidence.
 - The next node may be a co-op quiz against the AI companion, so include a small JSON data island for recall questions.
+- The generator receives a child-chart personalization packet; do not make generic academic content when age, interests, or engagement hooks are available.
 
 Hard output rules:
 - Return one complete Sunny artifact HTML document only. No Markdown fences.
@@ -196,6 +197,17 @@ Reusable artifact shell requirements:
 - parent/preview may keep diagnostics in a side rail, including evidence events, care-plan note, cost/model metadata, and playthrough toggle.
 - Do not reimplement modal, replay reset, narration sync, parent/child chrome, completion, or GameBridge event flow in the generated page.
 - Keep generated topic-specific visuals separate from shell behavior: the shell owns modal, replay reset, parent/child chrome, and GameBridge event flow.
+
+Personalization requirements:
+- Make it whimsical, cute, fun, engaging, and not academic.
+- quest narrator speaks; companion does not narrate.
+- The companion is the outer VRM via _contract.js, not a fake iframe avatar.
+- The companion is hint-only unless the child explicitly asks for help.
+- Use age/grade/readability, known motivators, avoid signals, and the selected engagement wrapper from the artifact config when available.
+- Keep research/search notes parent-preview only; do not do live web search during the child session.
+- Add catalog fields to the artifact config/data island: engagementWrapper, assumptions, falsifyCriteria, researchNotes, and recallGame.
+- Assumptions to write into the artifact should explain why this visual intervention is being tried.
+- Falsifiers should say what game or delayed evidence would prove the intervention did not work.
 
 Pedagogy requirements:
 - Include a care-plan assumption at the top in parent/preview tone.

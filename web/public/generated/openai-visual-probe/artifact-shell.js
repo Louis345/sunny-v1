@@ -360,11 +360,42 @@
       return "Prediction saved.";
     }
 
+    function companionHintText() {
+      var q = currentQuestion();
+      var phase = getPhase(state.progress);
+      var context = artifactConfig.companionContext || {};
+      var hints = context.hintsByPhase || {};
+      var hinted = hints[phase] || context.hintText;
+      if (typeof hinted === "string" && hinted.trim()) return hinted.trim();
+      if (phase === "prediction") {
+        return "Look for the shape that cannot touch the pad with a flat side.";
+      }
+      if (state.predictionMade && !state.revealOpened) {
+        return "Your pick is saved. Check the model to see what the stamp pad shows.";
+      }
+      return q.prompt || "Look at the model and say what changed.";
+    }
+
+    function updateCompanionHelp() {
+      var name = (gameParams.companionName || "companion").trim();
+      if (!el.companionHelp) return;
+      if (gameParams.companion === "off") {
+        el.companionHelp.hidden = true;
+        return;
+      }
+      el.companionHelp.hidden = false;
+      el.companionHelp.textContent = "Ask " + name;
+      el.companionHelp.setAttribute("aria-label", "Ask " + name + " for a hint");
+    }
+
     function updatePredictionPanel() {
       var q = currentQuestion();
       document.body.classList.toggle(
         "question-active",
-        !state.revealOpened && (state.progress >= predictionPoint - 2 || state.predictionMade),
+        !state.revealOpened &&
+          (state.pausedForPrediction ||
+            state.predictionMade ||
+            (!state.playing && state.progress >= predictionPoint)),
       );
       if (Array.isArray(el.choices)) {
         el.choices.forEach(function (btn) {
@@ -379,6 +410,7 @@
       if (el.predFeedback) {
         el.predFeedback.textContent = predictionFeedbackText(q);
       }
+      updateCompanionHelp();
     }
 
     function updateCheckpoints() {
@@ -465,7 +497,9 @@
       state.lastTs = 0;
       if (!optionsArg || !optionsArg.fromNarration) {
         if (el.narrationAudio) {
-          syncNarrationToProgress(state.progress);
+          if (!optionsArg || !optionsArg.skipNarrationSync) {
+            syncNarrationToProgress(state.progress);
+          }
           el.narrationAudio.play().catch(function () {
             emitEvidence(
               "narration-start-blocked",
@@ -683,8 +717,10 @@
           state.revealOpened = true;
           updatePredictionPanel();
           reportCompanionAnchor("reveal_opened");
-          if (state.progress < revealStartProgress) setProgress(revealStartProgress, true);
-          play();
+          if (state.progress < revealStartProgress) {
+            setProgress(revealStartProgress, !hasNarrationTimeline());
+          }
+          play({ skipNarrationSync: hasNarrationTimeline() });
         });
       }
       if (el.playthroughToggle) {
@@ -703,6 +739,33 @@
         el.finishButton.addEventListener("click", function () {
           pause();
           completeActivity();
+        });
+      }
+      if (el.companionHelp) {
+        el.companionHelp.addEventListener("click", function () {
+          var hint = companionHintText();
+          var phase = getPhase(state.progress);
+          reportCompanionAnchor("help_requested", {
+            requestedHelp: true,
+            hintText: hint,
+          });
+          reportState("companion_help_requested", "Child asked companion for visual learner help.");
+          if (window.GameBridge && typeof window.GameBridge.fireEvent === "function") {
+            window.GameBridge.fireEvent("narration_request", {
+              text: hint,
+              reason: "visual_learner_hint",
+              activityId: artifactConfig.artifactId,
+              artifactId: artifactConfig.artifactId,
+              concept: artifactConfig.concept,
+              phase: phase,
+              question: currentQuestion().prompt,
+              selectedAnswer: state.selectedChoice || null,
+              allowedRole:
+                (artifactConfig.companionContext &&
+                  artifactConfig.companionContext.role) ||
+                "hint_only",
+            });
+          }
         });
       }
       if (el.backButton) {
