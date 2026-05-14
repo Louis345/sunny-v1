@@ -190,6 +190,10 @@ describe("AI psychologist experience planner", () => {
     ]));
     expect(wordRadarCard?.measures.join(" ")).toMatch(/recognition|read/i);
     expect(wordRadarCard?.psychologistGuidance.join(" ")).toMatch(/visible|recall|mastery/i);
+    const letterRushCard = input.activityCards.find((card) => card.activityId === "letter-rush");
+    expect(letterRushCard?.gameIds).toContain("letter-rush");
+    expect(letterRushCard?.configSource).toBe("activity-config-file");
+    expect(letterRushCard?.configKnobs.join(" ")).toMatch(/fallDuration|distractors|targetWords/i);
     expect(input.traitSignalSummary.preferredDimensions.join(" ")).toContain("voice");
     expect(input.plannerTrust.autoPlanEnabled).toBe(false);
   });

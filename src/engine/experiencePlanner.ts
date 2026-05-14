@@ -28,6 +28,8 @@ import { planHomeworkSessionFromChart } from "./sessionPlanFromChart";
 export type ExperienceActivityCard = {
   activityId: string;
   label: string;
+  gameIds: string[];
+  configSource: string;
   domains: string[];
   skillTargets: string[];
   evidenceQuality: string;
@@ -192,6 +194,8 @@ function cardFromContract(contract: ActivityToolContract): ExperienceActivityCar
   return {
     activityId: contract.id,
     label: contract.label,
+    gameIds: [...contract.gameIds],
+    configSource: contract.configSource,
     domains: [...contract.domains],
     skillTargets: [...contract.traits.skillTargets],
     evidenceQuality: contract.traits.evidenceType,

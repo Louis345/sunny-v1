@@ -7,6 +7,7 @@ import {
   getActivityToolContract,
   listActivityToolContracts,
 } from "./activityToolCatalog";
+import { REWARD_GAMES, TEACHING_TOOLS } from "../shared/gameRegistry.generated";
 
 describe("activity tool catalog", () => {
   it("marks Word Radar as scaffolded practice instead of mastery evidence", () => {
@@ -103,6 +104,58 @@ describe("activity tool catalog", () => {
 
     const wheel = getActivityToolContract("wheel-of-fortune");
     expect(wheel.psychologistGuidance.join(" ")).toMatch(/reward|mystery|not.*mastery/i);
+  });
+
+  it("maps every shipped iframe game to a planner-facing activity card with purpose and config strategy", () => {
+    const shippedGameIds = [
+      ...Object.keys(TEACHING_TOOLS),
+      ...Object.keys(REWARD_GAMES),
+    ].sort();
+    const contracts = listActivityToolContracts();
+    const gameToContract = new Map<string, ReturnType<typeof listActivityToolContracts>[number]>();
+
+    for (const contract of contracts) {
+      for (const gameId of contract.gameIds) {
+        gameToContract.set(gameId, contract);
+      }
+    }
+
+    const missing = shippedGameIds.filter((gameId) => !gameToContract.has(gameId));
+    expect(missing).toEqual([]);
+
+    for (const gameId of shippedGameIds) {
+      const contract = gameToContract.get(gameId);
+      expect(contract, gameId).toBeDefined();
+      expect(contract?.purposes.length, `${gameId} purpose`).toBeGreaterThan(0);
+      expect(contract?.configSource, `${gameId} config source`).not.toBe("unspecified");
+      expect(contract?.configKnobs.length, `${gameId} config knobs`).toBeGreaterThan(0);
+      expect(contract?.measures.length, `${gameId} measures`).toBeGreaterThan(0);
+      expect(contract?.psychologistGuidance.length, `${gameId} guidance`).toBeGreaterThan(0);
+    }
+  });
+
+  it("audits reading and falling-word baseline activities as first-class instruments", () => {
+    const karaoke = getActivityToolContract("karaoke");
+    expect(karaoke.gameIds).toEqual([]);
+    expect(karaoke.configSource).toBe("canvas-message");
+    expect(karaoke.configKnobs.join(" ")).toMatch(/passage|highlight|font|skip/i);
+    expect(karaoke.signalsEmitted.join(" ")).toMatch(/reading_progress|word index|completion/i);
+    expect(karaoke.psychologistGuidance.join(" ")).toMatch(/fluency|context|not.*mastery/i);
+    expect(karaoke.capabilityModes.map((mode) => mode.id)).toEqual([
+      "guided_story_read",
+      "target_word_reread",
+      "cold_passage_probe",
+    ]);
+
+    const letterRush = getActivityToolContract("letter-rush");
+    expect(letterRush.gameIds).toContain("letter-rush");
+    expect(letterRush.configSource).toBe("activity-config-file");
+    expect(letterRush.configKnobs.join(" ")).toMatch(/fallDuration|mode|targetWords|distractors/i);
+    expect(letterRush.capabilityModes.map((mode) => mode.id)).toEqual([
+      "read_and_race",
+      "trap_the_imposter",
+      "mastery_run",
+    ]);
   });
 
   it("plans science homework as evaluate, teach visually, then practice vocabulary", () => {
@@ -275,7 +328,7 @@ describe("activity tool catalog", () => {
     expect(doc).toContain("Every new activity");
   });
 
-  it("keeps a readable audit snapshot for the five priority baseline activities", () => {
+  it("keeps a readable audit snapshot for baseline, attention, reward, and generated activities", () => {
     const doc = fs.readFileSync(
       path.join(process.cwd(), "docs", "activity-capability-audit.md"),
       "utf8",
@@ -287,10 +340,15 @@ describe("activity tool catalog", () => {
       "Spell Check",
       "Monster Stampede",
       "Wheel of Fortune",
+      "Story Karaoke",
+      "Letter Rush",
+      "Quest",
+      "Boss",
     ]) {
       expect(doc).toContain(label);
     }
     expect(doc).toContain("src/engine/activityToolCatalog.ts");
+    expect(doc).toContain("Storybook-style baseline lab");
     expect(doc).toContain("not mastery");
   });
 });
