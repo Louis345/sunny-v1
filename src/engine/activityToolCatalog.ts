@@ -114,6 +114,15 @@ export type ActivityCapabilityMode = {
   measurementRisks: string[];
 };
 
+export type ActivityPlannerAudit = {
+  measures: string[];
+  configKnobs: string[];
+  realDifficultyLevels: string[];
+  signalsEmitted: string[];
+  signalsMissing: string[];
+  psychologistGuidance: string[];
+};
+
 type ActivityToolContractSource = {
   id: string;
   label: string;
@@ -133,12 +142,21 @@ type ActivityToolContractSource = {
     contaminationRisks: ScaffoldKind[];
   };
   capabilityModes?: ActivityCapabilityMode[];
+} & Partial<ActivityPlannerAudit>;
+
+const EMPTY_ACTIVITY_PLANNER_AUDIT: ActivityPlannerAudit = {
+  measures: [],
+  configKnobs: [],
+  realDifficultyLevels: [],
+  signalsEmitted: [],
+  signalsMissing: [],
+  psychologistGuidance: [],
 };
 
 export type ActivityToolContract = ActivityToolContractSource & {
   traits: ActivityTraits;
   capabilityModes: ActivityCapabilityMode[];
-};
+} & ActivityPlannerAudit;
 
 export type LearnerState = "unknown" | "none" | "partial" | "ready" | "mastered";
 
@@ -488,6 +506,41 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       allowedEvidence: ["practice"],
       contaminationRisks: ["visible-word", "letter-tiles", "stt-match", "retry"],
     },
+    measures: [
+      "Visible-word recognition and read-aloud fluency.",
+      "Recall practice only when the full word is hidden during response.",
+      "Child confidence and low-friction willingness to engage target words.",
+    ],
+    configKnobs: [
+      "recallMode",
+      "inputMode",
+      "speakStyle",
+      "showTimer",
+      "timerSeconds",
+      "hideWordDuringResponse",
+      "requiresCapturedResponse",
+    ],
+    realDifficultyLevels: [
+      "visible_read: child sees the word and says it while the word fills in.",
+      "partial_visual_recall: child sees boxes or partial visual scaffolding.",
+      "hidden_word_recall: child recalls with no visible answer context.",
+    ],
+    signalsEmitted: [
+      "per-word response capture when enabled",
+      "hit/miss practice result",
+      "timer pressure",
+      "retry/skip behavior",
+    ],
+    signalsMissing: [
+      "Independent spelling mastery when the word remains visible.",
+      "Reliable mastery if speech or keyboard response is not captured.",
+      "Reading comprehension beyond word-level familiarity.",
+    ],
+    psychologistGuidance: [
+      "Choose visible_read for warmup, confidence, or unknown/weak evidence.",
+      "Escalate to partial or hidden recall only after strong evidence and low frustration.",
+      "Do not treat visible Word Radar as mastery; it is recognition and flow practice.",
+    ],
     capabilityModes: [
       {
         id: "visible_read",
@@ -587,6 +640,102 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       allowedEvidence: ["practice", "mastery"],
       contaminationRisks: ["retry"],
     },
+    measures: [
+      "Spelling construction from an audio, sentence, or hidden-word prompt.",
+      "Letter-order accuracy and recovery after an error.",
+      "Whether the child can produce a target word with limited support.",
+    ],
+    configKnobs: [
+      "promptMode",
+      "hideTargetWord",
+      "maxRetries",
+      "letterBankMode",
+      "perTargetResults",
+      "hintPolicy",
+    ],
+    realDifficultyLevels: [
+      "guided_letter_build: supported practice with retry or visible letter options.",
+      "audio_prompt_spell: target hidden, child spells from hearing/context.",
+      "cold_recall_spell: no answer display and no retry before score.",
+    ],
+    signalsEmitted: [
+      "per-target correct/incorrect",
+      "attempt text",
+      "retry count",
+      "completion accuracy",
+    ],
+    signalsMissing: [
+      "Independent mastery if visible answer, retries, or hints occur before scoring.",
+      "Reliable reading fluency; it primarily measures spelling construction.",
+      "Frustration/hesitation unless game_state_update includes timing and misses.",
+    ],
+    psychologistGuidance: [
+      "Use after a warmup when Sunny needs cleaner spelling evidence.",
+      "Treat retry-heavy or hinted runs as practice, not mastery.",
+      "Avoid when the child is frustrated by isolated letter selection; route to a flow activity first.",
+    ],
+    capabilityModes: [
+      {
+        id: "guided_letter_build",
+        label: "Guided Letter Build",
+        difficulty: 1,
+        purpose: "guided-practice",
+        skillTargets: ["spell_from_memory", "visual_recognition"],
+        inputModes: ["typing", "click", "visual"],
+        scaffolds: ["letter-tiles", "hint", "retry"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          promptMode: "visible-or-audio",
+          hideTargetWord: false,
+          maxRetries: 2,
+          letterBankMode: "supported",
+        },
+        measurementRisks: [
+          "Visible letters and retries support practice but contaminate mastery.",
+        ],
+      },
+      {
+        id: "audio_prompt_spell",
+        label: "Audio Prompt Spell",
+        difficulty: 2,
+        purpose: "evaluate",
+        skillTargets: ["spell_from_memory", "auditory_retrieval"],
+        inputModes: ["typing", "voice"],
+        scaffolds: ["retry"],
+        evidenceType: "diagnostic",
+        masteryEligible: "requires_captured_response",
+        config: {
+          promptMode: "audio",
+          hideTargetWord: true,
+          maxRetries: 1,
+          requiresCapturedResponse: true,
+        },
+        measurementRisks: [
+          "One retry is useful for correction but should downgrade mastery confidence.",
+        ],
+      },
+      {
+        id: "cold_recall_spell",
+        label: "Cold Recall Spell",
+        difficulty: 3,
+        purpose: "independent-retrieval",
+        skillTargets: ["spell_from_memory", "retrieval_practice"],
+        inputModes: ["typing", "voice"],
+        scaffolds: [],
+        evidenceType: "mastery",
+        masteryEligible: "requires_captured_response",
+        config: {
+          promptMode: "audio-or-definition",
+          hideTargetWord: true,
+          maxRetries: 0,
+          requiresCapturedResponse: true,
+        },
+        measurementRisks: [
+          "Only use as mastery when exact response capture is available.",
+        ],
+      },
+    ],
   },
   {
     id: "monster-stampede",
@@ -615,6 +764,102 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       allowedEvidence: ["practice", "reward"],
       contaminationRisks: ["visible-word", "retry"],
     },
+    measures: [
+      "Fast orthographic recognition and spelling under time pressure.",
+      "Recovery after misses and willingness to stay in the loop.",
+      "Engagement with movement, speed, competition, and streaks.",
+    ],
+    configKnobs: [
+      "speedMode",
+      "cohortSize",
+      "wordOrder",
+      "visibleWordMode",
+      "missPenalty",
+      "streakRewards",
+    ],
+    realDifficultyLevels: [
+      "visible_stampede: fast supported practice with visible word cues.",
+      "targeted_recovery_run: retargets recent misses in a short arcade loop.",
+      "pressure_probe: faster pacing with reduced cues, still practice-first.",
+    ],
+    signalsEmitted: [
+      "hit/miss events",
+      "streaks",
+      "recovery after miss",
+      "completion/score",
+    ],
+    signalsMissing: [
+      "Clean first-pass baseline for unknown words.",
+      "Transfer to paper spelling or delayed recall.",
+      "Mastery proof when visible word or retries are available.",
+    ],
+    psychologistGuidance: [
+      "Use as flow practice after baseline or targeted misses are known.",
+      "Great for confidence, speed, and competition; practice, not mastery.",
+      "Avoid as the first measurement for an unknown homework list.",
+    ],
+    capabilityModes: [
+      {
+        id: "visible_stampede",
+        label: "Visible Stampede",
+        difficulty: 1,
+        purpose: "practice",
+        skillTargets: ["visual_recognition", "typing_fluency"],
+        inputModes: ["typing", "visual"],
+        scaffolds: ["visible-word", "retry"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          speedMode: "standard",
+          visibleWordMode: true,
+          missPenalty: "gentle",
+          streakRewards: true,
+        },
+        measurementRisks: [
+          "Visible words make this recognition/typing practice.",
+        ],
+      },
+      {
+        id: "targeted_recovery_run",
+        label: "Targeted Recovery Run",
+        difficulty: 2,
+        purpose: "fluency",
+        skillTargets: ["spell_from_memory", "retrieval_practice", "typing_fluency"],
+        inputModes: ["typing", "visual"],
+        scaffolds: ["retry"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          speedMode: "medium",
+          wordOrder: "misses-first",
+          missPenalty: "combo-break",
+          streakRewards: true,
+        },
+        measurementRisks: [
+          "Retargeted misses are excellent practice but not independent transfer.",
+        ],
+      },
+      {
+        id: "pressure_probe",
+        label: "Pressure Probe",
+        difficulty: 3,
+        purpose: "fluency",
+        skillTargets: ["spell_from_memory", "typing_fluency", "attention_control"],
+        inputModes: ["typing"],
+        scaffolds: [],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          speedMode: "fast",
+          visibleWordMode: false,
+          missPenalty: "full-combo-break",
+          streakRewards: true,
+        },
+        measurementRisks: [
+          "Stress and timing can suppress performance, so use with attention/frustration context.",
+        ],
+      },
+    ],
   },
   {
     id: "letter-rush",
@@ -730,6 +975,111 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       allowedEvidence: ["practice"],
       contaminationRisks: ["stt-match", "fuzzy-match", "retry"],
     },
+    measures: [
+      "Read-aloud fluency and pronunciation accuracy for target words.",
+      "Decoding struggle through misses, hesitation, support requests, and recovery.",
+      "Flow tolerance for spoken word dosage and replay difficulty.",
+    ],
+    configKnobs: [
+      "replayMode",
+      "harderReplayGrowth",
+      "dosagePolicy",
+      "supportMode",
+      "chunkHints",
+      "sfxProfile",
+      "pace",
+      "cohortSize",
+    ],
+    realDifficultyLevels: [
+      "supported_read_aloud: short cohort with chunk hints and forgiving match.",
+      "flow_replay_expansion: harder replay adds words without breaking streak flow.",
+      "diagnostic_reading_probe: stricter capture for reading/pronunciation evidence.",
+    ],
+    signalsEmitted: [
+      "word start",
+      "hit/miss",
+      "support cue",
+      "replay selection",
+      "completion accuracy",
+    ],
+    signalsMissing: [
+      "Written spelling mastery.",
+      "Reading comprehension beyond word decoding.",
+      "Exact phonics error category unless chunk/error detail is captured.",
+    ],
+    psychologistGuidance: [
+      "Choose when reading/pronunciation fluency or low-writing-load practice is the target.",
+      "Lower pace and enable support mode after frustration, help requests, or repeated misses.",
+      "Let strong mastery expand dosage for flow; the psychologist controls the base size.",
+    ],
+    capabilityModes: [
+      {
+        id: "supported_read_aloud",
+        label: "Supported Read Aloud",
+        difficulty: 1,
+        purpose: "guided-practice",
+        skillTargets: ["read_fluently", "pronounce"],
+        inputModes: ["voice", "reading"],
+        scaffolds: ["stt-match", "fuzzy-match", "retry", "model-answer"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          replayMode: "same-cohort",
+          dosagePolicy: "planner-base",
+          supportMode: true,
+          chunkHints: true,
+          sfxProfile: "arcade",
+          pace: "supportive",
+        },
+        measurementRisks: [
+          "Model answer and fuzzy matching make this supported practice.",
+        ],
+      },
+      {
+        id: "flow_replay_expansion",
+        label: "Flow Replay Expansion",
+        difficulty: 2,
+        purpose: "fluency",
+        skillTargets: ["read_fluently", "pronounce", "retrieval_practice"],
+        inputModes: ["voice"],
+        scaffolds: ["stt-match", "fuzzy-match", "retry"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          replayMode: "harder",
+          harderReplayGrowth: "add-bonus-words",
+          dosagePolicy: "mastery-expands",
+          supportMode: "on-request",
+          sfxProfile: "arcade-combo",
+          pace: "flow",
+        },
+        measurementRisks: [
+          "Expansion measures flow and fluency, not written transfer.",
+        ],
+      },
+      {
+        id: "diagnostic_reading_probe",
+        label: "Diagnostic Reading Probe",
+        difficulty: 3,
+        purpose: "evaluate",
+        skillTargets: ["read_fluently", "pronounce", "auditory_retrieval"],
+        inputModes: ["voice"],
+        scaffolds: ["stt-match"],
+        evidenceType: "diagnostic",
+        masteryEligible: "requires_captured_response",
+        config: {
+          replayMode: "none",
+          dosagePolicy: "bounded-probe",
+          supportMode: false,
+          chunkHints: false,
+          speechStrictness: "stricter",
+          requiresCapturedResponse: true,
+        },
+        measurementRisks: [
+          "STT confidence can misread child speech; review low-confidence misses.",
+        ],
+      },
+    ],
   },
   {
     id: "mystery",
@@ -786,6 +1136,102 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       allowedEvidence: ["practice", "reward"],
       contaminationRisks: ["visible-word", "hint", "retry"],
     },
+    measures: [
+      "Pattern inference from word length, revealed letters, and letter strategy.",
+      "Engagement with choice, surprise, competition, and risk/reward pacing.",
+      "Vocabulary or spelling familiarity when linked to target words.",
+    ],
+    configKnobs: [
+      "puzzleSource",
+      "hintPolicy",
+      "wheelRisk",
+      "opponentMode",
+      "targetWordCount",
+      "rewardTiming",
+    ],
+    realDifficultyLevels: [
+      "mystery_reward_word: short target-word reward after work.",
+      "pattern_inference: limited hints, target words, and strategic guessing.",
+      "strategy_challenge: higher risk wheel and fewer scaffolds.",
+    ],
+    signalsEmitted: [
+      "letter guesses",
+      "board state",
+      "solve success/failure",
+      "coins/reward outcome",
+    ],
+    signalsMissing: [
+      "Cold spelling mastery for the full word list.",
+      "Reading fluency or pronunciation.",
+      "Transfer evidence unless followed by an independent activity.",
+    ],
+    psychologistGuidance: [
+      "Use as mystery/reward or pattern inference after evidence-generating work.",
+      "Excellent for preference and motivation signals; not mastery by itself.",
+      "Avoid when the child needs direct teaching or an initial baseline.",
+    ],
+    capabilityModes: [
+      {
+        id: "mystery_reward_word",
+        label: "Mystery Reward Word",
+        difficulty: 1,
+        purpose: "reward",
+        skillTargets: ["reward_recovery", "visual_recognition"],
+        inputModes: ["click", "touch", "visual"],
+        scaffolds: ["hint", "visible-word"],
+        evidenceType: "reward",
+        masteryEligible: false,
+        config: {
+          puzzleSource: "target-word",
+          hintPolicy: "generous",
+          wheelRisk: "low",
+          rewardTiming: "after-work",
+        },
+        measurementRisks: [
+          "Reward mode prioritizes engagement over clean learning evidence.",
+        ],
+      },
+      {
+        id: "pattern_inference",
+        label: "Pattern Inference",
+        difficulty: 2,
+        purpose: "practice",
+        skillTargets: ["retrieval_practice", "visual_recognition"],
+        inputModes: ["click", "touch", "visual"],
+        scaffolds: ["hint", "retry"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          puzzleSource: "homework-word",
+          hintPolicy: "limited",
+          wheelRisk: "medium",
+          opponentMode: "companion",
+        },
+        measurementRisks: [
+          "Letter reveals and hints make this inference practice, not cold recall.",
+        ],
+      },
+      {
+        id: "strategy_challenge",
+        label: "Strategy Challenge",
+        difficulty: 3,
+        purpose: "reward",
+        skillTargets: ["retrieval_practice", "attention_control", "reward_recovery"],
+        inputModes: ["click", "touch", "visual"],
+        scaffolds: [],
+        evidenceType: "reward",
+        masteryEligible: false,
+        config: {
+          puzzleSource: "target-or-transfer-word",
+          hintPolicy: "none",
+          wheelRisk: "high",
+          opponentMode: "competitive",
+        },
+        measurementRisks: [
+          "High-risk play can measure engagement and strategy but not academic transfer alone.",
+        ],
+      },
+    ],
   },
   {
     id: "quest",
@@ -906,6 +1352,16 @@ export function listActivityToolContracts(): ActivityToolContract[] {
     goodFitWhen: [...contract.goodFitWhen],
     badFitWhen: [...contract.badFitWhen],
     scaffolds: [...contract.scaffolds],
+    measures: [...(contract.measures ?? EMPTY_ACTIVITY_PLANNER_AUDIT.measures)],
+    configKnobs: [...(contract.configKnobs ?? EMPTY_ACTIVITY_PLANNER_AUDIT.configKnobs)],
+    realDifficultyLevels: [
+      ...(contract.realDifficultyLevels ?? EMPTY_ACTIVITY_PLANNER_AUDIT.realDifficultyLevels),
+    ],
+    signalsEmitted: [...(contract.signalsEmitted ?? EMPTY_ACTIVITY_PLANNER_AUDIT.signalsEmitted)],
+    signalsMissing: [...(contract.signalsMissing ?? EMPTY_ACTIVITY_PLANNER_AUDIT.signalsMissing)],
+    psychologistGuidance: [
+      ...(contract.psychologistGuidance ?? EMPTY_ACTIVITY_PLANNER_AUDIT.psychologistGuidance),
+    ],
     traits: traitsForActivity(contract.id),
     evidence: {
       ...contract.evidence,

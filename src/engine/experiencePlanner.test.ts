@@ -188,6 +188,8 @@ describe("AI psychologist experience planner", () => {
       "hideWordDuringResponse",
       "requiresCapturedResponse",
     ]));
+    expect(wordRadarCard?.measures.join(" ")).toMatch(/recognition|read/i);
+    expect(wordRadarCard?.psychologistGuidance.join(" ")).toMatch(/visible|recall|mastery/i);
     expect(input.traitSignalSummary.preferredDimensions.join(" ")).toContain("voice");
     expect(input.plannerTrust.autoPlanEnabled).toBe(false);
   });

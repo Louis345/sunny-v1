@@ -36,6 +36,12 @@ export type ExperienceActivityCard = {
   contaminationRisks: string[];
   validConfigOptions: string[];
   capabilityModes: ActivityCapabilityMode[];
+  measures: string[];
+  configKnobs: string[];
+  realDifficultyLevels: string[];
+  signalsEmitted: string[];
+  signalsMissing: string[];
+  psychologistGuidance: string[];
 };
 
 export type ExperiencePlannerInput = {
@@ -193,6 +199,12 @@ function cardFromContract(contract: ActivityToolContract): ExperienceActivityCar
     difficultyKnobs: difficultyKnobsFor(contract),
     contaminationRisks: [...contract.evidence.contaminationRisks],
     validConfigOptions: validConfigOptionsFor(contract),
+    measures: [...contract.measures],
+    configKnobs: [...contract.configKnobs],
+    realDifficultyLevels: [...contract.realDifficultyLevels],
+    signalsEmitted: [...contract.signalsEmitted],
+    signalsMissing: [...contract.signalsMissing],
+    psychologistGuidance: [...contract.psychologistGuidance],
     capabilityModes: contract.capabilityModes.map((mode) => ({
       ...mode,
       skillTargets: [...mode.skillTargets],

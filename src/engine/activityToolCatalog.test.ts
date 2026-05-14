@@ -71,6 +71,40 @@ describe("activity tool catalog", () => {
     expect(wordRadar.capabilityModes[2]?.measurementRisks.join(" ")).toMatch(/speech|capture|visual/i);
   });
 
+  it("audits the five priority baseline activities for planner-facing measurement guidance", () => {
+    const priorityIds = [
+      "word-radar",
+      "pronunciation",
+      "spell-check",
+      "monster-stampede",
+      "wheel-of-fortune",
+    ];
+
+    for (const id of priorityIds) {
+      const contract = getActivityToolContract(id);
+      expect(contract.measures.length, `${id} measures`).toBeGreaterThan(0);
+      expect(contract.configKnobs.length, `${id} config knobs`).toBeGreaterThan(0);
+      expect(contract.realDifficultyLevels.length, `${id} difficulty levels`).toBeGreaterThan(0);
+      expect(contract.signalsEmitted.length, `${id} emitted signals`).toBeGreaterThan(0);
+      expect(contract.signalsMissing.length, `${id} missing signals`).toBeGreaterThan(0);
+      expect(contract.psychologistGuidance.length, `${id} guidance`).toBeGreaterThan(0);
+      expect(contract.capabilityModes.length, `${id} capability modes`).toBeGreaterThan(0);
+    }
+
+    const pronunciation = getActivityToolContract("pronunciation");
+    expect(pronunciation.configKnobs.join(" ")).toMatch(/replay|dosage|support|sfx/i);
+    expect(pronunciation.signalsEmitted.join(" ")).toMatch(/miss|hit|support|completion/i);
+
+    const spellCheck = getActivityToolContract("spell-check");
+    expect(spellCheck.signalsMissing.join(" ")).toMatch(/visible|retry|hint|independent/i);
+
+    const monster = getActivityToolContract("monster-stampede");
+    expect(monster.psychologistGuidance.join(" ")).toMatch(/not.*mastery|practice/i);
+
+    const wheel = getActivityToolContract("wheel-of-fortune");
+    expect(wheel.psychologistGuidance.join(" ")).toMatch(/reward|mystery|not.*mastery/i);
+  });
+
   it("plans science homework as evaluate, teach visually, then practice vocabulary", () => {
     const plan = buildInstructionalActivityPlan({
       childId: "ila",
@@ -239,5 +273,24 @@ describe("activity tool catalog", () => {
     expect(doc).toContain("goodFitWhen");
     expect(doc).toContain("badFitWhen");
     expect(doc).toContain("Every new activity");
+  });
+
+  it("keeps a readable audit snapshot for the five priority baseline activities", () => {
+    const doc = fs.readFileSync(
+      path.join(process.cwd(), "docs", "activity-capability-audit.md"),
+      "utf8",
+    );
+
+    for (const label of [
+      "Word Radar",
+      "Pronunciation",
+      "Spell Check",
+      "Monster Stampede",
+      "Wheel of Fortune",
+    ]) {
+      expect(doc).toContain(label);
+    }
+    expect(doc).toContain("src/engine/activityToolCatalog.ts");
+    expect(doc).toContain("not mastery");
   });
 });
