@@ -37,6 +37,13 @@ const engagementWrapperSchema = z.object({
   promptLanguage: z.string().min(1),
 });
 
+const displaySchema = z.object({
+  title: z.string().min(1),
+  subtitle: z.string().min(1),
+  predictionKicker: z.string().min(1).optional(),
+  predictionTitle: z.string().min(1).optional(),
+});
+
 const recallQuestionSchema = z.object({
   id: z.string().min(1),
   category: z.string().min(1).optional(),
@@ -77,6 +84,7 @@ export const visualLearnerArtifactConfigSchema = z.object({
     summary: z.string().min(1),
   }),
   algorithmTargets: z.array(z.string().min(1)).min(1),
+  display: displaySchema.optional(),
   reuseDecision: z.object({
     status: z.enum(["candidate", "reuse", "revise", "retire"]),
     reason: z.string().min(1),
@@ -111,6 +119,8 @@ export const visualLearnerArtifactConfigSchema = z.object({
     role: z.literal("hint_only"),
     maxSentences: z.number().int().min(1).max(4),
     canRevealAnswer: z.boolean(),
+    hintText: z.string().min(1).optional(),
+    hintsByPhase: z.record(z.string(), z.string().min(1)).optional(),
   }),
   evidence: z.object({
     targetResults: z.array(z.string().min(1)).min(1),

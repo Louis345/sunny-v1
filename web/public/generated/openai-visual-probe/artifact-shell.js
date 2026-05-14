@@ -7,6 +7,7 @@
 
   function mergeArtifactConfig(defaultConfig, config) {
     var merged = Object.assign({}, defaultConfig, config || {});
+    merged.display = Object.assign({}, defaultConfig.display || {}, merged.display || {});
     merged.mode = Object.assign({}, defaultConfig.mode || {}, merged.mode || {});
     merged.preview = Object.assign({}, defaultConfig.preview || {}, merged.preview || {});
     merged.narration = Object.assign(
@@ -256,6 +257,18 @@
           artifactConfig.concept +
           " • " +
           artifactConfig.learningGoal;
+      }
+      if (el.artifactTitle && artifactConfig.display && artifactConfig.display.title) {
+        el.artifactTitle.textContent = artifactConfig.display.title;
+      }
+      if (el.artifactSubtitle && artifactConfig.display && artifactConfig.display.subtitle) {
+        el.artifactSubtitle.textContent = artifactConfig.display.subtitle;
+      }
+      if (el.predictionKicker && artifactConfig.display && artifactConfig.display.predictionKicker) {
+        el.predictionKicker.textContent = artifactConfig.display.predictionKicker;
+      }
+      if (el.predictionTitle && artifactConfig.display && artifactConfig.display.predictionTitle) {
+        el.predictionTitle.textContent = artifactConfig.display.predictionTitle;
       }
       if (el.predictionPrompt) {
         el.predictionPrompt.textContent = q.prompt;

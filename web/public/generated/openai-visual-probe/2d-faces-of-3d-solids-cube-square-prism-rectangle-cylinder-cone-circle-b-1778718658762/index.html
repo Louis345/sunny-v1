@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>sunny-visual-probe 2D Faces of 3D Solids</title>
 <script src="/games/_contract.js"></script>
-<script src="/generated/openai-visual-probe/artifact-shell.js?v=companion-contract-1"></script>
+<script src="/generated/openai-visual-probe/artifact-shell.js?v=personalized-demos-1"></script>
 <style>
   html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#fff7c8;color:#2b2418}
   #app{min-height:100%}
@@ -56,8 +56,8 @@
 <main id="app" class="artifact">
   <div class="topbar">
     <div>
-      <h1>Stamp Quest</h1>
-      <p>Help the shapes test the magic stamp pad.</p>
+      <h1 id="artifactTitle">Stamp Quest</h1>
+      <p id="artifactSubtitle">Help the shapes test the magic stamp pad.</p>
     </div>
     <button id="backButton" class="secondary-btn" type="button">Back</button>
   </div>
@@ -82,7 +82,7 @@
     </div>
   </section>
   <section class="prediction-card" id="predictionPanel" aria-live="polite" role="dialog" aria-modal="true" aria-labelledby="predictionTitle">
-    <div class="prediction-kicker">Quest check</div>
+    <div class="prediction-kicker" id="predictionKicker">Quest check</div>
     <h2 id="predictionTitle">One shape is trouble</h2>
     <p>Which one rolls away without making a flat print?</p>
     <div class="choice-grid" role="group" aria-label="Prediction choices">
@@ -169,6 +169,7 @@ function renderScene(progress,phase,state){
 }
 const DEFAULT_ARTIFACT_CONFIG={
  artifactId,type:"visual-explainer",concept,learningGoal,misconception,
+ display:{title:"Stamp Quest",subtitle:"Help the shapes test the magic stamp pad.",predictionKicker:"Quest check",predictionTitle:"One shape is trouble"},
  mode:{default:"pause-for-question"},preview:{allowPlaythrough:true},
  narration:{enabled:false,provider:"none",voiceId:"",modelId:"",audioPath:"",scriptPath:"",timings:[]},
  questions:[{id:"prediction-no-flat-face",prompt:"Which one rolls away without making a flat print?",correctOptionId:"sphere",targetConcept:"flat_faces_of_solids",misconceptionTag:"curved_surface_as_flat_face",pauseAtProgress:62,scaffoldLevel:1,options:[
@@ -189,11 +190,15 @@ const shell=SunnyVisualLearnerArtifactShell.mount({
  revealStartProgress:62,
  elements:{
   playPause:document.getElementById("playPause"),
+  artifactTitle:document.getElementById("artifactTitle"),
+  artifactSubtitle:document.getElementById("artifactSubtitle"),
   scrubber:document.getElementById("scrubber"),
   progressOut:document.getElementById("progressOut"),
   narrationAudio:document.getElementById("narrationAudio"),
   playthroughToggle:document.getElementById("cinemaMode"),
   predictionPanel:document.getElementById("predictionPanel"),
+  predictionKicker:document.getElementById("predictionKicker"),
+  predictionTitle:document.getElementById("predictionTitle"),
   predictionPrompt:document.querySelector("#predictionPanel p"),
   predFeedback:document.getElementById("predFeedback"),
   revealButton:document.getElementById("revealButton"),

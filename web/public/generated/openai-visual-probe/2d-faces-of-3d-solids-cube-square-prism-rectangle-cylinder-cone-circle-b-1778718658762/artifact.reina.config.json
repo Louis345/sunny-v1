@@ -1,0 +1,220 @@
+{
+  "artifactId": "solid-faces-reina-personalized-demo",
+  "type": "visual-explainer",
+  "concept": "2D faces of 3D solids",
+  "learningGoal": "Help Reina treat each solid like a strategy match: pin the flat face, then name the 2D print it leaves.",
+  "misconception": "A curved surface can act like a flat face.",
+  "sourceEvidence": {
+    "source": "5_11 math.pdf",
+    "capturedAt": "2026-05-13T20:30:00-04:00",
+    "summary": "Homework asks the child to identify flat faces of three-dimensional shapes."
+  },
+  "algorithmTargets": [
+    "visual-modeling",
+    "retrieval-practice",
+    "error-pattern-remediation",
+    "activity-affinity"
+  ],
+  "display": {
+    "title": "Shape Takedown",
+    "subtitle": "Pin the flat face, spot the roll-away, and win the stamp match.",
+    "predictionKicker": "Match point",
+    "predictionTitle": "Which shape escapes?"
+  },
+  "engagementWrapper": {
+    "id": "competition",
+    "label": "Friendly Competition",
+    "promptLanguage": "Make it fast, clever, and game-like with wrestling strategy language, pins, escapes, and a fair challenge. Keep the academic target intact."
+  },
+  "assumptions": [
+    "Reina responds strongly to competition, strategy, riddles, and wrestling metaphors.",
+    "A quick challenge wrapper may make geometry feel like a pattern match instead of a worksheet.",
+    "The follow-up co-op game should verify recall because the visual explainer only tests the hypothesis."
+  ],
+  "falsifyCriteria": [
+    "follow-up co-op recall accuracy below 0.75",
+    "Reina rushes without checking the model and misses the same curved-surface misconception",
+    "delayed concept-check or homework evidence shows the strategy wrapper did not transfer"
+  ],
+  "researchNotes": [
+    {
+      "source": "WWC math intervention",
+      "url": "https://ies.ed.gov/ncee/wwc/practiceguide/2",
+      "summary": "Visual representations can make abstract math concepts concrete for intervention."
+    },
+    {
+      "source": "CMU retrieval practice",
+      "url": "https://www.cmu.edu/teaching/resources/instructionalstrategies/activelearningstrategies/retrievalpractice/index.html",
+      "summary": "Follow the visual model with feedback-rich recall rather than treating watching as mastery."
+    }
+  ],
+  "reuseDecision": {
+    "status": "candidate",
+    "reason": "Personalization demo for Reina using the cached solid-faces visual without spending generation credits."
+  },
+  "parentApproval": {
+    "status": "pending",
+    "reviewer": null,
+    "reviewedAt": null,
+    "notes": "Review whether competition and wrestling framing feel motivating without making the lesson too rushed."
+  },
+  "mode": {
+    "default": "pause-for-question"
+  },
+  "preview": {
+    "allowPlaythrough": true
+  },
+  "narration": {
+    "enabled": false,
+    "provider": "cached-elevenlabs-disabled",
+    "voiceId": "052jzHJceQiZr7ltnY0C",
+    "modelId": "eleven_multilingual_v2",
+    "audioPath": "./audio/narration-052jzHJceQiZr7ltnY0C.mp3",
+    "scriptPath": "./audio/narration.txt",
+    "timings": [
+      {
+        "id": "meet-solids",
+        "startProgress": 0,
+        "endProgress": 18,
+        "text": "Welcome to Shape Takedown. The solids are stepping onto the mat."
+      },
+      {
+        "id": "find-flat-face",
+        "startProgress": 18,
+        "endProgress": 36,
+        "text": "To score, find the side that can pin flat against the stamp pad."
+      },
+      {
+        "id": "stamp-pad",
+        "startProgress": 36,
+        "endProgress": 52,
+        "text": "Flat sides score prints. Curved sides try to escape."
+      },
+      {
+        "id": "predict",
+        "startProgress": 52,
+        "endProgress": 62,
+        "text": "Match point. Which shape escapes because it has no flat face?"
+      },
+      {
+        "id": "reveal",
+        "startProgress": 62,
+        "endProgress": 84,
+        "text": "The sphere escapes. It is all curve, so it rolls instead of pinning a flat print."
+      },
+      {
+        "id": "review",
+        "startProgress": 84,
+        "endProgress": 100,
+        "text": "Rule locked. Flat faces score prints. Curves roll."
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "reina-prediction-no-flat-face",
+      "prompt": "Which shape escapes the stamp match because it has no flat face?",
+      "options": [
+        {
+          "id": "cube",
+          "label": "Cube: square pin",
+          "misconceptionTag": "all_solids_have_same_face"
+        },
+        {
+          "id": "cylinder",
+          "label": "Cylinder: circle-base move",
+          "misconceptionTag": "circle_base_not_seen"
+        },
+        {
+          "id": "pyramid",
+          "label": "Pyramid: triangle attack",
+          "misconceptionTag": "triangle_face_not_seen"
+        },
+        {
+          "id": "sphere",
+          "label": "Sphere: roll escape",
+          "correct": true
+        }
+      ],
+      "correctOptionId": "sphere",
+      "targetConcept": "flat_faces_of_solids",
+      "misconceptionTag": "curved_surface_as_flat_face",
+      "pauseAtProgress": 62,
+      "scaffoldLevel": 0
+    }
+  ],
+  "companionContext": {
+    "role": "hint_only",
+    "maxSentences": 2,
+    "canRevealAnswer": false,
+    "hintText": "Look for the shape that cannot pin one flat side onto the stamp pad.",
+    "hintsByPhase": {
+      "intro": "Scout the solids before they move.",
+      "rotate": "Find the side that can pin flat.",
+      "stamp": "A flat pin leaves a print.",
+      "prediction": "Which shape is all escape and no flat pin?",
+      "reveal": "Check which move scored a print.",
+      "review": "Flat pins score. Curves roll."
+    }
+  },
+  "evidence": {
+    "targetResults": [
+      "flat_faces_of_solids"
+    ],
+    "completion": "activity_complete"
+  },
+  "recallGame": {
+    "type": "co-op-recall",
+    "sourceInterventionId": "solid-faces-reina-personalized-demo",
+    "turnMode": "child-and-companion",
+    "stakes": {
+      "currency": "sun-coins",
+      "lossMode": "half-stake-floor-zero"
+    },
+    "companionPolicy": {
+      "accuracyMode": "configured",
+      "configuredAccuracy": 0.72,
+      "helperRole": "accurate-hint-only"
+    },
+    "questions": [
+      {
+        "id": "reina-square-pin",
+        "category": "Square Pin",
+        "prompt": "Which solid scores a square print?",
+        "answer": "cube",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.4,
+        "stake": 20
+      },
+      {
+        "id": "reina-roll-escape",
+        "category": "Roll Escape",
+        "prompt": "Which shape escapes because it has no flat face?",
+        "answer": "sphere",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.6,
+        "stake": 30,
+        "misconceptionTag": "curved_surface_as_flat_face"
+      },
+      {
+        "id": "reina-circle-base",
+        "category": "Circle Counter",
+        "prompt": "Which two solids can score a circle print with a flat base?",
+        "answer": "cylinder and cone",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.75,
+        "stake": 40,
+        "misconceptionTag": "circle_base_not_seen"
+      }
+    ]
+  },
+  "chrome": {
+    "childShowsEvidence": false,
+    "parentShowsEvidence": true,
+    "childShowsCarePlan": false,
+    "parentShowsCarePlan": true
+  }
+}

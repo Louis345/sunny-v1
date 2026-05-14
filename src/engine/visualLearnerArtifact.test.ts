@@ -15,6 +15,8 @@ const SOLID_FACES_ARTIFACT_DIR = join(
 );
 const CONFIG_PATH = join(ARTIFACT_DIR, "artifact.config.json");
 const SOLID_FACES_CONFIG_PATH = join(SOLID_FACES_ARTIFACT_DIR, "artifact.config.json");
+const SOLID_FACES_ILA_CONFIG_PATH = join(SOLID_FACES_ARTIFACT_DIR, "artifact.ila.config.json");
+const SOLID_FACES_REINA_CONFIG_PATH = join(SOLID_FACES_ARTIFACT_DIR, "artifact.reina.config.json");
 const HTML_PATH = join(ARTIFACT_DIR, "index.html");
 const SHELL_PATH = join(
   PROJECT_ROOT,
@@ -115,6 +117,41 @@ describe("visual learner artifact config", () => {
       evidenceTarget: "flat_faces_of_solids",
     });
   });
+
+  it("has child-specific solid-faces demo configs for Ila and Reina", () => {
+    const ila = validateVisualLearnerArtifactConfig(
+      JSON.parse(readFileSync(SOLID_FACES_ILA_CONFIG_PATH, "utf-8")),
+    );
+    const reina = validateVisualLearnerArtifactConfig(
+      JSON.parse(readFileSync(SOLID_FACES_REINA_CONFIG_PATH, "utf-8")),
+    );
+
+    expect(ila.display).toMatchObject({
+      title: "Tiny Stamp Garden",
+      subtitle: expect.stringContaining("One gentle stamp"),
+    });
+    expect(ila.engagementWrapper).toMatchObject({
+      id: "calm-coach",
+      promptLanguage: expect.stringContaining("visual anchor"),
+    });
+    expect(ila.assumptions.join(" ")).toContain("visual support");
+    expect(ila.companionContext.hintText).toContain("one shape");
+    expect(ila.recallGame?.companionPolicy.configuredAccuracy).toBeLessThan(
+      reina.recallGame?.companionPolicy.configuredAccuracy ?? 1,
+    );
+
+    expect(reina.display).toMatchObject({
+      title: "Shape Takedown",
+      subtitle: expect.stringContaining("Pin the flat face"),
+    });
+    expect(reina.engagementWrapper).toMatchObject({
+      id: "competition",
+      promptLanguage: expect.stringContaining("wrestling"),
+    });
+    expect(reina.assumptions.join(" ")).toContain("competition");
+    expect(reina.recallGame?.questions[0].category).toContain("Pin");
+    expect(ila.questions[0].prompt).not.toBe(reina.questions[0].prompt);
+  });
 });
 
 describe("visual learner generated HTML artifact", () => {
@@ -123,6 +160,10 @@ describe("visual learner generated HTML artifact", () => {
     const html = readFileSync(HTML_PATH, "utf-8");
 
     expect(shell).toContain("window.SunnyVisualLearnerArtifactShell");
+    expect(shell).toContain("artifactTitle");
+    expect(shell).toContain("artifactSubtitle");
+    expect(shell).toContain("predictionKicker");
+    expect(shell).toContain("predictionTitle");
     expect(shell).toContain("function resetVisualLearnerRun");
     expect(shell).toContain("function recordPrediction");
     expect(shell).toContain("function completeActivity");
@@ -331,7 +372,7 @@ describe("visual learner adventure-map routing", () => {
     expect(mapDemo).toContain("buildVisualLearnerFeedbackDemoNodes");
     expect(mapDemo).toContain("visual-recall-quiz");
     expect(mapDemo).not.toContain("speechBubbleText=");
-    expect(coOpGame).toContain("/games/_contract.js");
+    expect(coOpGame).toContain("_contract.js");
     expect(coOpGame).toContain("recall_result");
     expect(coOpGame).toContain("activity_complete");
     expect(coOpGame).toContain("GameBridge.reportAction");

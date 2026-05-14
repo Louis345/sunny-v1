@@ -1,0 +1,220 @@
+{
+  "artifactId": "solid-faces-ila-personalized-demo",
+  "type": "visual-explainer",
+  "concept": "2D faces of 3D solids",
+  "learningGoal": "Help Ila use a calm visual stamp model to see that flat sides leave prints and curved surfaces roll away.",
+  "misconception": "A curved surface can act like a flat face.",
+  "sourceEvidence": {
+    "source": "5_11 math.pdf",
+    "capturedAt": "2026-05-13T20:30:00-04:00",
+    "summary": "Homework asks the child to identify flat faces of three-dimensional shapes."
+  },
+  "algorithmTargets": [
+    "visual-modeling",
+    "retrieval-practice",
+    "error-pattern-remediation",
+    "activity-affinity"
+  ],
+  "display": {
+    "title": "Tiny Stamp Garden",
+    "subtitle": "One gentle stamp at a time: flat makes a print, round rolls away.",
+    "predictionKicker": "Tiny check",
+    "predictionTitle": "Find the roll-away shape"
+  },
+  "engagementWrapper": {
+    "id": "calm-coach",
+    "label": "Calm Visual Coach",
+    "promptLanguage": "Make it warm, cute, concrete, and visual anchor first. Use single-step language, tiny garden imagery, and gentle confidence instead of speed or pressure."
+  },
+  "assumptions": [
+    "Ila may benefit from visual support before independent retrieval because prior chart notes show stronger performance when concepts are anchored on the canvas.",
+    "A calm, cute stamp garden may reduce cognitive load while keeping the geometry concrete.",
+    "The explainer should use one clear idea at a time before the co-op recall game checks whether the model transferred."
+  ],
+  "falsifyCriteria": [
+    "follow-up co-op recall accuracy below 0.65",
+    "Ila requests a break or shows frustration during the prediction pause",
+    "delayed concept-check or homework evidence shows she still treats curved surfaces as flat faces"
+  ],
+  "researchNotes": [
+    {
+      "source": "WWC math intervention",
+      "url": "https://ies.ed.gov/ncee/wwc/practiceguide/2",
+      "summary": "Visual representations can make abstract math concepts concrete for intervention."
+    },
+    {
+      "source": "CMU retrieval practice",
+      "url": "https://www.cmu.edu/teaching/resources/instructionalstrategies/activelearningstrategies/retrievalpractice/index.html",
+      "summary": "Follow the visual model with feedback-rich recall rather than treating watching as mastery."
+    }
+  ],
+  "reuseDecision": {
+    "status": "candidate",
+    "reason": "Personalization demo for Ila using the cached solid-faces visual without spending generation credits."
+  },
+  "parentApproval": {
+    "status": "pending",
+    "reviewer": null,
+    "reviewedAt": null,
+    "notes": "Review whether the calm visual wrapper feels appropriate for Ila before regenerating a bespoke version."
+  },
+  "mode": {
+    "default": "pause-for-question"
+  },
+  "preview": {
+    "allowPlaythrough": true
+  },
+  "narration": {
+    "enabled": false,
+    "provider": "cached-elevenlabs-disabled",
+    "voiceId": "052jzHJceQiZr7ltnY0C",
+    "modelId": "eleven_multilingual_v2",
+    "audioPath": "./audio/narration-052jzHJceQiZr7ltnY0C.mp3",
+    "scriptPath": "./audio/narration.txt",
+    "timings": [
+      {
+        "id": "meet-solids",
+        "startProgress": 0,
+        "endProgress": 18,
+        "text": "Tiny shapes are visiting the stamp garden."
+      },
+      {
+        "id": "find-flat-face",
+        "startProgress": 18,
+        "endProgress": 36,
+        "text": "A flat side can press down and make a print."
+      },
+      {
+        "id": "stamp-pad",
+        "startProgress": 36,
+        "endProgress": 52,
+        "text": "The stamp pad only works when a flat side touches it."
+      },
+      {
+        "id": "predict",
+        "startProgress": 52,
+        "endProgress": 62,
+        "text": "Which shape rolls away because it has no flat side?"
+      },
+      {
+        "id": "reveal",
+        "startProgress": 62,
+        "endProgress": 84,
+        "text": "The sphere is all curve, so it rolls instead of stamping."
+      },
+      {
+        "id": "review",
+        "startProgress": 84,
+        "endProgress": 100,
+        "text": "Flat makes a face. Curved makes a roll."
+      }
+    ]
+  },
+  "questions": [
+    {
+      "id": "ila-prediction-no-flat-face",
+      "prompt": "Which shape rolls away because it has no flat side to press?",
+      "options": [
+        {
+          "id": "cube",
+          "label": "Cube with a square side",
+          "misconceptionTag": "all_solids_have_same_face"
+        },
+        {
+          "id": "cylinder",
+          "label": "Cylinder with circle ends",
+          "misconceptionTag": "circle_base_not_seen"
+        },
+        {
+          "id": "pyramid",
+          "label": "Pyramid with triangle sides",
+          "misconceptionTag": "triangle_face_not_seen"
+        },
+        {
+          "id": "sphere",
+          "label": "Sphere, all round",
+          "correct": true
+        }
+      ],
+      "correctOptionId": "sphere",
+      "targetConcept": "flat_faces_of_solids",
+      "misconceptionTag": "curved_surface_as_flat_face",
+      "pauseAtProgress": 62,
+      "scaffoldLevel": 1
+    }
+  ],
+  "companionContext": {
+    "role": "hint_only",
+    "maxSentences": 2,
+    "canRevealAnswer": false,
+    "hintText": "Look for the one shape that cannot press one flat side onto the stamp pad.",
+    "hintsByPhase": {
+      "intro": "Watch one shape at a time.",
+      "rotate": "Ask: can one side touch the pad flat?",
+      "stamp": "Flat sides make quiet little prints.",
+      "prediction": "One shape is all round, with no flat side.",
+      "reveal": "Compare the print to the side that touched the pad.",
+      "review": "Flat makes a print. Curved rolls."
+    }
+  },
+  "evidence": {
+    "targetResults": [
+      "flat_faces_of_solids"
+    ],
+    "completion": "activity_complete"
+  },
+  "recallGame": {
+    "type": "co-op-recall",
+    "sourceInterventionId": "solid-faces-ila-personalized-demo",
+    "turnMode": "child-and-companion",
+    "stakes": {
+      "currency": "sun-coins",
+      "lossMode": "half-stake-floor-zero"
+    },
+    "companionPolicy": {
+      "accuracyMode": "configured",
+      "configuredAccuracy": 0.58,
+      "helperRole": "accurate-hint-only"
+    },
+    "questions": [
+      {
+        "id": "ila-square-print",
+        "category": "Gentle Match",
+        "prompt": "Which solid can make a square print?",
+        "answer": "cube",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.35,
+        "stake": 10
+      },
+      {
+        "id": "ila-roll-away",
+        "category": "Roll Away",
+        "prompt": "Which shape has no flat face for the stamp pad?",
+        "answer": "sphere",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.5,
+        "stake": 15,
+        "misconceptionTag": "curved_surface_as_flat_face"
+      },
+      {
+        "id": "ila-circle-base",
+        "category": "Circle Prints",
+        "prompt": "Which solids can make a circle print with a flat base?",
+        "answer": "cylinder and cone",
+        "targetConcept": "flat_faces_of_solids",
+        "evidenceTarget": "flat_faces_of_solids",
+        "difficulty": 0.65,
+        "stake": 20,
+        "misconceptionTag": "circle_base_not_seen"
+      }
+    ]
+  },
+  "chrome": {
+    "childShowsEvidence": false,
+    "parentShowsEvidence": true,
+    "childShowsCarePlan": false,
+    "parentShowsCarePlan": true
+  }
+}
