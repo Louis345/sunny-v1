@@ -751,6 +751,8 @@
 
       var params = window.GAME_PARAMS || {};
       var configUrl = params.config;
+      var storybookPreview = params.previewStorybook === true;
+      var storybookFixtureState = String(params.fixtureState || "");
       var config = null;
       var heartbeat = null;
       var state = {
@@ -2155,7 +2157,12 @@
         return candidate;
       }
       function sampleConfig(key) {
-        var mode = key === "sample-type" ? "type-and-spell"
+        var mode = key === "sample-easy" ? "read-and-race"
+          : key === "sample-medium" ? "hear-and-spell"
+            : key === "sample-hard" ? "mastery-run"
+              : key === "sample-support" ? "type-and-spell"
+                : key === "sample-complete" ? "mastery-run"
+                  : key === "sample-type" ? "type-and-spell"
           : key === "sample-read" ? "read-and-race"
           : key === "sample-trap" ? "trap-the-imposter"
             : key === "sample-mastery" ? "mastery-run"
@@ -2267,6 +2274,7 @@
         byId("masteryHud").classList.toggle("on", config.mode === "mastery-run");
         byId("definition").textContent = def.intro;
         updateHud();
+        applyStorybookFixtureState();
         heartbeat = window.GameBridge && window.GameBridge.startHeartbeat
           ? window.GameBridge.startHeartbeat(function () {
               return "Letter Rush active: " + config.mode;
@@ -2282,6 +2290,30 @@
               };
             })
           : null;
+      }
+      function applyStorybookFixtureState() {
+        if (!storybookPreview) return;
+        document.body.setAttribute("data-fixture-state", storybookFixtureState || "easy");
+        if (storybookFixtureState === "support") {
+          byId("definition").textContent = "Storybook support fixture: slow down, use the letter bank, and recover.";
+        }
+        if (storybookFixtureState !== "complete") return;
+        state.started = true;
+        state.paused = true;
+        state.targetResults = config.words.map(function (word) {
+          return {
+            target: normalizeWord(word.text),
+            correct: true,
+            responseTime_ms: 1200,
+            mode: config.mode,
+            reason: "storybook_complete_fixture"
+          };
+        });
+        state.coins = state.targetResults.length * 100;
+        updateHud();
+        byId("endSub").textContent = state.targetResults.length + " of " + state.targetResults.length + " words solved";
+        setBanner("startBanner", false);
+        setBanner("endBanner", true);
       }
       function loadConfig() {
         if (!configUrl || configUrl.indexOf("sample") === 0) {

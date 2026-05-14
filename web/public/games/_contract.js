@@ -15,25 +15,34 @@ window.GameBridge = (function () {
     var p = new URLSearchParams(location.search);
     var rawWords = p.get("words");
     var pv = (p.get("preview") || "").toLowerCase();
-    var previewDryRun = pv === "true" || pv === "free";
+    var previewStorybook = pv === "storybook";
+    var previewDryRun = pv === "true" || pv === "free" || previewStorybook;
     var previewGoLive = pv === "go-live";
-    return {
-      words: rawWords
-        ? rawWords.split(",").map(function (w) {
+    function csvList(value) {
+      return value
+        ? value.split(",").map(function (w) {
             return w.trim();
           }).filter(Boolean)
-        : [],
+        : [];
+    }
+    return {
+      words: csvList(rawWords),
+      knownWords: csvList(p.get("knownWords")),
+      weakWords: csvList(p.get("weakWords")),
       childId: p.get("childId") || "unknown",
       childName: p.get("childName") || "",
       companion: p.get("companion") || "",
       companionName: p.get("companionName") || "",
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
+      fixtureState: p.get("fixtureState") || "",
       nodeId: p.get("nodeId") || "unknown",
       sessionId: p.get("sessionId") || null,
       config: p.get("config") || null,
+      preview: pv,
       chrome: p.get("chrome") || "",
       visualLearnerFlowMode: p.get("visualLearnerFlow") || "",
       previewDryRun: previewDryRun,
+      previewStorybook: previewStorybook,
       previewGoLive: previewGoLive,
       isQuest: p.get("isQuest") === "true",
       dyslexiaMode: p.get("dyslexiaMode") === "true",

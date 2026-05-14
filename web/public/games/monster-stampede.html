@@ -82,6 +82,8 @@ const { useState, useEffect, useRef, useCallback, useMemo } = React;
    GAME PARAMS
 ═══════════════════════════════════════════════════════════════ */
 const GP = window.GAME_PARAMS || {};
+const STORYBOOK_PREVIEW = GP.previewStorybook === true;
+const STORYBOOK_FIXTURE_STATE = String(GP.fixtureState || "");
 
 const WORDS_RAW    = (GP.words || []).map(w=>w.toLowerCase().replace(/[^a-z]/g,'')).filter(Boolean);
 const CHILD_ID     = GP.childId        ?? 'child';
@@ -326,10 +328,10 @@ function Lives({count,max}){
    APP
 ═══════════════════════════════════════════════════════════════ */
 function App(){
-  const [phase,setPhase]         = useState('intro');   // intro|playing|won|lost
+  const [phase,setPhase]         = useState(STORYBOOK_PREVIEW&&STORYBOOK_FIXTURE_STATE==='complete'?'won':'intro');   // intro|playing|won|lost
   const [wordIdx,setWordIdx]     = useState(0);
-  const [lives,setLives]         = useState(LIVES_MAX);
-  const [score,setScore]         = useState(0);
+  const [lives,setLives]         = useState(STORYBOOK_PREVIEW&&STORYBOOK_FIXTURE_STATE==='complete'?LIVES_MAX: LIVES_MAX);
+  const [score,setScore]         = useState(STORYBOOK_PREVIEW&&STORYBOOK_FIXTURE_STATE==='complete'?WORDS_RAW.length*125:0);
   const [typed,setTyped]         = useState([]);        // letters typed so far
   const [tiles,setTiles]         = useState([]);        // tile objects {id,letter,used}
   const [monsterScale,setMonsterScale] = useState(1);
@@ -341,8 +343,8 @@ function App(){
   const [showHint,setShowHint]   = useState(false);
 
   const startTime = useRef(Date.now());
-  const completedRef = useRef(false);
-  const wordsCorrect = useRef([]);
+  const completedRef = useRef(STORYBOOK_PREVIEW&&STORYBOOK_FIXTURE_STATE==='complete');
+  const wordsCorrect = useRef(STORYBOOK_PREVIEW&&STORYBOOK_FIXTURE_STATE==='complete'?WORDS_RAW.slice():[]);
   const wordsWrong = useRef([]);
   const wrongCount = useRef(0);   // wrong taps on current word
 

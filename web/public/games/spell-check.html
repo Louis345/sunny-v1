@@ -92,6 +92,8 @@ for (let i = 0; i < 3; i++) {
 
 const startTime = Date.now();
 const GP = window.GAME_PARAMS || {};
+const STORYBOOK_PREVIEW = GP.previewStorybook === true;
+const STORYBOOK_FIXTURE_STATE = String(GP.fixtureState || "");
 const rawList = (GP.words && GP.words.length ? GP.words : [])
   .map(function (w) {
     return String(w).trim();
@@ -770,6 +772,25 @@ function finishSession(early) {
   canTypeR3 = false;
 }
 
+function applyStorybookFixtureState() {
+  if (!STORYBOOK_PREVIEW) return false;
+  document.body.setAttribute("data-fixture-state", STORYBOOK_FIXTURE_STATE || "easy");
+  if (STORYBOOK_FIXTURE_STATE === "support") {
+    document.getElementById("sub-line").textContent = "Storybook support fixture: weak word scaffold is active.";
+    weakList = rawList.slice(0, 2).map(function (w) {
+      return String(w).toLowerCase().replace(/[^a-z]/g, "");
+    });
+    return false;
+  }
+  if (STORYBOOK_FIXTURE_STATE !== "complete") return false;
+  masteredWords.push.apply(masteredWords, rawList.slice(0, 5));
+  roundsPassedFirstPass = totalRoundsPlanned;
+  setTimeout(function () {
+    finishSession(true);
+  }, 0);
+  return true;
+}
+
 if (rawList.length === 0) {
   document.getElementById("prompt-main").textContent = "No words in link";
   if (!nodeSent) {
@@ -809,7 +830,7 @@ if (rawList.length === 0) {
     fireC("session_complete", {});
   }
 } else {
-  if (window.GameBridge && typeof window.GameBridge.startHeartbeat === "function") {
+  if (!applyStorybookFixtureState() && window.GameBridge && typeof window.GameBridge.startHeartbeat === "function") {
     heartbeatId = window.GameBridge.startHeartbeat(
       function() {
         return 'Spelling "' + currentWord + '" — word ' + (wordIndex + 1) + ' of ' + sessionWords.length;
@@ -819,7 +840,11 @@ if (rawList.length === 0) {
       }
     );
   }
-  beginWordOrFinish();
+  if (STORYBOOK_PREVIEW && STORYBOOK_FIXTURE_STATE === "complete") {
+    // The completion fixture renders the real finish UI without starting the live loop.
+  } else {
+    beginWordOrFinish();
+  }
 }
 </script>
 </body>
