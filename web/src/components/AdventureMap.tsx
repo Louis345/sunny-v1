@@ -624,8 +624,18 @@ export function AdventureMap(props: {
   }, [resolved, props.mapCompanion?.companionId]);
 
   const launchedNodeRef = useRef<NodeConfig | null>(null);
+  const pronunciationNodeCompletionRecordedRef = useRef<string | null>(null);
   useEffect(() => {
     launchedNodeRef.current = launchedNode;
+    const activeLaunchedNode = launchedNode;
+    if (!activeLaunchedNode || activeLaunchedNode.type !== "pronunciation") {
+      pronunciationNodeCompletionRecordedRef.current = null;
+    } else if (
+      pronunciationNodeCompletionRecordedRef.current !== null &&
+      pronunciationNodeCompletionRecordedRef.current !== activeLaunchedNode.id
+    ) {
+      pronunciationNodeCompletionRecordedRef.current = null;
+    }
   }, [launchedNode]);
   const sessionIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -2025,6 +2035,26 @@ export function AdventureMap(props: {
                 "pronunciation_complete",
                 result as unknown as Record<string, unknown>,
               );
+              if (pronunciationNodeCompletionRecordedRef.current === node.id) {
+                void props.karaokeReadingForMapNode?.sendMessage?.(
+                  "game_event",
+                  {
+                    event: {
+                      type: "pronunciation_replay_complete",
+                      payload: {
+                        game: "pronunciation",
+                        nodeId: node.id,
+                        wordsHit: result.wordsHit,
+                        wordsAttempted: result.wordsAttempted,
+                        accuracy,
+                      },
+                      version: "1.0",
+                    },
+                  },
+                );
+                return;
+              }
+              pronunciationNodeCompletionRecordedRef.current = node.id;
               void sendNodeResult({
                 nodeId: node.id,
                 activityId: "pronunciation",
@@ -2043,7 +2073,7 @@ export function AdventureMap(props: {
                     idx < correctLimit &&
                     !missed.has(normalizePracticeWord(word)),
                 })),
-              }).catch((error: unknown) => {
+              }, { keepLaunchedNode: true }).catch((error: unknown) => {
                 console.error(" 🎮 [pronunciation] [node-result] failed", error);
               });
             }}

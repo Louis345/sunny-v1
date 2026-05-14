@@ -401,6 +401,13 @@ describe("PronunciationGameCanvas", () => {
     expect(GAME_SFX.pronunciation.comboBreaker).toBe(
       "/sfx/pronunciation/combo_breaker.mp3",
     );
+    expect(GAME_SFX.pronunciation.hitPop).toBe("synth:pronunciation-hit-pop");
+    expect(GAME_SFX.pronunciation.missThunk).toBe("synth:pronunciation-miss-thunk");
+    expect(GAME_SFX.pronunciation.replayStart).toBe("synth:pronunciation-replay-start");
+    expect(GAME_SFX.pronunciation.completeFanfare).toBe(
+      "synth:pronunciation-complete-fanfare",
+    );
+    expect(GAME_SFX.pronunciation.heatUp).toBe("synth:pronunciation-heat-up");
   });
 
   it("offers replay and harder replay from the completion overlay", async () => {
@@ -520,6 +527,10 @@ describe("PronunciationGameCanvas", () => {
 
     expect(source).toContain("COMBO_BREAKER_STREAK");
     expect(source).toContain("playGameSfx(\"pronunciation\", \"comboBreaker\")");
+    expect(source).toContain("playGameSfx(\"pronunciation\", \"hitPop\")");
+    expect(source).toContain("playGameSfx(\"pronunciation\", \"missThunk\")");
+    expect(source).toContain("playGameSfx(\"pronunciation\", \"replayStart\")");
+    expect(source).toContain("playGameSfx(\"pronunciation\", \"completeFanfare\")");
     expect(source).toContain("type: \"combo_breaker\"");
     expect(source).toContain("data-testid=\"pronunciation-bonus-word\"");
     expect(source).toContain("BONUS WORD x2");

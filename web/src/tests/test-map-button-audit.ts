@@ -62,6 +62,8 @@ describe("map button audit", () => {
     expect(block).toContain("sendNodeResult");
     expect(block).toContain('activityId: "pronunciation"');
     expect(block).toContain("wordsAttempted: result.wordsAttempted");
+    expect(src).toContain("{ keepLaunchedNode: true }");
+    expect(src).toContain("pronunciationNodeCompletionRecordedRef");
     expect(block).not.toContain(
       "}).then(() => {\n                clearLaunchedNode();\n              });",
     );

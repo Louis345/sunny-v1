@@ -31,65 +31,6 @@ function transcriptFingerprint(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-let _audioCtx: AudioContext | null = null;
-function getAudioCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
-  if (!_audioCtx) {
-    const Ctor =
-      window.AudioContext ||
-      (
-        window as unknown as {
-          webkitAudioContext: typeof AudioContext;
-        }
-      ).webkitAudioContext;
-    if (Ctor) _audioCtx = new Ctor();
-  }
-  return _audioCtx;
-}
-
-function playHitChime() {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  void ctx.resume();
-  const now = ctx.currentTime;
-  (
-    [
-      [523.25, 0],
-      [659.25, 0.015],
-      [783.99, 0.03],
-    ] as const
-  ).forEach(([freq, delay]) => {
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "sine";
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0, now + delay);
-    g.gain.linearRampToValueAtTime(0.18, now + delay + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.5);
-    o.connect(g).connect(ctx.destination);
-    o.start(now + delay);
-    o.stop(now + delay + 0.6);
-  });
-}
-
-function playMissBuzz(missCountForWord: number) {
-  if (missCountForWord > 1) return;
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  void ctx.resume();
-  const now = ctx.currentTime;
-  const o = ctx.createOscillator();
-  const g = ctx.createGain();
-  o.type = "sine";
-  o.frequency.setValueAtTime(220, now);
-  o.frequency.exponentialRampToValueAtTime(110, now + 0.25);
-  g.gain.setValueAtTime(0.15, now);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-  o.connect(g).connect(ctx.destination);
-  o.start(now);
-  o.stop(now + 0.3);
-}
-
 export type PronunciationCompleteResult = {
   wordsHit: number;
   wordsAttempted: number;
@@ -576,6 +517,7 @@ export function PronunciationGameCanvas({
       ignoreReplayTranscriptRef.current = transcriptFingerprint(interimRef.current);
       setChallengeMode(mode);
       setHeardTranscript("");
+      playGameSfx("pronunciation", "replayStart");
       sendMessage("game_event", {
         event: {
           type: "replay_requested",
@@ -612,6 +554,7 @@ export function PronunciationGameCanvas({
     const bs = bestStreakRef.current;
     const fw = flaggedWordsRef.current;
     const acc = wa > 0 ? Math.round((h / wa) * 100) : 0;
+    playGameSfx("pronunciation", "completeFanfare");
     emitPronunciationGameState("complete", {
       lastOutcome: "complete",
       correctCount: h,
@@ -658,7 +601,9 @@ export function PronunciationGameCanvas({
     const prev = missCountByWordRef.current.get(w) ?? 0;
     const newCount = prev + 1;
     missCountByWordRef.current.set(w, newCount);
-    playMissBuzz(newCount);
+    if (newCount === 1) {
+      playGameSfx("pronunciation", "missThunk");
+    }
     const seq = (missSeqRef.current += 1);
     sendMessage("game_event", {
       event: {
@@ -805,7 +750,7 @@ export function PronunciationGameCanvas({
       setBonusWordIndex(null);
     }
     queueMicrotask(() => {
-      playHitChime();
+      playGameSfx("pronunciation", "hitPop");
       setShowHitBadge(true);
       setBlockPhase("hit");
       setHits((h) => h + 1);
@@ -832,7 +777,12 @@ export function PronunciationGameCanvas({
           setLastHitXp(earnedXp);
           setLastHitWasBonus(wasBonusHit);
           setXp((x) => x + earnedXp);
-          if (nhs >= HEAT_THRESHOLD) setHeatBanner("heating");
+          if (nhs >= HEAT_THRESHOLD) {
+            setHeatBanner("heating");
+            if (nhs === HEAT_THRESHOLD) {
+              playGameSfx("pronunciation", "heatUp");
+            }
+          }
           if (nhs === COMBO_BREAKER_STREAK) {
             triggerComboBreaker(nhs, advancedTo);
           }
