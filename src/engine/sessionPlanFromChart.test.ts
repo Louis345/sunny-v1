@@ -200,12 +200,45 @@ describe("patient-chart session plan", () => {
     expect(plan.wordPlan.words.map((word) => word.text)).toHaveLength(10);
     expect(plan.wordPlan.words.map((word) => word.text)).not.toEqual(WORDS.slice(0, 10));
     expect(plan.variationPolicy.avoidExactPreviousNodeOrder).toBe(true);
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig).toMatchObject({
+      recallMode: "hidden_word_recall",
+      inputMode: "whole-word",
+      speakStyle: "option-b",
+      hideWordDuringResponse: true,
+      requiresCapturedResponse: true,
+    });
     expect(plan.nodePlan.map((node) => node.type).slice(0, 4)).toEqual([
       "word-radar",
       "monster-stampede",
       "spell-check",
       "pronunciation",
     ]);
+  });
+
+  it("starts weak or unknown Word Radar evidence in visible-read mode", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithHomework(childId);
+    delete profile.adaptiveLoadState;
+    profile.pendingHomework!.completedAdventureNodeIds = [];
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "ingest_human_loop",
+      now: new Date("2026-05-13T12:00:00.000Z"),
+    });
+
+    expect(plan.wordPlan.cohortSize).toBe(5);
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig).toMatchObject({
+      recallMode: "visible_read",
+      inputMode: "whole-word",
+      speakStyle: "option-a",
+      hideWordDuringResponse: false,
+      requiresCapturedResponse: true,
+    });
   });
 
   it("renders the adventure map from the chart plan without making failed quest artifacts playable", () => {
@@ -231,6 +264,7 @@ describe("patient-chart session plan", () => {
 
     expect(nodesAgain).toEqual(nodes);
     expect(nodes.find((node) => node.type === "pronunciation")?.words).toHaveLength(10);
+    expect(nodes.map((node) => node.type)).toEqual(expect.arrayContaining(["quest", "boss"]));
     expect(nodes.find((node) => node.type === "mystery")?.choiceOptions).toHaveLength(3);
     expect(
       nodes.find((node) => node.type === "mystery")?.choiceOptions?.map((option) => option.activityId),
@@ -239,5 +273,31 @@ describe("patient-chart session plan", () => {
     expect(quest?.isLocked).toBe(true);
     expect(quest?.artifactStatus).toBe("preparing");
     expect(quest?.gameFile).toBeUndefined();
+    expect(nodes.find((node) => node.type === "boss")?.isLocked).toBe(true);
+  });
+
+  it("keeps quest and boss visible as locked destinations even when a custom plan omits them", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profileWithHomework(childId));
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "runtime_fallback",
+      now: new Date("2026-05-13T12:00:00.000Z"),
+    });
+    const customPlan = {
+      ...plan,
+      nodePlan: plan.nodePlan.filter((node) => node.type !== "quest" && node.type !== "boss"),
+    };
+    const nodes = buildAdventureMapFromSessionPlan(chart, customPlan, {
+      dopamineGames: ["space-frogger"],
+      now: new Date("2026-05-13T12:00:00.000Z"),
+    });
+
+    expect(nodes.at(-2)).toMatchObject({ type: "quest", isLocked: true, artifactStatus: "preparing" });
+    expect(nodes.at(-1)).toMatchObject({ type: "boss", isLocked: true, masteryUnlockState: "preparing" });
   });
 });

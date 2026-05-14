@@ -8,7 +8,12 @@ import type {
 import type { HomeworkTestDateSource } from "./homeworkCycle";
 import type { CompanionConfig } from "../../shared/companionTypes";
 import type { TamagotchiState } from "../../shared/vrrTypes";
-import type { ChoiceEventSource, MasteryUnlockState, NodeType } from "../../shared/adventureTypes";
+import type {
+  ChoiceEventSource,
+  MasteryUnlockState,
+  NodeType,
+  WordRadarNodeConfig,
+} from "../../shared/adventureTypes";
 
 export type ActiveSessionPlanSource =
   | "ingest_human_loop"
@@ -100,6 +105,7 @@ export interface ActiveSessionPlan {
     choiceSource?: ChoiceEventSource;
     masteryUnlockState?: MasteryUnlockState;
     locked?: boolean;
+    wordRadarConfig?: WordRadarNodeConfig;
   }>;
   variationPolicy: {
     avoidExactPreviousNodeOrder: boolean;

@@ -30,6 +30,47 @@ describe("activity tool catalog", () => {
     expect(wordRadar.evidence.requiresPerTargetResult).toBe(true);
   });
 
+  it("exposes Word Radar's honest recall-mode capability ladder to the planner", () => {
+    const wordRadar = getActivityToolContract("word-radar");
+
+    expect(wordRadar.capabilityModes.map((mode) => mode.id)).toEqual([
+      "visible_read",
+      "partial_visual_recall",
+      "hidden_word_recall",
+    ]);
+    expect(wordRadar.capabilityModes[0]).toMatchObject({
+      id: "visible_read",
+      difficulty: 1,
+      purpose: "practice",
+      masteryEligible: false,
+      config: {
+        recallMode: "visible_read",
+        hideWordDuringResponse: false,
+      },
+    });
+    expect(wordRadar.capabilityModes[1]).toMatchObject({
+      id: "partial_visual_recall",
+      difficulty: 2,
+      masteryEligible: false,
+      config: {
+        recallMode: "partial_visual_recall",
+        hideWordDuringResponse: true,
+      },
+    });
+    expect(wordRadar.capabilityModes[2]).toMatchObject({
+      id: "hidden_word_recall",
+      difficulty: 3,
+      purpose: "independent-retrieval",
+      masteryEligible: "requires_captured_response",
+      config: {
+        recallMode: "hidden_word_recall",
+        hideWordDuringResponse: true,
+        requiresCapturedResponse: true,
+      },
+    });
+    expect(wordRadar.capabilityModes[2]?.measurementRisks.join(" ")).toMatch(/speech|capture|visual/i);
+  });
+
   it("plans science homework as evaluate, teach visually, then practice vocabulary", () => {
     const plan = buildInstructionalActivityPlan({
       childId: "ila",

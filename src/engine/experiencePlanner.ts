@@ -20,6 +20,7 @@ import {
 } from "./learningDecisionContext";
 import {
   listActivityToolContracts,
+  type ActivityCapabilityMode,
   type ActivityToolContract,
 } from "./activityToolCatalog";
 import { planHomeworkSessionFromChart } from "./sessionPlanFromChart";
@@ -34,6 +35,7 @@ export type ExperienceActivityCard = {
   difficultyKnobs: string[];
   contaminationRisks: string[];
   validConfigOptions: string[];
+  capabilityModes: ActivityCapabilityMode[];
 };
 
 export type ExperiencePlannerInput = {
@@ -159,6 +161,9 @@ function difficultyKnobsFor(contract: ActivityToolContract): string[] {
   if (contract.domains.includes("spelling") || contract.domains.includes("vocabulary")) {
     knobs.push("wordOrder", "visibleWordMode");
   }
+  if (contract.id === "word-radar") {
+    knobs.push("recallMode", "hideWordDuringResponse", "requiresCapturedResponse");
+  }
   if (contract.traits.evidenceType === "reward") knobs.push("rewardTiming");
   return [...new Set(knobs)];
 }
@@ -171,6 +176,9 @@ function validConfigOptionsFor(contract: ActivityToolContract): string[] {
   if (contract.scaffolds.length > 0) options.push("scaffoldLevel");
   if (contract.evidence.requiresPerTargetResult) options.push("perTargetResults");
   if (contract.traits.inputModes.includes("voice")) options.push("acceptedResponses");
+  if (contract.id === "word-radar") {
+    options.push("recallMode", "hideWordDuringResponse", "requiresCapturedResponse");
+  }
   return [...new Set(options)];
 }
 
@@ -185,6 +193,14 @@ function cardFromContract(contract: ActivityToolContract): ExperienceActivityCar
     difficultyKnobs: difficultyKnobsFor(contract),
     contaminationRisks: [...contract.evidence.contaminationRisks],
     validConfigOptions: validConfigOptionsFor(contract),
+    capabilityModes: contract.capabilityModes.map((mode) => ({
+      ...mode,
+      skillTargets: [...mode.skillTargets],
+      inputModes: [...mode.inputModes],
+      scaffolds: [...mode.scaffolds],
+      config: { ...mode.config },
+      measurementRisks: [...mode.measurementRisks],
+    })),
   };
 }
 
@@ -290,7 +306,9 @@ function measurementForNode(
     id: `measure-${node.id}`,
     activityId: node.activityId,
     target: node.targets.length ? `${node.targets.length} target(s)` : node.type,
-    evidenceType: card?.evidenceQuality ?? "practice",
+    evidenceType: node.type === "word-radar" && node.wordRadarConfig
+      ? `${card?.evidenceQuality ?? "practice"}:${node.wordRadarConfig.recallMode}`
+      : card?.evidenceQuality ?? "practice",
     supportCriteria: "accuracy >= 0.85 and low frustration",
     reviseCriteria: "partial accuracy, hesitation, or mixed engagement",
     falsifyCriteria: "poor transfer, high frustration, or repeated misses",

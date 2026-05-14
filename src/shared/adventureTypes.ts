@@ -37,6 +37,21 @@ export type ChoiceEventSource =
 
 export type MysteryMode = "choice_lab" | "surprise_drop";
 
+export type WordRadarRecallMode =
+  | "visible_read"
+  | "partial_visual_recall"
+  | "hidden_word_recall";
+
+export interface WordRadarNodeConfig {
+  recallMode: WordRadarRecallMode;
+  inputMode: "whole-word" | "letter-by-letter" | "keyboard";
+  speakStyle: "option-a" | "option-b";
+  showTimer: boolean;
+  timerSeconds?: number;
+  hideWordDuringResponse: boolean;
+  requiresCapturedResponse: boolean;
+}
+
 export type MysteryActivityKind =
   | "dopamine_game"
   | "learning_activity"
@@ -101,6 +116,8 @@ export interface NodeConfig {
     hint?: string;
     label?: string;
   }>;
+  /** Planner-selected Word Radar measurement mode; profile config is only fallback. */
+  wordRadarConfig?: WordRadarNodeConfig;
   /** Homework node metadata (quest/boss routing). */
   gameFile?: string;
   gameHtmlPath?: string;
@@ -171,6 +188,7 @@ export interface NodeResult {
   activityId?: string;
   purpose?: string;
   mode?: string;
+  masteryEligible?: boolean;
   bonusRound?: Record<string, unknown>;
   letterResults?: unknown[];
   vitalSigns?: Record<string, unknown>;

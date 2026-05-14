@@ -7,6 +7,11 @@ import type {
   WordRadarResult,
 } from "../components/WordRadar";
 
+type CapturedWordRadarResponse = Pick<
+  ItemResult,
+  "heardTranscript" | "heardToken" | "typedResponse"
+>;
+
 function playChime() {
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -451,6 +456,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       attempts: number,
       eventType?: "correct" | "incorrect" | "timeout",
       incorrectReason?: string,
+      captured?: CapturedWordRadarResponse,
     ) => void
   >(() => {});
 
@@ -461,6 +467,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       attempts,
       eventType,
       incorrectReason,
+      captured,
     ) => {
       if (resolvedForItemRef.current) return;
       resolvedForItemRef.current = true;
@@ -478,6 +485,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         correct,
         responseTime_ms,
         attempts,
+        ...captured,
       };
       const nextRaw = [...rawResultsRef.current, row];
       rawResultsRef.current = nextRaw;
@@ -641,6 +649,8 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
               responseTime_ms,
               attemptCountRef.current,
               "correct",
+              undefined,
+              { heardTranscript: t, heardToken: token },
             );
             return;
           }
@@ -663,7 +673,14 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     ) {
       if (lastSttResolvedTokenRef.current === lastTok) return;
       lastSttResolvedTokenRef.current = lastTok;
-      resolveItemRef.current(true, responseTime_ms, attemptCountRef.current, "correct");
+      resolveItemRef.current(
+        true,
+        responseTime_ms,
+        attemptCountRef.current,
+        "correct",
+        undefined,
+        { heardTranscript: t, heardToken: lastTok },
+      );
     }
   }, [interimTranscript, phase, itemIndex, items]);
 
@@ -685,7 +702,14 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         responseStartRef.current != null
           ? Date.now() - responseStartRef.current
           : 0;
-      resolveItemRef.current(true, rt, attemptCountRef.current, "correct");
+      resolveItemRef.current(
+        true,
+        rt,
+        attemptCountRef.current,
+        "correct",
+        undefined,
+        { typedResponse: typedBuffer },
+      );
       return;
     }
     const snap = `${itemIndex}:${typedBuffer}`;
@@ -738,7 +762,14 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
               responseStartRef.current != null
                 ? Date.now() - responseStartRef.current
                 : 0;
-            resolveItemRef.current(true, rt, attemptCountRef.current, "correct");
+            resolveItemRef.current(
+              true,
+              rt,
+              attemptCountRef.current,
+              "correct",
+              undefined,
+              { typedResponse: next.join("") },
+            );
           }
           return;
         }
@@ -782,7 +813,14 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
           responseStartRef.current != null
             ? Date.now() - responseStartRef.current
             : 0;
-        resolveItemRef.current(true, rt, attemptCountRef.current, "correct");
+        resolveItemRef.current(
+          true,
+          rt,
+          attemptCountRef.current,
+          "correct",
+          undefined,
+          { typedResponse: locked.join("") },
+        );
       }
       return;
     }

@@ -177,6 +177,17 @@ describe("AI psychologist experience planner", () => {
     expect(input.activityCards.some((card) => card.activityId === "pronunciation")).toBe(true);
     expect(input.activityCards.find((card) => card.activityId === "pronunciation")?.engagementHooks)
       .toEqual(expect.arrayContaining(["voice", "speed", "low-writing-load"]));
+    const wordRadarCard = input.activityCards.find((card) => card.activityId === "word-radar");
+    expect(wordRadarCard?.capabilityModes.map((mode) => mode.id)).toEqual([
+      "visible_read",
+      "partial_visual_recall",
+      "hidden_word_recall",
+    ]);
+    expect(wordRadarCard?.validConfigOptions).toEqual(expect.arrayContaining([
+      "recallMode",
+      "hideWordDuringResponse",
+      "requiresCapturedResponse",
+    ]));
     expect(input.traitSignalSummary.preferredDimensions.join(" ")).toContain("voice");
     expect(input.plannerTrust.autoPlanEnabled).toBe(false);
   });
@@ -207,6 +218,10 @@ describe("AI psychologist experience planner", () => {
       validationRequired: true,
     });
     expect(plan.wordPlan.cohortSize).toBe(10);
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig?.recallMode)
+      .toBe("hidden_word_recall");
+    expect(plan.plannedMeasurements?.find((item) => item.activityId === "word-radar")?.evidenceType)
+      .toMatch(/hidden_word_recall/);
     expect(plan.nodePlan.map((node) => node.type)).toContain("mystery");
   });
 

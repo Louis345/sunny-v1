@@ -8,7 +8,13 @@ import type {
 } from "../context/schemas/learningProfile";
 import type { ChildChart } from "../profiles/childChart";
 import { buildMysteryChoiceNodeData } from "./mysteryChoicePlanner";
-import type { MysteryChoiceOption, NodeConfig, NodeType } from "../shared/adventureTypes";
+import type {
+  MasteryUnlockState,
+  MysteryChoiceOption,
+  NodeConfig,
+  NodeType,
+  WordRadarNodeConfig,
+} from "../shared/adventureTypes";
 
 export type PlanHomeworkSessionInput = {
   source: ActiveSessionPlanSource;
@@ -162,6 +168,28 @@ function nodeTypeRank(type: NodeType, strongEvidence: boolean): number {
   return idx >= 0 ? idx : order.length;
 }
 
+function wordRadarConfigForEvidence(strongEvidence: boolean): WordRadarNodeConfig {
+  if (strongEvidence) {
+    return {
+      recallMode: "hidden_word_recall",
+      inputMode: "whole-word",
+      speakStyle: "option-b",
+      showTimer: true,
+      timerSeconds: 8,
+      hideWordDuringResponse: true,
+      requiresCapturedResponse: true,
+    };
+  }
+  return {
+    recallMode: "visible_read",
+    inputMode: "whole-word",
+    speakStyle: "option-a",
+    showTimer: false,
+    hideWordDuringResponse: false,
+    requiresCapturedResponse: true,
+  };
+}
+
 function sourceNodeType(raw: string): NodeType | null {
   return raw as NodeType;
 }
@@ -204,6 +232,9 @@ export function planHomeworkSessionFromChart(
     targets: WORD_DRIVEN_NODE_TYPES.has(type) ? [...targets] : [...(source.words ?? [])],
     difficulty: strongEvidence && type === "word-radar" ? 3 : (Math.max(1, Math.min(3, source.difficulty)) as 1 | 2 | 3),
     source: "pending_homework",
+    ...(type === "word-radar"
+      ? { wordRadarConfig: wordRadarConfigForEvidence(strongEvidence) }
+      : {}),
   }));
 
   nodePlan.push({
@@ -323,6 +354,34 @@ function mysteryFallbackGame(options: MysteryChoiceOption[] | undefined): string
   return dopamine?.gameFile;
 }
 
+function masteryNodeConfig(input: {
+  type: "quest" | "boss";
+  id: string;
+  targets: string[];
+  difficulty: 1 | 2 | 3;
+  source: NonNullable<ChildChart["homework"]["pending"]>["nodes"][number] | undefined;
+  pendingWeekOf?: string;
+  masteryUnlockState?: MasteryUnlockState;
+}): NodeConfig {
+  const artifactPassed = passedArtifact(input.source);
+  return {
+    id: input.id,
+    type: input.type,
+    words: input.targets,
+    difficulty: input.difficulty,
+    gameFile: artifactPassed ? input.source?.gameFile ?? undefined : undefined,
+    storyFile: artifactPassed ? input.source?.storyFile ?? undefined : undefined,
+    date: artifactPassed ? input.source?.date ?? input.pendingWeekOf : undefined,
+    contentId: artifactPassed ? input.source?.adaptiveArtifact?.contentId : undefined,
+    adaptiveArtifact: artifactPassed ? input.source?.adaptiveArtifact : undefined,
+    artifactStatus: artifactPassed ? "ready" : "preparing",
+    masteryUnlockState: artifactPassed ? "pending_ceremony" : input.masteryUnlockState ?? "preparing",
+    isLocked: true,
+    isCompleted: false,
+    isGoal: false,
+  };
+}
+
 export function buildAdventureMapFromSessionPlan(
   chart: ChildChart,
   plan: ActiveSessionPlan,
@@ -369,24 +428,16 @@ export function buildAdventureMapFromSessionPlan(
     }
 
     const source = sourceById.get(planned.id) ?? sourceByType.get(planned.type);
-    const artifactPassed = passedArtifact(source);
     if (planned.type === "quest" || planned.type === "boss") {
-      nodes.push({
-        id: planned.id,
+      nodes.push(masteryNodeConfig({
         type: planned.type,
-        words: planned.targets,
+        id: planned.id,
+        targets: planned.targets,
         difficulty: planned.difficulty,
-        gameFile: artifactPassed ? source?.gameFile ?? undefined : undefined,
-        storyFile: artifactPassed ? source?.storyFile ?? undefined : undefined,
-        date: artifactPassed ? source?.date ?? pending.weekOf : undefined,
-        contentId: artifactPassed ? source?.adaptiveArtifact?.contentId : undefined,
-        adaptiveArtifact: artifactPassed ? source?.adaptiveArtifact : undefined,
-        artifactStatus: artifactPassed ? "ready" : "preparing",
-        masteryUnlockState: artifactPassed ? "pending_ceremony" : "preparing",
-        isLocked: true,
-        isCompleted: false,
-        isGoal: false,
-      });
+        source,
+        pendingWeekOf: pending.weekOf,
+        masteryUnlockState: planned.masteryUnlockState,
+      }));
       continue;
     }
 
@@ -403,6 +454,7 @@ export function buildAdventureMapFromSessionPlan(
               label: "Spelling",
             }))
           : source?.wordRadarItems,
+      wordRadarConfig: planned.type === "word-radar" ? planned.wordRadarConfig : undefined,
       difficulty: planned.difficulty,
       gameFile: source?.gameFile ?? undefined,
       storyFile: source?.storyFile ?? undefined,
@@ -415,6 +467,20 @@ export function buildAdventureMapFromSessionPlan(
       isCompleted: false,
       isGoal: false,
     });
+  }
+
+  for (const type of ["quest", "boss"] as const) {
+    if (nodes.some((node) => node.type === type)) continue;
+    const source = sourceByType.get(type);
+    nodes.push(masteryNodeConfig({
+      type,
+      id: source?.id ?? `n-${type}-${plan.activeHomeworkId ?? "homework"}`,
+      targets: type === "quest" ? [...targets] : [],
+      difficulty: type === "boss" ? 3 : 2,
+      source,
+      pendingWeekOf: pending.weekOf,
+      masteryUnlockState: "preparing",
+    }));
   }
 
   nodes.forEach((node, index) => {

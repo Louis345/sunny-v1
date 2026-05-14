@@ -64,12 +64,16 @@ function nodeResultFromWordRadar(nodeId: string, r: WordRadarResult): NodeResult
     wordsAttempted: r.rawResults.length,
     missedWords,
     correctWords,
+    mode: r.recallMode,
+    masteryEligible: r.masteryEligible,
     targetResults: r.rawResults.map((row) => ({
       target: row.item.display.trim(),
       correct: row.correct,
       attempts: row.attempts,
-      ...(row.heardTranscript || row.heardToken
-        ? { attemptedValue: row.heardTranscript ?? row.heardToken }
+      mode: row.recallMode ?? r.recallMode,
+      masteryEligible: row.masteryEligible ?? false,
+      ...(row.heardTranscript || row.heardToken || row.typedResponse
+        ? { attemptedValue: row.heardTranscript ?? row.heardToken ?? row.typedResponse }
         : {}),
       responseTime_ms: row.responseTime_ms,
     })),
@@ -1908,13 +1912,34 @@ export function AdventureMap(props: {
                 })
               }
               timerSeconds={
-                props.wordRadarFromProfile?.showTimer === true
+                launchedNode.wordRadarConfig
+                  ? launchedNode.wordRadarConfig.showTimer
+                    ? launchedNode.wordRadarConfig.timerSeconds
+                    : undefined
+                  : props.wordRadarFromProfile?.showTimer === true
                   ? props.wordRadarFromProfile?.timerSeconds
                   : undefined
               }
-              showKeyboard={props.wordRadarFromProfile?.showKeyboard === true}
-              inputMode={props.wordRadarFromProfile?.inputMode}
-              speakStyle={props.wordRadarFromProfile?.speakStyle}
+              showKeyboard={
+                launchedNode.wordRadarConfig
+                  ? launchedNode.wordRadarConfig.inputMode === "keyboard"
+                  : props.wordRadarFromProfile?.showKeyboard === true
+              }
+              inputMode={
+                launchedNode.wordRadarConfig?.inputMode ??
+                props.wordRadarFromProfile?.inputMode
+              }
+              speakStyle={
+                launchedNode.wordRadarConfig?.speakStyle ??
+                props.wordRadarFromProfile?.speakStyle
+              }
+              recallMode={launchedNode.wordRadarConfig?.recallMode}
+              hideWordDuringResponse={
+                launchedNode.wordRadarConfig?.hideWordDuringResponse
+              }
+              requiresCapturedResponse={
+                launchedNode.wordRadarConfig?.requiresCapturedResponse
+              }
               keyboardStyle={props.wordRadarFromProfile?.keyboardStyle}
               personalBests={props.wordRadarFromProfile?.personalBests ?? {}}
               companion={props.mapCompanion ?? null}

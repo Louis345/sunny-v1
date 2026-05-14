@@ -100,6 +100,20 @@ export type ActivityTraits = {
   preferenceDimensions: ActivityPreferenceDimension[];
 };
 
+export type ActivityCapabilityMode = {
+  id: string;
+  label: string;
+  difficulty: 1 | 2 | 3;
+  purpose: ActivityPurpose;
+  skillTargets: ActivitySkillTarget[];
+  inputModes: ActivityInputMode[];
+  scaffolds: ScaffoldKind[];
+  evidenceType: ActivityEvidenceType;
+  masteryEligible: boolean | "requires_captured_response";
+  config: Record<string, unknown>;
+  measurementRisks: string[];
+};
+
 type ActivityToolContractSource = {
   id: string;
   label: string;
@@ -118,10 +132,12 @@ type ActivityToolContractSource = {
     allowedEvidence: EvidenceKind[];
     contaminationRisks: ScaffoldKind[];
   };
+  capabilityModes?: ActivityCapabilityMode[];
 };
 
 export type ActivityToolContract = ActivityToolContractSource & {
   traits: ActivityTraits;
+  capabilityModes: ActivityCapabilityMode[];
 };
 
 export type LearnerState = "unknown" | "none" | "partial" | "ready" | "mastered";
@@ -472,6 +488,77 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       allowedEvidence: ["practice"],
       contaminationRisks: ["visible-word", "letter-tiles", "stt-match", "retry"],
     },
+    capabilityModes: [
+      {
+        id: "visible_read",
+        label: "Visible Read",
+        difficulty: 1,
+        purpose: "practice",
+        skillTargets: ["visual_recognition", "read_fluently"],
+        inputModes: ["voice", "visual"],
+        scaffolds: ["visible-word", "stt-match"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          recallMode: "visible_read",
+          inputMode: "whole-word",
+          speakStyle: "option-a",
+          showTimer: false,
+          hideWordDuringResponse: false,
+          requiresCapturedResponse: true,
+        },
+        measurementRisks: [
+          "Visible word supports recognition and fluency, not independent recall.",
+        ],
+      },
+      {
+        id: "partial_visual_recall",
+        label: "Partial Visual Recall",
+        difficulty: 2,
+        purpose: "guided-practice",
+        skillTargets: ["visual_recognition", "retrieval_practice"],
+        inputModes: ["voice", "visual"],
+        scaffolds: ["letter-tiles", "stt-match", "retry"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          recallMode: "partial_visual_recall",
+          inputMode: "whole-word",
+          speakStyle: "option-a",
+          showTimer: true,
+          timerSeconds: 10,
+          hideWordDuringResponse: true,
+          requiresCapturedResponse: true,
+        },
+        measurementRisks: [
+          "Boxes or tiles cue word length and can inflate recall evidence.",
+        ],
+      },
+      {
+        id: "hidden_word_recall",
+        label: "Hidden Word Recall",
+        difficulty: 3,
+        purpose: "independent-retrieval",
+        skillTargets: ["spell_from_memory", "retrieval_practice", "read_fluently"],
+        inputModes: ["voice"],
+        scaffolds: ["stt-match"],
+        evidenceType: "diagnostic",
+        masteryEligible: "requires_captured_response",
+        config: {
+          recallMode: "hidden_word_recall",
+          inputMode: "whole-word",
+          speakStyle: "option-b",
+          showTimer: true,
+          timerSeconds: 8,
+          hideWordDuringResponse: true,
+          requiresCapturedResponse: true,
+        },
+        measurementRisks: [
+          "Do not claim mastery unless speech or keyboard capture proves the answer.",
+          "No visual answer context should remain during the response window.",
+        ],
+      },
+    ],
   },
   {
     id: "spell-check",
@@ -825,6 +912,14 @@ export function listActivityToolContracts(): ActivityToolContract[] {
       allowedEvidence: [...contract.evidence.allowedEvidence],
       contaminationRisks: [...contract.evidence.contaminationRisks],
     },
+    capabilityModes: (contract.capabilityModes ?? []).map((mode) => ({
+      ...mode,
+      skillTargets: [...mode.skillTargets],
+      inputModes: [...mode.inputModes],
+      scaffolds: [...mode.scaffolds],
+      config: { ...mode.config },
+      measurementRisks: [...mode.measurementRisks],
+    })),
   }));
 }
 

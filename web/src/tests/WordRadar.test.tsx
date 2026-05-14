@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup, act, fireEvent } from "@testing-library/react";
 import { WordRadar } from "../components/WordRadar";
 import type { RadarItem } from "../components/WordRadar";
-import { WORD_RADAR_FEEDBACK_MS } from "../hooks/useWordRadar";
+import {
+  WORD_RADAR_END_SCREEN_MS,
+  WORD_RADAR_FEEDBACK_MS,
+} from "../hooks/useWordRadar";
 
 const sampleItems: RadarItem[] = [
   { display: "sun", acceptedResponses: ["sun"], label: "Spelling", subject: "spelling" },
@@ -379,6 +382,65 @@ describe("WordRadar", () => {
     renderRadar({ speakStyle: "option-a", timerSeconds: 10 });
     await startRadar();
     expect(screen.getAllByTestId("word-radar-letter-tile")).toHaveLength(3);
+  });
+
+  it("visible_read mode shows the word while the child responds", async () => {
+    renderRadar({ recallMode: "visible_read", speakStyle: "option-a", timerSeconds: 10 });
+    await startRadar();
+
+    expect(screen.getByTestId("word-radar-recall-mode").textContent).toBe("visible_read");
+    expect(screen.getAllByTestId("word-radar-letter-tile").map((node) => node.textContent)).toEqual([
+      "s",
+      "u",
+      "n",
+    ]);
+  });
+
+  it("partial_visual_recall mode hides the full word but leaves visual boxes", async () => {
+    renderRadar({ recallMode: "partial_visual_recall", speakStyle: "option-a", timerSeconds: 10 });
+    await startRadar();
+
+    expect(screen.getByTestId("word-radar-recall-mode").textContent).toBe("partial_visual_recall");
+    expect(screen.getAllByTestId("word-radar-letter-tile")).toHaveLength(3);
+    expect(screen.getAllByTestId("word-radar-letter-tile").map((node) => node.textContent)).toEqual([
+      "",
+      "",
+      "",
+    ]);
+  });
+
+  it("hidden_word_recall mode removes the visual answer context during response", async () => {
+    renderRadar({ recallMode: "hidden_word_recall", speakStyle: "option-b", timerSeconds: 10 });
+    await startRadar();
+
+    expect(screen.getByTestId("word-radar-recall-mode").textContent).toBe("hidden_word_recall");
+    expect(screen.queryByTestId("word-radar-letter-tile")).toBeNull();
+  });
+
+  it("does not mark hidden recall as mastery eligible without a captured response", async () => {
+    const onComplete = vi.fn();
+    renderRadar({
+      items: [sampleItems[0]!],
+      recallMode: "hidden_word_recall",
+      speakStyle: "option-b",
+      timerSeconds: 1,
+      onComplete,
+    });
+    await startRadar();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("word-radar-btn-skip"));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(WORD_RADAR_FEEDBACK_MS + 1);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(WORD_RADAR_END_SCREEN_MS + 1);
+    });
+
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
+      recallMode: "hidden_word_recall",
+      masteryEligible: false,
+    }));
   });
 
   it("tiles reveal on feedback phase when speakStyle=option-b", async () => {

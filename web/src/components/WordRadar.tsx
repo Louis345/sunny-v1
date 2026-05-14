@@ -7,6 +7,7 @@ import {
 } from "../hooks/useWordRadar";
 import { CompanionLayer } from "./CompanionLayer";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
+import type { WordRadarRecallMode } from "../../../src/shared/adventureTypes";
 import { createFlowGameEvents } from "../utils/flowGameEvents";
 
 /** Locked contracts — do not deviate. */
@@ -26,6 +27,9 @@ export interface ItemResult {
   attempts: number;
   heardTranscript?: string;
   heardToken?: string;
+  typedResponse?: string;
+  recallMode?: WordRadarRecallMode;
+  masteryEligible?: boolean;
 }
 
 export interface WordRadarResult {
@@ -35,6 +39,8 @@ export interface WordRadarResult {
   accuracy: number;
   rawResults: ItemResult[];
   timeSpent_ms: number;
+  recallMode?: WordRadarRecallMode;
+  masteryEligible?: boolean;
 }
 
 export interface WordRadarProps {
@@ -44,8 +50,11 @@ export interface WordRadarProps {
   timerSeconds?: number;
   showKeyboard?: boolean;
   inputMode?: "whole-word" | "letter-by-letter" | "keyboard";
+  recallMode?: WordRadarRecallMode;
   speakStyle?: "option-a" | "option-b";
   keyboardStyle?: "option-b" | "option-c";
+  hideWordDuringResponse?: boolean;
+  requiresCapturedResponse?: boolean;
   personalBests: Record<string, number>;
   onComplete: (result: WordRadarResult) => void;
   /** Skip the "Ready!" intro screen and start immediately. Use in diagnostic mode. */
@@ -77,7 +86,7 @@ function timerColor(ratio: number): string {
 
 function wordRadarModeCopy(
   mode: "whole-word" | "letter-by-letter" | "keyboard",
-  hiddenDuringSpeech: boolean,
+  recallMode: WordRadarRecallMode,
 ): { label: string; helper: string } {
   if (mode === "keyboard") {
     return { label: "Type the word", helper: "Use the keyboard to answer." };
@@ -85,13 +94,16 @@ function wordRadarModeCopy(
   if (mode === "letter-by-letter") {
     return { label: "Spell it out loud", helper: "Say one letter at a time." };
   }
-  if (hiddenDuringSpeech) {
+  if (recallMode === "visible_read") {
+    return { label: "Read it on screen", helper: "Say the word while you can see it." };
+  }
+  if (recallMode === "hidden_word_recall") {
     return {
       label: "Memory mode",
       helper: "The word hides after the flash, then Sunny listens.",
     };
   }
-  return { label: "Say the whole word", helper: "Read the word out loud." };
+  return { label: "Visual recall", helper: "Use the boxes, then say the word." };
 }
 
 /** Confidence bar label + colors for speakStyle option-b (STT partial match). */
@@ -157,8 +169,11 @@ export function WordRadar({
   timerSeconds,
   showKeyboard = false,
   inputMode,
+  recallMode,
   speakStyle,
   keyboardStyle,
+  hideWordDuringResponse,
+  requiresCapturedResponse = true,
   personalBests,
   onComplete,
   autoStart = false,
@@ -222,16 +237,46 @@ export function WordRadar({
     [flowEvents],
   );
 
-  const handleFinish = (result: WordRadarResult) => {
-    sendMessage("word_radar_complete", result as unknown as Record<string, unknown>);
-    flowEvents.complete(result as unknown as Record<string, unknown>);
-    onComplete(result);
-  };
-
   const resolvedInputMode = resolveWordRadarInputMode(inputMode);
   const effectiveSpeakStyle = speakStyle ?? "option-a";
+  const effectiveRecallMode: WordRadarRecallMode =
+    recallMode === "visible_read" ||
+    recallMode === "partial_visual_recall" ||
+    recallMode === "hidden_word_recall"
+      ? recallMode
+      : effectiveSpeakStyle === "option-b"
+        ? "hidden_word_recall"
+        : "partial_visual_recall";
+  const effectiveHideWordDuringResponse =
+    hideWordDuringResponse ?? effectiveRecallMode !== "visible_read";
   const hiddenDuringSpeech = effectiveSpeakStyle === "option-b";
-  const modeCopy = wordRadarModeCopy(resolvedInputMode, hiddenDuringSpeech);
+  const modeCopy = wordRadarModeCopy(resolvedInputMode, effectiveRecallMode);
+
+  const handleFinish = (result: WordRadarResult) => {
+    const rows = result.rawResults.map((row) => {
+      const captured = Boolean(row.heardTranscript || row.heardToken || row.typedResponse);
+      return {
+        ...row,
+        recallMode: effectiveRecallMode,
+        masteryEligible:
+          effectiveRecallMode === "hidden_word_recall" &&
+          (!requiresCapturedResponse || captured) &&
+          row.correct,
+      };
+    });
+    const annotated: WordRadarResult = {
+      ...result,
+      rawResults: rows,
+      recallMode: effectiveRecallMode,
+      masteryEligible:
+        effectiveRecallMode === "hidden_word_recall" &&
+        rows.length > 0 &&
+        rows.every((row) => row.correct && row.masteryEligible === true),
+    };
+    sendMessage("word_radar_complete", annotated as unknown as Record<string, unknown>);
+    flowEvents.complete(annotated as unknown as Record<string, unknown>);
+    onComplete(annotated);
+  };
 
   const hook = useWordRadar({
     items,
@@ -296,6 +341,9 @@ export function WordRadar({
           showKeyboard,
           speakStyle: effectiveSpeakStyle,
           hiddenDuringSpeech,
+          recallMode: effectiveRecallMode,
+          hideWordDuringResponse: effectiveHideWordDuringResponse,
+          requiresCapturedResponse,
           keyboardVisible: showKeyboard || resolvedInputMode === "keyboard",
         },
         version: "1.0",
@@ -304,8 +352,11 @@ export function WordRadar({
   }, [
     childId,
     effectiveSpeakStyle,
+    effectiveRecallMode,
+    effectiveHideWordDuringResponse,
     hiddenDuringSpeech,
     inputMode,
+    requiresCapturedResponse,
     resolvedInputMode,
     sendMessage,
     showKeyboard,
@@ -343,7 +394,7 @@ export function WordRadar({
   const subjectMeta = SUBJECT_META[subjectKey] ?? SUBJECT_META.reading!;
   const tileCount = Math.max(display.length, 1);
   const hideLetterTilesInResponse =
-    hook.phase === "response" && hiddenDuringSpeech;
+    hook.phase === "response" && effectiveRecallMode === "hidden_word_recall";
   const keyboardVisible = showKeyboard || resolvedInputMode === "keyboard";
 
   return (
@@ -365,6 +416,13 @@ export function WordRadar({
         aria-hidden
       >
         {hook.phase}
+      </span>
+      <span
+        data-testid="word-radar-recall-mode"
+        style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+        aria-hidden
+      >
+        {effectiveRecallMode}
       </span>
       <div
         data-testid="word-radar-mode-label"
@@ -850,7 +908,11 @@ export function WordRadar({
                   const got = isFeedback && hook.lastFeedback === "got";
                   const missed = isFeedback && hook.lastFeedback === "missed";
                   const responseLetter =
-                    hook.phase === "response" ? hook.lockedLetters[i] ?? "" : "";
+                    hook.phase === "response"
+                      ? effectiveRecallMode === "visible_read"
+                        ? ch
+                        : hook.lockedLetters[i] ?? ""
+                      : "";
                   const isTileShake =
                     hook.phase === "response" && hook.shakeLetterIndex === i;
                   return (
