@@ -1,11 +1,41 @@
 export const GAME_SFX = {
   pronunciation: {
     comboBreaker: "/sfx/pronunciation/combo_breaker.mp3",
+    onFire: "/sfx/kefla-power-up.mp3",
+    megaStreak: "/sfx/kefla-power-up.mp3",
     hitPop: "synth:pronunciation-hit-pop",
     missThunk: "synth:pronunciation-miss-thunk",
     replayStart: "synth:pronunciation-replay-start",
     completeFanfare: "synth:pronunciation-complete-fanfare",
     heatUp: "synth:pronunciation-heat-up",
+  },
+} as const;
+
+export const GAME_SFX_CONFIG = {
+  pronunciation: {
+    enabled: true,
+    arcadeCombos: true,
+    comboVolume: 0.9,
+    comboMilestones: [
+      {
+        minStreak: 5,
+        label: "COMBO BREAKER!",
+        effect: "combo-breaker",
+        src: "/sfx/pronunciation/combo_breaker.mp3",
+      },
+      {
+        minStreak: 10,
+        label: "ON FIRE!",
+        effect: "on-fire",
+        src: "/sfx/kefla-power-up.mp3",
+      },
+      {
+        minStreak: 15,
+        label: "MEGA STREAK!",
+        effect: "mega-streak",
+        src: "/sfx/kefla-power-up.mp3",
+      },
+    ],
   },
 } as const;
 
@@ -103,28 +133,73 @@ function playSynthSfx(src: string): void {
   }
 }
 
-export function playGameSfx<G extends GameSfxGame>(
-  game: G,
-  id: GameSfxId<G>,
-): void {
-  const src = GAME_SFX[game][id] as string | undefined;
-  if (!src) return;
+function srcForPronunciationEffect(effect: string): string | undefined {
+  switch (effect) {
+    case "combo-breaker":
+      return GAME_SFX.pronunciation.comboBreaker;
+    case "on-fire":
+      return GAME_SFX.pronunciation.onFire;
+    case "mega-streak":
+      return GAME_SFX.pronunciation.megaStreak;
+    default:
+      return undefined;
+  }
+}
+
+function playSfxSource(
+  src: string,
+  meta: { game: string; id: string },
+  volume = 0.85,
+): boolean {
   if (src.startsWith("synth:")) {
     try {
       playSynthSfx(src);
+      return true;
     } catch (error) {
-      console.warn(" 🎮 [sfx] synth failed", { game, id, error });
+      console.warn(" 🎮 [sfx] synth failed", { ...meta, error });
+      return false;
     }
-    return;
   }
-  if (typeof Audio === "undefined") return;
+  if (typeof Audio === "undefined") return false;
   try {
     const audio = new Audio(src);
-    audio.volume = 0.85;
+    audio.volume = volume;
     void audio.play().catch((error: unknown) => {
-      console.warn(" 🎮 [sfx] play failed", { game, id, error });
+      console.warn(" 🎮 [sfx] play failed", { ...meta, error });
     });
+    return true;
   } catch (error) {
-    console.warn(" 🎮 [sfx] create failed", { game, id, error });
+    console.warn(" 🎮 [sfx] create failed", { ...meta, error });
+    return false;
   }
+}
+
+export function playGameSfx<G extends GameSfxGame>(
+  game: G,
+  id: GameSfxId<G>,
+): boolean {
+  const src = GAME_SFX[game][id] as string | undefined;
+  if (!src) return false;
+  return playSfxSource(src, { game, id: String(id) });
+}
+
+export function playPronunciationMilestoneSfx(streak: number): boolean {
+  if (!GAME_SFX_CONFIG.pronunciation.enabled) return false;
+  const milestone = GAME_SFX_CONFIG.pronunciation.comboMilestones.find(
+    (item) => item.minStreak === streak,
+  );
+  if (!milestone) return false;
+  const effect = milestone.effect;
+  const src = milestone.src || srcForPronunciationEffect(effect);
+  if (!src) return false;
+  console.log(" 🎮 [sfx] [pronunciation] [milestone]", {
+    streak,
+    effect,
+    src,
+  });
+  return playSfxSource(
+    src,
+    { game: "pronunciation", id: effect },
+    GAME_SFX_CONFIG.pronunciation.comboVolume,
+  );
 }

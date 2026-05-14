@@ -76,6 +76,12 @@ describe("map button audit", () => {
     expect(src).toContain("pronunciationWordsForNode");
   });
 
+  it("passes an extended pronunciation pool so harder replay can grow the streak run", () => {
+    const src = read("src/components/AdventureMap.tsx");
+    expect(src).toContain("pronunciationReplayWordsForNode");
+    expect(src).toContain("replayWords={pronunciationReplayWordsForNode}");
+  });
+
   it("adventure voice prompt reminds the companion about earned digital food", () => {
     const src = read("../src/agents/prompts.ts");
     expect(src).toContain("digital food");

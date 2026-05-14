@@ -84,11 +84,12 @@ describe("AdventureMap free preview karaoke", () => {
 
   it("pads retargeted pronunciation nodes from care-plan target words", () => {
     const mapSrc = readFileSync(adventureMapTsx, "utf8");
-    const pronunciationWordsStart = mapSrc.indexOf("const pronunciationWordsForNode =");
+    const pronunciationWordsStart = mapSrc.indexOf("const pronunciationSeedWordsForNode =");
     const pronunciationWordsEnd = mapSrc.indexOf("if (resolved && !mapState)");
     const block = mapSrc.slice(pronunciationWordsStart, pronunciationWordsEnd);
 
     expect(block).toContain("nodeTargetWords(launchedNode)");
+    expect(block).toContain("pronunciationReplayWordsForNode");
     expect(block.indexOf("adaptiveStoryPracticeWords")).toBeLessThan(
       block.indexOf("nodeTargetWords(launchedNode)"),
     );

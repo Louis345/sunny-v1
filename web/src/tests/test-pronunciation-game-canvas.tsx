@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { PronunciationGameCanvas } from "../components/PronunciationGameCanvas";
-import { GAME_SFX } from "../utils/gameSfx";
+import { GAME_SFX, GAME_SFX_CONFIG } from "../utils/gameSfx";
 
 describe("PronunciationGameCanvas", () => {
   beforeEach(() => {
@@ -397,9 +397,24 @@ describe("PronunciationGameCanvas", () => {
     expect(screen.queryByTestId("pronunciation-heat-fire")).toBeNull();
   });
 
-  it("organizes combo breaker audio under the pronunciation game registry", () => {
+  it("keeps hand-picked arcade combo audio under the pronunciation config", () => {
     expect(GAME_SFX.pronunciation.comboBreaker).toBe(
       "/sfx/pronunciation/combo_breaker.mp3",
+    );
+    expect(GAME_SFX.pronunciation.onFire).toBe("/sfx/kefla-power-up.mp3");
+    expect(GAME_SFX_CONFIG.pronunciation.comboMilestones).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          minStreak: 5,
+          effect: "combo-breaker",
+          src: "/sfx/pronunciation/combo_breaker.mp3",
+        }),
+        expect.objectContaining({
+          minStreak: 10,
+          effect: "on-fire",
+          src: "/sfx/kefla-power-up.mp3",
+        }),
+      ]),
     );
     expect(GAME_SFX.pronunciation.hitPop).toBe("synth:pronunciation-hit-pop");
     expect(GAME_SFX.pronunciation.missThunk).toBe("synth:pronunciation-miss-thunk");
@@ -461,6 +476,68 @@ describe("PronunciationGameCanvas", () => {
     expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
     expect(screen.getByTestId("pronunciation-speed-state").textContent).toContain(
       "1.25x",
+    );
+  });
+
+  it("harder replay expands into the extended word pool instead of replaying a 5-word teaser", async () => {
+    const sendMessage = vi.fn();
+    const teaserWords = ["able", "common", "behind", "whole", "easy"];
+    const replayWords = [
+      ...teaserWords,
+      "carefully",
+      "remember",
+      "vowel",
+      "likely",
+      "friendly",
+    ];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={teaserWords}
+        replayWords={replayWords}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    for (let i = 0; i < teaserWords.length; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={teaserWords}
+          replayWords={replayWords}
+          interimTranscript={teaserWords.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    act(() => {
+      screen.getByRole("button", { name: /harder replay/i }).click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_event",
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "replay_requested",
+          payload: expect.objectContaining({
+            game: "pronunciation",
+            mode: "hard",
+            wordCount: replayWords.length,
+          }),
+        }),
+      }),
+    );
+    expect(screen.getByTestId("pronunciation-progress").textContent).toContain(
+      `/ ${replayWords.length}`,
     );
   });
 
@@ -527,6 +604,7 @@ describe("PronunciationGameCanvas", () => {
 
     expect(source).toContain("COMBO_BREAKER_STREAK");
     expect(source).toContain("playGameSfx(\"pronunciation\", \"comboBreaker\")");
+    expect(source).toContain("playPronunciationMilestoneSfx");
     expect(source).toContain("playGameSfx(\"pronunciation\", \"hitPop\")");
     expect(source).toContain("playGameSfx(\"pronunciation\", \"missThunk\")");
     expect(source).toContain("playGameSfx(\"pronunciation\", \"replayStart\")");

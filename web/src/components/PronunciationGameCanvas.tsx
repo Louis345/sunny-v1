@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useKaraokeReading } from "../hooks/useKaraokeReading";
-import { playGameSfx } from "../utils/gameSfx";
+import { playGameSfx, playPronunciationMilestoneSfx } from "../utils/gameSfx";
 
 const FONT_LINK =
   "https://fonts.googleapis.com/css2?family=Fredoka:wght@700;800;900&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap";
@@ -44,6 +44,7 @@ export type PronunciationCompleteResult = {
 
 export interface PronunciationGameCanvasProps {
   words: string[];
+  replayWords?: string[];
   interimTranscript: string;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   backgroundImageUrl?: string;
@@ -150,8 +151,20 @@ function pronunciationWordsKey(words: string[]): string {
   return words.flatMap(pronunciationTargetTokens).join("\u0001");
 }
 
+function hardReplayWordLimit(baseCount: number, poolCount: number): number {
+  if (poolCount <= baseCount) return poolCount;
+  const desired = baseCount < 10 ? 10 : Math.ceil(baseCount * 1.25);
+  const streakReady = COMBO_BREAKER_STREAK + 2;
+  const minimumGrowth = baseCount + 3;
+  return Math.min(
+    poolCount,
+    Math.max(baseCount, Math.min(12, Math.max(desired, streakReady, minimumGrowth))),
+  );
+}
+
 export function PronunciationGameCanvas({
   words: rawWords,
+  replayWords: rawReplayWords,
   interimTranscript,
   sendMessage,
   backgroundImageUrl: _backgroundImageUrl, // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -161,10 +174,25 @@ export function PronunciationGameCanvas({
   topInset = 0,
 }: PronunciationGameCanvasProps): React.ReactElement {
   const rawWordsKey = pronunciationWordsKey(rawWords);
+  const replayWordsKey = pronunciationWordsKey(rawReplayWords ?? []);
   const [replaySeed, setReplaySeed] = useState(0);
   const [challengeMode, setChallengeMode] = useState<"normal" | "hard">("normal");
   const baseWords = useMemo(() => dedupePronunciationWords(rawWords), [rawWordsKey]);
-  const words = useMemo(() => [...baseWords], [baseWords, replaySeed]);
+  const extendedWords = useMemo(() => {
+    const pool = dedupePronunciationWords([
+      ...rawWords,
+      ...(rawReplayWords ?? []),
+    ]);
+    return pool.length > 0 ? pool : baseWords;
+  }, [baseWords, rawWordsKey, replayWordsKey]);
+  const hardReplayWords = useMemo(
+    () => extendedWords.slice(0, hardReplayWordLimit(baseWords.length, extendedWords.length)),
+    [baseWords.length, extendedWords],
+  );
+  const words = useMemo(() => {
+    void replaySeed;
+    return [...(challengeMode === "hard" ? hardReplayWords : baseWords)];
+  }, [baseWords, challengeMode, hardReplayWords, replaySeed]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const particlesRef = useRef<HTMLCanvasElement>(null);
   const particlesDataRef = useRef<Particle[]>([]);
@@ -184,6 +212,7 @@ export function PronunciationGameCanvas({
   const interimRef = useRef(interimTranscript);
   const heardClearTimeoutRef = useRef<number | null>(null);
   const comboBannerTimeoutRef = useRef<number | null>(null);
+  const lastMilestoneStreakRef = useRef(0);
   const wordIndexRef = useRef(0);
   const hitsRef = useRef(0);
   const wordsAttemptedRef = useRef(0);
@@ -466,6 +495,7 @@ export function PronunciationGameCanvas({
       setLastHitXp(0);
       setLastHitWasBonus(false);
       completeSentRef.current = false;
+      lastMilestoneStreakRef.current = 0;
       setEnded(false);
       missCountByWordRef.current = new Map();
     });
@@ -514,6 +544,7 @@ export function PronunciationGameCanvas({
 
   const restartPronunciation = useCallback(
     (mode: "normal" | "hard") => {
+      const nextWords = mode === "hard" ? hardReplayWords : baseWords;
       ignoreReplayTranscriptRef.current = transcriptFingerprint(interimRef.current);
       setChallengeMode(mode);
       setHeardTranscript("");
@@ -524,17 +555,18 @@ export function PronunciationGameCanvas({
           payload: {
             game: "pronunciation",
             mode,
-            wordCount: words.length,
+            wordCount: nextWords.length,
           },
           version: "1.0",
         },
       });
       emitPronunciationGameState("replay_requested", {
         mode,
+        totalWords: nextWords.length,
       });
       setReplaySeed((seed) => seed + 1);
     },
-    [emitPronunciationGameState, sendMessage, words.length],
+    [baseWords, emitPronunciationGameState, hardReplayWords, sendMessage],
   );
 
   useEffect(() => {
@@ -783,6 +815,12 @@ export function PronunciationGameCanvas({
               playGameSfx("pronunciation", "heatUp");
             }
           }
+          if (
+            nhs > lastMilestoneStreakRef.current &&
+            playPronunciationMilestoneSfx(nhs)
+          ) {
+            lastMilestoneStreakRef.current = nhs;
+          }
           if (nhs === COMBO_BREAKER_STREAK) {
             triggerComboBreaker(nhs, advancedTo);
           }
@@ -1024,6 +1062,26 @@ export function PronunciationGameCanvas({
       >
         {speedMultiplier.toFixed(2)}x
       </span>
+      <div
+        data-testid="pronunciation-progress"
+        style={{
+          position: "fixed",
+          top: Math.max(22, topInset + 14),
+          left: 22,
+          zIndex: 40,
+          padding: "8px 14px",
+          borderRadius: 8,
+          background: "rgba(5, 7, 12, 0.72)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          color: "rgba(255, 255, 255, 0.9)",
+          fontFamily: "'Fredoka', sans-serif",
+          fontSize: 18,
+          fontWeight: 800,
+          pointerEvents: "none",
+        }}
+      >
+        Word {Math.min(wordIndex + 1, words.length)} / {words.length}
+      </div>
       <div
         style={{
           position: "fixed",

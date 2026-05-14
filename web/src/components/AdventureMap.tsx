@@ -1444,13 +1444,30 @@ export function AdventureMap(props: {
           failed: props.storyImageFailed === true,
         }
       : null);
-  const pronunciationWordsForNode =
+  const pronunciationSeedWordsForNode =
     launchedNode?.type === "pronunciation"
       ? uniquePracticeWords([
           ...adaptiveStoryPracticeWords,
           ...(launchedNode.words ?? []),
           ...nodeTargetWords(launchedNode),
-        ]).slice(0, Math.max(3, launchedNode.words?.length ?? 0))
+        ])
+      : [];
+  const pronunciationReplayWordsForNode =
+    launchedNode?.type === "pronunciation"
+      ? uniquePracticeWords([
+          ...pronunciationSeedWordsForNode,
+          ...(mapState?.nodes ?? []).flatMap((node) => [
+            ...(node.words ?? []),
+            ...nodeTargetWords(node),
+          ]),
+        ]).slice(0, Math.max(10, launchedNode.words?.length ?? 0))
+      : [];
+  const pronunciationWordsForNode =
+    launchedNode?.type === "pronunciation"
+      ? pronunciationReplayWordsForNode.slice(
+          0,
+          Math.max(3, launchedNode.words?.length ?? 0),
+        )
       : [];
 
   function handleVisualExplainerComplete(event: ActivityCompleteEvent): void {
@@ -2003,6 +2020,7 @@ export function AdventureMap(props: {
           <div className="relative min-h-0 flex-1">
           <PronunciationGameCanvas
             words={pronunciationWordsForNode}
+            replayWords={pronunciationReplayWordsForNode}
             interimTranscript={
               props.karaokeReadingForMapNode?.interimTranscript ?? ""
             }
