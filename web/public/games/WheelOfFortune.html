@@ -1008,11 +1008,15 @@ function App() {
     const snapPhase = overrides.phase ?? phase;
     const snapWrong = overrides.wrongGuesses ?? wrongGuesses;
     const snapScore = overrides.score ?? ilaCoins;
+    const companionVisibleWord =
+      snapPhase === 'won' || snapPhase === 'lost' ? WORD_RAW : undefined;
     return {
       game: "Wheel of Fortune",
       phase: snapPhase,
-      currentWord: WORD_RAW,
+      answerVisibility: companionVisibleWord ? 'revealed' : 'hidden',
+      ...(companionVisibleWord ? { currentWord: companionVisibleWord } : {}),
       category: CATEGORY,
+      hiddenWordLength: LETTERS.length,
       screenText: [
         "BONUS ROUND",
         THEME_ID === 'cosmos' ? "SPACE SPELLING CHALLENGE"
@@ -1028,6 +1032,7 @@ function App() {
       maxWrongGuesses: 6,
       wheelValue: overrides.wheelValue ?? currentValue,
       score: snapScore,
+      coins: snapScore,
       itemIndex: snapRevealed.size,
       totalItems: LETTERS.length,
       turn: snapPhase === 'picking' ? 'child' : 'companion',
@@ -1088,6 +1093,26 @@ function App() {
           coinsEarned: wofSessionCoinDelta(ilaCoins),
           timeSpent_ms: Date.now() - startTime.current,
           wordsAttempted: 1,
+          activityId: "wheel-of-fortune",
+          evidenceTier: "practice",
+          masteryEligible: false,
+          answerVisibility: "revealed",
+          vitalSigns: {
+            timeOnTask_ms: Date.now() - startTime.current,
+            flowSignals: 1,
+            frustrationSignals: wrongGuesses,
+            helpRequests: 0
+          },
+          targetResults: [{
+            target: WORD_RAW,
+            correct: true,
+            attempts: Math.max(1, wrongGuesses + 1),
+            scaffoldLevel: 1,
+            mode: "wheel-of-fortune",
+            evidenceTier: "practice",
+            masteryEligible: false,
+            struggleSignals: wrongGuesses > 0 ? ["letter_guessing_support_needed"] : []
+          }],
         });
       }
     }, 3500);
@@ -1127,6 +1152,26 @@ function App() {
           coinsEarned: wofSessionCoinDelta(ilaCoins),
           timeSpent_ms: Date.now() - startTime.current,
           wordsAttempted: 1,
+          activityId: "wheel-of-fortune",
+          evidenceTier: "practice",
+          masteryEligible: false,
+          answerVisibility: "revealed",
+          vitalSigns: {
+            timeOnTask_ms: Date.now() - startTime.current,
+            flowSignals: 0,
+            frustrationSignals: wrongGuesses,
+            helpRequests: 0
+          },
+          targetResults: [{
+            target: WORD_RAW,
+            correct: false,
+            attempts: Math.max(1, wrongGuesses),
+            scaffoldLevel: 1,
+            mode: "wheel-of-fortune",
+            evidenceTier: "practice",
+            masteryEligible: false,
+            struggleSignals: ["letter_guessing_support_needed"]
+          }],
         });
       }
     }, 2000);

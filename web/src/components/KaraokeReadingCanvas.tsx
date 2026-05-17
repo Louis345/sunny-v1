@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   useKaraokeReading,
   type KaraokeReadingCompleteResult,
@@ -11,6 +11,7 @@ const DEFAULT_FONT_SIZE = 40;
 const DEFAULT_LINE_HEIGHT = 2.0;
 const NUM_STARS = 10;
 const SOLID_BG = "#0a1512";
+const STT_STALE_MS = 4000;
 
 function chunkWordsIntoLines(words: string[], wordsPerLine: number): string[][] {
   if (words.length === 0) return [];
@@ -113,6 +114,9 @@ export function KaraokeReadingCanvas({
   childId,
   previewFinishEnabled = false,
 }: KaraokeReadingCanvasProps): React.ReactElement {
+  const [sttStatus, setSttStatus] = useState<"listening" | "reconnecting">("listening");
+  const lastTranscriptAtRef = useRef(performance.now());
+  const stateUpdateFingerprintRef = useRef("");
   const { wordIndex, skippedIndices, handleSkipWord, completeReading } = useKaraokeReading({
     words,
     interimTranscript,
@@ -149,6 +153,21 @@ export function KaraokeReadingCanvas({
       });
     };
   }, [childId, sendMessage]);
+
+  useEffect(() => {
+    if (interimTranscript.trim()) {
+      lastTranscriptAtRef.current = performance.now();
+      setSttStatus("listening");
+    }
+  }, [interimTranscript]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const staleFor = performance.now() - lastTranscriptAtRef.current;
+      setSttStatus(staleFor >= STT_STALE_MS ? "reconnecting" : "listening");
+    }, 500);
+    return () => window.clearInterval(id);
+  }, []);
 
   const accent = accentColor || DEFAULT_ACCENT;
   const readingCardBackground = readableCardBackground(cardBackground);
@@ -188,6 +207,39 @@ export function KaraokeReadingCanvas({
       : done
         ? `${words.length} / ${words.length}`
         : `${Math.min(safeWordIndex + 1, words.length)} / ${words.length}`;
+
+  useEffect(() => {
+    const currentWord = !done && safeWordIndex < words.length ? words[safeWordIndex] ?? "" : "";
+    const payload = {
+      game: "karaoke",
+      activity: "story-karaoke",
+      phase: done ? "complete" : "reading",
+      mode: "reading",
+      childId: childId || "unknown",
+      currentWord,
+      expectedWords: words,
+      heardTranscript: interimTranscript.trim() || undefined,
+      sttStatus,
+      wordIndex: safeWordIndex,
+      totalWords: words.length,
+      progress: progressRatio,
+      skippedWords: skippedIndices.map((idx) => words[idx]).filter(Boolean),
+    };
+    const fingerprint = JSON.stringify(payload);
+    if (fingerprint === stateUpdateFingerprintRef.current) return;
+    stateUpdateFingerprintRef.current = fingerprint;
+    sendMessage("game_state_update", payload);
+  }, [
+    childId,
+    done,
+    interimTranscript,
+    progressRatio,
+    safeWordIndex,
+    sendMessage,
+    skippedIndices,
+    sttStatus,
+    words,
+  ]);
 
   const bgLayer = backgroundImageUrl?.trim()
     ? {
@@ -348,6 +400,36 @@ export function KaraokeReadingCanvas({
             >
               {countDisplay}
             </div>
+          </div>
+
+          <div
+            data-testid="karaoke-listening-status"
+            style={{
+              borderRadius: 999,
+              padding: "9px 14px",
+              background: "rgba(15,23,42,0.88)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "#f8fafc",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              textTransform: "lowercase",
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 9,
+                height: 9,
+                borderRadius: "50%",
+                background: sttStatus === "listening" ? "#10b981" : "#f59e0b",
+                boxShadow: sttStatus === "listening" ? "0 0 10px #10b981" : undefined,
+              }}
+            />
+            {sttStatus}
           </div>
 
           {storyTitle?.trim() ? (

@@ -2090,6 +2090,13 @@
         byId("arena").innerHTML = "";
         var correctCount = state.targetResults.filter(function (row) { return row.correct; }).length;
         var accuracy = state.targetResults.length ? correctCount / state.targetResults.length : 0;
+        var evidenceTier = canWriteMasteryEvidence() ? "mastery_candidate" : "practice";
+        var vitalSigns = {
+          timeOnTask_ms: state.targetResults.reduce(function (sum, row) { return sum + (Number(row.responseTime_ms) || 0); }, 0),
+          flowSignals: state.targetResults.filter(function (row) { return row.correct; }).length,
+          frustrationSignals: state.targetResults.filter(function (row) { return !row.correct; }).length,
+          helpRequests: 0
+        };
         if (!state.currencyAwardSent && state.coins !== 0) {
           state.currencyAwardSent = true;
           postCurrencyAward(state.coins, state.bonusRoundResolved ? "letter_rush_bonus_round" : "letter_rush_session");
@@ -2102,6 +2109,8 @@
           accuracy: accuracy,
           mode: config.mode,
           masteryEligible: canWriteMasteryEvidence(),
+          evidenceTier: evidenceTier,
+          vitalSigns: vitalSigns,
           targetResults: state.targetResults.slice()
         };
         postActivityEvent(completeEvent);
@@ -2118,6 +2127,8 @@
           activityId: "letter-rush",
           mode: config.mode,
           purpose: modeDef().purpose,
+          evidenceTier: evidenceTier,
+          vitalSigns: vitalSigns,
           bonusRound: {
             offered: state.bonusRoundOffered,
             resolved: state.bonusRoundResolved,

@@ -29,6 +29,10 @@ export class MapRequestError extends Error {
   }
 }
 
+function childSafeMapStartError(): string {
+  return "Sunny is getting your adventure map ready.";
+}
+
 function isCompanionEvent(msg: unknown): msg is CompanionEvent {
   if (!msg || typeof msg !== "object") return false;
   const m = msg as Record<string, unknown>;
@@ -160,7 +164,10 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
       /* keep HTTP status fallback */
     }
     console.error("  🔴 [useMapSession] POST failed", url, detail);
-    throw new MapRequestError(res.status, detail);
+    const message = url === "/api/map/start"
+      ? childSafeMapStartError()
+      : detail;
+    throw new MapRequestError(res.status, message);
   }
   return res.json() as Promise<T>;
 }

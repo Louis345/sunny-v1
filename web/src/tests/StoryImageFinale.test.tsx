@@ -29,6 +29,9 @@ describe("StoryImageFinale purchase flow", () => {
     );
     expect(screen.getByTestId("story-movie-purchase-sheet")).not.toBeNull();
     expect(
+      screen.getByText("Do you want to use 8 of your Sunny coins to make this video?"),
+    ).not.toBeNull();
+    expect(
       screen.getByRole("button", { name: "Play movie for 8 coins" }),
     ).not.toBeNull();
   });

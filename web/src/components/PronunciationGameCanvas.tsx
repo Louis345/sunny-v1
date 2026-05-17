@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { useKaraokeReading } from "../hooks/useKaraokeReading";
-import { playGameSfx, playPronunciationMilestoneSfx } from "../utils/gameSfx";
+import { playGameSfx, playPronunciationHitSfx } from "../utils/gameSfx";
 import type { PronunciationNodeConfig } from "../../../src/shared/adventureTypes";
 
 const FONT_LINK =
@@ -15,14 +15,27 @@ const FONT_LINK =
 
 const TRAVEL_MS = 3000;
 const ZONE_MS = 2000;
-const GAME_MS = 60_000;
+const TIMER_START_MS = 45_000;
+const TIMER_MAX_MS = 60_000;
+const TIMER_TICK_MS = 100;
+const NORMAL_TIME_AWARD_MS = 750;
+const HEAT_TIME_AWARD_MS = 0;
+const NORMAL_COIN_AWARD = 10;
+const HEAT_COIN_AWARD = 30;
 const HEAT_THRESHOLD = 3;
 const COMBO_BREAKER_STREAK = 8;
+const HEAT_SPEED_MULTIPLIER = 1.45;
+const COMBO_BREAKER_SPEED_MULTIPLIER = 1.7;
+const HEAT_TIMER_DRAIN_MULTIPLIER = 1.6;
+const COMBO_BREAKER_TIMER_DRAIN_MULTIPLIER = 2.1;
 const COMBO_BREAKER_BANNER_MS = 1800;
+const MAX_ADAPTIVE_FLOW_ROUNDS = 2;
+const ADAPTIVE_FLOW_RESTART_MS = 650;
 const HIT_MS = 300;
 const YANK_OUT_MS = 300;
 const YANK_BACK_MS = 400;
 const HEARD_STICKY_MS = 450;
+const STT_STALE_MS = 4000;
 
 function transcriptWords(text: string): string[] {
   return text.trim().split(/\s+/).filter(Boolean);
@@ -32,15 +45,74 @@ function transcriptFingerprint(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+function latestPronunciationScoringWindow(text: string): string {
+  const trimmed = text.replace(/\s+/g, " ").trim();
+  if (!trimmed) return "";
+  const segments = trimmed
+    .split(/[.!?\n]+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  return segments.at(-1) ?? trimmed;
+}
+
+function normalizePracticeWord(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
+}
+
+type PronunciationRunEndReason = "timer" | "completed_targets";
+
+function pronunciationFlowSpeedMultiplier(flowRound: number): number {
+  return 1 + Math.min(0.36, Math.max(0, flowRound) * 0.12);
+}
+
+function pronunciationFlowTimerDrainMultiplier(flowRound: number): number {
+  return 1 + Math.min(0.45, Math.max(0, flowRound) * 0.15);
+}
+
+function pronunciationFlowRewardMultiplier(flowRound: number): number {
+  return Math.max(0.45, 1 - Math.max(0, flowRound) * 0.2);
+}
+
 export type PronunciationCompleteResult = {
   wordsHit: number;
   wordsAttempted: number;
+  hitEvents?: number;
+  uniqueTargetsAttempted?: number;
+  rounds?: number;
   accuracy: number;
   totalWords: number;
   correctCount: number;
+  evidenceTier?: "practice" | "clean_recall" | "mastery_candidate" | "calibration_required";
+  targetResults: Array<{
+    target: string;
+    correct: boolean;
+    attempts: number;
+    scaffoldLevel: number;
+    mode: string;
+    struggleSignals: string[];
+  }>;
   flaggedWords: string[];
   xpEarned: number;
   bestStreak: number;
+  coinsEarned?: number;
+  timeSurvivedMs?: number;
+  runEndedReason?: PronunciationRunEndReason;
+  maxHeatStreak?: number;
+  flowState?: {
+    timeOnTask_ms: number;
+    bestStreak: number;
+    heatReached: boolean;
+    comboReached: boolean;
+    retries: number;
+    missToHitRecoveries: number;
+    idleEvents: number;
+    pauseRequests: number;
+    replayRequests: number;
+    powerBarSurvival_ms: number;
+    abandoned: boolean;
+  };
+  replayOnly?: boolean;
+  chartEligible?: boolean;
 };
 
 export interface PronunciationGameCanvasProps {
@@ -92,9 +164,14 @@ function scoreForHit(hitStreakAfterHit: number, displayStreak: number): number {
 }
 
 function pronunciationSpeedMultiplier(hitStreak: number): number {
-  if (hitStreak >= COMBO_BREAKER_STREAK) return 1.4;
-  if (hitStreak >= 5) return 1.25;
-  if (hitStreak >= HEAT_THRESHOLD) return 1.12;
+  if (hitStreak >= COMBO_BREAKER_STREAK) return COMBO_BREAKER_SPEED_MULTIPLIER;
+  if (hitStreak >= HEAT_THRESHOLD) return HEAT_SPEED_MULTIPLIER;
+  return 1;
+}
+
+function pronunciationTimerDrainMultiplier(hitStreak: number): number {
+  if (hitStreak >= COMBO_BREAKER_STREAK) return COMBO_BREAKER_TIMER_DRAIN_MULTIPLIER;
+  if (hitStreak >= HEAT_THRESHOLD) return HEAT_TIMER_DRAIN_MULTIPLIER;
   return 1;
 }
 
@@ -151,6 +228,24 @@ function dedupePronunciationWords(words: string[]): string[] {
 
 function pronunciationWordsKey(words: string[]): string {
   return words.flatMap(pronunciationTargetTokens).join("\u0001");
+}
+
+function isSyntheticSessionTranscript(value: string): boolean {
+  const text = value.trim();
+  if (!text) return false;
+  if (/^\[session start\b/i.test(text)) return true;
+  if (/\bfirst map node\b/i.test(text) && /\bspeak to\b/i.test(text)) return true;
+  if (text.length > 240 && /\bhomework map mounted\b/i.test(text)) return true;
+  return false;
+}
+
+function buildPronunciationFlowWords(pool: string[], cycles = 1): string[] {
+  if (pool.length === 0) return [];
+  const flowWords: string[] = [];
+  for (let i = 0; i < cycles; i += 1) {
+    flowWords.push(...pool);
+  }
+  return flowWords;
 }
 
 function clampWordCount(value: number, min: number, max: number): number {
@@ -219,10 +314,16 @@ export function PronunciationGameCanvas({
     ),
     [baseWords.length, extendedWords, pronunciationConfigKey],
   );
-  const words = useMemo(() => {
+  const activeWordPool = useMemo(() => {
     void replaySeed;
     return [...(challengeMode === "hard" ? hardReplayWords : baseWords)];
   }, [baseWords, challengeMode, hardReplayWords, replaySeed]);
+  const words = useMemo(
+    () => buildPronunciationFlowWords(activeWordPool),
+    [activeWordPool],
+  );
+  const flowWordsKey = pronunciationWordsKey(words);
+  const pronunciationRunKey = `${challengeMode}:${replaySeed}:${flowWordsKey}`;
   const videoRef = useRef<HTMLVideoElement>(null);
   const particlesRef = useRef<HTMLCanvasElement>(null);
   const particlesDataRef = useRef<Particle[]>([]);
@@ -230,6 +331,14 @@ export function PronunciationGameCanvas({
   const blockWrapRef = useRef<HTMLDivElement>(null);
 
   const completeSentRef = useRef(false);
+  const authoritativeCompleteSentRef = useRef(false);
+  const replayRunRef = useRef(0);
+  const runSerialRef = useRef(0);
+  const autoFlowRoundsRef = useRef(0);
+  const flowRoundRef = useRef(0);
+  const flowRestartTimerRef = useRef<number | null>(null);
+  const endReasonRef = useRef<PronunciationRunEndReason>("timer");
+  const rawWordsKeyRef = useRef(rawWordsKey);
   const prevWordIndexRef = useRef(-1);
   const cycleStartRef = useRef(0);
   const wrongTimerRef = useRef<number | null>(null);
@@ -239,6 +348,7 @@ export function PronunciationGameCanvas({
   const hitProcessedForWordIndexRef = useRef(-1);
   const missSeqRef = useRef(0);
   const timeoutArmedRef = useRef(true);
+  const lastLoggedDrainMultiplierRef = useRef(1);
   const interimRef = useRef(interimTranscript);
   const heardClearTimeoutRef = useRef<number | null>(null);
   const comboBannerTimeoutRef = useRef<number | null>(null);
@@ -248,12 +358,24 @@ export function PronunciationGameCanvas({
   const wordsAttemptedRef = useRef(0);
   const xpRef = useRef(0);
   const bestStreakRef = useRef(0);
+  const hitStreakRef = useRef(0);
+  const coinsRef = useRef(0);
+  const timeRemainingRef = useRef(TIMER_START_MS);
+  const lastCoinAwardRef = useRef(0);
+  const lastTimeAwardRef = useRef(0);
+  const maxHeatStreakRef = useRef(0);
+  const runStartedAtRef = useRef(performance.now());
+  const lastTimerTickAtRef = useRef(performance.now());
   const flaggedWordsRef = useRef<string[]>([]);
   const missCountByWordRef = useRef<Map<string, number>>(new Map());
+  const hitCountByWordRef = useRef<Map<string, number>>(new Map());
+  const replayRequestsRef = useRef(0);
   const bonusWordIndexRef = useRef<number | null>(null);
   const ignoreReplayTranscriptRef = useRef("");
+  const staleHitWordIndexAfterResetRef = useRef<number | null>(null);
   const stateUpdateFingerprintRef = useRef("");
   const supportClearTimeoutRef = useRef<number | null>(null);
+  const lastTranscriptAtRef = useRef(performance.now());
 
   const [cameraOk, setCameraOk] = useState(false);
   const [hasStarted, setHasStarted] = useState(true);
@@ -263,9 +385,13 @@ export function PronunciationGameCanvas({
   const [showWrongBadge, setShowWrongBadge] = useState(false);
   const [showHitBadge, setShowHitBadge] = useState(false);
   const [ended, setEnded] = useState(false);
+  const [endReason, setEndReason] = useState<PronunciationRunEndReason>("timer");
+  const [flowRound, setFlowRound] = useState(0);
   const [hits, setHits] = useState(0);
   const [wordsAttempted, setWordsAttempted] = useState(0);
   const [xp, setXp] = useState(0);
+  const [coins, setCoins] = useState(0);
+  const [timeRemainingMs, setTimeRemainingMs] = useState(TIMER_START_MS);
   const [streak, setStreak] = useState(0);
   const [hitStreak, setHitStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
@@ -274,18 +400,40 @@ export function PronunciationGameCanvas({
   const [bonusWordIndex, setBonusWordIndex] = useState<number | null>(null);
   const [comboBreakerBanner, setComboBreakerBanner] = useState(false);
   const [lastHitXp, setLastHitXp] = useState(0);
+  const [lastCoinAward, setLastCoinAward] = useState(0);
+  const [lastTimeAwardMs, setLastTimeAwardMs] = useState(0);
   const [lastHitWasBonus, setLastHitWasBonus] = useState(false);
   const [supportCue, setSupportCue] = useState<PronunciationSupportCue | null>(null);
+  const [sttStatus, setSttStatus] = useState<"listening" | "reconnecting">("listening");
 
-  const interimFingerprint = transcriptFingerprint(interimTranscript);
+  const childSpeechTranscript = isSyntheticSessionTranscript(interimTranscript)
+    ? ""
+    : interimTranscript;
+  const latestChildSpeechTranscript = latestPronunciationScoringWindow(childSpeechTranscript);
+  const interimFingerprint = transcriptFingerprint(latestChildSpeechTranscript);
   const scoringInterimTranscript =
     ignoreReplayTranscriptRef.current &&
     interimFingerprint === ignoreReplayTranscriptRef.current
       ? ""
-      : interimTranscript;
+      : latestChildSpeechTranscript;
+
+  useEffect(() => {
+    if (rawWordsKeyRef.current === rawWordsKey) return;
+    rawWordsKeyRef.current = rawWordsKey;
+    authoritativeCompleteSentRef.current = false;
+    replayRunRef.current = 0;
+    autoFlowRoundsRef.current = 0;
+    flowRoundRef.current = 0;
+    setFlowRound(0);
+  }, [rawWordsKey]);
 
   useEffect(() => {
     if (!ignoreReplayTranscriptRef.current) return;
+    if (!interimFingerprint) {
+      ignoreReplayTranscriptRef.current = "";
+      staleHitWordIndexAfterResetRef.current = null;
+      return;
+    }
     if (interimFingerprint && interimFingerprint !== ignoreReplayTranscriptRef.current) {
       ignoreReplayTranscriptRef.current = "";
     }
@@ -302,12 +450,42 @@ export function PronunciationGameCanvas({
     mode: "sequential",
     suppressDuplicateTranscriptMatches: true,
     progressMessageType: null,
+    resetKey: `${challengeMode}:${replaySeed}`,
+    matchMode: "pronunciation",
+    sequentialMatchScope: "tail",
   });
+
+  useEffect(() => {
+    sendMessage("game_event", {
+      event: {
+        type: "voice_control",
+        voiceEnabled: false,
+        payload: {
+          game: "pronunciation",
+        },
+        version: "1.0",
+      },
+    });
+    return () => {
+      sendMessage("game_event", {
+        event: {
+          type: "voice_control",
+          voiceEnabled: true,
+          payload: {
+            game: "pronunciation",
+          },
+          version: "1.0",
+        },
+      });
+    };
+  }, [sendMessage]);
 
   useEffect(() => {
     interimRef.current = scoringInterimTranscript;
     const trimmed = scoringInterimTranscript.trim();
     if (trimmed) {
+      lastTranscriptAtRef.current = performance.now();
+      setSttStatus("listening");
       if (heardClearTimeoutRef.current !== null) {
         window.clearTimeout(heardClearTimeoutRef.current);
         heardClearTimeoutRef.current = null;
@@ -332,6 +510,15 @@ export function PronunciationGameCanvas({
   }, [scoringInterimTranscript, words]);
 
   useEffect(() => {
+    if (ended) return;
+    const id = window.setInterval(() => {
+      const staleFor = performance.now() - lastTranscriptAtRef.current;
+      setSttStatus(staleFor >= STT_STALE_MS ? "reconnecting" : "listening");
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [ended]);
+
+  useEffect(() => {
     return () => {
       if (heardClearTimeoutRef.current !== null) {
         window.clearTimeout(heardClearTimeoutRef.current);
@@ -351,9 +538,14 @@ export function PronunciationGameCanvas({
     hitsRef.current = hits;
     wordsAttemptedRef.current = wordsAttempted;
     xpRef.current = xp;
+    coinsRef.current = coins;
+    timeRemainingRef.current = timeRemainingMs;
+    lastCoinAwardRef.current = lastCoinAward;
+    lastTimeAwardRef.current = lastTimeAwardMs;
+    hitStreakRef.current = hitStreak;
     bestStreakRef.current = bestStreak;
     flaggedWordsRef.current = flaggedWords;
-  });
+  }, [bestStreak, coins, flaggedWords, hits, hitStreak, lastCoinAward, lastTimeAwardMs, timeRemainingMs, wordsAttempted, xp]);
 
   const expectedWord =
     wordIndex < words.length ? (words[wordIndex] ?? "") : "";
@@ -363,17 +555,29 @@ export function PronunciationGameCanvas({
   const supportPaused = supportCue?.mode === "pause";
   const speedMultiplier =
     pronunciationSpeedMultiplier(hitStreak) *
+    pronunciationFlowSpeedMultiplier(flowRound) *
     (challengeMode === "hard" ? 1.25 : 1) *
     (supportActive && !supportPaused ? 0.6 : 1);
-  const gameMs = challengeMode === "hard" ? 45_000 : GAME_MS;
+  const timerDrainMultiplier =
+    pronunciationTimerDrainMultiplier(hitStreak) *
+    pronunciationFlowTimerDrainMultiplier(flowRound);
+  const heatBeatMs = Math.round(900 / speedMultiplier);
   const travelMs = Math.round(TRAVEL_MS / speedMultiplier);
   const zoneMs = Math.round(ZONE_MS / speedMultiplier);
   const totalMs = travelMs + zoneMs;
   const heatedUp = hitStreak >= HEAT_THRESHOLD;
+  const timerFillPct = Math.max(0, Math.min(100, (timeRemainingMs / TIMER_MAX_MS) * 100));
+  const lowTime = timeRemainingMs <= 10_000;
 
   const emitPronunciationGameState = useCallback(
     (phase: string, extra: Record<string, unknown> = {}) => {
       const idx = wordIndexRef.current;
+      const rawWordIndex =
+        typeof extra.wordIndex === "number" ? extra.wordIndex : idx;
+      const visibleWordIndex = Math.max(
+        0,
+        Math.min(rawWordIndex, activeWordPool.length),
+      );
       const currentWord =
         typeof extra.currentWord === "string"
           ? extra.currentWord
@@ -383,11 +587,27 @@ export function PronunciationGameCanvas({
         game: "pronunciation",
         phase,
         currentWord,
-        wordIndex: typeof extra.wordIndex === "number" ? extra.wordIndex : idx,
-        totalWords: words.length,
+        expectedWords: activeWordPool,
+        wordIndex: visibleWordIndex,
+        totalWords: activeWordPool.length,
         lastHeard: interimRef.current.trim() || undefined,
-        missCount: missCountByWordRef.current.get(String(currentWord)) ?? 0,
+        sttStatus,
+        missCount: missCountByWordRef.current.get(normalizePracticeWord(String(currentWord))) ?? 0,
         accuracy: attempts > 0 ? hitsRef.current / attempts : undefined,
+        timeRemainingMs: timeRemainingRef.current,
+        timerMaxMs: TIMER_MAX_MS,
+        coins: coinsRef.current,
+        heatMode: hitStreakRef.current >= HEAT_THRESHOLD,
+        flowRound: flowRoundRef.current,
+        tempoMultiplier:
+          pronunciationSpeedMultiplier(hitStreakRef.current) *
+          pronunciationFlowSpeedMultiplier(flowRoundRef.current),
+        timerDrainMultiplier:
+          pronunciationTimerDrainMultiplier(hitStreakRef.current) *
+          pronunciationFlowTimerDrainMultiplier(flowRoundRef.current),
+        lastTimeAwardMs: lastTimeAwardRef.current,
+        lastCoinAward: lastCoinAwardRef.current,
+        replayOnly: replayRunRef.current > 0,
         ...extra,
       };
       const fingerprint = JSON.stringify(payload);
@@ -395,7 +615,7 @@ export function PronunciationGameCanvas({
       stateUpdateFingerprintRef.current = fingerprint;
       sendMessage("game_state_update", payload);
     },
-    [sendMessage, words],
+    [activeWordPool, sendMessage, sttStatus, words],
   );
 
   useEffect(() => {
@@ -413,6 +633,22 @@ export function PronunciationGameCanvas({
     wordIndex,
     words.length,
   ]);
+
+  useEffect(() => {
+    if (ended || isComplete || wordIndex >= words.length) return;
+    emitPronunciationGameState(sttStatus, {
+      currentWord: expectedWord,
+      wordIndex,
+    });
+  }, [emitPronunciationGameState, ended, expectedWord, isComplete, sttStatus, wordIndex, words.length]);
+
+  useEffect(() => {
+    if (lastLoggedDrainMultiplierRef.current === timerDrainMultiplier) return;
+    lastLoggedDrainMultiplierRef.current = timerDrainMultiplier;
+    console.log(
+      ` 🎮 [pronunciation] [tempo] speed=${speedMultiplier.toFixed(2)} drain=${timerDrainMultiplier.toFixed(2)}`,
+    );
+  }, [speedMultiplier, timerDrainMultiplier]);
 
   useEffect(() => {
     const onSupport = (event: Event) => {
@@ -505,9 +741,20 @@ export function PronunciationGameCanvas({
 
   useLayoutEffect(() => {
     if (!hasStarted) return;
+    runSerialRef.current += 1;
+    staleHitWordIndexAfterResetRef.current = wordIndex > 0 ? wordIndex : null;
     prevWordIndexRef.current = -1;
     hitProcessedForWordIndexRef.current = -1;
     cycleStartRef.current = performance.now();
+    runStartedAtRef.current = performance.now();
+    lastTimerTickAtRef.current = performance.now();
+    timeRemainingRef.current = TIMER_START_MS;
+    coinsRef.current = 0;
+    lastCoinAwardRef.current = 0;
+    lastTimeAwardRef.current = 0;
+    maxHeatStreakRef.current = 0;
+    hitStreakRef.current = 0;
+    flowRoundRef.current = replayRunRef.current;
     timeoutArmedRef.current = true;
     queueMicrotask(() => {
       setCycleKey((k) => k + 1);
@@ -515,6 +762,8 @@ export function PronunciationGameCanvas({
       setHits(0);
       setWordsAttempted(0);
       setXp(0);
+      setCoins(0);
+      setTimeRemainingMs(TIMER_START_MS);
       setStreak(0);
       setHitStreak(0);
       setBestStreak(0);
@@ -523,13 +772,17 @@ export function PronunciationGameCanvas({
       setBonusWordIndex(null);
       setComboBreakerBanner(false);
       setLastHitXp(0);
+      setLastCoinAward(0);
+      setLastTimeAwardMs(0);
       setLastHitWasBonus(false);
+      setFlowRound(replayRunRef.current);
       completeSentRef.current = false;
       lastMilestoneStreakRef.current = 0;
       setEnded(false);
       missCountByWordRef.current = new Map();
+      hitCountByWordRef.current = new Map();
     });
-  }, [words, hasStarted]);
+  }, [pronunciationRunKey, hasStarted]);
 
   const triggerComboBreaker = useCallback(
     (streakCount: number, nextWordIndex: number) => {
@@ -544,7 +797,6 @@ export function PronunciationGameCanvas({
         streak: streakCount,
         bonusWord,
       });
-      playGameSfx("pronunciation", "comboBreaker");
       sendMessage("game_event", {
         event: {
           type: "combo_breaker",
@@ -573,8 +825,20 @@ export function PronunciationGameCanvas({
   );
 
   const restartPronunciation = useCallback(
-    (mode: "normal" | "hard") => {
+    (mode: "normal" | "hard", source: "manual" | "adaptive_flow" = "manual") => {
       const nextWords = mode === "hard" ? hardReplayWords : baseWords;
+      replayRequestsRef.current += 1;
+      replayRunRef.current += 1;
+      if (source === "adaptive_flow") autoFlowRoundsRef.current += 1;
+      flowRoundRef.current = replayRunRef.current;
+      hitStreakRef.current = 0;
+      maxHeatStreakRef.current = 0;
+      lastMilestoneStreakRef.current = 0;
+      setFlowRound(replayRunRef.current);
+      setStreak(0);
+      setHitStreak(0);
+      setHeatBanner("off");
+      setComboBreakerBanner(false);
       ignoreReplayTranscriptRef.current = transcriptFingerprint(interimRef.current);
       setChallengeMode(mode);
       setHeardTranscript("");
@@ -585,6 +849,8 @@ export function PronunciationGameCanvas({
           payload: {
             game: "pronunciation",
             mode,
+            source,
+            flowRound: replayRunRef.current,
             wordCount: nextWords.length,
           },
           version: "1.0",
@@ -592,6 +858,8 @@ export function PronunciationGameCanvas({
       });
       emitPronunciationGameState("replay_requested", {
         mode,
+        source,
+        flowRound: replayRunRef.current,
         totalWords: nextWords.length,
       });
       setReplaySeed((seed) => seed + 1);
@@ -600,52 +868,179 @@ export function PronunciationGameCanvas({
   );
 
   useEffect(() => {
+    return () => {
+      if (flowRestartTimerRef.current !== null) {
+        window.clearTimeout(flowRestartTimerRef.current);
+        flowRestartTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasStarted) return;
     if (ended) return;
     if (supportPaused) return;
-    const endId = window.setTimeout(() => setEnded(true), gameMs);
-    return () => window.clearTimeout(endId);
-  }, [hasStarted, ended, gameMs, supportPaused]);
+    lastTimerTickAtRef.current = performance.now();
+    const tickId = window.setInterval(() => {
+      const now = performance.now();
+      const elapsed = Math.max(TIMER_TICK_MS, now - lastTimerTickAtRef.current);
+      lastTimerTickAtRef.current = now;
+      setTimeRemainingMs((remaining) => {
+        if (remaining <= 0) return 0;
+        const drain =
+          pronunciationTimerDrainMultiplier(hitStreakRef.current) *
+          pronunciationFlowTimerDrainMultiplier(flowRoundRef.current);
+        const next = Math.max(0, remaining - elapsed * drain);
+        timeRemainingRef.current = next;
+        if (next <= 0) {
+          console.log(" 🎮 [pronunciation] [timer] game_over");
+          endReasonRef.current = "timer";
+          setEndReason("timer");
+          setEnded(true);
+        }
+        return next;
+      });
+    }, TIMER_TICK_MS);
+    return () => window.clearInterval(tickId);
+  }, [hasStarted, ended, supportPaused]);
 
-  const finalizeOnce = useCallback(() => {
-    if (completeSentRef.current) return;
+  const finalizeOnce = useCallback((reason: PronunciationRunEndReason) => {
+    if (completeSentRef.current) return { shouldStartAdaptiveFlow: false };
     completeSentRef.current = true;
     const h = hitsRef.current;
-    const wa = wordsAttemptedRef.current;
+    const rawResolvedAttempts = wordsAttemptedRef.current;
     const x = xpRef.current;
     const bs = bestStreakRef.current;
+    const c = coinsRef.current;
+    const survived = Math.round(performance.now() - runStartedAtRef.current);
     const fw = flaggedWordsRef.current;
-    const acc = wa > 0 ? Math.round((h / wa) * 100) : 0;
+    const targetResults = activeWordPool.map((word) => {
+      const key = normalizePracticeWord(word);
+      const hitsForWord = hitCountByWordRef.current.get(key) ?? 0;
+      const missesForWord = missCountByWordRef.current.get(key) ?? 0;
+      const chartAttempts = missesForWord + (hitsForWord > 0 ? 1 : 0);
+      return {
+        target: word,
+        correct: hitsForWord > 0,
+        attempts: chartAttempts,
+        scaffoldLevel: missesForWord > 0 ? 1 : 0,
+        mode: "pronunciation",
+        evidenceTier: "practice",
+        masteryEligible: false,
+        struggleSignals: missesForWord > 0 ? ["missed_then_recovered"] : [],
+      };
+    });
+    const correctCount = targetResults.filter((row) => row.correct).length;
+    const uniqueTargetsAttempted = targetResults.filter((row) => row.attempts > 0).length;
+    const chartAttempts = targetResults.reduce((sum, row) => sum + row.attempts, 0);
+    const retryCount = targetResults.reduce((sum, row) => sum + Math.max(0, row.attempts - 1), 0);
+    const rounds = Math.max(
+      1,
+      activeWordPool.length > 0 ? Math.ceil(rawResolvedAttempts / activeWordPool.length) : 0,
+    );
+    const missToHitRecoveries = targetResults.filter((row) =>
+      row.correct && row.struggleSignals.includes("missed_then_recovered"),
+    ).length;
+    const flowState = {
+      timeOnTask_ms: survived,
+      bestStreak: bs,
+      heatReached: maxHeatStreakRef.current >= HEAT_THRESHOLD,
+      comboReached: maxHeatStreakRef.current >= COMBO_BREAKER_STREAK,
+      retries: retryCount,
+      missToHitRecoveries,
+      idleEvents: 0,
+      pauseRequests: 0,
+      replayRequests: replayRequestsRef.current,
+      powerBarSurvival_ms: survived,
+      abandoned: false,
+    };
+    const accuracyRatio = chartAttempts > 0 ? correctCount / chartAttempts : 0;
+    const acc = Math.round(accuracyRatio * 100);
+    const replayOnly = authoritativeCompleteSentRef.current || replayRunRef.current > 0;
+    const effectiveBestStreak = Math.max(bs, hitStreakRef.current, correctCount);
+    const shouldStartAdaptiveFlow =
+      reason === "completed_targets" &&
+      accuracyRatio >= 0.8 &&
+      effectiveBestStreak >= HEAT_THRESHOLD &&
+      uniqueTargetsAttempted >= Math.min(activeWordPool.length, HEAT_THRESHOLD) &&
+      autoFlowRoundsRef.current < MAX_ADAPTIVE_FLOW_ROUNDS;
     playGameSfx("pronunciation", "completeFanfare");
     emitPronunciationGameState("complete", {
       lastOutcome: "complete",
-      correctCount: h,
-      wordsAttempted: wa,
-      accuracy: wa > 0 ? h / wa : 0,
+      replayOnly,
+      chartEligible: !replayOnly,
+      adaptiveFlowEligible: shouldStartAdaptiveFlow,
+      correctCount,
+      wordsAttempted: chartAttempts,
+      rawResolvedAttempts,
+      hitEvents: h,
+      uniqueTargetsAttempted,
+      rounds,
+      accuracy: accuracyRatio,
       flaggedWords: [...fw],
+      targetResults,
       bestStreak: bs,
+      coinsEarned: c,
+      timeSurvivedMs: survived,
+      runEndedReason: reason,
+      flowRound: flowRoundRef.current,
+      maxHeatStreak: maxHeatStreakRef.current,
+      flowState,
+      evidenceTier: "practice",
     });
-    onComplete?.({
-      wordsHit: h,
-      wordsAttempted: wa,
-      accuracy: acc,
-      totalWords: words.length,
-      correctCount: h,
-      flaggedWords: [...fw],
-      xpEarned: x,
-      bestStreak: bs,
-    });
-  }, [emitPronunciationGameState, onComplete, words.length]);
+    if (!replayOnly) {
+      authoritativeCompleteSentRef.current = true;
+      onComplete?.({
+        wordsHit: correctCount,
+        wordsAttempted: chartAttempts,
+        hitEvents: h,
+        uniqueTargetsAttempted,
+        rounds,
+        accuracy: acc,
+        totalWords: activeWordPool.length,
+        correctCount,
+        evidenceTier: "practice",
+        targetResults,
+        flaggedWords: [...fw],
+        xpEarned: x,
+        bestStreak: bs,
+        coinsEarned: c,
+        timeSurvivedMs: survived,
+        runEndedReason: reason,
+        maxHeatStreak: maxHeatStreakRef.current,
+        flowState,
+        replayOnly: false,
+        chartEligible: true,
+      });
+    }
+    return { shouldStartAdaptiveFlow };
+  }, [activeWordPool, emitPronunciationGameState, onComplete]);
 
   useEffect(() => {
     if (!ended) return;
-    finalizeOnce();
+    finalizeOnce(endReasonRef.current);
   }, [ended, finalizeOnce]);
 
-  useEffect(() => {
-    if (!isComplete || ended) return;
-    queueMicrotask(() => setEnded(true));
-  }, [isComplete, ended]);
+  const finishRound = useCallback(
+    (reason: PronunciationRunEndReason) => {
+      if (completeSentRef.current) return;
+      endReasonRef.current = reason;
+      const result = finalizeOnce(reason);
+      if (result.shouldStartAdaptiveFlow) {
+        console.log(
+          ` 🎮 [pronunciation] [adaptive-flow] round=${autoFlowRoundsRef.current + 1} reason=flow_state_ready`,
+        );
+        flowRestartTimerRef.current = window.setTimeout(() => {
+          flowRestartTimerRef.current = null;
+          restartPronunciation("hard", "adaptive_flow");
+        }, ADAPTIVE_FLOW_RESTART_MS);
+        return;
+      }
+      setEndReason(reason);
+      setEnded(true);
+    },
+    [finalizeOnce, restartPronunciation],
+  );
 
   const triggerMissYank = useCallback(() => {
     console.log(
@@ -660,9 +1055,10 @@ export function PronunciationGameCanvas({
     if (!timeoutArmedRef.current) return;
     timeoutArmedRef.current = false;
     const w = words[wordIndexRef.current] ?? "";
-    const prev = missCountByWordRef.current.get(w) ?? 0;
+    const missKey = normalizePracticeWord(w);
+    const prev = missCountByWordRef.current.get(missKey) ?? 0;
     const newCount = prev + 1;
-    missCountByWordRef.current.set(w, newCount);
+    missCountByWordRef.current.set(missKey, newCount);
     if (newCount === 1) {
       playGameSfx("pronunciation", "missThunk");
     }
@@ -683,7 +1079,14 @@ export function PronunciationGameCanvas({
       currentWord: w,
       wordIndex: wordIndexRef.current,
       lastOutcome: "miss",
+      lastOutcomeWord: w,
       missCount: newCount,
+      heatMode: false,
+      flowRound: flowRoundRef.current,
+      tempoMultiplier: pronunciationFlowSpeedMultiplier(flowRoundRef.current),
+      timerDrainMultiplier: pronunciationFlowTimerDrainMultiplier(flowRoundRef.current),
+      lastCoinAward: 0,
+      lastTimeAwardMs: 0,
     });
     setMissSeq(seq);
     setShowWrongBadge(true);
@@ -691,7 +1094,14 @@ export function PronunciationGameCanvas({
     setWordsAttempted((w) => w + 1);
     setStreak(0);
     setHitStreak(0);
+    hitStreakRef.current = 0;
+    lastMilestoneStreakRef.current = 0;
+    console.log(" 🎮 [pronunciation] [sfx_reset] miss");
     setHeatBanner("off");
+    lastCoinAwardRef.current = 0;
+    lastTimeAwardRef.current = 0;
+    setLastCoinAward(0);
+    setLastTimeAwardMs(0);
     if (bonusWordIndexRef.current === wordIndexRef.current) {
       bonusWordIndexRef.current = null;
       setBonusWordIndex(null);
@@ -770,6 +1180,7 @@ export function PronunciationGameCanvas({
   useEffect(() => {
     // SYNCHRONOUS guards — must run before any async work
     if (ended) return;
+    if (wordIndex === staleHitWordIndexAfterResetRef.current) return;
     // prev starts at -1; `0 <= -1` is false in JS, so block mount-only wordIndex 0 explicitly
     if (wordIndex === 0 && prevWordIndexRef.current < 0) return;
     if (wordIndex <= prevWordIndexRef.current) return;
@@ -801,10 +1212,20 @@ export function PronunciationGameCanvas({
     lastHitInterimRef.current = interimRef.current.trim();
     const hitWordIndex = advancedTo - 1;
     const hitWord = words[hitWordIndex] ?? "";
+    const nextWord = words[advancedTo] ?? hitWord;
+    const hitKey = normalizePracticeWord(hitWord);
+    const hitRunSerial = runSerialRef.current;
+    hitCountByWordRef.current.set(
+      hitKey,
+      (hitCountByWordRef.current.get(hitKey) ?? 0) + 1,
+    );
+    hitsRef.current += 1;
+    wordsAttemptedRef.current += 1;
     emitPronunciationGameState("hit", {
-      currentWord: hitWord,
-      wordIndex: hitWordIndex,
+      currentWord: nextWord,
+      wordIndex: advancedTo,
       lastOutcome: "hit",
+      lastOutcomeWord: hitWord,
     });
     const wasBonusHit = bonusWordIndexRef.current === hitWordIndex;
     if (wasBonusHit) {
@@ -812,16 +1233,40 @@ export function PronunciationGameCanvas({
       setBonusWordIndex(null);
     }
     queueMicrotask(() => {
-      playGameSfx("pronunciation", "hitPop");
+      if (hitRunSerial !== runSerialRef.current) return;
       setShowHitBadge(true);
       setBlockPhase("hit");
       setHits((h) => h + 1);
       setWordsAttempted((wa) => wa + 1);
       setStreak((s) => {
+        if (hitRunSerial !== runSerialRef.current) return s;
         const ns = s + 1;
+        bestStreakRef.current = Math.max(bestStreakRef.current, ns);
         setBestStreak((b) => (ns > b ? ns : b));
         setHitStreak((hs) => {
+          if (hitRunSerial !== runSerialRef.current) return hs;
           const nhs = hs + 1;
+          hitStreakRef.current = nhs;
+          maxHeatStreakRef.current = Math.max(maxHeatStreakRef.current, nhs);
+          const nextHeat = nhs >= HEAT_THRESHOLD;
+          const rewardMultiplier = pronunciationFlowRewardMultiplier(flowRoundRef.current);
+          const coinAward = Math.max(
+            1,
+            Math.round((nextHeat ? HEAT_COIN_AWARD : NORMAL_COIN_AWARD) * rewardMultiplier),
+          );
+          const timeAward = Math.round(
+            (nextHeat ? HEAT_TIME_AWARD_MS : NORMAL_TIME_AWARD_MS) * rewardMultiplier,
+          );
+          const nextCoins = coinsRef.current + coinAward;
+          const nextTime = Math.min(TIMER_MAX_MS, timeRemainingRef.current + timeAward);
+          coinsRef.current = nextCoins;
+          timeRemainingRef.current = nextTime;
+          lastCoinAwardRef.current = coinAward;
+          lastTimeAwardRef.current = timeAward;
+          setCoins(nextCoins);
+          setTimeRemainingMs(nextTime);
+          setLastCoinAward(coinAward);
+          setLastTimeAwardMs(timeAward);
           const earnedXp = scoreForHit(nhs, ns) * (wasBonusHit ? 2 : 1);
           sendMessage("game_event", {
             event: {
@@ -838,21 +1283,42 @@ export function PronunciationGameCanvas({
           });
           setLastHitXp(earnedXp);
           setLastHitWasBonus(wasBonusHit);
+          xpRef.current += earnedXp;
           setXp((x) => x + earnedXp);
-          if (nhs >= HEAT_THRESHOLD) {
-            setHeatBanner("heating");
-            if (nhs === HEAT_THRESHOLD) {
-              playGameSfx("pronunciation", "heatUp");
-            }
-          }
-          if (
-            nhs > lastMilestoneStreakRef.current &&
-            playPronunciationMilestoneSfx(nhs)
-          ) {
+          emitPronunciationGameState("hit", {
+            currentWord: nextWord,
+            wordIndex: advancedTo,
+            lastOutcome: "hit",
+            lastOutcomeWord: hitWord,
+            coins: nextCoins,
+            timeRemainingMs: nextTime,
+            heatMode: nextHeat,
+            flowRound: flowRoundRef.current,
+            tempoMultiplier:
+              pronunciationSpeedMultiplier(nhs) *
+              pronunciationFlowSpeedMultiplier(flowRoundRef.current),
+            timerDrainMultiplier:
+              pronunciationTimerDrainMultiplier(nhs) *
+              pronunciationFlowTimerDrainMultiplier(flowRoundRef.current),
+            lastCoinAward: coinAward,
+            lastTimeAwardMs: timeAward,
+          });
+          if (nhs > lastMilestoneStreakRef.current) {
+            playPronunciationHitSfx(nhs);
             lastMilestoneStreakRef.current = nhs;
+          }
+          if (nextHeat) {
+            setHeatBanner("heating");
           }
           if (nhs === COMBO_BREAKER_STREAK) {
             triggerComboBreaker(nhs, advancedTo);
+          }
+          if (advancedTo >= words.length) {
+            window.setTimeout(() => {
+              if (hitRunSerial === runSerialRef.current) {
+                finishRound("completed_targets");
+              }
+            }, 0);
           }
           return nhs;
         });
@@ -860,6 +1326,7 @@ export function PronunciationGameCanvas({
       });
     });
     requestAnimationFrame(() => {
+      if (hitRunSerial !== runSerialRef.current) return;
       const el = blockWrapRef.current;
       if (el) {
         const r = el.getBoundingClientRect();
@@ -867,6 +1334,7 @@ export function PronunciationGameCanvas({
       }
     });
     window.setTimeout(() => {
+      if (hitRunSerial !== runSerialRef.current) return;
       setShowHitBadge(false);
       if (advancedTo >= words.length) return;
       setCycleKey((k) => k + 1);
@@ -876,7 +1344,7 @@ export function PronunciationGameCanvas({
     }, HIT_MS);
     // Diagnostic log reads words/blockPhase; effect timing unchanged from pre-log version.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- PG diagnostics only
-  }, [wordIndex, words, ended, burst, emitPronunciationGameState, triggerComboBreaker]);
+  }, [wordIndex, words, ended, burst, emitPronunciationGameState, finishRound, triggerComboBreaker]);
 
   useEffect(() => {
     const c = particlesRef.current;
@@ -921,7 +1389,7 @@ export function PronunciationGameCanvas({
   }, []);
 
   const listening =
-    !ended && !isComplete && wordIndex < words.length && cameraOk;
+    !ended && activeWordPool.length > 0 && wordIndex < words.length;
 
   const css = `
     @keyframes pg-approach {
@@ -976,6 +1444,14 @@ export function PronunciationGameCanvas({
       0%, 100% { filter: brightness(1); }
       50% { filter: brightness(1.25) saturate(1.2); }
     }
+    @keyframes pg-heat-beat {
+      0%, 100% { transform: scale(1); filter: brightness(1) saturate(1); }
+      50% { transform: scale(1.045); filter: brightness(1.35) saturate(1.28); }
+    }
+    @keyframes pg-timer-beat {
+      0%, 100% { transform: scaleY(1); filter: brightness(1); }
+      50% { transform: scaleY(1.055); filter: brightness(1.35); }
+    }
     @keyframes pg-combo-pop {
       0% { transform: translateY(-20px) scale(0.8); opacity: 0; }
       55% { transform: translateY(0) scale(1.08); opacity: 1; }
@@ -984,6 +1460,10 @@ export function PronunciationGameCanvas({
     @keyframes pg-mic-pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.55; transform: scale(0.75); }
+    }
+    @keyframes pg-time-warning {
+      0%, 100% { transform: scaleY(1); filter: brightness(1); }
+      50% { transform: scaleY(1.03); filter: brightness(1.35); }
     }
   `;
 
@@ -1033,7 +1513,7 @@ export function PronunciationGameCanvas({
             maxWidth: 480,
           }}
         >
-          {words.map((w) => (
+          {activeWordPool.map((w) => (
             <span
               key={w}
               style={{
@@ -1092,6 +1572,12 @@ export function PronunciationGameCanvas({
       >
         {speedMultiplier.toFixed(2)}x
       </span>
+      <span
+        data-testid="pronunciation-drain-state"
+        style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}
+      >
+        {timerDrainMultiplier.toFixed(2)}x
+      </span>
       <div
         data-testid="pronunciation-progress"
         style={{
@@ -1110,7 +1596,101 @@ export function PronunciationGameCanvas({
           pointerEvents: "none",
         }}
       >
-        Word {Math.min(wordIndex + 1, words.length)} / {words.length}
+        Word {activeWordPool.length > 0 ? Math.min(wordIndex + 1, activeWordPool.length) : 0} / {activeWordPool.length}
+      </div>
+      {flowRound > 0 ? (
+        <div
+          data-testid="pronunciation-flow-round"
+          style={{
+            position: "fixed",
+            top: Math.max(22, topInset + 14),
+            left: 190,
+            zIndex: 40,
+            padding: "8px 14px",
+            borderRadius: 8,
+            background: "rgba(249, 115, 22, 0.22)",
+            border: "1px solid rgba(251, 191, 36, 0.42)",
+            color: "#fde68a",
+            fontFamily: "'Fredoka', sans-serif",
+            fontSize: 18,
+            fontWeight: 800,
+            pointerEvents: "none",
+          }}
+        >
+          Flow round {flowRound}
+        </div>
+      ) : null}
+      <div
+        aria-label="time remaining"
+        style={{
+          position: "fixed",
+          left: 24,
+          top: Math.max(82, topInset + 76),
+          bottom: 84,
+          zIndex: 40,
+          width: 42,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 10,
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          data-testid="pronunciation-time-label"
+          style={{
+            fontFamily: "'Fredoka', sans-serif",
+            fontSize: 17,
+            fontWeight: 900,
+            color: lowTime ? "#fed7aa" : "#dbeafe",
+            textShadow: "0 2px 10px rgba(0,0,0,0.55)",
+          }}
+        >
+          {(timeRemainingMs / 1000).toFixed(1)}s
+        </div>
+        <div
+          style={{
+            position: "relative",
+            width: 24,
+            flex: 1,
+            minHeight: 240,
+            borderRadius: 999,
+            background: "rgba(15, 23, 42, 0.74)",
+            border: "1px solid rgba(255,255,255,0.18)",
+            boxShadow: heatedUp
+              ? "0 0 32px rgba(249,115,22,0.65)"
+              : "0 0 22px rgba(96,165,250,0.28)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            data-testid="pronunciation-timer-fill"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: `${timerFillPct}%`,
+              borderRadius: 999,
+              background: heatedUp
+                ? "linear-gradient(180deg, #facc15, #f97316 48%, #dc2626)"
+                : lowTime
+                  ? "linear-gradient(180deg, #fde68a, #f97316 52%, #dc2626)"
+                  : "linear-gradient(180deg, #a78bfa, #60a5fa 48%, #22d3ee)",
+              boxShadow: heatedUp
+                ? "0 0 26px rgba(249,115,22,0.85)"
+                : lowTime
+                  ? "0 0 22px rgba(248,113,113,0.72)"
+                  : "0 0 18px rgba(96,165,250,0.5)",
+              animation: lowTime
+                ? "pg-time-warning 680ms ease-in-out infinite"
+                : heatedUp
+                  ? `pg-timer-beat ${heatBeatMs}ms ease-in-out infinite`
+                  : undefined,
+              transformOrigin: "bottom",
+            }}
+          />
+        </div>
       </div>
       <div
         style={{
@@ -1177,7 +1757,7 @@ export function PronunciationGameCanvas({
               animation: "pg-combo-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
             }}
           >
-            COMBO BREAKER! BONUS WORD x2
+            COMBO BREAKER! 3x MONEY
           </div>
         </div>
       ) : null}
@@ -1219,6 +1799,7 @@ export function PronunciationGameCanvas({
       ) : null}
 
       <div
+        data-testid="pronunciation-word-runner"
         key={`${cycleKey}-${wordIndex}-${missSeq}`}
         ref={blockWrapRef}
         style={{
@@ -1291,6 +1872,7 @@ export function PronunciationGameCanvas({
           </div>
         ) : null}
         <div
+          data-testid="pronunciation-word-card"
           style={{
             position: "relative",
             borderRadius: 20,
@@ -1316,7 +1898,7 @@ export function PronunciationGameCanvas({
             textShadow: "0 2px 8px rgba(0,0,0,0.35)",
             userSelect: "none",
             zIndex: 2,
-            animation: heatedUp && !isBonusWord ? "pg-heat-flicker 720ms ease-in-out infinite" : undefined,
+            animation: heatedUp && !isBonusWord ? `pg-heat-beat ${heatBeatMs}ms ease-in-out infinite` : undefined,
           }}
         >
           {isBonusWord ? (
@@ -1382,7 +1964,10 @@ export function PronunciationGameCanvas({
               zIndex: 3,
             }}
           >
-            +{lastHitXp || scoreForHit(hitStreak, streak)} XP{lastHitWasBonus ? " x2" : ""}
+            +{lastCoinAward || (heatedUp ? HEAT_COIN_AWARD : NORMAL_COIN_AWARD)} coins
+            <div style={{ fontSize: 16, color: "#fde68a", textShadow: "0 0 8px #fbbf24" }}>
+              +{lastHitXp || scoreForHit(hitStreak, streak)} XP{lastHitWasBonus ? " x2" : ""}
+            </div>
           </div>
         ) : null}
 
@@ -1459,10 +2044,11 @@ export function PronunciationGameCanvas({
         }}
       >
         <div
+          data-testid="pronunciation-listening-status"
           style={{
             position: "absolute",
             top: 20 + topInset,
-            left: 20,
+            left: 84,
             padding: "10px 18px",
             borderRadius: 999,
             background: "rgba(10, 12, 18, 0.75)",
@@ -1482,18 +2068,37 @@ export function PronunciationGameCanvas({
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: listening ? "#10b981" : "#ef4444",
-              boxShadow: listening ? "0 0 10px #10b981" : undefined,
+              background: listening && sttStatus === "listening" ? "#10b981" : "#f59e0b",
+              boxShadow: listening && sttStatus === "listening" ? "0 0 10px #10b981" : undefined,
               animation: listening ? "pg-mic-pulse 1.4s infinite" : undefined,
             }}
           />
-          {listening ? "listening" : "waiting"}
+          {listening ? sttStatus : "waiting"}
+        </div>
+        <div
+          data-testid="pronunciation-coins"
+          style={{
+            position: "absolute",
+            top: 20 + topInset,
+            right: 124,
+            padding: "10px 18px",
+            borderRadius: 999,
+            background:
+              "linear-gradient(135deg, rgba(250, 204, 21, 0.9), rgba(245, 158, 11, 0.88))",
+            color: "#111827",
+            fontSize: 15,
+            fontWeight: 800,
+            border: "1px solid rgba(255, 255, 255, 0.18)",
+            pointerEvents: "auto",
+          }}
+        >
+          ${coins}
         </div>
         <div
           style={{
             position: "absolute",
             top: 20 + topInset,
-            right: 200,
+            right: 232,
             padding: "10px 18px",
             borderRadius: 999,
             background:
@@ -1572,9 +2177,7 @@ export function PronunciationGameCanvas({
               marginBottom: 16,
             }}
           >
-            {wordsAttempted > 0 && hits / wordsAttempted >= 0.7
-              ? "🎉 amazing!"
-              : "keep practicing!"}
+            {endReason === "timer" ? "GAME OVER" : "FLOW COMPLETE"}
           </h1>
           <div
             style={{
@@ -1587,8 +2190,10 @@ export function PronunciationGameCanvas({
           >
             {[
               { v: hits, l: "words hit" },
+              { v: coins, l: "coins earned" },
               { v: xp, l: "xp earned" },
               { v: bestStreak, l: "best streak" },
+              { v: `${wordsAttempted > 0 ? Math.round((hits / wordsAttempted) * 100) : 0}%`, l: "accuracy" },
             ].map((st) => (
               <div
                 key={st.l}

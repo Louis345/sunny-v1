@@ -396,7 +396,7 @@ export function StoryImageFinale(props: StoryImageFinaleProps) {
             >
               {movieUnlocked
                 ? `${displayBalance} coins left`
-                : "Sunny handles the math. You save, then spend."}
+                : `Do you want to use ${props.purchaseCost} of your Sunny coins to make this video?`}
             </div>
           </div>
           {!movieUnlocked ? (

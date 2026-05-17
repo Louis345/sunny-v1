@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, act } from "@testing-library/react";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { PronunciationGameCanvas } from "../components/PronunciationGameCanvas";
-import { GAME_SFX, GAME_SFX_CONFIG } from "../utils/gameSfx";
+import {
+  GAME_SFX,
+  GAME_SFX_CONFIG,
+  pronunciationHitSfxEffectForStreak,
+  playPronunciationHitSfx,
+} from "../utils/gameSfx";
+
+const webRoot = process.cwd();
 
 describe("PronunciationGameCanvas", () => {
   beforeEach(() => {
@@ -159,6 +168,7 @@ describe("PronunciationGameCanvas", () => {
       expect.objectContaining({
         game: "pronunciation",
         currentWord: "able",
+        expectedWords: ["able", "common"],
         wordIndex: 0,
         totalWords: 2,
         phase: "approaching",
@@ -180,8 +190,10 @@ describe("PronunciationGameCanvas", () => {
       "game_state_update",
       expect.objectContaining({
         game: "pronunciation",
-        currentWord: "able",
+        currentWord: "common",
+        lastOutcomeWord: "able",
         lastOutcome: "hit",
+        wordIndex: 1,
       }),
     );
 
@@ -194,7 +206,218 @@ describe("PronunciationGameCanvas", () => {
       expect.objectContaining({
         game: "pronunciation",
         currentWord: "common",
+        expectedWords: ["able", "common"],
         wordIndex: 1,
+      }),
+    );
+  });
+
+  it("does not send backwards pronunciation wordIndex updates after hits", async () => {
+    const sendMessage = vi.fn();
+    const words = ["able", "common", "behind"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    rerender(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript="able"
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const stateUpdates = sendMessage.mock.calls
+      .filter(([type]) => type === "game_state_update")
+      .map(([, payload]) => payload as Record<string, unknown>);
+    const indexes = stateUpdates
+      .map((payload) => payload.wordIndex)
+      .filter((value): value is number => typeof value === "number");
+    for (let i = 1; i < indexes.length; i += 1) {
+      expect(indexes[i]).toBeGreaterThanOrEqual(indexes[i - 1] ?? 0);
+    }
+    expect(stateUpdates).toContainEqual(
+      expect.objectContaining({
+        game: "pronunciation",
+        currentWord: "common",
+        lastOutcomeWord: "able",
+        lastOutcome: "hit",
+        wordIndex: 1,
+      }),
+    );
+  });
+
+  it("accepts common STT syllable splits for able", async () => {
+    const sendMessage = vi.fn();
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={["able", "common"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    rerender(
+      <PronunciationGameCanvas
+        words={["able", "common"]}
+        interimTranscript="a bull"
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "pronunciation",
+        currentWord: "common",
+        lastOutcome: "hit",
+        lastOutcomeWord: "able",
+        wordIndex: 1,
+      }),
+    );
+  });
+
+  it("does not advance pronunciation from an old target buried in a long background transcript", async () => {
+    const sendMessage = vi.fn();
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={["ago", "government", "half"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    rerender(
+      <PronunciationGameCanvas
+        words={["ago", "government", "half"]}
+        interimTranscript="ago"
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
+
+    rerender(
+      <PronunciationGameCanvas
+        words={["ago", "government", "half"]}
+        interimTranscript="government movie talk unrelated"
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(sendMessage).not.toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "pronunciation",
+        currentWord: "half",
+        lastOutcome: "hit",
+        lastOutcomeWord: "government",
+        wordIndex: 2,
+      }),
+    );
+    expect(screen.getByTestId("pronunciation-progress").textContent).toContain("2 / 3");
+
+    rerender(
+      <PronunciationGameCanvas
+        words={["ago", "government", "half"]}
+        interimTranscript="movie talk government"
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "pronunciation",
+        currentWord: "half",
+        lastOutcome: "hit",
+        lastOutcomeWord: "government",
+        wordIndex: 2,
+      }),
+    );
+  });
+
+  it("suppresses companion voice turns while pronunciation is mounted", () => {
+    const sendMessage = vi.fn();
+    const { unmount } = render(
+      <PronunciationGameCanvas
+        words={["able"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    expect(sendMessage).toHaveBeenCalledWith("game_event", {
+      event: {
+        type: "voice_control",
+        voiceEnabled: false,
+        payload: {
+          game: "pronunciation",
+        },
+        version: "1.0",
+      },
+    });
+
+    unmount();
+
+    expect(sendMessage).toHaveBeenCalledWith("game_event", {
+      event: {
+        type: "voice_control",
+        voiceEnabled: true,
+        payload: {
+          game: "pronunciation",
+        },
+        version: "1.0",
+      },
+    });
+  });
+
+  it("shows reconnecting when speech transcripts go stale without requesting game-local audio", async () => {
+    const sendMessage = vi.fn();
+    render(
+      <PronunciationGameCanvas
+        words={["able"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    expect(screen.getByTestId("pronunciation-listening-status").textContent).toContain("listening");
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
+      video: expect.any(Object),
+      audio: false,
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(4500);
+    });
+
+    expect(screen.getByTestId("pronunciation-listening-status").textContent).toContain("reconnecting");
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "pronunciation",
+        sttStatus: "reconnecting",
       }),
     );
   });
@@ -300,6 +523,342 @@ describe("PronunciationGameCanvas", () => {
     expect(screen.queryByText("wear away")).toBeNull();
   });
 
+  it("renders a vertical timer bar that drains and ends the run at zero", async () => {
+    const onComplete = vi.fn();
+    render(
+      <PronunciationGameCanvas
+        words={["able", "common"]}
+        interimTranscript=""
+        sendMessage={vi.fn()}
+        onComplete={onComplete}
+      />,
+    );
+
+    const fill = screen.getByTestId("pronunciation-timer-fill");
+    expect(screen.getByTestId("pronunciation-time-label").textContent).toContain("45.0s");
+    expect(fill.getAttribute("style")).toContain("height: 75%");
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(screen.getByTestId("pronunciation-time-label").textContent).toContain("40.0s");
+    expect(fill.getAttribute("style")).toContain("height: 66.666");
+
+    await act(async () => {
+      vi.advanceTimersByTime(40000);
+    });
+
+    expect(screen.getByText("GAME OVER")).toBeTruthy();
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runEndedReason: "timer",
+        timeSurvivedMs: 45000,
+      }),
+    );
+  });
+
+  it("adds time and coins on normal hits, and reports arcade state", async () => {
+    const sendMessage = vi.fn();
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={["able", "common", "behind"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByTestId("pronunciation-time-label").textContent).toContain("44.0s");
+
+    rerender(
+      <PronunciationGameCanvas
+        words={["able", "common", "behind"]}
+        interimTranscript="able"
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("pronunciation-time-label").textContent).toContain("44.8s");
+    expect(screen.getByTestId("pronunciation-coins").textContent).toContain("10");
+    expect(screen.getByText("+10 coins")).toBeTruthy();
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "pronunciation",
+        coins: 10,
+        timeRemainingMs: 44750,
+        timerMaxMs: 60000,
+        lastCoinAward: 10,
+        lastTimeAwardMs: 750,
+      }),
+    );
+  });
+
+  it("caps chart-worthy pronunciation attempts to unique targets when the evidence pass completes", async () => {
+    const onComplete = vi.fn();
+    const sendMessage = vi.fn();
+    const words = ["above", "ago", "away"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    for (let i = 0; i < words.length; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+          onComplete={onComplete}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        totalWords: 3,
+        correctCount: 3,
+        wordsAttempted: expect.any(Number),
+        hitEvents: expect.any(Number),
+        uniqueTargetsAttempted: 3,
+      }),
+    );
+    const result = onComplete.mock.calls.at(-1)?.[0];
+    expect(result.wordsAttempted).toBeLessThanOrEqual(3);
+    expect(result.hitEvents).toBeGreaterThanOrEqual(3);
+    expect(result.targetResults).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ target: "above", attempts: 1 }),
+        expect.objectContaining({ target: "ago", attempts: 1 }),
+        expect.objectContaining({ target: "away", attempts: 1 }),
+      ]),
+    );
+  });
+
+  it("uses heat tempo, 3x coins, no heat time award, and faster drain", async () => {
+    const sendMessage = vi.fn();
+    const words = ["able", "common", "behind", "whole", "easy"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    for (let i = 0; i < 3; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    expect(screen.getByTestId("pronunciation-speed-state").textContent).toContain("1.45x");
+    expect(screen.getByTestId("pronunciation-word-runner").getAttribute("style")).toContain(
+      "pg-approach 2069ms",
+    );
+    expect(screen.getByTestId("pronunciation-drain-state").textContent).toContain("1.60x");
+    expect(screen.getByTestId("pronunciation-word-card").getAttribute("style")).toContain(
+      "pg-heat-beat 621ms",
+    );
+    expect(screen.getByTestId("pronunciation-coins").textContent).toContain("50");
+
+    const heatTimeBefore = Number(
+      screen.getByTestId("pronunciation-time-label").textContent?.replace("s", ""),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    const heatTimeAfter = Number(
+      screen.getByTestId("pronunciation-time-label").textContent?.replace("s", ""),
+    );
+    expect(heatTimeBefore - heatTimeAfter).toBeGreaterThanOrEqual(1.5);
+
+    rerender(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript={words.slice(0, 4).join(" ")}
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("pronunciation-coins").textContent).toContain("80");
+    expect(screen.getByText("+30 coins")).toBeTruthy();
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "pronunciation",
+        heatMode: true,
+        tempoMultiplier: 1.45,
+        lastCoinAward: 30,
+        lastTimeAwardMs: 0,
+      }),
+    );
+  });
+
+  it("does not score one-edit pronunciation near misses as spoken target words", async () => {
+    const sendMessage = vi.fn();
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={["neatly", "sunny"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    rerender(
+      <PronunciationGameCanvas
+        words={["neatly", "sunny"]}
+        interimTranscript="nearly"
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+    });
+
+    expect(screen.getByText("neatly")).toBeTruthy();
+    expect(screen.queryByText("sunny")).toBeNull();
+    expect(sendMessage).not.toHaveBeenCalledWith(
+      "game_event",
+      expect.objectContaining({
+        event: expect.objectContaining({ type: "pronunciation_hit" }),
+      }),
+    );
+  });
+
+  it("continues into adaptive flow instead of showing a dead end when the visible list is completed", async () => {
+    const onComplete = vi.fn();
+    const sendMessage = vi.fn();
+    const words = ["able", "common", "behind"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    for (let i = 0; i < words.length; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+          onComplete={onComplete}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("button", { name: /play again/i })).toBeNull();
+    expect(screen.getByTestId("pronunciation-flow-round").textContent).toContain("Flow round 1");
+    expect(screen.getByText("able")).toBeTruthy();
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports bounded per-target pronunciation evidence when the visible list completes", async () => {
+    const onComplete = vi.fn();
+    const sendMessage = vi.fn();
+    const words = ["able", "common", "behind"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    for (let i = 0; i < words.length; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+          onComplete={onComplete}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({
+      totalWords: 3,
+      correctCount: 3,
+      targetResults: [
+        expect.objectContaining({ target: "able", correct: true }),
+        expect.objectContaining({ target: "common", correct: true }),
+        expect.objectContaining({ target: "behind", correct: true }),
+      ],
+      flowState: expect.objectContaining({
+        heatReached: true,
+        comboReached: false,
+        abandoned: false,
+      }),
+    }));
+  });
+
   it("keeps the comic hit and miss effect hooks in the rendered CSS", () => {
     render(
       <PronunciationGameCanvas
@@ -347,7 +906,7 @@ describe("PronunciationGameCanvas", () => {
     }
 
     expect(screen.getByTestId("pronunciation-speed-state").textContent).toContain(
-      "1.12x",
+      "1.45x",
     );
     expect(screen.getByTestId("pronunciation-heat-fire")).toBeTruthy();
   });
@@ -397,37 +956,122 @@ describe("PronunciationGameCanvas", () => {
     expect(screen.queryByTestId("pronunciation-heat-fire")).toBeNull();
   });
 
-  it("keeps hand-picked arcade combo audio under the pronunciation config", () => {
+  it("preserves the legacy arcade pronunciation hit-sfx ladder", () => {
+    expect(
+      [1, 2, 3, 4, 5, 6, 10, 15, 20].map((streak) => [
+        streak,
+        pronunciationHitSfxEffectForStreak(streak),
+      ]),
+    ).toEqual([
+      [1, "correct"],
+      [2, "correct"],
+      [3, "heating-up"],
+      [4, "combo"],
+      [5, "combo-breaker"],
+      [6, "combo"],
+      [10, "on-fire"],
+      [15, "mega-streak"],
+      [20, "legendary"],
+    ]);
+  });
+
+  it("keeps the full legacy milestone ladder under the pronunciation config", () => {
     expect(GAME_SFX.pronunciation.comboBreaker).toBe(
       "/sfx/pronunciation/combo_breaker.mp3",
     );
-    expect(GAME_SFX.pronunciation.onFire).toBe("/sfx/kefla-power-up.mp3");
     expect(GAME_SFX_CONFIG.pronunciation.comboMilestones).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
+      [
+        {
           minStreak: 5,
+          label: "COMBO BREAKER!",
           effect: "combo-breaker",
           src: "/sfx/pronunciation/combo_breaker.mp3",
-        }),
-        expect.objectContaining({
-          minStreak: 10,
-          effect: "on-fire",
-          src: "/sfx/kefla-power-up.mp3",
-        }),
-      ]),
+        },
+        { minStreak: 10, label: "ON FIRE!", effect: "on-fire" },
+        { minStreak: 15, label: "MEGA STREAK!", effect: "mega-streak" },
+        { minStreak: 20, label: "LEGENDARY!", effect: "legendary" },
+      ],
     );
-    expect(GAME_SFX.pronunciation.hitPop).toBe("synth:pronunciation-hit-pop");
-    expect(GAME_SFX.pronunciation.missThunk).toBe("synth:pronunciation-miss-thunk");
-    expect(GAME_SFX.pronunciation.replayStart).toBe("synth:pronunciation-replay-start");
+    expect(GAME_SFX.pronunciation.combo).toBe("/sfx/pronunciation/combo.wav");
+    expect(GAME_SFX.pronunciation.onFire).toBe("/sfx/pronunciation/on_fire.wav");
+    expect(GAME_SFX.pronunciation.megaStreak).toBe(
+      "/sfx/pronunciation/killer_instinct_brutal_combo.mp3",
+    );
+    expect(GAME_SFX.pronunciation.legendary).toBe(
+      "/sfx/pronunciation/killer_instinct_master_combo.mp3",
+    );
+    expect(
+      new Set([
+        GAME_SFX.pronunciation.combo,
+        GAME_SFX.pronunciation.onFire,
+        GAME_SFX.pronunciation.megaStreak,
+        GAME_SFX.pronunciation.legendary,
+      ]).size,
+    ).toBe(4);
+    expect(GAME_SFX.pronunciation.hitPop).toBe("/sfx/pronunciation/hit_pop.wav");
+    expect(GAME_SFX.pronunciation.missThunk).toBe("/sfx/pronunciation/miss_thunk.wav");
+    expect(GAME_SFX.pronunciation.replayStart).toBe("/sfx/pronunciation/replay_start.wav");
     expect(GAME_SFX.pronunciation.completeFanfare).toBe(
-      "synth:pronunciation-complete-fanfare",
+      "/sfx/pronunciation/complete_fanfare.wav",
     );
-    expect(GAME_SFX.pronunciation.heatUp).toBe("synth:pronunciation-heat-up");
+    expect(GAME_SFX.pronunciation.heatUp).toBe(
+      "/sfx/pronunciation/hes-heating-up.mp3",
+    );
+  });
+
+  it("keeps pronunciation gameplay sfx mapped to real public assets", () => {
+    for (const [id, src] of Object.entries(GAME_SFX.pronunciation)) {
+      if (src.startsWith("synth:")) continue;
+      expect(src, `${id} file-backed sfx must use public assets`).toMatch(/^\/sfx\//);
+      expect(
+        existsSync(join(webRoot, "public", src)),
+        `${id} missing public asset ${src}`,
+      ).toBe(true);
+    }
+  });
+
+  it("uses file-backed audio for every audible pronunciation escalation cue", () => {
+    const escalationSfx = {
+      combo: GAME_SFX.pronunciation.combo,
+      onFire: GAME_SFX.pronunciation.onFire,
+      megaStreak: GAME_SFX.pronunciation.megaStreak,
+      legendary: GAME_SFX.pronunciation.legendary,
+    };
+
+    for (const [id, src] of Object.entries(escalationSfx)) {
+      expect(src, `${id} must use the same Audio playback path as working cues`).toMatch(
+        /^\/sfx\/pronunciation\/.+\.(wav|mp3)$/,
+      );
+      expect(
+        existsSync(join(webRoot, "public", src)),
+        `${id} missing public asset ${src}`,
+      ).toBe(true);
+    }
+  });
+
+  it("plays on-fire, mega-streak, and legendary through browser Audio files", () => {
+    const audioCtor = vi.fn().mockImplementation(() => ({
+      volume: 0,
+      play: vi.fn().mockResolvedValue(undefined),
+    }));
+    vi.stubGlobal("Audio", audioCtor);
+
+    expect(playPronunciationHitSfx(10)).toBe(true);
+    expect(playPronunciationHitSfx(15)).toBe(true);
+    expect(playPronunciationHitSfx(20)).toBe(true);
+
+    expect(audioCtor).toHaveBeenCalledWith("/sfx/pronunciation/on_fire.wav");
+    expect(audioCtor).toHaveBeenCalledWith(
+      "/sfx/pronunciation/killer_instinct_brutal_combo.mp3",
+    );
+    expect(audioCtor).toHaveBeenCalledWith(
+      "/sfx/pronunciation/killer_instinct_master_combo.mp3",
+    );
   });
 
   it("offers replay and harder replay from the completion overlay", async () => {
     const sendMessage = vi.fn();
-    const { rerender } = render(
+    render(
       <PronunciationGameCanvas
         words={["alpha"]}
         interimTranscript=""
@@ -435,18 +1079,8 @@ describe("PronunciationGameCanvas", () => {
       />,
     );
 
-    rerender(
-      <PronunciationGameCanvas
-        words={["alpha"]}
-        interimTranscript="alpha"
-        sendMessage={sendMessage}
-      />,
-    );
     await act(async () => {
-      await Promise.resolve();
-    });
-    await act(async () => {
-      vi.advanceTimersByTime(350);
+      vi.advanceTimersByTime(60000);
       await Promise.resolve();
     });
 
@@ -472,10 +1106,176 @@ describe("PronunciationGameCanvas", () => {
         }),
       }),
     );
-    expect(screen.queryByRole("button", { name: /harder replay/i })).toBeNull();
     expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
     expect(screen.getByTestId("pronunciation-speed-state").textContent).toContain(
-      "1.25x",
+      "1.40x",
+    );
+  });
+
+  it("finishes the evidence pass and automatically enters capped adaptive flow when vitals are strong", async () => {
+    const sendMessage = vi.fn();
+    const onComplete = vi.fn();
+    const words = ["alpha", "beta", "gamma"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    for (let i = 0; i < words.length; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+          onComplete={onComplete}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+        await Promise.resolve();
+      });
+    }
+
+    expect(onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runEndedReason: "completed_targets",
+        chartEligible: true,
+        replayOnly: false,
+      }),
+    );
+    expect(screen.queryByText("GAME OVER")).toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+      await Promise.resolve();
+    });
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_event",
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "replay_requested",
+          payload: expect.objectContaining({
+            source: "adaptive_flow",
+            flowRound: 1,
+            mode: "hard",
+          }),
+        }),
+      }),
+    );
+    expect(screen.getByTestId("pronunciation-flow-round").textContent).toContain("Flow round 1");
+    expect(screen.getByTestId("pronunciation-speed-state").textContent).toContain("1.40x");
+    expect(screen.queryByText("FLOW COMPLETE")).toBeNull();
+
+    rerender(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript="alpha"
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+    const flowHitUpdates = sendMessage.mock.calls
+      .filter(([type]) => type === "game_state_update")
+      .map(([, payload]) => payload as Record<string, unknown>);
+    expect(
+      flowHitUpdates.some(
+        (payload) =>
+          payload.phase === "hit" &&
+          payload.replayOnly === true &&
+          payload.flowRound === 1,
+      ),
+    ).toBe(true);
+    expect(screen.queryByText("FLOW COMPLETE")).toBeNull();
+  });
+
+  it("keeps replay runs out of authoritative completion evidence", async () => {
+    const sendMessage = vi.fn();
+    const onComplete = vi.fn();
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={["alpha"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    rerender(
+      <PronunciationGameCanvas
+        words={["alpha"]}
+        interimTranscript="alpha"
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      screen.getByRole("button", { name: /play again/i }).click();
+    });
+    rerender(
+      <PronunciationGameCanvas
+        words={["alpha"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    rerender(
+      <PronunciationGameCanvas
+        words={["alpha"]}
+        interimTranscript="alpha"
+        sendMessage={sendMessage}
+        onComplete={onComplete}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        phase: "complete",
+        replayOnly: true,
+        chartEligible: false,
+      }),
     );
   });
 
@@ -490,7 +1290,7 @@ describe("PronunciationGameCanvas", () => {
       "likely",
       "friendly",
     ];
-    const { rerender } = render(
+    render(
       <PronunciationGameCanvas
         words={teaserWords}
         replayWords={replayWords}
@@ -498,23 +1298,10 @@ describe("PronunciationGameCanvas", () => {
         sendMessage={sendMessage}
       />,
     );
-
-    for (let i = 0; i < teaserWords.length; i += 1) {
-      rerender(
-        <PronunciationGameCanvas
-          words={teaserWords}
-          replayWords={replayWords}
-          interimTranscript={teaserWords.slice(0, i + 1).join(" ")}
-          sendMessage={sendMessage}
-        />,
-      );
-      await act(async () => {
-        await Promise.resolve();
-      });
-      await act(async () => {
-        vi.advanceTimersByTime(350);
-      });
-    }
+    await act(async () => {
+      vi.advanceTimersByTime(60000);
+      await Promise.resolve();
+    });
 
     act(() => {
       screen.getByRole("button", { name: /harder replay/i }).click();
@@ -552,7 +1339,7 @@ describe("PronunciationGameCanvas", () => {
       "likely",
       "friendly",
     ];
-    const { rerender } = render(
+    render(
       <PronunciationGameCanvas
         words={teaserWords}
         replayWords={replayWords}
@@ -572,35 +1359,10 @@ describe("PronunciationGameCanvas", () => {
         sendMessage={sendMessage}
       />,
     );
-
-    for (let i = 0; i < teaserWords.length; i += 1) {
-      rerender(
-        <PronunciationGameCanvas
-          words={teaserWords}
-          replayWords={replayWords}
-          pronunciationConfig={{
-            baseWordCount: 5,
-            targetFlowWordCount: 7,
-            maxWordCount: 10,
-            expansionPolicy: "on_mastery_or_child_replay",
-            masteryGate: {
-              accuracyAtLeast: 0.85,
-              minStreak: 5,
-              noFrustrationSignal: true,
-            },
-            supportPolicy: "slow_on_help_or_repeated_miss",
-          }}
-          interimTranscript={teaserWords.slice(0, i + 1).join(" ")}
-          sendMessage={sendMessage}
-        />,
-      );
-      await act(async () => {
-        await Promise.resolve();
-      });
-      await act(async () => {
-        vi.advanceTimersByTime(350);
-      });
-    }
+    await act(async () => {
+      vi.advanceTimersByTime(60000);
+      await Promise.resolve();
+    });
 
     act(() => {
       screen.getByRole("button", { name: /harder replay/i }).click();
@@ -627,7 +1389,34 @@ describe("PronunciationGameCanvas", () => {
     );
   });
 
-  it("fires combo breaker event and marks the next word as x2 after a huge streak", async () => {
+  it("does not score synthetic session-start prompts as pronunciation speech", async () => {
+    const sendMessage = vi.fn();
+    render(
+      <PronunciationGameCanvas
+        words={["above", "ago"]}
+        interimTranscript={'[Session start — homework map mounted]\\nFirst map node: pronunciation\\nFirst node words: above, ago'}
+        sendMessage={sendMessage}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const gameStateUpdates = sendMessage.mock.calls
+      .filter(([type]) => type === "game_state_update")
+      .map(([, payload]) => payload as Record<string, unknown>);
+    expect(gameStateUpdates.length).toBeGreaterThan(0);
+    expect(gameStateUpdates).toEqual(
+      expect.arrayContaining([
+        expect.not.objectContaining({
+          lastHeard: expect.stringContaining("Session start"),
+        }),
+      ]),
+    );
+    expect(screen.getByTestId("pronunciation-progress").textContent).toContain("1 / 2");
+  });
+
+  it("fires combo breaker event and marks the next word with heat-money VFX after a huge streak", async () => {
     const sendMessage = vi.fn();
     const words = [
       "alpha",
@@ -679,25 +1468,116 @@ describe("PronunciationGameCanvas", () => {
         }),
       }),
     );
-    expect(screen.getByText("COMBO BREAKER! BONUS WORD x2")).toBeTruthy();
+    expect(screen.getByText("COMBO BREAKER! 3x MONEY")).toBeTruthy();
     expect(screen.getByTestId("pronunciation-bonus-word")).toBeTruthy();
   });
 
-  it("keeps combo breaker, AI socket event, flame trail, and x2 bonus hooks in the source", async () => {
-    const { default: source } = (await import(
-      "../components/PronunciationGameCanvas.tsx?raw"
-    )) as { default: string };
+  it("uses the pronunciation hit-sfx decision contract during streak progression", async () => {
+    const sendMessage = vi.fn();
+    const audioCtor = vi.fn().mockImplementation(() => ({
+      volume: 0,
+      play: vi.fn().mockResolvedValue(undefined),
+    }));
+    vi.stubGlobal("Audio", audioCtor);
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const words = ["able", "brave", "calm", "daring", "eager"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
 
-    expect(source).toContain("COMBO_BREAKER_STREAK");
-    expect(source).toContain("playGameSfx(\"pronunciation\", \"comboBreaker\")");
-    expect(source).toContain("playPronunciationMilestoneSfx");
-    expect(source).toContain("playGameSfx(\"pronunciation\", \"hitPop\")");
-    expect(source).toContain("playGameSfx(\"pronunciation\", \"missThunk\")");
-    expect(source).toContain("playGameSfx(\"pronunciation\", \"replayStart\")");
-    expect(source).toContain("playGameSfx(\"pronunciation\", \"completeFanfare\")");
-    expect(source).toContain("type: \"combo_breaker\"");
-    expect(source).toContain("data-testid=\"pronunciation-bonus-word\"");
-    expect(source).toContain("BONUS WORD x2");
-    expect(source).toContain("@keyframes pg-flame-trail");
+    for (let i = 0; i < 5; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    expect(
+      logSpy.mock.calls
+        .filter((call) => call[0] === " 🎮 [sfx] [pronunciation] [hit]")
+        .map((call) => (call[1] as { effect: string }).effect),
+    ).toEqual(["correct", "correct", "heating-up", "combo", "combo-breaker"]);
+    expect(audioCtor).toHaveBeenCalledWith("/sfx/pronunciation/combo_breaker.mp3");
+    logSpy.mockRestore();
+  });
+
+  it("restarts the pronunciation hit-sfx ladder after a miss so heat-up can play again", async () => {
+    const sendMessage = vi.fn();
+    const audioCtor = vi.fn().mockImplementation(() => ({
+      volume: 0,
+      play: vi.fn().mockResolvedValue(undefined),
+    }));
+    vi.stubGlobal("Audio", audioCtor);
+    const words = ["able", "brave", "calm", "daring", "eager", "final"];
+    const { rerender } = render(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    for (let i = 0; i < 3; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    expect(audioCtor).toHaveBeenCalledWith("/sfx/pronunciation/hes-heating-up.mp3");
+
+    rerender(
+      <PronunciationGameCanvas
+        words={words}
+        interimTranscript={`${words.slice(0, 3).join(" ")} zzzwrong`}
+        sendMessage={sendMessage}
+      />,
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    for (let i = 3; i < 6; i += 1) {
+      rerender(
+        <PronunciationGameCanvas
+          words={words}
+          interimTranscript={words.slice(0, i + 1).join(" ")}
+          sendMessage={sendMessage}
+        />,
+      );
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+    }
+
+    const playedSources = audioCtor.mock.calls.map(([src]) => src);
+    expect(
+      playedSources.filter((src) => src === "/sfx/pronunciation/hes-heating-up.mp3"),
+    ).toHaveLength(2);
   });
 });

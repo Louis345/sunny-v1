@@ -65,7 +65,6 @@ const DIAG_READING_TEST_WORDS = DIAG_READING_TEST_EXCERPT.split(/\s+/).filter(Bo
 const DIAG_GAMES_SUPPRESS_MIC = new Set<string>([
   "reading",
   "pronunciation",
-  "word-radar",
 ]);
 
 const DIAG_PRONUNCIATION_WORDS = [
@@ -528,14 +527,17 @@ function App() {
 
   const onLockedMapNodeTap = useCallback(
     (node: NodeConfig) => {
-      const who = state.childName ?? adventureChildId ?? "the child";
-      sendMessage("test_transcript", {
-        text:
-          `[Map] ${who} tapped a locked map node (${node.type}). ` +
-          `Reply in one short warm sentence: encourage finishing the unlocked activity first — do not start a new game.`,
+      const currentUnlockedNode = mapSession.mapState?.nodes.find(
+        (candidate) => !candidate.isLocked && !candidate.isCompleted,
+      );
+      sendMessage("locked_node_tap", {
+        childId: adventureChildId,
+        nodeId: node.id,
+        nodeType: node.type,
+        currentUnlockedNodeId: currentUnlockedNode?.id,
       });
     },
-    [state.childName, adventureChildId, sendMessage],
+    [adventureChildId, mapSession.mapState?.nodes, sendMessage],
   );
 
   useEffect(() => {
@@ -1221,7 +1223,6 @@ function App() {
     diagFlowGameOpen != null ||
     (state.phase === "active" && state.canvas.mode === "pronunciation") ||
     mapSession.launchedNode?.type === "karaoke" ||
-    mapSession.launchedNode?.type === "word-radar" ||
     mapSession.launchedNode?.type === "visual-explainer" ||
     (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
   const voiceGameCompanionMicMuted =
@@ -1231,7 +1232,6 @@ function App() {
     wordRadarDiagOpen ||
     (state.phase === "active" && state.canvas.mode === "pronunciation") ||
     mapSession.launchedNode?.type === "karaoke" ||
-    mapSession.launchedNode?.type === "word-radar" ||
     mapSession.launchedNode?.type === "visual-explainer" ||
     (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
 

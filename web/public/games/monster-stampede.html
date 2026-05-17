@@ -355,8 +355,8 @@ function App(){
   const chunks = useMemo(()=>getChunks(currentWord),[currentWord]);
 
   /* ── Bridge helpers ─────────────────────────────────────────── */
-  const reportState=(msg,ex={})=>{ if(window.GameBridge?.reportState) window.GameBridge.reportState(msg,{game:'monster-stampede',wordIdx,score,lives,...ex}); };
-  const reportAction=(action,msg,ex={})=>{ if(window.GameBridge?.reportAction) window.GameBridge.reportAction(action,msg,{game:'monster-stampede',wordIdx,score,lives,...ex}); };
+  const reportState=(msg,ex={})=>{ if(window.GameBridge?.reportState) window.GameBridge.reportState(msg,{game:'monster-stampede',wordIdx,itemIndex:wordIdx,totalItems:WORDS_RAW.length,currentWord,answerVisibility:'visible',score,lives,...ex}); };
+  const reportAction=(action,msg,ex={})=>{ if(window.GameBridge?.reportAction) window.GameBridge.reportAction(action,msg,{game:'monster-stampede',wordIdx,itemIndex:wordIdx,totalItems:WORDS_RAW.length,currentWord,answerVisibility:'visible',score,lives,...ex}); };
   const fireComp=(t,p={})=>{ if(window.fireCompanionEvent) window.fireCompanionEvent(t,p); };
   function speakTargetFallback(word){
     if(window.parent!==window) return false;
@@ -460,6 +460,7 @@ function App(){
     } else {
       // Wrong tile
       wrongCount.current++;
+      if(!wordsWrong.current.includes(word)) wordsWrong.current.push(word);
       SE.wrong();
       setFlash('wrong');
       setTimeout(()=>setFlash(null),400);
@@ -517,6 +518,20 @@ function App(){
     setPhase(won?'won':'lost');
     if(won) SE.fanfare();
     else SE.gameover();
+    const targetResults=WORDS_RAW.map((word)=>{
+      const struggled=wordsWrong.current.includes(word);
+      const correct=wordsCorrect.current.includes(word);
+      return {
+        target:word,
+        correct,
+        attempts:struggled ? 2 : (correct ? 1 : 0),
+        scaffoldLevel:struggled ? 1 : 0,
+        mode:'monster-stampede',
+        evidenceTier:'practice',
+        masteryEligible:false,
+        struggleSignals:struggled ? ['wrong_tile_or_hint_needed'] : []
+      };
+    });
     const result={
       completed:won,
       accuracy:wordsCorrect.current.length/WORDS_RAW.length,
@@ -527,6 +542,16 @@ function App(){
       coinsEarned:score,
       timeSpent_ms:Date.now()-startTime.current,
       wordsAttempted:WORDS_RAW.length,
+      activityId:'monster-stampede',
+      evidenceTier:'practice',
+      masteryEligible:false,
+      vitalSigns:{
+        timeOnTask_ms:Date.now()-startTime.current,
+        flowSignals:wordsCorrect.current.length,
+        frustrationSignals:wordsWrong.current.length,
+        helpRequests:wordsWrong.current.length,
+      },
+      targetResults,
     };
     reportState(won?`Won! ${score} pts, ${wordsCorrect.current.length}/${WORDS_RAW.length} words.`:`Lost. ${score} pts.`,result);
     if(window.GameBridge?.awardCurrency) window.GameBridge.awardCurrency(score,'monster_stampede');

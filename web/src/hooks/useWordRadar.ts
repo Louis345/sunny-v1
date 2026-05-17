@@ -398,6 +398,15 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     [],
   );
 
+  const spendRetryPenalty = useCallback(() => {
+    playBuzz();
+    if (!canTryAgainRef.current) return;
+    attemptCountRef.current = 2;
+    setAttemptCount(2);
+    canTryAgainRef.current = false;
+    setCanTryAgain(false);
+  }, []);
+
   const finishSession = useCallback(
     (finalRaw: ItemResult[]) => {
       clearTick();
@@ -656,6 +665,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
           }
           continue;
         }
+        spendRetryPenalty();
         setShakeLetterIndex(cursor);
         window.setTimeout(() => setShakeLetterIndex(null), 400);
         return;
@@ -773,6 +783,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
           }
           return;
         }
+        spendRetryPenalty();
         setShakeLetterIndex(cursor);
         window.setTimeout(() => setShakeLetterIndex(null), 400);
         return;
@@ -795,6 +806,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       const locked: string[] = [];
       for (let i = 0; i < cleaned.length && i < letters.length; i++) {
         if (cleaned[i] !== letters[i]) {
+          spendRetryPenalty();
           setShakeLetterIndex(i);
           window.setTimeout(() => setShakeLetterIndex(null), 400);
           break;

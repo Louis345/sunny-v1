@@ -1,13 +1,15 @@
 export const GAME_SFX = {
   pronunciation: {
     comboBreaker: "/sfx/pronunciation/combo_breaker.mp3",
-    onFire: "/sfx/kefla-power-up.mp3",
-    megaStreak: "/sfx/kefla-power-up.mp3",
-    hitPop: "synth:pronunciation-hit-pop",
-    missThunk: "synth:pronunciation-miss-thunk",
-    replayStart: "synth:pronunciation-replay-start",
-    completeFanfare: "synth:pronunciation-complete-fanfare",
-    heatUp: "synth:pronunciation-heat-up",
+    combo: "/sfx/pronunciation/combo.wav",
+    onFire: "/sfx/pronunciation/on_fire.wav",
+    megaStreak: "/sfx/pronunciation/killer_instinct_brutal_combo.mp3",
+    legendary: "/sfx/pronunciation/killer_instinct_master_combo.mp3",
+    hitPop: "/sfx/pronunciation/hit_pop.wav",
+    missThunk: "/sfx/pronunciation/miss_thunk.wav",
+    replayStart: "/sfx/pronunciation/replay_start.wav",
+    completeFanfare: "/sfx/pronunciation/complete_fanfare.wav",
+    heatUp: "/sfx/pronunciation/hes-heating-up.mp3",
   },
 } as const;
 
@@ -27,13 +29,16 @@ export const GAME_SFX_CONFIG = {
         minStreak: 10,
         label: "ON FIRE!",
         effect: "on-fire",
-        src: "/sfx/kefla-power-up.mp3",
       },
       {
         minStreak: 15,
         label: "MEGA STREAK!",
         effect: "mega-streak",
-        src: "/sfx/kefla-power-up.mp3",
+      },
+      {
+        minStreak: 20,
+        label: "LEGENDARY!",
+        effect: "legendary",
       },
     ],
   },
@@ -42,6 +47,14 @@ export const GAME_SFX_CONFIG = {
 export type GameSfxGame = keyof typeof GAME_SFX;
 export type GameSfxId<G extends GameSfxGame = GameSfxGame> =
   keyof (typeof GAME_SFX)[G];
+export type PronunciationHitSfxEffect =
+  | "correct"
+  | "heating-up"
+  | "combo"
+  | "combo-breaker"
+  | "on-fire"
+  | "mega-streak"
+  | "legendary";
 
 let audioCtx: AudioContext | null = null;
 
@@ -128,19 +141,50 @@ function playSynthSfx(src: string): void {
     case "synth:pronunciation-heat-up":
       playSweep(330, 880, 0.42, 0.11);
       return;
+    case "synth:pronunciation-combo":
+      playTone(587, 0, 0.055, 0.054, "square");
+      playTone(740, 0.045, 0.06, 0.054, "triangle");
+      playTone(988, 0.09, 0.075, 0.05, "square");
+      return;
+    case "synth:pronunciation-on-fire":
+      playTone(330, 0, 0.07, 0.054, "sawtooth");
+      playTone(660, 0.055, 0.07, 0.063, "square");
+      playTone(990, 0.11, 0.09, 0.068, "triangle");
+      playTone(1320, 0.18, 0.12, 0.054, "square");
+      return;
+    case "synth:pronunciation-mega-streak":
+      playTone(220, 0, 0.08, 0.063, "sawtooth");
+      playTone(440, 0.06, 0.08, 0.068, "square");
+      playTone(880, 0.12, 0.1, 0.068, "square");
+      playTone(1760, 0.22, 0.16, 0.063, "triangle");
+      return;
+    case "synth:pronunciation-legendary":
+      playTone(196, 0, 0.11, 0.072, "sawtooth");
+      playTone(392, 0.08, 0.1, 0.072, "square");
+      playTone(784, 0.16, 0.12, 0.077, "triangle");
+      playTone(1568, 0.28, 0.2, 0.072, "triangle");
+      return;
     default:
       console.warn(" 🎮 [sfx] unknown synth", { src });
   }
 }
 
-function srcForPronunciationEffect(effect: string): string | undefined {
+function srcForPronunciationEffect(effect: PronunciationHitSfxEffect): string | undefined {
   switch (effect) {
+    case "correct":
+      return GAME_SFX.pronunciation.hitPop;
+    case "heating-up":
+      return GAME_SFX.pronunciation.heatUp;
+    case "combo":
+      return GAME_SFX.pronunciation.combo;
     case "combo-breaker":
       return GAME_SFX.pronunciation.comboBreaker;
     case "on-fire":
       return GAME_SFX.pronunciation.onFire;
     case "mega-streak":
       return GAME_SFX.pronunciation.megaStreak;
+    case "legendary":
+      return GAME_SFX.pronunciation.legendary;
     default:
       return undefined;
   }
@@ -183,16 +227,24 @@ export function playGameSfx<G extends GameSfxGame>(
   return playSfxSource(src, { game, id: String(id) });
 }
 
-export function playPronunciationMilestoneSfx(streak: number): boolean {
-  if (!GAME_SFX_CONFIG.pronunciation.enabled) return false;
+export function pronunciationHitSfxEffectForStreak(
+  streak: number,
+): PronunciationHitSfxEffect {
   const milestone = GAME_SFX_CONFIG.pronunciation.comboMilestones.find(
     (item) => item.minStreak === streak,
   );
-  if (!milestone) return false;
-  const effect = milestone.effect;
-  const src = milestone.src || srcForPronunciationEffect(effect);
+  if (milestone) return milestone.effect;
+  if (streak === 3) return "heating-up";
+  if (streak > 3) return "combo";
+  return "correct";
+}
+
+export function playPronunciationHitSfx(streak: number): boolean {
+  if (!GAME_SFX_CONFIG.pronunciation.enabled) return false;
+  const effect = pronunciationHitSfxEffectForStreak(streak);
+  const src = srcForPronunciationEffect(effect);
   if (!src) return false;
-  console.log(" 🎮 [sfx] [pronunciation] [milestone]", {
+  console.log(" 🎮 [sfx] [pronunciation] [hit]", {
     streak,
     effect,
     src,

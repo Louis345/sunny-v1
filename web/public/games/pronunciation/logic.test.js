@@ -582,13 +582,29 @@ describe('buildNodeResult', () => {
       'childId',
       'completed',
       'flaggedWords',
+      'hitEvents',
       'nodeId',
+      'rounds',
       'timeSpent_ms',
       'type',
+      'uniqueTargets',
       'wordsAttempted',
       'wordsHit',
       'xpEarned',
     ]);
+  });
+
+  it('separates arcade hit events from chart-worthy unique target attempts', () => {
+    const r = buildNodeResult({
+      ...baseInput,
+      wordsHit: 24,
+      wordsAttempted: 5,
+    });
+
+    expect(r.hitEvents).toBe(24);
+    expect(r.uniqueTargets).toBe(5);
+    expect(r.wordsAttempted).toBe(5);
+    expect(r.accuracy).toBeLessThanOrEqual(1);
   });
 
   it('defaults childId to "unknown" when not provided', () => {

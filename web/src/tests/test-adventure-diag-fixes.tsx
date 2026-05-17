@@ -2,6 +2,7 @@ import { cleanup, render, screen, fireEvent, renderHook, waitFor } from "@testin
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import childrenCfg from "../../../children.config.json"; // IDs from repo config (never hard-coded child labels)
+import { ChildPicker } from "../components/ChildPicker";
 import { CompanionCurrencyHud } from "../components/CompanionCurrencyHud";
 import { NodeCard } from "../components/NodeCard.tsx";
 import { TamagotchiSheet } from "../components/TamagotchiSheet";
@@ -53,6 +54,51 @@ describe("diag / adventure map regressions", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it("marks map nodes with stable lab selectors", () => {
+    render(
+      <NodeCard
+        node={{ ...SAMPLE_NODE, id: "node-spell", type: "spell-check" }}
+        position={{ x: 400, y: 300 }}
+        onClick={() => {}}
+        onHoverChange={() => {}}
+        isActive={false}
+        allowReplayWhenCompleted
+      />,
+    );
+
+    const btn = screen.getByRole("button", { name: /spell check/i });
+    expect(btn).toHaveAttribute("data-node-id", "node-spell");
+    expect(btn).toHaveAttribute("data-node-type", "spell-check");
+    expect(btn).toHaveAttribute("data-activity-id", "spell-check");
+  });
+
+  it("marks child picker options with stable lab selectors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            {
+              childName: "Ila",
+              companionName: "Elli",
+              emoji: "🌟",
+              accentColor: "#6d5dfc",
+              accentBg: "#f1f0ff",
+            },
+          ]),
+      }),
+    );
+    const onSelect = vi.fn();
+    render(<ChildPicker onSelect={onSelect} />);
+
+    const ila = await screen.findByRole("button", { name: /ila/i });
+    expect(ila).toHaveAttribute("data-child-id", "ila");
+    expect(ila).toHaveAttribute("data-profile-child-id", "ila");
+    fireEvent.click(ila);
+    expect(onSelect).toHaveBeenCalledWith("Ila");
+  });
+
   it("HUD renders companionCurrency from profile", () => {
     render(<CompanionCurrencyHud companionCurrency={42} />);
     const hud = screen.getByTestId("companion-currency-hud");
@@ -84,7 +130,7 @@ describe("diag / adventure map regressions", () => {
     expect(html.includes("width: 80%")).toBe(false);
   });
 
-  it("map load errors expose the server reason instead of only connection copy", async () => {
+  it("map startup errors do not expose internal planner reasons to children", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 422,
@@ -101,7 +147,7 @@ describe("diag / adventure map regressions", () => {
       expect(result.current.connectionStatus).toBe("error");
     });
     expect(result.current.connectionError).toBe(
-      "activity_plan_blocked: high_confidence_spelling_requires_independent_recall",
+      "Sunny is getting your adventure map ready.",
     );
   });
 

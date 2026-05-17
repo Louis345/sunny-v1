@@ -69,6 +69,10 @@ export function NodeCard({
   return (
     <motion.div
       role="button"
+      aria-label={typeLabel}
+      data-node-id={node.id}
+      data-node-type={node.type}
+      data-activity-id={node.type}
       tabIndex={isLocked ? -1 : 0}
       onPointerEnter={() => {
         if (!isLocked && (!isDone || doneButReplayable)) onHoverChange?.(true);

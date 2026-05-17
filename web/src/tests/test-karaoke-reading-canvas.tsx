@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { KaraokeReadingCanvas } from "../components/KaraokeReadingCanvas";
 
 describe("KaraokeReadingCanvas", () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("first word is highlighted on mount", () => {
@@ -251,5 +253,113 @@ describe("KaraokeReadingCanvas", () => {
         version: "1.0",
       },
     });
+  });
+
+  it("emits quiet board context updates while Elli voice turns are suppressed", async () => {
+    const sendMessage = vi.fn();
+    const { rerender } = render(
+      <KaraokeReadingCanvas
+        words={["Rain", "rushed"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+        childId="reina"
+      />,
+    );
+
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "karaoke",
+        activity: "story-karaoke",
+        childId: "reina",
+        currentWord: "Rain",
+        expectedWords: ["Rain", "rushed"],
+        mode: "reading",
+        sttStatus: "listening",
+        wordIndex: 0,
+        totalWords: 2,
+      }),
+    );
+
+    rerender(
+      <KaraokeReadingCanvas
+        words={["Rain", "rushed"]}
+        interimTranscript="Rain"
+        sendMessage={sendMessage}
+        childId="reina"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(sendMessage).toHaveBeenCalledWith(
+        "game_state_update",
+        expect.objectContaining({
+          game: "karaoke",
+          currentWord: "rushed",
+          heardTranscript: "Rain",
+          wordIndex: 1,
+        }),
+      );
+    });
+  });
+
+  it("shows transcript freshness without requesting game-local microphone audio", async () => {
+    vi.useFakeTimers();
+    const getUserMedia = vi.fn();
+    Object.defineProperty(globalThis.navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia },
+    });
+    const sendMessage = vi.fn();
+    render(
+      <KaraokeReadingCanvas
+        words={["rain"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    expect(screen.getByTestId("karaoke-listening-status").textContent).toContain("listening");
+    expect(getUserMedia).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(4500);
+    });
+
+    expect(screen.getByTestId("karaoke-listening-status").textContent).toContain("reconnecting");
+    expect(sendMessage).toHaveBeenCalledWith(
+      "game_state_update",
+      expect.objectContaining({
+        game: "karaoke",
+        sttStatus: "reconnecting",
+      }),
+    );
+  });
+
+  it("keeps reading progress when rerender receives the same words in a new array", async () => {
+    const user = userEvent.setup();
+    const sendMessage = vi.fn();
+    const { rerender } = render(
+      <KaraokeReadingCanvas
+        words={["one", "two", "three"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    await user.click(document.querySelector("[data-highlighted='true']")!);
+    await waitFor(() => {
+      expect(document.querySelector("[data-highlighted='true']")?.textContent).toContain("two");
+    });
+
+    rerender(
+      <KaraokeReadingCanvas
+        words={["one", "two", "three"]}
+        interimTranscript=""
+        sendMessage={sendMessage}
+      />,
+    );
+
+    expect(document.querySelector("[data-highlighted='true']")?.textContent).toContain("two");
   });
 });

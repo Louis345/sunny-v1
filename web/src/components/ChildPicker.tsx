@@ -97,12 +97,16 @@ export function ChildPicker({ onSelect }: Props) {
 
       <div className="flex flex-wrap justify-center items-start gap-8 max-w-5xl px-4">
         {companions.map((c) => {
+          const childId = c.childName.trim().toLowerCase();
           return (
             <motion.button
               key={c.childName}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => onSelect(c.childName)}
+              aria-label={`${c.childName} with ${c.companionName}`}
+              data-child-id={childId}
+              data-profile-child-id={childId}
               className="w-60 h-64 rounded-xl border-2 border-gray-200 bg-gray-50 
                          flex flex-col items-center justify-center gap-3
                          hover:border-blue-400 transition-colors"
@@ -153,6 +157,9 @@ export function ChildPicker({ onSelect }: Props) {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => onSelect("creator", { diagKiosk: true })}
+          aria-label="Creator diagnostic mode"
+          data-child-id="creator"
+          data-profile-child-id="creator"
           className="relative w-52 h-56 rounded-xl border-2 border-amber-400/90
                      bg-gradient-to-b from-[#1a1528] via-[#231d35] to-[#2e2645]
                      flex flex-col items-center justify-center gap-2 px-3

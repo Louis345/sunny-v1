@@ -802,7 +802,11 @@ function buildNodeResult({
       if (count >= 2) flaggedWords.push(word);
     }
   }
-  const accuracy = wordsAttempted > 0 ? wordsHit / wordsAttempted : 0;
+  const hitEvents = Math.max(0, Number(wordsHit) || 0);
+  const uniqueTargets = Math.max(0, Number(wordsAttempted) || 0);
+  const boundedWordsHit = Math.min(hitEvents, uniqueTargets);
+  const accuracy = uniqueTargets > 0 ? boundedWordsHit / uniqueTargets : 0;
+  const rounds = uniqueTargets > 0 ? Math.max(1, Math.ceil(hitEvents / uniqueTargets)) : 0;
 
   return {
     type: 'node_complete',
@@ -811,8 +815,11 @@ function buildNodeResult({
     completed: Boolean(completed),
     accuracy,
     timeSpent_ms,
-    wordsHit,
-    wordsAttempted,
+    wordsHit: boundedWordsHit,
+    wordsAttempted: uniqueTargets,
+    hitEvents,
+    uniqueTargets,
+    rounds,
     flaggedWords,
     xpEarned,
   };

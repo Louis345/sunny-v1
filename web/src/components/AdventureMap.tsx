@@ -66,12 +66,14 @@ function nodeResultFromWordRadar(nodeId: string, r: WordRadarResult): NodeResult
     correctWords,
     mode: r.recallMode,
     masteryEligible: r.masteryEligible,
+    evidenceTier: r.masteryEligible ? "mastery_candidate" : "practice",
     targetResults: r.rawResults.map((row) => ({
       target: row.item.display.trim(),
       correct: row.correct,
       attempts: row.attempts,
       mode: row.recallMode ?? r.recallMode,
       masteryEligible: row.masteryEligible ?? false,
+      evidenceTier: row.masteryEligible ? "mastery_candidate" : "practice",
       ...(row.heardTranscript || row.heardToken || row.typedResponse
         ? { attemptedValue: row.heardTranscript ?? row.heardToken ?? row.typedResponse }
         : {}),
@@ -780,8 +782,34 @@ export function AdventureMap(props: {
       if (typeof pl.purpose === "string") {
         nr.purpose = pl.purpose;
       }
+      if (typeof pl.activityIntentId === "string") {
+        nr.activityIntentId = pl.activityIntentId;
+      } else if (node?.activityIntent?.intentId) {
+        nr.activityIntentId = node.activityIntent.intentId;
+      }
+      if (typeof pl.targetSelectorId === "string") {
+        nr.targetSelectorId = pl.targetSelectorId;
+      } else if (node?.targetSelectorDecision?.selectorId) {
+        nr.targetSelectorId = node.targetSelectorDecision.selectorId;
+      }
+      if (node?.activityIntent) {
+        nr.activityIntent = node.activityIntent;
+      }
+      if (node?.targetSelectorDecision) {
+        nr.targetSelectorDecision = node.targetSelectorDecision;
+      }
       if (typeof pl.mode === "string") {
         nr.mode = pl.mode;
+      }
+      if (typeof pl.evidenceTier === "string") {
+        nr.evidenceTier = pl.evidenceTier as NodeResult["evidenceTier"];
+      } else if (node?.activityIntent?.evidenceTier) {
+        nr.evidenceTier = node.activityIntent.evidenceTier;
+      }
+      if (typeof pl.masteryEligible === "boolean") {
+        nr.masteryEligible = pl.masteryEligible;
+      } else if (typeof node?.activityIntent?.masteryEligible === "boolean") {
+        nr.masteryEligible = node.activityIntent.masteryEligible;
       }
       if (pl.bonusRound && typeof pl.bonusRound === "object" && !Array.isArray(pl.bonusRound)) {
         nr.bonusRound = pl.bonusRound as Record<string, unknown>;
@@ -831,6 +859,9 @@ export function AdventureMap(props: {
                 : {}),
               ...(typeof record.masteryEligible === "boolean"
                 ? { masteryEligible: record.masteryEligible }
+                : {}),
+              ...(typeof record.evidenceTier === "string"
+                ? { evidenceTier: record.evidenceTier as NodeResult["evidenceTier"] }
                 : {}),
             };
           })
@@ -1330,9 +1361,10 @@ export function AdventureMap(props: {
 	    setMysteryChoiceOverlay(null);
 	  }, [mysteryChoiceOverlay, recordMysteryChoiceEvent]);
 
-	  const diagReading = import.meta.env.VITE_DIAG_READING === "true";
+  const diagReading = import.meta.env.VITE_DIAG_READING === "true";
   const flowGameBackChrome =
     Boolean(props.previewMode) || props.showFlowGameBackChrome === true;
+  const showFlowGameBackButton = launchedNode != null;
   const chimpBg =
     "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600";
 
@@ -1906,7 +1938,7 @@ export function AdventureMap(props: {
               }
             />
           )}
-          {flowGameBackChrome ? (
+          {showFlowGameBackButton ? (
             <button
               type="button"
               className="absolute top-3 right-3 z-[50] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
@@ -1980,7 +2012,7 @@ export function AdventureMap(props: {
                 );
               }}
             />
-            {flowGameBackChrome ? (
+            {showFlowGameBackButton ? (
               <button
                 type="button"
                 className="absolute top-3 right-3 z-[50] rounded-full bg-black/70 px-4 py-2 text-sm text-white"
@@ -2048,15 +2080,6 @@ export function AdventureMap(props: {
               }
               const accuracy =
                 result.accuracy > 1 ? result.accuracy / 100 : result.accuracy;
-              const missed = new Set(result.flaggedWords.map(normalizePracticeWord));
-              const correctLimit = Math.min(
-                result.wordsHit,
-                pronunciationWordsForNode.length,
-              );
-              void props.karaokeReadingForMapNode?.sendMessage?.(
-                "pronunciation_complete",
-                result as unknown as Record<string, unknown>,
-              );
               if (pronunciationNodeCompletionRecordedRef.current === node.id) {
                 void props.karaokeReadingForMapNode?.sendMessage?.(
                   "game_event",
@@ -2076,6 +2099,10 @@ export function AdventureMap(props: {
                 );
                 return;
               }
+              void props.karaokeReadingForMapNode?.sendMessage?.(
+                "pronunciation_complete",
+                result as unknown as Record<string, unknown>,
+              );
               pronunciationNodeCompletionRecordedRef.current = node.id;
               void sendNodeResult({
                 nodeId: node.id,
@@ -2084,17 +2111,15 @@ export function AdventureMap(props: {
                 accuracy,
                 timeSpent_ms: 0,
                 wordsAttempted: result.wordsAttempted,
-                correctWords: pronunciationWordsForNode.filter(
-                  (word, idx) =>
-                    idx < correctLimit && !missed.has(normalizePracticeWord(word)),
-                ),
-                missedWords: result.flaggedWords,
-                targetResults: pronunciationWordsForNode.map((word, idx) => ({
-                  target: word,
-                  correct:
-                    idx < correctLimit &&
-                    !missed.has(normalizePracticeWord(word)),
-                })),
+                evidenceTier: result.evidenceTier ?? "practice",
+                vitalSigns: result.flowState ? { flowState: result.flowState } : undefined,
+                correctWords: result.targetResults
+                  .filter((row) => row.correct)
+                  .map((row) => row.target),
+                missedWords: result.targetResults
+                  .filter((row) => !row.correct || row.struggleSignals.length > 0)
+                  .map((row) => row.target),
+                targetResults: result.targetResults,
               }, { keepLaunchedNode: true }).catch((error: unknown) => {
                 console.error(" 🎮 [pronunciation] [node-result] failed", error);
               });
@@ -2102,7 +2127,7 @@ export function AdventureMap(props: {
             onExit={() => clearLaunchedNode()}
             topInset={flowGameBackChrome ? PREVIEW_GAME_TOP_INSET_PX : 0}
           />
-          {flowGameBackChrome ? (
+          {showFlowGameBackButton ? (
             <button
               type="button"
               className="absolute top-4 right-4 z-[50] rounded-full bg-black/70 px-4 py-2 text-sm text-white"

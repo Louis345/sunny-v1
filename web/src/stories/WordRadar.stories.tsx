@@ -26,12 +26,20 @@ const meta: Meta<WordRadarStoryArgs> = {
 export default meta;
 type Story = StoryObj<WordRadarStoryArgs>;
 
-function radarItems(words: string[]): RadarItem[] {
-  return words.map((word) => ({
+function radarItems(fixture: { state: BaselineFixtureState; words: string[] }): RadarItem[] {
+  const bonusIndex = fixture.state === "complete" ? fixture.words.length - 1 : -1;
+  return fixture.words.map((word, index) => ({
     display: word,
     acceptedResponses: [word],
-    label: "QA spelling",
+    label: index === bonusIndex ? "Bonus" : "QA spelling",
     subject: "spelling",
+    ...(index === bonusIndex
+      ? {
+          targetRole: "bonus",
+          source: "spaced_repetition",
+          reason: "due_review",
+        }
+      : {}),
   }));
 }
 
@@ -45,7 +53,7 @@ function WordRadarFixture({ state }: { state: BaselineFixtureState }): React.Rea
       onTranscript={setTranscript}
     >
       <WordRadar
-        items={radarItems(fixture.words)}
+        items={radarItems(fixture)}
         interimTranscript={transcript}
         sendMessage={(type, payload) => console.info("[storybook:word-radar]", type, payload)}
         timerSeconds={fixture.wordRadarConfig?.timerSeconds}
@@ -59,6 +67,7 @@ function WordRadarFixture({ state }: { state: BaselineFixtureState }): React.Rea
         onComplete={(result) => console.info("[storybook:word-radar:complete]", result)}
         autoStart
         childId="qa"
+        enableLocalNarrationFallback
       />
     </BaselineQaHarness>
   );

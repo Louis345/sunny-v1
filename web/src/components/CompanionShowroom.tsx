@@ -8,6 +8,7 @@ import {
   type PointerEvent as PointEvt,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Mic, Send, X } from "lucide-react";
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import { CompanionMotor } from "../companion/CompanionMotor";
@@ -30,6 +31,173 @@ import { validateCompanionCommand } from "../../../src/shared/companions/validat
 import { mergeCompanionConfigWithDefaults } from "../../../src/shared/companionTypes";
 import { ensurePlaybackAnalyser } from "../utils/audioAnalyser";
 import { loadCompanionVrm } from "../utils/loadCompanionVrm";
+import {
+  StorybookFootlights,
+  StorybookPrimaryButton,
+  StorybookSignatureButton,
+  StorybookSparkles,
+} from "./StorybookShowroomChrome";
+import {
+  CrystalDotNav,
+  CrystalIdentityBlock,
+  CrystalPedestal,
+  CrystalPrimaryButton,
+  CrystalSignatureButton,
+  CrystalSpotlight,
+} from "./CrystalAtelierChrome";
+
+export const DEFAULT_SHOWROOM_THEME = "aurora";
+
+export const SHOWROOM_THEMES = [
+  {
+    id: "aurora",
+    displayName: "Aurora Hall",
+    shortDisplayName: "Aurora",
+    chrome: "aurora",
+    qaMarker: "showroom-theme-aurora",
+    v1Available: true,
+    accent: "#6D5EF5",
+    foreground: "#f8fafc",
+    mutedForeground: "rgba(248,250,252,0.68)",
+    rootBackground: "#0f0a1e",
+    controlBackground: "rgba(15,23,42,0.72)",
+    controlBorder: "rgba(255,255,255,0.28)",
+    controlForeground: "#f8fafc",
+    primaryBackground: "#6D5EF5",
+    primaryForeground: "#ffffff",
+    sparkleColor: "#fef3c7",
+    floorGlow: "radial-gradient(ellipse 80% 30% at 50% 100%, #1a1040, transparent)",
+    loadingBackground:
+      "radial-gradient(circle at 50% 34%, rgba(109,94,245,0.28), transparent 34%), rgba(15,10,30,0.94)",
+  },
+  {
+    id: "storybook",
+    displayName: "Storybook Proscenium",
+    shortDisplayName: "Storybook",
+    sceneLabel: "ACT ONE",
+    scenePrompt: "Three friends step into the light. Pick one to begin.",
+    chrome: "storybook",
+    qaMarker: "showroom-theme-storybook",
+    v1Available: true,
+    accent: "#d4a948",
+    foreground: "#fbf3dc",
+    mutedForeground: "rgba(251,243,220,0.7)",
+    rootBackground: "#170713",
+    controlBackground: "rgba(42,10,29,0.78)",
+    controlBorder: "rgba(251,238,193,0.34)",
+    controlForeground: "#fbf3dc",
+    primaryBackground: "linear-gradient(180deg, #f7e3a3 0%, #d4a948 62%, #a17a2a 100%)",
+    primaryForeground: "#2a1606",
+    sparkleColor: "#fbeec1",
+    floorGlow: "radial-gradient(ellipse 78% 28% at 50% 100%, rgba(212,169,72,0.34), transparent 68%)",
+    loadingBackground:
+      "radial-gradient(circle at 50% 34%, rgba(212,169,72,0.3), transparent 34%), rgba(27,8,21,0.95)",
+  },
+  {
+    id: "crystal",
+    displayName: "Crystal Atelier",
+    shortDisplayName: "Crystal",
+    chrome: "crystal",
+    qaMarker: "showroom-theme-crystal",
+    v1Available: true,
+    accent: "#7c5cff",
+    foreground: "#27214a",
+    mutedForeground: "rgba(59,47,122,0.64)",
+    rootBackground: "#ebe6ff",
+    controlBackground: "rgba(255,255,255,0.68)",
+    controlBorder: "rgba(124,92,255,0.3)",
+    controlForeground: "#3b2f7a",
+    primaryBackground: "linear-gradient(135deg, #7c5cff, #5b3ee0)",
+    primaryForeground: "#ffffff",
+    sparkleColor: "#c7d2fe",
+    floorGlow: "radial-gradient(ellipse 78% 30% at 50% 100%, rgba(124,92,255,0.26), transparent 68%)",
+    loadingBackground:
+      "radial-gradient(circle at 50% 34%, rgba(124,92,255,0.22), transparent 34%), rgba(235,230,255,0.95)",
+  },
+] as const;
+
+export type ShowroomTheme = (typeof SHOWROOM_THEMES)[number]["id"];
+type ShowroomThemeConfig = (typeof SHOWROOM_THEMES)[number];
+type ShowroomThemeState = {
+  theme: ShowroomTheme;
+  currentIndex: number;
+};
+
+const SHOWROOM_THEME_IDS = new Set<string>(
+  SHOWROOM_THEMES.map((theme) => theme.id),
+);
+
+export function resolveShowroomTheme(
+  theme: string | null | undefined,
+): ShowroomTheme {
+  return theme && SHOWROOM_THEME_IDS.has(theme)
+    ? (theme as ShowroomTheme)
+    : DEFAULT_SHOWROOM_THEME;
+}
+
+export function resolveAvailableShowroomThemes(
+  availableThemes?: readonly (string | null | undefined)[],
+): ShowroomTheme[] {
+  if (!availableThemes) {
+    return SHOWROOM_THEMES.map((theme) => theme.id);
+  }
+
+  const normalized = new Set<ShowroomTheme>([DEFAULT_SHOWROOM_THEME]);
+  for (const theme of availableThemes) {
+    if (theme && SHOWROOM_THEME_IDS.has(theme)) {
+      normalized.add(theme as ShowroomTheme);
+    }
+  }
+  return [...normalized];
+}
+
+function resolveShowroomThemeWithinAvailability(
+  theme: string | null | undefined,
+  availableThemes: readonly ShowroomTheme[],
+): ShowroomTheme {
+  const resolved = resolveShowroomTheme(theme);
+  return availableThemes.includes(resolved) ? resolved : DEFAULT_SHOWROOM_THEME;
+}
+
+export function getNextShowroomThemeState(
+  state: ShowroomThemeState,
+  direction: -1 | 1,
+  availableThemes?: readonly (string | null | undefined)[],
+): ShowroomThemeState {
+  const themes = resolveAvailableShowroomThemes(availableThemes);
+  const currentTheme = resolveShowroomThemeWithinAvailability(state.theme, themes);
+  const currentIndex = themes.indexOf(currentTheme);
+  const nextIndex = (currentIndex + direction + themes.length) % themes.length;
+  return {
+    ...state,
+    theme: themes[nextIndex] ?? DEFAULT_SHOWROOM_THEME,
+  };
+}
+
+export function shouldShowShowroomCompanionDots(
+  theme: ShowroomTheme,
+  entryCount: number,
+  spotlightOpen: boolean,
+): boolean {
+  return theme === "aurora" && entryCount > 1 && !spotlightOpen;
+}
+
+function getShowroomThemeConfig(theme: ShowroomTheme): ShowroomThemeConfig {
+  return (
+    SHOWROOM_THEMES.find((candidate) => candidate.id === theme) ??
+    SHOWROOM_THEMES[0]
+  );
+}
+
+function resolveInitialShowroomTheme(initialTheme: ShowroomTheme | undefined) {
+  if (typeof window === "undefined") {
+    return initialTheme ?? DEFAULT_SHOWROOM_THEME;
+  }
+  const queryTheme = new URLSearchParams(window.location.search).get(
+    "showroomTheme",
+  );
+  return queryTheme ? resolveShowroomTheme(queryTheme) : initialTheme ?? DEFAULT_SHOWROOM_THEME;
+}
 
 export type CompanionShowroomProps = {
   /**
@@ -83,6 +251,22 @@ export type CompanionShowroomProps = {
    * Used only to pace the intro curtain; failures should set this back to false.
    */
   generatedBackgroundLoading?: boolean;
+
+  /**
+   * Initial visual room for the showroom. URL query `showroomTheme` wins when present.
+   */
+  initialTheme?: ShowroomTheme;
+
+  /**
+   * Future economy/talent gate: v1 passes all themes, but callers can narrow this.
+   * Aurora Hall is always retained as the safe default.
+   */
+  availableThemes?: ShowroomTheme[];
+
+  /**
+   * Fires when the child cycles to another room. V1 does not persist the choice.
+   */
+  onThemeChange?: (theme: ShowroomTheme) => void;
 };
 
 type SlotName = "prev" | "current" | "next" | "hidden";
@@ -198,9 +382,29 @@ type WindowWithWebkitAudio = Window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
+type ShowroomTalkUiPhase = "idle" | "listening" | "thinking" | "speaking";
+
+type ShowroomSpeechRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  abort: () => void;
+};
+
+type WindowWithSpeechRecognition = Window & {
+  SpeechRecognition?: new () => ShowroomSpeechRecognition;
+  webkitSpeechRecognition?: new () => ShowroomSpeechRecognition;
+};
+
 const accent = "#6D5EF5";
 const confettiColours = ["#6D5EF5", "#a78bfa", "#fbbf24", "#f472b6", "#34d399"];
 const SHOWROOM_COMMAND_CHILD_ID = "showroom";
+const SHOWROOM_MAX_DISPLAY_SCALE = 1.25;
 let showroomCommandSequence = 0;
 const sparkleSeeds = [
   { left: "9%", top: "18%", delay: "0s", size: 3 },
@@ -216,6 +420,420 @@ const sparkleSeeds = [
   { left: "23%", top: "64%", delay: "2.9s", size: 4 },
   { left: "50%", top: "52%", delay: "1.9s", size: 3 },
 ];
+
+function ShowroomThemeBackdrop({
+  theme,
+  activeGeneratedBackground,
+  waitingForGeneratedBackground,
+}: {
+  theme: ShowroomThemeConfig;
+  activeGeneratedBackground: string | null;
+  waitingForGeneratedBackground: boolean;
+}) {
+  if (activeGeneratedBackground) {
+    return (
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `linear-gradient(180deg, rgba(15,10,30,0.32), rgba(15,10,30,0.88)), url("${activeGeneratedBackground.replace(/"/g, '\\"')}")`,
+          backgroundPosition: "center",
+          backgroundSize: "cover",
+          filter: "saturate(1.08)",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+    );
+  }
+
+  if (waitingForGeneratedBackground) {
+    return (
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(110deg, rgba(109,94,245,0.08), rgba(167,139,250,0.18), rgba(244,114,182,0.08))",
+          backgroundSize: "200% 200%",
+          animation: "sunny-showroom-bg-wait 3.8s ease-in-out infinite",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+    );
+  }
+
+  if (theme.chrome === "storybook") {
+    return (
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(180deg, #2a0a1d 0%, #1b0815 42%, #0b0510 100%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: "8% 8% 14%",
+            background:
+              "radial-gradient(85% 70% at 50% 45%, #5a1e3a 0%, #3d0e2a 48%, #1b0815 100%)",
+            borderRadius: "300px 300px 12px 12px / 220px 220px 12px 12px",
+            boxShadow: "inset 0 0 80px rgba(0,0,0,0.5)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: "min(20vw, 220px)",
+            background:
+              "repeating-linear-gradient(95deg, #4a1232 0px, #6a1a44 14px, #4a1232 28px, #2e0820 44px)",
+            boxShadow: "inset -20px 0 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,0,0,0.45)",
+            clipPath: "polygon(0 0, 100% 0, 88% 100%, 0 100%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: "min(20vw, 220px)",
+            background:
+              "repeating-linear-gradient(85deg, #4a1232 0px, #6a1a44 14px, #4a1232 28px, #2e0820 44px)",
+            boxShadow: "inset 20px 0 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,0,0,0.45)",
+            clipPath: "polygon(12% 0, 100% 0, 100% 100%, 0 100%)",
+          }}
+        />
+        <svg
+          viewBox="0 0 1280 800"
+          width="100%"
+          height="100%"
+          preserveAspectRatio="none"
+          style={{ position: "absolute", inset: 0 }}
+        >
+          <defs>
+            <linearGradient id="sunny-showroom-storybook-brass" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor="#f3d484" />
+              <stop offset="0.48" stopColor="#c9a44a" />
+              <stop offset="1" stopColor="#7a5e22" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M 130 220 Q 130 95, 240 95 Q 640 38, 1040 95 Q 1150 95, 1150 220"
+            fill="none"
+            stroke="url(#sunny-showroom-storybook-brass)"
+            strokeWidth="8"
+            opacity="0.82"
+          />
+          <circle cx="640" cy="62" r="22" fill="url(#sunny-showroom-storybook-brass)" opacity="0.9" />
+          <circle cx="640" cy="62" r="8" fill="#3b1f08" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (theme.chrome === "crystal") {
+    return (
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(180deg, #f4f1ff 0%, #ebe6ff 38%, #d6cfff 100%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(circle at 50% 16%, rgba(255,247,237,0.9), rgba(253,230,138,0.22) 34%, transparent 58%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: "17%",
+            right: "17%",
+            top: "10%",
+            bottom: "8%",
+            border: "2px solid rgba(120,113,108,0.42)",
+            borderRadius: "42% 42% 0 0 / 22% 22% 0 0",
+            overflow: "hidden",
+            boxShadow: "inset 0 0 70px rgba(255,255,255,0.34)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateRows: "repeat(3, 1fr)",
+            }}
+          >
+            {[
+              "#c7d2fe",
+              "#fbcfe8",
+              "#a7f3d0",
+              "#fde68a",
+              "#fbcfe8",
+              "#a7f3d0",
+              "#c7d2fe",
+              "#fde68a",
+              "#fde68a",
+              "#c7d2fe",
+              "#fbcfe8",
+              "#a7f3d0",
+            ].map((color, index) => (
+              <span
+                key={`${color}-${index}`}
+                style={{
+                  background: color,
+                  opacity: 0.26,
+                  border: "1px solid rgba(120,113,108,0.2)",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        background:
+          "radial-gradient(circle at 50% 22%, rgba(109,94,245,0.2), transparent 32%), #0f0a1e",
+        pointerEvents: "none",
+        zIndex: 0,
+      }}
+    />
+  );
+}
+
+function ShowroomThemeAmbient({ theme }: { theme: ShowroomThemeConfig }) {
+  if (theme.chrome === "storybook") {
+    return <StorybookSparkles />;
+  }
+
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
+      {sparkleSeeds.map((sparkle, index) => (
+        <span
+          key={`${sparkle.left}-${sparkle.top}`}
+          style={{
+            position: "absolute",
+            left: sparkle.left,
+            top: sparkle.top,
+            width: sparkle.size,
+            height: sparkle.size,
+            borderRadius: theme.chrome === "crystal" ? 2 : "50%",
+            background: theme.sparkleColor,
+            boxShadow: `0 0 ${theme.chrome === "crystal" ? 10 : 18}px ${theme.sparkleColor}`,
+            animation: `sunny-showroom-sparkle 4.2s ease-in-out ${sparkle.delay} infinite`,
+            transform: theme.chrome === "crystal" ? `rotate(${index * 19}deg)` : undefined,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ShowroomRoomCycler({
+  activeTheme,
+  availableThemes,
+  disabled,
+  onSelect,
+  onCycle,
+  leftOffsetPx,
+}: {
+  activeTheme: ShowroomThemeConfig;
+  availableThemes: readonly ShowroomTheme[];
+  disabled: boolean;
+  onSelect: (theme: ShowroomTheme) => void;
+  onCycle: (direction: -1 | 1) => void;
+  leftOffsetPx: number;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Showroom rooms"
+      className="sunny-showroom-theme-cycler"
+      style={{
+        position: "absolute",
+        top: 16,
+        left: leftOffsetPx,
+        zIndex: 42,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        gap: 4,
+        width: "auto",
+        maxWidth: "min(46vw, 260px)",
+        padding: "5px 7px 6px",
+        borderRadius: 18,
+        border: `1px solid ${activeTheme.controlBorder}`,
+        background: activeTheme.controlBackground,
+        boxShadow:
+          activeTheme.chrome === "storybook"
+            ? "0 10px 30px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08)"
+            : "0 10px 30px rgba(0,0,0,0.16)",
+        backdropFilter: "blur(14px)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 5,
+          minWidth: 0,
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Previous room"
+          onClick={() => onCycle(-1)}
+          disabled={disabled}
+          style={showroomThemeIconButtonStyle(activeTheme, disabled)}
+        >
+          ◀
+        </button>
+        <div
+          data-showroom-theme-option={activeTheme.qaMarker}
+          aria-label={activeTheme.displayName}
+          style={{
+            minWidth: 0,
+            flex: "1 1 auto",
+            display: "grid",
+            textAlign: "center",
+          }}
+        >
+          <strong
+            title={activeTheme.displayName}
+            style={{
+              color: activeTheme.controlForeground,
+              fontFamily:
+                activeTheme.chrome === "storybook"
+                  ? "Georgia, 'Times New Roman', serif"
+                  : "Lexend, system-ui, sans-serif",
+              fontSize: activeTheme.chrome === "storybook" ? 15 : 13,
+              fontWeight: 900,
+              lineHeight: 1.1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {activeTheme.shortDisplayName}
+          </strong>
+        </div>
+        <button
+          type="button"
+          aria-label="Next room"
+          onClick={() => onCycle(1)}
+          disabled={disabled}
+          style={showroomThemeIconButtonStyle(activeTheme, disabled)}
+        >
+          ▶
+        </button>
+      </div>
+      <div
+        data-showroom-room-shortcuts
+        aria-label="Room shortcuts"
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 5,
+          pointerEvents: "auto",
+          minHeight: 8,
+        }}
+      >
+        {availableThemes.map((themeId) => {
+          const theme = getShowroomThemeConfig(themeId);
+          const selected = theme.id === activeTheme.id;
+          return (
+            <button
+              type="button"
+              key={theme.id}
+              aria-label={`Switch to ${theme.displayName}`}
+              aria-pressed={selected}
+              onClick={() => onSelect(theme.id)}
+              disabled={disabled}
+              style={{
+                width: selected ? 18 : 10,
+                height: 8,
+                borderRadius: 999,
+                border: `1px solid ${selected ? activeTheme.accent : activeTheme.controlBorder}`,
+                background: selected ? activeTheme.accent : activeTheme.controlBackground,
+                padding: 0,
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled ? 0.62 : selected ? 1 : 0.72,
+                transition: "width 0.16s ease, opacity 0.16s ease",
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function showroomThemeIconButtonStyle(
+  theme: ShowroomThemeConfig,
+  disabled: boolean,
+): CSSProperties {
+  return {
+    flex: "0 0 auto",
+    width: 28,
+    height: 28,
+    borderRadius: "50%",
+    border: `1px solid ${theme.controlBorder}`,
+    background: theme.controlBackground,
+    color: theme.controlForeground,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.62 : 1,
+    fontSize: 13,
+    display: "grid",
+    placeItems: "center",
+    padding: 0,
+  };
+}
+
+function showroomArrowButtonStyle(
+  theme: ShowroomThemeConfig,
+  side: "left" | "right",
+): CSSProperties {
+  return {
+    position: "absolute",
+    [side]: "clamp(16px, 6vw, 88px)",
+    top: "38%",
+    zIndex: 12,
+    width: 58,
+    height: 58,
+    borderRadius: "50%",
+    border: `1px solid ${theme.controlBorder}`,
+    background: theme.controlBackground,
+    color: theme.controlForeground,
+    fontSize: 28,
+    cursor: "pointer",
+    boxShadow: theme.chrome === "crystal" ? "0 12px 28px rgba(57,35,130,0.16)" : undefined,
+  };
+}
 
 function playPowerUpSfx(): AmbientMusicHandle | null {
   const AudioContextCtor =
@@ -398,6 +1016,43 @@ export function createShowroomCameraCommand(
     angle,
     ...(transitionMs === undefined ? {} : { transition_ms: transitionMs }),
   });
+}
+
+export function createShowroomTalkPayload(args: {
+  childId: string;
+  companionId: string;
+  voiceId: string;
+  showroomTheme: string;
+  question: string;
+}): {
+  childId: string;
+  companionId: string;
+  voiceId: string;
+  showroomTheme: string;
+  question: string;
+} {
+  return { ...args };
+}
+
+export function shouldGateShowroomTalkMic(phase: string): boolean {
+  return phase === "thinking" || phase === "speaking";
+}
+
+export function shouldApplyShowroomTalkCommand(
+  command: CompanionCommand,
+  selectedCompanionId: string,
+): boolean {
+  const companionId = command.payload?.companionId;
+  return typeof companionId !== "string" || companionId === selectedCompanionId;
+}
+
+function audioBase64ToBlob(base64: string, contentType: string): Blob {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: contentType });
 }
 
 function processShowroomCommand(
@@ -736,18 +1391,20 @@ function CompanionSlot({
     Number.isFinite(companionConfig.displayScale)
       ? Math.min(Math.max(companionConfig.displayScale, 1), 4)
       : 1;
+  const showroomCompanionConfig = useMemo(
+    () =>
+      displayScale > SHOWROOM_MAX_DISPLAY_SCALE
+        ? {
+            ...companionConfig,
+            displayScale: SHOWROOM_MAX_DISPLAY_SCALE,
+          }
+        : companionConfig,
+    [companionConfig, displayScale],
+  );
   const slotStyle = slotFrameStyle(slot, {
     soleFlankPair: Boolean(soleFlankPair) && (slot === "next" || slot === "prev"),
   });
-  const scaledSlotStyle =
-    displayScale > 1 && !contained
-      ? {
-          ...slotStyle,
-          top: "0%",
-          width: "min(64vw, 620px)",
-          height: "min(76vh, 660px)",
-        }
-      : slotStyle;
+  const hasCustomDisplayScale = displayScale > 1 && !contained;
 
   useEffect(() => {
     vfxLayerRef.current?.setLevel(vfxLevel);
@@ -821,7 +1478,7 @@ function CompanionSlot({
         dt,
         dtMs: Math.min(dt * 1000, 100),
         companionEvents: [],
-        companion: companionConfig,
+        companion: showroomCompanionConfig,
         childId: SHOWROOM_COMMAND_CHILD_ID,
         toggledOff: false,
         activeNodeScreen: null,
@@ -832,7 +1489,7 @@ function CompanionSlot({
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-  }, [companionConfig, getAnalyser, stopLoop]);
+  }, [getAnalyser, showroomCompanionConfig, stopLoop]);
 
   useEffect(() => {
     activeRef.current = active;
@@ -914,14 +1571,16 @@ function CompanionSlot({
         scene.add(vfxLayer.group);
       }
 
-      loadCompanionVrm(resolveModelUrl(companionConfig.vrmUrl), { webgpu: webgpuMaterials })
+      loadCompanionVrm(resolveModelUrl(showroomCompanionConfig.vrmUrl), {
+        webgpu: webgpuMaterials,
+      })
         .then((vrm) => {
           if (cancelled) {
             vrm.scene.removeFromParent();
             return;
           }
           const size = readMountSize();
-          motor.attachVrm(vrm, scene, size.w, size.h, companionConfig);
+          motor.attachVrm(vrm, scene, size.w, size.h, showroomCompanionConfig);
           motor.setCameraAngle("mid-shot", 0);
           syncRendererToMount();
           requestAnimationFrame(syncRendererToMount);
@@ -1014,10 +1673,10 @@ function CompanionSlot({
     };
   }, [
     contained,
-    companionConfig.vrmUrl,
     onLoadSettled,
     onMotorReady,
     onVrmAttached,
+    showroomCompanionConfig,
     slotKey,
     startLoop,
     stopLoop,
@@ -1041,7 +1700,7 @@ function CompanionSlot({
               transform: "scale(1.38)",
               transformOrigin: "50% 58%",
             }
-          : scaledSlotStyle
+          : slotStyle
       }
     >
       <motion.div
@@ -1057,13 +1716,10 @@ function CompanionSlot({
       >
         <div
           ref={mountRef}
+          data-display-scale={hasCustomDisplayScale ? displayScale : undefined}
           style={{
             width: "100%",
             height: "100%",
-            transform:
-              displayScale > 1 && !contained
-                ? `translateY(-22%) scale(${displayScale})`
-                : undefined,
             transformOrigin: "50% 92%",
           }}
         />
@@ -1549,8 +2205,18 @@ export function CompanionShowroom({
   generatedBackgroundUrl,
   enableBackgroundMusic = false,
   generatedBackgroundLoading = false,
+  initialTheme,
+  availableThemes,
+  onThemeChange,
 }: CompanionShowroomProps) {
+  const initialAvailableThemes = resolveAvailableShowroomThemes(availableThemes);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [activeThemeId, setActiveThemeId] = useState<ShowroomTheme>(() =>
+    resolveShowroomThemeWithinAvailability(
+      resolveInitialShowroomTheme(initialTheme),
+      initialAvailableThemes,
+    ),
+  );
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [introVisible, setIntroVisible] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -1560,9 +2226,16 @@ export function CompanionShowroom({
   const [signatureMoveLevel, setSignatureMoveLevel] =
     useState<SignatureMoveLevel>("idle");
   const [voiceSelections, setVoiceSelections] = useState<Record<string, string>>({});
+  const [showroomTalkOpen, setShowroomTalkOpen] = useState(false);
+  const [showroomTalkPhase, setShowroomTalkPhase] =
+    useState<ShowroomTalkUiPhase>("idle");
+  const [showroomTalkQuestion, setShowroomTalkQuestion] = useState("");
+  const [showroomTalkResponse, setShowroomTalkResponse] = useState("");
+  const [showroomTalkError, setShowroomTalkError] = useState<string | null>(null);
   const [showroomDiagAnimation, setShowroomDiagAnimation] = useState<string>("idle");
   const [showroomDiagLastCommand, setShowroomDiagLastCommand] =
     useState<string>("none");
+  const [showShowroomDiagPanel, setShowShowroomDiagPanel] = useState(false);
   const [initialCurtainDismissed, setInitialCurtainDismissed] = useState(false);
   const [settledSlotKeys, setSettledSlotKeys] = useState<Set<string>>(
     () => new Set(),
@@ -1581,9 +2254,20 @@ export function CompanionShowroom({
   const speechAnalyserRef = useRef<AnalyserNode | null>(null);
   const speechGestureIntervalRef = useRef<number | null>(null);
   const speechUrlRef = useRef<string | null>(null);
+  const showroomSpeechRecognitionRef = useRef<ShowroomSpeechRecognition | null>(null);
+  const showroomTalkPhaseRef = useRef<ShowroomTalkUiPhase>("idle");
   const powerUpSfxRef = useRef<AmbientMusicHandle | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
   const getSpeechAnalyser = useCallback(() => speechAnalyserRef.current, []);
+  showroomTalkPhaseRef.current = showroomTalkPhase;
+
+  const availableShowroomThemes = useMemo(
+    () => resolveAvailableShowroomThemes(availableThemes),
+    [availableThemes],
+  );
+  const activeTheme = getShowroomThemeConfig(activeThemeId);
+  const activeAccent = activeTheme.accent;
+  const generatedBackgroundApplies = activeThemeId === DEFAULT_SHOWROOM_THEME;
 
   const entries = COMPANION_MANIFEST;
   const isPairDuo = entries.length === 2;
@@ -1592,6 +2276,11 @@ export function CompanionShowroom({
   const slots = useMemo(
     () => createPersistentSlotEntries(entries, currentIndex),
     [entries, currentIndex],
+  );
+  const showCompanionDots = shouldShowShowroomCompanionDots(
+    activeThemeId,
+    entries.length,
+    spotlightOpen,
   );
   const visibleSlotKeys = useMemo(
     () =>
@@ -1603,8 +2292,47 @@ export function CompanionShowroom({
   const visibleSlotsSettled = visibleSlotKeys.every((slotKey) =>
     settledSlotKeys.has(slotKey),
   );
-  const showroomReady = visibleSlotsSettled && !generatedBackgroundLoading;
+  const showroomReady =
+    visibleSlotsSettled &&
+    !(generatedBackgroundApplies && generatedBackgroundLoading);
   const initialStageLoading = !initialCurtainDismissed && !showroomReady;
+
+  useEffect(() => {
+    if (availableShowroomThemes.includes(activeThemeId)) return;
+    const nextTheme = resolveShowroomThemeWithinAvailability(
+      initialTheme,
+      availableShowroomThemes,
+    );
+    setActiveThemeId(nextTheme);
+    onThemeChange?.(nextTheme);
+  }, [activeThemeId, availableShowroomThemes, initialTheme, onThemeChange]);
+
+  const selectShowroomTheme = useCallback(
+    (theme: ShowroomTheme) => {
+      const nextTheme = resolveShowroomThemeWithinAvailability(
+        theme,
+        availableShowroomThemes,
+      );
+      if (nextTheme === activeThemeId) return;
+      setActiveThemeId(nextTheme);
+      onThemeChange?.(nextTheme);
+    },
+    [activeThemeId, availableShowroomThemes, onThemeChange],
+  );
+
+  const cycleShowroomTheme = useCallback(
+    (direction: -1 | 1) => {
+      const nextState = getNextShowroomThemeState(
+        { theme: activeThemeId, currentIndex },
+        direction,
+        availableShowroomThemes,
+      );
+      if (nextState.theme === activeThemeId) return;
+      setActiveThemeId(nextState.theme);
+      onThemeChange?.(nextState.theme);
+    },
+    [activeThemeId, availableShowroomThemes, currentIndex, onThemeChange],
+  );
 
   useEffect(() => {
     if (introVisible) {
@@ -1755,14 +2483,209 @@ export function CompanionShowroom({
     setSpeakingLine(null);
   }, [clearSpeechGestures]);
 
+  const resetShowroomTalk = useCallback(() => {
+    showroomSpeechRecognitionRef.current?.abort();
+    showroomSpeechRecognitionRef.current = null;
+    setShowroomTalkPhase("idle");
+    setShowroomTalkQuestion("");
+    setShowroomTalkResponse("");
+    setShowroomTalkError(null);
+  }, []);
+
+  const submitShowroomTalkQuestion = useCallback(
+    async (questionOverride?: string) => {
+      if (!current || picking || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
+        return;
+      }
+      const question = (questionOverride ?? showroomTalkQuestion).trim();
+      if (!question) {
+        setShowroomTalkOpen(true);
+        setShowroomTalkError("Ask a question first.");
+        return;
+      }
+      const currentDefaultVoice =
+        current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
+      const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
+      if (!selectedVoiceId) {
+        setShowroomTalkOpen(true);
+        setShowroomTalkError(`${current.name} needs a voice before talking.`);
+        return;
+      }
+
+      startMusic();
+      stopSpeech();
+      setShowroomTalkOpen(true);
+      setShowroomTalkError(null);
+      setShowroomTalkResponse("");
+      setShowroomTalkQuestion(question);
+      setShowroomTalkPhase("thinking");
+      setCurrentCompanionCamera("mid-shot", 420);
+      playCurrentCompanionAnimation("think", { loop: true });
+
+      try {
+        const payload = createShowroomTalkPayload({
+          childId: childName?.trim().toLowerCase() || "showroom",
+          companionId: current.id,
+          voiceId: selectedVoiceId,
+          showroomTheme: activeThemeId,
+          question,
+        });
+        const response = await fetch(
+          `/api/companions/${encodeURIComponent(current.id)}/talk`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
+        const data = (await response.json().catch(() => null)) as
+          | {
+              ok?: boolean;
+              error?: string;
+              text?: string;
+              audioBase64?: string;
+              audioContentType?: string;
+              phaseCommands?: {
+                speaking?: CompanionCommand;
+                idle?: CompanionCommand;
+              };
+            }
+          | null;
+        if (!response.ok || !data?.ok) {
+          throw new Error(data?.error ?? `talk_${response.status}`);
+        }
+        const responseText = data.text?.trim() || `${current.name} is thinking.`;
+        setShowroomTalkResponse(responseText);
+        setShowroomTalkPhase("speaking");
+        const speakingCommand = data.phaseCommands?.speaking;
+        if (speakingCommand && shouldApplyShowroomTalkCommand(speakingCommand, current.id)) {
+          processShowroomCommand(motorsRef.current.current, speakingCommand);
+          processShowroomCommand(cardMotorRef.current, speakingCommand);
+        } else {
+          playCurrentCompanionAnimation("talking", { loop: true });
+        }
+
+        if (!data.audioBase64) {
+          playCurrentCompanionAnimation("idle", { loop: true });
+          setShowroomTalkPhase("idle");
+          return;
+        }
+
+        const blob = audioBase64ToBlob(
+          data.audioBase64,
+          data.audioContentType ?? "audio/mpeg",
+        );
+        const url = URL.createObjectURL(blob);
+        speechUrlRef.current = url;
+        const audio = new Audio(url);
+        const AudioContextCtor =
+          window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+        if (!AudioContextCtor) {
+          throw new Error("audio_context_unavailable");
+        }
+        const context = new AudioContextCtor();
+        const source = context.createMediaElementSource(audio);
+        const analyser = ensurePlaybackAnalyser(context);
+        source.connect(analyser);
+        analyser.connect(context.destination);
+        speechAnalyserRef.current = analyser;
+        speechAudioRef.current = { audio, context };
+        audio.addEventListener("ended", () => {
+          const idleCommand = data.phaseCommands?.idle;
+          if (idleCommand && shouldApplyShowroomTalkCommand(idleCommand, current.id)) {
+            processShowroomCommand(motorsRef.current.current, idleCommand);
+            processShowroomCommand(cardMotorRef.current, idleCommand);
+          } else {
+            playCurrentCompanionAnimation("idle", { loop: true });
+          }
+          setShowroomTalkPhase("idle");
+          speechAudioRef.current = null;
+          speechAnalyserRef.current = null;
+          void context.close();
+          URL.revokeObjectURL(url);
+          if (speechUrlRef.current === url) {
+            speechUrlRef.current = null;
+          }
+        });
+        audio.addEventListener("error", () => {
+          setShowroomTalkError("I could not play that voice just now.");
+          setShowroomTalkPhase("idle");
+          playCurrentCompanionAnimation("idle", { loop: true });
+        });
+        await context.resume();
+        await audio.play();
+      } catch (err: unknown) {
+        setShowroomTalkError(err instanceof Error ? err.message : "Talk failed.");
+        setShowroomTalkPhase("idle");
+        playCurrentCompanionAnimation("idle", { loop: true });
+      }
+    },
+    [
+      activeThemeId,
+      childName,
+      current,
+      picking,
+      playCurrentCompanionAnimation,
+      setCurrentCompanionCamera,
+      showroomTalkQuestion,
+      startMusic,
+      stopSpeech,
+      voiceSelections,
+    ],
+  );
+
+  const startShowroomTalkListening = useCallback(() => {
+    if (!current || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) return;
+    const RecognitionCtor =
+      (window as WindowWithSpeechRecognition).SpeechRecognition ??
+      (window as WindowWithSpeechRecognition).webkitSpeechRecognition;
+    setShowroomTalkOpen(true);
+    setShowroomTalkError(null);
+    if (!RecognitionCtor) {
+      setShowroomTalkError("Voice input is not available here. Type it instead.");
+      return;
+    }
+    showroomSpeechRecognitionRef.current?.abort();
+    let submitted = false;
+    const recognition = new RecognitionCtor();
+    showroomSpeechRecognitionRef.current = recognition;
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const text = event.results[0]?.[0]?.transcript?.trim() ?? "";
+      if (!text) return;
+      submitted = true;
+      setShowroomTalkQuestion(text);
+      void submitShowroomTalkQuestion(text);
+    };
+    recognition.onerror = (event) => {
+      if (submitted) return;
+      setShowroomTalkError(event.error ? `Voice input: ${event.error}` : "Voice input failed.");
+      setShowroomTalkPhase("idle");
+    };
+    recognition.onend = () => {
+      showroomSpeechRecognitionRef.current = null;
+      if (!submitted && showroomTalkPhaseRef.current === "listening") {
+        setShowroomTalkPhase("idle");
+      }
+    };
+    setShowroomTalkPhase("listening");
+    playCurrentCompanionAnimation("think", { loop: true });
+    recognition.start();
+  }, [current, playCurrentCompanionAnimation, submitShowroomTalkQuestion]);
+
   const cycle = useCallback(
     (direction: -1 | 1) => {
       if (entries.length <= 1 || spotlightOpen || picking) return;
       stopSpeech();
+      resetShowroomTalk();
+      setShowroomTalkOpen(false);
       setIntroVisible(false);
       setCurrentIndex((prev) => (prev + direction + entries.length) % entries.length);
     },
-    [entries.length, picking, spotlightOpen, stopSpeech],
+    [entries.length, picking, resetShowroomTalk, spotlightOpen, stopSpeech],
   );
 
   const closeSpotlight = useCallback(() => {
@@ -1780,6 +2703,9 @@ export function CompanionShowroom({
     if (!current || spotlightOpen) return;
     startMusic();
     clearTimers();
+    stopSpeech();
+    resetShowroomTalk();
+    setShowroomTalkOpen(false);
     setSpotlightOpen(true);
     setIntroVisible(false);
     setCurrentCompanionCamera("mid-shot", 680);
@@ -1796,10 +2722,12 @@ export function CompanionShowroom({
     playCurrentCompanionAnimation,
     playShowroomGesture,
     playSlotAnimation,
+    resetShowroomTalk,
     schedule,
     setCurrentCompanionCamera,
     spotlightOpen,
     startMusic,
+    stopSpeech,
   ]);
 
   const onStagePointerDown = useCallback(
@@ -1841,10 +2769,12 @@ export function CompanionShowroom({
     swipeFromXRef.current = null;
   }, []);
 
-  const confirmPick = useCallback(() => {
-    if (!current || picking) return;
-    stopSpeech();
-    setPicking(true);
+	  const confirmPick = useCallback(() => {
+	    if (!current || picking) return;
+	    stopSpeech();
+	    resetShowroomTalk();
+	    setShowroomTalkOpen(false);
+	    setPicking(true);
     confettiCleanupRef.current?.();
     confettiCleanupRef.current = launchConfetti();
     playCurrentCompanionAnimation(
@@ -1865,10 +2795,11 @@ export function CompanionShowroom({
   }, [
     current,
     onSelect,
-    picking,
-    playCurrentCompanionAnimation,
-    playSlotAnimation,
-    schedule,
+	    picking,
+	    playCurrentCompanionAnimation,
+	    playSlotAnimation,
+	    resetShowroomTalk,
+	    schedule,
     stopSpeech,
   ]);
 
@@ -2032,10 +2963,12 @@ export function CompanionShowroom({
     };
   }, [enableBackgroundMusic, musicOn, startMusic]);
 
-  useEffect(() => {
-    return () => {
-      clearTimers();
-      stopSpeech();
+	  useEffect(() => {
+	    return () => {
+	      clearTimers();
+	      showroomSpeechRecognitionRef.current?.abort();
+	      showroomSpeechRecognitionRef.current = null;
+	      stopSpeech();
       confettiCleanupRef.current?.();
       confettiCleanupRef.current = null;
       musicRef.current?.stop();
@@ -2070,20 +3003,29 @@ export function CompanionShowroom({
     current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
   const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
   const activeGeneratedBackground =
-    useGeneratedBackground && generatedBackgroundUrl?.trim()
+    generatedBackgroundApplies && useGeneratedBackground && generatedBackgroundUrl?.trim()
       ? generatedBackgroundUrl.trim()
       : null;
+  const waitingForGeneratedBackground =
+    generatedBackgroundApplies &&
+    useGeneratedBackground &&
+    !activeGeneratedBackground &&
+    generatedBackgroundLoading;
+  const talkButtonDisabled =
+    initialStageLoading || shouldGateShowroomTalkMic(showroomTalkPhase);
 
   return (
     <div
       role="region"
       aria-label="Companion Showroom"
+      data-showroom-theme={activeTheme.id}
+      data-showroom-theme-marker={activeTheme.qaMarker}
       style={{
         minHeight: "100vh",
         position: "relative",
         overflow: "hidden",
-        background: "#0f0a1e",
-        color: "#f8fafc",
+        background: activeTheme.rootBackground,
+        color: activeTheme.foreground,
         fontFamily: "Lexend, system-ui, sans-serif",
       }}
     >
@@ -2102,53 +3044,15 @@ export function CompanionShowroom({
         aria-live="polite"
         aria-atomic
       >
-        {`Viewing ${current.name} — ${currentIndex + 1} of ${entries.length}. Use arrows, dots, or swipe the stage to change.`}
+        {`Viewing ${current.name} in ${activeTheme.displayName} — ${currentIndex + 1} of ${entries.length}. Use arrows${showCompanionDots ? ", dots," : ""} or swipe the stage to change.`}
       </p>
-      {activeGeneratedBackground && (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: `linear-gradient(180deg, rgba(15,10,30,0.32), rgba(15,10,30,0.88)), url("${activeGeneratedBackground.replace(/"/g, '\\"')}")`,
-            backgroundPosition: "center",
-            backgroundSize: "cover",
-            filter: "saturate(1.08)",
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
-      )}
-      {useGeneratedBackground && !activeGeneratedBackground && (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(110deg, rgba(109,94,245,0.08), rgba(167,139,250,0.18), rgba(244,114,182,0.08))",
-            backgroundSize: "200% 200%",
-            animation: "sunny-showroom-bg-wait 3.8s ease-in-out infinite",
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
-      )}
-      {!activeGeneratedBackground && (
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(circle at 50% 22%, rgba(109,94,245,0.2), transparent 32%), #0f0a1e",
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
-      )}
+      <ShowroomThemeBackdrop
+        theme={activeTheme}
+        activeGeneratedBackground={activeGeneratedBackground}
+        waitingForGeneratedBackground={waitingForGeneratedBackground}
+      />
       <style>
-        {`@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700;800&display=swap");
+        {`@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Lexend:wght@400;600;700;800&family=Playfair+Display:ital,wght@0,700;0,800;1,700&display=swap");
           @keyframes sunny-showroom-breathe {
             from { transform: scale(1); }
             to { transform: scale(1.012); }
@@ -2174,27 +3078,23 @@ export function CompanionShowroom({
           @media (max-width: 640px) {
             .sunny-showroom-stage { height: 58vh !important; }
             .sunny-showroom-dots { bottom: 4px !important; }
+            .sunny-showroom-theme-cycler {
+              top: 14px !important;
+              max-width: 180px !important;
+            }
           }`}
       </style>
 
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
-        {sparkleSeeds.map((sparkle) => (
-          <span
-            key={`${sparkle.left}-${sparkle.top}`}
-            style={{
-              position: "absolute",
-              left: sparkle.left,
-              top: sparkle.top,
-              width: sparkle.size,
-              height: sparkle.size,
-              borderRadius: "50%",
-              background: "#fef3c7",
-              boxShadow: "0 0 18px rgba(254,243,199,0.95)",
-              animation: `sunny-showroom-sparkle 4.2s ease-in-out ${sparkle.delay} infinite`,
-            }}
-          />
-        ))}
-      </div>
+      <ShowroomThemeAmbient theme={activeTheme} />
+
+      <ShowroomRoomCycler
+        activeTheme={activeTheme}
+        availableThemes={availableShowroomThemes}
+        disabled={spotlightOpen || picking}
+        onSelect={selectShowroomTheme}
+        onCycle={cycleShowroomTheme}
+        leftOffsetPx={enableBackgroundMusic ? 74 : 16}
+      />
 
       {enableBackgroundMusic && (
         <button
@@ -2222,9 +3122,9 @@ export function CompanionShowroom({
             width: 46,
             height: 46,
             borderRadius: "50%",
-            border: "1px solid rgba(255,255,255,0.28)",
-            background: "rgba(15,23,42,0.72)",
-            color: "#f8fafc",
+            border: `1px solid ${activeTheme.controlBorder}`,
+            background: activeTheme.controlBackground,
+            color: activeTheme.controlForeground,
             fontSize: 20,
             cursor: "pointer",
             boxShadow: "0 12px 34px rgba(0,0,0,0.28)",
@@ -2234,7 +3134,32 @@ export function CompanionShowroom({
         </button>
       )}
 
-      {import.meta.env.DEV && (
+      {import.meta.env.DEV && !showShowroomDiagPanel && (
+        <button
+          type="button"
+          aria-label="Open intro animation diag"
+          onClick={() => setShowShowroomDiagPanel(true)}
+          style={{
+            position: "fixed",
+            left: 16,
+            bottom: 16,
+            zIndex: 55,
+            border: "1px solid rgba(255,255,255,0.18)",
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.78)",
+            color: "#f8fafc",
+            fontSize: 12,
+            fontWeight: 800,
+            padding: "9px 12px",
+            cursor: "pointer",
+            boxShadow: "0 10px 28px rgba(0,0,0,0.28)",
+          }}
+        >
+          Diag
+        </button>
+      )}
+
+      {import.meta.env.DEV && showShowroomDiagPanel && (
         <div
           className="pointer-events-auto"
           style={{
@@ -2242,7 +3167,7 @@ export function CompanionShowroom({
             left: 16,
             bottom: 16,
             zIndex: 55,
-            width: 280,
+            width: "min(88vw, 280px)",
             padding: 12,
             borderRadius: 12,
             border: "1px solid rgba(255,255,255,0.18)",
@@ -2260,9 +3185,29 @@ export function CompanionShowroom({
               letterSpacing: 0.8,
               textTransform: "uppercase",
               color: "rgba(248,250,252,0.62)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
             }}
           >
-            Intro animation diag
+            <span>Intro animation diag</span>
+            <button
+              type="button"
+              aria-label="Close intro animation diag"
+              onClick={() => setShowShowroomDiagPanel(false)}
+              style={{
+                border: "1px solid rgba(255,255,255,0.18)",
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.08)",
+                color: "#f8fafc",
+                width: 24,
+                height: 24,
+                cursor: "pointer",
+              }}
+            >
+              ×
+            </button>
           </div>
           <select
             value={showroomDiagAnimation}
@@ -2351,10 +3296,11 @@ export function CompanionShowroom({
             position: "absolute",
             inset: "auto 0 0",
             height: "36%",
-            background: "radial-gradient(ellipse 80% 30% at 50% 100%, #1a1040, transparent)",
+            background: activeTheme.floorGlow,
             pointerEvents: "none",
           }}
         />
+        {activeTheme.chrome === "crystal" && !spotlightOpen && <CrystalSpotlight />}
         {/* God rays — one per companion position */}
         <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
           {slots.filter((s) => s.slot !== "hidden").map((s) => {
@@ -2370,7 +3316,13 @@ export function CompanionShowroom({
                   width: s.slot === "current" ? 130 : 80,
                   height: s.slot === "current" ? "55%" : "45%",
                   transform: "translateX(-50%)",
-                  background: `linear-gradient(180deg,
+                  background:
+                    activeTheme.chrome === "crystal"
+                      ? `linear-gradient(180deg,
+                    rgba(255,247,237,${isActive ? 0.2 : 0.09}) 0%,
+                    rgba(253,230,138,0.05) 55%,
+                    transparent 100%)`
+                      : `linear-gradient(180deg,
                     rgba(255,255,255,${isActive ? 0.07 : 0.035}) 0%,
                     rgba(255,255,255,0.018) 55%,
                     transparent 100%)`,
@@ -2399,7 +3351,28 @@ export function CompanionShowroom({
             />
           ))}
         </AnimatePresence>
-        {entries.length > 1 && !spotlightOpen && (
+        {activeTheme.chrome === "crystal" && (
+          <>
+            {slots
+              .filter((slot) => slot.slot !== "hidden")
+              .map((slot) => (
+                <CrystalPedestal
+                  key={`crystal-pedestal-${slot.entry.id}`}
+                  entry={slot.entry}
+                  slot={slot.slot}
+                  soleFlankPair={isPairDuo}
+                  slotFrameStyle={slotFrameStyle(slot.slot, {
+                    soleFlankPair:
+                      Boolean(isPairDuo) &&
+                      (slot.slot === "next" || slot.slot === "prev"),
+                  })}
+                  visible={!spotlightOpen}
+                />
+              ))}
+          </>
+        )}
+        {activeTheme.chrome === "storybook" && <StorybookFootlights />}
+        {showCompanionDots && (
           <div
             role="group"
             aria-label="Companions — tap a dot to switch"
@@ -2438,7 +3411,12 @@ export function CompanionShowroom({
                     borderRadius: 999,
                     border: 0,
                     padding: 0,
-                    background: dotActive ? accent : "rgba(255,255,255,0.3)",
+                    background:
+                      dotActive
+                        ? activeAccent
+                        : activeTheme.chrome === "crystal"
+                          ? "rgba(60,40,140,0.28)"
+                          : "rgba(255,255,255,0.3)",
                     cursor: picking ? "not-allowed" : "pointer",
                     boxShadow: dotActive
                       ? "0 0 0 1px rgba(255,255,255,0.2), 0 2px 14px rgba(109,94,245,0.45)"
@@ -2458,20 +3436,7 @@ export function CompanionShowroom({
         aria-label="Previous companion"
         onClick={() => cycle(-1)}
         disabled={entries.length <= 1 || spotlightOpen || picking}
-        style={{
-          position: "absolute",
-          left: "clamp(16px, 6vw, 88px)",
-          top: "38%",
-          zIndex: 12,
-          width: 58,
-          height: 58,
-          borderRadius: "50%",
-          border: "1px solid rgba(248,250,252,0.22)",
-          background: "rgba(15,23,42,0.62)",
-          color: "#f8fafc",
-          fontSize: 28,
-          cursor: "pointer",
-        }}
+        style={showroomArrowButtonStyle(activeTheme, "left")}
       >
         ◀
       </button>
@@ -2481,20 +3446,7 @@ export function CompanionShowroom({
         aria-label="Next companion"
         onClick={() => cycle(1)}
         disabled={entries.length <= 1 || spotlightOpen || picking}
-        style={{
-          position: "absolute",
-          right: "clamp(16px, 6vw, 88px)",
-          top: "38%",
-          zIndex: 12,
-          width: 58,
-          height: 58,
-          borderRadius: "50%",
-          border: "1px solid rgba(248,250,252,0.22)",
-          background: "rgba(15,23,42,0.62)",
-          color: "#f8fafc",
-          fontSize: 28,
-          cursor: "pointer",
-        }}
+        style={showroomArrowButtonStyle(activeTheme, "right")}
       >
         ▶
       </button>
@@ -2516,59 +3468,388 @@ export function CompanionShowroom({
       >
         {!spotlightOpen && (
           <>
-            {current.showroom?.signatureMove && (
-              <button
-                type="button"
-                aria-label={`Play ${current.showroom.signatureMove.name}`}
-                title={current.showroom.signatureMove.voiceLine}
-                onClick={playSignatureMove}
-                disabled={initialStageLoading}
+            {activeTheme.chrome === "storybook" ? (
+              <>
+                {current.showroom?.signatureMove && (
+                  <StorybookSignatureButton
+                    name={current.showroom.signatureMove.name}
+                    voiceLine={current.showroom.signatureMove.voiceLine}
+                    onClick={playSignatureMove}
+                    disabled={initialStageLoading}
+                  />
+                )}
+	                <StorybookPrimaryButton
+	                  companionName={current.name}
+	                  onClick={openSpotlight}
+	                  disabled={initialStageLoading}
+	                />
+	                <button
+	                  type="button"
+	                  onClick={() => setShowroomTalkOpen(true)}
+	                  disabled={talkButtonDisabled}
+	                  style={{
+	                    border: `1px solid ${activeTheme.controlBorder}`,
+	                    borderRadius: 999,
+	                    background: activeTheme.controlBackground,
+	                    color: activeTheme.controlForeground,
+	                    fontSize: 17,
+	                    fontWeight: 900,
+	                    fontFamily: "Lexend, system-ui, sans-serif",
+	                    padding: "14px 22px",
+	                    cursor: talkButtonDisabled ? "wait" : "pointer",
+	                    opacity: talkButtonDisabled ? 0.62 : 1,
+	                  }}
+	                >
+	                  Talk with {current.name}
+	                </button>
+	              </>
+	            ) : activeTheme.chrome === "crystal" ? (
+              <div
                 style={{
-                  border: "1px solid rgba(254,240,138,0.46)",
-                  borderRadius: 999,
-                  background:
-                    "linear-gradient(135deg, rgba(250,204,21,0.95), rgba(202,138,4,0.88))",
-                  color: "#1f1300",
-                  fontSize: 17,
-                  fontWeight: 900,
-                  fontFamily: "Lexend, system-ui, sans-serif",
-                  padding: "15px 24px",
-                  boxShadow: "0 18px 44px rgba(250,204,21,0.24)",
-                  cursor: initialStageLoading ? "wait" : "pointer",
-                  opacity: initialStageLoading ? 0.68 : 1,
-                  maxWidth: "min(88vw, 300px)",
-                  overflowWrap: "anywhere",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                  maxWidth: "min(94vw, 760px)",
                 }}
               >
-                {current.showroom.signatureMove.name}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={openSpotlight}
-              disabled={initialStageLoading}
-              style={{
-                border: 0,
-                borderRadius: 999,
-                background: accent,
-                color: "#fff",
-                fontSize: 20,
-                fontWeight: 800,
-                fontFamily: "Lexend, system-ui, sans-serif",
-                padding: "16px 34px",
-                boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
-                cursor: initialStageLoading ? "wait" : "pointer",
-                opacity: initialStageLoading ? 0.68 : 1,
-              }}
-            >
-              Meet {current.name}
-            </button>
+                <CrystalIdentityBlock companion={current} roleNumber={currentIndex + 1} />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                    gap: 12,
+                  }}
+                >
+                  <CrystalDotNav
+                    total={entries.length}
+                    activeIndex={currentIndex}
+                    onPick={(index) => {
+                      if (picking) return;
+                      setCurrentIndex(index);
+                    }}
+                    disabled={picking}
+                  />
+                  {current.showroom?.signatureMove && (
+                    <CrystalSignatureButton
+                      name={current.showroom.signatureMove.name}
+                      voiceLine={current.showroom.signatureMove.voiceLine}
+                      onClick={playSignatureMove}
+                      disabled={initialStageLoading}
+                    />
+                  )}
+	                  <CrystalPrimaryButton
+	                    companionName={current.name}
+	                    onClick={openSpotlight}
+	                    disabled={initialStageLoading}
+	                  />
+	                  <button
+	                    type="button"
+	                    onClick={() => setShowroomTalkOpen(true)}
+	                    disabled={talkButtonDisabled}
+	                    style={{
+	                      border: "1px solid rgba(124,92,255,0.26)",
+	                      borderRadius: 999,
+	                      background: "rgba(255,255,255,0.74)",
+	                      color: "#3b2f7a",
+	                      fontSize: 16,
+	                      fontWeight: 900,
+	                      fontFamily: "Lexend, system-ui, sans-serif",
+	                      padding: "13px 20px",
+	                      boxShadow: "0 14px 34px rgba(124,92,255,0.14)",
+	                      cursor: talkButtonDisabled ? "wait" : "pointer",
+	                      opacity: talkButtonDisabled ? 0.62 : 1,
+	                    }}
+	                  >
+	                    Talk with {current.name}
+	                  </button>
+	                </div>
+	              </div>
+	            ) : (
+              <>
+                {current.showroom?.signatureMove && (
+                  <button
+                    type="button"
+                    aria-label={`Play ${current.showroom.signatureMove.name}`}
+                    title={current.showroom.signatureMove.voiceLine}
+                    onClick={playSignatureMove}
+                    disabled={initialStageLoading}
+                    style={{
+                      border: "1px solid rgba(254,240,138,0.46)",
+                      borderRadius: 999,
+                      background:
+                        "linear-gradient(135deg, rgba(250,204,21,0.95), rgba(202,138,4,0.88))",
+                      color: "#1f1300",
+                      fontSize: 17,
+                      fontWeight: 900,
+                      fontFamily: "Lexend, system-ui, sans-serif",
+                      padding: "15px 24px",
+                      boxShadow: "0 18px 44px rgba(250,204,21,0.24)",
+                      cursor: initialStageLoading ? "wait" : "pointer",
+                      opacity: initialStageLoading ? 0.68 : 1,
+                      maxWidth: "min(88vw, 300px)",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {current.showroom.signatureMove.name}
+                  </button>
+                )}
+	                <button
+	                  type="button"
+	                  onClick={openSpotlight}
+                  disabled={initialStageLoading}
+                  style={{
+                    border: 0,
+                    borderRadius: 999,
+                    background: activeTheme.primaryBackground,
+                    color: activeTheme.primaryForeground,
+                    fontSize: 20,
+                    fontWeight: 800,
+                    fontFamily: "Lexend, system-ui, sans-serif",
+                    padding: "16px 34px",
+                    boxShadow: "0 18px 44px rgba(109,94,245,0.42)",
+                    cursor: initialStageLoading ? "wait" : "pointer",
+                    opacity: initialStageLoading ? 0.68 : 1,
+                  }}
+	                >
+	                  Meet {current.name}
+	                </button>
+	                <button
+	                  type="button"
+	                  onClick={() => setShowroomTalkOpen(true)}
+	                  disabled={talkButtonDisabled}
+	                  style={{
+	                    border: "1px solid rgba(255,255,255,0.2)",
+	                    borderRadius: 999,
+	                    background: "rgba(15,23,42,0.78)",
+	                    color: "#f8fafc",
+	                    fontSize: 18,
+	                    fontWeight: 900,
+	                    fontFamily: "Lexend, system-ui, sans-serif",
+	                    padding: "15px 24px",
+	                    boxShadow: "0 18px 44px rgba(15,23,42,0.24)",
+	                    cursor: talkButtonDisabled ? "wait" : "pointer",
+	                    opacity: talkButtonDisabled ? 0.62 : 1,
+	                  }}
+	                >
+	                  Talk with {current.name}
+	                </button>
+	              </>
+	            )}
           </>
         )}
-      </div>
+	      </div>
 
-      <AnimatePresence>
-        {spotlightOpen && (
+	      <AnimatePresence>
+	        {showroomTalkOpen && !spotlightOpen && (
+	          <motion.form
+	            key="showroom-talk"
+	            role="dialog"
+	            aria-label={`Talk with ${current.name}`}
+	            initial={{ opacity: 0, y: 18 }}
+	            animate={{ opacity: 1, y: 0 }}
+	            exit={{ opacity: 0, y: 18 }}
+	            transition={{ duration: 0.22, ease: "easeOut" }}
+	            onSubmit={(event) => {
+	              event.preventDefault();
+	              void submitShowroomTalkQuestion();
+	            }}
+	            style={{
+	              position: "fixed",
+	              left: "50%",
+	              bottom: 18,
+	              transform: "translateX(-50%)",
+	              zIndex: 36,
+	              width: "min(92vw, 620px)",
+	              borderRadius: 8,
+	              border: `1px solid ${activeTheme.controlBorder}`,
+	              background:
+	                activeTheme.chrome === "crystal"
+	                  ? "rgba(255,255,255,0.9)"
+	                  : "rgba(16,18,32,0.92)",
+	              color: activeTheme.controlForeground,
+	              boxShadow: "0 22px 70px rgba(0,0,0,0.28)",
+	              backdropFilter: "blur(14px)",
+	              padding: 12,
+	              display: "grid",
+	              gap: 10,
+	            }}
+	          >
+	            <div
+	              style={{
+	                display: "flex",
+	                alignItems: "center",
+	                justifyContent: "space-between",
+	                gap: 10,
+	              }}
+	            >
+	              <div
+	                style={{
+	                  fontSize: 15,
+	                  fontWeight: 900,
+	                  overflow: "hidden",
+	                  textOverflow: "ellipsis",
+	                  whiteSpace: "nowrap",
+	                }}
+	              >
+	                Talk with {current.name}
+	              </div>
+	              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+	                <span
+	                  aria-live="polite"
+	                  style={{
+	                    fontSize: 12,
+	                    fontWeight: 800,
+	                    color: activeTheme.mutedForeground,
+	                    textTransform: "uppercase",
+	                    letterSpacing: 0,
+	                  }}
+	                >
+	                  {showroomTalkPhase}
+	                </span>
+	                <button
+	                  type="button"
+	                  aria-label="Close talk"
+	                  onClick={() => {
+	                    stopSpeech();
+	                    resetShowroomTalk();
+	                    setShowroomTalkOpen(false);
+	                    playCurrentCompanionAnimation("idle", { loop: true });
+	                  }}
+	                  style={{
+	                    width: 34,
+	                    height: 34,
+	                    borderRadius: 8,
+	                    border: `1px solid ${activeTheme.controlBorder}`,
+	                    background: "transparent",
+	                    color: activeTheme.controlForeground,
+	                    display: "grid",
+	                    placeItems: "center",
+	                    cursor: "pointer",
+	                  }}
+	                >
+	                  <X size={18} aria-hidden />
+	                </button>
+	              </div>
+	            </div>
+
+	            {showroomTalkResponse && (
+	              <div
+	                style={{
+	                  borderRadius: 8,
+	                  padding: "10px 12px",
+	                  background:
+	                    activeTheme.chrome === "crystal"
+	                      ? "rgba(124,92,255,0.1)"
+	                      : "rgba(255,255,255,0.08)",
+	                  color: activeTheme.controlForeground,
+	                  fontSize: 14,
+	                  lineHeight: 1.45,
+	                }}
+	              >
+	                {showroomTalkResponse}
+	              </div>
+	            )}
+
+	            {showroomTalkError && (
+	              <div
+	                role="alert"
+	                style={{
+	                  fontSize: 13,
+	                  color: activeTheme.chrome === "crystal" ? "#9f1239" : "#fecdd3",
+	                  lineHeight: 1.35,
+	                }}
+	              >
+	                {showroomTalkError}
+	              </div>
+	            )}
+
+	            <div
+	              style={{
+	                display: "grid",
+	                gridTemplateColumns: "44px minmax(0, 1fr) 44px",
+	                gap: 8,
+	                alignItems: "center",
+	              }}
+	            >
+	              <button
+	                type="button"
+	                aria-label="Use voice"
+	                onClick={startShowroomTalkListening}
+	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
+	                style={{
+	                  width: 44,
+	                  height: 44,
+	                  borderRadius: 8,
+	                  border: `1px solid ${activeTheme.controlBorder}`,
+	                  background:
+	                    showroomTalkPhase === "listening"
+	                      ? activeTheme.primaryBackground
+	                      : activeTheme.controlBackground,
+	                  color:
+	                    showroomTalkPhase === "listening"
+	                      ? activeTheme.primaryForeground
+	                      : activeTheme.controlForeground,
+	                  display: "grid",
+	                  placeItems: "center",
+	                  cursor: shouldGateShowroomTalkMic(showroomTalkPhase) ? "wait" : "pointer",
+	                  opacity: shouldGateShowroomTalkMic(showroomTalkPhase) ? 0.62 : 1,
+	                }}
+	              >
+	                <Mic size={19} aria-hidden />
+	              </button>
+	              <input
+	                value={showroomTalkQuestion}
+	                onChange={(event) => {
+	                  setShowroomTalkQuestion(event.target.value);
+	                  setShowroomTalkError(null);
+	                }}
+	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
+	                placeholder={`Ask ${current.name} anything`}
+	                style={{
+	                  minWidth: 0,
+	                  height: 44,
+	                  borderRadius: 8,
+	                  border: `1px solid ${activeTheme.controlBorder}`,
+	                  background:
+	                    activeTheme.chrome === "crystal"
+	                      ? "rgba(255,255,255,0.88)"
+	                      : "rgba(15,23,42,0.82)",
+	                  color: activeTheme.controlForeground,
+	                  padding: "0 12px",
+	                  fontSize: 15,
+	                  fontWeight: 700,
+	                  outline: "none",
+	                }}
+	              />
+	              <button
+	                type="submit"
+	                aria-label="Send question"
+	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
+	                style={{
+	                  width: 44,
+	                  height: 44,
+	                  borderRadius: 8,
+	                  border: 0,
+	                  background: activeTheme.primaryBackground,
+	                  color: activeTheme.primaryForeground,
+	                  display: "grid",
+	                  placeItems: "center",
+	                  cursor: shouldGateShowroomTalkMic(showroomTalkPhase) ? "wait" : "pointer",
+	                  opacity: shouldGateShowroomTalkMic(showroomTalkPhase) ? 0.62 : 1,
+	                }}
+	              >
+	                <Send size={18} aria-hidden />
+	              </button>
+	            </div>
+	          </motion.form>
+	        )}
+	      </AnimatePresence>
+
+	      <AnimatePresence>
+	        {spotlightOpen && (
           <motion.div
             key="spotlight-overlay"
             initial={{ opacity: 0 }}
@@ -2664,9 +3945,8 @@ export function CompanionShowroom({
               zIndex: 90,
               display: "grid",
               placeItems: "center",
-              background:
-                "radial-gradient(circle at 50% 34%, rgba(109,94,245,0.28), transparent 34%), rgba(15,10,30,0.94)",
-              color: "#f8fafc",
+              background: activeTheme.loadingBackground,
+              color: activeTheme.foreground,
               pointerEvents: "none",
             }}
           >
@@ -2688,8 +3968,7 @@ export function CompanionShowroom({
                   height: 88,
                   borderRadius: "50%",
                   border: "2px solid rgba(255,255,255,0.18)",
-                  background:
-                    "radial-gradient(circle, rgba(251,191,36,0.95) 0 12%, rgba(109,94,245,0.6) 13% 42%, rgba(15,23,42,0.65) 43%)",
+                  background: `radial-gradient(circle, rgba(251,191,36,0.95) 0 12%, ${activeAccent} 13% 42%, rgba(15,23,42,0.65) 43%)`,
                   boxShadow:
                     "0 0 46px rgba(167,139,250,0.5), inset 0 0 28px rgba(255,255,255,0.16)",
                   animation: "sunny-showroom-breathe 1.1s ease-in-out infinite alternate",

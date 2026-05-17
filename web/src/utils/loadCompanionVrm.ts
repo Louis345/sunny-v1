@@ -1,10 +1,8 @@
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
-  MToonMaterialLoaderPlugin,
   VRMLoaderPlugin,
   VRM,
 } from "@pixiv/three-vrm";
-import { MToonNodeMaterial } from "@pixiv/three-vrm/nodes";
 import {
   resolveVrmExpressionName,
   validateVrmRequirements,
@@ -27,12 +25,10 @@ export async function loadCompanionVrm(
   const useWebGpuMaterials = options?.webgpu !== false;
   const loader = new GLTFLoader();
   if (useWebGpuMaterials) {
-    loader.register((parser) => {
-      const mtoonMaterialPlugin = new MToonMaterialLoaderPlugin(parser, {
-        materialType: MToonNodeMaterial,
-      });
-      return new VRMLoaderPlugin(parser, { mtoonMaterialPlugin });
-    });
+    console.warn(
+      "[VRM] WebGPU node materials unavailable in this three build; loading classic VRM materials.",
+    );
+    loader.register((parser) => new VRMLoaderPlugin(parser));
   } else {
     loader.register((parser) => new VRMLoaderPlugin(parser));
   }

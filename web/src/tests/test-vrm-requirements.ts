@@ -96,6 +96,45 @@ describe("validateVrmRequirements (COMPANION-002)", () => {
     ).not.toThrow();
   });
 
+  it("does not reject a companion that is missing optional surprised expressions", () => {
+    expect(() =>
+      validateVrmRequirements(
+        mockVrm({
+          expressions: {
+            happy: true,
+            sad: true,
+            surprised: false,
+            Surprised: false,
+            aa: true,
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("passes when aliases are present only in expressionMap", () => {
+    expect(() =>
+      validateVrmRequirements({
+        expressionManager: {
+          expressionMap: {
+            happy: {},
+            sad: {},
+            Surprised: {},
+            aa: {},
+          },
+          getExpression() {
+            return null;
+          },
+        },
+        humanoid: {
+          getRawBoneNode() {
+            return {};
+          },
+        },
+      }),
+    ).not.toThrow();
+  });
+
   it("throws when bone head is missing", () => {
     expect(() =>
       validateVrmRequirements(

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { classifyKaraokeWordMatch } from "../../../src/shared/karaokeMatchWord";
+import type { KaraokeMatchMode } from "../../../src/shared/karaokeMatchWord";
 import {
   buildKaraokeReadingProgressPayload,
   isInterimPhraseRestart,
@@ -8,27 +9,74 @@ import {
 function transcriptMatchesExpectedPhrase(
   heardWords: string[],
   expected: string,
+  matchMode: KaraokeMatchMode,
+  scope: "anywhere" | "tail" = "anywhere",
 ): "match" | "partial" | "mismatch" {
   const expectedTokens = expected.split(/\s+/).filter(Boolean);
   if (expectedTokens.length <= 1) {
+    if (scope === "tail") {
+      let result: "match" | "partial" | "mismatch" = "mismatch";
+      const tailWords = heardWords.slice(-3);
+      const lastWord = tailWords.at(-1) ?? "";
+      if (lastWord) {
+        const candidate = classifyKaraokeWordMatch(lastWord, expected, { mode: matchMode });
+        if (candidate === "match") return "match";
+        if (candidate === "partial") result = "partial";
+      }
+      for (const size of [2, 3]) {
+        if (tailWords.length < size) continue;
+        const phrase = tailWords.slice(-size).join(" ");
+        const compactPhrase = phrase.replace(/\s+/g, "");
+        const phraseResult = classifyKaraokeWordMatch(compactPhrase, expected, { mode: matchMode });
+        if (phraseResult === "match") return "match";
+        if (phraseResult === "partial") result = "partial";
+      }
+      return result;
+    }
     let result: "match" | "partial" | "mismatch" = "mismatch";
     for (const heardWord of heardWords) {
-      const candidate = classifyKaraokeWordMatch(heardWord, expected);
+      const candidate = classifyKaraokeWordMatch(heardWord, expected, { mode: matchMode });
       if (candidate === "match") return "match";
       if (candidate === "partial") result = "partial";
+    }
+    const windowSizes = [2, 3];
+    for (const size of windowSizes) {
+      if (heardWords.length < size) continue;
+      for (let start = 0; start <= heardWords.length - size; start += 1) {
+        const phrase = heardWords.slice(start, start + size).join(" ");
+        const compactPhrase = phrase.replace(/\s+/g, "");
+        const phraseResult = classifyKaraokeWordMatch(compactPhrase, expected, { mode: matchMode });
+        if (phraseResult === "match") return "match";
+        if (phraseResult === "partial") result = "partial";
+      }
     }
     return result;
   }
 
   const normalizedExpected = expectedTokens.join(" ");
-  for (let start = 0; start <= heardWords.length - expectedTokens.length; start += 1) {
-    const phrase = heardWords.slice(start, start + expectedTokens.length).join(" ");
-    if (classifyKaraokeWordMatch(phrase, normalizedExpected) === "match") {
+  if (scope === "tail") {
+    const phrase = heardWords.slice(-expectedTokens.length).join(" ");
+    if (classifyKaraokeWordMatch(phrase, normalizedExpected, { mode: matchMode }) === "match") {
       return "match";
     }
     const compactPhrase = phrase.replace(/\s+/g, "");
     const compactExpected = normalizedExpected.replace(/\s+/g, "");
-    if (classifyKaraokeWordMatch(compactPhrase, compactExpected) === "match") {
+    if (classifyKaraokeWordMatch(compactPhrase, compactExpected, { mode: matchMode }) === "match") {
+      return "match";
+    }
+    return phrase &&
+      classifyKaraokeWordMatch(phrase, normalizedExpected, { mode: matchMode }) === "partial"
+      ? "partial"
+      : "mismatch";
+  }
+  for (let start = 0; start <= heardWords.length - expectedTokens.length; start += 1) {
+    const phrase = heardWords.slice(start, start + expectedTokens.length).join(" ");
+    if (classifyKaraokeWordMatch(phrase, normalizedExpected, { mode: matchMode }) === "match") {
+      return "match";
+    }
+    const compactPhrase = phrase.replace(/\s+/g, "");
+    const compactExpected = normalizedExpected.replace(/\s+/g, "");
+    if (classifyKaraokeWordMatch(compactPhrase, compactExpected, { mode: matchMode }) === "match") {
       return "match";
     }
   }
@@ -37,7 +85,7 @@ function transcriptMatchesExpectedPhrase(
   const partialPhrase = lastWords.join(" ");
   if (
     partialPhrase &&
-    classifyKaraokeWordMatch(partialPhrase, normalizedExpected) === "partial"
+    classifyKaraokeWordMatch(partialPhrase, normalizedExpected, { mode: matchMode }) === "partial"
   ) {
     return "partial";
   }
@@ -46,6 +94,10 @@ function transcriptMatchesExpectedPhrase(
 
 function transcriptFingerprint(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function wordsFingerprint(words: string[]): string {
+  return words.map((word) => word.trim().toLowerCase()).join("\u0001");
 }
 
 export interface UseKaraokeReadingArgs {
@@ -61,6 +113,11 @@ export interface UseKaraokeReadingArgs {
   suppressDuplicateTranscriptMatches?: boolean;
   /** Defaults to karaoke reading progress; pass null when another activity owns progress/completion events. */
   progressMessageType?: string | null;
+  /** Explicitly reset when the caller starts a new attempt with identical words. */
+  resetKey?: string | number;
+  matchMode?: KaraokeMatchMode;
+  /** Pronunciation should only score the newest utterance tail; story karaoke can scan the phrase. */
+  sequentialMatchScope?: "anywhere" | "tail";
 }
 
 export type KaraokeReadingCompleteResult = {
@@ -99,6 +156,9 @@ export function useKaraokeReading(
     leaderWordIndex = null,
     suppressDuplicateTranscriptMatches = false,
     progressMessageType = "reading_progress",
+    resetKey = "",
+    matchMode = "speech",
+    sequentialMatchScope = "anywhere",
   } = args;
 
   const [wordIndex, setWordIndex] = useState(0);
@@ -132,11 +192,13 @@ export function useKaraokeReading(
     [progressMessageType, sendMessage],
   );
 
-  // Reset all state when the words array reference changes (new story).
-  const prevWordsRef = useRef(words);
+  // Reset all state only when the readable content changes. Parents may rebuild
+  // an equivalent array during Storybook or map rerenders.
+  const prevWordsFingerprintRef = useRef(`${resetKey}:${wordsFingerprint(words)}`);
   useEffect(() => {
-    if (words === prevWordsRef.current) return;
-    prevWordsRef.current = words;
+    const nextFingerprint = `${resetKey}:${wordsFingerprint(words)}`;
+    if (nextFingerprint === prevWordsFingerprintRef.current) return;
+    prevWordsFingerprintRef.current = nextFingerprint;
     wordIndexRef.current = 0;
     isCompleteRef.current = false;
     lastInterimRef.current = "";
@@ -154,7 +216,7 @@ export function useKaraokeReading(
     setIsComplete(false);
     setFlaggedWords([]);
     setHitWordIndex(null);
-  }, [words]);
+  }, [resetKey, words]);
 
   // When active belt indices change, allow re-hits for words no longer active.
   const prevActiveRef = useRef<number[] | null>(null);
@@ -283,7 +345,7 @@ export function useKaraokeReading(
       for (const i of matchIndices) {
         const expected = words[i];
         if (!expected) continue;
-        const r = classifyKaraokeWordMatch(lastWord, expected);
+        const r = classifyKaraokeWordMatch(lastWord, expected, { mode: matchMode });
         if (r === "match") {
           best = "match";
           break;
@@ -300,7 +362,7 @@ export function useKaraokeReading(
           const blocked = pendingHitBlockRef.current.has(i);
           const expected = words[i];
           if (!expected) continue;
-          const matchResult = classifyKaraokeWordMatch(heardWord, expected);
+          const matchResult = classifyKaraokeWordMatch(heardWord, expected, { mode: matchMode });
           if (import.meta.env.DEV) {
             console.debug(
               "[PG-MATCH] heard=%s expected=%s result=%s idx=%d blocked=%s",
@@ -376,7 +438,12 @@ export function useKaraokeReading(
     const expected = words[prev];
     if (!expected) return;
 
-    const result = transcriptMatchesExpectedPhrase(heardWords, expected);
+    const result = transcriptMatchesExpectedPhrase(
+      heardWords,
+      expected,
+      matchMode,
+      sequentialMatchScope,
+    );
     lastClassifyResultRef.current = result;
     if (result !== "match") return;
 
@@ -400,6 +467,8 @@ export function useKaraokeReading(
     activeWordIndices,
     leaderWordIndex,
     suppressDuplicateTranscriptMatches,
+    matchMode,
+    sequentialMatchScope,
     completeReading,
   ]);
 

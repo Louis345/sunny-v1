@@ -185,6 +185,20 @@ function sEarlyExit() {
     beep(300, 200, 0.2);
   }, 180);
 }
+function speakTargetWord(word) {
+  var w = String(word || "").trim();
+  if (!w || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) return false;
+  try {
+    var u = new SpeechSynthesisUtterance(w);
+    u.rate = 0.82;
+    u.pitch = 1.02;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 function fireC(tr, p) {
   if (typeof window.fireCompanionEvent === "function")
@@ -287,13 +301,10 @@ function planWordEntry(raw) {
 function endRoundList(entry) {
   var k = entry.plan.kind;
   if (k === "knownQuick") return [3];
-  if (k === "full") {
-    if (entry.w.length <= 3) return [2, 3];
+  if (k === "full" || k === "fullShort" || k === "weak" || k === "shortWeak") {
     return [1, 2, 3];
   }
-  if (k === "weak" || k === "shortWeak") return [2, 3];
-  if (k === "fullShort") return [2, 3];
-  return [2, 3];
+  return [1, 2, 3];
 }
 
 var built = [];
@@ -563,6 +574,7 @@ function onPill(letter) {
         {
           phase: "playing",
           currentWord: currentWord,
+          answerVisibility: "visible",
           itemIndex: wordIndex,
           totalItems: sessionWords.length,
           correct: true,
@@ -587,6 +599,7 @@ function onPill(letter) {
         {
           phase: "playing",
           currentWord: currentWord,
+          answerVisibility: "visible",
           itemIndex: wordIndex,
           totalItems: sessionWords.length,
           correct: false,
@@ -653,8 +666,9 @@ function startR3() {
   r3R();
   canTypeR3 = true;
   setKeyboard(true);
-  document.getElementById("prompt-main").textContent = "From memory!";
+  document.getElementById("prompt-main").textContent = "Listen, then spell it";
   document.getElementById("sub-line").textContent = "Memory";
+  speakTargetWord(currentWord);
 }
 
 function submitR3() {
@@ -746,6 +760,19 @@ function finishSession(early) {
   for (q = 0; q < struggledWords.length; q++) {
     if (ustr.indexOf(struggledWords[q]) < 0) ustr.push(struggledWords[q]);
   }
+  var targetResults = sfl.map(function(word) {
+    var struggled = ustr.indexOf(word) >= 0;
+    return {
+      target: word,
+      correct: m.indexOf(word) >= 0,
+      attempts: struggled ? 2 : 1,
+      scaffoldLevel: struggled ? 1 : 0,
+      mode: "spell-check",
+      evidenceTier: "practice",
+      masteryEligible: false,
+      struggleSignals: struggled ? ["letter_support_needed"] : []
+    };
+  });
   var acc =
     totalRoundsPlanned > 0
       ? roundsPassedFirstPass / totalRoundsPlanned
@@ -761,6 +788,17 @@ function finishSession(early) {
       xpEarned: m.length * 20,
       timeSpent_ms: Date.now() - startTime,
       wordsAttempted: sfl.length,
+      activityId: "spell-check",
+      evidenceTier: "practice",
+      masteryEligible: false,
+      vitalSigns: {
+        timeOnTask_ms: Date.now() - startTime,
+        helpRequests: 0,
+        wrongLetterTaps: scaffoldDecoysTaps,
+        flowSignals: m.length,
+        frustrationSignals: ustr.length
+      },
+      targetResults: targetResults,
     });
   }
   fireC("session_complete", {});
@@ -806,6 +844,11 @@ if (rawList.length === 0) {
         xpEarned: 0,
         timeSpent_ms: Date.now() - startTime,
         wordsAttempted: 0,
+        activityId: "spell-check",
+        evidenceTier: "practice",
+        masteryEligible: false,
+        vitalSigns: { timeOnTask_ms: Date.now() - startTime },
+        targetResults: [],
       });
     }
     fireC("session_complete", {});
@@ -825,6 +868,11 @@ if (rawList.length === 0) {
         xpEarned: 0,
         timeSpent_ms: Date.now() - startTime,
         wordsAttempted: 0,
+        activityId: "spell-check",
+        evidenceTier: "practice",
+        masteryEligible: false,
+        vitalSigns: { timeOnTask_ms: Date.now() - startTime },
+        targetResults: [],
       });
     }
     fireC("session_complete", {});

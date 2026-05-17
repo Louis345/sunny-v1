@@ -37,6 +37,10 @@ window.GameBridge = (function () {
       fixtureState: p.get("fixtureState") || "",
       nodeId: p.get("nodeId") || "unknown",
       sessionId: p.get("sessionId") || null,
+      activityIntentId: p.get("activityIntentId") || "",
+      activityIntentPurpose: p.get("activityIntentPurpose") || "",
+      targetSelector: p.get("targetSelector") || "",
+      targetSelectorId: p.get("targetSelectorId") || "",
       config: p.get("config") || null,
       preview: pv,
       chrome: p.get("chrome") || "",
@@ -45,6 +49,11 @@ window.GameBridge = (function () {
       previewStorybook: previewStorybook,
       previewGoLive: previewGoLive,
       isQuest: p.get("isQuest") === "true",
+      traceId: [
+        p.get("sessionId") || "session",
+        p.get("nodeId") || "node",
+        Math.random().toString(36).slice(2),
+      ].join(":"),
       dyslexiaMode: p.get("dyslexiaMode") === "true",
       attentionConfig: (function () {
         var raw = p.get("attentionConfig");
@@ -223,6 +232,10 @@ window.GameBridge = (function () {
       var merged = Object.assign({}, r, {
         nodeId: GAME_PARAMS.nodeId,
         childId: GAME_PARAMS.childId,
+        sessionId: GAME_PARAMS.sessionId,
+        traceId: GAME_PARAMS.traceId,
+        activityIntentId: GAME_PARAMS.activityIntentId,
+        targetSelectorId: GAME_PARAMS.targetSelectorId,
       });
       post("game_complete", merged);
       window.parent.postMessage(
@@ -259,6 +272,12 @@ window.GameBridge = (function () {
             game: document.title,
             progress: progress.trim(),
             childId: GAME_PARAMS.childId,
+            nodeId: GAME_PARAMS.nodeId,
+            sessionId: GAME_PARAMS.sessionId,
+            traceId: GAME_PARAMS.traceId,
+            activityIntentId: GAME_PARAMS.activityIntentId,
+            targetSelectorId: GAME_PARAMS.targetSelectorId,
+            activityIntentPurpose: GAME_PARAMS.activityIntentPurpose,
           },
           extras || {},
         ),
@@ -314,6 +333,8 @@ window.GameBridge = (function () {
             companionName: GAME_PARAMS.companionName,
             nodeId: GAME_PARAMS.nodeId,
             sessionId: GAME_PARAMS.sessionId,
+            activityIntentId: GAME_PARAMS.activityIntentId,
+            targetSelectorId: GAME_PARAMS.targetSelectorId,
             timestamp: Date.now(),
           },
           anchor,
@@ -373,6 +394,11 @@ window.GameBridge = (function () {
             trigger: String(trigger),
             timestamp: Date.now(),
             childId: GAME_PARAMS.childId,
+            nodeId: GAME_PARAMS.nodeId,
+            sessionId: GAME_PARAMS.sessionId,
+            traceId: GAME_PARAMS.traceId,
+            activityIntentId: GAME_PARAMS.activityIntentId,
+            targetSelectorId: GAME_PARAMS.targetSelectorId,
           },
           payload || {},
         ),
@@ -412,6 +438,9 @@ window.GameBridge = (function () {
           childId: GAME_PARAMS.childId,
           nodeId: GAME_PARAMS.nodeId,
           sessionId: GAME_PARAMS.sessionId,
+          traceId: GAME_PARAMS.traceId,
+          activityIntentId: GAME_PARAMS.activityIntentId,
+          targetSelectorId: GAME_PARAMS.targetSelectorId,
           timestamp: timestamp,
         }),
       );
@@ -429,4 +458,49 @@ window.fireCompanionEvent = function (trigger, payload) {
 
 window.fireAttemptEvent = function (attempt) {
   window.GameBridge.reportAttempt(attempt);
+};
+
+window.SunnyActivity = {
+  params: window.GAME_PARAMS,
+  snapshot: function (snapshot) {
+    var state = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+      ? snapshot
+      : {};
+    window.GameBridge.reportState(
+      typeof state.progress === "string" && state.progress.trim()
+        ? state.progress
+        : "activity snapshot",
+      state,
+    );
+  },
+  attempt: function (attempt) {
+    window.GameBridge.reportAttempt(attempt);
+  },
+  complete: function (result) {
+    window.GameBridge.complete(result);
+  },
+  helpRequest: function (payload) {
+    window.GameBridge.fireEvent(
+      "help_request",
+      Object.assign(
+        {
+          activityIntentId: window.GAME_PARAMS.activityIntentId,
+          targetSelectorId: window.GAME_PARAMS.targetSelectorId,
+        },
+        payload || {},
+      ),
+    );
+  },
+  productIssue: function (payload) {
+    window.GameBridge.fireEvent(
+      "product_issue",
+      Object.assign(
+        {
+          activityIntentId: window.GAME_PARAMS.activityIntentId,
+          targetSelectorId: window.GAME_PARAMS.targetSelectorId,
+        },
+        payload || {},
+      ),
+    );
+  },
 };

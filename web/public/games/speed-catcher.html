@@ -448,10 +448,10 @@ function App() {
 
   /* ── GameBridge helpers ─────────────────────────────────────── */
   const reportState = (msg, extras={}) => {
-    if(window.GameBridge?.reportState) window.GameBridge.reportState(msg,{game:'speed-catcher',wordIdx,score,lives,...extras});
+    if(window.GameBridge?.reportState) window.GameBridge.reportState(msg,{game:'speed-catcher',wordIdx,itemIndex:wordIdx,totalItems:WORDS.length,currentWord,answerVisibility:'visible',score,lives,...extras});
   };
   const reportAction = (action, msg, extras={}) => {
-    if(window.GameBridge?.reportAction) window.GameBridge.reportAction(action,msg,{game:'speed-catcher',wordIdx,score,lives,...extras});
+    if(window.GameBridge?.reportAction) window.GameBridge.reportAction(action,msg,{game:'speed-catcher',wordIdx,itemIndex:wordIdx,totalItems:WORDS.length,currentWord,answerVisibility:'visible',score,lives,...extras});
   };
   const fireComp = (trigger, payload={}) => {
     if(window.fireCompanionEvent) window.fireCompanionEvent(trigger,payload);
@@ -640,6 +640,20 @@ function App() {
     setBubbles([]);
     if(won){ SE.fanfare(); setCompMood('celebrating'); setCompSpeech('You did it! Amazing! 🏆'); }
     else { SE.gameover(); setCompMood('wrong'); setCompSpeech('Good effort! Try again! 💪'); }
+    const targetResults=WORDS.map((word)=>{
+      const correct=wordsCorrect.current.includes(word);
+      const struggled=wordsWrong.current.includes(word);
+      return {
+        target:word,
+        correct,
+        attempts:struggled ? 2 : (correct ? 1 : 0),
+        scaffoldLevel:0,
+        mode:'speed-catcher',
+        evidenceTier:'practice',
+        masteryEligible:false,
+        struggleSignals:struggled ? ['wrong_choice_or_timeout'] : []
+      };
+    });
     const result={
       completed:won,
       accuracy:wordsCorrect.current.length/WORDS.length,
@@ -650,6 +664,16 @@ function App() {
       coinsEarned:score,
       timeSpent_ms:Date.now()-startTime.current,
       wordsAttempted:WORDS.length,
+      activityId:'speed-catcher',
+      evidenceTier:'practice',
+      masteryEligible:false,
+      vitalSigns:{
+        timeOnTask_ms:Date.now()-startTime.current,
+        flowSignals:wordsCorrect.current.length,
+        frustrationSignals:wordsWrong.current.length,
+        helpRequests:0,
+      },
+      targetResults,
     };
     reportState(won?`Game won! Score: ${score}. ${wordsCorrect.current.length}/${WORDS.length} correct.`:`Game over. Score: ${score}.`,result);
     if(window.GameBridge?.awardCurrency) window.GameBridge.awardCurrency(score,'speed_catcher');

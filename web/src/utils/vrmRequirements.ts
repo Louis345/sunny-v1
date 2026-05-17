@@ -1,13 +1,14 @@
-/** Blend shapes / expressions required for companion reactions + mouth (COMPANION-002). */
-export const REQUIRED_VRM_EXPRESSIONS = ["happy", "sad", "surprised", "aa"] as const;
+/** Blend shapes / expressions required for core companion reactions + mouth (COMPANION-002). */
+export const REQUIRED_VRM_EXPRESSIONS = ["happy", "sad", "aa"] as const;
 export type RequiredVrmExpression = (typeof REQUIRED_VRM_EXPRESSIONS)[number];
+type SupportedVrmExpression = RequiredVrmExpression | "surprised";
 
 /**
  * VRM 1.x models usually expose lower-case presets (`happy`, `aa`), while many
  * VRM 0.x exports expose legacy names (`Joy`, `A`). Treat those as equivalent
  * for validation and expression playback so downloaded companions can render.
  */
-export const VRM_EXPRESSION_ALIASES: Record<RequiredVrmExpression, string[]> = {
+export const VRM_EXPRESSION_ALIASES: Record<SupportedVrmExpression, string[]> = {
   happy: ["happy", "Joy", "joy", "Fun", "fun"],
   sad: ["sad", "Sorrow", "sorrow"],
   surprised: ["surprised", "Surprised"],
@@ -27,6 +28,7 @@ const OPTIONAL_VRM_EXPRESSION_ALIASES: Record<string, string[]> = {
 export const REQUIRED_VRM_BONES = ["head", "leftHand", "rightHand", "spine"] as const;
 
 export interface VrmExpressionManagerLike {
+  expressionMap?: Record<string, unknown>;
   getExpression(name: string): unknown | null;
 }
 
@@ -44,14 +46,26 @@ export function resolveVrmExpressionName(
   preferredName: string,
 ): string | null {
   if (em.getExpression(preferredName) != null) return preferredName;
+  if (hasExpressionMapEntry(em, preferredName)) return preferredName;
   const aliases =
-    VRM_EXPRESSION_ALIASES[preferredName as RequiredVrmExpression] ??
+    VRM_EXPRESSION_ALIASES[preferredName as SupportedVrmExpression] ??
     OPTIONAL_VRM_EXPRESSION_ALIASES[preferredName] ??
     [];
   for (const alias of aliases) {
     if (em.getExpression(alias) != null) return alias;
+    if (hasExpressionMapEntry(em, alias)) return alias;
   }
   return null;
+}
+
+function hasExpressionMapEntry(
+  em: VrmExpressionManagerLike,
+  expressionName: string,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(
+    em.expressionMap ?? {},
+    expressionName,
+  );
 }
 
 /**

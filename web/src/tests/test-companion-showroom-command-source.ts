@@ -228,6 +228,31 @@ describe("CompanionShowroom command source", () => {
     expect(source).toContain("transformOrigin: \"50% 92%\"");
   });
 
+  it("does not expand displayScale companion slots off the showroom stage", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).not.toContain('width: "min(64vw, 620px)"');
+    expect(source).not.toContain('height: "min(76vh, 660px)"');
+    expect(source).not.toContain('top: "0%"');
+  });
+
+  it("caps oversized displayScale values in the showroom motor config", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("SHOWROOM_MAX_DISPLAY_SCALE");
+    expect(source).toContain("showroomCompanionConfig");
+    expect(source).toContain("displayScale: SHOWROOM_MAX_DISPLAY_SCALE");
+    expect(source).toContain(
+      "motor.attachVrm(vrm, scene, size.w, size.h, showroomCompanionConfig)",
+    );
+  });
+
   it("ticks showroom motors with a companion config instead of null like the diag path", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
@@ -236,8 +261,8 @@ describe("CompanionShowroom command source", () => {
 
     expect(source).toContain("mergeCompanionConfigWithDefaults");
     expect(source).toContain("entry.companionConfig");
-    expect(source).toContain("resolveModelUrl(companionConfig.vrmUrl)");
-    expect(source).toContain("companion: companionConfig");
+    expect(source).toContain("resolveModelUrl(showroomCompanionConfig.vrmUrl)");
+    expect(source).toContain("companion: showroomCompanionConfig");
     expect(source).not.toContain("companion: null");
   });
 
