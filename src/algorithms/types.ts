@@ -108,6 +108,18 @@ export interface WordEntry {
   homeworkTargetPurpose?: string;
   /** Source heading/group that produced this word for the current homework cycle. */
   homeworkSourceGroup?: string;
+  /** Domain-scoped homework targets; legacy homeworkPriority/testDate mirror the selected lane. */
+  homeworkTargets?: Partial<Record<
+    "spelling" | "reading" | "math" | "science",
+    {
+      homeworkId: string;
+      testDate: string | null;
+      priority: boolean;
+      purpose: string;
+      sourceGroup?: string;
+      updatedAt?: string;
+    }
+  >>;
   /** Best Word Radar response time (ms) for this word; optional. */
   wordRadarBestTime_ms?: number;
 }

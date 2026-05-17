@@ -538,7 +538,15 @@ export async function runPsychologist(
   childName: "Ila" | "Reina",
   dryRun = false,
 ): Promise<void> {
+  // Legacy tool-based psychologist path. New adaptive experience planning uses
+  // src/engine/psychologistChartPacket.ts as the audited chart-packet input.
   console.log("runPsychologist called with dryRun:", dryRun);
+  if (process.env.SUNNY_LEGACY_PSYCHOLOGIST !== "true") {
+    console.log(
+      "  🎮 [legacy-psychologist] [skipped] set SUNNY_LEGACY_PSYCHOLOGIST=true to append narrative context reports",
+    );
+    return;
+  }
   const slug = childName === "Ila" ? "ila" : "reina";
   const hasNatalie = readNatalieContext(slug) !== null;
   const prompt = buildPsychologistContext(slug);
