@@ -1,5 +1,9 @@
 # Bugs
 
+- 2026-05-16: Product complaints inside a spelling session can still remain only in transcript if they do not match the current complaint detector. Example: Ila saying Spell Check does not say the word before spelling should become a bounded `product_issue` chart record automatically. Status: deferred from Spelling Session Trust Patch to keep the patch scoped.
+
+- 2026-05-16: Reward/coin companion copy is not fully grounded across all games. Wheel-style games can expose exact game coin values while the companion may still paraphrase or exaggerate totals if context is stale or incomplete. Expected: companion should only speak coin totals from the latest canonical game state or currency award. Status: deferred from Spelling Session Trust Patch to keep the patch scoped.
+
 - 2026-05-12: `src/tests/test-map-coordinator.ts` onboarding preview test expects `onboarding-academic-load-check`, but the current onboarding map only returns `onboarding-bubble-pop` and `onboarding-dopamine-break`. This is outside the adaptive homework evidence/quest scope.
 
 - 2026-05-12: Pronunciation regression: after a perfect 10/10 run, `PronunciationGameCanvas` ends as soon as `isComplete` flips, so the child loses the celebration/result moment too quickly. Expected: keep the completed screen/game state visible long enough for feedback and companion acknowledgement before returning to the map. Status 2026-05-13: fixed with completion overlay, replay, and harder replay.

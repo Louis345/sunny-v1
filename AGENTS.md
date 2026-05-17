@@ -1,3 +1,6 @@
+Organic first: Sunny is an adaptive learning system, so code must route truth, evidence, and safety while Elli handles human conversation from live context instead of canned scripted responses.
+Every human-caught child-session bug must become a lab invariant: explain why the human caught it, why logs did or did not catch it, and why the AI lab missed it.
+
 # Project Sunny — AI Agent Context
 
 ## Your Project: Sunny
@@ -199,6 +202,45 @@ Every adaptive claim should answer:
 - What activity or intervention is testing it?
 - What outcome would support, revise, or falsify it?
 - Where will that result be recorded in the child chart?
+
+### Law 14: Activities Are Vital-Sign Instruments
+
+Every activity is a measurement instrument first and a game second.
+
+The hospital model is:
+
+- Activities = interventions and vital-sign instruments.
+- Every meaningful child interaction = a reading.
+- Attempts, response time, retries, hints, skips, pauses, wrong answers, corrections, keystrokes, speech matches, frustration, recovery, and completion are all evidence.
+- Spaced repetition, desirable difficulty, error-pattern detection, activity affinity, attention vitals, and mastery gating are separate algorithm feeds. No single feed is allowed to overrule the whole chart by itself.
+- The AI psychologist must interpret the pattern holistically, like a doctor reading blood pressure, temperature, labs, symptoms, and history together.
+
+New games, generated quests, and boss nodes must emit a structured evidence contract:
+
+- `game_state_update` for current visible state.
+- `attempt_event` or per-target `targetResults` for every assessable interaction.
+- Completion summary with targets shown, correct/missed/recovered targets, attempts, accuracy, response-time or pacing signals when available, help requests, hint/scaffold use, skip/stop/pause events, and reward/flow-state fields.
+- Session trace entries in `game-traces.ndjson` so an agent can audit what actually happened.
+- Chart writes through the child chart/waterfall path, never a private game-only score.
+
+Do not interpret activities in isolation:
+
+- Word Radar can show recognition or recall under one format.
+- Spell Check can show production from memory.
+- Pronunciation can show reading, auditory discrimination, recovery after model, or STT noise.
+- A dopamine game can show activity affinity and persistence, but not mastery by itself.
+
+When evidence conflicts, Sunny must not pretend certainty. It should route a clarifying probe or support activity and write the contradiction into the decision trace.
+
+Generated quest readiness requires:
+
+- Domain-valid captured homework evidence.
+- Baseline evidence from more than one relevant instrument when possible.
+- A named care-plan hypothesis with support/revise/falsify criteria.
+- Enough target-level readings to identify what the quest is testing.
+- No unresolved contradiction that would make the quest test the wrong skill.
+
+Boss readiness requires generated quest evidence first. Boss is a mastery-gated finale, not a reward for merely completing baseline nodes.
 
 ---
 
