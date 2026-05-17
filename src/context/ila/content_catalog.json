@@ -1,0 +1,527 @@
+{
+  "version": 1,
+  "childId": "ila",
+  "items": [
+    {
+      "contentId": "hw-spelling_test-bb11de93:countdown-comprehension",
+      "homeworkId": "hw-spelling_test-bb11de93",
+      "childId": "ila",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2 - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Spelling words with schwa sounds and recognizing high-frequency words"
+      ],
+      "targetConcepts": [
+        "Schwa sound (ə)",
+        "Long vowel sounds (i, o, a)",
+        "Antonyms",
+        "High-frequency vocabulary"
+      ],
+      "targetWords": [
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away",
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again",
+        "government",
+        "half",
+        "machine",
+        "pair",
+        "quickly",
+        "scientist",
+        "thousand",
+        "understood",
+        "wait"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "bcd5ec7ccef0aad8"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Schwa sounds and high-frequency words because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-word-radar-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "ila",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spelling words with -y and -ly endings; recognizing and spelling high-frequency words"
+      ],
+      "targetConcepts": [
+        "Consonant-y word endings",
+        "Adverb -ly endings",
+        "High-frequency sight words",
+        "Alphabetical ordering"
+      ],
+      "targetWords": [
+        "shiny",
+        "slowly",
+        "lucky",
+        "neatly",
+        "sunny"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "a6a988817e84da34"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Start with a low-friction scan of the first spelling cohort before independent recall."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-spell-check-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "ila",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spelling words with -y and -ly endings; recognizing and spelling high-frequency words"
+      ],
+      "targetConcepts": [
+        "Consonant-y word endings",
+        "Adverb -ly endings",
+        "High-frequency sight words",
+        "Alphabetical ordering"
+      ],
+      "targetWords": [
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "a6a988817e84da34"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Measure independent recall on the next spelling cohort after Word Radar warms up the pattern."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:countdown-comprehension",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "ila",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Spelling words with -y and -ly endings; recognizing and spelling high-frequency words"
+      ],
+      "targetConcepts": [
+        "Consonant-y word endings",
+        "Adverb -ly endings",
+        "High-frequency sight words",
+        "Alphabetical ordering"
+      ],
+      "targetWords": [
+        "shiny",
+        "slowly",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "behind",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "a6a988817e84da34"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Spelling patterns and high-frequency words because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-reading-bfd2d4a8:n-baseline-evaluator-hw-reading-bfd2d4a8",
+      "homeworkId": "hw-reading-bfd2d4a8",
+      "childId": "ila",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is erosion",
+        "Beach sand and rocks",
+        "Reading a map",
+        "How rivers flow",
+        "Treasure map practice",
+        "Cardinal directions",
+        "Topographic features"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "39b8931e34d4ea9c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
+    },
+    {
+      "contentId": "hw-reading-bfd2d4a8:n-karaoke-hw-reading-bfd2d4a8",
+      "homeworkId": "hw-reading-bfd2d4a8",
+      "childId": "ila",
+      "type": "story",
+      "source": "generated",
+      "title": "Ila and Erosion and Earth's Surface",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "retrieval-practice",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is erosion",
+        "Beach sand and rocks",
+        "Reading a map",
+        "How rivers flow",
+        "Treasure map practice",
+        "Cardinal directions",
+        "Topographic features"
+      ],
+      "targetWords": [
+        "Ila",
+        "is",
+        "learning",
+        "about",
+        "Erosion",
+        "and",
+        "Earth's",
+        "Surface",
+        "Key",
+        "ideas",
+        "include",
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "Ila",
+        "focused",
+        "on",
+        "beating",
+        "a",
+        "personal",
+        "best",
+        "by",
+        "explaining",
+        "the",
+        "idea",
+        "more",
+        "clearly",
+        "each",
+        "round",
+        "Ila",
+        "also",
+        "spotted",
+        "the",
+        "review",
+        "words",
+        "erosion",
+        "wear",
+        "away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "and",
+        "used",
+        "them",
+        "as",
+        "clue",
+        "cards",
+        "for",
+        "the",
+        "next",
+        "challenge",
+        "Ila",
+        "read",
+        "each",
+        "sentence",
+        "carefully",
+        "then",
+        "used",
+        "the",
+        "clues",
+        "in",
+        "the",
+        "next",
+        "challenge"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "39b8931e34d4ea9c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+    },
+    {
+      "contentId": "hw-reading-bfd2d4a8:n-karaoke-hw-reading-bfd2d4a8:image",
+      "homeworkId": "hw-reading-bfd2d4a8",
+      "childId": "ila",
+      "type": "image",
+      "source": "generated",
+      "title": "Ila and Erosion and Earth's Surface illustration",
+      "algorithmTargets": [
+        "variable-reward",
+        "reading-comprehension",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is erosion",
+        "Beach sand and rocks",
+        "Reading a map",
+        "How rivers flow",
+        "Treasure map practice",
+        "Cardinal directions",
+        "Topographic features"
+      ],
+      "targetWords": [
+        "erosion",
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "North",
+        "South",
+        "East",
+        "West",
+        "downhill"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "39b8931e34d4ea9c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
+    },
+    {
+      "contentId": "hw-reading-bfd2d4a8:n-concept-builder-hw-reading-bfd2d4a8",
+      "homeworkId": "hw-reading-bfd2d4a8",
+      "childId": "ila",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-builder",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is erosion",
+        "Beach sand and rocks",
+        "Reading a map",
+        "How rivers flow",
+        "Treasure map practice",
+        "Cardinal directions",
+        "Topographic features"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "39b8931e34d4ea9c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
+    },
+    {
+      "contentId": "hw-reading-bfd2d4a8:n-exit-evaluator-hw-reading-bfd2d4a8",
+      "homeworkId": "hw-reading-bfd2d4a8",
+      "childId": "ila",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is erosion",
+        "Beach sand and rocks",
+        "Reading a map",
+        "How rivers flow",
+        "Treasure map practice",
+        "Cardinal directions",
+        "Topographic features"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "39b8931e34d4ea9c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
+    },
+    {
+      "contentId": "hw-reading-bfd2d4a8:countdown-comprehension",
+      "homeworkId": "hw-reading-bfd2d4a8",
+      "childId": "ila",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is erosion",
+        "Beach sand and rocks",
+        "Reading a map",
+        "How rivers flow",
+        "Treasure map practice",
+        "Cardinal directions",
+        "Topographic features"
+      ],
+      "targetWords": [
+        "erosion",
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "North",
+        "South",
+        "East",
+        "West",
+        "downhill"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "39b8931e34d4ea9c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+    }
+  ],
+  "updatedAt": "2026-05-17T19:20:40.594Z"
+}

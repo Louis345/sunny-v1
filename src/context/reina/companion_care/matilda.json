@@ -3,13 +3,14 @@
   "childId": "reina",
   "companionId": "matilda",
   "state": {
-    "hunger": 0.8,
-    "mood": 0.8,
+    "hunger": 1,
+    "mood": 0.8500000000000001,
     "bond": 0.3,
     "energy": 0.8,
-    "usefulness": 0.8,
-    "thoughtClarity": 0.5,
-    "lastSeenAt": "2026-05-04T21:17:03.135Z"
+    "usefulness": 0.9,
+    "thoughtClarity": 0.7,
+    "lastSeenAt": "2026-05-14T23:56:48.889Z",
+    "lastFedAt": "2026-05-14T23:56:48.889Z"
   },
   "memory": {
     "firstMetAt": "2026-05-04T21:17:03.135Z"
@@ -20,14 +21,14 @@
         "id": "apple_bite",
         "label": "Apple Bite",
         "description": "A crisp snack for quick hunger repair.",
-        "quantity": 3,
+        "quantity": 2,
         "rarity": "common"
       },
       {
         "id": "brain_berry",
         "label": "Brain Berry",
         "description": "Helps the companion think clearly.",
-        "quantity": 2,
+        "quantity": 1,
         "rarity": "uncommon"
       },
       {
@@ -55,8 +56,8 @@
     "careItems": []
   },
   "economy": {
-    "coins": 1500,
+    "coins": 8300,
     "storeUnlocks": []
   },
-  "updatedAt": "2026-05-05T00:20:29.728Z"
+  "updatedAt": "2026-05-14T23:56:48.889Z"
 }

@@ -1828,3 +1828,159 @@ Mastery-level fluency across single-digit, teens, crossing-10 facts. Continue as
 ## Signal
 
 **ADVANCE / COMPLIANCE ALERT** — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 9 weeks ago and demonstrates championship-level readiness: 100% addition fluency, competitive mastery, pattern recognition strength. Her self-advocacy has been systematically ignored for 63 consecutive days. CONCURRENT PRIORITY: Use erosion vocabulary homework to probe definitional depth ("What does erosion mean?") and inferential reasoning ("Why does wind cause erosion?") before pure spelling drill. MAINTAIN spelling game-format warm-ups (test 5/9) and addition facts as confidence-builders. She deserves the multiplication challenge she asked for 9 weeks ago, paired with content-area reading comprehension that matches her "year ahead academically" profile claim.
+
+## Session — 5/13/2026, 4:16:19 PM
+**SESSION SUMMARY: Reina**
+
+**Date:** [Session recorded]  
+**Homework:** Benchmark Advance Spelling Unit 9 Week 2 (Schwa & High-Frequency Words)
+
+---
+
+### **ENGAGEMENT**
+
+✅ **High energy start** — Reina jumped right in with competitive focus ("I'm gonna try to win this, like, yesterday")
+
+✅ **Mastered all core activities:**
+- Word Radar: 100% accuracy on 10 words (102s)
+- Monster Stampede: 100% accuracy, 2250 pts (102s)
+- Spell-Check: 100% accuracy on 5 words (153s)
+- Pronunciation: 100% accuracy (0s)
+- Wheel of Fortune: Solved "ago" for 5050 coins
+
+✅ **Pattern recognition visible** — Reina made connections between words (noticed "-ent" ending helping her crack "government" and other patterns)
+
+⚠️ **Mid-session fatigue signal** — Around minute 15-20, dialogue became less focused ("blood tested," "bugs," "Iowa") — typical for 8yo after sustained concentration
+
+✅ **Clean exit** — She self-regulated and asked to end, which is healthy
+
+---
+
+### **WINS**
+
+- **5/5 nodes completed with 100% accuracy** — This is flawless execution
+- **Competitive drive intact** — She's still thriving on challenge and beating her own score
+- **Word pattern analysis** — Unprompted connection-making shows deeper spelling comprehension developing
+- **Self-awareness** — Recognized her own fatigue and asked to stop (vs. powering through)
+
+---
+
+### **WATCH**
+
+- **Sustained focus limit** — 15-20 minutes seems to be her sweet spot before needing a break or shift
+- **Next session:** Consider splitting into two shorter bursts or mixing in a movement/wrestling break mid-session
+- **Confirm readiness** — Before next session, check if she wants to continue with harder content or explore a different domain (Japanese kanji, chess, math)
+
+---
+
+### **NEXT STEPS**
+
+Report to Saori:
+- Reina scored 100% across all 5 spelling activities
+- She's ready for more advanced schwa/vowel patterns
+- Consider hybrid sessions mixing spelling + another interest (chess strategy, Japanese writing)
+
+## Psychologist Report — 5/13/2026, 4:16:46 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 3 sessions (4/3, 4/30, 5/13), 100% accuracy across all attempts (9/9 → 19/19), Wheel of Fortune victories (1,300-600 coins, 5,050 coins on "ago"), Speed Catcher 10/10 flawless, Monster Stampede 100% → ADVANCE
+
+Reina achieves championship-level spelling via competitive game framing. Most recent session (5/13): 5/5 nodes completed with 100% accuracy across Word Radar, Monster Stampede, Spell-Check, Pronunciation, and Wheel of Fortune. She demonstrates unprompted pattern recognition ("-ent ending helping crack 'government'"), celebrates competitive wins ("I'm gonna try to win this, like, yesterday"), and self-regulates at fatigue threshold (15-20 minute focus window). Next homework test 5/15 (schwa + high-frequency words: above, ago, about, ahead, away, alone, alike, awake, along, again, government, half, machine, pair). Continue 5-word game-format warm-ups, pivot immediately to her choice.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), no math sessions in 60+ days → MAINTAIN
+
+Mastery-level fluency across single-digit, teens, crossing-10 facts. Continue as warm-up before multiplication/division introduction.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3-4/4), 100% fluency, literal comprehension only ("she went boom, but she was safe"), no formal reading sessions in 40+ days → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction. Captures literal events but does not infer motive, consequence, or strategy without prompting. Science/geography homework (erosion, compass rose) creates natural bridge to definitional depth and inferential reasoning.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 60+ sessions despite self-identified as math gap on 3/27 (11+ weeks ago). **COMPLIANCE ALERT: Student self-advocacy systematically ignored for 77 consecutive days.** Advanced addition fluency (100%), competitive mastery (5,050-coin Wheel of Fortune victory), pattern recognition strength ("-ent" pattern transfer) indicate championship-level readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?").
+
+- **CRITICAL: Definitional Vocabulary (Word Definitions)** — Mentioned 36 times in clinical notes; "tested 36 times" means flagged in probe targets, NOT formally administered as CELF-5 Word Definitions subtest. Erosion homework cycle (erosion, wear away, compass rose, downhill) + current schwa cycle (government, machine, scientist) present natural probe opportunities. Ask "What does government mean?" "What is erosion?" before spelling drill to establish definitional baseline. Required before Japanese kanji/katakana work (parent goal: June 2026 trip, 3 weeks away).
+
+- **WATCH: Formulated Sentences** — Mentioned 28 times; never formally administered as CELF-5 subtest. No sentence generation, narrative production, or expository writing under demand across 60+ sessions. Relevant for Japanese composition and written math explanations.
+
+---
+
+## Signal
+
+**ADVANCE / COMPLIANCE ALERT** — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 11 weeks ago on 3/27 and demonstrates championship-level readiness: 100% spelling accuracy (19/19), 100% addition fluency (16/16), competitive mastery (5,050-coin victory), pattern recognition transfer ("-ent" morphological awareness). Her self-advocacy has been systematically ignored for 77 consecutive days. CONCURRENT PRIORITY: Probe definitional vocabulary depth using homework words (government, machine, scientist, erosion) before pure spelling drill—ask "What does X mean?" to establish CELF-5 Word Definitions baseline. MAINTAIN spelling game-format warm-ups (test 5/15) in 15-minute bursts matching her focus window. She deserves the multiplication challenge she asked for 11 weeks ago, paired with definitional vocabulary assessment before Japanese kanji/katakana expansion (3 weeks until June 2026 trip).
+
+## Session — 5/14/2026, 7:57:42 PM
+## SESSION SUMMARY — Reina
+
+**Date:** [Session recorded]  
+**Duration:** ~15 minutes of active gameplay + wrap-up  
+**Mood:** High energy, playful, some frustration with game mechanics mid-session
+
+---
+
+### **ENGAGEMENT**
+
+✅ **Strong start** — Word Radar (100%, 132s) and Monster Stampede (100%, 111s) — both perfect runs, fast pace, zero frustration  
+✅ **Momentum sustained** — Spell Check (100%, 336s) despite game loop glitch  
+✅ **Wheel of Fortune** — Solved "ago" in 41s, 100% accuracy  
+✅ **Companion care** — Fed Matilda apple and brain berry mid-session (good sign of engagement)
+
+❌ **Mid-session friction** — During Spell Check, Reina identified a bug: the game only showed *one* round of missing-letter fills before jumping to full spelling, when it should show *two*. She communicated this clearly but was waiting for confirmation it was logged.
+
+❌ **End-of-session confusion** — Last 2-3 exchanges became disjointed. Reina's speech fragmented (talking about stores, bosses, "fixing stuff"). Possible signs: fatigue, overstimulation, or topic-jumping (typical for an 8-year-old mid-energy-crash).
+
+---
+
+### **WINS**
+
+| Activity | Result | Notes |
+|----------|--------|-------|
+| Word Radar | 100% (10 words) | Fast, clean, no hesitation |
+| Monster Stampede | 100% (10 words) | Speed + accuracy combo |
+| Spell Check | 100% (5 words) | Completed despite UI glitch; Reina flagged it clearly |
+| Wheel of Fortune | 100% (ago) | Fast solve, competitive energy high |
+| **Total Session** | **100% across all activities** | Streak intact; 8275 coins earned |
+
+---
+
+### **WATCH**
+
+🔴 **Bug Report — Spell Check Loop**  
+- Expected: 2 rounds of missing-letter identification → then full spelling  
+- Actual: 1 round of missing letters → jump to full spelling  
+- Impact: Low (Reina still got 100%), but she noticed and flagged it  
+- Action: Log for dev team; reassure Reina the issue was documented
+
+🔴 **End-of-Session Disengagement**  
+- Speech became fragmented ("I got a lot of stuff to fix,"
+
+## Psychologist Report — 5/14/2026, 7:58:24 PM
+## Curriculum Status
+
+**Spelling (Homework-Based, Competitive Game Format)** — 4 sessions (4/3, 4/30, 5/13, 5/14), 100% accuracy across all 24 attempts, Wheel of Fortune victories (1,300-600 coins, 5,050 coins, 8,275 coins), Monster Stampede 100%, Speed Catcher 10/10 flawless → ADVANCE
+
+Reina sustains championship-level spelling mastery across four consecutive sessions. Session 5/14: 100% accuracy on Word Radar (132s), Monster Stampede (111s), Spell Check (336s despite UI glitch she identified and reported), Wheel of Fortune ("ago" solved in 41s). She celebrates wins ("I'm gonna try to win this, like, yesterday"), demonstrates unprompted pattern recognition ("-ent" morphological awareness), self-regulates at 15-20 minute fatigue threshold, and debugs technical failures analytically ("wear away" formatting glitch 5/4). Her 15-20 minute focus window is consistent. Next homework test 5/15 (schwa + high-frequency: above, ago, about, ahead, away, alone, alike, awake, along, again, government, half, machine, pair). Continue 5-word game-format warm-ups in 15-minute bursts, pivot immediately to her choice.
+
+**Addition & Subtraction (Rapid-Fire Facts)** — 4 sessions (3/14-3/15), 16/16 correct (100% accuracy), no math sessions in 60+ days → MAINTAIN
+
+Mastery-level fluency across single-digit, teens, crossing-10 facts. Continue as warm-up before multiplication/division introduction.
+
+**Reading Comprehension (Action/Adventure Narratives)** — 2 sessions (4/3-4/4), 100% fluency across treasure and ninja stories, literal comprehension only ("she went boom, but she was safe"), no formal reading sessions in 40+ days → ADVANCE
+
+Grade-level+ oral reading fluency with self-correction and sustained engagement. She captures literal events accurately but does not infer motive, consequence, or strategy without prompting. Science/geography homework (erosion, compass rose) creates natural bridge to definitional depth and inferential reasoning.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Multiplication & Division Foundations** — Never tested across 60+ sessions despite self-identified as math gap on 3/27 (11+ weeks ago). **COMPLIANCE ALERT: Student self-advocacy systematically ignored for 79 consecutive days.** Advanced addition fluency (100%), competitive mastery (8,275-coin session), pattern recognition strength ("-ent" morphological transfer), analytical debugging skill (technical glitch identification 5/4, 5/14) indicate championship-level readiness for multiplicative reasoning via wrestling word problems ("3 wrestlers each score 2 points—how many total?"). This is her stated growth zone—honor it immediately.
+
+- **CRITICAL: Definitional Vocabulary (Word Definitions)** — Flagged 39 times in probe targets; "tested 39 times" means mentioned in clinical notes, NOT formally administered as CELF-5 Word Definitions subtest. Erosion homework cycle (erosion, wear away, compass rose, downhill) + current schwa cycle (government, machine, scientist, pair, half, thousand) present natural probe opportunities. Ask "What does government mean?" "What is erosion?" before spelling drill to establish definitional baseline. Required before Japanese kanji/katakana work (parent goal: June 2026 trip, 3 weeks away).
+
+---
+
+## Signal
+
+**ADVANCE / COMPLIANCE ALERT** — Introduce multiplication/division via wrestling word problems immediately. Reina explicitly requested this 11 weeks ago on 3/27 and demonstrates championship-level readiness: 100% spelling accuracy (24/24), 100% addition fluency (16/16), competitive mastery (8,275 coins earned session 5/14), pattern recognition transfer ("-ent" morphology), analytical problem-solving (technical glitch debugging). Her self-advocacy has been systematically ignored for 79 consecutive days. CONCURRENT PRIORITY: Probe definitional vocabulary depth using homework content words (government, machine, scientist, erosion) before spelling drill—ask "What does X mean?" to establish CELF-5 Word Definitions baseline before Japanese kanji/katakana expansion (3 weeks until trip). MAINTAIN spelling game-format warm-ups in 15-minute bursts matching her focus window. She deserves the multiplication challenge she asked for 79 days ago, paired with definitional vocabulary assessment matching her "year ahead academically" profile claim.

@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "childId": "reina",
+  "sourcePlanId": "session_plan_reina_hw-spelling_test-adc128c0_b7d8c929e8",
+  "theory": {
+    "hypothesis": "Reina can handle a more adaptive spelling session when Sunny keeps the academic target fixed but varies the experience around speed, visual, low-writing-load, confidence, typing, challenge, control.",
+    "evidenceSummary": [
+      "Active homework hw-spelling_test-adc128c0 due 2026-05-15.",
+      "19 homework word(s), test date 2026-05-15.",
+      "Strong spelling evidence supports a rotated 10-word challenge.",
+      "spell-check:plays=9:completion=1:accuracy=1:engagement=1:frustration=0.1",
+      "bubble-pop:plays=3:completion=1:accuracy=0.82:engagement=0.85:frustration=0.1",
+      "word-radar:plays=6:completion=1:accuracy=0.65:engagement=0.85:frustration=0.275"
+    ],
+    "intervention": "Use spell-check and equivalent valid activities as interventions while preserving spelling evidence quality.",
+    "supportCriteria": [
+      "completed node with accuracy >= 0.85",
+      "at least 5 targets when the activity is target-based",
+      "frustration score below 0.35",
+      "delayed or graded work does not contradict the in-app result"
+    ],
+    "reviseCriteria": [
+      "accuracy between 0.65 and 0.85",
+      "child asks to change activity or shows repeated hesitation",
+      "stated preference conflicts with observed behavior"
+    ],
+    "falsifyCriteria": [
+      "accuracy below 0.65",
+      "high frustration or abandonment",
+      "returned test shows the practiced target did not transfer"
+    ]
+  },
+  "plannedMeasurements": [
+    {
+      "id": "measure-n-word-radar-hw-spelling_test-adc128c0",
+      "activityId": "word-radar",
+      "target": "10 target(s)",
+      "evidenceType": "practice",
+      "supportCriteria": "accuracy >= 0.85 and low frustration",
+      "reviseCriteria": "partial accuracy, hesitation, or mixed engagement",
+      "falsifyCriteria": "poor transfer, high frustration, or repeated misses"
+    },
+    {
+      "id": "measure-n-monster-stampede-hw-spelling_test-adc128c0",
+      "activityId": "monster-stampede",
+      "target": "10 target(s)",
+      "evidenceType": "practice",
+      "supportCriteria": "accuracy >= 0.85 and low frustration",
+      "reviseCriteria": "partial accuracy, hesitation, or mixed engagement",
+      "falsifyCriteria": "poor transfer, high frustration, or repeated misses"
+    },
+    {
+      "id": "measure-n-spell-check-hw-spelling_test-adc128c0",
+      "activityId": "spell-check",
+      "target": "10 target(s)",
+      "evidenceType": "diagnostic",
+      "supportCriteria": "accuracy >= 0.85 and low frustration",
+      "reviseCriteria": "partial accuracy, hesitation, or mixed engagement",
+      "falsifyCriteria": "poor transfer, high frustration, or repeated misses"
+    },
+    {
+      "id": "measure-n-pronunciation-hw-spelling_test-adc128c0",
+      "activityId": "pronunciation",
+      "target": "10 target(s)",
+      "evidenceType": "practice",
+      "supportCriteria": "accuracy >= 0.85 and low frustration",
+      "reviseCriteria": "partial accuracy, hesitation, or mixed engagement",
+      "falsifyCriteria": "poor transfer, high frustration, or repeated misses"
+    },
+    {
+      "id": "measure-n-mystery-hw-spelling_test-adc128c0",
+      "activityId": "mystery",
+      "target": "10 target(s)",
+      "evidenceType": "reward",
+      "supportCriteria": "accuracy >= 0.85 and low frustration",
+      "reviseCriteria": "partial accuracy, hesitation, or mixed engagement",
+      "falsifyCriteria": "poor transfer, high frustration, or repeated misses"
+    }
+  ],
+  "learningExperiments": [],
+  "updatedAt": "2026-05-15T19:21:40.361Z"
+}

@@ -1,7 +1,7 @@
 {
   "childId": "reina",
   "version": 1,
-  "lastUpdated": "2026-05-05T00:20:29.714Z",
+  "lastUpdated": "2026-05-14T23:54:00.834Z",
   "words": [
     {
       "word": "add",
@@ -3532,7 +3532,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06",
       "wordRadarBestTime_ms": 4134
     },
@@ -3603,7 +3603,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -3790,7 +3790,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06",
       "wordRadarBestTime_ms": 2760
     },
@@ -3990,7 +3990,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06",
       "wordRadarBestTime_ms": 2228
     },
@@ -4117,7 +4117,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4231,7 +4231,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4290,7 +4290,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4349,7 +4349,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4370,7 +4370,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4391,7 +4391,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4412,7 +4412,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4433,7 +4433,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4479,7 +4479,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4500,7 +4500,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -4552,7 +4552,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-06"
     },
     {
@@ -7016,12 +7016,12 @@
           "regressionCount": 0
         },
         "spelling": {
-          "quality": 3,
-          "easinessFactor": 2.36,
-          "interval": 1,
-          "repetition": 1,
-          "nextReviewDate": "2026-05-06",
-          "lastReviewDate": "2026-05-05",
+          "quality": 5,
+          "easinessFactor": 2.48,
+          "interval": 60,
+          "repetition": 7,
+          "nextReviewDate": "2026-07-13",
+          "lastReviewDate": "2026-05-14",
           "scaffoldLevel": 0,
           "history": [
             {
@@ -7029,13 +7029,56 @@
               "quality": 3,
               "scaffoldLevel": 2,
               "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "away"
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "away"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
             }
           ],
-          "mastered": false,
+          "mastered": true,
+          "masteredDate": "2026-05-13",
           "regressionCount": 0
         }
       },
-      "homeworkPriority": false
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 4238
     },
     {
       "word": "used",
@@ -8068,10 +8111,24 @@
           "history": [],
           "mastered": false,
           "regressionCount": 0
+        },
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
         }
       },
       "homeworkPriority": false,
-      "testDate": "2026-05-09"
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
     },
     {
       "word": "rainy",
@@ -8373,7 +8430,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "is",
@@ -8418,7 +8476,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "learning",
@@ -8463,7 +8522,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "about",
@@ -8490,12 +8550,12 @@
           "regressionCount": 0
         },
         "spelling": {
-          "quality": 3,
-          "easinessFactor": 2.36,
+          "quality": 5,
+          "easinessFactor": 1.4000000000000001,
           "interval": 1,
           "repetition": 1,
-          "nextReviewDate": "2026-05-06",
-          "lastReviewDate": "2026-05-05",
+          "nextReviewDate": "2026-05-15",
+          "lastReviewDate": "2026-05-14",
           "scaffoldLevel": 0,
           "history": [
             {
@@ -8503,12 +8563,77 @@
               "quality": 3,
               "scaffoldLevel": 2,
               "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "about"
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "about"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false,
+              "attemptedValue": "People understand"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false,
+              "attemptedValue": "so tell her to to to log that up"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false,
+              "attemptedValue": "no. i met a ago."
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
             }
           ],
           "mastered": false,
-          "regressionCount": 0
+          "masteredDate": "2026-05-13",
+          "regressionCount": 1
         }
-      }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 5520
     },
     {
       "word": "surface",
@@ -8553,7 +8678,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "key",
@@ -8598,7 +8724,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "ideas",
@@ -8643,7 +8770,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "include",
@@ -8688,7 +8816,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "treated",
@@ -8733,7 +8862,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "smartest",
@@ -8778,7 +8908,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "read",
@@ -8823,7 +8954,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "each",
@@ -8868,7 +9000,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "sentence",
@@ -8913,7 +9046,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "then",
@@ -8958,7 +9092,8 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
     },
     {
       "word": "in",
@@ -9003,7 +9138,683 @@
           "mastered": false,
           "regressionCount": 0
         }
-      }
+      },
+      "homeworkPriority": false
+    },
+    {
+      "word": "above",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words"
+    },
+    {
+      "word": "ago",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 1.5000000000000002,
+          "interval": 4,
+          "repetition": 2,
+          "nextReviewDate": "2026-05-18",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "ago"
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false,
+              "attemptedValue": "al"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false,
+              "attemptedValue": "ao"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "ago"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": false,
+          "masteredDate": "2026-05-14",
+          "regressionCount": 1
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 3948
+    },
+    {
+      "word": "ahead",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.62,
+          "interval": 60,
+          "repetition": 6,
+          "nextReviewDate": "2026-07-13",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "ahead"
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "ahead"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-05-14",
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 6078
+    },
+    {
+      "word": "alone",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.62,
+          "interval": 60,
+          "repetition": 6,
+          "nextReviewDate": "2026-07-13",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "alone"
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "alone"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-05-14",
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 5014
+    },
+    {
+      "word": "alike",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.42,
+          "interval": 22,
+          "repetition": 4,
+          "nextReviewDate": "2026-06-05",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "alike"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "alike"
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-05-14",
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 6561
+    },
+    {
+      "word": "awake",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.42,
+          "interval": 22,
+          "repetition": 4,
+          "nextReviewDate": "2026-06-05",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "awake"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "awake"
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-05-14",
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 5531
+    },
+    {
+      "word": "along",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.42,
+          "interval": 22,
+          "repetition": 4,
+          "nextReviewDate": "2026-06-05",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "along"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "along"
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-05-14",
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 4363
+    },
+    {
+      "word": "again",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 2.42,
+          "interval": 22,
+          "repetition": 4,
+          "nextReviewDate": "2026-06-05",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "again"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "again"
+            }
+          ],
+          "mastered": true,
+          "masteredDate": "2026-05-14",
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Schwa Words",
+      "wordRadarBestTime_ms": 5302
+    },
+    {
+      "word": "government",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        },
+        "spelling": {
+          "quality": 5,
+          "easinessFactor": 1.4000000000000001,
+          "interval": 1,
+          "repetition": 1,
+          "nextReviewDate": "2026-05-15",
+          "lastReviewDate": "2026-05-14",
+          "scaffoldLevel": 0,
+          "history": [
+            {
+              "date": "2026-05-13",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-13",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "government"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 3,
+              "scaffoldLevel": 2,
+              "correct": true
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false,
+              "attemptedValue": "goverm"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 0,
+              "scaffoldLevel": 0,
+              "correct": false,
+              "attemptedValue": "governmeh"
+            },
+            {
+              "date": "2026-05-14",
+              "quality": 5,
+              "scaffoldLevel": 0,
+              "correct": true,
+              "attemptedValue": "government"
+            }
+          ],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words",
+      "wordRadarBestTime_ms": 13399
+    },
+    {
+      "word": "half",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "machine",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "pair",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "scientist",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "thousand",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "understood",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "wait",
+      "addedAt": "2026-05-13T19:41:14.036Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-13",
+          "lastReviewDate": "2026-05-13",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
     }
   ]
 }

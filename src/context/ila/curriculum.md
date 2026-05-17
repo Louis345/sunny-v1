@@ -1,52 +1,51 @@
 ## Focus Area
-**MIXED-VOWEL PHONEME SEGMENTATION DIAGNOSTIC** — After 26 days of avoidance and task resistance, this diagnostic probe must determine if Ila has true phonemic awareness (/a/ vs /i/ discrimination) or relies on word-family pattern recognition. All future phoneme work depends on this foundational assessment. Based on her consistent game preference and ADHD profile, embed in visual Word Builder format rather than oral drills.
+**SPELLING HOMEWORK FINAL PREP & IEP BASELINE PROBES** — With spelling test in 24 hours (5/15) and 45+ days of missing IEP baseline data, this session must prioritize Monster Stampede format for remaining 15 homework words while conducting overdue formal probes on Following Directions and Recalling Sentences for legal compliance.
 
 ## Words for Next 3 Sessions
 
-**Session 1 (CRITICAL DIAGNOSTIC):** sit, sat, hit, hat, bit  
-**Session 2 (if Session 1 ≥80%):** bat, lid, mad, win, fan  
-**Session 3 (advancement probe):** red, web, leg, hen, pet  
+**Session 1 (URGENT - 24 hours to test):** likely, messy, quickly, rainy, friendly  
+**Session 2 (test day preparation):** able, behind, carefully, common, easy  
+**Session 3 (post-test review):** fact, remember, sure, vowel, whole  
 
 ## Clinical Reasoning
 
-**Why diagnostic format must change:**
-- 26 days of oral segmentation avoidance across 7+ sessions indicates method failure
-- Word attempt history shows sit 1/2, hit 3/3, hat 5/2, sat 3/0, bit 1/1 when tested in isolation
-- Recent sessions show 100% engagement with Word Builder/Spell-Check games vs. resistance to phoneme drills
-- CELF-5 Word Classes: 100% accuracy with pictures, 37% without — visual support is essential for her success
+**Why Monster Stampede exclusively:**
+- Session 5/14 demonstrates 100% accuracy across 3 Monster Stampede rounds (850-950 points)
+- Spell-Check collapsed to 7% accuracy with student frustration ("Nope. Not yet. Okay. So—Hold on")
+- Word Radar maintained 100% for auditory discrimination (55 seconds, all 5 words)
+- Format-driven performance split confirms visual-motor game format leverages her strengths
 
-**Wilson methodology adaptation:**
-- Use Word Builder sound boxes (visual) instead of oral-only segmentation
-- Present words alternating /i/a/i/a/i/ to prevent vowel pattern memorization  
-- 80%+ accuracy threshold before advancing to new vowel combinations
-- If <60% accuracy, abandon segmentation temporarily; focus on whole-word spelling homework priorities
+**Word prioritization for 24-hour test prep:**
+- Session 1: Morphologically complex -ly suffixes (likely, quickly) and -y endings (messy, rainy, friendly)
+- Session 2: Irregular high-frequency words requiring visual memory (able, behind, carefully, common, easy)
+- Session 3: Academic vocabulary for post-test analysis (fact, remember, sure, vowel, whole)
 
-**ADHD profile accommodation:**
-- Front-load diagnostic at session start before fatigue (sessions show 10-15 minute ceiling)
-- Game-based format with immediate visual feedback
-- Single-step instructions ("Click the sounds you hear in 'sit'")
-- Allow exploration/letter examination as seen in recent successful sessions
+**IEP legal compliance (45+ days overdue):**
+- Following Directions baseline: "Touch big blue circle, then clap twice" (2-step + modifier) at session start
+- Recalling Sentences baseline: 4-word, 9-word, 16-word sentences with verbatim documentation
+- Both probes take 5-7 minutes total; remaining time for spelling homework
+- Legal requirement overrides test preparation priorities
 
-**Spelling homework integration (TEST 5/1):**
-- If phoneme diagnostic succeeds quickly, pivot to irregular homework words (figure, money, voice, products) using visual memory strategies
-- If diagnostic fails/shows avoidance, abandon phoneme work entirely and focus on 48-hour test preparation
+**ADHD accommodations:**
+- 10-minute session ceiling before fatigue (5/14 shows maintained engagement across this timeframe)
+- Front-load IEP probes when attention is fresh
+- Use competitive scoring in Monster Stampede for motivation
+- Avoid Spell-Check permanently due to 5/14 performance collapse
 
 ## Success Looks Like
 
-**Session 1 — Gate-keeper Criteria:**
-- **≥80% accuracy (4/5) on sit/sat/hit/hat/bit in Word Builder format** = true vowel discrimination confirmed
-- Completes full sequence without requesting breaks/skips
-- Demonstrates /i/ vs /a/ distinction when vowels alternate unpredictably
-- No regression to single-sound responses or task avoidance behaviors
+**Session 1 — Legal baseline + urgent test prep:**
+- Following Directions and Recalling Sentences probes completed with documented performance
+- ≥80% accuracy on likely, messy, quickly, rainy, friendly in Monster Stampede
+- No emotional shutdown or task avoidance behaviors
+- Confident preparation for 5/15 test without anxiety
 
-**If diagnostic fails (<60% accuracy):**
-- Immediately abandon phoneme segmentation goals
-- Shift to whole-word sight vocabulary and spelling homework support
-- Focus remaining time on irregular word memorization for 5/1 test
-- Document that phonemic awareness is not yet developmentally accessible
+**Session 2 — Final test preparation:**
+- Completes remaining 5 words with high accuracy
+- Demonstrates mastery of irregular spelling patterns
+- Shows test readiness without performance anxiety
 
-**Sessions 2-3 advancement indicators:**
-- Maintains mixed-vowel accuracy with new phoneme combinations
-- Shows confidence ("I like this one") rather than frustration
-- Requests continuation or harder words
-- Successfully transfers from segmentation to reading fluency
+**Session 3 — Post-test analysis:**
+- Reviews actual test results to identify error patterns
+- Determines if -y suffix morphology was mastered
+- Plans next homework cycle based on demonstrated strengths/gaps

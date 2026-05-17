@@ -331,6 +331,56 @@
       "improvement": 0,
       "predictionMet": true,
       "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-13T03:14:16.864Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-wr",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-05-13T03:14:16.905Z",
+      "baselineAccuracy": 0.65,
+      "interventionAccuracy": 0.65,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-13T03:14:16.920Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-13T03:14:16.929Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-13T03:14:16.970Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
     }
   ]
 }

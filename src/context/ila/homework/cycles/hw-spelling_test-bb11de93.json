@@ -1,0 +1,843 @@
+{
+  "homeworkId": "hw-spelling_test-bb11de93",
+  "subject": "spelling_test",
+  "wordList": [
+    "above",
+    "ago",
+    "about",
+    "ahead",
+    "away",
+    "alone",
+    "alike",
+    "awake",
+    "along",
+    "again",
+    "ago",
+    "government",
+    "half",
+    "machine",
+    "pair",
+    "quickly",
+    "scientist",
+    "thousand",
+    "understood",
+    "wait"
+  ],
+  "contentProfile": {
+    "practiceDomain": "spelling",
+    "contentDomain": "language_arts",
+    "topic": "Schwa sounds and high-frequency words",
+    "primarySkill": "Spelling words with schwa sounds and recognizing high-frequency words",
+    "assignmentFormat": "Worksheet with categorization and vocabulary exercises",
+    "concepts": [
+      "Schwa sound (ə)",
+      "Long vowel sounds (i, o, a)",
+      "Antonyms",
+      "High-frequency vocabulary"
+    ],
+    "sourceEvidence": [
+      "No explicit cross-domain topic detected.",
+      "Unit 9 Week 2 Benchmark Advance Spelling",
+      "Page 119 of Grammar & Spelling Activity Book"
+    ]
+  },
+  "capturedContent": {
+    "title": "Benchmark Advance Spelling Unit 9 Week 2",
+    "type": "spelling_test",
+    "rawText": "",
+    "words": [
+      "above",
+      "ago",
+      "about",
+      "ahead",
+      "away",
+      "alone",
+      "alike",
+      "awake",
+      "along",
+      "again",
+      "government",
+      "half",
+      "machine",
+      "pair",
+      "quickly",
+      "scientist",
+      "thousand",
+      "understood",
+      "wait"
+    ],
+    "homeworkWords": [
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:above:0",
+        "text": "above",
+        "normalizedText": "above",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 0
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:ago:1",
+        "text": "ago",
+        "normalizedText": "ago",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 1
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:about:2",
+        "text": "about",
+        "normalizedText": "about",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 2
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:ahead:3",
+        "text": "ahead",
+        "normalizedText": "ahead",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 3
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:away:4",
+        "text": "away",
+        "normalizedText": "away",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 4
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:alone:5",
+        "text": "alone",
+        "normalizedText": "alone",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 5
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:alike:6",
+        "text": "alike",
+        "normalizedText": "alike",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 6
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:awake:7",
+        "text": "awake",
+        "normalizedText": "awake",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 7
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:along:8",
+        "text": "along",
+        "normalizedText": "along",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 8
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:schwa_words:again:9",
+        "text": "again",
+        "normalizedText": "again",
+        "wordGroupId": "schwa_words",
+        "purpose": "recognize",
+        "positionIndex": 9
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:ago:10",
+        "text": "ago",
+        "normalizedText": "ago",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 10
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:government:11",
+        "text": "government",
+        "normalizedText": "government",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 11
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:half:12",
+        "text": "half",
+        "normalizedText": "half",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 12
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:machine:13",
+        "text": "machine",
+        "normalizedText": "machine",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 13
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:pair:14",
+        "text": "pair",
+        "normalizedText": "pair",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 14
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:quickly:15",
+        "text": "quickly",
+        "normalizedText": "quickly",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 15
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:scientist:16",
+        "text": "scientist",
+        "normalizedText": "scientist",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 16
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:thousand:17",
+        "text": "thousand",
+        "normalizedText": "thousand",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 17
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:understood:18",
+        "text": "understood",
+        "normalizedText": "understood",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 18
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:wait:19",
+        "text": "wait",
+        "normalizedText": "wait",
+        "wordGroupId": "high_frequency_words",
+        "purpose": "recognize",
+        "positionIndex": 19
+      }
+    ],
+    "questions": [
+      {
+        "id": 1,
+        "question": "Spelling word with long i",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "alike",
+        "hint": "Word means similar or the same"
+      },
+      {
+        "id": 2,
+        "question": "Spelling words with long o",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "ago",
+        "hint": "In the past"
+      },
+      {
+        "id": 3,
+        "question": "Spelling words with long o",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "alone",
+        "hint": "By yourself"
+      },
+      {
+        "id": 4,
+        "question": "Spelling words with long a",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "away",
+        "hint": "Not here; at a distance"
+      },
+      {
+        "id": 5,
+        "question": "Spelling words with long a",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "awake",
+        "hint": "Not asleep"
+      },
+      {
+        "id": 6,
+        "question": "Spelling word that does not have a long vowel",
+        "type": "fill_in",
+        "options": null,
+        "correctAnswer": "ahead",
+        "hint": "In front"
+      },
+      {
+        "id": 7,
+        "question": "Circle the spelling word that is an antonym of asleep.",
+        "type": "multiple_choice",
+        "options": [
+          "alike",
+          "awake",
+          "ago",
+          "alone",
+          "ahead"
+        ],
+        "correctAnswer": "awake",
+        "hint": "Opposite of asleep means to be conscious"
+      },
+      {
+        "id": 8,
+        "question": "Circle the spelling word that is an antonym of behind.",
+        "type": "multiple_choice",
+        "options": [
+          "alike",
+          "awake",
+          "ago",
+          "alone",
+          "ahead"
+        ],
+        "correctAnswer": "ahead",
+        "hint": "Opposite of behind means in front"
+      }
+    ],
+    "wordGroups": [
+      {
+        "id": "schwa_words",
+        "wordGroupId": "schwa_words",
+        "label": "Schwa",
+        "purpose": "recognize",
+        "words": [
+          "above",
+          "ago",
+          "about",
+          "ahead",
+          "away",
+          "alone",
+          "alike",
+          "awake",
+          "along",
+          "again"
+        ],
+        "homeworkWordIds": [
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:above:0",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:ago:1",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:about:2",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:ahead:3",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:away:4",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:alone:5",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:alike:6",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:awake:7",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:along:8",
+          "benchmark-advance-spelling-unit-9-week-2:schwa_words:again:9"
+        ],
+        "confidence": 0.95,
+        "evidence": [
+          "Section explicitly labeled 'Schwa'",
+          "All words contain schwa sound (ə)"
+        ]
+      },
+      {
+        "id": "high_frequency_words",
+        "wordGroupId": "high_frequency_words",
+        "label": "High-Frequency Words",
+        "purpose": "recognize",
+        "words": [
+          "ago",
+          "government",
+          "half",
+          "machine",
+          "pair",
+          "quickly",
+          "scientist",
+          "thousand",
+          "understood",
+          "wait"
+        ],
+        "homeworkWordIds": [
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:ago:10",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:government:11",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:half:12",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:machine:13",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:pair:14",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:quickly:15",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:scientist:16",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:thousand:17",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:understood:18",
+          "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:wait:19"
+        ],
+        "confidence": 0.95,
+        "evidence": [
+          "Section explicitly labeled 'High-Frequency Words'"
+        ]
+      }
+    ],
+    "assignmentInterpretation": {
+      "schemaVersion": 1,
+      "status": "ready",
+      "wordGroups": [
+        {
+          "id": "schwa_words",
+          "wordGroupId": "schwa_words",
+          "label": "Schwa",
+          "purpose": "recognize",
+          "words": [
+            "above",
+            "ago",
+            "about",
+            "ahead",
+            "away",
+            "alone",
+            "alike",
+            "awake",
+            "along",
+            "again"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:above:0",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:ago:1",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:about:2",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:ahead:3",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:away:4",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:alone:5",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:alike:6",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:awake:7",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:along:8",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:again:9"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Section explicitly labeled 'Schwa'",
+            "All words contain schwa sound (ə)"
+          ]
+        },
+        {
+          "id": "high_frequency_words",
+          "wordGroupId": "high_frequency_words",
+          "label": "High-Frequency Words",
+          "purpose": "recognize",
+          "words": [
+            "ago",
+            "government",
+            "half",
+            "machine",
+            "pair",
+            "quickly",
+            "scientist",
+            "thousand",
+            "understood",
+            "wait"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:ago:10",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:government:11",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:half:12",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:machine:13",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:pair:14",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:quickly:15",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:scientist:16",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:thousand:17",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:understood:18",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:wait:19"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Section explicitly labeled 'High-Frequency Words'"
+          ]
+        }
+      ],
+      "assertions": [
+        {
+          "id": "schwa_words-source-interpretation",
+          "claim": "Schwa should be treated as recognize.",
+          "confidence": 0.95,
+          "evidence": [
+            "Section explicitly labeled 'Schwa'",
+            "All words contain schwa sound (ə)"
+          ]
+        },
+        {
+          "id": "high_frequency_words-source-interpretation",
+          "claim": "High-Frequency Words should be treated as recognize.",
+          "confidence": 0.95,
+          "evidence": [
+            "Section explicitly labeled 'High-Frequency Words'"
+          ]
+        }
+      ],
+      "selectedTargets": [],
+      "heldTargets": [
+        {
+          "id": "schwa_words",
+          "wordGroupId": "schwa_words",
+          "label": "Schwa",
+          "purpose": "recognize",
+          "words": [
+            "above",
+            "ago",
+            "about",
+            "ahead",
+            "away",
+            "alone",
+            "alike",
+            "awake",
+            "along",
+            "again"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:above:0",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:ago:1",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:about:2",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:ahead:3",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:away:4",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:alone:5",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:alike:6",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:awake:7",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:along:8",
+            "benchmark-advance-spelling-unit-9-week-2:schwa_words:again:9"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Section explicitly labeled 'Schwa'",
+            "All words contain schwa sound (ə)"
+          ]
+        },
+        {
+          "id": "high_frequency_words",
+          "wordGroupId": "high_frequency_words",
+          "label": "High-Frequency Words",
+          "purpose": "recognize",
+          "words": [
+            "ago",
+            "government",
+            "half",
+            "machine",
+            "pair",
+            "quickly",
+            "scientist",
+            "thousand",
+            "understood",
+            "wait"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:ago:10",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:government:11",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:half:12",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:machine:13",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:pair:14",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:quickly:15",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:scientist:16",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:thousand:17",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:understood:18",
+            "benchmark-advance-spelling-unit-9-week-2:high_frequency_words:wait:19"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Section explicitly labeled 'High-Frequency Words'"
+          ]
+        }
+      ],
+      "clarificationQuestions": [],
+      "reviewRecommendations": [],
+      "humanAnswers": [],
+      "memoryMatches": []
+    },
+    "sourceDocuments": [
+      {
+        "filename": "5_11 spelling .pdf",
+        "mediaType": "application/pdf"
+      }
+    ],
+    "contentProfile": {
+      "practiceDomain": "spelling",
+      "contentDomain": "language_arts",
+      "topic": "Schwa sounds and high-frequency words",
+      "primarySkill": "Spelling words with schwa sounds and recognizing high-frequency words",
+      "assignmentFormat": "Worksheet with categorization and vocabulary exercises",
+      "concepts": [
+        "Schwa sound (ə)",
+        "Long vowel sounds (i, o, a)",
+        "Antonyms",
+        "High-frequency vocabulary"
+      ],
+      "sourceEvidence": [
+        "No explicit cross-domain topic detected.",
+        "Unit 9 Week 2 Benchmark Advance Spelling",
+        "Page 119 of Grammar & Spelling Activity Book"
+      ]
+    }
+  },
+  "contentFingerprint": "bcd5ec7ccef0aad8",
+  "calibrationStatus": "unverified",
+  "ingestedAt": "2026-05-15",
+  "testDate": "2026-05-22",
+  "testDateSource": "human_confirmed",
+  "testDateConfirmed": true,
+  "returnTag": "#sunny_ila_hw_spelling_test_bb11de93",
+  "assumptions": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: above, ago, about, ahead, away\n\n## Intervention\nactive word production from memory\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet.",
+  "postAnalysis": null,
+  "scanResult": null,
+  "delta": null,
+  "metrics": null,
+  "theory": {
+    "theoryId": "hw-spelling_test-bb11de93:pre_quest:2026-05-15T23:27:29.693Z",
+    "stage": "pre_quest",
+    "createdAt": "2026-05-15T23:27:29.693Z",
+    "hypothesis": "No confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.",
+    "predictedPattern": "content_fit_gap",
+    "predictedRiskWords": [
+      "above",
+      "ago",
+      "about",
+      "ahead",
+      "away"
+    ],
+    "intervention": "active word production from memory",
+    "successCriteria": {
+      "minAccuracy": 0.8,
+      "minImprovement": 0.15
+    },
+    "evidence": [
+      "No confirmed diagnostic pattern yet."
+    ],
+    "status": "pending",
+    "markdown": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: above, ago, about, ahead, away\n\n## Intervention\nactive word production from memory\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet."
+  },
+  "interventionHistory": [
+    {
+      "nodeId": "n-spell-check-hw-spelling_test-bb11de93-repair",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-15T23:48:47.913Z",
+      "baselineAccuracy": 0.5333333333333333,
+      "interventionAccuracy": 0.5333333333333333,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-pronunciation-hw-spelling_test-bb11de93",
+      "nodeType": "pronunciation",
+      "measuredAt": "2026-05-15T23:49:29.760Z",
+      "baselineAccuracy": 0.91,
+      "interventionAccuracy": 0.91,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-mystery-hw-spelling_test-bb11de93",
+      "nodeType": "mystery",
+      "measuredAt": "2026-05-15T23:52:30.211Z",
+      "baselineAccuracy": 1,
+      "interventionAccuracy": 1,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell-check-hw-spelling_test-bb11de93-repair",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-16T15:31:37.876Z",
+      "baselineAccuracy": 0.6,
+      "interventionAccuracy": 0.6,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-pronunciation-hw-spelling_test-bb11de93",
+      "nodeType": "pronunciation",
+      "measuredAt": "2026-05-16T15:32:08.395Z",
+      "baselineAccuracy": 1,
+      "interventionAccuracy": 1,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-mystery-hw-spelling_test-bb11de93",
+      "nodeType": "mystery",
+      "measuredAt": "2026-05-16T15:34:52.521Z",
+      "baselineAccuracy": 0.8333333333333334,
+      "interventionAccuracy": 0.8333333333333334,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell-check-hw-spelling_test-bb11de93-repair",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-16T16:22:30.425Z",
+      "baselineAccuracy": 0.8,
+      "interventionAccuracy": 0.8,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-pronunciation-hw-spelling_test-bb11de93",
+      "nodeType": "pronunciation",
+      "measuredAt": "2026-05-16T16:23:15.090Z",
+      "baselineAccuracy": 0.63,
+      "interventionAccuracy": 0.63,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-mystery-hw-spelling_test-bb11de93",
+      "nodeType": "mystery",
+      "measuredAt": "2026-05-16T16:24:56.349Z",
+      "baselineAccuracy": 1,
+      "interventionAccuracy": 1,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-pronunciation-hw-spelling_test-bb11de93",
+      "nodeType": "pronunciation",
+      "measuredAt": "2026-05-16T17:23:59.000Z",
+      "baselineAccuracy": 0.63,
+      "interventionAccuracy": 0.63,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-pronunciation-hw-spelling_test-bb11de93",
+      "nodeType": "pronunciation",
+      "measuredAt": "2026-05-16T20:15:33.192Z",
+      "baselineAccuracy": 0.38,
+      "interventionAccuracy": 0.38,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-pronunciation-hw-spelling_test-bb11de93",
+      "nodeType": "pronunciation",
+      "measuredAt": "2026-05-16T20:51:20.182Z",
+      "baselineAccuracy": 0.5,
+      "interventionAccuracy": 0.5,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-word-radar-hw-spelling_test-bb11de93",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-05-16T20:56:07.050Z",
+      "baselineAccuracy": 0.5714285714285714,
+      "interventionAccuracy": 0.5714285714285714,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-spell-check-hw-spelling_test-bb11de93",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-16T21:04:37.375Z",
+      "baselineAccuracy": 0.8,
+      "interventionAccuracy": 0.8,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-pronunciation-hw-spelling_test-bb11de93",
+      "nodeType": "pronunciation",
+      "measuredAt": "2026-05-17T17:58:57.499Z",
+      "baselineAccuracy": 0.64,
+      "interventionAccuracy": 0.64,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-word-radar-hw-spelling_test-bb11de93",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-05-17T18:01:08.256Z",
+      "baselineAccuracy": 0.6,
+      "interventionAccuracy": 0.6,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-spell-check-hw-spelling_test-bb11de93",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-17T18:03:18.646Z",
+      "baselineAccuracy": 0.7333333333333333,
+      "interventionAccuracy": 0.7333333333333333,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-mystery-hw-spelling_test-bb11de93",
+      "nodeType": "mystery",
+      "measuredAt": "2026-05-17T18:04:37.530Z",
+      "baselineAccuracy": 1,
+      "interventionAccuracy": 1,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-17T19:20:05.296Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-wr",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-05-17T19:20:05.334Z",
+      "baselineAccuracy": 0.65,
+      "interventionAccuracy": 0.65,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-17T19:20:05.352Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-17T19:20:05.368Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-05-17T19:20:05.392Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    }
+  ]
+}

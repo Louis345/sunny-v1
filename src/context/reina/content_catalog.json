@@ -1,0 +1,1216 @@
+{
+  "version": 1,
+  "childId": "reina",
+  "items": [
+    {
+      "contentId": "hw-spelling_test-adc128c0:n-word-radar-hw-spelling_test-adc128c0",
+      "homeworkId": "hw-spelling_test-adc128c0",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words with schwa sounds and recognize high-frequency words"
+      ],
+      "targetConcepts": [
+        "Schwa sound (unstressed vowel)",
+        "Long vowel sounds (long i, long o, long a)",
+        "High-frequency sight words",
+        "Antonyms"
+      ],
+      "targetWords": [
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "810323e7493ce508"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Start with a low-friction scan of the first spelling cohort before independent recall."
+    },
+    {
+      "contentId": "hw-spelling_test-adc128c0:n-spell-check-hw-spelling_test-adc128c0",
+      "homeworkId": "hw-spelling_test-adc128c0",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spell words with schwa sounds and recognize high-frequency words"
+      ],
+      "targetConcepts": [
+        "Schwa sound (unstressed vowel)",
+        "Long vowel sounds (long i, long o, long a)",
+        "High-frequency sight words",
+        "Antonyms"
+      ],
+      "targetWords": [
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "810323e7493ce508"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Measure independent recall on the next spelling cohort after Word Radar warms up the pattern."
+    },
+    {
+      "contentId": "hw-spelling_test-adc128c0:countdown-comprehension",
+      "homeworkId": "hw-spelling_test-adc128c0",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2 - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Spell words with schwa sounds and recognize high-frequency words"
+      ],
+      "targetConcepts": [
+        "Schwa sound (unstressed vowel)",
+        "Long vowel sounds (long i, long o, long a)",
+        "High-frequency sight words",
+        "Antonyms"
+      ],
+      "targetWords": [
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away",
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again",
+        "government",
+        "half",
+        "machine",
+        "pair",
+        "quickly",
+        "scientist",
+        "thousand",
+        "understood",
+        "wait"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "810323e7493ce508"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Schwa and High-Frequency Words because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-word-radar-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spelling accuracy with adjectival and adverbial endings"
+      ],
+      "targetConcepts": [
+        "Adjectives ending in -y",
+        "Adverbs ending in -ly",
+        "High-frequency words",
+        "Vowel recognition",
+        "Phonetic patterns"
+      ],
+      "targetWords": [
+        "behind",
+        "slowly",
+        "shiny",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "372270954ac7cebd"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Word radar warms up recognition for the spelling-list words."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-spell-check-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Spelling accuracy with adjectival and adverbial endings"
+      ],
+      "targetConcepts": [
+        "Adjectives ending in -y",
+        "Adverbs ending in -ly",
+        "High-frequency words",
+        "Vowel recognition",
+        "Phonetic patterns"
+      ],
+      "targetWords": [
+        "behind",
+        "slowly",
+        "shiny",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "372270954ac7cebd"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Spell-check captures spelling production attempts for diagnostics."
+    },
+    {
+      "contentId": "hw-spelling_test-a0d1d9f2:n-wheel-hw-spelling_test-a0d1d9f2",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "childId": "reina",
+      "type": "game",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1 - wheel-of-fortune",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "activity-affinity",
+        "variable-reward"
+      ],
+      "targetSkills": [
+        "Spelling accuracy with adjectival and adverbial endings"
+      ],
+      "targetConcepts": [
+        "Adjectives ending in -y",
+        "Adverbs ending in -ly",
+        "High-frequency words",
+        "Vowel recognition",
+        "Phonetic patterns"
+      ],
+      "targetWords": [
+        "behind",
+        "slowly",
+        "shiny",
+        "lucky",
+        "neatly",
+        "sunny",
+        "likely",
+        "messy",
+        "quickly",
+        "rainy",
+        "friendly",
+        "able",
+        "carefully",
+        "common",
+        "easy",
+        "fact",
+        "remember",
+        "sure",
+        "vowel",
+        "whole"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "372270954ac7cebd"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Wheel of Fortune gives competitive retrieval practice with the same list."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-baseline-evaluator-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-karaoke-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "story",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "retrieval-practice",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "Reina",
+        "stepped",
+        "into",
+        "the",
+        "muddy",
+        "training",
+        "valley",
+        "like",
+        "it",
+        "was",
+        "a",
+        "wrestling",
+        "mat",
+        "and",
+        "studied",
+        "the",
+        "first",
+        "move",
+        "A",
+        "storm",
+        "timer",
+        "started",
+        "and",
+        "water",
+        "rushed",
+        "downhill",
+        "pushed",
+        "soil",
+        "loose",
+        "and",
+        "carried",
+        "tiny",
+        "rocks",
+        "into",
+        "a",
+        "new",
+        "channel",
+        "Reina",
+        "called",
+        "the",
+        "pattern",
+        "erosion",
+        "land",
+        "slowly",
+        "changing",
+        "when",
+        "water",
+        "wind",
+        "and",
+        "gravity",
+        "keep",
+        "working",
+        "Her",
+        "mission",
+        "was",
+        "to",
+        "use",
+        "strategy",
+        "compare",
+        "faster",
+        "and",
+        "slower",
+        "water",
+        "and",
+        "beat",
+        "her",
+        "personal",
+        "best",
+        "by",
+        "explaining",
+        "why",
+        "the",
+        "landform",
+        "changed",
+        "Reina",
+        "also",
+        "spotted",
+        "the",
+        "review",
+        "words",
+        "erosion",
+        "wear",
+        "away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "and",
+        "used",
+        "them",
+        "as",
+        "clue",
+        "cards",
+        "for",
+        "the",
+        "next",
+        "challenge",
+        "At",
+        "the",
+        "finish",
+        "Reina",
+        "won",
+        "the",
+        "round",
+        "by",
+        "pointing",
+        "to",
+        "the",
+        "evidence",
+        "moved",
+        "soil",
+        "shifted",
+        "sand",
+        "and",
+        "a",
+        "hill",
+        "that",
+        "looked",
+        "different",
+        "than",
+        "before"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-karaoke-hw-reading-379a0afb:image",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "image",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed illustration",
+      "algorithmTargets": [
+        "variable-reward",
+        "reading-comprehension",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "downhill"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-concept-builder-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-builder",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:n-exit-evaluator-hw-reading-379a0afb",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
+    },
+    {
+      "contentId": "hw-reading-379a0afb:countdown-comprehension",
+      "homeworkId": "hw-reading-379a0afb",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and map reading"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "What is Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "wear away",
+        "rocks",
+        "soil",
+        "wind",
+        "water",
+        "ice",
+        "rivers",
+        "rain",
+        "mountains",
+        "beaches",
+        "oceans",
+        "sand",
+        "compass rose",
+        "downhill"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "d8ba4f0cdecd570c"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-baseline-evaluator-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-karaoke-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "story",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "retrieval-practice",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "Reina",
+        "stepped",
+        "into",
+        "the",
+        "muddy",
+        "training",
+        "valley",
+        "like",
+        "it",
+        "was",
+        "a",
+        "wrestling",
+        "mat",
+        "and",
+        "studied",
+        "the",
+        "first",
+        "move",
+        "A",
+        "storm",
+        "timer",
+        "started",
+        "and",
+        "water",
+        "rushed",
+        "downhill",
+        "pushed",
+        "soil",
+        "loose",
+        "and",
+        "carried",
+        "tiny",
+        "rocks",
+        "into",
+        "a",
+        "new",
+        "channel",
+        "Reina",
+        "called",
+        "the",
+        "pattern",
+        "erosion",
+        "land",
+        "slowly",
+        "changing",
+        "when",
+        "water",
+        "wind",
+        "and",
+        "gravity",
+        "keep",
+        "working",
+        "Her",
+        "mission",
+        "was",
+        "to",
+        "use",
+        "strategy",
+        "compare",
+        "faster",
+        "and",
+        "slower",
+        "water",
+        "and",
+        "beat",
+        "her",
+        "personal",
+        "best",
+        "by",
+        "explaining",
+        "why",
+        "the",
+        "landform",
+        "changed",
+        "Reina",
+        "also",
+        "spotted",
+        "the",
+        "review",
+        "words",
+        "faster",
+        "slowest",
+        "add",
+        "and",
+        "used",
+        "them",
+        "as",
+        "clue",
+        "cards",
+        "for",
+        "the",
+        "next",
+        "challenge",
+        "At",
+        "the",
+        "finish",
+        "Reina",
+        "won",
+        "the",
+        "round",
+        "by",
+        "pointing",
+        "to",
+        "the",
+        "evidence",
+        "moved",
+        "soil",
+        "shifted",
+        "sand",
+        "and",
+        "a",
+        "hill",
+        "that",
+        "looked",
+        "different",
+        "than",
+        "before"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-karaoke-hw-reading-e3b0c442:image",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "image",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed illustration",
+      "algorithmTargets": [
+        "variable-reward",
+        "reading-comprehension",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-concept-builder-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-builder",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:n-exit-evaluator-hw-reading-e3b0c442",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Erosion and Earth's Surface Study Guide - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geological features"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow",
+        "Treasure Map Practice",
+        "Quick Review"
+      ],
+      "targetWords": [
+        "erosion",
+        "Erosion",
+        "Beach Sand and Rocks",
+        "Reading a Map",
+        "How Rivers Flow"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "953591037e5f4eb4"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
+    },
+    {
+      "contentId": "hw-reading-e3b0c442:countdown-comprehension",
+      "homeworkId": "hw-reading-e3b0c442",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Understanding erosion processes and Earth's geography"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and causes",
+        "Beach sand and rock formation",
+        "Reading maps and compass roses",
+        "River flow patterns",
+        "Treasure map practice",
+        "Map features and directions"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "e89e355be22e6fb2"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+    },
+    {
+      "contentId": "hw-generic-e3b0c442:n-karaoke-hw-generic-e3b0c442",
+      "homeworkId": "hw-generic-e3b0c442",
+      "childId": "reina",
+      "type": "story",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "retrieval-practice",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Reading comprehension and science concepts"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and process",
+        "Beach sand and rock formation",
+        "Map reading skills",
+        "River flow patterns",
+        "Compass rose directions",
+        "Landform identification"
+      ],
+      "targetWords": [
+        "Reina",
+        "stepped",
+        "into",
+        "the",
+        "muddy",
+        "training",
+        "valley",
+        "like",
+        "it",
+        "was",
+        "a",
+        "wrestling",
+        "mat",
+        "and",
+        "studied",
+        "the",
+        "first",
+        "move",
+        "A",
+        "storm",
+        "timer",
+        "started",
+        "and",
+        "water",
+        "rushed",
+        "downhill",
+        "pushed",
+        "soil",
+        "loose",
+        "and",
+        "carried",
+        "tiny",
+        "rocks",
+        "into",
+        "a",
+        "new",
+        "channel",
+        "Reina",
+        "called",
+        "the",
+        "pattern",
+        "erosion",
+        "land",
+        "slowly",
+        "changing",
+        "when",
+        "water",
+        "wind",
+        "and",
+        "gravity",
+        "keep",
+        "working",
+        "Her",
+        "mission",
+        "was",
+        "to",
+        "use",
+        "strategy",
+        "compare",
+        "faster",
+        "and",
+        "slower",
+        "water",
+        "and",
+        "beat",
+        "her",
+        "personal",
+        "best",
+        "by",
+        "explaining",
+        "why",
+        "the",
+        "landform",
+        "changed",
+        "At",
+        "the",
+        "finish",
+        "Reina",
+        "won",
+        "the",
+        "round",
+        "by",
+        "pointing",
+        "to",
+        "the",
+        "evidence",
+        "moved",
+        "soil",
+        "shifted",
+        "sand",
+        "and",
+        "a",
+        "hill",
+        "that",
+        "looked",
+        "different",
+        "than",
+        "before"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "6f51dee1567ac81a"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+    },
+    {
+      "contentId": "hw-generic-e3b0c442:n-karaoke-hw-generic-e3b0c442:image",
+      "homeworkId": "hw-generic-e3b0c442",
+      "childId": "reina",
+      "type": "image",
+      "source": "generated",
+      "title": "Reina and the Hill That Changed illustration",
+      "algorithmTargets": [
+        "variable-reward",
+        "reading-comprehension",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Reading comprehension and science concepts"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and process",
+        "Beach sand and rock formation",
+        "Map reading skills",
+        "River flow patterns",
+        "Compass rose directions",
+        "Landform identification"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "6f51dee1567ac81a"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
+    },
+    {
+      "contentId": "hw-generic-e3b0c442:countdown-comprehension",
+      "homeworkId": "hw-generic-e3b0c442",
+      "childId": "reina",
+      "type": "countdown",
+      "source": "prototype",
+      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
+      "algorithmTargets": [
+        "retrieval-practice",
+        "reading-comprehension",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Reading comprehension and science concepts"
+      ],
+      "targetConcepts": [
+        "erosion",
+        "landform",
+        "landforms",
+        "soil",
+        "rocks",
+        "water",
+        "wind",
+        "Erosion definition and process",
+        "Beach sand and rock formation",
+        "Map reading skills",
+        "River flow patterns",
+        "Compass rose directions",
+        "Landform identification"
+      ],
+      "targetWords": [],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "6f51dee1567ac81a"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+    }
+  ],
+  "updatedAt": "2026-05-15T19:21:40.362Z"
+}

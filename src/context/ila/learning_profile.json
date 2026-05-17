@@ -2,7 +2,7 @@
   "childId": "ila",
   "version": 1,
   "createdAt": "2026-04-03T21:20:33.923Z",
-  "lastUpdated": "2026-05-05T04:06:18.232Z",
+  "lastUpdated": "2026-05-17T19:20:05.398Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -48,7 +48,7 @@
   },
   "moodHistory": [
     {
-      "date": "2026-04-25T14:24:50.961Z",
+      "date": "2026-05-15T23:23:30.963Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -56,7 +56,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-04-26T13:20:10.972Z",
+      "date": "2026-05-15T23:29:47.827Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -64,7 +64,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-04-29T00:37:50.007Z",
+      "date": "2026-05-15T23:35:27.966Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -72,7 +72,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-04-29T01:00:51.090Z",
+      "date": "2026-05-15T23:53:09.551Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -80,7 +80,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-04-29T01:00:57.205Z",
+      "date": "2026-05-16T15:35:14.203Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -88,7 +88,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-04-29T20:03:20.386Z",
+      "date": "2026-05-16T16:26:42.762Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -96,7 +96,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-04-30T00:51:58.050Z",
+      "date": "2026-05-16T17:24:47.604Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -104,27 +104,27 @@
       "notableSignals": []
     },
     {
-      "date": "2026-04-30T01:15:21.655Z",
+      "date": "2026-05-16T20:26:14.752Z",
       "startMood": "neutral",
-      "endMood": "neutral",
+      "endMood": "fatigued",
       "bondQuality": "moderate",
-      "sessionAccuracy": 0,
+      "sessionAccuracy": 0.2903225806451613,
       "notableSignals": []
     },
     {
-      "date": "2026-05-01T00:10:51.869Z",
+      "date": "2026-05-16T21:05:16.086Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
-      "sessionAccuracy": 0,
+      "sessionAccuracy": 0.5192307692307693,
       "notableSignals": []
     },
     {
-      "date": "2026-05-05T00:56:40.993Z",
+      "date": "2026-05-17T18:05:04.038Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
-      "sessionAccuracy": 0,
+      "sessionAccuracy": 0.7058823529411765,
       "notableSignals": []
     }
   ],
@@ -147,14 +147,14 @@
     "dyslexiaMode": true
   },
   "sessionStats": {
-    "totalSessions": 25,
-    "averageAccuracy": 0.04,
+    "totalSessions": 41,
+    "averageAccuracy": 0.06135209031261237,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
-    "streakRecord": 4,
+    "streakRecord": 11,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-05-05T00:56:40.993Z"
+    "lastSessionDate": "2026-05-17T18:05:04.038Z"
   },
   "rewardPreferences": {
     "favoriteGames": [],
@@ -166,14 +166,11 @@
   },
   "banditState": {
     "counts": [
+      5,
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      1,
-      2,
+      7,
       0,
       0,
       0,
@@ -181,19 +178,26 @@
       0,
       0,
       0,
+      12,
+      11,
       0,
       0,
-      0
+      9,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      6
     ],
     "values": [
+      0.9933333333333334,
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      1,
-      0.9600000000000001,
+      0.8857142857142857,
       0,
       0,
       0,
@@ -201,9 +205,19 @@
       0,
       0,
       0,
+      0.7363333333333332,
+      0.7903896103896103,
       0,
       0,
-      0
+      0.7703703703703704,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.7944444444444444
     ]
   },
   "companion": {
@@ -220,940 +234,426 @@
     "randomMomentProbability": 0.3,
     "toggledOff": false
   },
-  "pendingHomework": {
-    "weekOf": "2026-05-05",
-    "testDate": "2026-05-06",
-    "wordList": [
-      "erosion",
-      "wear away",
-      "rocks",
-      "soil",
-      "wind",
-      "water",
-      "ice",
-      "rivers",
-      "rain",
-      "mountains",
-      "beaches",
-      "oceans",
-      "sand",
-      "compass rose",
-      "North",
-      "South",
-      "East",
-      "West",
-      "downhill"
-    ],
-    "contentProfile": {
-      "practiceDomain": "reading",
-      "contentDomain": "science",
-      "topic": "Erosion and Earth's Surface",
-      "primarySkill": "Understanding erosion processes and map reading",
-      "assignmentFormat": "Study guide with definitions, explanations, and concepts",
-      "concepts": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is erosion",
-        "Beach sand and rocks",
-        "Reading a map",
-        "How rivers flow",
-        "Treasure map practice",
-        "Cardinal directions",
-        "Topographic features"
-      ],
-      "sourceEvidence": [
-        "matched science term: erosion",
-        "matched science term: landform",
-        "matched science term: soil",
-        "matched science term: rocks",
-        "matched science term: water",
-        "matched science term: wind",
-        "Erosion happens when wind, water, or ice wear away rocks and soil",
-        "The color of sand comes from the rocks nearby",
-        "A compass rose shows directions: North, South, East, West",
-        "Rivers usually flow downhill from mountains to oceans or lakes",
-        "Water always flows downhill, never up",
-        "Rounded hills are smaller and softer than pointy peaks"
-      ]
-    },
-    "capturedContent": {
-      "title": "Erosion and Earth's Surface Study Guide",
-      "type": "reading",
-      "rawText": "",
-      "words": [
-        "erosion",
-        "wear away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "rain",
-        "mountains",
-        "beaches",
-        "oceans",
-        "sand",
-        "compass rose",
-        "North",
-        "South",
-        "East",
-        "West",
-        "downhill"
-      ],
-      "questions": [
-        {
-          "id": 1,
-          "question": "What causes erosion?",
-          "type": "fill_in",
-          "options": null,
-          "correctAnswer": "Wind, water, or ice wear away rocks and soil",
-          "hint": "Think about what forces shape the Earth's surface"
-        },
-        {
-          "id": 2,
-          "question": "Where does the color of beach sand come from?",
-          "type": "fill_in",
-          "options": null,
-          "correctAnswer": "The rocks nearby",
-          "hint": "Think about what happens to rocks over time"
-        },
-        {
-          "id": 3,
-          "question": "What are the four cardinal directions shown on a compass rose?",
-          "type": "fill_in",
-          "options": null,
-          "correctAnswer": "North, South, East, West",
-          "hint": "Remember the compass rose shown in the guide"
-        },
-        {
-          "id": 4,
-          "question": "In which direction do rivers flow?",
-          "type": "fill_in",
-          "options": null,
-          "correctAnswer": "Downhill from mountains to oceans or lakes",
-          "hint": "Water always moves in one direction"
-        },
-        {
-          "id": 5,
-          "question": "What is the difference between rounded hills and pointy peaks?",
-          "type": "fill_in",
-          "options": null,
-          "correctAnswer": "Rounded hills are smaller and softer; pointy peaks are tall and sharp like big mountains",
-          "hint": "Think about map symbols and landform shapes"
-        }
-      ],
-      "sourceDocuments": [
-        {
-          "filename": "erosions.pdf",
-          "mediaType": "application/pdf"
-        }
-      ],
-      "contentProfile": {
-        "practiceDomain": "reading",
-        "contentDomain": "science",
-        "topic": "Erosion and Earth's Surface",
-        "primarySkill": "Understanding erosion processes and map reading",
-        "assignmentFormat": "Study guide with definitions, explanations, and concepts",
-        "concepts": [
-          "erosion",
-          "landform",
-          "soil",
-          "rocks",
-          "water",
-          "wind",
-          "What is erosion",
-          "Beach sand and rocks",
-          "Reading a map",
-          "How rivers flow",
-          "Treasure map practice",
-          "Cardinal directions",
-          "Topographic features"
-        ],
-        "sourceEvidence": [
-          "matched science term: erosion",
-          "matched science term: landform",
-          "matched science term: soil",
-          "matched science term: rocks",
-          "matched science term: water",
-          "matched science term: wind",
-          "Erosion happens when wind, water, or ice wear away rocks and soil",
-          "The color of sand comes from the rocks nearby",
-          "A compass rose shows directions: North, South, East, West",
-          "Rivers usually flow downhill from mountains to oceans or lakes",
-          "Water always flows downhill, never up",
-          "Rounded hills are smaller and softer than pointy peaks"
-        ]
-      }
-    },
-    "homeworkId": "hw-reading-bfd2d4a8",
-    "generatedAt": "2026-05-05T00:42:55.250Z",
-    "nodes": [
-      {
-        "id": "n-baseline-evaluator-hw-reading-bfd2d4a8",
-        "type": "word-radar",
-        "words": [
-          "erosion",
-          "landform",
-          "soil",
-          "rocks",
-          "water"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "baseline-evaluator",
-          "role": "baseline-evaluator",
-          "targetSkills": [
-            "Understanding erosion processes and map reading",
-            "baseline_understanding"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "algorithmTargets": [
-            "retrieval-practice",
-            "reading-comprehension"
-          ],
-          "measures": [
-            "concept_recognition_accuracy",
-            "missed_concepts"
-          ],
-          "reason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
-        },
-        "date": "2026-05-05",
-        "approved": false,
-        "wordRadarItems": [
-          {
-            "display": "erosion",
-            "acceptedResponses": [
-              "erosion"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "landform",
-            "acceptedResponses": [
-              "landform"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "soil",
-            "acceptedResponses": [
-              "soil"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "rocks",
-            "acceptedResponses": [
-              "rocks"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "water",
-            "acceptedResponses": [
-              "water"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          }
-        ]
-      },
-      {
-        "id": "n-karaoke-hw-reading-bfd2d4a8",
-        "type": "karaoke",
-        "words": [
-          "Ila",
-          "is",
-          "learning",
-          "about",
-          "Erosion",
-          "and",
-          "Earth's",
-          "Surface",
-          "Key",
-          "ideas",
-          "include",
-          "erosion",
-          "landform",
-          "soil",
-          "rocks",
-          "water",
-          "Ila",
-          "focused",
-          "on",
-          "beating",
-          "a",
-          "personal",
-          "best",
-          "by",
-          "explaining",
-          "the",
-          "idea",
-          "more",
-          "clearly",
-          "each",
-          "round",
-          "Ila",
-          "also",
-          "spotted",
-          "the",
-          "review",
-          "words",
-          "erosion",
-          "wear",
-          "away",
-          "rocks",
-          "soil",
-          "wind",
-          "water",
-          "ice",
-          "rivers",
-          "and",
-          "used",
-          "them",
-          "as",
-          "clue",
-          "cards",
-          "for",
-          "the",
-          "next",
-          "challenge",
-          "Ila",
-          "read",
-          "each",
-          "sentence",
-          "carefully",
-          "then",
-          "used",
-          "the",
-          "clues",
-          "in",
-          "the",
-          "next",
-          "challenge"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "storyText": "Ila is learning about Erosion and Earth's Surface. Key ideas include erosion, landform, soil, rocks, water. Ila focused on beating a personal best by explaining the idea more clearly each round. Ila also spotted the review words erosion, wear away, rocks, soil, wind, water, ice, rivers and used them as clue cards for the next challenge. Ila read each sentence carefully, then used the clues in the next challenge.",
-        "storyTitle": "Ila and Erosion and Earth's Surface",
-        "storyImagePrompt": "A child-friendly illustration of Ila as the central visible character learning about Erosion and Earth's Surface, showing erosion, landform, soil, rocks, water.",
-        "carePlan": {
-          "interventionId": "story",
-          "role": "story",
-          "targetSkills": [
-            "Understanding erosion processes and map reading",
-            "reading_fluency"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "targetWords": [
-            "erosion",
-            "wear away",
-            "rocks"
-          ],
-          "algorithmTargets": [
-            "reading-comprehension",
-            "activity-affinity"
-          ],
-          "measures": [
-            "reading_completion",
-            "hesitations",
-            "flagged_words"
-          ],
-          "reason": "Build background knowledge and engagement around Erosion and Earth's Surface."
-        },
-        "date": "2026-05-05",
-        "approved": false
-      },
-      {
-        "id": "n-pronunciation-hw-reading-bfd2d4a8",
-        "type": "pronunciation",
-        "words": [
-          "erosion",
-          "landform",
-          "soil",
-          "rocks",
-          "water"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "pronunciation",
-          "role": "pronunciation",
-          "targetSkills": [
-            "pronunciation",
-            "Understanding erosion processes and map reading"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "algorithmTargets": [
-            "pronunciation",
-            "desirable-difficulty"
-          ],
-          "measures": [
-            "pronunciation_accuracy",
-            "hesitation"
-          ],
-          "reason": "Academic words must be speakable before they can be explained confidently."
-        },
-        "date": "2026-05-05",
-        "approved": false
-      },
-      {
-        "id": "n-concept-builder-hw-reading-bfd2d4a8",
-        "type": "word-builder",
-        "words": [
-          "erosion",
-          "landform",
-          "soil",
-          "rocks",
-          "water"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "concept-builder",
-          "role": "concept-builder",
-          "targetSkills": [
-            "academic_vocabulary",
-            "Understanding erosion processes and map reading"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "algorithmTargets": [
-            "retrieval-practice",
-            "desirable-difficulty"
-          ],
-          "measures": [
-            "construction_accuracy",
-            "attempted_value"
-          ],
-          "reason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
-        },
-        "date": "2026-05-05",
-        "approved": false
-      },
-      {
-        "id": "n-exit-evaluator-hw-reading-bfd2d4a8",
-        "type": "word-radar",
-        "words": [
-          "erosion",
-          "landform",
-          "soil",
-          "rocks",
-          "water"
-        ],
-        "difficulty": 2,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "exit-evaluator",
-          "role": "exit-evaluator",
-          "targetSkills": [
-            "Understanding erosion processes and map reading",
-            "transfer_check"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "soil",
-            "rocks",
-            "water"
-          ],
-          "algorithmTargets": [
-            "mastery-gating",
-            "retrieval-practice"
-          ],
-          "measures": [
-            "exit_accuracy",
-            "improvement_from_baseline"
-          ],
-          "reason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
-        },
-        "date": "2026-05-05",
-        "approved": false,
-        "wordRadarItems": [
-          {
-            "display": "erosion",
-            "acceptedResponses": [
-              "erosion"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "landform",
-            "acceptedResponses": [
-              "landform"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "soil",
-            "acceptedResponses": [
-              "soil"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "rocks",
-            "acceptedResponses": [
-              "rocks"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "water",
-            "acceptedResponses": [
-              "water"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          }
-        ]
-      }
-    ],
-    "reinforceWords": [
-      "coldest",
-      "figure",
-      "money"
-    ],
-    "completedAdventureNodeIds": [
-      "n-baseline-evaluator-hw-reading-bfd2d4a8",
-      "n-exit-evaluator-hw-reading-bfd2d4a8",
-      "n-karaoke-hw-reading-bfd2d4a8",
-      "n-spell",
-      "n-wr"
-    ]
-  },
-  "lastMysteryGame": "space-invaders",
-  "companionCurrency": 4725,
-  "aiContentCatalog": [
-    {
-      "contentId": "hw-reading-bfd2d4a8:n-baseline-evaluator-hw-reading-bfd2d4a8",
-      "homeworkId": "hw-reading-bfd2d4a8",
-      "childId": "ila",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-radar",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is erosion",
-        "Beach sand and rocks",
-        "Reading a map",
-        "How rivers flow",
-        "Treasure map practice",
-        "Cardinal directions",
-        "Topographic features"
-      ],
-      "targetWords": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "39b8931e34d4ea9c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
-    },
-    {
-      "contentId": "hw-reading-bfd2d4a8:n-karaoke-hw-reading-bfd2d4a8",
-      "homeworkId": "hw-reading-bfd2d4a8",
-      "childId": "ila",
-      "type": "story",
-      "source": "generated",
-      "title": "Ila and Erosion and Earth's Surface",
-      "algorithmTargets": [
-        "reading-comprehension",
-        "retrieval-practice",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is erosion",
-        "Beach sand and rocks",
-        "Reading a map",
-        "How rivers flow",
-        "Treasure map practice",
-        "Cardinal directions",
-        "Topographic features"
-      ],
-      "targetWords": [
-        "Ila",
-        "is",
-        "learning",
-        "about",
-        "Erosion",
-        "and",
-        "Earth's",
-        "Surface",
-        "Key",
-        "ideas",
-        "include",
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "Ila",
-        "focused",
-        "on",
-        "beating",
-        "a",
-        "personal",
-        "best",
-        "by",
-        "explaining",
-        "the",
-        "idea",
-        "more",
-        "clearly",
-        "each",
-        "round",
-        "Ila",
-        "also",
-        "spotted",
-        "the",
-        "review",
-        "words",
-        "erosion",
-        "wear",
-        "away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "and",
-        "used",
-        "them",
-        "as",
-        "clue",
-        "cards",
-        "for",
-        "the",
-        "next",
-        "challenge",
-        "Ila",
-        "read",
-        "each",
-        "sentence",
-        "carefully",
-        "then",
-        "used",
-        "the",
-        "clues",
-        "in",
-        "the",
-        "next",
-        "challenge"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "39b8931e34d4ea9c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
-    },
-    {
-      "contentId": "hw-reading-bfd2d4a8:n-karaoke-hw-reading-bfd2d4a8:image",
-      "homeworkId": "hw-reading-bfd2d4a8",
-      "childId": "ila",
-      "type": "image",
-      "source": "generated",
-      "title": "Ila and Erosion and Earth's Surface illustration",
-      "algorithmTargets": [
-        "variable-reward",
-        "reading-comprehension",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is erosion",
-        "Beach sand and rocks",
-        "Reading a map",
-        "How rivers flow",
-        "Treasure map practice",
-        "Cardinal directions",
-        "Topographic features"
-      ],
-      "targetWords": [
-        "erosion",
-        "wear away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "rain",
-        "mountains",
-        "beaches",
-        "oceans",
-        "sand",
-        "compass rose",
-        "North",
-        "South",
-        "East",
-        "West",
-        "downhill"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "39b8931e34d4ea9c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
-    },
-    {
-      "contentId": "hw-reading-bfd2d4a8:n-concept-builder-hw-reading-bfd2d4a8",
-      "homeworkId": "hw-reading-bfd2d4a8",
-      "childId": "ila",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-builder",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is erosion",
-        "Beach sand and rocks",
-        "Reading a map",
-        "How rivers flow",
-        "Treasure map practice",
-        "Cardinal directions",
-        "Topographic features"
-      ],
-      "targetWords": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "39b8931e34d4ea9c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
-    },
-    {
-      "contentId": "hw-reading-bfd2d4a8:n-exit-evaluator-hw-reading-bfd2d4a8",
-      "homeworkId": "hw-reading-bfd2d4a8",
-      "childId": "ila",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-radar",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is erosion",
-        "Beach sand and rocks",
-        "Reading a map",
-        "How rivers flow",
-        "Treasure map practice",
-        "Cardinal directions",
-        "Topographic features"
-      ],
-      "targetWords": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "39b8931e34d4ea9c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
-    },
-    {
-      "contentId": "hw-reading-bfd2d4a8:countdown-comprehension",
-      "homeworkId": "hw-reading-bfd2d4a8",
-      "childId": "ila",
-      "type": "countdown",
-      "source": "prototype",
-      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
-      "algorithmTargets": [
-        "retrieval-practice",
-        "reading-comprehension",
-        "desirable-difficulty"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is erosion",
-        "Beach sand and rocks",
-        "Reading a map",
-        "How rivers flow",
-        "Treasure map practice",
-        "Cardinal directions",
-        "Topographic features"
-      ],
-      "targetWords": [
-        "erosion",
-        "wear away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "rain",
-        "mountains",
-        "beaches",
-        "oceans",
-        "sand",
-        "compass rose",
-        "North",
-        "South",
-        "East",
-        "West",
-        "downhill"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "39b8931e34d4ea9c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
-    }
-  ],
+  "lastMysteryGame": "wheel-of-fortune",
+  "companionCurrency": 15350,
   "tamagotchi": {
     "hunger": 1,
     "happiness": 0.8500000000000001,
     "bond": 0.3,
     "intellect": 0.7,
     "lastSeenAt": "2026-05-05T00:45:27.120Z"
-  }
+  },
+  "activityModel": {
+    "spell-check": {
+      "activityId": "spell-check",
+      "plays": 127,
+      "completions": 126,
+      "completionRate": 0.992,
+      "averageAccuracy": 0.68,
+      "averageTimePerTarget_ms": 24463.527,
+      "engagementScore": 0.824,
+      "frustrationScore": 0.323,
+      "likedCount": 91,
+      "dislikedCount": 36,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-17T19:20:05.386Z",
+      "domains": {
+        "spelling": 122,
+        "reading": 4,
+        "general": 1
+      },
+      "missedWords": [
+        "zigzag",
+        "figure",
+        "slowly",
+        "farmer"
+      ]
+    },
+    "word-radar": {
+      "activityId": "word-radar",
+      "plays": 29,
+      "completions": 24,
+      "completionRate": 0.828,
+      "averageAccuracy": 0.643,
+      "averageTimePerTarget_ms": 20304.966,
+      "engagementScore": 0.823,
+      "frustrationScore": 0.354,
+      "likedCount": 29,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-17T19:20:05.317Z",
+      "domains": {
+        "reading": 1,
+        "spelling": 23,
+        "general": 5
+      },
+      "missedWords": [
+        "coldest",
+        "figure",
+        "money",
+        "slowly",
+        "common",
+        "zigzag",
+        "scientist",
+        "thousand",
+        "understood"
+      ]
+    },
+    "monster-stampede": {
+      "activityId": "monster-stampede",
+      "plays": 8,
+      "completions": 6,
+      "completionRate": 0.75,
+      "averageAccuracy": 0.875,
+      "averageTimePerTarget_ms": 14447,
+      "engagementScore": 0.844,
+      "frustrationScore": 0.1,
+      "likedCount": 8,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-17T18:04:37.481Z",
+      "domains": {
+        "spelling": 4,
+        "general": 4
+      },
+      "missedWords": []
+    },
+    "pronunciation": {
+      "activityId": "pronunciation",
+      "plays": 12,
+      "completions": 12,
+      "completionRate": 1,
+      "averageAccuracy": 0.515,
+      "averageTimePerTarget_ms": 0,
+      "engagementScore": 0.757,
+      "frustrationScore": 0.491,
+      "likedCount": 8,
+      "dislikedCount": 4,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-17T17:58:57.307Z",
+      "domains": {
+        "spelling": 12
+      },
+      "missedWords": [
+        "able",
+        "common",
+        "away",
+        "ago",
+        "above",
+        "machine",
+        "pair",
+        "quickly",
+        "scientist",
+        "thousand",
+        "understood",
+        "wait"
+      ]
+    },
+    "mystery": {
+      "activityId": "mystery",
+      "plays": 4,
+      "completions": 4,
+      "completionRate": 1,
+      "averageAccuracy": 0.958,
+      "averageTimePerTarget_ms": 63253,
+      "engagementScore": 0.925,
+      "frustrationScore": 0.1,
+      "likedCount": 4,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-16T16:24:56.320Z",
+      "domains": {
+        "spelling": 4
+      },
+      "missedWords": []
+    },
+    "wheel-of-fortune": {
+      "activityId": "wheel-of-fortune",
+      "plays": 6,
+      "completions": 3,
+      "completionRate": 0.5,
+      "averageAccuracy": 0.723,
+      "engagementScore": 0.775,
+      "frustrationScore": 0.1,
+      "likedCount": 6,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-16T16:24:56.206Z",
+      "domains": {
+        "general": 6
+      },
+      "missedWords": []
+    }
+  },
+  "adaptiveLoadState": {
+    "spelling": {
+      "domain": "spelling",
+      "currentCohortSize": 5,
+      "maxRecentSuccessfulCohort": 40,
+      "challengeRecommendation": "harder_valid_node",
+      "lastLoadEvidence": {
+        "activityId": "spell-check",
+        "completed": true,
+        "accuracy": 0.9,
+        "targetCount": 3,
+        "frustrationScore": 0.1,
+        "strongEvidence": true,
+        "occurredAt": "2026-05-17T19:20:05.386Z"
+      }
+    },
+    "reading": {
+      "domain": "reading",
+      "currentCohortSize": 5,
+      "maxRecentSuccessfulCohort": 5,
+      "challengeRecommendation": "harder_valid_node",
+      "lastLoadEvidence": {
+        "activityId": "spell-check",
+        "completed": true,
+        "accuracy": 0.9,
+        "targetCount": 3,
+        "frustrationScore": 0.1,
+        "strongEvidence": true,
+        "occurredAt": "2026-05-13T03:14:16.967Z"
+      }
+    }
+  },
+  "plannerTrust": {
+    "approvedCount": 4,
+    "rejectedCount": 1,
+    "autoPlanThreshold": 5,
+    "autoPlanEnabled": false,
+    "lastDecision": {
+      "planId": "session_plan_ila_hw-spelling_test-bb11de93_e7d11708d1",
+      "status": "approved",
+      "reviewer": "parent",
+      "decidedAt": "2026-05-15T23:28:03.675Z"
+    }
+  },
+  "activityTraitModel": {
+    "challenge": {
+      "dimension": "challenge",
+      "positiveWeight": 4.285,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 6,
+      "confidence": 0.714,
+      "lastUpdated": "2026-05-17T18:04:37.455Z",
+      "activityCounts": {
+        "pronunciation": 1,
+        "monster-stampede": 4,
+        "spell-check": 1
+      }
+    },
+    "reading": {
+      "dimension": "reading",
+      "positiveWeight": 0,
+      "negativeWeight": 3.689,
+      "mixedWeight": 0,
+      "evidenceCount": 5,
+      "confidence": 0.738,
+      "lastUpdated": "2026-05-16T20:51:20.052Z",
+      "activityCounts": {
+        "pronunciation": 4,
+        "spell-check": 1
+      }
+    },
+    "speed": {
+      "dimension": "speed",
+      "positiveWeight": 6.5,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 9,
+      "confidence": 0.722,
+      "lastUpdated": "2026-05-17T18:04:37.455Z",
+      "activityCounts": {
+        "monster-stampede": 4,
+        "word-radar": 5
+      }
+    },
+    "competition": {
+      "dimension": "competition",
+      "positiveWeight": 7.5,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 10,
+      "confidence": 0.75,
+      "lastUpdated": "2026-05-17T18:04:37.455Z",
+      "activityCounts": {
+        "monster-stampede": 4,
+        "wheel-of-fortune": 6
+      }
+    },
+    "movement": {
+      "dimension": "movement",
+      "positiveWeight": 3,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 4,
+      "confidence": 0.75,
+      "lastUpdated": "2026-05-17T18:04:37.455Z",
+      "activityCounts": {
+        "monster-stampede": 4
+      }
+    },
+    "calm": {
+      "dimension": "calm",
+      "positiveWeight": 0,
+      "negativeWeight": 7.65,
+      "mixedWeight": 0,
+      "evidenceCount": 10,
+      "confidence": 0.765,
+      "lastUpdated": "2026-05-16T21:03:04.591Z",
+      "activityCounts": {
+        "monster-stampede": 2,
+        "pronunciation": 6,
+        "spell-check": 2
+      }
+    },
+    "help": {
+      "dimension": "help",
+      "positiveWeight": 0,
+      "negativeWeight": 16.83,
+      "mixedWeight": 0,
+      "evidenceCount": 22,
+      "confidence": 0.765,
+      "lastUpdated": "2026-05-16T21:00:57.334Z",
+      "activityCounts": {
+        "monster-stampede": 3,
+        "spell-check": 11,
+        "pronunciation": 8
+      }
+    },
+    "novelty": {
+      "dimension": "novelty",
+      "positiveWeight": 4.5,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 6,
+      "confidence": 0.75,
+      "lastUpdated": "2026-05-16T16:24:56.206Z",
+      "activityCounts": {
+        "wheel-of-fortune": 6
+      }
+    },
+    "control": {
+      "dimension": "control",
+      "positiveWeight": 5.2,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 7,
+      "confidence": 0.743,
+      "lastUpdated": "2026-05-16T21:05:47.559Z",
+      "activityCounts": {
+        "wheel-of-fortune": 6,
+        "spell-check": 1
+      }
+    },
+    "visual": {
+      "dimension": "visual",
+      "positiveWeight": 8,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 11,
+      "confidence": 0.727,
+      "lastUpdated": "2026-05-16T21:06:20.975Z",
+      "activityCounts": {
+        "wheel-of-fortune": 6,
+        "word-radar": 5
+      }
+    },
+    "low-writing-load": {
+      "dimension": "low-writing-load",
+      "positiveWeight": 3.5,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 5,
+      "confidence": 0.7,
+      "lastUpdated": "2026-05-16T21:06:20.975Z",
+      "activityCounts": {
+        "word-radar": 5
+      }
+    },
+    "confidence": {
+      "dimension": "confidence",
+      "positiveWeight": 4.2,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 6,
+      "confidence": 0.7,
+      "lastUpdated": "2026-05-16T21:06:20.975Z",
+      "activityCounts": {
+        "word-radar": 5,
+        "spell-check": 1
+      }
+    },
+    "typing": {
+      "dimension": "typing",
+      "positiveWeight": 0.7,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 1,
+      "confidence": 0.7,
+      "lastUpdated": "2026-05-16T21:05:47.559Z",
+      "activityCounts": {
+        "spell-check": 1
+      }
+    }
+  },
+  "selectedHomeworkDomain": "spelling",
+  "chartLinks": {
+    "learningProfile": "learning_profile.json",
+    "wordBank": "word_bank.json",
+    "todayPlan": "todays_plan.json",
+    "currentCarePlan": "care_plan/current.json",
+    "currentHomework": "homework/current.json",
+    "homeworkLanes": "homework/lanes.json",
+    "currentSessionPlan": "plans/active_session_plan.json",
+    "sessionPlanLanes": "plans/session_plan_lanes.json",
+    "contentCatalog": "content_catalog.json",
+    "decisionTraces": "decision_traces/",
+    "homework": "homework/",
+    "attempts": "attempts/",
+    "ratings": "ratings/",
+    "vitals": "vitals/",
+    "sessionNotes": "session_notes/",
+    "companionCareDir": "companion_care/"
+  },
+  "homeworkIntakeHistory": [
+    {
+      "decidedAt": "2026-05-15T23:27:29.700Z",
+      "source": "cli",
+      "selectedDomain": "spelling",
+      "classifierDomain": "spelling",
+      "homeworkId": "hw-spelling_test-bb11de93",
+      "title": "Benchmark Advance Spelling Unit 9 Week 2",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-05-15T22:45:18.249Z",
+      "source": "cli",
+      "selectedDomain": "spelling",
+      "classifierDomain": "spelling",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-05-15T22:32:19.460Z",
+      "source": "cli",
+      "selectedDomain": "spelling",
+      "classifierDomain": "spelling",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-05-15T22:22:46.658Z",
+      "source": "cli",
+      "selectedDomain": "spelling",
+      "classifierDomain": "spelling",
+      "homeworkId": "hw-spelling_test-a0d1d9f2",
+      "title": "Benchmark Advance Spelling Unit 9 Week 1",
+      "note": "Domain accepted."
+    }
+  ]
 }

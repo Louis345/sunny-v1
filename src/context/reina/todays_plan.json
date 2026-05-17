@@ -1,34 +1,33 @@
 {
   "todaysPlan": [
     {
-      "activity": "Homework Spelling – Words With -y Or -ly Endings And High-Frequency Words",
+      "activity": "Homework Spelling – Schwa And High-Frequency Words",
       "priority": 1,
       "required": true,
-      "reason": "Active uploaded homework is \"Benchmark Advance Spelling Unit 9 Week 1\", so today's required work must anchor on Adjectives ending in -y, Adverbs ending in -ly, High-frequency words, Vowel recognition before broader profile goals.",
+      "reason": "Active uploaded homework is \"Benchmark Advance Spelling Unit 9 Week 2\", so today's required work must anchor on Schwa sound (unstressed vowel), Long vowel sounds (long i, long o, long a), High-frequency sight words, Antonyms before broader profile goals.",
       "timeboxMinutes": 8,
       "method": "Read the assignment-aligned content, ask evidence-based checks, then use profile motivators only as framing.",
       "source": "pendingHomework",
       "words": [
-        "shiny",
-        "slowly",
-        "lucky",
-        "neatly",
-        "sunny",
-        "likely",
-        "messy",
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away",
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again",
+        "government",
+        "half",
+        "machine",
+        "pair",
         "quickly",
-        "rainy",
-        "friendly",
-        "able",
-        "behind",
-        "carefully",
-        "common",
-        "easy",
-        "fact",
-        "remember",
-        "sure",
-        "vowel",
-        "whole"
+        "scientist",
+        "thousand",
+        "understood",
+        "wait"
       ],
       "probeSequence": [
         "Read or preview the assignment content",
@@ -36,132 +35,9 @@
         "Ask why it happened using text evidence",
         "Have the child explain the concept back"
       ]
-    },
-    {
-      "activity": "Erosion vocabulary definitions",
-      "priority": 2,
-      "required": true,
-      "reason": "New science homework cycle ingested 5/5 (erosion, compass rose, weathering) creates natural probe for definitional vocabulary depth never formally assessed across 50+ sessions. Required baseline before Japanese kanji/katakana work (parent goal: June 2026 trip, 6 weeks away). Ask 'What does erosion mean?' and 'What does weathering mean?' before spelling drill.",
-      "timeboxMinutes": 8,
-      "method": "direct definitional probe",
-      "source": "science homework cycle",
-      "words": [
-        "erosion",
-        "weathering",
-        "mountains",
-        "rivers",
-        "compass"
-      ],
-      "probeSequence": [
-        "What does erosion mean?",
-        "What causes erosion?",
-        "What does weathering mean?",
-        "How are erosion and weathering different?"
-      ],
-      "minimumWords": 3
-    },
-    {
-      "activity": "Inferential comprehension via erosion science content",
-      "priority": 3,
-      "required": false,
-      "reason": "Reading fluency solid (100% on narratives) but comprehension depth untested beyond literal recall for 30+ days. Science vocabulary homework creates natural inferential probe matching her analytical brain: 'Why does erosion happen faster on mountains?' 'What would happen to beaches without sand?' Needed before Constitution reading (parent goal).",
-      "timeboxMinutes": 10,
-      "method": "why and what-if questions on science content",
-      "source": "science homework cycle",
-      "words": [
-        "erosion",
-        "mountains",
-        "rivers",
-        "beaches",
-        "sand",
-        "soil"
-      ],
-      "probeSequence": [
-        "Why does erosion happen on mountains?",
-        "What would happen to rivers without erosion?",
-        "How does rain cause erosion?",
-        "What if there was no wind—would erosion still happen?"
-      ],
-      "skipConditions": [
-        "after active homework anchor"
-      ]
-    },
-    {
-      "activity": "Multiplication foundations via wrestling word problems",
-      "priority": 4,
-      "required": false,
-      "reason": "Reina explicitly requested multiplication/division 9 weeks ago (3/27) and demonstrates championship readiness: 100% addition fluency, competitive mastery, pattern recognition strength. COMPLIANCE ALERT: Student self-advocacy unaddressed for 63 days. Introduce multiplicative reasoning via wrestling scenarios: '3 wrestlers each score 2 points—how many total?' Honor her self-identified growth zone immediately.",
-      "timeboxMinutes": 12,
-      "method": "equal groups via wrestling contexts",
-      "source": "student self-advocacy 3/27",
-      "words": [
-        "multiply",
-        "groups",
-        "equal",
-        "times",
-        "points",
-        "matches",
-        "tournament"
-      ],
-      "probeSequence": [
-        "If 2 wrestlers each score 3 points, how many points total?",
-        "If 4 matches each give you 2 points, how many points do you earn?",
-        "What if 3 wrestlers each win 4 matches—how many wins total?",
-        "Can you write 3 groups of 2 as multiplication?"
-      ],
-      "minimumWords": 4,
-      "skipConditions": [
-        "after active homework anchor"
-      ]
-    },
-    {
-      "activity": "Spelling homework warm-up (test 5/9)",
-      "priority": 5,
-      "required": false,
-      "reason": "Pattern-based spelling mastered via competitive game format (100% accuracy, 1,300-600 coin victory). New homework cycle test 5/9 includes -ly adverbs, -y adjectives, high-frequency content words. Continue 5-word game-format bursts, pivot to her choice immediately after. Not required if multiplication and science content fully engage her.",
-      "timeboxMinutes": 6,
-      "method": "competitive game format (Wheel of Fortune or Speed Catcher)",
-      "source": "homework cycle test 5/9",
-      "words": [
-        "shiny",
-        "slowly",
-        "lucky",
-        "neatly",
-        "sunny"
-      ],
-      "skipConditions": [
-        "if she requests to skip after multiplication",
-        "if multiplication session runs over 12 minutes and she is still engaged",
-        "if she explicitly asks for more math instead"
-      ]
-    },
-    {
-      "activity": "Addition facts rapid-fire warm-up",
-      "priority": 6,
-      "required": false,
-      "reason": "Mastery-level fluency (16/16 correct, 100% accuracy). Continue as confidence-builder before multiplication introduction. Skip if she requests to jump straight to multiplication or if erosion vocabulary session runs long.",
-      "timeboxMinutes": 4,
-      "method": "rapid-fire competitive streak",
-      "source": "foundation maintenance",
-      "skipConditions": [
-        "if she requests to skip warm-up and go straight to multiplication",
-        "if erosion vocabulary and inferential comprehension sessions run over combined 18 minutes"
-      ]
-    },
-    {
-      "activity": "Space Invaders reward",
-      "priority": 7,
-      "required": false,
-      "reason": "Consistent engagement as reward/break activity across sessions (3/30, 4/30). Offer after completing all required work. Do not dangle as bribe—she earns it by completing challenges, not by compliance.",
-      "timeboxMinutes": 10,
-      "skipConditions": [
-        "if she wants to continue multiplication work instead",
-        "if she requests a different reward activity",
-        "if session time expires before reaching this activity"
-      ]
     }
   ],
-  "childProfile": "Reina is an 8-year-old academically advanced bilingual (English/Japanese) competitive wrestler who thrives on challenge, speed, and competition. She scores 100% on classroom spelling tests, reads with grade-level+ fluency, and has mastered single-digit addition/subtraction facts. She learns through application (store-game 86% vs worksheet 26%), competitive framing (beat Matilda by 700 coins), and pattern recognition (comparative adjectives instant mastery). She celebrates wins explicitly, self-regulates when bored, catches errors mid-session, and explicitly requests harder challenges. She respects directness, wrestling metaphors, Japanese celebration (すごい, やった), and Matilda movie references. She disengages from mechanical drill, baby talk, and slow pacing. She requested multiplication/division work 9 weeks ago and deserves to have that self-advocacy honored immediately. She is analytically sharp (chess, wrestling strategy) and ready for inferential comprehension and multiplicative reasoning matching her 'year ahead academically' profile.",
-  "stopAfter": "Stop after 40-45 minutes total or when she explicitly says she is done. If she requests to continue multiplication or science work beyond the timeboxes, honor that request—she knows when she is in flow. Do not force her to complete spelling homework warm-up if she is deeply engaged in multiplication or science inferential work. Respect her self-regulation and choice. End on a winning streak whenever possible.",
-  "rewardPolicy": "Space Invaders is earned after completing required work (erosion definitions, inferential comprehension, multiplication foundations), not dangled as compliance bribe. If she completes all three required activities and wants more math or science instead of a game, honor that choice—the challenge itself is the reward for her. Celebrate championship-level performance explicitly with Japanese phrases (すごい, やった) and wrestling metaphors (pins, takedowns, tournaments). She deserves recognition matching her effort and skill level."
+  "childProfile": "Reina is an 8-year-old academically advanced wrestler who thrives on challenge, competition, and speed. She's bilingual (English/Japanese), scores 100% on spelling tests, is a year ahead of grade level, and gets frustrated when work is too easy—not when it's too hard. She loves wrestling metaphors, celebrates in Japanese (すごい, やった), and wants to be pushed. Her competitive nature drives her: streaks, personal bests, scoreboards land perfectly. She has strong pattern recognition (caught comparative adjectives instantly), championship-level addition fluency (100% accuracy), and explicit self-advocacy (asked for multiplication/division 9 weeks ago). She disengages from mechanical drill (worksheet coins 26% accuracy) but masters applied contexts (store-game 86%) and competitive games (Wheel of Fortune 1,300-600 victory). Match her fast pace, acknowledge her intelligence, never baby-talk, and honor her self-identified growth zones. She's discovering her innate talents—every session should challenge her ceiling, not her floor.",
+  "stopAfter": "After the active homework check is complete, or earlier if frustration is rising.",
+  "rewardPolicy": "Reward only after the active homework is checked; broader review goals belong in review mode."
 }

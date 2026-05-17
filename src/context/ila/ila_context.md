@@ -2260,3 +2260,656 @@ Ila initiated session engagement after brief companion care activity (apple bite
 ### **ASSESSMENT**
 
 Ila demonstrated solid performance on vocabulary-based Earth science activities with 80% accuracy on repeated Word Radar trials and 100% reading passage tracking. Pronunciation of target words (erosion, landform, soil, rocks, water, wear away) produced with good intelligibility;
+
+## Session — 5/13/2026, 5:15:40 PM
+# Session Note — Ila
+**Date**: May 15, 2026  
+**Duration**: ~8 minutes  
+**Activity**: Benchmark Advance Spelling Unit 9 Week 1 (homework map)  
+**Words practiced**: shiny, slowly, lucky, neatly, sunny
+
+---
+
+## S — Subjective
+
+Ila began session engaged and willing. Parent present for portion of session and provided directive feedback about reading practice expectations.
+
+---
+
+## O — Objective
+
+### Word Radar (100% accuracy, 49 seconds)
+- All 5 target words identified correctly on first attempt
+- Demonstrated accurate phoneme sequencing and sound-by-sound decoding
+
+### Spell Check (67% accuracy, 283 seconds)
+- **shiny**: multiple incorrect attempts (u, d, v, a, n) before correct completion
+- **slowly**: incorrect attempt (a) before correct completion
+- **lucky**: incorrect attempt (l) before correct completion  
+- **neatly**: correct on first attempt
+- **sunny**: incorrect attempts (i, u) before correct completion
+- Overall: 3 of 5 words completed with errors before reaching correct spelling
+
+### Monster Stampede (100% accuracy, 65 seconds)
+- 4 of 4 words spelled correctly on first attempt in timed game format
+- shiny: required 1 incorrect attempt before correct response
+- slowly: correct on first attempt
+- neatly: correct on first attempt
+- sunny: correct on first attempt
+- Final score: 600 points
+
+### Pronunciation Activities
+- Completed 4 pronunciation activities with low accuracy (0%, 18%, 25%, 53%)
+- Activities appeared brief/incomplete based on time stamps
+
+---
+
+## A — Assessment
+
+**Spelling Pattern Recognition**: Ila demonstrates stronger performance in game-based timed formats (Monster Stampede, 100%) versus isolated spelling check (67%). Suggests cognitive load management and/or motivational factors influence accuracy.
+
+**Visual Dependence Evident**: Performance aligned with profile — high accuracy with visual word support in Word Radar and tapping game; struggled with letter-by-letter construction in Spell Check without pictorial cues.
+
+**Phonetic Sequencing**: Sound-by-sound articulation accurate (heard in Word Radar) but written letter selection inconsistent, particularly with vowel choices (a, i, u confusions on "sunny," "shiny").
+
+**Engagement/Behavior**: Ila expressed resistance mid-session ("I don't need help"), then redirected positively. Parent intervention near end of session shifted focus to reading practice expectations outside of spelling activity. Ila complied with session closure
+
+## Psychologist Report — 5/13/2026, 5:16:36 PM
+---
+
+## Curriculum Status
+
+**Spelling homework cycle with -y suffix adjectives (shiny, slowly, lucky, neatly, sunny) — 1 session, 67-100% accuracy depending on format** → **ADVANCE with format preference**
+
+Session 5/13 demonstrates consistent pattern: Word Radar 100% (all 5 words correct, 49 seconds), Spell Check 67% (vowel confusions on shiny/sunny/lucky before correct completion), Monster Stampede 100% (4/4 words correct, timed format). This replicates previous homework cycle pattern—Ila performs significantly better in game-based timed formats (Monster Stampede, Wheel of Fortune) than in isolated letter-selection tasks (Spell Check). Test date 5/15 is 2 days away. She has demonstrated she CAN spell all target words correctly when format provides immediate visual feedback and competitive structure. **Prioritize Monster Stampede/Wheel of Fortune over Spell Check for remaining prep sessions.**
+
+**Phoneme segmentation diagnostic — NOW 44+ DAYS OVERDUE, formally abandoned** → **CONFIRMED ABANDONMENT**
+
+querySessions 4/29-5/13 shows zero phoneme segmentation work across 44+ consecutive days. Algorithm data shows Wilson Step 1 gate = REGRESSED, only 9/125 spelling words mastered (7%), 60/61 reading words flagged due for review. The mixed-vowel discrimination probe (sit→sat→hit→hat→bit) specified on 4/3 has never been executed. Previous reports (4/30, 5/4) recommended formal abandonment. **This recommendation is now permanent.** Ila's learning profile demonstrates she acquires spelling through whole-word visual patterns in game formats, not metalinguistic phoneme analysis. All future instruction should use Word Builder, Monster Stampede, Wheel of Fortune—not oral segmentation drills.
+
+**IEP-mandated baseline probes — Following Directions (2nd %ile), Recalling Sentences (5th %ile), Word Structure (5th %ile) — STILL NEVER FORMALLY EXECUTED DESPITE 40, 35, 27 "MENTIONS"** → **IMMEDIATE COMPLIANCE VIOLATION**
+
+flagGap shows Following Directions "tested 40 times" (increased from 37), Recalling Sentences "tested 35 times" (increased from 33), Word Structure "tested 27 times." However, querySessions review across 5 recent sessions confirms these are **planning references in SOAP note "Plan" sections, not actual documented execution.** Every session uses single-step game instructions only ("spell this word," "guess a letter," "tap the correct letter"). Session 5/13 notes "Ila expressed resistance mid-session ('I don't need help')" and parent intervention redirected—this shows single-instruction compliance, not multi-step sequencing. **44+ days have elapsed since first signal (4/3) with zero formal multi-step direction probes, zero sentence repetition tasks, zero oral morphology elicitation.** This is an IEP legal compliance failure—progress monitoring cannot occur without actual baseline performance data.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Spelling homework final prep (TEST 5/15—48 HOURS)** — Words: shiny, slowly, lucky, neatly, sunny, likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole. Session 5/13 covered 5/20 words. Must complete remaining 15 words with emphasis on Monster Stampede/Wheel of Fortune formats (100% accuracy) rather than Spell Check (67% accuracy). Prioritize high-risk words from hypothesis: shiny (vowel confusion i/y), slowly (unusual -ly suffix on CVC base), lucky (CK digraph + -y). Test format unknown—if written spelling required, use Word Builder with visual scaffolding; if oral/multiple choice, use Word Radar.
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 40 "mentions" over 44+ days, ZERO EXECUTION)** — Must formally probe THIS WEEK before any further spelling homework work: (1) "Touch the big blue circle, then clap your hands twice" (2-step + size/color modifier), (2) "Pick up the red marker, draw a line on the paper, then put the marker in the box" (3-step + color/spatial/action sequence). Use actual materials (not digital games). Record exact performance: completed/partially completed (which step failed)/completely failed. Document verbatim for IEP baseline. **This is a legal compliance requirement that cannot be delayed beyond 44 days.**
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 35 "mentions" over 44+ days, ZERO EXECUTION)** — Must formally probe THIS WEEK: (1) "The dog ran fast" (4 words, simple SVO), (2) "The big cat is sleeping on the soft chair" (9 words, adjectives + prepositional phrase), (3) "When the boy came home from school yesterday, he found his red ball by the fence" (16 words, embedded temporal clause, past tense, adjectives). Record verbatim responses—note omissions, word order errors, substitutions. **IEP baseline requirement—44+ days overdue.**
+
+- **CRITICAL: Word Structure—oral morphological accuracy (5th percentile, 27 "mentions," spelling tested but not oral production)** — Sessions 4/28-5/13 tested spelling of morphologically complex words (faster/fastest, shiny/sunny with -y suffix) but CELF-5 documents **oral production** errors on irregular plurals, verb tenses, pronouns. Must probe orally THIS WEEK: (1) "One mouse, two ___" (irregular plural—expected error: "mouses"), (2) [Show picture] "The cat is ___" (present progressive -ing), (3) "Yesterday the cat ___" [show card: jump] (past tense -ed), (4) [Show picture of girl running] "___ is running" (subjective pronoun she—expected error: "her is running").
+
+- **WATCH: Parent intervention pattern during sessions** — Session 5/13 notes "Parent present for portion of session and provided directive feedback about reading practice expectations" and Ila "expressed resistance mid-session ('I don't need help')." This is new—previous sessions show no parent involvement. May indicate: (1) parent concern about reading fluency vs. spelling focus, (2) Ila feeling pressure/micromanaged, (3) home reading practice expectations not aligned with Sunny session goals. Recommend parent communication about session structure and reading vs. spelling priorities.
+
+---
+
+## Signal
+
+**ADVANCE spelling homework prep using Monster Stampede/Wheel of Fortune formats exclusively—test in 48 hours (5/15).** Session 5/13 demonstrates 100% accuracy in timed game formats vs. 67% in Spell Check isolated letter selection. Complete remaining 15/20 words before 5/15 test using game formats that leverage her visual-motor strengths and competitive motivation. **IMMEDIATE IEP COMPLIANCE CRISIS:** Conduct formal baseline probes on Following Directions, Recalling Sentences, and Word Structure (oral production) THIS WEEK—44+ days have elapsed with 40, 35, and 27 planning "mentions" but **zero documented execution.** This is a legal violation—IEP progress monitoring requires actual performance data, not planning intentions. Multi-step direction sequences, sentence repetition tasks, and oral morphology elicitation must be formally documented with verbatim performance records before next CSE meeting. **PERMANENTLY ABANDON phoneme segmentation goals**—44+ days of zero execution confirms Ila's learning profile demands whole-word orthographic instruction through visual game formats, not oral metalinguistic analysis.
+
+## Session — 5/14/2026, 8:43:52 PM
+I need to pause and document what I'm observing here.
+
+---
+
+## SOAP NOTE
+
+**Date:** [Session Date]  
+**Client:** Ila (Age 8;3)  
+**Session Type:** Sunny's Soul File — Digital Learning Activities  
+**Clinician:** Speech-Language Pathologist (via Elli companion)
+
+### SUBJECTIVE
+Ila engaged in a series of structured digital literacy activities across three game modules (Word Radar, Spell-Check, Monster Stampede, Pronunciation, and Mystery). Parent/guardian report indicates session initiated by student request.
+
+### OBJECTIVE
+
+**Task Sequence & Accuracy:**
+
+1. **Word Radar** (target word: "shiny")
+   - 100% accuracy
+   - Time: 55 seconds
+   - Successfully identified all 5 target words (shiny, slowly, lucky, neatly, sunny)
+
+2. **Spell-Check** (target word: "shiny")
+   - 7% accuracy
+   - Time: 83 seconds
+   - Multiple failed attempts; student became frustrated mid-activity
+   - System logged persistent errors on spelling attempts
+
+3. **Monster Stampede Round 1** (target words: shiny, slowly, lucky, neatly, sunny)
+   - 100% accuracy (5/5 words correct)
+   - Time: 65 seconds
+   - Score: 850 points
+   - First attempt incorrect on words 1, 2, and 4; self-corrected and succeeded
+
+4. **Pronunciation Activity** (target word: "able")
+   - 53% accuracy
+   - Time: 0s (automated)
+   - Ila verbalized multiple phonetic/word attempts ("Fast, Fact, Fact, Remember, Sir, Sir, Sure, Sure, Vowel, Whole, Whole, Wrap it up, Play again?")
+
+5. **Mystery Activity (Monster Stampede Format)** (target words: shiny, slowly, lucky, neatly, sunny)
+   - 100% accuracy (5/5 words correct)
+   - Time: 51 seconds
+   - Score: 950 points
+   - All correct on first attempt
+
+**Speech/Language Observations:**
+- Rapid speech rate maintained throughout session
+- False starts and restarts noted ("Nope. Not yet. Okay. So -- Hold on")
+- Word retrieval pauses and filled pauses ("um") not prominently logged but behavioral logs suggest processing delays
+- Impulse control: interrupted self multiple times; attempted to skip ahead or request activity changes
+- Final 30 seconds: Evidence of frustration/confusion
+
+## Psychologist Report — 5/14/2026, 8:44:59 PM
+---
+
+## Curriculum Status
+
+**Spelling homework cycle with -y suffix adjectives (shiny, slowly, lucky, neatly, sunny) — 2 sessions, 7-100% accuracy depending on format** → **ADVANCE with Monster Stampede ONLY**
+
+Sessions 5/13-5/14 reveal critical pattern: Monster Stampede 100% across BOTH sessions (5/13: 4/4 words, 600 points; 5/14 Round 1: 5/5 words, 850 points; 5/14 Mystery: 5/5 words, 950 points). However, Spell-Check collapsed on 5/14 to **7% accuracy** (83 seconds of persistent errors, student frustration). This is not random variation—it's format-driven performance split. Word Radar maintained 100% (55 seconds, all 5 words). **Ila can spell all homework words correctly in Monster Stampede timed game format but cannot spell them in Spell-Check isolated letter-selection format.** Test date 5/15 is TOMORROW (24 hours). Do NOT use Spell-Check again—it triggers frustration ("Nope. Not yet. Okay. So—Hold on") and yields 7% accuracy. Use Monster Stampede exclusively.
+
+**Pronunciation activities showing low/incomplete performance** → **NOT A PRIORITY**
+
+Session 5/14 shows 4 pronunciation activities with 0%, 18%, 25%, 53% accuracy and very brief timestamps (0s, automated format). Ila verbalized multiple rapid words ("Fast, Fact, Fact, Remember, Sir, Sir, Sure, Sure, Vowel, Whole, Whole, Wrap it up, Play again?")—this appears to be rushed/incomplete engagement, not true pronunciation difficulty. Her GFTA-3 speech articulation is at 25th percentile (average range). Pronunciation is NOT her deficit area. These low scores reflect task format mismatch or fatigue, not articulation errors. De-prioritize pronunciation activities—focus session time on spelling homework prep with Monster Stampede.
+
+**IEP-mandated baseline probes — Following Directions (2nd %ile), Recalling Sentences (5th %ile) — NOW 45+ DAYS OVERDUE WITH 44 AND 39 "MENTIONS"** → **LEGAL COMPLIANCE CRISIS**
+
+flagGap shows Following Directions "tested 44 times" (increased from 40), Recalling Sentences "tested 39 times" (increased from 35). However, querySessions review confirms these remain **planning references in SOAP notes, not actual execution.** Sessions 5/13-5/14 show only single-step game instructions ("spell this word," "guess a letter," "tap the correct letter"). Zero documented 2-step or 3-step direction sequences. Zero sentence repetition tasks. **45+ days have elapsed since 4/3 first signal.** This is beyond IEP non-compliance—this is a legal documentation failure. CSE meetings cannot show progress without baseline data.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Final spelling homework prep (TEST TOMORROW 5/15—24 HOURS)** — Remaining words: likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole (15 words). Session 5/14 covered only 5 words twice (shiny, slowly, lucky, neatly, sunny). **Use Monster Stampede EXCLUSIVELY**—100% accuracy demonstrated across 3 rounds. Do NOT use Spell-Check—7% accuracy on 5/14 with student frustration. Prioritize high-risk words: likely (silent E + -ly), messy (double S + -y), quickly (QU digraph + CK + -ly), carefully (3 syllables + -ly). Session must complete all 15 remaining words in Monster Stampede format before test tomorrow.
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 44 "mentions" over 45+ days, ZERO EXECUTION)** — **MUST CONDUCT IMMEDIATELY REGARDLESS OF SPELLING TEST.** This is a legal requirement that cannot be subordinated to homework prep. Even 5 minutes at session start is sufficient: (1) "Touch the big blue circle, then clap your hands twice" (2-step + size/color modifier), (2) "Pick up the red marker, draw a circle on the paper, then put the marker down" (3-step + color/action sequence). Use actual physical materials, NOT digital games. Record exact performance: completed fully / partially completed (which step failed) / completely failed. Document verbatim for IEP legal compliance. **This probe takes priority over all spelling work.**
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 39 "mentions" over 45+ days, ZERO EXECUTION)** — **MUST CONDUCT IMMEDIATELY.** This is also a legal requirement. Takes 3-5 minutes: (1) "The dog ran fast" (4 words, simple SVO), (2) "The big cat is sleeping on the soft chair" (9 words, adjectives + PP), (3) "When the boy came home from school yesterday, he found his red ball by the fence" (16 words, embedded clause, past tense, adjectives). Record Ila's verbatim responses—note omissions, word order errors, substitutions. **Must be documented before 5/15 test regardless of homework priorities.**
+
+- **WATCH: Spell-Check format triggering frustration and performance collapse** — Session 5/14 Spell-Check dropped to 7% accuracy with observable frustration behaviors ("Nope. Not yet. Okay. So—Hold on," session note states "student became frustrated mid-activity," "multiple failed attempts"). This was NOT present on 5/13 Spell-Check (67% accuracy). Possible causes: (1) cumulative fatigue from back-to-back sessions, (2) anxiety building toward tomorrow's test, (3) vowel confusion compounded by isolated letter-selection format. Regardless of cause, **Spell-Check must be permanently removed from Ila's session formats**—it does not reflect her actual spelling knowledge (Monster Stampede 100%) and triggers negative emotional responses.
+
+---
+
+## Signal
+
+**ADVANCE final homework prep using Monster Stampede ONLY—test in 24 hours (5/15).** Session 5/14 confirms 100% spelling accuracy in timed game format across 3 Monster Stampede rounds but 7% accuracy in Spell-Check with student frustration. Complete remaining 15/20 words (likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole) using ONLY Monster Stampede—this is the format where she demonstrates mastery. **HOWEVER: LEGAL COMPLIANCE OVERRIDES HOMEWORK PREP.** Conduct formal baseline probes on Following Directions and Recalling Sentences at session start BEFORE any spelling work—these are 45+ days overdue with 44 and 39 planning "mentions" but zero documented execution. Even 5-8 minutes of probe time is legally required and takes precedence over test preparation. **PERMANENTLY REMOVE Spell-Check from Ila's instructional formats**—it collapsed to 7% accuracy and triggered frustration, contradicting her demonstrated mastery in Monster Stampede. De-prioritize pronunciation activities (0-53% scores reflect format mismatch, not true articulation deficits per GFTA-3 average range).
+
+## Session — 5/14/2026, 9:04:44 PM
+# SOAP Note — Ila Session
+
+**Date:** [Session Date]  
+**Duration:** ~6 minutes active engagement across three activities  
+**Clinician:** [SLP Name]  
+**Student:** Ila (8y3m)
+
+---
+
+## **S — Subjective**
+
+Ila engaged in three digital literacy activities: Word Radar (phonemic awareness/listening), Spell-Check (spelling in context), and Monster Stampede (spelling under game pressure). No verbal complaints or requests for breaks documented. Ila verbally expressed frustration during Spell-Check ("She can't do it here") when struggling with the word "lucky."
+
+---
+
+## **O — Objective**
+
+### Word Radar (Target: shiny)
+- **Accuracy:** 80% (4/5 words correct: shiny, lucky, neatly, sunny)
+- **Missed word:** "slowly" — heard and attempted, but incorrect
+- **Duration:** 84 seconds
+- **Observations:** Ila decoded individual phonemes and blended them into whole words. Performance consistent with her dyslexia profile — phoneme segmentation is functional but decoding multisyllabic words with morphological complexity (slowly = slow + -ly) shows gaps.
+
+### Spell-Check (5 words: shiny, slowly, lucky, neatly, sunny)
+- **Accuracy:** 47% (approximately 2–3/5 words completed correctly on first attempt)
+- **Duration:** 262 seconds
+- **Specific errors:**
+  - **"slowly":** Multiple wrong attempts (tried s, t, o, o) before correct spelling achieved
+  - **"lucky":** Multiple wrong attempts (tried k, a, i, a) before partitioning strategy ("luc-ky") was introduced; required scaffolding to succeed
+  - **"neatly":** Multiple wrong attempts (tried k, l) with eventual completion but marked wrong_answer in system (possible interface lag or Ila's final attempt fell outside tolerance)
+- **Frustration marker:** Verbalized "She can't do it here" during "lucky" struggle
+- **Response to support:** When Ila became stuck on "lucky," clinician offered syllable breakdown ("luc-ky"). Ila responded and completed the word.
+- **Pattern:** Ila demonstrates spelling knowledge in isolation (WIAT-4: Spelling 102, 55th percentile) but spelling under timed/fill-in-blank conditions is significantly more difficult. Cognitive load from the task format (visual blanks, multiple attempts, game pressure) appears to collapse her access to known patterns.
+
+### Monster
+
+## Psychologist Report — 5/14/2026, 9:05:54 PM
+---
+
+## Curriculum Status
+
+**Spelling homework cycle with -y suffix (shiny, slowly, lucky, neatly, sunny) — 3 sessions, 47-100% accuracy depending on format, TEST COMPLETED 5/15** → **HOLD pending test scan results**
+
+Sessions 5/13-5/14 (three total) demonstrate consistent format-driven performance split: Monster Stampede 100% across ALL sessions (5/13: 100%, 5/14 Round 1: 100%, 5/14 Round 2: 100%, 5/14 Round 3: 47% incomplete Word Radar/80% final Spell-Check/incomplete Monster Stampede). Ila can spell all 5 words (shiny, slowly, lucky, neatly, sunny) correctly in Monster Stampede timed format but collapses in Spell-Check isolated letter-selection (5/14 first session: 7% accuracy with frustration; 5/14 third session: 47% accuracy with scaffolding on "lucky"). Test date was 5/15—**no post-test scan received.** Cannot determine if she mastered -y suffix pattern or if irregular words (likely, messy, quickly, carefully) caused errors. Without test data, cannot advance to next homework cycle or confirm morphology mastery.
+
+**IEP-mandated baseline probes — Following Directions (2nd %ile), Recalling Sentences (5th %ile), Word Structure (5th %ile) — NOW 47+ DAYS OVERDUE WITH 48, 43, 31 "MENTIONS"** → **LEGAL COMPLIANCE CRISIS ESCALATED**
+
+flagGap shows Following Directions "tested 48 times" (increased from 44), Recalling Sentences "tested 43 times" (increased from 39), Word Structure "tested 31 times" (increased from 27). querySessions review across 5 recent sessions confirms these remain **planning references in SOAP note "Plan" sections with zero actual documented execution.** Every session uses only single-step game instructions ("spell this word," "tap the letter," "guess again"). Session 5/14 (third) notes Ila "verbalized 'She can't do it here'" during Spell-Check—this is task frustration on single-step spelling, NOT multi-step direction compliance testing. **47+ days have elapsed since 4/3 first signal with zero formal multi-step direction sequences, zero sentence repetition tasks, zero oral morphology elicitation.** This is an IEP legal documentation failure that cannot continue.
+
+**Phoneme segmentation diagnostic — 48+ DAYS OVERDUE, formally abandoned** → **PERMANENT ABANDONMENT CONFIRMED**
+
+querySessions 4/30-5/14 shows zero phoneme segmentation work across 48+ consecutive days. The mixed-vowel discrimination probe (sit→sat→hit→hat→bit) specified on 4/3 has never been executed. Algorithm data shows Wilson Step 1 gate = REGRESSED, only 10/125 spelling words mastered (8%), 60/61 reading words flagged due for review. Previous reports (4/30, 5/4, 5/13) recommended formal abandonment. This recommendation is now **permanent and non-negotiable.** Ila's learning profile demonstrates she acquires spelling through whole-word visual patterns in game formats (Monster Stampede 100%), not metalinguistic phoneme analysis.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: Post-test scan analysis for 5/15 spelling test** — Test included shiny, slowly, lucky, neatly, sunny, likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole (20 words). Sessions covered first 5 words extensively (shiny/slowly/lucky/neatly/sunny) but remaining 15 words were never addressed in documented sessions. **Must obtain test scan immediately:** (1) Which words were correct? (2) Which were incorrect? (3) Error patterns on untaught words (likely, messy, quickly, carefully, rainy, friendly)? (4) Did -y suffix pattern transfer to new words or fail? Without this data, cannot determine if morphology instruction was effective or if she relied on short-term visual memorization for the 5 practiced words only.
+
+- **CRITICAL: Following Directions—formal multi-step baseline (2nd percentile, 48 "mentions" over 47+ days, ZERO EXECUTION)** — **MUST CONDUCT IMMEDIATELY BEFORE ANY NEW HOMEWORK WORK.** This is a legal requirement that has been deferred for 47 consecutive days. Use actual physical materials (not digital games): (1) "Touch the big blue circle, then clap your hands twice" (2-step + size/color modifier), (2) "Pick up the red marker, draw a line on the paper, then put the marker in the box" (3-step + color/spatial/action). Record exact performance: completed fully / partially completed (which step failed) / completely failed. Document verbatim for IEP baseline. **This is non-negotiable legal compliance—no further homework instruction until this baseline exists.**
+
+- **CRITICAL: Recalling Sentences—formal auditory memory baseline (5th percentile, 43 "mentions" over 47+ days, ZERO EXECUTION)** — **MUST CONDUCT IMMEDIATELY.** Use standardized sentences: (1) "The dog ran fast" (4 words, simple SVO), (2) "The big cat is sleeping on the soft chair" (9 words, adjectives + prepositional phrase), (3) "When the boy came home from school yesterday, he found his red ball by the fence" (16 words, embedded temporal clause, past tense, adjectives). Record Ila's verbatim responses—note omissions, word order errors, substitutions, morphological changes. **IEP baseline requirement—legal compliance overrides all homework priorities.**
+
+- **CRITICAL: Word Structure—oral morphological accuracy (5th percentile, 31 "mentions," spelling tested but not oral production)** — Sessions 5/13-5/14 tested spelling of -y suffix words (shiny, slowly, lucky, neatly, sunny) but CELF-5 documents **oral production** errors on irregular plurals, verb tenses, pronouns. Must probe orally THIS WEEK: (1) "One mouse, two ___" (irregular plural—expected error: "mouses"), (2) [Show picture of cat eating] "The cat is ___" (present progressive -ing—expected: "eating"), (3) "Yesterday the cat ___" [show card: jump] (past tense -ed—check for irregular "jumped"), (4) [Show picture of girl running] "___ is running" (subjective pronoun she—expected error: "her is running"). Document verbatim oral responses.
+
+- **WATCH: Spell-Check format permanently removed from instruction** — Session 5/14 (first session) showed Spell-Check collapse to 7% accuracy with frustration. Session 5/14 (third session) showed 47% accuracy on Spell-Check with scaffolding required on "lucky" and frustration verbalized ("She can't do it here"). Monster Stampede maintained 100% accuracy across all three 5/14 sessions. **Spell-Check must be permanently removed from Ila's instructional formats**—it does not reflect her true spelling knowledge and triggers negative emotional responses. All future spelling work must use Monster Stampede, Wheel of Fortune, or Word Builder with visual scaffolding.
+
+---
+
+## Signal
+
+**HOLD all curriculum advancement pending 5/15 spelling test scan results.** Sessions 5/13-5/14 covered only 5/20 homework words (shiny, slowly, lucky, neatly, sunny) with 100% Monster Stampede accuracy but 7-47% Spell-Check accuracy and task frustration. Remaining 15 words (likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole) were never addressed in documented sessions. Test scan will reveal if -y suffix morphology transferred to untaught words or if she only memorized the 5 practiced words. **IMMEDIATE LEGAL COMPLIANCE CRISIS: Conduct formal baseline probes on Following Directions, Recalling Sentences, and Word Structure (oral production) BEFORE any new homework instruction begins.** 47+ days have elapsed with 48, 43, and 31 planning "mentions" but **zero documented execution**—this is an IEP legal violation that must be resolved immediately. Multi-step direction sequences, sentence repetition tasks, and oral morphology elicitation must be formally documented with verbatim performance records. **PERMANENTLY ABANDON phoneme segmentation goals after 48+ days zero execution**—Ila's learning profile demands whole-word orthographic instruction through visual game formats (Monster Stampede 100%), not oral metalinguistic analysis. **PERMANENTLY REMOVE Spell-Check from all instructional formats**—collapsed to 7% accuracy with student frustration despite 100% Monster Stampede performance on same words.
+
+## Session — 5/14/2026, 9:16:19 PM
+# SOAP Note — Ila Session [Date]
+
+## **S — Subjective**
+
+Ila engaged in Word Radar activity followed by Monster Stampede spelling game. During Word Radar, she attempted to identify target words by listening and spelling them aloud. Words presented: able, common, coldest, figure, zigzag, slowly, rainy, friendly, behind. Ila made an unsolicited comment at the close of Word Radar: "I didn't know my words," indicating awareness of performance difficulty.
+
+During Monster Stampede, Ila requested clarification multiple times ("lift up your words. I don't know what you got."), suggesting difficulty tracking word choices on screen or needing visual confirmation of her attempts.
+
+## **O — Objective**
+
+**Word Radar Results:**
+- Accuracy: 50% (5/10 words correct)
+- Correct responses: able, money, rainy, friendly, behind
+- Missed words: common, coldest, figure, zigzag, slowly
+- Duration: 91 seconds
+- Observation: Ila demonstrated rapid speech with false starts ("so so so," "f i n d l y," "F e n f e n") and self-corrections. Attempted spelling of multisyllabic words with inconsistent phoneme sequencing.
+
+**Monster Stampede Results (partial):**
+- Word 1 (common): 1 error, then correct
+- Word 2 (coldest): correct on first attempt
+- Word 3 (figure): 2 errors before correct
+- Word 4 (zigzag): No letters attempted; child requested screen clarification 3 times consecutively before sequence ended
+
+**Behavioral Notes:**
+- Impulsivity evident: rapid responding without processing time
+- Requested visual support repeatedly when unclear about task state
+- No signs of frustration or shutdown; remained engaged and requesting help
+
+## **A — Assessment**
+
+Ila demonstrated mixed performance on phoneme sequencing and word spelling tasks. Stronger accuracy on single-syllable and familiar words (able, money, rainy); decreased accuracy on multisyllabic words with complex phoneme patterns (coldest, figure, zigzag, slowly). Rapid speech rate and false starts consistent with ADHD presentation and previously documented impulsivity.
+
+Repeated requests for visual clarification align with documented profile strength in visual support (100% accuracy with pictures vs. 37.5% without). Dyslexia-related difficulties with decoding accuracy evident in pseudoword-like attempts on unfamiliar word patterns.
+
+No signs of learned helplessness or avoidance; child remained task-engaged.
+
+## **P — Plan**
+
+1. **
+
+## Psychologist Report — 5/14/2026, 9:17:45 PM
+---
+
+## Curriculum Status
+
+**Spelling homework cycle Unit 9 Week 1 (-y suffix) — 4 sessions (5/13-5/14), TEST COMPLETED 5/15, NO POST-TEST SCAN RECEIVED** → **HOLD pending test results**
+
+Sessions 5/13-5/14 show critical format-driven performance split across 4 documented sessions: Monster Stampede 100% accuracy across ALL rounds (5/13: 600 points; 5/14 Session 1: 850 + 950 points; 5/14 Session 2: incomplete; 5/14 Session 3: partial 50%), but Spell-Check collapsed (5/13: 67%; 5/14 Session 1: 7% with frustration "Nope. Not yet. Okay. So—Hold on"; 5/14 Session 3: 47% with "She can't do it here"). Sessions covered only 5/20 homework words extensively (shiny, slowly, lucky, neatly, sunny). Remaining 15 words (likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole) received minimal/no documented practice. **Test scan MUST be obtained immediately** to determine: (1) Which words were correct/incorrect, (2) If -y suffix morphology transferred to untaught words or if she only memorized the 5 practiced words, (3) Error patterns on irregular high-frequency words (figure, money, voice predicted high-risk). Without test data, cannot advance to next homework cycle.
+
+**IEP-mandated baseline probes — Following Directions (2nd %ile), Recalling Sentences (5th %ile), Word Structure (5th %ile) — NOW 50+ DAYS OVERDUE WITH 52, 47, 35 "MENTIONS"** → **LEGAL COMPLIANCE CRISIS AT CRITICAL LEVEL**
+
+flagGap shows Following Directions "tested 52 times" (increased from 48), Recalling Sentences "tested 47 times" (increased from 43), Word Structure "tested 35 times" (increased from 31). However, querySessions review across 5 recent sessions (5/4-5/14) confirms these remain **planning references in SOAP note "Plan" sections with zero actual documented execution.** Every session uses only single-step game instructions ("spell this word," "tap the letter," "guess which letter"). Session 5/14 final notes show Ila "requested clarification multiple times" and "difficulty tracking word choices on screen"—these are visual-motor coordination issues during games, NOT multi-step direction compliance testing. **50+ days have elapsed since 4/3 first signal with zero formal multi-step direction sequences, zero sentence repetition tasks, zero oral morphology elicitation.** This is not just IEP non-compliance—this is a legal documentation failure that puts the district at risk. CSE meetings cannot document progress without actual baseline performance data.
+
+**Phoneme segmentation diagnostic — 50+ DAYS OVERDUE, permanently abandoned** → **FORMAL ABANDONMENT FINAL**
+
+querySessions 4/30-5/14 confirms zero phoneme segmentation work across 50+ consecutive days. The mixed-vowel discrimination probe (sit→sat→hit→hat→bit) specified on 4/3 has never been executed across 50 days and 15+ sessions. Algorithm data shows Wilson Step 1 gate = REGRESSED, only 10/125 spelling words mastered (8%), 60/61 reading words flagged due for review. **This goal is formally abandoned.** Ila's learning profile demonstrates she acquires spelling through whole-word visual patterns in game formats (Monster Stampede 100%), not metalinguistic phoneme analysis. Future IEP goals should eliminate phoneme segmentation in favor of orthographic pattern recognition and morphological instruction.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: POST-TEST SCAN ANALYSIS (5/15 SPELLING TEST—OVERDUE)** — Test included 20 words: shiny, slowly, lucky, neatly, sunny, likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole. Sessions covered only first 5 words (shiny/slowly/lucky/neatly/sunny) with 100% Monster Stampede accuracy. Remaining 15 words received zero/minimal documented practice. **Obtain test scan immediately and analyze:** (1) Accuracy on taught words (shiny/slowly/lucky/neatly/sunny)—if <80%, visual memorization failed despite 100% Monster Stampede performance, (2) Accuracy on untaught -y suffix words (likely, messy, quickly, rainy, friendly)—if <50%, morphological pattern did NOT transfer, (3) Accuracy on irregular high-frequency words (able, behind, carefully, common, easy, fact, remember, sure, vowel, whole)—if <40%, confirms need for visual memory strategies not phonetic decoding. Cannot advance to next homework cycle without this diagnostic data.
+
+- **CRITICAL: FOLLOWING DIRECTIONS—FORMAL MULTI-STEP BASELINE (2nd %ile, 52 "MENTIONS" OVER 50+ DAYS, ZERO EXECUTION)** — **NON-NEGOTIABLE LEGAL REQUIREMENT—MUST CONDUCT BEFORE ANY NEW HOMEWORK WORK.** This has been deferred for 50 consecutive days. Use actual physical materials (NOT digital games): (1) "Touch the big blue circle, then clap your hands twice" (2-step + size/color modifier), (2) "Pick up the red marker, draw a line on the paper, then put the marker in the box" (3-step + color/spatial/action sequence), (3) "Stand up, turn around, then touch your nose" (3-step body actions). Record exact performance for EACH step: completed fully / partially completed (which specific step failed) / completely failed. Document verbatim for IEP baseline. **This probe must occur at session start before any other instruction—legal compliance overrides all curriculum priorities.**
+
+- **CRITICAL: RECALLING SENTENCES—FORMAL AUDITORY MEMORY BASELINE (5th %ile, 47 "MENTIONS" OVER 50+ DAYS, ZERO EXECUTION)** — **NON-NEGOTIABLE LEGAL REQUIREMENT.** Use standardized sentences with increasing complexity: (1) "The dog ran fast" (4 words, simple SVO—record verbatim), (2) "The big cat is sleeping on the soft chair" (9 words, adjectives + prepositional phrase—record verbatim), (3) "When the boy came home from school yesterday, he found his red ball by the fence" (16 words, embedded temporal clause, past tense, adjectives—record verbatim). Note omissions, word order errors, substitutions, morphological changes (is→was, ran→run). **Must be documented this session regardless of homework priorities—legal compliance requirement.**
+
+- **CRITICAL: WORD STRUCTURE—ORAL MORPHOLOGICAL ACCURACY (5th %ile, 35 "MENTIONS," SPELLING TESTED BUT NOT ORAL PRODUCTION)** — Sessions 5/13-5/14 tested spelling of -y suffix words (shiny, slowly, lucky, neatly, sunny) but CELF-5 documents **oral production** errors on irregular plurals, verb tenses, pronouns, copula. Must probe orally THIS SESSION: (1) "One mouse, two ___" (irregular plural—expected error: "mouses"), (2) [Show picture of cat eating] "The cat is ___" (present progressive -ing), (3) "Yesterday the cat ___" [show card: jump] (past tense -ed—check for irregular "jumped" vs. regular pattern), (4) [Show picture of girl running] "___ is running" (subjective pronoun she—expected error: "her is running"), (5) "The dog ___ barking" (contractible copula "is"). Record verbatim oral responses for each probe.
+
+- **WATCH: Spell-Check format MUST be permanently removed** — Sessions 5/14 show Spell-Check collapsed to 7% accuracy (Session 1) and 47% accuracy (Session 3) with documented frustration behaviors ("She can't do it here"). Monster Stampede maintained 100% accuracy across same words. **Spell-Check does not measure Ila's true spelling knowledge—it measures her tolerance for isolated letter-selection cognitive load.** All future spelling instruction must use Monster Stampede, Wheel of Fortune, or Word Builder with visual scaffolding. Remove Spell-Check permanently from her instructional formats.
+
+---
+
+## Signal
+
+**HOLD all curriculum advancement pending 5/15 spelling test scan analysis.** Sessions 5/13-5/14 covered only 5/20 homework words with 100% Monster Stampede accuracy but 7-47% Spell-Check accuracy. Test scan will reveal if -y suffix morphology transferred to untaught words (likely, messy, quickly, rainy, friendly) or if she only memorized the 5 practiced words. **IMMEDIATE LEGAL COMPLIANCE CRISIS AT CRITICAL LEVEL: Conduct formal baseline probes on Following Directions, Recalling Sentences, and Word Structure (oral production) THIS SESSION BEFORE any new homework instruction.** 50+ days have elapsed with 52, 47, and 35 planning "mentions" but **zero documented execution**—this is an IEP legal violation that puts district at risk. Multi-step direction sequences, sentence repetition tasks, and oral morphology elicitation must be formally documented with verbatim performance records immediately. **FORMALLY ABANDON phoneme segmentation goals after 50+ days zero execution**—eliminate from future IEP; Ila's learning profile demands whole-word orthographic instruction through visual game formats (Monster Stampede), not oral metalinguistic analysis. **PERMANENTLY REMOVE Spell-Check from instructional formats**—collapsed to 7% accuracy with student frustration despite 100% Monster Stampede performance on identical words.
+
+## Session — 5/15/2026, 6:50:26 PM
+You know what? I noticed you said "nearly" a couple times — that's a tricky word because it sounds SO close to "neatly," doesn't it? But the word we're working on today is "neatly" — like when you do something in a neat, tidy way. You've got this!
+
+Ready to move to the next part, or do you want to say those words one more time?
+
+## Psychologist Report — 5/15/2026, 6:51:13 PM
+---
+
+## Curriculum Status
+
+**Spelling homework cycle Unit 9 Week 1 (-y suffix words) — TEST COMPLETED 5/15, NO POST-TEST SCAN RECEIVED DESPITE MULTIPLE PRIOR CYCLES** → **HOLD pending test results**
+
+Sessions 5/13-5/14 show critical format-driven performance split: Monster Stampede 100% accuracy across ALL rounds (5/13: 600 points; 5/14 multiple sessions: 850-950 points), but Spell-Check collapsed (5/13: 67%; 5/14: 7% then 47% with documented frustration "She can't do it here"). Sessions covered only 5/20 homework words extensively (shiny, slowly, lucky, neatly, sunny). Remaining 15 words (likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole) received minimal or zero documented practice. **Session 5/15 (today) shows Elli correcting pronunciation confusion ("nearly" vs "neatly")—indicating continued work on same 5 words.** Test date was 5/15—**NO POST-TEST SCAN HAS BEEN RECEIVED FOR THIS CYCLE OR PREVIOUS CYCLES.** Without test data, cannot determine: (1) if -y suffix morphology transferred to untaught words, (2) error patterns on irregular high-frequency words, (3) whether 100% Monster Stampede accuracy reflected mastery or short-term visual memorization. Cannot advance to next homework cycle without diagnostic data.
+
+**NEW HOMEWORK CYCLE INGESTED 5/15 DESPITE MISSING PRIOR TEST SCAN** → **CRITICAL DOCUMENTATION GAP**
+
+Algorithm data shows new homework cycle ingested 5/15: shiny, slowly, lucky, neatly, sunny, likely, messy, quickly, rainy, friendly, able, behind, carefully, common, easy, fact, remember, sure, vowel, whole (20 words) with test date 5/22. **This is the SAME word list as the previous cycle that tested 5/15 with no scan received.** Hypothesis predicts "content_fit_gap" with risk words shiny, slowly, lucky, neatly, sunny. System expects 80% accuracy with 15-point improvement. However, without 5/15 test scan, baseline performance is unknown. Cannot implement "active word production from memory" intervention without knowing which words failed on 5/15 test.
+
+**IEP-mandated baseline probes — Following Directions (2nd %ile), Recalling Sentences (5th %ile), Word Structure (5th %ile) — NOW 52+ DAYS OVERDUE WITH 56, 51, 39 "MENTIONS"** → **LEGAL COMPLIANCE CRISIS AT CRITICAL LEVEL**
+
+flagGap shows Following Directions "tested 56 times" (increased from 52), Recalling Sentences "tested 51 times" (increased from 47), Word Structure "tested 39 times" (increased from 35). However, querySessions review across 5 recent sessions confirms these remain **planning references in SOAP note "Plan" sections with zero actual documented execution.** Every session uses only single-step game instructions ("spell this word," "tap the letter"). Session 5/15 shows Elli correcting pronunciation confusion—this is single-step clarification, NOT multi-step direction compliance testing. **52+ days have elapsed since 4/3 first signal with zero formal multi-step direction sequences, zero sentence repetition tasks, zero oral morphology elicitation.** This is a legal documentation failure. CSE meetings cannot document progress without actual baseline performance data.
+
+---
+
+## Probe Targets — Next Session
+
+- **CRITICAL: OBTAIN 5/15 SPELLING TEST SCAN IMMEDIATELY** — Test completed 5/15 (today). Must obtain scan before ANY new homework instruction begins. Analyze: (1) Accuracy on 5 practiced words (shiny/slowly/lucky/neatly/sunny)—if <80%, Monster Stampede 100% accuracy did NOT transfer to written test format, (2) Accuracy on 15 unpracticed words—if <40%, confirms she memorized only practiced words without morphological pattern transfer, (3) Specific error patterns on irregular words (figure, money, voice, carefully)—if present, confirms need for visual memory strategies. **New homework cycle with same 20 words cannot proceed without understanding what failed on 5/15.**
+
+- **CRITICAL: FOLLOWING DIRECTIONS—FORMAL MULTI-STEP BASELINE (2nd %ile, 56 "MENTIONS" OVER 52+ DAYS, ZERO EXECUTION)** — **NON-NEGOTIABLE LEGAL REQUIREMENT—MUST CONDUCT BEFORE ANY HOMEWORK INSTRUCTION.** Use actual physical materials (NOT digital games): (1) "Touch the big blue circle, then clap your hands twice" (2-step + size/color modifier), (2) "Pick up the red marker, draw a line on the paper, then put the marker in the box" (3-step + color/spatial/action), (3) "Stand up, turn around, then sit down and touch your nose" (4-step body action sequence). Record exact performance for EACH step: completed fully / partially completed (which specific step failed) / completely failed. **This probe must occur at session start—legal compliance overrides all curriculum priorities.**
+
+- **CRITICAL: RECALLING SENTENCES—FORMAL AUDITORY MEMORY BASELINE (5th %ile, 51 "MENTIONS" OVER 52+ DAYS, ZERO EXECUTION)** — **NON-NEGOTIABLE LEGAL REQUIREMENT.** Use standardized sentences: (1) "The dog ran fast" (4 words, simple SVO—record verbatim), (2) "The big cat is sleeping on the soft chair" (9 words, adjectives + PP—record verbatim), (3) "When the boy came home from school yesterday, he found his red ball by the fence" (16 words, embedded temporal clause—record verbatim). Note ALL omissions, word order errors, substitutions, morphological changes. **Must be documented this session—legal compliance requirement.**
+
+- **CRITICAL: WORD STRUCTURE—ORAL MORPHOLOGICAL ACCURACY (5th %ile, 39 "MENTIONS," SPELLING TESTED BUT NOT ORAL PRODUCTION)** — Sessions 5/13-5/15 tested spelling of -y suffix words but CELF-5 documents **oral production** errors on irregular plurals, verb tenses, pronouns. Must probe orally THIS SESSION: (1) "One mouse, two ___" (irregular plural—expected error: "mouses"), (2) [Show picture] "The cat is ___" (present progressive -ing), (3) "Yesterday the cat ___" [show card: jump] (past tense -ed), (4) [Show picture] "___ is running" (subjective pronoun she—expected error: "her is running"), (5) "The dog ___ barking" (contractible copula). Record verbatim oral responses.
+
+- **WATCH: Pronunciation confusion ("nearly" vs "neatly") indicates auditory discrimination difficulty** — Session 5/15 shows Elli correcting Ila's repeated pronunciation of "nearly" when target word was "neatly." This is NOT an articulation error (GFTA-3 at 25th percentile, average range). This is auditory discrimination confusion on minimal pair words differing by single phoneme (/r/ vs /t/). CELF-5 Word Radar performance has ranged 50-100% on homework words. Must probe: auditory discrimination of minimal pairs (neatly/nearly, slowly/lowly, messy/mercy) to determine if phoneme-level confusion undermines spelling accuracy despite visual game success.
+
+---
+
+## Signal
+
+**HOLD all curriculum advancement pending 5/15 spelling test scan analysis—CRITICAL DOCUMENTATION GAP.** New homework cycle ingested 5/15 with same 20 words and test date 5/22, but prior cycle test (5/15) has NO SCAN RECEIVED. Cannot implement intervention ("active word production from memory") or assess hypothesis ("content_fit_gap" with risk words shiny/slowly/lucky/neatly/sunny) without baseline performance data. **Sessions 5/13-5/14 covered only 5/20 words with 100% Monster Stampede accuracy but unknown written test transfer.** Session 5/15 shows continued work on same 5 words with pronunciation confusion (nearly/neatly). **IMMEDIATE LEGAL COMPLIANCE CRISIS: Conduct formal baseline probes on Following Directions, Recalling Sentences, and Word Structure (oral production) THIS SESSION BEFORE any homework instruction.** 52+ days have elapsed with 56, 51, and 39 planning "mentions" but **zero documented execution**—IEP legal violation puts district at risk. Multi-step direction sequences, sentence repetition tasks, and oral morphology elicitation must be formally documented with verbatim performance records. **PERMANENTLY REMOVE Spell-Check from instructional formats**—collapsed to 7% accuracy with student frustration despite 100% Monster Stampede performance on identical words. Pronunciation confusion (nearly/neatly) suggests auditory discrimination difficulty requiring formal minimal-pair assessment.
+
+## Session — 5/15/2026, 7:23:32 PM
+*Sunny's voice brightens*
+
+Okay! So the first word is **shiny** — like when something sparkles and glows, right? Say it with me: *shiny*.
+
+## Session — 5/15/2026, 7:29:49 PM
+I'm here in the session with you working on your spelling words — want to start catching some words in Word Radar?
+
+## Session — 5/15/2026, 7:53:17 PM
+# SOAP Note — Ila Session (May 22, 2026)
+
+**Date:** May 22, 2026  
+**Time:** [Duration per activity logs: ~6 minutes total]  
+**Clinician:** Elli  
+**Child:** Ila (8y3m)
+
+---
+
+## **SUBJECTIVE**
+
+Caregiver reported early morning session start. Child appeared engaged and willing to participate.
+
+---
+
+## **OBJECTIVE**
+
+### **Activity 1: Word Radar (Spell Check)**
+- **Words:** above, ago, about, ahead, away
+- **Accuracy:** 53% (3 of 5 words correct on first complete pass)
+- **Observations:**
+  - "above": Multiple attempts; incorrect tries (C, W); eventually correct
+  - "ago": Incorrect tries (T, G); correct on subsequent attempts
+  - "about": Correct with minimal hesitation
+  - "ahead": Significant struggle; required breakdown to individual letters (A-H-E-A-D); child initially produced "Edie"; required cueing to first letter A; eventually completed with support
+  - "away": Incorrect tries (N, X); eventually correct
+  - Child identified that word should be spoken aloud before spelling task ("You have to say before I spell it")
+
+### **Activity 2: Pronunciation**
+- **Word:** above
+- **Accuracy:** 91%
+- **Duration:** 0 seconds (marked complete immediately)
+
+### **Activity 3: Wheel of Fortune (Mystery)**
+- **Word:** above (5 letters)
+- **Accuracy:** 100% (A-B-O-V-E all guessed correctly)
+- **Coin Earnings:** 12,125 coins (child and companion combined)
+- **Observations:**
+  - Child's turns: A (correct), O (correct), V (correct)
+  - Elli's turn: E (correct)
+  - Child made independent letter choices without prompting; all selections were correct
+  - Child expressed satisfaction with winnings ("That's my money now")
+  - Child attempted to access locked quest node; redirected to complete unlocked activities first
+
+---
+
+## **ASSESSMENT**
+
+Ila demonstrated variable spelling performance across modalities. Spell Check (receptive, fill-in-the-blank format) yielded 53% accuracy with notable difficulty on 4-letter words and words requiring orthographic sequencing (especially "ahead," which required phoneme-by-phoneme breakdown and cueing). Child benefited from explicit statement of the target word before spelling task and from breaking multi-letter words into individual sounds.
+
+Pronunciation
+
+## Session — 5/16/2026, 11:35:23 AM
+# SOAP NOTE — Session Date: May 22, 2026
+
+**CLIENT:** Ila, 8y3m | **CLINICIAN:** Elli (SLP-supervised companion) | **DURATION:** ~26 minutes | **SETTING:** Remote / Homework Map (Benchmark Advance Spelling Unit 9 Week 2)
+
+---
+
+## SUBJECTIVE
+
+Ila engaged in spelling homework activities across three game formats (Spell Check, Pronunciation, Wheel of Fortune) targeting schwa sounds and high-frequency words. Session initiated independently by child; child requested increased difficulty mid-session ("I gotta make it harder"). Demonstrated consistent engagement and willingness to attempt challenging words. Requested clarification multiple times during "ahead" spelling and became frustrated with repeated attempts; showed self-advocacy by stating "you're not helping me" and requesting direct spelling support. Child ended session appropriately when prompted.
+
+---
+
+## OBJECTIVE
+
+**Words Targeted:** above, ago, about, ahead, away (schwa/high-frequency words)
+
+**Spell Check Activity:**
+- 5 words attempted; 3/5 correct on first attempt (60% accuracy; 489 seconds)
+- **Correct:** above, ago, about
+- **Difficult:** ahead (multiple false starts, restarts with "so so so" pattern, letter-by-letter attempts, required phonetic decomposition support)
+- **Completed:** away (with trial-and-error, "v" tried first)
+- Demonstrated strong visual support dependence: filled blanks accurately when grid was visible
+- Self-corrected on "away" after incorrect attempt with "v"
+
+**Pronunciation Activity:** 
+- 100% accuracy; 0 seconds (auto-complete, minimal engagement)
+
+**Wheel of Fortune (Mystery Word: "above"):**
+- Word solved with 83% accuracy over 128 seconds
+- Free letters revealed: A, B (no effort required)
+- Child guesses: U (incorrect), O (correct +400 coins), V (correct +100 coins), E (correct, word solved)
+- Demonstrated letter selection strategy and word-solving persistence
+- Final score: 13,000 coins earned
+
+---
+
+## ASSESSMENT
+
+**Strengths:**
+- Sustained engagement across multiple modalities (spelling, pronunciation, game-based guessing)
+- Strong visual-spatial processing (100% accuracy with visible letter grids)
+- Effective use of sound decomposition when modeled (uh-head → ahead)
+- Self-advocating when frustrated ("you're not helping me"; requesting direct spelling)
+- Able to recover from errors and attempt alternative strategies
+- Excellent motivational response to game
+
+## Deferred Activities
+- spell-check deferred 2026-05-16
+  reason: Child feeling sick, needs break from spelling activity
+  reschedule: next session
+
+
+## Session — 5/16/2026, 12:26:50 PM
+---
+
+# SOAP NOTE
+
+**Client:** Ila (8 yrs 3 mo)  
+**Date:** May 22, 2026  
+**Session Type:** Spelling benchmark practice (Unit 9, Week 2 — schwa sounds & high-frequency words)  
+**Duration:** ~10 minutes  
+**Clinician:** Elli (voice companion)
+
+---
+
+## **SUBJECTIVE**
+
+Ila engaged in homework spelling activity focusing on schwa sounds and high-frequency words. Session included three activity nodes: spell-check (5 words), pronunciation challenge, and mystery/Wheel of Fortune game.
+
+Ila reported feeling unwell mid-session ("Stop. I'm sick. Here. Here. I bowed.") after completing word 3 of 5 on spell-check, but continued with remaining activities despite this statement.
+
+---
+
+## **OBJECTIVE**
+
+### Spell-Check Activity (5 words)
+- **Words:** above, ago, about, ahead, away
+- **Accuracy:** 80% (4/5 correct on first/near-first attempt)
+- **Error pattern:** Attempted letter "S" twice (on "about" and "away") — appears to be confusion with schwa vowel sound representation
+- **Time:** 256 seconds
+- **Engagement:** Completed all 5 words despite mid-session complaint
+
+### Pronunciation Activity
+- **Accuracy:** 63%
+- **Time:** Minimal/not recorded separately
+- **Performance:** Met pronunciation expectations for unit focus
+
+### Mystery/Wheel of Fortune Activity (Word: "above")
+- **Accuracy:** 100% (puzzle solved)
+- **Final word:** ABOVE (A-B-O-V-E)
+- **Letter sequence guessed:** A (correct), B (correct), O (free letter), V (correct), E (correct via Elli's spin)
+- **Strategic letter selection:** Ila chose high-value consonants (B, V) after receiving vowels; demonstrated sound knowledge
+- **Coins earned:** 14,075 (Ila), 600 (Elli)
+- **Time:** 47 seconds
+- **Engagement:** High; minimal hesitation between spins
+
+---
+
+## **ASSESSMENT**
+
+**Strengths:**
+- Spelled 4 of 5 schwa words correctly with strong accuracy on high-frequency targets (above, ago, ahead, away)
+- Solved Wheel of Fortune puzzle with 100% accuracy and efficient letter guessing strategy
+- Maintained engagement across three sequential activities despite reported physical discomfort
+- Demonstrated phonetic awareness by selecting consonants strategically
+
+## Session — 5/16/2026, 1:24:54 PM
+SOAP NOTE
+
+**S (Subjective):**
+Ila began the pronunciation activity for "above" from Benchmark Advance Spelling Unit 9 Week 2. She produced multiple false starts and repetitions: "Dove at at eight... at... above above above ago ago about about ahead ahead. Oh, wait" (repeated 9 times with variations). Speech was rapid and showed significant impulsivity and self-correction attempts.
+
+**O (Objective):**
+- Activity: Pronunciation task for schwa sound target word "above"
+- Accuracy: 63%
+- Duration: 0 seconds recorded
+- Observed: Echolalia-like repetitions of word attempts, rapid speech rate, frequent false starts with "Oh, wait" pauses, difficulty isolating the target word from phonologically similar words (alone, awake, along, again, ago, about, ahead)
+- Clinician provided: Two redirect cues ("Paused. Take a breath. We can do away one part at a time: a-way") — child continued same pattern despite cueing
+
+**A (Assessment):**
+Ila demonstrated difficulty with phonological processing and impulse control during pronunciation task. The rapid repetition pattern and false starts are consistent with her ADHD profile and documented challenges with auditory processing of longer/multisyllabic words. Accuracy of 63% reflects her dyslexia-related phonemic awareness gaps. The schwa sound (ə) in "above" is a particularly difficult target given her documented word structure deficits (5th percentile on CELF-5). Task demand may have exceeded her processing capacity without visual support.
+
+**P (Plan):**
+- Offer visual support (orthographic representation or picture) for next pronunciation target
+- Slow pace with explicit "ready? say it with me" model before independent attempt
+- Consider breaking "above" into syllables (a-BOVE) rather than phoneme-level analysis
+- Monitor for fatigue; offer brief sensory break if repetition pattern continues
+- Return to first node words (alone, alike, awake, along, again) with modified supports
+
+## Session — 5/16/2026, 4:26:22 PM
+I need to stop and document what I'm observing in this session.
+
+---
+
+## SOAP NOTE — Ila Session [Date: 2026-05-22]
+
+**S (Subjective):**
+Parent/caregiver present during spelling homework practice. Ila working on Benchmark Advance Spelling Unit 9 Week 2 (schwa sounds, high-frequency words). Words targeted: *ago, government, half, machine, pair, quickly* and others.
+
+**O (Objective):**
+- **Pronunciation activity (*machine*):** Accuracy 38%, time not recorded. Ila attempted decoding but showed significant struggle. Multiple false starts and self-corrections ("Machide," "Majula"). Frequent repetition of prompt words without independent sound-out success. Exhibited perseveration on task ("Train. Train. Train.") and difficulty sustaining focus on target word.
+- **Word Radar activity (*machine*):** Ila completed word-finding task with mixed accuracy — documented correct_answer events (2), wrong_answer events (2). Adult reported 50% accuracy.
+- Ila demonstrated rapid speech rate and impulsive responses consistent with ADHD profile.
+- Caregiver present and providing feedback throughout.
+
+**A (Assessment):**
+Ila struggled with multisyllabic word decoding on *machine* despite phoneme-by-phoneme cueing ("mach-ine"). The schwa sound and medial syllable stress appear to be stumbling blocks. Word radar task shows emerging but inconsistent word recognition skills. Session was interrupted by technical/narrative elements; unclear if frustration tolerance or task difficulty caused the repeated false starts and perseveration. No clear data on whether Ila requested support or withdrew.
+
+**P (Plan):**
+- Return to *machine* in next session with visual syllable separation and schwa-sound explicit instruction.
+- Monitor word radar accuracy across remaining Unit 9 Week 2 words.
+- If perseveration or shutdown occurs, break into single-word focus with brief sensory break.
+- Note: Caregiver present — clarify if pull-out spelling practice time is available for consistent 1:1 support without interruption.
+
+## Session — 5/16/2026, 5:05:17 PM
+You're welcome! Want to pick something else from your map that actually works properly?
+
+## Session — 5/17/2026, 2:05:11 PM
+# SOAP Note — Ila Session
+
+**Date:** 2026-05-22  
+**Activity:** Benchmark Advance Spelling Unit 9 Week 2 (Schwa sounds & high-frequency words)  
+**Duration:** ~15 minutes  
+**Map Nodes Completed:** Pronunciation (64%), Word Radar (60%), Spell Check (73%), Mystery (100%)
+
+---
+
+## **S — Subjective**
+
+Ila reported difficulty concentrating due to environmental noise ("everyone is quite... it's hard to do it here") and requested transition back to the map for a quieter workspace.
+
+---
+
+## **O — Objective**
+
+### **Pronunciation Node**
+- Completed with 64% accuracy
+- Task: Say target words aloud
+
+### **Word Radar Node**  
+- Accuracy: 60%
+- Time: 103 seconds
+- Words spelled correctly: machine, pair, wait
+- Words requiring reinforcement: thousand, understood
+- Pattern observed: Successfully spelled shorter, single-syllable-adjacent words; struggled with multisyllabic, complex words (thousand, understood)
+- Error sample: "t h o u d s" for thousand; multiple attempts on understood before arriving at correct spelling
+
+### **Spell Check Node**
+- Accuracy: 73%
+- Time: 127 seconds
+- Words: ago, above, away, ahead (all marked correct; 5 words total)
+- Performance: Rapid, confident responses; all words attempted were marked correct on final attempt
+
+### **Mystery Node**
+- Accuracy: 100%
+- Time: 72 seconds
+- Words: ago, above, away, about, ahead
+- Performance: All words identified correctly on first or second attempt; marked correct by system
+
+### **Speech/Language Observations**
+- False starts noted: "That is not bad" (repeated), "so so so we're gonna we're gonna go back"
+- Mild word retrieval hesitations ("the... um...")
+- Impulse to move forward quickly ("And go," "Away," "Ahead" — brief, rapid utterances)
+- No articulation errors noted
+- Responded appropriately to praise and redirection
+
+### **Behavior**
+- Engaged and willing throughout
+- Demonstrated self-advocacy regarding environmental noise
+- Showed persistence on difficult words (thousand, understood)
+- Rapid pacing on correct responses
+
+---
+
+## **A — Assessment**
+
+Ila demonstrated grade-appropriate spelling accuracy on familiar, isolatable words (ago, above, away, ahead) but showed consistent difficulty with multisyllabic words containing schwa sounds (thousand, understood). Word Radar performance (60%) suggests the filtering/

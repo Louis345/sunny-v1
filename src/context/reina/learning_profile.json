@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-05-05T04:06:14.769Z",
+  "lastUpdated": "2026-05-17T19:19:59.499Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -110,6 +110,22 @@
       "bondQuality": "moderate",
       "sessionAccuracy": 0,
       "notableSignals": []
+    },
+    {
+      "date": "2026-05-13T20:16:11.425Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-05-14T23:57:34.594Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
     }
   ],
   "moodTrend": "stable",
@@ -131,14 +147,14 @@
     "dyslexiaMode": false
   },
   "sessionStats": {
-    "totalSessions": 9,
-    "averageAccuracy": 0.20555555555555557,
+    "totalSessions": 11,
+    "averageAccuracy": 0.16818181818181818,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 37,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-05-05T00:25:16.505Z"
+    "lastSessionDate": "2026-05-14T23:57:34.594Z"
   },
   "totalSessionSeconds": 750,
   "longestStreak": 5,
@@ -181,599 +197,12 @@
     "randomMomentProbability": 0.3,
     "toggledOff": false
   },
-  "pendingHomework": {
-    "weekOf": "2026-05-04",
-    "testDate": "2026-05-06",
-    "wordList": [
-      "erosion",
-      "wear away",
-      "rocks",
-      "soil",
-      "wind",
-      "water",
-      "ice",
-      "rivers",
-      "rain",
-      "mountains",
-      "beaches",
-      "oceans",
-      "sand",
-      "compass rose",
-      "downhill"
-    ],
-    "contentProfile": {
-      "practiceDomain": "reading",
-      "contentDomain": "science",
-      "topic": "Erosion and Earth's Surface",
-      "primarySkill": "Understanding erosion processes and map reading",
-      "assignmentFormat": "Study guide with multiple concept sections",
-      "concepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "sourceEvidence": [
-        "matched science term: erosion",
-        "matched science term: landform",
-        "matched science term: landforms",
-        "matched science term: soil",
-        "matched science term: rocks",
-        "matched science term: water",
-        "matched science term: wind",
-        "Erosion happens when wind, water, or ice wear away rocks and soil",
-        "Rivers and rain can carry tiny pieces of rock from mountains to beaches or oceans",
-        "The color of sand comes from the rocks nearby",
-        "Water and wind break down the rocks and move them to the beach",
-        "Maps show land and water like mountains, rivers, lakes, and oceans",
-        "A compass rose shows directions: North, South, East, West",
-        "Rivers usually flow downhill from mountains to oceans or lakes",
-        "Rivers start high in the mountains",
-        "They flow down to lower places like lakes or oceans",
-        "Water always flows downhill, never up",
-        "If you float on a river, you'll end up in a lake or ocean",
-        "Rounded hills are smaller and softer than pointy peaks",
-        "Pointy peaks are tall and sharp — like big mountains",
-        "Use clues and directions (North, South, East, West) to find locations on a map"
-      ]
-    },
-    "capturedContent": {
-      "title": "Erosion and Earth's Surface Study Guide",
-      "type": "reading",
-      "rawText": "",
-      "words": [
-        "erosion",
-        "wear away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "rain",
-        "mountains",
-        "beaches",
-        "oceans",
-        "sand",
-        "compass rose",
-        "downhill"
-      ],
-      "questions": [
-        {
-          "id": 1,
-          "question": "What is erosion?",
-          "type": "written",
-          "options": null,
-          "correctAnswer": "Erosion happens when wind, water, or ice wear away rocks and soil",
-          "hint": "Think about what wears away rocks and soil over time"
-        },
-        {
-          "id": 2,
-          "question": "Where do rivers and rain carry tiny pieces of rock?",
-          "type": "written",
-          "options": null,
-          "correctAnswer": "From mountains to beaches or oceans",
-          "hint": "Think about the journey water takes from high places to low places"
-        },
-        {
-          "id": 3,
-          "question": "Why is beach sand a certain color?",
-          "type": "written",
-          "options": null,
-          "correctAnswer": "The color of sand comes from the rocks nearby",
-          "hint": "Think about what breaks down to become sand"
-        },
-        {
-          "id": 4,
-          "question": "What do the four directions on a compass rose show?",
-          "type": "written",
-          "options": null,
-          "correctAnswer": "North, South, East, West",
-          "hint": "A compass rose helps us find locations on a map"
-        },
-        {
-          "id": 5,
-          "question": "Which direction do rivers flow?",
-          "type": "written",
-          "options": null,
-          "correctAnswer": "Downhill, from mountains to oceans or lakes",
-          "hint": "Water always flows downhill, never up"
-        },
-        {
-          "id": 6,
-          "question": "What is the difference between rounded hills and pointy peaks?",
-          "type": "written",
-          "options": null,
-          "correctAnswer": "Rounded hills are smaller and softer than pointy peaks. Pointy peaks are tall and sharp — like big mountains",
-          "hint": "Look at the shapes and sizes of landforms on maps"
-        }
-      ],
-      "sourceDocuments": [
-        {
-          "filename": "erosions.pdf",
-          "mediaType": "application/pdf"
-        }
-      ],
-      "contentProfile": {
-        "practiceDomain": "reading",
-        "contentDomain": "science",
-        "topic": "Erosion and Earth's Surface",
-        "primarySkill": "Understanding erosion processes and map reading",
-        "assignmentFormat": "Study guide with multiple concept sections",
-        "concepts": [
-          "erosion",
-          "landform",
-          "landforms",
-          "soil",
-          "rocks",
-          "water",
-          "wind",
-          "What is Erosion",
-          "Beach Sand and Rocks",
-          "Reading a Map",
-          "How Rivers Flow",
-          "Treasure Map Practice",
-          "Quick Review"
-        ],
-        "sourceEvidence": [
-          "matched science term: erosion",
-          "matched science term: landform",
-          "matched science term: landforms",
-          "matched science term: soil",
-          "matched science term: rocks",
-          "matched science term: water",
-          "matched science term: wind",
-          "Erosion happens when wind, water, or ice wear away rocks and soil",
-          "Rivers and rain can carry tiny pieces of rock from mountains to beaches or oceans",
-          "The color of sand comes from the rocks nearby",
-          "Water and wind break down the rocks and move them to the beach",
-          "Maps show land and water like mountains, rivers, lakes, and oceans",
-          "A compass rose shows directions: North, South, East, West",
-          "Rivers usually flow downhill from mountains to oceans or lakes",
-          "Rivers start high in the mountains",
-          "They flow down to lower places like lakes or oceans",
-          "Water always flows downhill, never up",
-          "If you float on a river, you'll end up in a lake or ocean",
-          "Rounded hills are smaller and softer than pointy peaks",
-          "Pointy peaks are tall and sharp — like big mountains",
-          "Use clues and directions (North, South, East, West) to find locations on a map"
-        ]
-      }
-    },
-    "homeworkId": "hw-reading-379a0afb",
-    "generatedAt": "2026-05-05T00:15:21.688Z",
-    "nodes": [
-      {
-        "id": "n-baseline-evaluator-hw-reading-379a0afb",
-        "type": "word-radar",
-        "words": [
-          "erosion",
-          "landform",
-          "landforms",
-          "soil",
-          "rocks"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "baseline-evaluator",
-          "role": "baseline-evaluator",
-          "targetSkills": [
-            "Understanding erosion processes and map reading",
-            "baseline_understanding"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "algorithmTargets": [
-            "retrieval-practice",
-            "reading-comprehension"
-          ],
-          "measures": [
-            "concept_recognition_accuracy",
-            "missed_concepts"
-          ],
-          "reason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
-        },
-        "date": "2026-05-04",
-        "approved": false,
-        "wordRadarItems": [
-          {
-            "display": "erosion",
-            "acceptedResponses": [
-              "erosion"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "landform",
-            "acceptedResponses": [
-              "landform"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "landforms",
-            "acceptedResponses": [
-              "landforms"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "soil",
-            "acceptedResponses": [
-              "soil"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "rocks",
-            "acceptedResponses": [
-              "rocks"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          }
-        ]
-      },
-      {
-        "id": "n-karaoke-hw-reading-379a0afb",
-        "type": "karaoke",
-        "words": [
-          "Reina",
-          "is",
-          "learning",
-          "about",
-          "Erosion",
-          "and",
-          "Earth's",
-          "Surface",
-          "Key",
-          "ideas",
-          "include",
-          "erosion",
-          "landform",
-          "landforms",
-          "soil",
-          "rocks",
-          "Reina",
-          "treated",
-          "it",
-          "like",
-          "a",
-          "wrestling",
-          "challenge",
-          "and",
-          "looked",
-          "for",
-          "the",
-          "smartest",
-          "next",
-          "move",
-          "Reina",
-          "also",
-          "spotted",
-          "the",
-          "review",
-          "words",
-          "erosion",
-          "wear",
-          "away",
-          "rocks",
-          "soil",
-          "wind",
-          "water",
-          "ice",
-          "rivers",
-          "and",
-          "used",
-          "them",
-          "as",
-          "clue",
-          "cards",
-          "for",
-          "the",
-          "next",
-          "challenge",
-          "Reina",
-          "read",
-          "each",
-          "sentence",
-          "carefully",
-          "then",
-          "used",
-          "the",
-          "clues",
-          "in",
-          "the",
-          "next",
-          "challenge"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "storyText": "Reina is learning about Erosion and Earth's Surface. Key ideas include erosion, landform, landforms, soil, rocks. Reina treated it like a wrestling challenge and looked for the smartest next move. Reina also spotted the review words erosion, wear away, rocks, soil, wind, water, ice, rivers and used them as clue cards for the next challenge. Reina read each sentence carefully, then used the clues in the next challenge.",
-        "storyTitle": "Reina and Erosion and Earth's Surface",
-        "storyImagePrompt": "A child-friendly illustration of Reina as the central visible character learning about Erosion and Earth's Surface, showing erosion, landform, landforms, soil, rocks.",
-        "carePlan": {
-          "interventionId": "story",
-          "role": "story",
-          "targetSkills": [
-            "Understanding erosion processes and map reading",
-            "reading_fluency"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "targetWords": [
-            "erosion",
-            "wear away",
-            "rocks"
-          ],
-          "algorithmTargets": [
-            "reading-comprehension",
-            "activity-affinity"
-          ],
-          "measures": [
-            "reading_completion",
-            "hesitations",
-            "flagged_words"
-          ],
-          "reason": "Build background knowledge and engagement around Erosion and Earth's Surface."
-        },
-        "date": "2026-05-04",
-        "approved": false
-      },
-      {
-        "id": "n-pronunciation-hw-reading-379a0afb",
-        "type": "pronunciation",
-        "words": [
-          "erosion",
-          "landform",
-          "landforms",
-          "soil",
-          "rocks"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "pronunciation",
-          "role": "pronunciation",
-          "targetSkills": [
-            "pronunciation",
-            "Understanding erosion processes and map reading"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "algorithmTargets": [
-            "pronunciation",
-            "desirable-difficulty"
-          ],
-          "measures": [
-            "pronunciation_accuracy",
-            "hesitation"
-          ],
-          "reason": "Academic words must be speakable before they can be explained confidently."
-        },
-        "date": "2026-05-04",
-        "approved": false
-      },
-      {
-        "id": "n-concept-builder-hw-reading-379a0afb",
-        "type": "word-builder",
-        "words": [
-          "erosion",
-          "landform",
-          "landforms",
-          "soil",
-          "rocks"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "concept-builder",
-          "role": "concept-builder",
-          "targetSkills": [
-            "academic_vocabulary",
-            "Understanding erosion processes and map reading"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "algorithmTargets": [
-            "retrieval-practice",
-            "desirable-difficulty"
-          ],
-          "measures": [
-            "construction_accuracy",
-            "attempted_value"
-          ],
-          "reason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
-        },
-        "date": "2026-05-04",
-        "approved": false
-      },
-      {
-        "id": "n-exit-evaluator-hw-reading-379a0afb",
-        "type": "word-radar",
-        "words": [
-          "erosion",
-          "landform",
-          "landforms",
-          "soil",
-          "rocks"
-        ],
-        "difficulty": 2,
-        "gameFile": null,
-        "storyFile": null,
-        "carePlan": {
-          "interventionId": "exit-evaluator",
-          "role": "exit-evaluator",
-          "targetSkills": [
-            "Understanding erosion processes and map reading",
-            "transfer_check"
-          ],
-          "targetConcepts": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "targetWords": [
-            "erosion",
-            "landform",
-            "landforms",
-            "soil",
-            "rocks"
-          ],
-          "algorithmTargets": [
-            "mastery-gating",
-            "retrieval-practice"
-          ],
-          "measures": [
-            "exit_accuracy",
-            "improvement_from_baseline"
-          ],
-          "reason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
-        },
-        "date": "2026-05-04",
-        "approved": false,
-        "wordRadarItems": [
-          {
-            "display": "erosion",
-            "acceptedResponses": [
-              "erosion"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "landform",
-            "acceptedResponses": [
-              "landform"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "landforms",
-            "acceptedResponses": [
-              "landforms"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "soil",
-            "acceptedResponses": [
-              "soil"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          },
-          {
-            "display": "rocks",
-            "acceptedResponses": [
-              "rocks"
-            ],
-            "label": "Concept Check",
-            "subject": "reading"
-          }
-        ]
-      }
-    ],
-    "completedAdventureNodeIds": [
-      "n-baseline-evaluator-hw-reading-379a0afb",
-      "n-exit-evaluator-hw-reading-379a0afb",
-      "n-karaoke-hw-reading-379a0afb",
-      "onboarding-bubble-pop"
-    ],
-    "reinforceWords": []
-  },
   "banditState": {
     "counts": [
+      2,
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      1,
       2,
       0,
       0,
@@ -782,19 +211,26 @@
       0,
       0,
       0,
+      2,
+      2,
       0,
       0,
-      0
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4
     ],
     "values": [
-      0,
-      0,
-      0,
+      1,
       0,
       0,
       0,
       1,
-      0.36,
       0,
       0,
       0,
@@ -802,13 +238,23 @@
       0,
       0,
       0,
+      0.9910000000000001,
+      1,
       0,
       0,
-      0
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.7999999999999999
     ]
   },
-  "lastMysteryGame": "space-invaders",
-  "companionCurrency": 1550,
+  "lastMysteryGame": "wheel-of-fortune",
+  "companionCurrency": 8300,
   "learningCalibrationJournal": [
     {
       "calibrationId": "7bc0018eaef9",
@@ -824,1098 +270,296 @@
       "nextAdjustment": "Collect clearer graded evidence before treating this strategy as proven."
     }
   ],
-  "aiContentCatalog": [
-    {
-      "contentId": "hw-spelling_test-a0d1d9f2:n-word-radar-hw-spelling_test-a0d1d9f2",
-      "homeworkId": "hw-spelling_test-a0d1d9f2",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Benchmark Advance Spelling Unit 9 Week 1 - word-radar",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Spelling accuracy with adjectival and adverbial endings"
-      ],
-      "targetConcepts": [
-        "Adjectives ending in -y",
-        "Adverbs ending in -ly",
-        "High-frequency words",
-        "Vowel recognition",
-        "Phonetic patterns"
-      ],
-      "targetWords": [
-        "behind",
+  "activityModel": {
+    "spell-check": {
+      "activityId": "spell-check",
+      "plays": 104,
+      "completions": 104,
+      "completionRate": 1,
+      "averageAccuracy": 1,
+      "averageTimePerTarget_ms": 4471.373,
+      "engagementScore": 0.992,
+      "frustrationScore": 0.1,
+      "likedCount": 104,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-17T19:19:59.420Z",
+      "domains": {
+        "spelling": 104
+      },
+      "missedWords": []
+    },
+    "word-radar": {
+      "activityId": "word-radar",
+      "plays": 70,
+      "completions": 70,
+      "completionRate": 1,
+      "averageAccuracy": 0.66,
+      "averageTimePerTarget_ms": 2082.957,
+      "engagementScore": 0.859,
+      "frustrationScore": 0.27,
+      "likedCount": 70,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-17T19:19:59.398Z",
+      "domains": {
+        "spelling": 70
+      },
+      "missedWords": [
         "slowly",
-        "shiny",
         "lucky",
-        "neatly",
-        "sunny",
-        "likely",
         "messy",
-        "quickly",
         "rainy",
         "friendly",
-        "able",
-        "carefully",
-        "common",
-        "easy",
-        "fact",
-        "remember",
-        "sure",
-        "vowel",
-        "whole"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "372270954ac7cebd"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Word radar warms up recognition for the spelling-list words."
+        "above"
+      ]
     },
-    {
-      "contentId": "hw-spelling_test-a0d1d9f2:n-spell-check-hw-spelling_test-a0d1d9f2",
-      "homeworkId": "hw-spelling_test-a0d1d9f2",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Benchmark Advance Spelling Unit 9 Week 1 - spell-check",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Spelling accuracy with adjectival and adverbial endings"
-      ],
-      "targetConcepts": [
-        "Adjectives ending in -y",
-        "Adverbs ending in -ly",
-        "High-frequency words",
-        "Vowel recognition",
-        "Phonetic patterns"
-      ],
-      "targetWords": [
-        "behind",
-        "slowly",
-        "shiny",
-        "lucky",
-        "neatly",
-        "sunny",
-        "likely",
-        "messy",
-        "quickly",
-        "rainy",
-        "friendly",
-        "able",
-        "carefully",
-        "common",
-        "easy",
-        "fact",
-        "remember",
-        "sure",
-        "vowel",
-        "whole"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "372270954ac7cebd"
+    "bubble-pop": {
+      "activityId": "bubble-pop",
+      "plays": 34,
+      "completions": 34,
+      "completionRate": 1,
+      "averageAccuracy": 0.82,
+      "averageTimePerTarget_ms": 5333,
+      "engagementScore": 0.85,
+      "frustrationScore": 0.1,
+      "likedCount": 34,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-17T19:19:59.493Z",
+      "domains": {
+        "attention": 34
       },
-      "reuseStatus": "candidate",
-      "reuseReason": "Spell-check captures spelling production attempts for diagnostics."
+      "missedWords": []
     },
-    {
-      "contentId": "hw-spelling_test-a0d1d9f2:n-wheel-hw-spelling_test-a0d1d9f2",
-      "homeworkId": "hw-spelling_test-a0d1d9f2",
-      "childId": "reina",
-      "type": "game",
-      "source": "baseline",
-      "title": "Benchmark Advance Spelling Unit 9 Week 1 - wheel-of-fortune",
-      "algorithmTargets": [
-        "retrieval-practice",
-        "activity-affinity",
-        "variable-reward"
-      ],
-      "targetSkills": [
-        "Spelling accuracy with adjectival and adverbial endings"
-      ],
-      "targetConcepts": [
-        "Adjectives ending in -y",
-        "Adverbs ending in -ly",
-        "High-frequency words",
-        "Vowel recognition",
-        "Phonetic patterns"
-      ],
-      "targetWords": [
-        "behind",
-        "slowly",
-        "shiny",
-        "lucky",
-        "neatly",
-        "sunny",
-        "likely",
-        "messy",
-        "quickly",
-        "rainy",
-        "friendly",
-        "able",
-        "carefully",
-        "common",
-        "easy",
-        "fact",
-        "remember",
-        "sure",
-        "vowel",
-        "whole"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "372270954ac7cebd"
+    "monster-stampede": {
+      "activityId": "monster-stampede",
+      "plays": 2,
+      "completions": 2,
+      "completionRate": 1,
+      "averageAccuracy": 1,
+      "averageTimePerTarget_ms": 10669.5,
+      "engagementScore": 1,
+      "frustrationScore": 0.1,
+      "likedCount": 2,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-14T23:48:19.598Z",
+      "domains": {
+        "spelling": 2
       },
-      "reuseStatus": "candidate",
-      "reuseReason": "Wheel of Fortune gives competitive retrieval practice with the same list."
+      "missedWords": []
     },
-    {
-      "contentId": "hw-reading-379a0afb:n-baseline-evaluator-hw-reading-379a0afb",
-      "homeworkId": "hw-reading-379a0afb",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-radar",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "d8ba4f0cdecd570c"
+    "pronunciation": {
+      "activityId": "pronunciation",
+      "plays": 2,
+      "completions": 2,
+      "completionRate": 1,
+      "averageAccuracy": 0.955,
+      "averageTimePerTarget_ms": 0,
+      "engagementScore": 1,
+      "frustrationScore": 0.1,
+      "likedCount": 2,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-14T23:54:29.162Z",
+      "domains": {
+        "spelling": 2
       },
-      "reuseStatus": "candidate",
-      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
+      "missedWords": []
     },
-    {
-      "contentId": "hw-reading-379a0afb:n-karaoke-hw-reading-379a0afb",
-      "homeworkId": "hw-reading-379a0afb",
-      "childId": "reina",
-      "type": "story",
-      "source": "generated",
-      "title": "Reina and the Hill That Changed",
-      "algorithmTargets": [
-        "reading-comprehension",
-        "retrieval-practice",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "Reina",
-        "stepped",
-        "into",
-        "the",
-        "muddy",
-        "training",
-        "valley",
-        "like",
-        "it",
-        "was",
-        "a",
-        "wrestling",
-        "mat",
-        "and",
-        "studied",
-        "the",
-        "first",
-        "move",
-        "A",
-        "storm",
-        "timer",
-        "started",
-        "and",
-        "water",
-        "rushed",
-        "downhill",
-        "pushed",
-        "soil",
-        "loose",
-        "and",
-        "carried",
-        "tiny",
-        "rocks",
-        "into",
-        "a",
-        "new",
-        "channel",
-        "Reina",
-        "called",
-        "the",
-        "pattern",
-        "erosion",
-        "land",
-        "slowly",
-        "changing",
-        "when",
-        "water",
-        "wind",
-        "and",
-        "gravity",
-        "keep",
-        "working",
-        "Her",
-        "mission",
-        "was",
-        "to",
-        "use",
-        "strategy",
-        "compare",
-        "faster",
-        "and",
-        "slower",
-        "water",
-        "and",
-        "beat",
-        "her",
-        "personal",
-        "best",
-        "by",
-        "explaining",
-        "why",
-        "the",
-        "landform",
-        "changed",
-        "Reina",
-        "also",
-        "spotted",
-        "the",
-        "review",
-        "words",
-        "erosion",
-        "wear",
-        "away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "and",
-        "used",
-        "them",
-        "as",
-        "clue",
-        "cards",
-        "for",
-        "the",
-        "next",
-        "challenge",
-        "At",
-        "the",
-        "finish",
-        "Reina",
-        "won",
-        "the",
-        "round",
-        "by",
-        "pointing",
-        "to",
-        "the",
-        "evidence",
-        "moved",
-        "soil",
-        "shifted",
-        "sand",
-        "and",
-        "a",
-        "hill",
-        "that",
-        "looked",
-        "different",
-        "than",
-        "before"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "d8ba4f0cdecd570c"
+    "wheel-of-fortune": {
+      "activityId": "wheel-of-fortune",
+      "plays": 4,
+      "completions": 2,
+      "completionRate": 0.5,
+      "averageAccuracy": 0.75,
+      "engagementScore": 0.775,
+      "frustrationScore": 0.1,
+      "likedCount": 4,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-14T23:56:34.179Z",
+      "domains": {
+        "general": 4
       },
-      "reuseStatus": "candidate",
-      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
+      "missedWords": []
     },
-    {
-      "contentId": "hw-reading-379a0afb:n-karaoke-hw-reading-379a0afb:image",
-      "homeworkId": "hw-reading-379a0afb",
-      "childId": "reina",
-      "type": "image",
-      "source": "generated",
-      "title": "Reina and the Hill That Changed illustration",
-      "algorithmTargets": [
-        "variable-reward",
-        "reading-comprehension",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "wear away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "rain",
-        "mountains",
-        "beaches",
-        "oceans",
-        "sand",
-        "compass rose",
-        "downhill"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "d8ba4f0cdecd570c"
+    "mystery": {
+      "activityId": "mystery",
+      "plays": 2,
+      "completions": 2,
+      "completionRate": 1,
+      "averageAccuracy": 1,
+      "averageTimePerTarget_ms": 58895,
+      "engagementScore": 0.95,
+      "frustrationScore": 0.1,
+      "likedCount": 2,
+      "dislikedCount": 0,
+      "lastRating": "like",
+      "lastPlayed": "2026-05-14T23:56:34.219Z",
+      "domains": {
+        "spelling": 2
       },
-      "reuseStatus": "candidate",
-      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
-    },
-    {
-      "contentId": "hw-reading-379a0afb:n-concept-builder-hw-reading-379a0afb",
-      "homeworkId": "hw-reading-379a0afb",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-builder",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "d8ba4f0cdecd570c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
-    },
-    {
-      "contentId": "hw-reading-379a0afb:n-exit-evaluator-hw-reading-379a0afb",
-      "homeworkId": "hw-reading-379a0afb",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-radar",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "d8ba4f0cdecd570c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
-    },
-    {
-      "contentId": "hw-reading-379a0afb:countdown-comprehension",
-      "homeworkId": "hw-reading-379a0afb",
-      "childId": "reina",
-      "type": "countdown",
-      "source": "prototype",
-      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
-      "algorithmTargets": [
-        "retrieval-practice",
-        "reading-comprehension",
-        "desirable-difficulty"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and map reading"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "What is Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "wear away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "rain",
-        "mountains",
-        "beaches",
-        "oceans",
-        "sand",
-        "compass rose",
-        "downhill"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "d8ba4f0cdecd570c"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
-    },
-    {
-      "contentId": "hw-reading-e3b0c442:n-baseline-evaluator-hw-reading-e3b0c442",
-      "homeworkId": "hw-reading-e3b0c442",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-radar",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and Earth's geological features"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "953591037e5f4eb4"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story."
-    },
-    {
-      "contentId": "hw-reading-e3b0c442:n-karaoke-hw-reading-e3b0c442",
-      "homeworkId": "hw-reading-e3b0c442",
-      "childId": "reina",
-      "type": "story",
-      "source": "generated",
-      "title": "Reina and the Hill That Changed",
-      "algorithmTargets": [
-        "reading-comprehension",
-        "retrieval-practice",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and Earth's geological features"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "Reina",
-        "stepped",
-        "into",
-        "the",
-        "muddy",
-        "training",
-        "valley",
-        "like",
-        "it",
-        "was",
-        "a",
-        "wrestling",
-        "mat",
-        "and",
-        "studied",
-        "the",
-        "first",
-        "move",
-        "A",
-        "storm",
-        "timer",
-        "started",
-        "and",
-        "water",
-        "rushed",
-        "downhill",
-        "pushed",
-        "soil",
-        "loose",
-        "and",
-        "carried",
-        "tiny",
-        "rocks",
-        "into",
-        "a",
-        "new",
-        "channel",
-        "Reina",
-        "called",
-        "the",
-        "pattern",
-        "erosion",
-        "land",
-        "slowly",
-        "changing",
-        "when",
-        "water",
-        "wind",
-        "and",
-        "gravity",
-        "keep",
-        "working",
-        "Her",
-        "mission",
-        "was",
-        "to",
-        "use",
-        "strategy",
-        "compare",
-        "faster",
-        "and",
-        "slower",
-        "water",
-        "and",
-        "beat",
-        "her",
-        "personal",
-        "best",
-        "by",
-        "explaining",
-        "why",
-        "the",
-        "landform",
-        "changed",
-        "Reina",
-        "also",
-        "spotted",
-        "the",
-        "review",
-        "words",
-        "faster",
-        "slowest",
-        "add",
-        "and",
-        "used",
-        "them",
-        "as",
-        "clue",
-        "cards",
-        "for",
-        "the",
-        "next",
-        "challenge",
-        "At",
-        "the",
-        "finish",
-        "Reina",
-        "won",
-        "the",
-        "round",
-        "by",
-        "pointing",
-        "to",
-        "the",
-        "evidence",
-        "moved",
-        "soil",
-        "shifted",
-        "sand",
-        "and",
-        "a",
-        "hill",
-        "that",
-        "looked",
-        "different",
-        "than",
-        "before"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "953591037e5f4eb4"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
-    },
-    {
-      "contentId": "hw-reading-e3b0c442:n-karaoke-hw-reading-e3b0c442:image",
-      "homeworkId": "hw-reading-e3b0c442",
-      "childId": "reina",
-      "type": "image",
-      "source": "generated",
-      "title": "Reina and the Hill That Changed illustration",
-      "algorithmTargets": [
-        "variable-reward",
-        "reading-comprehension",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and Earth's geological features"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "953591037e5f4eb4"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
-    },
-    {
-      "contentId": "hw-reading-e3b0c442:n-concept-builder-hw-reading-e3b0c442",
-      "homeworkId": "hw-reading-e3b0c442",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-builder",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and Earth's geological features"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "953591037e5f4eb4"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface."
-    },
-    {
-      "contentId": "hw-reading-e3b0c442:n-exit-evaluator-hw-reading-e3b0c442",
-      "homeworkId": "hw-reading-e3b0c442",
-      "childId": "reina",
-      "type": "quiz",
-      "source": "baseline",
-      "title": "Erosion and Earth's Surface Study Guide - word-radar",
-      "algorithmTargets": [
-        "spaced-repetition",
-        "retrieval-practice"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and Earth's geological features"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow",
-        "Treasure Map Practice",
-        "Quick Review"
-      ],
-      "targetWords": [
-        "erosion",
-        "Erosion",
-        "Beach Sand and Rocks",
-        "Reading a Map",
-        "How Rivers Flow"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "953591037e5f4eb4"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content."
-    },
-    {
-      "contentId": "hw-reading-e3b0c442:countdown-comprehension",
-      "homeworkId": "hw-reading-e3b0c442",
-      "childId": "reina",
-      "type": "countdown",
-      "source": "prototype",
-      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
-      "algorithmTargets": [
-        "retrieval-practice",
-        "reading-comprehension",
-        "desirable-difficulty"
-      ],
-      "targetSkills": [
-        "Understanding erosion processes and Earth's geography"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "Erosion definition and causes",
-        "Beach sand and rock formation",
-        "Reading maps and compass roses",
-        "River flow patterns",
-        "Treasure map practice",
-        "Map features and directions"
-      ],
-      "targetWords": [],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "e89e355be22e6fb2"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
-    },
-    {
-      "contentId": "hw-generic-e3b0c442:n-karaoke-hw-generic-e3b0c442",
-      "homeworkId": "hw-generic-e3b0c442",
-      "childId": "reina",
-      "type": "story",
-      "source": "generated",
-      "title": "Reina and the Hill That Changed",
-      "algorithmTargets": [
-        "reading-comprehension",
-        "retrieval-practice",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Reading comprehension and science concepts"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "Erosion definition and process",
-        "Beach sand and rock formation",
-        "Map reading skills",
-        "River flow patterns",
-        "Compass rose directions",
-        "Landform identification"
-      ],
-      "targetWords": [
-        "Reina",
-        "stepped",
-        "into",
-        "the",
-        "muddy",
-        "training",
-        "valley",
-        "like",
-        "it",
-        "was",
-        "a",
-        "wrestling",
-        "mat",
-        "and",
-        "studied",
-        "the",
-        "first",
-        "move",
-        "A",
-        "storm",
-        "timer",
-        "started",
-        "and",
-        "water",
-        "rushed",
-        "downhill",
-        "pushed",
-        "soil",
-        "loose",
-        "and",
-        "carried",
-        "tiny",
-        "rocks",
-        "into",
-        "a",
-        "new",
-        "channel",
-        "Reina",
-        "called",
-        "the",
-        "pattern",
-        "erosion",
-        "land",
-        "slowly",
-        "changing",
-        "when",
-        "water",
-        "wind",
-        "and",
-        "gravity",
-        "keep",
-        "working",
-        "Her",
-        "mission",
-        "was",
-        "to",
-        "use",
-        "strategy",
-        "compare",
-        "faster",
-        "and",
-        "slower",
-        "water",
-        "and",
-        "beat",
-        "her",
-        "personal",
-        "best",
-        "by",
-        "explaining",
-        "why",
-        "the",
-        "landform",
-        "changed",
-        "At",
-        "the",
-        "finish",
-        "Reina",
-        "won",
-        "the",
-        "round",
-        "by",
-        "pointing",
-        "to",
-        "the",
-        "evidence",
-        "moved",
-        "soil",
-        "shifted",
-        "sand",
-        "and",
-        "a",
-        "hill",
-        "that",
-        "looked",
-        "different",
-        "than",
-        "before"
-      ],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "6f51dee1567ac81a"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Build background knowledge for Erosion and Earth's Surface before practicing reading."
-    },
-    {
-      "contentId": "hw-generic-e3b0c442:n-karaoke-hw-generic-e3b0c442:image",
-      "homeworkId": "hw-generic-e3b0c442",
-      "childId": "reina",
-      "type": "image",
-      "source": "generated",
-      "title": "Reina and the Hill That Changed illustration",
-      "algorithmTargets": [
-        "variable-reward",
-        "reading-comprehension",
-        "activity-affinity"
-      ],
-      "targetSkills": [
-        "Reading comprehension and science concepts"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "Erosion definition and process",
-        "Beach sand and rock formation",
-        "Map reading skills",
-        "River flow patterns",
-        "Compass rose directions",
-        "Landform identification"
-      ],
-      "targetWords": [],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "6f51dee1567ac81a"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Story image finale generated as a visual reward tied to reading comprehension."
-    },
-    {
-      "contentId": "hw-generic-e3b0c442:countdown-comprehension",
-      "homeworkId": "hw-generic-e3b0c442",
-      "childId": "reina",
-      "type": "countdown",
-      "source": "prototype",
-      "title": "Erosion and Earth's Surface Study Guide - countdown-comprehension",
-      "algorithmTargets": [
-        "retrieval-practice",
-        "reading-comprehension",
-        "desirable-difficulty"
-      ],
-      "targetSkills": [
-        "Reading comprehension and science concepts"
-      ],
-      "targetConcepts": [
-        "erosion",
-        "landform",
-        "landforms",
-        "soil",
-        "rocks",
-        "water",
-        "wind",
-        "Erosion definition and process",
-        "Beach sand and rock formation",
-        "Map reading skills",
-        "River flow patterns",
-        "Compass rose directions",
-        "Landform identification"
-      ],
-      "targetWords": [],
-      "engagementHooks": [],
-      "inputEvidence": {
-        "contentFingerprint": "6f51dee1567ac81a"
-      },
-      "reuseStatus": "candidate",
-      "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
+      "missedWords": []
     }
-  ]
+  },
+  "adaptiveLoadState": {
+    "spelling": {
+      "domain": "spelling",
+      "currentCohortSize": 10,
+      "maxRecentSuccessfulCohort": 11,
+      "challengeRecommendation": "expand_cohort",
+      "lastLoadEvidence": {
+        "activityId": "spell-check",
+        "completed": true,
+        "accuracy": 1,
+        "targetCount": 5,
+        "frustrationScore": 0.1,
+        "strongEvidence": true,
+        "occurredAt": "2026-05-17T19:19:59.420Z"
+      }
+    },
+    "attention": {
+      "domain": "attention",
+      "currentCohortSize": 5,
+      "maxRecentSuccessfulCohort": 0,
+      "challengeRecommendation": "maintain",
+      "lastLoadEvidence": {
+        "activityId": "bubble-pop",
+        "completed": true,
+        "accuracy": 0.82,
+        "targetCount": 12,
+        "frustrationScore": 0.1,
+        "strongEvidence": false,
+        "occurredAt": "2026-05-17T19:19:59.493Z"
+      }
+    }
+  },
+  "plannerTrust": {
+    "approvedCount": 1,
+    "rejectedCount": 0,
+    "autoPlanThreshold": 5,
+    "autoPlanEnabled": false,
+    "lastDecision": {
+      "planId": "session_plan_reina_hw-spelling_test-adc128c0_b7d8c929e8",
+      "status": "approved",
+      "reviewer": "jamal",
+      "decidedAt": "2026-05-13T19:41:49.316Z"
+    }
+  },
+  "activityTraitModel": {
+    "novelty": {
+      "dimension": "novelty",
+      "positiveWeight": 3,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 4,
+      "confidence": 0.75,
+      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "activityCounts": {
+        "wheel-of-fortune": 4
+      }
+    },
+    "competition": {
+      "dimension": "competition",
+      "positiveWeight": 3.731,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 5,
+      "confidence": 0.746,
+      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "activityCounts": {
+        "wheel-of-fortune": 5
+      }
+    },
+    "control": {
+      "dimension": "control",
+      "positiveWeight": 3,
+      "negativeWeight": 0,
+      "mixedWeight": 0.533,
+      "evidenceCount": 5,
+      "confidence": 0.707,
+      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "activityCounts": {
+        "wheel-of-fortune": 4,
+        "word-radar": 1
+      }
+    },
+    "visual": {
+      "dimension": "visual",
+      "positiveWeight": 3,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 4,
+      "confidence": 0.75,
+      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "activityCounts": {
+        "wheel-of-fortune": 4
+      }
+    },
+    "help": {
+      "dimension": "help",
+      "positiveWeight": 0,
+      "negativeWeight": 3.825,
+      "mixedWeight": 0,
+      "evidenceCount": 5,
+      "confidence": 0.765,
+      "lastUpdated": "2026-05-14T23:57:23.248Z",
+      "activityCounts": {
+        "spell-check": 3,
+        "project-sunny-_-wheel-of-fortune": 2
+      }
+    },
+    "reading": {
+      "dimension": "reading",
+      "positiveWeight": 0,
+      "negativeWeight": 0.731,
+      "mixedWeight": 0,
+      "evidenceCount": 1,
+      "confidence": 0.731,
+      "lastUpdated": "2026-05-14T23:55:44.048Z",
+      "activityCounts": {
+        "pronunciation": 1
+      }
+    },
+    "calm": {
+      "dimension": "calm",
+      "positiveWeight": 0,
+      "negativeWeight": 0.765,
+      "mixedWeight": 0,
+      "evidenceCount": 1,
+      "confidence": 0.765,
+      "lastUpdated": "2026-05-14T23:56:45.214Z",
+      "activityCounts": {
+        "project-sunny-_-wheel-of-fortune": 1
+      }
+    }
+  },
+  "selectedHomeworkDomain": "spelling",
+  "tamagotchi": {
+    "hunger": 1,
+    "happiness": 0.8500000000000001,
+    "bond": 0.3,
+    "intellect": 0.7,
+    "lastSeenAt": "2026-05-14T23:56:48.889Z"
+  },
+  "chartLinks": {
+    "learningProfile": "learning_profile.json",
+    "wordBank": "word_bank.json",
+    "todayPlan": "todays_plan.json",
+    "currentCarePlan": "care_plan/current.json",
+    "currentHomework": "homework/current.json",
+    "homeworkLanes": "homework/lanes.json",
+    "currentSessionPlan": "plans/active_session_plan.json",
+    "sessionPlanLanes": "plans/session_plan_lanes.json",
+    "contentCatalog": "content_catalog.json",
+    "decisionTraces": "decision_traces/",
+    "homework": "homework/",
+    "attempts": "attempts/",
+    "ratings": "ratings/",
+    "vitals": "vitals/",
+    "sessionNotes": "session_notes/",
+    "companionCareDir": "companion_care/"
+  }
 }

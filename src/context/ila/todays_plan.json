@@ -1,33 +1,34 @@
 {
   "todaysPlan": [
     {
-      "activity": "Homework Reading – Erosion And Earth's Surface",
+      "activity": "Homework Spelling – Schwa Sounds And High-frequency Words",
       "priority": 1,
       "required": true,
-      "reason": "Active uploaded homework is \"Erosion and Earth's Surface Study Guide\", so today's required work must anchor on erosion, landform, soil, rocks before broader profile goals.",
-      "timeboxMinutes": 12,
+      "reason": "Active uploaded homework is \"Benchmark Advance Spelling Unit 9 Week 2\", so today's required work must anchor on Schwa sound (ə), Long vowel sounds (i, o, a), Antonyms, High-frequency vocabulary before broader profile goals.",
+      "timeboxMinutes": 8,
       "method": "Read the assignment-aligned content, ask evidence-based checks, then use profile motivators only as framing.",
       "source": "pendingHomework",
       "words": [
-        "erosion",
-        "wear away",
-        "rocks",
-        "soil",
-        "wind",
-        "water",
-        "ice",
-        "rivers",
-        "rain",
-        "mountains",
-        "beaches",
-        "oceans",
-        "sand",
-        "compass rose",
-        "North",
-        "South",
-        "East",
-        "West",
-        "downhill"
+        "above",
+        "ago",
+        "about",
+        "ahead",
+        "away",
+        "alone",
+        "alike",
+        "awake",
+        "along",
+        "again",
+        "ago",
+        "government",
+        "half",
+        "machine",
+        "pair",
+        "quickly",
+        "scientist",
+        "thousand",
+        "understood",
+        "wait"
       ],
       "probeSequence": [
         "Read or preview the assignment content",
@@ -35,108 +36,9 @@
         "Ask why it happened using text evidence",
         "Have the child explain the concept back"
       ]
-    },
-    {
-      "activity": "Homework Baseline Check",
-      "priority": 2,
-      "required": true,
-      "reason": "Check whether the child recognizes the core Erosion and Earth's Surface concepts before the teaching story.",
-      "timeboxMinutes": 5,
-      "method": "Measure: concept_recognition_accuracy; missed_concepts. Algorithm targets: retrieval-practice, reading-comprehension.",
-      "source": "pendingHomework:baseline-evaluator",
-      "words": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water"
-      ],
-      "probeSequence": [
-        "concept_recognition_accuracy",
-        "missed_concepts"
-      ]
-    },
-    {
-      "activity": "Homework Story Reading",
-      "priority": 3,
-      "required": true,
-      "reason": "Build background knowledge and engagement around Erosion and Earth's Surface.",
-      "timeboxMinutes": 12,
-      "method": "Measure: reading_completion; hesitations; flagged_words. Algorithm targets: reading-comprehension, activity-affinity.",
-      "source": "pendingHomework:story",
-      "words": [
-        "erosion",
-        "wear away",
-        "rocks"
-      ],
-      "probeSequence": [
-        "reading_completion",
-        "hesitations",
-        "flagged_words"
-      ]
-    },
-    {
-      "activity": "Homework Pronunciation Practice",
-      "priority": 4,
-      "required": true,
-      "reason": "Academic words must be speakable before they can be explained confidently.",
-      "timeboxMinutes": 6,
-      "method": "Measure: pronunciation_accuracy; hesitation. Algorithm targets: pronunciation, desirable-difficulty.",
-      "source": "pendingHomework:pronunciation",
-      "words": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water"
-      ],
-      "probeSequence": [
-        "pronunciation_accuracy",
-        "hesitation"
-      ]
-    },
-    {
-      "activity": "Homework Concept Builder",
-      "priority": 5,
-      "required": true,
-      "reason": "Require active construction of the academic vocabulary needed to explain Erosion and Earth's Surface.",
-      "timeboxMinutes": 8,
-      "method": "Measure: construction_accuracy; attempted_value. Algorithm targets: retrieval-practice, desirable-difficulty.",
-      "source": "pendingHomework:concept-builder",
-      "words": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water"
-      ],
-      "probeSequence": [
-        "construction_accuracy",
-        "attempted_value"
-      ]
-    },
-    {
-      "activity": "Homework Exit Check",
-      "priority": 6,
-      "required": true,
-      "reason": "Re-check Erosion and Earth's Surface concepts after intervention to decide whether to generate harder content.",
-      "timeboxMinutes": 5,
-      "method": "Measure: exit_accuracy; improvement_from_baseline. Algorithm targets: mastery-gating, retrieval-practice.",
-      "source": "pendingHomework:exit-evaluator",
-      "words": [
-        "erosion",
-        "landform",
-        "soil",
-        "rocks",
-        "water"
-      ],
-      "probeSequence": [
-        "exit_accuracy",
-        "improvement_from_baseline"
-      ]
     }
   ],
-  "childProfile": "Ila is an 8-year-old with ADHD combined type and dyslexia who learns best through visual-motor pathways and narrative context. Her CELF-5 profile shows 100% accuracy with pictures but only 37% without—visual support is not optional, it's essential for her success. She has a dramatic comprehension split: 64% on narrative (stories) vs 13% on expository (textbook) material, which makes tomorrow's science vocabulary test a direct challenge to her documented weakness. Her working memory is low (2nd percentile Following Directions) and auditory sentence recall collapses at longer lengths (5th percentile), so instructions must be broken into single steps with visual anchors. She engages enthusiastically with game-based formats (Word Builder, Spell-Check, Wheel of Fortune) but has actively avoided oral phoneme segmentation for 34+ consecutive days—this tells us metalinguistic drills trigger shutdown, while whole-word visual learning feels safe. She's kind, hard-working, and wants to please; recent sessions show emerging performance anxiety ('This gonna get mad at me') when errors occur under timed pressure. Sustained focus lasts 10-15 minutes before ADHD fatigue hits. She needs front-loaded priority work, frequent movement breaks, and error-neutral language that celebrates effort over accuracy.",
-  "stopAfter": "After the homework exit check shows the assignment concept is understood, or earlier if frustration is rising.",
-  "rewardPolicy": "Reward only after the homework care-plan sequence, not before the assignment is checked."
+  "childProfile": "Ila is an 8-year-old with ADHD (combined type) and dyslexia who learns best through visual-motor game formats with immediate feedback. She demonstrates 100% spelling accuracy in timed competitive games (Monster Stampede, Wheel of Fortune) but collapses in isolated letter-selection tasks (Spell-Check 7-47% accuracy with frustration). Her CELF-5 shows strengths in Sentence Comprehension (63rd percentile WITH pictures) but severe deficits in Following Directions (2nd percentile—cannot hold multi-step sequences), Recalling Sentences (5th percentile—auditory memory breakdown), and Word Structure (5th percentile—oral morphology errors on plurals, tenses, pronouns). She is highly motivated by competitive scoring, responds well to praise, and needs frequent movement breaks. Sustained attention ceiling is 10-15 minutes before cognitive load triggers frustration or shutdown. She avoids phoneme segmentation drills (52+ days of active avoidance) but engages with whole-word orthographic pattern instruction. Friendly, willing, and explicitly requests help when stuck ('Can I have a help?'), but anxiety about being wrong can trigger withdrawal ('She can't do it here'). Visual support is non-negotiable—performance drops from 100% with pictures to 37.5% without. Never assume she can decode new words phonetically; she relies on sight vocabulary and morphological pattern recognition.",
+  "stopAfter": "After the active homework check is complete, or earlier if frustration is rising.",
+  "rewardPolicy": "Reward only after the active homework is checked; broader review goals belong in review mode."
 }

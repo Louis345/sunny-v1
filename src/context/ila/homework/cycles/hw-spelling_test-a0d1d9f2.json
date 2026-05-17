@@ -1,0 +1,555 @@
+{
+  "homeworkId": "hw-spelling_test-a0d1d9f2",
+  "subject": "spelling_test",
+  "wordList": [
+    "shiny",
+    "slowly",
+    "lucky",
+    "neatly",
+    "sunny",
+    "likely",
+    "messy",
+    "quickly",
+    "rainy",
+    "friendly",
+    "able",
+    "behind",
+    "carefully",
+    "common",
+    "easy",
+    "fact",
+    "remember",
+    "sure",
+    "vowel",
+    "whole"
+  ],
+  "contentProfile": {
+    "practiceDomain": "spelling",
+    "contentDomain": "language_arts",
+    "topic": "Spelling patterns and high-frequency words",
+    "primarySkill": "Spelling words with -y and -ly endings; recognizing and spelling high-frequency words",
+    "assignmentFormat": "ABC Order alphabetization exercise",
+    "concepts": [
+      "Consonant-y word endings",
+      "Adverb -ly endings",
+      "High-frequency sight words",
+      "Alphabetical ordering"
+    ],
+    "sourceEvidence": [
+      "No explicit cross-domain topic detected.",
+      "Document title: 'Benchmark Advance Spelling Unit 9 Week 1'",
+      "Two distinct word category sections",
+      "ABC Order task on page 2"
+    ]
+  },
+  "capturedContent": {
+    "title": "Benchmark Advance Spelling Unit 9 Week 1",
+    "type": "spelling_test",
+    "rawText": "",
+    "words": [
+      "shiny",
+      "slowly",
+      "lucky",
+      "neatly",
+      "sunny",
+      "likely",
+      "messy",
+      "quickly",
+      "rainy",
+      "friendly",
+      "able",
+      "behind",
+      "carefully",
+      "common",
+      "easy",
+      "fact",
+      "remember",
+      "sure",
+      "vowel",
+      "whole"
+    ],
+    "homeworkWords": [
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:shiny:0",
+        "text": "shiny",
+        "normalizedText": "shiny",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 0
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:slowly:1",
+        "text": "slowly",
+        "normalizedText": "slowly",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 1
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:lucky:2",
+        "text": "lucky",
+        "normalizedText": "lucky",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 2
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:neatly:3",
+        "text": "neatly",
+        "normalizedText": "neatly",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 3
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:sunny:4",
+        "text": "sunny",
+        "normalizedText": "sunny",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 4
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:likely:5",
+        "text": "likely",
+        "normalizedText": "likely",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 5
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:messy:6",
+        "text": "messy",
+        "normalizedText": "messy",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 6
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:quickly:7",
+        "text": "quickly",
+        "normalizedText": "quickly",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 7
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:rainy:8",
+        "text": "rainy",
+        "normalizedText": "rainy",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 8
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_1:friendly:9",
+        "text": "friendly",
+        "normalizedText": "friendly",
+        "wordGroupId": "group_1",
+        "purpose": "spell_from_memory",
+        "positionIndex": 9
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:able:10",
+        "text": "able",
+        "normalizedText": "able",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 10
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:behind:11",
+        "text": "behind",
+        "normalizedText": "behind",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 11
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:carefully:12",
+        "text": "carefully",
+        "normalizedText": "carefully",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 12
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:common:13",
+        "text": "common",
+        "normalizedText": "common",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 13
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:easy:14",
+        "text": "easy",
+        "normalizedText": "easy",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 14
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:fact:15",
+        "text": "fact",
+        "normalizedText": "fact",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 15
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:remember:16",
+        "text": "remember",
+        "normalizedText": "remember",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 16
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:sure:17",
+        "text": "sure",
+        "normalizedText": "sure",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 17
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:vowel:18",
+        "text": "vowel",
+        "normalizedText": "vowel",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 18
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-1:group_2:whole:19",
+        "text": "whole",
+        "normalizedText": "whole",
+        "wordGroupId": "group_2",
+        "purpose": "spell_from_memory",
+        "positionIndex": 19
+      }
+    ],
+    "questions": [
+      {
+        "id": 1,
+        "question": "Alphabetize the following spelling words.",
+        "type": "written",
+        "options": null,
+        "correctAnswer": "able, behind, carefully, common, easy, fact, friendly, friendly, lucky, messy, neatly, quickly, rainy, remember, shiny, slowly, sunny, sure, vowel, whole",
+        "hint": "Use the ABC Order guide provided at the top of the page. Start with words beginning with 'a', then 'b', then 'c', and so on."
+      }
+    ],
+    "wordGroups": [
+      {
+        "id": "group_1",
+        "wordGroupId": "group_1",
+        "label": "Words with -y or -ly Endings",
+        "purpose": "spell_from_memory",
+        "words": [
+          "shiny",
+          "slowly",
+          "lucky",
+          "neatly",
+          "sunny",
+          "likely",
+          "messy",
+          "quickly",
+          "rainy",
+          "friendly"
+        ],
+        "homeworkWordIds": [
+          "benchmark-advance-spelling-unit-9-week-1:group_1:shiny:0",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:slowly:1",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:lucky:2",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:neatly:3",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:sunny:4",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:likely:5",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:messy:6",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:quickly:7",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:rainy:8",
+          "benchmark-advance-spelling-unit-9-week-1:group_1:friendly:9"
+        ],
+        "confidence": 0.95,
+        "evidence": [
+          "Left column explicitly labeled 'Words with -y or -ly Endings'",
+          "All 10 words listed contain -y or -ly suffixes"
+        ],
+        "scheduleAfter": "spelling_measured"
+      },
+      {
+        "id": "group_2",
+        "wordGroupId": "group_2",
+        "label": "High-Frequency Words",
+        "purpose": "spell_from_memory",
+        "words": [
+          "able",
+          "behind",
+          "carefully",
+          "common",
+          "easy",
+          "fact",
+          "remember",
+          "sure",
+          "vowel",
+          "whole"
+        ],
+        "homeworkWordIds": [
+          "benchmark-advance-spelling-unit-9-week-1:group_2:able:10",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:behind:11",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:carefully:12",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:common:13",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:easy:14",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:fact:15",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:remember:16",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:sure:17",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:vowel:18",
+          "benchmark-advance-spelling-unit-9-week-1:group_2:whole:19"
+        ],
+        "confidence": 0.95,
+        "evidence": [
+          "Right column explicitly labeled 'High-Frequency Words'",
+          "All 10 words listed are common sight words"
+        ],
+        "scheduleAfter": "spelling_measured"
+      }
+    ],
+    "assignmentInterpretation": {
+      "schemaVersion": 1,
+      "status": "ready",
+      "wordGroups": [
+        {
+          "id": "group_1",
+          "wordGroupId": "group_1",
+          "label": "Words with -y or -ly Endings",
+          "purpose": "spell_from_memory",
+          "words": [
+            "shiny",
+            "slowly",
+            "lucky",
+            "neatly",
+            "sunny",
+            "likely",
+            "messy",
+            "quickly",
+            "rainy",
+            "friendly"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-1:group_1:shiny:0",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:slowly:1",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:lucky:2",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:neatly:3",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:sunny:4",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:likely:5",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:messy:6",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:quickly:7",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:rainy:8",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:friendly:9"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Left column explicitly labeled 'Words with -y or -ly Endings'",
+            "All 10 words listed contain -y or -ly suffixes"
+          ],
+          "scheduleAfter": "spelling_measured"
+        },
+        {
+          "id": "group_2",
+          "wordGroupId": "group_2",
+          "label": "High-Frequency Words",
+          "purpose": "spell_from_memory",
+          "words": [
+            "able",
+            "behind",
+            "carefully",
+            "common",
+            "easy",
+            "fact",
+            "remember",
+            "sure",
+            "vowel",
+            "whole"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-1:group_2:able:10",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:behind:11",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:carefully:12",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:common:13",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:easy:14",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:fact:15",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:remember:16",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:sure:17",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:vowel:18",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:whole:19"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Right column explicitly labeled 'High-Frequency Words'",
+            "All 10 words listed are common sight words"
+          ],
+          "scheduleAfter": "spelling_measured"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "group_1-source-interpretation",
+          "claim": "Words with -y or -ly Endings should be treated as spell_from_memory.",
+          "confidence": 0.95,
+          "evidence": [
+            "Left column explicitly labeled 'Words with -y or -ly Endings'",
+            "All 10 words listed contain -y or -ly suffixes"
+          ]
+        },
+        {
+          "id": "group_2-source-interpretation",
+          "claim": "High-Frequency Words should be treated as spell_from_memory.",
+          "confidence": 0.95,
+          "evidence": [
+            "Right column explicitly labeled 'High-Frequency Words'",
+            "All 10 words listed are common sight words"
+          ]
+        }
+      ],
+      "selectedTargets": [
+        {
+          "id": "group_1",
+          "wordGroupId": "group_1",
+          "label": "Words with -y or -ly Endings",
+          "purpose": "spell_from_memory",
+          "words": [
+            "shiny",
+            "slowly",
+            "lucky",
+            "neatly",
+            "sunny",
+            "likely",
+            "messy",
+            "quickly",
+            "rainy",
+            "friendly"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-1:group_1:shiny:0",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:slowly:1",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:lucky:2",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:neatly:3",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:sunny:4",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:likely:5",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:messy:6",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:quickly:7",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:rainy:8",
+            "benchmark-advance-spelling-unit-9-week-1:group_1:friendly:9"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Left column explicitly labeled 'Words with -y or -ly Endings'",
+            "All 10 words listed contain -y or -ly suffixes"
+          ],
+          "scheduleAfter": "spelling_measured"
+        },
+        {
+          "id": "group_2",
+          "wordGroupId": "group_2",
+          "label": "High-Frequency Words",
+          "purpose": "spell_from_memory",
+          "words": [
+            "able",
+            "behind",
+            "carefully",
+            "common",
+            "easy",
+            "fact",
+            "remember",
+            "sure",
+            "vowel",
+            "whole"
+          ],
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-1:group_2:able:10",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:behind:11",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:carefully:12",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:common:13",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:easy:14",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:fact:15",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:remember:16",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:sure:17",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:vowel:18",
+            "benchmark-advance-spelling-unit-9-week-1:group_2:whole:19"
+          ],
+          "confidence": 0.95,
+          "evidence": [
+            "Right column explicitly labeled 'High-Frequency Words'",
+            "All 10 words listed are common sight words"
+          ],
+          "scheduleAfter": "spelling_measured"
+        }
+      ],
+      "heldTargets": [],
+      "clarificationQuestions": [],
+      "humanAnswers": [],
+      "memoryMatches": []
+    },
+    "sourceDocuments": [
+      {
+        "filename": "ila_spelling.pdf",
+        "mediaType": "application/pdf"
+      }
+    ],
+    "contentProfile": {
+      "practiceDomain": "spelling",
+      "contentDomain": "language_arts",
+      "topic": "Spelling patterns and high-frequency words",
+      "primarySkill": "Spelling words with -y and -ly endings; recognizing and spelling high-frequency words",
+      "assignmentFormat": "ABC Order alphabetization exercise",
+      "concepts": [
+        "Consonant-y word endings",
+        "Adverb -ly endings",
+        "High-frequency sight words",
+        "Alphabetical ordering"
+      ],
+      "sourceEvidence": [
+        "No explicit cross-domain topic detected.",
+        "Document title: 'Benchmark Advance Spelling Unit 9 Week 1'",
+        "Two distinct word category sections",
+        "ABC Order task on page 2"
+      ]
+    }
+  },
+  "contentFingerprint": "a6a988817e84da34",
+  "calibrationStatus": "unverified",
+  "ingestedAt": "2026-05-15",
+  "testDate": "2026-05-22",
+  "testDateSource": "human_confirmed",
+  "testDateConfirmed": true,
+  "returnTag": "#sunny_ila_hw_spelling_test_a0d1d9f2",
+  "assumptions": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: shiny, slowly, lucky, neatly, sunny\n\n## Intervention\nactive word production from memory\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet.",
+  "postAnalysis": null,
+  "scanResult": null,
+  "delta": null,
+  "metrics": null,
+  "theory": {
+    "theoryId": "hw-spelling_test-a0d1d9f2:pre_quest:2026-05-15T22:45:18.237Z",
+    "stage": "pre_quest",
+    "createdAt": "2026-05-15T22:45:18.237Z",
+    "hypothesis": "No confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.",
+    "predictedPattern": "content_fit_gap",
+    "predictedRiskWords": [
+      "shiny",
+      "slowly",
+      "lucky",
+      "neatly",
+      "sunny"
+    ],
+    "intervention": "active word production from memory",
+    "successCriteria": {
+      "minAccuracy": 0.8,
+      "minImprovement": 0.15
+    },
+    "evidence": [
+      "No confirmed diagnostic pattern yet."
+    ],
+    "status": "pending",
+    "markdown": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: shiny, slowly, lucky, neatly, sunny\n\n## Intervention\nactive word production from memory\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet."
+  }
+}
