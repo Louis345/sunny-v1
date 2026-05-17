@@ -9,11 +9,32 @@ import type { CompanionConfig } from "../shared/companionTypes";
 import { COMPANION_DEFAULTS, mergeCompanionPresetWithLearningProfile } from "../shared/companionTypes";
 import { resolveAttentionModel, type ResolvedAttentionModel } from "../engine/attentionModel";
 import { companionCareToView } from "../engine/companionCareEngine";
+import {
+  activeHomeworkByDomainView,
+  activeSessionPlanByDomainView,
+  selectedHomeworkDomain,
+} from "../engine/homeworkLanes";
 import type {
   CompanionCarePlan,
   CompanionCareView,
 } from "../shared/companionCareTypes";
 import { loadCompanionCarePlanForChart } from "./companionCarePlan";
+import { resolveChildContextDir } from "../utils/contextRoot";
+import {
+  defaultWaterfallLinks,
+  hydrateLearningProfileFromWaterfall,
+  readLatestDecisionTrace,
+  readWaterfallCarePlan,
+  readWaterfallContentCatalog,
+  readWaterfallHomework,
+  readWaterfallSessionPlan,
+  resolveWaterfallLinks,
+  type DecisionTraceEvent,
+  type WaterfallCarePlanFile,
+  type WaterfallContentCatalogFile,
+  type WaterfallHomeworkFile,
+  type WaterfallSessionPlanFile,
+} from "./chartWaterfall";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -35,9 +56,19 @@ export type ChildProfileManifest = {
 export type ChildChartLinks = {
   learningProfile: string;
   wordBank: string;
+  todayPlan: string;
+  currentCarePlan: string;
+  currentHomework: string;
+  homeworkLanes: string;
+  currentSessionPlan: string;
+  sessionPlanLanes: string;
+  contentCatalog: string;
+  decisionTraces: string;
   homework: string;
   attempts: string;
+  ratings: string;
   vitals: string;
+  sessionNotes: string;
   carePlans: string;
   companionCareDir: string;
 };
@@ -62,10 +93,54 @@ export type ChildChart = {
   };
   homework: {
     pending: LearningProfile["pendingHomework"] | null;
+    activeByDomain: NonNullable<LearningProfile["activeHomeworkByDomain"]>;
+    selectedDomain: LearningProfile["selectedHomeworkDomain"] | null;
     cyclesDir: string;
+    currentFile: string;
+    waterfall: WaterfallHomeworkFile;
   };
   plannerTrust: LearningProfile["plannerTrust"] | null;
   activeSessionPlan: LearningProfile["activeSessionPlan"] | null;
+  sessionPlan: {
+    filePath: string;
+    existed: boolean;
+    waterfall: WaterfallSessionPlanFile;
+  };
+  todayPlan: {
+    filePath: string;
+    existed: boolean;
+    data: unknown | null;
+  };
+  carePlan: {
+    filePath: string;
+    existed: boolean;
+    current: WaterfallCarePlanFile | null;
+  };
+  learningExperiments: LearningProfile["learningExperiments"];
+  contentCatalog: {
+    filePath: string;
+    items: WaterfallContentCatalogFile["items"];
+    summary: {
+      total: number;
+      reusable: number;
+      needsRevision: number;
+      retired: number;
+      candidates: number;
+    };
+  };
+  evidence: {
+    links: {
+      attempts: string;
+      ratings: string;
+      vitals: string;
+      sessionNotes: string;
+    };
+    latestAttentionVitals: unknown | null;
+  };
+  decisionTrace: {
+    dir: string;
+    latest: DecisionTraceEvent | null;
+  };
   attention: ResolvedAttentionModel;
   latestAttentionVitals: unknown | null;
   economy: {
@@ -100,7 +175,7 @@ function capitalize(value: string): string {
 }
 
 function contextDir(rootDir: string, childId: string): string {
-  return path.join(rootDir, "src", "context", childId);
+  return resolveChildContextDir(childId, { rootDir });
 }
 
 function resolveLinkedPath(baseDir: string, link: string): string {
@@ -122,13 +197,8 @@ function readChildrenConfigFromRoot(rootDir: string): ChildrenConfigFile | null 
 
 function defaultLinks(): ChildChartLinks {
   return {
-    learningProfile: "learning_profile.json",
-    wordBank: "word_bank.json",
-    homework: "homework/",
-    attempts: "attempts/",
-    vitals: "vitals/",
+    ...defaultWaterfallLinks(),
     carePlans: "care_plans/",
-    companionCareDir: "companion_care/",
   };
 }
 
@@ -220,13 +290,21 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
   };
 
   const relativeLinks = { ...defaultLinks(), ...(manifest.links ?? {}) };
-  const links = Object.fromEntries(
+  let links = Object.fromEntries(
     Object.entries(relativeLinks).map(([key, value]) => [
       key,
       resolveLinkedPath(baseDir, value),
     ]),
   ) as ChildChartLinks;
-  const learningProfile = readLearningProfileFromLink(childId, links);
+  const rawLearningProfile = readLearningProfileFromLink(childId, links);
+  links = {
+    ...links,
+    ...resolveWaterfallLinks(childId, {
+      ...relativeLinks,
+      ...(rawLearningProfile.chartLinks ?? {}),
+    }, { rootDir }),
+  } as ChildChartLinks;
+  const learningProfile = hydrateLearningProfileFromWaterfall(childId, rawLearningProfile, { rootDir });
   const wordBank = readWordBankFromLink(childId, links);
   const demographics: LearningProfile["demographics"] = {
     ...learningProfile.demographics,
@@ -263,6 +341,32 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     displayName: capitalize(presetId),
   };
   const today = new Date().toISOString().slice(0, 10);
+  const homeworkWaterfall = readWaterfallHomework(childId, learningProfile, { rootDir });
+  const sessionPlanWaterfall = readWaterfallSessionPlan(childId, learningProfile, { rootDir });
+  const carePlanWaterfall = readWaterfallCarePlan(childId, learningProfile, { rootDir });
+  const contentCatalogWaterfall = readWaterfallContentCatalog(childId, { rootDir });
+  const todayPlan = readJson<unknown>(links.todayPlan);
+  const latestDecisionTrace = readLatestDecisionTrace(childId, learningProfile, { rootDir });
+  const homeworkSelectedDomain = homeworkWaterfall.selectedDomain ?? selectedHomeworkDomain(learningProfile);
+  const homeworkActiveByDomain =
+    Object.keys(homeworkWaterfall.activeByDomain).length > 0
+      ? homeworkWaterfall.activeByDomain
+      : activeHomeworkByDomainView(learningProfile);
+  const selectedPendingHomework =
+    homeworkWaterfall.current ??
+    (homeworkSelectedDomain ? homeworkActiveByDomain[homeworkSelectedDomain] : undefined) ??
+    learningProfile.pendingHomework ??
+    null;
+  const activeSessionPlanByDomain =
+    Object.keys(sessionPlanWaterfall.activeByDomain).length > 0
+      ? sessionPlanWaterfall.activeByDomain
+      : activeSessionPlanByDomainView(learningProfile);
+  const selectedActiveSessionPlan =
+    sessionPlanWaterfall.current ??
+    (homeworkSelectedDomain ? activeSessionPlanByDomain[homeworkSelectedDomain] : undefined) ??
+    learningProfile.activeSessionPlan ??
+    null;
+  const catalogItems = contentCatalogWaterfall.items;
   const chartBase = {
     childId,
     rootDir,
@@ -282,11 +386,57 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
       dueWords: countDueWords(wordBank, today),
     },
     homework: {
-      pending: learningProfile.pendingHomework ?? null,
+      pending: selectedPendingHomework,
+      activeByDomain: homeworkActiveByDomain,
+      selectedDomain: homeworkSelectedDomain ?? null,
       cyclesDir: path.join(links.homework, "cycles"),
+      currentFile: links.currentHomework,
+      waterfall: homeworkWaterfall,
     },
     plannerTrust: learningProfile.plannerTrust ?? null,
-    activeSessionPlan: learningProfile.activeSessionPlan ?? null,
+    activeSessionPlan: selectedActiveSessionPlan,
+    sessionPlan: {
+      filePath: links.currentSessionPlan,
+      existed: fs.existsSync(links.currentSessionPlan),
+      waterfall: sessionPlanWaterfall,
+    },
+    todayPlan: {
+      filePath: links.todayPlan,
+      existed: todayPlan != null,
+      data: todayPlan,
+    },
+    carePlan: {
+      filePath: links.currentCarePlan,
+      existed: fs.existsSync(links.currentCarePlan),
+      current: carePlanWaterfall,
+    },
+    learningExperiments: carePlanWaterfall.learningExperiments.length
+      ? carePlanWaterfall.learningExperiments
+      : learningProfile.learningExperiments ?? selectedActiveSessionPlan?.learningExperiments ?? [],
+    contentCatalog: {
+      filePath: links.contentCatalog,
+      items: catalogItems,
+      summary: {
+        total: catalogItems.length,
+        reusable: catalogItems.filter((item) => item.reuseStatus === "reuse").length,
+        needsRevision: catalogItems.filter((item) => item.reuseStatus === "revise").length,
+        retired: catalogItems.filter((item) => item.reuseStatus === "retire").length,
+        candidates: catalogItems.filter((item) => item.reuseStatus === "candidate").length,
+      },
+    },
+    evidence: {
+      links: {
+        attempts: links.attempts,
+        ratings: links.ratings,
+        vitals: links.vitals,
+        sessionNotes: links.sessionNotes,
+      },
+      latestAttentionVitals: readLatestVitals(links.vitals),
+    },
+    decisionTrace: {
+      dir: links.decisionTraces,
+      latest: latestDecisionTrace,
+    },
     attention: resolveAttentionModel({ ...learningProfile, demographics }),
     latestAttentionVitals: readLatestVitals(links.vitals),
     economy: {

@@ -4,16 +4,29 @@ import type { LearningProfile } from "../context/schemas/learningProfile";
 import {
   getReadingCanvasPreferences as mergeReadingCanvasPreferences,
 } from "../shared/readingCanvasPreferences";
+import {
+  hydrateLearningProfileFromWaterfall,
+  slimLearningProfileForDoorway,
+  writeWaterfallContentCatalog,
+  writeWaterfallHomework,
+  writeWaterfallSessionPlan,
+} from "../profiles/chartWaterfall";
+import { resolveChildContextDir } from "./contextRoot";
 
-function resolveProfilePath(childId: string): string {
-  return path.resolve(process.cwd(), "src", "context", childId, "learning_profile.json");
+export type LearningProfileIOOptions = {
+  rootDir?: string;
+};
+
+export function resolveProfilePath(childId: string, opts: LearningProfileIOOptions = {}): string {
+  return path.join(resolveChildContextDir(childId, { rootDir: opts.rootDir }), "learning_profile.json");
 }
 
-export function readLearningProfile(childId: string): LearningProfile | null {
-  const filePath = resolveProfilePath(childId);
+export function readLearningProfile(childId: string, opts: LearningProfileIOOptions = {}): LearningProfile | null {
+  const filePath = resolveProfilePath(childId, opts);
   if (!fs.existsSync(filePath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as LearningProfile;
+    const profile = JSON.parse(fs.readFileSync(filePath, "utf-8")) as LearningProfile;
+    return hydrateLearningProfileFromWaterfall(childId, profile, opts);
   } catch {
     return null;
   }
@@ -31,7 +44,10 @@ export function writeLearningProfile(childId: string, profile: LearningProfile):
   const filePath = resolveProfilePath(childId);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   profile.lastUpdated = new Date().toISOString();
-  fs.writeFileSync(filePath, JSON.stringify(profile, null, 2), "utf-8");
+  writeWaterfallHomework(childId, profile);
+  writeWaterfallSessionPlan(childId, profile);
+  writeWaterfallContentCatalog(childId, profile);
+  fs.writeFileSync(filePath, JSON.stringify(slimLearningProfileForDoorway(profile), null, 2), "utf-8");
 }
 
 export function initializeLearningProfile(intake: {

@@ -3,6 +3,7 @@ import path from "path";
 import { shouldLoadPersistedHistory, shouldPersistSessionData } from "./runtimeMode";
 import type { ChildName } from "./childContextPaths";
 import type { ErrorSignal } from "../algorithms/types";
+import { resolveChildContextDir } from "./contextRoot";
 
 /** Append one worksheet attempt line after server-side validation (not in tool execute). */
 export async function appendWorksheetAttemptLine(input: {
@@ -43,14 +44,7 @@ export function appendAttemptLine(
   },
 ): void {
   if (!shouldPersistSessionData()) return;
-  const contextRoot =
-    process.env.SUNNY_CONTEXT_ROOT ??
-    path.resolve(process.cwd(), "src", "context");
-  const dir = path.resolve(
-    contextRoot,
-    String(childName).toLowerCase(),
-    "attempts",
-  );
+  const dir = path.join(resolveChildContextDir(String(childName)), "attempts");
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const today = new Date().toISOString().slice(0, 10);
   const file = path.join(dir, `${today}.ndjson`);

@@ -17,6 +17,12 @@ import { evaluateQuestThreshold } from "./error-signals/questThreshold";
 import { scanChildErrorPatterns } from "./error-signals/patternDetector";
 import { resolveAttentionModel, type ResolvedAttentionModel } from "./attentionModel";
 import { getChildChart, type ChildChart } from "../profiles/childChart";
+import {
+  appendDecisionTrace,
+  hydrateLearningProfileFromWaterfall,
+  slimLearningProfileForDoorway,
+} from "../profiles/chartWaterfall";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 type RootOptions = {
   rootDir?: string;
@@ -34,6 +40,7 @@ export type ActivityEvidence = {
   frustrationScore?: number;
   liked?: boolean | null;
   missedWords?: string[];
+  evidenceTier?: "practice" | "clean_recall" | "mastery_candidate" | "calibration_required";
   occurredAt?: string;
   contentId?: string;
 };
@@ -134,7 +141,7 @@ export type LearningDecisionContext = {
 };
 
 function contextDir(rootDir: string, childId: string): string {
-  return path.join(rootDir, "src", "context", childId);
+  return resolveChildContextDir(childId, { rootDir });
 }
 
 function profilePath(rootDir: string, childId: string): string {
@@ -172,7 +179,7 @@ function readProfile(rootDir: string, childId: string): LearningProfile {
   if (!profile) {
     throw new Error(`Learning profile not found for child: ${childId}`);
   }
-  return profile;
+  return hydrateLearningProfileFromWaterfall(childId, profile, { rootDir });
 }
 
 function readCycles(rootDir: string, childId: string): HomeworkCycle[] {
@@ -421,7 +428,7 @@ export function buildLearningDecisionContext(
   const profile = chart.learningProfile;
   const cycles = readCycles(rootDir, childId);
   const cycle = currentCycle(profile, cycles);
-  const pending = profile.pendingHomework;
+  const pending = chart.homework.pending;
   const patternResult = scanChildErrorPatterns(childId, { rootDir, now });
   const questThreshold = evaluateQuestThreshold({
     totalSessions: profile.sessionStats.totalSessions,
@@ -470,7 +477,7 @@ export function buildLearningDecisionContext(
       questThreshold,
       calibrationJournal,
     },
-    contentCatalog: contentCatalogBuckets(profile.aiContentCatalog),
+    contentCatalog: contentCatalogBuckets(chart.contentCatalog.items),
     algorithmFeeds: [
       { id: "spaced-repetition", status: "ready", summary: "Due words loaded from word_bank.json." },
       { id: "error-pattern-detector", status: patternResult.patterns.length ? "ready" : "empty", summary: `${patternResult.patterns.length} strong pattern(s).` },
@@ -601,7 +608,22 @@ export function appendChildActivityEvidence(
     adaptiveLoadState: updateAdaptiveLoadState(profile, evidence, opts),
     lastUpdated: isoNow(opts),
   };
-  writeJson(profilePath(rootDir, childId), next);
+  writeJson(profilePath(rootDir, childId), slimLearningProfileForDoorway(next));
+  appendDecisionTrace(childId, {
+    traceId: `trace-activity-${normalizedDomain(evidence.domain)}-${evidence.activityId}-${Date.parse(evidence.occurredAt ?? isoNow(opts)) || Date.now()}`,
+    eventType: "activity_evidence",
+    evidenceRead: [
+      `activity:${evidence.activityId}`,
+      `domain:${normalizedDomain(evidence.domain)}`,
+      ...(evidence.missedWords ?? []).map((word) => `missed:${word}`),
+    ],
+    changeSummary: `${evidence.activityId} updated activity model and adaptive load state.`,
+    reason: evidence.completed
+      ? `Completed with accuracy ${round(clamp01(evidence.accuracy, 0))}.`
+      : `Incomplete or weak performance with accuracy ${round(clamp01(evidence.accuracy, 0))}.`,
+    writesTo: [profilePath(rootDir, childId)],
+    createdAt: evidence.occurredAt ?? isoNow(opts),
+  }, opts);
   return next;
 }
 

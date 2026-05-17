@@ -1,15 +1,10 @@
 import fs from "fs";
 import path from "path";
 import type { NodeRating } from "../shared/adventureTypes";
+import { resolveChildContextDir } from "./contextRoot";
 
 function ratingsDir(childId: string): string {
-  return path.resolve(
-    process.cwd(),
-    "src",
-    "context",
-    childId.toLowerCase().trim(),
-    "ratings",
-  );
+  return path.join(resolveChildContextDir(childId), "ratings");
 }
 
 function sessionDateToFileDate(sessionDate: string): string {

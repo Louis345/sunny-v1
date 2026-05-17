@@ -4,9 +4,10 @@ import type { WordEntry, Domain, SM2Track } from "../algorithms/types";
 import type { WordBankFile } from "../context/schemas/wordBank";
 import { createEmptyWordBank, createFreshSM2Track } from "../context/schemas/wordBank";
 import { sunnyPreviewBlocksPersistence } from "./runtimeMode";
+import { resolveChildContextDir } from "./contextRoot";
 
 export function resolveWordBankPath(childId: string): string {
-  return path.resolve(process.cwd(), "src", "context", childId, "word_bank.json");
+  return path.join(resolveChildContextDir(childId), "word_bank.json");
 }
 
 export function readWordBank(childId: string): WordBankFile {

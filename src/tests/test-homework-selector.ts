@@ -5,7 +5,7 @@ import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { ensureFreshPendingHomework, hydratePendingHomeworkFromCycle } from "../scripts/homeworkSelector";
 import { normalizeContentProfile } from "../scripts/contentAwareHomeworkPlanner";
 import { initializeLearningProfile, readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
-import { writeWordBank } from "../utils/wordBankIO";
+import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 
 describe("homeworkSelector", () => {
   const childId = "selector-test";
@@ -100,6 +100,158 @@ describe("homeworkSelector", () => {
     expect(selected.homeworkId).toBe("hw-spelling_test-week");
     expect(readLearningProfile(childId)?.pendingHomework?.homeworkId).toBe("hw-spelling_test-week");
     expect(fs.existsSync(path.join(ctxDir, "homework", "cycles", "hw-reading-erosion.json"))).toBe(true);
+  });
+
+  it("keeps reading and spelling homework lanes isolated while switching domains", () => {
+    const profile = initializeLearningProfile({
+      childId,
+      age: 8,
+      grade: 2,
+      diagnoses: [],
+      learningGoals: [],
+    });
+    writeLearningProfile(childId, {
+      ...profile,
+      activeHomeworkByDomain: {
+        spelling: {
+          weekOf: "2026-05-02",
+          homeworkId: "hw-spelling_test-week",
+          testDate: "2026-05-20",
+          wordList: ["because", "friend"],
+          generatedAt: "2026-05-02T10:00:00.000Z",
+          completedAdventureNodeIds: ["n-word-radar-hw-spelling_test-week"],
+          nodes: [
+            {
+              id: "n-word-radar-hw-spelling_test-week",
+              type: "word-radar",
+              words: ["because", "friend"],
+              difficulty: 1,
+              gameFile: null,
+              storyFile: null,
+            },
+          ],
+        },
+      },
+      selectedHomeworkDomain: "spelling",
+      pendingHomework: {
+        weekOf: "2026-05-02",
+        homeworkId: "hw-spelling_test-week",
+        testDate: "2026-05-20",
+        wordList: ["because", "friend"],
+        generatedAt: "2026-05-02T10:00:00.000Z",
+        completedAdventureNodeIds: ["n-word-radar-hw-spelling_test-week"],
+        nodes: [
+          {
+            id: "n-word-radar-hw-spelling_test-week",
+            type: "word-radar",
+            words: ["because", "friend"],
+            difficulty: 1,
+            gameFile: null,
+            storyFile: null,
+          },
+        ],
+      },
+    });
+    writeWordBank(childId, {
+      childId,
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+      words: [
+        {
+          word: "because",
+          addedAt: "2026-05-01",
+          source: "homework",
+          homeworkPriority: true,
+          testDate: "2026-05-20",
+          homeworkTargets: {
+            spelling: {
+              homeworkId: "hw-spelling_test-week",
+              testDate: "2026-05-20",
+              priority: true,
+              purpose: "spell_from_memory",
+            },
+          },
+          tracks: {},
+        },
+      ],
+    });
+
+    writeCycle({
+      homeworkId: "hw-spelling_test-week",
+      subject: "spelling_test",
+      wordList: ["because", "friend"],
+      contentProfile: normalizeContentProfile({
+        title: "Spelling Words",
+        type: "spelling_test",
+        words: ["because", "friend"],
+        questions: [],
+        contentProfile: {
+          practiceDomain: "spelling",
+          contentDomain: "language_arts",
+          topic: "weekly spelling",
+          primarySkill: "spelling",
+          assignmentFormat: "word_list",
+          concepts: ["spelling"],
+        },
+      }),
+      capturedContent: null,
+      ingestedAt: "2026-05-02",
+      testDate: "2026-05-20",
+      assumptions: null,
+      postAnalysis: null,
+      scanResult: null,
+      delta: null,
+      metrics: null,
+    });
+
+    writeCycle({
+      homeworkId: "hw-reading-erosion",
+      subject: "reading",
+      wordList: ["erosion", "deposition"],
+      contentProfile: normalizeContentProfile({
+        title: "Erosion Study Guide",
+        type: "reading",
+        words: ["erosion", "deposition"],
+        questions: [],
+        contentProfile: {
+          practiceDomain: "reading",
+          contentDomain: "science",
+          topic: "erosion",
+          primarySkill: "reading_comprehension",
+          assignmentFormat: "study_guide",
+          concepts: ["erosion"],
+        },
+      }),
+      capturedContent: null,
+      ingestedAt: "2026-05-03",
+      testDate: "2026-05-09",
+      assumptions: null,
+      postAnalysis: null,
+      scanResult: null,
+      delta: null,
+      metrics: null,
+    });
+
+    const reading = hydratePendingHomeworkFromCycle(childId, { domain: "reading" });
+    expect(reading.homeworkId).toBe("hw-reading-erosion");
+    let updated = readLearningProfile(childId);
+    expect(updated?.selectedHomeworkDomain).toBe("reading");
+    expect(updated?.pendingHomework?.homeworkId).toBe("hw-reading-erosion");
+    expect(updated?.activeHomeworkByDomain?.reading?.homeworkId).toBe("hw-reading-erosion");
+    expect(updated?.activeHomeworkByDomain?.spelling?.homeworkId).toBe("hw-spelling_test-week");
+    expect(updated?.activeHomeworkByDomain?.spelling?.completedAdventureNodeIds).toEqual([
+      "n-word-radar-hw-spelling_test-week",
+    ]);
+    expect(readWordBank(childId).words.find((word) => word.word === "because")?.homeworkTargets?.spelling?.priority).toBe(true);
+
+    const spelling = ensureFreshPendingHomework(childId, { domain: "spelling" });
+    expect(spelling.homeworkId).toBe("hw-spelling_test-week");
+    updated = readLearningProfile(childId);
+    expect(updated?.selectedHomeworkDomain).toBe("spelling");
+    expect(updated?.pendingHomework?.completedAdventureNodeIds).toEqual([
+      "n-word-radar-hw-spelling_test-week",
+    ]);
+    expect(updated?.activeHomeworkByDomain?.reading?.homeworkId).toBe("hw-reading-erosion");
   });
 
   it("repairs a stale active spelling-test pointer whose nodes were pronunciation-only", () => {

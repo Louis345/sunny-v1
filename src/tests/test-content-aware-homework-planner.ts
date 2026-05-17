@@ -37,6 +37,77 @@ describe("content-aware homework planner", () => {
     expect(profile.primarySkill).toBe("comparative_and_superlative_adjectives");
   });
 
+  it("routes target groups from reusable source-purpose evidence instead of worksheet-specific branches", () => {
+    const interpretation = interpretHomeworkAssignment({
+      title: "Weekly Language Arts Practice",
+      type: "spelling_test",
+      words: ["careless", "kindness", "because", "through", "habitat", "adapt"],
+      questions: [],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "spelling and vocabulary",
+        primarySkill: "Spelling production plus vocabulary meaning",
+        assignmentFormat: "multi-section word list",
+        concepts: ["suffixes", "high-frequency words", "definitions"],
+        sourceEvidence: ["Worksheet has several labeled word sections."],
+      },
+      wordGroups: [
+        {
+          id: "suffix_words",
+          label: "Suffix Endings",
+          purpose: "unknown",
+          words: ["careless", "kindness"],
+          confidence: 0.45,
+          evidence: ["Section heading: Suffix Endings"],
+        },
+        {
+          id: "sight_words",
+          label: "High-Frequency Words",
+          purpose: "spell_from_memory",
+          words: ["because", "through"],
+          confidence: 0.95,
+          evidence: ["Section heading: High-Frequency Words"],
+        },
+        {
+          id: "vocabulary_words",
+          label: "Vocabulary Meanings",
+          purpose: "unknown",
+          words: ["habitat", "adapt"],
+          confidence: 0.5,
+          evidence: ["Directions say define each vocabulary word."],
+        },
+      ],
+    });
+
+    expect(interpretation.selectedTargets).toContainEqual(
+      expect.objectContaining({
+        id: "suffix_words",
+        purpose: "spell_from_memory",
+      }),
+    );
+    expect(interpretation.heldTargets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "sight_words",
+          purpose: "read_fluently",
+          scheduleAfter: "spelling_measured",
+        }),
+        expect.objectContaining({
+          id: "vocabulary_words",
+          purpose: "define",
+        }),
+      ]),
+    );
+    expect(interpretation.reviewRecommendations).toContainEqual(
+      expect.objectContaining({
+        id: "confirm-mixed-target-purposes",
+        severity: "confirm",
+        targetGroupIds: ["suffix_words", "sight_words", "vocabulary_words"],
+      }),
+    );
+  });
+
   it("captures source homework content for future dynamic AI nodes", () => {
     const contentProfile = normalizeContentProfile({
       title: "Erosion Study Guide",
@@ -488,8 +559,8 @@ describe("content-aware homework planner", () => {
     expect(agoOccurrences).toHaveLength(2);
     expect(agoOccurrences).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ wordGroupId: "schwa_words", purpose: "recognize" }),
-        expect.objectContaining({ wordGroupId: "high_frequency_words", purpose: "spell_from_memory" }),
+        expect.objectContaining({ wordGroupId: "schwa_words", purpose: "spell_from_memory" }),
+        expect.objectContaining({ wordGroupId: "high_frequency_words", purpose: "read_fluently" }),
       ]),
     );
     expect(new Set(agoOccurrences?.map((word) => word.homeworkWordId)).size).toBe(2);

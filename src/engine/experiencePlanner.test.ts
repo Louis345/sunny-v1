@@ -222,6 +222,14 @@ describe("AI psychologist experience planner", () => {
       kind: "quest",
       artifactStatus: "brief_only",
       validationRequired: true,
+      experimentId: expect.stringMatching(/^experiment-/),
+    });
+    expect(plan.generatedExperienceBriefs?.[0]?.experimentId).toContain(plan.planId);
+    expect(plan.learningExperiments?.[0]).toMatchObject({
+      experimentId: plan.generatedExperienceBriefs?.[0]?.experimentId,
+      status: "planned",
+      hypothesis: expect.stringMatching(/adaptive|spelling|session/i),
+      assignedActivityIds: expect.arrayContaining(["quest"]),
     });
     expect(plan.wordPlan.cohortSize).toBe(10);
     expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig?.recallMode)

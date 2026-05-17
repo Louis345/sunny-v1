@@ -123,6 +123,26 @@ const sessionStates = new Map<string, {
   wilsonStep: number;
 }>();
 
+function initializeSessionState(childId: string, mode: string, profile: LearningProfile, wilsonStep: number): void {
+  sessionStates.set(childId, {
+    rewardState: {
+      correctStreak: 0,
+      wordsThisSession: [],
+      bonusRoundFired: false,
+      streakRecord: profile.sessionStats?.streakRecord ?? 0,
+      totalCorrect: 0,
+      totalAttempts: 0,
+    },
+    attempts: [],
+    difficultySignals: [],
+    rewardsFired: [],
+    wordsRegressed: [],
+    startTime: Date.now(),
+    mode,
+    wilsonStep,
+  });
+}
+
 /** Mystery slug chosen at map session start — flushed to `learning_profile.lastMysteryGame` in `finalizeSession`. */
 const pendingMysteryGameSlugByChild = new Map<string, string>();
 
@@ -163,9 +183,18 @@ export function getHomeworkPriorityWords(childId: string, today: string): string
   return bank.words
     .filter(
       (w) =>
-        w.homeworkPriority === true &&
-        w.testDate != null &&
-        String(w.testDate) >= today,
+        (
+          (
+            w.homeworkTargets?.spelling?.priority === true &&
+            w.homeworkTargets.spelling.testDate != null &&
+            String(w.homeworkTargets.spelling.testDate) >= today
+          ) ||
+          (
+            w.homeworkPriority === true &&
+            w.testDate != null &&
+            String(w.testDate) >= today
+          )
+        ),
     )
     .map((w) => w.word);
 }
@@ -225,6 +254,7 @@ export function planSession(
   const homeworkFallback = options?.homeworkFallbackWords ?? [];
   const currentWilsonStep = profile.sessionStats?.currentWilsonStep || 1;
   const todayPlan = new Date().toISOString().slice(0, 10);
+  initializeSessionState(childId, mode, profile, currentWilsonStep);
 
   if (mode === "spelling" || mode === "homework") {
     const homeworkWords = getHomeworkPriorityWords(childId, todayPlan);
@@ -319,24 +349,6 @@ export function planSession(
     currentWilsonStep,
     externalNewWordCandidates: curriculumWords,
     homeworkFallbackWords: homeworkFallback,
-  });
-
-  sessionStates.set(childId, {
-    rewardState: {
-      correctStreak: 0,
-      wordsThisSession: [],
-      bonusRoundFired: false,
-      streakRecord: profile.sessionStats?.streakRecord ?? 0,
-      totalCorrect: 0,
-      totalAttempts: 0,
-    },
-    attempts: [],
-    difficultySignals: [],
-    rewardsFired: [],
-    wordsRegressed: [],
-    startTime: Date.now(),
-    mode,
-    wilsonStep: currentWilsonStep,
   });
 
   const bondContext: string = getBondContextInjection(profile.bondPatterns);

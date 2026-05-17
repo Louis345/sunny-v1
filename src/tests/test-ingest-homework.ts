@@ -9,6 +9,8 @@ import {
   buildHomeworkReturnTag,
   ensureQuestHtmlContract,
   finalizePlannedHomeworkNodes,
+  appendHomeworkIntakeHistory,
+  inferIngestDomainFromExtraction,
   listIngestChildIds,
   mergeNormalizedPlan,
   normalizeHomeworkType,
@@ -16,13 +18,21 @@ import {
   parseCliArgs,
   pickIncomingHomeworkFile,
   resolveIngestChildId,
+  resolveIngestHomeworkDomain,
   resolveIngestHomeworkFile,
+  reviewExperiencePlan,
   resolveIngestedTestDate,
   resolveHomeworkWordPurpose,
   resolveHomeworkTypeFromProfile,
   shouldGenerateBossNode,
 } from "../scripts/ingestHomework";
-import { buildCapturedHomeworkContent, normalizeContentProfile } from "../scripts/contentAwareHomeworkPlanner";
+import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
+import {
+  buildCapturedHomeworkContent,
+  interpretHomeworkAssignment,
+  normalizeContentProfile,
+} from "../scripts/contentAwareHomeworkPlanner";
+import { initializeLearningProfile } from "../utils/learningProfileIO";
 
 /** First `childProfiles` id from repo-root `children.config.json` (sorted for stability). */
 function sampleChildIdFromConfig(): string {
@@ -36,6 +46,73 @@ function sampleChildIdFromConfig(): string {
 }
 
 describe("ingestHomework", () => {
+  function sessionPlan(overrides: Partial<ActiveSessionPlan> = {}): ActiveSessionPlan {
+    return {
+      planId: "plan-review",
+      childId: "ila",
+      createdAt: "2026-05-15T12:00:00.000Z",
+      source: "ingest_human_loop",
+      activeHomeworkId: "hw-spelling",
+      domain: "spelling",
+      testDate: "2026-05-22",
+      wordPlan: {
+        cohortSize: 5,
+        orderStrategy: "homework_order",
+        words: ["shiny", "slowly", "lucky", "neatly", "sunny"].map((text) => ({
+          text,
+          purpose: "baseline",
+          reason: "homework",
+        })),
+      },
+      nodePlan: [
+        {
+          id: "n-word-radar",
+          type: "word-radar",
+          activityId: "word-radar",
+          targets: ["shiny", "slowly", "lucky", "neatly", "sunny"],
+          difficulty: 1,
+          source: "pending_homework",
+        },
+        {
+          id: "n-quest",
+          type: "quest",
+          activityId: "quest",
+          targets: ["shiny", "slowly", "lucky", "neatly", "sunny"],
+          difficulty: 2,
+          source: "chart_planner",
+          locked: true,
+        },
+        {
+          id: "n-boss",
+          type: "boss",
+          activityId: "boss",
+          targets: [],
+          difficulty: 3,
+          source: "chart_planner",
+          locked: true,
+        },
+      ],
+      variationPolicy: {
+        avoidExactPreviousNodeOrder: false,
+        avoidExactPreviousWordOrder: false,
+        seed: "seed",
+        previousCompletedNodeCount: 0,
+      },
+      companionPolicy: {
+        companionId: "elli",
+        displayName: "Elli",
+        openingLinePolicy: "context_start_short",
+        verbosity: "low",
+        maxMicroProbes: 1,
+      },
+      evidenceUsed: [{ id: "hw-spelling", type: "pending_homework", summary: "5 words" }],
+      openQuestions: [],
+      approvalStatus: "pending",
+      plannerConfidence: 0.9,
+      ...overrides,
+    };
+  }
+
   it("parseCliArgs accepts --testDate flag", () => {
     const childId = sampleChildIdFromConfig();
     expect(parseCliArgs([`--child=${childId}`, "--testDate=2026-05-03"])).toEqual({
@@ -44,6 +121,65 @@ describe("ingestHomework", () => {
       opus: false,
       pdfOverridePath: null,
     });
+  });
+
+  it("preserves high-frequency word groups as held recognition targets", () => {
+    const interpretation = interpretHomeworkAssignment({
+      title: "Benchmark Advance Spelling Unit 9 Week 1",
+      type: "spelling_test",
+      words: [
+        "shiny",
+        "slowly",
+        "lucky",
+        "neatly",
+        "sunny",
+        "able",
+        "behind",
+        "carefully",
+        "common",
+        "easy",
+      ],
+      questions: [],
+      contentProfile: {
+        practiceDomain: "spelling",
+        contentDomain: "language_arts",
+        topic: "Spelling patterns and high-frequency words",
+        primarySkill:
+          "Spelling words with -y and -ly endings; recognizing and spelling high-frequency words",
+        assignmentFormat: "ABC Order alphabetization exercise",
+        concepts: ["Suffix patterns", "High-frequency words"],
+        sourceEvidence: ["Two distinct word category sections"],
+      },
+      wordGroups: [
+        {
+          id: "group_1",
+          label: "Words with -y or -ly Endings",
+          purpose: "spell_from_memory",
+          words: ["shiny", "slowly", "lucky", "neatly", "sunny"],
+          confidence: 0.95,
+          evidence: ["Left column explicitly labeled 'Words with -y or -ly Endings'"],
+        },
+        {
+          id: "group_2",
+          label: "High-Frequency Words",
+          purpose: "spell_from_memory",
+          words: ["able", "behind", "carefully", "common", "easy"],
+          confidence: 0.95,
+          evidence: ["Right column explicitly labeled 'High-Frequency Words'"],
+        },
+      ],
+    });
+
+    expect(interpretation.selectedTargets.map((group) => group.label)).toEqual([
+      "Words with -y or -ly Endings",
+    ]);
+    expect(interpretation.heldTargets).toContainEqual(
+      expect.objectContaining({
+        label: "High-Frequency Words",
+        purpose: "read_fluently",
+        words: ["able", "behind", "carefully", "common", "easy"],
+      }),
+    );
   });
 
   it("parseCliArgs supports domain-specific intake without requiring child up front", () => {
@@ -129,6 +265,116 @@ describe("ingestHomework", () => {
     ).resolves.toBe("/tmp/override.pdf");
   });
 
+  it("resolves homework domain from the interactive menu", async () => {
+    await expect(
+      resolveIngestHomeworkDomain({
+        interactive: true,
+        ask: async () => "1",
+      }),
+    ).resolves.toBe("reading");
+
+    await expect(
+      resolveIngestHomeworkDomain({
+        interactive: true,
+        ask: async () => "not sure",
+      }),
+    ).resolves.toBeUndefined();
+
+    await expect(
+      resolveIngestHomeworkDomain({
+        homeworkDomain: "science",
+        interactive: true,
+        ask: async () => "1",
+      }),
+    ).resolves.toBe("science");
+  });
+
+  it("marks a rejected session plan as pending revision instead of throwing", async () => {
+    const plan = sessionPlan();
+    const reviewed = await reviewExperiencePlan("ila", plan, {
+      interactive: true,
+      ask: async () => "n",
+      reviewer: "parent",
+      recordReview: vi.fn() as never,
+    });
+
+    expect(reviewed.approvalStatus).toBe("rejected");
+    expect(reviewed.openQuestions).toContain("Parent rejected this session plan during homework ingestion.");
+  });
+
+  it("supports one parent revision pass with clearer node labels and constraints", async () => {
+    const initial = sessionPlan();
+    const revised = sessionPlan({
+      planId: "plan-review-revised",
+      wordPlan: {
+        cohortSize: 10,
+        orderStrategy: "homework_order",
+        words: Array.from({ length: 10 }, (_, index) => ({
+          text: `word${index}`,
+          purpose: "baseline",
+          reason: "parent requested 10 words",
+        })),
+      },
+      nodePlan: [
+        {
+          id: "n-pronunciation",
+          type: "pronunciation",
+          activityId: "pronunciation",
+          targets: Array.from({ length: 10 }, (_, index) => `word${index}`),
+          difficulty: 1,
+          source: "chart_planner",
+        },
+      ],
+    });
+    const answers = ["edit", "require pronunciation first, use 10 words", "y"];
+    const printed: string[] = [];
+    const reviewed = await reviewExperiencePlan("ila", initial, {
+      interactive: true,
+      ask: async () => answers.shift() ?? "y",
+      reviewer: "parent",
+      recordReview: vi.fn() as never,
+      revisePlan: async (_plan, note) => ({
+        ...revised,
+        parentNote: note,
+        openQuestions: [`Revision note: ${note}`],
+      }),
+      print: (line) => printed.push(line),
+    });
+
+    expect(reviewed.planId).toBe("plan-review-revised");
+    expect(reviewed.approvalStatus).toBe("approved");
+    expect(reviewed.parentNote).toBe("require pronunciation first, use 10 words");
+    expect(reviewed.nodePlan[0]?.type).toBe("pronunciation");
+    expect(reviewed.nodePlan[0]?.targets).toHaveLength(10);
+    expect(printed.join("\n")).toContain("quest(locked, 5 targets)");
+    expect(printed.join("\n")).toContain("boss(locked, mastery finale, 0 targets)");
+  });
+
+  it("resolves pasted homework paths from the interactive file menu", async () => {
+    await expect(
+      resolveIngestHomeworkFile({
+        pdfOverridePath: null,
+        incomingFiles: [],
+        interactive: true,
+        ask: async () => '"/Users/jamaltaylor/Downloads/5_11 reading  (1).pdf"',
+      }),
+    ).resolves.toBe("/Users/jamaltaylor/Downloads/5_11 reading  (1).pdf");
+
+    const files = ["/tmp/incoming/a.pdf"];
+    let call = 0;
+    await expect(
+      resolveIngestHomeworkFile({
+        pdfOverridePath: null,
+        incomingFiles: files,
+        interactive: true,
+        ask: async () => {
+          call += 1;
+          return call === 1 ? "2" : "/tmp/other reading.pdf";
+        },
+      }),
+    ).resolves.toBe("/tmp/other reading.pdf");
+  });
+
   it("lists configured ingest children without creator", () => {
     expect(listIngestChildIds()).toContain("ila");
     expect(listIngestChildIds()).toContain("reina");
@@ -164,6 +410,51 @@ describe("ingestHomework", () => {
         [],
       ),
     ).toBe("reading");
+  });
+
+  it("lets human intake domain override classifier domain and records the correction", () => {
+    const classifierDomain = inferIngestDomainFromExtraction({
+      type: "generic",
+      contentProfile: normalizeContentProfile({
+        title: "Able and Common Reading",
+        type: "generic",
+        words: ["able", "common"],
+        questions: [],
+        contentProfile: {
+          practiceDomain: "reading",
+          contentDomain: "language_arts",
+          topic: "high-frequency reading",
+          primarySkill: "reading fluency",
+          assignmentFormat: "word list",
+          concepts: ["high-frequency words"],
+        },
+      }),
+    });
+    const profile = initializeLearningProfile({
+      childId: "ila",
+      age: 7,
+      grade: 1,
+      diagnoses: [],
+      learningGoals: [],
+    });
+
+    const updated = appendHomeworkIntakeHistory({
+      profile,
+      source: "human_menu",
+      selectedDomain: "spelling",
+      classifierDomain,
+      homeworkId: "hw-reading-able-common",
+      title: "Able and Common Reading",
+    });
+
+    expect(classifierDomain).toBe("reading");
+    expect(updated.homeworkIntakeHistory?.[0]).toMatchObject({
+      source: "human_menu",
+      selectedDomain: "spelling",
+      classifierDomain: "reading",
+      homeworkId: "hw-reading-able-common",
+    });
+    expect(updated.homeworkIntakeHistory?.[0]?.note).toContain("Human-selected domain spelling");
   });
 
   it("preview command uses the current sunny:run path, not the removed homework preview script", () => {

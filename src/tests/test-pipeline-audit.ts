@@ -351,4 +351,84 @@ describe("ingest homework nodes + spelling word list", () => {
     expect(prompt).toContain("Do not address the parent or caregiver.");
     expect(prompt).not.toContain("Jamal");
   });
+
+  it("homework session start prompt uses active map context over raw pending node order", () => {
+    const prompt = buildHomeworkSessionStartPrompt({
+      childName: "Ila",
+      pendingHomework: {
+        homeworkId: "hw-spelling_test-current",
+        testDate: "2026-05-22",
+        contentProfile: {
+          topic: "Spelling patterns and high-frequency words",
+          primarySkill: "spelling recall",
+          practiceDomain: "spelling",
+          assignmentFormat: "spelling test",
+          concepts: ["suffixes"],
+        },
+        nodes: [{ type: "word-radar", words: ["shiny", "slowly"] }],
+      },
+      activeMapFirstNode: {
+        type: "pronunciation",
+        words: ["shiny", "slowly", "lucky", "neatly", "sunny"],
+      },
+    });
+
+    expect(prompt).toContain("First map node: pronunciation");
+    expect(prompt).toContain("First node words: shiny, slowly, lucky, neatly, sunny");
+    expect(prompt).not.toContain("First map node: word-radar");
+  });
+
+  it("homework session start prompt uses the real high-frequency pronunciation first node", () => {
+    const prompt = buildHomeworkSessionStartPrompt({
+      childName: "Ila",
+      pendingHomework: {
+        homeworkId: "hw-spelling_test-current",
+        testDate: "2026-05-22",
+        contentProfile: {
+          topic: "Schwa sounds and high-frequency words",
+          primarySkill: "spelling recall",
+          practiceDomain: "spelling",
+          assignmentFormat: "spelling test",
+          concepts: ["schwa", "high-frequency words"],
+        },
+        nodes: [
+          { type: "spell-check", words: ["above", "ago", "about"] },
+          { type: "pronunciation", words: ["ago", "government", "half"] },
+        ],
+      },
+      activeMapFirstNode: {
+        type: "pronunciation",
+        words: ["ago", "government", "half", "machine", "pair"],
+      },
+    });
+
+    expect(prompt).toContain("First map node: pronunciation");
+    expect(prompt).toContain("First node words: ago, government, half, machine, pair");
+    expect(prompt).not.toContain("First map node: spell-check");
+  });
+
+  it("homework session start prompt announces repaired spelling recall before scaffolded practice", () => {
+    const prompt = buildHomeworkSessionStartPrompt({
+      childName: "Ila",
+      pendingHomework: {
+        homeworkId: "hw-spelling_test-current",
+        testDate: "2026-05-22",
+        contentProfile: {
+          topic: "Schwa sounds",
+          primarySkill: "spelling recall",
+          practiceDomain: "spelling",
+          assignmentFormat: "spelling test",
+          concepts: ["schwa"],
+        },
+        nodes: [
+          { type: "word-radar", words: ["above", "ago"] },
+          { type: "spell-check", words: ["above", "ago", "about"] },
+        ],
+      },
+    });
+
+    expect(prompt).toContain("First map node: spell-check");
+    expect(prompt).toContain("First node words: above, ago, about");
+    expect(prompt).not.toContain("First map node: word-radar");
+  });
 });

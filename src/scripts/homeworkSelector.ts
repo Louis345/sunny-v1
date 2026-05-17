@@ -1,10 +1,17 @@
 import fs from "fs";
 import path from "path";
-import type { LearningProfile } from "../context/schemas/learningProfile";
+import type { HomeworkDomain, LearningProfile } from "../context/schemas/learningProfile";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
-import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
+import { readLearningProfile } from "../utils/learningProfileIO";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
+import {
+  getActiveHomeworkLane,
+  inferHomeworkDomainFromPending,
+  normalizeHomeworkDomain,
+  selectedHomeworkDomain,
+  writeActiveHomeworkLane,
+} from "../engine/homeworkLanes";
 import {
   buildHomeworkNodes,
   buildHomeworkReturnTag,
@@ -20,7 +27,7 @@ import {
   type HomeworkWordGroup,
 } from "./contentAwareHomeworkPlanner";
 
-export type HomeworkDomainFilter = "spelling" | "science" | "reading" | "math";
+export type HomeworkDomainFilter = HomeworkDomain;
 
 function cyclesDir(childId: string): string {
   return path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
@@ -65,6 +72,16 @@ function matchesDomain(cycle: HomeworkCycle, domain?: HomeworkDomainFilter): boo
     return practiceDomain === "reading";
   }
   return subject === domain || practiceDomain === domain || contentDomain === domain;
+}
+
+function domainForCycle(cycle: HomeworkCycle): HomeworkDomain {
+  return (
+    normalizeHomeworkDomain(cyclePracticeDomain(cycle)) ??
+    normalizeHomeworkDomain(cycleContentDomain(cycle)) ??
+    normalizeHomeworkDomain(cycle.subject) ??
+    (String(cycle.homeworkId ?? "").includes("spelling") ? "spelling" : undefined) ??
+    "reading"
+  );
 }
 
 function dueTime(cycle: HomeworkCycle): number {
@@ -188,11 +205,17 @@ function capturedContentForCycle(
   });
 }
 
-function updateHomeworkPriorityWords(childId: string, cycle: HomeworkCycle): void {
+function updateHomeworkPriorityWords(childId: string, cycle: HomeworkCycle, domain = domainForCycle(cycle)): void {
   const today = new Date().toISOString().slice(0, 10);
   const wordBank = readWordBank(childId);
   for (const entry of wordBank.words) {
-    entry.homeworkPriority = false;
+    if (entry.homeworkTargets?.[domain]) {
+      entry.homeworkTargets = { ...entry.homeworkTargets };
+      delete entry.homeworkTargets[domain];
+    }
+    if (domain === "spelling") {
+      entry.homeworkPriority = false;
+    }
   }
   for (const raw of cycle.wordList) {
     const word = String(raw ?? "").trim();
@@ -208,13 +231,28 @@ function updateHomeworkPriorityWords(childId: string, cycle: HomeworkCycle): voi
       };
       wordBank.words.push(entry);
     }
-    entry.homeworkPriority = true;
-    if (cycle.testDate) entry.testDate = cycle.testDate;
-    if (!entry.tracks.spelling) {
-      entry.tracks.spelling = createFreshSM2Track(today);
+    entry.homeworkTargets = {
+      ...(entry.homeworkTargets ?? {}),
+      [domain]: {
+        homeworkId: cycle.homeworkId,
+        testDate: cycle.testDate,
+        priority: true,
+        purpose: domain === "spelling" ? "spell_from_memory" : "read_fluently",
+        updatedAt: new Date().toISOString(),
+      },
+    };
+    if (domain === "spelling") {
+      entry.homeworkPriority = true;
+      if (cycle.testDate) entry.testDate = cycle.testDate;
+      entry.homeworkTargetPurpose = "spell_from_memory";
     }
-    if (entry.tracks.spelling.nextReviewDate > today) {
-      entry.tracks.spelling.nextReviewDate = today;
+    const trackDomain: "spelling" | "reading" | "math" = domain === "science" ? "reading" : domain;
+    if (!entry.tracks[trackDomain]) {
+      entry.tracks[trackDomain] = createFreshSM2Track(today);
+    }
+    const track = entry.tracks[trackDomain];
+    if (track && track.nextReviewDate > today) {
+      track.nextReviewDate = today;
     }
   }
   writeWordBank(childId, wordBank);
@@ -258,21 +296,23 @@ export function hydratePendingHomeworkFromCycle(
   if (!profile) {
     throw new Error(`Could not read learning_profile.json for child: ${childId}`);
   }
-  const pendingHomeworkId = String(profile.pendingHomework?.homeworkId ?? "").trim();
-  if (!opts.domain && pendingHomeworkId) {
+  const requestedDomain = normalizeHomeworkDomain(opts.domain) ?? selectedHomeworkDomain(profile);
+  const currentPending = getActiveHomeworkLane(profile, requestedDomain);
+  const pendingHomeworkId = String(currentPending?.homeworkId ?? "").trim();
+  if (!opts.domain && requestedDomain && currentPending && pendingHomeworkId) {
     const activeCycle = activeCycleForPending(readHomeworkCycles(childId), pendingHomeworkId);
     if (activeCycle && !isExpired(activeCycle)) {
       const pendingHomework = withCycleMetadata(
         childId,
-        profile.pendingHomework as NonNullable<LearningProfile["pendingHomework"]>,
+        currentPending,
         activeCycle,
       );
       if (
-        pendingHomework.returnTag !== profile.pendingHomework?.returnTag ||
-        pendingHomework.testDateSource !== profile.pendingHomework?.testDateSource ||
-        pendingHomework.testDateConfirmed !== profile.pendingHomework?.testDateConfirmed
+        pendingHomework.returnTag !== currentPending.returnTag ||
+        pendingHomework.testDateSource !== currentPending.testDateSource ||
+        pendingHomework.testDateConfirmed !== currentPending.testDateConfirmed
       ) {
-        writeLearningProfile(childId, { ...profile, pendingHomework });
+        writeActiveHomeworkLane(childId, requestedDomain, pendingHomework, { select: true });
       }
       console.log(
         `🎮 [homeworkSelector] keep-active ${activeCycle.homeworkId} (${activeCycle.subject})`,
@@ -289,11 +329,9 @@ export function hydratePendingHomeworkFromCycle(
     );
   }
   const pendingHomework = pendingHomeworkFromCycle(childId, cycle);
-  writeLearningProfile(childId, {
-    ...profile,
-    pendingHomework,
-  });
-  updateHomeworkPriorityWords(childId, cycle);
+  const cycleDomain = domainForCycle(cycle);
+  writeActiveHomeworkLane(childId, cycleDomain, pendingHomework, { select: true });
+  updateHomeworkPriorityWords(childId, cycle, cycleDomain);
   console.log(
     `🎮 [homeworkSelector] hydrate ${cycle.homeworkId} (${cycle.subject})`,
   );
@@ -309,13 +347,18 @@ export function ensureFreshPendingHomework(
     throw new Error(`Could not read learning_profile.json for child: ${childId}`);
   }
   const cycles = readHomeworkCycles(childId);
-  const pendingHomeworkId = String(profile.pendingHomework?.homeworkId ?? "").trim();
+  const requestedDomain =
+    normalizeHomeworkDomain(opts.domain) ??
+    selectedHomeworkDomain(profile) ??
+    inferHomeworkDomainFromPending(profile.pendingHomework);
+  const currentPending = getActiveHomeworkLane(profile, requestedDomain);
+  const pendingHomeworkId = String(currentPending?.homeworkId ?? "").trim();
   const activeCycle = activeCycleForPending(cycles, pendingHomeworkId);
-  const domainMismatch = activeCycle ? !matchesDomain(activeCycle, opts.domain) : Boolean(opts.domain);
+  const domainMismatch = activeCycle ? !matchesDomain(activeCycle, requestedDomain) : Boolean(requestedDomain);
   const stale = !activeCycle || isExpired(activeCycle) || domainMismatch;
 
-  if (!stale && profile.pendingHomework) {
-    const pendingHomework = withCycleMetadata(childId, profile.pendingHomework, activeCycle);
+  if (!stale && currentPending && requestedDomain) {
+    const pendingHomework = withCycleMetadata(childId, currentPending, activeCycle);
     const rebuilt = withCycleMetadata(
       childId,
       pendingHomeworkFromCycle(childId, activeCycle),
@@ -329,19 +372,21 @@ export function ensureFreshPendingHomework(
         reinforceWords: pendingHomework.reinforceWords,
         completedAdventureNodeIds: pendingHomework.completedAdventureNodeIds,
       };
-      writeLearningProfile(childId, { ...profile, pendingHomework: refreshed });
-      updateHomeworkPriorityWords(childId, activeCycle);
+      writeActiveHomeworkLane(childId, requestedDomain, refreshed, { select: true });
+      updateHomeworkPriorityWords(childId, activeCycle, requestedDomain);
       console.log(
         `🎮 [homeworkSelector] repaired-active ${activeCycle.homeworkId} (${activeCycle.subject})`,
       );
       return refreshed;
     }
     if (
-      pendingHomework.returnTag !== profile.pendingHomework.returnTag ||
-      pendingHomework.testDateSource !== profile.pendingHomework.testDateSource ||
-      pendingHomework.testDateConfirmed !== profile.pendingHomework.testDateConfirmed
+      pendingHomework.returnTag !== currentPending.returnTag ||
+      pendingHomework.testDateSource !== currentPending.testDateSource ||
+      pendingHomework.testDateConfirmed !== currentPending.testDateConfirmed
     ) {
-      writeLearningProfile(childId, { ...profile, pendingHomework });
+      writeActiveHomeworkLane(childId, requestedDomain, pendingHomework, { select: true });
+    } else if (profile.selectedHomeworkDomain !== requestedDomain || profile.pendingHomework?.homeworkId !== pendingHomework.homeworkId) {
+      writeActiveHomeworkLane(childId, requestedDomain, pendingHomework, { select: true });
     }
     console.log(
       `🎮 [homeworkSelector] fresh ${activeCycle.homeworkId} (${activeCycle.subject})`,
@@ -357,5 +402,7 @@ export function ensureFreshPendingHomework(
   console.log(
     `🎮 [homeworkSelector] refresh-active reason=${reason} current=${pendingHomeworkId || "none"}`,
   );
-  return hydratePendingHomeworkFromCycle(childId, opts);
+  return hydratePendingHomeworkFromCycle(childId, {
+    domain: requestedDomain ?? opts.domain,
+  });
 }

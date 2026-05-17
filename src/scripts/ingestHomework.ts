@@ -6,7 +6,7 @@ import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
-import type { ActiveSessionPlan, LearningProfile } from "../context/schemas/learningProfile";
+import type { ActiveSessionPlan, HomeworkDomain, LearningProfile } from "../context/schemas/learningProfile";
 import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
@@ -31,6 +31,7 @@ import {
   planPsychologistExperience,
   recordPlannerReview,
 } from "../engine/experiencePlanner";
+import { normalizeHomeworkDomain, withActiveHomeworkLane } from "../engine/homeworkLanes";
 import {
   buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
@@ -82,7 +83,7 @@ type ExtractionShape = {
 
 type PlannedNode = PlannedHomeworkNode;
 
-export type IngestHomeworkDomain = "spelling" | "reading" | "math" | "science";
+export type IngestHomeworkDomain = HomeworkDomain;
 
 type PromptFn = (prompt: string) => Promise<string> | string;
 
@@ -111,6 +112,77 @@ function normalizeIngestDomain(raw: string | null): IngestHomeworkDomain | undef
     throw new Error(`Invalid homework domain: ${raw}`);
   }
   return undefined;
+}
+
+export function inferIngestDomainFromExtraction(extracted: Pick<ExtractionShape, "type" | "contentProfile">): IngestHomeworkDomain {
+  return (
+    normalizeHomeworkDomain(extracted.contentProfile.practiceDomain) ??
+    normalizeHomeworkDomain(extracted.type) ??
+    normalizeHomeworkDomain(extracted.contentProfile.contentDomain) ??
+    "reading"
+  );
+}
+
+export function appendHomeworkIntakeHistory(args: {
+  profile: LearningProfile;
+  source: "human_menu" | "cli" | "classifier";
+  selectedDomain: HomeworkDomain;
+  classifierDomain: HomeworkDomain;
+  homeworkId: string;
+  title: string;
+}): LearningProfile {
+  const entry = {
+    decidedAt: new Date().toISOString(),
+    source: args.source,
+    selectedDomain: args.selectedDomain,
+    classifierDomain: args.classifierDomain,
+    homeworkId: args.homeworkId,
+    title: args.title,
+    note: args.selectedDomain === args.classifierDomain
+      ? "Domain accepted."
+      : `Human-selected domain ${args.selectedDomain} over classifier ${args.classifierDomain}.`,
+  };
+  return {
+    ...args.profile,
+    homeworkIntakeHistory: [
+      entry,
+      ...(args.profile.homeworkIntakeHistory ?? []),
+    ].slice(0, 50),
+  };
+}
+
+export async function resolveIngestHomeworkDomain(args: {
+  homeworkDomain?: IngestHomeworkDomain;
+  interactive: boolean;
+  ask?: PromptFn;
+}): Promise<IngestHomeworkDomain | undefined> {
+  if (args.homeworkDomain) return args.homeworkDomain;
+  if (!args.interactive) return undefined;
+  const ask = args.ask ?? promptForLine;
+  const answer = String(
+    await ask(
+      [
+        "What kind of homework is this?",
+        "1. reading",
+        "2. spelling",
+        "3. math",
+        "4. science",
+        "5. not sure / let Sunny classify",
+        "Domain: ",
+      ].join("\n"),
+    ),
+  ).trim().toLowerCase();
+  if (!answer || answer === "5" || answer === "not sure" || answer === "unsure") {
+    return undefined;
+  }
+  const byNumber: Record<string, IngestHomeworkDomain> = {
+    "1": "reading",
+    "2": "spelling",
+    "3": "math",
+    "4": "science",
+  };
+  if (byNumber[answer]) return byNumber[answer];
+  return normalizeIngestDomain(answer);
 }
 
 function wordRadarItemsFromWordList(wordList: string[]): NonNullable<PlannedNode["wordRadarItems"]> {
@@ -195,48 +267,125 @@ async function promptForSessionPlanNote(interactive: boolean): Promise<string | 
   return answer || undefined;
 }
 
-function printExperiencePlanReview(plan: ActiveSessionPlan): void {
-  console.log("");
-  console.log("🧠 AI psychologist experience plan");
-  console.log(`  🎮 [experience-planner] [plan] id=${plan.planId} status=${plan.approvalStatus ?? "pending"} confidence=${plan.plannerConfidence ?? "unknown"}`);
-  console.log(`  Theory: ${plan.planTheory?.hypothesis ?? "No theory recorded."}`);
-  console.log(`  Nodes: ${plan.nodePlan.map((node) => `${node.type}(${node.targets.length})`).join(" → ")}`);
+function nodeReviewLabel(node: ActiveSessionPlan["nodePlan"][number]): string {
+  if (node.type === "mystery") {
+    return `mystery(${node.choiceMode ?? "choice-lab"}, ${node.targets.length} targets)`;
+  }
+  if (node.type === "quest") {
+    return `quest(${node.locked ? "locked, " : ""}${node.targets.length} targets)`;
+  }
+  if (node.type === "boss") {
+    return `boss(${node.locked ? "locked, " : ""}mastery finale, ${node.targets.length} targets)`;
+  }
+  return `${node.type}(${node.targets.length} targets)`;
+}
+
+function printExperiencePlanReview(
+  plan: ActiveSessionPlan,
+  print: (line: string) => void = console.log,
+): void {
+  print("");
+  print("🧠 AI psychologist experience plan");
+  print(`  🎮 [experience-planner] [plan] id=${plan.planId} status=${plan.approvalStatus ?? "pending"} confidence=${plan.plannerConfidence ?? "unknown"}`);
+  print(`  Theory: ${plan.planTheory?.hypothesis ?? "No theory recorded."}`);
+  print(`  Nodes: ${plan.nodePlan.map(nodeReviewLabel).join(" → ")}`);
   if (plan.generatedExperienceBriefs?.length) {
     for (const brief of plan.generatedExperienceBriefs) {
-      console.log(
+      print(
         `  Brief: ${brief.kind} "${brief.title}" status=${brief.artifactStatus} validation=${brief.validationRequired ? "required" : "not-required"}`,
       );
     }
   }
-  console.log("");
+  print("");
 }
 
-async function reviewExperiencePlan(
+export async function reviewExperiencePlan(
   childId: string,
   plan: ActiveSessionPlan,
-  interactive: boolean,
+  options: boolean | {
+    interactive: boolean;
+    ask?: PromptFn;
+    reviewer?: string;
+    print?: (line: string) => void;
+    recordReview?: typeof recordPlannerReview;
+    revisePlan?: (plan: ActiveSessionPlan, note: string) => Promise<ActiveSessionPlan> | ActiveSessionPlan;
+  },
 ): Promise<ActiveSessionPlan> {
-  printExperiencePlanReview(plan);
-  if (!interactive || plan.approvalStatus === "auto_approved") {
+  const opts = typeof options === "boolean" ? { interactive: options } : options;
+  const ask = opts.ask ?? promptForLine;
+  const print = opts.print ?? console.log;
+  const recordReview = opts.recordReview ?? recordPlannerReview;
+  const reviewer = opts.reviewer ?? process.env.SUNNY_REVIEWER?.trim() ?? "parent";
+  printExperiencePlanReview(plan, print);
+  if (!opts.interactive || plan.approvalStatus === "auto_approved") {
     return plan;
   }
   const answer = String(
-    await promptForLine("Approve this AI session plan for the next child session? [Y/n] "),
+    await ask("Approve this AI session plan for the next child session? [Y/n/edit] "),
   ).trim().toLowerCase();
-  if (answer === "n" || answer === "no") {
-    recordPlannerReview(childId, {
+  if (answer === "edit" || answer === "e" || answer === "revise" || answer === "r") {
+    const note = String(await ask("What should Sunny change? ")).trim();
+    if (note && opts.revisePlan) {
+      const revised = await opts.revisePlan(plan, note);
+      printExperiencePlanReview(revised, print);
+      const revisedAnswer = String(
+        await ask("Approve revised AI session plan for the next child session? [Y/n] "),
+      ).trim().toLowerCase();
+      if (revisedAnswer !== "n" && revisedAnswer !== "no") {
+        recordReview(childId, {
+          planId: revised.planId,
+          status: "approved",
+          reviewer,
+          decidedAt: new Date().toISOString(),
+          notes: `Approved after revision: ${note}`,
+        });
+        return {
+          ...revised,
+          parentNote: note,
+          approvalStatus: "approved",
+        };
+      }
+      recordReview(childId, {
+        planId: revised.planId,
+        status: "rejected",
+        reviewer,
+        decidedAt: new Date().toISOString(),
+        notes: `Rejected revised plan: ${note}`,
+      });
+      return {
+        ...revised,
+        parentNote: note,
+        approvalStatus: "rejected",
+        openQuestions: [
+          ...revised.openQuestions,
+          "Parent rejected this revised session plan during homework ingestion.",
+        ],
+      };
+    }
+  }
+  if (answer === "n" || answer === "no" || answer === "edit" || answer === "e" || answer === "revise" || answer === "r") {
+    recordReview(childId, {
       planId: plan.planId,
       status: "rejected",
-      reviewer: process.env.SUNNY_REVIEWER?.trim() || "parent",
+      reviewer,
       decidedAt: new Date().toISOString(),
-      notes: "Rejected during homework ingestion.",
+      notes: answer.startsWith("e") || answer.startsWith("r")
+        ? "Revision requested during homework ingestion but no revised plan was available."
+        : "Rejected during homework ingestion.",
     });
-    throw new Error("experience_plan_rejected: rerun ingestion with a parent note or adjust the chart evidence");
+    return {
+      ...plan,
+      approvalStatus: "rejected",
+      openQuestions: [
+        ...plan.openQuestions,
+        "Parent rejected this session plan during homework ingestion.",
+      ],
+    };
   }
-  recordPlannerReview(childId, {
+  recordReview(childId, {
     planId: plan.planId,
     status: "approved",
-    reviewer: process.env.SUNNY_REVIEWER?.trim() || "parent",
+    reviewer,
     decidedAt: new Date().toISOString(),
   });
   return {
@@ -794,22 +943,45 @@ export async function resolveIngestHomeworkFile(args: {
   if (args.pdfOverridePath) return args.pdfOverridePath;
   const candidates = args.incomingFiles.filter((file) => /\.(pdf|txt)$/i.test(file));
   const picked = pickIncomingHomeworkFile(candidates);
-  if (!picked || !args.interactive || candidates.length <= 1) return picked;
+  if (!args.interactive) return picked;
 
-  const choices = candidates.map((file, index) => `${index + 1}. ${path.basename(file)}`).join("\n");
-  const defaultIndex = candidates.indexOf(picked) + 1;
   const ask = args.ask ?? promptForLine;
+  if (candidates.length === 0) {
+    const answer = String(
+      await ask("Paste homework PDF/TXT path, or press Enter to cancel: "),
+    ).trim();
+    return normalizeEnteredHomeworkPath(answer);
+  }
+
+  const choices = [
+    ...candidates.map((file, index) => `${index + 1}. ${path.basename(file)}`),
+    `${candidates.length + 1}. Paste another path`,
+  ].join("\n");
+  const defaultFile = picked ?? candidates[0]!;
+  const defaultIndex = candidates.indexOf(defaultFile) + 1;
   const answer = String(
     await ask(`Which homework file should I ingest? Press Enter for ${defaultIndex}.\n${choices}\nFile: `),
   ).trim();
-  if (!answer) return picked;
+  if (!answer) return defaultFile;
   const asNumber = Number(answer);
   if (Number.isInteger(asNumber) && asNumber >= 1 && asNumber <= candidates.length) {
     return candidates[asNumber - 1]!;
   }
+  if (Number.isInteger(asNumber) && asNumber === candidates.length + 1) {
+    const manual = String(await ask("Paste homework PDF/TXT path: ")).trim();
+    return normalizeEnteredHomeworkPath(manual);
+  }
   const match = candidates.find((file) => path.basename(file).toLowerCase() === answer.toLowerCase());
   if (match) return match;
+  const manualPath = normalizeEnteredHomeworkPath(answer);
+  if (manualPath) return manualPath;
   throw new Error(`Unknown homework file "${answer}".`);
+}
+
+function normalizeEnteredHomeworkPath(raw: string): string | null {
+  const trimmed = raw.trim().replace(/^['"]|['"]$/g, "");
+  if (!trimmed) return null;
+  return path.resolve(process.cwd(), trimmed);
 }
 
 function readLastNSessionNotes(childId: string, n: number): string[] {
@@ -1106,11 +1278,15 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     childId: cliChildId,
     testDate: cliTestDate,
     pdfOverridePath,
-    homeworkDomain,
+    homeworkDomain: cliHomeworkDomain,
   } = parseCliArgs(argv);
   const interactive = Boolean(
     input.isTTY && output.isTTY && process.env.SUNNY_NON_INTERACTIVE !== "true",
   );
+  const homeworkDomain = await resolveIngestHomeworkDomain({
+    homeworkDomain: cliHomeworkDomain,
+    interactive,
+  });
   const childId = await resolveIngestChildId({
     childId: cliChildId,
     childIds: listIngestChildIds(),
@@ -1149,6 +1325,13 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     incomingFile,
     existingProfileDoc?.homeworkInterpretationMemory ?? [],
   );
+  const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
+  const selectedHomeworkDomain = homeworkDomain ?? classifierHomeworkDomain;
+  const intakeDecisionSource: "human_menu" | "cli" | "classifier" = cliHomeworkDomain
+    ? "cli"
+    : homeworkDomain
+      ? "human_menu"
+      : "classifier";
   const resolvedTestDate = await resolveIngestedTestDate({
     cliTestDate,
     extractedTestDate: extracted.testDate,
@@ -1162,6 +1345,9 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
       ? extracted.words.join(", ")
       : `${extracted.words.slice(0, 5).join(", ")}... (${extracted.words.length} words)`;
   console.log(`✅ Found: ${extracted.title}`);
+  console.log(
+    `   Domain: ${selectedHomeworkDomain} (classifier=${classifierHomeworkDomain}, source=${intakeDecisionSource})`,
+  );
   console.log(`   Words: ${wordsLine}`);
   console.log(
     `   Test date: ${testDate} (${daysUntilTest} days away, source=${testDateSource}, confirmed=${testDateConfirmed})`,
@@ -1191,10 +1377,16 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   console.log("");
   console.log("📦 Step 2/4: Seeding word bank and creating cycle record...");
 
+  const homeworkId = generateHomeworkId(extracted.type, extracted.words);
   const wordBank = readWordBank(childId);
-  // Only the current ingest batch should win getHomeworkPriorityWords(); clear stale flags first.
   for (const entry of wordBank.words) {
-    entry.homeworkPriority = false;
+    if (entry.homeworkTargets?.[selectedHomeworkDomain]) {
+      entry.homeworkTargets = { ...entry.homeworkTargets };
+      delete entry.homeworkTargets[selectedHomeworkDomain];
+    }
+    if (selectedHomeworkDomain === "spelling") {
+      entry.homeworkPriority = false;
+    }
   }
   const groups = extracted.capturedContent.assignmentInterpretation?.wordGroups ?? [];
   const groupForWord = (word: string) => groups.find((group) =>
@@ -1216,17 +1408,31 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
       };
       wordBank.words.push(entry);
     }
-    entry.homeworkPriority = purpose === "spell_from_memory";
-    entry.testDate = testDate;
-    entry.homeworkTargetPurpose = purpose;
-    entry.homeworkSourceGroup = sourceGroup?.label;
-    if (purpose === "spell_from_memory" && !entry.tracks.spelling) {
+    const isSpellingTarget = selectedHomeworkDomain === "spelling" && purpose === "spell_from_memory";
+    entry.homeworkTargets = {
+      ...(entry.homeworkTargets ?? {}),
+      [selectedHomeworkDomain]: {
+        homeworkId,
+        testDate,
+        priority: true,
+        purpose,
+        sourceGroup: sourceGroup?.label,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+    if (selectedHomeworkDomain === "spelling") {
+      entry.homeworkPriority = isSpellingTarget;
+      entry.testDate = testDate;
+      entry.homeworkTargetPurpose = purpose;
+      entry.homeworkSourceGroup = sourceGroup?.label;
+    }
+    if (isSpellingTarget && !entry.tracks.spelling) {
       entry.tracks.spelling = createFreshSM2Track(today);
     }
-    if (purpose !== "spell_from_memory" && purpose !== "unknown" && !entry.tracks.reading) {
+    if (!isSpellingTarget && purpose !== "unknown" && !entry.tracks.reading) {
       entry.tracks.reading = createFreshSM2Track(today);
     }
-    const st = purpose === "spell_from_memory"
+    const st = isSpellingTarget
       ? entry.tracks.spelling
       : purpose === "unknown"
         ? undefined
@@ -1240,7 +1446,6 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     `📝 Seeded ${extracted.words.length} words with homework priority → word_bank.json`,
   );
 
-  const homeworkId = generateHomeworkId(extracted.type, extracted.words);
   const returnTag = buildHomeworkReturnTag(childId, homeworkId);
   const cyclesDir = path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
   fs.mkdirSync(cyclesDir, { recursive: true });
@@ -1320,7 +1525,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     contentProfile: extracted.contentProfile,
   });
 
-  profileDoc.pendingHomework = buildPendingHomeworkPayload({
+  const pendingHomework = buildPendingHomeworkPayload({
     weekOf: today,
     testDate,
     testDateSource,
@@ -1332,6 +1537,19 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     homeworkId,
     nodes: homeworkNodes,
   });
+  const profileWithHomeworkLane = withActiveHomeworkLane(
+    appendHomeworkIntakeHistory({
+      profile: profileDoc,
+      source: intakeDecisionSource,
+      selectedDomain: selectedHomeworkDomain,
+      classifierDomain: classifierHomeworkDomain,
+      homeworkId,
+      title: extracted.title,
+    }),
+    selectedHomeworkDomain,
+    pendingHomework,
+    { select: true },
+  );
   const catalogItems = buildHomeworkContentCatalogItems({
     childId,
     homeworkId,
@@ -1340,7 +1558,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     nodes: homeworkNodes,
     baselineActivities: recommendBaselineActivities(extracted.capturedContent),
   });
-  const profileWithCatalog = upsertProfileContentCatalog(profileDoc, catalogItems);
+  const profileWithCatalog = upsertProfileContentCatalog(profileWithHomeworkLane, catalogItems);
   writeLearningProfile(childId, profileWithCatalog);
   const parentPlanNote = await promptForSessionPlanNote(interactive);
   const chartForPlan = getChildChart(childId);
@@ -1352,7 +1570,24 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     useAi: process.env.SUNNY_AI_EXPERIENCE_PLANNER === "true",
     parentNote: parentPlanNote,
   });
-  writeActiveSessionPlan(childId, await reviewExperiencePlan(childId, activeSessionPlan, interactive));
+  const reviewedPlan = await reviewExperiencePlan(childId, activeSessionPlan, {
+    interactive,
+    revisePlan: async (_plan, note) => {
+      const revisedInput = buildExperiencePlannerInput(getChildChart(childId), {
+        parentNote: note,
+        companionConversationAudit: [`parent_revision:${note}`],
+      });
+      return planPsychologistExperience(revisedInput, {
+        useAi: process.env.SUNNY_AI_EXPERIENCE_PLANNER === "true",
+        parentNote: note,
+      });
+    },
+  });
+  if (reviewedPlan.approvalStatus === "rejected") {
+    console.log("  🎮 [experience-planner] [pending-review] homework saved; session plan not activated");
+  } else {
+    writeActiveSessionPlan(childId, reviewedPlan);
+  }
   fs.writeFileSync(
     path.join(pendingDir, "learning-plan.json"),
     JSON.stringify(learningPlanArtifact.plan, null, 2),

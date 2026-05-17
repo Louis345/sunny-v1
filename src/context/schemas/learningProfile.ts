@@ -21,6 +21,8 @@ export type ActiveSessionPlanSource =
   | "runtime_fallback"
   | "psychologist_sync";
 
+export type HomeworkDomain = "spelling" | "reading" | "math" | "science";
+
 export type PlannerApprovalStatus =
   | "pending"
   | "approved"
@@ -64,6 +66,7 @@ export interface PlannedMeasurement {
 
 export interface GeneratedExperienceBrief {
   briefId: string;
+  experimentId?: string;
   kind: "quest" | "boss" | "visual-explainer";
   title: string;
   learningGoal: string;
@@ -75,6 +78,42 @@ export interface GeneratedExperienceBrief {
   evidenceUsed: string[];
   artifactStatus: "brief_only" | "generated" | "validated" | "failed";
   validationRequired: boolean;
+}
+
+export type LearningExperimentStatus =
+  | "planned"
+  | "active"
+  | "supported"
+  | "revised"
+  | "falsified"
+  | "inconclusive";
+
+export interface LearningExperiment {
+  experimentId: string;
+  childId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: LearningExperimentStatus;
+  hypothesis: string;
+  intervention: string;
+  comparison: string;
+  successCriteria: string[];
+  stopConditions: string[];
+  assignedActivityIds: string[];
+  generatedArtifactIds: string[];
+  metricsToCollect: string[];
+  results: Array<{
+    recordedAt: string;
+    source: string;
+    summary: string;
+    metrics: Record<string, number | string | boolean | null>;
+  }>;
+  conclusion?: {
+    status: Exclude<LearningExperimentStatus, "planned" | "active">;
+    decidedAt: string;
+    evidence: string[];
+    nextAction: string;
+  };
 }
 
 export interface ActiveSessionPlan {
@@ -102,6 +141,7 @@ export interface ActiveSessionPlan {
     targets: string[];
     difficulty: 1 | 2 | 3;
     source: "pending_homework" | "chart_planner";
+    targetLane?: string;
     choiceMode?: "choice_lab" | "surprise_drop";
     choiceSource?: ChoiceEventSource;
     masteryUnlockState?: MasteryUnlockState;
@@ -133,6 +173,7 @@ export interface ActiveSessionPlan {
   planTheory?: PlanTheory;
   plannedMeasurements?: PlannedMeasurement[];
   generatedExperienceBriefs?: GeneratedExperienceBrief[];
+  learningExperiments?: LearningExperiment[];
 }
 
 export interface MoodEntry {
@@ -308,7 +349,24 @@ export interface AIContentCatalogItem {
     warnings: string[];
     attempts: number;
     validatedAt: string;
+    staticValidation?: {
+      passed: boolean;
+      score: number;
+      failures: string[];
+      warnings: string[];
+    };
+    runtimeValidation?: {
+      passed: boolean;
+      screenshotPaths: string[];
+      consoleErrors: string[];
+      pageErrors: string[];
+      attemptedTargets: number;
+      completed: boolean;
+      completionPayloads: unknown[];
+      usedValidationHook: boolean;
+    };
   };
+  experimentId?: string;
   performanceSummary?: {
     plays: number;
     completionRate: number;
@@ -324,6 +382,26 @@ export interface LearningProfile {
   version: number;
   createdAt: string;
   lastUpdated: string;
+
+  /** Doorway links to split chart records. Legacy mirrors remain during migration. */
+  chartLinks?: {
+    learningProfile?: string;
+    wordBank?: string;
+    todayPlan?: string;
+    currentCarePlan?: string;
+    currentHomework?: string;
+    homeworkLanes?: string;
+    currentSessionPlan?: string;
+    sessionPlanLanes?: string;
+    contentCatalog?: string;
+    decisionTraces?: string;
+    homework?: string;
+    attempts?: string;
+    ratings?: string;
+    vitals?: string;
+    sessionNotes?: string;
+    companionCareDir?: string;
+  };
 
   demographics: {
     age: number;
@@ -407,6 +485,18 @@ export interface LearningProfile {
 
   /** Chart-attached plan the next kid session should render instead of rebuilding a script. */
   activeSessionPlan?: ActiveSessionPlan;
+
+  /** Domain-isolated session plans; `activeSessionPlan` is only the selected-lane mirror. */
+  activeSessionPlanByDomain?: Partial<Record<HomeworkDomain, ActiveSessionPlan>>;
+
+  /** Scientific-method records for AI psychologist interventions. */
+  learningExperiments?: LearningExperiment[];
+
+  /** Selected homework lane mirrored into legacy `pendingHomework` for old callers. */
+  selectedHomeworkDomain?: HomeworkDomain;
+
+  /** Domain-isolated active homework; `pendingHomework` is only the selected-lane mirror. */
+  activeHomeworkByDomain?: Partial<Record<HomeworkDomain, NonNullable<LearningProfile["pendingHomework"]>>>;
 
   pendingHomework?: {
     weekOf: string;
@@ -522,6 +612,7 @@ export interface LearningProfile {
         contentId: string;
         homeworkId: string;
         theoryId: string;
+        experimentId?: string;
         generationStage: "quest" | "boss";
         targetGroupIds: string[];
         homeworkWordIds: string[];
@@ -535,6 +626,22 @@ export interface LearningProfile {
           warnings: string[];
           attempts: number;
           validatedAt: string;
+          staticValidation?: {
+            passed: boolean;
+            score: number;
+            failures: string[];
+            warnings: string[];
+          };
+          runtimeValidation?: {
+            passed: boolean;
+            screenshotPaths: string[];
+            consoleErrors: string[];
+            pageErrors: string[];
+            attemptedTargets: number;
+            completed: boolean;
+            completionPayloads: unknown[];
+            usedValidationHook: boolean;
+          };
         };
       };
     }>;
@@ -549,6 +656,17 @@ export interface LearningProfile {
     useCount: number;
     confidenceBoost: number;
     evidence: string[];
+  }>;
+
+  /** Intake menu/classifier decisions used to make future homework classification more predictive. */
+  homeworkIntakeHistory?: Array<{
+    decidedAt: string;
+    source: "human_menu" | "cli" | "classifier";
+    selectedDomain: HomeworkDomain;
+    classifierDomain?: HomeworkDomain;
+    homeworkId?: string;
+    title?: string;
+    note?: string;
   }>;
 
   /**
@@ -574,4 +692,12 @@ export interface LearningProfile {
 export type WordBankHomeworkPriorityFields = {
   homeworkPriority?: boolean;
   testDate?: string;
+  homeworkTargets?: Partial<Record<HomeworkDomain, {
+    homeworkId: string;
+    testDate: string | null;
+    priority: boolean;
+    purpose: string;
+    sourceGroup?: string;
+    updatedAt?: string;
+  }>>;
 };

@@ -121,6 +121,58 @@ describe("Priority 1 — recordAttempt updates SM-2", () => {
       ),
     ).toBe(true);
   });
+
+  it("initializes reward state for homework plans before early returns", () => {
+    const profile = readLearningProfile(childId);
+    expect(profile).toBeTruthy();
+    fs.writeFileSync(
+      profilePath,
+      JSON.stringify({
+        ...profile,
+        pendingHomework: {
+          weekOf: today(),
+          homeworkId: "hw-spelling_test-session-state",
+          testDate: today(),
+          wordList: ["above", "ago"],
+          generatedAt: new Date().toISOString(),
+          contentProfile: {
+            practiceDomain: "spelling",
+            contentDomain: "spelling",
+            topic: "Schwa words",
+            primarySkill: "spelling recall",
+            assignmentFormat: "spelling test",
+            concepts: ["schwa"],
+            sourceEvidence: ["test"],
+          },
+          capturedContent: null,
+          nodes: [
+            {
+              id: "n-pronunciation-hw-spelling_test-session-state",
+              type: "pronunciation",
+              words: ["above", "ago"],
+              difficulty: 1,
+              gameFile: null,
+              storyFile: null,
+            },
+          ],
+        },
+      }, null, 2),
+      "utf-8",
+    );
+
+    planSession(childId, "homework");
+    recordAttempt(childId, {
+      word: "above",
+      domain: "reading",
+      correct: true,
+      quality: 4,
+      scaffoldLevel: 0,
+    });
+    const summary = finalizeSession(childId);
+
+    expect(summary.totalAttempts).toBe(1);
+    expect(summary.accuracy).toBe(1);
+  });
 });
 
 describe("Priority 2 — finalizeSession writes notes and profile", () => {

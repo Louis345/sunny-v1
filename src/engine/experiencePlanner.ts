@@ -6,6 +6,7 @@ import { z } from "zod";
 import type {
   ActiveSessionPlan,
   GeneratedExperienceBrief,
+  LearningExperiment,
   LearningProfile,
   PlanTheory,
   PlannedMeasurement,
@@ -24,6 +25,13 @@ import {
   type ActivityToolContract,
 } from "./activityToolCatalog";
 import { planHomeworkSessionFromChart } from "./sessionPlanFromChart";
+import { resolveChildContextDir } from "../utils/contextRoot";
+import {
+  hydrateLearningProfileFromWaterfall,
+  slimLearningProfileForDoorway,
+  writeWaterfallSessionPlan,
+} from "../profiles/chartWaterfall";
+import { buildPsychologistChartPacket } from "./psychologistChartPacket";
 
 export type ExperienceActivityCard = {
   activityId: string;
@@ -99,6 +107,7 @@ const plannedMeasurementSchema = z.object({
 
 const generatedExperienceBriefSchema = z.object({
   briefId: z.string().min(1),
+  experimentId: z.string().min(1).optional(),
   kind: z.enum(["quest", "boss", "visual-explainer"]),
   title: z.string().min(1),
   learningGoal: z.string().min(1),
@@ -120,7 +129,7 @@ const aiPlannerDecisionSchema = z.object({
 });
 
 function profilePath(rootDir: string, childId: string): string {
-  return path.join(rootDir, "src", "context", childId.trim().toLowerCase(), "learning_profile.json");
+  return path.join(resolveChildContextDir(childId, { rootDir }), "learning_profile.json");
 }
 
 function readProfile(childId: string, opts: Pick<PlannerReviewOptions, "rootDir"> = {}): LearningProfile {
@@ -128,22 +137,24 @@ function readProfile(childId: string, opts: Pick<PlannerReviewOptions, "rootDir"
   if (!fs.existsSync(file)) {
     throw new Error(`planner_trust_missing_profile:${childId}`);
   }
-  return JSON.parse(fs.readFileSync(file, "utf8")) as LearningProfile;
+  return hydrateLearningProfileFromWaterfall(
+    childId,
+    JSON.parse(fs.readFileSync(file, "utf8")) as LearningProfile,
+    opts,
+  );
 }
 
 function writeProfile(childId: string, profile: LearningProfile, opts: PlannerReviewOptions = {}): void {
   const file = profilePath(opts.rootDir ?? process.cwd(), childId);
   fs.mkdirSync(path.dirname(file), { recursive: true });
+  const nextProfile = {
+    ...profile,
+    lastUpdated: (opts.now ?? new Date()).toISOString(),
+  };
+  writeWaterfallSessionPlan(childId, nextProfile, opts);
   fs.writeFileSync(
     file,
-    JSON.stringify(
-      {
-        ...profile,
-        lastUpdated: (opts.now ?? new Date()).toISOString(),
-      },
-      null,
-      2,
-    ),
+    JSON.stringify(slimLearningProfileForDoorway(nextProfile), null, 2),
     "utf8",
   );
 }
@@ -339,8 +350,10 @@ function generatedBriefForPlan(
   const pending = input.chart.homework.pending;
   const topic = pending?.contentProfile?.topic ?? input.homeworkGoal.topic;
   const concepts = pending?.contentProfile?.concepts ?? [];
+  const experimentId = `experiment-${plan.planId}-quest`;
   return {
     briefId: `brief-${plan.planId}-quest`,
+    experimentId,
     kind: "quest",
     title: `${input.chart.identity.displayName} ${topic} quest`,
     learningGoal: `Create a validated generated quest that tests ${plan.domain} transfer for ${topic}.`,
@@ -353,6 +366,38 @@ function generatedBriefForPlan(
     artifactStatus: "brief_only",
     validationRequired: true,
   };
+}
+
+function experimentForPlan(
+  input: ExperiencePlannerInput,
+  plan: ActiveSessionPlan,
+  brief: GeneratedExperienceBrief | null,
+  now: Date,
+): LearningExperiment[] {
+  if (!brief?.experimentId) return [];
+  const theory = planTheoryFor(input, plan);
+  return [
+    {
+      experimentId: brief.experimentId,
+      childId: input.childId,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      status: "planned",
+      hypothesis: theory.hypothesis,
+      intervention: theory.intervention,
+      comparison: "Prior baseline activity evidence and future graded/delayed calibration.",
+      successCriteria: [...theory.supportCriteria],
+      stopConditions: [
+        "high frustration signal",
+        "artifact validation failure",
+        "child asks to stop or avoid the activity",
+      ],
+      assignedActivityIds: [...new Set(["quest", ...plan.nodePlan.map((node) => node.activityId)])],
+      generatedArtifactIds: [],
+      metricsToCollect: ["accuracy", "attempt_count", "completion", "help_requests", "frustration"],
+      results: [],
+    },
+  ];
 }
 
 function plannerConfidence(input: ExperiencePlannerInput, plan: ActiveSessionPlan): number {
@@ -377,41 +422,17 @@ export function draftPsychologistExperiencePlan(
   });
   const confidence = plannerConfidence(input, plan);
   const brief = generatedBriefForPlan(input, plan);
+  const planTheory = planTheoryFor(input, plan);
   return {
     ...plan,
     approvalStatus: input.plannerTrust.autoPlanEnabled ? "auto_approved" : "pending",
     plannerConfidence: confidence,
-    planTheory: planTheoryFor(input, plan),
+    planTheory,
     plannedMeasurements: plan.nodePlan
       .filter((node) => node.type !== "quest" && node.type !== "boss")
       .map((node) => measurementForNode(input, node)),
     generatedExperienceBriefs: brief ? [brief] : [],
-  };
-}
-
-function compactPlannerInput(input: ExperiencePlannerInput): unknown {
-  return {
-    childId: input.childId,
-    child: {
-      displayName: input.chart.identity.displayName,
-      grade: input.chart.demographics.grade,
-      companion: input.chart.companion.displayName,
-    },
-    homeworkGoal: input.homeworkGoal,
-    plannerTrust: input.plannerTrust,
-    activeSessionPlan: input.learningContext.chart.activeSessionPlan,
-    algorithmFeeds: input.learningContext.algorithmFeeds,
-    diagnostics: input.learningContext.diagnostics,
-    contentCatalog: input.learningContext.contentCatalog,
-    activityCards: input.activityCards,
-    engagementSummary: input.engagementSummary,
-    traitSignalSummary: {
-      preferredDimensions: input.traitSignalSummary.preferredDimensions,
-      avoidedDimensions: input.traitSignalSummary.avoidedDimensions,
-      contradictions: input.traitSignalSummary.contradictions,
-    },
-    calibrationSummary: input.calibrationSummary,
-    companionConversationAudit: input.companionConversationAudit,
+    learningExperiments: experimentForPlan(input, plan, brief, opts.now ?? new Date()),
   };
 }
 
@@ -423,11 +444,21 @@ Rules:
 - Use activity cards as interventions/instruments; do not route outside the domain.
 - Baseline activities measure or scaffold; generated quest/boss content is only a brief here.
 - State the learning theory, the evidence used, and what would support, revise, or falsify it.
+- Be accountable to reality: every adaptive claim is a hypothesis until measured.
+- Treat in-app results as evidence, not proof of transfer, until graded work or delayed reassessment confirms it.
+- For each intervention, name the expected observable result and the result that would support, revise, or falsify the theory.
 - Prefer variety when prior evidence shows strong performance; do not replay the same script.
 - Output only the requested structured object.
 
-Planner input:
-${JSON.stringify(compactPlannerInput(input), null, 2)}`;
+Psychologist chart packet:
+${JSON.stringify(buildPsychologistChartPacket(input), null, 2)}`;
+}
+
+export function resolveExperiencePlannerModel(
+  opts: Pick<ExperiencePlannerOptions, "model"> = {},
+  env: Partial<Pick<NodeJS.ProcessEnv, "SUNNY_EXPERIENCE_PLANNER_MODEL">> = process.env,
+): string {
+  return opts.model ?? env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? "claude-sonnet-4-5";
 }
 
 export async function runAiPsychologistExperiencePlanner(
@@ -435,8 +466,9 @@ export async function runAiPsychologistExperiencePlanner(
   opts: Pick<ExperiencePlannerOptions, "model" | "now" | "parentNote"> = {},
 ): Promise<ActiveSessionPlan> {
   const basePlan = draftPsychologistExperiencePlan(input, opts);
+  const model = resolveExperiencePlannerModel(opts);
   const { object } = await generateObject({
-    model: anthropic(opts.model ?? process.env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? "claude-haiku-4-5-20251001"),
+    model: anthropic(model),
     schema: aiPlannerDecisionSchema,
     system: "You are Sunny's AI psychologist experience planner. You synthesize chart evidence into a safe, measurable learning plan brief. You do not generate playable artifacts.",
     prompt: buildExperiencePlannerPrompt(input),
@@ -448,8 +480,25 @@ export async function runAiPsychologistExperiencePlanner(
     plannedMeasurements: object.plannedMeasurements,
     generatedExperienceBriefs: object.generatedExperienceBriefs.map((brief) => ({
       ...brief,
+      experimentId: brief.experimentId ?? `experiment-${basePlan.planId}-${brief.kind}`,
       artifactStatus: "brief_only",
       validationRequired: true,
+    })),
+    learningExperiments: object.generatedExperienceBriefs.map((brief) => ({
+      experimentId: brief.experimentId ?? `experiment-${basePlan.planId}-${brief.kind}`,
+      childId: input.childId,
+      createdAt: (opts.now ?? new Date()).toISOString(),
+      updatedAt: (opts.now ?? new Date()).toISOString(),
+      status: "planned",
+      hypothesis: object.planTheory.hypothesis,
+      intervention: object.planTheory.intervention,
+      comparison: "Prior baseline activity evidence and future graded/delayed calibration.",
+      successCriteria: [...object.planTheory.supportCriteria],
+      stopConditions: ["high frustration signal", "artifact validation failure", "child asks to stop"],
+      assignedActivityIds: [brief.kind],
+      generatedArtifactIds: [],
+      metricsToCollect: ["accuracy", "attempt_count", "completion", "help_requests", "frustration"],
+      results: [],
     })),
   };
 }
@@ -464,11 +513,11 @@ export async function planPsychologistExperience(
   try {
     const plan = await runAiPsychologistExperiencePlanner(input, opts);
     console.log(
-      `  🎮 [experience-planner] [ai] child=${input.childId} confidence=${plan.plannerConfidence ?? "unknown"}`,
+      `  🎮 [experience-planner] [ai] child=${input.childId} model=${resolveExperiencePlannerModel(opts)} confidence=${plan.plannerConfidence ?? "unknown"}`,
     );
     return plan;
   } catch (err) {
-    console.warn("  🎮 [experience-planner] [ai-fallback]", err);
+    console.warn(`  🎮 [experience-planner] [fallback] child=${input.childId} reason=ai-error`, err);
     return draftPsychologistExperiencePlan(input, opts);
   }
 }

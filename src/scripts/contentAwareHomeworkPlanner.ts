@@ -25,6 +25,7 @@ import type {
   LetterRushWord,
 } from "../engine/activityEngineConfig";
 import { buildConceptCheckConfigFromCapturedHomework } from "../engine/activityEngineConfig";
+import type { AdaptiveArtifactValidationReport } from "../shared/adventureTypes";
 import { readLearningProfile } from "../utils/learningProfileIO";
 
 export type HomeworkType =
@@ -111,6 +112,13 @@ export type HomeworkClarificationAnswer = {
   answeredAt: string;
 };
 
+export type HomeworkReviewRecommendation = {
+  id: string;
+  severity: "info" | "confirm";
+  reason: string;
+  targetGroupIds: string[];
+};
+
 export type HomeworkInterpretationMemoryMatch = {
   patternKey: string;
   confirmedAt: string;
@@ -134,6 +142,7 @@ export type AssignmentInterpretation = {
   selectedTargets: HomeworkWordGroup[];
   heldTargets: HomeworkWordGroup[];
   clarificationQuestions: HomeworkClarificationQuestion[];
+  reviewRecommendations?: HomeworkReviewRecommendation[];
   humanAnswers: HomeworkClarificationAnswer[];
   memoryMatches: HomeworkInterpretationMemoryMatch[];
 };
@@ -260,14 +269,7 @@ export type PlannedHomeworkNode = {
     baselineEvidenceIds: string[];
     generatedPath?: string;
     validationStatus?: "passed" | "failed" | "warning";
-    validationReport?: {
-      passed: boolean;
-      score: number;
-      failures: string[];
-      warnings: string[];
-      attempts: number;
-      validatedAt: string;
-    };
+    validationReport?: AdaptiveArtifactValidationReport;
   };
   storyText?: string;
   storyTitle?: string;
@@ -412,9 +414,146 @@ function hasAny(text: string, terms: string[]): boolean {
   return terms.some((term) => text.includes(term));
 }
 
+type PurposeInferenceRule = {
+  id: string;
+  purpose: HomeworkTargetPurpose;
+  confidence: number;
+  scheduleAfter?: "spelling_measured";
+  matches: (input: {
+    group: HomeworkWordGroup;
+    extraction: NormalizableExtraction;
+    groupText: string;
+    contextText: string;
+  }) => boolean;
+  evidence: string;
+};
+
+const PURPOSE_INFERENCE_RULES: PurposeInferenceRule[] = [
+  {
+    id: "define-vocabulary-heading",
+    purpose: "define",
+    confidence: 0.88,
+    matches: ({ groupText }) =>
+      hasAny(groupText, ["definition", "define", "meaning", "vocabulary"]),
+    evidence:
+      "Source wording describes vocabulary meaning/definition work, so Sunny routes the group to definition practice.",
+  },
+  {
+    id: "pronunciation-heading",
+    purpose: "pronounce",
+    confidence: 0.9,
+    scheduleAfter: "spelling_measured",
+    matches: ({ groupText }) =>
+      hasAny(groupText, ["pronounce", "pronunciation", "say aloud", "oral reading"]),
+    evidence:
+      "Source wording describes oral pronunciation work, so Sunny routes the group to pronunciation evidence.",
+  },
+  {
+    id: "high-frequency-fluency-heading",
+    purpose: "read_fluently",
+    confidence: 0.86,
+    scheduleAfter: "spelling_measured",
+    matches: ({ groupText }) =>
+      hasAny(groupText, [
+        "high frequency",
+        "high-frequency",
+        "sight word",
+        "sight-word",
+        "heart word",
+        "read fluently",
+        "fluency target",
+        "fluency words",
+      ]),
+    evidence:
+      "Source heading names high-frequency/fluency words, so Sunny holds the group for recognition or fluent reading instead of silently mixing it into spelling production.",
+  },
+  {
+    id: "recognition-heading",
+    purpose: "recognize",
+    confidence: 0.84,
+    scheduleAfter: "spelling_measured",
+    matches: ({ groupText }) =>
+      hasAny(groupText, ["recognition target", "recognition only", "recognize", "recognizing"]),
+    evidence:
+      "Source wording describes recognition, so Sunny routes the group to recognition before production.",
+  },
+  {
+    id: "spelling-pattern-heading",
+    purpose: "spell_from_memory",
+    confidence: 0.88,
+    matches: ({ group, groupText, contextText, extraction }) =>
+      practiceDomainFor(String(extraction.type)) === "spelling" &&
+      !groupTextHasFluencySignal(groupText) &&
+      (hasAny(groupText, [
+          "spelling word",
+          "spelling production",
+          "spell from memory",
+          "word spelling pattern",
+          "spelling pattern",
+          "phonics",
+          "vowel sound",
+          "schwa",
+          "suffix",
+          "prefix",
+          "ending",
+          "endings",
+        ]) ||
+        (group.purpose === "unknown" &&
+          hasAny(contextText, [
+            "spelling word",
+            "spelling production",
+            "word spelling pattern",
+            "spelling pattern",
+            "phonics",
+            "vowel sound",
+            "schwa",
+            "suffix",
+            "prefix",
+          ]))),
+    evidence:
+      "Source wording describes spelling patterns or spelling production, so Sunny routes the group to spelling recall evidence.",
+  },
+];
+
+function inferPurposeForGroup(
+  extraction: NormalizableExtraction,
+  group: HomeworkWordGroup,
+): HomeworkWordGroup {
+  const groupText = textBlob([group.id, group.label, group.evidence]);
+  const contextText = textBlob([
+    extraction.contentProfile?.primarySkill,
+    extraction.contentProfile?.assignmentFormat,
+    extraction.contentProfile?.concepts,
+    extraction.contentProfile?.sourceEvidence,
+  ]);
+  const match = PURPOSE_INFERENCE_RULES.find((rule) =>
+    rule.matches({ group, extraction, groupText, contextText }),
+  );
+  if (!match) return group;
+  if (group.purpose === match.purpose && group.confidence >= match.confidence) {
+    return group;
+  }
+  const shouldOverride =
+    group.purpose === "unknown" ||
+    group.confidence < match.confidence ||
+    (group.purpose === "spell_from_memory" && match.purpose !== "spell_from_memory") ||
+    (group.purpose !== "spell_from_memory" && match.purpose === "spell_from_memory");
+  if (!shouldOverride) return group;
+  return {
+    ...group,
+    purpose: match.purpose,
+    confidence: Math.max(group.confidence, match.confidence),
+    ...(match.scheduleAfter ? { scheduleAfter: group.scheduleAfter ?? match.scheduleAfter } : {}),
+    evidence: cleanList([...group.evidence, match.evidence]),
+  };
+}
+
 function isLikelyFluencyGroup(group: HomeworkWordGroup): boolean {
-  const text = textBlob([group.id, group.label, group.evidence]);
-  return hasAny(text, [
+  return ["recognize", "read_fluently", "pronounce"].includes(group.purpose);
+}
+
+function groupTextHasFluencySignal(groupText: string): boolean {
+  return hasAny(groupText, [
     "high frequency",
     "high-frequency",
     "sight word",
@@ -424,6 +563,11 @@ function isLikelyFluencyGroup(group: HomeworkWordGroup): boolean {
     "fluency target",
     "fluency words",
     "recognition target",
+    "recognition only",
+    "recognize",
+    "recognizing",
+    "pronounce",
+    "pronunciation",
   ]);
 }
 
@@ -470,12 +614,15 @@ function repairSpellingTestGroups(
 ): HomeworkWordGroup[] {
   if (practiceDomainFor(String(extraction.type)) !== "spelling") return groups;
   if (String(extraction.type) !== "spelling_test") return groups;
-  if (groups.some((group) => group.purpose === "spell_from_memory")) return groups;
+  const normalizedGroups = groups.map((group) => inferPurposeForGroup(extraction, group));
+  if (normalizedGroups.some((group) => group.purpose === "spell_from_memory")) {
+    return normalizedGroups;
+  }
   if (hasExplicitRecognitionOnlyEvidence(extraction)) return groups;
   if (!hasSpellingProductionEvidence(extraction)) return groups;
 
   let repaired = 0;
-  const next = groups.map((group) => {
+  const next = normalizedGroups.map((group) => {
     if (isLikelyFluencyGroup(group)) {
       return {
         ...group,
@@ -494,6 +641,22 @@ function repairSpellingTestGroups(
     };
   });
   return repaired > 0 ? next : groups;
+}
+
+function reviewRecommendationsFor(
+  groups: HomeworkWordGroup[],
+  spellingDomain: boolean,
+): HomeworkReviewRecommendation[] {
+  if (!spellingDomain || groups.length <= 1) return [];
+  const purposes = new Set(groups.map((group) => group.purpose));
+  if (purposes.size <= 1) return [];
+  return [{
+    id: "confirm-mixed-target-purposes",
+    severity: "confirm",
+    reason:
+      "The worksheet has multiple target groups with different purposes; parent review should confirm Sunny's routing before the lesson plan is approved.",
+    targetGroupIds: groups.map((group) => group.id),
+  }];
 }
 
 function clarificationQuestionsFor(
@@ -538,6 +701,7 @@ function buildAssignmentInterpretation(args: {
   const selectedTargets = args.wordGroups.filter((group) => group.purpose === "spell_from_memory");
   const heldTargets = args.wordGroups.filter((group) => group.purpose !== "spell_from_memory");
   const clarificationQuestions = clarificationQuestionsFor(args.wordGroups, args.spellingDomain);
+  const reviewRecommendations = reviewRecommendationsFor(args.wordGroups, args.spellingDomain);
   return {
     schemaVersion: 1,
     status: statusForInterpretation({
@@ -550,6 +714,7 @@ function buildAssignmentInterpretation(args: {
     selectedTargets,
     heldTargets,
     clarificationQuestions,
+    reviewRecommendations,
     humanAnswers: args.humanAnswers ?? [],
     memoryMatches: args.memoryMatches ?? [],
   };
@@ -1688,6 +1853,11 @@ function buildSpellingNodes(args: {
       contentProfile: captured.contentProfile,
     });
     const existingSelected = existing?.selectedTargets?.length ?? 0;
+    const purposeKey = (value: AssignmentInterpretation | undefined | null): string =>
+      (value?.wordGroups ?? [])
+        .map((group) => `${group.id}:${group.purpose}`)
+        .join("|");
+    if (existing && purposeKey(existing) !== purposeKey(repaired)) return repaired;
     if (existing && existingSelected > 0) return existing;
     return repaired.selectedTargets.length > existingSelected ? repaired : (existing ?? repaired);
   };
