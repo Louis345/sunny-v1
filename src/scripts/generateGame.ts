@@ -385,14 +385,13 @@ WRITTEN / fill_in grading — call Sunny server Haiku (same origin as iframe):
 
 Multiple choice / exact fill: 10 XP + confetti on correct; 0 XP on wrong; show feedback.
 
-postMessage on complete:
-  window.parent.postMessage({
-    type: 'node_complete',
+On complete:
+  call sendNodeComplete({
     accuracy: (total XP earned) / (n * 10),
     completed: true,
     timeSpent_ms: Date.now() - startTime,
     childId: GAME_PARAMS.childId
-  }, '*');
+  });
 
 COMPANION EVENTS — fire these via postMessage:
 After _contract.js loads, call fireCompanionEvent() at:
@@ -423,6 +422,17 @@ fireAttemptEvent({
 });
 For spelling, target is the word being tested and attemptedValue is exactly
 what the child typed. Do not create a spelling input without fireAttemptEvent().
+
+RUNTIME VALIDATION HOOK — mandatory:
+Expose a deterministic QA hook so Sunny can test your game before a child sees it:
+window.SUNNY_VALIDATION_HOOKS = {
+  playthrough: async ({ words }) => {
+    // Programmatically complete the game by filling real inputs/clicking real buttons.
+    // It must trigger the same fireAttemptEvent() and sendNodeComplete() paths as child play.
+  }
+}
+Do not make a one-click "finish quest" shortcut. The hook must produce one
+assessable attempt event per target/question before completion.
 ${profileBlock}
 Homework data:
 ${extractedJson}

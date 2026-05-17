@@ -198,6 +198,33 @@ export function handleWsConnection(
         break;
       }
 
+      case "game_state_update": {
+        if (!session) return;
+        const { type, ...payload } = msg as Record<string, unknown>;
+        session.handleGameEvent({
+          type: "game_state_update",
+          ...payload,
+        });
+        break;
+      }
+
+      case "locked_node_tap": {
+        if (!session) return;
+        const payload = msg as Record<string, unknown>;
+        session.handleGameEvent({
+          type: "game_state_update",
+          game: "adventure-map",
+          phase: "locked_node_tap",
+          childId: payload.childId,
+          nodeId: payload.nodeId,
+          nodeType: payload.nodeType,
+          currentUnlockedNodeId: payload.currentUnlockedNodeId,
+          instruction:
+            "Locked map node tapped. Reply in one short warm sentence that encourages finishing the unlocked activity first. Do not start a new game.",
+        });
+        break;
+      }
+
       case "companion_care_event": {
         if (!session) {
           console.log("  🎮 [companion-care] live event skipped no active session");

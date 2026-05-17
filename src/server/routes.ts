@@ -83,6 +83,7 @@ import {
   buildAdaptiveEvidenceSnapshot,
   questGateFromSnapshot,
 } from "../engine/adaptiveEvidenceSnapshot";
+import { comparePronunciationScienceProviders } from "../engine/pronunciationScienceProviders";
 import {
   validateActivityEngineConfig,
   validateLetterRushConfig,
@@ -93,6 +94,12 @@ import {
   resolveAllowedShowroomVoiceId,
   type ShowroomVoiceOption,
 } from "./companionShowroomVoice";
+import {
+  buildShowroomTalkSystemPrompt,
+  createShowroomTalkCompletedEvent,
+  createShowroomTalkPhaseCommand,
+  resolveShowroomTalkRequest,
+} from "./companionShowroomTalk";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 
@@ -152,6 +159,7 @@ function pickDiagSpellingWord(childId: string): string {
 type ShowroomLine = "intro" | "plead";
 
 type ShowroomJson = {
+  personality?: unknown;
   scripts?: Record<string, Partial<Record<ShowroomLine, unknown>>>;
 };
 
@@ -268,6 +276,28 @@ function readShowroomVoiceOptions(
   return fallbackVoiceId?.trim()
     ? [{ id: fallbackVoiceId.trim(), label: `${companionName} Voice`, language: "en", default: true }]
     : [];
+}
+
+function readShowroomPersonality(
+  companionId: string,
+  fallback: string,
+): string {
+  const showroomPath = path.join(
+    process.cwd(),
+    "src",
+    "prompts",
+    "companions",
+    companionId,
+    "showroom.json",
+  );
+  const raw = fs.existsSync(showroomPath)
+    ? (JSON.parse(fs.readFileSync(showroomPath, "utf8")) as ShowroomJson)
+    : null;
+  const personality =
+    typeof raw?.personality === "string" && raw.personality.trim()
+      ? raw.personality.trim()
+      : fallback.trim();
+  return personality || "Friendly, patient, and encouraging.";
 }
 
 /**
@@ -419,6 +449,36 @@ export function setupRoutes(app: Express): void {
   app.post("/api/diag/trigger-reward", (req: Request, res: Response) => {
     const out = handleDiagTriggerReward(req.body ?? {}, process.env);
     res.status(out.status).json(out.body);
+  });
+
+  app.post("/api/pronunciation-science/compare", async (req: Request, res: Response) => {
+    const body = req.body as {
+      targetWord?: unknown;
+      audioBase64?: unknown;
+      mimeType?: unknown;
+      audioClipId?: unknown;
+    };
+    const targetWord = typeof body.targetWord === "string" ? body.targetWord.trim() : "";
+    const audioBase64 = typeof body.audioBase64 === "string" ? body.audioBase64.trim() : "";
+    const mimeType = typeof body.mimeType === "string" ? body.mimeType.trim() : "audio/wav";
+    if (!targetWord) return res.status(400).json({ ok: false, error: "targetWord required" });
+    if (!audioBase64) return res.status(400).json({ ok: false, error: "audioBase64 required" });
+    try {
+      const out = await comparePronunciationScienceProviders({
+        targetWord,
+        audioBase64,
+        mimeType,
+        audioClipId: typeof body.audioClipId === "string" ? body.audioClipId : undefined,
+        sourcePath: "storybook_live_compare",
+      });
+      console.log(
+        `  🎮 [pronunciation-science] [compare] target=${out.targetWord} results=${out.results.length}`,
+      );
+      res.json({ ok: true, ...out });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ ok: false, error: message });
+    }
   });
 
   /** Visual PoC — `web/public/worlds/proof-of-concept.html`; uses server-side GROK_API_KEY. */
@@ -652,6 +712,123 @@ export function setupRoutes(app: Express): void {
       res.setHeader("Content-Type", "audio/mpeg");
       res.setHeader("Cache-Control", "no-store");
       res.send(buffer);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/companions/:companionId/talk", async (req: Request, res: Response) => {
+    const companionId =
+      typeof req.params.companionId === "string"
+        ? req.params.companionId.trim()
+        : "";
+    if (!companionId) {
+      return res.status(400).json({ ok: false, error: "companionId_required" });
+    }
+
+    let companion: {
+      id: string;
+      name: string;
+      voiceId: string;
+      voiceModelId?: string;
+      personalityMarkdown?: string;
+    };
+    try {
+      companion = CompanionRegistry.getById(companionId);
+    } catch {
+      const introOnly = tryLoadIntroOnlyShowroomCompanion(companionId);
+      if (!introOnly) {
+        return res.status(404).json({ ok: false, error: "unknown_companion" });
+      }
+      companion = introOnly;
+    }
+
+    const voiceOptions = readShowroomVoiceOptions(
+      companion.id,
+      companion.name,
+      companion.voiceId,
+    );
+    const resolved = resolveShowroomTalkRequest(req.body, {
+      routeCompanionId: companion.id,
+      voiceOptions,
+      fallbackVoiceId: companion.voiceId,
+    });
+    if (!resolved.ok) {
+      return res.status(resolved.status).json({ ok: false, error: resolved.error });
+    }
+
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" });
+    }
+
+    try {
+      const talk = resolved.request;
+      const personality = readShowroomPersonality(
+        companion.id,
+        companion.personalityMarkdown ?? "",
+      );
+      const system = buildShowroomTalkSystemPrompt({
+        companionId: companion.id,
+        companionName: companion.name,
+        showroomTheme: talk.showroomTheme,
+        personality,
+      });
+      const client = new Anthropic();
+      const msg = await client.messages.create({
+        model: HOMEWORK_SONNET_MODEL,
+        max_tokens: 180,
+        system,
+        messages: [{ role: "user", content: talk.question }],
+      });
+      const text = msg.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("\n")
+        .replace(/\s+/g, " ")
+        .trim();
+      const spokenText =
+        text || `${companion.name} is thinking. Ask me that one more time.`;
+
+      const elevenlabs = new ElevenLabsClient({ apiKey });
+      const locators = getPronunciationLocators();
+      const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
+        text: spokenText,
+        modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
+        ...(locators && { pronunciationDictionaryLocators: locators }),
+      });
+      const buffer = await audioLikeToBuffer(audio);
+      const event = createShowroomTalkCompletedEvent({
+        childId: talk.childId,
+        companionId: talk.companionId,
+        showroomTheme: talk.showroomTheme,
+        question: talk.question,
+        responseText: spokenText,
+      });
+
+      console.log(
+        ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme}`,
+      );
+      res.json({
+        ok: true,
+        text: spokenText,
+        audioBase64: buffer.toString("base64"),
+        audioContentType: "audio/mpeg",
+        event,
+        phaseCommands: {
+          speaking: createShowroomTalkPhaseCommand({
+            childId: talk.childId,
+            companionId: companion.id,
+            phase: "speaking",
+          }),
+          idle: createShowroomTalkPhaseCommand({
+            childId: talk.childId,
+            companionId: companion.id,
+            phase: "idle",
+          }),
+        },
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ ok: false, error: message });

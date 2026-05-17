@@ -3,15 +3,23 @@ import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import type { ChildChart } from "../profiles/childChart";
 import { getChildChart } from "../profiles/childChart";
+import {
+  inferHomeworkDomainFromPending,
+  selectedHomeworkDomain,
+  withActiveHomeworkLane,
+  withActiveSessionPlanLane,
+} from "./homeworkLanes";
 import type {
   ActiveSessionPlan,
   GeneratedExperienceBrief,
+  LearningExperiment,
   LearningProfile,
 } from "../context/schemas/learningProfile";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import { generateQuestGameHtml } from "../scripts/generateGame";
 import { validateGeneratedGame } from "../scripts/validateGeneratedGame";
+import { validateGeneratedArtifactRuntime } from "./generatedArtifactRuntimeValidator";
 import {
   attachArtifactToHomeworkNode,
   catalogAdaptiveQuestArtifact,
@@ -21,6 +29,20 @@ import {
   type AdaptiveQuestArtifactStage,
 } from "./adaptiveQuestArtifact";
 import { upsertProfileContentCatalog } from "./learningDecisionContext";
+import { resolveChildContextDir } from "../utils/contextRoot";
+import {
+  appendDecisionTrace,
+  hydrateLearningProfileFromWaterfall,
+  slimLearningProfileForDoorway,
+  writeWaterfallContentCatalog,
+  writeWaterfallHomework,
+  writeWaterfallSessionPlan,
+} from "../profiles/chartWaterfall";
+import {
+  buildExperienceContextPacket,
+  type ExperienceContextPacket,
+} from "./experienceContextPacket";
+import { buildExperiencePlannerInput } from "./experiencePlanner";
 
 export type GenerateExperienceHtmlArgs = {
   childId: string;
@@ -28,6 +50,7 @@ export type GenerateExperienceHtmlArgs = {
   profile: LearningProfile;
   plan: ActiveSessionPlan;
   brief: GeneratedExperienceBrief;
+  experienceContextPacket: ExperienceContextPacket;
   homeworkCycle: HomeworkCycle;
   artifact: AdaptiveQuestArtifact;
   validationFeedback?: {
@@ -46,6 +69,15 @@ export type GenerateExperienceArtifactFromChartInput = {
   briefId?: string;
   kind?: AdaptiveQuestArtifactStage;
   generateHtml?: (args: GenerateExperienceHtmlArgs) => Promise<string> | string;
+  validateRuntime?: (args: {
+    html: string;
+    childId: string;
+    stage: AdaptiveQuestArtifactStage;
+    homeworkType: string;
+    words: string[];
+    outputDir: string;
+    now: Date;
+  }) => Promise<ExperienceArtifactValidationReport>;
 };
 
 export type ExperienceArtifactValidationReport = {
@@ -55,6 +87,22 @@ export type ExperienceArtifactValidationReport = {
   warnings: string[];
   attempts: number;
   validatedAt: string;
+  staticValidation?: {
+    passed: boolean;
+    score: number;
+    failures: string[];
+    warnings: string[];
+  };
+  runtimeValidation?: {
+    passed: boolean;
+    screenshotPaths: string[];
+    consoleErrors: string[];
+    pageErrors: string[];
+    attemptedTargets: number;
+    completed: boolean;
+    completionPayloads: unknown[];
+    usedValidationHook: boolean;
+  };
 };
 
 export type GeneratedExperienceArtifactResult =
@@ -80,7 +128,7 @@ export type GeneratedExperienceArtifactResult =
     };
 
 function contextDir(rootDir: string, childId: string): string {
-  return path.join(rootDir, "src", "context", childId);
+  return resolveChildContextDir(childId, { rootDir });
 }
 
 function readJson<T>(file: string): T | null {
@@ -103,11 +151,15 @@ function writeJson(file: string, value: unknown, now: Date): void {
 }
 
 function readProfile(rootDir: string, childId: string): LearningProfile | null {
-  return readJson<LearningProfile>(path.join(contextDir(rootDir, childId), "learning_profile.json"));
+  const profile = readJson<LearningProfile>(path.join(contextDir(rootDir, childId), "learning_profile.json"));
+  return profile ? hydrateLearningProfileFromWaterfall(childId, profile, { rootDir }) : null;
 }
 
 function writeProfile(rootDir: string, childId: string, profile: LearningProfile, now: Date): void {
-  writeJson(path.join(contextDir(rootDir, childId), "learning_profile.json"), profile, now);
+  writeWaterfallHomework(childId, profile, { rootDir, now });
+  writeWaterfallSessionPlan(childId, profile, { rootDir, now });
+  writeWaterfallContentCatalog(childId, profile, { rootDir, now });
+  writeJson(path.join(contextDir(rootDir, childId), "learning_profile.json"), slimLearningProfileForDoorway(profile), now);
 }
 
 function readHomeworkCycle(rootDir: string, childId: string, homeworkId: string): HomeworkCycle | null {
@@ -151,6 +203,7 @@ function updateBriefStatus(
 
 function defaultQuestHtml(args: GenerateExperienceHtmlArgs): string {
   const title = args.brief.title.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const wordsJson = JSON.stringify(args.artifact.targetWords);
   return `<!doctype html>
 <html>
 <head>
@@ -164,6 +217,9 @@ function defaultQuestHtml(args: GenerateExperienceHtmlArgs): string {
     h1 { margin: 0 0 12px; font-size: 36px; }
     p { font-size: 18px; line-height: 1.4; }
     button { border: 3px solid #1f0f2d; border-radius: 8px; background: #7c3aed; color: white; font-weight: 800; font-size: 20px; padding: 14px 18px; }
+    .round { display: none; gap: 12px; margin-top: 18px; }
+    .round.active { display: grid; }
+    input { border: 3px solid #1f0f2d; border-radius: 8px; font-size: 22px; padding: 12px; }
   </style>
 </head>
 <body>
@@ -171,17 +227,53 @@ function defaultQuestHtml(args: GenerateExperienceHtmlArgs): string {
   <main>
     <h1>${title}</h1>
     <p>Answer from memory. Sunny will score this quest from the hidden GAME_PARAMS targets.</p>
-    <button id="finish">Finish quest</button>
+    <div id="rounds"></div>
   </main>
   <script>
     const params = window.GAME_PARAMS || {};
-    const targets = Array.isArray(params.words) ? params.words : [];
-    document.getElementById("finish").addEventListener("click", () => {
-      const first = targets[0] || "target";
-      fireAttemptEvent({ word: first, correct: true });
-      fireCompanionEvent("correct_answer", { activityId: "${args.brief.kind}" });
-      sendNodeComplete({ completed: true, accuracy: 1, timeSpent_ms: 1000, wordsAttempted: Math.max(1, targets.length) });
+    const fallbackTargets = ${wordsJson};
+    const targets = Array.isArray(params.words) && params.words.length ? params.words : fallbackTargets;
+    const startTime = Date.now();
+    let index = 0;
+    let correct = 0;
+    const rounds = document.getElementById("rounds");
+    targets.forEach((target, i) => {
+      const round = document.createElement("section");
+      round.className = "round" + (i === 0 ? " active" : "");
+      round.innerHTML = '<label>Word ' + (i + 1) + ' of ' + targets.length + '</label><input aria-label="answer word ' + (i + 1) + '" /><button>Submit</button><p class="feedback"></p>';
+      const input = round.querySelector("input");
+      const feedback = round.querySelector(".feedback");
+      round.querySelector("button").addEventListener("click", () => {
+        const attemptedValue = input.value.trim();
+        const ok = attemptedValue.toLowerCase() === String(target).toLowerCase();
+        if (ok) correct += 1;
+        fireAttemptEvent({ domain: "spelling", target, attemptedValue, correct: ok, quality: ok ? 5 : 1, scaffoldLevel: 0 });
+        fireCompanionEvent(ok ? "correct_answer" : "wrong_answer", { word: target });
+        feedback.textContent = ok ? "Correct" : "Try the next one";
+        round.classList.remove("active");
+        index += 1;
+        const next = rounds.children[index];
+        if (next) {
+          next.classList.add("active");
+        } else {
+          sendNodeComplete({ completed: true, accuracy: correct / Math.max(1, targets.length), timeSpent_ms: Date.now() - startTime, wordsAttempted: targets.length });
+        }
+      });
+      rounds.appendChild(round);
     });
+    window.SUNNY_VALIDATION_HOOKS = {
+      playthrough: async ({ words }) => {
+        const validationWords = Array.isArray(words) && words.length ? words : targets;
+        for (let i = 0; i < validationWords.length; i += 1) {
+          const round = rounds.children[i];
+          const input = round.querySelector("input");
+          input.value = validationWords[i];
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          round.querySelector("button").click();
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+      }
+    };
   </script>
 </body>
 </html>`;
@@ -201,6 +293,7 @@ export async function generateExperienceHtmlWithSonnet(
       },
       activeSessionPlan: args.plan,
       generatedExperienceBrief: args.brief,
+      experienceContextPacket: args.experienceContextPacket,
       adaptiveArtifactBrief: args.artifact.brief,
       homework: args.homeworkCycle.capturedContent,
       validationFeedback: args.validationFeedback,
@@ -226,9 +319,12 @@ async function buildValidatedHtml(args: {
   profile: LearningProfile;
   plan: ActiveSessionPlan;
   brief: QuestBossBrief;
+  experienceContextPacket: ExperienceContextPacket;
   homeworkCycle: HomeworkCycle;
   artifact: AdaptiveQuestArtifact;
   generateHtml: NonNullable<GenerateExperienceArtifactFromChartInput["generateHtml"]>;
+  validateRuntime: NonNullable<GenerateExperienceArtifactFromChartInput["validateRuntime"]>;
+  validationOutputDir: string;
   now: Date;
 }): Promise<{ html: string; report: ExperienceArtifactValidationReport }> {
   let attempts = 1;
@@ -239,6 +335,12 @@ async function buildValidatedHtml(args: {
     childId: args.childId,
     generationStage: args.artifact.generationStage,
   });
+  let staticValidation = {
+    passed: validation.passed,
+    score: validation.score,
+    failures: [...validation.failures],
+    warnings: [...validation.warnings],
+  };
   if (!validation.passed && validation.shouldRegenerate) {
     attempts = 2;
     console.log(
@@ -260,6 +362,35 @@ async function buildValidatedHtml(args: {
       childId: args.childId,
       generationStage: args.artifact.generationStage,
     });
+    staticValidation = {
+      passed: validation.passed,
+      score: validation.score,
+      failures: [...validation.failures],
+      warnings: [...validation.warnings],
+    };
+  }
+  if (validation.passed) {
+    const runtime = await args.validateRuntime({
+      html,
+      childId: args.childId,
+      stage: args.artifact.generationStage,
+      homeworkType: args.homeworkCycle.subject,
+      words: args.artifact.targetWords,
+      outputDir: args.validationOutputDir,
+      now: args.now,
+    });
+    return {
+      html,
+      report: {
+        ...runtime,
+        attempts: attempts + runtime.attempts - 1,
+        passed: validation.passed && runtime.passed,
+        score: Math.min(validation.score, runtime.score),
+        failures: [...validation.failures, ...runtime.failures],
+        warnings: [...validation.warnings, ...runtime.warnings],
+        staticValidation,
+      },
+    };
   }
   return {
     html,
@@ -270,6 +401,7 @@ async function buildValidatedHtml(args: {
       warnings: [...validation.warnings],
       attempts,
       validatedAt: args.now.toISOString(),
+      staticValidation,
     },
   };
 }
@@ -282,11 +414,9 @@ function attachArtifactToProfileNode(args: {
 }): LearningProfile {
   const pending = args.profile.pendingHomework;
   if (!pending) return args.profile;
-  return {
-    ...args.profile,
-    pendingHomework: {
-      ...pending,
-      nodes: pending.nodes.map((node) => {
+  const nextPending = {
+    ...pending,
+    nodes: pending.nodes.map((node) => {
         if (node.type !== args.stage) return node;
         const attached = attachArtifactToHomeworkNode(
           {
@@ -304,8 +434,56 @@ function attachArtifactToProfileNode(args: {
           date: args.gameDate,
         };
       }),
-    },
   };
+  const domain = selectedHomeworkDomain(args.profile) ?? inferHomeworkDomainFromPending(pending);
+  return domain
+    ? withActiveHomeworkLane(args.profile, domain, nextPending, { select: true })
+    : { ...args.profile, pendingHomework: nextPending };
+}
+
+function activateExperimentForArtifact(
+  profile: LearningProfile,
+  experimentId: string | undefined,
+  contentId: string,
+  now: Date,
+): LearningProfile {
+  if (!experimentId) return profile;
+  const experiments = profile.learningExperiments ?? profile.activeSessionPlan?.learningExperiments ?? [];
+  const existing = experiments.find((experiment) => experiment.experimentId === experimentId);
+  const nextExperiment: LearningExperiment = existing
+    ? {
+        ...existing,
+        status: existing.status === "planned" ? "active" : existing.status,
+        updatedAt: now.toISOString(),
+        generatedArtifactIds: [...new Set([...existing.generatedArtifactIds, contentId])],
+      }
+    : {
+        experimentId,
+        childId: profile.childId,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+        status: "active",
+        hypothesis: "Generated artifact should improve transfer for the active chart theory.",
+        intervention: "Generated Quest/Boss artifact",
+        comparison: "Baseline activity evidence",
+        successCriteria: ["artifact accuracy >= 0.85"],
+        stopConditions: ["high frustration or failed runtime validation"],
+        assignedActivityIds: [],
+        generatedArtifactIds: [contentId],
+        metricsToCollect: ["accuracy", "attempt_count", "completion", "frustration"],
+        results: [],
+      };
+  const merged = [
+    ...experiments.filter((experiment) => experiment.experimentId !== experimentId),
+    nextExperiment,
+  ];
+  const base = {
+    ...profile,
+    learningExperiments: merged,
+  };
+  return profile.activeSessionPlan
+    ? withActiveSessionPlanLane(base, { ...profile.activeSessionPlan, learningExperiments: merged })
+    : base;
 }
 
 export async function generateExperienceArtifactFromChart(
@@ -331,6 +509,8 @@ export async function generateExperienceArtifactFromChart(
     return { ok: false, childId, homeworkId, briefId: brief.briefId, reason: "unsupported_experience_kind" };
   }
   const stage = brief.kind;
+  const plannerInput = buildExperiencePlannerInput(chart, { rootDir, now });
+  const experienceContextPacket = buildExperienceContextPacket(plannerInput, plan, { now });
   const cycle = readHomeworkCycle(rootDir, childId, homeworkId);
   if (!cycle) {
     return { ok: false, childId, homeworkId, briefId: brief.briefId, stage, reason: "homework_cycle_missing" };
@@ -352,6 +532,7 @@ export async function generateExperienceArtifactFromChart(
       contentCatalogMemory: profile.aiContentCatalog ?? [],
       generationStage: stage,
       generatedPath: filename,
+      experimentId: brief.experimentId,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -360,15 +541,27 @@ export async function generateExperienceArtifactFromChart(
   }
 
   const generateHtml = input.generateHtml ?? defaultQuestHtml;
+  const validateRuntime = input.validateRuntime ?? ((args) => validateGeneratedArtifactRuntime(args));
+  const validationOutputDir = path.join(
+    contextDir(rootDir, childId),
+    "homework",
+    "games",
+    gameDate,
+    ".validation",
+    safeSlug(brief.briefId),
+  );
   const { html, report } = await buildValidatedHtml({
     childId,
     chart,
     profile,
     plan,
     brief,
+    experienceContextPacket,
     homeworkCycle: cycle,
     artifact,
     generateHtml,
+    validateRuntime,
+    validationOutputDir,
     now,
   });
   artifact = markAdaptiveArtifactValidation(artifact, {
@@ -386,11 +579,22 @@ export async function generateExperienceArtifactFromChart(
       reuseReason: `Generated ${stage} failed validation and was not made playable.`,
     };
     const withCatalog = upsertProfileContentCatalog(profile, [failedCatalogItem]);
-    const withFailedBrief = {
-      ...withCatalog,
-      activeSessionPlan: updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "failed"),
-    };
+    const failedPlan = updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "failed");
+    const withFailedBrief = failedPlan
+      ? withActiveSessionPlanLane(withCatalog, failedPlan)
+      : withCatalog;
     writeProfile(rootDir, childId, withFailedBrief, now);
+    writeWaterfallContentCatalog(childId, withFailedBrief, { rootDir, now });
+    appendDecisionTrace(childId, {
+      traceId: `trace-${stage}-validation-failed-${brief.briefId}`,
+      eventType: stage === "boss" ? "boss_generation" : "quest_generation",
+      evidenceRead: artifact.baselineEvidenceIds,
+      theoryUsed: artifact.brief.hypothesis,
+      changeSummary: `${stage} generation failed validation and was retired.`,
+      reason: report.failures.join(" | ") || "Generated artifact validation failed.",
+      writesTo: [path.join(contextDir(rootDir, childId), "learning_profile.json")],
+      createdAt: now.toISOString(),
+    }, { rootDir, now });
     console.log(
       `🎮 [experience-artifact] [validation-failed] child=${childId} stage=${stage} score=${report.score}`,
     );
@@ -420,12 +624,24 @@ export async function generateExperienceArtifactFromChart(
     artifact,
     gameDate,
   });
-  const withCatalog = upsertProfileContentCatalog(withAttachedNode, [catalogItem]);
-  const withValidatedBrief = {
-    ...withCatalog,
-    activeSessionPlan: updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "validated"),
-  };
+  const withExperiment = activateExperimentForArtifact(withAttachedNode, artifact.experimentId, artifact.contentId, now);
+  const withCatalog = upsertProfileContentCatalog(withExperiment, [catalogItem]);
+  const validatedPlan = updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "validated");
+  const withValidatedBrief = validatedPlan
+    ? withActiveSessionPlanLane(withCatalog, validatedPlan)
+    : withCatalog;
   writeProfile(rootDir, childId, withValidatedBrief, now);
+  writeWaterfallContentCatalog(childId, withValidatedBrief, { rootDir, now });
+  appendDecisionTrace(childId, {
+    traceId: `trace-${stage}-validated-${brief.briefId}`,
+    eventType: stage === "boss" ? "boss_generation" : "quest_generation",
+    evidenceRead: artifact.baselineEvidenceIds,
+    theoryUsed: artifact.brief.hypothesis,
+    changeSummary: `${stage} artifact ${artifact.contentId} validated and attached.`,
+    reason: `Runtime/static validation passed with score ${report.score}.`,
+    writesTo: [filePath, path.join(contextDir(rootDir, childId), "learning_profile.json")],
+    createdAt: now.toISOString(),
+  }, { rootDir, now });
 
   return {
     ok: true,

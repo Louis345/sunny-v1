@@ -2,7 +2,10 @@
  * Compact text summary of iframe / flow game `game_state_update` payloads for Claude context.
  */
 export function buildGameContextSummary(state: Record<string, unknown>): string {
-  const lines: string[] = ["[Game state update]"];
+  const lines: string[] = [
+    "[Internal game state]",
+    "This is not child speech. Use only the fields below. Do not claim activities, scores, coins, or rewards unless they are listed here.",
+  ];
 
   if (typeof state.phase === "string" && state.phase.length > 0) {
     lines.push(`Phase: ${state.phase}`);
@@ -16,8 +19,26 @@ export function buildGameContextSummary(state: Record<string, unknown>): string 
   if (action) {
     lines.push(`Action: ${action}`);
   }
-  if (typeof state.currentWord === "string" && state.currentWord.length > 0) {
+  const answerVisibility =
+    typeof state.answerVisibility === "string" && state.answerVisibility.length > 0
+      ? state.answerVisibility
+      : "";
+  const hidesAnswer = answerVisibility === "hidden";
+  if (answerVisibility) {
+    lines.push(`Answer visibility: ${answerVisibility}`);
+  }
+  if (
+    !hidesAnswer &&
+    typeof state.currentWord === "string" &&
+    state.currentWord.length > 0
+  ) {
     lines.push(`Word: ${state.currentWord}`);
+  }
+  if (
+    typeof state.lastOutcomeWord === "string" &&
+    state.lastOutcomeWord.length > 0
+  ) {
+    lines.push(`Last outcome word: ${state.lastOutcomeWord}`);
   }
   if (Array.isArray(state.screenText) && state.screenText.length > 0) {
     const text = state.screenText
@@ -49,8 +70,23 @@ export function buildGameContextSummary(state: Record<string, unknown>): string 
       lines.push(`Item ${idx + 1} of ${total}`);
     }
   }
+  const hasExactRewardAmount =
+    (state.score !== undefined && state.score !== null) ||
+    (state.coins !== undefined && state.coins !== null) ||
+    (state.coinsEarned !== undefined && state.coinsEarned !== null);
+  if (!hasExactRewardAmount) {
+    lines.push(
+      "No exact coin amount is available; do not state any coin total or reward amount.",
+    );
+  }
   if (state.score !== undefined && state.score !== null) {
     lines.push(`Score: ${String(state.score)}`);
+  }
+  if (state.coins !== undefined && state.coins !== null) {
+    lines.push(`Coins: ${String(state.coins)}`);
+  }
+  if (state.coinsEarned !== undefined && state.coinsEarned !== null) {
+    lines.push(`Coins earned: ${String(state.coinsEarned)}`);
   }
   if (typeof state.wheelValue === "string" && state.wheelValue.length > 0) {
     lines.push(`Wheel landed on: ${state.wheelValue}`);
@@ -81,6 +117,9 @@ export function buildGameContextSummary(state: Record<string, unknown>): string 
   }
   if (typeof state.game === "string" && state.game.length > 0) {
     lines.push(`Game: ${state.game}`);
+  }
+  if (typeof state.activityId === "string" && state.activityId.length > 0) {
+    lines.push(`Activity: ${state.activityId}`);
   }
   if (typeof state.nodeId === "string" && state.nodeId.length > 0) {
     lines.push(`Node id: ${state.nodeId}`);

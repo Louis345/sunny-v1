@@ -25,7 +25,8 @@ function mockWs() {
 describe("buildGameContextSummary", () => {
   it("includes phase when present", () => {
     const s = buildGameContextSummary({ phase: "response" });
-    expect(s).toContain("[Game state update]");
+    expect(s).toContain("[Internal game state]");
+    expect(s).toContain("not child speech");
     expect(s).toContain("Phase: response");
   });
 
@@ -84,33 +85,112 @@ describe("buildGameContextSummary", () => {
     expect(s).toContain("Wrong guesses: 1 of 6");
     expect(s).toContain("Screen text: BONUS ROUND | GUESS THE WORD");
   });
+
+  it("keeps activity identity explicit so companion cannot rename pronunciation as word-radar", () => {
+    const s = buildGameContextSummary({
+      game: "pronunciation",
+      activityId: "pronunciation",
+      phase: "node_complete",
+      currentWord: "ahead",
+      lastOutcomeWord: "away",
+      accuracy: 0.59,
+      completed: true,
+      wordsAttempted: 8,
+      missedWords: ["ahead", "away"],
+      correctWords: ["above", "ago"],
+    });
+    expect(s).toContain("Game: pronunciation");
+    expect(s).toContain("Activity: pronunciation");
+    expect(s).toContain("Word: ahead");
+    expect(s).toContain("Last outcome word: away");
+    expect(s).toContain("Session accuracy: 59%");
+    expect(s).not.toContain("Word Radar");
+    expect(s).not.toContain("word-radar");
+  });
+
+  it("ignores unknown fields but includes explicit score and coin fields", () => {
+    const s = buildGameContextSummary({
+      game: "Wheel of Fortune",
+      score: 140,
+      coins: 140,
+      coinsEarned: 40,
+      inventedTotal: 12000,
+      secretEnv: "ANTHROPIC_API_KEY=never",
+    });
+    expect(s).toContain("Score: 140");
+    expect(s).toContain("Coins: 140");
+    expect(s).toContain("Coins earned: 40");
+    expect(s).not.toContain("12000");
+    expect(s).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("warns the companion when no exact coin amount is available", () => {
+    const s = buildGameContextSummary({
+      game: "Wheel of Fortune",
+      phase: "picking",
+      wheelValue: "500",
+    });
+    expect(s).toContain("No exact coin amount is available");
+    expect(s).not.toContain("Coins: 500");
+    expect(s).not.toContain("Coins earned: 500");
+  });
+
+  it("hides unrevealed Wheel answers from companion context", () => {
+    const s = buildGameContextSummary({
+      game: "Wheel of Fortune",
+      phase: "playing",
+      currentWord: "above",
+      answerVisibility: "hidden",
+      boardState: "_ B _ V E",
+    });
+
+    expect(s).toContain("Game: Wheel of Fortune");
+    expect(s).toContain("Board: _ B _ V E");
+    expect(s).toContain("Answer visibility: hidden");
+    expect(s).not.toContain("Word: above");
+    expect(s).not.toContain("above");
+  });
+
+  it("allows revealed Wheel answers after game completion", () => {
+    const s = buildGameContextSummary({
+      game: "Wheel of Fortune",
+      phase: "complete",
+      currentWord: "above",
+      answerVisibility: "revealed",
+      boardState: "A B O V E",
+    });
+
+    expect(s).toContain("Answer visibility: revealed");
+    expect(s).toContain("Word: above");
+  });
 });
 
 describe("SessionManager game context injection", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("injectGameContext stores summary consumed by takePendingGameContextMessages", () => {
+  it("injectGameContext updates board state without queuing a companion heartbeat", async () => {
     const sm = new SessionManager(mockWs(), "Ila");
     sm.injectGameContext({ phase: "spin", wheelValue: "Jackpot" });
-    const msgs = sm.takePendingGameContextMessages();
-    expect(msgs).toHaveLength(2);
-    expect(msgs[0].role).toBe("user");
-    expect(String(msgs[0].content)).toContain("Phase: spin");
-    expect(String(msgs[0].content)).toContain("Wheel landed on: Jackpot");
-    expect(msgs[1].role).toBe("assistant");
     expect(sm.takePendingGameContextMessages()).toEqual([]);
+
+    const status = await hostSessionStatus(sm as never);
+    expect(status.currentActivityState).toMatchObject({
+      phase: "spin",
+      wheelValue: "Jackpot",
+    });
   });
 
-  it("last inject wins — take returns latest only", () => {
+  it("last inject wins in the current board snapshot", async () => {
     const sm = new SessionManager(mockWs(), "Ila");
     sm.injectGameContext({ phase: "first" });
     sm.injectGameContext({ phase: "second" });
-    const msgs = sm.takePendingGameContextMessages();
-    expect(String(msgs[0].content)).toContain("Phase: second");
-    expect(String(msgs[0].content)).not.toContain("Phase: first");
+    expect(sm.takePendingGameContextMessages()).toEqual([]);
+
+    const status = await hostSessionStatus(sm as never);
+    expect(status.currentActivityState).toMatchObject({ phase: "second" });
   });
 
-  it("queues node completion handoff before latest iframe context on take", () => {
+  it("queues node completion handoff without merging stale iframe heartbeat context", () => {
     const sm = new SessionManager(mockWs(), "Ila");
     sm.queueNodeCompletionHandoff({
       phase: "node_complete",
@@ -129,10 +209,40 @@ describe("SessionManager game context injection", () => {
     });
     const msgs = sm.takePendingGameContextMessages();
     const body = String(msgs[0].content);
-    expect(body).toContain("---");
     expect(body).toContain("word-radar");
-    expect(body).toContain("spell-check");
-    expect(body.indexOf("word-radar")).toBeLessThan(body.indexOf("spell-check"));
+    expect(body).not.toContain("Spell check on screen");
+  });
+
+  it("node completion handoff clears stale previous iframe context", async () => {
+    const sm = new SessionManager(mockWs(), "Ila");
+    sm.injectGameContext({
+      phase: "playing",
+      game: "word-radar",
+      progress: "Old heartbeat says Word Radar",
+    });
+    sm.queueNodeCompletionHandoff({
+      phase: "node_complete",
+      game: "pronunciation",
+      activityId: "pronunciation",
+      progress: "Pronunciation finished: 59% accuracy",
+      accuracy: 0.59,
+      completed: true,
+      wordsAttempted: 8,
+    });
+    const msgs = sm.takePendingGameContextMessages();
+    const body = String(msgs[0].content);
+    expect(body).toContain("pronunciation");
+    expect(body).toContain("59%");
+    expect(body).not.toContain("Old heartbeat");
+    expect(body).not.toContain("word-radar");
+
+    const status = await hostSessionStatus(sm as never);
+    expect(status.currentActivityState).toMatchObject({
+      game: "pronunciation",
+      activityId: "pronunciation",
+      phase: "node_complete",
+      completed: true,
+    });
   });
 
   it("sessionStatus exposes the latest structured game state after injection is consumed", async () => {
@@ -151,10 +261,11 @@ describe("SessionManager game context injection", () => {
     expect(status.currentActivityState).toMatchObject({
       game: "Wheel of Fortune",
       phase: "picking",
-      currentWord: "inventor",
+      answerVisibility: "hidden",
       boardState: "I N V E N _ O R",
       wheelValue: "300",
     });
+    expect(JSON.stringify(status.currentActivityState)).not.toContain("inventor");
   });
 });
 
@@ -164,9 +275,9 @@ describe("takePendingGameContextMessages", () => {
     expect(sm.takePendingGameContextMessages()).toEqual([]);
   });
 
-  it("returns 2 messages when context queued", () => {
+  it("returns 2 messages when authoritative completion context is queued", () => {
     const sm = new SessionManager(mockWs(), "Ila");
-    sm.injectGameContext({ phase: "play" });
+    sm.queueNodeCompletionHandoff({ phase: "node_complete", game: "spell-check" });
     const msgs = sm.takePendingGameContextMessages();
     expect(msgs).toHaveLength(2);
     expect(msgs[0].role).toBe("user");
@@ -175,18 +286,19 @@ describe("takePendingGameContextMessages", () => {
 
   it("returns [] on second call (consumed)", () => {
     const sm = new SessionManager(mockWs(), "Ila");
-    sm.injectGameContext({ score: 10 });
+    sm.queueNodeCompletionHandoff({ phase: "node_complete", score: 10 });
     expect(sm.takePendingGameContextMessages().length).toBe(2);
     expect(sm.takePendingGameContextMessages()).toEqual([]);
   });
 });
 
 describe("handleGameEventForSession game_state_update", () => {
-  it("calls injectGameContext with merged payload fields", () => {
-    const injectGameContext = vi.fn();
+  it("updates the canonical board snapshot with merged payload fields", () => {
+    const updateCurrentBoardSnapshot = vi.fn();
     const turnSM = new TurnStateMachine(() => {}, () => {}, () => {});
     const session = {
       childName: "Ila",
+      sessionId: "voice-1",
       ctx: null,
       turnSM,
       send: () => {},
@@ -211,7 +323,7 @@ describe("handleGameEventForSession game_state_update", () => {
       suppressTranscripts: false,
       sessionTtsLabel: "Ila",
       noteExternalEvent: vi.fn(),
-      injectGameContext,
+      updateCurrentBoardSnapshot,
     };
 
     handleGameEventForSession(session, {
@@ -223,12 +335,12 @@ describe("handleGameEventForSession game_state_update", () => {
       },
     });
 
-    expect(injectGameContext).toHaveBeenCalledTimes(1);
-    const arg = injectGameContext.mock.calls[0][0] as Record<string, unknown>;
+    expect(updateCurrentBoardSnapshot).toHaveBeenCalledTimes(1);
+    const arg = updateCurrentBoardSnapshot.mock.calls[0][0] as Record<string, unknown>;
     expect(arg.progress).toBe("Letter A revealed");
     expect(arg.game).toBe("WheelOfFortune");
     expect(arg.wheelValue).toBe("300");
-    expect(session.noteExternalEvent).toHaveBeenCalled();
+    expect(session.noteExternalEvent).not.toHaveBeenCalled();
   });
 });
 

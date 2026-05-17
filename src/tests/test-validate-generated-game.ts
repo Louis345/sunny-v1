@@ -109,6 +109,27 @@ fireCompanionEvent("idle", {});
     expect(r.failures.some((f) => f.includes("fireAttemptEvent"))).toBe(true);
   });
 
+  it("rejects Quest/Boss artifacts that advertise one-click completion without enough assessable attempts", () => {
+    const html = compliantHtml("uqchildmarker012", `
+<button id="finish">Finish quest</button>
+<script>
+document.getElementById("finish").addEventListener("click", () => {
+  fireAttemptEvent({ word: "apple", correct: true });
+  sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+});
+</script>`);
+    const r = validateGeneratedGame(html, {
+      words: ["apple", "banana", "carrot", "date", "elder"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((f) => f.includes("one-click"))).toBe(true);
+    expect(r.shouldRegenerate).toBe(true);
+  });
+
   it("passes valid generated game HTML", () => {
     const html = compliantHtml("uqchildmarker012");
     const r = validateGeneratedGame(html, {

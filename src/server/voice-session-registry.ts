@@ -45,6 +45,7 @@ export interface VoiceSessionManagerHandle {
     text: string,
     metadata?: Record<string, unknown>,
   ) => Promise<void> | void;
+  recordGameTrace?: (state: Record<string, unknown>) => void;
   end?: () => Promise<void>;
 }
 

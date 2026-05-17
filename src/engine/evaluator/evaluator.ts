@@ -10,6 +10,7 @@ import type {
 import type { HomeworkCycle } from "../../context/schemas/homeworkCycle";
 import type { LearningProfile } from "../../context/schemas/learningProfile";
 import type { WordBankFile } from "../../context/schemas/wordBank";
+import { resolveChildContextDir } from "../../utils/contextRoot";
 
 export type EvaluatorStatus = "ready" | "provisional" | "missing";
 
@@ -85,7 +86,7 @@ export function normalizeEvaluatorTarget(value: string): string {
 }
 
 function contextDir(rootDir: string, childId: string): string {
-  return path.join(rootDir, "src", "context", childId);
+  return resolveChildContextDir(childId, { rootDir });
 }
 
 function targetWords(

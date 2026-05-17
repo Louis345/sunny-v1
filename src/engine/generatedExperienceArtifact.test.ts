@@ -213,6 +213,7 @@ function activePlan(): ActiveSessionPlan {
     generatedExperienceBriefs: [
       {
         briefId: "brief-quest-transfer",
+        experimentId: "experiment-plan-reina-artifact-quest",
         kind: "quest",
         title: "Schwa Transfer Quest",
         learningGoal: "Test spelling transfer under retrieval pressure.",
@@ -277,6 +278,24 @@ function profile(): LearningProfile {
     ],
   };
   p.activeSessionPlan = activePlan();
+  p.learningExperiments = [
+    {
+      experimentId: "experiment-plan-reina-artifact-quest",
+      childId: CHILD_ID,
+      createdAt: "2026-05-13T12:00:00.000Z",
+      updatedAt: "2026-05-13T12:00:00.000Z",
+      status: "planned",
+      hypothesis: "A generated quest improves transfer after baseline mastery.",
+      intervention: "Generated retrieval quest",
+      comparison: "Baseline spelling activities",
+      successCriteria: ["quest accuracy >= 0.85"],
+      stopConditions: ["frustration >= 0.6"],
+      assignedActivityIds: ["quest"],
+      generatedArtifactIds: [],
+      metricsToCollect: ["accuracy", "attempt_count", "frustration"],
+      results: [],
+    },
+  ];
   return p;
 }
 
@@ -290,11 +309,13 @@ function validHtml(): string {
 <script>
 const params = window.GAME_PARAMS || {};
 function finish() {
-  fireAttemptEvent({ word: (params.words || ["target"])[0], correct: true });
+  const words = params.words || ["target"];
+  words.forEach((word) => fireAttemptEvent({ word, correct: true }));
   fireCompanionEvent("correct_answer", {});
-  sendNodeComplete({ completed: true, accuracy: 1, timeSpent_ms: 1000, wordsAttempted: 1 });
+  sendNodeComplete({ completed: true, accuracy: 1, timeSpent_ms: 1000, wordsAttempted: words.length });
 }
 document.getElementById("start").addEventListener("click", finish);
+window.SUNNY_VALIDATION_HOOKS = { playthrough: async () => finish() };
 </script>
 </body>
 </html>`;
@@ -322,12 +343,35 @@ describe("generated experience artifact from chart", () => {
       now: new Date("2026-05-13T13:00:00.000Z"),
       briefId: "brief-quest-transfer",
       generateHtml: () => validHtml(),
+      validateRuntime: async () => ({
+        passed: true,
+        score: 100,
+        failures: [],
+        warnings: [],
+        attempts: 1,
+        validatedAt: "2026-05-13T13:00:00.000Z",
+        runtimeValidation: {
+          passed: true,
+          screenshotPaths: ["/tmp/quest.png"],
+          consoleErrors: [],
+          pageErrors: [],
+          attemptedTargets: WORDS.length,
+          completed: true,
+          completionPayloads: [{ completed: true, accuracy: 1, wordsAttempted: WORDS.length }],
+          usedValidationHook: true,
+        },
+      }),
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.reason);
     expect(fs.existsSync(result.filePath)).toBe(true);
     expect(result.validationReport).toMatchObject({ passed: true, attempts: 1 });
+    expect(result.validationReport.runtimeValidation).toMatchObject({
+      passed: true,
+      attemptedTargets: WORDS.length,
+      completed: true,
+    });
 
     const updated = readJson<LearningProfile>(root, `src/context/${CHILD_ID}/learning_profile.json`);
     const quest = updated.pendingHomework?.nodes.find((node) => node.type === "quest");
@@ -336,12 +380,19 @@ describe("generated experience artifact from chart", () => {
     expect(quest?.adaptiveArtifact).toMatchObject({
       contentId: result.contentId,
       validationStatus: "passed",
-      validationReport: { passed: true },
+      validationReport: { passed: true, runtimeValidation: { passed: true } },
+      experimentId: "experiment-plan-reina-artifact-quest",
     });
     expect(updated.aiContentCatalog?.[0]).toMatchObject({
       contentId: result.contentId,
       reuseStatus: "candidate",
       validationStatus: "passed",
+      experimentId: "experiment-plan-reina-artifact-quest",
+    });
+    expect(updated.learningExperiments?.[0]).toMatchObject({
+      experimentId: "experiment-plan-reina-artifact-quest",
+      generatedArtifactIds: [result.contentId],
+      status: "active",
     });
     expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("validated");
 
@@ -387,5 +438,50 @@ describe("generated experience artifact from chart", () => {
       reuseStatus: "retire",
       validationStatus: "failed",
     });
+  });
+
+  it("does not attach a generated quest when runtime validation fails", async () => {
+    const root = makeRoot();
+    roots.push(root);
+    writeJson(root, `src/context/${CHILD_ID}/learning_profile.json`, profile());
+    writeJson(root, `src/context/${CHILD_ID}/word_bank.json`, { childId: CHILD_ID, words: [] });
+    writeJson(root, `src/context/${CHILD_ID}/homework/cycles/${HOMEWORK_ID}.json`, cycle());
+
+    const result = await generateExperienceArtifactFromChart({
+      childId: CHILD_ID,
+      rootDir: root,
+      now: new Date("2026-05-13T13:00:00.000Z"),
+      briefId: "brief-quest-transfer",
+      generateHtml: () => validHtml(),
+      validateRuntime: async () => ({
+        passed: false,
+        score: 40,
+        failures: ["No attempt events were emitted during runtime validation."],
+        warnings: [],
+        attempts: 1,
+        validatedAt: "2026-05-13T13:00:00.000Z",
+        runtimeValidation: {
+          passed: false,
+          screenshotPaths: ["/tmp/quest.png"],
+          consoleErrors: [],
+          pageErrors: [],
+          attemptedTargets: 0,
+          completed: true,
+          completionPayloads: [{ completed: true, accuracy: 1, wordsAttempted: 0 }],
+          usedValidationHook: true,
+        },
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected runtime validation failure");
+    expect(result.reason).toBe("generated_game_validation_failed");
+    expect(result.validationReport?.runtimeValidation?.passed).toBe(false);
+
+    const updated = readJson<LearningProfile>(root, `src/context/${CHILD_ID}/learning_profile.json`);
+    const quest = updated.pendingHomework?.nodes.find((node) => node.type === "quest");
+    expect(quest?.gameFile).toBeNull();
+    expect(quest?.adaptiveArtifact).toBeUndefined();
+    expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("failed");
   });
 });

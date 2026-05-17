@@ -15,6 +15,14 @@ describe("matchKaraokeWord", () => {
     expect(matchKaraokeWord("the", "The")).toBe(true);
   });
 
+  it("accepts common live-STT variants for child names at the start of story karaoke", () => {
+    expect(classifyKaraokeWordMatch("Isla", "Ila")).toBe("match");
+    expect(classifyKaraokeWordMatch("Rayna", "Reina")).toBe("match");
+    expect(classifyKaraokeWordMatch("Raina", "Reina")).toBe("match");
+    expect(classifyKaraokeWordMatch("Isla", "is")).toBe("mismatch");
+    expect(classifyKaraokeWordMatch("Rayna", "rain")).toBe("mismatch");
+  });
+
   it("allows one edit on longer expected words", () => {
     expect(matchKaraokeWord("monster", "monster")).toBe(true);
     expect(matchKaraokeWord("monstor", "monster")).toBe(true);
@@ -60,6 +68,19 @@ describe("matchKaraokeWord", () => {
     expect(classifyKaraokeWordMatch("two", "to", { mode: "spelling" })).toBe(
       "mismatch",
     );
+  });
+
+  it("keeps pronunciation targets stricter than story karaoke", () => {
+    expect(classifyKaraokeWordMatch("nearly", "neatly")).toBe("match");
+    expect(
+      classifyKaraokeWordMatch("nearly", "neatly", { mode: "pronunciation" }),
+    ).toBe("mismatch");
+    expect(
+      classifyKaraokeWordMatch("whole", "whole", { mode: "pronunciation" }),
+    ).toBe("match");
+    expect(
+      classifyKaraokeWordMatch("hole", "whole", { mode: "pronunciation" }),
+    ).toBe("match");
   });
 
   it("maps spoken number words to digits for match", () => {

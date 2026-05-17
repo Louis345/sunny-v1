@@ -1,7 +1,7 @@
 import { normalizeNumberWord } from "./numberWords";
 
 export type KaraokeWordClass = "match" | "partial" | "mismatch";
-export type KaraokeMatchMode = "speech" | "spelling";
+export type KaraokeMatchMode = "speech" | "spelling" | "pronunciation";
 
 export interface KaraokeMatchOptions {
   /** Speech tolerates STT orthography; spelling measures the actual written target. */
@@ -31,6 +31,7 @@ export function applyConfusionPairs(word: string): string {
 
 const STT_HOMOPHONE_GROUPS = [
   ["wear", "where"],
+  ["hole", "whole"],
   ["be", "bee"],
   ["by", "buy", "bye"],
   ["for", "fore", "four"],
@@ -45,14 +46,31 @@ const STT_HOMOPHONE_CANONICAL = new Map<string, string>(
   ),
 );
 
+const STORY_NAME_STT_ALIASES = new Map<string, Set<string>>([
+  ["ila", new Set(["isla", "iila"])],
+  ["reina", new Set(["rayna", "raina", "rina"])],
+]);
+
+const PRONUNCIATION_STT_ALIASES = new Map<string, Set<string>>([
+  ["able", new Set(["abel", "abull", "bull"])],
+]);
+
 function normalizeSttHomophone(word: string): string {
   return STT_HOMOPHONE_CANONICAL.get(word) ?? word;
+}
+
+function storyNameSttEquivalent(heard: string, expected: string): boolean {
+  return STORY_NAME_STT_ALIASES.get(expected)?.has(heard) === true;
+}
+
+function pronunciationSttEquivalent(heard: string, expected: string): boolean {
+  return PRONUNCIATION_STT_ALIASES.get(expected)?.has(heard) === true;
 }
 
 function hasAmbiguousSpeechSpelling(word: string): boolean {
   return (
     STT_HOMOPHONE_CANONICAL.has(word) ||
-    /(?:air|are|ear|eir|ere|ee|ea|ei|ie|ey|igh|ai|ay|oa|oe|ow|oo|ou|ew|ue|augh|ough|ph|gh|ck|kn|gn|pn|wr|wh|mb$|bt$|lk$|lm$|tion|sion)/.test(
+    /(?:air|are|ear|eir|ere|ee|ea|ei|ie|ey|igh|ai|ay|oa|oe|ow|oo|ou|ew|ue|augh|ough|ph|gh|ck|kn|gn|pn|wr|wh|ble$|bull$|bul$|mb$|bt$|lk$|lm$|tion|sion)/.test(
       word,
     )
   );
@@ -77,6 +95,7 @@ function speechPhoneticKey(word: string): string {
     .replace(/(?:ee|ea|ei|ie|ey)/g, "i")
     .replace(/(?:oa|oe|ow)/g, "o")
     .replace(/(?:oo|ou|ew|ue)/g, "u")
+    .replace(/(?:bull|bul)$/g, "bl")
     .replace(/igh/g, "i")
     .replace(/c(?=[eiy])/g, "s")
     .replace(/c/g, "k")
@@ -144,6 +163,14 @@ export function classifyKaraokeWordMatch(
   const cleanH = heard.toLowerCase().replace(/[^a-z0-9]/g, "");
   const cleanE = expected.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+  if (mode === "pronunciation") {
+    if (!cleanH || !cleanE) return "mismatch";
+    if (normalizeNumberWord(cleanH) === normalizeNumberWord(cleanE)) return "match";
+    if (normalizeSttHomophone(cleanH) === normalizeSttHomophone(cleanE)) return "match";
+    if (pronunciationSttEquivalent(cleanH, cleanE)) return "match";
+    return "mismatch";
+  }
+
   if (mode === "speech" && speechPhoneticEquivalent(cleanH, cleanE)) {
     return "match";
   }
@@ -156,7 +183,11 @@ export function classifyKaraokeWordMatch(
   if (normH === normE) return "match";
 
   // Step 4: speech equivalence — STT cannot reliably choose the intended spelling.
-  if (mode === "speech" && speechPhoneticEquivalent(normH, normE)) {
+  if (
+    mode === "speech" &&
+    (storyNameSttEquivalent(normH, normE) ||
+      speechPhoneticEquivalent(normH, normE))
+  ) {
     return "match";
   }
 

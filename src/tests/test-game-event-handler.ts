@@ -45,7 +45,7 @@ describe("GameEventHandler", () => {
     ).not.toThrow();
   });
 
-  it("voice_control disables companion transcript responses without muting game STT", () => {
+  it("voice_control suppresses organic companion speech only for mic-owned flow games", () => {
     const turnSM = new TurnStateMachine(
       () => {},
       () => {},
@@ -81,6 +81,15 @@ describe("GameEventHandler", () => {
     handleGameEventForSession(session, {
       type: "voice_control",
       voiceEnabled: false,
+      game: "word-radar",
+    });
+
+    expect(session.suppressTranscripts).toBe(false);
+
+    handleGameEventForSession(session, {
+      type: "voice_control",
+      voiceEnabled: false,
+      game: "pronunciation",
     });
 
     expect(session.suppressTranscripts).toBe(true);

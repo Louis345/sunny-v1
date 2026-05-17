@@ -180,15 +180,34 @@ export function handleGameEventForSession(
     type === "pronunciation_hit" ||
     type === "pronunciation_miss" ||
     type === "voice_control" ||
-    type === "game_state_update"
+    type === "game_state_update" ||
+    type === "game_complete" ||
+    type === "node_complete"
   ) {
     s.recordDebugEvent?.("flow_game", type, buildFlowGameEventFields(event));
+    s.recordGameTrace?.({
+      ...event,
+      type,
+      source: "game_event_handler",
+    });
   }
 
   if (type === "voice_control") {
     const voiceEnabled = event.voiceEnabled === true;
-    s.suppressTranscripts = !voiceEnabled;
-    console.log(`  🎮 Voice: ${voiceEnabled ? "active" : "silent"}`);
+    const payload =
+      event.payload != null && typeof event.payload === "object" && !Array.isArray(event.payload)
+        ? (event.payload as Record<string, unknown>)
+        : {};
+    const game = String(event.game ?? payload.game ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    const suppressesOrganicSpeech =
+      game === "pronunciation" || game === "karaoke" || game === "reading";
+    s.suppressTranscripts = voiceEnabled ? false : suppressesOrganicSpeech;
+    console.log(
+      `  🎮 Voice: ${voiceEnabled || !suppressesOrganicSpeech ? "organic" : "flow-suppressed"} game=${game || "unknown"}`,
+    );
     return;
   }
 
@@ -197,21 +216,10 @@ export function handleGameEventForSession(
     delete ctx.type;
     delete ctx.version;
     delete ctx.payload;
-    s.injectGameContext?.(ctx);
-    console.log("  🎮 [game_state_update] context queued for next companion turn");
-
-    const progress =
-      typeof event.progress === "string"
-        ? event.progress
-        : typeof (event.payload as Record<string, unknown> | undefined)?.progress ===
-            "string"
-          ? String((event.payload as Record<string, unknown>).progress)
-          : "";
-    if (progress) {
-      s.noteExternalEvent?.({
-        source: "game_state_update",
-        summary: progress,
-      });
+    if (typeof s.updateCurrentBoardSnapshot === "function") {
+      s.updateCurrentBoardSnapshot(ctx);
+    } else {
+      s.injectGameContext?.(ctx);
     }
     return;
   }
@@ -373,6 +381,11 @@ export function handleGameEventForSession(
     s.clearActiveCanvasActivity();
     s.send("canvas_draw", { mode: "idle" });
     return;
+  }
+
+  if (type === "game_complete" || type === "node_complete") {
+    s.spellCheckSessionActive = false;
+    s.activeSpellCheckWord = "";
   }
 
   if (type === "round_complete") {

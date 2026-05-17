@@ -25,6 +25,8 @@ import {
   type HomeworkExtractionResult,
 } from "../agents/psychologist/psychologist";
 import { childIdFromName, planSession } from "../engine/learningEngine";
+import { buildAdventureMapFromSessionPlan } from "../engine/sessionPlanFromChart";
+import { getChildChart } from "../profiles/childChart";
 import { computeProgression } from "../engine/progression";
 import {
   CANONICAL_AGENT_TOOL_KEYS,
@@ -56,6 +58,7 @@ import {
   applyDebugClaudeOpeningLineForSession,
   prependDebugClaudeDeveloperBlock,
 } from "./debug-helpers";
+import { getLatestMapStateForChild } from "./map-coordinator";
 import { generateCanvasCapabilitiesManifest } from "./canvas/registry";
 import { CHARLOTTE_DIAG_DEFAULT_VOICE_ID } from "../diag-voices";
 import { generateToolDocs } from "../agents/elli/tools/generateToolDocs";
@@ -156,6 +159,28 @@ function compactList(items?: unknown[] | null, max = 30): string {
     .filter(Boolean);
   if (list.length <= max) return list.join(", ");
   return `${list.slice(0, max).join(", ")} (+${list.length - max} more)`;
+}
+
+function firstPromptNodeFromPendingHomework(pendingHomework: {
+  contentProfile?: {
+    practiceDomain?: string | null;
+    primarySkill?: string | null;
+  } | null;
+  nodes?: Array<{ type?: string | null; words?: string[] | null }> | null;
+} | null): { type?: string | null; words?: string[] | null } | null {
+  const nodes = pendingHomework?.nodes ?? [];
+  if (nodes.length === 0) return null;
+  const practiceDomain = String(pendingHomework?.contentProfile?.practiceDomain ?? "").toLowerCase();
+  const primarySkill = String(pendingHomework?.contentProfile?.primarySkill ?? "").toLowerCase();
+  const spellingRecall =
+    practiceDomain === "spelling" || primarySkill.includes("spell");
+  if (spellingRecall) {
+    const recallNode = nodes.find((node) =>
+      node.type === "spell-check" || node.type === "letter-rush",
+    );
+    if (recallNode) return recallNode;
+  }
+  return nodes[0] ?? null;
 }
 
 export function buildPendingHomeworkPromptContent(pendingHomework: {
@@ -276,12 +301,24 @@ export function buildHomeworkSessionStartPrompt(opts: {
     } | null;
     nodes?: Array<{ type?: string | null; words?: string[] | null }> | null;
   } | null;
+  activeMapFirstNode?: {
+    type?: string | null;
+    words?: string[] | null;
+    wordRadarItems?: Array<{ display?: string | null }> | null;
+  } | null;
 }): string {
   const pendingHomework = opts.pendingHomework ?? null;
   const contentProfile = pendingHomework?.contentProfile ?? null;
   const capturedContent = pendingHomework?.capturedContent ?? null;
-  const firstNode = pendingHomework?.nodes?.[0] ?? null;
-  const firstNodeWords = compactList(firstNode?.words, 6);
+  const firstNode =
+    opts.activeMapFirstNode ??
+    firstPromptNodeFromPendingHomework(pendingHomework) ??
+    null;
+  const firstNodeWords = compactList(
+    firstNode?.words ??
+      firstNode?.wordRadarItems?.map((item) => item.display ?? "").filter(Boolean),
+    6,
+  );
   const lines = [
     "[Session start — homework map mounted]",
     `Speak to ${opts.childName} as the child, not the parent.`,
@@ -315,6 +352,32 @@ export function buildHomeworkSessionStartPrompt(opts: {
   }
   lines.push("Invite the child to start the first map node when ready.");
   return lines.join("\n");
+}
+
+export function resolveHomeworkOpenerFirstNode(opts: {
+  childId: string;
+  activeMapFirstNode?: {
+    type?: string | null;
+    words?: string[] | null;
+    wordRadarItems?: Array<{ display?: string | null }> | null;
+  } | null;
+}): {
+  type?: string | null;
+  words?: string[] | null;
+  wordRadarItems?: Array<{ display?: string | null }> | null;
+} | null {
+  if (opts.activeMapFirstNode?.type) return opts.activeMapFirstNode;
+  try {
+    const chart = getChildChart(opts.childId);
+    if (!chart.activeSessionPlan || !chart.homework.pending) return null;
+    const nodes = buildAdventureMapFromSessionPlan(chart, chart.activeSessionPlan);
+    return nodes[0] ?? null;
+  } catch (err) {
+    console.warn(
+      `  🎮 [session-bootstrap] [opener-node-fallback] child=${opts.childId} reason=${err instanceof Error ? err.message : String(err)}`,
+    );
+    return null;
+  }
 }
 
 export function resolveBootstrapSubject(opts: {
@@ -367,6 +430,9 @@ export async function runSessionStart(
 
     const sessionLearningProfile = !session.diagKioskFast
       ? readLearningProfile(String(homeworkChild).toLowerCase())
+      : null;
+    const activeMapState = !session.diagKioskFast
+      ? getLatestMapStateForChild(String(homeworkChild).toLowerCase())
       : null;
 
     let homeworkPayload: Awaited<ReturnType<typeof loadHomeworkPayload>> | null =
@@ -1190,16 +1256,17 @@ export async function runSessionStart(
 
     if (
       session.isSpellingSession &&
-      subject === "spelling" &&
+      (subject === "spelling" || subject === "homework") &&
       !session.worksheetMode &&
-      sessionType === "spelling"
+      (sessionType === "spelling" || sessionType === "homework")
     ) {
       const childId = session.childName.toLowerCase();
-      let enginePlan = planSession(childId, "spelling");
+      const engineMode = subject === "homework" ? "homework" : "spelling";
+      let enginePlan = planSession(childId, engineMode);
       const selected =
         enginePlan.reviewWords.length + enginePlan.newWords.length;
       if (selected === 0 && session.spellingHomeworkWordsByNorm.length > 0) {
-        enginePlan = planSession(childId, "spelling", {
+        enginePlan = planSession(childId, engineMode, {
           homeworkFallbackWords: session.spellingHomeworkWordsByNorm,
         });
       }
@@ -1287,7 +1354,7 @@ This is a safe space to test everything.
       (subject === "homework" || subject === "spelling")
     ) {
       const mapBlock = buildMapSummaryFromPendingNodes(
-        sessionLearningProfile.pendingHomework.nodes,
+        activeMapState?.nodes ?? sessionLearningProfile.pendingHomework.nodes,
       );
       if (mapBlock) {
         session.companion.systemPrompt +=
@@ -1383,6 +1450,10 @@ This is a safe space to test everything.
           buildHomeworkSessionStartPrompt({
             childName: String(homeworkChild),
             pendingHomework: sessionLearningProfile.pendingHomework,
+            activeMapFirstNode: resolveHomeworkOpenerFirstNode({
+              childId: String(homeworkChild).toLowerCase(),
+              activeMapFirstNode: activeMapState?.nodes?.[0] ?? null,
+            }),
           }),
           true,
         );

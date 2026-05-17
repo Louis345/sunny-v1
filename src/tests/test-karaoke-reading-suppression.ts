@@ -74,6 +74,21 @@ describe("karaoke reading transcript suppression", () => {
     expect(shouldSuppress("Matilda are you there")).toBe(false);
   });
 
+  it("does not suppress misheard session-end commands during an active game", () => {
+    const sm = new SessionManager(mockWs(), "Ila");
+    (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =
+      createSessionContext({ childName: "Ila", sessionType: "homework" });
+    (sm as unknown as { currentActivityState: Record<string, unknown> }).currentActivityState =
+      { game: "monster-stampede", phase: "playing" };
+    const shouldSuppress = (
+      sm as unknown as {
+        shouldSuppressTranscriptDuringKaraoke: (t: string) => boolean;
+      }
+    ).shouldSuppressTranscriptDuringKaraoke.bind(sm);
+
+    expect(shouldSuppress("Ellie, n session. Ellie, n session.")).toBe(false);
+  });
+
   it("suppresses homework karaoke transcripts that end with repeated story words like bye", () => {
     const sm = new SessionManager(mockWs(), "Reina");
     (sm as unknown as { ctx: ReturnType<typeof createSessionContext> }).ctx =

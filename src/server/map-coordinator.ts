@@ -60,6 +60,7 @@ import { validateCompanionCommand } from "../shared/companions/validateCompanion
 import { generateStoryImage } from "../utils/generateStoryImage";
 import { reconcileCompanionCurrencyAward } from "./currencyAward";
 import { computeStoryMovieCost } from "../shared/rewardEconomy";
+import { recordLearningAttempt } from "./learningAttemptEvents";
 import childrenCfg from "../../children.config.json";
 import { getDopamineGameSlugsForChild } from "../profiles/childrenConfig";
 import {
@@ -85,13 +86,30 @@ import {
 } from "../engine/choiceEvents";
 import { getChildChart } from "../profiles/childChart";
 import {
+  inferHomeworkDomainFromPending,
+  patchActiveHomeworkLane,
+  selectedHomeworkDomain,
+} from "../engine/homeworkLanes";
+import {
+  activeSessionPlanRefreshReason,
   buildAdventureMapFromSessionPlan,
   writeActiveSessionPlan,
 } from "../engine/sessionPlanFromChart";
 import {
+  createHomeworkEvidenceGate,
+  filterHomeworkTargets,
+  sanitizeActiveHomeworkPlanForLaunch,
+} from "../shared/homeworkEvidenceGate";
+import {
   buildExperiencePlannerInput,
   draftPsychologistExperiencePlan,
 } from "../engine/experiencePlanner";
+import { recordLearningExperimentResult } from "../engine/learningExperiments";
+import {
+  buildActivityIntent,
+  selectTargetsForIntent,
+  type ActivityIntentEvidence,
+} from "../engine/activityIntent";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -304,9 +322,11 @@ type SessionRecord = {
   mapState: MapState;
   runtime: SunnyRuntimeConfig;
   pendingHomework?: NonNullable<ChildProfile["pendingHomework"]>;
+  greetedNodeIds: Set<string>;
 };
 
 const sessions = new Map<string, SessionRecord>();
+const latestSessionIdByChild = new Map<string, string>();
 
 /** Browser WebSocket.OPEN — avoid importing `ws` runtime in hot paths. */
 const WS_OPEN = 1;
@@ -790,6 +810,117 @@ function heldFluencyTargetsFromHomework(
   );
 }
 
+function wordListFromPendingHomework(
+  hw: NonNullable<ChildProfile["pendingHomework"]> | undefined,
+): string[] {
+  return uniqueWords([
+    ...(Array.isArray(hw?.wordList) ? hw.wordList : []),
+    ...(Array.isArray(hw?.capturedContent?.words) ? hw.capturedContent.words : []),
+    ...(Array.isArray(hw?.capturedContent?.wordGroups)
+      ? hw.capturedContent.wordGroups.flatMap((group: HomeworkTargetGroupForMap) =>
+          Array.isArray(group.words) ? group.words : [],
+        )
+      : []),
+  ]);
+}
+
+function buildActivityIntentEvidenceForLaunch(
+  childId: string,
+  node: NodeConfig,
+  hw: NonNullable<ChildProfile["pendingHomework"]> | undefined,
+): ActivityIntentEvidence {
+  const homeworkWords = wordListFromPendingHomework(hw);
+  const highFrequencyWords = heldFluencyTargetsFromHomework(hw);
+  const reinforceWords = uniqueWords([
+    ...(Array.isArray(hw?.reinforceWords) ? hw.reinforceWords : []),
+    ...(node.words ?? []),
+  ]);
+  let dueWords: string[] = [];
+  try {
+    const bank = readWordBank(childId);
+    dueWords = uniqueWords(
+      (Array.isArray(bank?.words) ? bank.words : [])
+        .filter((entry) => {
+          const record = entry as unknown as Record<string, unknown>;
+          const nextReview = String(record.nextReviewAt ?? record.dueAt ?? "").trim();
+          return !nextReview || Date.parse(nextReview) <= Date.now();
+        })
+        .map((entry) => entry?.word),
+    );
+  } catch {
+    dueWords = [];
+  }
+  return {
+    recentMisses: reinforceWords,
+    fragileTargets: reinforceWords,
+    scaffoldedTargets: reinforceWords,
+    pronunciationConfusions: node.type === "pronunciation" ? reinforceWords : [],
+    sm2DueWords: dueWords,
+    homeworkWords,
+    highFrequencyWords,
+    carePlanTargets: reinforceWords,
+  };
+}
+
+function nodeWithActivityIntent(
+  childId: string,
+  node: NodeConfig,
+  hw: NonNullable<ChildProfile["pendingHomework"]> | undefined,
+): NodeConfig {
+  const evidence = buildActivityIntentEvidenceForLaunch(childId, node, hw);
+  const hwRecord = hw as unknown as Record<string, unknown>;
+  const interpretation = hw?.capturedContent?.assignmentInterpretation as
+    | (Record<string, unknown> & { hypothesis?: unknown })
+    | undefined;
+  const carePlanHypothesis =
+    String(
+      hwRecord.carePlanHypothesis ??
+        interpretation?.hypothesis ??
+        "Use chart evidence to choose a spelling instrument and update the next plan.",
+    ).trim();
+  const intent = buildActivityIntent({
+    childId,
+    node,
+    carePlanHypothesis,
+    evidence,
+  });
+  const selectorDecision = selectTargetsForIntent({
+    childId,
+    node,
+    targetSelector: intent.targetSelector,
+    evidence,
+    maxTargets: node.type === "wheel-of-fortune" ? 1 : undefined,
+  });
+  const selectedWords = selectorDecision.selectedTargets;
+  const nextNode: NodeConfig = {
+    ...node,
+    activityIntent: intent,
+    targetSelectorDecision: {
+      selectorId: selectorDecision.selectorId,
+      activityId: selectorDecision.activityId,
+      nodeId: selectorDecision.nodeId,
+      targetSelector: selectorDecision.targetSelector,
+      selectedTargets: selectorDecision.selectedTargets,
+      traceSummary: selectorDecision.traceSummary,
+    },
+  };
+  if (selectedWords.length > 0 && node.words?.length) {
+    nextNode.words = selectedWords;
+  }
+  if (selectedWords.length > 0 && node.wordRadarItems?.length) {
+    const selected = new Set(selectedWords.map((word) => word.toLowerCase()));
+    const selectedItems = node.wordRadarItems.filter((item) =>
+      selected.has(item.display.toLowerCase()),
+    );
+    if (selectedItems.length > 0) nextNode.wordRadarItems = selectedItems;
+  }
+  console.log(
+    `🎮 [activity-intent] [created] child=${childId} node=${node.id} activity=${node.type} intent=${intent.intentId} selector=${selectorDecision.selectorId}`,
+  );
+  console.log(`🎮 [target-selector] [decision] ${selectorDecision.traceSummary}`);
+  return nextNode;
+}
+
 function resultAccuracy01(result: NodeResult): number {
   return result.accuracy > 1 ? result.accuracy / 100 : result.accuracy;
 }
@@ -887,6 +1018,7 @@ function evidenceFromNodeResult(
     frustrationScore: scores.frustrationScore,
     liked: rating === "like",
     missedWords: result.missedWords ?? [],
+    evidenceTier: result.evidenceTier,
     occurredAt: new Date().toISOString(),
     ...(nodeContentId(node) ? { contentId: nodeContentId(node) } : {}),
   };
@@ -910,6 +1042,72 @@ function writePostNodeLearningEvidence(
   } catch (err) {
     console.error("  🔴 [adaptive-evidence] record failed:", err);
   }
+}
+
+function writeLearningExperimentResult(
+  childId: string,
+  node: NodeConfig,
+  result: NodeResult,
+): void {
+  const experimentId = node.adaptiveArtifact?.experimentId;
+  if (!experimentId) return;
+  try {
+    const profile = readLearningProfile(childId);
+    if (!profile) return;
+    const updated = recordLearningExperimentResult(profile, {
+      experimentId,
+      source: node.type,
+      accuracy: result.accuracy,
+      completed: result.completed,
+      wordsAttempted: result.wordsAttempted,
+      timeSpent_ms: result.timeSpent_ms,
+    });
+    if (updated !== profile) {
+      writeLearningProfile(childId, updated);
+      console.log(
+        `  🎮 [learning-experiment] recorded ${node.type} ${experimentId} accuracy=${result.accuracy}`,
+      );
+    }
+  } catch (err) {
+    console.error("  🔴 [learning-experiment] record failed:", err);
+  }
+}
+
+function attemptDomainForMapNode(node: NodeConfig): "spelling" | "reading" | "math" {
+  if (node.type === "pronunciation" || node.type === "karaoke") return "reading";
+  if (node.type === "clock-game" || node.type === "coin-counter") return "math";
+  return "spelling";
+}
+
+function recordMapTargetAttempts(
+  childId: string,
+  sessionId: string,
+  node: NodeConfig,
+  result: NodeResult,
+): void {
+  const rows = result.targetResults ?? [];
+  if (rows.length === 0) return;
+  const domain = attemptDomainForMapNode(node);
+  rows.forEach((row, idx) => {
+    const target = String(row.target ?? "").trim();
+    if (!target) return;
+    try {
+      recordLearningAttempt({
+        attemptId: `${sessionId}:${node.id}:${idx}:${target.toLowerCase()}`,
+        childId,
+        sessionId,
+        target,
+        domain,
+        correct: row.correct,
+        quality: row.correct ? 4 : 1,
+        scaffoldLevel: row.scaffoldLevel ?? (node.type === "pronunciation" ? 0 : 1),
+        attemptedValue: row.attemptedValue,
+        responseTimeMs: row.responseTime_ms,
+      });
+    } catch (err) {
+      console.error(`  🔴 [map-attempt] record failed for "${target}":`, err);
+    }
+  });
 }
 
 function writeExplicitRatingEvidence(
@@ -1022,12 +1220,31 @@ function retargetFuturePracticeNodes(
   nodes: NodeConfig[],
   completedNode: NodeConfig,
   result: NodeResult,
-): string[] {
-  if (!isWordDrivenHomeworkNodeType(completedNode.type)) return [];
+): {
+  skippedPracticeNodeIds: string[];
+  changedNodeIds: string[];
+  nextTargets: string[];
+  reason: string;
+} {
+  if (!isWordDrivenHomeworkNodeType(completedNode.type)) {
+    return {
+      skippedPracticeNodeIds: [],
+      changedNodeIds: [],
+      nextTargets: [],
+      reason: "completed node was not a word-driven homework activity",
+    };
+  }
   const evidenceRows = result.targetResults ?? [];
   const hasFallbackEvidence =
     (result.correctWords?.length ?? 0) > 0 || (result.missedWords?.length ?? 0) > 0;
-  if (evidenceRows.length === 0 && !hasFallbackEvidence) return [];
+  if (evidenceRows.length === 0 && !hasFallbackEvidence) {
+    return {
+      skippedPracticeNodeIds: [],
+      changedNodeIds: [],
+      nextTargets: [],
+      reason: "no target-level evidence was available",
+    };
+  }
 
   const plan = selectTargetedPracticePlan({
     nodeId: result.nodeId,
@@ -1037,16 +1254,32 @@ function retargetFuturePracticeNodes(
     missedWords: result.missedWords,
     targetResults: evidenceRows,
   });
-  if (plan.status !== "ready") return [];
+  if (plan.status !== "ready") {
+    return {
+      skippedPracticeNodeIds: [],
+      changedNodeIds: [],
+      nextTargets: [],
+      reason: `targeted practice selector returned ${plan.status}`,
+    };
+  }
 
   const completedIdx = nodes.findIndex((node) => node.id === completedNode.id);
-  if (completedIdx < 0) return [];
+  if (completedIdx < 0) {
+    return {
+      skippedPracticeNodeIds: [],
+      changedNodeIds: [],
+      nextTargets: [],
+      reason: "completed node was not found in the active board",
+    };
+  }
   let updatedCount = 0;
   const skippedNodeIds: string[] = [];
+  const changedNodeIds: string[] = [];
   for (let i = completedIdx + 1; i < nodes.length; i += 1) {
     const node = nodes[i]!;
     if (!isRetargetablePracticeNodeType(node.type)) continue;
     node.words = [...plan.nextTargets];
+    changedNodeIds.push(node.id);
     if (node.type === "word-radar") {
       node.wordRadarItems = wordRadarItemsForTargets(node, plan.nextTargets);
     }
@@ -1065,7 +1298,15 @@ function retargetFuturePracticeNodes(
       `  🎮 [targeted-practice] skipped ${skippedNodeIds.length} empty practice node(s) after mastered baseline`,
     );
   }
-  return skippedNodeIds;
+  return {
+    skippedPracticeNodeIds: skippedNodeIds,
+    changedNodeIds,
+    nextTargets: plan.nextTargets,
+    reason:
+      changedNodeIds.length > 0
+        ? `future practice retargeted from ${completedNode.type} evidence`
+        : "no future retargetable practice nodes remained",
+  };
 }
 
 /** Adventure map path from `ChildProfile.pendingHomework` (via `buildProfile`). Exported for tests. */
@@ -1131,6 +1372,76 @@ export function pendingHomeworkToNodeConfigs(
       isGoal: i === arr.length - 1,
     };
   });
+}
+
+function sanitizePendingHomeworkForLaunch(
+  hw: NonNullable<ChildProfile["pendingHomework"]>,
+): NonNullable<ChildProfile["pendingHomework"]> {
+  const gate = createHomeworkEvidenceGate(hw);
+  if (!gate) return hw;
+  const reinforceWords = filterHomeworkTargets(
+    gate,
+    hw.reinforceWords ?? [],
+    { logPrefix: "  🎮" },
+  ).accepted;
+  return {
+    ...hw,
+    reinforceWords,
+    nodes: hw.nodes.map((node) => {
+      const next = { ...node };
+      if (Array.isArray(next.words) && next.words.length > 0 && next.type !== "karaoke") {
+        next.words = filterHomeworkTargets(gate, next.words, { logPrefix: "  🎮" }).accepted;
+      }
+      const items = (next as { wordRadarItems?: NodeConfig["wordRadarItems"] }).wordRadarItems;
+      if (Array.isArray(items) && items.length > 0) {
+        const accepted = filterHomeworkTargets(
+          gate,
+          items.map((item) => item.display),
+          { logPrefix: "  🎮" },
+        ).accepted;
+        const acceptedKeys = new Set(accepted.map((word) => normalizedWordKey(word)));
+        (next as { wordRadarItems?: NodeConfig["wordRadarItems"] }).wordRadarItems = items.filter((item) =>
+          acceptedKeys.has(normalizedWordKey(item.display)),
+        );
+      }
+      return next;
+    }),
+  };
+}
+
+function displayChildNameForNarration(childId: string): string {
+  const clean = childId.trim();
+  if (!clean) return "Friend";
+  return clean
+    .split(/([_-]+)/)
+    .map((part) =>
+      /^[a-z]/.test(part)
+        ? `${part.charAt(0).toUpperCase()}${part.slice(1)}`
+        : part,
+    )
+    .join("");
+}
+
+function nodeHidesLaunchTarget(node: NodeConfig): boolean {
+  const gameFile = String(node.gameFile ?? "").toLowerCase();
+  if (node.type === "word-radar") {
+    return node.wordRadarConfig?.requiresCapturedResponse !== false;
+  }
+  return node.type === "wheel-of-fortune" ||
+    (node.type === "mystery" && gameFile.includes("wheel"));
+}
+
+export function gameMountGreetingForNode(childId: string, node: NodeConfig): string {
+  const target =
+    node.words?.[0] ??
+    node.wordRadarItems?.[0]?.display ??
+    node.storyTitle ??
+    node.type;
+  const label = node.type.replace(/-/g, " ");
+  if (nodeHidesLaunchTarget(node)) {
+    return `${displayChildNameForNarration(childId)}, ${label} is ready.`;
+  }
+  return `${displayChildNameForNarration(childId)}, ${label} is ready. First target: ${target}.`;
 }
 
 /** Static theme — no Grok / designer image pipeline (`isDiagMapMode()` / diag map session). */
@@ -1254,7 +1565,7 @@ export function buildDiagMapSession(): { sessionId: string; mapState: MapState }
   );
   syncNodeStatuses(mapState, runtime);
   const sessionId = randomUUID();
-  sessions.set(sessionId, { childId: "creator", mapState, runtime });
+  sessions.set(sessionId, { childId: "creator", mapState, runtime, greetedNodeIds: new Set() });
   return { sessionId, mapState };
 }
 
@@ -1554,6 +1865,70 @@ function logActivityPlanValidation(
   }
 }
 
+function withGoalFlags(nodes: NodeConfig[]): NodeConfig[] {
+  return nodes.map((node, idx) => ({
+    ...node,
+    isGoal: idx === nodes.length - 1,
+  }));
+}
+
+export function repairBlockedHomeworkMapActivityPlan(
+  childId: string,
+  hw: HomeworkForActivityValidation,
+  nodes: NodeConfig[],
+  validation: ActivityPlanValidationResult,
+): NodeConfig[] | null {
+  const needsSpellingRecall = validation.blockers.some(
+    (blocker) => blocker.code === "high_confidence_spelling_requires_independent_recall",
+  );
+  if (!needsSpellingRecall) return null;
+
+  const recallIdx = nodes.findIndex((node) =>
+    node.type === "spell-check" ||
+    (
+      node.type === "letter-rush" &&
+      (
+        node.activityConfigPath?.includes("baseline") ||
+        node.activityConfigPath?.includes("mastery")
+      )
+    ),
+  );
+
+  if (recallIdx >= 0) {
+    const repaired = [...nodes];
+    const [recallNode] = repaired.splice(recallIdx, 1);
+    if (!recallNode) return null;
+    repaired.unshift({
+      ...recallNode,
+      isLocked: false,
+      isCompleted: false,
+    });
+    console.warn(
+      `🎮 [activity-plan] [repair] child=${childId} action=move-independent-recall-first node=${recallNode.id}`,
+    );
+    return withGoalFlags(repaired);
+  }
+
+  const words = hw.wordList.slice(0, 5);
+  if (words.length === 0) return null;
+  const fallbackNode: NodeConfig = {
+    id: `n-spell-check-${hw.homeworkId ?? hw.weekOf ?? "homework"}-repair`,
+    type: "spell-check",
+    words,
+    difficulty: 1,
+    gameFile: undefined,
+    storyFile: undefined,
+    isLocked: false,
+    isCompleted: false,
+    isGoal: false,
+    thumbnailPrompt: NODE_THUMBNAIL_PROMPTS["spell-check"],
+  };
+  console.warn(
+    `🎮 [activity-plan] [repair] child=${childId} action=insert-independent-recall node=${fallbackNode.id}`,
+  );
+  return withGoalFlags([fallbackNode, ...nodes]);
+}
+
 function validateHomeworkMapActivityPlan(
   childId: string,
   hw: HomeworkForActivityValidation,
@@ -1567,8 +1942,18 @@ function validateHomeworkMapActivityPlan(
   });
   logActivityPlanValidation(childId, validation);
   if (!validation.ok) {
+    const repaired = repairBlockedHomeworkMapActivityPlan(childId, hw, nodes, validation);
+    if (repaired) {
+      const repairedValidation = validateActivityPlan({
+        learnerState: "unknown",
+        domainEvidence: evidence,
+        nodes: repaired.map((node, idx) => activityNodeForMapNode(node, idx, evidence)),
+      });
+      logActivityPlanValidation(childId, repairedValidation);
+      if (repairedValidation.ok) return repaired;
+    }
     throw new MapSessionError(
-      `activity_plan_blocked: ${validation.blockers.map((finding) => finding.code).join(", ")}`,
+      "activity_plan_unavailable",
       422,
     );
   }
@@ -1677,8 +2062,10 @@ export async function startMapSession(
   if (runtime.subject === "onboarding") {
     nodes = buildOnboardingPreviewNodes(profile.childId, theme);
   } else if (profile.pendingHomework?.nodes?.length) {
-    const hw = profile.pendingHomework;
+    const hw = sanitizePendingHomeworkForLaunch(profile.pendingHomework);
+    profile.pendingHomework = hw;
     let chartPlannedNodes: NodeConfig[] | null = null;
+    let parentApprovedChartPlan = false;
     try {
       const chart = getChildChart(childId);
       const chartHomeworkId =
@@ -1688,25 +2075,49 @@ export async function startMapSession(
           `chart homework mismatch chart=${chartHomeworkId ?? "none"} profile=${homeworkId}`,
         );
       }
+      if (!chart.homework.pending) {
+        throw new Error("chart pending homework missing");
+      }
       let activeSessionPlan = chart.activeSessionPlan;
-      if (activeSessionPlan?.activeHomeworkId !== homeworkId || !activeSessionPlan?.planTheory) {
+      const refreshReason = activeSessionPlanRefreshReason(
+        activeSessionPlan,
+        chart.homework.pending,
+      );
+      if (refreshReason) {
         const plannerInput = buildExperiencePlannerInput(chart);
-        activeSessionPlan = draftPsychologistExperiencePlan(plannerInput);
+        const priorApproved =
+          activeSessionPlan?.approvalStatus === "approved" &&
+          Boolean(activeSessionPlan.parentNote?.trim());
+        activeSessionPlan = draftPsychologistExperiencePlan(plannerInput, {
+          parentNote: activeSessionPlan?.parentNote,
+        });
+        if (priorApproved) {
+          activeSessionPlan = {
+            ...activeSessionPlan,
+            approvalStatus: "approved",
+            parentNote: activeSessionPlan.parentNote,
+          };
+        }
         writeActiveSessionPlan(chart.childId, activeSessionPlan);
         console.log(
-          `🎮 [experience-planner] [fallback] child=${chart.childId} homework=${activeSessionPlan.activeHomeworkId ?? "none"} confidence=${activeSessionPlan.plannerConfidence ?? "unknown"}`,
+          `🎮 [experience-planner] [fallback] child=${chart.childId} reason=${refreshReason} homework=${activeSessionPlan.activeHomeworkId ?? "none"} confidence=${activeSessionPlan.plannerConfidence ?? "unknown"}`,
         );
-      } else {
+      } else if (activeSessionPlan) {
         console.log(
           `🎮 [experience-planner] [active] child=${chart.childId} plan=${activeSessionPlan.planId} status=${activeSessionPlan.approvalStatus ?? "unknown"}`,
         );
+      } else {
+        throw new Error("experience planner did not produce an active session plan");
       }
       if (!activeSessionPlan) {
         throw new Error("experience planner did not produce an active session plan");
       }
-      chartPlannedNodes = buildAdventureMapFromSessionPlan(chart, activeSessionPlan, {
+      parentApprovedChartPlan =
+        activeSessionPlan.approvalStatus === "approved" &&
+        Boolean(activeSessionPlan.parentNote?.trim());
+      chartPlannedNodes = sanitizeActiveHomeworkPlanForLaunch(hw, buildAdventureMapFromSessionPlan(chart, activeSessionPlan, {
         dopamineGames: getDopamineGameSlugsForChild(childId),
-      });
+      }));
       const mystery = chartPlannedNodes.find((node) => node.type === "mystery");
       if (mystery?.surpriseOption?.activityKind === "dopamine_game") {
         registerMysteryGameForSessionFinalize(childId, mystery.surpriseOption.activityId);
@@ -1725,7 +2136,14 @@ export async function startMapSession(
       chartPlannedNodes = null;
     }
     if (chartPlannedNodes?.length) {
-      nodes = validateHomeworkMapActivityPlan(profile.childId, hw, chartPlannedNodes);
+      if (parentApprovedChartPlan) {
+        console.log(
+          `🎮 [activity-plan] [parent-approved] child=${profile.childId} action=skip-silent-repair`,
+        );
+        nodes = withGoalFlags(chartPlannedNodes);
+      } else {
+        nodes = validateHomeworkMapActivityPlan(profile.childId, hw, chartPlannedNodes);
+      }
     } else {
     const sm2Plan = homeworkOnlySelectionPlan(childId);
     const bank = readWordBank(childId);
@@ -1760,11 +2178,12 @@ export async function startMapSession(
     if (reinforce.length > 0) {
       try {
         const lp = readLearningProfile(childId);
-        if (lp?.pendingHomework?.reinforceWords?.length) {
-          writeLearningProfile(childId, {
-            ...lp,
-            pendingHomework: { ...lp.pendingHomework, reinforceWords: [] },
-          });
+        const domain = lp ? selectedHomeworkDomain(lp) ?? inferHomeworkDomainFromPending(lp.pendingHomework) : undefined;
+        if (lp && domain && lp.pendingHomework?.reinforceWords?.length) {
+          patchActiveHomeworkLane(childId, domain, (pending) => ({
+            ...pending,
+            reinforceWords: [],
+          }));
         }
       } catch (err) {
         console.error("  🔴 [map-coordinator] clear reinforceWords failed:", err);
@@ -2004,7 +2423,9 @@ export async function startMapSession(
     mapState,
     runtime,
     pendingHomework: profile.pendingHomework,
+    greetedNodeIds: new Set(),
   });
+  latestSessionIdByChild.set(mapCompanionWsKey(profile.childId), sessionId);
   return { sessionId, mapState };
 }
 
@@ -2041,7 +2462,6 @@ export function handleMapClientMessage(
     if (clicked.isLocked) {
       return [{ type: "map_error", payload: { reason: "locked_node" } }];
     }
-    const launchedNode = clicked;
     if (!inspectAll) {
       const cur = currentNode(rec.mapState);
       const completedReplay =
@@ -2050,25 +2470,85 @@ export function handleMapClientMessage(
         return [{ type: "map_error", payload: { reason: "not_current_node" } }];
       }
     }
+    const launchedNode = nodeWithActivityIntent(rec.mapState.childId, clicked, rec.pendingHomework);
+    rec.mapState.nodes = rec.mapState.nodes.map((node) =>
+      node.id === launchedNode.id ? launchedNode : node,
+    );
     const childId = rec.mapState.childId;
     const sm = getActiveVoiceSessionManagerForChild(childId);
     if (sm) {
-      const nodeSummary = launchedNode.words?.length
-        ? `${childId} just started a ${launchedNode.type} activity. Word: "${launchedNode.words[0]}".`
-        : launchedNode.wordRadarItems?.length
-          ? `${childId} just started a ${launchedNode.type} activity. Word: "${launchedNode.wordRadarItems[0].display}".`
-          : `${childId} just started a ${launchedNode.type} activity.`;
       const gameContextSession = sm as typeof sm & {
         injectGameContext?: (state: Record<string, unknown>) => void;
+        recordGameTrace?: (state: Record<string, unknown>) => void;
       };
+      const launchTarget =
+        launchedNode.words?.[0] ?? launchedNode.wordRadarItems?.[0]?.display ?? "";
+      const hidesLaunchTarget = nodeHidesLaunchTarget(launchedNode);
+      const nodeSummary =
+        !hidesLaunchTarget && launchTarget
+          ? `${childId} just started a ${launchedNode.type} activity. Word: "${launchTarget}".`
+          : `${childId} just started a ${launchedNode.type} activity.`;
+      const allowedActivities = rec.mapState.nodes
+        .filter((node) => !node.isLocked || node.id === launchedNode.id)
+        .map((node) => node.type);
+      gameContextSession.recordGameTrace?.({
+        type: "node_launched",
+        source: "map_coordinator",
+        game: launchedNode.type,
+        phase: "launched",
+        nodeId: launchedNode.id,
+        activityId: launchedNode.type,
+        activityIntentId: launchedNode.activityIntent?.intentId,
+        targetSelectorId: launchedNode.targetSelectorDecision?.selectorId,
+        intentPurpose: launchedNode.activityIntent?.purpose,
+        diagnosticQuestion: launchedNode.activityIntent?.diagnosticQuestion,
+        childId,
+        answerVisibility: hidesLaunchTarget ? "hidden" : "visible",
+        currentWord: hidesLaunchTarget ? undefined : launchTarget,
+        expectedTargets: [
+          ...(launchedNode.words ?? []),
+          ...(launchedNode.wordRadarItems ?? []).map((item) => item.display),
+        ],
+        allowedActivities,
+        homeworkId: rec.pendingHomework?.homeworkId ?? rec.pendingHomework?.weekOf,
+        activityIntent: launchedNode.activityIntent,
+        targetSelectorDecision: launchedNode.targetSelectorDecision,
+      });
       gameContextSession.injectGameContext?.({
         game: launchedNode.type,
         phase: "launched",
         nodeId: launchedNode.id,
-        currentWord:
-          launchedNode.words?.[0] ?? launchedNode.wordRadarItems?.[0]?.display ?? "",
+        activityId: launchedNode.type,
+        activityIntentId: launchedNode.activityIntent?.intentId,
+        targetSelectorId: launchedNode.targetSelectorDecision?.selectorId,
+        intentPurpose: launchedNode.activityIntent?.purpose,
+        diagnosticQuestion: launchedNode.activityIntent?.diagnosticQuestion,
+        homeworkId: rec.pendingHomework?.homeworkId ?? rec.pendingHomework?.weekOf,
+        answerVisibility: hidesLaunchTarget ? "hidden" : "visible",
+        domain:
+          rec.pendingHomework?.contentProfile?.practiceDomain ??
+          rec.pendingHomework?.capturedContent?.contentProfile?.practiceDomain,
+        currentWord: hidesLaunchTarget ? undefined : launchTarget,
+        expectedTargets: [
+          ...(launchedNode.words ?? []),
+          ...(launchedNode.wordRadarItems ?? []).map((item) => item.display),
+        ],
+        allowedActivities,
+        mode: launchedNode.wordRadarConfig?.recallMode ?? launchedNode.type,
         progress: nodeSummary,
       });
+      if (!rec.greetedNodeIds.has(launchedNode.id) && sm.speakGameNarration) {
+        rec.greetedNodeIds.add(launchedNode.id);
+        void Promise.resolve(sm.speakGameNarration(gameMountGreetingForNode(childId, launchedNode), {
+            source: "map_node_started",
+            reason: "game_mount_greeting",
+            nodeId: launchedNode.id,
+            activityId: launchedNode.type,
+            homeworkId: rec.pendingHomework?.homeworkId ?? rec.pendingHomework?.weekOf,
+          })).catch((err: unknown) => {
+          console.error("  🔴 [map-coordinator] game mount greeting failed:", err);
+        });
+      }
       sm.noteExternalEvent({
         source: "map_node_started",
         summary: nodeSummary,
@@ -2090,18 +2570,14 @@ export function handleMapClientMessage(
           ? (msg.payload as Record<string, unknown>)
           : {};
       const gameContextSession = sm as typeof sm & {
-        injectGameContext?: (state: Record<string, unknown>) => void;
+        recordGameTrace?: (state: Record<string, unknown>) => void;
       };
-      gameContextSession.injectGameContext?.(payload);
-      const progress = String(
-        payload.progress ?? "Working on a game",
-      );
-      sm.noteExternalEvent({
-        source: "game_state_update",
-        summary: progress,
-        occurredAt: Date.now(),
+      gameContextSession.recordGameTrace?.({
+        ...payload,
+        type: "game_state_update",
+        source: "map_coordinator",
+        childId,
       });
-      console.log("  🎮 [map-coordinator] game_state_update injected");
     }
     return [];
   }
@@ -2256,6 +2732,12 @@ function appendActivityResultFlightRecorder(input: {
       nodeType: input.node.type,
       activityId: input.result.activityId ?? input.node.type,
       purpose: input.result.purpose ?? null,
+      activityIntentId: input.result.activityIntentId ?? input.node.activityIntent?.intentId ?? null,
+      targetSelectorId:
+        input.result.targetSelectorId ?? input.node.targetSelectorDecision?.selectorId ?? null,
+      activityIntent: input.result.activityIntent ?? input.node.activityIntent ?? null,
+      targetSelectorDecision:
+        input.result.targetSelectorDecision ?? input.node.targetSelectorDecision ?? null,
       mode: input.result.mode ?? null,
       activityConfigPath: input.node.activityConfigPath ?? null,
       completed: input.result.completed,
@@ -2264,6 +2746,8 @@ function appendActivityResultFlightRecorder(input: {
       wordsAttempted: input.result.wordsAttempted,
       missedWords: input.result.missedWords ?? [],
       correctWords: input.result.correctWords ?? [],
+      evidenceTier: input.result.evidenceTier ?? null,
+      vitalSigns: input.result.vitalSigns ?? null,
       targetResults: input.result.targetResults ?? [],
       bonusRound: input.result.bonusRound ?? null,
       letterResults: input.result.letterResults ?? [],
@@ -2329,6 +2813,7 @@ export async function applyNodeResult(
       console.error("  🔴 [map-coordinator] recordReward failed:", err);
     }
     writePostNodeLearningEvidence(st.childId, nodeCfg, result, rating);
+    recordMapTargetAttempts(st.childId, sessionId, nodeCfg, result);
   }
 
   if (
@@ -2385,9 +2870,15 @@ export async function applyNodeResult(
     }
   }
 
-  const missed = [...(result.missedWords ?? [])]
+  const missedRaw = [...(result.missedWords ?? [])]
     .map((w) => String(w).trim())
     .filter(Boolean);
+  const homeworkGate = createHomeworkEvidenceGate(rec.pendingHomework);
+  const missed = filterHomeworkTargets(homeworkGate, missedRaw, { logPrefix: "  🎮" }).accepted;
+  const scopedResult =
+    missed.length === missedRaw.length
+      ? result
+      : { ...result, missedWords: missed };
   if (missed.length > 0 && isWordDrivenHomeworkNodeType(nodeCfg.type)) {
     const questNode = st.nodes.find(
       (node) => node.type === "quest" && !node.isCompleted,
@@ -2406,15 +2897,14 @@ export async function applyNodeResult(
     }
     try {
       const lp = readLearningProfile(st.childId);
-      const ph = lp?.pendingHomework;
-      if (lp && ph) {
-        const prev = ph.reinforceWords ?? [];
-        const merged = [
-          ...new Set([...prev, ...missed].map((x) => String(x).trim()).filter(Boolean)),
-        ];
-        writeLearningProfile(st.childId, {
-          ...lp,
-          pendingHomework: { ...ph, reinforceWords: merged },
+      const domain = lp ? selectedHomeworkDomain(lp) ?? inferHomeworkDomainFromPending(lp.pendingHomework) : undefined;
+      if (lp && domain) {
+        patchActiveHomeworkLane(st.childId, domain, (pending) => {
+          const prev = pending.reinforceWords ?? [];
+          const merged = [
+            ...new Set([...prev, ...missed].map((x) => String(x).trim()).filter(Boolean)),
+          ];
+          return { ...pending, reinforceWords: merged };
         });
       }
     } catch (err) {
@@ -2422,11 +2912,11 @@ export async function applyNodeResult(
     }
   }
 
-  const skippedPracticeNodeIds = retargetFuturePracticeNodes(st.nodes, nodeCfg, result);
-  for (const skippedId of skippedPracticeNodeIds) {
+  const nextPlanDiff = retargetFuturePracticeNodes(st.nodes, nodeCfg, scopedResult);
+  for (const skippedId of nextPlanDiff.skippedPracticeNodeIds) {
     if (!st.completedNodes.includes(skippedId)) st.completedNodes.push(skippedId);
   }
-  expandFuturePronunciationNodesFromHomework(st.nodes, nodeCfg, result, rec.pendingHomework);
+  expandFuturePronunciationNodesFromHomework(st.nodes, nodeCfg, scopedResult, rec.pendingHomework);
 
   if (result.completed) {
     let xpDelta = 5;
@@ -2478,6 +2968,7 @@ export async function applyNodeResult(
       st.sessionDate,
       `Map node ${nodeCfg.type} ${result.nodeId} completed=${result.completed} accuracy=${result.accuracy}`,
     );
+    writeLearningExperimentResult(st.childId, nodeCfg, result);
   }
 
 	  if (!skipSessionPersistence && result.completed) {
@@ -2515,14 +3006,18 @@ export async function applyNodeResult(
   if (!skipSessionPersistence && result.completed) {
     try {
       const lp = readLearningProfile(st.childId);
-      if (lp?.pendingHomework?.nodes?.length) {
+      const domain = lp ? selectedHomeworkDomain(lp) ?? inferHomeworkDomainFromPending(lp.pendingHomework) : undefined;
+      if (lp?.pendingHomework?.nodes?.length && domain) {
         const nodeOk = st.nodes.some((n) => n.id === result.nodeId);
         if (nodeOk) {
-          const prev = lp.pendingHomework.completedAdventureNodeIds ?? [];
-          if (!prev.includes(result.nodeId)) {
-            lp.pendingHomework.completedAdventureNodeIds = [...prev, result.nodeId];
-            writeLearningProfile(st.childId, lp);
-          }
+          patchActiveHomeworkLane(st.childId, domain, (pending) => {
+            const prev = pending.completedAdventureNodeIds ?? [];
+            if (prev.includes(result.nodeId)) return pending;
+            return {
+              ...pending,
+              completedAdventureNodeIds: [...prev, result.nodeId],
+            };
+          });
         }
       }
     } catch (err) {
@@ -2560,6 +3055,83 @@ export async function applyNodeResult(
 
   const voiceSm = getActiveVoiceSessionManagerForChild(st.childId);
   if (voiceSm) {
+    const voiceWithTrace = voiceSm as typeof voiceSm & {
+      recordGameTrace?: (state: Record<string, unknown>) => void;
+      recordGameSummary?: (state: Record<string, unknown>) => void;
+    };
+    const voiceMutable = voiceSm as typeof voiceSm & {
+      spellCheckSessionActive?: boolean;
+      activeSpellCheckWord?: string;
+    };
+    voiceMutable.spellCheckSessionActive = false;
+    voiceMutable.activeSpellCheckWord = "";
+    voiceWithTrace.recordGameTrace?.({
+      type: "activity_result_interpreted",
+      source: "map_coordinator",
+      childId: st.childId,
+      nodeId: result.nodeId,
+      activityId: result.activityId ?? nodeCfg.type,
+      activityIntentId: result.activityIntentId ?? nodeCfg.activityIntent?.intentId,
+      targetSelectorId: result.targetSelectorId ?? nodeCfg.targetSelectorDecision?.selectorId,
+      evidenceTier: result.evidenceTier ?? nodeCfg.activityIntent?.evidenceTier ?? null,
+      targetResults: result.targetResults ?? [],
+      missedWords: result.missedWords ?? [],
+      correctWords: result.correctWords ?? [],
+      interpretation:
+        result.targetResults?.length || result.missedWords?.length || result.correctWords?.length
+          ? "target evidence available for retargeting"
+          : "completion recorded without target-level evidence",
+    });
+    voiceWithTrace.recordGameTrace?.({
+      type: nextPlanDiff.changedNodeIds.length > 0 ? "next_plan_changed" : "next_plan_unchanged",
+      source: "map_coordinator",
+      childId: st.childId,
+      nodeId: result.nodeId,
+      activityId: result.activityId ?? nodeCfg.type,
+      changedNodeIds: nextPlanDiff.changedNodeIds,
+      skippedPracticeNodeIds: nextPlanDiff.skippedPracticeNodeIds,
+      nextTargets: nextPlanDiff.nextTargets,
+      reason: nextPlanDiff.reason,
+    });
+    voiceWithTrace.recordGameTrace?.({
+      ...buildNodeCompletionHandoffState(nodeCfg, result),
+      type: "node_complete",
+      source: "map_coordinator",
+      childId: st.childId,
+      activityIntentId: result.activityIntentId ?? nodeCfg.activityIntent?.intentId,
+      targetSelectorId: result.targetSelectorId ?? nodeCfg.targetSelectorDecision?.selectorId,
+      intentPurpose: nodeCfg.activityIntent?.purpose,
+      targetSelectorTrace: nodeCfg.targetSelectorDecision?.traceSummary,
+    });
+    voiceWithTrace.recordGameSummary?.({
+      game: nodeCfg.type,
+      nodeId: result.nodeId,
+      activityId: result.activityId ?? nodeCfg.type,
+      activityIntentId: result.activityIntentId ?? nodeCfg.activityIntent?.intentId,
+      targetSelectorId: result.targetSelectorId ?? nodeCfg.targetSelectorDecision?.selectorId,
+      activityIntent: result.activityIntent ?? nodeCfg.activityIntent ?? null,
+      targetSelectorDecision:
+        result.targetSelectorDecision ?? nodeCfg.targetSelectorDecision ?? null,
+      targetLane: result.purpose ?? nodeCfg.activityConfigPath ?? null,
+      targetsShown: nodeCfg.words ?? nodeCfg.wordRadarItems?.map((item) => item.display) ?? [],
+      attempts: result.wordsAttempted,
+      correctWords: result.correctWords ?? [],
+      missedWords: result.missedWords ?? [],
+      recoveredWords: result.targetResults
+        ?.filter((row) =>
+          row.correct === true &&
+          Array.isArray(row.struggleSignals) &&
+          row.struggleSignals.includes("missed_then_recovered"),
+        )
+        .map((row) => row.target) ?? [],
+      visibleScore: (result as unknown as Record<string, unknown>).score ?? null,
+      coinsEarned: (result as unknown as Record<string, unknown>).coinsEarned ?? null,
+      answerVisibilityEvents: [nodeHidesLaunchTarget(nodeCfg) ? "hidden" : "visible"],
+      helpRequests: [],
+      completed: result.completed,
+      accuracy: result.accuracy,
+      timeSpent_ms: result.timeSpent_ms,
+    });
     voiceSm.noteExternalEvent(formatNodeResultForCompanion(nodeCfg, result));
     const voiceWithHandoff = voiceSm as typeof voiceSm & {
       queueNodeCompletionHandoff?: (state: Record<string, unknown>) => void;
@@ -2574,6 +3146,11 @@ export async function applyNodeResult(
 
 export function getMapState(sessionId: string): MapState | null {
   return sessions.get(sessionId)?.mapState ?? null;
+}
+
+export function getLatestMapStateForChild(childIdRaw: string): MapState | null {
+  const sessionId = latestSessionIdByChild.get(mapCompanionWsKey(childIdRaw));
+  return sessionId ? getMapState(sessionId) : null;
 }
 
 export async function recordMapChoiceEvent(
@@ -2623,6 +3200,23 @@ export async function recordMapChoiceEvent(
     return { ok: true, applied: false, skippedPersistence: true };
   }
   const event = recordChoiceEvent(eventInput);
+  const sm = getActiveVoiceSessionManagerForChild(childId);
+  sm?.recordGameTrace?.({
+    type: "choice_event",
+    source: "map_coordinator",
+    eventName: event.eventName,
+    choiceSetId: event.choiceSetId,
+    nodeId: event.nodeId,
+    context: event.context,
+    domain: event.domain,
+    shownOptions: event.shownOptions,
+    selectedOptionId: event.selectedOptionId,
+    skippedOptionIds: event.skippedOptionIds,
+    started: event.started,
+    completed: event.completed,
+    accuracy: event.accuracy,
+    timeToChoose_ms: event.timeToChoose_ms,
+  });
   const applied = await applyChoiceEventPreference(event);
   return { ok: true, applied: applied.applied, skippedPersistence: false };
 }

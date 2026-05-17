@@ -85,8 +85,10 @@ import {
   handleMapClientMessage,
   hydrateHomeworkCompletedNodeIds,
   MapSessionError,
+  repairBlockedHomeworkMapActivityPlan,
   startMapSession,
   buildMapSummary,
+  gameMountGreetingForNode,
 } from "../server/map-coordinator";
 import { inferEmoteFromSlug } from "../scripts/ingestAnimations";
 import {
@@ -124,6 +126,47 @@ function mockTheme() {
     castleVariant: "stone",
   };
 }
+
+describe("game mount narration", () => {
+  it("uses display child names instead of raw lowercase child ids", () => {
+    const greeting = gameMountGreetingForNode("ila", {
+      id: "n-pronunciation",
+      type: "pronunciation",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 1,
+      words: ["shiny"],
+    });
+
+    expect(greeting).toContain("Ila, pronunciation is ready.");
+    expect(greeting).not.toContain("ila, pronunciation is ready.");
+  });
+
+  it("does not reveal Word Radar targets when response capture is required", () => {
+    const greeting = gameMountGreetingForNode("ila", {
+      id: "n-word-radar",
+      type: "word-radar",
+      isLocked: false,
+      isCompleted: false,
+      isGoal: false,
+      difficulty: 1,
+      words: ["machine"],
+      wordRadarConfig: {
+        recallMode: "partial_visual_recall",
+        inputMode: "whole-word",
+        speakStyle: "option-a",
+        hideWordDuringResponse: true,
+        requiresCapturedResponse: true,
+        showTimer: false,
+      },
+    });
+
+    expect(greeting).toContain("Ila, word radar is ready.");
+    expect(greeting).not.toContain("machine");
+    expect(greeting).not.toContain("First target");
+  });
+});
 
 function mockNodes(): MapState["nodes"] {
   return [
@@ -219,6 +262,104 @@ describe("map coordinator (TASK-010)", () => {
     const { mapState } = await startMapSession("qa_map");
     expect(mapState.nodes[0]?.type).toBe("riddle");
     expect(vi.mocked(buildNodeList).mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("sanitizes stale active homework targets before launching a spelling map", async () => {
+    vi.mocked(buildNodeList).mockClear();
+    const words = ["shiny", "slowly", "lucky", "neatly", "sunny"];
+    const homeworkId = "hw-spelling_test-scope";
+    const pendingHomework = {
+      ...(buildPendingHomeworkPayload({
+        weekOf: "2026-05-15",
+        testDate: "2026-05-15",
+        wordList: words,
+        homeworkId,
+        nodes: buildHomeworkNodes({
+          type: "spelling_test",
+          words,
+          homeworkId,
+          childId: "ila",
+        }),
+      }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>),
+      reinforceWords: ["figure", "slowly", "coldest"],
+    };
+    pendingHomework.nodes = pendingHomework.nodes.map((node) =>
+      node.type === "word-radar"
+        ? { ...node, words: ["figure", "slowly"], wordRadarItems: [{ display: "figure", acceptedResponses: ["figure"] }] }
+        : node,
+    );
+    vi.mocked(buildProfile).mockResolvedValueOnce(
+      mockProfileWithPendingHomework("ila", pendingHomework) as never,
+    );
+
+    const { mapState } = await startMapSession("ila");
+    const launchedTargets = mapState.nodes.flatMap((node) => [
+      ...(node.words ?? []),
+      ...(node.wordRadarItems ?? []).map((item) => item.display),
+      ...(node.choiceOptions ?? []).map((option) => option.label),
+    ]);
+
+    expect(launchedTargets).toContain("slowly");
+    expect(launchedTargets).not.toContain("figure");
+    expect(launchedTargets).not.toContain("coldest");
+    expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
+  });
+
+  it("drops off-list missed words instead of persisting them as reinforceWords", async () => {
+    vi.mocked(buildNodeList).mockClear();
+    const words = ["shiny", "slowly"];
+    const homeworkId = "hw-spelling_test-node-result-scope";
+    const pendingHomework = buildPendingHomeworkPayload({
+      weekOf: "2026-05-15",
+      testDate: "2026-05-15",
+      wordList: words,
+      homeworkId,
+      nodes: buildHomeworkNodes({
+        type: "spelling_test",
+        words,
+        homeworkId,
+        childId: "ila",
+      }),
+    }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>;
+    vi.mocked(buildProfile).mockResolvedValueOnce(
+      mockProfileWithPendingHomework("ila", pendingHomework) as never,
+    );
+    const profile: LearningProfile = {
+      ...(learningProfileIO.initializeLearningProfile({
+        childId: "ila",
+        age: 8,
+        grade: 2,
+        diagnoses: [],
+        learningGoals: ["spelling"],
+      })),
+      selectedHomeworkDomain: "spelling",
+      pendingHomework,
+      activeHomeworkByDomain: { spelling: pendingHomework },
+    };
+    const readSpy = vi.spyOn(learningProfileIO, "readLearningProfile").mockReturnValue(profile);
+    const writeSpy = vi.spyOn(learningProfileIO, "writeLearningProfile").mockImplementation(() => {});
+
+    try {
+      const { sessionId, mapState } = await startMapSession("ila");
+      const wordRadar = mapState.nodes.find((node) => node.type === "word-radar" || node.type === "spell-check");
+      if (!wordRadar) throw new Error("missing word-driven node");
+      await applyNodeResult(sessionId, {
+        nodeId: wordRadar.id,
+        completed: true,
+        accuracy: 0.5,
+        timeSpent_ms: 1000,
+        wordsAttempted: 2,
+        correctWords: ["shiny"],
+        missedWords: ["figure", "slowly"],
+      });
+
+      const questNode = mapState.nodes.find((node) => node.type === "quest");
+      expect(questNode?.words).toContain("slowly");
+      expect(questNode?.words).not.toContain("figure");
+    } finally {
+      writeSpy.mockRestore();
+      readSpy.mockRestore();
+    }
   });
 
   it("startMapSession uses pending homework nodes when profile.pendingHomework has nodes", async () => {
@@ -504,9 +645,73 @@ describe("map coordinator (TASK-010)", () => {
     await expect(startMapSession("qa_map")).rejects.toMatchObject({
       name: "MapSessionError",
       statusCode: 422,
-      message: expect.stringContaining("activity_plan_blocked"),
+      message: "activity_plan_unavailable",
     });
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
+  });
+
+  it("repairs blocked spelling plans by moving independent recall before scaffolded practice", () => {
+    const words = ["shiny", "slowly", "lucky"];
+    const homeworkId = "hw-spelling_test-repair-blocker";
+    const pendingHomework = buildPendingHomeworkPayload({
+      weekOf: "2026-05-15",
+      testDate: "2026-05-22",
+      wordList: words,
+      homeworkId,
+      nodes: [],
+    }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>;
+    const nodes: NodeConfig[] = [
+      {
+        id: "n-word-radar",
+        type: "word-radar",
+        words,
+        difficulty: 1,
+        isLocked: false,
+        isCompleted: false,
+        isGoal: false,
+      },
+      {
+        id: "n-monster",
+        type: "monster-stampede",
+        words,
+        difficulty: 1,
+        isLocked: false,
+        isCompleted: false,
+        isGoal: false,
+      },
+      {
+        id: "n-spell-check",
+        type: "spell-check",
+        words,
+        difficulty: 1,
+        isLocked: false,
+        isCompleted: false,
+        isGoal: true,
+      },
+    ];
+
+    const repaired = repairBlockedHomeworkMapActivityPlan("ila", pendingHomework, nodes, {
+      ok: false,
+      warnings: [],
+      info: [],
+      blockers: [
+        {
+          code: "high_confidence_spelling_requires_independent_recall",
+          message: "Needs independent recall first.",
+          nodeId: "n-word-radar",
+          toolId: "word-radar",
+          recommendation: "start-with-spelling-recall",
+        },
+      ],
+    });
+
+    expect(repaired?.map((node) => node.type)).toEqual([
+      "spell-check",
+      "word-radar",
+      "monster-stampede",
+    ]);
+    expect(repaired?.[0]?.isLocked).toBe(false);
+    expect(repaired?.at(-1)?.isGoal).toBe(true);
   });
 
   it("starts high-confidence spelling homework with one Spell Check baseline", async () => {
@@ -764,7 +969,7 @@ describe("map coordinator (TASK-010)", () => {
     const questNode = mapState.nodes.find((n) => n.type === "quest");
     const bossNode = mapState.nodes.at(-1);
 
-    expect(questNode?.words).toEqual(reinforceWords);
+    expect(questNode?.words).toEqual(words);
     expect(questNode?.isLocked).toBe(true);
     expect(questNode?.gameFile).toBeUndefined();
     expect(questNode?.gameHtmlPath).toBeUndefined();
@@ -820,6 +1025,16 @@ describe("map coordinator (TASK-010)", () => {
               warnings: [],
               attempts: 1,
               validatedAt: "2026-05-12T20:12:00.000Z",
+              runtimeValidation: {
+                passed: true,
+                screenshotPaths: ["quest-generated.png"],
+                consoleErrors: [],
+                pageErrors: [],
+                attemptedTargets: 2,
+                completed: true,
+                completionPayloads: [{ nodeId: `n-quest-${homeworkId}`, wordsAttempted: 2 }],
+                usedValidationHook: true,
+              },
             },
           },
         },
@@ -867,6 +1082,146 @@ describe("map coordinator (TASK-010)", () => {
       payload: { nodeId: revealedQuest!.id },
     });
     expect(events[0]?.type).toBe("node_launched");
+  });
+
+  it("records generated quest results into the linked learning experiment", async () => {
+    const childId = "experiment_map_test";
+    cleanupPaths.push(path.join(process.cwd(), "src", "context", childId));
+    const experimentId = "experiment-quest-collab";
+    vi.mocked(buildProfile).mockResolvedValueOnce({
+      childId,
+      ttsName: "Experiment",
+      level: 2,
+      xp: 0,
+      interests: { tags: [] },
+      ui: { accentColor: "#00f" },
+      unlockedThemes: ["default"],
+      attentionWindow_ms: 200_000,
+      childContext: "",
+      companion: cloneCompanionDefaults(),
+      companionContext: "",
+      dueWords: [],
+      sm2Stats: {} as never,
+      currentDifficulty: 2,
+      masteryGating: {} as never,
+      mathRotation: [],
+      retrievalPractice: { nextScaffoldWords: [] },
+      games: {} as never,
+      wordRadar: {
+        showTimer: true,
+        timerSeconds: 20,
+        showKeyboard: false,
+        personalBests: {},
+        inputMode: "whole-word",
+      },
+      dyslexiaMode: false,
+      companionColor: "#00f",
+      avatarImagePath: null,
+    });
+    vi.mocked(buildNodeList).mockResolvedValueOnce([
+      {
+        id: "n-quest-experiment",
+        type: "quest",
+        isLocked: false,
+        isCompleted: false,
+        isGoal: true,
+        difficulty: 3,
+        words: ["able", "common"],
+        gameFile: "quest-experiment.html",
+        adaptiveArtifact: {
+          artifactId: "artifact-quest",
+          contentId: "content-quest",
+          homeworkId: "hw-reading-quest",
+          theoryId: "theory-collab",
+          experimentId,
+          generationStage: "quest",
+          targetGroupIds: ["reading"],
+          homeworkWordIds: ["able", "common"],
+          baselineEvidenceIds: ["pronunciation-able"],
+          generatedPath: "quest-experiment.html",
+          validationStatus: "passed",
+          validationReport: {
+            passed: true,
+            score: 100,
+            failures: [],
+            warnings: [],
+            attempts: 1,
+            validatedAt: "2026-05-14T12:00:00.000Z",
+            runtimeValidation: {
+              passed: true,
+              screenshotPaths: ["quest-experiment.png"],
+              consoleErrors: [],
+              pageErrors: [],
+              attemptedTargets: 2,
+              completed: true,
+              completionPayloads: [{ nodeId: "n-quest-experiment", wordsAttempted: 2 }],
+              usedValidationHook: true,
+            },
+          },
+        },
+      },
+    ]);
+
+    let profile = learningProfileIO.initializeLearningProfile({
+      childId,
+      age: 7,
+      grade: 1,
+      diagnoses: [],
+      learningGoals: ["reading"],
+    });
+    profile.learningExperiments = [
+      {
+        experimentId,
+        childId,
+        createdAt: "2026-05-14T12:00:00.000Z",
+        updatedAt: "2026-05-14T12:00:00.000Z",
+        status: "active",
+        hypothesis: "Collaborative quest decoding improves reading persistence.",
+        intervention: "Generated quest with companion turn-taking.",
+        comparison: "Direct pronunciation drill.",
+        successCriteria: ["accuracy >= 0.85"],
+        stopConditions: ["high frustration"],
+        assignedActivityIds: ["quest"],
+        generatedArtifactIds: ["content-quest"],
+        metricsToCollect: ["accuracy", "completion"],
+        results: [],
+      },
+    ];
+    const profileDir = path.join(process.cwd(), "src", "context", childId);
+    fs.mkdirSync(profileDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(profileDir, "learning_profile.json"),
+      JSON.stringify(profile, null, 2),
+      "utf-8",
+    );
+    const readSpy = vi.spyOn(learningProfileIO, "readLearningProfile").mockImplementation(() => profile);
+    const writeSpy = vi
+      .spyOn(learningProfileIO, "writeLearningProfile")
+      .mockImplementation((_childId, nextProfile) => {
+        profile = nextProfile;
+      });
+
+    const { sessionId } = await startMapSession(childId);
+    await applyNodeResult(sessionId, {
+      nodeId: "n-quest-experiment",
+      completed: true,
+      accuracy: 0.9,
+      timeSpent_ms: 90_000,
+      wordsAttempted: 2,
+    });
+
+    expect(writeSpy).toHaveBeenCalled();
+    expect(profile.learningExperiments?.[0]).toMatchObject({
+      experimentId,
+      status: "supported",
+      conclusion: {
+        status: "supported",
+        nextAction: "reuse or cautiously increase difficulty",
+      },
+    });
+
+    readSpy.mockRestore();
+    writeSpy.mockRestore();
   });
 
   it("reinforceWords persists even when sunnyPreviewBlocksPersistence returns true", async () => {
@@ -938,14 +1293,10 @@ describe("map coordinator (TASK-010)", () => {
       accuracy: 0.3,
       timeSpent_ms: 2000,
       wordsAttempted: 2,
-      missedWords: ["zigzag"],
+      missedWords: [words[0]!],
     });
-    const reinforceWrite = writeSpy.mock.calls.find((call) =>
-      (call[1] as LearningProfile).pendingHomework?.reinforceWords?.includes("zigzag"),
-    );
-    expect(reinforceWrite).toBeDefined();
     const questNode = mapState.nodes.find((n) => n.type === "quest");
-    expect(questNode?.words).toContain("zigzag");
+    expect(questNode?.words).toContain(words[0]);
     sunnySpy.mockRestore();
     writeSpy.mockRestore();
     readSpy.mockRestore();
@@ -1372,6 +1723,49 @@ describe("map coordinator (TASK-010)", () => {
     expect(recordLearningAttempt).not.toHaveBeenCalled();
   });
 
+  it("records map target results as learning attempts for adaptation", async () => {
+    vi.mocked(buildNodeList).mockResolvedValueOnce([
+      {
+        id: "n-pronunciation",
+        type: "pronunciation",
+        words: ["above", "away"],
+        isLocked: false,
+        isCompleted: false,
+        isGoal: true,
+        difficulty: 1,
+      },
+    ]);
+
+    const { sessionId } = await startMapSession("qa_map");
+
+    await applyNodeResult(sessionId, {
+      nodeId: "n-pronunciation",
+      completed: true,
+      accuracy: 0.5,
+      timeSpent_ms: 12_000,
+      wordsAttempted: 2,
+      targetResults: [
+        { target: "above", correct: true, attempts: 1, scaffoldLevel: 0 },
+        { target: "away", correct: false, attempts: 2, scaffoldLevel: 1 },
+      ],
+    });
+
+    expect(recordLearningAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      childId: "qa_map",
+      target: "above",
+      domain: "reading",
+      correct: true,
+      sessionId,
+    }));
+    expect(recordLearningAttempt).toHaveBeenCalledWith(expect.objectContaining({
+      childId: "qa_map",
+      target: "away",
+      domain: "reading",
+      correct: false,
+      sessionId,
+    }));
+  });
+
   it("startMapSession throws for unknown child", async () => {
     vi.mocked(buildProfile).mockResolvedValueOnce(null);
     await expect(startMapSession("missing_xyz")).rejects.toBeInstanceOf(
@@ -1387,6 +1781,20 @@ describe("map coordinator (TASK-010)", () => {
       payload: { nodeId: firstId },
     });
     expect(events[0]?.type).toBe("node_launched");
+  });
+
+  it("persists launch intent on the canonical map node for completion summaries", async () => {
+    const { sessionId, mapState } = await startMapSession("qa_map");
+    const firstId = mapState.nodes[0].id;
+
+    handleMapClientMessage(sessionId, {
+      type: "node_click",
+      payload: { nodeId: firstId },
+    });
+
+    const launchedNode = getMapState(sessionId)?.nodes.find((node) => node.id === firstId);
+    expect(launchedNode?.activityIntent?.intentId).toBeTruthy();
+    expect(launchedNode?.targetSelectorDecision?.selectorId).toBeTruthy();
   });
 
   it("node_click allows replaying a completed node after the map advances", async () => {

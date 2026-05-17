@@ -7,9 +7,9 @@ import type { SessionDebugRecorder } from "./session-debug-recorder";
 import {
   auditConversationForLearningSignals,
   buildLiveLearningContext,
-  buildUrgentSupportResponse,
   chartEvidenceForUrgentIntent,
   detectUrgentChildIntent,
+  looksLikeSessionEndRequest,
   type LiveLearningContext,
   type UrgentChildIntent,
 } from "./urgentLearningSupport";
@@ -30,15 +30,11 @@ function getActiveLearningGame(
   currentActivityState: CurrentActivityState,
   currentCanvasState: SessionCanvasState,
 ): string {
-  const stateGame = String(currentActivityState?.game ?? "").toLowerCase();
-  const canvasMode = String((currentCanvasState as { mode?: ActivityModeLike } | null)?.mode ?? "").toLowerCase();
-  const suppressibleGames = new Set([
-    "pronunciation",
-    "word-radar",
-    "spell-check",
-    "monster-stampede",
-    "wheel-of-fortune",
-  ]);
+  const normalize = (value: unknown) =>
+    String(value ?? "").trim().toLowerCase().replace(/\s+/g, "-");
+  const stateGame = normalize(currentActivityState?.game);
+  const canvasMode = normalize((currentCanvasState as { mode?: ActivityModeLike } | null)?.mode);
+  const suppressibleGames = new Set(["pronunciation"]);
   if (suppressibleGames.has(stateGame)) return stateGame;
   if (suppressibleGames.has(canvasMode)) return canvasMode;
   return "";
@@ -62,13 +58,27 @@ export function shouldSuppressTranscriptDuringActiveLearningGame(input: {
 
   const text = input.transcript.trim();
   const commandLike =
+    looksLikeSessionEndRequest(text) ||
     /^(hey\s+)?(matilda|elli|sunny|charlotte)\b/i.test(text) ||
     /^(stop|pause|help|end session|quit|back to map)\b/i.test(text) ||
+    /\b(what word|which word|say the word|say it|didn'?t say|did not say|that'?s wrong|not right|game skipped|it skipped)\b/i.test(text) ||
+    /\b(worse than before|wrong words?|same words?|not high frequency|more words only|make some more words|fix this|this is bad)\b/i.test(text) ||
     /\b(matilda|elli|sunny|charlotte)\b/i.test(text);
   if (commandLike) return false;
 
   console.log(`  🎮 [${activeGame}] transcript suppressed during active game`);
   return true;
+}
+
+export function activeLearningSuppressionReason(input: {
+  currentActivityState: CurrentActivityState;
+  currentCanvasState: SessionCanvasState;
+}): string {
+  const activeGame = getActiveLearningGame(
+    input.currentActivityState,
+    input.currentCanvasState,
+  );
+  return activeGame ? `${activeGame}_active_game` : "active_learning_game";
 }
 
 export function detectUrgentLearningRoute(input: {
@@ -162,30 +172,56 @@ export async function handleUrgentLearningTranscript(input: {
   input.send("echo_answer", { text: input.transcript });
   input.conversationHistory.push({ role: "user", content: input.transcript });
 
-  const response = buildUrgentSupportResponse(input.intent, input.context);
-  if (response.gameMessage) {
-    input.send("game_message", {
-      forward: {
-        ...response.gameMessage,
-        childId: input.context.childId,
-        nodeId: input.context.nodeId,
-        source: "urgent_learning_support",
-        timestamp: Date.now(),
-      },
-    });
-  }
-  input.debugRecorder.recordEvent("urgent_learning", "response", {
+  input.debugRecorder.recordEvent("urgent_learning", "organic_route", {
     intent: input.intent.type,
     activityId: input.context.activityId,
     currentWord: input.context.currentWord,
-    hasGameMessage: Boolean(response.gameMessage),
+    responseOwner: "elli",
   });
-  input.conversationHistory.push({ role: "assistant", content: response.text });
-  input.recordDebugTranscript("assistant", response.text);
-  await input.handleCompanionTurn(response.text);
-  void persistUrgentLearningEvidence(input).catch((err: unknown) => {
-    console.error("  🔴 [urgent-learning] evidence persistence failed:", err);
+  await persistUrgentLearningEvidence(input);
+}
+
+export async function recordUrgentLearningEvidenceForOrganicTurn(input: {
+  transcript: string;
+  stateBefore: string;
+  auditRound: number;
+  auditChild: string;
+  tts: string;
+  context: LiveLearningContext;
+  intent: UrgentChildIntent;
+  sessionId: string;
+  debugRecorder: SessionDebugRecorder;
+  hostRecordChildSignal: HostRecordFn;
+  hostRecordProductIssue: HostRecordFn;
+}): Promise<void> {
+  auditLog("transcript", {
+    action: "urgent_learning_organic",
+    turnState: input.stateBefore,
+    tts: input.tts,
+    childName: input.auditChild,
+    round: input.auditRound,
   });
+  input.debugRecorder.recordEvent("transcript", "urgent_learning_organic", {
+    intent: input.intent.type,
+    reason: input.intent.reason,
+    stateBefore: input.stateBefore,
+    round: input.auditRound,
+    transcriptLength: input.transcript.length,
+    currentWord: input.context.currentWord,
+    activityId: input.context.activityId,
+  });
+  input.debugRecorder.recordGameTrace({
+    type: "urgent_learning_organic",
+    source: "session_manager",
+    intent: input.intent.type,
+    reason: input.intent.reason,
+    game: input.context.activityId,
+    activityId: input.context.activityId,
+    nodeId: input.context.nodeId,
+    currentWord: input.context.currentWord,
+    transcript: input.transcript,
+  });
+  await persistUrgentLearningEvidence(input);
 }
 
 export async function runSessionLearningSignalAudit(input: {

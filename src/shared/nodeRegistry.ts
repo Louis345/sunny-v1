@@ -59,10 +59,15 @@ export type RoutableNodeConfig = Pick<
   | "attentionConfig"
   | "activityConfigPath"
   | "adaptiveArtifact"
+  | "activityIntent"
+  | "targetSelectorDecision"
 > & { type: string };
 
 export function buildNodeUrlSearchParams(
-  node: Pick<RoutableNodeConfig, "id" | "words" | "attentionConfig"> & { difficulty?: number },
+  node: Pick<
+    RoutableNodeConfig,
+    "id" | "words" | "attentionConfig" | "activityIntent" | "targetSelectorDecision"
+  > & { difficulty?: number },
   ctx: NodeContext,
 ): URLSearchParams {
   const params: Record<string, string> = {
@@ -78,6 +83,14 @@ export function buildNodeUrlSearchParams(
     companionMuted: String(ctx.companionMuted ?? false),
   };
   if (ctx.sessionId) params.sessionId = ctx.sessionId;
+  if (node.activityIntent?.intentId) params.activityIntentId = node.activityIntent.intentId;
+  if (node.activityIntent?.purpose) params.activityIntentPurpose = node.activityIntent.purpose;
+  if (node.activityIntent?.targetSelector) {
+    params.targetSelector = node.activityIntent.targetSelector;
+  }
+  if (node.targetSelectorDecision?.selectorId) {
+    params.targetSelectorId = node.targetSelectorDecision.selectorId;
+  }
   if (ctx.isQuest === true) params.isQuest = "true";
   if (ctx.dyslexiaMode === true) params.dyslexiaMode = "true";
   if (node.attentionConfig != null) {
@@ -89,6 +102,15 @@ export function buildNodeUrlSearchParams(
       ? String(Math.max(0, Math.floor(cc)))
       : "0";
   return new URLSearchParams(params);
+}
+
+function intentPayload(node: RoutableNodeConfig): Record<string, unknown> {
+  return {
+    activityIntent: node.activityIntent,
+    targetSelectorDecision: node.targetSelectorDecision,
+    activityIntentId: node.activityIntent?.intentId,
+    targetSelectorId: node.targetSelectorDecision?.selectorId,
+  };
 }
 
 function buildParams(node: RoutableNodeConfig, ctx: NodeContext): string {
@@ -112,6 +134,7 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
     canvasMessage: (node) => ({
       type: "pronunciation",
       pronunciationWords: node.words ?? [],
+      ...intentPayload(node),
     }),
   },
   karaoke: {
@@ -121,12 +144,14 @@ export const NODE_REGISTRY: Record<string, NodeHandler> = {
       words: node.words ?? [],
       storyTitle: node.storyTitle,
       storyImagePrompt: node.storyImagePrompt,
+      ...intentPayload(node),
     }),
   },
   "word-radar": {
     canvasMessage: (node) => ({
       type: "word_radar",
       wordRadarItems: node.wordRadarItems ?? [],
+      ...intentPayload(node),
     }),
   },
   "concept-check": {

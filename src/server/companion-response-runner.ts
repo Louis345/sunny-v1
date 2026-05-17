@@ -116,7 +116,11 @@ export async function runCompanionResponseForSession(
           : session.currentCanvasState
             ? buildCanvasContext(session.currentCanvasState)
             : "";
-      const messageWithContext = [userMessage, canvasCtx]
+      const boardCtx =
+        typeof session.buildCurrentBoardContextForTurn === "function"
+          ? session.buildCurrentBoardContextForTurn(userMessage)
+          : "";
+      const messageWithContext = [userMessage, boardCtx, canvasCtx]
         .filter(Boolean)
         .join("\n\n");
 

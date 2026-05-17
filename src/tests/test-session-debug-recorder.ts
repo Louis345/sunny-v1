@@ -52,6 +52,7 @@ describe("SessionDebugRecorder", () => {
     );
     expect(fs.existsSync(path.join(folder, "summary.md"))).toBe(true);
     expect(fs.existsSync(path.join(folder, "events.ndjson"))).toBe(true);
+    expect(fs.existsSync(path.join(folder, "game-traces.ndjson"))).toBe(true);
     expect(fs.existsSync(path.join(folder, "transcript.md"))).toBe(true);
     expect(fs.existsSync(path.join(folder, "errors.log"))).toBe(true);
     expect(fs.existsSync(path.join(folder, "final-state.json"))).toBe(true);
@@ -85,6 +86,101 @@ describe("SessionDebugRecorder", () => {
     );
     expect(transcript).toContain("**user:** I read the first word.");
     expect(transcript).toContain("**assistant:** Nice work.");
+  });
+
+  it("writes sanitized full game traces beside the session packet", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-session-game-traces-"));
+    const recorder = new SessionDebugRecorder({
+      rootDir: root,
+      sessionId: "trace-1",
+      childName: "Ila",
+      subject: "homework",
+      mode: "as-child",
+      startedAt: new Date("2026-05-16T15:23:11.000Z"),
+    });
+
+    recorder.recordGameTrace({
+      type: "game_state_update",
+      game: "Wheel of Fortune",
+      phase: "playing",
+      childId: "ila",
+      nodeId: "n-wheel",
+      activityId: "mystery",
+      currentWord: "above",
+      answer: "above",
+      apiKey: "secret",
+      rawAudio: "base64-audio",
+      coins: 140,
+      visibleState: { boardState: "_ B _ V E" },
+      answerVisibility: "hidden",
+    });
+
+    const lines = fs
+      .readFileSync(path.join(recorder.sessionDir, "game-traces.ndjson"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+
+    expect(lines[0]).toMatchObject({
+      sessionId: "trace-1",
+      child: "Ila",
+      type: "game_state_update",
+      game: "Wheel of Fortune",
+      phase: "playing",
+      childId: "ila",
+      nodeId: "n-wheel",
+      activityId: "mystery",
+      currentWord: "above",
+      coins: 140,
+      answerVisibility: "hidden",
+      visibleState: { boardState: "_ B _ V E" },
+    });
+    expect(JSON.stringify(lines[0])).not.toContain("secret");
+    expect(JSON.stringify(lines[0])).not.toContain("base64-audio");
+    expect(JSON.stringify(lines[0])).not.toContain('"answer"');
+  });
+
+  it("writes per-game completion summaries beside verbose traces", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-session-game-summary-"));
+    const recorder = new SessionDebugRecorder({
+      rootDir: root,
+      sessionId: "summary-1",
+      childName: "Ila",
+      subject: "homework",
+      mode: "as-child",
+      startedAt: new Date("2026-05-16T16:17:54.000Z"),
+    });
+
+    recorder.recordGameSummary({
+      game: "spell-check",
+      nodeId: "n-spell",
+      activityId: "spell-check",
+      targetLane: "spell_from_memory",
+      targetsShown: ["above", "ago"],
+      attempts: 2,
+      correctWords: ["above"],
+      missedWords: ["ago"],
+      recoveredWords: ["ago"],
+      answerVisibilityEvents: ["visible"],
+      helpRequests: ["what word is it?"],
+      completed: true,
+    });
+
+    const summaryDir = path.join(recorder.sessionDir, "game-summaries");
+    const files = fs.readdirSync(summaryDir);
+    expect(files).toHaveLength(1);
+
+    const summary = JSON.parse(
+      fs.readFileSync(path.join(summaryDir, files[0]!), "utf8"),
+    );
+    expect(summary).toMatchObject({
+      sessionId: "summary-1",
+      child: "Ila",
+      game: "spell-check",
+      targetsShown: ["above", "ago"],
+      helpRequests: ["what word is it?"],
+      completed: true,
+    });
   });
 
   it("normalizes session folder names for safe git storage", () => {

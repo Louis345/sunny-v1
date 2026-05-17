@@ -541,6 +541,32 @@ describe("HTML game structured-extras contract", () => {
     expect(html).toContain("wrongGuesses");
   });
 
+  it("WheelOfFortune does not expose the hidden answer in live companion snapshots", () => {
+    const html = fs.readFileSync(
+      path.join(GAMES_DIR, "WheelOfFortune.html"),
+      "utf-8",
+    );
+    expect(html).toContain("companionVisibleWord");
+    expect(html).toContain("hiddenWordLength");
+    expect(html).toContain("...(companionVisibleWord ? { currentWord: companionVisibleWord } : {})");
+    expect(html).not.toMatch(/currentWord:\s*WORD_RAW,\s*\n\s*category:\s*CATEGORY/);
+    expect(html).toMatch(/snapPhase\s*===\s*['"]won['"]/);
+    expect(html).toMatch(/snapPhase\s*===\s*['"]lost['"]/);
+  });
+
+  it("WheelOfFortune exposes exact coin balance but not coinsEarned during live snapshots", () => {
+    const html = fs.readFileSync(
+      path.join(GAMES_DIR, "WheelOfFortune.html"),
+      "utf-8",
+    );
+    const snapshotBody = html.slice(
+      html.indexOf("const getSnapshot = useCallback"),
+      html.indexOf("// Companion heartbeat"),
+    );
+    expect(snapshotBody).toContain("coins: snapScore");
+    expect(snapshotBody).not.toContain("coinsEarned");
+  });
+
   it("WheelOfFortune listens for keyboard letter guesses", () => {
     const html = fs.readFileSync(
       path.join(GAMES_DIR, "WheelOfFortune.html"),

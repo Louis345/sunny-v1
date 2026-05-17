@@ -29,6 +29,47 @@ export type NodeType =
   | "boss"
   | "wheel-of-fortune";
 
+export type EvidenceTier =
+  | "practice"
+  | "clean_recall"
+  | "mastery_candidate"
+  | "calibration_required";
+
+export interface ActivityIntentSummary {
+  intentId: string;
+  activityId: string;
+  nodeId: string;
+  purpose: string;
+  carePlanHypothesis?: string;
+  targetSelector: string;
+  selectedTargets: Array<{
+    target: string;
+    reasons?: string[];
+    evidenceTypes?: string[];
+  }>;
+  diagnosticQuestion?: string;
+  expectedEvidence?: string[];
+  successCriteria?: string[];
+  reviseCriteria?: string[];
+  falsifyCriteria?: string[];
+  evidenceTier?: EvidenceTier;
+  masteryEligible?: boolean;
+  companionSpeechPolicy?: {
+    mentionOnlyCurrentSnapshot?: boolean;
+    answerVisibility?: "visible" | "hidden_until_reveal";
+    canSpeakTargetBeforeReveal?: boolean;
+  };
+}
+
+export interface TargetSelectorDecisionSummary {
+  selectorId: string;
+  activityId: string;
+  nodeId: string;
+  targetSelector: string;
+  selectedTargets: string[];
+  traceSummary: string;
+}
+
 export type ChoiceEventSource =
   | "child_choice"
   | "parent_choice"
@@ -86,6 +127,17 @@ export type MasteryUnlockState =
 
 export type AdaptiveArtifactValidationStatus = "passed" | "failed" | "warning";
 
+export interface AdaptiveArtifactRuntimeValidationReport {
+  passed: boolean;
+  screenshotPaths: string[];
+  consoleErrors: string[];
+  pageErrors: string[];
+  attemptedTargets: number;
+  completed: boolean;
+  completionPayloads: unknown[];
+  usedValidationHook: boolean;
+}
+
 export interface AdaptiveArtifactValidationReport {
   passed: boolean;
   score: number;
@@ -93,6 +145,13 @@ export interface AdaptiveArtifactValidationReport {
   warnings: string[];
   attempts: number;
   validatedAt: string;
+  staticValidation?: {
+    passed: boolean;
+    score: number;
+    failures: string[];
+    warnings: string[];
+  };
+  runtimeValidation?: AdaptiveArtifactRuntimeValidationReport;
 }
 
 export interface MysteryChoiceOption {
@@ -133,6 +192,12 @@ export interface NodeConfig {
   wordRadarConfig?: WordRadarNodeConfig;
   /** Planner-selected pronunciation dosage; the game renders this instead of choosing word counts. */
   pronunciationConfig?: PronunciationNodeConfig;
+  /** Chart word group / activity target lane used to choose this node's targets. */
+  targetLane?: string;
+  /** Declared learning instrument contract for this launch. */
+  activityIntent?: ActivityIntentSummary;
+  /** Trace explaining why these activity targets were chosen. */
+  targetSelectorDecision?: TargetSelectorDecisionSummary;
   /** Homework node metadata (quest/boss routing). */
   gameFile?: string;
   gameHtmlPath?: string;
@@ -152,6 +217,7 @@ export interface NodeConfig {
     contentId: string;
     homeworkId: string;
     theoryId: string;
+    experimentId?: string;
     generationStage: "quest" | "boss";
     targetGroupIds: string[];
     homeworkWordIds: string[];
@@ -202,8 +268,13 @@ export interface NodeResult {
   wordsAttempted: number;
   activityId?: string;
   purpose?: string;
+  activityIntentId?: string;
+  targetSelectorId?: string;
+  activityIntent?: ActivityIntentSummary;
+  targetSelectorDecision?: TargetSelectorDecisionSummary;
   mode?: string;
   masteryEligible?: boolean;
+  evidenceTier?: EvidenceTier;
   bonusRound?: Record<string, unknown>;
   letterResults?: unknown[];
   vitalSigns?: Record<string, unknown>;
@@ -223,6 +294,8 @@ export interface NodeResult {
     misconception?: string | null;
     mode?: string;
     masteryEligible?: boolean;
+    evidenceTier?: EvidenceTier;
+    struggleSignals?: string[];
   }>;
 }
 

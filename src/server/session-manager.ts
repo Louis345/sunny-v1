@@ -54,6 +54,7 @@ import {
 } from "../utils/wordRadarProfile";
 import { computeQualityFromAttempt } from "../algorithms/spacedRepetition";
 import { recordWordRadarAttempts } from "./recordWordRadarAttempts";
+import { recordLearningAttempt } from "./learningAttemptEvents";
 import type { AttemptInput, ScaffoldLevel } from "../algorithms/types";
 import { type ModelMessage } from "ai";
 import {
@@ -129,6 +130,12 @@ import {
 import { shouldUseAdventureMapVoiceSlimToolkit } from "../utils/adventureMapAgentPolicy";
 import { readRasterDimensionsFromFile } from "../utils/rasterDimensions";
 import { buildGameContextSummary } from "./gameContextSummary";
+import {
+  buildCurrentBoardSnapshot,
+  buildCurrentBoardSnapshotContext,
+  childIdForBoardSnapshot,
+  type CurrentBoardSnapshot,
+} from "./currentBoardSnapshot";
 import { compressGameScreenshotBase64 } from "./compressGameScreenshot";
 import {
   REWARD_CHARACTER_SVG,
@@ -183,7 +190,8 @@ import {
 } from "./creatorDiagControls";
 import {
   detectUrgentLearningRoute,
-  handleUrgentLearningTranscript,
+  activeLearningSuppressionReason,
+  recordUrgentLearningEvidenceForOrganicTurn,
   recordPronunciationReadingStruggleSignal,
   runSessionLearningSignalAudit,
   shouldSuppressTranscriptDuringActiveLearningGame,
@@ -237,14 +245,12 @@ export class SessionManager {
   /** When true, child speech is not sent to the companion (silent reward games). */
   public suppressTranscripts: boolean = false;
 
-  /**
-   * One-shot summary from `game_state_update`, consumed on the next companion run
-   * (see companion-response-runner). Last write wins; never accumulates.
-   */
+  /** Legacy raw-game context queue kept only for tests/compat; raw heartbeats no longer fill it. */
   private pendingGameContext: string | null = null;
-  /** Map node `applyNodeResult` rollup — prepended on next take before iframe game_state text. */
+  /** Map node `applyNodeResult` rollup — consumed once on the next companion turn. */
   private pendingNodeCompletionContext: string | null = null;
   private currentActivityState: Record<string, unknown> | null = null;
+  private currentBoardSnapshot: CurrentBoardSnapshot | null = null;
   private pronunciationStruggleSignals = new Set<string>();
 
   private ws: WebSocket;
@@ -922,8 +928,21 @@ export class SessionManager {
   }
 
   injectGameContext(state: Record<string, unknown>): void {
-    this.currentActivityState = { ...state, updatedAt: new Date().toISOString() };
-    this.pendingGameContext = buildGameContextSummary(state);
+    this.updateCurrentBoardSnapshot(state);
+  }
+
+  updateCurrentBoardSnapshot(state: Record<string, unknown>): void {
+    const snapshot = buildCurrentBoardSnapshot({
+      childId: childIdForBoardSnapshot(this.childName),
+      sessionId: this.sessionId,
+      state,
+    });
+    this.currentBoardSnapshot = snapshot;
+    this.currentActivityState = {
+      ...snapshot,
+      currentWord: snapshot.currentTarget,
+      updatedAt: snapshot.updatedAt,
+    };
   }
 
   /**
@@ -931,7 +950,15 @@ export class SessionManager {
    * Survives subsequent `injectGameContext` calls until consumed (merged first in take).
    */
   public queueNodeCompletionHandoff(state: Record<string, unknown>): void {
+    this.pendingGameContext = null;
+    this.updateCurrentBoardSnapshot(state);
     this.pendingNodeCompletionContext = buildGameContextSummary(state);
+  }
+
+  public buildCurrentBoardContextForTurn(childSpeech?: string): string {
+    return buildCurrentBoardSnapshotContext(this.currentBoardSnapshot, {
+      childSpeech,
+    });
   }
 
   getFreshActivityStateForScreenshot(): Record<string, unknown> | null {
@@ -946,21 +973,13 @@ export class SessionManager {
   takePendingGameContextMessages(): ModelMessage[] {
     const nodePart = this.pendingNodeCompletionContext;
     this.pendingNodeCompletionContext = null;
-    const gamePart = this.pendingGameContext;
     this.pendingGameContext = null;
-    const chunks = [nodePart, gamePart].filter(
-      (x): x is string => typeof x === "string" && x.trim().length > 0,
-    );
-    if (chunks.length === 0) return [];
-    const merged =
-      chunks.length === 1
-        ? chunks[0]!
-        : `${chunks[0]}\n\n---\n\n${chunks[1]}`;
+    if (typeof nodePart !== "string" || nodePart.trim().length === 0) return [];
     return [
-      { role: "user" as const, content: merged },
+      { role: "user" as const, content: nodePart },
       {
         role: "assistant" as const,
-        content: "Understood, I have the current game state.",
+        content: "Understood, I have the authoritative node result.",
       },
     ];
   }
@@ -996,6 +1015,13 @@ export class SessionManager {
 
   recordDebugEvent(component: string, action: string, fields: Record<string, unknown> = {}): void {
     this.debugRecorder.recordEvent(component, action, fields);
+  }
+  recordGameTrace(fields: Record<string, unknown>): void {
+    this.debugRecorder.recordGameTrace(fields);
+  }
+
+  recordGameSummary(fields: Record<string, unknown>): void {
+    this.debugRecorder.recordGameSummary(fields);
   }
   recordDebugTranscript(role: "user" | "assistant" | "system", text: string): void {
     this.debugRecorder.recordTranscript(role, text);
@@ -1502,7 +1528,7 @@ export class SessionManager {
       return;
     }
 
-    const state = this.turnSM.getState();
+    let state = this.turnSM.getState();
     const urgentRoute =
       !isReplay && !opts?.fromReadingComplete
         ? detectUrgentLearningRoute({
@@ -1515,7 +1541,15 @@ export class SessionManager {
         : null;
 
     if (urgentRoute && !checkUserGoodbye(transcript)) {
-      await handleUrgentLearningTranscript({
+      if (
+        state === "PROCESSING" ||
+        state === "SPEAKING" ||
+        state === "CANVAS_PENDING"
+      ) {
+        this.bargeIn();
+        state = this.turnSM.getState();
+      }
+      void recordUrgentLearningEvidenceForOrganicTurn({
         transcript,
         stateBefore: state,
         auditRound,
@@ -1525,16 +1559,11 @@ export class SessionManager {
         intent: urgentRoute.intent,
         sessionId: this.sessionId,
         debugRecorder: this.debugRecorder,
-        conversationHistory: this.conversationHistory,
-        send: (type, payload) => this.send(type, payload),
-        bargeIn: () => this.bargeIn(),
-        clearPendingTranscript: (reason) => this.turnSM.clearPendingTranscript(reason),
-        recordDebugTranscript: (role, text) => this.recordDebugTranscript(role, text),
-        handleCompanionTurn: (text) => this.handleCompanionTurn(text),
         hostRecordChildSignal: (args) => this.hostRecordChildSignal(args),
         hostRecordProductIssue: (args) => this.hostRecordProductIssue(args),
+      }).catch((err: unknown) => {
+        console.error("  🔴 [urgent-learning] organic evidence failed:", err);
       });
-      return;
     }
 
     if (
@@ -1543,11 +1572,25 @@ export class SessionManager {
       this.shouldSuppressTranscriptDuringKaraoke(transcript)
     ) {
       // Still forward to client for karaoke word-match; do not pass to LLM below.
+      const suppressReason = activeLearningSuppressionReason({
+        currentActivityState: this.currentActivityState,
+        currentCanvasState: this.currentCanvasState,
+      });
       this.debugRecorder.recordEvent("transcript", "suppressed", {
-        reason: "karaoke_reading",
+        reason: suppressReason,
         turnState: state,
         round: auditRound,
         transcriptLength: transcript.length,
+      });
+      this.debugRecorder.recordGameTrace({
+        type: "transcript_suppressed",
+        source: "session_manager",
+        reason: suppressReason,
+        game: this.currentActivityState?.game,
+        activityId: this.currentActivityState?.activityId,
+        nodeId: this.currentActivityState?.nodeId,
+        phase: this.currentActivityState?.phase,
+        transcript,
       });
       this.send("interim", { text: transcript });
       return;
@@ -2423,6 +2466,46 @@ export class SessionManager {
       `  🎮 [pronunciation_complete] words=${correctCount}/${totalWords} acc=${accPct}%`,
     );
     this.debugRecorder.recordEvent("flow_game", "pronunciation_complete", buildPronunciationCompleteFields({ ...msg, accuracy, totalWords, correctCount }));
+    this.debugRecorder.recordGameTrace({
+      ...msg,
+      type: "pronunciation_complete",
+      source: "session_manager",
+      game: "pronunciation",
+      childId: childIdFromName(this.childName),
+      totalWords,
+      correctCount,
+      accuracy,
+    });
+    const targetResults = Array.isArray(msg.targetResults) ? msg.targetResults : [];
+    targetResults.forEach((row, rowIndex) => {
+      if (!row || typeof row !== "object") return;
+      const target = String((row as Record<string, unknown>).target ?? "").trim();
+      if (!target) return;
+      const attemptsRaw = Number((row as Record<string, unknown>).attempts);
+      const attempts = Number.isFinite(attemptsRaw) && attemptsRaw > 0
+        ? Math.max(1, Math.round(attemptsRaw))
+        : 1;
+      const correct = (row as Record<string, unknown>).correct === true;
+      const scaffoldLevel = Number((row as Record<string, unknown>).scaffoldLevel);
+      for (let attemptIndex = 0; attemptIndex < attempts; attemptIndex += 1) {
+        const isFinalAttempt = attemptIndex === attempts - 1;
+        const attemptCorrect = correct && isFinalAttempt;
+        try {
+          recordLearningAttempt({
+            attemptId: `${this.sessionId}:pronunciation:${rowIndex}:${attemptIndex}:${target.toLowerCase()}`,
+            childId: childIdFromName(this.childName),
+            sessionId: this.sessionId,
+            domain: "reading",
+            target,
+            correct: attemptCorrect,
+            quality: attemptCorrect ? 4 : 1,
+            scaffoldLevel: Number.isFinite(scaffoldLevel) ? scaffoldLevel : 0,
+          }, childIdFromName(this.childName));
+        } catch (err) {
+          console.error("  🔴 [pronunciation_complete] attempt record failed:", err);
+        }
+      }
+    });
     recordPronunciationReadingStruggleSignal({
       totalWords,
       accPct,

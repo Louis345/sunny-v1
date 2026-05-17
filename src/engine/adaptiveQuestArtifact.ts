@@ -21,6 +21,7 @@ export type AdaptiveQuestArtifact = {
   artifactId: string;
   homeworkId: string;
   theoryId: string;
+  experimentId?: string;
   generationStage: AdaptiveQuestArtifactStage;
   targetGroupIds: string[];
   homeworkWordIds: string[];
@@ -68,6 +69,7 @@ export type GenerateAdaptiveQuestArtifactInput = {
   contentCatalogMemory: AIContentCatalogItem[];
   generationStage?: AdaptiveQuestArtifactStage;
   generatedPath?: string;
+  experimentId?: string;
 };
 
 function fail(reason: string): never {
@@ -196,6 +198,7 @@ export function generateAdaptiveQuestArtifact(
     artifactId,
     homeworkId: input.homeworkCycle.homeworkId,
     theoryId: theory.theoryId,
+    ...(input.experimentId ? { experimentId: input.experimentId } : {}),
     generationStage: stage,
     targetGroupIds,
     homeworkWordIds,
@@ -251,6 +254,8 @@ export function markAdaptiveArtifactValidation(
     warnings: [...report.warnings],
     attempts: report.attempts,
     validatedAt: report.validatedAt,
+    ...(report.staticValidation ? { staticValidation: report.staticValidation } : {}),
+    ...(report.runtimeValidation ? { runtimeValidation: report.runtimeValidation } : {}),
   };
   return {
     ...artifact,
@@ -285,6 +290,7 @@ export function catalogAdaptiveQuestArtifact(
       patternIds: [artifact.theoryId, ...artifact.targetGroupIds],
       activityEvidenceIds: artifact.baselineEvidenceIds,
     },
+    ...(artifact.experimentId ? { experimentId: artifact.experimentId } : {}),
     reuseStatus: "candidate",
     reuseReason: `${artifact.generationStage} generated to test theory ${artifact.theoryId}.`,
     ...(artifact.validationStatus ? { validationStatus: artifact.validationStatus } : {}),
@@ -305,6 +311,7 @@ export function attachArtifactToHomeworkNode(
       contentId: artifact.contentId,
       homeworkId: artifact.homeworkId,
       theoryId: artifact.theoryId,
+      ...(artifact.experimentId ? { experimentId: artifact.experimentId } : {}),
       generationStage: artifact.generationStage,
       targetGroupIds: [...artifact.targetGroupIds],
       homeworkWordIds: [...artifact.homeworkWordIds],

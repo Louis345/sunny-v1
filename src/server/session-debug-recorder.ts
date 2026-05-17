@@ -40,6 +40,9 @@ export type SessionDebugFinalizeInput = {
   artifacts: Record<string, unknown>;
 };
 
+export type GameTraceEvent = Record<string, unknown>;
+export type GameSummaryEvent = Record<string, unknown>;
+
 type StoredEvent = {
   ts: string;
   sessionId: string;
@@ -78,6 +81,51 @@ function toJsonValue(value: unknown): JsonValue {
 
 function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+const BLOCKED_GAME_TRACE_KEYS = new Set([
+  "apiKey",
+  "api_key",
+  "authorization",
+  "token",
+  "secret",
+  "rawAudio",
+  "audio",
+  "audioBase64",
+  "providerPayload",
+  "rawProviderPayload",
+  "answer",
+  "secretAnswer",
+  "targetAnswer",
+]);
+
+function sanitizeGameTraceValue(value: unknown, parentKey = ""): JsonValue | undefined {
+  if (typeof value === "undefined" || typeof value === "function") return undefined;
+  if (BLOCKED_GAME_TRACE_KEYS.has(parentKey)) return undefined;
+  if (value === null) return null;
+  const t = typeof value;
+  if (t === "string") {
+    const text = value as string;
+    if (text.length > 1000) return `${text.slice(0, 1000)}…`;
+    return text;
+  }
+  if (t === "number" || t === "boolean") return value as JsonValue;
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 80)
+      .map((item) => sanitizeGameTraceValue(item, parentKey))
+      .filter((item): item is JsonValue => typeof item !== "undefined");
+  }
+  if (t === "object") {
+    const out: Record<string, JsonValue> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      const sanitized = sanitizeGameTraceValue(v, k);
+      if (typeof sanitized !== "undefined") out[k] = sanitized;
+    }
+    return out;
+  }
+  return String(value);
 }
 
 export function defaultSessionLogRoot(): string {
@@ -268,6 +316,7 @@ export class SessionDebugRecorder {
     fs.mkdirSync(this.sessionDir, { recursive: true });
     writeJson(path.join(this.sessionDir, "metadata.json"), this.metadata());
     fs.writeFileSync(path.join(this.sessionDir, "events.ndjson"), "", "utf8");
+    fs.writeFileSync(path.join(this.sessionDir, "game-traces.ndjson"), "", "utf8");
     fs.writeFileSync(path.join(this.sessionDir, "transcript.md"), "", "utf8");
     fs.writeFileSync(path.join(this.sessionDir, "errors.log"), "", "utf8");
     writeJson(path.join(this.sessionDir, "upload-status.json"), {
@@ -275,6 +324,47 @@ export class SessionDebugRecorder {
       message: "Session saved locally. Upload not configured yet.",
       updatedAt: new Date().toISOString(),
     });
+  }
+
+  recordGameTrace(fields: GameTraceEvent): void {
+    if (!this.enabled || this.finalized) return;
+    const trace: Record<string, JsonValue> = {
+      ts: new Date().toISOString(),
+      sessionId: this.sessionId,
+      child: this.childName,
+      subject: this.subject,
+    };
+    for (const [k, v] of Object.entries(fields)) {
+      const sanitized = sanitizeGameTraceValue(v, k);
+      if (typeof sanitized !== "undefined") trace[k] = sanitized;
+    }
+    fs.appendFileSync(
+      path.join(this.sessionDir, "game-traces.ndjson"),
+      `${JSON.stringify(trace)}\n`,
+      "utf8",
+    );
+  }
+
+  recordGameSummary(fields: GameSummaryEvent): void {
+    if (!this.enabled || this.finalized) return;
+    const dir = path.join(this.sessionDir, "game-summaries");
+    fs.mkdirSync(dir, { recursive: true });
+    const summary: Record<string, JsonValue> = {
+      ts: new Date().toISOString(),
+      sessionId: this.sessionId,
+      child: this.childName,
+      subject: this.subject,
+    };
+    for (const [k, v] of Object.entries(fields)) {
+      const sanitized = sanitizeGameTraceValue(v, k);
+      if (typeof sanitized !== "undefined") summary[k] = sanitized;
+    }
+    const game = safeSegment(String(fields.game ?? fields.activityId ?? "game"));
+    const node = safeSegment(String(fields.nodeId ?? Date.now()));
+    writeJson(
+      path.join(dir, `${String(Date.now())}-${game}-${node}.json`),
+      summary,
+    );
   }
 
   recordEvent(

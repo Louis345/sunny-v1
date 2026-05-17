@@ -57,6 +57,17 @@ export function validateGeneratedGame(
     failures.push("Missing fireAttemptEvent call for assessable interactions");
   }
 
+  if ((ctx.generationStage === "quest" || ctx.generationStage === "boss") && ctx.words.length > 1) {
+    const advertisesOneClickCompletion =
+      /wordsAttempted\s*:\s*1\b/i.test(html) ||
+      /wordsAttempted['"]?\s*[,}]/i.test(html) === false && /Finish\s+(quest|boss)|Complete\s+(quest|boss)/i.test(html);
+    const hasValidationHook = /SUNNY_VALIDATION_HOOKS/i.test(html);
+    if (advertisesOneClickCompletion && !hasValidationHook) {
+      failures.push("Quest/Boss artifact advertises one-click completion without enough assessable attempts");
+      score -= 30;
+    }
+  }
+
   if (ctx.homeworkType === "spelling_test") {
     const firstWord = ctx.words[0];
     const hasWordChips =
@@ -84,7 +95,8 @@ export function validateGeneratedGame(
       fl.includes("correct and wrong") ||
       fl.includes("hardcoded") ||
       fl.includes("fireattemptevent") ||
-      fl.includes("visible spelling targets")
+      fl.includes("visible spelling targets") ||
+      fl.includes("one-click")
     );
   });
 
