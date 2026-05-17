@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import vm from "node:vm";
 
 /** Vitest runs with cwd = repo root. */
 const PROJECT_ROOT = process.cwd();
@@ -52,6 +53,11 @@ const LETTER_RUSH_ENGINE_GAMES = new Set([
   "web/public/games/letter-rush.html",
 ]);
 
+type SpellCheckPlanningExports = {
+  planWordEntry: (word: string) => { w: string; plan: { kind: string } } | null;
+  endRoundList: (entry: { w: string; plan: { kind: string } }) => number[];
+};
+
 function collectHtmlFiles(dir: string, acc: string[] = []): string[] {
   if (!fs.existsSync(dir)) return acc;
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -73,6 +79,59 @@ function relGamePath(abs: string): string {
 function hasContractScript(html: string): boolean {
   return /<script\s+src=["']_contract\.js["']\s*><\/script>/.test(html);
 }
+
+function loadSpellCheckPlanning(input: {
+  knownList?: string[];
+  weakList?: string[];
+  knownMode?: string;
+} = {}): SpellCheckPlanningExports {
+  const html = fs.readFileSync(path.join(GAMES_DIR, "spell-check.html"), "utf-8");
+  const start = html.indexOf("function planWordEntry");
+  const end = html.indexOf("var built = [];");
+  if (start < 0 || end < 0 || end <= start) {
+    throw new Error("Could not find Spell Check planning block.");
+  }
+  const sandbox: Record<string, unknown> = {
+    knownList: input.knownList ?? [],
+    weakList: input.weakList ?? [],
+    knownMode: input.knownMode ?? "practice",
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(
+    `${html.slice(start, end)}\nexports = { planWordEntry, endRoundList };`,
+    sandbox,
+  );
+  return sandbox.exports as SpellCheckPlanningExports;
+}
+
+describe("Spell Check scaffold contract", () => {
+  it("gives short homework words two missing-letter rounds before full spelling", () => {
+    const { planWordEntry, endRoundList } = loadSpellCheckPlanning();
+    const ago = planWordEntry("ago");
+
+    expect(ago).toMatchObject({ w: "ago", plan: { kind: "fullShort" } });
+    expect(endRoundList(ago!)).toEqual([1, 2, 3]);
+  });
+
+  it("keeps known quick words as a single independent spelling round", () => {
+    const { planWordEntry, endRoundList } = loadSpellCheckPlanning({
+      knownList: ["ago"],
+      knownMode: "quick",
+    });
+    const ago = planWordEntry("ago");
+
+    expect(ago).toMatchObject({ w: "ago", plan: { kind: "knownQuick" } });
+    expect(endRoundList(ago!)).toEqual([3]);
+  });
+
+  it("speaks the target word before independent spelling input", () => {
+    const html = fs.readFileSync(path.join(GAMES_DIR, "spell-check.html"), "utf-8");
+
+    expect(html).toContain("function speakTargetWord");
+    expect(html).toContain("speakTargetWord(currentWord)");
+    expect(html).toContain("Listen, then spell it");
+  });
+});
 
 describe("game contract compliance (helper-based)", () => {
   let contractJs: string;
@@ -276,6 +335,14 @@ describe("game contract compliance (helper-based)", () => {
         expect(html).not.toContain("Type the word exactly as shown");
         expect(html).not.toContain("escHtml(word)+'</div>");
         expect(html).toContain("narration_request");
+      });
+
+      it("Wheel keeps the answer hidden until reveal/win/loss", () => {
+        if (label !== "web/public/games/WheelOfFortune.html") return;
+        expect(html).toContain("answerVisibility");
+        expect(html).toContain("snapPhase === 'won' || snapPhase === 'lost'");
+        expect(html).toContain("answerVisibility: companionVisibleWord ? 'revealed' : 'hidden'");
+        expect(html).not.toContain("phase: snapPhase,\n      ...(companionVisibleWord ? { currentWord: companionVisibleWord } : {}),");
       });
 
       it("Monster Stampede does not render a placeholder companion portrait", () => {

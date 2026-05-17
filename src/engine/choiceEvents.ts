@@ -14,6 +14,11 @@ import type {
 import { ALL_NODE_TYPES } from "../shared/adventureTypes";
 import { recordReward } from "./bandit";
 import { getActivityToolContract } from "./activityToolCatalog";
+import { resolveChildContextDir } from "../utils/contextRoot";
+import {
+  hydrateLearningProfileFromWaterfall,
+  slimLearningProfileForDoorway,
+} from "../profiles/chartWaterfall";
 
 export type ChoiceEventContext =
   | "mystery"
@@ -132,18 +137,22 @@ function fileDate(value: string): string {
 }
 
 function choiceEventsDir(childId: string, opts?: RootOptions): string {
-  return path.join(rootDir(opts), "src", "context", safeChildId(childId), "choice_events");
+  return path.join(resolveChildContextDir(safeChildId(childId), { rootDir: rootDir(opts) }), "choice_events");
 }
 
 function profilePath(childId: string, opts?: RootOptions): string {
-  return path.join(rootDir(opts), "src", "context", safeChildId(childId), "learning_profile.json");
+  return path.join(resolveChildContextDir(safeChildId(childId), { rootDir: rootDir(opts) }), "learning_profile.json");
 }
 
 function readProfile(childId: string, opts?: RootOptions): LearningProfile | null {
   const filePath = profilePath(childId, opts);
   if (!fs.existsSync(filePath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8")) as LearningProfile;
+    return hydrateLearningProfileFromWaterfall(
+      childId,
+      JSON.parse(fs.readFileSync(filePath, "utf8")) as LearningProfile,
+      opts,
+    );
   } catch {
     return null;
   }
@@ -153,7 +162,7 @@ function writeProfile(childId: string, profile: LearningProfile, opts?: RootOpti
   const filePath = profilePath(childId, opts);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   profile.lastUpdated = (opts?.now ?? new Date()).toISOString();
-  fs.writeFileSync(filePath, JSON.stringify(profile, null, 2), "utf8");
+  fs.writeFileSync(filePath, JSON.stringify(slimLearningProfileForDoorway(profile), null, 2), "utf8");
 }
 
 function stableHash(value: unknown): string {

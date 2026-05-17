@@ -2,6 +2,11 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import type { ActivityTraitModelEntry, LearningProfile } from "../context/schemas/learningProfile";
+import { resolveChildContextDir } from "../utils/contextRoot";
+import {
+  hydrateLearningProfileFromWaterfall,
+  slimLearningProfileForDoorway,
+} from "../profiles/chartWaterfall";
 
 export const CHILD_SIGNAL_TYPES = [
   "stated_preference",
@@ -138,18 +143,22 @@ function assertConfidence(value: number): void {
 }
 
 function childSignalDir(childId: string, opts?: Pick<ChildSignalRootOptions, "rootDir">): string {
-  return path.join(rootDir(opts), "src", "context", safeChildId(childId), "child_signals");
+  return path.join(resolveChildContextDir(safeChildId(childId), { rootDir: rootDir(opts) }), "child_signals");
 }
 
 function profilePath(childId: string, opts?: Pick<ChildSignalRootOptions, "rootDir">): string {
-  return path.join(rootDir(opts), "src", "context", safeChildId(childId), "learning_profile.json");
+  return path.join(resolveChildContextDir(safeChildId(childId), { rootDir: rootDir(opts) }), "learning_profile.json");
 }
 
 function readProfile(childId: string, opts?: Pick<ChildSignalRootOptions, "rootDir">): LearningProfile | null {
   const filePath = profilePath(childId, opts);
   if (!fs.existsSync(filePath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8")) as LearningProfile;
+    return hydrateLearningProfileFromWaterfall(
+      childId,
+      JSON.parse(fs.readFileSync(filePath, "utf8")) as LearningProfile,
+      opts,
+    );
   } catch {
     return null;
   }
@@ -159,7 +168,7 @@ function writeProfile(childId: string, profile: LearningProfile, opts?: Pick<Chi
   const filePath = profilePath(childId, opts);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   profile.lastUpdated = (opts?.now ?? new Date()).toISOString();
-  fs.writeFileSync(filePath, JSON.stringify(profile, null, 2), "utf8");
+  fs.writeFileSync(filePath, JSON.stringify(slimLearningProfileForDoorway(profile), null, 2), "utf8");
 }
 
 function sourceWeight(record: ChildSignalRecord): number {

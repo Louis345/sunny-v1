@@ -7,6 +7,11 @@ import type {
   LearningProfile,
 } from "../context/schemas/learningProfile";
 import { getChildChart } from "../profiles/childChart";
+import {
+  hydrateLearningProfileFromWaterfall,
+  slimLearningProfileForDoorway,
+} from "../profiles/chartWaterfall";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 export type AttentionDemand = "none" | "low" | "medium" | "high";
 
@@ -253,7 +258,7 @@ export const ATTENTION_TASKS: AttentionTaskMetadata[] = [
 ];
 
 function profilePath(rootDir: string, childId: string): string {
-  return path.join(rootDir, "src", "context", childId, "learning_profile.json");
+  return path.join(resolveChildContextDir(childId, { rootDir }), "learning_profile.json");
 }
 
 function readJson<T>(file: string): T {
@@ -476,7 +481,11 @@ export function recordAttentionSignal(
   };
   appendNdjson(path.join(chart.links.vitals, `${dayFor(input, opts)}.ndjson`), signal);
 
-  const currentProfile = readJson<LearningProfile>(profilePath(rootDir, childId));
+  const currentProfile = hydrateLearningProfileFromWaterfall(
+    childId,
+    readJson<LearningProfile>(profilePath(rootDir, childId)),
+    { rootDir },
+  );
   if (!validBaseline) {
     return {
       recorded: false,
@@ -496,7 +505,7 @@ export function recordAttentionSignal(
     ),
     lastUpdated: recordedAt,
   };
-  writeJson(profilePath(rootDir, childId), nextProfile);
+  writeJson(profilePath(rootDir, childId), slimLearningProfileForDoorway(nextProfile));
   return {
     recorded: true,
     profile: nextProfile,

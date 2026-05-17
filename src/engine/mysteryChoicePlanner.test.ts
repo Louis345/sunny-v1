@@ -181,6 +181,37 @@ describe("mystery choice planner", () => {
     expect(out.choiceOptions.map((option) => option.activityId)).toContain("wheel-of-fortune");
   });
 
+  it("rotates mystery options across sessions instead of replaying the same first choice", () => {
+    const base = {
+      childId: "reina",
+      nodeId: "n-mystery",
+      domain: "spelling",
+      words: ["above", "about"],
+      profile: profile(),
+      dopamineGames: ["asteroid", "space-frogger"],
+      domainValidNodes: [
+        node("spell-check"),
+        node("word-radar"),
+        node("monster-stampede"),
+        node("pronunciation"),
+      ],
+    };
+
+    const first = buildMysteryChoiceNodeData({
+      ...base,
+      now: new Date("2026-05-12T12:07:00.000Z"),
+    });
+    const second = buildMysteryChoiceNodeData({
+      ...base,
+      now: new Date("2026-05-13T12:07:00.000Z"),
+    });
+
+    expect(second.choiceOptions.map((option) => option.activityId)).not.toEqual(
+      first.choiceOptions.map((option) => option.activityId),
+    );
+    expect(second.choiceOptions.some((option) => option.activityKind === "dopamine_game")).toBe(true);
+  });
+
   it("keeps generated learning content out unless it is cataloged and evidence-gated", () => {
     const out = buildMysteryChoiceNodeData({
       childId: "reina",

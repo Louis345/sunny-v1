@@ -106,6 +106,61 @@ describe("activity tool catalog", () => {
     expect(wheel.psychologistGuidance.join(" ")).toMatch(/reward|mystery|not.*mastery/i);
   });
 
+  it("audits Quest and Boss as generated destinations with explicit gates and evidence risks", () => {
+    const quest = getActivityToolContract("quest");
+    const boss = getActivityToolContract("boss");
+
+    for (const contract of [quest, boss]) {
+      expect(contract.configSource).toBe("generated-artifact");
+      expect(contract.measures.length, `${contract.id} measures`).toBeGreaterThan(0);
+      expect(contract.configKnobs.join(" "), `${contract.id} config knobs`).toMatch(
+        /chart|theory|validation|artifact/i,
+      );
+      expect(contract.signalsEmitted.join(" "), `${contract.id} emitted signals`).toMatch(
+        /per-target|completion|validation|artifact/i,
+      );
+      expect(contract.signalsMissing.join(" "), `${contract.id} missing signals`).toMatch(
+        /transfer|calibration|rubric|artifact/i,
+      );
+      expect(contract.psychologistGuidance.join(" "), `${contract.id} guidance`).toMatch(
+        /not.*baseline|chart|theory|evidence/i,
+      );
+      expect(contract.capabilityModes.length, `${contract.id} modes`).toBeGreaterThan(0);
+      expect(contract.evidence.contaminationRisks.length, `${contract.id} risks`).toBeGreaterThan(0);
+    }
+
+    expect(quest.capabilityModes.map((mode) => mode.id)).toEqual([
+      "brief_only_locked",
+      "validated_transfer_quest",
+    ]);
+    expect(quest.capabilityModes[0]).toMatchObject({
+      id: "brief_only_locked",
+      masteryEligible: false,
+      config: { artifactStatus: "brief_only", playable: false },
+    });
+    expect(quest.capabilityModes[1]).toMatchObject({
+      id: "validated_transfer_quest",
+      masteryEligible: "requires_captured_response",
+      config: { validationStatus: "passed", playable: true },
+    });
+
+    expect(boss.capabilityModes.map((mode) => mode.id)).toEqual([
+      "boss_locked_pending_quest_evidence",
+      "validated_mastery_boss",
+    ]);
+    expect(boss.capabilityModes[0]).toMatchObject({
+      id: "boss_locked_pending_quest_evidence",
+      masteryEligible: false,
+      config: { artifactStatus: "preparing", playable: false },
+    });
+    expect(boss.capabilityModes[1]).toMatchObject({
+      id: "validated_mastery_boss",
+      purpose: "boss",
+      masteryEligible: "requires_captured_response",
+      config: { requiresQuestMeasurement: true, validationStatus: "passed", playable: true },
+    });
+  });
+
   it("maps every shipped iframe game to a planner-facing activity card with purpose and config strategy", () => {
     const shippedGameIds = [
       ...Object.keys(TEACHING_TOOLS),

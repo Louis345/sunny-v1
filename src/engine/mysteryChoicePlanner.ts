@@ -242,6 +242,20 @@ function uniqueCandidates(candidates: MysteryChoiceCandidate[]): MysteryChoiceCa
   return out;
 }
 
+function rotationOffset(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function rotate<T>(items: T[], offset: number): T[] {
+  if (items.length <= 1) return [...items];
+  const safeOffset = offset % items.length;
+  return [...items.slice(safeOffset), ...items.slice(0, safeOffset)];
+}
+
 function rankCandidates(
   profile: LearningProfile | null | undefined,
   candidates: MysteryChoiceCandidate[],
@@ -256,19 +270,28 @@ function choiceLabCandidates(input: {
   learning: MysteryChoiceCandidate[];
   dopamine: MysteryChoiceCandidate[];
   generated: MysteryChoiceCandidate[];
+  rotationSeed: string;
 }): MysteryChoiceCandidate[] {
+  const offset = rotationOffset(input.rotationSeed);
   const learning =
     hasStrongPreferenceEvidence(input.profile)
       ? rankCandidates(input.profile, input.learning)
       : input.learning;
   const dopamine = rankCandidates(input.profile, input.dopamine);
   const generated = rankCandidates(input.profile, input.generated);
+  const rotatedDopamine = rotate(dopamine, offset);
+  const wheel = dopamine.find((candidate) => candidate.activityId === "wheel-of-fortune");
+  const primaryDopamine = wheel ?? rotatedDopamine[0];
+  const remainingDopamine = rotatedDopamine.filter(
+    (candidate) => candidate.optionId !== primaryDopamine?.optionId,
+  );
+  const rotatedLearning = rotate(learning, offset);
   return uniqueCandidates([
-    ...dopamine.slice(0, 1),
-    ...learning.slice(0, 2),
+    ...(primaryDopamine ? [primaryDopamine] : []),
+    ...rotatedLearning.slice(0, 2),
     ...generated.slice(0, 1),
-    ...dopamine.slice(1),
-    ...learning.slice(2),
+    ...remainingDopamine,
+    ...rotatedLearning.slice(2),
     ...generated.slice(1),
   ]);
 }
@@ -303,6 +326,12 @@ export function buildMysteryChoiceNodeData(
         learning,
         dopamine,
         generated,
+        rotationSeed: [
+          input.childId,
+          input.nodeId,
+          domain,
+          input.now?.toISOString().slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+        ].join("|"),
       });
   const choiceSet = buildMysteryChoiceSet({
     childId: input.childId,
