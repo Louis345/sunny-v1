@@ -110,6 +110,18 @@ describe("CompanionShowroom themes", () => {
     expect(typeof CrystalSignatureButton).toBe("function");
   });
 
+  it("keeps the Crystal spotlight bright enough after the darker depth overlay", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CrystalAtelierChrome.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("width: 440");
+    expect(source).toContain('height: "84%"');
+    expect(source).toContain("rgba(255,247,237,0.95)");
+    expect(source).toContain("rgba(253,230,138,0.44)");
+  });
+
   it("wires Crystal Atelier chrome into the live showroom stage", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
@@ -122,6 +134,18 @@ describe("CompanionShowroom themes", () => {
     expect(source).toContain("<CrystalDotNav");
     expect(source).toContain("<CrystalPrimaryButton");
     expect(source).toContain("<CrystalSignatureButton");
+  });
+
+  it("adds a subtle dark Crystal overlay without changing room artwork", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("sunny-crystal-depth-overlay");
+    expect(source).toContain("radial-gradient(ellipse at 50% 80%");
+    expect(source).toContain("linear-gradient(90deg");
+    expect(source).toContain("pointerEvents: \"none\"");
   });
 
   it("anchors Crystal pedestals to the same slot frame as the companion canvas", () => {

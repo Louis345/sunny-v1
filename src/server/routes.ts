@@ -54,14 +54,9 @@ import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
 } from "./companionCareFeedRoute";
-import {
-  buildPendingHomeworkPayload,
-  ensureQuestHtmlContract,
-  writeActivityConfigArtifacts,
-} from "../scripts/ingestHomework";
+import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import {
   applyHomeworkClarificationAnswer,
-  buildContentAwareHomeworkNodes,
   type CapturedHomeworkContent,
   type HomeworkTargetPurpose,
 } from "../scripts/contentAwareHomeworkPlanner";
@@ -95,9 +90,12 @@ import {
   type ShowroomVoiceOption,
 } from "./companionShowroomVoice";
 import {
+  buildShowroomClaudeMessages,
   buildShowroomTalkSystemPrompt,
+  createShowroomCompanionActCommand,
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
+  getShowroomCompanionActTools,
   resolveShowroomTalkRequest,
 } from "./companionShowroomTalk";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
@@ -298,6 +296,15 @@ function readShowroomPersonality(
       ? raw.personality.trim()
       : fallback.trim();
   return personality || "Friendly, patient, and encouraging.";
+}
+
+function extractAnthropicText(message: Anthropic.Message): string {
+  return message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -774,22 +781,81 @@ export function setupRoutes(app: Express): void {
         companionName: companion.name,
         showroomTheme: talk.showroomTheme,
         personality,
+        mode: talk.mode,
+        hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
+        lastVisualSummary: talk.lastVisualSummary,
+      });
+      const messages = buildShowroomClaudeMessages({
+        question: talk.question,
+        mode: talk.mode,
+        visualSnapshot: talk.visualSnapshot,
       });
       const client = new Anthropic();
       const msg = await client.messages.create({
         model: HOMEWORK_SONNET_MODEL,
         max_tokens: 180,
         system,
-        messages: [{ role: "user", content: talk.question }],
+        messages: messages as Anthropic.MessageParam[],
+        tools: getShowroomCompanionActTools(),
       });
-      const text = msg.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n")
-        .replace(/\s+/g, " ")
-        .trim();
+      const toolUseBlocks = msg.content
+        .filter(
+          (block): block is Anthropic.ToolUseBlock =>
+            block.type === "tool_use" && block.name === "companionAct",
+        )
+        .slice(0, 4);
+      const commandByToolUseId = new Map<string, ReturnType<typeof createShowroomCompanionActCommand>>();
+      for (const block of toolUseBlocks) {
+        commandByToolUseId.set(
+          block.id,
+          createShowroomCompanionActCommand({
+            childId: talk.childId,
+            rawInput: block.input,
+          }),
+        );
+      }
+      const companionCommands = [...commandByToolUseId.values()].filter(
+        (command): command is NonNullable<typeof command> => Boolean(command),
+      );
+      let text = extractAnthropicText(msg);
+      if (toolUseBlocks.length > 0) {
+        const toolResults: Anthropic.ToolResultBlockParam[] = toolUseBlocks.map((block) => {
+          const command = commandByToolUseId.get(block.id);
+          return {
+            type: "tool_result",
+            tool_use_id: block.id,
+            is_error: !command,
+            content: JSON.stringify({
+              type: "showroom_companion_act_result",
+              accepted: Boolean(command),
+              commandType: command?.type ?? null,
+              instruction:
+                "Now answer the child with the exact short words the companion should say aloud. Do not include stage directions.",
+            }),
+          };
+        });
+        const afterTool = await client.messages.create({
+          model: HOMEWORK_SONNET_MODEL,
+          max_tokens: 160,
+          system,
+          messages: [
+            ...(messages as Anthropic.MessageParam[]),
+            {
+              role: "assistant",
+              content: msg.content as Anthropic.ContentBlockParam[],
+            },
+            {
+              role: "user",
+              content: toolResults,
+            },
+          ],
+          tools: getShowroomCompanionActTools(),
+          tool_choice: { type: "none" },
+        });
+        text = extractAnthropicText(afterTool) || text;
+      }
       const spokenText =
-        text || `${companion.name} is thinking. Ask me that one more time.`;
+        text || "I'm here with you. Let's keep going.";
 
       const elevenlabs = new ElevenLabsClient({ apiKey });
       const locators = getPronunciationLocators();
@@ -805,16 +871,25 @@ export function setupRoutes(app: Express): void {
         showroomTheme: talk.showroomTheme,
         question: talk.question,
         responseText: spokenText,
+        mode: talk.mode,
+        visionUsed: Boolean(talk.visualSnapshot),
+        visualSnapshot: talk.visualSnapshot,
       });
+      const visualSummary =
+        talk.mode === "video_call" && talk.visualSnapshot
+          ? spokenText.slice(0, 220)
+          : undefined;
 
       console.log(
-        ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme}`,
+        ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme} mode=${talk.mode ?? "showroom"} vision=${Boolean(talk.visualSnapshot)} companionCommands=${companionCommands.length}`,
       );
       res.json({
         ok: true,
         text: spokenText,
         audioBase64: buffer.toString("base64"),
         audioContentType: "audio/mpeg",
+        companionCommands,
+        ...(visualSummary && { visualSummary }),
         event,
         phaseCommands: {
           speaking: createShowroomTalkPhaseCommand({
@@ -986,25 +1061,11 @@ export function setupRoutes(app: Express): void {
     captured.assignmentInterpretation = clarified;
     captured.wordGroups = clarified.wordGroups;
 
-    const nodes = buildContentAwareHomeworkNodes({
-      type: captured.type,
-      words: pending.wordList,
+    profile.pendingHomework = {
+      ...pending,
       homeworkId,
-      childId,
-      testDate: pending.testDate,
-      contentProfile: captured.contentProfile,
       capturedContent: captured,
-    });
-    writeActivityConfigArtifacts({ childId, homeworkId, nodes });
-    profile.pendingHomework = buildPendingHomeworkPayload({
-      weekOf: pending.weekOf,
-      testDate: pending.testDate,
-      wordList: pending.wordList,
-      homeworkId,
-      contentProfile: captured.contentProfile,
-      capturedContent: captured,
-      nodes,
-    });
+    };
     const patternKey = [
       captured.title,
       ...clarified.wordGroups.map((group) => `${group.label}:${group.purpose}`),
@@ -1044,9 +1105,9 @@ export function setupRoutes(app: Express): void {
       );
     }
     console.log(
-      ` 🎮 [homework-clarification] [saved] child=${childId} homeworkId=${homeworkId} question=${questionId} answer=${answer}`,
+      ` 🎮 [homework-clarification] [truth-saved-replan-required] child=${childId} homeworkId=${homeworkId} question=${questionId} answer=${answer}`,
     );
-      return res.json({ ok: true, interpretation: clarified, nodes: profile.pendingHomework.nodes });
+      return res.json({ ok: true, interpretation: clarified, requiresReplan: true });
     } catch (err) {
       console.error(" 🎮 [homework-clarification] [failed]", err);
       return res.status(500).json({ ok: false, error: "homework_clarification_failed" });

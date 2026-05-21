@@ -62,6 +62,17 @@ describe("CompanionShowroom command source", () => {
     expect(source).not.toContain(".playAnimation(");
   });
 
+  it("does not restart the same VRM animation when render churn sends a fresh command", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../companion/CompanionMotor.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain("currentAnimationName");
+    expect(source).toContain("currentAnimationLoop");
+    expect(source).toContain("[skip] already playing");
+  });
+
   it("does not restart idle from a showroom mount/index effect", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
@@ -274,6 +285,21 @@ describe("CompanionShowroom command source", () => {
 
     expect(source).toContain("const getSpeechAnalyser = useCallback");
     expect(source).not.toContain("getAnalyser={() => speechAnalyserRef.current}");
+  });
+
+  it("keeps the video chat portrait slot mounted across talk renders", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+    const portraitSlot = source.match(
+      /aria-label=\{`\$\{current\.name\} companion portrait`\}[\s\S]*?<CompanionSlot[\s\S]*?\/>/,
+    )?.[0];
+
+    expect(portraitSlot).toBeDefined();
+    expect(source).toContain("const noopShowroomSlotSettled = useCallback");
+    expect(portraitSlot).toContain("onLoadSettled={noopShowroomSlotSettled}");
+    expect(portraitSlot).not.toContain("onLoadSettled={() => {}}");
   });
 
   it("only runs render loops for slots visible enough to compare with diag", () => {

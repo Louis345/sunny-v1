@@ -273,6 +273,39 @@ describe("CompanionMotor (COMPANION-MOTOR)", () => {
     expect(played).toEqual(["idle"]);
   });
 
+  it("reproduces showroom flicker by not replaying the same loop animation with fresh timestamps", async () => {
+    const thinkClip = new THREE.AnimationClip("think", 1, []);
+    const thinkAction = mockAnimationAction();
+    const clipAction = vi.fn(() => thinkAction);
+
+    (motor as any).vrm = { scene: new THREE.Group() } as VRM;
+    (motor as any).animationMixer = {
+      stopAllAction: vi.fn(),
+      clipAction,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as THREE.AnimationMixer;
+    (motor as any).clipCache.set("think", thinkClip);
+
+    const command = (timestamp: number): CompanionCommand => ({
+      apiVersion: "1.0",
+      type: "animate",
+      payload: { animation: "think", loop: true },
+      childId: "ila",
+      timestamp,
+      source: "diag",
+    });
+
+    motor.processCompanionCommands([command(1000)], "ila");
+    await Promise.resolve();
+    motor.processCompanionCommands([command(1001)], "ila");
+    await Promise.resolve();
+
+    expect(clipAction).toHaveBeenCalledTimes(1);
+    expect(thinkAction.reset).toHaveBeenCalledTimes(1);
+    expect(thinkAction.play).toHaveBeenCalledTimes(1);
+  });
+
   it("crossfades between active FBX actions instead of hard-stopping the mixer", async () => {
     const idleClip = new THREE.AnimationClip("idle", 1, []);
     const waveClip = new THREE.AnimationClip("wave", 1, []);

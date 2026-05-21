@@ -42,13 +42,13 @@ export function CrystalSpotlight() {
           position: "absolute",
           left: "50%",
           top: 0,
-          width: 360,
-          height: "78%",
+          width: 440,
+          height: "84%",
           transform: "translateX(-50%)",
           background:
-            "linear-gradient(180deg, rgba(255,247,237,0.85) 0%, rgba(253,230,138,0.32) 35%, rgba(253,230,138,0.08) 70%, transparent 100%)",
-          filter: "blur(2px)",
-          clipPath: "polygon(38% 0%, 62% 0%, 88% 100%, 12% 100%)",
+            "linear-gradient(180deg, rgba(255,247,237,0.95) 0%, rgba(253,230,138,0.44) 35%, rgba(253,230,138,0.12) 72%, transparent 100%)",
+          filter: "blur(2.5px)",
+          clipPath: "polygon(36% 0%, 64% 0%, 92% 100%, 8% 100%)",
         }}
       />
       <div
@@ -57,11 +57,11 @@ export function CrystalSpotlight() {
           left: "50%",
           top: "32%",
           transform: "translate(-50%, 0)",
-          width: 360,
-          height: 320,
+          width: 430,
+          height: 360,
           borderRadius: "50%",
           background:
-            "radial-gradient(50% 50% at 50% 50%, rgba(76,52,160,0.28) 0%, rgba(124,92,255,0.16) 45%, transparent 78%)",
+            "radial-gradient(50% 50% at 50% 50%, rgba(76,52,160,0.34) 0%, rgba(124,92,255,0.2) 45%, transparent 78%)",
           filter: "blur(8px)",
         }}
       />
@@ -71,11 +71,11 @@ export function CrystalSpotlight() {
           left: "50%",
           bottom: "8%",
           transform: "translateX(-50%)",
-          width: 260,
-          height: 60,
+          width: 320,
+          height: 72,
           borderRadius: "50%",
           background:
-            "radial-gradient(60% 60% at 50% 50%, rgba(46,32,110,0.38) 0%, rgba(46,32,110,0.12) 50%, transparent 80%)",
+            "radial-gradient(60% 60% at 50% 50%, rgba(46,32,110,0.44) 0%, rgba(46,32,110,0.16) 50%, transparent 80%)",
           filter: "blur(6px)",
         }}
       />

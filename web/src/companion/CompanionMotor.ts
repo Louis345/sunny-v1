@@ -115,6 +115,8 @@ export class CompanionMotor {
   >();
   private animationRequestId = 0;
   private currentAnimationAction: THREE.AnimationAction | null = null;
+  private currentAnimationName: AnimationName | null = null;
+  private currentAnimationLoop: boolean | null = null;
 
   /** Reset dedupe + camera/move when rebuilding the Three scene. */
   resetSessionState(): void {
@@ -127,6 +129,8 @@ export class CompanionMotor {
     this.expressionState = createNeutralExpressionState();
     this.eventDeduper = new CompanionEventDeduper();
     this.idleState = createInitialIdleState();
+    this.currentAnimationName = null;
+    this.currentAnimationLoop = null;
     this.blinkState = {
       nextBlinkAt: this.scheduleNextBlinkAt(),
       blinkingUntil: 0,
@@ -205,6 +209,8 @@ export class CompanionMotor {
     this.clipInflight.clear();
     this.animationRequestId += 1;
     this.currentAnimationAction = null;
+    this.currentAnimationName = null;
+    this.currentAnimationLoop = null;
     if (this.animationMixer) {
       this.animationMixer.stopAllAction();
     }
@@ -414,6 +420,8 @@ export class CompanionMotor {
       this.animationMixer = null;
     }
     this.currentAnimationAction = null;
+    this.currentAnimationName = null;
+    this.currentAnimationLoop = null;
     this.clipCache.clear();
     this.clipInflight.clear();
     this.animationRequestId += 1;
@@ -666,6 +674,14 @@ export class CompanionMotor {
       this.applyAnimateEmoteFallback(animation);
       return;
     }
+    if (this.currentAnimationName === name && this.currentAnimationLoop === loop) {
+      console.log(
+        `🎮 [CompanionMotor] [animate] [skip] already playing "${name}" loop=${loop}`,
+      );
+      return;
+    }
+    this.currentAnimationName = name;
+    this.currentAnimationLoop = loop;
     const requestId = ++this.animationRequestId;
     void this.loadAndPlayClip(name, entry, loop, requestId);
   }
@@ -714,6 +730,10 @@ export class CompanionMotor {
         console.warn(
           `🎮 [CompanionMotor] [animate] [emote-fallback] "${name}" — vrm/mixer became null after async load`,
         );
+      }
+      if (this.currentAnimationName === name && this.currentAnimationLoop === loop) {
+        this.currentAnimationName = null;
+        this.currentAnimationLoop = null;
       }
       this.applyAnimateEmoteFallback(name);
       return;

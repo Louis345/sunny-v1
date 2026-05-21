@@ -8,7 +8,7 @@ import {
   type PointerEvent as PointEvt,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mic, Send, X } from "lucide-react";
+import { Mic, Send, Video, VideoOff, X } from "lucide-react";
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
 import { CompanionMotor } from "../companion/CompanionMotor";
@@ -383,6 +383,16 @@ type WindowWithWebkitAudio = Window & {
 };
 
 type ShowroomTalkUiPhase = "idle" | "listening" | "thinking" | "speaking";
+type ShowroomVideoChatCameraState = "off" | "requesting" | "live" | "blocked";
+type ShowroomTalkMode = "showroom" | "video_call";
+type ShowroomVideoSnapshotPayload = {
+  base64: string;
+  mimeType: "image/jpeg";
+  reason: string;
+  capturedAt: number;
+  width: number;
+  height: number;
+};
 
 type ShowroomSpeechRecognition = {
   lang: string;
@@ -405,6 +415,7 @@ const accent = "#6D5EF5";
 const confettiColours = ["#6D5EF5", "#a78bfa", "#fbbf24", "#f472b6", "#34d399"];
 const SHOWROOM_COMMAND_CHILD_ID = "showroom";
 const SHOWROOM_MAX_DISPLAY_SCALE = 1.25;
+const SHOWROOM_VIDEO_CHAT_RESUME_DELAY_MS = 950;
 let showroomCommandSequence = 0;
 const sparkleSeeds = [
   { left: "9%", top: "18%", delay: "0s", size: 3 },
@@ -1008,6 +1019,17 @@ export function createShowroomAnimateCommand(
   });
 }
 
+export function createShowroomEmoteCommand(
+  emote: string,
+  opts: { intensity?: number; durationMs?: number } = {},
+): CompanionCommand {
+  return createShowroomCommand("emote", {
+    emote,
+    ...(opts.intensity === undefined ? {} : { intensity: opts.intensity }),
+    ...(opts.durationMs === undefined ? {} : { duration_ms: opts.durationMs }),
+  });
+}
+
 export function createShowroomCameraCommand(
   angle: CameraAngle,
   transitionMs?: number,
@@ -1024,14 +1046,128 @@ export function createShowroomTalkPayload(args: {
   voiceId: string;
   showroomTheme: string;
   question: string;
+  mode?: ShowroomTalkMode;
+  visualSnapshot?: ShowroomVideoSnapshotPayload;
+  lastVisualSummary?: string;
 }): {
   childId: string;
   companionId: string;
   voiceId: string;
   showroomTheme: string;
   question: string;
+  mode?: ShowroomTalkMode;
+  visualSnapshot?: ShowroomVideoSnapshotPayload;
+  lastVisualSummary?: string;
 } {
   return { ...args };
+}
+
+export function shouldAttachVideoSnapshotForQuestion(question: string): boolean {
+  return /\b(look at|take a look|can you see|do you see|what am i holding|what is this|show you|my drawing|this drawing|my picture|this picture)\b/i.test(
+    question,
+  );
+}
+
+const SHORT_CHILD_REPLY_WORDS = new Set([
+  "again",
+  "go",
+  "help",
+  "no",
+  "nope",
+  "ok",
+  "okay",
+  "stop",
+  "sure",
+  "yeah",
+  "yep",
+  "yes",
+]);
+
+function normalizeShowroomTranscript(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function sortShowroomTranscriptChars(value: string): string {
+  return [...value].sort().join("");
+}
+
+export function shouldIgnoreShowroomAutoResumeTranscript(args: {
+  transcript: string;
+  previousResponse: string;
+}): boolean {
+  const transcript = args.transcript.trim();
+  const previousResponse = args.previousResponse.trim();
+  if (!transcript || !previousResponse) return false;
+
+  const normalizedTranscript = normalizeShowroomTranscript(transcript);
+  if (!normalizedTranscript || normalizedTranscript.length > 8) return false;
+  if (SHORT_CHILD_REPLY_WORDS.has(normalizedTranscript)) return false;
+
+  const normalizedPrevious = normalizeShowroomTranscript(previousResponse);
+  const previousWords = previousResponse
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => normalizeShowroomTranscript(word))
+    .filter(Boolean);
+  const lastWord = previousWords.at(-1) ?? "";
+  const transcriptLength = normalizedTranscript.length;
+  const lastWordTail = lastWord.slice(-transcriptLength);
+  const isDirectTail =
+    normalizedPrevious.endsWith(normalizedTranscript) ||
+    lastWord.endsWith(normalizedTranscript);
+  const isTinyScrambledTail =
+    transcriptLength >= 2 &&
+    transcriptLength <= 4 &&
+    lastWordTail.length === transcriptLength &&
+    sortShowroomTranscriptChars(lastWordTail) ===
+      sortShowroomTranscriptChars(normalizedTranscript);
+  if (!isDirectTail && !isTinyScrambledTail) return false;
+
+  const wordCount = transcript.split(/\s+/).filter(Boolean).length;
+  return wordCount <= 2;
+}
+
+export type ShowroomVideoChatEntryCopy = {
+  title: string;
+  actionLabel: string;
+  status: string;
+  helperText: string;
+};
+
+export type ShowroomVideoChatStartedEvent = {
+  type: "video_chat_started";
+  childId: string;
+  companionId: string;
+  showroomTheme: string;
+  mode: "showroom_camera_shell";
+  timestamp: number;
+};
+
+export function createShowroomVideoChatEntryCopy(args: {
+  companionName: string;
+}): ShowroomVideoChatEntryCopy {
+  return {
+    title: `Video Chat with ${args.companionName}`,
+    actionLabel: "Video Chat",
+    status: "Ready to test",
+    helperText: "Camera room test shell. Economy lock is disabled for this spike.",
+  };
+}
+
+export function createShowroomVideoChatStartedEvent(args: {
+  childId: string;
+  companionId: string;
+  showroomTheme: string;
+  now?: number;
+}): ShowroomVideoChatStartedEvent {
+  return {
+    type: "video_chat_started",
+    childId: args.childId,
+    companionId: args.companionId,
+    showroomTheme: args.showroomTheme,
+    mode: "showroom_camera_shell",
+    timestamp: args.now ?? Date.now(),
+  };
 }
 
 export function shouldGateShowroomTalkMic(phase: string): boolean {
@@ -2232,6 +2368,13 @@ export function CompanionShowroom({
   const [showroomTalkQuestion, setShowroomTalkQuestion] = useState("");
   const [showroomTalkResponse, setShowroomTalkResponse] = useState("");
   const [showroomTalkError, setShowroomTalkError] = useState<string | null>(null);
+  const [showroomVideoChatOpen, setShowroomVideoChatOpen] = useState(false);
+  const [showroomVideoChatCameraState, setShowroomVideoChatCameraState] =
+    useState<ShowroomVideoChatCameraState>("off");
+  const [showroomVideoChatError, setShowroomVideoChatError] =
+    useState<string | null>(null);
+  const [showroomVideoLastVisualSummary, setShowroomVideoLastVisualSummary] =
+    useState<string>("");
   const [showroomDiagAnimation, setShowroomDiagAnimation] = useState<string>("idle");
   const [showroomDiagLastCommand, setShowroomDiagLastCommand] =
     useState<string>("none");
@@ -2256,6 +2399,11 @@ export function CompanionShowroom({
   const speechUrlRef = useRef<string | null>(null);
   const showroomSpeechRecognitionRef = useRef<ShowroomSpeechRecognition | null>(null);
   const showroomTalkPhaseRef = useRef<ShowroomTalkUiPhase>("idle");
+  const showroomVideoElementRef = useRef<HTMLVideoElement | null>(null);
+  const showroomVideoStreamRef = useRef<MediaStream | null>(null);
+  const videoChatMotorRef = useRef<CompanionMotor | null>(null);
+  const videoChatContinuousListenRef = useRef(false);
+  const queueVideoChatListeningResumeRef = useRef<(() => void) | null>(null);
   const powerUpSfxRef = useRef<AmbientMusicHandle | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
   const getSpeechAnalyser = useCallback(() => speechAnalyserRef.current, []);
@@ -2344,6 +2492,13 @@ export function CompanionShowroom({
     cardMotorRef.current = motor;
   }, []);
 
+  const handleVideoChatMotorReady = useCallback(
+    (_slot: SlotName, motor: CompanionMotor | null) => {
+      videoChatMotorRef.current = motor;
+    },
+    [],
+  );
+
   const handleCardVrmSettled = useCallback(() => {
     setCardPreviewVrmReady(true);
   }, []);
@@ -2381,11 +2536,27 @@ export function CompanionShowroom({
     });
   }, []);
 
+  const noopShowroomSlotSettled = useCallback((_slotKey: string) => {}, []);
+
   const playCurrentCompanionAnimation = useCallback(
     (animation: string, opts?: { loop?: boolean }) => {
       const cmd = createShowroomAnimateCommand(animation, opts);
       processShowroomCommand(motorsRef.current.current, cmd);
       processShowroomCommand(cardMotorRef.current, cmd);
+      processShowroomCommand(videoChatMotorRef.current, cmd);
+    },
+    [],
+  );
+
+  const playCurrentCompanionEmote = useCallback(
+    (opts: { emote: string; intensity?: number; durationMs?: number }) => {
+      const cmd = createShowroomEmoteCommand(opts.emote, {
+        intensity: opts.intensity,
+        durationMs: opts.durationMs,
+      });
+      processShowroomCommand(motorsRef.current.current, cmd);
+      processShowroomCommand(cardMotorRef.current, cmd);
+      processShowroomCommand(videoChatMotorRef.current, cmd);
     },
     [],
   );
@@ -2415,6 +2586,7 @@ export function CompanionShowroom({
       const cmd = createShowroomCameraCommand(angle, transitionMs);
       processShowroomCommand(motorsRef.current.current, cmd);
       processShowroomCommand(cardMotorRef.current, cmd);
+      processShowroomCommand(videoChatMotorRef.current, cmd);
     },
     [],
   );
@@ -2492,8 +2664,50 @@ export function CompanionShowroom({
     setShowroomTalkError(null);
   }, []);
 
+  const captureShowroomVideoSnapshot = useCallback(
+    (reason = "video_call_snapshot"): ShowroomVideoSnapshotPayload | null => {
+      const video = showroomVideoElementRef.current;
+      const stream = showroomVideoStreamRef.current;
+      if (!video || !stream || video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+        return null;
+      }
+      const width = Math.min(512, video.videoWidth);
+      const height = Math.max(1, Math.round(video.videoHeight * (width / video.videoWidth)));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.65);
+      const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
+      if (!base64) return null;
+      console.log(
+        ` 🎮 [showroom-video-chat] snapshot_captured reason=${reason} size=${width}x${height}`,
+      );
+      return {
+        base64,
+        mimeType: "image/jpeg",
+        reason,
+        capturedAt: Date.now(),
+        width,
+        height,
+      };
+    },
+    [],
+  );
+
   const submitShowroomTalkQuestion = useCallback(
-    async (questionOverride?: string) => {
+    async (
+      questionOverride?: string,
+      options?: {
+        source?: ShowroomTalkMode;
+        forceVisualSnapshot?: boolean;
+        visualReason?: string;
+      },
+    ) => {
       if (!current || picking || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) {
         return;
       }
@@ -2514,13 +2728,32 @@ export function CompanionShowroom({
 
       startMusic();
       stopSpeech();
+      const talkMode: ShowroomTalkMode =
+        options?.source === "video_call" || showroomVideoChatOpen
+          ? "video_call"
+          : "showroom";
+      const wantsVisualSnapshot =
+        talkMode === "video_call" &&
+        (options?.forceVisualSnapshot || shouldAttachVideoSnapshotForQuestion(question));
+      const visualSnapshot = wantsVisualSnapshot
+        ? captureShowroomVideoSnapshot(
+            options?.visualReason ??
+              (options?.forceVisualSnapshot
+                ? "look_button"
+                : "child_asked_visual_question"),
+          )
+        : null;
       setShowroomTalkOpen(true);
       setShowroomTalkError(null);
       setShowroomTalkResponse("");
       setShowroomTalkQuestion(question);
       setShowroomTalkPhase("thinking");
       setCurrentCompanionCamera("mid-shot", 420);
-      playCurrentCompanionAnimation("think", { loop: true });
+      playCurrentCompanionEmote({
+        emote: "thinking",
+        intensity: talkMode === "video_call" ? 0.65 : 0.78,
+        durationMs: 1800,
+      });
 
       try {
         const payload = createShowroomTalkPayload({
@@ -2529,6 +2762,12 @@ export function CompanionShowroom({
           voiceId: selectedVoiceId,
           showroomTheme: activeThemeId,
           question,
+          ...(talkMode === "video_call" && { mode: "video_call" as const }),
+          ...(visualSnapshot && { visualSnapshot }),
+          ...(talkMode === "video_call" &&
+            showroomVideoLastVisualSummary && {
+              lastVisualSummary: showroomVideoLastVisualSummary,
+            }),
         });
         const response = await fetch(
           `/api/companions/${encodeURIComponent(current.id)}/talk`,
@@ -2544,11 +2783,13 @@ export function CompanionShowroom({
               error?: string;
               text?: string;
               audioBase64?: string;
-              audioContentType?: string;
-              phaseCommands?: {
-                speaking?: CompanionCommand;
-                idle?: CompanionCommand;
-              };
+	              audioContentType?: string;
+		              visualSummary?: string;
+		              companionCommands?: CompanionCommand[];
+		              phaseCommands?: {
+		                speaking?: CompanionCommand;
+		                idle?: CompanionCommand;
+		              };
             }
           | null;
         if (!response.ok || !data?.ok) {
@@ -2556,18 +2797,30 @@ export function CompanionShowroom({
         }
         const responseText = data.text?.trim() || `${current.name} is thinking.`;
         setShowroomTalkResponse(responseText);
+        if (talkMode === "video_call" && data.visualSummary?.trim()) {
+          setShowroomVideoLastVisualSummary(data.visualSummary.trim());
+        }
         setShowroomTalkPhase("speaking");
+        const applyTalkCommand = (command: CompanionCommand) => {
+          if (!shouldApplyShowroomTalkCommand(command, current.id)) return;
+          processShowroomCommand(motorsRef.current.current, command);
+          processShowroomCommand(cardMotorRef.current, command);
+          processShowroomCommand(videoChatMotorRef.current, command);
+        };
         const speakingCommand = data.phaseCommands?.speaking;
         if (speakingCommand && shouldApplyShowroomTalkCommand(speakingCommand, current.id)) {
-          processShowroomCommand(motorsRef.current.current, speakingCommand);
-          processShowroomCommand(cardMotorRef.current, speakingCommand);
+          applyTalkCommand(speakingCommand);
         } else {
           playCurrentCompanionAnimation("talking", { loop: true });
+        }
+        for (const command of data.companionCommands ?? []) {
+          applyTalkCommand(command);
         }
 
         if (!data.audioBase64) {
           playCurrentCompanionAnimation("idle", { loop: true });
           setShowroomTalkPhase("idle");
+          queueVideoChatListeningResumeRef.current?.();
           return;
         }
 
@@ -2593,8 +2846,7 @@ export function CompanionShowroom({
         audio.addEventListener("ended", () => {
           const idleCommand = data.phaseCommands?.idle;
           if (idleCommand && shouldApplyShowroomTalkCommand(idleCommand, current.id)) {
-            processShowroomCommand(motorsRef.current.current, idleCommand);
-            processShowroomCommand(cardMotorRef.current, idleCommand);
+            applyTalkCommand(idleCommand);
           } else {
             playCurrentCompanionAnimation("idle", { loop: true });
           }
@@ -2606,6 +2858,7 @@ export function CompanionShowroom({
           if (speechUrlRef.current === url) {
             speechUrlRef.current = null;
           }
+          queueVideoChatListeningResumeRef.current?.();
         });
         audio.addEventListener("error", () => {
           setShowroomTalkError("I could not play that voice just now.");
@@ -2624,23 +2877,29 @@ export function CompanionShowroom({
       activeThemeId,
       childName,
       current,
+      captureShowroomVideoSnapshot,
       picking,
+      playCurrentCompanionEmote,
       playCurrentCompanionAnimation,
       setCurrentCompanionCamera,
       showroomTalkQuestion,
+      showroomVideoChatOpen,
+      showroomVideoLastVisualSummary,
       startMusic,
       stopSpeech,
       voiceSelections,
     ],
   );
 
-  const startShowroomTalkListening = useCallback(() => {
+  const startShowroomTalkListening = useCallback((options?: { source?: ShowroomTalkMode }) => {
     if (!current || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) return;
     const RecognitionCtor =
       (window as WindowWithSpeechRecognition).SpeechRecognition ??
       (window as WindowWithSpeechRecognition).webkitSpeechRecognition;
     setShowroomTalkOpen(true);
     setShowroomTalkError(null);
+    setShowroomTalkResponse("");
+    setShowroomTalkQuestion("");
     if (!RecognitionCtor) {
       setShowroomTalkError("Voice input is not available here. Type it instead.");
       return;
@@ -2656,9 +2915,21 @@ export function CompanionShowroom({
     recognition.onresult = (event) => {
       const text = event.results[0]?.[0]?.transcript?.trim() ?? "";
       if (!text) return;
+      if (
+        options?.source === "video_call" &&
+        shouldIgnoreShowroomAutoResumeTranscript({
+          transcript: text,
+          previousResponse: showroomTalkResponse,
+        })
+      ) {
+        console.log(
+          ` 🎮 [showroom-video-chat] ignored_echo chars=${text.length}`,
+        );
+        return;
+      }
       submitted = true;
       setShowroomTalkQuestion(text);
-      void submitShowroomTalkQuestion(text);
+      void submitShowroomTalkQuestion(text, { source: options?.source });
     };
     recognition.onerror = (event) => {
       if (submitted) return;
@@ -2672,9 +2943,155 @@ export function CompanionShowroom({
       }
     };
     setShowroomTalkPhase("listening");
-    playCurrentCompanionAnimation("think", { loop: true });
+    playCurrentCompanionEmote({
+      emote: "thinking",
+      intensity: options?.source === "video_call" ? 0.58 : 0.72,
+      durationMs: 1500,
+    });
     recognition.start();
-  }, [current, playCurrentCompanionAnimation, submitShowroomTalkQuestion]);
+  }, [
+    current,
+    playCurrentCompanionEmote,
+    showroomTalkResponse,
+    submitShowroomTalkQuestion,
+  ]);
+
+  const queueVideoChatListeningResume = useCallback(() => {
+    if (videoChatContinuousListenRef.current) {
+      const timer = window.setTimeout(
+        () => startShowroomTalkListening({ source: "video_call" }),
+        SHOWROOM_VIDEO_CHAT_RESUME_DELAY_MS,
+      );
+      timersRef.current.add(timer);
+    }
+  }, [startShowroomTalkListening]);
+  queueVideoChatListeningResumeRef.current = queueVideoChatListeningResume;
+
+  const stopShowroomVideoChatCamera = useCallback(() => {
+    const stream = showroomVideoStreamRef.current;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+      showroomVideoStreamRef.current = null;
+    }
+    if (showroomVideoElementRef.current) {
+      showroomVideoElementRef.current.srcObject = null;
+    }
+    setShowroomVideoChatCameraState("off");
+    console.log(" 🎮 [showroom-video-chat] camera_off");
+  }, []);
+
+  const startShowroomVideoChatCamera = useCallback(async (options?: { autoListen?: boolean }) => {
+    setShowroomVideoChatError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setShowroomVideoChatCameraState("blocked");
+      setShowroomVideoChatError("Camera is not available in this browser.");
+      console.warn(" 🎮 [showroom-video-chat] camera_blocked missing_getUserMedia");
+      return;
+    }
+
+    setShowroomVideoChatCameraState("requesting");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      stopShowroomVideoChatCamera();
+      showroomVideoStreamRef.current = stream;
+      if (showroomVideoElementRef.current) {
+        showroomVideoElementRef.current.srcObject = stream;
+        showroomVideoElementRef.current
+          .play()
+          .catch((err: unknown) => {
+            console.warn(" 🎮 [showroom-video-chat] video_play_failed", err);
+          });
+      }
+      setShowroomVideoChatCameraState("live");
+      console.log(" 🎮 [showroom-video-chat] camera_live");
+      if (options?.autoListen) {
+        startShowroomTalkListening({ source: "video_call" });
+      }
+    } catch (err: unknown) {
+      setShowroomVideoChatCameraState("blocked");
+      setShowroomVideoChatError(
+        err instanceof Error ? err.message : "Camera permission was blocked.",
+      );
+      console.warn(" 🎮 [showroom-video-chat] camera_blocked", err);
+    }
+  }, [startShowroomTalkListening, stopShowroomVideoChatCamera]);
+
+  const openShowroomVideoChat = useCallback(() => {
+    if (!current) return;
+    const event = createShowroomVideoChatStartedEvent({
+      childId: childName?.trim().toLowerCase() || "showroom",
+      companionId: current.id,
+      showroomTheme: activeThemeId,
+    });
+    console.log(
+      ` 🎮 [showroom-video-chat] started child=${event.childId} companion=${event.companionId} room=${event.showroomTheme}`,
+    );
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        {
+          type: "game_state_update",
+          payload: {
+            ...event,
+            phase: "video_chat_open",
+            progress: `Video chat room opened with ${current.name}.`,
+          },
+          version: "1.0",
+        },
+        "*",
+      );
+    }
+    startMusic();
+    stopSpeech();
+    resetShowroomTalk();
+    setShowroomTalkOpen(false);
+    setSpotlightOpen(false);
+    setIntroVisible(false);
+    setShowroomVideoChatError(null);
+    setShowroomVideoLastVisualSummary("");
+    videoChatContinuousListenRef.current = true;
+    setShowroomVideoChatOpen(true);
+    playCurrentCompanionAnimation("idle", { loop: true });
+    const timer = window.setTimeout(() => {
+      timersRef.current.delete(timer);
+      void startShowroomVideoChatCamera({ autoListen: true });
+    }, 0);
+    timersRef.current.add(timer);
+  }, [
+    activeThemeId,
+    childName,
+    current,
+    playCurrentCompanionAnimation,
+    resetShowroomTalk,
+    startShowroomVideoChatCamera,
+    startMusic,
+    stopSpeech,
+  ]);
+
+  const closeShowroomVideoChat = useCallback(() => {
+    videoChatContinuousListenRef.current = false;
+    stopShowroomVideoChatCamera();
+    stopSpeech();
+    resetShowroomTalk();
+    setShowroomVideoChatOpen(false);
+    setShowroomVideoChatError(null);
+    setShowroomVideoLastVisualSummary("");
+    playCurrentCompanionAnimation("idle", { loop: true });
+    console.log(" 🎮 [showroom-video-chat] ended");
+  }, [
+    playCurrentCompanionAnimation,
+    resetShowroomTalk,
+    stopShowroomVideoChatCamera,
+    stopSpeech,
+  ]);
 
   const cycle = useCallback(
     (direction: -1 | 1) => {
@@ -2682,10 +3099,20 @@ export function CompanionShowroom({
       stopSpeech();
       resetShowroomTalk();
       setShowroomTalkOpen(false);
+      videoChatContinuousListenRef.current = false;
+      stopShowroomVideoChatCamera();
+      setShowroomVideoChatOpen(false);
       setIntroVisible(false);
       setCurrentIndex((prev) => (prev + direction + entries.length) % entries.length);
     },
-    [entries.length, picking, resetShowroomTalk, spotlightOpen, stopSpeech],
+    [
+      entries.length,
+      picking,
+      resetShowroomTalk,
+      spotlightOpen,
+      stopShowroomVideoChatCamera,
+      stopSpeech,
+    ],
   );
 
   const closeSpotlight = useCallback(() => {
@@ -2706,6 +3133,9 @@ export function CompanionShowroom({
     stopSpeech();
     resetShowroomTalk();
     setShowroomTalkOpen(false);
+    videoChatContinuousListenRef.current = false;
+    stopShowroomVideoChatCamera();
+    setShowroomVideoChatOpen(false);
     setSpotlightOpen(true);
     setIntroVisible(false);
     setCurrentCompanionCamera("mid-shot", 680);
@@ -2727,6 +3157,7 @@ export function CompanionShowroom({
     setCurrentCompanionCamera,
     spotlightOpen,
     startMusic,
+    stopShowroomVideoChatCamera,
     stopSpeech,
   ]);
 
@@ -2771,9 +3202,12 @@ export function CompanionShowroom({
 
 	  const confirmPick = useCallback(() => {
 	    if (!current || picking) return;
-	    stopSpeech();
-	    resetShowroomTalk();
-	    setShowroomTalkOpen(false);
+		    stopSpeech();
+		    resetShowroomTalk();
+		    setShowroomTalkOpen(false);
+		    videoChatContinuousListenRef.current = false;
+		    stopShowroomVideoChatCamera();
+		    setShowroomVideoChatOpen(false);
 	    setPicking(true);
     confettiCleanupRef.current?.();
     confettiCleanupRef.current = launchConfetti();
@@ -2800,6 +3234,7 @@ export function CompanionShowroom({
 	    playSlotAnimation,
 	    resetShowroomTalk,
 	    schedule,
+    stopShowroomVideoChatCamera,
     stopSpeech,
   ]);
 
@@ -2969,6 +3404,7 @@ export function CompanionShowroom({
 	      showroomSpeechRecognitionRef.current?.abort();
 	      showroomSpeechRecognitionRef.current = null;
 	      stopSpeech();
+      stopShowroomVideoChatCamera();
       confettiCleanupRef.current?.();
       confettiCleanupRef.current = null;
       musicRef.current?.stop();
@@ -2976,7 +3412,7 @@ export function CompanionShowroom({
       powerUpSfxRef.current?.stop();
       powerUpSfxRef.current = null;
     };
-  }, [clearTimers, stopSpeech]);
+  }, [clearTimers, stopShowroomVideoChatCamera, stopSpeech]);
 
   if (!current) {
     return (
@@ -3013,6 +3449,70 @@ export function CompanionShowroom({
     generatedBackgroundLoading;
   const talkButtonDisabled =
     initialStageLoading || shouldGateShowroomTalkMic(showroomTalkPhase);
+  const videoChatEntryCopy = createShowroomVideoChatEntryCopy({
+    companionName: current.name,
+  });
+  const videoChatButtonDisabled = initialStageLoading;
+  const videoChatButtonStyle: CSSProperties = {
+    border: `1px solid ${activeTheme.controlBorder}`,
+    borderRadius: 8,
+    background:
+      activeTheme.chrome === "crystal"
+        ? "rgba(255,255,255,0.8)"
+        : activeTheme.chrome === "storybook"
+          ? "rgba(42,10,29,0.82)"
+          : "rgba(15,23,42,0.82)",
+    color: activeTheme.controlForeground,
+    fontFamily: "Lexend, system-ui, sans-serif",
+    padding: "10px 15px",
+    minWidth: 174,
+    minHeight: 58,
+    display: "grid",
+    gap: 4,
+    placeItems: "center",
+    boxShadow:
+      activeTheme.chrome === "crystal"
+        ? "0 14px 34px rgba(124,92,255,0.16)"
+        : "0 18px 44px rgba(15,23,42,0.26)",
+    cursor: videoChatButtonDisabled ? "wait" : "pointer",
+    opacity: videoChatButtonDisabled ? 0.62 : 1,
+  };
+  const renderVideoChatButton = () => (
+    <button
+      type="button"
+      aria-label={videoChatEntryCopy.actionLabel}
+      onClick={openShowroomVideoChat}
+      disabled={videoChatButtonDisabled}
+      style={videoChatButtonStyle}
+    >
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 7,
+          fontSize: 16,
+          fontWeight: 900,
+          lineHeight: 1,
+        }}
+      >
+        <Video size={17} aria-hidden />
+        {videoChatEntryCopy.actionLabel}
+      </span>
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          fontSize: 12,
+          fontWeight: 800,
+          lineHeight: 1,
+          color: activeTheme.mutedForeground,
+        }}
+      >
+        {videoChatEntryCopy.status}
+      </span>
+    </button>
+  );
 
   return (
     <div
@@ -3086,6 +3586,21 @@ export function CompanionShowroom({
       </style>
 
       <ShowroomThemeAmbient theme={activeTheme} />
+
+      {activeTheme.chrome === "crystal" && !showroomVideoChatOpen && (
+        <div
+          aria-hidden
+          className="sunny-crystal-depth-overlay"
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 3,
+            pointerEvents: "none",
+            background:
+              "radial-gradient(ellipse at 50% 80%, rgba(30,27,75,0.2) 0%, rgba(30,27,75,0.1) 42%, transparent 72%), linear-gradient(90deg, rgba(17,24,39,0.16) 0%, transparent 18%, transparent 82%, rgba(17,24,39,0.16) 100%), linear-gradient(180deg, rgba(15,23,42,0.05) 0%, transparent 34%, rgba(30,27,75,0.18) 100%)",
+          }}
+        />
+      )}
 
       <ShowroomRoomCycler
         activeTheme={activeTheme}
@@ -3502,6 +4017,7 @@ export function CompanionShowroom({
 	                >
 	                  Talk with {current.name}
 	                </button>
+	                {renderVideoChatButton()}
 	              </>
 	            ) : activeTheme.chrome === "crystal" ? (
               <div
@@ -3565,6 +4081,7 @@ export function CompanionShowroom({
 	                  >
 	                    Talk with {current.name}
 	                  </button>
+	                  {renderVideoChatButton()}
 	                </div>
 	              </div>
 	            ) : (
@@ -3636,6 +4153,7 @@ export function CompanionShowroom({
 	                >
 	                  Talk with {current.name}
 	                </button>
+	                {renderVideoChatButton()}
 	              </>
 	            )}
           </>
@@ -3777,7 +4295,7 @@ export function CompanionShowroom({
 	              <button
 	                type="button"
 	                aria-label="Use voice"
-	                onClick={startShowroomTalkListening}
+	                onClick={() => startShowroomTalkListening()}
 	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
 	                style={{
 	                  width: 44,
@@ -3845,6 +4363,427 @@ export function CompanionShowroom({
 	              </button>
 	            </div>
 	          </motion.form>
+	        )}
+	      </AnimatePresence>
+
+	      <AnimatePresence>
+	        {showroomVideoChatOpen && (
+	          <motion.div
+	            key="showroom-video-chat"
+	            role="dialog"
+	            aria-label={videoChatEntryCopy.title}
+	            initial={{ opacity: 0 }}
+	            animate={{ opacity: 1 }}
+	            exit={{ opacity: 0 }}
+	            transition={{ duration: 0.22, ease: "easeOut" }}
+	            style={{
+	              position: "fixed",
+	              inset: 0,
+	              zIndex: 88,
+	              background:
+	                "radial-gradient(circle at 50% 42%, rgba(65,55,120,0.34), transparent 46%), #05050a",
+	              color: "#f8fafc",
+	              overflow: "hidden",
+	            }}
+	          >
+	            <video
+	              ref={showroomVideoElementRef}
+	              muted
+	              playsInline
+	              aria-label="Child camera preview"
+	              style={{
+	                position: "absolute",
+	                inset: 0,
+	                width: "100%",
+	                height: "100%",
+	                objectFit: "cover",
+	                transform: "scaleX(-1)",
+	                opacity: showroomVideoChatCameraState === "live" ? 1 : 0,
+	                transition: "opacity 220ms ease",
+	              }}
+	            />
+	            {showroomVideoChatCameraState !== "live" && (
+	              <div
+	                style={{
+	                  position: "absolute",
+	                  inset: 0,
+	                  display: "grid",
+	                  placeItems: "center",
+	                  padding: 24,
+	                  textAlign: "center",
+	                  background:
+	                    "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(88,64,180,0.84))",
+	                }}
+	              >
+	                <div style={{ display: "grid", gap: 12, maxWidth: 520 }}>
+	                  <Video size={44} aria-hidden style={{ margin: "0 auto", opacity: 0.82 }} />
+	                  <div style={{ fontSize: "clamp(30px, 5vw, 54px)", fontWeight: 950 }}>
+	                    {videoChatEntryCopy.title}
+	                  </div>
+	                  <p style={{ margin: 0, color: "rgba(248,250,252,0.72)", lineHeight: 1.45 }}>
+	                    {videoChatEntryCopy.helperText}
+	                  </p>
+	                  {showroomVideoChatError && (
+	                    <p
+	                      role="alert"
+	                      style={{
+	                        margin: 0,
+	                        color: "#fecdd3",
+	                        fontSize: 14,
+	                        fontWeight: 800,
+	                      }}
+	                    >
+	                      {showroomVideoChatError}
+	                    </p>
+	                  )}
+	                </div>
+	              </div>
+	            )}
+
+	            <div
+	              style={{
+	                position: "absolute",
+	                top: 18,
+	                left: 18,
+	                right: 18,
+	                zIndex: 3,
+	                display: "flex",
+	                alignItems: "center",
+	                justifyContent: "space-between",
+	                gap: 12,
+	              }}
+	            >
+	              <div
+	                style={{
+	                  borderRadius: 8,
+	                  background: "rgba(5,5,10,0.54)",
+	                  border: "1px solid rgba(255,255,255,0.16)",
+	                  padding: "10px 13px",
+	                  backdropFilter: "blur(14px)",
+	                  display: "grid",
+	                  gap: 2,
+	                  minWidth: 0,
+	                }}
+	              >
+	                <strong style={{ fontSize: 15 }}>{videoChatEntryCopy.title}</strong>
+	                <span style={{ fontSize: 12, color: "rgba(248,250,252,0.68)" }}>
+	                  {showroomVideoChatCameraState === "live"
+	                    ? "Camera live"
+	                    : videoChatEntryCopy.status}
+	                </span>
+	              </div>
+	              <button
+	                type="button"
+	                aria-label="Close video chat"
+	                onClick={closeShowroomVideoChat}
+	                style={{
+	                  width: 44,
+	                  height: 44,
+	                  borderRadius: 8,
+	                  border: "1px solid rgba(255,255,255,0.18)",
+	                  background: "rgba(5,5,10,0.54)",
+	                  color: "#f8fafc",
+	                  display: "grid",
+	                  placeItems: "center",
+	                  cursor: "pointer",
+	                  backdropFilter: "blur(14px)",
+	                }}
+	              >
+	                <X size={22} aria-hidden />
+	              </button>
+	            </div>
+
+	            <div
+	              aria-label={`${current.name} companion portrait`}
+	              style={{
+	                position: "absolute",
+	                right: "clamp(14px, 3vw, 34px)",
+	                bottom: "clamp(96px, 14vh, 132px)",
+	                zIndex: 4,
+	                width: "min(30vw, 230px)",
+	                minWidth: 148,
+	                aspectRatio: "3 / 4",
+	                borderRadius: 8,
+	                border: "1px solid rgba(255,255,255,0.24)",
+	                background:
+	                  "linear-gradient(180deg, rgba(255,255,255,0.16), rgba(15,23,42,0.74))",
+	                boxShadow: "0 22px 72px rgba(0,0,0,0.38)",
+	                overflow: "hidden",
+	                backdropFilter: "blur(18px)",
+	              }}
+	            >
+	              <CompanionSlot
+	                entry={current}
+	                slot="current"
+	                active={showroomVideoChatOpen}
+	                contained
+	                getAnalyser={getSpeechAnalyser}
+	                onMotorReady={handleVideoChatMotorReady}
+	                onLoadSettled={noopShowroomSlotSettled}
+	              />
+	              <div
+	                style={{
+	                  position: "absolute",
+	                  left: 0,
+	                  right: 0,
+	                  bottom: 0,
+	                  padding: "10px 11px",
+	                  background:
+	                    "linear-gradient(180deg, transparent, rgba(5,5,10,0.78) 28%, rgba(5,5,10,0.92))",
+	                  fontSize: 13,
+	                  fontWeight: 900,
+	                  display: "flex",
+	                  alignItems: "center",
+	                  justifyContent: "space-between",
+	                  gap: 8,
+	                }}
+	              >
+	                <span>{current.name}</span>
+	                <span
+	                  style={{
+	                    color: "rgba(248,250,252,0.68)",
+	                    fontSize: 11,
+	                    fontWeight: 800,
+	                  }}
+	                >
+	                  companion
+	                </span>
+	              </div>
+	            </div>
+
+	            {(showroomTalkResponse || showroomTalkError || showroomTalkPhase !== "idle") && (
+	              <div
+	                style={{
+	                  position: "absolute",
+	                  left: "clamp(14px, 3vw, 34px)",
+	                  bottom: "clamp(106px, 14vh, 144px)",
+	                  zIndex: 4,
+	                  width: "min(54vw, 560px)",
+	                  maxWidth: "calc(100vw - min(30vw, 230px) - 96px)",
+	                  borderRadius: 8,
+	                  border: "1px solid rgba(255,255,255,0.18)",
+	                  background: "rgba(5,5,10,0.58)",
+	                  color: "#f8fafc",
+	                  boxShadow: "0 22px 72px rgba(0,0,0,0.28)",
+	                  backdropFilter: "blur(16px)",
+	                  padding: "12px 14px",
+	                  display: "grid",
+	                  gap: 8,
+	                }}
+	              >
+	                <div
+	                  aria-live="polite"
+	                  style={{
+	                    fontSize: 12,
+	                    fontWeight: 900,
+	                    color: "rgba(248,250,252,0.68)",
+	                    textTransform: "uppercase",
+	                    letterSpacing: 0,
+	                  }}
+	                >
+	                  {showroomTalkPhase === "listening"
+	                    ? `${current.name} is listening`
+	                    : showroomTalkPhase === "thinking"
+	                      ? `${current.name} is thinking`
+	                      : showroomTalkPhase === "speaking"
+	                        ? `${current.name} is answering`
+	                        : "Ready"}
+	                </div>
+	                {showroomTalkResponse && (
+	                  <div style={{ fontSize: 15, fontWeight: 750, lineHeight: 1.38 }}>
+	                    {showroomTalkResponse}
+	                  </div>
+	                )}
+	                {showroomTalkError && (
+	                  <div
+	                    role="alert"
+	                    style={{ color: "#fecdd3", fontSize: 13, fontWeight: 800 }}
+	                  >
+	                    {showroomTalkError}
+	                  </div>
+	                )}
+	              </div>
+	            )}
+
+	            <form
+	              onSubmit={(event) => {
+	                event.preventDefault();
+	                void submitShowroomTalkQuestion(undefined, { source: "video_call" });
+	              }}
+	              style={{
+	                position: "absolute",
+	                left: "50%",
+	                bottom: 22,
+	                transform: "translateX(-50%)",
+	                zIndex: 5,
+	                display: "grid",
+	                gridTemplateColumns: "44px minmax(160px, 1fr) 44px auto auto auto",
+	                alignItems: "center",
+	                justifyContent: "center",
+	                gap: 10,
+	                width: "min(94vw, 860px)",
+	                padding: 10,
+	                borderRadius: 8,
+	                background: "rgba(5,5,10,0.56)",
+	                border: "1px solid rgba(255,255,255,0.16)",
+	                backdropFilter: "blur(16px)",
+	              }}
+	            >
+	              <button
+	                type="button"
+	                aria-label="Ask by voice in video chat"
+	                onClick={() => startShowroomTalkListening({ source: "video_call" })}
+	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
+	                style={{
+	                  width: 44,
+	                  height: 44,
+	                  borderRadius: 8,
+	                  border: "1px solid rgba(255,255,255,0.18)",
+	                  background:
+	                    showroomTalkPhase === "listening"
+	                      ? activeTheme.primaryBackground
+	                      : "rgba(255,255,255,0.12)",
+	                  color: "#fff",
+	                  display: "grid",
+	                  placeItems: "center",
+	                  cursor: shouldGateShowroomTalkMic(showroomTalkPhase) ? "wait" : "pointer",
+	                  opacity: shouldGateShowroomTalkMic(showroomTalkPhase) ? 0.62 : 1,
+	                }}
+	              >
+	                <Mic size={19} aria-hidden />
+	              </button>
+	              <input
+	                value={showroomTalkQuestion}
+	                onChange={(event) => {
+	                  setShowroomTalkQuestion(event.target.value);
+	                  setShowroomTalkError(null);
+	                }}
+	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
+	                placeholder={`Ask ${current.name}`}
+	                style={{
+	                  minWidth: 0,
+	                  height: 44,
+	                  borderRadius: 8,
+	                  border: "1px solid rgba(255,255,255,0.16)",
+	                  background: "rgba(255,255,255,0.92)",
+	                  color: "#111827",
+	                  padding: "0 12px",
+	                  fontSize: 15,
+	                  fontWeight: 800,
+	                  outline: "none",
+	                }}
+	              />
+	              <button
+	                type="submit"
+	                aria-label="Send video chat question"
+	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
+	                style={{
+	                  width: 44,
+	                  height: 44,
+	                  borderRadius: 8,
+	                  border: 0,
+	                  background: activeTheme.primaryBackground,
+	                  color: "#fff",
+	                  display: "grid",
+	                  placeItems: "center",
+	                  cursor: shouldGateShowroomTalkMic(showroomTalkPhase) ? "wait" : "pointer",
+	                  opacity: shouldGateShowroomTalkMic(showroomTalkPhase) ? 0.62 : 1,
+	                }}
+	              >
+	                <Send size={18} aria-hidden />
+	              </button>
+	              <button
+	                type="button"
+	                aria-label="Let companion look"
+	                onClick={() => {
+	                  void submitShowroomTalkQuestion(
+	                    showroomTalkQuestion || "Can you take a quick look?",
+	                    {
+	                      source: "video_call",
+	                      forceVisualSnapshot: true,
+	                      visualReason: "look_button",
+	                    },
+	                  );
+	                }}
+	                disabled={shouldGateShowroomTalkMic(showroomTalkPhase)}
+	                style={{
+	                  border: "1px solid rgba(255,255,255,0.18)",
+	                  borderRadius: 8,
+	                  minHeight: 46,
+	                  padding: "0 16px",
+	                  background: "rgba(255,255,255,0.12)",
+	                  color: "#fff",
+	                  fontFamily: "Lexend, system-ui, sans-serif",
+	                  fontSize: 15,
+	                  fontWeight: 900,
+	                  cursor: shouldGateShowroomTalkMic(showroomTalkPhase) ? "wait" : "pointer",
+	                  opacity: shouldGateShowroomTalkMic(showroomTalkPhase) ? 0.62 : 1,
+	                }}
+	              >
+	                Look
+	              </button>
+	              <button
+	                type="button"
+	                onClick={() => {
+	                  if (showroomVideoChatCameraState === "live") {
+	                    stopShowroomVideoChatCamera();
+	                  } else {
+	                    void startShowroomVideoChatCamera();
+	                  }
+	                }}
+	                disabled={showroomVideoChatCameraState === "requesting"}
+	                style={{
+	                  border: 0,
+	                  borderRadius: 8,
+	                  minHeight: 46,
+	                  padding: "0 18px",
+	                  background:
+	                    showroomVideoChatCameraState === "live"
+	                      ? "rgba(255,255,255,0.12)"
+	                      : activeTheme.primaryBackground,
+	                  color: "#fff",
+	                  fontFamily: "Lexend, system-ui, sans-serif",
+	                  fontSize: 15,
+	                  fontWeight: 900,
+	                  display: "inline-flex",
+	                  alignItems: "center",
+	                  gap: 8,
+	                  cursor:
+	                    showroomVideoChatCameraState === "requesting" ? "wait" : "pointer",
+	                  opacity: showroomVideoChatCameraState === "requesting" ? 0.7 : 1,
+	                }}
+	              >
+	                {showroomVideoChatCameraState === "live" ? (
+	                  <VideoOff size={18} aria-hidden />
+	                ) : (
+	                  <Video size={18} aria-hidden />
+	                )}
+	                {showroomVideoChatCameraState === "requesting"
+	                  ? "Starting..."
+	                  : showroomVideoChatCameraState === "live"
+	                    ? "Stop camera"
+	                    : "Start camera"}
+	              </button>
+	              <button
+	                type="button"
+	                onClick={closeShowroomVideoChat}
+	                style={{
+	                  border: 0,
+	                  borderRadius: 8,
+	                  minHeight: 46,
+	                  padding: "0 18px",
+	                  background: "#dc2626",
+	                  color: "#fff",
+	                  fontFamily: "Lexend, system-ui, sans-serif",
+	                  fontSize: 15,
+	                  fontWeight: 900,
+	                  cursor: "pointer",
+	                }}
+	              >
+	                End video chat
+	              </button>
+	            </form>
+	          </motion.div>
 	        )}
 	      </AnimatePresence>
 
