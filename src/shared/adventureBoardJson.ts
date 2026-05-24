@@ -87,9 +87,6 @@ export interface AdventureBoardProgress {
 export interface AdventureBoardCompanion {
   id: string;
   name: string;
-  imageUrl: string;
-  position?: "lower-right" | "lower-left";
-  mood?: "idle" | "curious" | "celebrating";
 }
 
 export interface AdventureBoardNode {

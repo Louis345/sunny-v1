@@ -537,6 +537,7 @@ export function CompanionLayer({
     camera.lookAt(0, 1, 0);
     cameraRef.current = camera;
     motor.setCamera(camera);
+    motor.setShowroomIdle(mode === "full" ? "flank" : null, 0.37);
     console.log("CompanionLayer: [effect] scene + camera ready", {
       aspect: camera.aspect,
       mountCss: {
@@ -1024,9 +1025,9 @@ export function CompanionLayer({
         className="pointer-events-none overflow-hidden"
         style={{
           position: "fixed",
-          width: "min(28vw, 40%)",
-          height: "min(72vh, 95%)",
-          bottom: karaokeActive ? 12 : 0,
+          width: "min(31vw, 44%)",
+          height: "min(78vh, 100%)",
+          bottom: karaokeActive ? 12 : "-5vh",
           right: karaokeActive ? 12 : "2vw",
           zIndex: 15,
           filter: behavior.visualTreatment.filter,

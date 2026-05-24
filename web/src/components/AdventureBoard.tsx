@@ -239,23 +239,6 @@ export function AdventureBoard({
         })}
       </div>
 
-      {board.companion ? (
-        <aside
-          className="adventure-board__companion"
-          data-position={board.companion.position ?? "lower-right"}
-          data-mood={board.companion.mood ?? "idle"}
-          aria-label={`${board.companion.name} companion`}
-        >
-          <span className="adventure-board__companion-glow" />
-          <img
-            className="adventure-board__companion-image"
-            src={board.companion.imageUrl}
-            alt=""
-            aria-hidden="true"
-          />
-        </aside>
-      ) : null}
-
       <AdventureChoiceOverlay
         choiceSet={openChoiceSet}
         onDismiss={() => setOpenChoiceSetId(null)}

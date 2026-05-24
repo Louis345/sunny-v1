@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import React from "react";
+import React, { useMemo } from "react";
+import { mergeCompanionConfigWithDefaults } from "../../../src/shared/companionTypes";
+import { COMPANION_MANIFEST } from "../companion/companions.generated";
 import { AdventureBoard } from "../components/AdventureBoard";
+import { CompanionLayer } from "../components/CompanionLayer";
 import {
   bossReadyBoard,
   choicePolicySpineBoard,
@@ -34,7 +37,7 @@ const meta: Meta<AdventureBoardStoryArgs> = {
     },
   },
   args: {
-    scenario: "fork",
+    scenario: "dense",
   },
 };
 
@@ -42,12 +45,34 @@ export default meta;
 type Story = StoryObj<AdventureBoardStoryArgs>;
 
 function BoardFixture({ scenario }: AdventureBoardStoryArgs): React.ReactElement {
+  const board = boards[scenario];
+  const companionConfig = useMemo(() => {
+    if (!board.companion) return null;
+    const entry = COMPANION_MANIFEST.find((item) => item.id === board.companion?.id);
+    return mergeCompanionConfigWithDefaults({
+      ...(entry?.companionConfig ?? {}),
+      companionId: entry?.id ?? board.companion.id,
+      vrmUrl: entry?.companionConfig?.vrmUrl ?? entry?.vrmUrl,
+      toggledOff: false,
+    });
+  }, [board]);
+
   return (
-    <AdventureBoard
-      board={boards[scenario]}
-      onNodeClick={(node) => console.info("[storybook:adventure-board:node]", node)}
-      onChoiceClick={(option) => console.info("[storybook:adventure-board:choice]", option)}
-    />
+    <>
+      <AdventureBoard
+        board={board}
+        onNodeClick={(node) => console.info("[storybook:adventure-board:node]", node)}
+        onChoiceClick={(option) => console.info("[storybook:adventure-board:choice]", option)}
+      />
+      {companionConfig ? (
+        <CompanionLayer
+          childId={board.childId}
+          companion={companionConfig}
+          toggledOff={false}
+          mode="full"
+        />
+      ) : null}
+    </>
   );
 }
 

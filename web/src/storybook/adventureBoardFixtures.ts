@@ -296,13 +296,6 @@ export const choicePolicySpineBoard: AdventureBoardJson = {
   domain: "spelling",
   title: "Choice Policy Spine",
   theme,
-  companion: {
-    id: "matilda",
-    name: "Matilda",
-    imageUrl: "/characters/star.png",
-    position: "lower-right",
-    mood: "curious",
-  },
   progress: {
     currentNodeId: "mystery",
     completedNodeIds: ["word-radar", "spell-check", "read-aloud"],
@@ -462,6 +455,10 @@ export const denseSpellingBoard: AdventureBoardJson = {
   boardId: "storybook-dense-spelling",
   planId: "design-bench-dense",
   title: "Silent Letter Expedition",
+  companion: {
+    id: "matilda",
+    name: "Matilda",
+  },
   nodes: [
     {
       id: "start",
@@ -491,14 +488,15 @@ export const denseSpellingBoard: AdventureBoardJson = {
       evidenceRole: "baseline",
     },
     {
-      id: "spell-fragile",
-      kind: "activity",
-      activityId: "spell-check",
-      label: "Gnat / Wrong / Climb",
-      icon: "book",
+      id: "mystery",
+      kind: "mystery",
+      label: "Mystery",
+      icon: "mystery",
       position: { x: 0.54, y: 0.46 },
       state: "current",
-      evidenceRole: "support",
+      evidenceRole: "preference",
+      choiceSetId: "dense-mystery-choice",
+      action: { type: "open-choice-set", payloadId: "dense-mystery-choice" },
     },
     {
       id: "wr-light",
@@ -516,7 +514,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       activityId: "pronunciation",
       label: "Read Aloud",
       icon: "book",
-      position: { x: 0.62, y: 0.26 },
+      position: { x: 0.58, y: 0.26 },
       state: "available",
       evidenceRole: "baseline",
     },
@@ -525,7 +523,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       kind: "choice-gate",
       label: "Choose Path",
       icon: "route",
-      position: { x: 0.72, y: 0.56 },
+      position: { x: 0.64, y: 0.56 },
       state: "locked",
       lock: {
         reason: "needs-baseline",
@@ -537,7 +535,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       kind: "quest",
       label: "Quest",
       icon: "star",
-      position: { x: 0.83, y: 0.34 },
+      position: { x: 0.76, y: 0.34 },
       state: "preview",
       lock: {
         reason: "needs-baseline-evidence",
@@ -549,7 +547,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       kind: "boss",
       label: "Boss",
       icon: "crown",
-      position: { x: 0.91, y: 0.18 },
+      position: { x: 0.86, y: 0.18 },
       state: "locked",
       lock: {
         reason: "needs-quest-evidence",
@@ -560,12 +558,39 @@ export const denseSpellingBoard: AdventureBoardJson = {
   edges: [
     { id: "e1", from: "start", to: "wr-conflict", state: "completed" },
     { id: "e2", from: "wr-conflict", to: "spell-conflict", state: "completed" },
-    { id: "e3", from: "spell-conflict", to: "spell-fragile", state: "available" },
-    { id: "e4", from: "spell-fragile", to: "choice", state: "locked", style: "dashed" },
+    { id: "e3", from: "spell-conflict", to: "mystery", state: "available", style: "glow" },
+    { id: "e4", from: "mystery", to: "choice", state: "locked", style: "dashed" },
     { id: "e5", from: "spell-conflict", to: "wr-light", state: "available" },
     { id: "e6", from: "wr-light", to: "hf-read", state: "available" },
     { id: "e7", from: "hf-read", to: "choice", state: "locked", style: "dashed" },
     { id: "e8", from: "choice", to: "quest", state: "preview", style: "dashed" },
     { id: "e9", from: "quest", to: "boss", state: "locked", style: "dashed" },
+  ],
+  choiceSets: [
+    {
+      id: "dense-mystery-choice",
+      kind: "mystery",
+      title: "Pick a challenge",
+      options: [
+        {
+          id: "story-challenge",
+          label: "Story Challenge",
+          description: "Use the spelling words inside a quick mission.",
+          icon: "book",
+          state: "available",
+          nodeId: "story-challenge",
+          tags: ["story", "creative"],
+        },
+        {
+          id: "speed-challenge",
+          label: "Speed Challenge",
+          description: "Try a fast round with the same target words.",
+          icon: "zap",
+          state: "available",
+          nodeId: "speed-challenge",
+          tags: ["arcade", "fast"],
+        },
+      ],
+    },
   ],
 };
