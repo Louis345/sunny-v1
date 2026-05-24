@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { NodeConfig } from "../shared/adventureTypes";
 import {
   buildActivityIntent,
+  isTargetPurposeCompatibleWithActivity,
   selectTargetsForIntent,
 } from "./activityIntent";
 
@@ -75,6 +76,27 @@ describe("ActivityIntent", () => {
     expect(decision.traceSummary).toMatch(/Wheel selected "ahead"/);
   });
 
+  it("does not select off-assignment due words when homework targets are present", () => {
+    const decision = selectTargetsForIntent({
+      childId: "demo_adaptive",
+      node: node("letter-rush", ["sign", "know", "write"]),
+      targetSelector: "baseline_pattern_mastery",
+      evidence: {
+        homeworkWords: ["sign", "know", "write"],
+        recentMisses: ["farmer"],
+        fragileTargets: ["building"],
+        sm2DueWords: ["farmer", "building"],
+      },
+      maxTargets: 3,
+      now: new Date("2026-05-21T23:40:00.000Z"),
+    });
+
+    expect(decision.selectedTargets).toEqual(["sign", "know", "write"]);
+    expect(decision.targetReasons.map((target) => target.target)).not.toContain("farmer");
+    expect(decision.targetReasons.map((target) => target.target)).not.toContain("building");
+    expect(decision.avoidedTargets).toEqual(expect.arrayContaining(["farmer", "building"]));
+  });
+
   it("marks hidden-answer intents with a strict companion speech policy", () => {
     const intent = buildActivityIntent({
       childId: "demo_adaptive",
@@ -91,5 +113,26 @@ describe("ActivityIntent", () => {
       answerVisibility: "hidden_until_reveal",
       canSpeakTargetBeforeReveal: false,
     });
+  });
+
+  it("rejects recognition-only targets for clean spelling recall instruments", () => {
+    expect(
+      isTargetPurposeCompatibleWithActivity({
+        activityId: "word-radar",
+        targetPurpose: "recognize",
+      }).compatible,
+    ).toBe(false);
+    expect(
+      isTargetPurposeCompatibleWithActivity({
+        activityId: "word-radar",
+        targetPurpose: "spell_from_memory",
+      }).compatible,
+    ).toBe(true);
+    expect(
+      isTargetPurposeCompatibleWithActivity({
+        activityId: "pronunciation",
+        targetPurpose: "recognize",
+      }).compatible,
+    ).toBe(true);
   });
 });

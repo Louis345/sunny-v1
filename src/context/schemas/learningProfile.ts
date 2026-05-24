@@ -125,15 +125,6 @@ export interface ActiveSessionPlan {
   domain: string;
   testDate: string | null;
   parentNote?: string;
-  wordPlan: {
-    cohortSize: number;
-    orderStrategy: "chart_seeded_rotation" | "targeted_support" | "homework_order";
-    words: Array<{
-      text: string;
-      purpose: "baseline" | "challenge" | "reinforce" | "review";
-      reason: string;
-    }>;
-  };
   nodePlan: Array<{
     id: string;
     type: NodeType;
@@ -605,6 +596,8 @@ export interface LearningProfile {
         label?: string;
         subject?: string;
       }>;
+      /** Planner-selected Word Radar measurement mode carried from assignment ingest. */
+      wordRadarConfig?: WordRadarNodeConfig;
       approved?: boolean;
       date?: string;
       adaptiveArtifact?: {

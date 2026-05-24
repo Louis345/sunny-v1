@@ -198,7 +198,28 @@ export function resetAdaptabilityDemo(
   const childDir = path.join(contextRoot, ADAPTABILITY_DEMO_CHILD_ID);
   fs.rmSync(childDir, { recursive: true, force: true });
   fs.mkdirSync(childDir, { recursive: true });
-  writeJson(path.join(childDir, "learning_profile.json"), demoProfile(scenario));
+  const profile = demoProfile(scenario);
+  writeJson(path.join(childDir, "learning_profile.json"), profile);
+  const pending = profile.pendingHomework;
+  if (pending?.homeworkId) {
+    writeJson(path.join(childDir, "homework", "cycles", `${pending.homeworkId}.json`), {
+      homeworkId: pending.homeworkId,
+      subject: "spelling_test",
+      wordList: pending.wordList ?? [],
+      ingestedAt: pending.weekOf ?? "2026-05-15",
+      testDate: pending.testDate,
+      testDateSource: pending.testDateSource,
+      testDateConfirmed: pending.testDateConfirmed,
+      contentProfile: pending.contentProfile,
+      capturedContent: pending.capturedContent,
+      nodes: pending.nodes,
+      assumptions: null,
+      postAnalysis: null,
+      scanResult: null,
+      delta: null,
+      metrics: null,
+    });
+  }
   writeJson(path.join(childDir, "word_bank.json"), {
     childId: ADAPTABILITY_DEMO_CHILD_ID,
     version: 1,

@@ -42,8 +42,11 @@ export interface ActivityIntentSummary {
   purpose: string;
   carePlanHypothesis?: string;
   targetSelector: string;
+  acceptedTargetPurposes?: string[];
   selectedTargets: Array<{
     target: string;
+    targetPurpose?: string;
+    compatibleWithActivity?: boolean;
     reasons?: string[];
     evidenceTypes?: string[];
   }>;
@@ -67,6 +70,14 @@ export interface TargetSelectorDecisionSummary {
   nodeId: string;
   targetSelector: string;
   selectedTargets: string[];
+  targetReasons?: Array<{
+    target: string;
+    targetPurpose?: string;
+    compatibleWithActivity?: boolean;
+    reasons?: string[];
+    evidenceTypes?: string[];
+    score?: number;
+  }>;
   traceSummary: string;
 }
 
@@ -93,6 +104,8 @@ export interface WordRadarNodeConfig {
   requiresCapturedResponse: boolean;
 }
 
+export type PronunciationFlowHook = "competition" | "speed" | "challenge";
+
 export interface PronunciationNodeConfig {
   baseWordCount: number;
   targetFlowWordCount: number;
@@ -104,6 +117,8 @@ export interface PronunciationNodeConfig {
     noFrustrationSignal: boolean;
   };
   supportPolicy: "slow_on_help_or_repeated_miss";
+  /** Profile-driven engagement wrapper (presentation only; tempo uses latency calibration). */
+  flowHooks?: PronunciationFlowHook[];
 }
 
 export type MysteryActivityKind =

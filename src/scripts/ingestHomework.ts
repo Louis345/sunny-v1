@@ -1,10 +1,8 @@
 import "dotenv/config";
-import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
-import { parseExtractedJson, textFromMessage } from "./generateGame";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import type { ActiveSessionPlan, HomeworkDomain, LearningProfile } from "../context/schemas/learningProfile";
 import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
@@ -27,8 +25,6 @@ import {
 import { getChildChart } from "../profiles/childChart";
 import { writeActiveSessionPlan } from "../engine/sessionPlanFromChart";
 import {
-  buildExperiencePlannerInput,
-  planPsychologistExperience,
   recordPlannerReview,
 } from "../engine/experiencePlanner";
 import { normalizeHomeworkDomain, withActiveHomeworkLane } from "../engine/homeworkLanes";
@@ -36,7 +32,6 @@ import {
   buildCapturedHomeworkContent,
   buildContentAwareHomeworkNodes,
   buildSpellingActivityNodes,
-  interpretHomeworkAssignment,
   normalizeContentProfile,
   recommendBaselineActivities,
   type CapturedHomeworkContent,
@@ -50,8 +45,19 @@ import {
   buildPreviewBoardCommand,
   maybeLaunchPreviewBoard,
 } from "../utils/previewLauncher";
-
-const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+import {
+  extractAssignmentSource,
+  type AssignmentSourceExtraction,
+} from "../engine/assignmentSourceExtraction";
+import {
+  buildAssignmentPlanningPacket,
+  planAssignmentFromSource,
+  summarizeAssignmentPlanForReview,
+  validateAssignmentPlannerOutput,
+  type AssignmentPlannerOutput,
+  type AssignmentPlanningPacket,
+  type AssignmentPlanValidationIssue,
+} from "../engine/assignmentPlanner";
 
 type ExtractionShape = {
   title: string;
@@ -71,6 +77,11 @@ type ExtractionShape = {
   contentProfile: ContentProfile;
   capturedContent: CapturedHomeworkContent;
   contentFingerprint: string;
+  assignmentSource: AssignmentSourceExtraction;
+  assignmentPlanningPacket: AssignmentPlanningPacket;
+  assignmentPlannerOutput: AssignmentPlannerOutput;
+  assignmentValidationIssues: AssignmentPlanValidationIssue[];
+  assignmentReviewSummary: string;
   questions: Array<{
     id: number;
     question: string;
@@ -213,11 +224,6 @@ export function buildHomeworkNodes(args: {
 }): PlannedNode[] {
   return buildContentAwareHomeworkNodes(args);
 }
-
-type NodePlan = {
-  nodes: PlannedNode[];
-  sessionNotes: string;
-};
 
 export function nextFriday(): string {
   const d = new Date();
@@ -457,12 +463,6 @@ function daysUntil(dateStr: string): number {
   const target = new Date(dateStr);
   const today = new Date();
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
-}
-
-function difficultyFromDaysUntil(days: number): 1 | 2 | 3 {
-  if (days >= 3) return 1;
-  if (days === 2) return 2;
-  return 3;
 }
 
 const REQUIRED_NODE_ORDER = [
@@ -725,6 +725,7 @@ export function finalizePlannedHomeworkNodes(
     storyText: n.storyText,
     date: n.date,
     wordRadarItems: n.wordRadarItems,
+    wordRadarConfig: n.wordRadarConfig,
   }));
   const ordered = reorderHomeworkNodesForSession(skeleton);
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -793,8 +794,12 @@ export function buildPendingHomeworkPayload(args: {
         date: node.date ?? args.weekOf,
         approved: false,
       };
-      if (node.type === "word-radar" && node.wordRadarItems?.length) {
-        return { ...base, wordRadarItems: node.wordRadarItems };
+      if (node.type === "word-radar") {
+        return {
+          ...base,
+          ...(node.wordRadarItems?.length ? { wordRadarItems: node.wordRadarItems } : {}),
+          ...(node.wordRadarConfig ? { wordRadarConfig: node.wordRadarConfig } : {}),
+        };
       }
       return base;
     }),
@@ -873,7 +878,7 @@ export function parseCliArgs(argv: string[]): {
   const childId = childRaw?.trim() ? childRaw.trim().toLowerCase() : null;
   const testDateRaw = readCliValue(argv, ["--testDate", "--test-date"]) ?? "";
   const testDate = testDateRaw.length > 0 ? testDateRaw : null;
-  const pdfRaw = readCliValue(argv, ["--pdf"]) ?? "";
+  const pdfRaw = readCliValue(argv, ["--pdf", "--file"]) ?? "";
   const pdfOverridePath = pdfRaw ? path.resolve(process.cwd(), pdfRaw) : null;
   const homeworkDomain = normalizeIngestDomain(
     readCliValue(argv, ["--domain", "--homework-domain"]),
@@ -890,6 +895,21 @@ export function parseCliArgs(argv: string[]): {
 function listIncomingFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).map((name) => path.join(dir, name));
+}
+
+function isSupportedAssignmentSource(filePath: string): boolean {
+  return /\.(pdf|txt|png|jpe?g|webp)$/i.test(filePath);
+}
+
+function storeOriginalAssignmentSource(incomingFile: string, pendingDir: string): string {
+  const sourceDir = path.join(pendingDir, "source");
+  fs.mkdirSync(sourceDir, { recursive: true });
+  const filename = path.basename(incomingFile);
+  const storedPath = path.join(sourceDir, filename);
+  if (path.resolve(incomingFile) !== path.resolve(storedPath)) {
+    fs.copyFileSync(incomingFile, storedPath);
+  }
+  return storedPath;
 }
 
 export function listIngestChildIds(rootDir = process.cwd()): string[] {
@@ -941,14 +961,14 @@ export async function resolveIngestHomeworkFile(args: {
   ask?: PromptFn;
 }): Promise<string | null> {
   if (args.pdfOverridePath) return args.pdfOverridePath;
-  const candidates = args.incomingFiles.filter((file) => /\.(pdf|txt)$/i.test(file));
+  const candidates = args.incomingFiles.filter((file) => /\.(pdf|txt|png|jpe?g|webp)$/i.test(file));
   const picked = pickIncomingHomeworkFile(candidates);
   if (!args.interactive) return picked;
 
   const ask = args.ask ?? promptForLine;
   if (candidates.length === 0) {
     const answer = String(
-      await ask("Paste homework PDF/TXT path, or press Enter to cancel: "),
+      await ask("Paste homework PDF/image/TXT path, or press Enter to cancel: "),
     ).trim();
     return normalizeEnteredHomeworkPath(answer);
   }
@@ -968,7 +988,7 @@ export async function resolveIngestHomeworkFile(args: {
     return candidates[asNumber - 1]!;
   }
   if (Number.isInteger(asNumber) && asNumber === candidates.length + 1) {
-    const manual = String(await ask("Paste homework PDF/TXT path: ")).trim();
+    const manual = String(await ask("Paste homework PDF/image/TXT path: ")).trim();
     return normalizeEnteredHomeworkPath(manual);
   }
   const match = candidates.find((file) => path.basename(file).toLowerCase() === answer.toLowerCase());
@@ -982,17 +1002,6 @@ function normalizeEnteredHomeworkPath(raw: string): string | null {
   const trimmed = raw.trim().replace(/^['"]|['"]$/g, "");
   if (!trimmed) return null;
   return path.resolve(process.cwd(), trimmed);
-}
-
-function readLastNSessionNotes(childId: string, n: number): string[] {
-  const notesDir = path.join(process.cwd(), "src", "context", childId, "session_notes");
-  if (!fs.existsSync(notesDir)) return [];
-  const files = fs
-    .readdirSync(notesDir)
-    .filter((f) => f.endsWith(".md"))
-    .sort()
-    .slice(-n);
-  return files.map((f) => fs.readFileSync(path.join(notesDir, f), "utf8"));
 }
 
 /** Latest processed tutoring transcript (.txt), or null. */
@@ -1061,179 +1070,117 @@ export function archiveHomeworkReasoningToHistory(args: {
 }
 
 
-async function extractHomework(
-  client: Anthropic,
-  filePath: string,
-  interpretationMemoryMatches: import("./contentAwareHomeworkPlanner").HomeworkInterpretationMemoryMatch[] = [],
-): Promise<ExtractionShape> {
-  const prompt = `Extract as JSON only:
-{
-  "title": string,
-  "type": "spelling_test"|"reading"|"math"|"coins"|"clocks"|"generic",
-  "gradeLevel": number,
-  "testDate": string | null,
-  "words": string[],
-  "wordGroups": [{
-    "id": string,
-    "label": string,
-    "purpose": "spell_from_memory"|"recognize"|"read_fluently"|"pronounce"|"define"|"unknown",
-    "words": string[],
-    "confidence": number,
-    "evidence": string[],
-    "scheduleAfter": "spelling_measured" | null
-  }],
-  "contentProfile": {
-    "practiceDomain": "spelling"|"reading"|"math"|"writing"|"generic",
-    "contentDomain": "science"|"social_studies"|"language_arts"|"math"|"generic",
-    "topic": string,
-    "primarySkill": string,
-    "assignmentFormat": string,
-    "concepts": string[],
-    "sourceEvidence": string[]
-  },
-  "questions": [{
-    "id": number,
-    "question": string,
-    "type": "multiple_choice"|"written"|"fill_in",
-    "options": string[] | null,
-    "correctAnswer": string | null,
-    "hint": string
-  }]
-}`;
-  const isPdf = filePath.toLowerCase().endsWith(".pdf");
-  const sourceText = isPdf ? "" : fs.readFileSync(filePath, "utf8");
-  const content = isPdf
-    ? [
-        {
-          type: "document" as const,
-          source: {
-            type: "base64" as const,
-            media_type: "application/pdf" as const,
-            data: fs.readFileSync(filePath).toString("base64"),
-          },
-        },
-        { type: "text" as const, text: prompt },
-      ]
-    : `${prompt}\n\nHomework text:\n${sourceText}`;
-  const msg = await client.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 8192,
-    messages: [{ role: "user", content }],
+async function extractHomework(args: {
+  childId: string;
+  filePath: string;
+  pageImageDir: string;
+}): Promise<ExtractionShape> {
+  const assignmentSource = await extractAssignmentSource(args.filePath, {
+    pageImageDir: args.pageImageDir,
   });
-  const parsed = parseExtractedJson(textFromMessage(msg)) as Partial<ExtractionShape>;
-  const extractedType = normalizeHomeworkType(String(parsed.type ?? "generic"));
-  const words = Array.isArray(parsed.words) ? parsed.words.map((w) => String(w)) : [];
-  const allowedGroupPurposes = new Set([
-    "spell_from_memory",
-    "recognize",
-    "read_fluently",
-    "pronounce",
-    "define",
-    "unknown",
-  ]);
-  const wordGroups: HomeworkWordGroup[] = Array.isArray(parsed.wordGroups)
-    ? parsed.wordGroups.flatMap((group): HomeworkWordGroup[] => {
-        if (!group || typeof group !== "object") return [];
-        const raw = group as {
-          id?: unknown;
-          label?: unknown;
-          purpose?: unknown;
-          words?: unknown;
-          confidence?: unknown;
-          evidence?: unknown;
-          scheduleAfter?: unknown;
-        };
-        const groupWords = Array.isArray(raw.words) ? raw.words.map((word) => String(word)) : [];
-        if (groupWords.length === 0) return [];
-        const rawPurpose = String(raw.purpose ?? "unknown");
-        const purpose = allowedGroupPurposes.has(rawPurpose)
-          ? rawPurpose as HomeworkWordGroup["purpose"]
-          : "unknown";
-        return [{
-          id: String(raw.id ?? raw.label ?? "word-group"),
-          label: String(raw.label ?? raw.id ?? "Word Group"),
-          purpose,
-          words: groupWords,
-          confidence: Number.isFinite(Number(raw.confidence)) ? Number(raw.confidence) : 0.5,
-          evidence: Array.isArray(raw.evidence) ? raw.evidence.map((item) => String(item)) : [],
-          ...(raw.scheduleAfter === "spelling_measured" ? { scheduleAfter: "spelling_measured" as const } : {}),
-        }];
-      })
-    : [];
-  const questions = Array.isArray(parsed.questions)
-    ? parsed.questions.map((q, idx) => ({
-        id: Number((q as { id?: number }).id ?? idx + 1),
-        question: String((q as { question?: string }).question ?? ""),
-        type: ((q as { type?: string }).type as "multiple_choice" | "written" | "fill_in") ?? "written",
-        options: Array.isArray((q as { options?: string[] }).options)
-          ? (q as { options: string[] }).options
-          : null,
-        correctAnswer:
-          typeof (q as { correctAnswer?: string | null }).correctAnswer === "string"
-            ? (q as { correctAnswer: string }).correctAnswer
-            : null,
-        hint: String((q as { hint?: string }).hint ?? ""),
-      }))
-    : [];
-  const title = String(parsed.title ?? "Untitled Homework");
+  const assignmentPlanningPacket = buildAssignmentPlanningPacket({
+    childId: args.childId,
+    extraction: assignmentSource,
+    childChart: getChildChart(args.childId),
+  });
+  const assignmentPlannerOutput = await planAssignmentFromSource(assignmentPlanningPacket);
+  const assignmentValidationIssues = validateAssignmentPlannerOutput(
+    assignmentPlannerOutput,
+    {
+      extraction: assignmentSource,
+      activityIds: assignmentPlanningPacket.activityCatalog.map((card) => card.activityId),
+    },
+  );
+  const blockingIssues = assignmentValidationIssues.filter((issue) => issue.severity === "error");
+  if (blockingIssues.length > 0) {
+    throw new Error(
+      [
+        "assignment_plan_invalid",
+        ...blockingIssues.map((issue) => `${issue.code}: ${issue.message}`),
+      ].join("\n"),
+    );
+  }
+
+  const capturedContent = assignmentPlannerOutput.capturedContent;
+  const extractedType = normalizeHomeworkType(capturedContent.type);
+  const words = capturedContent.words.map((word) => String(word));
+  const questions = capturedContent.questions.map((q, idx) => {
+    const raw = q as {
+      id?: number;
+      question?: string;
+      type?: "multiple_choice" | "written" | "fill_in";
+      options?: string[] | null;
+      correctAnswer?: string | null;
+      hint?: string;
+    };
+    return {
+      id: Number(raw.id ?? idx + 1),
+      question: String(raw.question ?? ""),
+      type: raw.type ?? "written",
+      options: Array.isArray(raw.options) ? raw.options : null,
+      correctAnswer: typeof raw.correctAnswer === "string" ? raw.correctAnswer : null,
+      hint: String(raw.hint ?? ""),
+    };
+  });
   const contentProfile = normalizeContentProfile({
-    title,
+    title: capturedContent.title,
     type: extractedType,
     words,
-    wordGroups,
+    wordGroups: capturedContent.wordGroups,
     questions,
-    contentProfile: parsed.contentProfile,
+    contentProfile: capturedContent.contentProfile,
   });
   const normalizedType = resolveHomeworkTypeFromProfile(
     extractedType,
     contentProfile,
-    title,
+    capturedContent.title,
     questions,
   );
-  const finalContentProfile =
-    normalizedType === extractedType
-      ? contentProfile
-      : normalizeContentProfile({
-          title,
-          type: normalizedType,
-          words,
-          questions,
-          contentProfile,
-        });
-  const capturedContent = buildCapturedHomeworkContent({
-    title,
+  const finalCapturedContent = buildCapturedHomeworkContent({
+    title: capturedContent.title,
     type: normalizedType,
-    rawText: sourceText,
+    rawText: assignmentSource.fullText,
     words,
-    wordGroups,
-    interpretationMemoryMatches,
+    wordGroups: capturedContent.wordGroups,
     questions,
-    sourceDocuments: [
-      {
-        filename: path.basename(filePath),
-        mediaType: isPdf ? "application/pdf" : "text/plain",
-      },
-    ],
-    contentProfile: finalContentProfile,
+    sourceDocuments: capturedContent.sourceDocuments.length
+      ? capturedContent.sourceDocuments
+      : [{ filename: assignmentSource.filename, mediaType: assignmentSource.mediaType }],
+    contentProfile,
   });
   const contentFingerprint = generateContentFingerprint({
-    childId: "",
-    title,
-    rawText: sourceText,
+    childId: args.childId,
+    title: finalCapturedContent.title,
+    rawText: finalCapturedContent.rawText,
     words,
     questions,
-    testDate: parsed.testDate ? String(parsed.testDate) : null,
-    sourceDocuments: capturedContent.sourceDocuments,
+    testDate: null,
+    sourceDocuments: finalCapturedContent.sourceDocuments,
   });
+
   return {
-    title,
+    title: finalCapturedContent.title,
     type: normalizedType,
-    gradeLevel: Number(parsed.gradeLevel ?? 2),
-    testDate: parsed.testDate ? String(parsed.testDate) : null,
+    gradeLevel: Number((args as { gradeLevel?: number }).gradeLevel ?? 2),
+    testDate: null,
     words,
-    contentProfile: finalContentProfile,
-    capturedContent,
+    wordGroups: finalCapturedContent.wordGroups,
+    contentProfile,
+    capturedContent: finalCapturedContent,
     contentFingerprint,
+    assignmentSource,
+    assignmentPlanningPacket,
+    assignmentPlannerOutput: {
+      ...assignmentPlannerOutput,
+      capturedContent: finalCapturedContent,
+      assignmentInterpretation: finalCapturedContent.assignmentInterpretation!,
+    },
+    assignmentValidationIssues,
+    assignmentReviewSummary: summarizeAssignmentPlanForReview({
+      ...assignmentPlannerOutput,
+      capturedContent: finalCapturedContent,
+      assignmentInterpretation: finalCapturedContent.assignmentInterpretation!,
+    }),
     questions,
   };
 }
@@ -1273,6 +1220,61 @@ export function buildCycleStub(args: {
   };
 }
 
+function finalizeAssignmentActiveSessionPlan(args: {
+  plan: ActiveSessionPlan;
+  childId: string;
+  homeworkId: string;
+  domain: HomeworkDomain;
+  testDate: string;
+  parentNote?: string;
+  output: AssignmentPlannerOutput;
+}): ActiveSessionPlan {
+  return {
+    ...args.plan,
+    childId: args.childId,
+    source: "ingest_human_loop",
+    activeHomeworkId: args.homeworkId,
+    domain: args.domain,
+    testDate: args.testDate,
+    ...(args.parentNote ? { parentNote: args.parentNote } : {}),
+    approvalStatus: "pending",
+    planTheory: args.output.planTheory,
+    plannedMeasurements: args.output.plannedMeasurements,
+    generatedExperienceBriefs: args.output.generatedExperienceBriefs ?? args.plan.generatedExperienceBriefs,
+    evidenceUsed: [
+      ...args.plan.evidenceUsed,
+      {
+        id: "assignment-source",
+        type: "assignment_source",
+        summary: "Board generated from stored source assignment and local OCR/text extraction.",
+      },
+    ],
+  };
+}
+
+function homeworkNodesFromAssignmentPlan(plan: ActiveSessionPlan, weekOf: string): PlannedNode[] {
+  return plan.nodePlan.map((node): PlannedNode => ({
+    id: node.id,
+    type: node.type as PlannedNode["type"],
+    words: [...node.targets],
+    difficulty: node.difficulty,
+    rationale: [
+      `Assignment planner chose ${node.activityId}.`,
+      node.targetLane ? `Target lane: ${node.targetLane}.` : "",
+    ].filter(Boolean).join(" "),
+    gameFile: null,
+    storyFile: null,
+    activityId: node.activityId,
+    date: weekOf,
+    ...(node.type === "word-radar"
+      ? {
+          wordRadarItems: wordRadarItemsFromWordList(node.targets),
+          ...(node.wordRadarConfig ? { wordRadarConfig: node.wordRadarConfig } : {}),
+        }
+      : {}),
+  }));
+}
+
 export async function runIngestHomework(argv: string[]): Promise<void> {
   const {
     childId: cliChildId,
@@ -1292,7 +1294,6 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     childIds: listIngestChildIds(),
     interactive,
   });
-  const client = new Anthropic();
   const today = new Date().toISOString().slice(0, 10);
   const contextBase = path.join(process.cwd(), "src", "context", childId, "homework");
   const incomingDir = path.join(contextBase, "incoming");
@@ -1313,18 +1314,18 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   if (!fs.existsSync(incomingFile)) {
     throw new Error(`Homework file not found: ${incomingFile}`);
   }
-  if (!incomingFile.toLowerCase().endsWith(".pdf") && !incomingFile.toLowerCase().endsWith(".txt")) {
-    throw new Error(`Homework file must be a .pdf or .txt file: ${incomingFile}`);
+  if (!isSupportedAssignmentSource(incomingFile)) {
+    throw new Error(`Homework file must be a .pdf, image, or .txt file: ${incomingFile}`);
   }
 
-  const existingProfileDoc = readLearningProfile(childId);
   console.log("📄 Step 1/4: Reading homework...");
   console.log(`   Intake file: ${path.basename(incomingFile)}`);
-  const extracted = await extractHomework(
-    client,
-    incomingFile,
-    existingProfileDoc?.homeworkInterpretationMemory ?? [],
-  );
+  const storedSourcePath = storeOriginalAssignmentSource(incomingFile, pendingDir);
+  const extracted = await extractHomework({
+    childId,
+    filePath: storedSourcePath,
+    pageImageDir: path.join(pendingDir, "source-pages"),
+  });
   const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
   const selectedHomeworkDomain = homeworkDomain ?? classifierHomeworkDomain;
   const intakeDecisionSource: "human_menu" | "cli" | "classifier" = cliHomeworkDomain
@@ -1352,25 +1353,40 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   console.log(
     `   Test date: ${testDate} (${daysUntilTest} days away, source=${testDateSource}, confirmed=${testDateConfirmed})`,
   );
+  console.log(`   Source: ${extracted.assignmentSource.sourceKind} via ${extracted.assignmentSource.extractionMethod}`);
+  if (extracted.assignmentSource.warnings.length) {
+    console.log(`   Source warnings: ${extracted.assignmentSource.warnings.join(", ")}`);
+  }
+  console.log("");
+  console.log(extracted.assignmentReviewSummary);
   fs.writeFileSync(
     path.join(pendingDir, "classification.json"),
     JSON.stringify({ ...extracted, testDate }, null, 2),
     "utf8",
   );
   fs.writeFileSync(
+    path.join(pendingDir, "assignment-source-extraction.json"),
+    JSON.stringify(extracted.assignmentSource, null, 2),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(pendingDir, "assignment-planning-packet.json"),
+    JSON.stringify(extracted.assignmentPlanningPacket, null, 2),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(pendingDir, "assignment-planner-output.json"),
+    JSON.stringify(extracted.assignmentPlannerOutput, null, 2),
+    "utf8",
+  );
+  fs.writeFileSync(
+    path.join(pendingDir, "assignment-plan-review.md"),
+    extracted.assignmentReviewSummary,
+    "utf8",
+  );
+  fs.writeFileSync(
     path.join(pendingDir, "assignment-interpretation.json"),
-    JSON.stringify(
-      extracted.capturedContent.assignmentInterpretation ??
-        interpretHomeworkAssignment({
-          title: extracted.title,
-          type: extracted.type,
-          words: extracted.words,
-          questions: extracted.questions,
-          contentProfile: extracted.contentProfile,
-        }),
-      null,
-      2,
-    ),
+    JSON.stringify(extracted.capturedContent.assignmentInterpretation, null, 2),
     "utf8",
   );
 
@@ -1502,15 +1518,10 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   if (!profileDoc) {
     throw new Error(`Could not read learning_profile.json for child: ${childId}`);
   }
-  const homeworkNodes = buildHomeworkNodes({
-    type: extracted.type,
-    words: extracted.words,
-    homeworkId,
-    childId,
-    testDate,
-    contentProfile: extracted.contentProfile,
-    capturedContent: extracted.capturedContent,
-  });
+  const homeworkNodes = homeworkNodesFromAssignmentPlan(
+    extracted.assignmentPlannerOutput.activeSessionPlan,
+    today,
+  );
   const activityArtifacts = writeActivityConfigArtifacts({
     childId,
     homeworkId,
@@ -1561,27 +1572,17 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   const profileWithCatalog = upsertProfileContentCatalog(profileWithHomeworkLane, catalogItems);
   writeLearningProfile(childId, profileWithCatalog);
   const parentPlanNote = await promptForSessionPlanNote(interactive);
-  const chartForPlan = getChildChart(childId);
-  const plannerInput = buildExperiencePlannerInput(chartForPlan, {
+  const activeSessionPlan = finalizeAssignmentActiveSessionPlan({
+    plan: extracted.assignmentPlannerOutput.activeSessionPlan,
+    childId,
+    homeworkId,
+    domain: selectedHomeworkDomain,
+    testDate,
     parentNote: parentPlanNote,
-    companionConversationAudit: parentPlanNote ? [`parent_note:${parentPlanNote}`] : [],
-  });
-  const activeSessionPlan = await planPsychologistExperience(plannerInput, {
-    useAi: process.env.SUNNY_AI_EXPERIENCE_PLANNER === "true",
-    parentNote: parentPlanNote,
+    output: extracted.assignmentPlannerOutput,
   });
   const reviewedPlan = await reviewExperiencePlan(childId, activeSessionPlan, {
     interactive,
-    revisePlan: async (_plan, note) => {
-      const revisedInput = buildExperiencePlannerInput(getChildChart(childId), {
-        parentNote: note,
-        companionConversationAudit: [`parent_revision:${note}`],
-      });
-      return planPsychologistExperience(revisedInput, {
-        useAi: process.env.SUNNY_AI_EXPERIENCE_PLANNER === "true",
-        parentNote: note,
-      });
-    },
   });
   if (reviewedPlan.approvalStatus === "rejected") {
     console.log("  🎮 [experience-planner] [pending-review] homework saved; session plan not activated");

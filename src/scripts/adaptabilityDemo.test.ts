@@ -31,6 +31,20 @@ describe("adaptability demo sandbox", () => {
     expect(result.contextRoot).toBe(sandboxContextRoot(projectRoot));
     expect(fs.existsSync(path.join(result.childDir, "learning_profile.json"))).toBe(true);
     expect(fs.existsSync(path.join(result.childDir, "word_bank.json"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(result.childDir, "homework", "cycles", "hw-adapt-near_test.json")),
+    ).toBe(true);
+    const cycle = JSON.parse(
+      fs.readFileSync(
+        path.join(result.childDir, "homework", "cycles", "hw-adapt-near_test.json"),
+        "utf8",
+      ),
+    ) as { nodes?: Array<{ type?: string }> };
+    expect(cycle.nodes?.map((node) => node.type)).toEqual([
+      "word-radar",
+      "spell-check",
+      "pronunciation",
+    ]);
     expect(fs.existsSync(path.join(projectRoot, "src", "context", "ila"))).toBe(false);
     expect(fs.existsSync(path.join(projectRoot, "src", "context", "reina"))).toBe(false);
   });

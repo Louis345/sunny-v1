@@ -145,15 +145,6 @@ function activePlan(): ActiveSessionPlan {
     activeHomeworkId: HOMEWORK_ID,
     domain: "spelling",
     testDate: "2026-05-15",
-    wordPlan: {
-      cohortSize: 5,
-      orderStrategy: "chart_seeded_rotation",
-      words: WORDS.map((word) => ({
-        text: word,
-        purpose: "challenge",
-        reason: "quest artifact test",
-      })),
-    },
     nodePlan: [
       {
         id: "n-word-radar-hw-spelling_test-artifact",

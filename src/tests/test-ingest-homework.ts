@@ -55,15 +55,6 @@ describe("ingestHomework", () => {
       activeHomeworkId: "hw-spelling",
       domain: "spelling",
       testDate: "2026-05-22",
-      wordPlan: {
-        cohortSize: 5,
-        orderStrategy: "homework_order",
-        words: ["shiny", "slowly", "lucky", "neatly", "sunny"].map((text) => ({
-          text,
-          purpose: "baseline",
-          reason: "homework",
-        })),
-      },
       nodePlan: [
         {
           id: "n-word-radar",
@@ -203,6 +194,14 @@ describe("ingestHomework", () => {
     });
   });
 
+  it("parseCliArgs accepts --file for image-first assignment intake", () => {
+    const filePath = "/tmp/saori-scan.png";
+    expect(parseCliArgs(["--child=reina", `--file=${filePath}`])).toMatchObject({
+      childId: "reina",
+      pdfOverridePath: filePath,
+    });
+  });
+
   it("parseCliArgs testDate defaults to null when absent", () => {
     const childId = sampleChildIdFromConfig();
     expect(parseCliArgs([`--child=${childId}`])).toEqual({
@@ -306,15 +305,6 @@ describe("ingestHomework", () => {
     const initial = sessionPlan();
     const revised = sessionPlan({
       planId: "plan-review-revised",
-      wordPlan: {
-        cohortSize: 10,
-        orderStrategy: "homework_order",
-        words: Array.from({ length: 10 }, (_, index) => ({
-          text: `word${index}`,
-          purpose: "baseline",
-          reason: "parent requested 10 words",
-        })),
-      },
       nodePlan: [
         {
           id: "n-pronunciation",

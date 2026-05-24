@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createSpellingHomeworkGate } from "../server/spelling-homework-gate";
 import { buildLaunchGameTool } from "../agents/elli/tools/launchGame";
+import { createHomeworkEvidenceGate, filterHomeworkTargets } from "../shared/homeworkEvidenceGate";
 
 describe("createSpellingHomeworkGate", () => {
   it("is permissive when allowlist is empty", () => {
@@ -73,5 +74,32 @@ describe("homework gate in launchGame (model-visible execute)", () => {
     })) as Record<string, unknown>;
     expect(r.ok).toBe(false);
     expect(String(r.error)).toContain("not on today's extracted");
+  });
+});
+
+describe("homework evidence source boundary", () => {
+  it("uses captured assignment groups and rejects off-assignment extras", () => {
+    const gate = createHomeworkEvidenceGate({
+      homeworkId: "hw-spelling-fixture",
+      wordList: ["sign", "know", "write", "machine"],
+      contentProfile: { practiceDomain: "spelling" },
+      capturedContent: {
+        assignmentInterpretation: {
+          selectedTargets: [
+            { purpose: "spell_from_memory", words: ["sign", "know", "write"] },
+          ],
+          heldTargets: [
+            { purpose: "read_fluently", words: ["machine"] },
+          ],
+        },
+      },
+    });
+
+    const result = filterHomeworkTargets(gate, ["know", "machine", "farmer"]);
+
+    expect(result.accepted).toEqual(["know", "machine"]);
+    expect(result.rejected).toEqual([
+      { target: "farmer", reason: "not_in_active_homework" },
+    ]);
   });
 });

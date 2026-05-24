@@ -36,6 +36,31 @@ const HIGH_FREQUENCY_WORDS = [
   "understood",
   "wait",
 ];
+const WORD_RADAR_LETTER_FILL_CONFIG = {
+  recallMode: "partial_visual_recall" as const,
+  inputMode: "letter-by-letter" as const,
+  speakStyle: "option-a" as const,
+  showTimer: false,
+  hideWordDuringResponse: true,
+  requiresCapturedResponse: true,
+};
+const WORD_RADAR_VISIBLE_READ_CONFIG = {
+  recallMode: "visible_read" as const,
+  inputMode: "whole-word" as const,
+  speakStyle: "option-a" as const,
+  showTimer: false,
+  hideWordDuringResponse: false,
+  requiresCapturedResponse: true,
+};
+const WORD_RADAR_HIDDEN_RECALL_CONFIG = {
+  recallMode: "hidden_word_recall" as const,
+  inputMode: "whole-word" as const,
+  speakStyle: "option-b" as const,
+  showTimer: true,
+  timerSeconds: 8,
+  hideWordDuringResponse: true,
+  requiresCapturedResponse: true,
+};
 
 function makeRoot(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-chart-plan-"));
@@ -89,6 +114,7 @@ function profileWithHomework(childId: string): LearningProfile {
         difficulty: 2,
         gameFile: null,
         storyFile: null,
+        wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
       },
       {
         id: "n-spell-check-hw-spelling_test-bb11de93",
@@ -320,7 +346,7 @@ describe("patient-chart session plan", () => {
     expect(getChildChart(childId, { rootDir: root }).activeSessionPlan?.planId).toBe(spellingPlan.planId);
   });
 
-  it("turns strong spelling evidence into a changed 10-word organic plan", () => {
+  it("keeps strong spelling evidence in node config without emitting a global word plan", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -333,21 +359,14 @@ describe("patient-chart session plan", () => {
       now: new Date("2026-05-13T12:00:00.000Z"),
     });
 
-    expect(plan.wordPlan.cohortSize).toBe(10);
-    expect(plan.wordPlan.words.map((word) => word.text)).toHaveLength(10);
-    expect(plan.wordPlan.words.map((word) => word.text)).not.toEqual(WORDS.slice(0, 10));
+    expect("wordPlan" in plan).toBe(false);
     expect(plan.variationPolicy.avoidExactPreviousNodeOrder).toBe(true);
-    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig).toMatchObject({
-      recallMode: "hidden_word_recall",
-      inputMode: "whole-word",
-      speakStyle: "option-b",
-      hideWordDuringResponse: true,
-      requiresCapturedResponse: true,
-    });
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig)
+      .toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
     expect(plan.nodePlan.find((node) => node.type === "pronunciation")?.pronunciationConfig).toMatchObject({
-      baseWordCount: 10,
-      targetFlowWordCount: 10,
-      maxWordCount: 10,
+      baseWordCount: 5,
+      targetFlowWordCount: 5,
+      maxWordCount: 5,
       expansionPolicy: "on_mastery_or_child_replay",
       masteryGate: {
         accuracyAtLeast: 0.85,
@@ -471,7 +490,6 @@ describe("patient-chart session plan", () => {
     });
     const nodes = buildAdventureMapFromSessionPlan(chart, plan);
     const allTargets = [
-      ...plan.wordPlan.words.map((word) => word.text),
       ...nodes.flatMap((node) => [
         ...(node.words ?? []),
         ...(node.wordRadarItems ?? []).map((item) => item.display),
@@ -482,7 +500,6 @@ describe("patient-chart session plan", () => {
     expect(allTargets).toContain("above");
     expect(allTargets).not.toContain("figure");
     expect(allTargets).not.toContain("coldest");
-    expect(plan.wordPlan.words.every((word) => WORDS.includes(word.text))).toBe(true);
   });
 
   it("keeps reading homework plan targets inside captured reading evidence", () => {
@@ -560,7 +577,7 @@ describe("patient-chart session plan", () => {
     expect(nodes.flatMap((node) => node.words ?? [])).not.toContain("figure");
   });
 
-  it("starts weak or unknown Word Radar evidence in visual recall without leaving the answer visible", () => {
+  it("starts weak or unknown Word Radar evidence with flash-then-slot recall", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -576,24 +593,19 @@ describe("patient-chart session plan", () => {
       now: new Date("2026-05-13T12:00:00.000Z"),
     });
 
-    expect(plan.wordPlan.cohortSize).toBe(5);
-    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig).toMatchObject({
-      recallMode: "partial_visual_recall",
-      inputMode: "whole-word",
-      speakStyle: "option-a",
-      hideWordDuringResponse: true,
-      requiresCapturedResponse: true,
-    });
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.targets).toHaveLength(5);
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig)
+      .toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
     expect(plan.nodePlan.find((node) => node.type === "pronunciation")?.pronunciationConfig).toMatchObject({
       baseWordCount: 5,
-      targetFlowWordCount: 8,
-      maxWordCount: 10,
+      targetFlowWordCount: 5,
+      maxWordCount: 5,
       expansionPolicy: "on_mastery_or_child_replay",
       supportPolicy: "slow_on_help_or_repeated_miss",
     });
   });
 
-  it("repairs legacy visible-read Word Radar configs before launching the map", () => {
+  it("preserves planned visible-read Word Radar configs when launching the map", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -614,27 +626,65 @@ describe("patient-chart session plan", () => {
         node.type === "word-radar"
           ? {
               ...node,
-              wordRadarConfig: {
-                recallMode: "visible_read" as const,
-                inputMode: "whole-word" as const,
-                speakStyle: "option-a" as const,
-                showTimer: false,
-                hideWordDuringResponse: false,
-                requiresCapturedResponse: true,
-              },
+              wordRadarConfig: WORD_RADAR_VISIBLE_READ_CONFIG,
             }
           : node,
       ),
     };
 
     const nodes = buildAdventureMapFromSessionPlan(chart, legacyPlan);
-    expect(nodes.find((node) => node.type === "word-radar")?.wordRadarConfig).toMatchObject({
-      recallMode: "partial_visual_recall",
-      hideWordDuringResponse: true,
-    });
+    expect(nodes.find((node) => node.type === "word-radar")?.wordRadarConfig)
+      .toEqual(WORD_RADAR_VISIBLE_READ_CONFIG);
   });
 
-  it("escalates Word Radar near test day when prior baseline nodes are already complete", () => {
+  it("does not append Quest or Boss when the planner omitted them", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithHomework(childId);
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "ingest_human_loop",
+      now: new Date("2026-05-13T12:00:00.000Z"),
+    });
+    const plannerOmittedDestinations = {
+      ...plan,
+      nodePlan: plan.nodePlan.filter((node) => node.type !== "quest" && node.type !== "boss"),
+    };
+
+    const nodes = buildAdventureMapFromSessionPlan(chart, plannerOmittedDestinations);
+
+    expect(nodes.some((node) => node.type === "quest")).toBe(false);
+    expect(nodes.some((node) => node.type === "boss")).toBe(false);
+  });
+
+  it("preserves planner-authored Word Radar config from pending homework exactly", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithHomework(childId);
+    const sourceNode = profile.pendingHomework!.nodes.find((node) => node.type === "word-radar")!;
+    sourceNode.wordRadarConfig = WORD_RADAR_HIDDEN_RECALL_CONFIG;
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "ingest_human_loop",
+      now: new Date("2026-05-13T12:00:00.000Z"),
+    });
+    const nodes = buildAdventureMapFromSessionPlan(chart, plan);
+
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig)
+      .toEqual(WORD_RADAR_HIDDEN_RECALL_CONFIG);
+    expect(nodes.find((node) => node.type === "word-radar")?.wordRadarConfig)
+      .toEqual(WORD_RADAR_HIDDEN_RECALL_CONFIG);
+  });
+
+  it("does not escalate Word Radar to hidden recall solely because the test is near", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -654,16 +704,87 @@ describe("patient-chart session plan", () => {
     });
 
     const wordRadar = plan.nodePlan.find((node) => node.type === "word-radar");
-    expect(wordRadar?.wordRadarConfig).toMatchObject({
-      recallMode: "hidden_word_recall",
-      speakStyle: "option-b",
-      showTimer: true,
-      timerSeconds: 10,
-      hideWordDuringResponse: true,
-      requiresCapturedResponse: true,
-    });
+    expect(wordRadar?.wordRadarConfig)
+      .toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
     expect(plan.variationPolicy.avoidExactPreviousWordOrder).toBe(true);
-    expect(plan.wordPlan.words.map((word) => word.text)).not.toEqual(WORDS.slice(0, 5));
+    expect("wordPlan" in plan).toBe(false);
+  });
+
+  it("keeps Word Radar visual after recent frustration even when spelling load evidence is strong", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithHomework(childId);
+    profile.activityModel = {
+      "word-radar": {
+        activityId: "word-radar",
+        plays: 3,
+        completions: 1,
+        completionRate: 0.33,
+        averageAccuracy: 0.42,
+        engagementScore: 0.2,
+        frustrationScore: 0.85,
+        lastPlayed: "2026-05-13T11:00:00.000Z",
+        domains: { spelling: 3 },
+        missedWords: ["among"],
+      },
+    };
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "runtime_fallback",
+      now: new Date("2026-05-13T12:00:00.000Z"),
+    });
+
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig)
+      .toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
+  });
+
+  it("does not duplicate Word Radar runtime config outside the activity catalog", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/sessionPlanFromChart.ts"), "utf8");
+
+    expect(source).not.toContain("wordRadarModeForEvidence");
+    expect(source).not.toContain('getActivityCapabilityModeConfig("word-radar"');
+    expect(source).not.toContain('getActivityCapabilityMode("word-radar"');
+    expect(source).not.toContain("function wordRadarConfigForEvidence");
+    expect(source).not.toContain("function safeWordRadarConfigForLaunch");
+  });
+
+  it("marks Word Radar plans without planner config stale before launch", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profileWithHomework(childId));
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "ingest_human_loop",
+      now: new Date("2026-05-13T12:00:00.000Z"),
+    });
+    plan.planTheory = {
+      hypothesis: "Word Radar config comes from the planner.",
+      evidenceSummary: ["fixture"],
+      intervention: "word radar",
+      supportCriteria: ["config present"],
+      reviseCriteria: ["config missing"],
+      falsifyCriteria: ["runtime invents config"],
+    };
+    const wordRadar = plan.nodePlan.find((node) => node.type === "word-radar")!;
+    const missingConfigPlan = {
+      ...plan,
+      nodePlan: plan.nodePlan.map((node) =>
+        node.id === wordRadar.id ? { ...node, wordRadarConfig: undefined } : node,
+      ),
+    };
+
+    expect(activeSessionPlanRefreshReason(
+      missingConfigPlan,
+      chart.homework.pending!,
+      new Date("2026-05-13T13:00:00.000Z"),
+    )).toBe(`missing_word_radar_config:${wordRadar.id}`);
   });
 
   it("marks approved plans stale after node progress or the planning day changes", () => {
@@ -755,6 +876,14 @@ describe("patient-chart session plan", () => {
       now: new Date("2026-05-16T17:00:00.000Z"),
       parentNote: "Ila loves pronunication give her all the high frequency words.",
     });
+    plan.planTheory = {
+      hypothesis: "High-frequency words should be practiced in pronunciation first.",
+      evidenceSummary: ["parent note", "captured high-frequency lane"],
+      intervention: "pronunciation first",
+      supportCriteria: ["pronunciation uses high-frequency lane"],
+      reviseCriteria: ["wrong lane launches"],
+      falsifyCriteria: ["child cannot access pronunciation"],
+    };
     const pronunciation = plan.nodePlan[0];
     const nodes = buildAdventureMapFromSessionPlan(chart, plan);
     const mapPronunciation = nodes[0];
@@ -768,6 +897,219 @@ describe("patient-chart session plan", () => {
       targetLane: "high_frequency_words",
       words: HIGH_FREQUENCY_WORDS,
     });
+    expect(activeSessionPlanRefreshReason(
+      plan,
+      chart.homework.pending!,
+      new Date("2026-05-16T17:30:00.000Z"),
+    )).toBeNull();
+  });
+
+  it("preserves captured planner target lanes instead of restamping one global cohort onto every node", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithGroupedHomework(childId);
+    profile.pendingHomework!.nodes = [
+      {
+        id: "node-1-schwa-baseline",
+        type: "spell-check",
+        words: WORDS,
+        difficulty: 2,
+        gameFile: "spell-check.html",
+        storyFile: null,
+      },
+      {
+        id: "node-2-highfreq-recognition",
+        type: "word-radar",
+        words: HIGH_FREQUENCY_WORDS,
+        difficulty: 1,
+        gameFile: null,
+        storyFile: null,
+        wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+      },
+      {
+        id: "node-3-highfreq-fluency",
+        type: "pronunciation",
+        words: HIGH_FREQUENCY_WORDS,
+        difficulty: 1,
+        gameFile: null,
+        storyFile: null,
+      },
+      {
+        id: "node-4-schwa-mastery",
+        type: "letter-rush",
+        words: WORDS,
+        difficulty: 3,
+        gameFile: "letter-rush.html",
+        storyFile: null,
+      },
+    ];
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "ingest_human_loop",
+      now: new Date("2026-05-16T17:00:00.000Z"),
+    });
+    const nodes = buildAdventureMapFromSessionPlan(chart, plan);
+
+    expect(plan.nodePlan.find((node) => node.type === "spell-check")?.targets).toEqual(WORDS);
+    expect(plan.nodePlan.find((node) => node.type === "letter-rush")?.targets).toEqual(WORDS);
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.targets).toEqual(HIGH_FREQUENCY_WORDS);
+    expect(plan.nodePlan.find((node) => node.type === "pronunciation")?.targets).toEqual(HIGH_FREQUENCY_WORDS);
+    expect(plan.nodePlan.find((node) => node.type === "spell-check")?.targetLane).toBe("schwa_words");
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.targetLane).toBe("high_frequency_words");
+    expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig)
+      .toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
+
+    expect(nodes.find((node) => node.type === "spell-check")?.words).toEqual(WORDS);
+    expect(nodes.find((node) => node.type === "letter-rush")?.words).toEqual(WORDS);
+    expect(nodes.find((node) => node.type === "word-radar")?.words).toEqual(HIGH_FREQUENCY_WORDS);
+    expect(nodes.find((node) => node.type === "pronunciation")?.words).toEqual(HIGH_FREQUENCY_WORDS);
+  });
+
+  it("does not let broad spelling strength upgrade recognition-lane Word Radar into hidden recall", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithGroupedHomework(childId);
+    profile.pendingHomework!.completedAdventureNodeIds = [
+      "node-1-schwa-baseline",
+      "node-3-highfreq-fluency",
+      "n-spell-check-hw-spelling_test-perfect",
+      "n-word-radar-hw-spelling_test-adaptive",
+    ];
+    profile.pendingHomework!.nodes = [
+      {
+        id: "node-1-schwa-baseline",
+        type: "spell-check",
+        words: WORDS,
+        difficulty: 2,
+        gameFile: "spell-check.html",
+        storyFile: null,
+      },
+      {
+        id: "node-2-highfreq-recognition",
+        type: "word-radar",
+        words: HIGH_FREQUENCY_WORDS,
+        difficulty: 1,
+        gameFile: null,
+        storyFile: null,
+        wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+      },
+      {
+        id: "node-3-highfreq-fluency",
+        type: "pronunciation",
+        words: HIGH_FREQUENCY_WORDS,
+        difficulty: 1,
+        gameFile: null,
+        storyFile: null,
+      },
+      {
+        id: "node-4-schwa-mastery",
+        type: "letter-rush",
+        words: WORDS,
+        difficulty: 3,
+        gameFile: "letter-rush.html",
+        storyFile: null,
+      },
+    ];
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "runtime_fallback",
+      now: new Date("2026-05-22T19:00:00.000Z"),
+    });
+
+    const wordRadar = plan.nodePlan.find((node) => node.type === "word-radar");
+    expect(wordRadar?.targetLane).toBe("high_frequency_words");
+    expect(wordRadar?.targets).toEqual(HIGH_FREQUENCY_WORDS);
+    expect(wordRadar?.wordRadarConfig)
+      .toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
+  });
+
+  it("does not emit a global wordPlan alongside node target contracts", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithGroupedHomework(childId);
+    profile.pendingHomework!.nodes = profile.pendingHomework!.nodes.map((node) =>
+      node.type === "pronunciation" ? { ...node, words: HIGH_FREQUENCY_WORDS } : node,
+    );
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "ingest_human_loop",
+      now: new Date("2026-05-16T17:00:00.000Z"),
+    });
+
+    expect("wordPlan" in plan).toBe(false);
+    expect(plan.nodePlan.find((node) => node.type === "pronunciation")?.targets).toEqual(HIGH_FREQUENCY_WORDS);
+  });
+
+  it("refreshes a persisted plan whose node targets collapsed away from captured planner lanes", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = profileWithGroupedHomework(childId);
+    profile.pendingHomework!.completedAdventureNodeIds = [];
+    profile.pendingHomework!.nodes = [
+      {
+        id: "node-1-schwa-baseline",
+        type: "spell-check",
+        words: WORDS,
+        difficulty: 2,
+        gameFile: "spell-check.html",
+        storyFile: null,
+      },
+      {
+        id: "node-2-highfreq-recognition",
+        type: "word-radar",
+        words: HIGH_FREQUENCY_WORDS,
+        difficulty: 1,
+        gameFile: null,
+        storyFile: null,
+        wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+      },
+    ];
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plan = planHomeworkSessionFromChart(chart, {
+      source: "ingest_human_loop",
+      now: new Date("2026-05-16T17:00:00.000Z"),
+    });
+    const collapsedTargets = [...HIGH_FREQUENCY_WORDS.slice(0, 2), ...WORDS.slice(0, 3)];
+    const collapsedPlan = {
+      ...plan,
+      planTheory: {
+        hypothesis: "Persisted plan should match captured planner lanes.",
+        evidenceSummary: ["captured grouped homework"],
+        intervention: "lane-specific spelling and recognition nodes",
+        supportCriteria: ["node targets match source lanes"],
+        reviseCriteria: ["node targets collapse across lanes"],
+        falsifyCriteria: ["off-source targets launch"],
+      },
+      nodePlan: plan.nodePlan.map((node) =>
+        node.type === "spell-check" || node.type === "word-radar"
+          ? { ...node, targets: collapsedTargets, targetLane: undefined }
+          : node,
+      ),
+    };
+
+    expect(
+      activeSessionPlanRefreshReason(
+        collapsedPlan,
+        chart.homework.pending!,
+        new Date("2026-05-16T17:30:00.000Z"),
+      ),
+    ).toBe("target_lane_mismatch:word-radar");
   });
 
   it("refreshes an approved plan when it violates an explicit high-frequency pronunciation note", () => {
@@ -824,11 +1166,11 @@ describe("patient-chart session plan", () => {
     });
 
     expect(nodesAgain).toEqual(nodes);
-    expect(nodes.find((node) => node.type === "pronunciation")?.words).toHaveLength(10);
+    expect(nodes.find((node) => node.type === "pronunciation")?.words).toHaveLength(5);
     expect(nodes.find((node) => node.type === "pronunciation")?.pronunciationConfig).toMatchObject({
-      baseWordCount: 10,
-      targetFlowWordCount: 10,
-      maxWordCount: 10,
+      baseWordCount: 5,
+      targetFlowWordCount: 5,
+      maxWordCount: 5,
     });
     expect(nodes.map((node) => node.type)).toEqual(expect.arrayContaining(["quest", "boss"]));
     expect(nodes.find((node) => node.type === "mystery")?.choiceOptions).toHaveLength(3);
@@ -883,7 +1225,7 @@ describe("patient-chart session plan", () => {
     });
   });
 
-  it("keeps quest and boss visible as locked destinations even when a custom plan omits them", () => {
+  it("leaves Quest and Boss missing when a custom plan omits them", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -904,7 +1246,7 @@ describe("patient-chart session plan", () => {
       now: new Date("2026-05-13T12:00:00.000Z"),
     });
 
-    expect(nodes.at(-2)).toMatchObject({ type: "quest", isLocked: true, artifactStatus: "preparing" });
-    expect(nodes.at(-1)).toMatchObject({ type: "boss", isLocked: true, masteryUnlockState: "preparing" });
+    expect(nodes.some((node) => node.type === "quest")).toBe(false);
+    expect(nodes.some((node) => node.type === "boss")).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import { buildExperiencePlannerInput, draftPsychologistExperiencePlan } from "..
 import {
   activeSessionPlanRefreshReason,
   buildAdventureMapFromSessionPlan,
+  missingAdventureSpineReasons,
   writeActiveSessionPlan,
 } from "../engine/sessionPlanFromChart";
 import { getChildChart } from "../profiles/childChart";
@@ -148,6 +149,26 @@ export function runHomeworkSessionPreflight(input: {
     add(issues, "high", "empty_map", "The active plan produced no adventure map nodes.");
   } else if (!opener.includes(`First map node: ${firstNode.type}`)) {
     add(issues, "high", "opener_map_mismatch", `Opener did not name the launched first node ${firstNode.type}.`);
+  }
+
+  for (const node of plan.nodePlan) {
+    if (node.type === "word-radar" && !node.wordRadarConfig) {
+      add(
+        issues,
+        "high",
+        "missing_word_radar_config",
+        `Word Radar node ${node.id} is missing planner-authored wordRadarConfig.`,
+      );
+    }
+  }
+
+  for (const reason of missingAdventureSpineReasons(plan)) {
+    const message = reason === "missing_mystery_choice"
+      ? "Active plan is missing the planner-owned Mystery/Bandit choice node."
+      : reason === "missing_quest_destination"
+        ? "Active plan is missing the locked planner-owned Quest destination."
+        : "Active plan is missing the locked planner-owned Boss destination.";
+    add(issues, "high", reason, message);
   }
 
   const parentNote = plan.parentNote ?? "";

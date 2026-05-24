@@ -290,6 +290,31 @@ describe("map node routing", () => {
     expect(action.url).toContain("childId=ila");
   });
 
+  it("letter-rush node uses selector targets in the iframe URL when saved words are empty", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "node-5-silent-mastery",
+        type: "letter-rush",
+        words: [],
+        difficulty: 3,
+        activityConfigPath: "/api/activity-config/reina/2026-05-22/letter-rush.json",
+        targetSelectorDecision: {
+          selectorId: "selector-reina-letter-rush",
+          activityId: "letter-rush",
+          nodeId: "node-5-silent-mastery",
+          targetSelector: "baseline_pattern_mastery",
+          selectedTargets: ["wrong", "climb", "sign", "know", "write"],
+          targetReasons: [],
+          traceSummary: "fixture",
+        },
+      } as never,
+      { childId: "reina", companion: "matilda", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(decodeURIComponent(action.url)).toContain("words=wrong,climb,sign,know,write");
+  });
+
   it("monster-stampede node builds iframe URL with homework words", () => {
     const action = buildNodeLaunchAction(
       {

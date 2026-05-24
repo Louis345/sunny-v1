@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   auditActivityToolContracts,
   buildInstructionalActivityPlan,
+  getActivityCapabilityModeConfig,
   getActivityToolContract,
   listActivityToolContracts,
 } from "./activityToolCatalog";
@@ -37,6 +38,7 @@ describe("activity tool catalog", () => {
     expect(wordRadar.capabilityModes.map((mode) => mode.id)).toEqual([
       "visible_read",
       "partial_visual_recall",
+      "audio_cued_letter_recall",
       "hidden_word_recall",
     ]);
     expect(wordRadar.capabilityModes[0]).toMatchObject({
@@ -59,6 +61,18 @@ describe("activity tool catalog", () => {
       },
     });
     expect(wordRadar.capabilityModes[2]).toMatchObject({
+      id: "audio_cued_letter_recall",
+      difficulty: 2,
+      masteryEligible: false,
+      config: {
+        recallMode: "partial_visual_recall",
+        inputMode: "letter-by-letter",
+        speakStyle: "option-b",
+        hideWordDuringResponse: true,
+        requiresCapturedResponse: true,
+      },
+    });
+    expect(wordRadar.capabilityModes[3]).toMatchObject({
       id: "hidden_word_recall",
       difficulty: 3,
       purpose: "independent-retrieval",
@@ -69,7 +83,35 @@ describe("activity tool catalog", () => {
         requiresCapturedResponse: true,
       },
     });
-    expect(wordRadar.capabilityModes[2]?.measurementRisks.join(" ")).toMatch(/speech|capture|visual/i);
+    expect(wordRadar.capabilityModes[3]?.measurementRisks.join(" ")).toMatch(/speech|capture|visual/i);
+  });
+
+  it("serves Word Radar runtime mode config from the catalog as the single source of truth", () => {
+    expect(getActivityCapabilityModeConfig("word-radar", "visible_read")).toEqual({
+      recallMode: "visible_read",
+      inputMode: "whole-word",
+      speakStyle: "option-a",
+      showTimer: false,
+      hideWordDuringResponse: false,
+      requiresCapturedResponse: true,
+    });
+    expect(getActivityCapabilityModeConfig("word-radar", "hidden_word_recall")).toEqual({
+      recallMode: "hidden_word_recall",
+      inputMode: "whole-word",
+      speakStyle: "option-b",
+      showTimer: true,
+      timerSeconds: 8,
+      hideWordDuringResponse: true,
+      requiresCapturedResponse: true,
+    });
+    expect(getActivityCapabilityModeConfig("word-radar", "audio_cued_letter_recall")).toEqual({
+      recallMode: "partial_visual_recall",
+      inputMode: "letter-by-letter",
+      speakStyle: "option-b",
+      showTimer: false,
+      hideWordDuringResponse: true,
+      requiresCapturedResponse: true,
+    });
   });
 
   it("audits the five priority baseline activities for planner-facing measurement guidance", () => {

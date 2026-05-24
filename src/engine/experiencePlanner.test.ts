@@ -25,6 +25,16 @@ const WORDS = [
   "again",
 ];
 
+const WORD_RADAR_HIDDEN_RECALL_CONFIG = {
+  recallMode: "hidden_word_recall" as const,
+  inputMode: "whole-word" as const,
+  speakStyle: "option-b" as const,
+  showTimer: true,
+  timerSeconds: 8,
+  hideWordDuringResponse: true,
+  requiresCapturedResponse: true,
+};
+
 function makeRoot(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-experience-planner-"));
 }
@@ -81,6 +91,7 @@ function profileWithHomework(childId: string): LearningProfile {
         difficulty: 2,
         gameFile: null,
         storyFile: null,
+        wordRadarConfig: WORD_RADAR_HIDDEN_RECALL_CONFIG,
       },
       {
         id: "n-spell-check-hw-spelling_test-bb11de93",
@@ -181,6 +192,7 @@ describe("AI psychologist experience planner", () => {
     expect(wordRadarCard?.capabilityModes.map((mode) => mode.id)).toEqual([
       "visible_read",
       "partial_visual_recall",
+      "audio_cued_letter_recall",
       "hidden_word_recall",
     ]);
     expect(wordRadarCard?.validConfigOptions).toEqual(expect.arrayContaining([
@@ -231,11 +243,11 @@ describe("AI psychologist experience planner", () => {
       hypothesis: expect.stringMatching(/adaptive|spelling|session/i),
       assignedActivityIds: expect.arrayContaining(["quest"]),
     });
-    expect(plan.wordPlan.cohortSize).toBe(10);
+    expect("wordPlan" in plan).toBe(false);
     expect(plan.nodePlan.find((node) => node.type === "word-radar")?.wordRadarConfig?.recallMode)
       .toBe("hidden_word_recall");
     expect(plan.plannedMeasurements?.find((item) => item.activityId === "word-radar")?.evidenceType)
-      .toMatch(/hidden_word_recall/);
+      .toBe("diagnostic:hidden_word_recall");
     expect(plan.nodePlan.map((node) => node.type)).toContain("mystery");
   });
 

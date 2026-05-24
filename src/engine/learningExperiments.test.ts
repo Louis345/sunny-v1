@@ -36,7 +36,6 @@ function profile(): LearningProfile {
     source: "ingest_human_loop",
     domain: "reading",
     testDate: null,
-    wordPlan: { cohortSize: 0, orderStrategy: "homework_order", words: [] },
     nodePlan: [],
     variationPolicy: {
       avoidExactPreviousNodeOrder: false,

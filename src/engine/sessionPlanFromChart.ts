@@ -15,8 +15,6 @@ import {
 import { withActiveSessionPlanLane } from "./homeworkLanes";
 import { buildMysteryChoiceNodeData } from "./mysteryChoicePlanner";
 import {
-  createHomeworkEvidenceGate,
-  filterHomeworkTargets,
   sanitizeActiveHomeworkPlanForLaunch,
   sanitizeActiveSessionPlanTargets,
 } from "../shared/homeworkEvidenceGate";
@@ -84,6 +82,9 @@ type AdaptivePlanNodeLike = {
   activityId?: unknown;
   nodeType?: unknown;
   mode?: unknown;
+  targets?: unknown;
+  targetLane?: unknown;
+  wordRadarConfig?: unknown;
   rationale?: unknown;
 };
 
@@ -99,6 +100,9 @@ type PlannedEntry = {
   difficulty: 1 | 2 | 3;
   source: "pending_homework" | "chart_planner";
   activityId: string;
+  targets?: string[];
+  targetLane?: string;
+  wordRadarConfig?: WordRadarNodeConfig;
 };
 
 type ParentPlanConstraint = {
@@ -143,6 +147,15 @@ export function activeSessionPlanRefreshReason(
   }
   if (!plan.planTheory) return "missing_plan_theory";
 
+  const wordRadarConfigMissing = missingWordRadarConfigReason(plan);
+  if (wordRadarConfigMissing) return wordRadarConfigMissing;
+
+  const adventureSpineMissing = missingAdventureSpineReasons(plan)[0];
+  if (adventureSpineMissing) return adventureSpineMissing;
+
+  const targetMismatch = targetLaneMismatchReason(plan, pending);
+  if (targetMismatch) return targetMismatch;
+
   const parentApprovedPlan = plan.approvalStatus === "approved" && Boolean(plan.parentNote?.trim());
   if (parentApprovedPlan) {
     const parentMismatch = parentConstraintMismatchReason(plan, pending);
@@ -166,12 +179,6 @@ export function activeSessionPlanRefreshReason(
 
 function stableHash(input: string): string {
   return crypto.createHash("sha1").update(input).digest("hex").slice(0, 10);
-}
-
-function rotate<T>(items: T[], offset: number): T[] {
-  if (items.length === 0) return [];
-  const safeOffset = ((offset % items.length) + items.length) % items.length;
-  return [...items.slice(safeOffset), ...items.slice(0, safeOffset)];
 }
 
 function uniqueWords(words: string[]): string[] {
@@ -245,6 +252,78 @@ function findTargetLaneGroup(
   return homeworkWordGroups(pending).find((group) => matchesTargetLane(group, targetLane)) ?? null;
 }
 
+function plannerNodeTargets(
+  pending: NonNullable<ChildChart["homework"]["pending"]>,
+  source: { words?: string[]; targets?: unknown; targetLane?: unknown },
+): { targets?: string[]; targetLane?: string } {
+  const groups = homeworkWordGroups(pending);
+  const targets = Array.isArray(source.targets)
+    ? uniqueWords(source.targets.filter((target): target is string => typeof target === "string"))
+    : uniqueWords(source.words ?? []);
+  if (targets.length === 0) return {};
+  const targetKeys = wordKeySet(targets);
+  const group = groups.find((candidate) => {
+    const groupKeys = wordKeySet(candidate.words ?? []);
+    return [...targetKeys].every((word) => groupKeys.has(word));
+  });
+  const targetLane =
+    typeof source.targetLane === "string" && source.targetLane.trim()
+      ? source.targetLane.trim()
+      : group
+        ? normalizeLaneKey(group.wordGroupId ?? group.id ?? group.label ?? group.purpose) || undefined
+        : undefined;
+  return {
+    targets,
+    ...(targetLane ? { targetLane } : {}),
+  };
+}
+
+function isWordRadarConfig(value: unknown): value is WordRadarNodeConfig {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const config = value as Partial<WordRadarNodeConfig>;
+  return (
+    (
+      config.recallMode === "visible_read" ||
+      config.recallMode === "partial_visual_recall" ||
+      config.recallMode === "hidden_word_recall"
+    ) &&
+    (
+      config.inputMode === "whole-word" ||
+      config.inputMode === "letter-by-letter" ||
+      config.inputMode === "keyboard"
+    ) &&
+    (config.speakStyle === "option-a" || config.speakStyle === "option-b") &&
+    typeof config.showTimer === "boolean" &&
+    typeof config.hideWordDuringResponse === "boolean" &&
+    typeof config.requiresCapturedResponse === "boolean" &&
+    (config.timerSeconds === undefined || typeof config.timerSeconds === "number")
+  );
+}
+
+function wordRadarConfigFromSource(source: { wordRadarConfig?: unknown }): WordRadarNodeConfig | undefined {
+  return isWordRadarConfig(source.wordRadarConfig) ? source.wordRadarConfig : undefined;
+}
+
+function defaultSessionTargets(pending: NonNullable<ChildChart["homework"]["pending"]>): string[] {
+  const nodeTargets = uniqueWords(
+    pending.nodes
+      .filter((node) => {
+        const type = sourceNodeType(node.type);
+        return Boolean(type && WORD_DRIVEN_NODE_TYPES.has(type));
+      })
+      .flatMap((node) => node.words ?? []),
+  );
+  return nodeTargets.length > 0 ? nodeTargets : uniqueWords(pending.wordList ?? []);
+}
+
+function activePlanTargets(plan: ActiveSessionPlan): string[] {
+  return uniqueWords(
+    plan.nodePlan
+      .filter((node) => node.type !== "boss")
+      .flatMap((node) => node.targets),
+  );
+}
+
 function domainForChart(chart: ChildChart): string {
   const pending = chart.homework.pending;
   return normalizeDomain(
@@ -281,48 +360,6 @@ function completedBaselineNodeCount(chart: ChildChart): number {
       id,
     ),
   ).length;
-}
-
-function cohortSizeForChart(chart: ChildChart, domain: string, strongEvidence: boolean): number {
-  const load = chart.learningProfile.adaptiveLoadState?.[domain];
-  const requested = strongEvidence
-    ? Math.max(load?.currentCohortSize ?? 10, load?.maxRecentSuccessfulCohort ?? 10, 10)
-    : Math.min(load?.currentCohortSize ?? 5, 5);
-  return Math.max(1, Math.min(10, requested));
-}
-
-function plannedWords(chart: ChildChart, domain: string, cohortSize: number, strongEvidence: boolean): ActiveSessionPlan["wordPlan"] {
-  const pending = chart.homework.pending;
-  const gate = createHomeworkEvidenceGate(pending);
-  const homeworkWords = uniqueWords(pending?.wordList ?? []);
-  const reinforce = filterHomeworkTargets(
-    gate,
-    uniqueWords(pending?.reinforceWords ?? []),
-    { logPrefix: "  🎮" },
-  ).accepted;
-  const completedCount = pending?.completedAdventureNodeIds?.length ?? 0;
-  const rotation = strongEvidence ? Math.max(1, completedCount) : 0;
-  const rotated = rotate(homeworkWords, rotation);
-  const merged = uniqueWords([...reinforce, ...rotated]).slice(0, cohortSize);
-  const purpose = reinforce.length > 0 ? "reinforce" : strongEvidence ? "challenge" : "baseline";
-  return {
-    cohortSize: merged.length,
-    orderStrategy: strongEvidence
-      ? "chart_seeded_rotation"
-      : reinforce.length > 0
-        ? "targeted_support"
-        : "homework_order",
-    words: merged.map((word) => ({
-      text: word,
-      purpose,
-      reason:
-        purpose === "challenge"
-          ? `Strong ${domain} evidence supports a larger, rotated cohort.`
-          : purpose === "reinforce"
-            ? "Recent node evidence asked for targeted support."
-            : "Baseline homework evidence starts the session.",
-    })),
-  };
 }
 
 function nodeTypeRank(type: NodeType, strongEvidence: boolean): number {
@@ -383,46 +420,68 @@ function parentConstraintMismatchReason(
   return null;
 }
 
-function wordRadarConfigForEvidence(input: {
-  strongEvidence: boolean;
-  priorEvidence: boolean;
-  daysToTest: number | null;
-}): WordRadarNodeConfig {
-  const imminentTest = input.daysToTest != null && input.daysToTest <= 2;
-  if (input.strongEvidence || (input.priorEvidence && imminentTest)) {
-    return {
-      recallMode: "hidden_word_recall",
-      inputMode: "whole-word",
-      speakStyle: "option-b",
-      showTimer: true,
-      timerSeconds: imminentTest ? 10 : 8,
-      hideWordDuringResponse: true,
-      requiresCapturedResponse: true,
-    };
-  }
-  return {
-    recallMode: "partial_visual_recall",
-    inputMode: "whole-word",
-    speakStyle: "option-a",
-    showTimer: false,
-    hideWordDuringResponse: true,
-    requiresCapturedResponse: true,
-  };
+function sameWordTargets(left: string[], right: string[]): boolean {
+  const leftKeys = wordKeySet(left);
+  const rightKeys = wordKeySet(right);
+  return leftKeys.size === rightKeys.size && [...leftKeys].every((word) => rightKeys.has(word));
 }
 
-function safeWordRadarConfigForLaunch(
-  config: WordRadarNodeConfig | undefined,
-): WordRadarNodeConfig | undefined {
-  if (!config) return undefined;
-  if (config.recallMode !== "visible_read" && config.hideWordDuringResponse !== false) {
-    return config;
+function targetLaneMismatchReason(
+  plan: ActiveSessionPlan,
+  pending: NonNullable<ChildChart["homework"]["pending"]>,
+): string | null {
+  if (homeworkWordGroups(pending).length === 0) return null;
+  const parentConstraint = parentPlanConstraint(plan.parentNote);
+  const parentTargetLane = findTargetLaneGroup(pending, parentConstraint.targetLane);
+  const parentTargetLaneKey = parentTargetLane
+    ? normalizeLaneKey(parentTargetLane.wordGroupId ?? parentTargetLane.id ?? parentConstraint.targetLane)
+    : parentConstraint.targetLane;
+  const parentTargetKeys = wordKeySet(uniqueWords(parentTargetLane?.words ?? []));
+  const sourceById = new Map(pending.nodes.map((node) => [node.id, node]));
+  const sourceByType = new Map<string, typeof pending.nodes[number]>();
+  for (const node of pending.nodes) {
+    if (!sourceByType.has(node.type)) sourceByType.set(node.type, node);
   }
-  return {
-    ...config,
-    recallMode: config.recallMode === "visible_read" ? "partial_visual_recall" : config.recallMode,
-    hideWordDuringResponse: true,
-    requiresCapturedResponse: true,
-  };
+  for (const node of plan.nodePlan) {
+    if (!WORD_DRIVEN_NODE_TYPES.has(node.type)) continue;
+    if (
+      node.type === "pronunciation" &&
+      parentConstraint.requirePronunciation &&
+      parentTargetKeys.size > 0 &&
+      (
+        normalizeLaneKey(node.targetLane) === normalizeLaneKey(parentTargetLaneKey) ||
+        normalizeLaneKey(node.targetLane) === normalizeLaneKey(parentConstraint.targetLane)
+      ) &&
+      node.targets.every((word) => parentTargetKeys.has(word.trim().toLowerCase()))
+    ) {
+      continue;
+    }
+    const source = sourceById.get(node.id) ?? sourceByType.get(node.type);
+    if (!source) continue;
+    const contract = plannerNodeTargets(pending, source);
+    if (!contract.targets?.length) continue;
+    const laneMatches =
+      !contract.targetLane ||
+      normalizeLaneKey(node.targetLane) === normalizeLaneKey(contract.targetLane);
+    if (!sameWordTargets(node.targets, contract.targets) || !laneMatches) {
+      return `target_lane_mismatch:${node.type}`;
+    }
+  }
+  return null;
+}
+
+function missingWordRadarConfigReason(plan: ActiveSessionPlan): string | null {
+  const missing = plan.nodePlan.find((node) => node.type === "word-radar" && !node.wordRadarConfig);
+  return missing ? `missing_word_radar_config:${missing.id}` : null;
+}
+
+export function missingAdventureSpineReasons(plan: ActiveSessionPlan): string[] {
+  const nodeTypes = new Set(plan.nodePlan.map((node) => node.type));
+  return [
+    nodeTypes.has("mystery") ? null : "missing_mystery_choice",
+    nodeTypes.has("quest") ? null : "missing_quest_destination",
+    nodeTypes.has("boss") ? null : "missing_boss_destination",
+  ].filter((reason): reason is string => Boolean(reason));
 }
 
 function pronunciationConfigForEvidence(input: {
@@ -503,12 +562,11 @@ export function planHomeworkSessionFromChart(
   const baselineCompletedCount = completedBaselineNodeCount(chart);
   const priorEvidence = baselineCompletedCount > 0;
   const daysToTest = daysUntilTest(pending.testDate ?? null, now);
+  const strongLoad = strongLoadEvidence(chart, domain);
   const strongEvidence =
-    strongLoadEvidence(chart, domain) ||
+    strongLoad ||
     (baselineCompletedCount >= 2 && (daysToTest == null || daysToTest <= 3));
   const parentConstraint = parentPlanConstraint(input.parentNote);
-  const cohortSize = parentConstraint.targetCount ?? cohortSizeForChart(chart, domain, strongEvidence);
-  const wordPlan = plannedWords(chart, domain, cohortSize, strongEvidence);
   const homeworkId = activeHomeworkId(chart);
   const seed = stableHash([
     chart.childId,
@@ -525,29 +583,19 @@ export function planHomeworkSessionFromChart(
     )
     .sort((a, b) => nodeTypeRank(a.type, strongEvidence) - nodeTypeRank(b.type, strongEvidence));
 
-  const targets = wordPlan.words.map((word) => word.text);
-  const allHomeworkTargets = uniqueWords([
-    ...targets,
-    ...rotate(uniqueWords(pending.wordList ?? []), strongEvidence ? Math.max(1, completedCount) : 0),
-  ]);
+  const targets = defaultSessionTargets(pending);
   const parentTargetGroup = findTargetLaneGroup(pending, parentConstraint.targetLane);
   const parentTargetLane = parentTargetGroup
     ? normalizeLaneKey(parentTargetGroup.wordGroupId ?? parentTargetGroup.id ?? parentConstraint.targetLane)
     : parentConstraint.targetLane;
   const pronunciationRequestedTargets = parentTargetGroup?.words?.length
     ? uniqueWords(parentTargetGroup.words)
-    : allHomeworkTargets;
+    : targets;
   const pronunciationTargetCount =
     parentConstraint.targetCount ??
     (parentConstraint.useAllTargetsFromLane ? pronunciationRequestedTargets.length : undefined);
   const pronunciationTargets = uniqueWords(pronunciationRequestedTargets)
     .slice(0, pronunciationTargetCount ?? pronunciationRequestedTargets.length);
-  const pronunciationConfig = pronunciationConfigForEvidence({
-    homeworkWordCount: pronunciationTargets.length || uniqueWords(pending.wordList ?? []).length,
-    cohortSize: wordPlan.cohortSize,
-    strongEvidence,
-    requestedWordCount: pronunciationTargetCount,
-  });
   const adaptivePlan = adaptivePlanFromPending(pending);
   const adaptiveNodes = Array.isArray(adaptivePlan?.nodes)
     ? (adaptivePlan.nodes as AdaptivePlanNodeLike[])
@@ -557,22 +605,32 @@ export function planHomeworkSessionFromChart(
       )
     : [];
   const planEntries: PlannedEntry[] = adaptiveNodes.length > 0
-    ? adaptiveNodes.map((entry) => ({
-        id: `n-${safePlanIdPart(String(entry.source.id ?? entry.type))}-${safePlanIdPart(homeworkId ?? "homework")}`,
-        type: entry.type,
-        difficulty: entry.source.mode === "mastery-run" ? 2 : 1,
-        source: "chart_planner" as const,
-        activityId: typeof entry.source.activityId === "string" && entry.source.activityId.trim()
-          ? entry.source.activityId.trim()
-          : entry.type,
-      }))
-    : baselineNodes.map(({ source, type }) => ({
-        id: source.id,
-        type,
-        difficulty: Math.max(1, Math.min(3, source.difficulty)) as 1 | 2 | 3,
-        source: "pending_homework" as const,
-        activityId: type,
-      }));
+    ? adaptiveNodes.map((entry) => {
+        const plannerTargets = plannerNodeTargets(pending, entry.source);
+        return {
+          id: `n-${safePlanIdPart(String(entry.source.id ?? entry.type))}-${safePlanIdPart(homeworkId ?? "homework")}`,
+          type: entry.type,
+          difficulty: entry.source.mode === "mastery-run" ? 2 : 1,
+          source: "chart_planner" as const,
+          activityId: typeof entry.source.activityId === "string" && entry.source.activityId.trim()
+            ? entry.source.activityId.trim()
+            : entry.type,
+          ...plannerTargets,
+          ...(entry.type === "word-radar" ? { wordRadarConfig: wordRadarConfigFromSource(entry.source) } : {}),
+        };
+      })
+    : baselineNodes.map(({ source, type }) => {
+        const plannerTargets = plannerNodeTargets(pending, source);
+        return {
+          id: source.id,
+          type,
+          difficulty: Math.max(1, Math.min(3, source.difficulty)) as 1 | 2 | 3,
+          source: "pending_homework" as const,
+          activityId: type,
+          ...plannerTargets,
+          ...(type === "word-radar" ? { wordRadarConfig: wordRadarConfigFromSource(source) } : {}),
+        };
+      });
   if (parentConstraint.requirePronunciation && !planEntries.some((entry) => entry.type === "pronunciation")) {
     planEntries.unshift({
       id: `n-pronunciation-${safePlanIdPart(homeworkId ?? "homework")}`,
@@ -586,34 +644,49 @@ export function planHomeworkSessionFromChart(
   }
   const nodePlan: ActiveSessionPlan["nodePlan"] = planEntries.map((entry) => {
     const type = entry.type;
+    const entryTargets = entry.targets?.length ? entry.targets : undefined;
+    const overridePronunciationTargets =
+      type === "pronunciation" &&
+      (parentConstraint.requirePronunciation || Boolean(parentTargetLane) || Boolean(parentConstraint.targetCount));
     const plannedTargets =
-      type === "pronunciation"
-        ? pronunciationTargets.slice(0, pronunciationConfig.maxWordCount)
-        : WORD_DRIVEN_NODE_TYPES.has(type)
-          ? [...targets]
+      overridePronunciationTargets
+        ? [...pronunciationTargets]
+        : entryTargets
+          ? [...entryTargets]
           : [...targets];
+    const targetLane = type === "pronunciation" && parentTargetLane
+      ? parentTargetLane
+      : entry.targetLane;
+    const pronunciationConfig = type === "pronunciation"
+      ? pronunciationConfigForEvidence({
+          homeworkWordCount: plannedTargets.length,
+          cohortSize: plannedTargets.length,
+          strongEvidence,
+          requestedWordCount: plannedTargets.length,
+        })
+      : undefined;
     return {
       id: entry.id,
       type,
       activityId: entry.activityId,
       targets: plannedTargets,
-      difficulty: strongEvidence && type === "word-radar" ? 3 : entry.difficulty,
+      difficulty: entry.difficulty,
       source: entry.source,
-      ...(type === "pronunciation" && parentTargetLane ? { targetLane: parentTargetLane } : {}),
-      ...(type === "word-radar"
-        ? { wordRadarConfig: wordRadarConfigForEvidence({ strongEvidence, priorEvidence, daysToTest }) }
-        : {}),
-      ...(type === "pronunciation"
+      ...(targetLane ? { targetLane } : {}),
+      ...(type === "word-radar" && entry.wordRadarConfig ? { wordRadarConfig: entry.wordRadarConfig } : {}),
+      ...(pronunciationConfig
         ? { pronunciationConfig }
         : {}),
     };
   });
 
+  const plannedTargets = activePlanTargets({ nodePlan } as ActiveSessionPlan);
+
   nodePlan.push({
     id: `n-mystery-${homeworkId ?? "homework"}`,
     type: "mystery",
     activityId: "mystery",
-    targets: [...targets],
+    targets: [...plannedTargets],
     difficulty: 2,
     source: "chart_planner",
     choiceMode: "choice_lab",
@@ -627,7 +700,7 @@ export function planHomeworkSessionFromChart(
       id: source?.id ?? `n-${type}-${homeworkId ?? "homework"}`,
       type,
       activityId: type,
-      targets: type === "quest" ? [...targets] : [],
+      targets: type === "quest" ? [...plannedTargets] : [],
       difficulty: type === "boss" ? 3 : 2,
       source: source ? "pending_homework" : "chart_planner",
       masteryUnlockState: source?.adaptiveArtifact?.validationStatus === "passed"
@@ -646,7 +719,6 @@ export function planHomeworkSessionFromChart(
     domain,
     testDate: pending.testDate ?? null,
     parentNote: input.parentNote,
-    wordPlan,
     nodePlan,
     variationPolicy: {
       avoidExactPreviousNodeOrder: strongEvidence,
@@ -677,11 +749,11 @@ export function planHomeworkSessionFromChart(
       {
         id: `${domain}_adaptive_load`,
         type: "adaptive_load",
-        summary: strongEvidence
-          ? `Strong ${domain} evidence supports a rotated ${wordPlan.cohortSize}-word challenge.`
+        summary: strongLoad
+          ? `Strong ${domain} evidence supports a harder lane-scoped plan.`
           : priorEvidence && daysToTest != null && daysToTest <= 2
-            ? `Prior ${domain} baseline evidence plus an imminent test supports harder recall.`
-          : `Weak or incomplete ${domain} evidence keeps the cohort small.`,
+            ? `Prior ${domain} baseline evidence plus an imminent test supports guided recall.`
+            : `Weak or incomplete ${domain} evidence keeps the cohort small.`,
       },
     ],
     openQuestions: input.parentNote ? [`Parent note: ${input.parentNote}`] : [],
@@ -739,10 +811,6 @@ function passedArtifact(node: NonNullable<ChildChart["homework"]["pending"]>["no
   return true;
 }
 
-function nodeWords(plan: ActiveSessionPlan): string[] {
-  return plan.wordPlan.words.map((word) => word.text);
-}
-
 function mysteryFallbackGame(options: MysteryChoiceOption[] | undefined): string | undefined {
   const dopamine = options?.find((option) => option.activityKind === "dopamine_game" && option.gameFile);
   return dopamine?.gameFile;
@@ -784,7 +852,7 @@ export function buildAdventureMapFromSessionPlan(
   const pending = chart.homework.pending;
   if (!pending) return [];
   const scopedPlan = sanitizeActiveSessionPlanTargets(pending, plan);
-  const targets = nodeWords(scopedPlan);
+  const targets = activePlanTargets(scopedPlan);
   const sourceById = new Map(pending.nodes.map((node) => [node.id, node]));
   const sourceByType = new Map<string, typeof pending.nodes[number]>();
   for (const node of pending.nodes) {
@@ -838,10 +906,10 @@ export function buildAdventureMapFromSessionPlan(
     }
 
     const words = isWordDrivenNode(planned.type) ? planned.targets : source?.words ?? [];
-    nodes.push({
-      id: planned.id,
-      planId: plan.planId,
-      type: planned.type,
+      nodes.push({
+        id: planned.id,
+        planId: plan.planId,
+        type: planned.type,
       words,
       wordRadarItems:
         planned.type === "word-radar"
@@ -853,7 +921,7 @@ export function buildAdventureMapFromSessionPlan(
           : source?.wordRadarItems,
       wordRadarConfig:
         planned.type === "word-radar"
-          ? safeWordRadarConfigForLaunch(planned.wordRadarConfig)
+          ? planned.wordRadarConfig
           : undefined,
       pronunciationConfig: planned.type === "pronunciation" ? planned.pronunciationConfig : undefined,
       targetLane: planned.targetLane,
@@ -869,20 +937,6 @@ export function buildAdventureMapFromSessionPlan(
       isCompleted: false,
       isGoal: false,
     });
-  }
-
-  for (const type of ["quest", "boss"] as const) {
-    if (nodes.some((node) => node.type === type)) continue;
-    const source = sourceByType.get(type);
-    nodes.push(masteryNodeConfig({
-      type,
-      id: source?.id ?? `n-${type}-${scopedPlan.activeHomeworkId ?? "homework"}`,
-      targets: type === "quest" ? [...targets] : [],
-      difficulty: type === "boss" ? 3 : 2,
-      source,
-      pendingWeekOf: pending.weekOf,
-      masteryUnlockState: "preparing",
-    }));
   }
 
   nodes.forEach((node, index) => {

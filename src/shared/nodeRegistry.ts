@@ -63,15 +63,57 @@ export type RoutableNodeConfig = Pick<
   | "targetSelectorDecision"
 > & { type: string };
 
+function uniqueWords(raw: unknown[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    const word = String(item ?? "").trim();
+    const key = word.toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(word);
+  }
+  return out;
+}
+
+function selectedTargetWords(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (typeof item === "string") return [item];
+    if (item == null || typeof item !== "object" || Array.isArray(item)) return [];
+    const record = item as Record<string, unknown>;
+    return [record.target ?? record.word ?? record.display].filter(Boolean);
+  }).map((item) => String(item).trim()).filter(Boolean);
+}
+
+export function nodeLaunchWords(
+  node: Pick<
+    RoutableNodeConfig,
+    "words" | "wordRadarItems" | "activityIntent" | "targetSelectorDecision"
+  >,
+): string[] {
+  const nodeWords = uniqueWords(node.words ?? []);
+  if (nodeWords.length) return nodeWords;
+  const radarWords = uniqueWords((node.wordRadarItems ?? []).map((item) => item.display));
+  if (radarWords.length) return radarWords;
+  const selector = node.targetSelectorDecision as Record<string, unknown> | undefined;
+  const intent = node.activityIntent as Record<string, unknown> | undefined;
+  return uniqueWords([
+    ...selectedTargetWords(selector?.selectedTargets),
+    ...selectedTargetWords(selector?.targetReasons),
+    ...selectedTargetWords(intent?.selectedTargets),
+  ]);
+}
+
 export function buildNodeUrlSearchParams(
   node: Pick<
     RoutableNodeConfig,
-    "id" | "words" | "attentionConfig" | "activityIntent" | "targetSelectorDecision"
+    "id" | "words" | "wordRadarItems" | "attentionConfig" | "activityIntent" | "targetSelectorDecision"
   > & { difficulty?: number },
   ctx: NodeContext,
 ): URLSearchParams {
   const params: Record<string, string> = {
-    words: (node.words ?? []).join(","),
+    words: nodeLaunchWords(node).join(","),
     childId: ctx.childId,
     childName: ctx.childName ?? "",
     difficulty: String(node.difficulty ?? 2),

@@ -99,4 +99,20 @@ describe("experience context packet", () => {
     expect(packet.quest.evidenceUsed).toEqual(packet.psychologist.evidenceUsed);
     expect(packet.boss.plannedMeasurements).toEqual(packet.psychologist.plannedMeasurements);
   });
+
+  it("frames boss generation as readiness for the real test, not permanent mastery proof", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-experience-packet-"));
+    roots.push(root);
+    const childId = "demo_adaptive";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile(childId));
+    writeJson(root, `src/context/${childId}/word_bank.json`, { childId, words: [] });
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const plannerInput = buildExperiencePlannerInput(chart, { rootDir: root });
+    const plan = draftPsychologistExperiencePlan(plannerInput);
+    const packet = buildExperienceContextPacket(plannerInput, plan);
+
+    expect(packet.boss.roleInstruction).toContain("ready to attempt the real assignment or school test");
+    expect(packet.boss.roleInstruction).toContain("does not prove permanent mastery");
+  });
 });

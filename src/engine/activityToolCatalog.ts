@@ -1816,8 +1816,9 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       "requiresCapturedResponse",
     ],
     realDifficultyLevels: [
-      "visible_read: child sees the word and says it while the word fills in.",
-      "partial_visual_recall: child sees boxes or partial visual scaffolding.",
+      "visible_read: explicit read-on-screen support; not default baseline recall.",
+      "partial_visual_recall: word flashes first, then empty slots or partial visual scaffolding.",
+      "audio_cued_letter_recall: no visual word flash; child presses audio and fills letter slots.",
       "hidden_word_recall: child recalls with no visible answer context.",
     ],
     signalsEmitted: [
@@ -1832,8 +1833,10 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
       "Reading comprehension beyond word-level familiarity.",
     ],
     psychologistGuidance: [
-      "Choose visible_read for warmup, confidence, or unknown/weak evidence.",
-      "Escalate to partial or hidden recall only after strong evidence and low frustration.",
+      "Choose partial_visual_recall for baseline Word Radar: flash the whole word, then ask from slots.",
+      "Choose audio_cued_letter_recall when the child needs the same slot scaffold but should hear the target instead of seeing it.",
+      "Reserve visible_read for explicit read-on-screen accessibility or caregiver-directed support.",
+      "Escalate to hidden recall only after strong evidence and low frustration.",
       "Do not treat visible Word Radar as mastery; it is recognition and flow practice.",
     ],
     capabilityModes: [
@@ -1871,15 +1874,36 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
         masteryEligible: false,
         config: {
           recallMode: "partial_visual_recall",
-          inputMode: "whole-word",
+          inputMode: "letter-by-letter",
           speakStyle: "option-a",
-          showTimer: true,
-          timerSeconds: 10,
+          showTimer: false,
           hideWordDuringResponse: true,
           requiresCapturedResponse: true,
         },
         measurementRisks: [
           "Boxes or tiles cue word length and can inflate recall evidence.",
+        ],
+      },
+      {
+        id: "audio_cued_letter_recall",
+        label: "Audio-Cued Letter Recall",
+        difficulty: 2,
+        purpose: "guided-practice",
+        skillTargets: ["auditory_retrieval", "retrieval_practice", "spell_from_memory"],
+        inputModes: ["voice", "visual"],
+        scaffolds: ["letter-tiles", "stt-match", "retry"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          recallMode: "partial_visual_recall",
+          inputMode: "letter-by-letter",
+          speakStyle: "option-b",
+          showTimer: false,
+          hideWordDuringResponse: true,
+          requiresCapturedResponse: true,
+        },
+        measurementRisks: [
+          "Audio cue plus length boxes is scaffolded spelling practice, not independent visual recall mastery.",
         ],
       },
       {
@@ -2563,6 +2587,7 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     ],
     weakFor: ["spelling-recall", "written-comprehension"],
     goodFitWhen: [
+      "The source group is meant for read-aloud fluency, recognition, or spoken word familiarity rather than written spelling.",
       "The child skipped, hesitated on, or mispronounced a target word.",
       "The next goal is spoken fluency rather than written mastery.",
     ],
@@ -3284,6 +3309,29 @@ export function getActivityToolContract(id: string): ActivityToolContract {
     throw new Error(`Unknown activity tool: ${id}`);
   }
   return listActivityToolContracts().find((item) => item.id === id)!;
+}
+
+export function getActivityCapabilityMode(activityId: string, modeId: string): ActivityCapabilityMode {
+  const contract = getActivityToolContract(activityId);
+  const mode = contract.capabilityModes.find((candidate) => candidate.id === modeId);
+  if (!mode) {
+    throw new Error(`Unknown activity capability mode: ${activityId}:${modeId}`);
+  }
+  return {
+    ...mode,
+    skillTargets: [...mode.skillTargets],
+    inputModes: [...mode.inputModes],
+    scaffolds: [...mode.scaffolds],
+    config: { ...mode.config },
+    measurementRisks: [...mode.measurementRisks],
+  };
+}
+
+export function getActivityCapabilityModeConfig(
+  activityId: string,
+  modeId: string,
+): Record<string, unknown> {
+  return { ...getActivityCapabilityMode(activityId, modeId).config };
 }
 
 export function auditActivityToolContracts(): ActivityToolAudit {

@@ -25,7 +25,7 @@ import type {
   LetterRushWord,
 } from "../engine/activityEngineConfig";
 import { buildConceptCheckConfigFromCapturedHomework } from "../engine/activityEngineConfig";
-import type { AdaptiveArtifactValidationReport } from "../shared/adventureTypes";
+import type { AdaptiveArtifactValidationReport, WordRadarNodeConfig } from "../shared/adventureTypes";
 import { readLearningProfile } from "../utils/learningProfileIO";
 
 export type HomeworkType =
@@ -239,6 +239,9 @@ export type PlannedHomeworkNode = {
     | "concept-check"
     | "letter-rush"
     | "monster-stampede"
+    | "mystery"
+    | "speed-catcher"
+    | "wordle"
     | "quest"
     | "boss"
     | "wheel-of-fortune";
@@ -249,6 +252,7 @@ export type PlannedHomeworkNode = {
     label?: string;
     subject?: string;
   }>;
+  wordRadarConfig?: WordRadarNodeConfig;
   difficulty: 1 | 2 | 3;
   rationale: string;
   gameFile?: string | null;
@@ -723,6 +727,9 @@ function buildAssignmentInterpretation(args: {
 export function interpretHomeworkAssignment(
   extraction: NormalizableExtraction,
 ): AssignmentInterpretation {
+  // LEGACY_TEST_ONLY_ASSIGNMENT_INTERPRETER:
+  // Kept for historical tests and old worksheet fallback paths. Real homework ingestion should pass
+  // AI-planner word groups into buildCapturedHomeworkContent instead of relying on this interpreter.
   const words = cleanList(extraction.words);
   const spellingDomain = practiceDomainFor(String(extraction.type)) === "spelling";
   const memoryMatches = (extraction.interpretationMemoryMatches ?? []).filter((match) =>
@@ -938,15 +945,26 @@ export function buildCapturedHomeworkContent(args: {
     questions,
     contentProfile: args.contentProfile,
   });
-  const assignmentInterpretation = interpretHomeworkAssignment({
-    title: args.title,
-    type,
-    words,
-    questions,
-    wordGroups: args.wordGroups,
-    interpretationMemoryMatches: args.interpretationMemoryMatches,
-    contentProfile,
-  });
+  const assignmentInterpretation = args.wordGroups?.length
+    ? buildAssignmentInterpretation({
+      wordGroups: args.wordGroups,
+      assertions: args.wordGroups.map((group) => ({
+        id: `${group.id}-planner-source`,
+        claim: `${group.label} was preserved from the assignment planner source truth.`,
+        confidence: group.confidence,
+        evidence: group.evidence.length ? group.evidence : [`Planner source group: ${group.label}`],
+      })),
+      spellingDomain: practiceDomainFor(String(type)) === "spelling",
+      memoryMatches: [],
+    })
+    : interpretHomeworkAssignment({
+      title: args.title,
+      type,
+      words,
+      questions,
+      interpretationMemoryMatches: args.interpretationMemoryMatches,
+      contentProfile,
+    });
   const scoped = buildHomeworkWordOccurrences({
     title: args.title,
     words,
@@ -1295,15 +1313,6 @@ function conceptCheckItems(concepts: string[]): NonNullable<PlannedHomeworkNode[
     label: "Concept Check",
     subject: "reading",
   }));
-}
-
-function contentPracticeTerms(profile: ContentProfile, fallbackWords: string[]): string[] {
-  const terms = cleanList([
-    ...profile.concepts,
-    profile.topic,
-    ...fallbackWords,
-  ]).filter((term) => term.length > 1);
-  return terms.slice(0, 5);
 }
 
 function conceptCheckCapturedFallback(args: {

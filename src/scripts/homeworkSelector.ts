@@ -13,7 +13,6 @@ import {
   writeActiveHomeworkLane,
 } from "../engine/homeworkLanes";
 import {
-  buildHomeworkNodes,
   buildHomeworkReturnTag,
   buildPendingHomeworkPayload,
   normalizeHomeworkType,
@@ -25,12 +24,74 @@ import {
   type ContentProfile,
   type HomeworkType,
   type HomeworkWordGroup,
+  type PlannedHomeworkNode,
 } from "./contentAwareHomeworkPlanner";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 export type HomeworkDomainFilter = HomeworkDomain;
 
+const SAVED_CYCLE_NODE_TYPES = new Set([
+  "word-radar",
+  "spell-check",
+  "pronunciation",
+  "karaoke",
+  "word-builder",
+  "concept-check",
+  "letter-rush",
+  "monster-stampede",
+  "quest",
+  "boss",
+  "wheel-of-fortune",
+]);
+
+function isSavedCycleNodeType(value: string): value is PlannedHomeworkNode["type"] {
+  return SAVED_CYCLE_NODE_TYPES.has(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const words = value
+    .map((word) => String(word ?? "").trim())
+    .filter(Boolean);
+  return words.length > 0 ? words : null;
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function savedCycleNodes(cycle: HomeworkCycle): PlannedHomeworkNode[] | null {
+  const rawNodes = (cycle as { nodes?: unknown }).nodes;
+  if (!Array.isArray(rawNodes) || rawNodes.length === 0) return null;
+  const nodes: PlannedHomeworkNode[] = [];
+  for (const raw of rawNodes) {
+    if (!isRecord(raw)) return null;
+    const id = String(raw.id ?? "").trim();
+    const type = String(raw.type ?? "").trim();
+    const words = stringArray(raw.words);
+    if (!id || !isSavedCycleNodeType(type) || !words) return null;
+    const difficulty = raw.difficulty === 2 || raw.difficulty === 3 ? raw.difficulty : 1;
+    const rationale = String(raw.rationale ?? "").trim() || "Recovered from saved homework cycle.";
+    nodes.push({
+      ...raw,
+      id,
+      type,
+      words,
+      difficulty,
+      rationale,
+      gameFile: nullableString(raw.gameFile),
+      storyFile: nullableString(raw.storyFile),
+    } as PlannedHomeworkNode);
+  }
+  return nodes;
+}
+
 function cyclesDir(childId: string): string {
-  return path.join(process.cwd(), "src", "context", childId, "homework", "cycles");
+  return path.join(resolveChildContextDir(childId), "homework", "cycles");
 }
 
 export function readHomeworkCycles(childId: string): HomeworkCycle[] {
@@ -86,7 +147,10 @@ function domainForCycle(cycle: HomeworkCycle): HomeworkDomain {
 
 function dueTime(cycle: HomeworkCycle): number {
   if (!cycle.testDate) return Number.POSITIVE_INFINITY;
-  const time = new Date(cycle.testDate).getTime();
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(cycle.testDate.trim());
+  const time = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3])).getTime()
+    : new Date(cycle.testDate).getTime();
   return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
 }
 
@@ -262,18 +326,12 @@ export function pendingHomeworkFromCycle(
   childId: string,
   cycle: HomeworkCycle,
 ): NonNullable<LearningProfile["pendingHomework"]> {
-  const type = homeworkTypeForCycle(cycle);
   const contentProfile = contentProfileForCycle(cycle);
   const capturedContent = capturedContentForCycle(cycle, contentProfile);
-  const nodes = buildHomeworkNodes({
-    type,
-    words: cycle.wordList,
-    homeworkId: cycle.homeworkId,
-    childId,
-    testDate: cycle.testDate,
-    contentProfile,
-    capturedContent: capturedContent ?? undefined,
-  });
+  const nodes = savedCycleNodes(cycle);
+  if (!nodes) {
+    throw new Error(`homework_cycle_requires_replan:${cycle.homeworkId}`);
+  }
   return buildPendingHomeworkPayload({
     weekOf: cycle.ingestedAt,
     testDate: cycle.testDate,
@@ -329,13 +387,22 @@ export function hydratePendingHomeworkFromCycle(
     );
   }
   const pendingHomework = pendingHomeworkFromCycle(childId, cycle);
+  const priorLane = getActiveHomeworkLane(profile, domainForCycle(cycle));
+  const priorLaneHomeworkId = priorLane?.homeworkId;
+  const pendingWithProgress = priorLane && priorLaneHomeworkId === pendingHomework.homeworkId
+    ? {
+      ...pendingHomework,
+      reinforceWords: priorLane.reinforceWords,
+      completedAdventureNodeIds: priorLane.completedAdventureNodeIds,
+    }
+    : pendingHomework;
   const cycleDomain = domainForCycle(cycle);
-  writeActiveHomeworkLane(childId, cycleDomain, pendingHomework, { select: true });
+  writeActiveHomeworkLane(childId, cycleDomain, pendingWithProgress, { select: true });
   updateHomeworkPriorityWords(childId, cycle, cycleDomain);
   console.log(
     `🎮 [homeworkSelector] hydrate ${cycle.homeworkId} (${cycle.subject})`,
   );
-  return pendingHomework;
+  return pendingWithProgress;
 }
 
 export function ensureFreshPendingHomework(
@@ -359,14 +426,17 @@ export function ensureFreshPendingHomework(
 
   if (!stale && currentPending && requestedDomain) {
     const pendingHomework = withCycleMetadata(childId, currentPending, activeCycle);
-    const rebuilt = withCycleMetadata(
-      childId,
-      pendingHomeworkFromCycle(childId, activeCycle),
-      activeCycle,
-    );
     const hasStarted =
       (pendingHomework.completedAdventureNodeIds?.length ?? 0) > 0;
-    if (!hasStarted && pendingNodeSignature(pendingHomework) !== pendingNodeSignature(rebuilt)) {
+    const cycleHasSavedNodes = !hasStarted && savedCycleNodes(activeCycle) != null;
+    const rebuilt = cycleHasSavedNodes
+      ? withCycleMetadata(
+          childId,
+          pendingHomeworkFromCycle(childId, activeCycle),
+          activeCycle,
+        )
+      : null;
+    if (rebuilt && pendingNodeSignature(pendingHomework) !== pendingNodeSignature(rebuilt)) {
       const refreshed = {
         ...rebuilt,
         reinforceWords: pendingHomework.reinforceWords,

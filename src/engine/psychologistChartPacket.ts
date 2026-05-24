@@ -21,7 +21,8 @@ export type PsychologistEvidenceSourceKind =
   | "sessionNotes"
   | "companionCare"
   | "activityResults"
-  | "pronunciationScience";
+  | "pronunciationScience"
+  | "sessionTruthPackets";
 
 export type PsychologistChartPacket = {
   packetVersion: 1;
@@ -173,6 +174,33 @@ export type PsychologistChartPacket = {
       struggleSignals?: string[];
     }>;
   } | null;
+  recentSessionTruthPackets: Array<{
+    filePath: string;
+    generatedAt?: string;
+    sessionSummary?: unknown;
+    activityReports: Array<{
+      activityId: string;
+      readings?: number;
+      targets?: string[];
+      missedTargets?: string[];
+      recoveredTargets?: string[];
+      contaminatedTargets?: string[];
+      evidenceTiers?: string[];
+    }>;
+    targetEvidence: Array<{
+      target: string;
+      targetPurpose?: string;
+      lastStatus?: string;
+      lastQuality?: string;
+      missedCount?: number;
+      recoveredCount?: number;
+      contaminatedCount?: number;
+    }>;
+    adaptationDecision?: {
+      status?: string;
+      reason?: string;
+    };
+  }>;
   pronunciationScience: PronunciationScienceSummary;
   decisionTrace: {
     traceId: string;
@@ -214,6 +242,7 @@ export type PsychologistPacketAudit = {
 const MAX_DUE_WORDS = 12;
 const MAX_ACTIVITY_CARDS = 12;
 const MAX_CATALOG_SUMMARIES = 12;
+const MAX_SESSION_TRUTH_PACKETS = 3;
 
 export const PSYCHOLOGIST_PACKET_EXCLUSIONS = [
   "full word_bank.json",
@@ -251,6 +280,20 @@ function readLatestJsonLike(dir: string): { filePath: string; value: unknown } |
   } catch {
     return null;
   }
+}
+
+function walkFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(full).forEach((file) => out.push(file));
+    } else if (entry.isFile()) {
+      out.push(full);
+    }
+  }
+  return out;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -300,6 +343,76 @@ function normalizedActivityTargetResults(value: unknown): NonNullable<Psychologi
     .slice(0, 20);
 }
 
+function recentSessionTruthPackets(rootDir: string): PsychologistChartPacket["recentSessionTruthPackets"] {
+  const logsRoot = path.join(rootDir, "logs", "sessions");
+  return walkFiles(logsRoot)
+    .filter((file) => path.basename(file) === "post-session-truth.json")
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)
+    .slice(0, MAX_SESSION_TRUTH_PACKETS)
+    .map((filePath) => {
+      const value = readJsonFile(filePath);
+      const record = asRecord(value);
+      return {
+        filePath,
+        ...(typeof record.generatedAt === "string" ? { generatedAt: record.generatedAt } : {}),
+        ...(record.sessionSummary ? { sessionSummary: record.sessionSummary } : {}),
+        activityReports: Array.isArray(record.activityReports)
+          ? record.activityReports
+              .filter((item): item is Record<string, unknown> =>
+                item != null && typeof item === "object" && !Array.isArray(item),
+              )
+              .slice(0, 8)
+              .map((item) => ({
+                activityId: String(item.activityId ?? "activity"),
+                ...(typeof item.readings === "number" ? { readings: item.readings } : {}),
+                ...(Array.isArray(item.targets) ? { targets: stringArray(item.targets, 12) } : {}),
+                ...(Array.isArray(item.missedTargets) ? { missedTargets: stringArray(item.missedTargets, 12) } : {}),
+                ...(Array.isArray(item.recoveredTargets) ? { recoveredTargets: stringArray(item.recoveredTargets, 12) } : {}),
+                ...(Array.isArray(item.contaminatedTargets) ? { contaminatedTargets: stringArray(item.contaminatedTargets, 12) } : {}),
+                ...(Array.isArray(item.evidenceTiers) ? { evidenceTiers: stringArray(item.evidenceTiers, 8) } : {}),
+              }))
+          : [],
+        targetEvidence: Array.isArray(record.targetEvidence)
+          ? record.targetEvidence
+              .filter((item): item is Record<string, unknown> =>
+                item != null && typeof item === "object" && !Array.isArray(item),
+              )
+              .slice(0, 12)
+              .map((item) => ({
+                target: String(item.target ?? ""),
+                ...(typeof item.targetPurpose === "string" ? { targetPurpose: item.targetPurpose } : {}),
+                ...(typeof item.lastStatus === "string" ? { lastStatus: item.lastStatus } : {}),
+                ...(typeof item.lastQuality === "string" ? { lastQuality: item.lastQuality } : {}),
+                ...(typeof item.missedCount === "number" ? { missedCount: item.missedCount } : {}),
+                ...(typeof item.recoveredCount === "number" ? { recoveredCount: item.recoveredCount } : {}),
+                ...(typeof item.contaminatedCount === "number" ? { contaminatedCount: item.contaminatedCount } : {}),
+              }))
+              .filter((item) => item.target)
+          : [],
+        ...(record.adaptationDecision && typeof record.adaptationDecision === "object" && !Array.isArray(record.adaptationDecision)
+          ? {
+              adaptationDecision: {
+                ...(typeof (record.adaptationDecision as Record<string, unknown>).status === "string"
+                  ? { status: String((record.adaptationDecision as Record<string, unknown>).status) }
+                  : {}),
+                ...(typeof (record.adaptationDecision as Record<string, unknown>).reason === "string"
+                  ? { reason: String((record.adaptationDecision as Record<string, unknown>).reason) }
+                  : {}),
+              },
+            }
+          : {}),
+      };
+    });
+}
+
+function readJsonFile(file: string): unknown {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 function derivedDecisionTrace(
   input: ExperiencePlannerInput,
 ): PsychologistChartPacket["decisionTrace"] {
@@ -328,7 +441,7 @@ function targetWords(input: ExperiencePlannerInput): string[] {
   const homeworkWords = new Set([
     ...stringArray(pending?.wordList, 40),
     ...capturedWords,
-    ...(input.learningContext.chart.activeSessionPlan?.wordPlan.words.map((word) => word.text) ?? []),
+    ...(input.learningContext.chart.activeSessionPlan?.nodePlan.flatMap((node) => node.targets) ?? []),
   ].map((word) => word.toLowerCase()));
   return input.learningContext.memory.dueWords
     .filter((word) => homeworkWords.size === 0 || homeworkWords.has(word.toLowerCase()))
@@ -341,6 +454,8 @@ function sourceList(
   activityResultsDir: string,
   pronunciationScience: PronunciationScienceSummary,
   pronunciationScienceDir: string,
+  truthPackets: PsychologistChartPacket["recentSessionTruthPackets"],
+  truthPacketsDir: string,
 ): PsychologistChartPacket["evidenceSources"] {
   const links = input.chart.links;
   return [
@@ -367,6 +482,11 @@ function sourceList(
       path: pronunciationScience.latestFilePath ?? pronunciationScienceDir,
       status: pronunciationScience.latestFilePath ? "read" : "missing",
     },
+    {
+      kind: "sessionTruthPackets",
+      path: truthPackets[0]?.filePath ?? truthPacketsDir,
+      status: truthPackets.length ? "read" : "missing",
+    },
   ];
 }
 
@@ -374,10 +494,12 @@ export function buildPsychologistChartPacket(input: ExperiencePlannerInput): Psy
   const childDir = path.dirname(input.chart.links.learningProfile);
   const activityResultsDir = path.join(childDir, "activity_results");
   const pronunciationScienceDir = path.join(childDir, "pronunciation_science");
+  const truthPacketsDir = path.join(input.chart.rootDir, "logs", "sessions");
   const activityResult = readLatestJsonLike(activityResultsDir);
   const pronunciationScience = readLatestPronunciationScienceSummary(input.childId, {
     rootDir: input.chart.rootDir,
   });
+  const truthPackets = recentSessionTruthPackets(input.chart.rootDir);
   const homework = input.homeworkGoal;
   const pending = input.chart.homework.pending;
   const profile = pending?.contentProfile ?? pending?.capturedContent?.contentProfile;
@@ -525,6 +647,7 @@ export function buildPsychologistChartPacket(input: ExperiencePlannerInput): Psy
           targetResults: normalizedActivityTargetResults(activityResult.value),
         }
       : null,
+    recentSessionTruthPackets: truthPackets,
     pronunciationScience,
     decisionTrace: latestTrace
       ? {
@@ -551,6 +674,8 @@ export function buildPsychologistChartPacket(input: ExperiencePlannerInput): Psy
     activityResultsDir,
     pronunciationScience,
     pronunciationScienceDir,
+    truthPackets,
+    truthPacketsDir,
   );
   const packetBytes = Buffer.byteLength(JSON.stringify(packet), "utf8");
   console.log(

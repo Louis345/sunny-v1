@@ -15,6 +15,12 @@ type HomeworkEvidenceGatePending = {
     words?: string[];
     rawText?: string | null;
     questions?: unknown[];
+    assignmentInterpretation?: {
+      selectedTargets?: unknown[];
+      heldTargets?: unknown[];
+      wordGroups?: unknown[];
+    } | null;
+    wordGroups?: unknown[];
     contentProfile?: {
       practiceDomain?: string | null;
       contentDomain?: string | null;
@@ -87,6 +93,30 @@ function readingEvidenceTargets(pending: HomeworkEvidenceGatePending): string[] 
   ];
 }
 
+function wordsFromAssignmentGroups(groups: unknown[]): string[] {
+  return groups.flatMap((group) => {
+    if (!group || typeof group !== "object" || Array.isArray(group)) return [];
+    const words = (group as { words?: unknown }).words;
+    return Array.isArray(words) ? words.map((word) => String(word ?? "")) : [];
+  });
+}
+
+function spellingEvidenceTargets(pending: HomeworkEvidenceGatePending): string[] {
+  const interpretation = pending.capturedContent?.assignmentInterpretation;
+  const groupedTargets = unique([
+    ...wordsFromAssignmentGroups(Array.isArray(interpretation?.selectedTargets) ? interpretation.selectedTargets : []),
+    ...wordsFromAssignmentGroups(Array.isArray(interpretation?.heldTargets) ? interpretation.heldTargets : []),
+    ...wordsFromAssignmentGroups(Array.isArray(interpretation?.wordGroups) ? interpretation.wordGroups : []),
+    ...wordsFromAssignmentGroups(Array.isArray(pending.capturedContent?.wordGroups) ? pending.capturedContent.wordGroups : []),
+  ]);
+  return groupedTargets.length > 0
+    ? groupedTargets
+    : [
+        ...(pending.wordList ?? []),
+        ...(pending.capturedContent?.words ?? []),
+      ];
+}
+
 export function createHomeworkEvidenceGate(
   pending: HomeworkEvidenceGatePending | null | undefined,
 ): HomeworkEvidenceGate | null {
@@ -96,7 +126,7 @@ export function createHomeworkEvidenceGate(
   const domain = domainForPending(pending);
   const targetSource =
     domain === "spelling"
-      ? pending.wordList ?? []
+      ? spellingEvidenceTargets(pending)
       : readingEvidenceTargets(pending);
   const allowedTargetKeys = new Set(unique(targetSource).map(key));
   if (allowedTargetKeys.size === 0) return null;
@@ -182,19 +212,8 @@ export function sanitizeActiveSessionPlanTargets(
 ): ActiveSessionPlan {
   const gate = createHomeworkEvidenceGate(pending);
   if (!gate) return plan;
-  const wordPlanTargets = filterHomeworkTargets(
-    gate,
-    plan.wordPlan.words.map((word) => word.text),
-    { logPrefix: "  🎮" },
-  ).accepted;
-  const allowedWordPlanKeys = new Set(wordPlanTargets.map(key));
   return {
     ...plan,
-    wordPlan: {
-      ...plan.wordPlan,
-      cohortSize: wordPlanTargets.length,
-      words: plan.wordPlan.words.filter((word) => allowedWordPlanKeys.has(key(word.text))),
-    },
     nodePlan: plan.nodePlan.map((node) => ({
       ...node,
       targets: filterHomeworkTargets(gate, node.targets, { logPrefix: "  🎮" }).accepted,

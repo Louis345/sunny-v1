@@ -111,7 +111,7 @@ export function buildExperienceContextPacket(
       input,
       plan,
       "boss",
-      "Generate the mastery-gated finale only after quest evidence supports readiness.",
+      "Generate the mastery-gated finale only after quest evidence supports that the child is ready to attempt the real assignment or school test; this does not prove permanent mastery.",
       packetId,
     ),
   };

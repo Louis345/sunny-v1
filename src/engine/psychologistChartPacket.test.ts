@@ -156,7 +156,6 @@ function seedChart(root: string, childId = "reina", opts: { decisionTrace?: bool
         },
       ],
       evidenceUsed: [{ id: "evidence-homework", summary: "Active spelling homework." }],
-      wordPlan: { words: [{ text: "about" }, { text: "again" }], cohortSize: 2 },
       variationPolicy: { avoidExactPreviousWordOrder: true },
     },
     activeByDomain: {},
@@ -312,6 +311,74 @@ describe("PsychologistChartPacket", () => {
     expect(packetText).not.toContain("audioBytes");
     expect(packetText).not.toContain("AZURE_SPEECH_KEY");
     expect(packetText).not.toContain("SPEECHACE_API_KEY");
+  });
+
+  it("links recent post-session truth packets as the psychologist source of reality", () => {
+    const root = makeRoot();
+    seedChart(root);
+    const sessionDir = path.join(
+      root,
+      "logs",
+      "sessions",
+      "2026",
+      "05",
+      "2026-05-15T12-00-00_reina_homework_truth01",
+    );
+    fs.mkdirSync(sessionDir, { recursive: true });
+    writeJson(root, path.relative(root, path.join(sessionDir, "post-session-truth.json")), {
+      packetVersion: 2,
+      sessionSummary: {
+        childId: "reina",
+        activityCount: 1,
+      },
+      activityReports: [
+        {
+          activityId: "word-radar",
+          readings: 2,
+          missedTargets: ["machine"],
+          evidenceTiers: ["clean_recall"],
+        },
+      ],
+      targetEvidence: [
+        {
+          target: "machine",
+          targetPurpose: "read_fluently",
+          missedCount: 1,
+          lastStatus: "missed",
+        },
+      ],
+      adaptationDecision: {
+        status: "changed",
+        reason: "Route machine to pronunciation support.",
+      },
+    });
+
+    const chart = getChildChart("reina", { rootDir: root });
+    const input = buildExperiencePlannerInput(chart, {
+      rootDir: root,
+      now: new Date("2026-05-15T12:00:00.000Z"),
+    });
+
+    const packet = buildPsychologistChartPacket(input);
+    const packetText = JSON.stringify(packet);
+
+    expect(packet.recentSessionTruthPackets).toEqual([
+      expect.objectContaining({
+        filePath: path.join(sessionDir, "post-session-truth.json"),
+        activityReports: [
+          expect.objectContaining({
+            activityId: "word-radar",
+            missedTargets: ["machine"],
+          }),
+        ],
+        adaptationDecision: expect.objectContaining({
+          status: "changed",
+        }),
+      }),
+    ]);
+    expect(packet.evidenceSources.some((source) => source.kind === "sessionTruthPackets" && source.status === "read")).toBe(true);
+    expect(packetText).not.toContain("rawAudio");
+    expect(packetText).not.toContain("providerPayload");
   });
 
   it("excludes raw oversized evidence, duplicated mirrors, and secrets from the packet and prompt", () => {

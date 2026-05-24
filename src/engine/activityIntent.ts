@@ -6,6 +6,15 @@ export type EvidenceTier =
   | "mastery_candidate"
   | "calibration_required";
 
+export type TargetPurpose =
+  | "spell_from_memory"
+  | "recall_from_memory"
+  | "recognize"
+  | "read_fluently"
+  | "pronounce"
+  | "reinforce"
+  | "unknown";
+
 export type ActivityIntentPurpose =
   | "spelling_production_from_memory"
   | "recognition_recall_scan"
@@ -34,6 +43,8 @@ export type TargetSelectorKind =
 
 export type ActivityIntentTarget = {
   target: string;
+  targetPurpose?: TargetPurpose;
+  compatibleWithActivity?: boolean;
   reasons: string[];
   evidenceTypes: string[];
   score: number;
@@ -52,6 +63,7 @@ export type ActivityIntent = {
   purpose: ActivityIntentPurpose;
   carePlanHypothesis: string;
   targetSelector: TargetSelectorKind;
+  acceptedTargetPurposes: TargetPurpose[];
   selectedTargets: ActivityIntentTarget[];
   diagnosticQuestion: string;
   expectedEvidence: string[];
@@ -94,6 +106,7 @@ export type ActivityIntentEvidence = {
 type IntentProfile = {
   purpose: ActivityIntentPurpose;
   targetSelector: TargetSelectorKind;
+  acceptedTargetPurposes: TargetPurpose[];
   diagnosticQuestion: string;
   expectedEvidence: string[];
   successCriteria: string[];
@@ -117,6 +130,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   "spell-check": {
     purpose: "spelling_production_from_memory",
     targetSelector: "production_targets",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Can the child spell the target from memory with limited scaffold support?",
     expectedEvidence: ["targetResults", "attemptedValue", "wrongLetters", "scaffoldLevel", "retries"],
     successCriteria: ["80% or better with low scaffold support", "misses recover after one cue"],
@@ -128,6 +142,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   "word-radar": {
     purpose: "recognition_recall_scan",
     targetSelector: "due_or_fragile_recall",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Can the child recognize or recall due words under timed pressure?",
     expectedEvidence: ["targetResults", "responseTime_ms", "missedWords", "slowTargets", "recallMode"],
     successCriteria: ["fast accurate responses in hidden or captured recall mode"],
@@ -139,6 +154,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   pronunciation: {
     purpose: "fluency_auditory_discrimination_probe",
     targetSelector: "high_frequency_or_confusion",
+    acceptedTargetPurposes: ["recognize", "read_fluently", "pronounce", "spell_from_memory", "unknown"],
     diagnosticQuestion: "Can the child read and say the target clearly, and recover after a model?",
     expectedEvidence: ["targetResults", "misses", "recoveryAfterModel", "retries", "heatModeVitals"],
     successCriteria: ["target is read accurately after low support"],
@@ -150,6 +166,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   "monster-stampede": {
     purpose: "high_energy_reinforcement",
     targetSelector: "fragile_reinforcement",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Can the child keep practicing fragile words without heavy writing load?",
     expectedEvidence: ["targetResults", "wrongTiles", "hints", "persistence", "flowState"],
     successCriteria: ["high engagement with improving accuracy"],
@@ -161,6 +178,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   "letter-rush": {
     purpose: "spelling_measurement_instrument",
     targetSelector: "baseline_pattern_mastery",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Can the child produce spelling evidence strong enough for a mastery candidate?",
     expectedEvidence: ["targetResults", "letterResults", "timing", "distractors", "bonusRisk"],
     successCriteria: ["clean recall with low error and stable timing"],
@@ -172,6 +190,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   "wheel-of-fortune": {
     purpose: "playful_retrieval_probe",
     targetSelector: "fragile_or_recent_miss",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Can a fragile word be retrieved playfully without exposing the answer too early?",
     expectedEvidence: ["guessedLetters", "wrongGuesses", "solveState", "helpRequests", "persistence"],
     successCriteria: ["solves or meaningfully narrows a fragile word without answer leak"],
@@ -187,6 +206,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   "speed-catcher": {
     purpose: "fast_recognition_under_pressure",
     targetSelector: "known_but_slow_or_fragile",
+    acceptedTargetPurposes: ["recognize", "read_fluently", "spell_from_memory", "unknown"],
     diagnosticQuestion: "Can the child identify known but slow targets under pressure?",
     expectedEvidence: ["choiceAccuracy", "timeouts", "wrongChoice", "responseTime_ms", "flowState"],
     successCriteria: ["accurate choices with improving speed"],
@@ -198,6 +218,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   "word-builder": {
     purpose: "spelling_construction_support",
     targetSelector: "construction_support",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Can the child construct the word with support and hints?",
     expectedEvidence: ["constructedValue", "hints", "targetResults"],
     successCriteria: ["construction improves with reduced hints"],
@@ -209,6 +230,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   wordle: {
     purpose: "orthographic_reasoning",
     targetSelector: "strategic_spelling",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Can the child reason about spelling patterns from letter-state feedback?",
     expectedEvidence: ["guesses", "letterStateEvidence", "targetResults", "answerVisibility"],
     successCriteria: ["uses feedback to narrow the target"],
@@ -224,6 +246,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   quest: {
     purpose: "generated_hypothesis_intervention",
     targetSelector: "quest_ready_targets",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "recognize", "read_fluently", "pronounce", "reinforce", "unknown"],
     diagnosticQuestion: "Does the generated quest test the active care-plan hypothesis?",
     expectedEvidence: ["targetResults", "hypothesisTest", "validationStatus", "activityResult"],
     successCriteria: ["quest evidence supports the hypothesis with calibrated targets"],
@@ -235,6 +258,7 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
   boss: {
     purpose: "mastery_gated_finale",
     targetSelector: "boss_mastery_targets",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "reinforce", "unknown"],
     diagnosticQuestion: "Is there enough quest-supported evidence for a mastery-gated finale?",
     expectedEvidence: ["finalProofAttempt", "failureCriteria", "chartUpdate", "questReadiness"],
     successCriteria: ["final proof is clean and tied to prior quest evidence"],
@@ -247,6 +271,57 @@ const INTENT_PROFILES: Partial<Record<NodeConfig["type"] | string, IntentProfile
 
 function normalizeTarget(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
+}
+
+function normalizeTargetPurpose(value: unknown): TargetPurpose {
+  const text = String(value ?? "").trim().toLowerCase();
+  if (
+    text === "spell_from_memory" ||
+    text === "recall_from_memory" ||
+    text === "recognize" ||
+    text === "read_fluently" ||
+    text === "pronounce" ||
+    text === "reinforce"
+  ) {
+    return text;
+  }
+  return "unknown";
+}
+
+function purposeForEvidenceType(evidenceType: string): TargetPurpose {
+  if (evidenceType === "high_frequency_word") return "recognize";
+  if (evidenceType === "pronunciation_confusion") return "pronounce";
+  if (evidenceType === "slow_target") return "read_fluently";
+  if (
+    evidenceType === "recent_miss" ||
+    evidenceType === "fragile_target" ||
+    evidenceType === "scaffold_use" ||
+    evidenceType === "sm2_due" ||
+    evidenceType === "care_plan_priority"
+  ) {
+    return "reinforce";
+  }
+  if (evidenceType === "homework_target" || evidenceType === "activity_target") {
+    return "unknown";
+  }
+  return "unknown";
+}
+
+export function acceptedTargetPurposesForActivity(activityId: string): TargetPurpose[] {
+  return profileForNode(activityId).acceptedTargetPurposes;
+}
+
+export function isTargetPurposeCompatibleWithActivity(input: {
+  activityId: string;
+  targetPurpose: unknown;
+}): { compatible: boolean; acceptedTargetPurposes: TargetPurpose[]; targetPurpose: TargetPurpose } {
+  const targetPurpose = normalizeTargetPurpose(input.targetPurpose);
+  const acceptedTargetPurposes = acceptedTargetPurposesForActivity(input.activityId);
+  return {
+    compatible: acceptedTargetPurposes.includes(targetPurpose) || targetPurpose === "unknown",
+    acceptedTargetPurposes,
+    targetPurpose,
+  };
 }
 
 function uniqueTargets(values: unknown[] | undefined): string[] {
@@ -267,6 +342,7 @@ function addCandidate(
   score: number,
   reason: string,
   evidenceType: string,
+  activityId: string,
 ): void {
   const normalized = normalizeTarget(target);
   if (!normalized) return;
@@ -274,10 +350,21 @@ function addCandidate(
     candidates.get(normalized) ??
     {
       target: normalized,
+      targetPurpose: purposeForEvidenceType(evidenceType),
+      compatibleWithActivity: true,
       reasons: [],
       evidenceTypes: [],
       score: 0,
     };
+  const purpose = purposeForEvidenceType(evidenceType);
+  if (existing.targetPurpose === "unknown" && purpose !== "unknown") {
+    existing.targetPurpose = purpose;
+  }
+  existing.compatibleWithActivity =
+    isTargetPurposeCompatibleWithActivity({
+      activityId,
+      targetPurpose: existing.targetPurpose,
+    }).compatible;
   existing.score += score;
   if (!existing.reasons.includes(reason)) existing.reasons.push(reason);
   if (!existing.evidenceTypes.includes(evidenceType)) existing.evidenceTypes.push(evidenceType);
@@ -364,17 +451,28 @@ export function selectTargetsForIntent(input: {
 
   for (const source of sourcePriorityForSelector(input.targetSelector)) {
     for (const target of uniqueTargets(evidence[source.key] as string[] | undefined)) {
-      addCandidate(candidates, target, source.score, source.reason, source.evidenceType);
+      addCandidate(candidates, target, source.score, source.reason, source.evidenceType, activityId);
     }
   }
   for (const target of nodeWords) {
-    addCandidate(candidates, target, 10, "available in launched activity", "activity_target");
+    addCandidate(candidates, target, 10, "available in launched activity", "activity_target", activityId);
   }
 
   const recentlyUsed = new Set(
     uniqueTargets(evidence.recentlyUsedByActivity?.[activityId]),
   );
   const allTargets = [...candidates.values()];
+  const sourceBoundary = new Set(uniqueTargets(evidence.homeworkWords));
+  const eligibleTargets =
+    sourceBoundary.size > 0
+      ? allTargets.filter((target) => sourceBoundary.has(target.target))
+      : allTargets;
+  const offSourceTargets =
+    sourceBoundary.size > 0
+      ? allTargets
+          .map((target) => target.target)
+          .filter((target) => !sourceBoundary.has(target))
+      : [];
   const hasAlternativeToRecent = allTargets.some((target) => !recentlyUsed.has(target.target));
   for (const target of allTargets) {
     if (recentlyUsed.has(target.target)) {
@@ -390,21 +488,28 @@ export function selectTargetsForIntent(input: {
   const limit =
     input.maxTargets ??
     (activityId === "wheel-of-fortune" ? 1 : Math.max(1, Math.min(10, nodeWords.length || 5)));
-  const ranked = allTargets
+  const ranked = eligibleTargets
     .sort((a, b) => b.score - a.score || nodeWords.indexOf(a.target) - nodeWords.indexOf(b.target))
     .slice(0, limit);
   const selectedTargets = ranked.map((target) => target.target);
   const sourceEvidence = [
     ...new Set(ranked.flatMap((target) => target.evidenceTypes)),
   ];
-  const avoidedTargets = [...recentlyUsed].filter((target) => !selectedTargets.includes(target));
+  const avoidedTargets = [
+    ...new Set([
+      ...offSourceTargets,
+      ...[...recentlyUsed].filter((target) => !selectedTargets.includes(target)),
+    ]),
+  ];
   const targetPhrase =
     selectedTargets.length === 1
       ? `"${selectedTargets[0]}"`
       : selectedTargets.map((target) => `"${target}"`).join(", ");
   const reasonPhrase =
     ranked[0]?.reasons.filter((reason) => !reason.startsWith("recently used")).join(", ") ||
-    "it was available in the activity target set";
+    (sourceBoundary.size > 0
+      ? "it was inside the approved homework target set"
+      : "it was available in the activity target set");
 
   return {
     selectorId: [
@@ -429,6 +534,7 @@ function profileForNode(nodeType: string): IntentProfile {
   return INTENT_PROFILES[nodeType] ?? {
     purpose: "generated_hypothesis_intervention",
     targetSelector: "quest_ready_targets",
+    acceptedTargetPurposes: ["spell_from_memory", "recall_from_memory", "recognize", "read_fluently", "pronounce", "reinforce", "unknown"],
     diagnosticQuestion: "Does this activity test the active care-plan hypothesis?",
     expectedEvidence: ["targetResults", "completionEvidence", "vitalSigns"],
     successCriteria: ["evidence supports the active care-plan hypothesis"],
@@ -468,6 +574,7 @@ export function buildActivityIntent(input: {
     purpose: profile.purpose,
     carePlanHypothesis: input.carePlanHypothesis?.trim() || DEFAULT_HYPOTHESIS,
     targetSelector: profile.targetSelector,
+    acceptedTargetPurposes: profile.acceptedTargetPurposes,
     selectedTargets: decision.targetReasons,
     diagnosticQuestion: profile.diagnosticQuestion,
     expectedEvidence: profile.expectedEvidence,

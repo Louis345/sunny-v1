@@ -329,12 +329,15 @@ function measurementForNode(
   node: ActiveSessionPlan["nodePlan"][number],
 ): PlannedMeasurement {
   const card = input.activityCards.find((item) => item.activityId === node.activityId || item.activityId === node.type);
+  const wordRadarMode = node.type === "word-radar" && node.wordRadarConfig
+    ? card?.capabilityModes.find((mode) => mode.config.recallMode === node.wordRadarConfig?.recallMode)
+    : undefined;
   return {
     id: `measure-${node.id}`,
     activityId: node.activityId,
     target: node.targets.length ? `${node.targets.length} target(s)` : node.type,
     evidenceType: node.type === "word-radar" && node.wordRadarConfig
-      ? `${card?.evidenceQuality ?? "practice"}:${node.wordRadarConfig.recallMode}`
+      ? `${wordRadarMode?.evidenceType ?? card?.evidenceQuality ?? "practice"}:${node.wordRadarConfig.recallMode}`
       : card?.evidenceQuality ?? "practice",
     supportCriteria: "accuracy >= 0.85 and low frustration",
     reviseCriteria: "partial accuracy, hesitation, or mixed engagement",
@@ -359,7 +362,7 @@ function generatedBriefForPlan(
     learningGoal: `Create a validated generated quest that tests ${plan.domain} transfer for ${topic}.`,
     targetSkills: [pending?.contentProfile?.primarySkill ?? input.homeworkGoal.type],
     targetConcepts: [...concepts],
-    targetWords: plan.wordPlan.words.map((word) => word.text),
+    targetWords: [...new Set(plan.nodePlan.flatMap((node) => node.targets))],
     engagementHooks: preferredHooks(input),
     algorithmTargets: ["retrieval-practice", "desirable-difficulty", "activity-affinity", "variable-reward"],
     evidenceUsed: plan.evidenceUsed.map((item) => item.id),
