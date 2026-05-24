@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
-import { generateText } from "ai";
+import { generateText, type LanguageModelUsage } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import type {
@@ -108,6 +108,12 @@ export type AssignmentPlanValidationIssue = {
 
 export type AssignmentPlanningOptions = {
   model?: string;
+};
+
+export type AssignmentPlannerTelemetry = {
+  model: string;
+  usage?: LanguageModelUsage;
+  latencyMs: number;
 };
 
 const homeworkPurposeSchema = z.enum([
@@ -347,6 +353,12 @@ export function buildAssignmentPlanningPacket(args: {
       "Activities are instruments. Choose nodes by target purpose, not by generic fun.",
       "Each word group must declare its learning purpose from source evidence.",
       "Do not collapse teacher-labeled groups into one skill; infer whether each group asks for spelling production, recognition, fluency, pronunciation, meaning, or review.",
+      "Use recent canonical activity evidence as lesson-to-lesson labs: weak targets get support; mastered targets get smaller spaced checks or transfer instead of full repeated baseline.",
+      "When exact weak targets are named, give those weak targets strictly more academic support than mastered targets; light reinforcement must be smaller than support.",
+      "When evidence conflicts, the first academic node should probe those exact contradictory targets; give them more academic placements than clean/mastered targets, and do not create a same-activity run just to replay clean words.",
+      "Count target placements before returning and count consecutive activity runs; if clean/mastered targets outnumber weak or contradictory targets in academic nodes, or any same-activity run exceeds two nodes, revise the nodePlan.",
+      "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
+      "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes or a long run of Word Radar.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Return a board plan that cites why every activity fits the target purpose.",
     ].join(" "),
@@ -516,11 +528,18 @@ Rules:
 - Do not flatten source word groups.
 - Infer each source group's target purpose from the assignment evidence.
 - Do not assume every group on a spelling handout has the same success target; teacher headings can distinguish spelling production from reading fluency, recognition, vocabulary, or review.
+- Use recent canonical activity evidence as lesson-to-lesson labs: misses/second attempts/help/skips increase support and dosage for those exact targets; fast first-try correct evidence reduces dosage and moves the target toward spaced checks or transfer.
+- Mastery evidence should shrink redundant baseline work. Do not repeat a full scaffolded baseline for targets that were all correct first try with low latency and no support; use a small spaced reinforcement check, Mystery for preference data, and locked Quest for transfer readiness.
+- Light spaced reinforcement means fewer mastered targets and fewer academic placements than the weak/fragile targets. If a prior lesson names exact missed targets, those weak targets should receive strictly more academic measurement/support than the mastered targets, unless your planTheory explicitly argues otherwise.
+- When evidence conflicts, the first academic node should probe those exact contradictory targets; give them more academic placements than clean/mastered targets, and do not create a same-activity run just to replay clean words.
+- Count target placements before returning and count consecutive activity runs; if clean/mastered targets outnumber weak or contradictory targets in academic nodes, or any same-activity run exceeds two nodes, revise the nodePlan.
 - Match each source group to activities whose cataloged skills can actually measure that purpose.
+- For source groups whose purpose is recognize, read_fluently, or pronounce, prefer pronunciation or visible_read-style recognition evidence. Do not turn high-frequency recognition words into spelling-production work unless the source explicitly says those words are spelling targets or prior evidence shows spelling production is the gap.
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
-- Every word-radar node must include wordRadarConfig from the activity catalog capability modes. Beginner/new/weak words use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child needs the same slots but should hear the word instead of seeing it. Use hidden_word_recall only for harder recall; use visible_read only for accessibility/read-on-screen support. Omit wordRadarConfig on non-word-radar nodes.
+- Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
+- If a child needs shorter cohorts, shorten the target list and vary instruments by purpose rather than creating many same-activity nodes. Do not split one lane into a long run of consecutive Word Radar nodes; more Word Radar nodes are not better evidence when one better-chosen Word Radar node plus another instrument would answer the care-plan question.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
 - Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest targets the current theory targets, Boss may have empty targets until quest evidence exists.
@@ -606,16 +625,19 @@ async function parseOrRepairAssignmentPlannerJson(
   }
 }
 
-async function callAssignmentPlannerModel(packet: AssignmentPlanningPacket, model: string): Promise<string> {
+async function callAssignmentPlannerModel(
+  packet: AssignmentPlanningPacket,
+  model: string,
+): Promise<{ text: string; usage?: LanguageModelUsage }> {
   const prompt = buildAssignmentPlannerPrompt(packet);
   const images = assignmentPlannerSourceImages(packet);
   if (images.length === 0) {
-    const { text } = await generateText({
+    const { text, usage } = await generateText({
       model: anthropic(model),
       system: "You are Sunny's assignment planner. You interpret source homework and design a measurable adaptive board from activity instruments.",
       prompt,
     });
-    return text;
+    return { text, usage };
   }
 
   const client = new Anthropic();
@@ -638,10 +660,87 @@ async function callAssignmentPlannerModel(packet: AssignmentPlanningPacket, mode
       ],
     }],
   });
-  return response.content
+  const text = response.content
     .filter((block) => block.type === "text")
     .map((block) => ("text" in block ? block.text : ""))
     .join("\n");
+  return {
+    text,
+    usage: {
+      inputTokens: response.usage.input_tokens,
+      inputTokenDetails: {
+        noCacheTokens: response.usage.input_tokens,
+        cacheReadTokens: response.usage.cache_read_input_tokens ?? undefined,
+        cacheWriteTokens: response.usage.cache_creation_input_tokens ?? undefined,
+      },
+      outputTokens: response.usage.output_tokens,
+      outputTokenDetails: {
+        textTokens: response.usage.output_tokens,
+        reasoningTokens: undefined,
+      },
+      totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+    },
+  };
+}
+
+async function planAssignmentFromSourceInternal(
+  packet: AssignmentPlanningPacket,
+  opts: AssignmentPlanningOptions = {},
+): Promise<{ output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry }> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+  }
+  const model = resolveAssignmentPlannerModel(opts);
+  const started = Date.now();
+  const { text, usage } = await callAssignmentPlannerModel(packet, model);
+  const draft = await parseOrRepairAssignmentPlannerJson(text, model);
+
+  const capturedContent = buildCapturedHomeworkContent({
+    title: draft.capturedContent.title,
+    type: draft.capturedContent.type as HomeworkType,
+    rawText: packet.sourceDocument.fullText,
+    words: draft.capturedContent.words,
+    wordGroups: draft.capturedContent.wordGroups,
+    questions: draft.capturedContent.questions,
+    sourceDocuments: draft.capturedContent.sourceDocuments,
+    contentProfile: normalizeContentProfile({
+      title: draft.capturedContent.title,
+      type: draft.capturedContent.type as HomeworkType,
+      words: draft.capturedContent.words,
+      wordGroups: draft.capturedContent.wordGroups,
+      questions: draft.capturedContent.questions,
+      contentProfile: draft.capturedContent.contentProfile,
+    }),
+  });
+
+  const generatedExperienceBriefs = hydrateGeneratedExperienceBriefs(draft.generatedExperienceBriefs, packet);
+  const activeSessionPlan = hydrateActiveSessionPlanFromDraft({
+    draft: draft.activeSessionPlan,
+    packet,
+    capturedContent,
+    homeworkWords: draft.homeworkWords,
+    planTheory: draft.planTheory,
+    plannedMeasurements: draft.plannedMeasurements,
+    generatedExperienceBriefs,
+  });
+
+  return {
+    output: {
+      capturedContent,
+      assignmentInterpretation: capturedContent.assignmentInterpretation!,
+      homeworkWords: draft.homeworkWords,
+      activeSessionPlan,
+      plannedMeasurements: draft.plannedMeasurements,
+      planTheory: draft.planTheory,
+      reviewQuestions: draft.reviewQuestions,
+      generatedExperienceBriefs,
+    },
+    telemetry: {
+      model,
+      usage,
+      latencyMs: Date.now() - started,
+    },
+  };
 }
 
 function hydrateActiveSessionPlanFromDraft(args: {
@@ -717,50 +816,12 @@ export async function planAssignmentFromSource(
   packet: AssignmentPlanningPacket,
   opts: AssignmentPlanningOptions = {},
 ): Promise<AssignmentPlannerOutput> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
-  }
-  const model = resolveAssignmentPlannerModel(opts);
-  const text = await callAssignmentPlannerModel(packet, model);
-  const draft = await parseOrRepairAssignmentPlannerJson(text, model);
+  return (await planAssignmentFromSourceInternal(packet, opts)).output;
+}
 
-  const capturedContent = buildCapturedHomeworkContent({
-    title: draft.capturedContent.title,
-    type: draft.capturedContent.type as HomeworkType,
-    rawText: packet.sourceDocument.fullText,
-    words: draft.capturedContent.words,
-    wordGroups: draft.capturedContent.wordGroups,
-    questions: draft.capturedContent.questions,
-    sourceDocuments: draft.capturedContent.sourceDocuments,
-    contentProfile: normalizeContentProfile({
-      title: draft.capturedContent.title,
-      type: draft.capturedContent.type as HomeworkType,
-      words: draft.capturedContent.words,
-      wordGroups: draft.capturedContent.wordGroups,
-      questions: draft.capturedContent.questions,
-      contentProfile: draft.capturedContent.contentProfile,
-    }),
-  });
-
-  const generatedExperienceBriefs = hydrateGeneratedExperienceBriefs(draft.generatedExperienceBriefs, packet);
-  const activeSessionPlan = hydrateActiveSessionPlanFromDraft({
-    draft: draft.activeSessionPlan,
-    packet,
-    capturedContent,
-    homeworkWords: draft.homeworkWords,
-    planTheory: draft.planTheory,
-    plannedMeasurements: draft.plannedMeasurements,
-    generatedExperienceBriefs,
-  });
-
-  return {
-    capturedContent,
-    assignmentInterpretation: capturedContent.assignmentInterpretation!,
-    homeworkWords: draft.homeworkWords,
-    activeSessionPlan,
-    plannedMeasurements: draft.plannedMeasurements,
-    planTheory: draft.planTheory,
-    reviewQuestions: draft.reviewQuestions,
-    generatedExperienceBriefs,
-  };
+export async function planAssignmentFromSourceWithTelemetry(
+  packet: AssignmentPlanningPacket,
+  opts: AssignmentPlanningOptions = {},
+): Promise<{ output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry }> {
+  return planAssignmentFromSourceInternal(packet, opts);
 }

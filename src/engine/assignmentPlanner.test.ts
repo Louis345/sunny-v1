@@ -398,8 +398,27 @@ describe("assignment planner", () => {
       .find((card) => card.activityId === "word-radar")
       ?.capabilityModes.find((mode) => mode.id === "partial_visual_recall")
       ?.config).toMatchObject(WORD_RADAR_LETTER_FILL_CONFIG);
+    expect(packet.plannerInstruction).toContain("mastered targets get smaller spaced checks");
+    expect(packet.plannerInstruction).toContain("strictly more academic support than mastered targets");
+    expect(packet.plannerInstruction).toContain("first academic node should probe those exact contradictory targets");
+    expect(packet.plannerInstruction).toContain("Count target placements before returning");
+    expect(packet.plannerInstruction).toContain("count consecutive activity runs");
+    expect(packet.plannerInstruction).toContain("visible_read or pronunciation");
+    expect(packet.plannerInstruction).toContain("long run of Word Radar");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("keeps lesson-to-lesson adaptation guidance in the planner prompt without adding deterministic category blockers", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/assignmentPlanner.ts"), "utf8");
+
+    expect(source).toContain("Use recent canonical activity evidence as lesson-to-lesson labs");
+    expect(source).toContain("Mastery evidence should shrink redundant baseline work");
+    expect(source).toContain("Light spaced reinforcement means fewer mastered targets");
+    expect(source).toContain("prefer pronunciation or visible_read-style recognition evidence");
+    expect(source).toContain("Do not split one lane into a long run of consecutive Word Radar nodes");
+    expect(source).not.toContain("if (purpose === \"read_fluently\")");
+    expect(source).not.toContain("if (group.label === \"High-Frequency Words\")");
   });
 
   it("keeps source page images available for image-first planning", () => {
