@@ -57,6 +57,7 @@ export interface AdventureBoardJson {
   nodes: AdventureBoardNode[];
   edges: AdventureBoardEdge[];
   choiceSets?: AdventureChoiceSet[];
+  companion?: AdventureBoardCompanion;
   progress?: AdventureBoardProgress;
 }
 
@@ -81,6 +82,14 @@ export interface AdventureBoardProgress {
   currentNodeId?: string;
   completedNodeIds: string[];
   activeChoiceSetId?: string;
+}
+
+export interface AdventureBoardCompanion {
+  id: string;
+  name: string;
+  imageUrl: string;
+  position?: "lower-right" | "lower-left";
+  mood?: "idle" | "curious" | "celebrating";
 }
 
 export interface AdventureBoardNode {

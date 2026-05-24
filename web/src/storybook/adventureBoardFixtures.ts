@@ -4,7 +4,7 @@ const theme = {
   background: {
     type: "gradient",
     value:
-      "linear-gradient(180deg, #94d7ea 0%, #b9e4d8 48%, #f5df9b 100%)",
+      "radial-gradient(circle at 80% 18%, rgba(255, 255, 255, 0.32), transparent 18%), radial-gradient(circle at 84% 92%, rgba(252, 211, 77, 0.18), transparent 24%), linear-gradient(180deg, #94d7ea 0%, #b9e4d8 48%, #f5df9b 100%)",
   },
   palette: {
     path: "#ffffff",
@@ -296,6 +296,13 @@ export const choicePolicySpineBoard: AdventureBoardJson = {
   domain: "spelling",
   title: "Choice Policy Spine",
   theme,
+  companion: {
+    id: "matilda",
+    name: "Matilda",
+    imageUrl: "/characters/star.png",
+    position: "lower-right",
+    mood: "curious",
+  },
   progress: {
     currentNodeId: "mystery",
     completedNodeIds: ["word-radar", "spell-check", "read-aloud"],
