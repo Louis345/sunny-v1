@@ -171,6 +171,8 @@ export interface MysteryChoiceOption {
 
 export interface NodeConfig {
   id: string;
+  /** Active session plan that authored this node; used for audit traces. */
+  planId?: string;
   type: NodeType;
   isLocked: boolean;
   isCompleted: boolean;

@@ -810,6 +810,7 @@ export function buildAdventureMapFromSessionPlan(
       });
       nodes.push({
         id: planned.id,
+        planId: plan.planId,
         type: "mystery",
         words: planned.targets.length > 0 ? planned.targets : targets,
         difficulty: planned.difficulty,
@@ -839,6 +840,7 @@ export function buildAdventureMapFromSessionPlan(
     const words = isWordDrivenNode(planned.type) ? planned.targets : source?.words ?? [];
     nodes.push({
       id: planned.id,
+      planId: plan.planId,
       type: planned.type,
       words,
       wordRadarItems:

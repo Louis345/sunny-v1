@@ -443,7 +443,33 @@ describe("useWordRadar", () => {
     expect(result.current.letterCursor).toBe(1);
   });
 
-  it("letter-by-letter: wrong letter shakes tile and does not advance", async () => {
+  it("letter-by-letter: wrong speech shakes only; no buzz and no Try Again penalty", async () => {
+    const oscillatorStart = vi.fn();
+    const audioContext = {
+      currentTime: 0,
+      createOscillator: vi.fn(() => ({
+        type: "sawtooth",
+        frequency: {
+          setValueAtTime: vi.fn(),
+          exponentialRampToValueAtTime: vi.fn(),
+        },
+        connect: vi.fn(),
+        start: oscillatorStart,
+        stop: vi.fn(),
+      })),
+      createGain: vi.fn(() => ({
+        gain: {
+          setValueAtTime: vi.fn(),
+          exponentialRampToValueAtTime: vi.fn(),
+        },
+        connect: vi.fn(),
+      })),
+      destination: {},
+    };
+    Object.defineProperty(window, "AudioContext", {
+      configurable: true,
+      value: vi.fn(() => audioContext),
+    });
     const { result, rerender } = renderHook(
       (props: { interim: string }) =>
         useWordRadar({
@@ -460,6 +486,8 @@ describe("useWordRadar", () => {
     await flushMicrotasks();
     expect(result.current.letterCursor).toBe(0);
     expect(result.current.shakeLetterIndex).toBe(0);
+    expect(result.current.canTryAgain).toBe(true);
+    expect(oscillatorStart).not.toHaveBeenCalled();
   });
 
   it('letter-by-letter: phonetic alias "see" matches "c"', async () => {
@@ -694,6 +722,39 @@ describe("useWordRadar", () => {
     });
     const r = onFinish.mock.calls[0]![0] as WordRadarResult;
     expect(r.rawResults[0]?.responseTime_ms).toBeGreaterThanOrEqual(200);
+  });
+
+  it("records full letter-by-letter response when speech arrives in fragments", async () => {
+    const onFinish = vi.fn();
+    const { rerender } = renderHook(
+      (props: { interim: string }) =>
+        useWordRadar({
+          items: [{ display: "thumb", acceptedResponses: ["thumb"] }],
+          interimTranscript: props.interim,
+          inputMode: "letter-by-letter",
+          personalBests: {},
+          onFinish,
+        }),
+      { initialProps: { interim: "" } },
+    );
+
+    await enterResponse();
+    for (const interim of ["t", "h", "u", "m", "b"]) {
+      rerender({ interim });
+      await flushMicrotasks();
+    }
+    await act(async () => {
+      vi.advanceTimersByTime(WORD_RADAR_FEEDBACK_MS + WORD_RADAR_END_SCREEN_MS);
+    });
+
+    const r = onFinish.mock.calls[0]![0] as WordRadarResult;
+    expect(r.rawResults[0]).toMatchObject({
+      correct: true,
+      typedResponse: "thumb",
+      capturedLetters: ["t", "h", "u", "m", "b"],
+      normalizedResponse: "thumb",
+      matchReason: "spoken_letter_sequence_complete",
+    });
   });
 
   it("known/weak/unknown classification correct across all three cases", () => {

@@ -9,7 +9,14 @@ import type {
 
 type CapturedWordRadarResponse = Pick<
   ItemResult,
-  "heardTranscript" | "heardToken" | "typedResponse"
+  | "heardTranscript"
+  | "heardToken"
+  | "typedResponse"
+  | "capturedLetters"
+  | "normalizedResponse"
+  | "matchReason"
+  | "matchRatio"
+  | "skipped"
 >;
 
 function playChime() {
@@ -104,6 +111,13 @@ export interface WordRadarGameEvent {
   itemIndex?: number;
   heardTranscript?: string;
   heardToken?: string;
+  typedResponse?: string;
+  rawTranscript?: string;
+  capturedLetters?: string[];
+  normalizedResponse?: string;
+  matchReason?: string;
+  matchRatio?: number;
+  skipped?: boolean;
   attempts?: number;
   responseTime_ms?: number;
   result?: WordRadarResult;
@@ -249,6 +263,11 @@ function cleanToken(token: string): string {
   return token.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
 }
 
+function normalizeWordRadarResponse(value: string | undefined): string | undefined {
+  const cleaned = String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return cleaned || undefined;
+}
+
 function displayLetters(item: RadarItem): string[] {
   return item.display.toLowerCase().replace(/[^a-z0-9]/g, "").split("");
 }
@@ -257,11 +276,7 @@ function tokenMatchesLetter(token: string, expected: string): boolean {
   const cleaned = cleanToken(token);
   if (!cleaned || !expected) return false;
   const aliases = LETTER_ALIASES[expected] ?? [expected];
-  return aliases.some(
-    (alias) =>
-      cleanToken(alias) === cleaned ||
-      classifyKaraokeWordMatch(cleaned, alias) === "match",
-  );
+  return aliases.some((alias) => cleanToken(alias) === cleaned);
 }
 
 export type WordRadarInputMode = "whole-word" | "letter-by-letter" | "keyboard";
@@ -494,6 +509,11 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         correct,
         responseTime_ms,
         attempts,
+        matchReason: captured?.matchReason ?? incorrectReason ?? eventType ?? (correct ? "correct" : "incorrect"),
+        normalizedResponse:
+          captured?.normalizedResponse ??
+          normalizeWordRadarResponse(captured?.typedResponse ?? captured?.heardToken ?? captured?.heardTranscript),
+        skipped: captured?.skipped === true || incorrectReason === "skip",
         ...captured,
       };
       const nextRaw = [...rawResultsRef.current, row];
@@ -518,6 +538,8 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         itemIndex: itemIndexRef.current,
         attempts,
         responseTime_ms,
+        rawTranscript: captured?.heardTranscript,
+        ...captured,
         ...(type === "incorrect" && incorrectReason ? { reason: incorrectReason } : {}),
       });
       setLastFeedback(correct ? "got" : "missed");
@@ -593,7 +615,7 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     }, 50);
     tickIntervalRef.current = tick;
     clearResponseTimer();
-    responseTimerIdRef.current = window.setTimeout(() => {
+      responseTimerIdRef.current = window.setTimeout(() => {
       responseTimerIdRef.current = null;
       if (phaseRef.current !== "response") return;
       if (resolvedForItemRef.current) return;
@@ -604,7 +626,9 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         responseStartRef.current != null
           ? Date.now() - responseStartRef.current
           : 0;
-      resolveItemRef.current(false, rt, attemptCountRef.current, "timeout");
+      resolveItemRef.current(false, rt, attemptCountRef.current, "timeout", undefined, {
+        matchReason: "timeout",
+      });
     }, responseMs);
     return () => {
       clearResponseTimer();
@@ -633,6 +657,9 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       itemIndex,
       heardTranscript: t,
       heardToken: lastTok,
+      rawTranscript: t,
+      normalizedResponse: normalizeWordRadarResponse(lastTok),
+      matchRatio: computeMatchRatio(t, item.display),
       attempts: attemptCountRef.current,
       responseTime_ms,
     });
@@ -659,13 +686,20 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
               attemptCountRef.current,
               "correct",
               undefined,
-              { heardTranscript: t, heardToken: token },
+              {
+                heardTranscript: t,
+                heardToken: token,
+                typedResponse: next.join(""),
+                capturedLetters: next,
+                normalizedResponse: next.join(""),
+                matchReason: "spoken_letter_sequence_complete",
+                matchRatio: 1,
+              },
             );
             return;
           }
           continue;
         }
-        spendRetryPenalty();
         setShakeLetterIndex(cursor);
         window.setTimeout(() => setShakeLetterIndex(null), 400);
         return;
@@ -676,11 +710,11 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
     const spokenLetters = buildSpokenLetterBuffer(t, item);
     const spelledWord = spokenLetters.join("");
     const displayWord = item.display.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (
+    const directWordMatch =
       classifyKaraokeWordMatch(lastTok, item.display, { mode: "spelling" }) ===
-        "match" ||
-      (displayWord.length > 0 && spelledWord === displayWord)
-    ) {
+      "match";
+    const spelledLetterMatch = displayWord.length > 0 && spelledWord === displayWord;
+    if (directWordMatch || spelledLetterMatch) {
       if (lastSttResolvedTokenRef.current === lastTok) return;
       lastSttResolvedTokenRef.current = lastTok;
       resolveItemRef.current(
@@ -689,7 +723,14 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         attemptCountRef.current,
         "correct",
         undefined,
-        { heardTranscript: t, heardToken: lastTok },
+        {
+          heardTranscript: t,
+          heardToken: lastTok,
+          ...(spokenLetters.length ? { capturedLetters: spokenLetters } : {}),
+          normalizedResponse: directWordMatch ? normalizeWordRadarResponse(lastTok) : spelledWord,
+          matchReason: directWordMatch ? "spoken_word_match" : "spoken_letter_buffer_match",
+          matchRatio: computeMatchRatio(t, item.display),
+        },
       );
     }
   }, [interimTranscript, phase, itemIndex, items]);
@@ -718,7 +759,12 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
         attemptCountRef.current,
         "correct",
         undefined,
-        { typedResponse: typedBuffer },
+        {
+          typedResponse: typedBuffer,
+          normalizedResponse: normalizeWordRadarResponse(typedBuffer),
+          matchReason: "keyboard_exact_match",
+          matchRatio: 1,
+        },
       );
       return;
     }
@@ -778,7 +824,13 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
               attemptCountRef.current,
               "correct",
               undefined,
-              { typedResponse: next.join("") },
+              {
+                typedResponse: next.join(""),
+                capturedLetters: next,
+                normalizedResponse: next.join(""),
+                matchReason: "keyboard_letter_sequence_complete",
+                matchRatio: 1,
+              },
             );
           }
           return;
@@ -831,7 +883,13 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
           attemptCountRef.current,
           "correct",
           undefined,
-          { typedResponse: locked.join("") },
+          {
+            typedResponse: locked.join(""),
+            capturedLetters: locked,
+            normalizedResponse: locked.join(""),
+            matchReason: "keyboard_letter_sequence_complete",
+            matchRatio: 1,
+          },
         );
       }
       return;
@@ -853,6 +911,10 @@ export function useWordRadar(args: UseWordRadarArgs): UseWordRadarResult {
       attemptCountRef.current,
       "incorrect",
       "skip",
+      {
+        matchReason: "skip",
+        skipped: true,
+      },
     );
   }, []);
 

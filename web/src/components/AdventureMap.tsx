@@ -74,8 +74,8 @@ function nodeResultFromWordRadar(nodeId: string, r: WordRadarResult): NodeResult
       mode: row.recallMode ?? r.recallMode,
       masteryEligible: row.masteryEligible ?? false,
       evidenceTier: row.masteryEligible ? "mastery_candidate" : "practice",
-      ...(row.heardTranscript || row.heardToken || row.typedResponse
-        ? { attemptedValue: row.heardTranscript ?? row.heardToken ?? row.typedResponse }
+      ...(row.typedResponse || row.heardTranscript || row.heardToken
+        ? { attemptedValue: row.typedResponse ?? row.heardTranscript ?? row.heardToken }
         : {}),
       responseTime_ms: row.responseTime_ms,
     })),
@@ -1952,7 +1952,19 @@ export function AdventureMap(props: {
       ) : null}
       {launchedNode?.type === "word-radar" &&
       launchedNode.wordRadarItems &&
-      launchedNode.wordRadarItems.length > 0 ? (
+      launchedNode.wordRadarItems.length > 0 &&
+      !launchedNode.wordRadarConfig ? (
+        <div
+          className="fixed inset-0 z-[42] grid place-items-center bg-[#12002e] text-white"
+          data-testid="word-radar-missing-config"
+        >
+          Word Radar needs planner config.
+        </div>
+      ) : null}
+      {launchedNode?.type === "word-radar" &&
+      launchedNode.wordRadarItems &&
+      launchedNode.wordRadarItems.length > 0 &&
+      launchedNode.wordRadarConfig ? (
         <div key={launchedNode.id} className="fixed inset-0 z-[42] flex flex-col">
           {flowGameBackChrome ? (
             <div
@@ -1974,34 +1986,26 @@ export function AdventureMap(props: {
                 })
               }
               timerSeconds={
-                launchedNode.wordRadarConfig
-                  ? launchedNode.wordRadarConfig.showTimer
-                    ? launchedNode.wordRadarConfig.timerSeconds
-                    : undefined
-                  : props.wordRadarFromProfile?.showTimer === true
-                  ? props.wordRadarFromProfile?.timerSeconds
+                launchedNode.wordRadarConfig.showTimer
+                  ? launchedNode.wordRadarConfig.timerSeconds
                   : undefined
               }
               showKeyboard={
-                launchedNode.wordRadarConfig
-                  ? launchedNode.wordRadarConfig.inputMode === "keyboard"
-                  : props.wordRadarFromProfile?.showKeyboard === true
+                launchedNode.wordRadarConfig.inputMode === "keyboard"
               }
-              inputMode={
-                launchedNode.wordRadarConfig?.inputMode ??
-                props.wordRadarFromProfile?.inputMode
-              }
-              speakStyle={
-                launchedNode.wordRadarConfig?.speakStyle ??
-                props.wordRadarFromProfile?.speakStyle
-              }
-              recallMode={launchedNode.wordRadarConfig?.recallMode}
+              inputMode={launchedNode.wordRadarConfig.inputMode}
+              speakStyle={launchedNode.wordRadarConfig.speakStyle}
+              recallMode={launchedNode.wordRadarConfig.recallMode}
               hideWordDuringResponse={
-                launchedNode.wordRadarConfig?.hideWordDuringResponse
+                launchedNode.wordRadarConfig.hideWordDuringResponse
               }
               requiresCapturedResponse={
-                launchedNode.wordRadarConfig?.requiresCapturedResponse
+                launchedNode.wordRadarConfig.requiresCapturedResponse
               }
+              nodeId={launchedNode.id}
+              planId={launchedNode.planId}
+              targetLane={launchedNode.targetLane}
+              wordRadarConfig={launchedNode.wordRadarConfig}
               keyboardStyle={props.wordRadarFromProfile?.keyboardStyle}
               personalBests={props.wordRadarFromProfile?.personalBests ?? {}}
               companion={props.mapCompanion ?? null}
