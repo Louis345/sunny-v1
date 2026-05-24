@@ -96,6 +96,7 @@ import {
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
   getShowroomCompanionActTools,
+  resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
 } from "./companionShowroomTalk";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
@@ -830,7 +831,7 @@ export function setupRoutes(app: Express): void {
               accepted: Boolean(command),
               commandType: command?.type ?? null,
               instruction:
-                "Now answer the child with the exact short words the companion should say aloud. Do not include stage directions.",
+                "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
             }),
           };
         });
@@ -854,17 +855,24 @@ export function setupRoutes(app: Express): void {
         });
         text = extractAnthropicText(afterTool) || text;
       }
-      const spokenText =
-        text || "I'm here with you. Let's keep going.";
-
-      const elevenlabs = new ElevenLabsClient({ apiKey });
-      const locators = getPronunciationLocators();
-      const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
-        text: spokenText,
-        modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
-        ...(locators && { pronunciationDictionaryLocators: locators }),
+      const spokenText = resolveShowroomSpokenText({
+        rawText: text,
+        companionCommandCount: companionCommands.length,
       });
-      const buffer = await audioLikeToBuffer(audio);
+      let audioBase64: string | undefined;
+      let audioContentType: string | undefined;
+      if (spokenText) {
+        const elevenlabs = new ElevenLabsClient({ apiKey });
+        const locators = getPronunciationLocators();
+        const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
+          text: spokenText,
+          modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
+          ...(locators && { pronunciationDictionaryLocators: locators }),
+        });
+        const buffer = await audioLikeToBuffer(audio);
+        audioBase64 = buffer.toString("base64");
+        audioContentType = "audio/mpeg";
+      }
       const event = createShowroomTalkCompletedEvent({
         childId: talk.childId,
         companionId: talk.companionId,
@@ -886,8 +894,8 @@ export function setupRoutes(app: Express): void {
       res.json({
         ok: true,
         text: spokenText,
-        audioBase64: buffer.toString("base64"),
-        audioContentType: "audio/mpeg",
+        ...(audioBase64 && { audioBase64 }),
+        ...(audioContentType && { audioContentType }),
         companionCommands,
         ...(visualSummary && { visualSummary }),
         event,

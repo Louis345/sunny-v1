@@ -6,6 +6,7 @@ import {
   buildShowroomTalkSystemPrompt,
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
+  resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
 } from "./companionShowroomTalk";
 
@@ -312,7 +313,7 @@ describe("companion showroom talk contract", () => {
     expect(routeSource).toContain("phaseCommands");
   });
 
-  it("requires spoken text even when Claude uses companionAct", () => {
+  it("keeps portrait speech optional when visual companionAct is enough", () => {
     const prompt = buildShowroomTalkSystemPrompt({
       companionId: "elli",
       companionName: "Elli",
@@ -322,8 +323,31 @@ describe("companion showroom talk contract", () => {
       hasFreshVisualSnapshot: false,
     });
 
-    expect(prompt).toContain("Always include words for Elli to say aloud");
-    expect(prompt).toContain("even when you call companionAct");
+    expect(prompt).toContain("Speech is optional");
+    expect(prompt).toContain("visual action is preferred");
+    expect(prompt).not.toContain("Always include words for Elli to say aloud");
+    expect(prompt).not.toContain("even when you call companionAct");
+  });
+
+  it("does not synthesize fallback speech for companionAct-only turns", () => {
+    expect(
+      resolveShowroomSpokenText({
+        rawText: "",
+        companionCommandCount: 1,
+      }),
+    ).toBe("");
+    expect(
+      resolveShowroomSpokenText({
+        rawText: "  Tiny hello.  ",
+        companionCommandCount: 1,
+      }),
+    ).toBe("Tiny hello.");
+    expect(
+      resolveShowroomSpokenText({
+        rawText: "",
+        companionCommandCount: 0,
+      }),
+    ).toBe("I'm here with you. Let's keep going.");
   });
 
   it("does not let companionAct-only turns fall through to the thinking fallback", () => {

@@ -105,7 +105,7 @@ describe("handleGameEventForSession companion_event server routing", () => {
     expect(session.send).toHaveBeenCalled();
   });
 
-  it("routes companion_care_event to the live response path", async () => {
+  it("keeps companion_care_event as VFX/context instead of starting spoken Elli during games", async () => {
     const runCompanionResponse = vi.fn(async (_message: string) => {});
     const session = makeSession({
       runCompanionResponse,
@@ -124,9 +124,8 @@ describe("handleGameEventForSession companion_event server routing", () => {
       companionCare: { moodLabel: "bright" },
     });
 
-    await vi.waitFor(() => expect(runCompanionResponse).toHaveBeenCalled());
-    expect(runCompanionResponse.mock.calls[0]?.[0]).toContain("apple_bite");
-    expect(runCompanionResponse.mock.calls[0]?.[0]).toContain("Word: able");
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(runCompanionResponse).not.toHaveBeenCalled();
     expect(session.noteExternalEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         source: "companion_care_event",

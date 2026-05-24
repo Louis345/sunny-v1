@@ -561,6 +561,10 @@ export async function runCompanionResponseForSession(
         );
       }
 
+      if (typeof session.recordCompanionTruthContradictions === "function") {
+        session.recordCompanionTruthContradictions(fullResponse);
+      }
+
       session.conversationHistory.push(
         { role: "user", content: userMessage },
         { role: "assistant", content: fullResponse },

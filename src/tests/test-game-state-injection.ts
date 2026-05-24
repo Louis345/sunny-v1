@@ -9,6 +9,7 @@ import { compressGameScreenshotBase64 } from "../server/compressGameScreenshot";
 import { handleGameEventForSession } from "../server/game-event-handler";
 import { hostSessionStatus } from "../server/host-tool-handlers";
 import { SessionManager } from "../server/session-manager";
+import { buildCanvasContextMessage, createSessionContext } from "../server/session-context";
 import { TurnStateMachine } from "../server/session-state";
 
 const PNG_1X1_BASE64 =
@@ -168,6 +169,52 @@ describe("buildGameContextSummary", () => {
 describe("SessionManager game context injection", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("broadcasts session context through chartChildId when voice name differs from sandbox chart id", () => {
+    const previousRoot = process.env.SUNNY_CONTEXT_ROOT;
+    process.env.SUNNY_CONTEXT_ROOT = `${process.cwd()}/.sunny-sandbox/context`;
+    try {
+      const ws = mockWs();
+      const sm = new SessionManager(ws, "Ila", false, { chartChildId: "demo_adaptive" });
+      (sm as unknown as { ctx: { serialize: () => unknown } }).ctx = {
+        serialize: () => ({ sessionId: "sandbox-context" }),
+      };
+
+      expect(() =>
+        (sm as unknown as { broadcastContext: () => void }).broadcastContext(),
+      ).not.toThrow();
+
+      const sent = vi.mocked(ws.send).mock.calls.map(([raw]) => JSON.parse(String(raw)));
+      expect(sent).toContainEqual(
+        expect.objectContaining({
+          type: "session_context",
+          sessionId: "sandbox-context",
+          readingCanvas: expect.any(Object),
+        }),
+      );
+    } finally {
+      if (previousRoot === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+      else process.env.SUNNY_CONTEXT_ROOT = previousRoot;
+    }
+  });
+
+  it("builds per-turn learning context through chartChildId when voice name differs from sandbox chart id", () => {
+    const previousRoot = process.env.SUNNY_CONTEXT_ROOT;
+    process.env.SUNNY_CONTEXT_ROOT = `${process.cwd()}/.sunny-sandbox/context`;
+    try {
+      const ctx = createSessionContext({
+        childName: "Ila",
+        chartChildId: "demo_adaptive",
+        sessionType: "homework",
+        companionName: "Elli",
+      });
+
+      expect(() => buildCanvasContextMessage(ctx, { lastChildUtterance: "help" })).not.toThrow();
+    } finally {
+      if (previousRoot === undefined) delete process.env.SUNNY_CONTEXT_ROOT;
+      else process.env.SUNNY_CONTEXT_ROOT = previousRoot;
+    }
+  });
+
   it("injectGameContext updates board state without queuing a companion heartbeat", async () => {
     const sm = new SessionManager(mockWs(), "Ila");
     sm.injectGameContext({ phase: "spin", wheelValue: "Jackpot" });
@@ -207,8 +254,8 @@ describe("SessionManager game context injection", () => {
       game: "spell-check",
       progress: "Spell check on screen",
     });
-    const msgs = sm.takePendingGameContextMessages();
-    const body = String(msgs[0].content);
+    expect(sm.takePendingGameContextMessages()).toEqual([]);
+    const body = sm.buildCurrentBoardContextForTurn("What happened?");
     expect(body).toContain("word-radar");
     expect(body).not.toContain("Spell check on screen");
   });
@@ -229,8 +276,8 @@ describe("SessionManager game context injection", () => {
       completed: true,
       wordsAttempted: 8,
     });
-    const msgs = sm.takePendingGameContextMessages();
-    const body = String(msgs[0].content);
+    expect(sm.takePendingGameContextMessages()).toEqual([]);
+    const body = sm.buildCurrentBoardContextForTurn("What happened?");
     expect(body).toContain("pronunciation");
     expect(body).toContain("59%");
     expect(body).not.toContain("Old heartbeat");
@@ -275,19 +322,18 @@ describe("takePendingGameContextMessages", () => {
     expect(sm.takePendingGameContextMessages()).toEqual([]);
   });
 
-  it("returns 2 messages when authoritative completion context is queued", () => {
+  it("does not emit synthetic companion messages when authoritative completion context is queued", () => {
     const sm = new SessionManager(mockWs(), "Ila");
     sm.queueNodeCompletionHandoff({ phase: "node_complete", game: "spell-check" });
-    const msgs = sm.takePendingGameContextMessages();
-    expect(msgs).toHaveLength(2);
-    expect(msgs[0].role).toBe("user");
-    expect(msgs[1].role).toBe("assistant");
+    expect(sm.takePendingGameContextMessages()).toEqual([]);
+    expect(sm.buildCurrentBoardContextForTurn("What happened?")).toContain("spell-check");
+    expect(sm.buildCurrentBoardContextForTurn("What happened?")).toContain("node_complete");
   });
 
   it("returns [] on second call (consumed)", () => {
     const sm = new SessionManager(mockWs(), "Ila");
     sm.queueNodeCompletionHandoff({ phase: "node_complete", score: 10 });
-    expect(sm.takePendingGameContextMessages().length).toBe(2);
+    expect(sm.takePendingGameContextMessages()).toEqual([]);
     expect(sm.takePendingGameContextMessages()).toEqual([]);
   });
 });

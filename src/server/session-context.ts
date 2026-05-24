@@ -97,6 +97,7 @@ export interface AttemptRecord {
 
 export interface SessionContext {
   childName: string;
+  chartChildId: string;
   companionName: string;
   sessionType: SessionType;
 
@@ -197,6 +198,7 @@ export interface SerializedSessionContext {
 
 export function createSessionContext(opts: {
   childName: string;
+  chartChildId?: string;
   sessionType: SessionType;
   companionName?: string;
   assignment?: AssignmentManifest;
@@ -221,6 +223,7 @@ export function createSessionContext(opts: {
 
   const ctx: SessionContext = {
     childName: opts.childName,
+    chartChildId: opts.chartChildId?.trim().toLowerCase() || opts.childName.toLowerCase(),
     companionName:
       opts.companionName ??
       (opts.childName === "Ila"
@@ -335,7 +338,7 @@ export function getSLPBlock(ctx: SessionContext): string {
 export function getLearningStateBlock(ctx: SessionContext): string {
   if (ctx.sessionType === "diag") return "";
   console.log("[learning-state] injecting into context message");
-  const childId = ctx.childName.toLowerCase();
+  const childId = ctx.chartChildId;
   const diffSignal = getSessionDifficultySignal(childId);
   const rewardState = getSessionRewardState(childId);
   const lines: string[] = [];
@@ -354,7 +357,7 @@ export function getLearningStateBlock(ctx: SessionContext): string {
 
 export function getWilsonBlock(ctx: SessionContext): string {
   if (ctx.sessionType === "diag") return "";
-  const childId = ctx.childName.toLowerCase();
+  const childId = ctx.chartChildId;
   let wilsonStep: number;
   let moodAdjustment: boolean;
   if (ctx.enginePlan) {
@@ -374,7 +377,7 @@ export function getWilsonBlock(ctx: SessionContext): string {
 
 export function getReadingProfileBlock(ctx: SessionContext): string {
   if (ctx.sessionType === "diag") return "";
-  const childId = ctx.childName.toLowerCase();
+  const childId = ctx.chartChildId;
   const profReading = readLearningProfile(childId);
   const rc = getReadingCanvasPreferences(profReading?.readingProfile);
   const lines: string[] = [`[Reading Profile]`];

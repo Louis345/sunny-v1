@@ -20,8 +20,6 @@ import {
   generateToolNamesLine,
 } from "./elli/tools/generateToolDocs";
 import { generateGameConfigDocs } from "../profile/generateGameConfigDocs";
-import { buildProfile } from "../profiles/buildProfile";
-import { readLearningProfile } from "../utils/learningProfileIO";
 import {
   readCompanionBaseMarkdown,
   readCompanionSoulMarkdownFromAbsolute,
@@ -195,50 +193,6 @@ Why these words given evaluation data in the profile
 ## Success Looks Like
 Observable progress markers for ${childName}
 `.trim();
-}
-
-/** After Word Builder rounds — same cue as psychologist brief + session_complete. */
-const POST_WB_SPELL_CUE = "Ask whole-word spelling from memory.";
-
-/** Fill-blanks word-builder — server advances rounds. */
-export function WORD_BUILDER_ROUND_COMPLETE(
-  round: number,
-  word: string,
-  attempts: number
-): string {
-  void attempts;
-  if (round === 1) {
-    return `[System: "${word}" round 1/4 complete — Nice work! Keep going!]`;
-  }
-  if (round === 2) {
-    return `[System: "${word}" round 2/4 — You're halfway there — keep it up!]`;
-  }
-  if (round === 4) {
-    return `[System: "${word}" round 4/4 — YES! Built! ${POST_WB_SPELL_CUE}]`;
-  }
-  return `[System: "${word}" round ${round}/4 — Keep going!]`;
-}
-
-/** No target word in text — avoids giving away the answer in the system prompt. */
-export function WORD_BUILDER_ROUND_FAILED(round: number, _word: string): string {
-  void _word;
-  if (round >= 4) {
-    return `[System: Final round — all attempts used. Be warm; the game is done.]`;
-  }
-  return `[System: Round ${round}/4 — So close! Try the next pattern.]`;
-}
-
-/** After iframe posts game_complete — board clears, ask voice spelling from memory. */
-export function WORD_BUILDER_SESSION_COMPLETE(
-  childLabel: string,
-  word: string
-): string {
-  return `[Word Builder complete for ${word}. Canvas clear. ${POST_WB_SPELL_CUE} (${childLabel}). One sentence only.]`;
-}
-
-/** Spell-check typing game — child typed the word on canvas keyboard. */
-export function SPELL_CHECK_CORRECT(childLabel: string, word: string): string {
-  return `[System: ${childLabel} typed "${word}" correctly in the spell-check typing game. Celebrate briefly; then continue with voice spelling or the next word.]`;
 }
 
 export function INTAKE_PROMPT(child: "Ila" | "Reina", soulContent: string): string {
@@ -568,15 +522,11 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
       "\n\n" +
       "The adventure map controls which activities appear on screen. " +
       "Do not use canvasShow, canvasClear, or canvasStatus. " +
-      "Stay in voice: narrate, encourage, and use companionAct. " +
-      "Use sessionLog and sessionStatus as usual. " +
-      "The child earns digital food by finishing map nodes; remind them naturally that food lives in the companion Bookbag and can help their companion feel ready.\n\n" +
+      "Use sessionLog and sessionStatus as usual.\n\n" +
       adaptiveMicroProbeInstructions() +
       "\n\n" +
       "## Your tools\n" +
-      generateAdventureMapVoiceToolDocs() +
-      "\n\n" +
-      generateCompanionCapabilities()
+      generateAdventureMapVoiceToolDocs()
     );
   }
   return (
@@ -765,27 +715,7 @@ export async function buildSessionPrompt(
   const companionCtx = fs.existsSync(companionContextPath)
     ? fs.readFileSync(companionContextPath, "utf-8").trim()
     : "";
-  const profile = await buildProfile(childName.toLowerCase());
-  const learningProfile = readLearningProfile(childName.toLowerCase());
-  const bossConfig = profile?.games?.boss;
-  const totalSessions = learningProfile?.sessionStats?.totalSessions ?? 0;
-  const QUEST_UNLOCK_THRESHOLD = 10;
-  const sessionsRemaining = Math.max(0, QUEST_UNLOCK_THRESHOLD - totalSessions);
-  const questStatusLine = bossConfig?.dataThresholdMet
-    ? `The AI Challenge node is unlocked and available on the map.`
-    : `The AI Challenge node is NOT yet unlocked.
-The child needs ${sessionsRemaining} more session(s).
-Do NOT tell the child the exact number.
-If asked, say "keep going — something special is coming soon."
-Build anticipation. Never cause disappointment.`;
-  const mapStatusSection = `## Map Status
-${questStatusLine}`;
-
-  const homeworkSection = homeworkContent?.trim()
-    ? `## Context: words in today's adventure\n` +
-      `(These appear in nodes. You don't teach them. The map does.)\n` +
-      `${homeworkContent.slice(0, 2000)}`
-    : "";
+  void homeworkContent;
 
   const individualSoul = individualMd.trim();
   const promptText = [
@@ -794,8 +724,6 @@ ${questStatusLine}`;
     individualSoul,
     personality,
     companionCtx,
-    mapStatusSection,
-    homeworkSection,
   ].filter(Boolean).join("\n\n");
   console.log(`  🧩 Session prompt template ${TEMPLATE_VERSION}`);
 

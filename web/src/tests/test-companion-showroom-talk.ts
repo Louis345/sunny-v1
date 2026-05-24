@@ -5,9 +5,15 @@ import {
   createShowroomVideoChatEntryCopy,
   createShowroomVideoChatStartedEvent,
   createShowroomTalkPayload,
+  getShowroomTalkRequestedAnimation,
+  getShowroomVoiceErrorRecovery,
   shouldIgnoreShowroomAutoResumeTranscript,
   shouldApplyShowroomTalkCommand,
   shouldGateShowroomTalkMic,
+  shouldIdleImmediatelyAfterSilentTalk,
+  shouldPlayShowroomListeningGesture,
+  selectShowroomTalkPlaybackCommands,
+  toShowroomIdleLoopCommand,
 } from "../components/CompanionShowroom";
 
 describe("CompanionShowroom talk mode", () => {
@@ -149,16 +155,18 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).not.toContain("setInterval(captureShowroomVideoSnapshot");
   });
 
-  it("keeps video chat hands-free by resuming listening after companion speech", () => {
+  it("does not auto-resume listening after companion speech until echo control is stronger", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
       "utf8",
     );
 
     expect(source).toContain("videoChatContinuousListenRef");
-    expect(source).toContain("if (videoChatContinuousListenRef.current)");
-    expect(source).toContain("SHOWROOM_VIDEO_CHAT_RESUME_DELAY_MS");
     expect(source).toContain("startShowroomTalkListening({ source: \"video_call\" })");
+    expect(source).toContain("auto-start");
+    expect(source).not.toContain("SHOWROOM_VIDEO_CHAT_RESUME_DELAY_MS");
+    expect(source).not.toContain("queueVideoChatListeningResumeRef");
+    expect(source).not.toContain("listen_resume");
     expect(source).not.toContain("Push to talk");
   });
 
@@ -212,5 +220,167 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("createShowroomEmoteCommand");
     expect(source).toContain('emote: "thinking"');
     expect(source).not.toContain('playCurrentCompanionAnimation("think", { loop: true })');
+  });
+
+  it("keeps video-call no-speech from becoming child-visible error spam", () => {
+    expect(
+      getShowroomVoiceErrorRecovery({
+        source: "video_call",
+        error: "no-speech",
+        retryCount: 0,
+      }),
+    ).toEqual({
+      displayError: null,
+      shouldRetry: true,
+      quietRetry: true,
+      nextRetryCount: 1,
+    });
+    expect(
+      getShowroomVoiceErrorRecovery({
+        source: "video_call",
+        error: "no-speech",
+        retryCount: 2,
+      }),
+    ).toEqual({
+      displayError: null,
+      shouldRetry: false,
+      quietRetry: true,
+      nextRetryCount: 2,
+    });
+    expect(
+      getShowroomVoiceErrorRecovery({
+        source: "showroom",
+        error: "no-speech",
+        retryCount: 0,
+      }),
+    ).toMatchObject({
+      displayError: "Voice input: no-speech",
+      shouldRetry: false,
+    });
+  });
+
+  it("does not gesture every time video-call listening restarts", () => {
+    expect(shouldPlayShowroomListeningGesture("showroom")).toBe(true);
+    expect(shouldPlayShowroomListeningGesture("video_call")).toBe(false);
+    expect(shouldPlayShowroomListeningGesture("video_call", { quiet: false })).toBe(false);
+  });
+
+  it("limits a talk turn to one body animation and prefers the real dance move", () => {
+    const base = {
+      apiVersion: "1.0" as const,
+      childId: "showroom",
+      source: "claude" as const,
+      timestamp: Date.now(),
+    };
+    const selected = selectShowroomTalkPlaybackCommands([
+      {
+        ...base,
+        type: "animate",
+        payload: { animation: "wave", loop: false },
+      },
+      {
+        ...base,
+        timestamp: base.timestamp + 1,
+        type: "animate",
+        payload: { animation: "dance_victory", loop: false },
+      },
+      {
+        ...base,
+        timestamp: base.timestamp + 2,
+        type: "emote",
+        payload: { emote: "happy", intensity: 0.8 },
+      },
+    ]);
+
+    expect(selected).toHaveLength(2);
+    expect(selected[0]).toMatchObject({
+      type: "animate",
+      payload: { animation: "dance_victory" },
+    });
+    expect(selected[1]).toMatchObject({
+      type: "emote",
+      payload: { emote: "happy" },
+    });
+  });
+
+  it("routes child dance requests through the companion signature dance", () => {
+    const base = {
+      apiVersion: "1.0" as const,
+      childId: "showroom",
+      source: "claude" as const,
+      timestamp: Date.now(),
+    };
+    const requestedAnimation = getShowroomTalkRequestedAnimation({
+      question: "Can you do your signature dance?",
+      specialDance: "silly_dancing",
+    });
+    const selected = selectShowroomTalkPlaybackCommands(
+      [
+        {
+          ...base,
+          type: "animate",
+          payload: { animation: "wave", loop: false },
+        },
+      ],
+      { requestedAnimation },
+    );
+
+    expect(requestedAnimation).toBe("silly_dancing");
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toMatchObject({
+      source: "diag",
+      type: "animate",
+      payload: { animation: "silly_dancing", loop: false },
+    });
+  });
+
+  it("lets silent visual-only dance turns finish instead of canceling them with idle", () => {
+    const danceCommand = {
+      apiVersion: "1.0" as const,
+      childId: "showroom",
+      source: "diag" as const,
+      timestamp: Date.now(),
+      type: "animate",
+      payload: { animation: "salsa_dancing", loop: false },
+    };
+
+    expect(shouldIdleImmediatelyAfterSilentTalk([danceCommand])).toBe(false);
+    expect(shouldIdleImmediatelyAfterSilentTalk([])).toBe(true);
+  });
+
+  it("forces talk completion back to a looping idle animation", () => {
+    const idleCommand = {
+      apiVersion: "1.0" as const,
+      childId: "showroom",
+      source: "claude" as const,
+      timestamp: Date.now(),
+      type: "animate",
+      payload: { animation: "idle", loop: false },
+    };
+
+    expect(toShowroomIdleLoopCommand(idleCommand)).toMatchObject({
+      type: "animate",
+      payload: { animation: "idle", loop: true },
+    });
+    expect(toShowroomIdleLoopCommand(idleCommand).source).toBe("diag");
+    expect(toShowroomIdleLoopCommand(idleCommand).timestamp).not.toBe(
+      idleCommand.timestamp,
+    );
+    expect(toShowroomIdleLoopCommand(null)).toMatchObject({
+      type: "animate",
+      payload: { animation: "idle", loop: true },
+    });
+  });
+
+  it("logs the video-call speech-to-idle transition for human-caught pose bugs", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("[showroom-talk] speaking_start");
+    expect(source).toContain("[showroom-talk] audio_ended");
+    expect(source).toContain("[showroom-talk] idle_applied");
+    expect(source).not.toContain("[showroom-talk] listen_resume");
   });
 });

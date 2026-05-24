@@ -24,7 +24,7 @@ import {
   extractHomeworkProblems,
   type HomeworkExtractionResult,
 } from "../agents/psychologist/psychologist";
-import { childIdFromName, planSession } from "../engine/learningEngine";
+import { planSession } from "../engine/learningEngine";
 import { buildAdventureMapFromSessionPlan } from "../engine/sessionPlanFromChart";
 import { getChildChart } from "../profiles/childChart";
 import { computeProgression } from "../engine/progression";
@@ -74,11 +74,12 @@ import {
 } from "./session-context";
 import type { ChildName } from "../companions/loader";
 
-function parseSunnyChildEnv(): ChildName | null {
+function parseSunnyChildEnv(): string | null {
   const v = process.env.SUNNY_CHILD?.trim().toLowerCase();
   if (v === "ila") return "Ila";
   if (v === "reina") return "Reina";
   if (v === "creator") return "creator";
+  if (v && /^[a-z0-9_-]+$/.test(v)) return v;
   return null;
 }
 
@@ -321,11 +322,8 @@ export function buildHomeworkSessionStartPrompt(opts: {
   );
   const lines = [
     "[Session start — homework map mounted]",
-    `Speak to ${opts.childName} as the child, not the parent.`,
-    "Do not address the parent or caregiver.",
-    "Generate exactly one short sentence.",
-    "No random greeting, standard opener, capability list, or demo language.",
-    "Use this active homework context naturally:",
+    "Context only: the map is mounted. Do not speak from this note.",
+    "Map controls activities; wait for child action, help requests, or product issues.",
     `homeworkId: ${pendingHomework?.homeworkId ?? "unknown"}`,
   ];
   if (pendingHomework?.testDate) lines.push(`testDate: ${pendingHomework.testDate}`);
@@ -350,7 +348,6 @@ export function buildHomeworkSessionStartPrompt(opts: {
   if (firstNodeWords) {
     lines.push(`First node words: ${firstNodeWords}`);
   }
-  lines.push("Invite the child to start the first map node when ready.");
   return lines.join("\n");
 }
 
@@ -418,7 +415,7 @@ export async function runSessionStart(
     const detectedChild = session.childName;
     const homeworkChild = session.diagKioskFast
       ? session.childName
-      : (parseSunnyChildEnv() ?? detectedChild ?? "Ila");
+      : (session.chartChildId ?? parseSunnyChildEnv() ?? detectedChild ?? "Ila");
     console.log(`  👤 Child override: ${homeworkChild}`);
 
     if (!session.diagKioskFast && subject === "homework") {
@@ -501,7 +498,7 @@ export async function runSessionStart(
 
       let extraction: HomeworkExtractionResult = { subject: "", problems: [] };
       try {
-        console.log("  🧠 Psychologist extracting worksheet problems...");
+        console.log("  🧠 [legacy_worksheet_extraction] extracting worksheet problems...");
         session.send("loading_status", {
           message: "Reading worksheet questions...",
         });
@@ -758,7 +755,7 @@ export async function runSessionStart(
 
       if (!loadedFromCache && !useDiagHomeworkPrompt && !playtestAsChild) {
         try {
-          console.log("  🧠 Psychologist extracting worksheet problems...");
+          console.log("  🧠 [legacy_worksheet_extraction] extracting worksheet problems...");
           session.send("loading_status", {
             message: "Reading worksheet questions...",
           });
@@ -1217,6 +1214,7 @@ export async function runSessionStart(
     });
     session.ctx = createSessionContext({
       childName: session.childName,
+      chartChildId: session.chartChildId,
       sessionType,
       companionName: session.companion.name,
       assignment: session.assignmentManifest
@@ -1260,7 +1258,7 @@ export async function runSessionStart(
       !session.worksheetMode &&
       (sessionType === "spelling" || sessionType === "homework")
     ) {
-      const childId = session.childName.toLowerCase();
+      const childId = String(session.chartChildId ?? homeworkChild).toLowerCase();
       const engineMode = subject === "homework" ? "homework" : "spelling";
       let enginePlan = planSession(childId, engineMode);
       const selected =
@@ -1274,7 +1272,7 @@ export async function runSessionStart(
     }
 
     if (sessionType === "reading" && subject === "reading" && session.ctx) {
-      const childId = session.childName.toLowerCase();
+      const childId = String(session.chartChildId ?? homeworkChild).toLowerCase();
       const enginePlan = planSession(childId, "reading");
       session.ctx.enginePlan = enginePlan;
       console.log(
@@ -1376,7 +1374,7 @@ This is a safe space to test everything.
       diagKiosk: session.diagKioskFast,
     });
     try {
-      const progression = computeProgression(childIdFromName(session.childName));
+      const progression = computeProgression(String(session.chartChildId ?? homeworkChild).toLowerCase());
       session.send("progression", { ...progression } as Record<string, unknown>);
       console.log(
         `  🎮 [engine] progression: level ${progression.level}, ` +
@@ -1444,18 +1442,7 @@ This is a safe space to test everything.
         sessionLearningProfile?.pendingHomework
       ) {
         console.log(
-          "  🎮 [session-bootstrap] [context-start] homework opener requested",
-        );
-        await session.handleEndOfTurn(
-          buildHomeworkSessionStartPrompt({
-            childName: String(homeworkChild),
-            pendingHomework: sessionLearningProfile.pendingHomework,
-            activeMapFirstNode: resolveHomeworkOpenerFirstNode({
-              childId: String(homeworkChild).toLowerCase(),
-              activeMapFirstNode: activeMapState?.nodes?.[0] ?? null,
-            }),
-          }),
-          true,
+          "  🎮 [session-bootstrap] [context-start] homework opener skipped — map starts silently",
         );
       } else {
         console.log("  🎮 [session-bootstrap] [opening-line] skipped");

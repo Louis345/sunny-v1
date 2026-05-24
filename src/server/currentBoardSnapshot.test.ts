@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCurrentBoardSnapshot,
   buildCurrentBoardSnapshotContext,
+  findCompanionTruthContradictions,
 } from "./currentBoardSnapshot";
 
 describe("CurrentBoardSnapshot", () => {
@@ -88,5 +89,30 @@ describe("CurrentBoardSnapshot", () => {
     expect(serialized).not.toContain("12000");
     expect(serialized).not.toContain("secret");
     expect(serialized).not.toContain("base64");
+  });
+
+  it("detects companion claims that contradict the current truth packet", () => {
+    const snapshot = buildCurrentBoardSnapshot({
+      childId: "ila",
+      sessionId: "voice-1",
+      state: {
+        game: "word-radar",
+        activityId: "word-radar",
+        phase: "complete",
+        accuracy: 0.57,
+        evidenceTier: "practice",
+        masteryEligible: false,
+        questState: "locked",
+        bossState: "locked",
+      },
+    });
+
+    const contradictions = findCompanionTruthContradictions(
+      "You crushed Word Radar with 100% accuracy and the boss level is unlocked.",
+      snapshot,
+    );
+
+    expect(contradictions).toContain("mastery_claim_contradicts_activity_result");
+    expect(contradictions).toContain("boss_unlock_claim_contradicts_board_state");
   });
 });

@@ -14,6 +14,7 @@ const MAX_SHOWROOM_QUESTION_LENGTH = 500;
 const MAX_VISUAL_SUMMARY_LENGTH = 360;
 const MAX_VISUAL_SNAPSHOT_BASE64_LENGTH = 700_000;
 const MAX_VISUAL_SNAPSHOT_DIMENSION = 1024;
+const SHOWROOM_TALK_FALLBACK_TEXT = "I'm here with you. Let's keep going.";
 const SHOWROOM_COMPANION_ACT_CAPABILITIES = [
   ...COMPANION_CAPABILITIES.keys(),
 ] as string[];
@@ -250,9 +251,10 @@ export function buildShowroomTalkSystemPrompt(input: {
     "Use a warm, child-safe tone. Ask at most one follow-up question.",
     "If you want emotion, show emotion through movement with companionAct rather than describing stage directions in words.",
     "Do not say stage directions. Do not say things like 'I wave', '*waves*', or 'I smile'; call companionAct for that motion and keep spoken text natural.",
-    `Always include words for ${input.companionName} to say aloud, even when you call companionAct.`,
+    "Speech is optional; visual action is preferred when the child is working, feeding, earning a reward, or just hanging out.",
+    "When no spoken answer adds value, use companionAct and leave the spoken text empty.",
     "Do not mention rewards, currency, store purchases, or talent unlocks.",
-    "Return only the words the companion should say aloud.",
+    "Return only the words the companion should say aloud, or an empty string when silence is better.",
   ];
   if (input.mode === "video_call") {
     lines.push(
@@ -268,6 +270,16 @@ export function buildShowroomTalkSystemPrompt(input: {
     }
   }
   return lines.join("\n");
+}
+
+export function resolveShowroomSpokenText(input: {
+  rawText: string;
+  companionCommandCount: number;
+}): string {
+  const trimmed = input.rawText.trim();
+  if (trimmed) return trimmed;
+  if (input.companionCommandCount > 0) return "";
+  return SHOWROOM_TALK_FALLBACK_TEXT;
 }
 
 export function buildShowroomClaudeMessages(input: {

@@ -22,6 +22,7 @@ import {
   type CompanionManifestEntry,
 } from "../companion/companions.generated";
 import type {
+  AnimationName,
   CameraAngle,
   CompanionCommand,
 } from "../../../src/shared/companions/companionContract";
@@ -415,7 +416,24 @@ const accent = "#6D5EF5";
 const confettiColours = ["#6D5EF5", "#a78bfa", "#fbbf24", "#f472b6", "#34d399"];
 const SHOWROOM_COMMAND_CHILD_ID = "showroom";
 const SHOWROOM_MAX_DISPLAY_SCALE = 1.25;
-const SHOWROOM_VIDEO_CHAT_RESUME_DELAY_MS = 950;
+const SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_DELAY_MS = 900;
+const SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_LIMIT = 2;
+const SHOWROOM_EXPRESSIVE_ANIMATIONS = new Set([
+  "blow_a_kiss",
+  "dance_victory",
+  "fireball",
+  "hip_hop_dancing",
+  "hip_hop_dancing_2",
+  "ponder_moment",
+  "quick_formal_bow",
+  "salsa_dancing",
+  "shrug",
+  "silly_dancing",
+  "silly_laugh",
+  "surprise_jump",
+]);
+const SHOWROOM_DANCE_REQUEST_PATTERN =
+  /\b(dance|dancing|signature dance|signature move|show me your moves?|show your moves?|bust a move|boogie)\b/i;
 let showroomCommandSequence = 0;
 const sparkleSeeds = [
   { left: "9%", top: "18%", delay: "0s", size: 3 },
@@ -1174,12 +1192,112 @@ export function shouldGateShowroomTalkMic(phase: string): boolean {
   return phase === "thinking" || phase === "speaking";
 }
 
+export function shouldPlayShowroomListeningGesture(
+  source: ShowroomTalkMode | undefined,
+  opts: { quiet?: boolean } = {},
+): boolean {
+  return source !== "video_call" && opts.quiet !== true;
+}
+
+export function getShowroomVoiceErrorRecovery(args: {
+  source: ShowroomTalkMode | undefined;
+  error?: string;
+  retryCount: number;
+}): {
+  displayError: string | null;
+  shouldRetry: boolean;
+  quietRetry: boolean;
+  nextRetryCount: number;
+} {
+  if (args.error === "aborted") {
+    return {
+      displayError: null,
+      shouldRetry: false,
+      quietRetry: true,
+      nextRetryCount: args.retryCount,
+    };
+  }
+  if (args.source === "video_call" && args.error === "no-speech") {
+    const nextRetryCount = Math.min(
+      args.retryCount + 1,
+      SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_LIMIT,
+    );
+    return {
+      displayError: null,
+      shouldRetry: args.retryCount < SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_LIMIT,
+      quietRetry: true,
+      nextRetryCount,
+    };
+  }
+  return {
+    displayError: args.error ? `Voice input: ${args.error}` : "Voice input failed.",
+    shouldRetry: false,
+    quietRetry: false,
+    nextRetryCount: args.retryCount,
+  };
+}
+
 export function shouldApplyShowroomTalkCommand(
   command: CompanionCommand,
   selectedCompanionId: string,
 ): boolean {
   const companionId = command.payload?.companionId;
   return typeof companionId !== "string" || companionId === selectedCompanionId;
+}
+
+function isShowroomAnimationName(value: unknown): value is AnimationName {
+  return (
+    typeof value === "string" &&
+    (COMPANION_ANIMATION_IDS as readonly string[]).includes(value)
+  );
+}
+
+export function getShowroomTalkRequestedAnimation(input: {
+  question: string;
+  specialDance?: string | null;
+}): AnimationName | null {
+  if (!SHOWROOM_DANCE_REQUEST_PATTERN.test(input.question)) return null;
+  return isShowroomAnimationName(input.specialDance)
+    ? input.specialDance
+    : "dance_victory";
+}
+
+export function selectShowroomTalkPlaybackCommands(
+  commands: readonly CompanionCommand[],
+  opts: { requestedAnimation?: AnimationName | null } = {},
+): CompanionCommand[] {
+  const nonAnimateCommands = commands.filter((command) => command.type !== "animate");
+  if (opts.requestedAnimation) {
+    return [
+      createShowroomAnimateCommand(opts.requestedAnimation, { loop: false }),
+      ...nonAnimateCommands,
+    ];
+  }
+  const animateCommands = commands.filter((command) => command.type === "animate");
+  const preferredAnimate =
+    animateCommands.find((command) => {
+      const animation = command.payload?.animation;
+      return typeof animation === "string" && SHOWROOM_EXPRESSIVE_ANIMATIONS.has(animation);
+    }) ?? animateCommands[0];
+
+  return preferredAnimate
+    ? [preferredAnimate, ...nonAnimateCommands]
+    : [...nonAnimateCommands];
+}
+
+export function shouldIdleImmediatelyAfterSilentTalk(
+  playbackCommands: readonly CompanionCommand[],
+): boolean {
+  return !playbackCommands.some((command) => command.type === "animate");
+}
+
+export function toShowroomIdleLoopCommand(
+  _command: CompanionCommand | null | undefined,
+): CompanionCommand {
+  // Audio completion must not reuse a Claude animate command timestamp. The
+  // motor de-dupes by timestamp/type/child/source, so back-to-back speaking and
+  // idle commands can otherwise collapse and leave the prior talking loop alive.
+  return createShowroomAnimateCommand("idle", { loop: true });
 }
 
 function audioBase64ToBlob(base64: string, contentType: string): Blob {
@@ -2403,7 +2521,7 @@ export function CompanionShowroom({
   const showroomVideoStreamRef = useRef<MediaStream | null>(null);
   const videoChatMotorRef = useRef<CompanionMotor | null>(null);
   const videoChatContinuousListenRef = useRef(false);
-  const queueVideoChatListeningResumeRef = useRef<(() => void) | null>(null);
+  const videoChatNoSpeechRetryCountRef = useRef(0);
   const powerUpSfxRef = useRef<AmbientMusicHandle | null>(null);
   const swipeFromXRef = useRef<number | null>(null);
   const getSpeechAnalyser = useCallback(() => speechAnalyserRef.current, []);
@@ -2658,6 +2776,7 @@ export function CompanionShowroom({
   const resetShowroomTalk = useCallback(() => {
     showroomSpeechRecognitionRef.current?.abort();
     showroomSpeechRecognitionRef.current = null;
+    videoChatNoSpeechRetryCountRef.current = 0;
     setShowroomTalkPhase("idle");
     setShowroomTalkQuestion("");
     setShowroomTalkResponse("");
@@ -2801,26 +2920,59 @@ export function CompanionShowroom({
           setShowroomVideoLastVisualSummary(data.visualSummary.trim());
         }
         setShowroomTalkPhase("speaking");
+        console.log(
+          ` 🎮 [showroom-talk] speaking_start companion=${current.id} mode=${talkMode} commands=${data.companionCommands?.length ?? 0}`,
+        );
+        videoChatNoSpeechRetryCountRef.current = 0;
         const applyTalkCommand = (command: CompanionCommand) => {
           if (!shouldApplyShowroomTalkCommand(command, current.id)) return;
           processShowroomCommand(motorsRef.current.current, command);
           processShowroomCommand(cardMotorRef.current, command);
           processShowroomCommand(videoChatMotorRef.current, command);
         };
+        const requestedAnimation = getShowroomTalkRequestedAnimation({
+          question,
+          specialDance: current.showroom?.gestureProfile.specialDance,
+        });
+        if (requestedAnimation) {
+          console.log(
+            ` 🎮 [showroom-talk] signature_dance_requested companion=${current.id} animation=${requestedAnimation}`,
+          );
+        }
+        const playbackCommands = selectShowroomTalkPlaybackCommands(
+          data.companionCommands ?? [],
+          { requestedAnimation },
+        );
+        const hasPlaybackAnimation = playbackCommands.some(
+          (command) => command.type === "animate",
+        );
         const speakingCommand = data.phaseCommands?.speaking;
-        if (speakingCommand && shouldApplyShowroomTalkCommand(speakingCommand, current.id)) {
+        if (
+          !hasPlaybackAnimation &&
+          speakingCommand &&
+          shouldApplyShowroomTalkCommand(speakingCommand, current.id)
+        ) {
           applyTalkCommand(speakingCommand);
-        } else {
+        } else if (!hasPlaybackAnimation) {
           playCurrentCompanionAnimation("talking", { loop: true });
         }
-        for (const command of data.companionCommands ?? []) {
+        for (const command of playbackCommands) {
           applyTalkCommand(command);
         }
 
         if (!data.audioBase64) {
-          playCurrentCompanionAnimation("idle", { loop: true });
+          if (shouldIdleImmediatelyAfterSilentTalk(playbackCommands)) {
+            const idleCommand = toShowroomIdleLoopCommand(data.phaseCommands?.idle);
+            applyTalkCommand(idleCommand);
+            console.log(
+              ` 🎮 [showroom-talk] idle_applied companion=${current.id} reason=no_audio loop=${String(idleCommand.payload.loop)}`,
+            );
+          } else {
+            console.log(
+              ` 🎮 [showroom-talk] visual_action_only companion=${current.id} animation=${String(playbackCommands.find((command) => command.type === "animate")?.payload.animation ?? "unknown")}`,
+            );
+          }
           setShowroomTalkPhase("idle");
-          queueVideoChatListeningResumeRef.current?.();
           return;
         }
 
@@ -2844,12 +2996,14 @@ export function CompanionShowroom({
         speechAnalyserRef.current = analyser;
         speechAudioRef.current = { audio, context };
         audio.addEventListener("ended", () => {
-          const idleCommand = data.phaseCommands?.idle;
-          if (idleCommand && shouldApplyShowroomTalkCommand(idleCommand, current.id)) {
-            applyTalkCommand(idleCommand);
-          } else {
-            playCurrentCompanionAnimation("idle", { loop: true });
-          }
+          console.log(
+            ` 🎮 [showroom-talk] audio_ended companion=${current.id} mode=${talkMode}`,
+          );
+          const idleCommand = toShowroomIdleLoopCommand(data.phaseCommands?.idle);
+          applyTalkCommand(idleCommand);
+          console.log(
+            ` 🎮 [showroom-talk] idle_applied companion=${current.id} reason=audio_ended loop=${String(idleCommand.payload.loop)}`,
+          );
           setShowroomTalkPhase("idle");
           speechAudioRef.current = null;
           speechAnalyserRef.current = null;
@@ -2858,7 +3012,6 @@ export function CompanionShowroom({
           if (speechUrlRef.current === url) {
             speechUrlRef.current = null;
           }
-          queueVideoChatListeningResumeRef.current?.();
         });
         audio.addEventListener("error", () => {
           setShowroomTalkError("I could not play that voice just now.");
@@ -2891,7 +3044,10 @@ export function CompanionShowroom({
     ],
   );
 
-  const startShowroomTalkListening = useCallback((options?: { source?: ShowroomTalkMode }) => {
+  const startShowroomTalkListening = useCallback((options?: {
+    source?: ShowroomTalkMode;
+    quiet?: boolean;
+  }) => {
     if (!current || shouldGateShowroomTalkMic(showroomTalkPhaseRef.current)) return;
     const RecognitionCtor =
       (window as WindowWithSpeechRecognition).SpeechRecognition ??
@@ -2928,13 +3084,36 @@ export function CompanionShowroom({
         return;
       }
       submitted = true;
+      videoChatNoSpeechRetryCountRef.current = 0;
       setShowroomTalkQuestion(text);
       void submitShowroomTalkQuestion(text, { source: options?.source });
     };
     recognition.onerror = (event) => {
       if (submitted) return;
-      setShowroomTalkError(event.error ? `Voice input: ${event.error}` : "Voice input failed.");
+      const recovery = getShowroomVoiceErrorRecovery({
+        source: options?.source,
+        error: event.error,
+        retryCount: videoChatNoSpeechRetryCountRef.current,
+      });
+      videoChatNoSpeechRetryCountRef.current = recovery.nextRetryCount;
+      setShowroomTalkError(recovery.displayError);
       setShowroomTalkPhase("idle");
+      if (
+        recovery.shouldRetry &&
+        options?.source === "video_call" &&
+        videoChatContinuousListenRef.current
+      ) {
+        const timer = window.setTimeout(() => {
+          timersRef.current.delete(timer);
+          if (videoChatContinuousListenRef.current) {
+            startShowroomTalkListening({
+              source: "video_call",
+              quiet: recovery.quietRetry,
+            });
+          }
+        }, SHOWROOM_VIDEO_CHAT_NO_SPEECH_RETRY_DELAY_MS);
+        timersRef.current.add(timer);
+      }
     };
     recognition.onend = () => {
       showroomSpeechRecognitionRef.current = null;
@@ -2943,11 +3122,13 @@ export function CompanionShowroom({
       }
     };
     setShowroomTalkPhase("listening");
-    playCurrentCompanionEmote({
-      emote: "thinking",
-      intensity: options?.source === "video_call" ? 0.58 : 0.72,
-      durationMs: 1500,
-    });
+    if (shouldPlayShowroomListeningGesture(options?.source, { quiet: options?.quiet })) {
+      playCurrentCompanionEmote({
+        emote: "thinking",
+        intensity: 0.72,
+        durationMs: 1500,
+      });
+    }
     recognition.start();
   }, [
     current,
@@ -2955,17 +3136,6 @@ export function CompanionShowroom({
     showroomTalkResponse,
     submitShowroomTalkQuestion,
   ]);
-
-  const queueVideoChatListeningResume = useCallback(() => {
-    if (videoChatContinuousListenRef.current) {
-      const timer = window.setTimeout(
-        () => startShowroomTalkListening({ source: "video_call" }),
-        SHOWROOM_VIDEO_CHAT_RESUME_DELAY_MS,
-      );
-      timersRef.current.add(timer);
-    }
-  }, [startShowroomTalkListening]);
-  queueVideoChatListeningResumeRef.current = queueVideoChatListeningResume;
 
   const stopShowroomVideoChatCamera = useCallback(() => {
     const stream = showroomVideoStreamRef.current;
@@ -3014,6 +3184,7 @@ export function CompanionShowroom({
       setShowroomVideoChatCameraState("live");
       console.log(" 🎮 [showroom-video-chat] camera_live");
       if (options?.autoListen) {
+        console.log(" 🎮 [showroom-video-chat] auto-start listening");
         startShowroomTalkListening({ source: "video_call" });
       }
     } catch (err: unknown) {
@@ -3058,6 +3229,7 @@ export function CompanionShowroom({
     setShowroomVideoChatError(null);
     setShowroomVideoLastVisualSummary("");
     videoChatContinuousListenRef.current = true;
+    videoChatNoSpeechRetryCountRef.current = 0;
     setShowroomVideoChatOpen(true);
     playCurrentCompanionAnimation("idle", { loop: true });
     const timer = window.setTimeout(() => {
@@ -3078,6 +3250,7 @@ export function CompanionShowroom({
 
   const closeShowroomVideoChat = useCallback(() => {
     videoChatContinuousListenRef.current = false;
+    videoChatNoSpeechRetryCountRef.current = 0;
     stopShowroomVideoChatCamera();
     stopSpeech();
     resetShowroomTalk();
@@ -3100,6 +3273,7 @@ export function CompanionShowroom({
       resetShowroomTalk();
       setShowroomTalkOpen(false);
       videoChatContinuousListenRef.current = false;
+      videoChatNoSpeechRetryCountRef.current = 0;
       stopShowroomVideoChatCamera();
       setShowroomVideoChatOpen(false);
       setIntroVisible(false);
@@ -3134,6 +3308,7 @@ export function CompanionShowroom({
     resetShowroomTalk();
     setShowroomTalkOpen(false);
     videoChatContinuousListenRef.current = false;
+    videoChatNoSpeechRetryCountRef.current = 0;
     stopShowroomVideoChatCamera();
     setShowroomVideoChatOpen(false);
     setSpotlightOpen(true);
@@ -3204,9 +3379,10 @@ export function CompanionShowroom({
 	    if (!current || picking) return;
 		    stopSpeech();
 		    resetShowroomTalk();
-		    setShowroomTalkOpen(false);
-		    videoChatContinuousListenRef.current = false;
-		    stopShowroomVideoChatCamera();
+	    setShowroomTalkOpen(false);
+	    videoChatContinuousListenRef.current = false;
+	    videoChatNoSpeechRetryCountRef.current = 0;
+	    stopShowroomVideoChatCamera();
 		    setShowroomVideoChatOpen(false);
 	    setPicking(true);
     confettiCleanupRef.current?.();

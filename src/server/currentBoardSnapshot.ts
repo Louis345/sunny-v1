@@ -21,13 +21,24 @@ export type CurrentBoardSnapshot = {
   score?: number;
   coins?: number;
   coinsEarned?: number;
+  accuracy?: number;
+  completed?: boolean;
+  masteryEligible?: boolean;
+  evidenceTier?: string;
   lastOutcome?: string;
   lastOutcomeWord?: string;
+  questState?: string;
+  bossState?: string;
+  contaminatedTargets?: string[];
+  missedWords?: string[];
+  correctWords?: string[];
   boardState?: string;
   progress?: string;
   wheelValue?: string;
   updatedAt: string;
 };
+
+export type CompanionTurnTruth = CurrentBoardSnapshot;
 
 type BuildSnapshotInput = {
   childId: string;
@@ -50,6 +61,13 @@ function asNumber(value: unknown): number | undefined {
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
 }
 
 function normalizeAnswerVisibility(
@@ -107,6 +125,9 @@ export function buildCurrentBoardSnapshot(
     ["phase", state.phase],
     ["lastOutcome", state.lastOutcome ?? state.action ?? state.lastAction],
     ["lastOutcomeWord", state.lastOutcomeWord],
+    ["evidenceTier", state.evidenceTier],
+    ["questState", state.questState],
+    ["bossState", state.bossState],
     ["boardState", state.boardState],
     ["progress", state.progress],
     ["wheelValue", state.wheelValue],
@@ -122,10 +143,20 @@ export function buildCurrentBoardSnapshot(
     snapshot.currentTarget = rawTarget;
   }
 
-  for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned"] as const) {
+  for (const key of ["itemIndex", "totalItems", "score", "coins", "coinsEarned", "accuracy"] as const) {
     const n = asNumber(state[key]);
     if (typeof n === "number") snapshot[key] = n;
   }
+  for (const key of ["completed", "masteryEligible"] as const) {
+    const b = asBoolean(state[key]);
+    if (typeof b === "boolean") snapshot[key] = b;
+  }
+  const contaminatedTargets = asStringArray(state.contaminatedTargets);
+  if (contaminatedTargets.length) snapshot.contaminatedTargets = contaminatedTargets;
+  const missedWords = asStringArray(state.missedWords);
+  if (missedWords.length) snapshot.missedWords = missedWords;
+  const correctWords = asStringArray(state.correctWords);
+  if (correctWords.length) snapshot.correctWords = correctWords;
 
   return snapshot;
 }
@@ -150,6 +181,27 @@ export function buildCurrentBoardSnapshotContext(
   lines.push(`Answer visibility: ${snapshot.answerVisibility}`);
   if (snapshot.currentTarget) lines.push(`Current target: ${snapshot.currentTarget}`);
   if (snapshot.boardState) lines.push(`Board: ${snapshot.boardState}`);
+  if (snapshot.evidenceTier) lines.push(`Evidence tier: ${snapshot.evidenceTier}`);
+  if (typeof snapshot.masteryEligible === "boolean") {
+    lines.push(`Mastery eligible: ${snapshot.masteryEligible ? "yes" : "no"}`);
+  }
+  if (typeof snapshot.accuracy === "number") {
+    lines.push(`Latest activity accuracy: ${Math.round(snapshot.accuracy * 100)}%`);
+  }
+  if (typeof snapshot.completed === "boolean") {
+    lines.push(`Completed: ${snapshot.completed ? "yes" : "no"}`);
+  }
+  if (snapshot.questState) lines.push(`Quest state: ${snapshot.questState}`);
+  if (snapshot.bossState) lines.push(`Boss state: ${snapshot.bossState}`);
+  if (snapshot.contaminatedTargets?.length) {
+    lines.push(`Contaminated targets: ${snapshot.contaminatedTargets.join(", ")}`);
+  }
+  if (snapshot.missedWords?.length) {
+    lines.push(`Missed words: ${snapshot.missedWords.join(", ")}`);
+  }
+  if (snapshot.correctWords?.length) {
+    lines.push(`Correct words: ${snapshot.correctWords.join(", ")}`);
+  }
   if (typeof snapshot.itemIndex === "number") {
     const total =
       typeof snapshot.totalItems === "number" ? String(snapshot.totalItems) : "?";
@@ -175,6 +227,38 @@ export function buildCurrentBoardSnapshotContext(
   if (snapshot.wheelValue) lines.push(`Wheel landed on: ${snapshot.wheelValue}`);
   if (snapshot.progress) lines.push(`Progress: ${snapshot.progress}`);
   return lines.join("\n");
+}
+
+export function findCompanionTruthContradictions(
+  response: string,
+  snapshot: CurrentBoardSnapshot | null,
+): string[] {
+  if (!snapshot) return [];
+  const text = response.toLowerCase();
+  const contradictions: string[] = [];
+  const usesMasteryLanguage =
+    /\b(100\s*%|100 percent|perfect|zero mistakes|crushed|mastered|mastery)\b/.test(text);
+  const resultContradictsMastery =
+    (typeof snapshot.accuracy === "number" && snapshot.accuracy < 0.95) ||
+    snapshot.evidenceTier === "practice" ||
+    snapshot.masteryEligible === false ||
+    snapshot.contaminatedTargets?.length;
+  if (usesMasteryLanguage && resultContradictsMastery) {
+    contradictions.push("mastery_claim_contradicts_activity_result");
+  }
+
+  const claimsBossUnlocked = /\bboss\b[^\n.]{0,80}\b(unlocked|ready|waiting|open)\b/.test(text);
+  const bossIsUnlocked = /unlocked|ready|open|complete|completed/.test(
+    String(snapshot.bossState ?? "").toLowerCase(),
+  );
+  const questSupportsBoss = !snapshot.questState || /complete|completed|supported|ready/.test(
+    String(snapshot.questState ?? "").toLowerCase(),
+  );
+  if (claimsBossUnlocked && (!bossIsUnlocked || !questSupportsBoss)) {
+    contradictions.push("boss_unlock_claim_contradicts_board_state");
+  }
+
+  return contradictions;
 }
 
 export function childIdForBoardSnapshot(childName: ChildName): string {

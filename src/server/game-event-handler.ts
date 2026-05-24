@@ -6,12 +6,6 @@
 import { recordClockAttempt } from "../engine/clockTracker";
 import { childIdFromName, recordAttempt } from "../engine/learningEngine";
 import { recordLearningAttempt } from "./learningAttemptEvents";
-import {
-  SPELL_CHECK_CORRECT,
-  WORD_BUILDER_ROUND_COMPLETE,
-  WORD_BUILDER_ROUND_FAILED,
-  WORD_BUILDER_SESSION_COMPLETE,
-} from "../agents/prompts";
 import { buildFlowGameEventFields } from "./flow-game-debug";
 import { buildGameContextSummary } from "./gameContextSummary";
 
@@ -20,6 +14,11 @@ export const WB_ACTIVITY_MS = 90_000;
 /** @internal SessionManager instance — fields accessed intentionally across module boundary */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SM = any;
+
+function chartChildIdForSession(s: SM): string {
+  const chartChildId = typeof s.chartChildId === "string" ? s.chartChildId.trim().toLowerCase() : "";
+  return chartChildId || childIdFromName(s.childName);
+}
 
 export function clearGameTtsFallbackTimer(s: SM): void {
   if (s.gameTtsFallbackTimer) {
@@ -113,12 +112,11 @@ export function finalizeWordBuilderSessionFromIframe(
   s.turnSM.onWordBuilderEnd();
   s.clearActiveCanvasActivity();
   s.send("canvas_draw", { mode: "idle" });
-  void s
-    .runCompanionResponse(
-      WORD_BUILDER_SESSION_COMPLETE(s.sessionTtsLabel, completedWord),
-    )
-    .catch(console.error);
-  void recordAttempt(childIdFromName(s.childName), {
+  s.noteExternalEvent?.({
+    source: "word_builder_session_complete",
+    summary: `Word Builder completed ${completedWord}.`,
+  });
+  void recordAttempt(chartChildIdForSession(s), {
     word: s.wbWord.toLowerCase().trim(),
     domain: "spelling",
     correct: true,
@@ -179,8 +177,11 @@ export function handleGameEventForSession(
     type === "combo_breaker" ||
     type === "pronunciation_hit" ||
     type === "pronunciation_miss" ||
+    type === "pronunciation_latency_span" ||
     type === "voice_control" ||
+    type === "narration_request" ||
     type === "game_state_update" ||
+    type === "attempt_event" ||
     type === "game_complete" ||
     type === "node_complete"
   ) {
@@ -190,6 +191,51 @@ export function handleGameEventForSession(
       type,
       source: "game_event_handler",
     });
+  }
+
+  if (type === "narration_request") {
+    const text = String(event.text ?? event.word ?? "").trim();
+    const game = String(event.game ?? event.activityId ?? "").trim();
+    const word = String(event.word ?? event.currentWord ?? "").trim();
+    const reason = String(event.reason ?? "narration_request").trim();
+    const now = Date.now();
+    const key = [game.toLowerCase(), word.toLowerCase(), text.toLowerCase(), reason.toLowerCase()].join("|");
+    const previous =
+      s.lastNarrationRequest &&
+      typeof s.lastNarrationRequest === "object" &&
+      !Array.isArray(s.lastNarrationRequest)
+        ? (s.lastNarrationRequest as Record<string, unknown>)
+        : null;
+    if (
+      previous?.key === key &&
+      typeof previous.at === "number" &&
+      now - previous.at >= 0 &&
+      now - previous.at <= 1_000
+    ) {
+      s.recordGameTrace?.({
+        ...event,
+        type: "narration_request_suppressed",
+        source: "game_event_handler",
+        reason: "duplicate_narration_debounce",
+      });
+      console.log(`  🎮 [game-narration] [debounced] game=${game || "unknown"} word=${word || "unknown"}`);
+      return;
+    }
+    s.lastNarrationRequest = { key, at: now };
+    const spoken = /[.!?]$/.test(text) ? text : text ? `${text}.` : "";
+    if (!spoken) return;
+    void Promise.resolve(
+      s.speakGameNarration?.(spoken, {
+        source: "game_event_handler",
+        reason,
+        activityId: event.activityId ?? game,
+        nodeId: event.nodeId,
+        word,
+      }),
+    ).catch((err: unknown) => {
+      console.error("  🔴 [game-narration] narration request failed:", err);
+    });
+    return;
   }
 
   if (type === "voice_control") {
@@ -203,7 +249,7 @@ export function handleGameEventForSession(
       .toLowerCase()
       .replace(/\s+/g, "-");
     const suppressesOrganicSpeech =
-      game === "pronunciation" || game === "karaoke" || game === "reading";
+      !game || game === "pronunciation" || game === "karaoke" || game === "reading";
     s.suppressTranscripts = voiceEnabled ? false : suppressesOrganicSpeech;
     console.log(
       `  🎮 Voice: ${voiceEnabled || !suppressesOrganicSpeech ? "organic" : "flow-suppressed"} game=${game || "unknown"}`,
@@ -232,7 +278,7 @@ export function handleGameEventForSession(
     const childId =
       typeof payload.childId === "string"
         ? payload.childId
-        : childIdFromName(s.childName);
+        : chartChildIdForSession(s);
     const timestamp =
       typeof payload.timestamp === "number" ? payload.timestamp : Date.now();
     const trigger = payload.trigger;
@@ -259,7 +305,7 @@ export function handleGameEventForSession(
       });
       s.noteExternalEvent?.({
         source: "companion_event",
-        summary: `Game companion event: ${trigger}`,
+        summary: `Companion VFX event: ${String(trigger)}.`,
       });
     }
     return;
@@ -295,25 +341,12 @@ export function handleGameEventForSession(
       console.log("  🎮 [companion-care] skip spoken reply — companion already owns the turn");
       return;
     }
-    void s
-      .runCompanionResponse?.(
-        [
-          `The child just fed the companion ${itemId}.`,
-          `Care mood is ${moodLabel}.`,
-          `Visible animation already played: ${reference}.`,
-          liveContext ? `Current live board context:\n${liveContext}` : "",
-          "Respond briefly with warm repair/reward language if it helps, no guilt, no blame, and do not use browser TTS.",
-        ].filter(Boolean).join(" "),
-      )
-      .catch((err: unknown) => {
-        console.error("  🔴 [companion-care] live response failed:", err);
-      });
     return;
   }
 
   if (type === "attempt_event") {
     try {
-      const recorded = recordLearningAttempt(event, childIdFromName(s.childName));
+      const recorded = recordLearningAttempt(event, chartChildIdForSession(s));
       s.noteExternalEvent?.({
         source: "attempt_event",
         summary:
@@ -328,7 +361,7 @@ export function handleGameEventForSession(
 
   if (type === "clock_answer") {
     recordClockAttempt(
-      childIdFromName(s.childName),
+      chartChildIdForSession(s),
       event.correct === true,
       Number(event.hour),
       Number(event.minute),
@@ -367,7 +400,6 @@ export function handleGameEventForSession(
   }
 
   if (type === "correct" && s.spellCheckSessionActive) {
-    const word = String(event.word ?? s.activeSpellCheckWord);
     if (s.turnSM.getState() !== "IDLE") {
       s.spellCheckSessionActive = false;
       s.activeSpellCheckWord = "";
@@ -375,7 +407,6 @@ export function handleGameEventForSession(
       s.send("canvas_draw", { mode: "idle" });
       return;
     }
-    void s.runCompanionResponse(SPELL_CHECK_CORRECT(s.sessionTtsLabel, word));
     s.spellCheckSessionActive = false;
     s.activeSpellCheckWord = "";
     s.clearActiveCanvasActivity();
@@ -421,15 +452,11 @@ export function handleGameEventForSession(
       return;
     }
     if (completedRound === 1 || completedRound === 2) {
-      void s
-        .runCompanionResponse(
-          WORD_BUILDER_ROUND_COMPLETE(completedRound, s.wbWord, attempts),
-        )
-        .then(() => wbAdvanceRound(s))
-        .catch((err: unknown) => {
-          console.error("  ❌ WB round response failed:", err);
-          wbAdvanceRound(s);
-        });
+      s.noteExternalEvent?.({
+        source: "word_builder_round_complete",
+        summary: `Word Builder round ${completedRound} completed for ${s.wbWord} in ${attempts} attempt(s).`,
+      });
+      wbAdvanceRound(s);
       return;
     }
 
@@ -452,13 +479,11 @@ export function handleGameEventForSession(
 
     console.log(`  🎮 round_failed — round ${s.wbRound}`);
 
-    void s
-      .runCompanionResponse(WORD_BUILDER_ROUND_FAILED(s.wbRound, word))
-      .then(() => wbAdvanceRound(s))
-      .catch((err: unknown) => {
-        console.error("  ❌ WB fail response failed:", err);
-        wbAdvanceRound(s);
-      });
+    s.noteExternalEvent?.({
+      source: "word_builder_round_failed",
+      summary: `Word Builder round ${s.wbRound} failed for ${word}.`,
+    });
+    wbAdvanceRound(s);
     return;
   }
 
