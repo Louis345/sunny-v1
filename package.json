@@ -113,6 +113,7 @@
     "@deepgram/sdk": "^5.0.0",
     "@elevenlabs/elevenlabs-js": "^2.37.0",
     "ai": "^6.0.116",
+    "cmu-pronouncing-dictionary": "^3.0.0",
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "egreedy": "^3.0.0",

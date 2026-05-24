@@ -1,4 +1,5 @@
 import { normalizeNumberWord } from "./numberWords";
+import { dictionary as cmuDictionary } from "cmu-pronouncing-dictionary";
 
 export type KaraokeWordClass = "match" | "partial" | "mismatch";
 export type KaraokeMatchMode = "speech" | "spelling" | "pronunciation";
@@ -32,10 +33,12 @@ export function applyConfusionPairs(word: string): string {
 const STT_HOMOPHONE_GROUPS = [
   ["wear", "where"],
   ["hole", "whole"],
+  ["pair", "pear", "pare", "payer"],
   ["be", "bee"],
   ["by", "buy", "bye"],
   ["for", "fore", "four"],
   ["one", "won"],
+  ["no", "know"],
   ["there", "their", "theyre"],
   ["to", "too", "two"],
 ] as const;
@@ -55,6 +58,8 @@ const PRONUNCIATION_STT_ALIASES = new Map<string, Set<string>>([
   ["able", new Set(["abel", "abull", "bull"])],
 ]);
 
+const cmuPronunciationCache = new Map<string, string[]>();
+
 function normalizeSttHomophone(word: string): string {
   return STT_HOMOPHONE_CANONICAL.get(word) ?? word;
 }
@@ -65,6 +70,49 @@ function storyNameSttEquivalent(heard: string, expected: string): boolean {
 
 function pronunciationSttEquivalent(heard: string, expected: string): boolean {
   return PRONUNCIATION_STT_ALIASES.get(expected)?.has(heard) === true;
+}
+
+function normalizeCmuPronunciation(value: string): string {
+  return value
+    .replace(/\s+#.*$/, "")
+    .replace(/\d/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cmuPronunciations(word: string): string[] {
+  const lookup = word.toLowerCase().replace(/[^a-z']/g, "");
+  if (!lookup) return [];
+  const cached = cmuPronunciationCache.get(lookup);
+  if (cached) return cached;
+
+  const pronunciations: string[] = [];
+  const add = (key: string) => {
+    const value = (cmuDictionary as Record<string, string>)[key];
+    if (!value) return;
+    const normalized = normalizeCmuPronunciation(value);
+    if (normalized && !pronunciations.includes(normalized)) {
+      pronunciations.push(normalized);
+    }
+  };
+
+  add(lookup);
+  for (let variant = 2; variant <= 8; variant += 1) {
+    add(`${lookup}(${variant})`);
+  }
+
+  cmuPronunciationCache.set(lookup, pronunciations);
+  return pronunciations;
+}
+
+function cmuPronunciationEquivalent(heard: string, expected: string): boolean {
+  if (!/^[a-z']+$/.test(heard) || !/^[a-z']+$/.test(expected)) return false;
+  const heardPronunciations = cmuPronunciations(heard);
+  if (heardPronunciations.length === 0) return false;
+  const expectedPronunciations = new Set(cmuPronunciations(expected));
+  return heardPronunciations.some((pronunciation) =>
+    expectedPronunciations.has(pronunciation),
+  );
 }
 
 function hasAmbiguousSpeechSpelling(word: string): boolean {
@@ -168,6 +216,7 @@ export function classifyKaraokeWordMatch(
     if (normalizeNumberWord(cleanH) === normalizeNumberWord(cleanE)) return "match";
     if (normalizeSttHomophone(cleanH) === normalizeSttHomophone(cleanE)) return "match";
     if (pronunciationSttEquivalent(cleanH, cleanE)) return "match";
+    if (cmuPronunciationEquivalent(cleanH, cleanE)) return "match";
     return "mismatch";
   }
 
