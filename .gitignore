@@ -17,7 +17,10 @@ CANVAS_CAPABILITIES.md
 .sunny-local/
 
 # Runtime server audit logs (local only; may contain transcripts)
-logs/sessions/
+/logs/
+/.sunny-sandbox/
+web/test-artifacts/
+tsconfig.tsbuildinfo
 
 # Runtime child-chart evidence (local/private; code should use fixtures for tests)
 src/context/*/activity_results/
