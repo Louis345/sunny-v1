@@ -29,6 +29,7 @@ export function buildNodeCompletionHandoffState(
     completed: result.completed,
     missedWords: missed,
     correctWords: correct,
+    targetResults: result.targetResults ?? [],
     wordsAttempted: result.wordsAttempted,
     progress,
   };

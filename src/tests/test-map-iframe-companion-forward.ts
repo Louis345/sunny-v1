@@ -129,6 +129,32 @@ describe("map iframe → sessionEventBus (COMPANION-MAP-WS-001)", () => {
     warnSpy.mockRestore();
   });
 
+  it("debounces duplicate iframe narration requests so one click cannot create two voices", () => {
+    const ws = { once: vi.fn(), off: vi.fn() } as unknown as WebSocket;
+    const sm = {
+      noteExternalEvent: vi.fn(),
+      speakGameNarration: vi.fn(),
+    };
+    registerMapSessionWebSocket("ila", ws);
+    registerActiveVoiceSessionManager("ila", sm);
+
+    const payload = {
+      trigger: "narration_request",
+      childId: "ila",
+      timestamp: 123,
+      word: "ago",
+      text: "ago.",
+      reason: "repeat_word",
+      activityId: "monster-stampede",
+      nodeId: "n-monster",
+    };
+
+    expect(handleMapSocketIframeCompanionEvent(ws, { type: "map_iframe_companion_event", payload })).toBe(true);
+    expect(handleMapSocketIframeCompanionEvent(ws, { type: "map_iframe_companion_event", payload })).toBe(true);
+
+    expect(sm.speakGameNarration).toHaveBeenCalledTimes(1);
+  });
+
   it("uses empty voice session id when no active voice session", () => {
     const fire = vi.spyOn(sessionEventBus, "fire");
     const ws = { once: vi.fn(), off: vi.fn() } as unknown as WebSocket;

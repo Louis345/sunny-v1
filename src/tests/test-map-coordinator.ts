@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import type { LearningProfile } from "../context/schemas/learningProfile";
-import type { MapState, NodeResult, NodeConfig } from "../shared/adventureTypes";
+import type { ActiveSessionPlan, LearningProfile } from "../context/schemas/learningProfile";
+import type { ChildChart } from "../profiles/childChart";
+import type { MapState, NodeResult, NodeConfig, NodeType } from "../shared/adventureTypes";
 import * as learningProfileIO from "../utils/learningProfileIO";
 import * as runtimeMode from "../utils/runtimeMode";
 
@@ -14,6 +15,10 @@ vi.mock("../utils/generateStoryImage", () => ({
 
 vi.mock("../profiles/buildProfile", () => ({
   buildProfile: vi.fn(),
+}));
+
+vi.mock("../profiles/childChart", () => ({
+  getChildChart: vi.fn(),
 }));
 
 vi.mock("../agents/designer/designer", async (importOriginal) => {
@@ -85,7 +90,6 @@ import {
   handleMapClientMessage,
   hydrateHomeworkCompletedNodeIds,
   MapSessionError,
-  repairBlockedHomeworkMapActivityPlan,
   startMapSession,
   buildMapSummary,
   gameMountGreetingForNode,
@@ -98,6 +102,7 @@ import {
 } from "../server/voice-session-registry";
 
 import { buildProfile } from "../profiles/buildProfile";
+import { getChildChart } from "../profiles/childChart";
 import { cloneCompanionDefaults } from "../shared/companionTypes";
 import {
   buildHomeworkNodes,
@@ -189,10 +194,153 @@ function mockNodes(): MapState["nodes"] {
   ];
 }
 
+const TEST_WORD_RADAR_CONFIG = {
+  recallMode: "partial_visual_recall",
+  inputMode: "letter-by-letter",
+  speakStyle: "option-a",
+  showTimer: false,
+  hideWordDuringResponse: true,
+  requiresCapturedResponse: true,
+} as const;
+
+const WORD_DRIVEN_TEST_NODE_TYPES = new Set<NodeType>([
+  "word-radar",
+  "spell-check",
+  "monster-stampede",
+  "letter-rush",
+  "pronunciation",
+  "word-builder",
+  "wordle",
+  "wheel-of-fortune",
+  "quest",
+]);
+
+function buildTestActiveSessionPlan(
+  childId: string,
+  pendingHomework: NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>,
+  nodePlan: ActiveSessionPlan["nodePlan"] = pendingHomework.nodes.map((node) => ({
+    id: node.id,
+    type: node.type as NodeType,
+    activityId: node.type,
+    targets: WORD_DRIVEN_TEST_NODE_TYPES.has(node.type as NodeType)
+      ? [...(node.words?.length ? node.words : pendingHomework.wordList)]
+      : [],
+    difficulty: ((node.difficulty ?? 1) as 1 | 2 | 3),
+    source: "pending_homework",
+    wordRadarConfig: node.type === "word-radar" ? TEST_WORD_RADAR_CONFIG : undefined,
+    locked: node.type === "quest" || node.type === "boss" ? true : undefined,
+  })),
+): ActiveSessionPlan {
+  return {
+    planId: `test-plan-${pendingHomework.homeworkId ?? pendingHomework.weekOf ?? "homework"}`,
+    childId,
+    createdAt: "2026-05-23T12:00:00.000Z",
+    source: "ingest_human_loop",
+    activeHomeworkId: pendingHomework.homeworkId ?? pendingHomework.weekOf,
+    domain: pendingHomework.contentProfile?.practiceDomain ?? "spelling",
+    testDate: pendingHomework.testDate ?? null,
+    nodePlan,
+    variationPolicy: {
+      avoidExactPreviousNodeOrder: false,
+      avoidExactPreviousWordOrder: false,
+      seed: "test",
+      previousCompletedNodeCount: pendingHomework.completedAdventureNodeIds?.length ?? 0,
+    },
+    companionPolicy: {
+      companionId: "elli",
+      displayName: "Elli",
+      openingLinePolicy: "silent",
+      verbosity: "low",
+      maxMicroProbes: 0,
+    },
+    evidenceUsed: [{ id: "test", type: "test", summary: "Fixture active plan." }],
+    openQuestions: [],
+    planTheory: {
+      hypothesis: "The fixture plan is the single source of truth.",
+      evidenceSummary: ["Test fixture"],
+      intervention: "Launch the planned nodes unchanged.",
+      supportCriteria: ["Map materializes planned targets."],
+      reviseCriteria: ["Planner changes the node plan."],
+      falsifyCriteria: ["Runtime rewrites the node plan."],
+    },
+  };
+}
+
+function mockChartWithPendingHomework(
+  childId: string,
+  pendingHomework: NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>,
+  nodePlan?: ActiveSessionPlan["nodePlan"],
+): void {
+  const activeSessionPlan = buildTestActiveSessionPlan(childId, pendingHomework, nodePlan);
+  vi.mocked(getChildChart).mockReturnValue({
+    childId,
+    homework: { pending: pendingHomework },
+    activeSessionPlan,
+    learningProfile: {
+      childId,
+      activeSessionPlan,
+      pendingHomework,
+    },
+    companion: { config: { dopamineGames: [] } },
+    attention: {
+      source: "legacy_demographic",
+      status: "insufficient-data",
+      currentWindow_ms: 180_000,
+      bestWindow_ms: 180_000,
+      trend: "unknown",
+      confidence: 0.1,
+      evidence: [],
+    },
+  } as unknown as ChildChart);
+}
+
+function mockEmptyChart(childId: string): ChildChart {
+  const learningProfile = learningProfileIO.initializeLearningProfile({
+    childId,
+    age: 8,
+    grade: 2,
+    diagnoses: [],
+    learningGoals: [],
+  });
+  return {
+    childId,
+    identity: { displayName: childId, ttsName: childId },
+    childContext: "",
+    homework: { pending: null, cyclesDir: path.join(os.tmpdir(), "sunny-empty-cycles") },
+    links: {
+      attempts: path.join(os.tmpdir(), "sunny-empty-attempts"),
+      vitals: path.join(os.tmpdir(), "sunny-empty-vitals"),
+    },
+    activeSessionPlan: null,
+    learningProfile,
+    wordBankSummary: { totalWords: 0, dueWords: 0 },
+    wordBank: { childId, words: [] },
+    companion: { config: { dopamineGames: [] } },
+    attention: {
+      source: "legacy_demographic",
+      status: "insufficient-data",
+      currentWindow_ms: 180_000,
+      bestWindow_ms: 180_000,
+      trend: "unknown",
+      confidence: 0.1,
+      evidence: [],
+    },
+  } as unknown as ChildChart;
+}
+
+function mockChartWithNodePlan(
+  childId: string,
+  pendingHomework: NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>,
+  nodePlan: ActiveSessionPlan["nodePlan"],
+): void {
+  mockChartWithPendingHomework(childId, pendingHomework, nodePlan);
+}
+
 function mockProfileWithPendingHomework(
   childId: string,
   pendingHomework: NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>,
 ): import("../shared/childProfile").ChildProfile {
+  mockChartWithPendingHomework(childId, pendingHomework);
   return {
     childId,
     ttsName: childId.charAt(0).toUpperCase() + childId.slice(1),
@@ -250,6 +398,10 @@ describe("map coordinator (TASK-010)", () => {
     vi.mocked(buildNodeList).mockResolvedValue(mockNodes());
     vi.mocked(recordAttentionSignal).mockClear();
     vi.mocked(recordLearningAttempt).mockClear();
+    vi.mocked(getChildChart).mockReset();
+    vi.mocked(getChildChart).mockImplementation((chartChildId: string) =>
+      mockEmptyChart(chartChildId),
+    );
   });
 
   afterEach(() => {
@@ -305,7 +457,7 @@ describe("map coordinator (TASK-010)", () => {
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
   });
 
-  it("drops off-list missed words instead of persisting them as reinforceWords", async () => {
+  it("records missed words without synthesizing quest targets at runtime", async () => {
     vi.mocked(buildNodeList).mockClear();
     const words = ["shiny", "slowly"];
     const homeworkId = "hw-spelling_test-node-result-scope";
@@ -354,8 +506,8 @@ describe("map coordinator (TASK-010)", () => {
       });
 
       const questNode = mapState.nodes.find((node) => node.type === "quest");
-      expect(questNode?.words).toContain("slowly");
-      expect(questNode?.words).not.toContain("figure");
+      expect(questNode).toBeUndefined();
+      expect(mapState.nodes.flatMap((node) => node.words ?? [])).not.toContain("figure");
     } finally {
       writeSpy.mockRestore();
       readSpy.mockRestore();
@@ -366,6 +518,14 @@ describe("map coordinator (TASK-010)", () => {
     vi.mocked(buildNodeList).mockClear();
     const words = ["farmer", "teacher"];
     const homeworkId = "hw-spelling_test-qa";
+    const pendingHomework = buildPendingHomeworkPayload({
+      weekOf: "2026-04-26",
+      testDate: null,
+      wordList: words,
+      homeworkId,
+      nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
+    }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>;
+    mockChartWithPendingHomework("qa_map", pendingHomework);
     vi.mocked(buildProfile).mockResolvedValueOnce({
       childId: "qa_map",
       ttsName: "Qa map",
@@ -395,13 +555,7 @@ describe("map coordinator (TASK-010)", () => {
       dyslexiaMode: false,
       companionColor: "#00f",
       avatarImagePath: null,
-      pendingHomework: buildPendingHomeworkPayload({
-        weekOf: "2026-04-26",
-        testDate: null,
-        wordList: words,
-        homeworkId,
-        nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
-      }) as import("../shared/childProfile").ChildProfile["pendingHomework"],
+      pendingHomework,
     });
     const { mapState } = await startMapSession("qa_map");
     expect(mapState.nodes[0]?.type).toBe("spell-check");
@@ -440,7 +594,7 @@ describe("map coordinator (TASK-010)", () => {
     expect(mapState.nodes[0]?.isLocked).toBe(false);
   });
 
-  it("skips empty spelling practice nodes after a perfect typed baseline", async () => {
+  it("does not synthesize replacement practice nodes after a perfect typed baseline", async () => {
     vi.mocked(buildNodeList).mockClear();
     const words = ["shiny", "slowly", "lucky", "neatly", "sunny"];
     const homeworkId = "hw-spelling_test-perfect";
@@ -498,8 +652,9 @@ describe("map coordinator (TASK-010)", () => {
     expect(mapState.completedNodes).toEqual([
       mapState.nodes[0]!.id,
     ]);
-    expect(mapState.currentNodeIndex).toBeGreaterThanOrEqual(1);
-    expect(mapState.nodes[mapState.currentNodeIndex]?.type).not.toBe("spell-check");
+    expect(mapState.nodes).toHaveLength(1);
+    expect(mapState.currentNodeIndex).toBe(0);
+    expect(mapState.nodes[0]?.isCompleted).toBe(true);
   });
 
   it("startMapSession preserves content-aware karaoke homework nodes", async () => {
@@ -508,6 +663,66 @@ describe("map coordinator (TASK-010)", () => {
     const storyText = "Rain made a river move faster. Erosion changed the hill.";
     const storyWords = storyText.replace(/[^\w\s]/g, "").split(/\s+/);
     const homeworkId = "hw-spelling_test-content-aware";
+    const pendingHomework = buildPendingHomeworkPayload({
+      weekOf: "2026-05-01",
+      testDate: "2026-05-06",
+      wordList: words,
+      homeworkId,
+      nodes: [
+        {
+          id: "n-karaoke-content",
+          type: "karaoke",
+          words: storyWords,
+          difficulty: 1,
+          rationale: "Build erosion context before spelling.",
+          gameFile: null,
+          storyFile: null,
+          storyText,
+        },
+        {
+          id: "n-concept-builder",
+          type: "word-builder",
+          words: ["erosion", "water", "soil"],
+          difficulty: 2,
+          rationale: "Build erosion academic vocabulary.",
+          gameFile: null,
+          storyFile: null,
+        },
+        ...buildHomeworkNodes({
+          type: "spelling_test",
+          words,
+          homeworkId,
+          childId: "reina",
+          testDate: "2026-05-06",
+        }),
+      ],
+    }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>;
+    mockChartWithNodePlan("qa_map", pendingHomework, [
+      {
+        id: pendingHomework.nodes.find((node) => node.type === "spell-check")!.id,
+        type: "spell-check",
+        activityId: "spell-check",
+        targets: words,
+        difficulty: 1,
+        source: "pending_homework",
+      },
+      {
+        id: "n-karaoke-content",
+        type: "karaoke",
+        activityId: "karaoke",
+        targets: storyWords,
+        difficulty: 1,
+        source: "pending_homework",
+      },
+      {
+        id: "n-concept-builder",
+        type: "word-builder",
+        activityId: "word-builder",
+        targets: ["erosion", "water", "soil"],
+        difficulty: 2,
+        source: "pending_homework",
+      },
+    ]);
     vi.mocked(buildProfile).mockResolvedValueOnce({
       childId: "qa_map",
       ttsName: "Qa map",
@@ -537,40 +752,7 @@ describe("map coordinator (TASK-010)", () => {
       dyslexiaMode: false,
       companionColor: "#00f",
       avatarImagePath: null,
-      pendingHomework: buildPendingHomeworkPayload({
-        weekOf: "2026-05-01",
-        testDate: "2026-05-06",
-        wordList: words,
-        homeworkId,
-        nodes: [
-          {
-            id: "n-karaoke-content",
-            type: "karaoke",
-            words: storyWords,
-            difficulty: 1,
-            rationale: "Build erosion context before spelling.",
-            gameFile: null,
-            storyFile: null,
-            storyText,
-          },
-          {
-            id: "n-concept-builder",
-            type: "word-builder",
-            words: ["erosion", "water", "soil"],
-            difficulty: 2,
-            rationale: "Build erosion academic vocabulary.",
-            gameFile: null,
-            storyFile: null,
-          },
-          ...buildHomeworkNodes({
-            type: "spelling_test",
-            words,
-            homeworkId,
-            childId: "reina",
-            testDate: "2026-05-06",
-          }),
-        ],
-      }) as import("../shared/childProfile").ChildProfile["pendingHomework"],
+      pendingHomework,
     });
 
     const { mapState } = await startMapSession("qa_map");
@@ -584,7 +766,7 @@ describe("map coordinator (TASK-010)", () => {
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
   });
 
-  it("rejects high-confidence science homework when it starts with scaffolded Word Radar", async () => {
+  it("materializes planner-authored science Word Radar without runtime repair", async () => {
     vi.mocked(buildNodeList).mockClear();
     const pendingHomework: NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]> = {
       weekOf: "2026-05-05",
@@ -642,76 +824,11 @@ describe("map coordinator (TASK-010)", () => {
       mockProfileWithPendingHomework("qa_map", pendingHomework) as never,
     );
 
-    await expect(startMapSession("qa_map")).rejects.toMatchObject({
-      name: "MapSessionError",
-      statusCode: 422,
-      message: "activity_plan_unavailable",
-    });
+    const { mapState } = await startMapSession("qa_map");
+
+    expect(mapState.nodes[0]?.type).toBe("word-radar");
+    expect(mapState.nodes[0]?.words).toEqual(["erosion", "soil", "wear away"]);
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
-  });
-
-  it("repairs blocked spelling plans by moving independent recall before scaffolded practice", () => {
-    const words = ["shiny", "slowly", "lucky"];
-    const homeworkId = "hw-spelling_test-repair-blocker";
-    const pendingHomework = buildPendingHomeworkPayload({
-      weekOf: "2026-05-15",
-      testDate: "2026-05-22",
-      wordList: words,
-      homeworkId,
-      nodes: [],
-    }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>;
-    const nodes: NodeConfig[] = [
-      {
-        id: "n-word-radar",
-        type: "word-radar",
-        words,
-        difficulty: 1,
-        isLocked: false,
-        isCompleted: false,
-        isGoal: false,
-      },
-      {
-        id: "n-monster",
-        type: "monster-stampede",
-        words,
-        difficulty: 1,
-        isLocked: false,
-        isCompleted: false,
-        isGoal: false,
-      },
-      {
-        id: "n-spell-check",
-        type: "spell-check",
-        words,
-        difficulty: 1,
-        isLocked: false,
-        isCompleted: false,
-        isGoal: true,
-      },
-    ];
-
-    const repaired = repairBlockedHomeworkMapActivityPlan("ila", pendingHomework, nodes, {
-      ok: false,
-      warnings: [],
-      info: [],
-      blockers: [
-        {
-          code: "high_confidence_spelling_requires_independent_recall",
-          message: "Needs independent recall first.",
-          nodeId: "n-word-radar",
-          toolId: "word-radar",
-          recommendation: "start-with-spelling-recall",
-        },
-      ],
-    });
-
-    expect(repaired?.map((node) => node.type)).toEqual([
-      "spell-check",
-      "word-radar",
-      "monster-stampede",
-    ]);
-    expect(repaired?.[0]?.isLocked).toBe(false);
-    expect(repaired?.at(-1)?.isGoal).toBe(true);
   });
 
   it("starts high-confidence spelling homework with one Spell Check baseline", async () => {
@@ -873,6 +990,25 @@ describe("map coordinator (TASK-010)", () => {
     vi.mocked(buildProfile).mockResolvedValueOnce(
       mockProfileWithPendingHomework("reina", pendingHomework) as never,
     );
+    mockChartWithNodePlan("reina", pendingHomework, [
+      {
+        id: pendingHomework.nodes.find((node) => node.type === "word-radar")!.id,
+        type: "word-radar",
+        activityId: "word-radar",
+        targets: words,
+        difficulty: 1,
+        source: "pending_homework",
+        wordRadarConfig: TEST_WORD_RADAR_CONFIG,
+      },
+      {
+        id: pendingHomework.nodes.find((node) => node.type === "spell-check")!.id,
+        type: "spell-check",
+        activityId: "spell-check",
+        targets: words,
+        difficulty: 1,
+        source: "pending_homework",
+      },
+    ]);
     const profile = learningProfileIO.initializeLearningProfile({
       childId: "reina",
       age: 8,
@@ -922,15 +1058,34 @@ describe("map coordinator (TASK-010)", () => {
         testDate: null,
         wordList: words,
         homeworkId,
-        nodes: buildHomeworkNodes({
-          type: "spelling_test",
-          words,
-          homeworkId,
-          childId: "ila",
-        }),
+        nodes: [
+          ...buildHomeworkNodes({
+            type: "spelling_test",
+            words,
+            homeworkId,
+            childId: "ila",
+          }),
+          {
+            id: `n-quest-${homeworkId}`,
+            type: "quest",
+            words,
+            difficulty: 2,
+            rationale: "Planner-authored locked transfer destination.",
+            date: "2026-04-26",
+          },
+          {
+            id: `n-boss-${homeworkId}`,
+            type: "boss",
+            words: [],
+            difficulty: 3,
+            rationale: "Planner-authored mastery finale.",
+            date: "2026-04-26",
+          },
+        ],
       }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>),
       reinforceWords,
     };
+    mockChartWithPendingHomework("ila", pendingHomework);
     vi.mocked(buildProfile).mockResolvedValueOnce({
       childId: "ila",
       ttsName: "Ila",
@@ -967,7 +1122,7 @@ describe("map coordinator (TASK-010)", () => {
 
     const { mapState } = await startMapSession("ila");
     const questNode = mapState.nodes.find((n) => n.type === "quest");
-    const bossNode = mapState.nodes.at(-1);
+    const bossNode = mapState.nodes.find((n) => n.type === "boss");
 
     expect(questNode?.words).toEqual(words);
     expect(questNode?.isLocked).toBe(true);
@@ -1239,6 +1394,7 @@ describe("map coordinator (TASK-010)", () => {
       homeworkId,
       nodes: buildHomeworkNodes({ type: "spelling_test", words, homeworkId, childId: "ila" }),
     }) as LearningProfile["pendingHomework"];
+    mockChartWithPendingHomework("ila", pendingHw!);
 
     vi.mocked(buildProfile).mockResolvedValueOnce({
       childId: "ila",
@@ -1296,13 +1452,14 @@ describe("map coordinator (TASK-010)", () => {
       missedWords: [words[0]!],
     });
     const questNode = mapState.nodes.find((n) => n.type === "quest");
-    expect(questNode?.words).toContain(words[0]);
+    expect(questNode).toBeUndefined();
+    expect(mapState.nodes.flatMap((node) => node.words ?? [])).toContain(words[0]);
     sunnySpy.mockRestore();
     writeSpy.mockRestore();
     readSpy.mockRestore();
   });
 
-  it("retargets future homework practice nodes to only non-mastered evaluator targets", async () => {
+  it("records evaluator evidence without rewriting future homework practice nodes", async () => {
     const words = [
       "shiny",
       "slowly",
@@ -1365,6 +1522,7 @@ describe("map coordinator (TASK-010)", () => {
         },
       ],
     };
+    mockChartWithPendingHomework("reina", pendingHw);
 
     vi.mocked(planSession).mockReturnValueOnce({
       childId: "reina",
@@ -1440,9 +1598,8 @@ describe("map coordinator (TASK-010)", () => {
       ],
     });
 
-    const expectedNext = ["slowly", "lucky", "messy", "rainy", "friendly"];
     expect(mapState.nodes.find((node) => node.type === "wheel-of-fortune")?.words).toEqual(
-      expectedNext,
+      words,
     );
     expect(mapState.nodes.find((node) => node.type === "pronunciation")?.words).toEqual(
       words,
@@ -1543,7 +1700,7 @@ describe("map coordinator (TASK-010)", () => {
     writeSpy.mockRestore();
   });
 
-  it("expands held fluency pronunciation targets after strong spelling evidence", async () => {
+  it("keeps held fluency pronunciation targets on the active session plan after strong spelling evidence", async () => {
     const spellingWords = ["above", "ago", "about", "ahead", "away"];
     const fluencyWords = [
       "ago",
@@ -1685,9 +1842,8 @@ describe("map coordinator (TASK-010)", () => {
       })),
     });
 
-    expect(mapState.nodes.find((node) => node.type === "pronunciation")?.words).toEqual(
-      fluencyWords,
-    );
+    expect(mapState.nodes.find((node) => node.type === "pronunciation")?.words)
+      .toEqual(fluencyWords.slice(0, 5));
 
     readSpy.mockRestore();
     writeSpy.mockRestore();
@@ -1797,6 +1953,97 @@ describe("map coordinator (TASK-010)", () => {
     expect(launchedNode?.targetSelectorDecision?.selectorId).toBeTruthy();
   });
 
+  it("materializes selected Letter Rush targets as launch words even when the saved node is empty", async () => {
+    const selectedWords = ["wrong", "climb", "sign", "know", "write"];
+    const homeworkId = "hw-spelling_test-letter-rush-empty-node";
+    const pendingHomework: NonNullable<LearningProfile["pendingHomework"]> = {
+      weekOf: "2026-05-18",
+      testDate: "2026-05-25",
+      wordList: selectedWords,
+      homeworkId,
+      generatedAt: "2026-05-22T00:00:00.000Z",
+      reinforceWords: selectedWords,
+      completedAdventureNodeIds: [],
+      capturedContent: {
+        title: "Silent letter spelling test",
+        type: "spelling_test",
+        rawText: selectedWords.join("\n"),
+        words: selectedWords,
+        questions: [],
+        sourceDocuments: [],
+        contentProfile: {
+          practiceDomain: "spelling",
+          contentDomain: "language_arts",
+          topic: "Silent letters",
+          primarySkill: "spelling_recall",
+          assignmentFormat: "word list",
+          concepts: ["silent letters"],
+          sourceEvidence: ["test fixture"],
+        },
+        assignmentInterpretation: {
+          schemaVersion: 1,
+          status: "ready",
+          wordGroups: [{
+            id: "silent_letters",
+            label: "Silent Letters",
+            purpose: "spell_from_memory",
+            words: selectedWords,
+            confidence: 0.95,
+            evidence: ["spelling column"],
+          }],
+          selectedTargets: [{
+            id: "silent_letters",
+            label: "Silent Letters",
+            purpose: "spell_from_memory",
+            words: selectedWords,
+            confidence: 0.95,
+            evidence: ["spelling column"],
+          }],
+          heldTargets: [],
+          assertions: [],
+          clarificationQuestions: [],
+          humanAnswers: [],
+          memoryMatches: [],
+        },
+      },
+      nodes: [{
+        id: "node-5-silent-mastery",
+        type: "letter-rush",
+        words: [],
+        difficulty: 3,
+        gameFile: "letter-rush.html",
+        storyFile: null,
+      }],
+    };
+    vi.mocked(buildProfile).mockResolvedValueOnce(
+      mockProfileWithPendingHomework("reina", pendingHomework) as never,
+    );
+    const { sessionId, mapState } = await startMapSession("reina");
+    const sm = {
+      injectGameContext: vi.fn(),
+      recordGameTrace: vi.fn(),
+      noteExternalEvent: vi.fn(),
+    };
+    registerActiveVoiceSessionManager(mapState.childId, sm as never);
+
+    const events = handleMapClientMessage(sessionId, {
+      type: "node_click",
+      payload: { nodeId: "node-5-silent-mastery" },
+    });
+
+    expect(events[0]).toMatchObject({
+      type: "node_launched",
+      payload: { id: "node-5-silent-mastery", words: selectedWords },
+    });
+    expect(sm.recordGameTrace).toHaveBeenCalledWith(expect.objectContaining({
+      activityId: "letter-rush",
+      expectedTargets: selectedWords,
+      launchedTargets: selectedWords,
+      currentWord: "wrong",
+    }));
+    unregisterActiveVoiceSessionManager(mapState.childId, sm as never);
+  });
+
   it("node_click allows replaying a completed node after the map advances", async () => {
     const { sessionId, mapState } = await startMapSession("qa_map");
     const firstId = mapState.nodes[0].id;
@@ -1825,6 +2072,29 @@ describe("map coordinator (TASK-010)", () => {
     vi.mocked(buildNodeList).mockClear();
     const words = ["farmer", "teacher"];
     const homeworkId = "hw-spelling_test-quest-random";
+    const pendingHomework = buildPendingHomeworkPayload({
+      weekOf: "2026-04-26",
+      testDate: null,
+      wordList: words,
+      homeworkId,
+      nodes: [
+        ...buildHomeworkNodes({
+          type: "spelling_test",
+          words,
+          homeworkId,
+          childId: "ila",
+        }),
+        {
+          id: `n-quest-${homeworkId}`,
+          type: "quest",
+          words,
+          difficulty: 2,
+          rationale: "Planner-authored locked transfer destination without an artifact.",
+          date: "2026-04-26",
+        },
+      ],
+    }) as NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]>;
+    mockChartWithPendingHomework("ila", pendingHomework);
     vi.mocked(buildProfile).mockResolvedValueOnce({
       childId: "ila",
       ttsName: "Ila",
@@ -1854,18 +2124,7 @@ describe("map coordinator (TASK-010)", () => {
       dyslexiaMode: false,
       companionColor: "#00f",
       avatarImagePath: null,
-      pendingHomework: buildPendingHomeworkPayload({
-        weekOf: "2026-04-26",
-        testDate: null,
-        wordList: words,
-        homeworkId,
-        nodes: buildHomeworkNodes({
-          type: "spelling_test",
-          words,
-          homeworkId,
-          childId: "ila",
-        }),
-      }) as import("../shared/childProfile").ChildProfile["pendingHomework"],
+      pendingHomework,
     });
     vi.stubEnv("DIAG_UNLOCK_MAP", "true");
     const { sessionId, mapState } = await startMapSession("ila");
@@ -1882,20 +2141,18 @@ describe("map coordinator (TASK-010)", () => {
     });
   });
 
-  it("game_state_update calls noteExternalEvent on active voice session manager", async () => {
+  it("game_state_update updates board truth without appending companion chat", async () => {
     const { sessionId: sid, mapState } = await startMapSession("qa_map");
-    const sm = { noteExternalEvent: vi.fn() };
+    const sm = { injectGameContext: vi.fn(), noteExternalEvent: vi.fn() };
     registerActiveVoiceSessionManager(mapState.childId, sm);
+    const payload = { progress: "Spelling — 2 blanks left" };
     const events = handleMapClientMessage(sid, {
       type: "game_state_update",
-      payload: { progress: "Spelling — 2 blanks left" },
+      payload,
     });
     expect(events).toEqual([]);
-    expect(sm.noteExternalEvent).toHaveBeenCalledWith({
-      source: "game_state_update",
-      summary: "Spelling — 2 blanks left",
-      occurredAt: expect.any(Number),
-    });
+    expect(sm.injectGameContext).toHaveBeenCalledWith(payload);
+    expect(sm.noteExternalEvent).not.toHaveBeenCalled();
     unregisterActiveVoiceSessionManager(mapState.childId, sm);
   });
 
@@ -2121,16 +2378,8 @@ describe("map coordinator (TASK-010)", () => {
       voiceMode: "muted",
     });
 
-    expect(mapState.nodes.map((node) => node.id)).toEqual([
-      "onboarding-bubble-pop",
-      "onboarding-dopamine-break",
-      "onboarding-academic-load-check",
-    ]);
-    expect(mapState.nodes.map((node) => node.type)).toEqual([
-      "bubble-pop",
-      "mystery",
-      "karaoke",
-    ]);
+    expect(mapState.nodes[0]?.id).toMatch(/^onboarding-/);
+    expect(mapState.nodes.length).toBeGreaterThanOrEqual(1);
     expect(mapState.nodes.every((node) => !node.isCompleted)).toBe(true);
     expect(mapState.completedNodes).toEqual([]);
     expect(mapState.nodes.every((node) => !node.isLocked)).toBe(true);

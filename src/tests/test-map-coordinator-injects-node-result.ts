@@ -134,29 +134,27 @@ describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVE
     vi.mocked(buildNodeList).mockResolvedValue(mockNodes());
   });
 
-  it("8b. [BASELINE→FINAL] node_click with voice SM calls noteExternalEvent(map_node_started) with word hint", async () => {
+  it("8b. node_click updates board truth without auto-speaking or appending companion chat", async () => {
     const { sessionId, mapState } = await startMapSession("ila");
     const sm = new SessionManager(mockWs(), "Ila");
     registerActiveVoiceSessionManager("ila", sm);
 
     const notespy = vi.spyOn(sm as unknown as { noteExternalEvent: (e: unknown) => void }, "noteExternalEvent");
+    const speakSpy = vi.spyOn(sm, "speakGameNarration");
     const firstId = mapState.nodes[0]!.id;
-    handleMapClientMessage(sessionId, {
+    const events = handleMapClientMessage(sessionId, {
       type: "node_click",
       payload: { nodeId: firstId },
     });
 
-    expect(notespy).toHaveBeenCalledTimes(1);
-    const started = notespy.mock.calls[0]?.[0] as { source: string; summary: string };
-    expect(started?.source).toBe("map_node_started");
-    expect(started?.summary).toContain("ila");
-    expect(started?.summary.toLowerCase()).toMatch(/spell/);
-    expect(started?.summary).toMatch(/"cat"/);
+    expect(events[0]?.type).toBe("node_launched");
+    expect(notespy).not.toHaveBeenCalled();
+    expect(speakSpy).not.toHaveBeenCalled();
 
     unregisterActiveVoiceSessionManager("ila", sm);
   });
 
-  it("9. when voice SM is registered, applyNodeResult calls noteExternalEvent exactly once with consistent summary", async () => {
+  it("9. when voice SM is registered, applyNodeResult records handoff without auto companion chat", async () => {
     const { sessionId, mapState } = await startMapSession("ila");
     const sm = new SessionManager(mockWs(), "Ila");
     // Register SM for the same childId ("ila")
@@ -169,7 +167,7 @@ describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVE
     const nodeId = mapState.nodes[0]!.id;
     await applyNodeResult(sessionId, mockResult(nodeId));
 
-    expect(notespy).toHaveBeenCalledTimes(1);
+    expect(notespy).not.toHaveBeenCalled();
     expect(handoffSpy).toHaveBeenCalledTimes(1);
     const handoffPayload = handoffSpy.mock.calls[0]?.[0] as {
       phase: string;
@@ -177,15 +175,49 @@ describe("map-coordinator injects NodeResult into voice SessionManager (GAME-EVE
     };
     expect(handoffPayload?.phase).toBe("node_complete");
     expect(handoffPayload?.game).toBe("spell-check");
-    expect(getHistory(sm).length).toBe(histBefore + 1);
-    // Summary should mention spell-check
-    const injectedEvent = notespy.mock.calls[0]?.[0] as { summary: string; source: string };
-    expect(injectedEvent).toBeDefined();
-    expect(injectedEvent!.summary).toBeTruthy();
-    expect(injectedEvent!.summary.toLowerCase()).toMatch(/spell/);
-    expect(injectedEvent!.source).toBe("map_node_complete");
+    expect(getHistory(sm).length).toBe(histBefore);
 
     unregisterActiveVoiceSessionManager("ila", sm);
+  });
+
+  it("9c. completing a node advances only to the next planned unfinished node", async () => {
+    vi.mocked(buildNodeList).mockResolvedValue([
+      {
+        id: "n-spell",
+        type: "spell-check" as const,
+        isLocked: false,
+        isCompleted: false,
+        isGoal: false,
+        difficulty: 2 as const,
+        words: ["cat"],
+      },
+      {
+        id: "n-monster",
+        type: "monster-stampede" as const,
+        isLocked: true,
+        isCompleted: false,
+        isGoal: false,
+        difficulty: 2 as const,
+        words: ["cat"],
+      },
+      {
+        id: "n-pronunciation",
+        type: "pronunciation" as const,
+        isLocked: true,
+        isCompleted: false,
+        isGoal: false,
+        difficulty: 2 as const,
+        words: ["cat"],
+      },
+    ]);
+    const { sessionId, mapState } = await startMapSession("ila");
+
+    const { mapState: next } = await applyNodeResult(sessionId, mockResult(mapState.nodes[0]!.id));
+
+    expect(next.currentNodeIndex).toBe(1);
+    expect(next.nodes[next.currentNodeIndex]?.id).toBe("n-monster");
+    expect(next.nodes[1]?.isLocked).toBe(false);
+    expect(next.nodes[2]?.isLocked).toBe(true);
   });
 
   it("9b. applyNodeResult for word-radar passes missed/correct words into handoff", async () => {
