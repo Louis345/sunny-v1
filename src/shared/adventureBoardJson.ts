@@ -118,6 +118,16 @@ export interface AdventureBoardCompanion {
   name: string;
 }
 
+export interface AdventureBoardWordRadarConfig {
+  recallMode: string;
+  inputMode: string;
+  speakStyle?: string;
+  showTimer?: boolean;
+  hideWordDuringResponse?: boolean;
+  requiresCapturedResponse?: boolean;
+  [key: string]: unknown;
+}
+
 export interface AdventureBoardNode {
   id: string;
   kind: AdventureBoardNodeKind;
@@ -144,6 +154,7 @@ export interface AdventureBoardNode {
     skill: string;
     words?: string[];
   };
+  wordRadarConfig?: AdventureBoardWordRadarConfig;
   lock?: {
     reason: string;
     label: string;

@@ -64,8 +64,8 @@ function horizontalPosition(
 
   const baseline = [
     { x: 0.25, y: 0.70 },
-    { x: 0.40, y: 0.58 },
-    { x: 0.47, y: 0.66 },
+    { x: 0.38, y: 0.56 },
+    { x: 0.50, y: 0.68 },
   ];
   return baseline[Math.min(order, baseline.length - 1)]!;
 }

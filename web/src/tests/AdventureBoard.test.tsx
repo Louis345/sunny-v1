@@ -4,6 +4,7 @@ import { AdventureBoard } from "../components/AdventureBoard";
 import {
   buildGrokFullExperienceBoard,
   grokFullExperienceBoard,
+  reinaCurrentHomeworkBoard,
 } from "../storybook/adventureBoardFixtures";
 
 describe("AdventureBoard", () => {
@@ -94,5 +95,19 @@ describe("AdventureBoard", () => {
         'img[src="/thumbnails/activities/speed-catcher.svg"]',
       ),
     ).not.toBeNull();
+  });
+
+  it("renders the real Reina May 24 plan with locked Quest and Boss", () => {
+    render(<AdventureBoard board={reinaCurrentHomeworkBoard} />);
+
+    expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
+    expect(screen.getByRole("button", { name: "Silent Letters" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "High Frequency" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Quest, Quest is preparing" })).toHaveClass(
+      "adventure-board__node--locked",
+    );
+    expect(screen.getByRole("button", { name: "Boss, After Quest" })).toHaveClass(
+      "adventure-board__node--locked",
+    );
   });
 });

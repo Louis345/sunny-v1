@@ -1,4 +1,9 @@
 import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
+import {
+  buildAdventureBoardFromActiveSessionPlan,
+  type ActiveSessionPlanBoardNodeSnapshot,
+  type ActiveSessionPlanBoardSnapshot,
+} from "../../../src/shared/adventureBoardFromPlan";
 
 const theme = {
   background: {
@@ -642,6 +647,139 @@ function denseThumbnailFor(node: AdventureBoardJson["nodes"][number]): string | 
   if (node.activityId === "pronunciation") return fullExperienceArt.pronunciation;
   return undefined;
 }
+
+export const reinaMay24ActiveSessionPlanSnapshot: ActiveSessionPlanBoardSnapshot = {
+  planId: "assignment-plan-reina-9e9fe934",
+  childId: "reina",
+  domain: "spelling",
+  nodePlan: [
+    {
+      id: "baseline_silent_letters_spelling",
+      type: "word-radar",
+      activityId: "word-radar",
+      targets: ["sign", "know", "write", "thumb", "comb", "gnat", "knock", "knife", "wrong", "climb"],
+      targetLane: "silent_letters",
+      locked: false,
+      wordRadarConfig: {
+        recallMode: "partial_visual_recall",
+        inputMode: "letter-by-letter",
+        speakStyle: "option-a",
+        showTimer: false,
+        hideWordDuringResponse: true,
+        requiresCapturedResponse: true,
+      },
+    },
+    {
+      id: "baseline_high_frequency_recognition",
+      type: "word-radar",
+      activityId: "word-radar",
+      targets: ["among", "building", "circle", "decided", "finally", "heavy", "include", "nothing", "special", "wheel"],
+      targetLane: "high_frequency_words",
+      locked: false,
+      wordRadarConfig: {
+        recallMode: "visible_read",
+        inputMode: "whole-word",
+        speakStyle: "option-a",
+        showTimer: false,
+        hideWordDuringResponse: false,
+        requiresCapturedResponse: true,
+      },
+    },
+    {
+      id: "baseline_spelling_diagnostic",
+      type: "spell-check",
+      activityId: "spell-check",
+      targets: ["sign", "know", "write", "thumb", "comb", "gnat", "knock", "knife", "wrong", "climb"],
+      targetLane: "silent_letters",
+      locked: false,
+    },
+    {
+      id: "mystery_choice",
+      type: "mystery",
+      activityId: "mystery",
+      targets: ["sign", "know", "write", "thumb", "comb", "gnat", "knock", "knife", "wrong", "climb", "among", "building", "circle", "decided", "finally", "heavy", "include", "nothing", "special", "wheel"],
+      targetLane: "silent_letters",
+      choiceMode: "choice_lab",
+      locked: false,
+    },
+    {
+      id: "quest_transfer",
+      type: "quest",
+      activityId: "quest",
+      targets: ["sign", "know", "write", "thumb", "comb", "gnat", "knock", "knife", "wrong", "climb", "among", "building", "circle", "decided", "finally", "heavy", "include", "nothing", "special", "wheel"],
+      targetLane: "silent_letters",
+      locked: true,
+      masteryUnlockState: "preparing",
+    },
+    {
+      id: "boss_mastery",
+      type: "boss",
+      activityId: "boss",
+      targets: [],
+      targetLane: "silent_letters",
+      locked: true,
+      masteryUnlockState: "preparing",
+    },
+  ],
+};
+
+function reinaCurrentHomeworkLabel(node: ActiveSessionPlanBoardNodeSnapshot): string | undefined {
+  if (node.id === "baseline_silent_letters_spelling") return "Silent Letters";
+  if (node.id === "baseline_high_frequency_recognition") return "High Frequency";
+  if (node.id === "baseline_spelling_diagnostic") return "Spell Check";
+  if (node.id === "mystery_choice") return "Mystery";
+  if (node.id === "quest_transfer") return "Quest";
+  if (node.id === "boss_mastery") return "Boss";
+  return undefined;
+}
+
+function reinaCurrentHomeworkThumbnail(node: ActiveSessionPlanBoardNodeSnapshot): string | undefined {
+  if (node.activityId === "word-radar") return fullExperienceArt.wordRadar;
+  if (node.activityId === "spell-check") return fullExperienceArt.spellCheck;
+  if (node.activityId === "mystery") return fullExperienceArt.mystery;
+  if (node.activityId === "quest") return fullExperienceArt.quest;
+  if (node.activityId === "boss") return fullExperienceArt.boss;
+  return undefined;
+}
+
+export const reinaCurrentHomeworkBoard = buildAdventureBoardFromActiveSessionPlan({
+  plan: reinaMay24ActiveSessionPlanSnapshot,
+  boardId: "storybook-reina-current-homework",
+  title: "Reina Current Homework",
+  theme: {
+    ...theme,
+    background: {
+      type: "image",
+      value: fullExperienceArt.background,
+    },
+    palette: {
+      ...theme.palette,
+      completed: "#1f8f68",
+      available: "#7c3aed",
+      current: "#f59e0b",
+      panel: "rgba(15, 23, 42, 0.84)",
+    },
+  },
+  layout: {
+    preset: "horizontal-adventure-spine",
+    companionSlot: "right",
+    routeChoiceBehavior: "exclusive",
+  },
+  plannerRationale: {
+    agencyDesign:
+      "The planner separates silent-letter spelling production from high-frequency recognition before offering a Mystery recovery moment.",
+    evidenceDesign:
+      "Word Radar keeps the planner-authored modes intact, Spell Check verifies spelling, and Quest/Boss stay locked for later evidence.",
+    layoutChoice:
+      "The renderer preserves the May 24 node order and paints it into the horizontal adventure skin without adding learning nodes.",
+  },
+  companion: {
+    id: "matilda",
+    name: "Matilda",
+  },
+  labelForNode: reinaCurrentHomeworkLabel,
+  thumbnailForNode: reinaCurrentHomeworkThumbnail,
+});
 
 function withoutPosition(node: AdventureBoardJson["nodes"][number]): AdventureBoardJson["nodes"][number] {
   const { position: _position, ...rest } = node;

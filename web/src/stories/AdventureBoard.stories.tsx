@@ -13,6 +13,7 @@ import {
   grokFullExperienceBoard,
   linearBaselineBoard,
   questLockedBoard,
+  reinaCurrentHomeworkBoard,
   type AdventureBoardBranchDensity,
   type AdventureBoardChosenRoute,
 } from "../storybook/adventureBoardFixtures";
@@ -27,7 +28,8 @@ type AdventureBoardStoryArgs = {
     | "questLocked"
     | "bossReady"
     | "dense"
-    | "grokFull";
+    | "grokFull"
+    | "reinaCurrent";
   routeChoiceBehavior: "exclusive" | "parallel";
   branchDensity: AdventureBoardBranchDensity;
   chosenRoute: AdventureBoardChosenRoute;
@@ -44,6 +46,7 @@ const boards: Record<AdventureBoardStoryArgs["scenario"], AdventureBoardJson> = 
   bossReady: bossReadyBoard,
   dense: denseSpellingBoard,
   grokFull: grokFullExperienceBoard,
+  reinaCurrent: reinaCurrentHomeworkBoard,
 };
 
 function playfulAdventureCompanionBehavior(board: AdventureBoardJson): CompanionBehavior {
@@ -188,6 +191,11 @@ export const DenseSpellingSession: Story = {
 
 export const GrokFullExperience: Story = {
   args: { scenario: "grokFull" },
+  render: (args) => <BoardFixture {...args} />,
+};
+
+export const ReinaCurrentHomework: Story = {
+  args: { scenario: "reinaCurrent" },
   render: (args) => <BoardFixture {...args} />,
 };
 
