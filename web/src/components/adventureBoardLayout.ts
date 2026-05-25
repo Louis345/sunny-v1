@@ -37,14 +37,14 @@ function horizontalPosition(
   const order = Math.max(0, (node.layout?.order ?? siblingOrdinal(nodes, node)) - 1);
 
   if (role === "start") return { x: 0.10, y: 0.82 };
-  if (role === "mystery") return { x: 0.54, y: 0.46 };
-  if (role === "choice-gate") return { x: 0.64, y: 0.56 };
+  if (role === "choice-gate") return { x: 0.52, y: 0.56 };
+  if (role === "mystery") return { x: 0.64, y: 0.46 };
   if (role === "quest") return { x: 0.76, y: 0.34 };
   if (role === "boss") return { x: 0.86, y: 0.18 };
 
   if (role === "evidence-route") {
     const upper = [
-      { x: 0.38, y: 0.30 },
+      { x: 0.44, y: 0.30 },
       { x: 0.58, y: 0.26 },
       { x: 0.68, y: 0.31 },
     ];

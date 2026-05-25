@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AdventureBoard } from "../components/AdventureBoard";
 import {
@@ -101,6 +101,14 @@ describe("AdventureBoard", () => {
     render(<AdventureBoard board={reinaCurrentHomeworkBoard} />);
 
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
+    expect(reinaCurrentHomeworkBoard.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "baseline_spelling_diagnostic",
+          to: "choice_after_verify",
+        }),
+      ]),
+    );
     expect(screen.getByRole("button", { name: "Start" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Know / Write" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Light Check" })).toBeVisible();
@@ -108,10 +116,16 @@ describe("AdventureBoard", () => {
       "adventure-board__node--locked",
     );
     expect(reinaCurrentHomeworkBoard.choiceSets?.map((choiceSet) => choiceSet.kind)).toEqual([
+      "baseline-route",
       "mystery",
       "quest-wrapper",
       "boss-wrapper",
     ]);
+    fireEvent.click(screen.getByRole("button", { name: "Choose Path, Unlocks after current check" }));
+    const routeDialog = screen.getByRole("dialog", { name: "Choose your path" });
+    expect(routeDialog).toBeVisible();
+    expect(within(routeDialog).getByText("Light Check")).toBeVisible();
+    expect(within(routeDialog).getByText("Mystery")).toBeVisible();
     expect(screen.getByRole("button", { name: "Quest, Quest is preparing" })).toHaveClass(
       "adventure-board__node--locked",
     );

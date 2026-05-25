@@ -512,6 +512,7 @@ describe("assignment planner", () => {
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("pediatric learning psychologist and adaptive game director");
     expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
     expect(prompt).toContain("Explain why each visible route or modal choice is worth the child's attention today");
+    expect(prompt).toContain("edges must flow from the prior required node into the gate");
     expect(prompt).toContain("activeSessionPlan.adventureBoard");
     expect(prompt).toContain("adventureMapProfile");
     expect(prompt).not.toContain("maxVisibleChoices");

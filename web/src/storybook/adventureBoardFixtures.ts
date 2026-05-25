@@ -860,6 +860,8 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
         reason: "needs-current-check",
         label: "Unlocks after current check",
       },
+      choiceSetId: "after-verify-route-options",
+      action: { type: "open-choice-set", payloadId: "after-verify-route-options" },
     },
     {
       id: "mystery_choice",
@@ -925,13 +927,41 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
   edges: [
     { id: "e-start-know-write", from: "start", to: "baseline_silent_letters_spelling", state: "completed" },
     { id: "e-know-write-verify", from: "baseline_silent_letters_spelling", to: "baseline_spelling_diagnostic", state: "available" },
-    { id: "e-verify-light-check", from: "baseline_spelling_diagnostic", to: "baseline_high_frequency_recognition", state: "available" },
-    { id: "e-light-check-choice", from: "baseline_high_frequency_recognition", to: "choice_after_verify", state: "locked", style: "dashed" },
+    { id: "e-verify-choice", from: "baseline_spelling_diagnostic", to: "choice_after_verify", state: "available", style: "glow" },
+    { id: "e-choice-light-check", from: "choice_after_verify", to: "baseline_high_frequency_recognition", state: "locked", style: "dashed" },
+    { id: "e-light-check-mystery", from: "baseline_high_frequency_recognition", to: "mystery_choice", state: "locked", style: "dashed" },
     { id: "e-choice-mystery", from: "choice_after_verify", to: "mystery_choice", state: "locked", style: "dashed" },
     { id: "e-mystery-quest", from: "mystery_choice", to: "quest_transfer", state: "locked", style: "dashed" },
     { id: "e-quest-boss", from: "quest_transfer", to: "boss_mastery", state: "locked", style: "dashed" },
   ],
   choiceSets: [
+    {
+      id: "after-verify-route-options",
+      kind: "baseline-route",
+      title: "Choose your path",
+      options: [
+        {
+          id: "light-check-route",
+          label: "Light Check",
+          description: "Quick recognition check before Mystery.",
+          icon: "radar",
+          thumbnailUrl: fullExperienceArt.wordRadar,
+          state: "available",
+          nodeId: "baseline_high_frequency_recognition",
+          tags: ["high-frequency"],
+        },
+        {
+          id: "mystery-route",
+          label: "Mystery",
+          description: "Jump to the choice reward after verification.",
+          icon: "mystery",
+          thumbnailUrl: fullExperienceArt.mystery,
+          state: "available",
+          nodeId: "mystery_choice",
+          tags: ["mystery"],
+        },
+      ],
+    },
     {
       id: "mystery-options",
       kind: "mystery",
