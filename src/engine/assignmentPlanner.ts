@@ -10,6 +10,7 @@ import type {
   PlanTheory,
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
+import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { ALL_NODE_TYPES, type NodeType } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
 import {
@@ -229,9 +230,21 @@ const compactNodePlanSchema = z.object({
   ),
 });
 
+const adventureBoardJsonSchema = z.custom<AdventureBoardJson>((value) => {
+  if (!value || typeof value !== "object") return false;
+  const board = value as Partial<AdventureBoardJson>;
+  return board.schemaVersion === 1 &&
+    typeof board.boardId === "string" &&
+    typeof board.planId === "string" &&
+    typeof board.childId === "string" &&
+    Array.isArray(board.nodes) &&
+    Array.isArray(board.edges);
+}, "Planner adventureBoard must be an AdventureBoardJson object.");
+
 const compactActiveSessionPlanSchema = z.object({
   planId: z.string().min(1).optional(),
   nodePlan: z.array(compactNodePlanSchema).min(1),
+  adventureBoard: adventureBoardJsonSchema.optional(),
   evidenceUsed: z.array(z.object({
     id: z.string().min(1),
     type: z.string().min(1),
@@ -550,6 +563,10 @@ Rules:
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
 - Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
 - Explain why each visible route or modal choice is worth the child's attention today.
+- Return activeSessionPlan.adventureBoard as the child-facing map. nodePlan is the lab/intervention list; adventureBoard is the board experience.
+- adventureBoard may include board-only presentation nodes such as Start and Choose Path, but learning nodes must reference the nodePlan ids they represent and must not add hidden academic interventions.
+- adventureBoard choiceSets are where Mystery, Quest, and Boss modal options live. Do not rely on nodePlan alone to express child agency.
+- If you include visible route branches, explain them in plannerRationale.agencyDesign and keep each branch tied to a valid nodePlan learning purpose or reward/preference evidence purpose.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
 - If a child needs shorter cohorts, shorten the target list and vary instruments by purpose rather than creating many same-activity nodes. Do not split one lane into a long run of consecutive Word Radar nodes; more Word Radar nodes are not better evidence when one better-chosen Word Radar node plus another instrument would answer the care-plan question.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
@@ -570,7 +587,22 @@ Rules:
       "sourceDocuments": [{"filename": string, "mediaType": string}]
     },
     "homeworkWords": [{"text": string, "sourceGroupId": string, "purpose": "spell_from_memory" | "recognize" | "read_fluently" | "pronounce" | "define" | "unknown"}],
-    "activeSessionPlan": {"nodePlan": [{"id": string, "type": string, "activityId": string, "targets": string[], "difficulty": 1 | 2 | 3, "targetLane": string, "choiceMode": "choice_lab | surprise_drop only for mystery", "locked": boolean, "masteryUnlockState": "preparing for locked quest/boss", "wordRadarConfig": "only for word-radar nodes: {\"recallMode\": \"visible_read\" | \"partial_visual_recall\" | \"hidden_word_recall\", \"inputMode\": \"whole-word\" | \"letter-by-letter\" | \"keyboard\", \"speakStyle\": \"option-a\" | \"option-b\", \"showTimer\": boolean, \"timerSeconds\": number, \"hideWordDuringResponse\": boolean, \"requiresCapturedResponse\": boolean}"}]},
+    "activeSessionPlan": {
+      "nodePlan": [{"id": string, "type": string, "activityId": string, "targets": string[], "difficulty": 1 | 2 | 3, "targetLane": string, "choiceMode": "choice_lab | surprise_drop only for mystery", "locked": boolean, "masteryUnlockState": "preparing for locked quest/boss", "wordRadarConfig": "only for word-radar nodes: {\"recallMode\": \"visible_read\" | \"partial_visual_recall\" | \"hidden_word_recall\", \"inputMode\": \"whole-word\" | \"letter-by-letter\" | \"keyboard\", \"speakStyle\": \"option-a\" | \"option-b\", \"showTimer\": boolean, \"timerSeconds\": number, \"hideWordDuringResponse\": boolean, \"requiresCapturedResponse\": boolean}"}],
+      "adventureBoard": {
+        "schemaVersion": 1,
+        "boardId": string,
+        "planId": string,
+        "childId": string,
+        "domain": "spelling" | "reading" | "math" | "science" | "generic",
+        "layout": {"preset": "horizontal-adventure-spine", "companionSlot": "right" | "left" | "none", "routeChoiceBehavior": "exclusive" | "parallel"},
+        "plannerRationale": {"agencyDesign": string, "evidenceDesign": string, "layoutChoice": string},
+        "theme": {"background": {"type": "image" | "gradient" | "solid", "value": string}, "palette": {"path": string, "completed": string, "available": string, "locked": string, "current": string, "preview": string, "text": string, "panel": string}},
+        "nodes": [{"id": string, "kind": "start" | "activity" | "choice-gate" | "mystery" | "quest" | "boss" | "reward", "activityId": string, "label": string, "state": "current" | "available" | "completed" | "locked" | "preview" | "hidden", "choiceSetId": string, "target": {"laneId": string, "skill": string, "words": string[]}}],
+        "edges": [{"id": string, "from": string, "to": string, "state": "completed" | "available" | "locked" | "preview", "style": "solid" | "dashed" | "glow"}],
+        "choiceSets": [{"id": string, "kind": "baseline-route" | "mystery" | "quest-wrapper" | "boss-wrapper", "title": string, "options": [{"id": string, "label": string, "description": string, "state": "available" | "locked" | "completed"}]}]
+      }
+    },
     "plannedMeasurements": [{"id": string, "activityId": string, "target": string, "evidenceType": string, "supportCriteria": string, "reviseCriteria": string, "falsifyCriteria": string}],
     "planTheory": {"hypothesis": string, "evidenceSummary": string[], "intervention": string, "supportCriteria": string[], "reviseCriteria": string[], "falsifyCriteria": string[]},
     "reviewQuestions": string[]
@@ -778,6 +810,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
       difficulty: node.difficulty ?? 1,
       source: "chart_planner" as const,
     })),
+    adventureBoard: args.draft.adventureBoard,
     variationPolicy: {
       avoidExactPreviousNodeOrder: true,
       avoidExactPreviousWordOrder: true,

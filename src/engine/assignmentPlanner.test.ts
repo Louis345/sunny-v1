@@ -317,6 +317,87 @@ describe("assignment planner", () => {
     expect(parsed.activeSessionPlan.nodePlan[0]?.wordRadarConfig).toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
   });
 
+  it("preserves planner-authored child-facing adventureBoard through schema parsing", () => {
+    const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
+      capturedContent: {
+        title: "Demo",
+        type: "spelling_test",
+        rawText: "Silent Letters\nsign",
+        words: ["sign"],
+        questions: [],
+        wordGroups: [{ id: "silent_letters", label: "Silent Letters", purpose: "spell_from_memory", words: ["sign"], confidence: 0.95, evidence: ["source"] }],
+        contentProfile: { practiceDomain: "spelling", contentDomain: "language_arts", topic: "Demo", primarySkill: "spelling", assignmentFormat: "word list", concepts: [], sourceEvidence: [] },
+        sourceDocuments: [{ filename: "demo.pdf", mediaType: "application/pdf" }],
+      },
+      homeworkWords: [{ text: "sign", sourceGroupId: "silent_letters", purpose: "spell_from_memory" }],
+      activeSessionPlan: {
+        nodePlan: [{
+          id: "word-radar-silent",
+          type: "word-radar",
+          activityId: "word-radar",
+          targets: ["sign"],
+          difficulty: 1,
+          targetLane: "silent_letters",
+          wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+        }],
+        adventureBoard: {
+          schemaVersion: 1,
+          boardId: "planner-board",
+          planId: "planner-demo",
+          childId: "reina",
+          domain: "spelling",
+          theme: {
+            background: { type: "solid", value: "#10233f" },
+            palette: {
+              path: "#ffffff",
+              completed: "#2f9f6f",
+              available: "#7058f4",
+              locked: "#aeb7c2",
+              current: "#ef9825",
+              preview: "#d5dde5",
+              text: "#ffffff",
+              panel: "rgba(21, 31, 50, 0.80)",
+            },
+          },
+          layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "exclusive" },
+          plannerRationale: {
+            agencyDesign: "Show one baseline node, then a child-facing choice.",
+            evidenceDesign: "The board choices collect preference evidence.",
+            layoutChoice: "Horizontal route leaves room for Matilda.",
+          },
+          nodes: [
+            { id: "start", kind: "start", label: "Start", state: "completed" },
+            { id: "word-radar-silent", kind: "activity", activityId: "word-radar", label: "Know / Write", state: "current" },
+            { id: "mystery-choice", kind: "mystery", activityId: "mystery", label: "Mystery", state: "available", choiceSetId: "mystery-options" },
+          ],
+          edges: [
+            { id: "e-start-radar", from: "start", to: "word-radar-silent", state: "completed" },
+            { id: "e-radar-mystery", from: "word-radar-silent", to: "mystery-choice", state: "available" },
+          ],
+          choiceSets: [{
+            id: "mystery-options",
+            kind: "mystery",
+            title: "Pick a challenge",
+            options: [
+              { id: "story", label: "Story", state: "available" },
+              { id: "speed", label: "Speed", state: "available" },
+            ],
+          }],
+        },
+      },
+      plannedMeasurements: [{ id: "m", activityId: "word-radar", target: "sign", evidenceType: "practice", supportCriteria: "correct", reviseCriteria: "miss", falsifyCriteria: "missing" }],
+      planTheory: { hypothesis: "h", evidenceSummary: ["e"], intervention: "i", supportCriteria: ["s"], reviseCriteria: ["r"], falsifyCriteria: ["f"] },
+      reviewQuestions: ["Review?"],
+    })}`);
+
+    expect(parsed.activeSessionPlan.adventureBoard?.nodes.map((node) => node.id)).toEqual([
+      "start",
+      "word-radar-silent",
+      "mystery-choice",
+    ]);
+    expect(parsed.activeSessionPlan.adventureBoard?.choiceSets?.[0]?.options).toHaveLength(2);
+  });
+
   it("normalizes harmless planner JSON shape mistakes but still requires Word Radar config", () => {
     const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
       capturedContent: {
@@ -431,6 +512,7 @@ describe("assignment planner", () => {
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("pediatric learning psychologist and adaptive game director");
     expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
     expect(prompt).toContain("Explain why each visible route or modal choice is worth the child's attention today");
+    expect(prompt).toContain("activeSessionPlan.adventureBoard");
     expect(prompt).toContain("adventureMapProfile");
     expect(prompt).not.toContain("maxVisibleChoices");
     expect(prompt).not.toContain("paradox of choice");

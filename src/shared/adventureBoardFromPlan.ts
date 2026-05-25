@@ -28,6 +28,7 @@ export interface ActiveSessionPlanBoardSnapshot {
   childId: string;
   domain: string;
   nodePlan: ActiveSessionPlanBoardNodeSnapshot[];
+  adventureBoard?: AdventureBoardJson;
 }
 
 export interface BuildAdventureBoardFromActiveSessionPlanOptions {
@@ -93,6 +94,12 @@ export function buildAdventureBoardFromActiveSessionPlan(
       activeChoiceSetId: options.progress?.activeChoiceSetId,
     },
   };
+}
+
+export function resolveAdventureBoardForActiveSessionPlan(
+  options: BuildAdventureBoardFromActiveSessionPlanOptions,
+): AdventureBoardJson {
+  return options.plan.adventureBoard ?? buildAdventureBoardFromActiveSessionPlan(options);
 }
 
 function buildBoardNode(input: {

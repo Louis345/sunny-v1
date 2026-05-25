@@ -1,6 +1,6 @@
 import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
 import {
-  buildAdventureBoardFromActiveSessionPlan,
+  resolveAdventureBoardForActiveSessionPlan,
   type ActiveSessionPlanBoardNodeSnapshot,
   type ActiveSessionPlanBoardSnapshot,
 } from "../../../src/shared/adventureBoardFromPlan";
@@ -742,9 +742,12 @@ function reinaCurrentHomeworkThumbnail(node: ActiveSessionPlanBoardNodeSnapshot)
   return undefined;
 }
 
-export const reinaCurrentHomeworkBoard = buildAdventureBoardFromActiveSessionPlan({
-  plan: reinaMay24ActiveSessionPlanSnapshot,
+export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
+  schemaVersion: 1,
   boardId: "storybook-reina-current-homework",
+  planId: reinaMay24ActiveSessionPlanSnapshot.planId,
+  childId: "reina",
+  domain: "spelling",
   title: "Reina Current Homework",
   theme: {
     ...theme,
@@ -771,12 +774,222 @@ export const reinaCurrentHomeworkBoard = buildAdventureBoardFromActiveSessionPla
     evidenceDesign:
       "Word Radar keeps the planner-authored modes intact, Spell Check verifies spelling, and Quest/Boss stay locked for later evidence.",
     layoutChoice:
-      "The renderer preserves the May 24 node order and paints it into the horizontal adventure skin without adding learning nodes.",
+      "Horizontal map leaves room for Matilda while keeping the May 24 interventions attached to their planner ids.",
   },
   companion: {
     id: "matilda",
     name: "Matilda",
   },
+  progress: {
+    currentNodeId: "baseline_silent_letters_spelling",
+    completedNodeIds: ["start"],
+    activeChoiceSetId: "mystery-options",
+  },
+  nodes: [
+    {
+      id: "start",
+      kind: "start",
+      label: "Start",
+      icon: "check",
+      thumbnailUrl: fullExperienceArt.start,
+      layout: { role: "start", order: 1 },
+      state: "completed",
+    },
+    {
+      id: "baseline_silent_letters_spelling",
+      kind: "activity",
+      activityId: "word-radar",
+      label: "Know / Write",
+      icon: "radar",
+      thumbnailUrl: fullExperienceArt.wordRadar,
+      layout: { role: "baseline", lane: "main", order: 1 },
+      state: "current",
+      evidenceRole: "baseline",
+      target: {
+        laneId: "silent_letters",
+        skill: "spell_from_memory",
+        words: reinaMay24ActiveSessionPlanSnapshot.nodePlan[0]?.targets ?? [],
+      },
+      wordRadarConfig: reinaMay24ActiveSessionPlanSnapshot.nodePlan[0]?.wordRadarConfig,
+      action: { type: "launch-activity", payloadId: "baseline_silent_letters_spelling" },
+    },
+    {
+      id: "baseline_spelling_diagnostic",
+      kind: "activity",
+      activityId: "spell-check",
+      label: "Verify",
+      icon: "book",
+      thumbnailUrl: fullExperienceArt.spellCheck,
+      layout: { role: "baseline", lane: "main", order: 2 },
+      state: "available",
+      evidenceRole: "baseline",
+      target: {
+        laneId: "silent_letters",
+        skill: "spell_from_memory",
+        words: reinaMay24ActiveSessionPlanSnapshot.nodePlan[2]?.targets ?? [],
+      },
+      action: { type: "launch-activity", payloadId: "baseline_spelling_diagnostic" },
+    },
+    {
+      id: "baseline_high_frequency_recognition",
+      kind: "activity",
+      activityId: "word-radar",
+      label: "Light Check",
+      icon: "radar",
+      thumbnailUrl: fullExperienceArt.wordRadar,
+      layout: { role: "evidence-route", lane: "upper", order: 1, routeGroupId: "after-verify-route" },
+      state: "available",
+      evidenceRole: "baseline",
+      target: {
+        laneId: "high_frequency_words",
+        skill: "read_fluently",
+        words: reinaMay24ActiveSessionPlanSnapshot.nodePlan[1]?.targets ?? [],
+      },
+      wordRadarConfig: reinaMay24ActiveSessionPlanSnapshot.nodePlan[1]?.wordRadarConfig,
+      action: { type: "launch-activity", payloadId: "baseline_high_frequency_recognition" },
+    },
+    {
+      id: "choice_after_verify",
+      kind: "choice-gate",
+      label: "Choose Path",
+      icon: "route",
+      thumbnailUrl: fullExperienceArt.choice,
+      layout: { role: "choice-gate", order: 1 },
+      state: "locked",
+      lock: {
+        reason: "needs-current-check",
+        label: "Unlocks after current check",
+      },
+    },
+    {
+      id: "mystery_choice",
+      kind: "mystery",
+      activityId: "mystery",
+      label: "Mystery",
+      icon: "mystery",
+      thumbnailUrl: fullExperienceArt.mystery,
+      layout: { role: "mystery", order: 1 },
+      state: "available",
+      evidenceRole: "preference",
+      target: {
+        laneId: "silent_letters",
+        skill: "reward_recovery",
+        words: reinaMay24ActiveSessionPlanSnapshot.nodePlan[3]?.targets ?? [],
+      },
+      choiceSetId: "mystery-options",
+      action: { type: "open-choice-set", payloadId: "mystery-options" },
+    },
+    {
+      id: "quest_transfer",
+      kind: "quest",
+      activityId: "quest",
+      label: "Quest",
+      icon: "star",
+      thumbnailUrl: fullExperienceArt.quest,
+      layout: { role: "quest", order: 1 },
+      state: "locked",
+      evidenceRole: "transfer",
+      target: {
+        laneId: "silent_letters",
+        skill: "generated_transfer",
+        words: reinaMay24ActiveSessionPlanSnapshot.nodePlan[4]?.targets ?? [],
+      },
+      lock: {
+        reason: "preparing",
+        label: "Quest is preparing",
+      },
+      choiceSetId: "quest-options",
+    },
+    {
+      id: "boss_mastery",
+      kind: "boss",
+      activityId: "boss",
+      label: "Boss",
+      icon: "crown",
+      thumbnailUrl: fullExperienceArt.boss,
+      layout: { role: "boss", order: 1 },
+      state: "locked",
+      evidenceRole: "mastery",
+      target: {
+        laneId: "silent_letters",
+        skill: "mastery_gate",
+        words: [],
+      },
+      lock: {
+        reason: "preparing",
+        label: "After Quest",
+      },
+      choiceSetId: "boss-options",
+    },
+  ],
+  edges: [
+    { id: "e-start-know-write", from: "start", to: "baseline_silent_letters_spelling", state: "completed" },
+    { id: "e-know-write-verify", from: "baseline_silent_letters_spelling", to: "baseline_spelling_diagnostic", state: "available" },
+    { id: "e-verify-light-check", from: "baseline_spelling_diagnostic", to: "baseline_high_frequency_recognition", state: "available" },
+    { id: "e-light-check-choice", from: "baseline_high_frequency_recognition", to: "choice_after_verify", state: "locked", style: "dashed" },
+    { id: "e-choice-mystery", from: "choice_after_verify", to: "mystery_choice", state: "locked", style: "dashed" },
+    { id: "e-mystery-quest", from: "mystery_choice", to: "quest_transfer", state: "locked", style: "dashed" },
+    { id: "e-quest-boss", from: "quest_transfer", to: "boss_mastery", state: "locked", style: "dashed" },
+  ],
+  choiceSets: [
+    {
+      id: "mystery-options",
+      kind: "mystery",
+      title: "Pick a challenge",
+      options: [
+        {
+          id: "story-challenge",
+          label: "Story Challenge",
+          description: "Use the words inside a quick mission scene.",
+          icon: "book",
+          thumbnailUrl: fullExperienceArt.storyChoice,
+          state: "available",
+          tags: ["story", "creative"],
+        },
+        {
+          id: "speed-challenge",
+          label: "Speed Challenge",
+          description: "Try a fast round with the same target words.",
+          icon: "zap",
+          thumbnailUrl: fullExperienceArt.speedChoice,
+          state: "available",
+          tags: ["arcade", "fast"],
+        },
+      ],
+    },
+    {
+      id: "quest-options",
+      kind: "quest-wrapper",
+      title: "Quest paths",
+      options: [
+        { id: "quest-story", label: "Story Quest", description: "Generated transfer story after evidence.", icon: "book", state: "locked" },
+        { id: "quest-puzzle", label: "Puzzle Quest", description: "Generated puzzle after evidence.", icon: "sparkles", state: "locked" },
+        { id: "quest-arcade", label: "Arcade Quest", description: "Generated challenge after evidence.", icon: "game", state: "locked" },
+      ],
+    },
+    {
+      id: "boss-options",
+      kind: "boss-wrapper",
+      title: "Boss finales",
+      options: [
+        { id: "boss-showdown", label: "Showdown", description: "Final transfer proof after Quest.", icon: "swords", state: "locked" },
+        { id: "boss-puzzle", label: "Final Puzzle", description: "Final puzzle proof after Quest.", icon: "sparkles", state: "locked" },
+        { id: "boss-story", label: "Final Story", description: "Final story proof after Quest.", icon: "book", state: "locked" },
+      ],
+    },
+  ],
+};
+
+reinaMay24ActiveSessionPlanSnapshot.adventureBoard = reinaMay24PlannerAdventureBoard;
+
+export const reinaCurrentHomeworkBoard = resolveAdventureBoardForActiveSessionPlan({
+  plan: reinaMay24ActiveSessionPlanSnapshot,
+  boardId: "storybook-reina-current-homework-debug-fallback",
+  title: "Reina Current Homework",
+  theme: reinaMay24PlannerAdventureBoard.theme,
+  layout: reinaMay24PlannerAdventureBoard.layout,
+  plannerRationale: reinaMay24PlannerAdventureBoard.plannerRationale,
+  companion: reinaMay24PlannerAdventureBoard.companion,
   labelForNode: reinaCurrentHomeworkLabel,
   thumbnailForNode: reinaCurrentHomeworkThumbnail,
 });

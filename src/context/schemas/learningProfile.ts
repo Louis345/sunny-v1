@@ -15,6 +15,7 @@ import type {
   PronunciationNodeConfig,
   WordRadarNodeConfig,
 } from "../../shared/adventureTypes";
+import type { AdventureBoardJson } from "../../shared/adventureBoardJson";
 
 export type ActiveSessionPlanSource =
   | "ingest_human_loop"
@@ -140,6 +141,7 @@ export interface ActiveSessionPlan {
     pronunciationConfig?: PronunciationNodeConfig;
     wordRadarConfig?: WordRadarNodeConfig;
   }>;
+  adventureBoard?: AdventureBoardJson;
   variationPolicy: {
     avoidExactPreviousNodeOrder: boolean;
     avoidExactPreviousWordOrder: boolean;

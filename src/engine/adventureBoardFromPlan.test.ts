@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAdventureBoardFromActiveSessionPlan,
+  resolveAdventureBoardForActiveSessionPlan,
   type ActiveSessionPlanBoardSnapshot,
 } from "../shared/adventureBoardFromPlan";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
@@ -95,6 +96,64 @@ const reinaMay24Plan: ActiveSessionPlanBoardSnapshot = {
 };
 
 describe("buildAdventureBoardFromActiveSessionPlan", () => {
+  it("uses planner-owned adventureBoard when the plan provides the child-facing map", () => {
+    const plannerBoard: AdventureBoardJson = {
+      schemaVersion: 1,
+      boardId: "planner-owned-reina-board",
+      planId: reinaMay24Plan.planId,
+      childId: "reina",
+      domain: "spelling",
+      title: "Reina Current Homework",
+      theme,
+      layout: {
+        preset: "horizontal-adventure-spine",
+        companionSlot: "right",
+        routeChoiceBehavior: "exclusive",
+      },
+      plannerRationale: {
+        agencyDesign: "Start with baseline work, then use a visible route gate and Mystery modal choice.",
+        evidenceDesign: "Each child-facing choice earns evidence without changing the learning targets.",
+        layoutChoice: "Horizontal map leaves room for Matilda.",
+      },
+      nodes: [
+        { id: "start", kind: "start", label: "Start", state: "completed" },
+        { id: "baseline_silent_letters_spelling", kind: "activity", activityId: "word-radar", label: "Know / Write", state: "current" },
+        { id: "choice_after_verify", kind: "choice-gate", label: "Choose Path", state: "locked" },
+        { id: "mystery_choice", kind: "mystery", activityId: "mystery", label: "Mystery", state: "available", choiceSetId: "mystery-choice" },
+      ],
+      edges: [
+        { id: "e-start-radar", from: "start", to: "baseline_silent_letters_spelling", state: "completed" },
+        { id: "e-radar-choice", from: "baseline_silent_letters_spelling", to: "choice_after_verify", state: "locked", style: "dashed" },
+        { id: "e-choice-mystery", from: "choice_after_verify", to: "mystery_choice", state: "locked", style: "dashed" },
+      ],
+      choiceSets: [
+        {
+          id: "mystery-choice",
+          kind: "mystery",
+          title: "Pick a challenge",
+          options: [
+            { id: "story", label: "Story Challenge", state: "available" },
+            { id: "speed", label: "Speed Challenge", state: "available" },
+          ],
+        },
+      ],
+    };
+
+    const board = resolveAdventureBoardForActiveSessionPlan({
+      plan: {
+        ...reinaMay24Plan,
+        adventureBoard: plannerBoard,
+      },
+      boardId: "fallback-board",
+      theme,
+    });
+
+    expect(board).toEqual(plannerBoard);
+    expect(board.nodes.map((node) => node.id)).toContain("start");
+    expect(board.nodes.map((node) => node.id)).toContain("choice_after_verify");
+    expect(board.choiceSets?.[0]?.options).toHaveLength(2);
+  });
+
   it("preserves Reina May 24 planner node order and Word Radar configs", () => {
     const board = buildAdventureBoardFromActiveSessionPlan({
       plan: reinaMay24Plan,

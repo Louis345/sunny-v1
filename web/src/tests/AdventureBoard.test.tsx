@@ -101,8 +101,17 @@ describe("AdventureBoard", () => {
     render(<AdventureBoard board={reinaCurrentHomeworkBoard} />);
 
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
-    expect(screen.getByRole("button", { name: "Silent Letters" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "High Frequency" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Start" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Know / Write" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Light Check" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Choose Path, Unlocks after current check" })).toHaveClass(
+      "adventure-board__node--locked",
+    );
+    expect(reinaCurrentHomeworkBoard.choiceSets?.map((choiceSet) => choiceSet.kind)).toEqual([
+      "mystery",
+      "quest-wrapper",
+      "boss-wrapper",
+    ]);
     expect(screen.getByRole("button", { name: "Quest, Quest is preparing" })).toHaveClass(
       "adventure-board__node--locked",
     );
