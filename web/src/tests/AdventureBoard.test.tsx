@@ -124,7 +124,9 @@ describe("AdventureBoard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Choose Path, Unlocks after current check" }));
     const routeDialog = screen.getByRole("dialog", { name: "Choose your path" });
     expect(routeDialog).toBeVisible();
+    expect(within(routeDialog).getAllByRole("button")).toHaveLength(4);
     expect(within(routeDialog).getByText("Light Check")).toBeVisible();
+    expect(within(routeDialog).getByText("Story Spark")).toBeVisible();
     expect(within(routeDialog).getByText("Mystery")).toBeVisible();
     expect(screen.getByRole("button", { name: "Quest, Quest is preparing" })).toHaveClass(
       "adventure-board__node--locked",
