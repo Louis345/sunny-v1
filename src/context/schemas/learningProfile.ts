@@ -205,6 +205,38 @@ export interface ReadingProfile {
   dyslexiaMode?: boolean;
 }
 
+export type AdventureMapLayoutPreset = "horizontal-adventure-spine";
+export type AdventureMapCompanionSlot = "right" | "left" | "none";
+
+export interface AdventureMapProfile {
+  defaultLayoutPreset: AdventureMapLayoutPreset;
+  companionSlot: AdventureMapCompanionSlot;
+  agencyNotes: string[];
+  visualStyleNotes: string[];
+  staminaNotes: string[];
+}
+
+export const DEFAULT_ADVENTURE_MAP_PROFILE: AdventureMapProfile = {
+  defaultLayoutPreset: "horizontal-adventure-spine",
+  companionSlot: "right",
+  agencyNotes: [],
+  visualStyleNotes: [],
+  staminaNotes: [],
+};
+
+export function resolveAdventureMapProfile(
+  profile?: Partial<AdventureMapProfile> | null,
+): AdventureMapProfile {
+  return {
+    defaultLayoutPreset:
+      profile?.defaultLayoutPreset ?? DEFAULT_ADVENTURE_MAP_PROFILE.defaultLayoutPreset,
+    companionSlot: profile?.companionSlot ?? DEFAULT_ADVENTURE_MAP_PROFILE.companionSlot,
+    agencyNotes: profile?.agencyNotes ?? DEFAULT_ADVENTURE_MAP_PROFILE.agencyNotes,
+    visualStyleNotes: profile?.visualStyleNotes ?? DEFAULT_ADVENTURE_MAP_PROFILE.visualStyleNotes,
+    staminaNotes: profile?.staminaNotes ?? DEFAULT_ADVENTURE_MAP_PROFILE.staminaNotes,
+  };
+}
+
 export interface BondPatterns {
   topics: string[];
   bondStyle: string;
@@ -464,6 +496,9 @@ export interface LearningProfile {
 
   /** Measured attention vital sign model. Demographic attentionSpan is legacy/intake only. */
   attentionModel?: AttentionModel;
+
+  /** Child-specific adventure-map delivery preferences. The planner writes today's board. */
+  adventureMapProfile?: AdventureMapProfile;
 
   /** Human-graded reality checks against Sunny's theories; newest first, capped by writers. */
   learningCalibrationJournal?: LearningCalibrationEntry[];

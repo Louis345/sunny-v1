@@ -23,6 +23,7 @@ import type {
   AdventureChoiceSet,
   AdventureChoiceOption,
 } from "../../../src/shared/adventureBoardJson";
+import { resolveAdventureBoardNodes } from "./adventureBoardLayout";
 import "./AdventureBoard.css";
 
 type AdventureBoardProps = {
@@ -75,10 +76,6 @@ function boardBackground(board: AdventureBoardJson): React.CSSProperties {
   return { background: background.value };
 }
 
-function nodeById(board: AdventureBoardJson): Map<string, AdventureBoardNode> {
-  return new Map(board.nodes.map((node) => [node.id, node]));
-}
-
 function AdventureChoiceOverlay({
   choiceSet,
   onSelect,
@@ -125,7 +122,18 @@ function AdventureChoiceOverlay({
                 onClick={() => onSelect(option)}
               >
                 <span className="adventure-board__choice-art">
-                  {locked ? <Lock size={34} strokeWidth={2.4} /> : <Icon size={38} strokeWidth={2.4} />}
+                  {option.thumbnailUrl ? (
+                    <img src={option.thumbnailUrl} alt="" />
+                  ) : locked ? (
+                    <Lock size={34} strokeWidth={2.4} />
+                  ) : (
+                    <Icon size={38} strokeWidth={2.4} />
+                  )}
+                  {option.thumbnailUrl ? (
+                    <span className="adventure-board__choice-art-badge">
+                      {locked ? <Lock size={18} strokeWidth={2.5} /> : <Icon size={20} strokeWidth={2.5} />}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="adventure-board__choice-card-copy">
                   <span className="adventure-board__choice-purpose">
@@ -149,7 +157,8 @@ export function AdventureBoard({
   onNodeClick,
   onChoiceClick,
 }: AdventureBoardProps): React.ReactElement {
-  const nodes = nodeById(board);
+  const resolvedNodes = resolveAdventureBoardNodes(board);
+  const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
   const choiceSetsById = new Map((board.choiceSets ?? []).map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
@@ -193,7 +202,7 @@ export function AdventureBoard({
       </svg>
 
       <div className="adventure-board__nodes">
-        {board.nodes.filter((node) => node.state !== "hidden").map((node) => {
+        {resolvedNodes.filter((node) => node.state !== "hidden").map((node) => {
           const Icon = iconFor(node.icon, nodeFallbackIcon(node));
           const isLocked = node.state === "locked";
           const isPreparing = node.state === "preview";
@@ -220,7 +229,22 @@ export function AdventureBoard({
               aria-label={`${node.label}${node.lock ? `, ${node.lock.label}` : ""}`}
             >
               <span className="adventure-board__node-orb">
-                {isCompleted ? (
+                {node.thumbnailUrl ? (
+                  <>
+                    <img className="adventure-board__node-thumbnail" src={node.thumbnailUrl} alt="" />
+                    {isCompleted || isLocked || isPreparing ? (
+                      <span className="adventure-board__node-state-badge">
+                        {isCompleted ? (
+                          <Check size={22} strokeWidth={3} />
+                        ) : isLocked ? (
+                          <Lock size={18} strokeWidth={2.5} />
+                        ) : (
+                          <MoreHorizontal size={22} strokeWidth={2.6} />
+                        )}
+                      </span>
+                    ) : null}
+                  </>
+                ) : isCompleted ? (
                   <Check size={34} strokeWidth={3} />
                 ) : isPreparing ? (
                   <MoreHorizontal size={34} strokeWidth={2.6} />

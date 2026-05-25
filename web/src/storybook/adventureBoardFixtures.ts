@@ -455,6 +455,19 @@ export const denseSpellingBoard: AdventureBoardJson = {
   boardId: "storybook-dense-spelling",
   planId: "design-bench-dense",
   title: "Silent Letter Expedition",
+  layout: {
+    preset: "horizontal-adventure-spine",
+    companionSlot: "right",
+    routeChoiceBehavior: "exclusive",
+  },
+  plannerRationale: {
+    agencyDesign:
+      "Reina sees a compact route with one visible evidence path and modal choices at Mystery, Quest, and Boss.",
+    evidenceDesign:
+      "Baseline nodes measure spelling construction, verification, and optional read-aloud reinforcement before generated transfer.",
+    layoutChoice:
+      "Horizontal spine preserves room for Matilda on the right and keeps the route readable without hand-written board logic.",
+  },
   companion: {
     id: "matilda",
     name: "Matilda",
@@ -465,6 +478,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       kind: "start",
       label: "Start",
       position: { x: 0.10, y: 0.82 },
+      layout: { role: "start", order: 1 },
       state: "completed",
     },
     {
@@ -474,6 +488,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Know / Write",
       icon: "radar",
       position: { x: 0.25, y: 0.70 },
+      layout: { role: "baseline", lane: "main", order: 1 },
       state: "completed",
       evidenceRole: "baseline",
     },
@@ -484,6 +499,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Verify",
       icon: "book",
       position: { x: 0.40, y: 0.58 },
+      layout: { role: "baseline", lane: "main", order: 2 },
       state: "completed",
       evidenceRole: "baseline",
     },
@@ -493,6 +509,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Mystery",
       icon: "mystery",
       position: { x: 0.54, y: 0.46 },
+      layout: { role: "mystery", order: 1 },
       state: "current",
       evidenceRole: "preference",
       choiceSetId: "dense-mystery-choice",
@@ -505,6 +522,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Light Check",
       icon: "radar",
       position: { x: 0.38, y: 0.30 },
+      layout: { role: "evidence-route", lane: "upper", order: 1, routeGroupId: "after-verify-route" },
       state: "available",
       evidenceRole: "baseline",
     },
@@ -515,6 +533,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Read Aloud",
       icon: "book",
       position: { x: 0.58, y: 0.26 },
+      layout: { role: "evidence-route", lane: "upper", order: 2, routeGroupId: "after-verify-route" },
       state: "available",
       evidenceRole: "baseline",
     },
@@ -524,6 +543,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Choose Path",
       icon: "route",
       position: { x: 0.64, y: 0.56 },
+      layout: { role: "choice-gate", order: 1 },
       state: "locked",
       lock: {
         reason: "needs-baseline",
@@ -536,6 +556,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Quest",
       icon: "star",
       position: { x: 0.76, y: 0.34 },
+      layout: { role: "quest", order: 1 },
       state: "preview",
       lock: {
         reason: "needs-baseline-evidence",
@@ -548,6 +569,7 @@ export const denseSpellingBoard: AdventureBoardJson = {
       label: "Boss",
       icon: "crown",
       position: { x: 0.86, y: 0.18 },
+      layout: { role: "boss", order: 1 },
       state: "locked",
       lock: {
         reason: "needs-quest-evidence",
@@ -594,3 +616,199 @@ export const denseSpellingBoard: AdventureBoardJson = {
     },
   ],
 };
+
+const fullExperienceArt = {
+  background: "/generated/adventure-board-demo/silent-letter-world.jpeg",
+  start: "/thumbnails/activities/word-radar.svg",
+  wordRadar: "/generated/adventure-board-demo/word-radar.jpeg",
+  spellCheck: "/generated/adventure-board-demo/spell-check.jpeg",
+  pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
+  mystery: "/generated/adventure-board-demo/mystery.jpeg",
+  choice: "/thumbnails/mystery-fallback.svg",
+  quest: "/generated/adventure-board-demo/quest.jpeg",
+  boss: "/generated/adventure-board-demo/boss.jpeg",
+  storyChoice: "/thumbnails/activities/karaoke.svg",
+  speedChoice: "/thumbnails/activities/speed-catcher.svg",
+} as const;
+
+function denseThumbnailFor(node: AdventureBoardJson["nodes"][number]): string | undefined {
+  if (node.id === "start") return fullExperienceArt.start;
+  if (node.kind === "mystery") return fullExperienceArt.mystery;
+  if (node.kind === "choice-gate") return fullExperienceArt.choice;
+  if (node.kind === "quest") return fullExperienceArt.quest;
+  if (node.kind === "boss") return fullExperienceArt.boss;
+  if (node.activityId === "word-radar") return fullExperienceArt.wordRadar;
+  if (node.activityId === "spell-check") return fullExperienceArt.spellCheck;
+  if (node.activityId === "pronunciation") return fullExperienceArt.pronunciation;
+  return undefined;
+}
+
+function withoutPosition(node: AdventureBoardJson["nodes"][number]): AdventureBoardJson["nodes"][number] {
+  const { position: _position, ...rest } = node;
+  return rest;
+}
+
+export const grokFullExperienceBoard: AdventureBoardJson = {
+  ...denseSpellingBoard,
+  boardId: "storybook-grok-full-experience",
+  planId: "design-bench-grok-full",
+  title: "Silent Letter Expedition",
+  theme: {
+    ...theme,
+    background: {
+      type: "image",
+      value: fullExperienceArt.background,
+    },
+    palette: {
+      ...theme.palette,
+      completed: "#1f8f68",
+      available: "#7c3aed",
+      current: "#f59e0b",
+      panel: "rgba(15, 23, 42, 0.84)",
+    },
+  },
+  nodes: denseSpellingBoard.nodes.map((node) => ({
+    ...withoutPosition(node),
+    thumbnailUrl: denseThumbnailFor(node),
+  })),
+  choiceSets: denseSpellingBoard.choiceSets?.map((choiceSet) => ({
+    ...choiceSet,
+    options: choiceSet.options.map((option) => ({
+      ...option,
+      thumbnailUrl:
+        option.id === "story-challenge"
+          ? fullExperienceArt.storyChoice
+          : option.id === "speed-challenge"
+            ? fullExperienceArt.speedChoice
+            : option.thumbnailUrl,
+    })),
+  })),
+};
+
+export type AdventureBoardBranchDensity = "none" | "one" | "two";
+export type AdventureBoardChosenRoute = "none" | "upper" | "lower";
+
+export type AdventureBoardFixtureOptions = {
+  routeChoiceBehavior?: NonNullable<AdventureBoardJson["layout"]>["routeChoiceBehavior"];
+  branchDensity?: AdventureBoardBranchDensity;
+  chosenRoute?: AdventureBoardChosenRoute;
+  missingThumbnails?: boolean;
+  questUnlocked?: boolean;
+  longLabels?: boolean;
+};
+
+export function buildGrokFullExperienceBoard(
+  opts: AdventureBoardFixtureOptions = {},
+): AdventureBoardJson {
+  const behavior = opts.routeChoiceBehavior ?? grokFullExperienceBoard.layout?.routeChoiceBehavior ?? "exclusive";
+  const branchDensity = opts.branchDensity ?? "one";
+  const chosenRoute = opts.chosenRoute ?? "none";
+  const includeUpper = branchDensity === "one" || branchDensity === "two";
+  const includeLower = branchDensity === "two";
+  const routeEdgeIds = new Set([
+    ...(includeUpper ? ["e5", "e6", "e7"] : []),
+    ...(includeLower ? ["e10", "e11", "e12"] : []),
+  ]);
+  const choiceNodeId = branchDensity === "none" ? "mystery" : "choice";
+
+  const lowerNodes: AdventureBoardJson["nodes"] = includeLower
+    ? [
+        {
+          id: "choice-lab",
+          kind: "activity",
+          activityId: "word-radar",
+          label: opts.longLabels ? "Audio-first letter slots without word flash" : "Audio Slots",
+          icon: "radar",
+          thumbnailUrl: opts.missingThumbnails ? undefined : fullExperienceArt.wordRadar,
+          layout: {
+            role: "evidence-route",
+            lane: "lower",
+            order: 1,
+            routeGroupId: "after-verify-route",
+            selected: chosenRoute === "lower",
+          },
+          state: "available",
+          evidenceRole: "baseline",
+        },
+        {
+          id: "speed-probe",
+          kind: "activity",
+          activityId: "pronunciation",
+          label: opts.longLabels ? "Quick read-aloud pressure check" : "Quick Read",
+          icon: "zap",
+          thumbnailUrl: opts.missingThumbnails ? undefined : fullExperienceArt.pronunciation,
+          layout: {
+            role: "evidence-route",
+            lane: "lower",
+            order: 2,
+            routeGroupId: "after-verify-route",
+            selected: chosenRoute === "lower",
+          },
+          state: "available",
+          evidenceRole: "baseline",
+        },
+      ]
+    : [];
+
+  const baseNodes = grokFullExperienceBoard.nodes
+    .filter((node) => {
+      if (node.id === "choice") return branchDensity !== "none";
+      if (node.id === "wr-light" || node.id === "hf-read") return includeUpper;
+      return true;
+    })
+    .map((node) => {
+      const next = {
+        ...node,
+        thumbnailUrl: opts.missingThumbnails ? undefined : node.thumbnailUrl,
+        layout: node.layout?.routeGroupId
+          ? {
+              ...node.layout,
+              selected: chosenRoute === "upper",
+            }
+          : node.layout,
+      };
+      if (opts.longLabels && node.id === "spell-conflict") {
+        return { ...next, label: "Verify tricky silent-letter spelling pattern" };
+      }
+      if (node.id === "quest" && opts.questUnlocked) {
+        return { ...next, state: "available" as const, lock: undefined };
+      }
+      if (node.id === "boss" && opts.questUnlocked) {
+        return { ...next, state: "preview" as const };
+      }
+      return next;
+    });
+
+  return {
+    ...grokFullExperienceBoard,
+    layout: {
+      preset: "horizontal-adventure-spine",
+      companionSlot: "right",
+      routeChoiceBehavior: behavior,
+    },
+    nodes: [...baseNodes, ...lowerNodes],
+    edges: [
+      ...grokFullExperienceBoard.edges
+        .filter((edge) => {
+          if (["e4", "e8"].includes(edge.id)) return branchDensity !== "none";
+          if (["e5", "e6", "e7"].includes(edge.id)) return routeEdgeIds.has(edge.id);
+          return true;
+        })
+        .map((edge) =>
+          edge.id === "e8"
+            ? { ...edge, from: choiceNodeId }
+            : edge,
+        ),
+      ...(includeLower
+        ? [
+            { id: "e10", from: "spell-conflict", to: "choice-lab", state: "available" as const },
+            { id: "e11", from: "choice-lab", to: "speed-probe", state: "available" as const },
+            { id: "e12", from: "speed-probe", to: "choice", state: "locked" as const, style: "dashed" as const },
+          ]
+        : []),
+      ...(branchDensity === "none"
+        ? [{ id: "e-mystery-quest", from: "mystery", to: "quest", state: "preview" as const, style: "dashed" as const }]
+        : []),
+    ],
+  };
+}

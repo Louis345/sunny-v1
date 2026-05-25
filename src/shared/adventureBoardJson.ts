@@ -46,6 +46,21 @@ export type AdventureBoardChoiceSetKind =
   | "quest-wrapper"
   | "boss-wrapper";
 
+export type AdventureBoardLayoutPreset = "horizontal-adventure-spine";
+export type AdventureBoardCompanionSlot = "right" | "left" | "none";
+export type AdventureBoardRouteChoiceBehavior = "exclusive" | "parallel";
+
+export type AdventureBoardLayoutRole =
+  | "start"
+  | "baseline"
+  | "mystery"
+  | "evidence-route"
+  | "choice-gate"
+  | "quest"
+  | "boss";
+
+export type AdventureBoardLayoutLane = "main" | "upper" | "lower";
+
 export interface AdventureBoardJson {
   schemaVersion: 1;
   boardId: string;
@@ -54,11 +69,25 @@ export interface AdventureBoardJson {
   domain: AdventureBoardDomain;
   title?: string;
   theme: AdventureBoardTheme;
+  layout?: AdventureBoardLayout;
+  plannerRationale?: AdventureBoardPlannerRationale;
   nodes: AdventureBoardNode[];
   edges: AdventureBoardEdge[];
   choiceSets?: AdventureChoiceSet[];
   companion?: AdventureBoardCompanion;
   progress?: AdventureBoardProgress;
+}
+
+export interface AdventureBoardLayout {
+  preset: AdventureBoardLayoutPreset;
+  companionSlot?: AdventureBoardCompanionSlot;
+  routeChoiceBehavior?: AdventureBoardRouteChoiceBehavior;
+}
+
+export interface AdventureBoardPlannerRationale {
+  agencyDesign: string;
+  evidenceDesign: string;
+  layoutChoice: string;
 }
 
 export interface AdventureBoardTheme {
@@ -96,9 +125,17 @@ export interface AdventureBoardNode {
   label: string;
   shortLabel?: string;
   icon?: string;
-  position: {
+  thumbnailUrl?: string;
+  position?: {
     x: number;
     y: number;
+  };
+  layout?: {
+    role?: AdventureBoardLayoutRole;
+    lane?: AdventureBoardLayoutLane;
+    order?: number;
+    routeGroupId?: string;
+    selected?: boolean;
   };
   state: AdventureBoardNodeState;
   evidenceRole?: AdventureBoardEvidenceRole;
@@ -139,6 +176,7 @@ export interface AdventureChoiceOption {
   label: string;
   description?: string;
   icon?: string;
+  thumbnailUrl?: string;
   state: "available" | "locked" | "completed";
   nodeId?: string;
   tags?: string[];

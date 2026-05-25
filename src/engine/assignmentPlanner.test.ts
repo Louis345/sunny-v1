@@ -7,6 +7,8 @@ import type { ChildChart } from "../profiles/childChart";
 import type { CapturedHomeworkContent } from "../scripts/contentAwareHomeworkPlanner";
 import {
   buildAssignmentPlanningPacket,
+  buildAssignmentPlannerPrompt,
+  ASSIGNMENT_PLANNER_PERSONA,
   assignmentPlannerSourceImages,
   normalizeAssignmentNodeType,
   parseAssignmentPlannerJson,
@@ -87,6 +89,13 @@ function chart(): ChildChart {
     childId: "reina",
     rootDir: process.cwd(),
     identity: { childId: "reina", displayName: "Reina" },
+    adventureMapProfile: {
+      defaultLayoutPreset: "horizontal-adventure-spine",
+      companionSlot: "right",
+      agencyNotes: ["Enjoys choice when it unlocks after work."],
+      visualStyleNotes: ["Illustrated maps help her see progress."],
+      staminaNotes: ["Keep the board compact when tired."],
+    },
     learningProfile: {
       childId: "reina",
       name: "Reina",
@@ -388,6 +397,7 @@ describe("assignment planner", () => {
 
     expect(packet.sourceDocument.fullText).toContain("High-Frequency Words");
     expect(packet.childChart.childId).toBe("reina");
+    expect(packet.childChart.adventureMapProfile?.defaultLayoutPreset).toBe("horizontal-adventure-spine");
     expect(packet.activityCatalog.some((card) => card.activityId === "pronunciation")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "mystery")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "quest")).toBe(true);
@@ -405,8 +415,25 @@ describe("assignment planner", () => {
     expect(packet.plannerInstruction).toContain("count consecutive activity runs");
     expect(packet.plannerInstruction).toContain("visible_read or pronunciation");
     expect(packet.plannerInstruction).toContain("long run of Word Radar");
+    expect(packet.plannerInstruction).toContain("Decide agency and route density from chart evidence");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("uses the adaptive game-director persona without hardcoding choice-count rules", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("pediatric learning psychologist and adaptive game director");
+    expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
+    expect(prompt).toContain("Explain why each visible route or modal choice is worth the child's attention today");
+    expect(prompt).toContain("adventureMapProfile");
+    expect(prompt).not.toContain("maxVisibleChoices");
+    expect(prompt).not.toContain("paradox of choice");
   });
 
   it("keeps lesson-to-lesson adaptation guidance in the planner prompt without adding deterministic category blockers", () => {

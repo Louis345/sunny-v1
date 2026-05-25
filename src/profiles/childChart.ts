@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import type { LearningProfile } from "../context/schemas/learningProfile";
+import type { AdventureMapProfile, LearningProfile } from "../context/schemas/learningProfile";
+import { resolveAdventureMapProfile } from "../context/schemas/learningProfile";
 import type { WordBankFile } from "../context/schemas/wordBank";
 import { createEmptyWordBank } from "../context/schemas/wordBank";
 import type { ChildProfileEntry, ChildrenConfigFile } from "./childrenConfig";
@@ -84,6 +85,7 @@ export type ChildChart = {
     avatarImagePath?: string | null;
   };
   demographics: LearningProfile["demographics"];
+  adventureMapProfile: AdventureMapProfile;
   links: ChildChartLinks;
   learningProfile: LearningProfile;
   wordBank: WordBankFile;
@@ -310,6 +312,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
     ...learningProfile.demographics,
     ...(manifest.demographics ?? {}),
   };
+  const adventureMapProfile = resolveAdventureMapProfile(learningProfile.adventureMapProfile);
   const displayName = manifest.identity?.displayName ?? capitalize(childId);
   const ttsName = manifest.identity?.ttsName ?? childMeta?.ttsName ?? displayName;
   const coinBalance = Math.max(
@@ -378,6 +381,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
       avatarImagePath: manifest.identity?.avatarImagePath ?? childMeta?.avatarImagePath,
     },
     demographics,
+    adventureMapProfile,
     links,
     learningProfile,
     wordBank,

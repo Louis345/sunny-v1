@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { LearningProfile } from "../context/schemas/learningProfile";
+import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../context/schemas/learningProfile";
 import {
   getReadingCanvasPreferences as mergeReadingCanvasPreferences,
 } from "../shared/readingCanvasPreferences";
@@ -146,6 +147,10 @@ export function initializeLearningProfile(intake: {
       highlightColor: "#1a56db",
       highlightBackground: "#dbeafe",
       dyslexiaMode: true,
+    },
+
+    adventureMapProfile: {
+      ...DEFAULT_ADVENTURE_MAP_PROFILE,
     },
 
     sessionStats: {

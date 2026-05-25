@@ -114,6 +114,22 @@ describe("CompanionLayer (COMPANION-002)", () => {
     expect(canvas?.style.pointerEvents).toBe("none");
   });
 
+  it("can use the stronger centered idle for full-body companion boards", async () => {
+    const idleSpy = vi.spyOn(CompanionMotor.prototype, "setShowroomIdle");
+    render(
+      <CompanionLayer
+        childId="fixture"
+        companion={companion}
+        toggledOff={false}
+        mode="full"
+        idlePose="center"
+      />,
+    );
+
+    await waitFor(() => expect(idleSpy).toHaveBeenCalledWith("center", 0.37));
+    idleSpy.mockRestore();
+  });
+
   it("sets canvas display none when toggledOff", async () => {
     const { container, rerender } = render(
       <CompanionLayer childId="fixture" companion={companion} toggledOff={false} />,

@@ -38,6 +38,8 @@ export interface CompanionLayerProps {
   toggledOff: boolean;
   /** "portrait": 120×120 fixed bottom-right circle (canvas/game overlay). "full": full-screen overlay (default). */
   mode?: "full" | "portrait";
+  /** Full-body idle posture; defaults to the safer flank pose used by the runtime. */
+  idlePose?: "flank" | "center";
   /** When true, shrink companion to bottom-right for karaoke reading space. Ignored in portrait mode. */
   karaokeActive?: boolean;
   companionEvents?: CompanionEventPayload[];
@@ -168,6 +170,7 @@ export function CompanionLayer({
   companion,
   toggledOff,
   mode = "full",
+  idlePose,
   karaokeActive = false,
   companionEvents = [],
   correctStreak = 0,
@@ -537,7 +540,8 @@ export function CompanionLayer({
     camera.lookAt(0, 1, 0);
     cameraRef.current = camera;
     motor.setCamera(camera);
-    motor.setShowroomIdle(mode === "full" ? "flank" : null, 0.37);
+    const showroomIdle = idlePose ?? (mode === "full" ? "flank" : null);
+    motor.setShowroomIdle(showroomIdle, 0.37);
     console.log("CompanionLayer: [effect] scene + camera ready", {
       aspect: camera.aspect,
       mountCss: {
@@ -725,7 +729,7 @@ export function CompanionLayer({
         rendererRef.current = null;
       }
     };
-  }, [childId, companion?.companionId, companion?.vrmUrl, mode, startLoop, stopLoop]);
+  }, [childId, companion?.companionId, companion?.vrmUrl, idlePose, mode, startLoop, stopLoop]);
 
   if (!childId || !companion) {
     return null;

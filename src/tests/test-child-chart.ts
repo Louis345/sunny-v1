@@ -83,6 +83,36 @@ describe("getChildChart", () => {
     expect(chart.links.learningProfile).toContain("learning_profile.json");
     expect(chart.plannerTrust?.autoPlanEnabled).toBe(true);
     expect(chart.plannerTrust?.approvedCount).toBe(5);
+    expect(chart.adventureMapProfile).toMatchObject({
+      defaultLayoutPreset: "horizontal-adventure-spine",
+      companionSlot: "right",
+    });
+  });
+
+  it("exposes adventure-map profile overrides from the learning profile", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "mapkid";
+    const profile = initializeLearningProfile({
+      childId,
+      age: 8,
+      grade: 2,
+      diagnoses: [],
+      learningGoals: [],
+    });
+    profile.adventureMapProfile = {
+      defaultLayoutPreset: "horizontal-adventure-spine",
+      companionSlot: "left",
+      agencyNotes: ["Likes choosing between two themed routes after baseline work."],
+      visualStyleNotes: ["Prefers large illustrated map nodes."],
+      staminaNotes: ["Shorter route on school nights."],
+    };
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, createEmptyWordBank(childId));
+
+    const chart = getChildChart(childId, { rootDir: root });
+
+    expect(chart.adventureMapProfile).toEqual(profile.adventureMapProfile);
   });
 
   it("uses the configured default companion instead of child-name fallback branches", () => {

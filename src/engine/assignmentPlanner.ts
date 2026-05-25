@@ -66,6 +66,7 @@ export type AssignmentPlanningPacket = {
     grade?: number | string;
     selectedCompanionId?: string | null;
     selectedCompanionName?: string | null;
+    adventureMapProfile?: ChildChart["adventureMapProfile"];
     activeHomeworkSummary?: string | null;
     carePlanSummary?: string | null;
     recentEvidence: string[];
@@ -150,6 +151,8 @@ const PLANNER_DESTINATION_ACTIVITY_IDS = new Set(["mystery", "quest", "boss"]);
 const INSTRUMENT_RENDERERS: Record<string, NodeType> = {
   "spelling-recall": "letter-rush",
 };
+export const ASSIGNMENT_PLANNER_PERSONA =
+  "You are Sunny's assignment planner: a pediatric learning psychologist and adaptive game director. You decide today's learning route from the child chart, source homework, evidence, stamina, motivation, and activity instruments; code renders your plan.";
 
 function normalizeNodeSlug(value: string): string {
   return value
@@ -341,6 +344,7 @@ export function buildAssignmentPlanningPacket(args: {
       grade: args.childChart.demographics?.grade,
       selectedCompanionId: args.childChart.companion?.presetId ?? null,
       selectedCompanionName: args.childChart.companion?.displayName ?? null,
+      adventureMapProfile: args.childChart.adventureMapProfile,
       activeHomeworkSummary: args.childChart.homework.pending
         ? `${args.childChart.homework.pending.homeworkId}:${args.childChart.homework.pending.capturedContent?.title ?? args.childChart.homework.pending.contentProfile?.topic ?? "active homework"}`
         : null,
@@ -361,6 +365,9 @@ export function buildAssignmentPlanningPacket(args: {
       "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes or a long run of Word Radar.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Return a board plan that cites why every activity fits the target purpose.",
+      "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
+      "Decide agency and route density from chart evidence, stamina, motivation, and evidence needs.",
+      "Explain why each visible route or modal choice is worth the child's attention today.",
     ].join(" "),
   };
 }
@@ -520,8 +527,10 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
     .filter((image): image is { mediaType: "image/png" | "image/jpeg" | "image/webp"; data: string } => Boolean(image));
 }
 
-function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
-  return `Create Sunny's homework interpretation and active board plan from this source-of-truth packet.
+export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
+  return `${ASSIGNMENT_PLANNER_PERSONA}
+
+Create Sunny's homework interpretation and active board plan from this source-of-truth packet.
 
 Rules:
 - If source page images are provided, use the worksheet image/layout as the primary source of truth and OCR text only as support.
@@ -538,6 +547,9 @@ Rules:
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
+- Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
+- Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
+- Explain why each visible route or modal choice is worth the child's attention today.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
 - If a child needs shorter cohorts, shorten the target list and vary instruments by purpose rather than creating many same-activity nodes. Do not split one lane into a long run of consecutive Word Radar nodes; more Word Radar nodes are not better evidence when one better-chosen Word Radar node plus another instrument would answer the care-plan question.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
@@ -634,7 +646,7 @@ async function callAssignmentPlannerModel(
   if (images.length === 0) {
     const { text, usage } = await generateText({
       model: anthropic(model),
-      system: "You are Sunny's assignment planner. You interpret source homework and design a measurable adaptive board from activity instruments.",
+      system: ASSIGNMENT_PLANNER_PERSONA,
       prompt,
     });
     return { text, usage };
@@ -644,7 +656,7 @@ async function callAssignmentPlannerModel(
   const response = await client.messages.create({
     model,
     max_tokens: 12_000,
-    system: "You are Sunny's assignment planner. You interpret the visible homework source first, then design a measurable adaptive board from activity instruments.",
+    system: ASSIGNMENT_PLANNER_PERSONA,
     messages: [{
       role: "user",
       content: [
