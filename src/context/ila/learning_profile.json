@@ -221,7 +221,6 @@
     ]
   },
   "companion": {
-    "vrmUrl": "/companions/sample.vrm",
     "sensitivity": {
       "session_start": 0.8,
       "correct_answer": 0.8,

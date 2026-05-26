@@ -39,6 +39,14 @@ export interface CompanionConfig {
   toggledOff: boolean;
 }
 
+export type CompanionProfileTuning = {
+  companionId?: string;
+  sensitivity?: Partial<CompanionSensitivity>;
+  idleFrequency_ms?: number;
+  randomMomentProbability?: number;
+  toggledOff?: boolean;
+};
+
 export interface CompanionEventPayload {
   /** Map / game / sensitivity path */
   trigger?: CompanionTrigger;
@@ -141,11 +149,11 @@ export function mergeCompanionConfigWithDefaults(
 /**
  * Merge learning-profile companion overrides onto a **preset** from children.config.json.
  * Identity fields (vrmUrl, expressions, faceCamera, dopamineGames) always come from the preset;
- * learning_profile may only tune reactions (sensitivity, timers, toggledOff).
+ * learning_profile may only select a preset id and tune reactions (sensitivity, timers, toggledOff).
  */
 export function mergeCompanionPresetWithLearningProfile(
   preset: CompanionConfig,
-  partial: Partial<CompanionConfig> | null | undefined,
+  partial: CompanionProfileTuning | null | undefined,
 ): CompanionConfig {
   if (!partial) {
     return {

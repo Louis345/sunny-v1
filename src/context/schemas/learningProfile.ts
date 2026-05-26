@@ -6,7 +6,7 @@ import type {
   StepSessionRecord,
 } from "../../algorithms/types";
 import type { HomeworkTestDateSource } from "./homeworkCycle";
-import type { CompanionConfig } from "../../shared/companionTypes";
+import type { CompanionProfileTuning } from "../../shared/companionTypes";
 import type { TamagotchiState } from "../../shared/vrrTypes";
 import type {
   ChoiceEventSource,
@@ -699,11 +699,8 @@ export interface LearningProfile {
     note?: string;
   }>;
 
-  /**
-   * Companion reaction overrides (merged onto preset from repo-root `children.config.json` in `buildProfile`).
-   * Preset `vrmUrl` / expressions / face camera / dopamine games come from `children.config.json`; do not set `vrmUrl` here unless intentionally overriding the preset.
-   */
-  companion?: Partial<CompanionConfig>;
+  /** Companion preset selection and behavior tuning; model identity stays on the selected preset. */
+  companion?: CompanionProfileTuning;
 
   /** Companion care meters (optional; merged with defaults in buildProfile). */
   tamagotchi?: TamagotchiState;

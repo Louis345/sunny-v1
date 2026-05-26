@@ -9,6 +9,7 @@ import {
   mergeCompanionPresetWithLearningProfile,
   type CompanionConfig,
   type CompanionEvent,
+  type CompanionProfileTuning,
   type CompanionTrigger,
 } from "../shared/companionTypes";
 
@@ -141,7 +142,7 @@ describe("companion types (COMPANION-001)", () => {
     expect(p.avatarImagePath).toBe("/characters/reina.png");
   });
 
-  it("mergeCompanionPresetWithLearningProfile keeps preset vrmUrl when learning_profile overrides vrmUrl", () => {
+  it("mergeCompanionPresetWithLearningProfile keeps model identity on the selected preset", () => {
     const preset: CompanionConfig = {
       ...COMPANION_DEFAULTS,
       companionId: "matilda",
@@ -153,10 +154,11 @@ describe("companion types (COMPANION-001)", () => {
       },
       dopamineGames: ["space-invaders"],
     };
-    const merged = mergeCompanionPresetWithLearningProfile(preset, {
+    const legacyProfileCompanion = {
       vrmUrl: "/companions/legacy-missing.vrm",
       idleFrequency_ms: 999,
-    });
+    } as CompanionProfileTuning & { vrmUrl: string };
+    const merged = mergeCompanionPresetWithLearningProfile(preset, legacyProfileCompanion);
     expect(merged.vrmUrl).toBe("/companions/sample.vrm");
     expect(merged.idleFrequency_ms).toBe(999);
   });

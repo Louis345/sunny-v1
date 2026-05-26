@@ -9,6 +9,7 @@ import {
   migrateLearningProfileToWaterfall,
   readWaterfallContentCatalog,
 } from "../profiles/chartWaterfall";
+import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 import { initializeLearningProfile, readLearningProfile } from "../utils/learningProfileIO";
 
 function makeRoot(): string {
@@ -413,5 +414,139 @@ describe("getChildChart", () => {
     expect(chart.learningProfile.activeSessionPlan?.planId).toBe("plan-slim");
     expect(chart.learningProfile.aiContentCatalog?.[0]?.contentId).toBe("content-slim");
     expect(readLearningProfile(childId, { rootDir: root })?.pendingHomework?.homeworkId).toBe("hw-slim");
+  });
+
+  it("builds a child experience packet from the resolved chart without rereading raw config", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const profile = initializeLearningProfile({
+      childId,
+      age: 7,
+      grade: 1,
+      diagnoses: [],
+      learningGoals: [],
+    });
+    profile.companion = {
+      companionId: "matilda",
+      idleFrequency_ms: 12_345,
+    };
+    profile.companionCurrency = 77;
+    profile.adventureMapProfile = {
+      defaultLayoutPreset: "horizontal-adventure-spine",
+      companionSlot: "left",
+      agencyNotes: ["Offer one route choice after baseline evidence."],
+      visualStyleNotes: ["Use readable illustrated map nodes."],
+      staminaNotes: ["Keep the board short after school."],
+    };
+    profile.activeSessionPlan = {
+      planId: "plan-packet",
+      childId,
+      createdAt: "2026-05-26T12:00:00.000Z",
+      source: "ingest_human_loop",
+      activeHomeworkId: "hw-packet",
+      domain: "spelling",
+      testDate: "2026-05-27",
+      nodePlan: [],
+      adventureBoard: {
+        schemaVersion: 1,
+        boardId: "board-packet",
+        planId: "plan-packet",
+        childId,
+        domain: "spelling",
+        theme: {
+          background: { type: "solid", value: "#123456" },
+          palette: {
+            path: "#fff",
+            completed: "#0f0",
+            available: "#00f",
+            locked: "#999",
+            current: "#f90",
+            preview: "#ccc",
+            text: "#fff",
+            panel: "rgba(0,0,0,.75)",
+          },
+        },
+        nodes: [],
+        edges: [],
+      },
+      variationPolicy: {
+        avoidExactPreviousNodeOrder: true,
+        avoidExactPreviousWordOrder: true,
+        seed: "packet",
+        previousCompletedNodeCount: 0,
+      },
+      companionPolicy: {
+        companionId: "matilda",
+        displayName: "Matilda",
+        openingLinePolicy: "silent",
+        verbosity: "low",
+        maxMicroProbes: 0,
+      },
+      evidenceUsed: [],
+      openQuestions: [],
+    };
+    writeJson(root, "children.config.json", {
+      defaultCompanionId: "elli",
+      childCompanionIds: { reina: "matilda" },
+      childProfiles: {
+        reina: {
+          ttsName: "Ray-nah",
+          avatarImagePath: "/avatars/reina.png",
+        },
+      },
+      companions: {
+        matilda: {
+          name: "Matilda",
+          vrmUrl: "/companions/matilda.vrm",
+          expressions: {},
+          faceCamera: { position: [0, 1.4, 0.8], target: [0, 1.4, 0] },
+          dopamineGames: ["wheel-of-fortune"],
+        },
+      },
+    });
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, createEmptyWordBank(childId));
+
+    const chart = getChildChart(childId, { rootDir: root });
+    const packet = buildChildExperiencePacket(chart);
+
+    expect(packet.childChart.childId).toBe("reina");
+    expect(packet.childChart.identity).toMatchObject({
+      displayName: "Reina",
+      ttsName: "Ray-nah",
+      avatarImagePath: "/avatars/reina.png",
+    });
+    expect(packet.childChart.companion).toMatchObject({
+      id: "matilda",
+      displayName: "Matilda",
+      config: {
+        companionId: "matilda",
+        vrmUrl: "/companions/matilda.vrm",
+        idleFrequency_ms: 12_345,
+      },
+    });
+    expect(packet.childChart.companionCare.view).toMatchObject({
+      childId: "reina",
+      companionId: "matilda",
+      displayName: "Matilda",
+    });
+    expect(packet.childChart.economy.coinBalance).toBe(77);
+    expect(packet.childChart.adventureMapProfile.companionSlot).toBe("left");
+    expect(packet.activeSessionPlan).toBe(chart.activeSessionPlan);
+    expect(packet.activeSessionPlan?.adventureBoard?.boardId).toBe("board-packet");
+  });
+
+  it("keeps the child experience packet builder as a pure chart projection", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../profiles/childExperiencePacket.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toContain("COMPANION_MANIFEST");
+    expect(source).not.toContain("children.config.json");
+    expect(source).not.toContain("learning_profile.json");
+    expect(source).not.toContain("readFile");
+    expect(source).not.toContain("readJson");
   });
 });
