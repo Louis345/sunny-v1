@@ -60,6 +60,20 @@ export type AdventureBoardLayoutRole =
   | "boss";
 
 export type AdventureBoardLayoutLane = "main" | "upper" | "lower";
+export type AdventureBoardSlot =
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5a.1"
+  | "5a.2"
+  | "5b.1"
+  | "5b.2"
+  | "5c.1"
+  | "5c.2"
+  | "6"
+  | "7"
+  | "8";
 
 export interface AdventureBoardJson {
   schemaVersion: 1;
@@ -136,6 +150,7 @@ export interface AdventureBoardNode {
   shortLabel?: string;
   icon?: string;
   thumbnailUrl?: string;
+  slot?: AdventureBoardSlot;
   position?: {
     x: number;
     y: number;

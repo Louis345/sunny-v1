@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import React, { useMemo } from "react";
-import { mergeCompanionConfigWithDefaults } from "../../../src/shared/companionTypes";
-import { COMPANION_MANIFEST } from "../companion/companions.generated";
-import { AdventureBoard } from "../components/AdventureBoard";
-import { CompanionLayer } from "../components/CompanionLayer";
+import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
+import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
+import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
 import {
   bossReadyBoard,
   buildGrokFullExperienceBoard,
@@ -14,10 +13,19 @@ import {
   linearBaselineBoard,
   questLockedBoard,
   reinaCurrentHomeworkBoard,
+  buildSlotLabBoard,
   type AdventureBoardBranchDensity,
   type AdventureBoardChosenRoute,
+  type AdventureBoardQuestState,
+  type AdventureBoardSlotChosenRoute,
+  type AdventureBoardSlotRouteShape,
 } from "../storybook/adventureBoardFixtures";
-import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
+import rawHorizontalBoardJson from "../storybook/raw-horizontal-adventure-board.json";
+import type {
+  AdventureBoardJson,
+  AdventureChoiceOption,
+} from "../../../src/shared/adventureBoardJson";
+import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
 
 type AdventureBoardStoryArgs = {
@@ -29,10 +37,16 @@ type AdventureBoardStoryArgs = {
     | "bossReady"
     | "dense"
     | "grokFull"
+    | "rawJson"
+    | "slotLab"
     | "reinaCurrent";
   routeChoiceBehavior: "exclusive" | "parallel";
   branchDensity: AdventureBoardBranchDensity;
   chosenRoute: AdventureBoardChosenRoute;
+  routeShape: AdventureBoardSlotRouteShape;
+  slotChosenRoute: AdventureBoardSlotChosenRoute;
+  questState: AdventureBoardQuestState;
+  showCompanion: boolean;
   missingThumbnails: boolean;
   questUnlocked: boolean;
   longLabels: boolean;
@@ -46,6 +60,8 @@ const boards: Record<AdventureBoardStoryArgs["scenario"], AdventureBoardJson> = 
   bossReady: bossReadyBoard,
   dense: denseSpellingBoard,
   grokFull: grokFullExperienceBoard,
+  rawJson: rawHorizontalBoardJson as AdventureBoardJson,
+  slotLab: buildSlotLabBoard(),
   reinaCurrent: reinaCurrentHomeworkBoard,
 };
 
@@ -59,6 +75,69 @@ function playfulAdventureCompanionBehavior(board: AdventureBoardJson): Companion
     movementIntensity: 0.9,
     visualTreatment: { filter: "none", opacity: 1 },
     animationEventId: `adventure-board:${board.boardId}`,
+  };
+}
+
+function childExperiencePacketForBoard(board: AdventureBoardJson): ChildExperiencePacket {
+  const companion = {
+    ...cloneCompanionDefaults(),
+    companionId: "matilda",
+    vrmUrl: "/companions/matilda.vrm",
+    toggledOff: false,
+  };
+
+  return {
+    childChart: {
+      childId: board.childId,
+      identity: {
+        displayName: "Reina",
+        ttsName: "Ray-nah",
+      },
+      companion: {
+        id: "matilda",
+        displayName: "Matilda",
+        config: companion,
+      },
+      companionCare: {
+        plan: {},
+        view: {
+          childId: board.childId,
+          companionId: "matilda",
+          displayName: "Matilda",
+        },
+        filePath: "",
+        existed: false,
+      } as ChildExperiencePacket["childChart"]["companionCare"],
+      economy: {
+        coinBalance: 0,
+      },
+      adventureMapProfile: DEFAULT_ADVENTURE_MAP_PROFILE,
+    },
+    activeSessionPlan: {
+      planId: board.planId,
+      childId: board.childId,
+      createdAt: "2026-05-26T00:00:00.000Z",
+      source: "ingest_human_loop",
+      domain: board.domain,
+      testDate: null,
+      nodePlan: [],
+      adventureBoard: board,
+      variationPolicy: {
+        avoidExactPreviousNodeOrder: true,
+        avoidExactPreviousWordOrder: true,
+        seed: board.boardId,
+        previousCompletedNodeCount: board.progress?.completedNodeIds.length ?? 0,
+      },
+      companionPolicy: {
+        companionId: "matilda",
+        displayName: "Matilda",
+        openingLinePolicy: "silent",
+        verbosity: "low",
+        maxMicroProbes: 0,
+      },
+      evidenceUsed: [],
+      openQuestions: [],
+    },
   };
 }
 
@@ -82,6 +161,22 @@ const meta: Meta<AdventureBoardStoryArgs> = {
       control: "inline-radio",
       options: ["none", "upper", "lower"],
     },
+    routeShape: {
+      control: "select",
+      options: ["none", "upper", "lower", "middle", "upper+lower", "three-way"],
+      if: { arg: "scenario", eq: "slotLab" },
+    },
+    slotChosenRoute: {
+      control: "inline-radio",
+      options: ["none", "5a", "5b", "5c"],
+      if: { arg: "scenario", eq: "slotLab" },
+    },
+    questState: {
+      control: "inline-radio",
+      options: ["locked", "preview", "available"],
+      if: { arg: "scenario", eq: "slotLab" },
+    },
+    showCompanion: { control: "boolean" },
     missingThumbnails: { control: "boolean" },
     questUnlocked: { control: "boolean" },
     longLabels: { control: "boolean" },
@@ -91,6 +186,10 @@ const meta: Meta<AdventureBoardStoryArgs> = {
     routeChoiceBehavior: "exclusive",
     branchDensity: "one",
     chosenRoute: "none",
+    routeShape: "upper",
+    slotChosenRoute: "none",
+    questState: "preview",
+    showCompanion: true,
     missingThumbnails: false,
     questUnlocked: false,
     longLabels: false,
@@ -112,46 +211,46 @@ function BoardFixture(args: AdventureBoardStoryArgs): React.ReactElement {
             questUnlocked: args.questUnlocked,
             longLabels: args.longLabels,
           })
+        : args.scenario === "slotLab"
+          ? buildSlotLabBoard({
+              routeShape: args.routeShape,
+              chosenRoute: args.slotChosenRoute,
+              routeChoiceBehavior: args.routeChoiceBehavior,
+              questState: args.questState,
+              missingThumbnails: args.missingThumbnails,
+              longLabels: args.longLabels,
+            })
         : boards[args.scenario],
     [
       args.branchDensity,
       args.chosenRoute,
       args.longLabels,
       args.missingThumbnails,
+      args.questState,
       args.questUnlocked,
       args.routeChoiceBehavior,
+      args.routeShape,
       args.scenario,
+      args.showCompanion,
+      args.slotChosenRoute,
     ],
   );
-  const companionConfig = useMemo(() => {
-    if (!board.companion) return null;
-    const entry = COMPANION_MANIFEST.find((item) => item.id === board.companion?.id);
-    return mergeCompanionConfigWithDefaults({
-      ...(entry?.companionConfig ?? {}),
-      companionId: entry?.id ?? board.companion.id,
-      vrmUrl: entry?.companionConfig?.vrmUrl ?? entry?.vrmUrl,
-      toggledOff: false,
-    });
-  }, [board]);
+
+  const packet = useMemo(() => childExperiencePacketForBoard(board), [board]);
+
+  const handleChoiceClick = (option: AdventureChoiceOption) => {
+    console.info("[storybook:adventure-board:choice]", option);
+  };
 
   return (
-    <>
-      <AdventureBoard
-        board={board}
-        onNodeClick={(node) => console.info("[storybook:adventure-board:node]", node)}
-        onChoiceClick={(option) => console.info("[storybook:adventure-board:choice]", option)}
-      />
-      {companionConfig ? (
-        <CompanionLayer
-          childId={board.childId}
-          companion={companionConfig}
-          toggledOff={false}
-          mode="full"
-          idlePose="center"
-          companionBehavior={playfulAdventureCompanionBehavior(board)}
-        />
-      ) : null}
-    </>
+    <AdventureBoardExperience
+      packet={packet}
+      showCompanion={args.showCompanion}
+      idlePose="center"
+      companionBehavior={playfulAdventureCompanionBehavior(board)}
+      onNodeClick={(node) => console.info("[storybook:adventure-board:node]", node)}
+      onChoiceClick={handleChoiceClick}
+    />
   );
 }
 
@@ -191,6 +290,16 @@ export const DenseSpellingSession: Story = {
 
 export const GrokFullExperience: Story = {
   args: { scenario: "grokFull" },
+  render: (args) => <BoardFixture {...args} />,
+};
+
+export const RawJsonContract: Story = {
+  args: { scenario: "rawJson" },
+  render: (args) => <BoardFixture {...args} />,
+};
+
+export const SlotTemplateLab: Story = {
+  args: { scenario: "slotLab" },
   render: (args) => <BoardFixture {...args} />,
 };
 
@@ -248,6 +357,7 @@ export const StressQuestUnlocked: Story = {
   args: {
     scenario: "grokFull",
     questUnlocked: true,
+    chosenRoute: "upper",
   },
   render: (args) => <BoardFixture {...args} />,
 };

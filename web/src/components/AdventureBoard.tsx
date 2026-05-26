@@ -20,16 +20,36 @@ import {
 import type {
   AdventureBoardJson,
   AdventureBoardNode,
+  AdventureBoardSlot,
   AdventureChoiceSet,
   AdventureChoiceOption,
 } from "../../../src/shared/adventureBoardJson";
-import { resolveAdventureBoardNodes } from "./adventureBoardLayout";
 import "./AdventureBoard.css";
 
 type AdventureBoardProps = {
   board: AdventureBoardJson;
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption) => void;
+};
+
+type PositionedAdventureBoardNode = AdventureBoardNode & {
+  position: { x: number; y: number };
+};
+
+export const HORIZONTAL_ADVENTURE_SLOTS: Record<AdventureBoardSlot, { x: number; y: number }> = {
+  "1": { x: 0.10, y: 0.82 },
+  "2": { x: 0.25, y: 0.70 },
+  "3": { x: 0.38, y: 0.56 },
+  "4": { x: 0.52, y: 0.56 },
+  "5a.1": { x: 0.44, y: 0.30 },
+  "5a.2": { x: 0.58, y: 0.26 },
+  "5b.1": { x: 0.46, y: 0.76 },
+  "5b.2": { x: 0.58, y: 0.72 },
+  "5c.1": { x: 0.57, y: 0.48 },
+  "5c.2": { x: 0.61, y: 0.52 },
+  "6": { x: 0.64, y: 0.46 },
+  "7": { x: 0.76, y: 0.34 },
+  "8": { x: 0.86, y: 0.18 },
 };
 
 const iconMap = {
@@ -74,6 +94,11 @@ function boardBackground(board: AdventureBoardJson): React.CSSProperties {
     return { background: background.value };
   }
   return { background: background.value };
+}
+
+function resolveNodePosition(node: AdventureBoardNode): PositionedAdventureBoardNode | null {
+  const position = node.position ?? (node.slot ? HORIZONTAL_ADVENTURE_SLOTS[node.slot] : undefined);
+  return position ? { ...node, position } : null;
 }
 
 function AdventureChoiceOverlay({
@@ -157,7 +182,10 @@ export function AdventureBoard({
   onNodeClick,
   onChoiceClick,
 }: AdventureBoardProps): React.ReactElement {
-  const resolvedNodes = resolveAdventureBoardNodes(board);
+  const resolvedNodes = board.nodes.flatMap((node) => {
+    const positionedNode = resolveNodePosition(node);
+    return positionedNode ? [positionedNode] : [];
+  });
   const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
   const choiceSetsById = new Map((board.choiceSets ?? []).map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);

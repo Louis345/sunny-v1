@@ -1,9 +1,14 @@
-import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
+import type {
+  AdventureBoardJson,
+  AdventureBoardNode,
+  AdventureBoardNodeState,
+} from "../../../src/shared/adventureBoardJson";
 import {
   resolveAdventureBoardForActiveSessionPlan,
   type ActiveSessionPlanBoardNodeSnapshot,
   type ActiveSessionPlanBoardSnapshot,
 } from "../../../src/shared/adventureBoardFromPlan";
+import reinaActiveSessionPlanJson from "../../../src/context/reina/plans/active_session_plan.json";
 
 const theme = {
   background: {
@@ -1039,8 +1044,12 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
 
 reinaMay24ActiveSessionPlanSnapshot.adventureBoard = reinaMay24PlannerAdventureBoard;
 
+const reinaActiveSessionPlanFromContext = (
+  reinaActiveSessionPlanJson as unknown as { current?: ActiveSessionPlanBoardSnapshot }
+).current;
+
 export const reinaCurrentHomeworkBoard = resolveAdventureBoardForActiveSessionPlan({
-  plan: reinaMay24ActiveSessionPlanSnapshot,
+  plan: reinaActiveSessionPlanFromContext ?? reinaMay24ActiveSessionPlanSnapshot,
   boardId: "storybook-reina-current-homework-debug-fallback",
   title: "Reina Current Homework",
   theme: reinaMay24PlannerAdventureBoard.theme,
@@ -1050,11 +1059,6 @@ export const reinaCurrentHomeworkBoard = resolveAdventureBoardForActiveSessionPl
   labelForNode: reinaCurrentHomeworkLabel,
   thumbnailForNode: reinaCurrentHomeworkThumbnail,
 });
-
-function withoutPosition(node: AdventureBoardJson["nodes"][number]): AdventureBoardJson["nodes"][number] {
-  const { position: _position, ...rest } = node;
-  return rest;
-}
 
 export const grokFullExperienceBoard: AdventureBoardJson = {
   ...denseSpellingBoard,
@@ -1076,7 +1080,7 @@ export const grokFullExperienceBoard: AdventureBoardJson = {
     },
   },
   nodes: denseSpellingBoard.nodes.map((node) => ({
-    ...withoutPosition(node),
+    ...node,
     thumbnailUrl: denseThumbnailFor(node),
   })),
   choiceSets: denseSpellingBoard.choiceSets?.map((choiceSet) => ({
@@ -1095,6 +1099,15 @@ export const grokFullExperienceBoard: AdventureBoardJson = {
 
 export type AdventureBoardBranchDensity = "none" | "one" | "two";
 export type AdventureBoardChosenRoute = "none" | "upper" | "lower";
+export type AdventureBoardSlotRouteShape =
+  | "none"
+  | "upper"
+  | "lower"
+  | "middle"
+  | "upper+lower"
+  | "three-way";
+export type AdventureBoardSlotChosenRoute = "none" | "5a" | "5b" | "5c";
+export type AdventureBoardQuestState = "locked" | "preview" | "available";
 
 export type AdventureBoardFixtureOptions = {
   routeChoiceBehavior?: NonNullable<AdventureBoardJson["layout"]>["routeChoiceBehavior"];
@@ -1128,6 +1141,7 @@ export function buildGrokFullExperienceBoard(
           label: opts.longLabels ? "Audio-first letter slots without word flash" : "Audio Slots",
           icon: "radar",
           thumbnailUrl: opts.missingThumbnails ? undefined : fullExperienceArt.wordRadar,
+          position: { x: 0.46, y: 0.76 },
           layout: {
             role: "evidence-route",
             lane: "lower",
@@ -1135,7 +1149,10 @@ export function buildGrokFullExperienceBoard(
             routeGroupId: "after-verify-route",
             selected: chosenRoute === "lower",
           },
-          state: "available",
+          state: behavior === "exclusive" && chosenRoute === "upper" ? "locked" : "available",
+          lock: behavior === "exclusive" && chosenRoute === "upper"
+            ? { reason: "route-not-picked", label: "Route not picked" }
+            : undefined,
           evidenceRole: "baseline",
         },
         {
@@ -1145,6 +1162,7 @@ export function buildGrokFullExperienceBoard(
           label: opts.longLabels ? "Quick read-aloud pressure check" : "Quick Read",
           icon: "zap",
           thumbnailUrl: opts.missingThumbnails ? undefined : fullExperienceArt.pronunciation,
+          position: { x: 0.58, y: 0.72 },
           layout: {
             role: "evidence-route",
             lane: "lower",
@@ -1152,7 +1170,10 @@ export function buildGrokFullExperienceBoard(
             routeGroupId: "after-verify-route",
             selected: chosenRoute === "lower",
           },
-          state: "available",
+          state: behavior === "exclusive" && chosenRoute === "upper" ? "locked" : "available",
+          lock: behavior === "exclusive" && chosenRoute === "upper"
+            ? { reason: "route-not-picked", label: "Route not picked" }
+            : undefined,
           evidenceRole: "baseline",
         },
       ]
@@ -1175,6 +1196,17 @@ export function buildGrokFullExperienceBoard(
             }
           : node.layout,
       };
+      if (
+        node.layout?.routeGroupId &&
+        behavior === "exclusive" &&
+        chosenRoute === "lower"
+      ) {
+        return {
+          ...next,
+          state: "locked" as const,
+          lock: next.lock ?? { reason: "route-not-picked", label: "Route not picked" },
+        };
+      }
       if (opts.longLabels && node.id === "spell-conflict") {
         return { ...next, label: "Verify tricky silent-letter spelling pattern" };
       }
@@ -1217,6 +1249,262 @@ export function buildGrokFullExperienceBoard(
       ...(branchDensity === "none"
         ? [{ id: "e-mystery-quest", from: "mystery", to: "quest", state: "preview" as const, style: "dashed" as const }]
         : []),
+    ],
+  };
+}
+
+type SlotLabOptions = {
+  routeShape?: AdventureBoardSlotRouteShape;
+  chosenRoute?: AdventureBoardSlotChosenRoute;
+  routeChoiceBehavior?: NonNullable<AdventureBoardJson["layout"]>["routeChoiceBehavior"];
+  questState?: AdventureBoardQuestState;
+  missingThumbnails?: boolean;
+  longLabels?: boolean;
+  showCompanion?: boolean;
+};
+
+function routePickedState(input: {
+  route: AdventureBoardSlotChosenRoute;
+  chosenRoute: AdventureBoardSlotChosenRoute;
+  behavior: NonNullable<AdventureBoardJson["layout"]>["routeChoiceBehavior"];
+}): Pick<AdventureBoardNode, "state" | "lock"> {
+  if (input.behavior === "parallel" || input.chosenRoute === "none" || input.chosenRoute === input.route) {
+    return { state: "available" };
+  }
+  return {
+    state: "locked",
+    lock: { reason: "route-not-picked", label: "Route not picked" },
+  };
+}
+
+export function buildSlotLabBoard(options: SlotLabOptions = {}): AdventureBoardJson {
+  const routeShape = options.routeShape ?? "upper";
+  const chosenRoute = options.chosenRoute ?? "none";
+  const behavior = options.routeChoiceBehavior ?? "exclusive";
+  const questState = options.questState ?? "preview";
+  const includeUpper = ["upper", "upper+lower", "three-way"].includes(routeShape);
+  const includeLower = ["lower", "upper+lower", "three-way"].includes(routeShape);
+  const includeMiddle = ["middle", "three-way"].includes(routeShape);
+  const choiceTargetId = routeShape === "none" ? "mystery" : "choose-path";
+  const nodeThumbnail = (url: string) => options.missingThumbnails ? undefined : url;
+  const routeNodes: AdventureBoardJson["nodes"] = [
+    ...(includeUpper
+      ? [
+          {
+            id: "light-check",
+            kind: "activity" as const,
+            activityId: "word-radar",
+            label: options.longLabels ? "Light Check Recognition Route" : "Light Check",
+            icon: "radar",
+            thumbnailUrl: nodeThumbnail(fullExperienceArt.wordRadar),
+            slot: "5a.1" as const,
+            evidenceRole: "baseline" as const,
+            ...routePickedState({ route: "5a", chosenRoute, behavior }),
+          },
+          {
+            id: "read-aloud",
+            kind: "activity" as const,
+            activityId: "pronunciation",
+            label: options.longLabels ? "Read Aloud Fluency Route" : "Read Aloud",
+            icon: "book",
+            thumbnailUrl: nodeThumbnail(fullExperienceArt.pronunciation),
+            slot: "5a.2" as const,
+            evidenceRole: "baseline" as const,
+            ...routePickedState({ route: "5a", chosenRoute, behavior }),
+          },
+        ]
+      : []),
+    ...(includeLower
+      ? [
+          {
+            id: "story-spark",
+            kind: "reward" as const,
+            label: options.longLabels ? "Story Spark Recovery Route" : "Story Spark",
+            icon: "book",
+            thumbnailUrl: nodeThumbnail(fullExperienceArt.storyChoice),
+            slot: "5b.1" as const,
+            evidenceRole: "preference" as const,
+            ...routePickedState({ route: "5b", chosenRoute, behavior }),
+          },
+        ]
+      : []),
+    ...(includeMiddle
+      ? [
+          {
+            id: "quick-jump",
+            kind: "reward" as const,
+            label: options.longLabels ? "Quick Jump Straight To Mystery" : "Quick Jump",
+            icon: "mystery",
+            thumbnailUrl: nodeThumbnail(fullExperienceArt.mystery),
+            slot: "5c.1" as const,
+            evidenceRole: "preference" as const,
+            ...routePickedState({ route: "5c", chosenRoute, behavior }),
+          },
+        ]
+      : []),
+  ];
+
+  const routeEdges: AdventureBoardJson["edges"] = [
+    ...(includeUpper
+      ? [
+          { id: "e-choice-light", from: "choose-path", to: "light-check", state: "locked" as const, style: "dashed" as const },
+          { id: "e-light-read", from: "light-check", to: "read-aloud", state: "locked" as const, style: "dashed" as const },
+          { id: "e-read-mystery", from: "read-aloud", to: "mystery", state: "locked" as const, style: "dashed" as const },
+        ]
+      : []),
+    ...(includeLower
+      ? [
+          { id: "e-choice-story", from: "choose-path", to: "story-spark", state: "locked" as const, style: "dashed" as const },
+          { id: "e-story-mystery", from: "story-spark", to: "mystery", state: "locked" as const, style: "dashed" as const },
+        ]
+      : []),
+    ...(includeMiddle
+      ? [
+          { id: "e-choice-quick", from: "choose-path", to: "quick-jump", state: "locked" as const, style: "dashed" as const },
+          { id: "e-quick-mystery", from: "quick-jump", to: "mystery", state: "locked" as const, style: "dashed" as const },
+        ]
+      : []),
+  ];
+
+  const questLock =
+    questState === "available"
+      ? undefined
+      : {
+          reason: questState === "locked" ? "needs-quest-evidence" : "needs-baseline-evidence",
+          label: questState === "locked" ? "After Quest" : "Preparing",
+        };
+
+  return {
+    ...grokFullExperienceBoard,
+    boardId: "storybook-slot-lab",
+    planId: "design-bench-slot-lab",
+    title: "Slot Lab",
+    layout: {
+      preset: "horizontal-adventure-spine",
+      companionSlot: "right",
+      routeChoiceBehavior: behavior,
+    },
+    companion: options.showCompanion === false ? undefined : grokFullExperienceBoard.companion,
+    nodes: [
+      {
+        id: "start",
+        kind: "start",
+        label: "Start",
+        icon: "check",
+        thumbnailUrl: nodeThumbnail(fullExperienceArt.start),
+        slot: "1",
+        state: "completed",
+      },
+      {
+        id: "know-write",
+        kind: "activity",
+        activityId: "word-radar",
+        label: options.longLabels ? "Know And Write Silent Letters" : "Know / Write",
+        icon: "radar",
+        thumbnailUrl: nodeThumbnail(fullExperienceArt.wordRadar),
+        slot: "2",
+        state: "completed",
+        evidenceRole: "baseline",
+      },
+      {
+        id: "verify",
+        kind: "activity",
+        activityId: "spell-check",
+        label: options.longLabels ? "Verify Current Spelling Evidence" : "Verify",
+        icon: "book",
+        thumbnailUrl: nodeThumbnail(fullExperienceArt.spellCheck),
+        slot: "3",
+        state: "available",
+        evidenceRole: "baseline",
+      },
+      ...(routeShape === "none"
+        ? []
+        : [
+            {
+              id: "choose-path",
+              kind: "choice-gate" as const,
+              label: "Choose Path",
+              icon: "route",
+              thumbnailUrl: nodeThumbnail(fullExperienceArt.choice),
+              slot: "4" as const,
+              state: "locked" as const,
+              lock: { reason: "needs-current-check", label: "Unlocks after current check" },
+              choiceSetId: "slot-route-options",
+              action: { type: "open-choice-set" as const, payloadId: "slot-route-options" },
+            },
+          ]),
+      ...routeNodes,
+      {
+        id: "mystery",
+        kind: "mystery",
+        label: "Mystery",
+        icon: "mystery",
+        thumbnailUrl: nodeThumbnail(fullExperienceArt.mystery),
+        slot: "6",
+        state: "current",
+        evidenceRole: "preference",
+        choiceSetId: "dense-mystery-choice",
+        action: { type: "open-choice-set", payloadId: "dense-mystery-choice" },
+      },
+      {
+        id: "quest",
+        kind: "quest",
+        activityId: "quest",
+        label: "Quest",
+        icon: "star",
+        thumbnailUrl: nodeThumbnail(fullExperienceArt.quest),
+        slot: "7",
+        state: questState as AdventureBoardNodeState,
+        evidenceRole: "transfer",
+        choiceSetId: "quest-options",
+        lock: questLock,
+      },
+      {
+        id: "boss",
+        kind: "boss",
+        activityId: "boss",
+        label: "Boss",
+        icon: "crown",
+        thumbnailUrl: nodeThumbnail(fullExperienceArt.boss),
+        slot: "8",
+        state: "locked",
+        evidenceRole: "mastery",
+        choiceSetId: "boss-options",
+        lock: { reason: "needs-quest-evidence", label: "After Quest" },
+      },
+    ],
+    edges: [
+      { id: "e-start-know", from: "start", to: "know-write", state: "completed" },
+      { id: "e-know-verify", from: "know-write", to: "verify", state: "completed" },
+      {
+        id: "e-verify-next",
+        from: "verify",
+        to: choiceTargetId,
+        state: "available",
+        style: "glow",
+      },
+      ...routeEdges,
+      { id: "e-mystery-quest", from: "mystery", to: "quest", state: "preview", style: "dashed" },
+      { id: "e-quest-boss", from: "quest", to: "boss", state: "locked", style: "dashed" },
+    ],
+    choiceSets: [
+      {
+        id: "slot-route-options",
+        kind: "baseline-route",
+        title: "Choose your path",
+        options: [
+          ...(includeUpper
+            ? [{ id: "route-5a", label: "Light Check", description: "Recognition route before Mystery.", icon: "radar", thumbnailUrl: nodeThumbnail(fullExperienceArt.wordRadar), state: "available" as const, nodeId: "light-check", tags: ["recognition"] }]
+            : []),
+          ...(includeLower
+            ? [{ id: "route-5b", label: "Story Spark", description: "Story-flavored route before Mystery.", icon: "book", thumbnailUrl: nodeThumbnail(fullExperienceArt.storyChoice), state: "available" as const, nodeId: "story-spark", tags: ["story"] }]
+            : []),
+          ...(includeMiddle
+            ? [{ id: "route-5c", label: "Quick Jump", description: "Go straight toward Mystery.", icon: "mystery", thumbnailUrl: nodeThumbnail(fullExperienceArt.mystery), state: "available" as const, nodeId: "quick-jump", tags: ["preference"] }]
+            : []),
+        ],
+      },
+      ...(grokFullExperienceBoard.choiceSets ?? []),
     ],
   };
 }
