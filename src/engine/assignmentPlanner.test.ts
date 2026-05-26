@@ -262,6 +262,37 @@ function goodOutput(): AssignmentPlannerOutput {
   };
 }
 
+function plannerDraftWithAdventureBoard(adventureBoard: unknown): unknown {
+  return {
+    capturedContent: {
+      title: "Demo",
+      type: "spelling_test",
+      rawText: "Silent Letters\nsign",
+      words: ["sign"],
+      questions: [],
+      wordGroups: [{ id: "silent_letters", label: "Silent Letters", purpose: "spell_from_memory", words: ["sign"], confidence: 0.95, evidence: ["source"] }],
+      contentProfile: { practiceDomain: "spelling", contentDomain: "language_arts", topic: "Demo", primarySkill: "spelling", assignmentFormat: "word list", concepts: [], sourceEvidence: [] },
+      sourceDocuments: [{ filename: "demo.pdf", mediaType: "application/pdf" }],
+    },
+    homeworkWords: [{ text: "sign", sourceGroupId: "silent_letters", purpose: "spell_from_memory" }],
+    activeSessionPlan: {
+      nodePlan: [{
+        id: "word-radar-silent",
+        type: "word-radar",
+        activityId: "word-radar",
+        targets: ["sign"],
+        difficulty: 1,
+        targetLane: "silent_letters",
+        wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+      }],
+      adventureBoard,
+    },
+    plannedMeasurements: [{ id: "m", activityId: "word-radar", target: "sign", evidenceType: "practice", supportCriteria: "correct", reviseCriteria: "miss", falsifyCriteria: "missing" }],
+    planTheory: { hypothesis: "h", evidenceSummary: ["e"], intervention: "i", supportCriteria: ["s"], reviseCriteria: ["r"], falsifyCriteria: ["f"] },
+    reviewQuestions: ["Review?"],
+  };
+}
+
 describe("assignment planner", () => {
   it("parses the first planner JSON object even when the model adds trailing text", () => {
     const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
@@ -398,6 +429,76 @@ describe("assignment planner", () => {
     expect(parsed.activeSessionPlan.adventureBoard?.choiceSets?.[0]?.options).toHaveLength(2);
   });
 
+  it("rejects invalid adventureBoard enums instead of accepting a loose board blob", () => {
+    expect(() => parseAssignmentPlannerJson(JSON.stringify(plannerDraftWithAdventureBoard({
+      schemaVersion: 1,
+      boardId: "planner-board",
+      planId: "planner-demo",
+      childId: "reina",
+      domain: "spelling",
+      theme: {
+        background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
+        palette: {
+          path: "#ffffff",
+          completed: "#2f9f6f",
+          available: "#7058f4",
+          locked: "#aeb7c2",
+          current: "#ef9825",
+          preview: "#d5dde5",
+          text: "#ffffff",
+          panel: "rgba(21, 31, 50, 0.80)",
+        },
+      },
+      layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "exclusive" },
+      nodes: [
+        { id: "start", kind: "portal", label: "Start", state: "completed" },
+      ],
+      edges: [],
+    })))).toThrow();
+  });
+
+  it("normalizes null optional board fields without inventing target lanes", () => {
+    const parsed = parseAssignmentPlannerJson(JSON.stringify(plannerDraftWithAdventureBoard({
+      schemaVersion: 1,
+      boardId: "planner-board",
+      planId: "planner-demo",
+      childId: "reina",
+      domain: "spelling",
+      theme: {
+        background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
+        palette: {
+          path: "#ffffff",
+          completed: "#2f9f6f",
+          available: "#7058f4",
+          locked: "#aeb7c2",
+          current: "#ef9825",
+          preview: "#d5dde5",
+          text: "#ffffff",
+          panel: "rgba(21, 31, 50, 0.80)",
+        },
+      },
+      layout: { preset: "horizontal-adventure-spine", companionSlot: "right", routeChoiceBehavior: "exclusive" },
+      nodes: [
+        {
+          id: "start",
+          kind: "start",
+          activityId: null,
+          label: "Start",
+          state: "completed",
+          target: { laneId: null, skill: "mixed", words: ["sign"] },
+          choiceSetId: null,
+          thumbnailUrl: "/thumbnails/activities/word-radar.svg",
+          layout: { role: "start", order: 1 },
+        },
+      ],
+      edges: [],
+    })));
+
+    expect(parsed.activeSessionPlan.adventureBoard?.nodes[0]?.activityId).toBeUndefined();
+    expect(parsed.activeSessionPlan.adventureBoard?.nodes[0]?.choiceSetId).toBeUndefined();
+    expect(parsed.activeSessionPlan.adventureBoard?.nodes[0]?.target).toBeUndefined();
+  });
+
   it("normalizes harmless planner JSON shape mistakes but still requires Word Radar config", () => {
     const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
       capturedContent: {
@@ -489,6 +590,17 @@ describe("assignment planner", () => {
       .find((card) => card.activityId === "word-radar")
       ?.capabilityModes.find((mode) => mode.id === "partial_visual_recall")
       ?.config).toMatchObject(WORD_RADAR_LETTER_FILL_CONFIG);
+    expect(packet.boardPlanning.algorithmContracts.choicePolicy.outputs).toContain("shown_chosen_skipped_outcome");
+    expect(packet.boardPlanning.algorithmContracts.spacedRepetition.guardrails).toContain("preference_is_not_mastery");
+    expect(packet.boardPlanning.boardTemplate.preset).toBe("horizontal-adventure-spine");
+    expect(packet.boardPlanning.boardTemplate.palette.text).toBe("#ffffff");
+    expect(packet.boardPlanning.boardTemplate.palette.path).toBe("#ffffff");
+    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("routeChoiceCount");
+    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("mysteryChoiceCount");
+    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("questWrapperChoiceCount");
+    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("bossWrapperChoiceCount");
+    expect(packet.boardPlanning.runtimeConstraints.noRuntimePlanning).toBe(true);
+    expect(packet.boardPlanning.criticPolicy.semanticAudit).toBe("always");
     expect(packet.plannerInstruction).toContain("mastered targets get smaller spaced checks");
     expect(packet.plannerInstruction).toContain("strictly more academic support than mastered targets");
     expect(packet.plannerInstruction).toContain("first academic node should probe those exact contradictory targets");
@@ -512,7 +624,21 @@ describe("assignment planner", () => {
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("pediatric learning psychologist and adaptive game director");
     expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
     expect(prompt).toContain("Explain why each visible route or modal choice is worth the child's attention today");
-    expect(prompt).toContain("edges must flow from the prior required node into the gate");
+    expect(prompt).toContain("Edges must flow from the prior required baseline node into the gate");
+    expect(prompt).toContain("Do not put Choose Path immediately after Start");
+    expect(prompt).toContain("Start must connect to the first baseline activity, never directly to a route gate");
+    expect(prompt).toContain("choice gate's incoming edge must come from the last required baseline activity");
+    expect(prompt).toContain("Use packet.boardPlanning.boardTemplate.palette exactly");
+    expect(prompt).toContain("Good horizontal spine skeleton");
+    expect(prompt).toContain("Bad horizontal spine skeleton");
+    expect(prompt).toContain("boardPlanning");
+    expect(prompt).toContain("choicePolicy");
+    expect(prompt).toContain("route choice after required baseline evidence");
+    expect(prompt).toContain("preference evidence, not mastery");
+    expect(prompt).toContain("planner decides how many route, Mystery, Quest, or Boss choices");
+    expect(prompt).not.toContain("Mystery modal choice: 3");
+    expect(prompt).not.toContain("Quest wrapper choices: 2");
+    expect(prompt).not.toContain("Boss wrapper choices: 2");
     expect(prompt).toContain("activeSessionPlan.adventureBoard");
     expect(prompt).toContain("adventureMapProfile");
     expect(prompt).not.toContain("maxVisibleChoices");
@@ -634,6 +760,79 @@ describe("assignment planner", () => {
     output.activeSessionPlan.nodePlan[0] = {
       ...output.activeSessionPlan.nodePlan[0]!,
       targetLane: "high-frequency-recognition",
+    };
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual([expect.objectContaining({ code: "target_lane_mismatch" })]);
+  });
+
+  it("validates planner-owned board JSON without repairing fake agency", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.adventureBoard = {
+      schemaVersion: 1,
+      boardId: "bad-board",
+      planId: output.activeSessionPlan.planId,
+      childId: "reina",
+      domain: "spelling",
+      theme: {
+        background: { type: "solid", value: "#123" },
+        palette: {
+          path: "#fff",
+          completed: "#2f9f6f",
+          available: "#7058f4",
+          locked: "#aeb7c2",
+          current: "#ef9825",
+          preview: "#d5dde5",
+          text: "#ffffff",
+          panel: "rgba(21, 31, 50, 0.80)",
+        },
+      },
+      nodes: [
+        { id: "baseline_spelling_diagnostic", kind: "activity", activityId: "spell-check", label: "Verify", state: "completed" },
+        { id: "choice_after_verify", kind: "choice-gate", label: "Choose Path", state: "available", choiceSetId: "route-options" },
+        { id: "fake", kind: "activity", activityId: "fake-game", label: "Fake", state: "available" },
+      ],
+      edges: [
+        { id: "e-fake", from: "baseline_spelling_diagnostic", to: "missing", state: "available" },
+      ],
+      choiceSets: [{
+        id: "route-options",
+        kind: "baseline-route",
+        title: "Choose your path",
+        options: [{ id: "fake", label: "Fake", state: "available", nodeId: "missing" }],
+      }],
+    };
+
+    const issues = validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    });
+
+    expect(issues.map((issue) => issue.code)).toEqual(expect.arrayContaining([
+      "board_missing_edge_endpoint",
+      "board_choice_option_missing_node",
+      "board_unknown_activity_id",
+      "board_fake_agency",
+      "board_learning_node_missing_node_plan_reference",
+    ]));
+  });
+
+  it("rejects target lanes that contain words outside their source group", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan[0] = {
+      ...output.activeSessionPlan.nodePlan[0]!,
+      targetLane: "silent_letters",
+      targets: ["sign", "among"],
     };
 
     expect(validateAssignmentPlannerOutput(output, {

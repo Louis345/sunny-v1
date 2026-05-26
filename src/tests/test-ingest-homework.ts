@@ -7,6 +7,7 @@ import {
   buildHomeworkLearningPlanArtifact,
   buildPendingHomeworkPayload,
   buildHomeworkReturnTag,
+  buildPlannerArtifactPayloads,
   ensureQuestHtmlContract,
   finalizePlannedHomeworkNodes,
   appendHomeworkIntakeHistory,
@@ -510,6 +511,29 @@ describe("ingestHomework", () => {
     expect(buildHomeworkReturnTag("Reina", "hw-spelling_test-bb11de93")).toBe(
       "#sunny_reina_hw_spelling_test_bb11de93",
     );
+  });
+
+  it("builds planner-owned board artifacts for the homework pending folder", () => {
+    const files = buildPlannerArtifactPayloads({
+      packet: { childId: "reina", boardPlanning: { runtimeConstraints: { noRuntimePlanning: true } } },
+      output: { activeSessionPlan: { planId: "assignment-plan-reina", adventureBoard: { boardId: "board" } } },
+      audit: {
+        rows: [],
+        issues: [],
+        markdown: "| node | source evidence | target purpose | activity/mode | algorithm feed | expected signal | status |\n",
+      },
+      criticDecision: { shouldRun: false, reasons: [] },
+    });
+
+    expect(Object.keys(files)).toEqual(expect.arrayContaining([
+      "planner-input.json",
+      "planner-output.json",
+      "planner-decision-audit.json",
+      "planner-decision-audit.md",
+      "visual-critic-decision.json",
+    ]));
+    expect(files["planner-input.json"]).toContain("\"noRuntimePlanning\": true");
+    expect(files["planner-decision-audit.md"]).toContain("| node | source evidence |");
   });
 
   it("resolves CLI, extracted, interactive, and non-interactive test dates with source metadata", async () => {

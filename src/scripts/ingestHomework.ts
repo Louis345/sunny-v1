@@ -58,6 +58,14 @@ import {
   type AssignmentPlanningPacket,
   type AssignmentPlanValidationIssue,
 } from "../engine/assignmentPlanner";
+import {
+  buildPlannerDecisionAudit,
+  type PlannerDecisionAudit,
+} from "../engine/plannerDecisionAudit";
+import {
+  shouldRunAdventureBoardVisualCritic,
+  type AdventureBoardVisualCriticDecision,
+} from "../engine/adventureBoardVisualCritic";
 
 type ExtractionShape = {
   title: string;
@@ -81,6 +89,8 @@ type ExtractionShape = {
   assignmentPlanningPacket: AssignmentPlanningPacket;
   assignmentPlannerOutput: AssignmentPlannerOutput;
   assignmentValidationIssues: AssignmentPlanValidationIssue[];
+  plannerDecisionAudit: PlannerDecisionAudit;
+  visualCriticDecision: AdventureBoardVisualCriticDecision;
   assignmentReviewSummary: string;
   questions: Array<{
     id: number;
@@ -97,6 +107,31 @@ type PlannedNode = PlannedHomeworkNode;
 export type IngestHomeworkDomain = HomeworkDomain;
 
 type PromptFn = (prompt: string) => Promise<string> | string;
+
+export function buildPlannerArtifactPayloads(args: {
+  packet: unknown;
+  output: unknown;
+  audit: PlannerDecisionAudit | { rows: unknown[]; issues: unknown[]; markdown: string };
+  criticDecision: AdventureBoardVisualCriticDecision;
+  visualCriticReport?: unknown;
+}): Record<string, string> {
+  const files: Record<string, string> = {
+    "planner-input.json": `${JSON.stringify(args.packet, null, 2)}\n`,
+    "planner-output.json": `${JSON.stringify(args.output, null, 2)}\n`,
+    "planner-decision-audit.json": `${JSON.stringify({
+      rows: args.audit.rows,
+      issues: args.audit.issues,
+    }, null, 2)}\n`,
+    "planner-decision-audit.md": args.audit.markdown.endsWith("\n")
+      ? args.audit.markdown
+      : `${args.audit.markdown}\n`,
+    "visual-critic-decision.json": `${JSON.stringify(args.criticDecision, null, 2)}\n`,
+  };
+  if (args.visualCriticReport) {
+    files["visual-critic-report.json"] = `${JSON.stringify(args.visualCriticReport, null, 2)}\n`;
+  }
+  return files;
+}
 
 function readCliValue(argv: string[], flags: string[]): string | null {
   for (let i = 0; i < argv.length; i += 1) {
@@ -1091,6 +1126,25 @@ async function extractHomework(args: {
       activityIds: assignmentPlanningPacket.activityCatalog.map((card) => card.activityId),
     },
   );
+  const plannerDecisionAudit = buildPlannerDecisionAudit(assignmentPlannerOutput);
+  const semanticAuditIssues = [
+    ...assignmentValidationIssues.map((issue) => ({
+      code: issue.code,
+      severity: issue.severity,
+    })),
+    ...plannerDecisionAudit.issues.map((issue) => ({
+      code: issue.code,
+      severity: issue.severity,
+    })),
+  ];
+  const choiceOptionCount = (assignmentPlannerOutput.activeSessionPlan.adventureBoard?.choiceSets ?? [])
+    .reduce((sum, choiceSet) => sum + choiceSet.options.length, 0);
+  const visualCriticDecision = shouldRunAdventureBoardVisualCritic({
+    plannerConfidence: assignmentPlannerOutput.activeSessionPlan.plannerConfidence,
+    semanticAuditIssues,
+    choiceOptionCount,
+    force: process.env.SUNNY_FORCE_BOARD_CRITIC === "true",
+  });
   const blockingIssues = assignmentValidationIssues.filter((issue) => issue.severity === "error");
   if (blockingIssues.length > 0) {
     throw new Error(
@@ -1176,6 +1230,8 @@ async function extractHomework(args: {
       assignmentInterpretation: finalCapturedContent.assignmentInterpretation!,
     },
     assignmentValidationIssues,
+    plannerDecisionAudit,
+    visualCriticDecision,
     assignmentReviewSummary: summarizeAssignmentPlanForReview({
       ...assignmentPlannerOutput,
       capturedContent: finalCapturedContent,
@@ -1379,6 +1435,14 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     JSON.stringify(extracted.assignmentPlannerOutput, null, 2),
     "utf8",
   );
+  for (const [filename, payload] of Object.entries(buildPlannerArtifactPayloads({
+    packet: extracted.assignmentPlanningPacket,
+    output: extracted.assignmentPlannerOutput,
+    audit: extracted.plannerDecisionAudit,
+    criticDecision: extracted.visualCriticDecision,
+  }))) {
+    fs.writeFileSync(path.join(pendingDir, filename), payload, "utf8");
+  }
   fs.writeFileSync(
     path.join(pendingDir, "assignment-plan-review.md"),
     extracted.assignmentReviewSummary,

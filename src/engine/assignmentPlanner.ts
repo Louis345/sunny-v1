@@ -30,6 +30,7 @@ import {
   type AssignmentSourceExtraction,
 } from "./assignmentSourceExtraction";
 import { certifySpellingAdaptation } from "./spellingCertification";
+import { validateAdventureBoardJson } from "../shared/adventureBoardValidation";
 
 export type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 
@@ -48,32 +49,109 @@ export type AssignmentActivityCard = {
   capabilityModes: ActivityCapabilityMode[];
 };
 
+export type AssignmentPlanningChildChartSummary = {
+  childId: string;
+  displayName: string;
+  grade?: number | string;
+  selectedCompanionId?: string | null;
+  selectedCompanionName?: string | null;
+  adventureMapProfile?: ChildChart["adventureMapProfile"];
+  activeHomeworkSummary?: string | null;
+  carePlanSummary?: string | null;
+  recentEvidence: string[];
+};
+
 export type AssignmentPlanningPacket = {
   packetVersion: 1;
   childId: string;
-  sourceDocument: {
+  sourceDocument: Pick<
+    AssignmentSourceExtraction,
+    | "filename"
+    | "sourcePath"
+    | "sourceKind"
+    | "mediaType"
+    | "fileHash"
+    | "extractionMethod"
+    | "warnings"
+    | "pages"
+    | "fullText"
+  >;
+  childChart: AssignmentPlanningChildChartSummary;
+  activityCatalog: AssignmentActivityCard[];
+  boardPlanning: AssignmentBoardPlanningContext;
+  plannerInstruction: string;
+};
+
+export type AlgorithmContract = {
+  id: "choicePolicy" | "spacedRepetition" | "questReadiness" | "masteryGate";
+  purpose: string;
+  needs: string[];
+  outputs: string[];
+  guardrails: string[];
+};
+
+export type AssignmentBoardPlanningContext = {
+  childChart: AssignmentPlanningChildChartSummary;
+  assignment: {
     filename: string;
     sourceKind: string;
-    mediaType: string;
-    fileHash: string;
     extractionMethod: string;
     warnings: string[];
-    pages: Array<{ pageNumber: number; text: string; imagePath?: string }>;
     fullText: string;
   };
-  childChart: {
-    childId: string;
-    displayName: string;
-    grade?: number | string;
-    selectedCompanionId?: string | null;
-    selectedCompanionName?: string | null;
-    adventureMapProfile?: ChildChart["adventureMapProfile"];
-    activeHomeworkSummary?: string | null;
-    carePlanSummary?: string | null;
-    recentEvidence: string[];
-  };
+  recentEvidence: string[];
   activityCatalog: AssignmentActivityCard[];
-  plannerInstruction: string;
+  algorithmContracts: {
+    choicePolicy: AlgorithmContract;
+    spacedRepetition: AlgorithmContract;
+    questReadiness: AlgorithmContract;
+    masteryGate: AlgorithmContract;
+  };
+  choicePolicyContext: {
+    purpose: string;
+    evidenceSignals: string[];
+    signalQualityNotes: string[];
+    plannerDecision: string;
+  };
+  boardTemplate: {
+    preset: "horizontal-adventure-spine";
+    visualSkin: "grok-full-experience";
+    companionSlot: "right";
+    routeChoiceBehavior: "exclusive";
+    routeChoicePlacement: "after-required-baseline";
+    requiredBaselineCountBeforeRouteChoice: 2;
+    capabilities: {
+      supportsChoiceGates: true;
+      supportsModalChoiceSets: true;
+      supportsQuestBossLocks: true;
+      supportsCompanionSlot: true;
+    };
+    art: {
+      backgroundUrl: string;
+      nodeThumbnails: Record<string, string>;
+      choiceThumbnails: Record<string, string>;
+    };
+    palette: AdventureBoardJson["theme"]["palette"];
+    displayRules: {
+      requireImageBackground: true;
+      requireCompanion: true;
+      requireNodeThumbnails: true;
+      requireShortLabels: true;
+      requireLayoutRoles: true;
+      maxDisplayLabelLength: 18;
+    };
+  };
+  runtimeConstraints: {
+    rendererOnly: true;
+    noRuntimePlanning: true;
+    outputMustBeSerializableJson: true;
+  };
+  criticPolicy: {
+    semanticAudit: "always";
+    visualCritic: "risk_gated";
+    riskSignals: string[];
+    retryLimit: 1;
+  };
 };
 
 export type AssignmentPlannerHomeworkWord = {
@@ -103,7 +181,27 @@ export type AssignmentPlanValidationIssue = {
     | "missing_quest_destination"
     | "missing_boss_destination"
     | "target_lane_mismatch"
-    | "unknown_activity_id";
+    | "unknown_activity_id"
+    | "board_missing_edge_endpoint"
+    | "board_choice_option_missing_node"
+    | "board_choice_gate_missing_choice_set"
+    | "board_fake_agency"
+    | "choice_gate_missing_baseline_incoming_edge"
+    | "baseline_choice_route_disconnected"
+    | "board_choice_gate_missing_outgoing_edge"
+    | "board_baseline_choice_missing_node"
+    | "board_learning_node_missing_node_plan_reference"
+    | "board_unknown_activity_id"
+    | "board_preference_claims_mastery"
+    | "board_background_not_image"
+    | "board_companion_missing"
+    | "board_node_thumbnail_missing"
+    | "board_node_layout_missing"
+    | "board_label_too_long"
+    | "board_choice_art_missing"
+    | "board_route_layout_order_gap"
+    | "board_baseline_layout_order_gap"
+    | "board_palette_not_approved";
   severity: "error" | "warning";
   message: string;
 };
@@ -220,7 +318,7 @@ const compactNodePlanSchema = z.object({
   activityId: z.string().min(1),
   targets: compactTargetsSchema,
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
-  targetLane: z.string().optional(),
+  targetLane: z.preprocess((value) => value === null ? undefined : value, z.string().optional()),
   choiceMode: z.enum(["choice_lab", "surprise_drop"]).optional(),
   locked: z.boolean().optional(),
   masteryUnlockState: z.enum(["teased_locked", "preparing", "pending_ceremony", "unlocked", "completed"]).optional(),
@@ -230,16 +328,138 @@ const compactNodePlanSchema = z.object({
   ),
 });
 
-const adventureBoardJsonSchema = z.custom<AdventureBoardJson>((value) => {
-  if (!value || typeof value !== "object") return false;
-  const board = value as Partial<AdventureBoardJson>;
-  return board.schemaVersion === 1 &&
-    typeof board.boardId === "string" &&
-    typeof board.planId === "string" &&
-    typeof board.childId === "string" &&
-    Array.isArray(board.nodes) &&
-    Array.isArray(board.edges);
-}, "Planner adventureBoard must be an AdventureBoardJson object.");
+function optionalFromNull<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((value) => value === null ? undefined : value, schema.optional());
+}
+
+const adventureBoardPaletteSchema = z.object({
+  path: z.string().min(1),
+  completed: z.string().min(1),
+  available: z.string().min(1),
+  locked: z.string().min(1),
+  current: z.string().min(1),
+  preview: z.string().min(1),
+  text: z.string().min(1),
+  panel: z.string().min(1),
+}).strict();
+
+const adventureBoardThemeSchema = z.object({
+  background: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("image"), value: z.string().min(1) }).strict(),
+    z.object({ type: z.literal("gradient"), value: z.string().min(1) }).strict(),
+    z.object({ type: z.literal("solid"), value: z.string().min(1) }).strict(),
+  ]),
+  palette: adventureBoardPaletteSchema,
+}).strict();
+
+const adventureBoardLayoutSchema = z.object({
+  preset: z.literal("horizontal-adventure-spine"),
+  companionSlot: optionalFromNull(z.enum(["right", "left", "none"])),
+  routeChoiceBehavior: optionalFromNull(z.enum(["exclusive", "parallel"])),
+}).strict();
+
+const adventureBoardNodeLayoutSchema = z.object({
+  role: optionalFromNull(z.enum(["start", "baseline", "mystery", "evidence-route", "choice-gate", "quest", "boss"])),
+  lane: optionalFromNull(z.enum(["main", "upper", "lower"])),
+  order: optionalFromNull(z.number()),
+  routeGroupId: optionalFromNull(z.string().min(1)),
+  selected: optionalFromNull(z.boolean()),
+}).strict();
+
+const adventureBoardTargetSchema = z.preprocess((value) => {
+  if (value === null || typeof value !== "object") return value === null ? undefined : value;
+  const record = value as Record<string, unknown>;
+  if (record.laneId == null || record.skill == null) return undefined;
+  return value;
+}, z.object({
+  laneId: z.string().min(1),
+  skill: z.string().min(1),
+  words: optionalFromNull(z.array(z.string().min(1))),
+}).strict().optional());
+
+const adventureBoardNodeSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["start", "activity", "choice-gate", "mystery", "quest", "boss", "reward"]),
+  activityId: optionalFromNull(z.string().min(1)),
+  label: z.string().min(1),
+  shortLabel: optionalFromNull(z.string().min(1)),
+  icon: optionalFromNull(z.string().min(1)),
+  thumbnailUrl: optionalFromNull(z.string().min(1)),
+  position: optionalFromNull(z.object({ x: z.number(), y: z.number() }).strict()),
+  layout: optionalFromNull(adventureBoardNodeLayoutSchema),
+  state: z.enum(["current", "available", "completed", "locked", "preview", "hidden"]),
+  evidenceRole: optionalFromNull(z.enum(["baseline", "preference", "support", "transfer", "mastery"])),
+  target: adventureBoardTargetSchema,
+  wordRadarConfig: optionalFromNull(z.record(z.string(), z.unknown())),
+  lock: optionalFromNull(z.object({
+    reason: z.string().min(1),
+    label: z.string().min(1),
+    progressLabel: optionalFromNull(z.string().min(1)),
+  }).strict()),
+  choiceSetId: optionalFromNull(z.string().min(1)),
+  action: optionalFromNull(z.object({
+    type: z.enum(["launch-activity", "open-choice-set", "show-locked-reason"]),
+    payloadId: z.string().min(1),
+  }).strict()),
+}).strict();
+
+const adventureBoardEdgeSchema = z.object({
+  id: z.string().min(1),
+  from: z.string().min(1),
+  to: z.string().min(1),
+  state: z.enum(["completed", "available", "locked", "preview"]),
+  style: z.enum(["solid", "dashed", "glow"]).optional(),
+}).strict();
+
+const adventureBoardChoiceOptionSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  description: optionalFromNull(z.string()),
+  icon: optionalFromNull(z.string().min(1)),
+  thumbnailUrl: optionalFromNull(z.string().min(1)),
+  state: z.enum(["available", "locked", "completed"]),
+  nodeId: optionalFromNull(z.string().min(1)),
+  tags: optionalFromNull(z.array(z.string().min(1))),
+  lock: optionalFromNull(z.object({
+    reason: z.string().min(1),
+    label: z.string().min(1),
+  }).strict()),
+}).strict();
+
+const adventureBoardChoiceSetSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["baseline-route", "mystery", "quest-wrapper", "boss-wrapper"]),
+  title: z.string().min(1),
+  options: z.array(adventureBoardChoiceOptionSchema).min(1),
+}).strict();
+
+const adventureBoardJsonSchema = z.object({
+  schemaVersion: z.literal(1),
+  boardId: z.string().min(1),
+  planId: z.string().min(1),
+  childId: z.string().min(1),
+  domain: z.enum(["spelling", "reading", "math", "science", "generic"]),
+  title: optionalFromNull(z.string()),
+  theme: adventureBoardThemeSchema,
+  layout: optionalFromNull(adventureBoardLayoutSchema),
+  plannerRationale: optionalFromNull(z.object({
+    agencyDesign: z.string().min(1),
+    evidenceDesign: z.string().min(1),
+    layoutChoice: z.string().min(1),
+  }).strict()),
+  nodes: z.array(adventureBoardNodeSchema).min(1),
+  edges: z.array(adventureBoardEdgeSchema),
+  choiceSets: optionalFromNull(z.array(adventureBoardChoiceSetSchema)),
+  companion: optionalFromNull(z.object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+  }).strict()),
+  progress: optionalFromNull(z.object({
+    currentNodeId: optionalFromNull(z.string().min(1)),
+    completedNodeIds: z.array(z.string().min(1)),
+    activeChoiceSetId: optionalFromNull(z.string().min(1)),
+  }).strict()),
+}).strict().transform((board) => board as AdventureBoardJson);
 
 const compactActiveSessionPlanSchema = z.object({
   planId: z.string().min(1).optional(),
@@ -332,17 +552,177 @@ function summarizeCarePlan(chart: ChildChart): string | null {
   return String(current.signal ?? current.summary ?? "Care plan present.");
 }
 
+function childChartSummaryForPacket(
+  chart: ChildChart,
+  recentEvidence: string[],
+): AssignmentPlanningChildChartSummary {
+  return {
+    childId: chart.childId,
+    displayName: chart.identity.displayName,
+    grade: chart.demographics?.grade,
+    selectedCompanionId: chart.companion?.presetId ?? null,
+    selectedCompanionName: chart.companion?.displayName ?? null,
+    adventureMapProfile: chart.adventureMapProfile,
+    activeHomeworkSummary: chart.homework.pending
+      ? `${chart.homework.pending.homeworkId}:${chart.homework.pending.capturedContent?.title ?? chart.homework.pending.contentProfile?.topic ?? "active homework"}`
+      : null,
+    carePlanSummary: summarizeCarePlan(chart),
+    recentEvidence,
+  };
+}
+
+function buildBoardPlanningContext(args: {
+  extraction: AssignmentSourceExtraction;
+  childChart: AssignmentPlanningChildChartSummary;
+  activityCatalog: AssignmentActivityCard[];
+}): AssignmentBoardPlanningContext {
+  return {
+    childChart: args.childChart,
+    assignment: {
+      filename: args.extraction.filename,
+      sourceKind: args.extraction.sourceKind,
+      extractionMethod: args.extraction.extractionMethod,
+      warnings: [...args.extraction.warnings],
+      fullText: args.extraction.fullText,
+    },
+    recentEvidence: [...args.childChart.recentEvidence],
+    activityCatalog: args.activityCatalog,
+    algorithmContracts: {
+      choicePolicy: {
+        id: "choicePolicy",
+        purpose: "Rank valid child-facing choices by preference evidence, uncertainty, replay, completion, frustration, and outcomes.",
+        needs: ["options_shown", "option_chosen", "skips", "replays", "completion", "frustration", "outcome"],
+        outputs: ["shown_chosen_skipped_outcome", "preference_signal", "uncertainty_signal"],
+        guardrails: ["preference_is_not_mastery", "shown_but_not_chosen_is_weak_neutral"],
+      },
+      spacedRepetition: {
+        id: "spacedRepetition",
+        purpose: "Keep weak or due targets supported while mastered targets receive lighter spaced checks.",
+        needs: ["target_accuracy", "latency", "retries", "help", "last_seen", "due_state"],
+        outputs: ["target_dosage", "support_level", "review_timing"],
+        guardrails: ["preference_is_not_mastery", "do_not_expand_mastered_targets_over_weak_targets"],
+      },
+      questReadiness: {
+        id: "questReadiness",
+        purpose: "Require baseline evidence plus a named theory before generated transfer content unlocks.",
+        needs: ["baseline_evidence", "target_theory", "contradictions", "support_revise_falsify_criteria"],
+        outputs: ["quest_locked_or_ready", "transfer_theory"],
+        guardrails: ["quest_is_not_random_loot", "missing_baseline_keeps_quest_locked"],
+      },
+      masteryGate: {
+        id: "masteryGate",
+        purpose: "Require quest or transfer evidence before boss/mastery finale unlocks.",
+        needs: ["quest_evidence", "transfer_result", "per_target_results", "contradictions"],
+        outputs: ["boss_locked_or_ready", "mastery_claim_evidence"],
+        guardrails: ["boss_requires_quest_evidence", "in_app_success_is_not_final_transfer_proof"],
+      },
+    },
+    choicePolicyContext: {
+      purpose: "Choice points collect preference and engagement evidence that can improve future wrappers without claiming academic mastery.",
+      evidenceSignals: [
+        "shown_options",
+        "chosen_option",
+        "replayed_path",
+        "completed_path",
+        "skipped_path",
+        "frustration_or_recovery",
+        "learning_outcome_after_choice",
+      ],
+      signalQualityNotes: [
+        "A small set of clear choices usually produces cleaner evidence than many noisy options.",
+        "Extra choices can be useful when uncertainty is high or Sunny needs preference data.",
+        "Shown-but-not-chosen is weak neutral evidence; explicit dislike or abandonment is stronger negative evidence.",
+      ],
+      plannerDecision: "The planner decides how many route, Mystery, Quest, or Boss choices are worth the child's attention from chart evidence, stamina, motivation, and uncertainty.",
+    },
+    boardTemplate: {
+      preset: "horizontal-adventure-spine",
+      visualSkin: "grok-full-experience",
+      companionSlot: "right",
+      routeChoiceBehavior: "exclusive",
+      routeChoicePlacement: "after-required-baseline",
+      requiredBaselineCountBeforeRouteChoice: 2,
+      capabilities: {
+        supportsChoiceGates: true,
+        supportsModalChoiceSets: true,
+        supportsQuestBossLocks: true,
+        supportsCompanionSlot: true,
+      },
+      art: {
+        backgroundUrl: "/generated/adventure-board-demo/silent-letter-world.jpeg",
+        nodeThumbnails: {
+          start: "/thumbnails/activities/word-radar.svg",
+          "word-radar": "/generated/adventure-board-demo/word-radar.jpeg",
+          "spell-check": "/generated/adventure-board-demo/spell-check.jpeg",
+          pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
+          mystery: "/generated/adventure-board-demo/mystery.jpeg",
+          "choice-gate": "/thumbnails/mystery-fallback.svg",
+          quest: "/generated/adventure-board-demo/quest.jpeg",
+          boss: "/generated/adventure-board-demo/boss.jpeg",
+        },
+        choiceThumbnails: {
+          story: "/thumbnails/activities/karaoke.svg",
+          speed: "/thumbnails/activities/speed-catcher.svg",
+          "word-radar": "/generated/adventure-board-demo/word-radar.jpeg",
+          "spell-check": "/generated/adventure-board-demo/spell-check.jpeg",
+          pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
+          "monster-stampede": "/thumbnails/activities/monster-stampede.svg",
+          "wheel-of-fortune": "/thumbnails/activities/wheel-of-fortune.svg",
+        },
+      },
+      palette: {
+        path: "#ffffff",
+        completed: "#1f8f68",
+        available: "#7c3aed",
+        locked: "#aeb7c2",
+        current: "#f59e0b",
+        preview: "#d5dde5",
+        text: "#ffffff",
+        panel: "rgba(15, 23, 42, 0.84)",
+      },
+      displayRules: {
+        requireImageBackground: true,
+        requireCompanion: true,
+        requireNodeThumbnails: true,
+        requireShortLabels: true,
+        requireLayoutRoles: true,
+        maxDisplayLabelLength: 18,
+      },
+    },
+    runtimeConstraints: {
+      rendererOnly: true,
+      noRuntimePlanning: true,
+      outputMustBeSerializableJson: true,
+    },
+    criticPolicy: {
+      semanticAudit: "always",
+      visualCritic: "risk_gated",
+      riskSignals: [
+        "planner_confidence_low",
+        "semantic_audit_failed",
+        "complex_choice_graph",
+        "forced_by_cli",
+      ],
+      retryLimit: 1,
+    },
+  };
+}
+
 export function buildAssignmentPlanningPacket(args: {
   childId: string;
   extraction: AssignmentSourceExtraction;
   childChart: ChildChart;
   currentEvidenceSummary?: string[];
 }): AssignmentPlanningPacket {
+  const recentEvidence = args.currentEvidenceSummary ?? [];
+  const childChart = childChartSummaryForPacket(args.childChart, recentEvidence);
+  const catalog = activityCatalog(args.childId);
   return {
     packetVersion: 1,
     childId: args.childId,
     sourceDocument: {
       filename: args.extraction.filename,
+      sourcePath: args.extraction.sourcePath,
       sourceKind: args.extraction.sourceKind,
       mediaType: args.extraction.mediaType,
       fileHash: args.extraction.fileHash,
@@ -351,20 +731,13 @@ export function buildAssignmentPlanningPacket(args: {
       pages: args.extraction.pages.map((page) => ({ ...page })),
       fullText: args.extraction.fullText,
     },
-    childChart: {
-      childId: args.childChart.childId,
-      displayName: args.childChart.identity.displayName,
-      grade: args.childChart.demographics?.grade,
-      selectedCompanionId: args.childChart.companion?.presetId ?? null,
-      selectedCompanionName: args.childChart.companion?.displayName ?? null,
-      adventureMapProfile: args.childChart.adventureMapProfile,
-      activeHomeworkSummary: args.childChart.homework.pending
-        ? `${args.childChart.homework.pending.homeworkId}:${args.childChart.homework.pending.capturedContent?.title ?? args.childChart.homework.pending.contentProfile?.topic ?? "active homework"}`
-        : null,
-      carePlanSummary: summarizeCarePlan(args.childChart),
-      recentEvidence: args.currentEvidenceSummary ?? [],
-    },
-    activityCatalog: activityCatalog(args.childId),
+    childChart,
+    activityCatalog: catalog,
+    boardPlanning: buildBoardPlanningContext({
+      extraction: args.extraction,
+      childChart,
+      activityCatalog: catalog,
+    }),
     plannerInstruction: [
       "Interpret the assignment from the source text and source groups.",
       "Activities are instruments. Choose nodes by target purpose, not by generic fun.",
@@ -379,6 +752,7 @@ export function buildAssignmentPlanningPacket(args: {
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Return a board plan that cites why every activity fits the target purpose.",
       "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
+      "Use boardPlanning as the single board-design contract: childChart, assignment, recentEvidence, activityCatalog, algorithmContracts, choicePolicyContext, boardTemplate, runtimeConstraints, and criticPolicy.",
       "Decide agency and route density from chart evidence, stamina, motivation, and evidence needs.",
       "Explain why each visible route or modal choice is worth the child's attention today.",
     ].join(" "),
@@ -462,6 +836,18 @@ export function validateAssignmentPlannerOutput(
       });
     }
     const nodeTargetKeys = new Set(node.targets.map((target) => target.trim().toLowerCase()).filter(Boolean));
+    const declaredLaneGroup = node.targetLane ? groups.find((group) => group.id === node.targetLane) : undefined;
+    if (declaredLaneGroup) {
+      const laneTargets = new Set(declaredLaneGroup.words.map((word) => word.trim().toLowerCase()).filter(Boolean));
+      const outOfLaneTargets = [...nodeTargetKeys].filter((target) => !laneTargets.has(target));
+      if (outOfLaneTargets.length > 0) {
+        issues.push({
+          code: "target_lane_mismatch",
+          severity: "error",
+          message: `Node ${node.id} targetLane ${declaredLaneGroup.id} includes out-of-lane targets: ${outOfLaneTargets.join(", ")}.`,
+        });
+      }
+    }
     const matchingGroup = sourceGroupsByTargets.find(({ targetKeys }) =>
       nodeTargetKeys.size > 0 &&
       [...nodeTargetKeys].every((target) => targetKeys.has(target)),
@@ -478,6 +864,48 @@ export function validateAssignmentPlannerOutput(
         code: "missing_word_radar_config",
         severity: "error",
         message: `Word Radar node ${node.id} must include planner-authored wordRadarConfig.`,
+      });
+    }
+  }
+
+  if (output.activeSessionPlan.adventureBoard) {
+    const planNodeIds = new Set(output.activeSessionPlan.nodePlan.map((node) => node.id));
+    for (const boardNode of output.activeSessionPlan.adventureBoard.nodes) {
+      if (
+        ["activity", "mystery", "quest", "boss"].includes(boardNode.kind) &&
+        !planNodeIds.has(boardNode.id) &&
+        !planNodeIds.has(boardNode.action?.payloadId ?? "")
+      ) {
+        issues.push({
+          code: "board_learning_node_missing_node_plan_reference",
+          severity: "error",
+          message: `Board learning node ${boardNode.id} must use a nodePlan id or action.payloadId reference.`,
+        });
+      }
+    }
+    const boardIssues = validateAdventureBoardJson(output.activeSessionPlan.adventureBoard, activityIds);
+    for (const issue of boardIssues) {
+      const code = issue.code === "missing_edge_endpoint"
+        ? "board_missing_edge_endpoint"
+        : issue.code === "choice_option_missing_node"
+          ? "board_choice_option_missing_node"
+          : issue.code === "choice_gate_missing_choice_set"
+            ? "board_choice_gate_missing_choice_set"
+            : issue.code === "choice_gate_missing_incoming_edge"
+              ? "board_fake_agency"
+              : issue.code === "choice_gate_missing_outgoing_edge"
+                ? "board_choice_gate_missing_outgoing_edge"
+                : issue.code === "baseline_choice_missing_node"
+                  ? "board_baseline_choice_missing_node"
+                  : issue.code === "unknown_board_activity_id"
+                    ? "board_unknown_activity_id"
+                    : issue.code === "preference_claims_mastery"
+                      ? "board_preference_claims_mastery"
+                      : issue.code;
+      issues.push({
+        code,
+        severity: issue.severity,
+        message: issue.message,
       });
     }
   }
@@ -561,17 +989,47 @@ Rules:
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
+- Use packet.boardPlanning as the board contract. It contains childChart, assignment, recentEvidence, activityCatalog, algorithmContracts, choicePolicyContext, boardTemplate, runtimeConstraints, and criticPolicy.
+- Board template v1 expects a route choice after required baseline evidence, not at session start: complete at least boardTemplate.requiredBaselineCountBeforeRouteChoice baseline evidence node(s), then show a route gate only when the choices are worth the child's attention today.
+- Use algorithmContracts.choicePolicy and choicePolicyContext for route/Mystery/Quest/Boss wrapper choice evidence; preference evidence, not mastery, is what these choices produce.
+- The planner decides how many route, Mystery, Quest, or Boss choices to show from chart evidence, stamina, motivation, and uncertainty. Fewer clear choices usually produce cleaner signals; extra choices can be useful when Sunny needs more preference data.
+- Use algorithmContracts.spacedRepetition for target dosage and support.
+- Use algorithmContracts.questReadiness for locked Quest readiness.
+- Use algorithmContracts.masteryGate for locked Boss readiness.
 - Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
 - Explain why each visible route or modal choice is worth the child's attention today.
 - Return activeSessionPlan.adventureBoard as the child-facing map. nodePlan is the lab/intervention list; adventureBoard is the board experience.
 - adventureBoard may include board-only presentation nodes such as Start and Choose Path, but learning nodes must reference the nodePlan ids they represent and must not add hidden academic interventions.
+- For layout.preset "horizontal-adventure-spine", use packet.boardPlanning.boardTemplate as the board-writing tool contract, not as a loose suggestion. This preset means the approved Grok full-experience pattern: image background, selected companion on the right, visible route paths, node thumbnails, short labels, explicit layout roles, baseline route choices, modal Mystery/Quest/Boss choices, and locked Quest/Boss destinations.
+- Use packet.boardPlanning.boardTemplate.art URLs exactly for backgroundUrl, node thumbnailUrl, and choice thumbnailUrl when they fit the activity/kind. Do not invent gradients or omit art. If a needed art key is missing, use the closest approved fallback art from that object and explain it in plannerRationale.layoutChoice.
+- Use packet.boardPlanning.boardTemplate.palette exactly for adventureBoard.theme.palette. Do not invent darker text or path colors.
+- Include adventureBoard.companion from childChart.selectedCompanionId and childChart.selectedCompanionName when companionSlot is not "none".
+- Every visible adventureBoard node must include thumbnailUrl, layout.role, and a child-facing display label of ${packet.boardPlanning.boardTemplate.displayRules.maxDisplayLabelLength} characters or fewer. If the semantic label is longer, put the short child-facing text in shortLabel.
+- Every baseline-route and Mystery option must include icon or thumbnailUrl; prefer thumbnailUrl from boardTemplate.art.choiceThumbnails.
+- Every adventureBoard activity/mystery/quest/boss node must either use the exact nodePlan[].id it represents or set action.payloadId to that nodePlan id. Prefer exact ids. Do not invent presentation-only ids for learning nodes.
 - adventureBoard choiceSets are where Mystery, Quest, and Boss modal options live. Do not rely on nodePlan alone to express child agency.
-- If you include a route gate, edges must flow from the prior required node into the gate, then from the gate to the available child-facing alternatives. Explain those alternatives in plannerRationale.agencyDesign and keep each branch tied to a valid nodePlan learning purpose or reward/preference evidence purpose.
+- Every baseline-route choice option must include nodeId pointing to the board node it opens.
+- If you include a route gate, it must come after at least one baseline evidence activity. The approved pattern is Start -> required baseline evidence -> route gate -> available child-facing alternatives -> Mystery -> locked Quest -> locked Boss. Do not put Choose Path immediately after Start.
+- Start must connect to the first baseline activity, never directly to a route gate.
+- The choice gate's incoming edge must come from the last required baseline activity, and that baseline board node must have kind "activity", evidenceRole "baseline", and layout.role "baseline".
+- Edges must flow from the prior required baseline node into the gate, then from the gate to the available child-facing alternatives. Explain those alternatives in plannerRationale.agencyDesign and keep each branch tied to a valid nodePlan learning purpose or reward/preference evidence purpose.
+- For evidence-route nodes, layout.order must start at 1 inside each lane and be contiguous. If a lane has one route node, use order 1, not order 2 or 3. This keeps route choices visible instead of clustered near Mystery/Quest.
+- Good horizontal spine skeleton:
+  Start node layout.role=start order=1.
+  First required baseline node layout.role=baseline lane=main order=1.
+  Second required baseline/check node layout.role=baseline lane=main order=2.
+  Choice gate layout.role=choice-gate order=1 and incoming edge from the second required baseline/check node.
+  Optional route nodes layout.role=evidence-route with lane upper/main/lower and order values starting at 1 in each lane.
+  Mystery node layout.role=mystery order=1 with incoming edges from each route option or directly from the gate if that is a valid option.
+  Quest node layout.role=quest order=1 and locked/preparing.
+  Boss node layout.role=boss order=1 and locked/preparing.
+- Bad horizontal spine skeleton: Start -> Choose Path -> baseline routes. Reject that pattern yourself before returning JSON.
+- If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
 - If a child needs shorter cohorts, shorten the target list and vary instruments by purpose rather than creating many same-activity nodes. Do not split one lane into a long run of consecutive Word Radar nodes; more Word Radar nodes are not better evidence when one better-chosen Word Radar node plus another instrument would answer the care-plan question.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
 - Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
-- Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest targets the current theory targets, Boss may have empty targets until quest evidence exists.
+- Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
 - Include parent-review language that explains why every group was routed to its activity.
 - Return one valid JSON object directly. Do not include markdown fences.
 - JSON shape:
@@ -597,10 +1055,11 @@ Rules:
         "domain": "spelling" | "reading" | "math" | "science" | "generic",
         "layout": {"preset": "horizontal-adventure-spine", "companionSlot": "right" | "left" | "none", "routeChoiceBehavior": "exclusive" | "parallel"},
         "plannerRationale": {"agencyDesign": string, "evidenceDesign": string, "layoutChoice": string},
-        "theme": {"background": {"type": "image" | "gradient" | "solid", "value": string}, "palette": {"path": string, "completed": string, "available": string, "locked": string, "current": string, "preview": string, "text": string, "panel": string}},
-        "nodes": [{"id": string, "kind": "start" | "activity" | "choice-gate" | "mystery" | "quest" | "boss" | "reward", "activityId": string, "label": string, "state": "current" | "available" | "completed" | "locked" | "preview" | "hidden", "choiceSetId": string, "target": {"laneId": string, "skill": string, "words": string[]}}],
+        "theme": {"background": {"type": "image", "value": "use boardTemplate.art.backgroundUrl"}, "palette": {"path": string, "completed": string, "available": string, "locked": string, "current": string, "preview": string, "text": string, "panel": string}},
+        "companion": {"id": "selected companion id", "name": "selected companion name"},
+        "nodes": [{"id": string, "kind": "start" | "activity" | "choice-gate" | "mystery" | "quest" | "boss" | "reward", "activityId": string, "label": string, "shortLabel": string, "thumbnailUrl": string, "layout": {"role": "start" | "baseline" | "choice-gate" | "evidence-route" | "mystery" | "quest" | "boss", "lane": "main" | "upper" | "lower", "order": number, "routeGroupId": string}, "state": "current" | "available" | "completed" | "locked" | "preview" | "hidden", "choiceSetId": string, "target": {"laneId": string, "skill": string, "words": string[]}}],
         "edges": [{"id": string, "from": string, "to": string, "state": "completed" | "available" | "locked" | "preview", "style": "solid" | "dashed" | "glow"}],
-        "choiceSets": [{"id": string, "kind": "baseline-route" | "mystery" | "quest-wrapper" | "boss-wrapper", "title": string, "options": [{"id": string, "label": string, "description": string, "state": "available" | "locked" | "completed"}]}]
+        "choiceSets": [{"id": string, "kind": "baseline-route" | "mystery" | "quest-wrapper" | "boss-wrapper", "title": string, "options": [{"id": string, "label": string, "description": string, "icon": string, "thumbnailUrl": string, "state": "available" | "locked" | "completed", "nodeId": string}]}]
       }
     },
     "plannedMeasurements": [{"id": string, "activityId": string, "target": string, "evidenceType": string, "supportCriteria": string, "reviseCriteria": string, "falsifyCriteria": string}],
@@ -652,6 +1111,17 @@ export function parseAssignmentPlannerJson(value: string): AssignmentPlannerResp
   return assignmentPlannerDraftSchema.parse(parsed);
 }
 
+function summarizePlannerParseError(error: unknown): string {
+  if (error instanceof z.ZodError) {
+    return error.issues
+      .slice(0, 30)
+      .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
+      .join("\n");
+  }
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 async function parseOrRepairAssignmentPlannerJson(
   value: string,
   model: string,
@@ -659,11 +1129,23 @@ async function parseOrRepairAssignmentPlannerJson(
   try {
     return parseAssignmentPlannerJson(value);
   } catch (error) {
-    if (!(error instanceof SyntaxError)) throw error;
     const { text } = await generateText({
       model: anthropic(model),
-      system: "Repair malformed JSON. Return only one valid JSON object. Do not add, remove, or reinterpret educational content.",
-      prompt: firstJsonObject(value),
+      system: [
+        "Repair Sunny assignment planner JSON so it matches the required schema.",
+        "Return only one valid JSON object.",
+        "Do not add, remove, or reinterpret educational decisions.",
+        "Do not put presentation-only nodes in activeSessionPlan.nodePlan.",
+        "Board-only nodes such as Start and Choose Path belong only in activeSessionPlan.adventureBoard.nodes.",
+        "activeSessionPlan.nodePlan contains only real interventions with activityId and targets.",
+      ].join(" "),
+      maxOutputTokens: 12_000,
+      prompt: [
+        "Parse/schema error:",
+        summarizePlannerParseError(error),
+        "JSON to repair:",
+        firstJsonObject(value),
+      ].join("\n\n"),
     });
     return parseAssignmentPlannerJson(text);
   }
@@ -679,6 +1161,7 @@ async function callAssignmentPlannerModel(
     const { text, usage } = await generateText({
       model: anthropic(model),
       system: ASSIGNMENT_PLANNER_PERSONA,
+      maxOutputTokens: 12_000,
       prompt,
     });
     return { text, usage };
@@ -727,18 +1210,10 @@ async function callAssignmentPlannerModel(
   };
 }
 
-async function planAssignmentFromSourceInternal(
+function hydrateAssignmentPlannerOutputFromDraft(
+  draft: AssignmentPlannerResponseObject,
   packet: AssignmentPlanningPacket,
-  opts: AssignmentPlanningOptions = {},
-): Promise<{ output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry }> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
-  }
-  const model = resolveAssignmentPlannerModel(opts);
-  const started = Date.now();
-  const { text, usage } = await callAssignmentPlannerModel(packet, model);
-  const draft = await parseOrRepairAssignmentPlannerJson(text, model);
-
+): AssignmentPlannerOutput {
   const capturedContent = buildCapturedHomeworkContent({
     title: draft.capturedContent.title,
     type: draft.capturedContent.type as HomeworkType,
@@ -769,16 +1244,86 @@ async function planAssignmentFromSourceInternal(
   });
 
   return {
-    output: {
-      capturedContent,
-      assignmentInterpretation: capturedContent.assignmentInterpretation!,
-      homeworkWords: draft.homeworkWords,
-      activeSessionPlan,
-      plannedMeasurements: draft.plannedMeasurements,
-      planTheory: draft.planTheory,
-      reviewQuestions: draft.reviewQuestions,
-      generatedExperienceBriefs,
-    },
+    capturedContent,
+    assignmentInterpretation: capturedContent.assignmentInterpretation!,
+    homeworkWords: draft.homeworkWords,
+    activeSessionPlan,
+    plannedMeasurements: draft.plannedMeasurements,
+    planTheory: draft.planTheory,
+    reviewQuestions: draft.reviewQuestions,
+    generatedExperienceBriefs,
+  };
+}
+
+async function repairRejectedAssignmentPlannerDraft(args: {
+  draft: AssignmentPlannerResponseObject;
+  packet: AssignmentPlanningPacket;
+  issues: AssignmentPlanValidationIssue[];
+  model: string;
+}): Promise<AssignmentPlannerResponseObject> {
+  const { text } = await generateText({
+    model: anthropic(args.model),
+    system: ASSIGNMENT_PLANNER_PERSONA,
+    maxOutputTokens: 12_000,
+    prompt: [
+      "Your previous assignment planner JSON failed Sunny's contract validation.",
+      "Return one corrected full JSON object. Do not include markdown fences.",
+      "Keep the assignment interpretation and academic plan as stable as possible, but fix any field that caused validation failure.",
+      "The renderer will not repair your board. The JSON must satisfy the boardTemplate contract directly.",
+      "If a choice gate appears before baseline evidence, move it after the required baseline activities.",
+      "Start must connect to the first baseline activity, never directly to a route gate.",
+      "The choice gate's incoming edge must come from the last required baseline activity, not from Start.",
+      "Baseline board nodes before the gate must have kind \"activity\", evidenceRole \"baseline\", and layout.role \"baseline\".",
+      "Use boardTemplate.palette exactly for adventureBoard.theme.palette so paths and labels remain readable.",
+      "Validation issues:",
+      JSON.stringify(args.issues.map((issue) => ({
+        code: issue.code,
+        severity: issue.severity,
+        message: issue.message,
+      })), null, 2),
+      "Board template contract:",
+      JSON.stringify(args.packet.boardPlanning.boardTemplate, null, 2),
+      "Previous JSON:",
+      JSON.stringify(args.draft, null, 2),
+    ].join("\n\n"),
+  });
+  return parseOrRepairAssignmentPlannerJson(text, args.model);
+}
+
+async function planAssignmentFromSourceInternal(
+  packet: AssignmentPlanningPacket,
+  opts: AssignmentPlanningOptions = {},
+): Promise<{ output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry }> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
+  }
+  const model = resolveAssignmentPlannerModel(opts);
+  const started = Date.now();
+  const { text, usage } = await callAssignmentPlannerModel(packet, model);
+  let draft = await parseOrRepairAssignmentPlannerJson(text, model);
+  let output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
+  let validationIssues = validateAssignmentPlannerOutput(output, {
+    extraction: packet.sourceDocument,
+    activityCatalog: packet.activityCatalog,
+  });
+  for (let repairCount = 0; repairCount < 2; repairCount += 1) {
+    const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
+    if (blockingIssues.length === 0) break;
+    draft = await repairRejectedAssignmentPlannerDraft({
+      draft,
+      packet,
+      issues: blockingIssues,
+      model,
+    });
+    output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
+    validationIssues = validateAssignmentPlannerOutput(output, {
+      extraction: packet.sourceDocument,
+      activityCatalog: packet.activityCatalog,
+    });
+  }
+
+  return {
+    output,
     telemetry: {
       model,
       usage,
