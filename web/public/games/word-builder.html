@@ -54,6 +54,38 @@
       var _nodeId = (window.GAME_PARAMS && window.GAME_PARAMS.nodeId) || "node_unknown";
       if (words.length === 0) words = ["practice"];
       var wordIndex = 0;
+      var targetResults = [];
+
+      function recordWordAttempt(index, correct, scaffoldLevel) {
+        var target = String(words[index] || "").toLowerCase().trim();
+        if (!target || targetResults.some(function (result) { return result.index === index; })) return;
+        var result = {
+          index: index,
+          target: target,
+          correct: !!correct,
+          attempts: 1,
+          mode: "word_builder",
+          evidenceTier: "practice",
+          masteryEligible: false,
+          scaffoldLevel: scaffoldLevel || "manual_confirm",
+        };
+        targetResults.push(result);
+        fireAttemptEvent({
+          activityId: "word_builder",
+          target: target,
+          attemptedValue: target,
+          correct: result.correct,
+          quality: result.correct ? "correct" : "struggled",
+          scaffoldLevel: result.scaffoldLevel,
+        });
+        if (window.SunnyEvidence && typeof window.SunnyEvidence.attemptRecorded === "function") {
+          window.SunnyEvidence.attemptRecorded({
+            activityId: "word_builder",
+            target: target,
+            result: result,
+          });
+        }
+      }
 
       function renderLine() {
         document.getElementById("word-line").textContent =
@@ -78,6 +110,9 @@
       }
 
       function sendResult(completed, accuracy) {
+        for (var i = 0; i < words.length; i++) {
+          recordWordAttempt(i, completed, completed ? "manual_confirm" : "struggle_finish");
+        }
         sendNodeComplete({
           completed: completed,
           accuracy: accuracy,
@@ -85,6 +120,7 @@
           xpEarned: Math.round(accuracy * 10),
           timeSpent_ms: 1200,
           wordsAttempted: words.length,
+          targetResults: targetResults,
         });
         if (completed && window.GameBridge && typeof window.GameBridge.fireEvent === "function") {
           window.setTimeout(function () {
@@ -97,6 +133,7 @@
 
       document.getElementById("done-word").addEventListener("click", function () {
         if (wordIndex >= words.length - 1) return;
+        recordWordAttempt(wordIndex, true, "manual_confirm");
         wordIndex += 1;
         renderLine();
         if (window.GameBridge && typeof window.GameBridge.reportState === "function") {

@@ -205,6 +205,36 @@ body {
   var targetHour = 3;
   var targetMinute = 0;
   var clockHeartbeatId = null;
+  var targetResults = [];
+
+  function recordClockAttempt(isCorrect, pickedLabel) {
+    var target = formatPrompt(targetHour, targetMinute);
+    var result = {
+      target: target,
+      correct: !!isCorrect,
+      attempts: wrongTaps + 1,
+      mode: "clock_match",
+      evidenceTier: "practice",
+      masteryEligible: false,
+      attemptedValue: pickedLabel || "",
+    };
+    targetResults.push(result);
+    fireAttemptEvent({
+      activityId: "clock_match",
+      target: target,
+      attemptedValue: pickedLabel || "",
+      correct: !!isCorrect,
+      quality: isCorrect ? "correct" : "incorrect",
+      scaffoldLevel: "choice",
+    });
+    if (window.SunnyEvidence && typeof window.SunnyEvidence.attemptRecorded === "function") {
+      window.SunnyEvidence.attemptRecorded({
+        activityId: "clock_match",
+        target: target,
+        result: result,
+      });
+    }
+  }
 
   function setMascot(emoji, bounce) {
     mascot.textContent = emoji;
@@ -226,12 +256,14 @@ body {
       xpEarned: correct ? 10 : 0,
       timeSpent_ms: 0,
       correct: !!correct,
+      targetResults: targetResults,
     });
   }
 
   function startRound() {
     ended = false;
     wrongTaps = 0;
+    targetResults = [];
     clocksRow.innerHTML = "";
     var th = hourOnFace(targetHour);
     var tm = Math.max(0, Math.min(59, targetMinute | 0));
@@ -286,6 +318,10 @@ body {
 
   function onPick(card, isCorrect) {
     if (ended) return;
+    var pickedLabel = "";
+    var svg = card && card.querySelector ? card.querySelector("svg") : null;
+    if (svg) pickedLabel = isCorrect ? formatPrompt(targetHour, targetMinute) : "wrong_clock";
+    recordClockAttempt(isCorrect, pickedLabel);
     if (isCorrect) {
       card.classList.add("correct-glow");
       setMascot("🎉", true);

@@ -195,6 +195,8 @@ let nodeSent = false;
 let currentRow = 0;
 let currentInput = "";
 let triesUsed = 0;
+let lastGuess = "";
+const targetResults = [];
 const keyBest = Object.create(null);
 
 const KB = [
@@ -318,6 +320,16 @@ function endGame(completed) {
   nodeSent = true;
   gameOver = true;
   const w = word;
+  targetResults.push({
+    target: w,
+    correct: !!completed,
+    attempts: triesUsed,
+    mode: "wordle",
+    evidenceTier: "practice",
+    masteryEligible: false,
+    attemptedValue: lastGuess,
+    responseTime_ms: Date.now() - startTime,
+  });
   if (typeof window.sendNodeComplete === "function") {
     window.sendNodeComplete({
       completed: completed,
@@ -328,6 +340,7 @@ function endGame(completed) {
       wordsAttempted: 1,
       wordsCorrect: completed ? [w] : [],
       wordsStruggled: completed ? [] : [w],
+      targetResults: targetResults,
     });
   }
 }
@@ -369,6 +382,7 @@ function submitRow() {
   ensureAudio();
   const gStr = currentInput.toLowerCase();
   const results = scoreGuess(word, gStr);
+  lastGuess = gStr;
   for (var ci = 0; ci < gStr.length; ci++) {
     updateKey(gStr[ci], results[ci]);
   }
@@ -376,6 +390,28 @@ function submitRow() {
   const isWin = results.every(function (s) {
     return s === "correct";
   });
+  fireAttemptEvent({
+    activityId: "wordle",
+    target: word,
+    attemptedValue: gStr,
+    correct: isWin,
+    quality: isWin ? "correct" : "incorrect",
+    scaffoldLevel: "none",
+    attemptNumber: triesUsed,
+    letterResults: results,
+  });
+  if (window.SunnyEvidence && typeof window.SunnyEvidence.attemptRecorded === "function") {
+    window.SunnyEvidence.attemptRecorded({
+      activityId: "wordle",
+      target: word,
+      result: {
+        correct: isWin,
+        attempts: triesUsed,
+        attemptedValue: gStr,
+        letterResults: results,
+      },
+    });
+  }
 
   for (var g = 0; g < results.length; g++) {
     if (results[g] === "correct") {
