@@ -22,6 +22,7 @@ import {
 
 export type ChoiceEventContext =
   | "mystery"
+  | "choose_path"
   | "homework_required"
   | "quest"
   | "boss"
@@ -29,9 +30,13 @@ export type ChoiceEventContext =
 
 export type ChoiceSentiment = "like" | "dislike" | "neutral";
 
-export type ChoiceOption = MysteryChoiceOption;
+export type ChoiceOption = MysteryChoiceOption & {
+  traits?: string[];
+};
 
 export type ChoiceEventName =
+  | "choice_presented"
+  | "choice_selected"
   | "mystery_node_tap"
   | "impression"
   | "option_selected"
@@ -70,6 +75,26 @@ export type ChoiceEvent = {
 
 export type ChoiceEventInput = Omit<ChoiceEvent, "type" | "version" | "choiceEventId"> & {
   choiceEventId?: string;
+};
+
+export type ChoiceInteractionInput = Omit<ChoiceEventInput, "eventName" | "skippedOptionIds"> & {
+  eventName: Extract<ChoiceEventName, "choice_presented" | "choice_selected">;
+  skippedOptionIds?: string[];
+};
+
+export type ChoicePreferenceSignalSummary = {
+  childId: string;
+  eventCount: number;
+  trueChoiceCount: number;
+  selectedActivities: Record<string, { count: number }>;
+  avoidedActivities: Record<string, { weakNegativeCount: number }>;
+  traits: Record<string, {
+    selectedCount: number;
+    avoidedCount: number;
+    replayCount: number;
+    selectedEvidenceWeight: number;
+    avoidedEvidenceWeight: number;
+  }>;
 };
 
 export type MysteryChoiceSet = {
@@ -257,12 +282,15 @@ export function normalizeChoiceEvent(input: ChoiceEventInput): ChoiceEvent {
     thumbnailUrl: option.thumbnailUrl ?? thumbnailUrlForActivity(option.activityId),
   }));
   const selected = input.selectedOptionId ?? null;
+  const explicitSkipped = input.skippedOptionIds ?? [];
   const skippedOptionIds =
-    input.skippedOptionIds.length > 0
-      ? input.skippedOptionIds
-      : shownOptions
-        .map((option) => option.optionId)
-        .filter((optionId) => selected !== optionId);
+    explicitSkipped.length > 0
+      ? explicitSkipped
+      : selected
+        ? shownOptions
+          .map((option) => option.optionId)
+          .filter((optionId) => selected !== optionId)
+        : [];
   return {
     type: "choice_event",
     version: 1,
@@ -282,6 +310,16 @@ export function normalizeChoiceEvent(input: ChoiceEventInput): ChoiceEvent {
     skippedOptionIds,
     createdAt,
   };
+}
+
+export function recordChoiceInteraction(
+  input: ChoiceInteractionInput,
+  opts: RootOptions = {},
+): ChoiceEvent {
+  return recordChoiceEvent({
+    ...input,
+    skippedOptionIds: input.skippedOptionIds ?? [],
+  }, opts);
 }
 
 export function recordChoiceEvent(input: ChoiceEventInput, opts: RootOptions = {}): ChoiceEvent {
@@ -321,7 +359,10 @@ function preferenceLiked(event: ChoiceEvent): boolean | null {
   if (event.explicitSentiment === "like") return true;
   if (event.explicitSentiment === "dislike") return false;
   if (event.replayRequested) return true;
-  if (event.eventName === "option_selected" && event.source === "child_choice") return true;
+  if (
+    (event.eventName === "option_selected" || event.eventName === "choice_selected") &&
+    event.source === "child_choice"
+  ) return true;
   if (event.eventName === "surprise_revealed" && event.started !== false) return true;
   if (event.completed === true && clamp01(event.frustrationScore, 0) < 0.5) return true;
   if (event.completed === false) return false;
@@ -332,6 +373,7 @@ function shouldApplyPreferenceEvent(event: ChoiceEvent): boolean {
   if (!event.eventName) return true;
   return (
     event.eventName === "option_selected" ||
+    event.eventName === "choice_selected" ||
     event.eventName === "surprise_revealed" ||
     event.eventName === "activity_completed" ||
     event.eventName === "replay_requested"
@@ -403,6 +445,75 @@ function traitDimensionsForActivity(activityId: string): string[] {
   }
 }
 
+function traitsForOption(option: ChoiceOption): string[] {
+  const dimensions = option.traits?.length
+    ? option.traits
+    : traitDimensionsForActivity(option.activityId);
+  return [...new Set(dimensions.map((dimension) => dimension.trim().toLowerCase()).filter(Boolean))];
+}
+
+function ensureTraitSummary(
+  summary: ChoicePreferenceSignalSummary,
+  trait: string,
+): ChoicePreferenceSignalSummary["traits"][string] {
+  summary.traits[trait] ??= {
+    selectedCount: 0,
+    avoidedCount: 0,
+    replayCount: 0,
+    selectedEvidenceWeight: 0,
+    avoidedEvidenceWeight: 0,
+  };
+  return summary.traits[trait];
+}
+
+export function summarizeChoicePreferenceSignals(
+  childId: string,
+  opts: RootOptions = {},
+): ChoicePreferenceSignalSummary {
+  const events = readChoiceEvents(childId, opts);
+  const summary: ChoicePreferenceSignalSummary = {
+    childId: safeChildId(childId),
+    eventCount: events.length,
+    trueChoiceCount: 0,
+    selectedActivities: {},
+    avoidedActivities: {},
+    traits: {},
+  };
+
+  for (const event of events) {
+    const trueChoice =
+      event.source === "child_choice" &&
+      (event.eventName === "choice_selected" || event.eventName === "option_selected");
+    if (!trueChoice) continue;
+    const selected = selectedOption(event);
+    if (!selected) continue;
+
+    summary.trueChoiceCount += 1;
+    summary.selectedActivities[selected.activityId] ??= { count: 0 };
+    summary.selectedActivities[selected.activityId].count += 1;
+    for (const trait of traitsForOption(selected)) {
+      const traitSummary = ensureTraitSummary(summary, trait);
+      traitSummary.selectedCount += 1;
+      traitSummary.selectedEvidenceWeight = round(traitSummary.selectedEvidenceWeight + 1);
+      if (event.replayRequested) traitSummary.replayCount += 1;
+    }
+
+    const skipped = new Set(event.skippedOptionIds);
+    for (const option of event.shownOptions) {
+      if (!skipped.has(option.optionId)) continue;
+      summary.avoidedActivities[option.activityId] ??= { weakNegativeCount: 0 };
+      summary.avoidedActivities[option.activityId].weakNegativeCount += 1;
+      for (const trait of traitsForOption(option)) {
+        const traitSummary = ensureTraitSummary(summary, trait);
+        traitSummary.avoidedCount += 1;
+        traitSummary.avoidedEvidenceWeight = round(traitSummary.avoidedEvidenceWeight + 0.25);
+      }
+    }
+  }
+
+  return summary;
+}
+
 function mergeChoiceIntoActivityTraitModel(
   priorModel: Record<string, ActivityTraitModelEntry> | undefined,
   input: {
@@ -468,6 +579,7 @@ export async function applyChoiceEventPreference(
         : event.completed === true;
   const isChoiceIntent =
     event.eventName === "option_selected" ||
+    event.eventName === "choice_selected" ||
     event.eventName === "surprise_revealed";
   const accuracy = clamp01(event.accuracy, completed ? 1 : 0.5);
   const frustrationScore = clamp01(
@@ -489,7 +601,7 @@ export async function applyChoiceEventPreference(
     }),
     activityTraitModel: mergeChoiceIntoActivityTraitModel(profile.activityTraitModel, {
       activityId: option.activityId,
-      dimensions: traitDimensionsForActivity(option.activityId),
+      dimensions: traitsForOption(option),
       liked,
       weight: round(
         Math.min(

@@ -9,7 +9,9 @@ import {
   buildMysteryChoiceSet,
   preferenceWeightForChoiceSource,
   readChoiceEvents,
+  recordChoiceInteraction,
   recordChoiceEvent,
+  summarizeChoicePreferenceSignals,
 } from "./choiceEvents";
 
 let root: string;
@@ -89,6 +91,94 @@ describe("choice events", () => {
     expect(loaded).toHaveLength(1);
     expect(loaded[0].selectedOptionId).toBe("pronunciation");
     expect(loaded[0].skippedOptionIds).toEqual(["monster"]);
+  });
+
+  it("records Choose Path events through one wrapper and summarizes trait-level preference signals", async () => {
+    writeProfile("reina");
+
+    recordChoiceInteraction({
+      eventName: "choice_presented",
+      childId: "reina",
+      choiceSetId: "choose-path-1",
+      sessionId: "session-path",
+      nodeId: "choose-path-node",
+      context: "choose_path",
+      domain: "spelling",
+      source: "system_recommendation",
+      shownOptions: [
+        {
+          optionId: "spell-check-route",
+          activityId: "spell-check",
+          nodeType: "spell-check",
+          label: "Spell Check",
+          purposeLabel: "Careful spelling",
+          traits: ["typing", "production", "control", "low-speed-pressure"],
+        },
+        {
+          optionId: "fast-read-route",
+          activityId: "word-radar",
+          nodeType: "word-radar",
+          label: "Fast Read",
+          purposeLabel: "Speed read",
+          traits: ["speed", "recognition", "arcade"],
+        },
+      ],
+      createdAt: "2026-05-12T12:00:00.000Z",
+    }, { rootDir: root });
+
+    const selected = recordChoiceInteraction({
+      eventName: "choice_selected",
+      childId: "reina",
+      choiceSetId: "choose-path-1",
+      sessionId: "session-path",
+      nodeId: "choose-path-node",
+      context: "choose_path",
+      domain: "spelling",
+      source: "child_choice",
+      shownOptions: [
+        {
+          optionId: "spell-check-route",
+          activityId: "spell-check",
+          nodeType: "spell-check",
+          label: "Spell Check",
+          purposeLabel: "Careful spelling",
+          traits: ["typing", "production", "control", "low-speed-pressure"],
+        },
+        {
+          optionId: "fast-read-route",
+          activityId: "word-radar",
+          nodeType: "word-radar",
+          label: "Fast Read",
+          purposeLabel: "Speed read",
+          traits: ["speed", "recognition", "arcade"],
+        },
+      ],
+      selectedOptionId: "spell-check-route",
+      timeToChoose_ms: 1800,
+      createdAt: "2026-05-12T12:00:04.000Z",
+    }, { rootDir: root });
+
+    const applied = await applyChoiceEventPreference(selected, {
+      rootDir: root,
+      recordBanditReward: vi.fn(),
+    });
+    const summary = summarizeChoicePreferenceSignals("reina", { rootDir: root });
+    const events = readChoiceEvents("reina", { rootDir: root });
+
+    expect(events.map((event) => event.eventName)).toEqual([
+      "choice_presented",
+      "choice_selected",
+    ]);
+    expect(selected.skippedOptionIds).toEqual(["fast-read-route"]);
+    expect(applied.applied).toBe(true);
+    expect(summary.trueChoiceCount).toBe(1);
+    expect(summary.selectedActivities["spell-check"]?.count).toBe(1);
+    expect(summary.avoidedActivities["word-radar"]?.weakNegativeCount).toBe(1);
+    expect(summary.traits.typing?.selectedCount).toBe(1);
+    expect(summary.traits.speed?.avoidedCount).toBe(1);
+    expect(summary.traits.speed?.avoidedEvidenceWeight).toBeLessThan(
+      summary.traits.typing?.selectedEvidenceWeight ?? 0,
+    );
   });
 
   it("builds a mystery choice set with generic static thumbnails", () => {
