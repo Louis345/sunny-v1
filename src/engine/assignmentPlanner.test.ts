@@ -610,6 +610,42 @@ describe("assignment planner", () => {
     })).toEqual(expect.arrayContaining([expect.objectContaining({ code: "missing_word_radar_config" })]));
   });
 
+  it("normalizes harmless Word Radar config aliases at the planner boundary", () => {
+    const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
+      capturedContent: {
+        title: "Demo",
+        type: "spelling_test",
+        rawText: "Silent Letters\nsign",
+        words: ["sign"],
+        questions: [],
+        wordGroups: [{ id: "silent_letters", label: "Silent Letters", purpose: "spell_from_memory", words: ["sign"], confidence: 0.95, evidence: ["source"] }],
+        contentProfile: { practiceDomain: "spelling", contentDomain: "language_arts", topic: "Demo", primarySkill: "spelling", assignmentFormat: "word list", concepts: [], sourceEvidence: [] },
+        sourceDocuments: [{ filename: "demo.pdf", mediaType: "application/pdf" }],
+      },
+      homeworkWords: [{ text: "sign", sourceGroupId: "silent_letters", purpose: "spell_from_memory" }],
+      activeSessionPlan: {
+        nodePlan: [{
+          id: "word-radar",
+          type: "word-radar",
+          activityId: "word-radar",
+          targets: ["sign"],
+          difficulty: 2,
+          targetLane: "silent_letters",
+          wordRadarConfig: {
+            recallMode: "visual recall",
+            inputMode: "letter_by_letter",
+            speakStyle: "A",
+          },
+        }],
+      },
+      plannedMeasurements: [{ id: "m", activityId: "word-radar", target: "sign", evidenceType: "practice", supportCriteria: "correct", reviseCriteria: "miss", falsifyCriteria: "missing" }],
+      planTheory: { hypothesis: "h", evidenceSummary: ["e"], intervention: "i", supportCriteria: ["s"], reviseCriteria: ["r"], falsifyCriteria: ["f"] },
+      reviewQuestions: ["Review?"],
+    })}`);
+
+    expect(parsed.activeSessionPlan.nodePlan[0]?.wordRadarConfig).toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
+  });
+
   it("normalizes planner node labels to app node slugs at the boundary", () => {
     expect(normalizeAssignmentNodeType("Pronunciation Practice", "pronunciation")).toBe("pronunciation");
     expect(normalizeAssignmentNodeType("Word Radar", "word-radar")).toBe("word-radar");
@@ -617,7 +653,7 @@ describe("assignment planner", () => {
     expect(normalizeAssignmentNodeType("evaluator", "spelling-recall")).toBe("letter-rush");
   });
 
-  it("builds one canonical planner input with every cataloged activity and the slot board template", () => {
+  it("builds one lean planner input with the relevant instruments and no renderer template", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",
       extraction: extraction(),
@@ -632,28 +668,19 @@ describe("assignment planner", () => {
     expect(packet.activityCatalog.some((card) => card.activityId === "mystery")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "quest")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "boss")).toBe(true);
-    expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
-    expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(false);
+    expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(false);
+    expect(packet.activityCatalog.length).toBeLessThanOrEqual(12);
     expect(packet.activityCatalog.every((card) => card.sentToPlanner)).toBe(true);
-    expect(packet.activityCatalog.find((card) => card.activityId === "word-builder")?.launchable).toBe(true);
-    expect(packet.activityCatalog.find((card) => card.activityId === "wordle")?.launchable).toBe(false);
     expect(packet.activityCatalog.find((card) => card.activityId === "word-radar")?.launchable).toBe(true);
     expect("activityCatalog" in packet.boardPlanning).toBe(false);
+    expect("boardTemplate" in packet.boardPlanning).toBe(false);
     expect(packet.activityCatalog
       .find((card) => card.activityId === "word-radar")
       ?.capabilityModes.find((mode) => mode.id === "partial_visual_recall")
       ?.config).toMatchObject(WORD_RADAR_LETTER_FILL_CONFIG);
     expect(packet.boardPlanning.algorithmContracts.choicePolicy.outputs).toContain("shown_chosen_skipped_outcome");
     expect(packet.boardPlanning.algorithmContracts.spacedRepetition.guardrails).toContain("preference_is_not_mastery");
-    expect(packet.boardPlanning.boardTemplate.preset).toBe("horizontal-adventure-spine");
-    expect(packet.boardPlanning.boardTemplate.slots["5a.1"]).toBe("upper-route");
-    expect(packet.boardPlanning.boardTemplate.slots["5c.1"]).toBe("middle-route");
-    expect(packet.boardPlanning.boardTemplate.palette.text).toBe("#ffffff");
-    expect(packet.boardPlanning.boardTemplate.palette.path).toBe("#ffffff");
-    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("routeChoiceCount");
-    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("mysteryChoiceCount");
-    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("questWrapperChoiceCount");
-    expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("bossWrapperChoiceCount");
     expect(packet.boardPlanning.runtimeConstraints.noRuntimePlanning).toBe(true);
     expect(packet.boardPlanning.criticPolicy.semanticAudit).toBe("always");
     expect(packet.plannerInstruction).toContain("mastered targets get smaller spaced checks");
@@ -666,6 +693,7 @@ describe("assignment planner", () => {
     expect(packet.plannerInstruction).toContain("long run of Word Radar");
     expect(packet.plannerInstruction).toContain("Decide agency and route density from chart evidence");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
+    expect(JSON.stringify(packet)).not.toContain("boardTemplate");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
   });
 
@@ -708,46 +736,49 @@ describe("assignment planner", () => {
     expect(prompt).toContain("If quest or boss fails");
   });
 
-  it("exposes a strict slot-based board contract to the planner tool", () => {
+  it("keeps the planner request lean while preserving curriculum authority", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+      currentEvidenceSummary: ["No recent Reina session evidence."],
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+    const schemaText = JSON.stringify(assignmentPlannerToolJsonSchema());
+    const packetText = JSON.stringify(packet);
+
+    expect(prompt.length + schemaText.length).toBeLessThan(50_000);
+    expect(packet.activityCatalog.length).toBeLessThanOrEqual(12);
+    expect(schemaText.length).toBeLessThan(9_000);
+    expect(packetText).not.toContain("\"boardTemplate\"");
+    expect(prompt).not.toContain("Use packet.boardPlanning.boardTemplate.palette exactly");
+    expect(prompt).not.toContain("Good horizontal spine skeleton");
+    expect(prompt).not.toContain("thumbnailUrl");
+    expect(prompt).not.toContain("activeSessionPlan.adventureBoard");
+    expect(prompt).toContain("nodePlan");
+    expect(prompt).toContain("plannedMeasurements");
+    expect(prompt).toContain("Quest is transfer proof");
+    expect(prompt).toContain("Boss is the mastery gate");
+  });
+
+  it("keeps renderer board JSON out of the planner tool contract", () => {
     const schema = assignmentPlannerToolJsonSchema();
     const activeSessionPlan = (schema.properties as Record<string, any>).activeSessionPlan;
-    const adventureBoard = activeSessionPlan.properties.adventureBoard;
-    const nodeSchema = adventureBoard.properties.nodes.items;
-    const nodeLayoutSchema = nodeSchema.properties.layout;
-    const choiceSetSchema = adventureBoard.properties.choiceSets.items;
-    const choiceOptionSchema = choiceSetSchema.properties.options.items;
-    const progressSchema = adventureBoard.properties.progress;
 
-    expect(activeSessionPlan.required).toEqual(expect.arrayContaining(["nodePlan", "adventureBoard"]));
-    expect(nodeSchema.properties.position).toBeUndefined();
-    expect(nodeSchema.required).toEqual(expect.arrayContaining([
-      "id",
-      "kind",
-      "label",
-      "thumbnailUrl",
-      "slot",
-      "layout",
-      "state",
-    ]));
-    expect(nodeSchema.required).not.toContain("position");
-    expect(nodeSchema.properties.slot.enum).toEqual(expect.arrayContaining(["1", "4", "5a.1", "5b.1", "5c.1", "8"]));
-    expect(nodeLayoutSchema.required).toEqual(expect.arrayContaining(["role", "lane", "order"]));
-    expect(choiceSetSchema.additionalProperties).toBe(false);
-    expect(choiceSetSchema.properties.choiceSetId).toBeUndefined();
-    expect(choiceSetSchema.properties.choices).toBeUndefined();
-    expect(choiceSetSchema.required).toEqual(["id", "kind", "title", "options"]);
-    expect(choiceOptionSchema.properties.choiceId).toBeUndefined();
-    expect(choiceOptionSchema.required).toEqual(expect.arrayContaining([
-      "id",
-      "label",
-      "description",
-      "thumbnailUrl",
-      "state",
-      "choiceSignal",
-    ]));
-    expect(choiceOptionSchema.required).not.toContain("lock");
-    expect(choiceOptionSchema.required).not.toContain("nodeId");
-    expect(progressSchema.required).toEqual(["completedNodeIds"]);
+    expect(activeSessionPlan.required).toEqual(["nodePlan"]);
+    expect(activeSessionPlan.properties.adventureBoard).toBeUndefined();
+    expect(JSON.stringify(schema)).not.toContain("thumbnailUrl");
+    expect(JSON.stringify(schema)).not.toContain("choiceSets");
+  });
+
+  it("constrains planner nodePlan entries to real interventions, not presentation-only choice nodes", () => {
+    const schema = assignmentPlannerToolJsonSchema();
+    const activeSessionPlan = (schema.properties as Record<string, any>).activeSessionPlan;
+    const nodeSchema = activeSessionPlan.properties.nodePlan.items;
+
+    expect(nodeSchema.properties.type.enum).toEqual(expect.arrayContaining(["word-radar", "spell-check", "mystery", "quest", "boss"]));
+    expect(nodeSchema.properties.type.enum).not.toContain("choose-path");
+    expect(nodeSchema.properties.activityId.enum).not.toContain("choose-path");
   });
 
   it("prints a planner readiness audit table for the full activity catalog", () => {
@@ -800,22 +831,19 @@ describe("assignment planner", () => {
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("pediatric learning psychologist and adaptive game director");
     expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
     expect(prompt).toContain("Explain why each visible route or modal choice is worth the child's attention today");
-    expect(prompt).toContain("Edges must flow from the prior required baseline node into the gate");
-    expect(prompt).toContain("Do not put Choose Path immediately after Start");
-    expect(prompt).toContain("Start must connect to the first baseline activity, never directly to a route gate");
-    expect(prompt).toContain("choice gate's incoming edge must come from the last required baseline activity");
-    expect(prompt).toContain("Use packet.boardPlanning.boardTemplate.palette exactly");
-    expect(prompt).toContain("Good horizontal spine skeleton");
-    expect(prompt).toContain("Bad horizontal spine skeleton");
+    expect(prompt).toContain("The app materializes presentation board JSON from your nodePlan after validation");
+    expect(prompt).toContain("If route choice is useful, make the route-worthy alternatives adjacent after required baseline evidence");
+    expect(prompt).toContain("Do not put agency before evidence");
     expect(prompt).toContain("boardPlanning");
     expect(prompt).toContain("choicePolicy");
-    expect(prompt).toContain("route choice after required baseline evidence");
     expect(prompt).toContain("preference evidence, not mastery");
     expect(prompt).toContain("planner decides how many route, Mystery, Quest, or Boss choices");
     expect(prompt).not.toContain("Mystery modal choice: 3");
     expect(prompt).not.toContain("Quest wrapper choices: 2");
     expect(prompt).not.toContain("Boss wrapper choices: 2");
-    expect(prompt).toContain("activeSessionPlan.adventureBoard");
+    expect(prompt).not.toContain("activeSessionPlan.adventureBoard");
+    expect(prompt).not.toContain("thumbnailUrl");
+    expect(prompt).not.toContain("boardTemplate");
     expect(prompt).toContain("adventureMapProfile");
     expect(prompt).not.toContain("maxVisibleChoices");
     expect(prompt).not.toContain("paradox of choice");

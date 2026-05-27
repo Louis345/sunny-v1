@@ -117,15 +117,6 @@ export type AlgorithmContract = {
 };
 
 export type AssignmentBoardPlanningContext = {
-  childChart: AssignmentPlanningChildChartSummary;
-  assignment: {
-    filename: string;
-    sourceKind: string;
-    extractionMethod: string;
-    warnings: string[];
-    fullText: string;
-  };
-  recentEvidence: string[];
   algorithmContracts: {
     choicePolicy: AlgorithmContract;
     spacedRepetition: AlgorithmContract;
@@ -137,49 +128,6 @@ export type AssignmentBoardPlanningContext = {
     evidenceSignals: string[];
     signalQualityNotes: string[];
     plannerDecision: string;
-  };
-  boardTemplate: {
-    preset: "horizontal-adventure-spine";
-    visualSkin: "grok-full-experience";
-    companionSlot: "right";
-    routeChoiceBehavior: "exclusive";
-    routeChoicePlacement: "after-required-baseline";
-    requiredBaselineCountBeforeRouteChoice: 2;
-    capabilities: {
-      supportsChoiceGates: true;
-      supportsModalChoiceSets: true;
-      supportsQuestBossLocks: true;
-      supportsCompanionSlot: true;
-    };
-    slots: {
-      "1": "start";
-      "2": "baseline";
-      "3": "baseline";
-      "4": "choice-gate";
-      "5a.1": "upper-route";
-      "5a.2": "upper-route";
-      "5b.1": "lower-route";
-      "5b.2": "lower-route";
-      "5c.1": "middle-route";
-      "5c.2": "middle-route";
-      "6": "mystery";
-      "7": "quest";
-      "8": "boss";
-    };
-    art: {
-      backgroundUrl: string;
-      nodeThumbnails: Record<string, string>;
-      choiceThumbnails: Record<string, string>;
-    };
-    palette: AdventureBoardJson["theme"]["palette"];
-    displayRules: {
-      requireImageBackground: true;
-      requireCompanion: true;
-      requireNodeThumbnails: true;
-      requireShortLabels: true;
-      requireLayoutRoles: true;
-      maxDisplayLabelLength: 18;
-    };
   };
   runtimeConstraints: {
     rendererOnly: true;
@@ -345,7 +293,54 @@ const contentProfileSchema: z.ZodType<ContentProfile> = z.object({
 });
 
 const NODE_TYPES = new Set<NodeType>(ALL_NODE_TYPES);
+const PLANNER_NODE_ACTIVITY_IDS = [...ALL_NODE_TYPES] as [NodeType, ...NodeType[]];
 const PLANNER_DESTINATION_ACTIVITY_IDS = new Set(["mystery", "quest", "boss"]);
+const PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN: Record<string, string[]> = {
+  spelling: [
+    "word-radar",
+    "pronunciation",
+    "spell-check",
+    "letter-rush",
+    "monster-stampede",
+    "wheel-of-fortune",
+    "mystery",
+    "quest",
+    "boss",
+  ],
+  reading: [
+    "pronunciation",
+    "karaoke",
+    "word-radar",
+    "concept-check",
+    "visual-explainer",
+    "wheel-of-fortune",
+    "mystery",
+    "quest",
+    "boss",
+  ],
+  math: [
+    "concept-check",
+    "visual-explainer",
+    "clock-game",
+    "coin-counter",
+    "mystery",
+    "quest",
+    "boss",
+  ],
+  generic: [
+    "word-radar",
+    "pronunciation",
+    "spell-check",
+    "letter-rush",
+    "monster-stampede",
+    "wheel-of-fortune",
+    "concept-check",
+    "visual-explainer",
+    "mystery",
+    "quest",
+    "boss",
+  ],
+};
 const INSTRUMENT_RENDERERS: Record<string, NodeType> = {
   "spelling-recall": "letter-rush",
 };
@@ -395,7 +390,135 @@ const plannedMeasurementSchema: z.ZodType<PlannedMeasurement> = z.object({
   falsifyCriteria: z.string().min(1),
 });
 
-const wordRadarNodeConfigSchema = z.object({
+const WORD_RADAR_CONFIG_DEFAULTS = {
+  visible_read: {
+    recallMode: "visible_read",
+    inputMode: "whole-word",
+    speakStyle: "option-a",
+    showTimer: false,
+    hideWordDuringResponse: false,
+    requiresCapturedResponse: true,
+  },
+  partial_visual_recall: {
+    recallMode: "partial_visual_recall",
+    inputMode: "letter-by-letter",
+    speakStyle: "option-a",
+    showTimer: false,
+    hideWordDuringResponse: true,
+    requiresCapturedResponse: true,
+  },
+  hidden_word_recall: {
+    recallMode: "hidden_word_recall",
+    inputMode: "whole-word",
+    speakStyle: "option-b",
+    showTimer: true,
+    timerSeconds: 8,
+    hideWordDuringResponse: true,
+    requiresCapturedResponse: true,
+  },
+} as const;
+
+function normalizeToolToken(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeWordRadarRecallMode(value: unknown): keyof typeof WORD_RADAR_CONFIG_DEFAULTS | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return normalizeWordRadarRecallMode(
+      record.recallMode ??
+      record.recall_mode ??
+      record.mode ??
+      record.modeId ??
+      record.id ??
+      record.value,
+    );
+  }
+  const token = normalizeToolToken(value);
+  if (!token) return null;
+  if (token === "visible_read" || token === "recognize" || token === "recognition" || token === "read_fluently") {
+    return "visible_read";
+  }
+  if (token === "partial_visual_recall" || token === "letter_fill" || token === "letter_by_letter" || token === "baseline") {
+    return "partial_visual_recall";
+  }
+  if (token === "audio_cued_letter_recall" || token === "audio_cued") {
+    return "partial_visual_recall";
+  }
+  if (token === "hidden_word_recall" || token === "hidden_recall" || token === "independent_retrieval") {
+    return "hidden_word_recall";
+  }
+  if (token.includes("visible") && token.includes("read")) return "visible_read";
+  if (token.includes("partial") || token.includes("letter") || token.includes("visual") || token.includes("spell")) {
+    return "partial_visual_recall";
+  }
+  if (token.includes("hidden") || token.includes("independent")) return "hidden_word_recall";
+  return null;
+}
+
+function normalizeWordRadarInputMode(value: unknown): "whole-word" | "letter-by-letter" | "keyboard" | null {
+  const token = normalizeToolToken(value);
+  if (!token) return null;
+  if (token === "whole_word" || token === "whole") return "whole-word";
+  if (token === "letter_by_letter" || token === "letters" || token === "letter") return "letter-by-letter";
+  if (token === "keyboard" || token === "typing") return "keyboard";
+  return null;
+}
+
+function normalizeWordRadarSpeakStyle(value: unknown): "option-a" | "option-b" | null {
+  const token = normalizeToolToken(value);
+  if (!token) return null;
+  if (token === "a" || token === "option_a" || token === "optiona") return "option-a";
+  if (token === "b" || token === "option_b" || token === "optionb") return "option-b";
+  return null;
+}
+
+function normalizeOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return undefined;
+  const token = normalizeToolToken(value);
+  if (token === "true" || token === "yes") return true;
+  if (token === "false" || token === "no") return false;
+  return undefined;
+}
+
+function normalizeWordRadarConfig(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const rawMode =
+    record.recallMode ??
+    record.recall_mode ??
+    record.mode ??
+    record.modeId ??
+    record.capabilityMode ??
+    record.capabilityModeId;
+  const recallMode = normalizeWordRadarRecallMode(rawMode);
+  if (!recallMode) return undefined;
+  const defaults = WORD_RADAR_CONFIG_DEFAULTS[recallMode];
+  const audioCued = normalizeToolToken(rawMode).includes("audio");
+  const normalized = {
+    ...defaults,
+    inputMode: normalizeWordRadarInputMode(record.inputMode ?? record.input_mode) ?? defaults.inputMode,
+    speakStyle: normalizeWordRadarSpeakStyle(record.speakStyle ?? record.speak_style) ?? (audioCued ? "option-b" : defaults.speakStyle),
+    showTimer: normalizeOptionalBoolean(record.showTimer ?? record.show_timer) ?? defaults.showTimer,
+    hideWordDuringResponse:
+      normalizeOptionalBoolean(record.hideWordDuringResponse ?? record.hide_word_during_response) ??
+      defaults.hideWordDuringResponse,
+    requiresCapturedResponse:
+      normalizeOptionalBoolean(record.requiresCapturedResponse ?? record.requires_captured_response) ??
+      defaults.requiresCapturedResponse,
+  };
+  const defaultTimerSeconds = "timerSeconds" in defaults ? defaults.timerSeconds : undefined;
+  const timerSeconds = Number(record.timerSeconds ?? record.timer_seconds ?? defaultTimerSeconds);
+  return Number.isFinite(timerSeconds) ? { ...normalized, timerSeconds } : normalized;
+}
+
+const wordRadarNodeConfigSchema = z.preprocess(normalizeWordRadarConfig, z.object({
   recallMode: z.enum(["visible_read", "partial_visual_recall", "hidden_word_recall"]),
   inputMode: z.enum(["whole-word", "letter-by-letter", "keyboard"]),
   speakStyle: z.enum(["option-a", "option-b"]),
@@ -403,7 +526,7 @@ const wordRadarNodeConfigSchema = z.object({
   timerSeconds: z.number().optional(),
   hideWordDuringResponse: z.boolean(),
   requiresCapturedResponse: z.boolean(),
-});
+}));
 
 const compactTargetsSchema = z.preprocess((value) => {
   if (typeof value !== "string") return value;
@@ -415,8 +538,8 @@ const compactTargetsSchema = z.preprocess((value) => {
 
 const compactNodePlanSchema = z.object({
   id: z.string().min(1),
-  type: z.string().min(1),
-  activityId: z.string().min(1),
+  type: z.enum(PLANNER_NODE_ACTIVITY_IDS),
+  activityId: z.enum(PLANNER_NODE_ACTIVITY_IDS),
   targets: compactTargetsSchema,
   difficulty: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
   targetLane: z.preprocess((value) => value === null ? undefined : value, z.string().optional()),
@@ -642,9 +765,23 @@ function realChildAllowedActivityIds(childId: string): Set<string> | null {
   }
 }
 
-function activityCatalog(childId = "demo_adaptive"): AssignmentActivityCard[] {
+function inferPlannerCatalogDomain(extraction?: AssignmentSourceExtraction): keyof typeof PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN {
+  const text = extraction?.fullText.toLowerCase() ?? "";
+  if (/\b(spelling|spell|word list|silent letters?|high-frequency)\b/.test(text)) return "spelling";
+  if (/\b(clock|coin|math|add|subtract|multiply|divide|fraction)\b/.test(text)) return "math";
+  if (/\b(read|reading|fluency|passage|comprehension)\b/.test(text)) return "reading";
+  return "generic";
+}
+
+function activityCatalog(
+  childId = "demo_adaptive",
+  extraction?: AssignmentSourceExtraction,
+): AssignmentActivityCard[] {
   const allowed = realChildAllowedActivityIds(childId);
+  const domain = inferPlannerCatalogDomain(extraction);
+  const plannerIds = new Set(PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN[domain]);
   return listActivityToolContracts()
+    .filter((contract) => plannerIds.has(contract.id))
     .map((contract) => ({
       activityId: contract.id,
       nodeType: contract.nodeType,
@@ -714,20 +851,8 @@ function childChartSummaryForPacket(
   };
 }
 
-function buildBoardPlanningContext(args: {
-  extraction: AssignmentSourceExtraction;
-  childChart: AssignmentPlanningChildChartSummary;
-}): AssignmentBoardPlanningContext {
+function buildBoardPlanningContext(): AssignmentBoardPlanningContext {
   return {
-    childChart: args.childChart,
-    assignment: {
-      filename: args.extraction.filename,
-      sourceKind: args.extraction.sourceKind,
-      extractionMethod: args.extraction.extractionMethod,
-      warnings: [...args.extraction.warnings],
-      fullText: args.extraction.fullText,
-    },
-    recentEvidence: [...args.childChart.recentEvidence],
     algorithmContracts: {
       choicePolicy: {
         id: "choicePolicy",
@@ -775,75 +900,6 @@ function buildBoardPlanningContext(args: {
         "Shown-but-not-chosen is weak neutral evidence; explicit dislike or abandonment is stronger negative evidence.",
       ],
       plannerDecision: "The planner decides how many route, Mystery, Quest, or Boss choices are worth the child's attention from chart evidence, stamina, motivation, and uncertainty.",
-    },
-    boardTemplate: {
-      preset: "horizontal-adventure-spine",
-      visualSkin: "grok-full-experience",
-      companionSlot: "right",
-      routeChoiceBehavior: "exclusive",
-      routeChoicePlacement: "after-required-baseline",
-      requiredBaselineCountBeforeRouteChoice: 2,
-      capabilities: {
-        supportsChoiceGates: true,
-        supportsModalChoiceSets: true,
-        supportsQuestBossLocks: true,
-        supportsCompanionSlot: true,
-      },
-      slots: {
-        "1": "start",
-        "2": "baseline",
-        "3": "baseline",
-        "4": "choice-gate",
-        "5a.1": "upper-route",
-        "5a.2": "upper-route",
-        "5b.1": "lower-route",
-        "5b.2": "lower-route",
-        "5c.1": "middle-route",
-        "5c.2": "middle-route",
-        "6": "mystery",
-        "7": "quest",
-        "8": "boss",
-      },
-      art: {
-        backgroundUrl: "/generated/adventure-board-demo/silent-letter-world.jpeg",
-        nodeThumbnails: {
-          start: "/thumbnails/activities/word-radar.svg",
-          "word-radar": "/generated/adventure-board-demo/word-radar.jpeg",
-          "spell-check": "/generated/adventure-board-demo/spell-check.jpeg",
-          pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
-          mystery: "/generated/adventure-board-demo/mystery.jpeg",
-          "choice-gate": "/thumbnails/mystery-fallback.svg",
-          quest: "/generated/adventure-board-demo/quest.jpeg",
-          boss: "/generated/adventure-board-demo/boss.jpeg",
-        },
-        choiceThumbnails: {
-          story: "/thumbnails/activities/karaoke.svg",
-          speed: "/thumbnails/activities/speed-catcher.svg",
-          "word-radar": "/generated/adventure-board-demo/word-radar.jpeg",
-          "spell-check": "/generated/adventure-board-demo/spell-check.jpeg",
-          pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
-          "monster-stampede": "/thumbnails/activities/monster-stampede.svg",
-          "wheel-of-fortune": "/thumbnails/activities/wheel-of-fortune.svg",
-        },
-      },
-      palette: {
-        path: "#ffffff",
-        completed: "#1f8f68",
-        available: "#7c3aed",
-        locked: "#aeb7c2",
-        current: "#f59e0b",
-        preview: "#d5dde5",
-        text: "#ffffff",
-        panel: "rgba(15, 23, 42, 0.84)",
-      },
-      displayRules: {
-        requireImageBackground: true,
-        requireCompanion: true,
-        requireNodeThumbnails: true,
-        requireShortLabels: true,
-        requireLayoutRoles: true,
-        maxDisplayLabelLength: 18,
-      },
     },
     runtimeConstraints: {
       rendererOnly: true,
@@ -951,7 +1007,7 @@ export function buildAssignmentPlanningPacket(args: {
 }): AssignmentPlanningPacket {
   const recentEvidence = args.currentEvidenceSummary ?? [];
   const childChart = childChartSummaryForPacket(args.childChart, recentEvidence);
-  const catalog = activityCatalog(args.childId);
+  const catalog = activityCatalog(args.childId, args.extraction);
   return {
     packetVersion: 1,
     childId: args.childId,
@@ -969,10 +1025,7 @@ export function buildAssignmentPlanningPacket(args: {
     },
     childChart,
     activityCatalog: catalog,
-    boardPlanning: buildBoardPlanningContext({
-      extraction: args.extraction,
-      childChart,
-    }),
+    boardPlanning: buildBoardPlanningContext(),
     plannerInstruction: [
       "Interpret the assignment from the source text and source groups.",
       "Activities are instruments. Choose nodes by target purpose, not by generic fun.",
@@ -988,7 +1041,7 @@ export function buildAssignmentPlanningPacket(args: {
       "Every activeSessionPlan.nodePlan entry must have a plannedMeasurements entry whose id is measure-${node.id}; include supportCriteria, reviseCriteria, and falsifyCriteria for the exact signal that node is meant to collect.",
       "Return a board plan that cites why every activity fits the target purpose.",
       "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
-      "Use this packet as the single planner object: childChart, sourceDocument, masteryContext, activityCatalog, boardPlanning, runtimeConstraints, and criticPolicy.",
+      "Use this packet as the single planner object: childChart, sourceDocument, masteryContext, activityCatalog, algorithmContracts, runtimeConstraints, and criticPolicy.",
       "Use masteryContext as the clock and deadline pressure: the goal is demonstrated homework mastery by testDate, not merely completing a cute board.",
       "As daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.",
       "Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.",
@@ -1255,9 +1308,7 @@ Rules:
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
 - As masteryContext.daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.
-- Use packet.boardPlanning as the board contract. It contains childChart, assignment, recentEvidence, algorithmContracts, choicePolicyContext, boardTemplate, runtimeConstraints, and criticPolicy.
-- Board template v1 expects a route choice after required baseline evidence, not at session start: complete at least boardTemplate.requiredBaselineCountBeforeRouteChoice baseline evidence node(s), then show a route gate only when the choices are worth the child's attention today.
-- Use algorithmContracts.choicePolicy and choicePolicyContext for route/Mystery/Quest/Boss wrapper choice evidence; preference evidence, not mastery, is what these choices produce.
+- Use packet.boardPlanning.algorithmContracts and choicePolicyContext for route, Mystery, Quest, and Boss wrapper evidence; preference evidence, not mastery, is what these choices produce.
 - The planner decides how many route, Mystery, Quest, or Boss choices to show from chart evidence, stamina, motivation, and uncertainty. Fewer clear choices usually produce cleaner signals; extra choices can be useful when Sunny needs more preference data.
 - Use algorithmContracts.spacedRepetition for target dosage and support.
 - Use algorithmContracts.questReadiness for locked Quest readiness.
@@ -1266,34 +1317,9 @@ Rules:
 - If quest or boss fails, the next session should identify the failed target or skill, teach that skill, then retry the proof loop.
 - Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
 - Explain why each visible route or modal choice is worth the child's attention today.
-- Return activeSessionPlan.adventureBoard as the child-facing map. nodePlan is the lab/intervention list; adventureBoard is the board experience.
-- adventureBoard may include board-only presentation nodes such as Start and Choose Path, but learning nodes must reference the nodePlan ids they represent and must not add hidden academic interventions.
-- For layout.preset "horizontal-adventure-spine", use packet.boardPlanning.boardTemplate as the board-writing tool contract, not as a loose suggestion. This preset means the approved Grok full-experience pattern: image background, selected companion on the right, visible route paths, node thumbnails, short labels, explicit layout roles, baseline route choices, modal Mystery/Quest/Boss choices, and locked Quest/Boss destinations.
-- Use boardTemplate.slots for every visible horizontal board node. You choose slot names such as "1", "2", "3", "4", "5a.1", "5b.1", "5c.1", "6", "7", and "8"; do not invent raw coordinates.
-- Use packet.boardPlanning.boardTemplate.art URLs exactly for backgroundUrl, node thumbnailUrl, and choice thumbnailUrl when they fit the activity/kind. Do not invent gradients or omit art. If a needed art key is missing, use the closest approved fallback art from that object and explain it in plannerRationale.layoutChoice.
-- Use packet.boardPlanning.boardTemplate.palette exactly for adventureBoard.theme.palette. Do not invent darker text or path colors.
-- Include adventureBoard.companion from childChart.selectedCompanionId and childChart.selectedCompanionName when companionSlot is not "none".
-- Every visible adventureBoard node must include thumbnailUrl, layout.role, and a child-facing display label of ${packet.boardPlanning.boardTemplate.displayRules.maxDisplayLabelLength} characters or fewer. If the semantic label is longer, put the short child-facing text in shortLabel.
-- Every baseline-route and Mystery option must include icon or thumbnailUrl; prefer thumbnailUrl from boardTemplate.art.choiceThumbnails.
-- Every adventureBoard activity/mystery/quest/boss node must either use the exact nodePlan[].id it represents or set action.payloadId to that nodePlan id. Prefer exact ids. Do not invent presentation-only ids for learning nodes.
-- adventureBoard choiceSets are where Mystery, Quest, and Boss modal options live. Do not rely on nodePlan alone to express child agency.
-- Every baseline-route choice option must include nodeId pointing to the board node it opens.
-- Every child-facing route, Mystery, Quest wrapper, and Boss wrapper option must include choiceSignal with algorithmFeed "choicePolicy", traits, expectedEvidence, and preferenceNotMastery true.
-- If you include a route gate, it must come after at least one baseline evidence activity. The approved pattern is Start -> required baseline evidence -> route gate -> available child-facing alternatives -> Mystery -> locked Quest -> locked Boss. Do not put Choose Path immediately after Start.
-- Start must connect to the first baseline activity, never directly to a route gate.
-- The choice gate's incoming edge must come from the last required baseline activity, and that baseline board node must have kind "activity", evidenceRole "baseline", and layout.role "baseline".
-- Edges must flow from the prior required baseline node into the gate, then from the gate to the available child-facing alternatives. Explain those alternatives in plannerRationale.agencyDesign and keep each branch tied to a valid nodePlan learning purpose or reward/preference evidence purpose.
-- For evidence-route nodes, layout.order must start at 1 inside each lane and be contiguous. If a lane has one route node, use order 1, not order 2 or 3. This keeps route choices visible instead of clustered near Mystery/Quest.
-- Good horizontal spine skeleton:
-  Start node layout.role=start order=1.
-  First required baseline node layout.role=baseline lane=main order=1.
-  Second required baseline/check node layout.role=baseline lane=main order=2.
-  Choice gate layout.role=choice-gate order=1 and incoming edge from the second required baseline/check node.
-  Optional route nodes layout.role=evidence-route with lane upper/main/lower and order values starting at 1 in each lane.
-  Mystery node layout.role=mystery order=1 with incoming edges from each route option or directly from the gate if that is a valid option.
-  Quest node layout.role=quest order=1 and locked/preparing.
-  Boss node layout.role=boss order=1 and locked/preparing.
-- Bad horizontal spine skeleton: Start -> Choose Path -> baseline routes. Reject that pattern yourself before returning JSON.
+- The app materializes presentation board JSON from your nodePlan after validation. Your job is curriculum, evidence, sequence, route intent, and agency rationale.
+- If route choice is useful, make the route-worthy alternatives adjacent after required baseline evidence in nodePlan and explain the choice in planTheory or reviewQuestions.
+- Do not put agency before evidence. First teach or measure what the homework demands, then offer child choice when the alternatives are academically valid or preference-only by design.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
 - If a child needs shorter cohorts, shorten the target list and vary instruments by purpose rather than creating many same-activity nodes. Do not split one lane into a long run of consecutive Word Radar nodes; more Word Radar nodes are not better evidence when one better-chosen Word Radar node plus another instrument would answer the care-plan question.
@@ -1316,21 +1342,7 @@ Rules:
     },
     "homeworkWords": [{"text": string, "sourceGroupId": string, "purpose": "spell_from_memory" | "recognize" | "read_fluently" | "pronounce" | "define" | "unknown"}],
     "activeSessionPlan": {
-      "nodePlan": [{"id": string, "type": string, "activityId": string, "targets": string[], "difficulty": 1 | 2 | 3, "targetLane": string, "choiceMode": "choice_lab | surprise_drop only for mystery", "locked": boolean, "masteryUnlockState": "preparing for locked quest/boss", "wordRadarConfig": "only for word-radar nodes: {\"recallMode\": \"visible_read\" | \"partial_visual_recall\" | \"hidden_word_recall\", \"inputMode\": \"whole-word\" | \"letter-by-letter\" | \"keyboard\", \"speakStyle\": \"option-a\" | \"option-b\", \"showTimer\": boolean, \"timerSeconds\": number, \"hideWordDuringResponse\": boolean, \"requiresCapturedResponse\": boolean}"}],
-      "adventureBoard": {
-        "schemaVersion": 1,
-        "boardId": string,
-        "planId": string,
-        "childId": string,
-        "domain": "spelling" | "reading" | "math" | "science" | "generic",
-        "layout": {"preset": "horizontal-adventure-spine", "companionSlot": "right" | "left" | "none", "routeChoiceBehavior": "exclusive" | "parallel"},
-        "plannerRationale": {"agencyDesign": string, "evidenceDesign": string, "layoutChoice": string},
-        "theme": {"background": {"type": "image", "value": "use boardTemplate.art.backgroundUrl"}, "palette": {"path": string, "completed": string, "available": string, "locked": string, "current": string, "preview": string, "text": string, "panel": string}},
-        "companion": {"id": "selected companion id", "name": "selected companion name"},
-        "nodes": [{"id": string, "kind": "start" | "activity" | "choice-gate" | "mystery" | "quest" | "boss" | "reward", "activityId": string, "label": string, "shortLabel": string, "thumbnailUrl": string, "slot": "1" | "2" | "3" | "4" | "5a.1" | "5a.2" | "5b.1" | "5b.2" | "5c.1" | "5c.2" | "6" | "7" | "8", "layout": {"role": "start" | "baseline" | "choice-gate" | "evidence-route" | "mystery" | "quest" | "boss", "lane": "main" | "upper" | "middle" | "lower", "order": number, "routeGroupId": string}, "state": "current" | "available" | "completed" | "locked" | "preview" | "hidden", "choiceSetId": string, "target": {"laneId": string, "skill": string, "words": string[]}}],
-        "edges": [{"id": string, "from": string, "to": string, "state": "completed" | "available" | "locked" | "preview", "style": "solid" | "dashed" | "glow"}],
-        "choiceSets": [{"id": string, "kind": "baseline-route" | "mystery" | "quest-wrapper" | "boss-wrapper", "title": string, "options": [{"id": string, "label": string, "description": string, "icon": string, "thumbnailUrl": string, "state": "available" | "locked" | "completed", "nodeId": string, "choiceSignal": {"algorithmFeed": "choicePolicy", "traits": string[], "expectedEvidence": string, "preferenceNotMastery": true}}]}]
-      }
+      "nodePlan": [{"id": string, "type": string, "activityId": string, "targets": string[], "difficulty": 1 | 2 | 3, "targetLane": string, "choiceMode": "choice_lab | surprise_drop only for mystery", "locked": boolean, "masteryUnlockState": "preparing for locked quest/boss", "wordRadarConfig": "only for word-radar nodes"}]
     },
     "plannedMeasurements": [{"id": string, "activityId": string, "target": string, "evidenceType": string, "supportCriteria": string, "reviseCriteria": string, "falsifyCriteria": string}],
     "planTheory": {"hypothesis": string, "evidenceSummary": string[], "intervention": string, "supportCriteria": string[], "reviseCriteria": string[], "falsifyCriteria": string[]},
@@ -1338,7 +1350,7 @@ Rules:
   }
 
 Packet:
-${JSON.stringify(packet, null, 2)}`;
+${JSON.stringify(packet)}`;
 }
 
 type AssignmentPlannerResponseObject = z.infer<typeof assignmentPlannerDraftSchema>;
@@ -1354,10 +1366,6 @@ function schemaProperties(schema: JsonSchemaObject | undefined): Record<string, 
   return (jsonObject(schema?.properties) ?? {}) as Record<string, JsonSchemaObject>;
 }
 
-function schemaItems(schema: JsonSchemaObject | undefined): JsonSchemaObject | undefined {
-  return jsonObject(schema?.items);
-}
-
 function setSchemaRequired(schema: JsonSchemaObject | undefined, fields: string[]): void {
   if (!schema) return;
   schema.required = fields;
@@ -1370,33 +1378,16 @@ function removeSchemaProperty(schema: JsonSchemaObject | undefined, propertyName
   if (schema) schema.required = required;
 }
 
-function enforceAdventureBoardToolContract(schema: JsonSchemaObject): JsonSchemaObject {
+function enforcePlannerToolContract(schema: JsonSchemaObject): JsonSchemaObject {
   const activeSessionPlan = schemaProperties(schema).activeSessionPlan;
-  setSchemaRequired(activeSessionPlan, ["nodePlan", "adventureBoard"]);
-
-  const adventureBoard = schemaProperties(activeSessionPlan).adventureBoard;
-  const boardProperties = schemaProperties(adventureBoard);
-  const nodeSchema = schemaItems(boardProperties.nodes);
-  const nodeProperties = schemaProperties(nodeSchema);
-  removeSchemaProperty(nodeSchema, "position");
-  setSchemaRequired(nodeSchema, ["id", "kind", "label", "thumbnailUrl", "slot", "layout", "state"]);
-  setSchemaRequired(nodeProperties.layout, ["role", "lane", "order"]);
-
-  const choiceSetSchema = schemaItems(boardProperties.choiceSets);
-  const choiceSetProperties = schemaProperties(choiceSetSchema);
-  setSchemaRequired(choiceSetSchema, ["id", "kind", "title", "options"]);
-
-  const choiceOptionSchema = schemaItems(choiceSetProperties.options);
-  removeSchemaProperty(choiceOptionSchema, "choiceId");
-  setSchemaRequired(choiceOptionSchema, ["id", "label", "description", "thumbnailUrl", "state", "choiceSignal"]);
-
-  setSchemaRequired(boardProperties.progress, ["completedNodeIds"]);
+  removeSchemaProperty(activeSessionPlan, "adventureBoard");
+  setSchemaRequired(activeSessionPlan, ["nodePlan"]);
 
   return schema;
 }
 
 export function assignmentPlannerToolJsonSchema(): Record<string, unknown> {
-  return enforceAdventureBoardToolContract(
+  return enforcePlannerToolContract(
     z.toJSONSchema(assignmentPlannerDraftSchema, { io: "input" }) as JsonSchemaObject,
   );
 }
@@ -1478,7 +1469,6 @@ async function parseOrRepairAssignmentPlannerJson(
         "Return only one valid JSON object.",
         "Do not add, remove, or reinterpret educational decisions.",
         "Do not put presentation-only nodes in activeSessionPlan.nodePlan.",
-        "Board-only nodes such as Start and Choose Path belong only in activeSessionPlan.adventureBoard.nodes.",
         "activeSessionPlan.nodePlan contains only real interventions with activityId and targets.",
       ].join(" "),
       maxOutputTokens: 12_000,
@@ -1514,7 +1504,7 @@ async function callAssignmentPlannerTool(args: {
     system: ASSIGNMENT_PLANNER_PERSONA,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
-      description: "Write Sunny's captured homework interpretation, active intervention node plan, and child-facing adventure board JSON.",
+      description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory.",
       input_schema: assignmentPlannerToolJsonSchema() as Anthropic.Messages.Tool.InputSchema,
     }],
     tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
@@ -1597,6 +1587,312 @@ function hydrateAssignmentPlannerOutputFromDraft(
   };
 }
 
+const ASSIGNMENT_BOARD_THEME: AdventureBoardJson["theme"] = {
+  background: { type: "image", value: "/generated/adventure-board-demo/silent-letter-world.jpeg" },
+  palette: {
+    path: "#ffffff",
+    completed: "#1f8f68",
+    available: "#7c3aed",
+    locked: "#aeb7c2",
+    current: "#f59e0b",
+    preview: "#d5dde5",
+    text: "#ffffff",
+    panel: "rgba(15, 23, 42, 0.84)",
+  },
+};
+
+const ASSIGNMENT_BOARD_THUMBNAILS: Record<string, string> = {
+  start: "/thumbnails/activities/word-radar.svg",
+  "choice-gate": "/thumbnails/mystery-fallback.svg",
+  "word-radar": "/generated/adventure-board-demo/word-radar.jpeg",
+  "spell-check": "/generated/adventure-board-demo/spell-check.jpeg",
+  pronunciation: "/generated/adventure-board-demo/pronunciation.jpeg",
+  mystery: "/generated/adventure-board-demo/mystery.jpeg",
+  quest: "/generated/adventure-board-demo/quest.jpeg",
+  boss: "/generated/adventure-board-demo/boss.jpeg",
+  "monster-stampede": "/thumbnails/activities/monster-stampede.svg",
+  "wheel-of-fortune": "/thumbnails/activities/wheel-of-fortune.svg",
+  karaoke: "/thumbnails/activities/karaoke.svg",
+  "letter-rush": "/thumbnails/activities/speed-catcher.svg",
+};
+
+function labelForAssignmentBoardNode(
+  packet: AssignmentPlanningPacket,
+  node: ActiveSessionPlan["nodePlan"][number],
+): string | undefined {
+  const catalogLabel = packet.activityCatalog.find((card) => card.activityId === node.activityId)?.label;
+  if (node.activityId === "quest") return "Quest";
+  if (node.activityId === "boss") return "Boss";
+  if (node.activityId === "mystery") return "Mystery";
+  return catalogLabel;
+}
+
+function thumbnailForAssignmentBoardNode(node: ActiveSessionPlan["nodePlan"][number]): string | undefined {
+  return ASSIGNMENT_BOARD_THUMBNAILS[node.activityId] ?? ASSIGNMENT_BOARD_THUMBNAILS[node.type];
+}
+
+function choiceSignalForNode(node: ActiveSessionPlan["nodePlan"][number]) {
+  return {
+    algorithmFeed: "choicePolicy" as const,
+    traits: [
+      node.activityId === "pronunciation" ? "voice" : "practice",
+      node.activityId === "spell-check" ? "typing" : "control",
+    ],
+    expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.activityId}; preference only`,
+    preferenceNotMastery: true as const,
+  };
+}
+
+function kindForAssignmentNode(node: ActiveSessionPlan["nodePlan"][number]): AdventureBoardJson["nodes"][number]["kind"] {
+  if (node.activityId === "mystery") return "mystery";
+  if (node.activityId === "quest") return "quest";
+  if (node.activityId === "boss") return "boss";
+  return "activity";
+}
+
+function evidenceRoleForAssignmentNode(node: ActiveSessionPlan["nodePlan"][number]): AdventureBoardJson["nodes"][number]["evidenceRole"] {
+  if (node.activityId === "mystery") return "preference";
+  if (node.activityId === "quest") return "transfer";
+  if (node.activityId === "boss") return "mastery";
+  return "baseline";
+}
+
+function buildAssignmentBoardNode(args: {
+  packet: AssignmentPlanningPacket;
+  node: ActiveSessionPlan["nodePlan"][number];
+  state: AdventureBoardJson["nodes"][number]["state"];
+  slot: NonNullable<AdventureBoardJson["nodes"][number]["slot"]>;
+  role: NonNullable<NonNullable<AdventureBoardJson["nodes"][number]["layout"]>["role"]>;
+  lane?: NonNullable<NonNullable<AdventureBoardJson["nodes"][number]["layout"]>["lane"]>;
+  order: number;
+}): AdventureBoardJson["nodes"][number] {
+  const kind = kindForAssignmentNode(args.node);
+  const label = labelForAssignmentBoardNode(args.packet, args.node) ?? args.node.activityId;
+  const lock = args.node.locked
+    ? {
+        reason: args.node.masteryUnlockState ?? "planner_locked",
+        label: args.node.activityId === "boss" ? "After Quest" : "Preparing",
+      }
+    : undefined;
+  return {
+    id: args.node.id,
+    kind,
+    activityId: args.node.activityId,
+    label,
+    shortLabel: label.length > 18 ? label.slice(0, 18) : label,
+    thumbnailUrl: thumbnailForAssignmentBoardNode(args.node),
+    slot: args.slot,
+    layout: {
+      role: args.role,
+      lane: args.lane ?? "main",
+      order: args.order,
+    },
+    state: args.state,
+    evidenceRole: evidenceRoleForAssignmentNode(args.node),
+    target: args.node.targetLane
+      ? {
+          laneId: args.node.targetLane,
+          skill: args.node.targetLane,
+          words: args.node.targets,
+        }
+      : undefined,
+    wordRadarConfig: args.node.activityId === "word-radar"
+      ? args.node.wordRadarConfig as AdventureBoardJson["nodes"][number]["wordRadarConfig"]
+      : undefined,
+    lock,
+    action: args.node.locked
+      ? { type: "show-locked-reason", payloadId: args.node.id }
+      : { type: "launch-activity", payloadId: args.node.id },
+  };
+}
+
+function buildAssignmentAdventureBoard(args: {
+  packet: AssignmentPlanningPacket;
+  planId: string;
+  domain: string;
+  title: string;
+  nodePlan: ActiveSessionPlan["nodePlan"];
+  companionId: string;
+  companionName: string;
+  planTheory: PlanTheory;
+}): AdventureBoardJson {
+  const baselineNodes = args.nodePlan.filter((node) =>
+    node.activityId !== "mystery" && node.activityId !== "quest" && node.activityId !== "boss",
+  );
+  const requiredBaselineCount = baselineNodes.length >= 4 ? 2 : 1;
+  const requiredNodes = baselineNodes.slice(0, requiredBaselineCount);
+  const routeNodes = baselineNodes.slice(requiredBaselineCount);
+  const mysteryNode = args.nodePlan.find((node) => node.activityId === "mystery");
+  const questNode = args.nodePlan.find((node) => node.activityId === "quest");
+  const bossNode = args.nodePlan.find((node) => node.activityId === "boss");
+  const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNode ?? questNode ?? bossNode;
+  const lastRequired = requiredNodes[requiredNodes.length - 1] ?? firstRequired;
+  const routeSlots = ["5a.1", "5b.1", "5c.1"] as const;
+  const routeLanes = ["upper", "lower", "middle"] as const;
+  const routeChoices = routeNodes.length >= 2
+    ? routeNodes.slice(0, 3)
+    : [
+        ...routeNodes,
+        ...(mysteryNode ? [mysteryNode] : []),
+        ...(questNode ? [questNode] : []),
+      ].slice(0, 3);
+  const nodes: AdventureBoardJson["nodes"] = [
+    {
+      id: "start",
+      kind: "start",
+      label: "Start",
+      shortLabel: "Start",
+      thumbnailUrl: ASSIGNMENT_BOARD_THUMBNAILS.start,
+      slot: "1",
+      layout: { role: "start", lane: "main", order: 1 },
+      state: "completed",
+      evidenceRole: "baseline",
+    },
+    ...requiredNodes.map((node, index) =>
+      buildAssignmentBoardNode({
+        packet: args.packet,
+        node,
+        state: index === 0 ? "current" : "available",
+        slot: (index === 0 ? "2" : "3") as "2" | "3",
+        role: "baseline",
+        lane: "main",
+        order: index + 1,
+      }),
+    ),
+    {
+      id: "choose-path",
+      kind: "choice-gate",
+      label: "Choose Path",
+      shortLabel: "Choose Path",
+      thumbnailUrl: ASSIGNMENT_BOARD_THUMBNAILS["choice-gate"],
+      slot: "4",
+      layout: { role: "choice-gate", lane: "main", order: 1 },
+      state: "available",
+      evidenceRole: "preference",
+      choiceSetId: "baseline-route-options",
+      action: { type: "open-choice-set", payloadId: "baseline-route-options" },
+    },
+    ...routeNodes.map((node, index) =>
+      buildAssignmentBoardNode({
+        packet: args.packet,
+        node,
+        state: "available",
+        slot: routeSlots[index] ?? "5c.1",
+        role: "evidence-route",
+        lane: routeLanes[index] ?? "middle",
+        order: 1,
+      }),
+    ),
+    ...(mysteryNode ? [buildAssignmentBoardNode({
+      packet: args.packet,
+      node: mysteryNode,
+      state: "available",
+      slot: "6",
+      role: "mystery",
+      lane: "main",
+      order: 1,
+    })] : []),
+    ...(questNode ? [buildAssignmentBoardNode({
+      packet: args.packet,
+      node: questNode,
+      state: "locked",
+      slot: "7",
+      role: "quest",
+      lane: "main",
+      order: 1,
+    })] : []),
+    ...(bossNode ? [buildAssignmentBoardNode({
+      packet: args.packet,
+      node: bossNode,
+      state: "locked",
+      slot: "8",
+      role: "boss",
+      lane: "main",
+      order: 1,
+    })] : []),
+  ];
+  const edges: AdventureBoardJson["edges"] = [];
+  if (firstRequired) {
+    edges.push({ id: `edge-start-${firstRequired.id}`, from: "start", to: firstRequired.id, state: "available", style: "solid" });
+  }
+  for (let index = 0; index < requiredNodes.length - 1; index += 1) {
+    edges.push({
+      id: `edge-${requiredNodes[index]!.id}-${requiredNodes[index + 1]!.id}`,
+      from: requiredNodes[index]!.id,
+      to: requiredNodes[index + 1]!.id,
+      state: "available",
+      style: "solid",
+    });
+  }
+  if (lastRequired) {
+    edges.push({ id: `edge-${lastRequired.id}-choose-path`, from: lastRequired.id, to: "choose-path", state: "available", style: "solid" });
+  }
+  for (const routeNode of routeNodes) {
+    edges.push({ id: `edge-choose-path-${routeNode.id}`, from: "choose-path", to: routeNode.id, state: "available", style: "glow" });
+  }
+  const routeExit = mysteryNode ?? questNode ?? bossNode;
+  for (const routeNode of routeNodes) {
+    if (routeExit) {
+      edges.push({ id: `edge-${routeNode.id}-${routeExit.id}`, from: routeNode.id, to: routeExit.id, state: "available", style: "solid" });
+    }
+  }
+  if (routeNodes.length === 0 && routeExit) {
+    edges.push({ id: `edge-choose-path-${routeExit.id}`, from: "choose-path", to: routeExit.id, state: "available", style: "glow" });
+  }
+  if (mysteryNode && questNode) {
+    edges.push({ id: `edge-${mysteryNode.id}-${questNode.id}`, from: mysteryNode.id, to: questNode.id, state: "locked", style: "dashed" });
+  }
+  if (questNode && bossNode) {
+    edges.push({ id: `edge-${questNode.id}-${bossNode.id}`, from: questNode.id, to: bossNode.id, state: "locked", style: "dashed" });
+  }
+  return {
+    schemaVersion: 1,
+    boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
+    planId: args.planId,
+    childId: args.packet.childId,
+    domain: ["spelling", "reading", "math", "science"].includes(args.domain)
+      ? args.domain as AdventureBoardJson["domain"]
+      : "generic",
+    title: args.title,
+    theme: ASSIGNMENT_BOARD_THEME,
+    layout: {
+      preset: "horizontal-adventure-spine",
+      companionSlot: args.packet.childChart.adventureMapProfile?.companionSlot ?? "right",
+      routeChoiceBehavior: "exclusive",
+    },
+    plannerRationale: {
+      agencyDesign: args.planTheory.intervention,
+      evidenceDesign: args.planTheory.hypothesis,
+      layoutChoice: "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan.",
+    },
+    nodes,
+    edges,
+    choiceSets: [{
+      id: "baseline-route-options",
+      kind: "baseline-route",
+      title: "Choose your path",
+      options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node) => ({
+        id: `choice-${node.id}`,
+        label: labelForAssignmentBoardNode(args.packet, node) ?? node.activityId,
+        description: `Try ${node.activityId} next.`,
+        thumbnailUrl: thumbnailForAssignmentBoardNode(node),
+        state: node.locked ? "locked" : "available",
+        nodeId: node.id,
+        choiceSignal: choiceSignalForNode(node),
+      })),
+    }],
+    companion: {
+      id: args.companionId,
+      name: args.companionName,
+    },
+    progress: {
+      currentNodeId: firstRequired?.id,
+      completedNodeIds: [],
+      activeChoiceSetId: "baseline-route-options",
+    },
+  };
+}
+
 async function repairRejectedAssignmentPlannerDraft(args: {
   draft: AssignmentPlannerResponseObject;
   packet: AssignmentPlanningPacket;
@@ -1609,20 +1905,14 @@ async function repairRejectedAssignmentPlannerDraft(args: {
       "Your previous assignment planner JSON failed Sunny's contract validation.",
       `Call ${ASSIGNMENT_PLANNER_TOOL_NAME} with one corrected full object.`,
       "Keep the assignment interpretation and academic plan as stable as possible, but fix any field that caused validation failure.",
-      "The renderer will not repair your board. The JSON must satisfy the boardTemplate contract directly.",
-      "If a choice gate appears before baseline evidence, move it after the required baseline activities.",
-      "Start must connect to the first baseline activity, never directly to a route gate.",
-      "The choice gate's incoming edge must come from the last required baseline activity, not from Start.",
-      "Baseline board nodes before the gate must have kind \"activity\", evidenceRole \"baseline\", and layout.role \"baseline\".",
-      "Use boardTemplate.palette exactly for adventureBoard.theme.palette so paths and labels remain readable.",
+      "The app renders the board after validation; repair only the homework interpretation, nodePlan, plannedMeasurements, and theory.",
+      "If child agency appears before baseline evidence, move the route-worthy alternatives after the required baseline activities.",
       "Validation issues:",
       JSON.stringify(args.issues.map((issue) => ({
         code: issue.code,
         severity: issue.severity,
         message: issue.message,
       })), null, 2),
-      "Board template contract:",
-      JSON.stringify(args.packet.boardPlanning.boardTemplate, null, 2),
       "Previous JSON:",
       JSON.stringify(args.draft, null, 2),
     ].join("\n\n"),
@@ -1682,20 +1972,44 @@ function hydrateActiveSessionPlanFromDraft(args: {
   generatedExperienceBriefs?: GeneratedExperienceBrief[];
 }): ActiveSessionPlan {
   const companionId = args.packet.childChart.selectedCompanionId ?? "elli";
+  const planId = args.draft.planId ?? `assignment-plan-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`;
+  const wordsByLane = new Map<string, Set<string>>();
+  for (const word of args.homeworkWords) {
+    wordsByLane.set(word.sourceGroupId, new Set([
+      ...(wordsByLane.get(word.sourceGroupId) ?? []),
+      word.text,
+    ]));
+  }
+  const nodePlan = args.draft.nodePlan.map((node) => ({
+    ...node,
+    type: normalizeAssignmentNodeType(node.type, node.activityId),
+    difficulty: node.difficulty ?? 1,
+    targetLane: node.targetLane &&
+      node.targets.length > 0 &&
+      node.targets.every((target) => wordsByLane.get(node.targetLane!)?.has(target))
+      ? node.targetLane
+      : undefined,
+    wordRadarConfig: node.activityId === "word-radar" ? node.wordRadarConfig : undefined,
+    source: "chart_planner" as const,
+  }));
   return {
-    planId: args.draft.planId ?? `assignment-plan-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
+    planId,
     childId: args.packet.childId,
     createdAt: new Date().toISOString(),
     source: "ingest_human_loop",
     domain: args.capturedContent.contentProfile.practiceDomain,
     testDate: null,
-    nodePlan: args.draft.nodePlan.map((node) => ({
-      ...node,
-      type: normalizeAssignmentNodeType(node.type, node.activityId),
-      difficulty: node.difficulty ?? 1,
-      source: "chart_planner" as const,
-    })),
-    adventureBoard: args.draft.adventureBoard,
+    nodePlan,
+    adventureBoard: args.draft.adventureBoard ?? buildAssignmentAdventureBoard({
+      packet: args.packet,
+      planId,
+      domain: args.capturedContent.contentProfile.practiceDomain,
+      title: args.capturedContent.title,
+      nodePlan,
+      companionId,
+      companionName: args.packet.childChart.selectedCompanionName ?? companionId,
+      planTheory: args.planTheory,
+    }),
     variationPolicy: {
       avoidExactPreviousNodeOrder: true,
       avoidExactPreviousWordOrder: true,
