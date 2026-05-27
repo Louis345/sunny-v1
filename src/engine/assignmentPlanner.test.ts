@@ -687,12 +687,12 @@ describe("assignment planner", () => {
     expect(packet.plannerInstruction).toContain("mastered targets get smaller spaced checks");
     expect(packet.plannerInstruction).toContain("strictly more academic support than mastered targets");
     expect(packet.plannerInstruction).toContain("first academic node should probe those exact contradictory targets");
-    expect(packet.plannerInstruction).toContain("Count target placements before returning");
-    expect(packet.plannerInstruction).toContain("count consecutive activity runs");
     expect(packet.plannerInstruction).toContain("visible_read or pronunciation");
     expect(packet.plannerInstruction).toContain("measure-${node.id}");
-    expect(packet.plannerInstruction).toContain("long run of Word Radar");
+    expect(packet.plannerInstruction).toContain("child-facing journey");
     expect(packet.plannerInstruction).toContain("Decide agency and route density from chart evidence");
+    expect(packet.plannerInstruction).not.toContain("Count target placements before returning");
+    expect(packet.plannerInstruction).not.toContain("long run of Word Radar");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
     expect(JSON.stringify(packet)).not.toContain("boardTemplate");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
@@ -888,7 +888,7 @@ describe("assignment planner", () => {
     expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("word-radar");
   });
 
-  it("uses the adaptive game-director persona without hardcoding choice-count rules", () => {
+  it("uses a learning-journey persona instead of hardcoded engagement rules", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",
       extraction: extraction(),
@@ -896,12 +896,17 @@ describe("assignment planner", () => {
     });
     const prompt = buildAssignmentPlannerPrompt(packet);
 
-    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("pediatric learning psychologist and adaptive game director");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("learning journey designer");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("homework as the reality anchor");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("strong sense of taste");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("The board is not a worksheet");
+    expect(prompt).toContain("Design today's learning journey");
     expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
-    expect(prompt).toContain("Explain why each visible route or modal choice is worth the child's attention today");
+    expect(prompt).toContain("explain why the journey you chose fits this child today");
     expect(prompt).toContain("The app materializes presentation board JSON from your nodePlan after validation");
-    expect(prompt).toContain("If route choice is useful, make the route-worthy alternatives adjacent after required baseline evidence");
-    expect(prompt).toContain("Do not put agency before evidence");
+    expect(prompt).not.toContain("same-activity run exceeds");
+    expect(prompt).not.toContain("Do not split one lane into a long run");
+    expect(prompt).not.toContain("do not repeat the same visible activity");
     expect(prompt).toContain("boardPlanning");
     expect(prompt).toContain("choicePolicy");
     expect(prompt).toContain("preference evidence, not mastery");
@@ -924,7 +929,9 @@ describe("assignment planner", () => {
     expect(source).toContain("Mastery evidence should shrink redundant baseline work");
     expect(source).toContain("Light spaced reinforcement means fewer mastered targets");
     expect(source).toContain("prefer pronunciation or visible_read-style recognition evidence");
-    expect(source).toContain("Do not split one lane into a long run of consecutive Word Radar nodes");
+    expect(source).toContain("child-facing journey");
+    expect(source).not.toContain("same-activity run exceeds");
+    expect(source).not.toContain("Do not split one lane into a long run");
     expect(source).not.toContain("if (purpose === \"read_fluently\")");
     expect(source).not.toContain("if (group.label === \"High-Frequency Words\")");
   });
