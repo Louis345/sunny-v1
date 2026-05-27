@@ -1,33 +1,34 @@
 {
   "todaysPlan": [
     {
-      "activity": "Homework Spelling – Schwa And High-Frequency Words",
+      "activity": "Homework Spelling – Silent Letter Spelling Patterns And High-frequency Word Recognition",
       "priority": 1,
       "required": true,
-      "reason": "Active uploaded homework is \"Benchmark Advance Spelling Unit 9 Week 2\", so today's required work must anchor on Schwa sound (unstressed vowel), Long vowel sounds (long i, long o, long a), High-frequency sight words, Antonyms before broader profile goals.",
+      "reason": "Active uploaded homework is \"Benchmark Advance Spelling Unit 9 Week 3\", so today's required work must anchor on Silent-letter spelling patterns (gn-, kn-, wr-, -mb), High-frequency word recognition and fluency, Orthographic memory for irregular patterns before broader profile goals.",
       "timeboxMinutes": 8,
       "method": "Read the assignment-aligned content, ask evidence-based checks, then use profile motivators only as framing.",
       "source": "pendingHomework",
       "words": [
-        "above",
-        "ago",
-        "about",
-        "ahead",
-        "away",
-        "alone",
-        "alike",
-        "awake",
-        "along",
-        "again",
-        "government",
-        "half",
-        "machine",
-        "pair",
-        "quickly",
-        "scientist",
-        "thousand",
-        "understood",
-        "wait"
+        "sign",
+        "know",
+        "write",
+        "thumb",
+        "comb",
+        "gnat",
+        "knock",
+        "knife",
+        "wrong",
+        "climb",
+        "among",
+        "building",
+        "circle",
+        "decided",
+        "finally",
+        "heavy",
+        "include",
+        "nothing",
+        "special",
+        "wheel"
       ],
       "probeSequence": [
         "Read or preview the assignment content",
@@ -37,7 +38,7 @@
       ]
     }
   ],
-  "childProfile": "Reina is an 8-year-old academically advanced wrestler who thrives on challenge, competition, and speed. She's bilingual (English/Japanese), scores 100% on spelling tests, is a year ahead of grade level, and gets frustrated when work is too easy—not when it's too hard. She loves wrestling metaphors, celebrates in Japanese (すごい, やった), and wants to be pushed. Her competitive nature drives her: streaks, personal bests, scoreboards land perfectly. She has strong pattern recognition (caught comparative adjectives instantly), championship-level addition fluency (100% accuracy), and explicit self-advocacy (asked for multiplication/division 9 weeks ago). She disengages from mechanical drill (worksheet coins 26% accuracy) but masters applied contexts (store-game 86%) and competitive games (Wheel of Fortune 1,300-600 victory). Match her fast pace, acknowledge her intelligence, never baby-talk, and honor her self-identified growth zones. She's discovering her innate talents—every session should challenge her ceiling, not her floor.",
+  "childProfile": "Reina is an 8-year-old competitive wrestler and advanced learner who thrives on challenge, speed, and being pushed hard. She's bilingual (English/Japanese), a year ahead academically, and consistently scores 100% on spelling tests—but gets bored fast when work is too easy. She loves competition framing (streaks, beating records, 'can you pin this problem?'), wrestling metaphors (takedowns, championships), and Japanese celebration (すごい、やった). She's analytically sharp (debugs technical glitches, catches repeated riddles, asks 'why?'), self-regulates well (exits on winning streaks, requests harder work), and celebrates wins explicitly ('So much money, baby'). She asked for multiplication/division help 81 days ago and deserves that challenge NOW. Her focus window is 15-20 minutes; after that, watch for fatigue signals (fragmented speech, topic-jumping). Honor her intelligence—don't baby-talk, don't go slow, don't ignore what she asks for. She wants to be seen as smart because she IS smart.",
   "stopAfter": "After the active homework check is complete, or earlier if frustration is rising.",
   "rewardPolicy": "Reward only after the active homework is checked; broader review goals belong in review mode."
 }

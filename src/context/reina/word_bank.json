@@ -1,7 +1,7 @@
 {
   "childId": "reina",
   "version": 1,
-  "lastUpdated": "2026-05-14T23:54:00.834Z",
+  "lastUpdated": "2026-05-27T01:46:23.059Z",
   "words": [
     {
       "word": "add",
@@ -7074,7 +7074,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -8629,7 +8629,7 @@
           "regressionCount": 1
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -8817,7 +8817,20 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": false
+      "homeworkPriority": false,
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
     },
     {
       "word": "treated",
@@ -9159,7 +9172,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words"
@@ -9236,7 +9249,7 @@
           "regressionCount": 1
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -9300,7 +9313,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -9364,7 +9377,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -9416,7 +9429,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -9468,7 +9481,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -9520,7 +9533,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -9572,7 +9585,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkPriority": true,
+      "homeworkPriority": false,
       "testDate": "2026-05-15",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Schwa Words",
@@ -9813,6 +9826,633 @@
       },
       "homeworkPriority": false,
       "testDate": "2026-05-15",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "sign",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "know",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "write",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "thumb",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "comb",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "gnat",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "knock",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "knife",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "wrong",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "climb",
+      "addedAt": "2026-05-27T01:46:23.058Z",
+      "source": "homework",
+      "tracks": {
+        "spelling": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "spell_from_memory",
+          "sourceGroup": "Silent Letters",
+          "updatedAt": "2026-05-27T01:46:23.058Z"
+        }
+      },
+      "homeworkPriority": true,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "spell_from_memory",
+      "homeworkSourceGroup": "Silent Letters"
+    },
+    {
+      "word": "among",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "building",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "circle",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "decided",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "finally",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "heavy",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "nothing",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "special",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
+      "homeworkTargetPurpose": "recognize",
+      "homeworkSourceGroup": "High-Frequency Words"
+    },
+    {
+      "word": "wheel",
+      "addedAt": "2026-05-27T01:46:23.059Z",
+      "source": "homework",
+      "tracks": {
+        "reading": {
+          "quality": 0,
+          "easinessFactor": 2.5,
+          "interval": 0,
+          "repetition": 0,
+          "nextReviewDate": "2026-05-27",
+          "lastReviewDate": "2026-05-27",
+          "scaffoldLevel": 0,
+          "history": [],
+          "mastered": false,
+          "regressionCount": 0
+        }
+      },
+      "homeworkTargets": {
+        "spelling": {
+          "homeworkId": "hw-spelling_test-5a49d659",
+          "testDate": "2026-05-26",
+          "priority": true,
+          "purpose": "recognize",
+          "sourceGroup": "High-Frequency Words",
+          "updatedAt": "2026-05-27T01:46:23.059Z"
+        }
+      },
+      "homeworkPriority": false,
+      "testDate": "2026-05-26",
       "homeworkTargetPurpose": "recognize",
       "homeworkSourceGroup": "High-Frequency Words"
     }
