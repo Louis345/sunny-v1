@@ -3,9 +3,9 @@
   "childId": "reina",
   "selectedDomain": "spelling",
   "current": {
-    "planId": "reina-2026-05-27-spelling-silent-letters-hf",
+    "planId": "reina-2026-05-27-silent-letters-baseline",
     "childId": "reina",
-    "createdAt": "2026-05-27T18:53:31.916Z",
+    "createdAt": "2026-05-27T19:28:05.803Z",
     "source": "ingest_human_loop",
     "domain": "spelling",
     "testDate": "2026-05-29",
@@ -33,6 +33,20 @@
         "source": "chart_planner"
       },
       {
+        "id": "baseline-silent-letters-spell",
+        "type": "spell-check",
+        "activityId": "spell-check",
+        "targets": [
+          "sign",
+          "know",
+          "write"
+        ],
+        "difficulty": 2,
+        "targetLane": "silent_letters",
+        "locked": false,
+        "source": "chart_planner"
+      },
+      {
         "id": "baseline-hf-recognition",
         "type": "word-radar",
         "activityId": "word-radar",
@@ -55,16 +69,16 @@
         "source": "chart_planner"
       },
       {
-        "id": "spelling-probe-silent",
-        "type": "spell-check",
-        "activityId": "spell-check",
+        "id": "baseline-hf-fluency",
+        "type": "pronunciation",
+        "activityId": "pronunciation",
         "targets": [
-          "sign",
-          "know",
-          "write"
+          "among",
+          "building",
+          "circle"
         ],
-        "difficulty": 2,
-        "targetLane": "silent_letters",
+        "difficulty": 1,
+        "targetLane": "high_frequency",
         "locked": false,
         "source": "chart_planner"
       },
@@ -86,7 +100,7 @@
         "source": "chart_planner"
       },
       {
-        "id": "quest-silent-transfer",
+        "id": "quest-destination",
         "type": "quest",
         "activityId": "quest",
         "targets": [
@@ -101,7 +115,7 @@
         "source": "chart_planner"
       },
       {
-        "id": "boss-mastery-finale",
+        "id": "boss-destination",
         "type": "boss",
         "activityId": "boss",
         "targets": [],
@@ -114,7 +128,7 @@
     "adventureBoard": {
       "schemaVersion": 1,
       "boardId": "assignment-board-reina-f671295b",
-      "planId": "reina-2026-05-27-spelling-silent-letters-hf",
+      "planId": "reina-2026-05-27-silent-letters-baseline",
       "childId": "reina",
       "domain": "spelling",
       "title": "Benchmark Advance Spelling Unit 9 Week 3",
@@ -140,8 +154,8 @@
         "routeChoiceBehavior": "exclusive"
       },
       "plannerRationale": {
-        "agencyDesign": "Session 1: Baseline the silent letter spelling group with partial visual recall (Word Radar) to scope any pattern gaps, then probe spelling construction with audio prompt (Spell Check). Baseline high-frequency recognition with visible read (Word Radar) to confirm fluency. Insert Mystery for preference evidence and dopamine recovery. Lock Quest for silent letter transfer and Boss for final mastery gate until baseline evidence confirms readiness.",
-        "evidenceDesign": "Reina can master the three silent letter spelling words (sign, know, write) and recognize the three high-frequency words (among, building, circle) by the May 29 test date with targeted baseline measurement, one reinforcement cycle, and transfer proof via generated quest.",
+        "agencyDesign": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
+        "evidenceDesign": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
         "layoutChoice": "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan."
       },
       "nodes": [
@@ -195,6 +209,35 @@
           "action": {
             "type": "launch-activity",
             "payloadId": "baseline-silent-letters-wr"
+          }
+        },
+        {
+          "id": "baseline-silent-letters-spell",
+          "kind": "activity",
+          "activityId": "spell-check",
+          "label": "Spell Check",
+          "shortLabel": "Spell Check",
+          "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+          "slot": "3",
+          "layout": {
+            "role": "baseline",
+            "lane": "main",
+            "order": 2
+          },
+          "state": "available",
+          "evidenceRole": "baseline",
+          "target": {
+            "laneId": "silent_letters",
+            "skill": "silent_letters",
+            "words": [
+              "sign",
+              "know",
+              "write"
+            ]
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "baseline-silent-letters-spell"
           }
         },
         {
@@ -255,12 +298,12 @@
           }
         },
         {
-          "id": "spelling-probe-silent",
+          "id": "baseline-hf-fluency",
           "kind": "activity",
-          "activityId": "spell-check",
-          "label": "Spell Check",
-          "shortLabel": "Spell Check",
-          "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+          "activityId": "pronunciation",
+          "label": "Pronunciation",
+          "shortLabel": "Pronunciation",
+          "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
           "slot": "5b.1",
           "layout": {
             "role": "evidence-route",
@@ -270,17 +313,17 @@
           "state": "available",
           "evidenceRole": "baseline",
           "target": {
-            "laneId": "silent_letters",
-            "skill": "silent_letters",
+            "laneId": "high_frequency",
+            "skill": "high_frequency",
             "words": [
-              "sign",
-              "know",
-              "write"
+              "among",
+              "building",
+              "circle"
             ]
           },
           "action": {
             "type": "launch-activity",
-            "payloadId": "spelling-probe-silent"
+            "payloadId": "baseline-hf-fluency"
           }
         },
         {
@@ -298,14 +341,14 @@
           },
           "state": "available",
           "evidenceRole": "preference",
+          "choiceSetId": "mystery-choice-options",
           "action": {
             "type": "open-choice-set",
             "payloadId": "mystery-choice-options"
-          },
-          "choiceSetId": "mystery-choice-options"
+          }
         },
         {
-          "id": "quest-silent-transfer",
+          "id": "quest-destination",
           "kind": "quest",
           "activityId": "quest",
           "label": "Quest",
@@ -334,11 +377,11 @@
           },
           "action": {
             "type": "show-locked-reason",
-            "payloadId": "quest-silent-transfer"
+            "payloadId": "quest-destination"
           }
         },
         {
-          "id": "boss-mastery-finale",
+          "id": "boss-destination",
           "kind": "boss",
           "activityId": "boss",
           "label": "Boss",
@@ -358,7 +401,7 @@
           },
           "action": {
             "type": "show-locked-reason",
-            "payloadId": "boss-mastery-finale"
+            "payloadId": "boss-destination"
           }
         }
       ],
@@ -371,8 +414,15 @@
           "style": "solid"
         },
         {
-          "id": "edge-baseline-silent-letters-wr-choose-path",
+          "id": "edge-baseline-silent-letters-wr-baseline-silent-letters-spell",
           "from": "baseline-silent-letters-wr",
+          "to": "baseline-silent-letters-spell",
+          "state": "available",
+          "style": "solid"
+        },
+        {
+          "id": "edge-baseline-silent-letters-spell-choose-path",
+          "from": "baseline-silent-letters-spell",
           "to": "choose-path",
           "state": "available",
           "style": "solid"
@@ -385,9 +435,9 @@
           "style": "glow"
         },
         {
-          "id": "edge-choose-path-spelling-probe-silent",
+          "id": "edge-choose-path-baseline-hf-fluency",
           "from": "choose-path",
-          "to": "spelling-probe-silent",
+          "to": "baseline-hf-fluency",
           "state": "available",
           "style": "glow"
         },
@@ -399,23 +449,23 @@
           "style": "solid"
         },
         {
-          "id": "edge-spelling-probe-silent-mystery-choice",
-          "from": "spelling-probe-silent",
+          "id": "edge-baseline-hf-fluency-mystery-choice",
+          "from": "baseline-hf-fluency",
           "to": "mystery-choice",
           "state": "available",
           "style": "solid"
         },
         {
-          "id": "edge-mystery-choice-quest-silent-transfer",
+          "id": "edge-mystery-choice-quest-destination",
           "from": "mystery-choice",
-          "to": "quest-silent-transfer",
+          "to": "quest-destination",
           "state": "locked",
           "style": "dashed"
         },
         {
-          "id": "edge-quest-silent-transfer-boss-mastery-finale",
-          "from": "quest-silent-transfer",
-          "to": "boss-mastery-finale",
+          "id": "edge-quest-destination-boss-destination",
+          "from": "quest-destination",
+          "to": "boss-destination",
           "state": "locked",
           "style": "dashed"
         }
@@ -444,19 +494,19 @@
               }
             },
             {
-              "id": "choice-spelling-probe-silent",
-              "label": "Spell Check",
-              "description": "Try spell-check next.",
-              "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+              "id": "choice-baseline-hf-fluency",
+              "label": "Pronunciation",
+              "description": "Try pronunciation next.",
+              "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
               "state": "available",
-              "nodeId": "spelling-probe-silent",
+              "nodeId": "baseline-hf-fluency",
               "choiceSignal": {
                 "algorithmFeed": "choicePolicy",
                 "traits": [
-                  "practice",
-                  "typing"
+                  "voice",
+                  "control"
                 ],
-                "expectedEvidence": "shown/chosen/skipped/completed outcome for spell-check; preference only",
+                "expectedEvidence": "shown/chosen/skipped/completed outcome for pronunciation; preference only",
                 "preferenceNotMastery": true
               }
             }
@@ -488,8 +538,8 @@
                 "preferenceNotMastery": true
               },
               "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-              "state": "available",
-              "nodeId": "mystery-choice"
+              "nodeId": "mystery-choice",
+              "state": "available"
             },
             {
               "id": "mystery-choice-speed",
@@ -512,8 +562,8 @@
                 "preferenceNotMastery": true
               },
               "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-              "state": "available",
-              "nodeId": "mystery-choice"
+              "nodeId": "mystery-choice",
+              "state": "available"
             },
             {
               "id": "mystery-choice-puzzle",
@@ -536,8 +586,8 @@
                 "preferenceNotMastery": true
               },
               "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-              "state": "available",
-              "nodeId": "mystery-choice"
+              "nodeId": "mystery-choice",
+              "state": "available"
             }
           ]
         }
@@ -569,17 +619,17 @@
       {
         "id": "source-doc",
         "type": "homework",
-        "summary": "Benchmark Advance Unit 9 Week 3 with two teacher-labeled groups: Silent Letters (sign, know, write) and High-Frequency Words (among, building, circle)"
+        "summary": "Benchmark Advance Unit 9 Week 3: two groups with distinct purposes (silent letter spelling vs high-frequency recognition)"
       },
       {
         "id": "mastery-context",
         "type": "deadline",
-        "summary": "Test date 2026-05-29, 2 days until test, urgent intensity, 3 expected sessions remaining"
+        "summary": "Test date 2026-05-29, 2 days remaining, urgent intensity, 3 expected sessions"
       },
       {
         "id": "child-chart",
-        "type": "profile",
-        "summary": "Reina, grade 2, no recent evidence for these targets, horizontal adventure spine preferred"
+        "type": "learner-profile",
+        "summary": "Reina, grade 2, no recent evidence on file, horizontal adventure spine preference"
       },
       {
         "id": "assignment-source",
@@ -588,39 +638,41 @@
       }
     ],
     "openQuestions": [
-      "Does Reina already know these silent letter patterns from prior units, or is this the first formal introduction?",
-      "Will high-frequency word recognition transfer to spelling production, or should those remain sight-read targets only?",
-      "How quickly can baseline evidence support quest unlock given the 2-day deadline?"
+      "Which silent letter pattern (kn-, -gn, wr-) will require the most support?",
+      "Will Reina show spelling confidence or hesitation on 'know' vs 'write'?",
+      "Are the high-frequency words already automatized or will they need fluency practice?",
+      "Does Reina prefer visible scaffolding or independent recall challenges?"
     ],
-    "plannerConfidence": 0.82,
+    "plannerConfidence": 0.88,
     "approvalStatus": "pending",
     "planTheory": {
-      "hypothesis": "Reina can master the three silent letter spelling words (sign, know, write) and recognize the three high-frequency words (among, building, circle) by the May 29 test date with targeted baseline measurement, one reinforcement cycle, and transfer proof via generated quest.",
+      "hypothesis": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
       "evidenceSummary": [
-        "Teacher-labeled groups distinguish Silent Letters (spelling production target) from High-Frequency Words (recognition target)",
-        "No recent evidence exists for these specific targets in Reina's chart",
-        "Urgent intensity context: 2 days until test, 3 expected sessions remaining",
-        "Grade 2 silent letter patterns (kn, gn, wr) are canonical spelling curriculum targets",
-        "High-frequency words in grade 2 are typically sight-read rather than spelled from scratch"
+        "Source document shows two teacher-labeled groups with distinct instructional purposes",
+        "Silent Letters group (sign, know, write) carries orthographic pattern focus and Benchmark Advance spelling production expectation",
+        "High-Frequency Words group (among, building, circle) carries automaticity and recognition focus, not pattern analysis",
+        "Mastery context shows 2 days until test, urgent intensity, 3 expected sessions remaining",
+        "Child chart shows no recent evidence, so today is first baseline for this homework",
+        "Grade 2 learner with horizontal adventure spine preference and companion Matilda"
       ],
-      "intervention": "Session 1: Baseline the silent letter spelling group with partial visual recall (Word Radar) to scope any pattern gaps, then probe spelling construction with audio prompt (Spell Check). Baseline high-frequency recognition with visible read (Word Radar) to confirm fluency. Insert Mystery for preference evidence and dopamine recovery. Lock Quest for silent letter transfer and Boss for final mastery gate until baseline evidence confirms readiness.",
+      "intervention": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
       "supportCriteria": [
-        "Silent letter words are recalled and spelled correctly with letter tiles and audio prompt in baseline nodes",
-        "High-frequency words are read aloud fluently with STT match on first presentation",
-        "Mystery activity completes with positive engagement",
-        "Baseline evidence is strong enough to unlock Quest by session 2"
+        "Silent letter words (sign, know, write) all correct on first try in both Word Radar and Spell Check with low latency and no retries",
+        "High-frequency words (among, building, circle) all recognized and pronounced fluently with no hesitation",
+        "Reina completes all four baseline nodes with positive affect and engages willingly with Mystery choice",
+        "Evidence snapshot shows clean baseline across both groups, allowing Quest unlock for transfer proof next session"
       ],
       "reviseCriteria": [
-        "One or two silent letter words require retry or show silent consonant uncertainty; increase dosage in session 2",
-        "One high-frequency word mispronounced or hesitant; add pronunciation node in session 2",
-        "Mystery skipped or neutral; adjust reward type or reduce work density",
-        "Quest unlock delayed because baseline shows more gaps than expected; add targeted reteach before transfer"
+        "One or two silent letter words require retry or show hesitation in Word Radar or Spell Check; partial mastery suggests need for targeted pattern support next session",
+        "One or two high-frequency words show hesitation or mispronunciation; mixed automaticity suggests need for pronunciation practice or repeated exposure",
+        "Reina shows fatigue or avoidance signals during baseline work; dosage or pacing should adjust for session 2",
+        "Evidence snapshot identifies exact weak targets; session 2 should give those weak targets strictly more academic support than mastered targets"
       ],
       "falsifyCriteria": [
-        "Multiple silent letter words misspelled after retry in both Word Radar and Spell Check; pattern is not accessible yet and needs explicit teaching",
-        "Two or more high-frequency words mis-read or skipped; recognition is not automatic and may require spelling work after all",
-        "Child shows frustration or refusal during baseline nodes; stamina or motivation hypothesis was wrong",
-        "Baseline evidence insufficient to unlock Quest by session 3, leaving no time for mastery gate before test"
+        "Two or more silent letter words missed or heavily struggled across both Word Radar and Spell Check; widespread pattern confusion requires explicit silent letter teaching before transfer",
+        "Two or more high-frequency words missed, skipped, or heavily hesitated; recognition gap requires phonics support or visible scaffolding before fluency work",
+        "Reina avoids baseline work, shows frustration, or abandons session; motivation drop requires smaller dosage, more scaffolding, or different activity sequence",
+        "Baseline evidence is too contradictory or incomplete to support a Quest theory; session 2 should probe the contradictory targets before Quest unlock"
       ]
     },
     "plannedMeasurements": [
@@ -628,64 +680,73 @@
         "id": "measure-baseline-silent-letters-wr",
         "activityId": "word-radar",
         "target": "silent_letters group (sign, know, write)",
-        "evidenceType": "partial_visual_recall practice with letter-by-letter input",
-        "supportCriteria": "All three words recalled with letter tiles in under two attempts each, no hesitation on silent consonants",
-        "reviseCriteria": "One or two words require retry or companion hint; silent letter position shows uncertainty",
-        "falsifyCriteria": "Multiple misses, skips, or frustrated abandonment; child cannot build words even with length cues"
+        "evidenceType": "partial_visual_recall spelling practice with letter-by-letter input",
+        "supportCriteria": "All three words completed first-try with low latency and no retries; Reina shows confidence with silent letter patterns",
+        "reviseCriteria": "One or two words require retry or show hesitation; mixed confidence suggests partial mastery and need for targeted support",
+        "falsifyCriteria": "Two or more words missed or skipped; heavy retry usage; frustration signals; need audio-cued or visible scaffolding before independent recall"
+      },
+      {
+        "id": "measure-baseline-silent-letters-spell",
+        "activityId": "spell-check",
+        "target": "silent_letters group (sign, know, write)",
+        "evidenceType": "audio-prompted spelling construction with hidden target",
+        "supportCriteria": "All three words spelled correctly from audio prompt without visible support; confirms independent spelling readiness",
+        "reviseCriteria": "One word requires retry or shows silent letter error; theory should add targeted pattern support for that exact word",
+        "falsifyCriteria": "Two or more spelling errors; persistent silent letter confusion; need to drop back to visible pattern teaching or letter-by-letter scaffolding"
       },
       {
         "id": "measure-baseline-hf-recognition",
         "activityId": "word-radar",
         "target": "high_frequency group (among, building, circle)",
-        "evidenceType": "visible_read fluency and pronunciation",
-        "supportCriteria": "All three words read aloud fluently on first presentation with STT match and no hesitation",
-        "reviseCriteria": "One word mispronounced or hesitant; child can self-correct with replay",
-        "falsifyCriteria": "Two or more words skipped, mis-read, or require heavy model-answer support"
+        "evidenceType": "visible_read recognition and fluency with whole-word voice response",
+        "supportCriteria": "All three words read fluently with fast correct responses and no hesitation; confirms automatic recognition",
+        "reviseCriteria": "One word shows hesitation, mispronunciation, or retry; mixed automaticity suggests need for pronunciation practice",
+        "falsifyCriteria": "Two or more words missed, skipped, or heavily hesitated; recognition gap requires phonics support or repeated exposure before fluency work"
       },
       {
-        "id": "measure-spelling-probe-silent",
-        "activityId": "spell-check",
-        "target": "silent_letters group (sign, know, write)",
-        "evidenceType": "audio_prompt_spell with one retry allowed",
-        "supportCriteria": "All three words spelled correctly from audio prompt on first or second attempt with captured typing or voice",
-        "reviseCriteria": "One or two words require retry; silent letter is the error locus",
-        "falsifyCriteria": "Multiple words misspelled after retry, or child refuses audio-only prompt"
+        "id": "measure-baseline-hf-fluency",
+        "activityId": "pronunciation",
+        "target": "high_frequency group (among, building, circle)",
+        "evidenceType": "read-aloud fluency and pronunciation accuracy",
+        "supportCriteria": "All three words pronounced correctly with natural fluency; no decoding struggle; confirms high-frequency automaticity",
+        "reviseCriteria": "One word mispronounced or hesitated; pronunciation gap suggests need for supported read-aloud practice",
+        "falsifyCriteria": "Two or more pronunciation errors or heavy decoding struggle; need phonics review or chunk-by-chunk teaching before fluency dosage"
       },
       {
         "id": "measure-mystery-choice",
         "activityId": "mystery",
         "target": "all homework words",
-        "evidenceType": "preference and choice behavior",
-        "supportCriteria": "Child completes mystery activity, shows positive engagement, chooses to continue",
-        "reviseCriteria": "Child completes but shows neutral affect or requests different activity",
-        "falsifyCriteria": "Child skips mystery or abandons mid-activity; frustration or disengagement observed"
+        "evidenceType": "preference and choice signal after baseline work",
+        "supportCriteria": "Reina engages willingly; chooses activity and completes it; positive affect and recovery",
+        "reviseCriteria": "Reina skips or replays; neutral engagement; preference signal is weak or unclear",
+        "falsifyCriteria": "Reina avoids choice, shows frustration, or abandons Mystery; motivation drop requires smaller baseline dosage or more scaffolding next session"
       },
       {
-        "id": "measure-quest-silent-transfer",
+        "id": "measure-quest-destination",
         "activityId": "quest",
-        "target": "silent_letters group transfer",
-        "evidenceType": "generated transfer artifact with per-target results",
-        "supportCriteria": "All silent letter words used correctly in generated story, puzzle, or sentence context with independent spelling",
-        "reviseCriteria": "One silent letter word misspelled or requires hint within the quest artifact",
-        "falsifyCriteria": "Two or more silent letter words fail, or quest shows baseline skill was not solid"
+        "target": "silent_letters group transfer readiness",
+        "evidenceType": "locked destination; will unlock after baseline evidence supports transfer theory",
+        "supportCriteria": "Baseline shows all silent letter words correct with confidence; Quest unlocks for generated transfer proof",
+        "reviseCriteria": "Baseline shows one or two silent letter misses; Quest should unlock after targeted support next session",
+        "falsifyCriteria": "Baseline shows widespread silent letter confusion; Quest remains locked; next session should teach pattern explicitly before transfer"
       },
       {
-        "id": "measure-boss-mastery-finale",
+        "id": "measure-boss-destination",
         "activityId": "boss",
-        "target": "all homework words",
-        "evidenceType": "mastery gate with per-target scoring",
-        "supportCriteria": "All six words demonstrate independent mastery in boss context; per-target results confirm accuracy",
-        "reviseCriteria": "One or two words require support or show partial mastery; boss unlocks revision loop",
-        "falsifyCriteria": "Three or more words fail in boss context; theory was falsified and requires targeted reteach"
+        "target": "full homework mastery gate",
+        "evidenceType": "locked destination; will unlock after Quest evidence confirms transfer readiness",
+        "supportCriteria": "Quest evidence shows independent transfer success across both groups; Boss unlocks for final mastery gate",
+        "reviseCriteria": "Quest evidence shows partial success; Boss should unlock after targeted support for weak targets",
+        "falsifyCriteria": "Quest evidence shows transfer failure; Boss remains locked; next session should reteach failed skill and retry Quest loop"
       }
     ],
     "activeHomeworkId": "hw-spelling_test-6727f1c8"
   },
   "activeByDomain": {
     "spelling": {
-      "planId": "reina-2026-05-27-spelling-silent-letters-hf",
+      "planId": "reina-2026-05-27-silent-letters-baseline",
       "childId": "reina",
-      "createdAt": "2026-05-27T18:53:31.916Z",
+      "createdAt": "2026-05-27T19:28:05.803Z",
       "source": "ingest_human_loop",
       "domain": "spelling",
       "testDate": "2026-05-29",
@@ -713,6 +774,20 @@
           "source": "chart_planner"
         },
         {
+          "id": "baseline-silent-letters-spell",
+          "type": "spell-check",
+          "activityId": "spell-check",
+          "targets": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "difficulty": 2,
+          "targetLane": "silent_letters",
+          "locked": false,
+          "source": "chart_planner"
+        },
+        {
           "id": "baseline-hf-recognition",
           "type": "word-radar",
           "activityId": "word-radar",
@@ -735,16 +810,16 @@
           "source": "chart_planner"
         },
         {
-          "id": "spelling-probe-silent",
-          "type": "spell-check",
-          "activityId": "spell-check",
+          "id": "baseline-hf-fluency",
+          "type": "pronunciation",
+          "activityId": "pronunciation",
           "targets": [
-            "sign",
-            "know",
-            "write"
+            "among",
+            "building",
+            "circle"
           ],
-          "difficulty": 2,
-          "targetLane": "silent_letters",
+          "difficulty": 1,
+          "targetLane": "high_frequency",
           "locked": false,
           "source": "chart_planner"
         },
@@ -766,7 +841,7 @@
           "source": "chart_planner"
         },
         {
-          "id": "quest-silent-transfer",
+          "id": "quest-destination",
           "type": "quest",
           "activityId": "quest",
           "targets": [
@@ -781,7 +856,7 @@
           "source": "chart_planner"
         },
         {
-          "id": "boss-mastery-finale",
+          "id": "boss-destination",
           "type": "boss",
           "activityId": "boss",
           "targets": [],
@@ -794,7 +869,7 @@
       "adventureBoard": {
         "schemaVersion": 1,
         "boardId": "assignment-board-reina-f671295b",
-        "planId": "reina-2026-05-27-spelling-silent-letters-hf",
+        "planId": "reina-2026-05-27-silent-letters-baseline",
         "childId": "reina",
         "domain": "spelling",
         "title": "Benchmark Advance Spelling Unit 9 Week 3",
@@ -820,8 +895,8 @@
           "routeChoiceBehavior": "exclusive"
         },
         "plannerRationale": {
-          "agencyDesign": "Session 1: Baseline the silent letter spelling group with partial visual recall (Word Radar) to scope any pattern gaps, then probe spelling construction with audio prompt (Spell Check). Baseline high-frequency recognition with visible read (Word Radar) to confirm fluency. Insert Mystery for preference evidence and dopamine recovery. Lock Quest for silent letter transfer and Boss for final mastery gate until baseline evidence confirms readiness.",
-          "evidenceDesign": "Reina can master the three silent letter spelling words (sign, know, write) and recognize the three high-frequency words (among, building, circle) by the May 29 test date with targeted baseline measurement, one reinforcement cycle, and transfer proof via generated quest.",
+          "agencyDesign": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
+          "evidenceDesign": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
           "layoutChoice": "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan."
         },
         "nodes": [
@@ -875,6 +950,35 @@
             "action": {
               "type": "launch-activity",
               "payloadId": "baseline-silent-letters-wr"
+            }
+          },
+          {
+            "id": "baseline-silent-letters-spell",
+            "kind": "activity",
+            "activityId": "spell-check",
+            "label": "Spell Check",
+            "shortLabel": "Spell Check",
+            "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+            "slot": "3",
+            "layout": {
+              "role": "baseline",
+              "lane": "main",
+              "order": 2
+            },
+            "state": "available",
+            "evidenceRole": "baseline",
+            "target": {
+              "laneId": "silent_letters",
+              "skill": "silent_letters",
+              "words": [
+                "sign",
+                "know",
+                "write"
+              ]
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-silent-letters-spell"
             }
           },
           {
@@ -935,12 +1039,12 @@
             }
           },
           {
-            "id": "spelling-probe-silent",
+            "id": "baseline-hf-fluency",
             "kind": "activity",
-            "activityId": "spell-check",
-            "label": "Spell Check",
-            "shortLabel": "Spell Check",
-            "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+            "activityId": "pronunciation",
+            "label": "Pronunciation",
+            "shortLabel": "Pronunciation",
+            "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
             "slot": "5b.1",
             "layout": {
               "role": "evidence-route",
@@ -950,17 +1054,17 @@
             "state": "available",
             "evidenceRole": "baseline",
             "target": {
-              "laneId": "silent_letters",
-              "skill": "silent_letters",
+              "laneId": "high_frequency",
+              "skill": "high_frequency",
               "words": [
-                "sign",
-                "know",
-                "write"
+                "among",
+                "building",
+                "circle"
               ]
             },
             "action": {
               "type": "launch-activity",
-              "payloadId": "spelling-probe-silent"
+              "payloadId": "baseline-hf-fluency"
             }
           },
           {
@@ -978,14 +1082,14 @@
             },
             "state": "available",
             "evidenceRole": "preference",
+            "choiceSetId": "mystery-choice-options",
             "action": {
               "type": "open-choice-set",
               "payloadId": "mystery-choice-options"
-            },
-            "choiceSetId": "mystery-choice-options"
+            }
           },
           {
-            "id": "quest-silent-transfer",
+            "id": "quest-destination",
             "kind": "quest",
             "activityId": "quest",
             "label": "Quest",
@@ -1014,11 +1118,11 @@
             },
             "action": {
               "type": "show-locked-reason",
-              "payloadId": "quest-silent-transfer"
+              "payloadId": "quest-destination"
             }
           },
           {
-            "id": "boss-mastery-finale",
+            "id": "boss-destination",
             "kind": "boss",
             "activityId": "boss",
             "label": "Boss",
@@ -1038,7 +1142,7 @@
             },
             "action": {
               "type": "show-locked-reason",
-              "payloadId": "boss-mastery-finale"
+              "payloadId": "boss-destination"
             }
           }
         ],
@@ -1051,8 +1155,15 @@
             "style": "solid"
           },
           {
-            "id": "edge-baseline-silent-letters-wr-choose-path",
+            "id": "edge-baseline-silent-letters-wr-baseline-silent-letters-spell",
             "from": "baseline-silent-letters-wr",
+            "to": "baseline-silent-letters-spell",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-baseline-silent-letters-spell-choose-path",
+            "from": "baseline-silent-letters-spell",
             "to": "choose-path",
             "state": "available",
             "style": "solid"
@@ -1065,9 +1176,9 @@
             "style": "glow"
           },
           {
-            "id": "edge-choose-path-spelling-probe-silent",
+            "id": "edge-choose-path-baseline-hf-fluency",
             "from": "choose-path",
-            "to": "spelling-probe-silent",
+            "to": "baseline-hf-fluency",
             "state": "available",
             "style": "glow"
           },
@@ -1079,23 +1190,23 @@
             "style": "solid"
           },
           {
-            "id": "edge-spelling-probe-silent-mystery-choice",
-            "from": "spelling-probe-silent",
+            "id": "edge-baseline-hf-fluency-mystery-choice",
+            "from": "baseline-hf-fluency",
             "to": "mystery-choice",
             "state": "available",
             "style": "solid"
           },
           {
-            "id": "edge-mystery-choice-quest-silent-transfer",
+            "id": "edge-mystery-choice-quest-destination",
             "from": "mystery-choice",
-            "to": "quest-silent-transfer",
+            "to": "quest-destination",
             "state": "locked",
             "style": "dashed"
           },
           {
-            "id": "edge-quest-silent-transfer-boss-mastery-finale",
-            "from": "quest-silent-transfer",
-            "to": "boss-mastery-finale",
+            "id": "edge-quest-destination-boss-destination",
+            "from": "quest-destination",
+            "to": "boss-destination",
             "state": "locked",
             "style": "dashed"
           }
@@ -1124,19 +1235,19 @@
                 }
               },
               {
-                "id": "choice-spelling-probe-silent",
-                "label": "Spell Check",
-                "description": "Try spell-check next.",
-                "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+                "id": "choice-baseline-hf-fluency",
+                "label": "Pronunciation",
+                "description": "Try pronunciation next.",
+                "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
                 "state": "available",
-                "nodeId": "spelling-probe-silent",
+                "nodeId": "baseline-hf-fluency",
                 "choiceSignal": {
                   "algorithmFeed": "choicePolicy",
                   "traits": [
-                    "practice",
-                    "typing"
+                    "voice",
+                    "control"
                   ],
-                  "expectedEvidence": "shown/chosen/skipped/completed outcome for spell-check; preference only",
+                  "expectedEvidence": "shown/chosen/skipped/completed outcome for pronunciation; preference only",
                   "preferenceNotMastery": true
                 }
               }
@@ -1168,8 +1279,8 @@
                   "preferenceNotMastery": true
                 },
                 "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-                "state": "available",
-                "nodeId": "mystery-choice"
+                "nodeId": "mystery-choice",
+                "state": "available"
               },
               {
                 "id": "mystery-choice-speed",
@@ -1192,8 +1303,8 @@
                   "preferenceNotMastery": true
                 },
                 "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-                "state": "available",
-                "nodeId": "mystery-choice"
+                "nodeId": "mystery-choice",
+                "state": "available"
               },
               {
                 "id": "mystery-choice-puzzle",
@@ -1216,8 +1327,8 @@
                   "preferenceNotMastery": true
                 },
                 "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-                "state": "available",
-                "nodeId": "mystery-choice"
+                "nodeId": "mystery-choice",
+                "state": "available"
               }
             ]
           }
@@ -1249,17 +1360,17 @@
         {
           "id": "source-doc",
           "type": "homework",
-          "summary": "Benchmark Advance Unit 9 Week 3 with two teacher-labeled groups: Silent Letters (sign, know, write) and High-Frequency Words (among, building, circle)"
+          "summary": "Benchmark Advance Unit 9 Week 3: two groups with distinct purposes (silent letter spelling vs high-frequency recognition)"
         },
         {
           "id": "mastery-context",
           "type": "deadline",
-          "summary": "Test date 2026-05-29, 2 days until test, urgent intensity, 3 expected sessions remaining"
+          "summary": "Test date 2026-05-29, 2 days remaining, urgent intensity, 3 expected sessions"
         },
         {
           "id": "child-chart",
-          "type": "profile",
-          "summary": "Reina, grade 2, no recent evidence for these targets, horizontal adventure spine preferred"
+          "type": "learner-profile",
+          "summary": "Reina, grade 2, no recent evidence on file, horizontal adventure spine preference"
         },
         {
           "id": "assignment-source",
@@ -1268,39 +1379,41 @@
         }
       ],
       "openQuestions": [
-        "Does Reina already know these silent letter patterns from prior units, or is this the first formal introduction?",
-        "Will high-frequency word recognition transfer to spelling production, or should those remain sight-read targets only?",
-        "How quickly can baseline evidence support quest unlock given the 2-day deadline?"
+        "Which silent letter pattern (kn-, -gn, wr-) will require the most support?",
+        "Will Reina show spelling confidence or hesitation on 'know' vs 'write'?",
+        "Are the high-frequency words already automatized or will they need fluency practice?",
+        "Does Reina prefer visible scaffolding or independent recall challenges?"
       ],
-      "plannerConfidence": 0.82,
+      "plannerConfidence": 0.88,
       "approvalStatus": "pending",
       "planTheory": {
-        "hypothesis": "Reina can master the three silent letter spelling words (sign, know, write) and recognize the three high-frequency words (among, building, circle) by the May 29 test date with targeted baseline measurement, one reinforcement cycle, and transfer proof via generated quest.",
+        "hypothesis": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
         "evidenceSummary": [
-          "Teacher-labeled groups distinguish Silent Letters (spelling production target) from High-Frequency Words (recognition target)",
-          "No recent evidence exists for these specific targets in Reina's chart",
-          "Urgent intensity context: 2 days until test, 3 expected sessions remaining",
-          "Grade 2 silent letter patterns (kn, gn, wr) are canonical spelling curriculum targets",
-          "High-frequency words in grade 2 are typically sight-read rather than spelled from scratch"
+          "Source document shows two teacher-labeled groups with distinct instructional purposes",
+          "Silent Letters group (sign, know, write) carries orthographic pattern focus and Benchmark Advance spelling production expectation",
+          "High-Frequency Words group (among, building, circle) carries automaticity and recognition focus, not pattern analysis",
+          "Mastery context shows 2 days until test, urgent intensity, 3 expected sessions remaining",
+          "Child chart shows no recent evidence, so today is first baseline for this homework",
+          "Grade 2 learner with horizontal adventure spine preference and companion Matilda"
         ],
-        "intervention": "Session 1: Baseline the silent letter spelling group with partial visual recall (Word Radar) to scope any pattern gaps, then probe spelling construction with audio prompt (Spell Check). Baseline high-frequency recognition with visible read (Word Radar) to confirm fluency. Insert Mystery for preference evidence and dopamine recovery. Lock Quest for silent letter transfer and Boss for final mastery gate until baseline evidence confirms readiness.",
+        "intervention": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
         "supportCriteria": [
-          "Silent letter words are recalled and spelled correctly with letter tiles and audio prompt in baseline nodes",
-          "High-frequency words are read aloud fluently with STT match on first presentation",
-          "Mystery activity completes with positive engagement",
-          "Baseline evidence is strong enough to unlock Quest by session 2"
+          "Silent letter words (sign, know, write) all correct on first try in both Word Radar and Spell Check with low latency and no retries",
+          "High-frequency words (among, building, circle) all recognized and pronounced fluently with no hesitation",
+          "Reina completes all four baseline nodes with positive affect and engages willingly with Mystery choice",
+          "Evidence snapshot shows clean baseline across both groups, allowing Quest unlock for transfer proof next session"
         ],
         "reviseCriteria": [
-          "One or two silent letter words require retry or show silent consonant uncertainty; increase dosage in session 2",
-          "One high-frequency word mispronounced or hesitant; add pronunciation node in session 2",
-          "Mystery skipped or neutral; adjust reward type or reduce work density",
-          "Quest unlock delayed because baseline shows more gaps than expected; add targeted reteach before transfer"
+          "One or two silent letter words require retry or show hesitation in Word Radar or Spell Check; partial mastery suggests need for targeted pattern support next session",
+          "One or two high-frequency words show hesitation or mispronunciation; mixed automaticity suggests need for pronunciation practice or repeated exposure",
+          "Reina shows fatigue or avoidance signals during baseline work; dosage or pacing should adjust for session 2",
+          "Evidence snapshot identifies exact weak targets; session 2 should give those weak targets strictly more academic support than mastered targets"
         ],
         "falsifyCriteria": [
-          "Multiple silent letter words misspelled after retry in both Word Radar and Spell Check; pattern is not accessible yet and needs explicit teaching",
-          "Two or more high-frequency words mis-read or skipped; recognition is not automatic and may require spelling work after all",
-          "Child shows frustration or refusal during baseline nodes; stamina or motivation hypothesis was wrong",
-          "Baseline evidence insufficient to unlock Quest by session 3, leaving no time for mastery gate before test"
+          "Two or more silent letter words missed or heavily struggled across both Word Radar and Spell Check; widespread pattern confusion requires explicit silent letter teaching before transfer",
+          "Two or more high-frequency words missed, skipped, or heavily hesitated; recognition gap requires phonics support or visible scaffolding before fluency work",
+          "Reina avoids baseline work, shows frustration, or abandons session; motivation drop requires smaller dosage, more scaffolding, or different activity sequence",
+          "Baseline evidence is too contradictory or incomplete to support a Quest theory; session 2 should probe the contradictory targets before Quest unlock"
         ]
       },
       "plannedMeasurements": [
@@ -1308,59 +1421,68 @@
           "id": "measure-baseline-silent-letters-wr",
           "activityId": "word-radar",
           "target": "silent_letters group (sign, know, write)",
-          "evidenceType": "partial_visual_recall practice with letter-by-letter input",
-          "supportCriteria": "All three words recalled with letter tiles in under two attempts each, no hesitation on silent consonants",
-          "reviseCriteria": "One or two words require retry or companion hint; silent letter position shows uncertainty",
-          "falsifyCriteria": "Multiple misses, skips, or frustrated abandonment; child cannot build words even with length cues"
+          "evidenceType": "partial_visual_recall spelling practice with letter-by-letter input",
+          "supportCriteria": "All three words completed first-try with low latency and no retries; Reina shows confidence with silent letter patterns",
+          "reviseCriteria": "One or two words require retry or show hesitation; mixed confidence suggests partial mastery and need for targeted support",
+          "falsifyCriteria": "Two or more words missed or skipped; heavy retry usage; frustration signals; need audio-cued or visible scaffolding before independent recall"
+        },
+        {
+          "id": "measure-baseline-silent-letters-spell",
+          "activityId": "spell-check",
+          "target": "silent_letters group (sign, know, write)",
+          "evidenceType": "audio-prompted spelling construction with hidden target",
+          "supportCriteria": "All three words spelled correctly from audio prompt without visible support; confirms independent spelling readiness",
+          "reviseCriteria": "One word requires retry or shows silent letter error; theory should add targeted pattern support for that exact word",
+          "falsifyCriteria": "Two or more spelling errors; persistent silent letter confusion; need to drop back to visible pattern teaching or letter-by-letter scaffolding"
         },
         {
           "id": "measure-baseline-hf-recognition",
           "activityId": "word-radar",
           "target": "high_frequency group (among, building, circle)",
-          "evidenceType": "visible_read fluency and pronunciation",
-          "supportCriteria": "All three words read aloud fluently on first presentation with STT match and no hesitation",
-          "reviseCriteria": "One word mispronounced or hesitant; child can self-correct with replay",
-          "falsifyCriteria": "Two or more words skipped, mis-read, or require heavy model-answer support"
+          "evidenceType": "visible_read recognition and fluency with whole-word voice response",
+          "supportCriteria": "All three words read fluently with fast correct responses and no hesitation; confirms automatic recognition",
+          "reviseCriteria": "One word shows hesitation, mispronunciation, or retry; mixed automaticity suggests need for pronunciation practice",
+          "falsifyCriteria": "Two or more words missed, skipped, or heavily hesitated; recognition gap requires phonics support or repeated exposure before fluency work"
         },
         {
-          "id": "measure-spelling-probe-silent",
-          "activityId": "spell-check",
-          "target": "silent_letters group (sign, know, write)",
-          "evidenceType": "audio_prompt_spell with one retry allowed",
-          "supportCriteria": "All three words spelled correctly from audio prompt on first or second attempt with captured typing or voice",
-          "reviseCriteria": "One or two words require retry; silent letter is the error locus",
-          "falsifyCriteria": "Multiple words misspelled after retry, or child refuses audio-only prompt"
+          "id": "measure-baseline-hf-fluency",
+          "activityId": "pronunciation",
+          "target": "high_frequency group (among, building, circle)",
+          "evidenceType": "read-aloud fluency and pronunciation accuracy",
+          "supportCriteria": "All three words pronounced correctly with natural fluency; no decoding struggle; confirms high-frequency automaticity",
+          "reviseCriteria": "One word mispronounced or hesitated; pronunciation gap suggests need for supported read-aloud practice",
+          "falsifyCriteria": "Two or more pronunciation errors or heavy decoding struggle; need phonics review or chunk-by-chunk teaching before fluency dosage"
         },
         {
           "id": "measure-mystery-choice",
           "activityId": "mystery",
           "target": "all homework words",
-          "evidenceType": "preference and choice behavior",
-          "supportCriteria": "Child completes mystery activity, shows positive engagement, chooses to continue",
-          "reviseCriteria": "Child completes but shows neutral affect or requests different activity",
-          "falsifyCriteria": "Child skips mystery or abandons mid-activity; frustration or disengagement observed"
+          "evidenceType": "preference and choice signal after baseline work",
+          "supportCriteria": "Reina engages willingly; chooses activity and completes it; positive affect and recovery",
+          "reviseCriteria": "Reina skips or replays; neutral engagement; preference signal is weak or unclear",
+          "falsifyCriteria": "Reina avoids choice, shows frustration, or abandons Mystery; motivation drop requires smaller baseline dosage or more scaffolding next session"
         },
         {
-          "id": "measure-quest-silent-transfer",
+          "id": "measure-quest-destination",
           "activityId": "quest",
-          "target": "silent_letters group transfer",
-          "evidenceType": "generated transfer artifact with per-target results",
-          "supportCriteria": "All silent letter words used correctly in generated story, puzzle, or sentence context with independent spelling",
-          "reviseCriteria": "One silent letter word misspelled or requires hint within the quest artifact",
-          "falsifyCriteria": "Two or more silent letter words fail, or quest shows baseline skill was not solid"
+          "target": "silent_letters group transfer readiness",
+          "evidenceType": "locked destination; will unlock after baseline evidence supports transfer theory",
+          "supportCriteria": "Baseline shows all silent letter words correct with confidence; Quest unlocks for generated transfer proof",
+          "reviseCriteria": "Baseline shows one or two silent letter misses; Quest should unlock after targeted support next session",
+          "falsifyCriteria": "Baseline shows widespread silent letter confusion; Quest remains locked; next session should teach pattern explicitly before transfer"
         },
         {
-          "id": "measure-boss-mastery-finale",
+          "id": "measure-boss-destination",
           "activityId": "boss",
-          "target": "all homework words",
-          "evidenceType": "mastery gate with per-target scoring",
-          "supportCriteria": "All six words demonstrate independent mastery in boss context; per-target results confirm accuracy",
-          "reviseCriteria": "One or two words require support or show partial mastery; boss unlocks revision loop",
-          "falsifyCriteria": "Three or more words fail in boss context; theory was falsified and requires targeted reteach"
+          "target": "full homework mastery gate",
+          "evidenceType": "locked destination; will unlock after Quest evidence confirms transfer readiness",
+          "supportCriteria": "Quest evidence shows independent transfer success across both groups; Boss unlocks for final mastery gate",
+          "reviseCriteria": "Quest evidence shows partial success; Boss should unlock after targeted support for weak targets",
+          "falsifyCriteria": "Quest evidence shows transfer failure; Boss remains locked; next session should reteach failed skill and retry Quest loop"
         }
       ],
       "activeHomeworkId": "hw-spelling_test-6727f1c8"
     }
   },
-  "updatedAt": "2026-05-27T18:53:31.945Z"
+  "updatedAt": "2026-05-27T19:28:05.821Z"
 }

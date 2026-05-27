@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-05-27T18:53:31.944Z",
+  "lastUpdated": "2026-05-27T19:28:05.820Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -562,6 +562,15 @@
     "companionCareDir": "companion_care/"
   },
   "homeworkIntakeHistory": [
+    {
+      "decidedAt": "2026-05-27T19:28:05.818Z",
+      "source": "cli",
+      "selectedDomain": "spelling",
+      "classifierDomain": "spelling",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3",
+      "note": "Domain accepted."
+    },
     {
       "decidedAt": "2026-05-27T18:53:31.941Z",
       "source": "cli",
