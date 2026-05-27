@@ -178,8 +178,8 @@
           "id": "baseline-silent-letters-wr",
           "kind": "activity",
           "activityId": "word-radar",
-          "label": "Word Radar",
-          "shortLabel": "Word Radar",
+          "label": "Letter Recall",
+          "shortLabel": "Letter Recall",
           "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
           "slot": "2",
           "layout": {
@@ -264,8 +264,8 @@
           "id": "baseline-hf-recognition",
           "kind": "activity",
           "activityId": "word-radar",
-          "label": "Word Radar",
-          "shortLabel": "Word Radar",
+          "label": "Quick Read",
+          "shortLabel": "Quick Read",
           "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
           "slot": "5a.1",
           "layout": {
@@ -478,8 +478,8 @@
           "options": [
             {
               "id": "choice-baseline-hf-recognition",
-              "label": "Word Radar",
-              "description": "Try word-radar next.",
+              "label": "Quick Read",
+              "description": "Try Quick Read next.",
               "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
               "state": "available",
               "nodeId": "baseline-hf-recognition",
@@ -919,8 +919,8 @@
             "id": "baseline-silent-letters-wr",
             "kind": "activity",
             "activityId": "word-radar",
-            "label": "Word Radar",
-            "shortLabel": "Word Radar",
+            "label": "Letter Recall",
+            "shortLabel": "Letter Recall",
             "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
             "slot": "2",
             "layout": {
@@ -1005,8 +1005,8 @@
             "id": "baseline-hf-recognition",
             "kind": "activity",
             "activityId": "word-radar",
-            "label": "Word Radar",
-            "shortLabel": "Word Radar",
+            "label": "Quick Read",
+            "shortLabel": "Quick Read",
             "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
             "slot": "5a.1",
             "layout": {
@@ -1219,8 +1219,8 @@
             "options": [
               {
                 "id": "choice-baseline-hf-recognition",
-                "label": "Word Radar",
-                "description": "Try word-radar next.",
+                "label": "Quick Read",
+                "description": "Try Quick Read next.",
                 "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
                 "state": "available",
                 "nodeId": "baseline-hf-recognition",

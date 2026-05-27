@@ -849,6 +849,75 @@ describe("assignment planner", () => {
     ]));
   });
 
+  it("materializes repeated instruments with child-facing purpose labels", () => {
+    const draft = parseAssignmentPlannerJson(JSON.stringify({
+      ...(plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>),
+      activeSessionPlan: {
+        nodePlan: [
+          {
+            id: "baseline-silent-letters-wr",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["sign", "know", "write"],
+            difficulty: 1,
+            targetLane: "silent_letters",
+            wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+          },
+          {
+            id: "baseline-silent-letters-spell",
+            type: "spell-check",
+            activityId: "spell-check",
+            targets: ["sign", "know", "write"],
+            difficulty: 2,
+            targetLane: "silent_letters",
+          },
+          {
+            id: "baseline-hf-recognition",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["among", "building", "circle"],
+            difficulty: 1,
+            targetLane: "high_frequency",
+            wordRadarConfig: {
+              recallMode: "visible_read",
+              inputMode: "whole-word",
+              speakStyle: "option-a",
+              showTimer: false,
+              hideWordDuringResponse: false,
+              requiresCapturedResponse: true,
+            },
+          },
+          {
+            id: "baseline-hf-fluency",
+            type: "pronunciation",
+            activityId: "pronunciation",
+            targets: ["among", "building", "circle"],
+            difficulty: 1,
+            targetLane: "high_frequency",
+          },
+          ...adventureSpineNodes(),
+        ],
+      },
+    }));
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
+
+    const board = parsed.activeSessionPlan.adventureBoard!;
+    const labels = new Map(board.nodes.map((node) => [node.id, node.label]));
+    const baselineRoute = board.choiceSets?.find((set) => set.id === "baseline-route-options");
+
+    expect(labels.get("baseline-silent-letters-wr")).toBe("Letter Recall");
+    expect(labels.get("baseline-hf-recognition")).toBe("Quick Read");
+    expect(baselineRoute?.options.map((option) => option.label)).toEqual([
+      "Quick Read",
+      "Pronunciation",
+    ]);
+  });
+
   it("prints a planner readiness audit table for the full activity catalog", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",

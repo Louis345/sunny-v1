@@ -1630,7 +1630,20 @@ function labelForAssignmentBoardNode(
   if (node.activityId === "quest") return "Quest";
   if (node.activityId === "boss") return "Boss";
   if (node.activityId === "mystery") return "Mystery";
+  if (node.activityId === "word-radar") return labelForWordRadarBoardNode(node) ?? catalogLabel;
   return catalogLabel;
+}
+
+function labelForWordRadarBoardNode(node: ActiveSessionPlan["nodePlan"][number]): string | undefined {
+  const config = node.wordRadarConfig;
+  if (!config) return undefined;
+  if (config.recallMode === "visible_read") return "Quick Read";
+  if (config.recallMode === "hidden_word_recall") return "Recall Run";
+  if (config.recallMode === "partial_visual_recall" && config.speakStyle === "option-b") {
+    return "Hear & Spell";
+  }
+  if (config.recallMode === "partial_visual_recall") return "Letter Recall";
+  return undefined;
 }
 
 function thumbnailForAssignmentBoardNode(node: ActiveSessionPlan["nodePlan"][number]): string | undefined {
@@ -1944,15 +1957,18 @@ function buildAssignmentAdventureBoard(args: {
         id: "baseline-route-options",
         kind: "baseline-route",
         title: "Choose your path",
-        options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node) => ({
-          id: `choice-${node.id}`,
-          label: labelForAssignmentBoardNode(args.packet, node) ?? node.activityId,
-          description: `Try ${node.activityId} next.`,
-          thumbnailUrl: thumbnailForAssignmentBoardNode(node),
-          state: node.locked ? "locked" : "available",
-          nodeId: node.id,
-          choiceSignal: choiceSignalForNode(node),
-        })),
+        options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node) => {
+          const label = labelForAssignmentBoardNode(args.packet, node) ?? node.activityId;
+          return {
+            id: `choice-${node.id}`,
+            label,
+            description: `Try ${label} next.`,
+            thumbnailUrl: thumbnailForAssignmentBoardNode(node),
+            state: node.locked ? "locked" : "available",
+            nodeId: node.id,
+            choiceSignal: choiceSignalForNode(node),
+          };
+        }),
       },
       ...(mysteryNode
         ? [{
