@@ -1120,7 +1120,7 @@ function App() {
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <AdventureBoardExperience
             packet={plannerBoardPacket}
-            showCompanion
+            showCompanion={false}
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}
             onChoiceClick={handlePlannerBoardChoiceClick}

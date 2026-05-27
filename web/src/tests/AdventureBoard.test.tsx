@@ -545,4 +545,11 @@ describe("AdventureBoardExperience", () => {
     expect(source).toContain("setPlannerBoardLaunch");
     expect(source).not.toContain('console.log(" 🎮 [AdventureBoard] node_click"');
   });
+
+  it("uses the app companion layer instead of rendering a second board companion", () => {
+    const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+
+    expect(source).toContain("showCompanion={false}");
+    expect(source).not.toContain("showCompanion\n            idlePose");
+  });
 });
