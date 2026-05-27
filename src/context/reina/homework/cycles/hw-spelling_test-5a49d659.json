@@ -27,17 +27,16 @@
     "practiceDomain": "spelling",
     "contentDomain": "language_arts",
     "topic": "Silent letter spelling patterns and high-frequency word recognition",
-    "primarySkill": "Orthographic pattern awareness for silent consonants and automatic recognition of high-frequency words",
-    "assignmentFormat": "Two-group spelling and recognition list",
+    "primarySkill": "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary",
+    "assignmentFormat": "Two-group spelling list: pattern-focused production targets and sight-word recognition targets",
     "concepts": [
-      "Silent-letter spelling patterns (gn-, kn-, wr-, -mb)",
-      "High-frequency word recognition and fluency",
-      "Orthographic memory for irregular patterns"
+      "Silent consonants in English orthography",
+      "High-frequency word recognition",
+      "Pattern-based spelling versus whole-word memory"
     ],
     "sourceEvidence": [
       "No explicit cross-domain topic detected.",
-      "Teacher headings distinguish spelling-pattern work from recognition work",
-      "Benchmark Advance Unit 9 Week 3 curriculum scope"
+      "source-document-text"
     ]
   },
   "capturedContent": {
@@ -148,82 +147,82 @@
         "positionIndex": 9
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:among:10",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
         "text": "among",
         "normalizedText": "among",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 10
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:building:11",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
         "text": "building",
         "normalizedText": "building",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 11
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:circle:12",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
         "text": "circle",
         "normalizedText": "circle",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 12
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:decided:13",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
         "text": "decided",
         "normalizedText": "decided",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 13
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:finally:14",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
         "text": "finally",
         "normalizedText": "finally",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 14
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:heavy:15",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
         "text": "heavy",
         "normalizedText": "heavy",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 15
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:include:16",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
         "text": "include",
         "normalizedText": "include",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 16
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:nothing:17",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
         "text": "nothing",
         "normalizedText": "nothing",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 17
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:special:18",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
         "text": "special",
         "normalizedText": "special",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 18
       },
       {
-        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:wheel:19",
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19",
         "text": "wheel",
         "normalizedText": "wheel",
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "purpose": "recognize",
         "positionIndex": 19
       }
@@ -248,9 +247,8 @@
         ],
         "confidence": 0.95,
         "evidence": [
-          "Teacher heading 'Silent Letters' explicitly names a spelling pattern target.",
-          "Words contain silent consonants (gn-, kn-, wr-, -mb) that require pattern knowledge for spelling production.",
-          "Benchmark Advance curriculum treats silent-letter patterns as spelling-construction skills, not just recognition."
+          "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
+          "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
         ],
         "wordGroupId": "silent_letters",
         "homeworkWordIds": [
@@ -267,7 +265,7 @@
         ]
       },
       {
-        "id": "high_frequency_words",
+        "id": "high_frequency",
         "label": "High-Frequency Words",
         "purpose": "recognize",
         "words": [
@@ -282,24 +280,24 @@
           "special",
           "wheel"
         ],
-        "confidence": 0.9,
+        "confidence": 0.92,
         "evidence": [
-          "Teacher heading 'High-Frequency Words' signals recognition and fluency goals, not spelling production.",
-          "These words are common sight words intended for reading fluency and automatic recognition.",
-          "Benchmark Advance high-frequency lists prioritize reading fluency over spelling mastery at grade 2."
+          "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
+          "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
+          "No silent-letter pattern ties these words together as a spelling cohort"
         ],
-        "wordGroupId": "high_frequency_words",
+        "wordGroupId": "high_frequency",
         "homeworkWordIds": [
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:among:10",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:building:11",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:circle:12",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:decided:13",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:finally:14",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:heavy:15",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:include:16",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:nothing:17",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:special:18",
-          "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:wheel:19"
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
         ]
       }
     ],
@@ -325,9 +323,8 @@
           ],
           "confidence": 0.95,
           "evidence": [
-            "Teacher heading 'Silent Letters' explicitly names a spelling pattern target.",
-            "Words contain silent consonants (gn-, kn-, wr-, -mb) that require pattern knowledge for spelling production.",
-            "Benchmark Advance curriculum treats silent-letter patterns as spelling-construction skills, not just recognition."
+            "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
+            "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
           ],
           "wordGroupId": "silent_letters",
           "homeworkWordIds": [
@@ -344,7 +341,7 @@
           ]
         },
         {
-          "id": "high_frequency_words",
+          "id": "high_frequency",
           "label": "High-Frequency Words",
           "purpose": "recognize",
           "words": [
@@ -359,24 +356,24 @@
             "special",
             "wheel"
           ],
-          "confidence": 0.9,
+          "confidence": 0.92,
           "evidence": [
-            "Teacher heading 'High-Frequency Words' signals recognition and fluency goals, not spelling production.",
-            "These words are common sight words intended for reading fluency and automatic recognition.",
-            "Benchmark Advance high-frequency lists prioritize reading fluency over spelling mastery at grade 2."
+            "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
+            "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
+            "No silent-letter pattern ties these words together as a spelling cohort"
           ],
-          "wordGroupId": "high_frequency_words",
+          "wordGroupId": "high_frequency",
           "homeworkWordIds": [
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:among:10",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:building:11",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:circle:12",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:decided:13",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:finally:14",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:heavy:15",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:include:16",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:nothing:17",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:special:18",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:wheel:19"
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
           ]
         }
       ],
@@ -386,19 +383,18 @@
           "claim": "Silent Letters was preserved from the assignment planner source truth.",
           "confidence": 0.95,
           "evidence": [
-            "Teacher heading 'Silent Letters' explicitly names a spelling pattern target.",
-            "Words contain silent consonants (gn-, kn-, wr-, -mb) that require pattern knowledge for spelling production.",
-            "Benchmark Advance curriculum treats silent-letter patterns as spelling-construction skills, not just recognition."
+            "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
+            "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
           ]
         },
         {
-          "id": "high_frequency_words-planner-source",
+          "id": "high_frequency-planner-source",
           "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
-          "confidence": 0.9,
+          "confidence": 0.92,
           "evidence": [
-            "Teacher heading 'High-Frequency Words' signals recognition and fluency goals, not spelling production.",
-            "These words are common sight words intended for reading fluency and automatic recognition.",
-            "Benchmark Advance high-frequency lists prioritize reading fluency over spelling mastery at grade 2."
+            "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
+            "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
+            "No silent-letter pattern ties these words together as a spelling cohort"
           ]
         }
       ],
@@ -421,9 +417,8 @@
           ],
           "confidence": 0.95,
           "evidence": [
-            "Teacher heading 'Silent Letters' explicitly names a spelling pattern target.",
-            "Words contain silent consonants (gn-, kn-, wr-, -mb) that require pattern knowledge for spelling production.",
-            "Benchmark Advance curriculum treats silent-letter patterns as spelling-construction skills, not just recognition."
+            "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
+            "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
           ],
           "wordGroupId": "silent_letters",
           "homeworkWordIds": [
@@ -442,7 +437,7 @@
       ],
       "heldTargets": [
         {
-          "id": "high_frequency_words",
+          "id": "high_frequency",
           "label": "High-Frequency Words",
           "purpose": "recognize",
           "words": [
@@ -457,24 +452,24 @@
             "special",
             "wheel"
           ],
-          "confidence": 0.9,
+          "confidence": 0.92,
           "evidence": [
-            "Teacher heading 'High-Frequency Words' signals recognition and fluency goals, not spelling production.",
-            "These words are common sight words intended for reading fluency and automatic recognition.",
-            "Benchmark Advance high-frequency lists prioritize reading fluency over spelling mastery at grade 2."
+            "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
+            "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
+            "No silent-letter pattern ties these words together as a spelling cohort"
           ],
-          "wordGroupId": "high_frequency_words",
+          "wordGroupId": "high_frequency",
           "homeworkWordIds": [
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:among:10",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:building:11",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:circle:12",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:decided:13",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:finally:14",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:heavy:15",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:include:16",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:nothing:17",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:special:18",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency_words:wheel:19"
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
           ]
         }
       ],
@@ -486,7 +481,7 @@
           "reason": "The worksheet has multiple target groups with different purposes; parent review should confirm Sunny's routing before the lesson plan is approved.",
           "targetGroupIds": [
             "silent_letters",
-            "high_frequency_words"
+            "high_frequency"
           ]
         }
       ],
@@ -503,24 +498,23 @@
       "practiceDomain": "spelling",
       "contentDomain": "language_arts",
       "topic": "Silent letter spelling patterns and high-frequency word recognition",
-      "primarySkill": "Orthographic pattern awareness for silent consonants and automatic recognition of high-frequency words",
-      "assignmentFormat": "Two-group spelling and recognition list",
+      "primarySkill": "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary",
+      "assignmentFormat": "Two-group spelling list: pattern-focused production targets and sight-word recognition targets",
       "concepts": [
-        "Silent-letter spelling patterns (gn-, kn-, wr-, -mb)",
-        "High-frequency word recognition and fluency",
-        "Orthographic memory for irregular patterns"
+        "Silent consonants in English orthography",
+        "High-frequency word recognition",
+        "Pattern-based spelling versus whole-word memory"
       ],
       "sourceEvidence": [
         "No explicit cross-domain topic detected.",
-        "Teacher headings distinguish spelling-pattern work from recognition work",
-        "Benchmark Advance Unit 9 Week 3 curriculum scope"
+        "source-document-text"
       ]
     }
   },
-  "contentFingerprint": "f0a5c30e3b932b7c",
+  "contentFingerprint": "46e22ebde22c9130",
   "calibrationStatus": "unverified",
   "ingestedAt": "2026-05-27",
-  "testDate": "2026-05-26",
+  "testDate": "2026-05-29",
   "testDateSource": "cli",
   "testDateConfirmed": true,
   "returnTag": "#sunny_reina_hw_spelling_test_5a49d659",
@@ -530,9 +524,9 @@
   "delta": null,
   "metrics": null,
   "theory": {
-    "theoryId": "hw-spelling_test-5a49d659:pre_quest:2026-05-27T01:46:23.064Z",
+    "theoryId": "hw-spelling_test-5a49d659:pre_quest:2026-05-27T14:42:46.802Z",
     "stage": "pre_quest",
-    "createdAt": "2026-05-27T01:46:23.064Z",
+    "createdAt": "2026-05-27T14:42:46.802Z",
     "hypothesis": "No confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.",
     "predictedPattern": "content_fit_gap",
     "predictedRiskWords": [

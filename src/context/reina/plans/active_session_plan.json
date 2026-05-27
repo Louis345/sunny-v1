@@ -3,15 +3,15 @@
   "childId": "reina",
   "selectedDomain": "spelling",
   "current": {
-    "planId": "assignment-plan-reina-99a544dd",
+    "planId": "plan-reina-2026-05-27-v1",
     "childId": "reina",
-    "createdAt": "2026-05-27T05:01:49.218Z",
+    "createdAt": "2026-05-27T14:42:46.789Z",
     "source": "ingest_human_loop",
     "domain": "spelling",
-    "testDate": "2026-05-26",
+    "testDate": "2026-05-29",
     "nodePlan": [
       {
-        "id": "node-wr-baseline-silent",
+        "id": "baseline-1-silent-spelling",
         "type": "word-radar",
         "activityId": "word-radar",
         "targets": [
@@ -40,7 +40,7 @@
         "source": "chart_planner"
       },
       {
-        "id": "node-pron-baseline-hfw",
+        "id": "baseline-2-high-freq-recognition",
         "type": "pronunciation",
         "activityId": "pronunciation",
         "targets": [
@@ -56,7 +56,7 @@
           "wheel"
         ],
         "difficulty": 1,
-        "targetLane": "high_frequency_words",
+        "targetLane": "high_frequency",
         "locked": false,
         "wordRadarConfig": {
           "recallMode": "visible_read",
@@ -69,7 +69,65 @@
         "source": "chart_planner"
       },
       {
-        "id": "node-mystery-1",
+        "id": "route-a-silent-support",
+        "type": "spell-check",
+        "activityId": "spell-check",
+        "targets": [
+          "sign",
+          "know",
+          "write",
+          "thumb",
+          "comb",
+          "gnat",
+          "knock",
+          "knife",
+          "wrong",
+          "climb"
+        ],
+        "difficulty": 2,
+        "targetLane": "silent_letters",
+        "locked": false,
+        "wordRadarConfig": {
+          "recallMode": "partial_visual_recall",
+          "inputMode": "letter-by-letter",
+          "speakStyle": "option-a",
+          "showTimer": false,
+          "hideWordDuringResponse": true,
+          "requiresCapturedResponse": true
+        },
+        "source": "chart_planner"
+      },
+      {
+        "id": "route-b-high-freq-fluency",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "among",
+          "building",
+          "circle",
+          "decided",
+          "finally",
+          "heavy",
+          "include",
+          "nothing",
+          "special",
+          "wheel"
+        ],
+        "difficulty": 1,
+        "targetLane": "high_frequency",
+        "locked": false,
+        "wordRadarConfig": {
+          "recallMode": "visible_read",
+          "inputMode": "whole-word",
+          "speakStyle": "option-a",
+          "showTimer": false,
+          "hideWordDuringResponse": false,
+          "requiresCapturedResponse": true
+        },
+        "source": "chart_planner"
+      },
+      {
+        "id": "mystery-1",
         "type": "mystery",
         "activityId": "mystery",
         "targets": [
@@ -88,18 +146,10 @@
         "targetLane": "silent_letters",
         "choiceMode": "choice_lab",
         "locked": false,
-        "wordRadarConfig": {
-          "recallMode": "visible_read",
-          "inputMode": "whole-word",
-          "speakStyle": "option-a",
-          "showTimer": false,
-          "hideWordDuringResponse": false,
-          "requiresCapturedResponse": false
-        },
         "source": "chart_planner"
       },
       {
-        "id": "node-quest-silent",
+        "id": "quest-1",
         "type": "quest",
         "activityId": "quest",
         "targets": [
@@ -118,55 +168,27 @@
         "targetLane": "silent_letters",
         "locked": true,
         "masteryUnlockState": "preparing",
-        "wordRadarConfig": {
-          "recallMode": "partial_visual_recall",
-          "inputMode": "letter-by-letter",
-          "speakStyle": "option-a",
-          "showTimer": false,
-          "hideWordDuringResponse": true,
-          "requiresCapturedResponse": true
-        },
         "source": "chart_planner"
       },
       {
-        "id": "node-boss-finale",
+        "id": "boss-1",
         "type": "boss",
         "activityId": "boss",
-        "targets": [
-          "sign",
-          "know",
-          "write",
-          "thumb",
-          "comb",
-          "gnat",
-          "knock",
-          "knife",
-          "wrong",
-          "climb"
-        ],
+        "targets": [],
         "difficulty": 3,
         "targetLane": "silent_letters",
         "locked": true,
         "masteryUnlockState": "preparing",
-        "wordRadarConfig": {
-          "recallMode": "hidden_word_recall",
-          "inputMode": "letter-by-letter",
-          "speakStyle": "option-a",
-          "showTimer": true,
-          "timerSeconds": 30,
-          "hideWordDuringResponse": true,
-          "requiresCapturedResponse": true
-        },
         "source": "chart_planner"
       }
     ],
     "adventureBoard": {
       "schemaVersion": 1,
-      "boardId": "reina-active-spelling-route-board",
-      "planId": "assignment-plan-reina-99a544dd",
+      "boardId": "reina-board-2026-05-27-silent-letters",
+      "planId": "plan-reina-2026-05-27-v1",
       "childId": "reina",
       "domain": "spelling",
-      "title": "Silent Letter Adventure",
+      "title": "Silent Letter Quest",
       "theme": {
         "background": {
           "type": "image",
@@ -189,13 +211,13 @@
         "routeChoiceBehavior": "exclusive"
       },
       "plannerRationale": {
-        "agencyDesign": "Two required baseline nodes measure both source groups before any choices: silent-letter spelling production via partial-recall Word Radar, then high-frequency recognition via visible-read Pronunciation. After baseline evidence exists, a Mystery choice lab offers child-facing preference evidence on reward wrappers without contaminating mastery. Quest and Boss remain locked until baseline and Mystery produce enough evidence to justify generated transfer.",
-        "evidenceDesign": "Silent Letters group requires spelling-production evidence because the teacher heading explicitly names 'Silent Letters' as a pattern-based spelling skill; Word Radar partial_visual_recall with letter-by-letter input and hidden word is the correct baseline instrument. High-Frequency Words group is labeled for recognition and fluency, not spelling production; Pronunciation with visible_read measures read-aloud fluency and recognition, which matches the teacher's intent. No recent canonical evidence exists, so full baseline is appropriate. Mystery follows baseline to collect preference data. Quest and Boss are locked until baseline measurements clarify the theory.",
-        "layoutChoice": "Used boardTemplate.art.backgroundUrl '/generated/adventure-board-demo/silent-letter-world.jpeg' for background. Used exact palette from boardTemplate. All node thumbnails matched from boardTemplate.art.nodeThumbnails or .choiceThumbnails. Companion Matilda placed right per chart. Start -> baseline -> baseline -> Mystery -> locked Quest -> locked Boss follows the approved horizontal spine skeleton. Route choice gate was not needed because both baseline activities are required and no conflicting theories exist yet; agency is reserved for Mystery preference evidence after work is complete."
+        "agencyDesign": "Two required baseline nodes establish evidence for both source groups before offering route choice. Route A (Spell Check) provides audio-prompted spelling construction for silent-letter targets that need deeper encoding. Route B (Word Radar visible read) reinforces high-frequency sight vocabulary with fast recognition repetition. Both routes feed into Mystery for preference evidence, then locked Quest targeting silent-letter transfer, then locked Boss for final mastery gate.",
+        "evidenceDesign": "Baseline 1 measures silent-letter spelling construction using partial visual recall to capture per-word accuracy and letter-order errors. Baseline 2 measures high-frequency word pronunciation/recognition using visible read mode because the source purpose is recognize, not spell_from_memory. Route activities extend baseline evidence with varied instruments: Spell Check adds audio-prompted retrieval for silent letters; Word Radar visible read adds fast recognition flow for high-frequency words. Mystery collects preference without claiming mastery. Quest and Boss remain locked until baseline and quest evidence justify unlocking.",
+        "layoutChoice": "Used boardTemplate slots 1-8 with horizontal-adventure-spine preset. Start at slot 1, two baseline nodes at slots 2-3, choice gate at slot 4, route nodes at 5a.1 (upper) and 5b.1 (lower), Mystery at slot 6, Quest at slot 7, Boss at slot 8. All node thumbnails selected from boardTemplate.art.nodeThumbnails. Background image and palette used exactly as specified in boardTemplate."
       },
       "nodes": [
         {
-          "id": "node-start",
+          "id": "start-node",
           "kind": "start",
           "label": "Start",
           "shortLabel": "Start",
@@ -206,14 +228,18 @@
             "lane": "main",
             "order": 1
           },
-          "state": "completed"
+          "state": "completed",
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "baseline-1-silent-spelling"
+          }
         },
         {
-          "id": "node-wr-baseline-silent",
+          "id": "baseline-1-silent-spelling",
           "kind": "activity",
           "activityId": "word-radar",
-          "label": "Silent Letters",
-          "shortLabel": "Silent Letters",
+          "label": "Silent Letter Spell",
+          "shortLabel": "Silent Spell",
           "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
           "slot": "2",
           "layout": {
@@ -238,52 +264,26 @@
               "wrong",
               "climb"
             ]
-          },
-          "action": {
-            "type": "launch-activity",
-            "payloadId": "word-radar"
           }
         },
         {
-          "id": "choice-route-1",
-          "kind": "choice-gate",
-          "label": "Choose Path",
-          "shortLabel": "Choose Path",
-          "icon": "route",
-          "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
-          "slot": "4",
-          "layout": {
-            "role": "choice-gate",
-            "lane": "main",
-            "order": 1
-          },
-          "state": "available",
-          "evidenceRole": "preference",
-          "choiceSetId": "route-choice-1",
-          "action": {
-            "type": "open-choice-set",
-            "payloadId": "route-choice-1"
-          }
-        },
-        {
-          "id": "node-pron-baseline-hfw",
+          "id": "baseline-2-high-freq-recognition",
           "kind": "activity",
           "activityId": "pronunciation",
-          "label": "Read & Say",
-          "shortLabel": "Read & Say",
+          "label": "Read Sight Words",
+          "shortLabel": "Read Words",
           "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
-          "slot": "5a.1",
+          "slot": "3",
           "layout": {
-            "role": "evidence-route",
-            "lane": "upper",
-            "order": 1,
-            "routeGroupId": "route-choice-1"
+            "role": "baseline",
+            "lane": "main",
+            "order": 2
           },
           "state": "available",
           "evidenceRole": "baseline",
           "target": {
-            "laneId": "high_frequency_words",
-            "skill": "read_fluently",
+            "laneId": "high_frequency",
+            "skill": "recognize",
             "words": [
               "among",
               "building",
@@ -296,30 +296,46 @@
               "special",
               "wheel"
             ]
-          },
-          "action": {
-            "type": "launch-activity",
-            "payloadId": "pronunciation"
           }
         },
         {
-          "id": "node-mystery-1",
-          "kind": "mystery",
-          "activityId": "mystery",
-          "label": "Mystery Reward",
-          "shortLabel": "Mystery",
-          "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-          "slot": "6",
+          "id": "choice-gate-1",
+          "kind": "choice-gate",
+          "label": "Choose Path",
+          "shortLabel": "Choose Path",
+          "thumbnailUrl": "/thumbnails/mystery-fallback.svg",
+          "slot": "4",
           "layout": {
-            "role": "mystery",
+            "role": "choice-gate",
             "lane": "main",
             "order": 1
           },
-          "state": "locked",
-          "evidenceRole": "preference",
+          "state": "available",
+          "choiceSetId": "route-choice-1",
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "route-choice-1"
+          }
+        },
+        {
+          "id": "route-a-silent-support",
+          "kind": "activity",
+          "activityId": "spell-check",
+          "label": "Spell Check Silent",
+          "shortLabel": "Spell Check",
+          "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+          "slot": "5a.1",
+          "layout": {
+            "role": "evidence-route",
+            "lane": "upper",
+            "order": 1,
+            "routeGroupId": "route-choice-1"
+          },
+          "state": "available",
+          "evidenceRole": "support",
           "target": {
             "laneId": "silent_letters",
-            "skill": "preference_evidence",
+            "skill": "spell_from_memory",
             "words": [
               "sign",
               "know",
@@ -332,22 +348,62 @@
               "wrong",
               "climb"
             ]
-          },
-          "lock": {
-            "reason": "Complete baseline work first",
-            "label": "Locked",
-            "progressLabel": "Finish baseline"
-          },
-          "action": {
-            "type": "open-choice-set",
-            "payloadId": "choice-mystery-wrapper"
           }
         },
         {
-          "id": "node-quest-silent",
+          "id": "route-b-high-freq-fluency",
+          "kind": "activity",
+          "activityId": "word-radar",
+          "label": "Fast Recognition",
+          "shortLabel": "Fast Read",
+          "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+          "slot": "5b.1",
+          "layout": {
+            "role": "evidence-route",
+            "lane": "lower",
+            "order": 1,
+            "routeGroupId": "route-choice-1"
+          },
+          "state": "available",
+          "evidenceRole": "support",
+          "target": {
+            "laneId": "high_frequency",
+            "skill": "recognize",
+            "words": [
+              "among",
+              "building",
+              "circle",
+              "decided",
+              "finally",
+              "heavy",
+              "include",
+              "nothing",
+              "special",
+              "wheel"
+            ]
+          }
+        },
+        {
+          "id": "mystery-1",
+          "kind": "mystery",
+          "activityId": "mystery",
+          "label": "Mystery Reward",
+          "shortLabel": "Mystery",
+          "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+          "slot": "6",
+          "layout": {
+            "role": "mystery",
+            "lane": "main",
+            "order": 1
+          },
+          "state": "available",
+          "evidenceRole": "preference"
+        },
+        {
+          "id": "quest-1",
           "kind": "quest",
           "activityId": "quest",
-          "label": "Quest Challenge",
+          "label": "Silent Letter Quest",
           "shortLabel": "Quest",
           "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
           "slot": "7",
@@ -360,7 +416,7 @@
           "evidenceRole": "transfer",
           "target": {
             "laneId": "silent_letters",
-            "skill": "generated_transfer",
+            "skill": "spell_from_memory",
             "words": [
               "sign",
               "know",
@@ -375,20 +431,16 @@
             ]
           },
           "lock": {
-            "reason": "Baseline and Mystery evidence needed",
+            "reason": "Complete baseline and route practice to unlock the Quest challenge.",
             "label": "Locked",
-            "progressLabel": "Complete baseline"
-          },
-          "action": {
-            "type": "launch-activity",
-            "payloadId": "quest"
+            "progressLabel": "Baseline + Practice"
           }
         },
         {
-          "id": "node-boss-finale",
+          "id": "boss-1",
           "kind": "boss",
           "activityId": "boss",
-          "label": "Boss Battle",
+          "label": "Mastery Boss",
           "shortLabel": "Boss",
           "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
           "slot": "8",
@@ -399,80 +451,74 @@
           },
           "state": "locked",
           "evidenceRole": "mastery",
-          "target": {
-            "laneId": "silent_letters",
-            "skill": "mastery_gate",
-            "words": [
-              "sign",
-              "know",
-              "write",
-              "thumb",
-              "comb",
-              "gnat",
-              "knock",
-              "knife",
-              "wrong",
-              "climb"
-            ]
-          },
           "lock": {
-            "reason": "Quest evidence needed first",
+            "reason": "Complete Quest evidence to unlock the final Boss challenge.",
             "label": "Locked",
-            "progressLabel": "Complete Quest"
-          },
-          "action": {
-            "type": "launch-activity",
-            "payloadId": "boss"
+            "progressLabel": "Quest Required"
           }
         }
       ],
       "edges": [
         {
-          "id": "edge-start-word-radar",
-          "from": "node-start",
-          "to": "node-wr-baseline-silent",
+          "id": "edge-start-to-baseline1",
+          "from": "start-node",
+          "to": "baseline-1-silent-spelling",
           "state": "completed",
           "style": "solid"
         },
         {
-          "id": "edge-word-radar-choice",
-          "from": "node-wr-baseline-silent",
-          "to": "choice-route-1",
+          "id": "edge-baseline1-to-baseline2",
+          "from": "baseline-1-silent-spelling",
+          "to": "baseline-2-high-freq-recognition",
           "state": "available",
-          "style": "glow"
+          "style": "solid"
         },
         {
-          "id": "edge-choice-read-say",
-          "from": "choice-route-1",
-          "to": "node-pron-baseline-hfw",
+          "id": "edge-baseline2-to-gate",
+          "from": "baseline-2-high-freq-recognition",
+          "to": "choice-gate-1",
           "state": "available",
-          "style": "dashed"
+          "style": "solid"
         },
         {
-          "id": "edge-read-say-mystery",
-          "from": "node-pron-baseline-hfw",
-          "to": "node-mystery-1",
+          "id": "edge-gate-to-routeA",
+          "from": "choice-gate-1",
+          "to": "route-a-silent-support",
           "state": "available",
-          "style": "dashed"
+          "style": "solid"
         },
         {
-          "id": "edge-choice-mystery",
-          "from": "choice-route-1",
-          "to": "node-mystery-1",
+          "id": "edge-gate-to-routeB",
+          "from": "choice-gate-1",
+          "to": "route-b-high-freq-fluency",
           "state": "available",
-          "style": "dashed"
+          "style": "solid"
         },
         {
-          "id": "edge-mystery-quest",
-          "from": "node-mystery-1",
-          "to": "node-quest-silent",
+          "id": "edge-routeA-to-mystery",
+          "from": "route-a-silent-support",
+          "to": "mystery-1",
+          "state": "available",
+          "style": "solid"
+        },
+        {
+          "id": "edge-routeB-to-mystery",
+          "from": "route-b-high-freq-fluency",
+          "to": "mystery-1",
+          "state": "available",
+          "style": "solid"
+        },
+        {
+          "id": "edge-mystery-to-quest",
+          "from": "mystery-1",
+          "to": "quest-1",
           "state": "locked",
           "style": "dashed"
         },
         {
-          "id": "edge-quest-boss",
-          "from": "node-quest-silent",
-          "to": "node-boss-finale",
+          "id": "edge-quest-to-boss",
+          "from": "quest-1",
+          "to": "boss-1",
           "state": "locked",
           "style": "dashed"
         }
@@ -481,153 +527,44 @@
         {
           "id": "route-choice-1",
           "kind": "baseline-route",
-          "title": "Choose your path",
+          "title": "Choose Your Path",
           "options": [
             {
-              "id": "route-read-say",
-              "label": "Read & Say",
-              "description": "Practice the sight-word lane out loud before the reward door.",
-              "icon": "book",
-              "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+              "id": "route-option-a",
+              "label": "Spell Check Silent",
+              "description": "Practice spelling silent-letter words with audio prompts",
+              "icon": "spell-check",
+              "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
               "state": "available",
-              "nodeId": "node-pron-baseline-hfw",
-              "tags": [
-                "voice",
-                "sight words"
-              ],
+              "nodeId": "route-a-silent-support",
               "choiceSignal": {
                 "algorithmFeed": "choicePolicy",
                 "traits": [
-                  "voice",
-                  "sight_words",
-                  "support_route"
+                  "audio-prompted-spelling",
+                  "silent-letter-focus",
+                  "scaffolded-construction"
                 ],
-                "expectedEvidence": "Record whether Reina chooses, skips, completes, or returns to the Read & Say route; preference only, not mastery.",
+                "expectedEvidence": "Preference for audio-prompted spelling construction over visual recognition flow",
                 "preferenceNotMastery": true
               }
             },
             {
-              "id": "route-mystery",
-              "label": "Mystery",
-              "description": "Head straight toward the reward door after the silent-letter check.",
-              "icon": "mystery",
-              "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+              "id": "route-option-b",
+              "label": "Fast Recognition",
+              "description": "Read high-frequency words quickly for fluency",
+              "icon": "word-radar",
+              "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
               "state": "available",
-              "nodeId": "node-mystery-1",
-              "tags": [
-                "reward",
-                "fast route"
-              ],
+              "nodeId": "route-b-high-freq-fluency",
               "choiceSignal": {
                 "algorithmFeed": "choicePolicy",
                 "traits": [
-                  "reward",
-                  "fast_route",
-                  "dopamine_route"
+                  "visible-read",
+                  "high-frequency-words",
+                  "fast-recognition-flow"
                 ],
-                "expectedEvidence": "Record whether Reina chooses, skips, completes, or returns to the Mystery route; preference only, not mastery.",
+                "expectedEvidence": "Preference for fast visible-read recognition over audio-prompted spelling",
                 "preferenceNotMastery": true
-              }
-            }
-          ]
-        },
-        {
-          "id": "choice-mystery-wrapper",
-          "kind": "mystery",
-          "title": "Pick Your Reward!",
-          "options": [
-            {
-              "id": "mystery-option-wheel",
-              "label": "Wheel of Fortune",
-              "description": "Spin and solve word puzzles",
-              "thumbnailUrl": "/thumbnails/activities/wheel-of-fortune.svg",
-              "state": "available",
-              "nodeId": "node-mystery-1",
-              "choiceSignal": {
-                "algorithmFeed": "choicePolicy",
-                "traits": [
-                  "wheel-of-fortune",
-                  "word-puzzle",
-                  "reward"
-                ],
-                "expectedEvidence": "preference for puzzle-style reward after baseline work",
-                "preferenceNotMastery": true
-              }
-            },
-            {
-              "id": "mystery-option-asteroid",
-              "label": "Asteroid",
-              "description": "Action game in space",
-              "thumbnailUrl": "/thumbnails/activities/speed-catcher.svg",
-              "state": "available",
-              "nodeId": "node-mystery-1",
-              "choiceSignal": {
-                "algorithmFeed": "choicePolicy",
-                "traits": [
-                  "asteroid",
-                  "action-game",
-                  "reward"
-                ],
-                "expectedEvidence": "preference for action-style reward after baseline work",
-                "preferenceNotMastery": true
-              }
-            }
-          ]
-        },
-        {
-          "id": "choice-quest-wrapper",
-          "kind": "quest-wrapper",
-          "title": "Ready for Quest?",
-          "options": [
-            {
-              "id": "quest-option-silent",
-              "label": "Silent Letter Quest",
-              "description": "Apply silent-letter skills in a new challenge",
-              "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
-              "state": "locked",
-              "nodeId": "node-quest-silent",
-              "choiceSignal": {
-                "algorithmFeed": "choicePolicy",
-                "traits": [
-                  "quest",
-                  "silent-letters",
-                  "transfer"
-                ],
-                "expectedEvidence": "preference for generated silent-letter transfer after baseline",
-                "preferenceNotMastery": true
-              },
-              "lock": {
-                "reason": "Complete baseline and Mystery first",
-                "label": "Locked"
-              }
-            }
-          ]
-        },
-        {
-          "id": "choice-boss-wrapper",
-          "kind": "boss-wrapper",
-          "title": "Ready for Boss?",
-          "options": [
-            {
-              "id": "boss-option-finale",
-              "label": "Boss Battle",
-              "description": "Final mastery challenge",
-              "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
-              "state": "locked",
-              "nodeId": "node-boss-finale",
-              "choiceSignal": {
-                "algorithmFeed": "choicePolicy",
-                "traits": [
-                  "boss",
-                  "mastery-gate",
-                  "finale"
-                ],
-                "expectedEvidence": "preference for final mastery gate after quest evidence",
-                "preferenceNotMastery": true
-              },
-              "lock": {
-                "reason": "Complete Quest first",
-                "label": "Locked"
               }
             }
           ]
@@ -638,9 +575,9 @@
         "name": "Matilda"
       },
       "progress": {
-        "currentNodeId": "node-wr-baseline-silent",
+        "currentNodeId": "baseline-1-silent-spelling",
         "completedNodeIds": [
-          "node-start"
+          "start-node"
         ]
       }
     },
@@ -659,86 +596,104 @@
     },
     "evidenceUsed": [
       {
-        "id": "recentEvidence",
-        "type": "chart",
-        "summary": "No recent canonical activity evidence exists for Reina on this homework, so full baseline measurement is appropriate for both source groups."
+        "id": "source-document-text",
+        "type": "assignment-text",
+        "summary": "Benchmark Advance Unit 9 Week 3 with two labeled groups: Silent Letters (10 words) and High-Frequency Words (10 words)"
+      },
+      {
+        "id": "assignment-source",
+        "type": "assignment_source",
+        "summary": "Board generated from stored source assignment and local OCR/text extraction."
       }
     ],
     "openQuestions": [
-      "Which silent-letter words will Reina spell correctly on first try with low latency, and which will require retry or support?",
-      "Can Reina read high-frequency words fluently without hesitation, or will some words show decoding struggle?",
-      "After baseline evidence, which reward wrapper will Reina prefer: puzzle-style or action-style?",
-      "Does the silent-letter pattern need explicit teaching, or can Reina infer the pattern from exposure and correction?"
+      "Which silent-letter words will Reina miss on first attempt?",
+      "Does Reina already recognize all high-frequency words, or will some require pronunciation support?",
+      "Will route choice preference align with skill confidence, or will Reina choose variety?",
+      "What level of audio-prompt support will silent-letter targets require before independent recall?"
     ],
-    "plannerConfidence": 0.9,
+    "plannerConfidence": 0.85,
     "approvalStatus": "pending",
     "planTheory": {
-      "hypothesis": "Reina can spell most silent-letter words with scaffolded letter-by-letter support, and can recognize most high-frequency words fluently. The silent-letter group requires spelling-production evidence because the teacher heading explicitly names a pattern-based skill; the high-frequency group requires recognition and fluency evidence because the heading signals sight-word goals, not spelling production.",
+      "hypothesis": "Reina's silent-letter spelling depends on explicit orthographic memory for kn-, wr-, -mb, and gn- patterns, while her high-frequency word reading depends on whole-word visual recognition. The two groups require different measurement instruments: spelling construction for silent letters (because the teacher heading and pattern focus signal production goals) and visible-read pronunciation for high-frequency words (because the teacher heading signals recognition/fluency goals, not spelling production).",
       "evidenceSummary": [
-        "No recent canonical activity evidence exists for Reina on this homework.",
-        "Teacher headings distinguish 'Silent Letters' (spelling pattern) from 'High-Frequency Words' (recognition/fluency).",
-        "Benchmark Advance Unit 9 Week 3 scope confirms silent-letter patterns are spelling-construction targets and high-frequency words are reading-fluency targets.",
-        "Reina is grade 2; stamina and motivation are appropriate for two required baseline activities before choice."
+        "Source document separates two labeled groups with different teacher-assigned purposes",
+        "Silent Letters group contains pattern-focused words (kn-, wr-, -mb, gn-) requiring orthographic production memory",
+        "High-Frequency Words group contains Benchmark Advance sight vocabulary for reading fluency, not spelling drill",
+        "No prior session evidence exists for Reina; this is the first baseline session",
+        "masteryContext shows 2 days until test with urgent intensity, requiring fast baseline evidence and efficient coverage"
       ],
-      "intervention": "Measure silent-letter spelling production with Word Radar partial_visual_recall (letter-by-letter input, hidden word during response, captured response required) to establish which words Reina can construct independently versus which need targeted support. Measure high-frequency recognition with Pronunciation visible_read (whole-word speak, visible word, captured response required) to establish which words Reina can read fluently versus which need pronunciation or decoding support. After both baseline nodes, offer Mystery choice lab for preference evidence on reward wrappers. Lock Quest and Boss until baseline and Mystery evidence clarify the theory.",
+      "intervention": "Measure silent-letter spelling using Word Radar partial visual recall (letter-by-letter construction with hidden word) to capture per-word accuracy and error patterns. Measure high-frequency word recognition using Pronunciation visible read mode to capture fluency and decoding, not spelling production. Offer route choice after both baselines: Route A extends silent-letter evidence with Spell Check audio-prompted spelling; Route B extends high-frequency evidence with Word Radar visible-read flow. Mystery provides preference evidence without contaminating mastery. Quest and Boss remain locked until baseline and quest evidence justify unlocking.",
       "supportCriteria": [
-        "Word Radar silent-letter baseline shows 8+ first-try correct with low latency, supporting strong pattern awareness.",
-        "Pronunciation high-frequency baseline shows 9+ fluent first-pass reads, supporting strong recognition.",
-        "Mystery choice completed with positive engagement, supporting motivation for continued work."
+        "Silent-letter baseline shows ≥7/10 correct first try, suggesting pattern is accessible and route practice can deepen encoding",
+        "High-frequency baseline shows ≥8/10 correct pronunciation, suggesting recognition is strong and visible-read flow can build automaticity",
+        "Route choice shows clear preference and completion, confirming agency model fits Reina's engagement style",
+        "Mystery completion with positive affect confirms reward timing and type are appropriate"
       ],
       "reviseCriteria": [
-        "Word Radar silent-letter baseline shows 4–7 correct or multiple retries, indicating partial pattern knowledge and need for targeted support on exact missed words.",
-        "Pronunciation high-frequency baseline shows 5–8 fluent reads or hesitation on 2–5 words, indicating those exact words need pronunciation or visible-read support.",
-        "Mystery choice skipped or abandoned, indicating wrapper mismatch or stamina limit."
+        "Silent-letter baseline shows 3-6/10 correct or multiple retries, indicating pattern needs explicit teaching before more construction drills",
+        "High-frequency baseline shows 4-7/10 correct or hesitation, indicating recognition needs more visible-read repetition before fluency demands",
+        "Route choice shows skip or abandonment, suggesting route options need revision or stamina is lower than expected",
+        "Mystery shows neutral or skip, indicating reward type or timing mismatch"
       ],
       "falsifyCriteria": [
-        "Word Radar silent-letter baseline shows 0–3 correct or pervasive confusion, falsifying pattern-awareness hypothesis and indicating need for explicit teaching.",
-        "Pronunciation high-frequency baseline shows hesitation or misread on 6+ words, falsifying recognition hypothesis and indicating need for explicit decoding.",
-        "Both baseline activities abandoned or frustrated, falsifying engagement hypothesis and indicating need for relationship repair or stamina check."
+        "Silent-letter baseline shows ≤2/10 correct or refusal, indicating silent-letter pattern is not accessible and construction drills are premature",
+        "High-frequency baseline shows ≤3/10 correct or decoding struggle, indicating sight vocabulary is not yet automatic and needs direct teaching",
+        "Route choice shows refusal or frustration, indicating agency model is wrong for Reina or baseline work was too hard",
+        "Mystery shows negative affect or early exit, indicating reward is aversive or mistimed"
       ]
     },
     "plannedMeasurements": [
       {
-        "id": "measure-wr-silent",
+        "id": "measure-1-silent-baseline",
         "activityId": "word-radar",
-        "target": "silent_letters group: sign, know, write, thumb, comb, gnat, knock, knife, wrong, climb",
-        "evidenceType": "baseline spelling construction with partial visual recall",
-        "supportCriteria": "First-try correct on 8+ words with low latency and no retry supports that silent-letter pattern awareness is strong",
-        "reviseCriteria": "4–7 correct on first try, or multiple retries, suggests partial pattern knowledge and indicates need for targeted support on exact missed words",
-        "falsifyCriteria": "0–3 correct, or pervasive confusion across all silent-letter types, falsifies pattern-awareness hypothesis and indicates need for explicit teaching before practice"
+        "target": "silent_letters group (all 10 words)",
+        "evidenceType": "baseline-spelling-construction",
+        "supportCriteria": "≥7 words correct first try with low latency and no help requests confirms baseline competence",
+        "reviseCriteria": "3-6 words correct or multiple retries/help requests indicates need for audio-prompted support and pattern teaching",
+        "falsifyCriteria": "≤2 words correct or refusal/frustration indicates silent-letter pattern is not yet accessible and needs explicit teaching before more drills"
       },
       {
-        "id": "measure-pron-hfw",
+        "id": "measure-2-high-freq-baseline",
         "activityId": "pronunciation",
-        "target": "high_frequency_words group: among, building, circle, decided, finally, heavy, include, nothing, special, wheel",
-        "evidenceType": "baseline read-aloud fluency with visible word",
-        "supportCriteria": "Fluent first-pass pronunciation on 9+ words with no hesitation or support requests supports that recognition is strong and only light spaced checks are needed",
-        "reviseCriteria": "5–8 fluent reads, or hesitation/skip on 2–5 words, suggests partial recognition and indicates those exact words need pronunciation or visible-read support",
-        "falsifyCriteria": "Hesitation or misread on 6+ words, or pervasive decoding struggle, falsifies recognition hypothesis and indicates need for explicit decoding or word-building before fluency practice"
+        "target": "high_frequency group (all 10 words)",
+        "evidenceType": "baseline-recognition-pronunciation",
+        "supportCriteria": "≥8 words pronounced correctly first try with fluency confirms recognition baseline",
+        "reviseCriteria": "4-7 words correct or hesitation/skips indicates need for visible-read repetition and fluency support",
+        "falsifyCriteria": "≤3 words correct or decoding struggle indicates high-frequency words are not yet automatic and need direct teaching"
       },
       {
-        "id": "measure-mystery-preference",
+        "id": "measure-3-route-preference",
+        "activityId": "choice-gate",
+        "target": "route-choice-1 options",
+        "evidenceType": "preference-choice",
+        "supportCriteria": "Child chooses and completes chosen route with engagement and low frustration",
+        "reviseCriteria": "Child skips or abandons chosen route, suggesting route mismatch or fatigue",
+        "falsifyCriteria": "Child refuses choice or shows frustration at gate, indicating agency model needs revision"
+      },
+      {
+        "id": "measure-4-mystery-preference",
         "activityId": "mystery",
-        "target": "child preference between puzzle-style and action-style reward wrappers",
-        "evidenceType": "preference evidence from choice, completion, and replay",
-        "supportCriteria": "Chosen option completed with replay or positive affect supports preference for that wrapper type",
-        "reviseCriteria": "Chosen option abandoned or frustrated indicates wrapper mismatch; skipped option is weak neutral",
-        "falsifyCriteria": "Both options skipped or session abandoned falsifies engagement hypothesis and indicates need for relationship repair or stamina check"
+        "target": "all homework words",
+        "evidenceType": "preference-reward",
+        "supportCriteria": "Child engages with mystery content and completes with positive affect",
+        "reviseCriteria": "Child skips or shows neutral engagement, suggesting reward type mismatch",
+        "falsifyCriteria": "Child refuses or shows negative affect, indicating reward timing or type needs revision"
       }
     ],
     "activeHomeworkId": "hw-spelling_test-5a49d659"
   },
   "activeByDomain": {
     "spelling": {
-      "planId": "assignment-plan-reina-99a544dd",
+      "planId": "plan-reina-2026-05-27-v1",
       "childId": "reina",
-      "createdAt": "2026-05-27T05:01:49.218Z",
+      "createdAt": "2026-05-27T14:42:46.789Z",
       "source": "ingest_human_loop",
       "domain": "spelling",
-      "testDate": "2026-05-26",
+      "testDate": "2026-05-29",
       "nodePlan": [
         {
-          "id": "node-wr-baseline-silent",
+          "id": "baseline-1-silent-spelling",
           "type": "word-radar",
           "activityId": "word-radar",
           "targets": [
@@ -767,7 +722,7 @@
           "source": "chart_planner"
         },
         {
-          "id": "node-pron-baseline-hfw",
+          "id": "baseline-2-high-freq-recognition",
           "type": "pronunciation",
           "activityId": "pronunciation",
           "targets": [
@@ -783,7 +738,7 @@
             "wheel"
           ],
           "difficulty": 1,
-          "targetLane": "high_frequency_words",
+          "targetLane": "high_frequency",
           "locked": false,
           "wordRadarConfig": {
             "recallMode": "visible_read",
@@ -796,7 +751,65 @@
           "source": "chart_planner"
         },
         {
-          "id": "node-mystery-1",
+          "id": "route-a-silent-support",
+          "type": "spell-check",
+          "activityId": "spell-check",
+          "targets": [
+            "sign",
+            "know",
+            "write",
+            "thumb",
+            "comb",
+            "gnat",
+            "knock",
+            "knife",
+            "wrong",
+            "climb"
+          ],
+          "difficulty": 2,
+          "targetLane": "silent_letters",
+          "locked": false,
+          "wordRadarConfig": {
+            "recallMode": "partial_visual_recall",
+            "inputMode": "letter-by-letter",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          },
+          "source": "chart_planner"
+        },
+        {
+          "id": "route-b-high-freq-fluency",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": [
+            "among",
+            "building",
+            "circle",
+            "decided",
+            "finally",
+            "heavy",
+            "include",
+            "nothing",
+            "special",
+            "wheel"
+          ],
+          "difficulty": 1,
+          "targetLane": "high_frequency",
+          "locked": false,
+          "wordRadarConfig": {
+            "recallMode": "visible_read",
+            "inputMode": "whole-word",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": false,
+            "requiresCapturedResponse": true
+          },
+          "source": "chart_planner"
+        },
+        {
+          "id": "mystery-1",
           "type": "mystery",
           "activityId": "mystery",
           "targets": [
@@ -815,18 +828,10 @@
           "targetLane": "silent_letters",
           "choiceMode": "choice_lab",
           "locked": false,
-          "wordRadarConfig": {
-            "recallMode": "visible_read",
-            "inputMode": "whole-word",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": false,
-            "requiresCapturedResponse": false
-          },
           "source": "chart_planner"
         },
         {
-          "id": "node-quest-silent",
+          "id": "quest-1",
           "type": "quest",
           "activityId": "quest",
           "targets": [
@@ -845,55 +850,27 @@
           "targetLane": "silent_letters",
           "locked": true,
           "masteryUnlockState": "preparing",
-          "wordRadarConfig": {
-            "recallMode": "partial_visual_recall",
-            "inputMode": "letter-by-letter",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": true,
-            "requiresCapturedResponse": true
-          },
           "source": "chart_planner"
         },
         {
-          "id": "node-boss-finale",
+          "id": "boss-1",
           "type": "boss",
           "activityId": "boss",
-          "targets": [
-            "sign",
-            "know",
-            "write",
-            "thumb",
-            "comb",
-            "gnat",
-            "knock",
-            "knife",
-            "wrong",
-            "climb"
-          ],
+          "targets": [],
           "difficulty": 3,
           "targetLane": "silent_letters",
           "locked": true,
           "masteryUnlockState": "preparing",
-          "wordRadarConfig": {
-            "recallMode": "hidden_word_recall",
-            "inputMode": "letter-by-letter",
-            "speakStyle": "option-a",
-            "showTimer": true,
-            "timerSeconds": 30,
-            "hideWordDuringResponse": true,
-            "requiresCapturedResponse": true
-          },
           "source": "chart_planner"
         }
       ],
       "adventureBoard": {
         "schemaVersion": 1,
-        "boardId": "reina-active-spelling-route-board",
-        "planId": "assignment-plan-reina-99a544dd",
+        "boardId": "reina-board-2026-05-27-silent-letters",
+        "planId": "plan-reina-2026-05-27-v1",
         "childId": "reina",
         "domain": "spelling",
-        "title": "Silent Letter Adventure",
+        "title": "Silent Letter Quest",
         "theme": {
           "background": {
             "type": "image",
@@ -916,13 +893,13 @@
           "routeChoiceBehavior": "exclusive"
         },
         "plannerRationale": {
-          "agencyDesign": "Two required baseline nodes measure both source groups before any choices: silent-letter spelling production via partial-recall Word Radar, then high-frequency recognition via visible-read Pronunciation. After baseline evidence exists, a Mystery choice lab offers child-facing preference evidence on reward wrappers without contaminating mastery. Quest and Boss remain locked until baseline and Mystery produce enough evidence to justify generated transfer.",
-          "evidenceDesign": "Silent Letters group requires spelling-production evidence because the teacher heading explicitly names 'Silent Letters' as a pattern-based spelling skill; Word Radar partial_visual_recall with letter-by-letter input and hidden word is the correct baseline instrument. High-Frequency Words group is labeled for recognition and fluency, not spelling production; Pronunciation with visible_read measures read-aloud fluency and recognition, which matches the teacher's intent. No recent canonical evidence exists, so full baseline is appropriate. Mystery follows baseline to collect preference data. Quest and Boss are locked until baseline measurements clarify the theory.",
-          "layoutChoice": "Used boardTemplate.art.backgroundUrl '/generated/adventure-board-demo/silent-letter-world.jpeg' for background. Used exact palette from boardTemplate. All node thumbnails matched from boardTemplate.art.nodeThumbnails or .choiceThumbnails. Companion Matilda placed right per chart. Start -> baseline -> baseline -> Mystery -> locked Quest -> locked Boss follows the approved horizontal spine skeleton. Route choice gate was not needed because both baseline activities are required and no conflicting theories exist yet; agency is reserved for Mystery preference evidence after work is complete."
+          "agencyDesign": "Two required baseline nodes establish evidence for both source groups before offering route choice. Route A (Spell Check) provides audio-prompted spelling construction for silent-letter targets that need deeper encoding. Route B (Word Radar visible read) reinforces high-frequency sight vocabulary with fast recognition repetition. Both routes feed into Mystery for preference evidence, then locked Quest targeting silent-letter transfer, then locked Boss for final mastery gate.",
+          "evidenceDesign": "Baseline 1 measures silent-letter spelling construction using partial visual recall to capture per-word accuracy and letter-order errors. Baseline 2 measures high-frequency word pronunciation/recognition using visible read mode because the source purpose is recognize, not spell_from_memory. Route activities extend baseline evidence with varied instruments: Spell Check adds audio-prompted retrieval for silent letters; Word Radar visible read adds fast recognition flow for high-frequency words. Mystery collects preference without claiming mastery. Quest and Boss remain locked until baseline and quest evidence justify unlocking.",
+          "layoutChoice": "Used boardTemplate slots 1-8 with horizontal-adventure-spine preset. Start at slot 1, two baseline nodes at slots 2-3, choice gate at slot 4, route nodes at 5a.1 (upper) and 5b.1 (lower), Mystery at slot 6, Quest at slot 7, Boss at slot 8. All node thumbnails selected from boardTemplate.art.nodeThumbnails. Background image and palette used exactly as specified in boardTemplate."
         },
         "nodes": [
           {
-            "id": "node-start",
+            "id": "start-node",
             "kind": "start",
             "label": "Start",
             "shortLabel": "Start",
@@ -933,14 +910,18 @@
               "lane": "main",
               "order": 1
             },
-            "state": "completed"
+            "state": "completed",
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "baseline-1-silent-spelling"
+            }
           },
           {
-            "id": "node-wr-baseline-silent",
+            "id": "baseline-1-silent-spelling",
             "kind": "activity",
             "activityId": "word-radar",
-            "label": "Silent Letters",
-            "shortLabel": "Silent Letters",
+            "label": "Silent Letter Spell",
+            "shortLabel": "Silent Spell",
             "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
             "slot": "2",
             "layout": {
@@ -965,52 +946,26 @@
                 "wrong",
                 "climb"
               ]
-            },
-            "action": {
-              "type": "launch-activity",
-              "payloadId": "word-radar"
             }
           },
           {
-            "id": "choice-route-1",
-            "kind": "choice-gate",
-            "label": "Choose Path",
-            "shortLabel": "Choose Path",
-            "icon": "route",
-            "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
-            "slot": "4",
-            "layout": {
-              "role": "choice-gate",
-              "lane": "main",
-              "order": 1
-            },
-            "state": "available",
-            "evidenceRole": "preference",
-            "choiceSetId": "route-choice-1",
-            "action": {
-              "type": "open-choice-set",
-              "payloadId": "route-choice-1"
-            }
-          },
-          {
-            "id": "node-pron-baseline-hfw",
+            "id": "baseline-2-high-freq-recognition",
             "kind": "activity",
             "activityId": "pronunciation",
-            "label": "Read & Say",
-            "shortLabel": "Read & Say",
+            "label": "Read Sight Words",
+            "shortLabel": "Read Words",
             "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
-            "slot": "5a.1",
+            "slot": "3",
             "layout": {
-              "role": "evidence-route",
-              "lane": "upper",
-              "order": 1,
-              "routeGroupId": "route-choice-1"
+              "role": "baseline",
+              "lane": "main",
+              "order": 2
             },
             "state": "available",
             "evidenceRole": "baseline",
             "target": {
-              "laneId": "high_frequency_words",
-              "skill": "read_fluently",
+              "laneId": "high_frequency",
+              "skill": "recognize",
               "words": [
                 "among",
                 "building",
@@ -1023,30 +978,46 @@
                 "special",
                 "wheel"
               ]
-            },
-            "action": {
-              "type": "launch-activity",
-              "payloadId": "pronunciation"
             }
           },
           {
-            "id": "node-mystery-1",
-            "kind": "mystery",
-            "activityId": "mystery",
-            "label": "Mystery Reward",
-            "shortLabel": "Mystery",
-            "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-            "slot": "6",
+            "id": "choice-gate-1",
+            "kind": "choice-gate",
+            "label": "Choose Path",
+            "shortLabel": "Choose Path",
+            "thumbnailUrl": "/thumbnails/mystery-fallback.svg",
+            "slot": "4",
             "layout": {
-              "role": "mystery",
+              "role": "choice-gate",
               "lane": "main",
               "order": 1
             },
-            "state": "locked",
-            "evidenceRole": "preference",
+            "state": "available",
+            "choiceSetId": "route-choice-1",
+            "action": {
+              "type": "open-choice-set",
+              "payloadId": "route-choice-1"
+            }
+          },
+          {
+            "id": "route-a-silent-support",
+            "kind": "activity",
+            "activityId": "spell-check",
+            "label": "Spell Check Silent",
+            "shortLabel": "Spell Check",
+            "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+            "slot": "5a.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "upper",
+              "order": 1,
+              "routeGroupId": "route-choice-1"
+            },
+            "state": "available",
+            "evidenceRole": "support",
             "target": {
               "laneId": "silent_letters",
-              "skill": "preference_evidence",
+              "skill": "spell_from_memory",
               "words": [
                 "sign",
                 "know",
@@ -1059,22 +1030,62 @@
                 "wrong",
                 "climb"
               ]
-            },
-            "lock": {
-              "reason": "Complete baseline work first",
-              "label": "Locked",
-              "progressLabel": "Finish baseline"
-            },
-            "action": {
-              "type": "open-choice-set",
-              "payloadId": "choice-mystery-wrapper"
             }
           },
           {
-            "id": "node-quest-silent",
+            "id": "route-b-high-freq-fluency",
+            "kind": "activity",
+            "activityId": "word-radar",
+            "label": "Fast Recognition",
+            "shortLabel": "Fast Read",
+            "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+            "slot": "5b.1",
+            "layout": {
+              "role": "evidence-route",
+              "lane": "lower",
+              "order": 1,
+              "routeGroupId": "route-choice-1"
+            },
+            "state": "available",
+            "evidenceRole": "support",
+            "target": {
+              "laneId": "high_frequency",
+              "skill": "recognize",
+              "words": [
+                "among",
+                "building",
+                "circle",
+                "decided",
+                "finally",
+                "heavy",
+                "include",
+                "nothing",
+                "special",
+                "wheel"
+              ]
+            }
+          },
+          {
+            "id": "mystery-1",
+            "kind": "mystery",
+            "activityId": "mystery",
+            "label": "Mystery Reward",
+            "shortLabel": "Mystery",
+            "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+            "slot": "6",
+            "layout": {
+              "role": "mystery",
+              "lane": "main",
+              "order": 1
+            },
+            "state": "available",
+            "evidenceRole": "preference"
+          },
+          {
+            "id": "quest-1",
             "kind": "quest",
             "activityId": "quest",
-            "label": "Quest Challenge",
+            "label": "Silent Letter Quest",
             "shortLabel": "Quest",
             "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
             "slot": "7",
@@ -1087,7 +1098,7 @@
             "evidenceRole": "transfer",
             "target": {
               "laneId": "silent_letters",
-              "skill": "generated_transfer",
+              "skill": "spell_from_memory",
               "words": [
                 "sign",
                 "know",
@@ -1102,20 +1113,16 @@
               ]
             },
             "lock": {
-              "reason": "Baseline and Mystery evidence needed",
+              "reason": "Complete baseline and route practice to unlock the Quest challenge.",
               "label": "Locked",
-              "progressLabel": "Complete baseline"
-            },
-            "action": {
-              "type": "launch-activity",
-              "payloadId": "quest"
+              "progressLabel": "Baseline + Practice"
             }
           },
           {
-            "id": "node-boss-finale",
+            "id": "boss-1",
             "kind": "boss",
             "activityId": "boss",
-            "label": "Boss Battle",
+            "label": "Mastery Boss",
             "shortLabel": "Boss",
             "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
             "slot": "8",
@@ -1126,80 +1133,74 @@
             },
             "state": "locked",
             "evidenceRole": "mastery",
-            "target": {
-              "laneId": "silent_letters",
-              "skill": "mastery_gate",
-              "words": [
-                "sign",
-                "know",
-                "write",
-                "thumb",
-                "comb",
-                "gnat",
-                "knock",
-                "knife",
-                "wrong",
-                "climb"
-              ]
-            },
             "lock": {
-              "reason": "Quest evidence needed first",
+              "reason": "Complete Quest evidence to unlock the final Boss challenge.",
               "label": "Locked",
-              "progressLabel": "Complete Quest"
-            },
-            "action": {
-              "type": "launch-activity",
-              "payloadId": "boss"
+              "progressLabel": "Quest Required"
             }
           }
         ],
         "edges": [
           {
-            "id": "edge-start-word-radar",
-            "from": "node-start",
-            "to": "node-wr-baseline-silent",
+            "id": "edge-start-to-baseline1",
+            "from": "start-node",
+            "to": "baseline-1-silent-spelling",
             "state": "completed",
             "style": "solid"
           },
           {
-            "id": "edge-word-radar-choice",
-            "from": "node-wr-baseline-silent",
-            "to": "choice-route-1",
+            "id": "edge-baseline1-to-baseline2",
+            "from": "baseline-1-silent-spelling",
+            "to": "baseline-2-high-freq-recognition",
             "state": "available",
-            "style": "glow"
+            "style": "solid"
           },
           {
-            "id": "edge-choice-read-say",
-            "from": "choice-route-1",
-            "to": "node-pron-baseline-hfw",
+            "id": "edge-baseline2-to-gate",
+            "from": "baseline-2-high-freq-recognition",
+            "to": "choice-gate-1",
             "state": "available",
-            "style": "dashed"
+            "style": "solid"
           },
           {
-            "id": "edge-read-say-mystery",
-            "from": "node-pron-baseline-hfw",
-            "to": "node-mystery-1",
+            "id": "edge-gate-to-routeA",
+            "from": "choice-gate-1",
+            "to": "route-a-silent-support",
             "state": "available",
-            "style": "dashed"
+            "style": "solid"
           },
           {
-            "id": "edge-choice-mystery",
-            "from": "choice-route-1",
-            "to": "node-mystery-1",
+            "id": "edge-gate-to-routeB",
+            "from": "choice-gate-1",
+            "to": "route-b-high-freq-fluency",
             "state": "available",
-            "style": "dashed"
+            "style": "solid"
           },
           {
-            "id": "edge-mystery-quest",
-            "from": "node-mystery-1",
-            "to": "node-quest-silent",
+            "id": "edge-routeA-to-mystery",
+            "from": "route-a-silent-support",
+            "to": "mystery-1",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-routeB-to-mystery",
+            "from": "route-b-high-freq-fluency",
+            "to": "mystery-1",
+            "state": "available",
+            "style": "solid"
+          },
+          {
+            "id": "edge-mystery-to-quest",
+            "from": "mystery-1",
+            "to": "quest-1",
             "state": "locked",
             "style": "dashed"
           },
           {
-            "id": "edge-quest-boss",
-            "from": "node-quest-silent",
-            "to": "node-boss-finale",
+            "id": "edge-quest-to-boss",
+            "from": "quest-1",
+            "to": "boss-1",
             "state": "locked",
             "style": "dashed"
           }
@@ -1208,153 +1209,44 @@
           {
             "id": "route-choice-1",
             "kind": "baseline-route",
-            "title": "Choose your path",
+            "title": "Choose Your Path",
             "options": [
               {
-                "id": "route-read-say",
-                "label": "Read & Say",
-                "description": "Practice the sight-word lane out loud before the reward door.",
-                "icon": "book",
-                "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+                "id": "route-option-a",
+                "label": "Spell Check Silent",
+                "description": "Practice spelling silent-letter words with audio prompts",
+                "icon": "spell-check",
+                "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
                 "state": "available",
-                "nodeId": "node-pron-baseline-hfw",
-                "tags": [
-                  "voice",
-                  "sight words"
-                ],
+                "nodeId": "route-a-silent-support",
                 "choiceSignal": {
                   "algorithmFeed": "choicePolicy",
                   "traits": [
-                    "voice",
-                    "sight_words",
-                    "support_route"
+                    "audio-prompted-spelling",
+                    "silent-letter-focus",
+                    "scaffolded-construction"
                   ],
-                  "expectedEvidence": "Record whether Reina chooses, skips, completes, or returns to the Read & Say route; preference only, not mastery.",
+                  "expectedEvidence": "Preference for audio-prompted spelling construction over visual recognition flow",
                   "preferenceNotMastery": true
                 }
               },
               {
-                "id": "route-mystery",
-                "label": "Mystery",
-                "description": "Head straight toward the reward door after the silent-letter check.",
-                "icon": "mystery",
-                "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+                "id": "route-option-b",
+                "label": "Fast Recognition",
+                "description": "Read high-frequency words quickly for fluency",
+                "icon": "word-radar",
+                "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
                 "state": "available",
-                "nodeId": "node-mystery-1",
-                "tags": [
-                  "reward",
-                  "fast route"
-                ],
+                "nodeId": "route-b-high-freq-fluency",
                 "choiceSignal": {
                   "algorithmFeed": "choicePolicy",
                   "traits": [
-                    "reward",
-                    "fast_route",
-                    "dopamine_route"
+                    "visible-read",
+                    "high-frequency-words",
+                    "fast-recognition-flow"
                   ],
-                  "expectedEvidence": "Record whether Reina chooses, skips, completes, or returns to the Mystery route; preference only, not mastery.",
+                  "expectedEvidence": "Preference for fast visible-read recognition over audio-prompted spelling",
                   "preferenceNotMastery": true
-                }
-              }
-            ]
-          },
-          {
-            "id": "choice-mystery-wrapper",
-            "kind": "mystery",
-            "title": "Pick Your Reward!",
-            "options": [
-              {
-                "id": "mystery-option-wheel",
-                "label": "Wheel of Fortune",
-                "description": "Spin and solve word puzzles",
-                "thumbnailUrl": "/thumbnails/activities/wheel-of-fortune.svg",
-                "state": "available",
-                "nodeId": "node-mystery-1",
-                "choiceSignal": {
-                  "algorithmFeed": "choicePolicy",
-                  "traits": [
-                    "wheel-of-fortune",
-                    "word-puzzle",
-                    "reward"
-                  ],
-                  "expectedEvidence": "preference for puzzle-style reward after baseline work",
-                  "preferenceNotMastery": true
-                }
-              },
-              {
-                "id": "mystery-option-asteroid",
-                "label": "Asteroid",
-                "description": "Action game in space",
-                "thumbnailUrl": "/thumbnails/activities/speed-catcher.svg",
-                "state": "available",
-                "nodeId": "node-mystery-1",
-                "choiceSignal": {
-                  "algorithmFeed": "choicePolicy",
-                  "traits": [
-                    "asteroid",
-                    "action-game",
-                    "reward"
-                  ],
-                  "expectedEvidence": "preference for action-style reward after baseline work",
-                  "preferenceNotMastery": true
-                }
-              }
-            ]
-          },
-          {
-            "id": "choice-quest-wrapper",
-            "kind": "quest-wrapper",
-            "title": "Ready for Quest?",
-            "options": [
-              {
-                "id": "quest-option-silent",
-                "label": "Silent Letter Quest",
-                "description": "Apply silent-letter skills in a new challenge",
-                "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
-                "state": "locked",
-                "nodeId": "node-quest-silent",
-                "choiceSignal": {
-                  "algorithmFeed": "choicePolicy",
-                  "traits": [
-                    "quest",
-                    "silent-letters",
-                    "transfer"
-                  ],
-                  "expectedEvidence": "preference for generated silent-letter transfer after baseline",
-                  "preferenceNotMastery": true
-                },
-                "lock": {
-                  "reason": "Complete baseline and Mystery first",
-                  "label": "Locked"
-                }
-              }
-            ]
-          },
-          {
-            "id": "choice-boss-wrapper",
-            "kind": "boss-wrapper",
-            "title": "Ready for Boss?",
-            "options": [
-              {
-                "id": "boss-option-finale",
-                "label": "Boss Battle",
-                "description": "Final mastery challenge",
-                "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
-                "state": "locked",
-                "nodeId": "node-boss-finale",
-                "choiceSignal": {
-                  "algorithmFeed": "choicePolicy",
-                  "traits": [
-                    "boss",
-                    "mastery-gate",
-                    "finale"
-                  ],
-                  "expectedEvidence": "preference for final mastery gate after quest evidence",
-                  "preferenceNotMastery": true
-                },
-                "lock": {
-                  "reason": "Complete Quest first",
-                  "label": "Locked"
                 }
               }
             ]
@@ -1365,9 +1257,9 @@
           "name": "Matilda"
         },
         "progress": {
-          "currentNodeId": "node-wr-baseline-silent",
+          "currentNodeId": "baseline-1-silent-spelling",
           "completedNodeIds": [
-            "node-start"
+            "start-node"
           ]
         }
       },
@@ -1386,75 +1278,93 @@
       },
       "evidenceUsed": [
         {
-          "id": "recentEvidence",
-          "type": "chart",
-          "summary": "No recent canonical activity evidence exists for Reina on this homework, so full baseline measurement is appropriate for both source groups."
+          "id": "source-document-text",
+          "type": "assignment-text",
+          "summary": "Benchmark Advance Unit 9 Week 3 with two labeled groups: Silent Letters (10 words) and High-Frequency Words (10 words)"
+        },
+        {
+          "id": "assignment-source",
+          "type": "assignment_source",
+          "summary": "Board generated from stored source assignment and local OCR/text extraction."
         }
       ],
       "openQuestions": [
-        "Which silent-letter words will Reina spell correctly on first try with low latency, and which will require retry or support?",
-        "Can Reina read high-frequency words fluently without hesitation, or will some words show decoding struggle?",
-        "After baseline evidence, which reward wrapper will Reina prefer: puzzle-style or action-style?",
-        "Does the silent-letter pattern need explicit teaching, or can Reina infer the pattern from exposure and correction?"
+        "Which silent-letter words will Reina miss on first attempt?",
+        "Does Reina already recognize all high-frequency words, or will some require pronunciation support?",
+        "Will route choice preference align with skill confidence, or will Reina choose variety?",
+        "What level of audio-prompt support will silent-letter targets require before independent recall?"
       ],
-      "plannerConfidence": 0.9,
+      "plannerConfidence": 0.85,
       "approvalStatus": "pending",
       "planTheory": {
-        "hypothesis": "Reina can spell most silent-letter words with scaffolded letter-by-letter support, and can recognize most high-frequency words fluently. The silent-letter group requires spelling-production evidence because the teacher heading explicitly names a pattern-based skill; the high-frequency group requires recognition and fluency evidence because the heading signals sight-word goals, not spelling production.",
+        "hypothesis": "Reina's silent-letter spelling depends on explicit orthographic memory for kn-, wr-, -mb, and gn- patterns, while her high-frequency word reading depends on whole-word visual recognition. The two groups require different measurement instruments: spelling construction for silent letters (because the teacher heading and pattern focus signal production goals) and visible-read pronunciation for high-frequency words (because the teacher heading signals recognition/fluency goals, not spelling production).",
         "evidenceSummary": [
-          "No recent canonical activity evidence exists for Reina on this homework.",
-          "Teacher headings distinguish 'Silent Letters' (spelling pattern) from 'High-Frequency Words' (recognition/fluency).",
-          "Benchmark Advance Unit 9 Week 3 scope confirms silent-letter patterns are spelling-construction targets and high-frequency words are reading-fluency targets.",
-          "Reina is grade 2; stamina and motivation are appropriate for two required baseline activities before choice."
+          "Source document separates two labeled groups with different teacher-assigned purposes",
+          "Silent Letters group contains pattern-focused words (kn-, wr-, -mb, gn-) requiring orthographic production memory",
+          "High-Frequency Words group contains Benchmark Advance sight vocabulary for reading fluency, not spelling drill",
+          "No prior session evidence exists for Reina; this is the first baseline session",
+          "masteryContext shows 2 days until test with urgent intensity, requiring fast baseline evidence and efficient coverage"
         ],
-        "intervention": "Measure silent-letter spelling production with Word Radar partial_visual_recall (letter-by-letter input, hidden word during response, captured response required) to establish which words Reina can construct independently versus which need targeted support. Measure high-frequency recognition with Pronunciation visible_read (whole-word speak, visible word, captured response required) to establish which words Reina can read fluently versus which need pronunciation or decoding support. After both baseline nodes, offer Mystery choice lab for preference evidence on reward wrappers. Lock Quest and Boss until baseline and Mystery evidence clarify the theory.",
+        "intervention": "Measure silent-letter spelling using Word Radar partial visual recall (letter-by-letter construction with hidden word) to capture per-word accuracy and error patterns. Measure high-frequency word recognition using Pronunciation visible read mode to capture fluency and decoding, not spelling production. Offer route choice after both baselines: Route A extends silent-letter evidence with Spell Check audio-prompted spelling; Route B extends high-frequency evidence with Word Radar visible-read flow. Mystery provides preference evidence without contaminating mastery. Quest and Boss remain locked until baseline and quest evidence justify unlocking.",
         "supportCriteria": [
-          "Word Radar silent-letter baseline shows 8+ first-try correct with low latency, supporting strong pattern awareness.",
-          "Pronunciation high-frequency baseline shows 9+ fluent first-pass reads, supporting strong recognition.",
-          "Mystery choice completed with positive engagement, supporting motivation for continued work."
+          "Silent-letter baseline shows ≥7/10 correct first try, suggesting pattern is accessible and route practice can deepen encoding",
+          "High-frequency baseline shows ≥8/10 correct pronunciation, suggesting recognition is strong and visible-read flow can build automaticity",
+          "Route choice shows clear preference and completion, confirming agency model fits Reina's engagement style",
+          "Mystery completion with positive affect confirms reward timing and type are appropriate"
         ],
         "reviseCriteria": [
-          "Word Radar silent-letter baseline shows 4–7 correct or multiple retries, indicating partial pattern knowledge and need for targeted support on exact missed words.",
-          "Pronunciation high-frequency baseline shows 5–8 fluent reads or hesitation on 2–5 words, indicating those exact words need pronunciation or visible-read support.",
-          "Mystery choice skipped or abandoned, indicating wrapper mismatch or stamina limit."
+          "Silent-letter baseline shows 3-6/10 correct or multiple retries, indicating pattern needs explicit teaching before more construction drills",
+          "High-frequency baseline shows 4-7/10 correct or hesitation, indicating recognition needs more visible-read repetition before fluency demands",
+          "Route choice shows skip or abandonment, suggesting route options need revision or stamina is lower than expected",
+          "Mystery shows neutral or skip, indicating reward type or timing mismatch"
         ],
         "falsifyCriteria": [
-          "Word Radar silent-letter baseline shows 0–3 correct or pervasive confusion, falsifying pattern-awareness hypothesis and indicating need for explicit teaching.",
-          "Pronunciation high-frequency baseline shows hesitation or misread on 6+ words, falsifying recognition hypothesis and indicating need for explicit decoding.",
-          "Both baseline activities abandoned or frustrated, falsifying engagement hypothesis and indicating need for relationship repair or stamina check."
+          "Silent-letter baseline shows ≤2/10 correct or refusal, indicating silent-letter pattern is not accessible and construction drills are premature",
+          "High-frequency baseline shows ≤3/10 correct or decoding struggle, indicating sight vocabulary is not yet automatic and needs direct teaching",
+          "Route choice shows refusal or frustration, indicating agency model is wrong for Reina or baseline work was too hard",
+          "Mystery shows negative affect or early exit, indicating reward is aversive or mistimed"
         ]
       },
       "plannedMeasurements": [
         {
-          "id": "measure-wr-silent",
+          "id": "measure-1-silent-baseline",
           "activityId": "word-radar",
-          "target": "silent_letters group: sign, know, write, thumb, comb, gnat, knock, knife, wrong, climb",
-          "evidenceType": "baseline spelling construction with partial visual recall",
-          "supportCriteria": "First-try correct on 8+ words with low latency and no retry supports that silent-letter pattern awareness is strong",
-          "reviseCriteria": "4–7 correct on first try, or multiple retries, suggests partial pattern knowledge and indicates need for targeted support on exact missed words",
-          "falsifyCriteria": "0–3 correct, or pervasive confusion across all silent-letter types, falsifies pattern-awareness hypothesis and indicates need for explicit teaching before practice"
+          "target": "silent_letters group (all 10 words)",
+          "evidenceType": "baseline-spelling-construction",
+          "supportCriteria": "≥7 words correct first try with low latency and no help requests confirms baseline competence",
+          "reviseCriteria": "3-6 words correct or multiple retries/help requests indicates need for audio-prompted support and pattern teaching",
+          "falsifyCriteria": "≤2 words correct or refusal/frustration indicates silent-letter pattern is not yet accessible and needs explicit teaching before more drills"
         },
         {
-          "id": "measure-pron-hfw",
+          "id": "measure-2-high-freq-baseline",
           "activityId": "pronunciation",
-          "target": "high_frequency_words group: among, building, circle, decided, finally, heavy, include, nothing, special, wheel",
-          "evidenceType": "baseline read-aloud fluency with visible word",
-          "supportCriteria": "Fluent first-pass pronunciation on 9+ words with no hesitation or support requests supports that recognition is strong and only light spaced checks are needed",
-          "reviseCriteria": "5–8 fluent reads, or hesitation/skip on 2–5 words, suggests partial recognition and indicates those exact words need pronunciation or visible-read support",
-          "falsifyCriteria": "Hesitation or misread on 6+ words, or pervasive decoding struggle, falsifies recognition hypothesis and indicates need for explicit decoding or word-building before fluency practice"
+          "target": "high_frequency group (all 10 words)",
+          "evidenceType": "baseline-recognition-pronunciation",
+          "supportCriteria": "≥8 words pronounced correctly first try with fluency confirms recognition baseline",
+          "reviseCriteria": "4-7 words correct or hesitation/skips indicates need for visible-read repetition and fluency support",
+          "falsifyCriteria": "≤3 words correct or decoding struggle indicates high-frequency words are not yet automatic and need direct teaching"
         },
         {
-          "id": "measure-mystery-preference",
+          "id": "measure-3-route-preference",
+          "activityId": "choice-gate",
+          "target": "route-choice-1 options",
+          "evidenceType": "preference-choice",
+          "supportCriteria": "Child chooses and completes chosen route with engagement and low frustration",
+          "reviseCriteria": "Child skips or abandons chosen route, suggesting route mismatch or fatigue",
+          "falsifyCriteria": "Child refuses choice or shows frustration at gate, indicating agency model needs revision"
+        },
+        {
+          "id": "measure-4-mystery-preference",
           "activityId": "mystery",
-          "target": "child preference between puzzle-style and action-style reward wrappers",
-          "evidenceType": "preference evidence from choice, completion, and replay",
-          "supportCriteria": "Chosen option completed with replay or positive affect supports preference for that wrapper type",
-          "reviseCriteria": "Chosen option abandoned or frustrated indicates wrapper mismatch; skipped option is weak neutral",
-          "falsifyCriteria": "Both options skipped or session abandoned falsifies engagement hypothesis and indicates need for relationship repair or stamina check"
+          "target": "all homework words",
+          "evidenceType": "preference-reward",
+          "supportCriteria": "Child engages with mystery content and completes with positive affect",
+          "reviseCriteria": "Child skips or shows neutral engagement, suggesting reward type mismatch",
+          "falsifyCriteria": "Child refuses or shows negative affect, indicating reward timing or type needs revision"
         }
       ],
       "activeHomeworkId": "hw-spelling_test-5a49d659"
     }
   },
-  "updatedAt": "2026-05-27T05:01:49.220Z"
+  "updatedAt": "2026-05-27T14:42:46.808Z"
 }

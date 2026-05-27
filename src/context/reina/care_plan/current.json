@@ -1,61 +1,74 @@
 {
   "version": 1,
   "childId": "reina",
-  "sourcePlanId": "assignment-plan-reina-99a544dd",
+  "sourcePlanId": "plan-reina-2026-05-27-v1",
   "theory": {
-    "hypothesis": "Reina can spell most silent-letter words with scaffolded letter-by-letter support, and can recognize most high-frequency words fluently. The silent-letter group requires spelling-production evidence because the teacher heading explicitly names a pattern-based skill; the high-frequency group requires recognition and fluency evidence because the heading signals sight-word goals, not spelling production.",
+    "hypothesis": "Reina's silent-letter spelling depends on explicit orthographic memory for kn-, wr-, -mb, and gn- patterns, while her high-frequency word reading depends on whole-word visual recognition. The two groups require different measurement instruments: spelling construction for silent letters (because the teacher heading and pattern focus signal production goals) and visible-read pronunciation for high-frequency words (because the teacher heading signals recognition/fluency goals, not spelling production).",
     "evidenceSummary": [
-      "No recent canonical activity evidence exists for Reina on this homework.",
-      "Teacher headings distinguish 'Silent Letters' (spelling pattern) from 'High-Frequency Words' (recognition/fluency).",
-      "Benchmark Advance Unit 9 Week 3 scope confirms silent-letter patterns are spelling-construction targets and high-frequency words are reading-fluency targets.",
-      "Reina is grade 2; stamina and motivation are appropriate for two required baseline activities before choice."
+      "Source document separates two labeled groups with different teacher-assigned purposes",
+      "Silent Letters group contains pattern-focused words (kn-, wr-, -mb, gn-) requiring orthographic production memory",
+      "High-Frequency Words group contains Benchmark Advance sight vocabulary for reading fluency, not spelling drill",
+      "No prior session evidence exists for Reina; this is the first baseline session",
+      "masteryContext shows 2 days until test with urgent intensity, requiring fast baseline evidence and efficient coverage"
     ],
-    "intervention": "Measure silent-letter spelling production with Word Radar partial_visual_recall (letter-by-letter input, hidden word during response, captured response required) to establish which words Reina can construct independently versus which need targeted support. Measure high-frequency recognition with Pronunciation visible_read (whole-word speak, visible word, captured response required) to establish which words Reina can read fluently versus which need pronunciation or decoding support. After both baseline nodes, offer Mystery choice lab for preference evidence on reward wrappers. Lock Quest and Boss until baseline and Mystery evidence clarify the theory.",
+    "intervention": "Measure silent-letter spelling using Word Radar partial visual recall (letter-by-letter construction with hidden word) to capture per-word accuracy and error patterns. Measure high-frequency word recognition using Pronunciation visible read mode to capture fluency and decoding, not spelling production. Offer route choice after both baselines: Route A extends silent-letter evidence with Spell Check audio-prompted spelling; Route B extends high-frequency evidence with Word Radar visible-read flow. Mystery provides preference evidence without contaminating mastery. Quest and Boss remain locked until baseline and quest evidence justify unlocking.",
     "supportCriteria": [
-      "Word Radar silent-letter baseline shows 8+ first-try correct with low latency, supporting strong pattern awareness.",
-      "Pronunciation high-frequency baseline shows 9+ fluent first-pass reads, supporting strong recognition.",
-      "Mystery choice completed with positive engagement, supporting motivation for continued work."
+      "Silent-letter baseline shows ≥7/10 correct first try, suggesting pattern is accessible and route practice can deepen encoding",
+      "High-frequency baseline shows ≥8/10 correct pronunciation, suggesting recognition is strong and visible-read flow can build automaticity",
+      "Route choice shows clear preference and completion, confirming agency model fits Reina's engagement style",
+      "Mystery completion with positive affect confirms reward timing and type are appropriate"
     ],
     "reviseCriteria": [
-      "Word Radar silent-letter baseline shows 4–7 correct or multiple retries, indicating partial pattern knowledge and need for targeted support on exact missed words.",
-      "Pronunciation high-frequency baseline shows 5–8 fluent reads or hesitation on 2–5 words, indicating those exact words need pronunciation or visible-read support.",
-      "Mystery choice skipped or abandoned, indicating wrapper mismatch or stamina limit."
+      "Silent-letter baseline shows 3-6/10 correct or multiple retries, indicating pattern needs explicit teaching before more construction drills",
+      "High-frequency baseline shows 4-7/10 correct or hesitation, indicating recognition needs more visible-read repetition before fluency demands",
+      "Route choice shows skip or abandonment, suggesting route options need revision or stamina is lower than expected",
+      "Mystery shows neutral or skip, indicating reward type or timing mismatch"
     ],
     "falsifyCriteria": [
-      "Word Radar silent-letter baseline shows 0–3 correct or pervasive confusion, falsifying pattern-awareness hypothesis and indicating need for explicit teaching.",
-      "Pronunciation high-frequency baseline shows hesitation or misread on 6+ words, falsifying recognition hypothesis and indicating need for explicit decoding.",
-      "Both baseline activities abandoned or frustrated, falsifying engagement hypothesis and indicating need for relationship repair or stamina check."
+      "Silent-letter baseline shows ≤2/10 correct or refusal, indicating silent-letter pattern is not accessible and construction drills are premature",
+      "High-frequency baseline shows ≤3/10 correct or decoding struggle, indicating sight vocabulary is not yet automatic and needs direct teaching",
+      "Route choice shows refusal or frustration, indicating agency model is wrong for Reina or baseline work was too hard",
+      "Mystery shows negative affect or early exit, indicating reward is aversive or mistimed"
     ]
   },
   "plannedMeasurements": [
     {
-      "id": "measure-wr-silent",
+      "id": "measure-1-silent-baseline",
       "activityId": "word-radar",
-      "target": "silent_letters group: sign, know, write, thumb, comb, gnat, knock, knife, wrong, climb",
-      "evidenceType": "baseline spelling construction with partial visual recall",
-      "supportCriteria": "First-try correct on 8+ words with low latency and no retry supports that silent-letter pattern awareness is strong",
-      "reviseCriteria": "4–7 correct on first try, or multiple retries, suggests partial pattern knowledge and indicates need for targeted support on exact missed words",
-      "falsifyCriteria": "0–3 correct, or pervasive confusion across all silent-letter types, falsifies pattern-awareness hypothesis and indicates need for explicit teaching before practice"
+      "target": "silent_letters group (all 10 words)",
+      "evidenceType": "baseline-spelling-construction",
+      "supportCriteria": "≥7 words correct first try with low latency and no help requests confirms baseline competence",
+      "reviseCriteria": "3-6 words correct or multiple retries/help requests indicates need for audio-prompted support and pattern teaching",
+      "falsifyCriteria": "≤2 words correct or refusal/frustration indicates silent-letter pattern is not yet accessible and needs explicit teaching before more drills"
     },
     {
-      "id": "measure-pron-hfw",
+      "id": "measure-2-high-freq-baseline",
       "activityId": "pronunciation",
-      "target": "high_frequency_words group: among, building, circle, decided, finally, heavy, include, nothing, special, wheel",
-      "evidenceType": "baseline read-aloud fluency with visible word",
-      "supportCriteria": "Fluent first-pass pronunciation on 9+ words with no hesitation or support requests supports that recognition is strong and only light spaced checks are needed",
-      "reviseCriteria": "5–8 fluent reads, or hesitation/skip on 2–5 words, suggests partial recognition and indicates those exact words need pronunciation or visible-read support",
-      "falsifyCriteria": "Hesitation or misread on 6+ words, or pervasive decoding struggle, falsifies recognition hypothesis and indicates need for explicit decoding or word-building before fluency practice"
+      "target": "high_frequency group (all 10 words)",
+      "evidenceType": "baseline-recognition-pronunciation",
+      "supportCriteria": "≥8 words pronounced correctly first try with fluency confirms recognition baseline",
+      "reviseCriteria": "4-7 words correct or hesitation/skips indicates need for visible-read repetition and fluency support",
+      "falsifyCriteria": "≤3 words correct or decoding struggle indicates high-frequency words are not yet automatic and need direct teaching"
     },
     {
-      "id": "measure-mystery-preference",
+      "id": "measure-3-route-preference",
+      "activityId": "choice-gate",
+      "target": "route-choice-1 options",
+      "evidenceType": "preference-choice",
+      "supportCriteria": "Child chooses and completes chosen route with engagement and low frustration",
+      "reviseCriteria": "Child skips or abandons chosen route, suggesting route mismatch or fatigue",
+      "falsifyCriteria": "Child refuses choice or shows frustration at gate, indicating agency model needs revision"
+    },
+    {
+      "id": "measure-4-mystery-preference",
       "activityId": "mystery",
-      "target": "child preference between puzzle-style and action-style reward wrappers",
-      "evidenceType": "preference evidence from choice, completion, and replay",
-      "supportCriteria": "Chosen option completed with replay or positive affect supports preference for that wrapper type",
-      "reviseCriteria": "Chosen option abandoned or frustrated indicates wrapper mismatch; skipped option is weak neutral",
-      "falsifyCriteria": "Both options skipped or session abandoned falsifies engagement hypothesis and indicates need for relationship repair or stamina check"
+      "target": "all homework words",
+      "evidenceType": "preference-reward",
+      "supportCriteria": "Child engages with mystery content and completes with positive affect",
+      "reviseCriteria": "Child skips or shows neutral engagement, suggesting reward type mismatch",
+      "falsifyCriteria": "Child refuses or shows negative affect, indicating reward timing or type needs revision"
     }
   ],
   "learningExperiments": [],
-  "updatedAt": "2026-05-27T05:01:49.220Z"
+  "updatedAt": "2026-05-27T14:42:46.808Z"
 }
