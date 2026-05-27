@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  createShowroomVideoCallStatusCopy,
   createShowroomVideoChatEntryCopy,
   createShowroomVideoChatStartedEvent,
   createShowroomTalkPayload,
@@ -139,6 +140,41 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("showroomVideoChatCameraState === \"live\"");
   });
 
+  it("shows a ringing and answer ceremony before camera/listening starts", () => {
+    expect(
+      createShowroomVideoCallStatusCopy({
+        companionName: "Elli",
+        phase: "calling",
+        cameraState: "off",
+      }),
+    ).toEqual({
+      heading: "Calling Elli...",
+      status: "Ringing",
+      helperText: "Elli will answer, then the camera starts.",
+    });
+    expect(
+      createShowroomVideoCallStatusCopy({
+        companionName: "Elli",
+        phase: "answered",
+        cameraState: "requesting",
+      }),
+    ).toMatchObject({
+      heading: "Elli answered",
+      status: "Connecting camera",
+    });
+
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionShowroom.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("playVideoCallRingtone");
+    expect(source).toContain("showroomVideoCallPhase");
+    expect(source).toContain("SHOWROOM_VIDEO_CHAT_RING_MS");
+    expect(source).toContain("SHOWROOM_VIDEO_CHAT_ANSWER_MS");
+    expect(source).toContain("[showroom-video-chat] ringing");
+    expect(source).toContain("[showroom-video-chat] answered");
+  });
+
   it("captures one small camera snapshot only for visual video-call moments", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
@@ -155,7 +191,7 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).not.toContain("setInterval(captureShowroomVideoSnapshot");
   });
 
-  it("does not auto-resume listening after companion speech until echo control is stronger", () => {
+  it("defaults video chat to guarded hands-free rearming after companion speech", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
       "utf8",
@@ -164,6 +200,10 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("videoChatContinuousListenRef");
     expect(source).toContain("startShowroomTalkListening({ source: \"video_call\" })");
     expect(source).toContain("auto-start");
+    expect(source).toContain("SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS");
+    expect(source).toContain("videoChatHandsFreeRearmRef");
+    expect(source).toContain("[showroom-hands-free] rearm_scheduled");
+    expect(source).toContain("[showroom-hands-free] rearm_starting");
     expect(source).not.toContain("SHOWROOM_VIDEO_CHAT_RESUME_DELAY_MS");
     expect(source).not.toContain("queueVideoChatListeningResumeRef");
     expect(source).not.toContain("listen_resume");
