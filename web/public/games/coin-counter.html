@@ -345,6 +345,7 @@ let targetCents = 0;
 let roundActive = false;
 let fallInterval = null;
 let coinHeartbeatId = null;
+let targetResults = [];
 
 const gameArea = document.getElementById('game-area');
 const matildaText = document.getElementById('matilda-text');
@@ -360,6 +361,36 @@ function updateHUD(){
   document.getElementById('round-display').textContent = (currentRound+1)+'/4';
 }
 function centsToDisplay(c){ return '$'+(c/100).toFixed(2); }
+function recordCoinAttempt(total, isCorrect){
+  const target = centsToDisplay(targetCents);
+  const result = {
+    target: target,
+    correct: !!isCorrect,
+    attempts: 1,
+    mode: 'coin_counter',
+    evidenceTier: 'practice',
+    masteryEligible: false,
+    attemptedValue: centsToDisplay(total),
+    round: currentRound + 1,
+  };
+  targetResults.push(result);
+  fireAttemptEvent({
+    activityId: 'coin_counter',
+    target: target,
+    attemptedValue: centsToDisplay(total),
+    correct: !!isCorrect,
+    quality: isCorrect ? 'correct' : 'incorrect',
+    scaffoldLevel: 'coin_choice',
+    round: currentRound + 1,
+  });
+  if (window.SunnyEvidence && typeof window.SunnyEvidence.attemptRecorded === 'function') {
+    window.SunnyEvidence.attemptRecorded({
+      activityId: 'coin_counter',
+      target: target,
+      result: result,
+    });
+  }
+}
 function updateCurrentAmount(){
   const total = bankCoins.reduce(function(s,c){ return s+COINS[c].value; },0);
   currentAmountEl.textContent = centsToDisplay(total)+' in bank';
@@ -500,6 +531,7 @@ function submitAnswer(){
 
   var total=bankCoins.reduce(function(s,c){ return s+COINS[c].value; },0);
   var isCorrect=total===targetCents;
+  recordCoinAttempt(total, isCorrect);
 
   if(isCorrect){
     roundActive=false;
@@ -567,6 +599,7 @@ function endGame(){
     score: score,
     correct: correctRounds,
     attempts: attempts,
+    targetResults: targetResults,
   });
   setMatilda('WOW! You scored '+score+' points! You\'re a money master! 💰');
 }
@@ -577,6 +610,7 @@ function startGame(){
   score=0;
   streak=0;
   correctRounds=0;
+  targetResults=[];
   startRound();
 }
 function restartGame(){ startGame(); }

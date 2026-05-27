@@ -756,16 +756,13 @@ function homeworkGameBasename(p: string | null | undefined): string | null {
   return path.basename(p);
 }
 
-/** Preserve the planner-owned order; ingestion only stamps missing dates. */
+/** Preserve the planner's node sequence. Missing quest/boss is a planner validation error elsewhere. */
 export function finalizePlannedHomeworkNodes(
   nodes: PlannedNode[],
   _extractedWords: string[],
   dateStr: string,
 ): PlannedNode[] {
-  return nodes.map((node) => ({
-    ...node,
-    date: node.date ?? dateStr,
-  }));
+  return nodes.map((node) => ({ ...node, date: node.date ?? dateStr }));
 }
 
 export function buildPendingHomeworkPayload(args: {
@@ -805,11 +802,11 @@ export function buildPendingHomeworkPayload(args: {
         storyImagePrompt: node.storyImagePrompt,
         carePlan: node.carePlan,
         adaptiveArtifact: node.adaptiveArtifact,
-        date: node.date ?? args.weekOf,
         choiceMode: node.choiceMode,
         choiceSource: node.choiceSource,
         masteryUnlockState: node.masteryUnlockState,
         locked: node.locked,
+        date: node.date ?? args.weekOf,
         approved: false,
       };
       if (node.type === "word-radar") {

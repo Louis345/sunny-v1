@@ -51,8 +51,10 @@ describe("spelling adaptation certification", () => {
     const report = certifySpellingAdaptation({ childId: "demo_adaptive" });
     const blocked = report.games.filter((game) => game.status === "blocked");
     const blockedIds = new Set(blocked.map((game) => game.gameId));
+    const wordBuilder = report.games.find((game) => game.gameId === "word-builder");
 
-    expect(blockedIds).toContain("word-builder");
+    expect(wordBuilder?.status).toBe("pass");
+    expect(wordBuilder?.allowedInRealChildSession).toBe(true);
     expect(blockedIds).toContain("wordle");
     expect(blocked.every((game) => game.allowedInRealChildSession === false)).toBe(true);
     expect(blocked.every((game) => game.issues.some((issue) => issue.severity === "high"))).toBe(true);

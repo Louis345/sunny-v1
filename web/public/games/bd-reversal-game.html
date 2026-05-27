@@ -249,6 +249,7 @@
   let total = 0;
   let correct = 0;
   const mistakes = [];
+  const targetResults = [];
 
   let trialIdx = 0;
   let trials = [];
@@ -456,6 +457,36 @@
     total++;
     const c = currentCorrect;
     const ok = chosen === c;
+    const target = String(currentDisplay || c).toLowerCase();
+    const attemptedValue = chosen || '(timeout)';
+    const result = {
+      target: target,
+      correct: ok,
+      attempts: 1,
+      mode: isWordTrial ? 'bd_word' : 'bd_letter',
+      evidenceTier: 'practice',
+      masteryEligible: false,
+      attemptedValue: attemptedValue,
+      responseTime_ms: respondBy ? Math.max(0, speedMs - (respondBy - performance.now())) : 0,
+      expectedValue: c,
+    };
+    targetResults.push(result);
+    fireAttemptEvent({
+      activityId: 'bd_reversal',
+      target: target,
+      attemptedValue: attemptedValue,
+      correct: ok,
+      quality: ok ? 'correct' : 'incorrect',
+      scaffoldLevel: round === 2 ? 'untimed' : 'timed',
+      expectedValue: c,
+    });
+    if (window.SunnyEvidence && typeof window.SunnyEvidence.attemptRecorded === 'function') {
+      window.SunnyEvidence.attemptRecorded({
+        activityId: 'bd_reversal',
+        target: target,
+        result: result,
+      });
+    }
     if (ok) {
       correct++;
       score += isWordTrial ? 15 : 10;
@@ -517,6 +548,7 @@
       score: score,
       mistakes: mistakes,
       masteredBD: masteredBD,
+      targetResults: targetResults,
     });
     el.r234.innerHTML = '<p style="font-size:18px;font-weight:800;color:#9FE1CB;text-align:center;padding:24px;">All rounds complete!<br><span style="color:#FFD93D">Score: ' + score + '</span></p>';
   }

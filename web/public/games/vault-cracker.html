@@ -430,6 +430,8 @@ let currentLevel = 0;
 let currentTotal = 0;
 let totalScore = 0;
 let dialAngle = 0;
+let levelAttempts = 0;
+const targetResults = [];
 
 function getTarget() {
   return LEVELS[Math.min(currentLevel, LEVELS.length - 1)].target;
@@ -448,11 +450,13 @@ function initGame() {
   currentLevel = 0;
   totalScore = 0;
   currentTotal = 0;
+  targetResults.length = 0;
   renderLevel();
 }
 
 function renderLevel() {
   currentTotal = 0;
+  levelAttempts = 0;
   const target = getTarget();
 
   document.getElementById('level-num').textContent = currentLevel + 1;
@@ -472,6 +476,38 @@ function renderLevel() {
   });
 }
 
+function recordVaultAttempt(cents, newTotal, isCorrect, overshot) {
+  levelAttempts++;
+  const target = formatCents(getTarget());
+  fireAttemptEvent({
+    activityId: 'vault_cracker',
+    target: target,
+    attemptedValue: formatCents(newTotal),
+    correct: !!isCorrect,
+    quality: isCorrect ? 'correct' : overshot ? 'overshot' : 'partial',
+    scaffoldLevel: 'coin_choice',
+    coinValue: cents,
+    level: currentLevel + 1,
+  });
+  if (window.SunnyEvidence && typeof window.SunnyEvidence.attemptRecorded === 'function') {
+    window.SunnyEvidence.attemptRecorded({
+      activityId: 'vault_cracker',
+      target: target,
+      result: {
+        target: target,
+        correct: !!isCorrect,
+        attempts: levelAttempts,
+        mode: 'vault_cracker',
+        evidenceTier: 'practice',
+        masteryEligible: false,
+        attemptedValue: formatCents(newTotal),
+        coinValue: cents,
+        level: currentLevel + 1,
+      },
+    });
+  }
+}
+
 function addCoin(cents) {
   const target = getTarget();
   const newTotal = currentTotal + cents;
@@ -482,6 +518,18 @@ function addCoin(cents) {
 
   if (newTotal > target) {
     currentTotal = newTotal;
+    recordVaultAttempt(cents, newTotal, false, true);
+    targetResults.push({
+      target: formatCents(target),
+      correct: false,
+      attempts: levelAttempts,
+      mode: 'vault_cracker',
+      evidenceTier: 'practice',
+      masteryEligible: false,
+      attemptedValue: formatCents(newTotal),
+      level: currentLevel + 1,
+      struggleSignals: ['overshot'],
+    });
     updateDisplay(currentTotal, target, true);
     const vault = document.getElementById('vault');
     vault.classList.add('shake');
@@ -493,6 +541,7 @@ function addCoin(cents) {
   }
 
   currentTotal = newTotal;
+  recordVaultAttempt(cents, newTotal, currentTotal === target, false);
   updateDisplay(currentTotal, target, false);
 
   if (currentTotal === target) {
@@ -523,6 +572,16 @@ function crackVault() {
   spawnParticles();
 
   totalScore += 100 + (currentLevel * 50);
+  targetResults.push({
+    target: formatCents(getTarget()),
+    correct: true,
+    attempts: levelAttempts,
+    mode: 'vault_cracker',
+    evidenceTier: 'practice',
+    masteryEligible: false,
+    attemptedValue: formatCents(currentTotal),
+    level: currentLevel + 1,
+  });
 
   setTimeout(() => {
     const overlay = document.getElementById('win-overlay');
@@ -557,6 +616,7 @@ function finishGame() {
     score: totalScore,
     levelsCompleted: currentLevel + 1,
     won: true,
+    targetResults: targetResults,
   });
 
   document.getElementById('vault-icon').textContent = '🏆';

@@ -635,6 +635,10 @@ export interface LearningProfile {
       }>;
       /** Planner-selected Word Radar measurement mode carried from assignment ingest. */
       wordRadarConfig?: WordRadarNodeConfig;
+      choiceMode?: "choice_lab" | "surprise_drop";
+      choiceSource?: ChoiceEventSource;
+      masteryUnlockState?: MasteryUnlockState;
+      locked?: boolean;
       approved?: boolean;
       date?: string;
       adaptiveArtifact?: {

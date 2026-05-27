@@ -36,6 +36,8 @@ window.GameBridge = (function () {
       difficulty: parseInt(p.get("difficulty") || "2", 10) || 2,
       fixtureState: p.get("fixtureState") || "",
       nodeId: p.get("nodeId") || "unknown",
+      planId: p.get("planId") || "",
+      targetLane: p.get("targetLane") || "",
       sessionId: p.get("sessionId") || null,
       activityIntentId: p.get("activityIntentId") || "",
       activityIntentPurpose: p.get("activityIntentPurpose") || "",
@@ -114,6 +116,63 @@ window.GameBridge = (function () {
       "*",
     );
   }
+
+  function compactEvidencePayload(eventName, payload) {
+    var p = payload && typeof payload === "object" && !Array.isArray(payload)
+      ? payload
+      : {};
+    var activityId = String(p.activityId || p.game || document.title || "activity").trim();
+    if (!activityId) return null;
+    var event = Object.assign({}, p, {
+      type: "activity_evidence",
+      eventName: eventName,
+      ts: new Date().toISOString(),
+      activityId: activityId,
+      childId: String(p.childId || GAME_PARAMS.childId || "unknown"),
+      sessionId: p.sessionId || GAME_PARAMS.sessionId,
+      nodeId: p.nodeId || GAME_PARAMS.nodeId,
+      planId: p.planId || GAME_PARAMS.planId,
+      targetLane: p.targetLane || GAME_PARAMS.targetLane,
+      activityIntentId: p.activityIntentId || GAME_PARAMS.activityIntentId,
+      targetSelectorId: p.targetSelectorId || GAME_PARAMS.targetSelectorId,
+      traceId: p.traceId || GAME_PARAMS.traceId,
+    });
+    Object.keys(event).forEach(function (key) {
+      if (event[key] === undefined || event[key] === "") delete event[key];
+    });
+    return event;
+  }
+
+  function emitEvidence(eventName, payload) {
+    var event = compactEvidencePayload(eventName, payload);
+    if (!event) return;
+    post("activity_evidence", event);
+  }
+
+  var SunnyEvidence = {
+    activityStarted: function (payload) {
+      emitEvidence("activity_started", payload);
+    },
+    targetPresented: function (payload) {
+      emitEvidence("target_presented", payload);
+    },
+    audioRequested: function (payload) {
+      emitEvidence("audio_requested", payload);
+    },
+    audioPlayed: function (payload) {
+      emitEvidence("audio_played", payload);
+    },
+    attemptRecorded: function (payload) {
+      emitEvidence("attempt_recorded", payload);
+    },
+    targetCompleted: function (payload) {
+      emitEvidence("target_completed", payload);
+    },
+    activityCompleted: function (payload) {
+      emitEvidence("activity_completed", payload);
+    },
+  };
+  window.SunnyEvidence = SunnyEvidence;
 
   function listen(onStart) {
     window.addEventListener("message", function (e) {

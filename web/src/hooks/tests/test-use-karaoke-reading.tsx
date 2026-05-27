@@ -112,6 +112,73 @@ describe("useKaraokeReading", () => {
     );
   });
 
+  it("emits canonical activity evidence for hit, skipped, and complete karaoke readings", async () => {
+    const words = ["erosion", "weathering"];
+    const sendMsg = vi.fn();
+    const { result, rerender } = renderHook(
+      (interim: string) =>
+        useKaraokeReading({
+          words,
+          interimTranscript: interim,
+          sendMessage: sendMsg,
+        }),
+      { initialProps: "" },
+    );
+
+    rerender("erosion");
+    await waitFor(() => {
+      expect(sendMsg).toHaveBeenCalledWith(
+        "game_event",
+        expect.objectContaining({
+          event: expect.objectContaining({
+            type: "activity_evidence",
+            payload: expect.objectContaining({
+              activityId: "karaoke",
+              eventName: "attempt_recorded",
+              target: "erosion",
+              result: expect.objectContaining({ status: "correct", correct: true }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    act(() => {
+      result.current.handleSkipWord(1);
+    });
+
+    expect(sendMsg).toHaveBeenCalledWith(
+      "game_event",
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "activity_evidence",
+          payload: expect.objectContaining({
+            activityId: "karaoke",
+            eventName: "attempt_recorded",
+            target: "weathering",
+            result: expect.objectContaining({ status: "skipped", correct: false }),
+          }),
+        }),
+      }),
+    );
+    expect(sendMsg).toHaveBeenCalledWith(
+      "game_event",
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "activity_evidence",
+          payload: expect.objectContaining({
+            activityId: "karaoke",
+            eventName: "activity_completed",
+            targetResults: expect.arrayContaining([
+              expect.objectContaining({ target: "erosion", correct: true }),
+              expect.objectContaining({ target: "weathering", correct: false }),
+            ]),
+          }),
+        }),
+      }),
+    );
+  });
+
   it("handleSkipWord on non-current index does nothing", () => {
     const words = ["a", "b", "c"];
     const sendMsg = vi.fn();

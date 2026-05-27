@@ -599,7 +599,7 @@ describe("assignment planner", () => {
     expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
     expect(packet.activityCatalog.every((card) => card.sentToPlanner)).toBe(true);
-    expect(packet.activityCatalog.find((card) => card.activityId === "word-builder")?.launchable).toBe(false);
+    expect(packet.activityCatalog.find((card) => card.activityId === "word-builder")?.launchable).toBe(true);
     expect(packet.activityCatalog.find((card) => card.activityId === "wordle")?.launchable).toBe(false);
     expect(packet.activityCatalog.find((card) => card.activityId === "word-radar")?.launchable).toBe(true);
     expect("activityCatalog" in packet.boardPlanning).toBe(false);
