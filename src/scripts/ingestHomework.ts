@@ -5,7 +5,6 @@ import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import { readLearningProfile, writeLearningProfile } from "../utils/learningProfileIO";
 import type { ActiveSessionPlan, HomeworkDomain, LearningProfile } from "../context/schemas/learningProfile";
-import { reorderHomeworkNodesForSession } from "../engine/learningEngine";
 import { readWordBank, writeWordBank } from "../utils/wordBankIO";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
 import { generateContentFingerprint, generateHomeworkId } from "../context/schemas/homeworkCycle";
@@ -709,49 +708,13 @@ function homeworkGameBasename(p: string | null | undefined): string | null {
   return path.basename(p);
 }
 
-/** Reorder like session engine; append placeholder boss if plan had none. */
+/** Preserve the planner's node sequence. Missing quest/boss is a planner validation error elsewhere. */
 export function finalizePlannedHomeworkNodes(
   nodes: PlannedNode[],
-  extractedWords: string[],
+  _extractedWords: string[],
   dateStr: string,
 ): PlannedNode[] {
-  const skeleton = nodes.map((n) => ({
-    id: n.id,
-    type: n.type,
-    words: n.words,
-    difficulty: n.difficulty,
-    gameFile: n.gameFile ?? null,
-    storyFile: n.storyFile ?? null,
-    storyText: n.storyText,
-    date: n.date,
-    wordRadarItems: n.wordRadarItems,
-    wordRadarConfig: n.wordRadarConfig,
-  }));
-  const ordered = reorderHomeworkNodesForSession(skeleton);
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  let out = ordered.map((o) => {
-    const full = byId.get(o.id);
-    if (!full) {
-      throw new Error(`finalizePlannedHomeworkNodes: missing node id ${o.id}`);
-    }
-    return full;
-  });
-  if (!out.some((n) => n.type === "boss")) {
-    out = [
-      ...out,
-      {
-        id: "hw-boss",
-        type: "boss" as const,
-        words: [...extractedWords],
-        difficulty: 3 as const,
-        rationale: "placeholder boss; run ingest with --opus to generate HTML",
-        gameFile: null,
-        storyFile: null,
-        date: dateStr,
-      },
-    ];
-  }
-  return out;
+  return nodes.map((node) => ({ ...node, date: node.date ?? dateStr }));
 }
 
 export function buildPendingHomeworkPayload(args: {
@@ -791,6 +754,10 @@ export function buildPendingHomeworkPayload(args: {
         storyImagePrompt: node.storyImagePrompt,
         carePlan: node.carePlan,
         adaptiveArtifact: node.adaptiveArtifact,
+        choiceMode: node.choiceMode,
+        choiceSource: node.choiceSource,
+        masteryUnlockState: node.masteryUnlockState,
+        locked: node.locked,
         date: node.date ?? args.weekOf,
         approved: false,
       };
@@ -1266,6 +1233,10 @@ function homeworkNodesFromAssignmentPlan(plan: ActiveSessionPlan, weekOf: string
     storyFile: null,
     activityId: node.activityId,
     date: weekOf,
+    choiceMode: node.choiceMode,
+    choiceSource: node.choiceSource,
+    masteryUnlockState: node.masteryUnlockState,
+    locked: node.locked,
     ...(node.type === "word-radar"
       ? {
           wordRadarItems: wordRadarItemsFromWordList(node.targets),

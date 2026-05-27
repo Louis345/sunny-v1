@@ -25,7 +25,12 @@ import type {
   LetterRushWord,
 } from "../engine/activityEngineConfig";
 import { buildConceptCheckConfigFromCapturedHomework } from "../engine/activityEngineConfig";
-import type { AdaptiveArtifactValidationReport, WordRadarNodeConfig } from "../shared/adventureTypes";
+import type {
+  AdaptiveArtifactValidationReport,
+  ChoiceEventSource,
+  MasteryUnlockState,
+  WordRadarNodeConfig,
+} from "../shared/adventureTypes";
 import { readLearningProfile } from "../utils/learningProfileIO";
 
 export type HomeworkType =
@@ -253,6 +258,10 @@ export type PlannedHomeworkNode = {
     subject?: string;
   }>;
   wordRadarConfig?: WordRadarNodeConfig;
+  choiceMode?: "choice_lab" | "surprise_drop";
+  choiceSource?: ChoiceEventSource;
+  masteryUnlockState?: MasteryUnlockState;
+  locked?: boolean;
   difficulty: 1 | 2 | 3;
   rationale: string;
   gameFile?: string | null;

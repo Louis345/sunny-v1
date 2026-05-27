@@ -141,12 +141,25 @@ function profileWithHomework(childId: string): LearningProfile {
         storyFile: null,
       },
       {
+        id: "n-mystery-hw-spelling_test-bb11de93",
+        type: "mystery",
+        words: WORDS,
+        difficulty: 2,
+        gameFile: null,
+        storyFile: null,
+        choiceMode: "choice_lab",
+        choiceSource: "child_choice",
+        locked: false,
+      },
+      {
         id: "n-quest-hw-spelling_test-bb11de93",
         type: "quest",
         words: WORDS,
         difficulty: 3,
         gameFile: "quest.html",
         storyFile: null,
+        masteryUnlockState: "preparing",
+        locked: true,
         adaptiveArtifact: {
           artifactId: "artifact-quest",
           contentId: "content-quest",
@@ -167,6 +180,16 @@ function profileWithHomework(childId: string): LearningProfile {
             validatedAt: "2026-05-12T10:30:00.000Z",
           },
         },
+      },
+      {
+        id: "n-boss-hw-spelling_test-bb11de93",
+        type: "boss",
+        words: [],
+        difficulty: 3,
+        gameFile: null,
+        storyFile: null,
+        masteryUnlockState: "preparing",
+        locked: true,
       },
     ],
   };
@@ -637,7 +660,7 @@ describe("patient-chart session plan", () => {
       .toEqual(WORD_RADAR_VISIBLE_READ_CONFIG);
   });
 
-  it("does not append Quest or Boss when the planner omitted them", () => {
+  it("does not append Mystery, Quest, or Boss when the planner omitted them", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -652,11 +675,14 @@ describe("patient-chart session plan", () => {
     });
     const plannerOmittedDestinations = {
       ...plan,
-      nodePlan: plan.nodePlan.filter((node) => node.type !== "quest" && node.type !== "boss"),
+      nodePlan: plan.nodePlan.filter((node) =>
+        node.type !== "mystery" && node.type !== "quest" && node.type !== "boss",
+      ),
     };
 
     const nodes = buildAdventureMapFromSessionPlan(chart, plannerOmittedDestinations);
 
+    expect(nodes.some((node) => node.type === "mystery")).toBe(false);
     expect(nodes.some((node) => node.type === "quest")).toBe(false);
     expect(nodes.some((node) => node.type === "boss")).toBe(false);
   });
@@ -1075,6 +1101,37 @@ describe("patient-chart session plan", () => {
         gameFile: null,
         storyFile: null,
         wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+      },
+      {
+        id: "node-3-mystery-choice",
+        type: "mystery",
+        words: [...WORDS, ...HIGH_FREQUENCY_WORDS],
+        difficulty: 2,
+        gameFile: null,
+        storyFile: null,
+        choiceMode: "choice_lab",
+        choiceSource: "child_choice",
+        locked: false,
+      },
+      {
+        id: "node-4-quest-transfer",
+        type: "quest",
+        words: [...WORDS, ...HIGH_FREQUENCY_WORDS],
+        difficulty: 2,
+        gameFile: null,
+        storyFile: null,
+        masteryUnlockState: "preparing",
+        locked: true,
+      },
+      {
+        id: "node-5-boss-mastery",
+        type: "boss",
+        words: [],
+        difficulty: 3,
+        gameFile: null,
+        storyFile: null,
+        masteryUnlockState: "preparing",
+        locked: true,
       },
     ];
     writeJson(root, `src/context/${childId}/learning_profile.json`, profile);

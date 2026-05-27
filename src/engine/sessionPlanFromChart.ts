@@ -84,6 +84,10 @@ type AdaptivePlanNodeLike = {
   mode?: unknown;
   targets?: unknown;
   targetLane?: unknown;
+  choiceMode?: unknown;
+  choiceSource?: unknown;
+  masteryUnlockState?: unknown;
+  locked?: unknown;
   wordRadarConfig?: unknown;
   rationale?: unknown;
 };
@@ -102,6 +106,10 @@ type PlannedEntry = {
   activityId: string;
   targets?: string[];
   targetLane?: string;
+  choiceMode?: ActiveSessionPlan["nodePlan"][number]["choiceMode"];
+  choiceSource?: ActiveSessionPlan["nodePlan"][number]["choiceSource"];
+  masteryUnlockState?: ActiveSessionPlan["nodePlan"][number]["masteryUnlockState"];
+  locked?: boolean;
   wordRadarConfig?: WordRadarNodeConfig;
 };
 
@@ -302,6 +310,45 @@ function isWordRadarConfig(value: unknown): value is WordRadarNodeConfig {
 
 function wordRadarConfigFromSource(source: { wordRadarConfig?: unknown }): WordRadarNodeConfig | undefined {
   return isWordRadarConfig(source.wordRadarConfig) ? source.wordRadarConfig : undefined;
+}
+
+function sourceField(source: unknown, field: string): unknown {
+  return source && typeof source === "object" ? (source as Record<string, unknown>)[field] : undefined;
+}
+
+function choiceModeFromSource(source: unknown): PlannedEntry["choiceMode"] | undefined {
+  const choiceMode = sourceField(source, "choiceMode");
+  return choiceMode === "choice_lab" || choiceMode === "surprise_drop"
+    ? choiceMode
+    : undefined;
+}
+
+function choiceSourceFromSource(source: unknown): PlannedEntry["choiceSource"] | undefined {
+  const choiceSource = sourceField(source, "choiceSource");
+  return choiceSource === "child_choice" ||
+    choiceSource === "parent_choice" ||
+    choiceSource === "system_recommendation" ||
+    choiceSource === "system_required"
+    ? choiceSource
+    : undefined;
+}
+
+function masteryUnlockStateFromSource(
+  source: unknown,
+): PlannedEntry["masteryUnlockState"] | undefined {
+  const masteryUnlockState = sourceField(source, "masteryUnlockState");
+  return masteryUnlockState === "teased_locked" ||
+    masteryUnlockState === "preparing" ||
+    masteryUnlockState === "pending_ceremony" ||
+    masteryUnlockState === "unlocked" ||
+    masteryUnlockState === "completed"
+    ? masteryUnlockState
+    : undefined;
+}
+
+function lockedFromSource(source: unknown): boolean | undefined {
+  const locked = sourceField(source, "locked");
+  return typeof locked === "boolean" ? locked : undefined;
 }
 
 function defaultSessionTargets(pending: NonNullable<ChildChart["homework"]["pending"]>): string[] {
@@ -579,7 +626,7 @@ export function planHomeworkSessionFromChart(
   const baselineNodes = pending.nodes
     .map((node) => ({ source: node, type: sourceNodeType(node.type) }))
     .filter((entry): entry is { source: typeof pending.nodes[number]; type: NodeType } =>
-      Boolean(entry.type && entry.type !== "quest" && entry.type !== "boss" && entry.type !== "mystery"),
+      Boolean(entry.type),
     )
     .sort((a, b) => nodeTypeRank(a.type, strongEvidence) - nodeTypeRank(b.type, strongEvidence));
 
@@ -601,7 +648,7 @@ export function planHomeworkSessionFromChart(
     ? (adaptivePlan.nodes as AdaptivePlanNodeLike[])
       .map((node) => ({ source: node, type: adaptiveNodeType(node) }))
       .filter((entry): entry is { source: AdaptivePlanNodeLike; type: NodeType } =>
-        Boolean(entry.type && entry.type !== "quest" && entry.type !== "boss" && entry.type !== "mystery"),
+        Boolean(entry.type),
       )
     : [];
   const planEntries: PlannedEntry[] = adaptiveNodes.length > 0
@@ -616,6 +663,10 @@ export function planHomeworkSessionFromChart(
             ? entry.source.activityId.trim()
             : entry.type,
           ...plannerTargets,
+          choiceMode: choiceModeFromSource(entry.source),
+          choiceSource: choiceSourceFromSource(entry.source),
+          masteryUnlockState: masteryUnlockStateFromSource(entry.source),
+          locked: lockedFromSource(entry.source),
           ...(entry.type === "word-radar" ? { wordRadarConfig: wordRadarConfigFromSource(entry.source) } : {}),
         };
       })
@@ -628,6 +679,10 @@ export function planHomeworkSessionFromChart(
           source: "pending_homework" as const,
           activityId: type,
           ...plannerTargets,
+          choiceMode: choiceModeFromSource(source),
+          choiceSource: choiceSourceFromSource(source),
+          masteryUnlockState: masteryUnlockStateFromSource(source),
+          locked: lockedFromSource(source),
           ...(type === "word-radar" ? { wordRadarConfig: wordRadarConfigFromSource(source) } : {}),
         };
       });
@@ -653,7 +708,9 @@ export function planHomeworkSessionFromChart(
         ? [...pronunciationTargets]
         : entryTargets
           ? [...entryTargets]
-          : [...targets];
+          : type === "boss"
+            ? []
+            : [...targets];
     const targetLane = type === "pronunciation" && parentTargetLane
       ? parentTargetLane
       : entry.targetLane;
@@ -673,42 +730,16 @@ export function planHomeworkSessionFromChart(
       difficulty: entry.difficulty,
       source: entry.source,
       ...(targetLane ? { targetLane } : {}),
+      ...(entry.choiceMode ? { choiceMode: entry.choiceMode } : {}),
+      ...(entry.choiceSource ? { choiceSource: entry.choiceSource } : {}),
+      ...(entry.masteryUnlockState ? { masteryUnlockState: entry.masteryUnlockState } : {}),
+      ...(typeof entry.locked === "boolean" ? { locked: entry.locked } : {}),
       ...(type === "word-radar" && entry.wordRadarConfig ? { wordRadarConfig: entry.wordRadarConfig } : {}),
       ...(pronunciationConfig
         ? { pronunciationConfig }
         : {}),
     };
   });
-
-  const plannedTargets = activePlanTargets({ nodePlan } as ActiveSessionPlan);
-
-  nodePlan.push({
-    id: `n-mystery-${homeworkId ?? "homework"}`,
-    type: "mystery",
-    activityId: "mystery",
-    targets: [...plannedTargets],
-    difficulty: 2,
-    source: "chart_planner",
-    choiceMode: "choice_lab",
-    choiceSource: "child_choice",
-    locked: false,
-  });
-
-  for (const type of ["quest", "boss"] as const) {
-    const source = pending.nodes.find((node) => node.type === type);
-    nodePlan.push({
-      id: source?.id ?? `n-${type}-${homeworkId ?? "homework"}`,
-      type,
-      activityId: type,
-      targets: type === "quest" ? [...plannedTargets] : [],
-      difficulty: type === "boss" ? 3 : 2,
-      source: source ? "pending_homework" : "chart_planner",
-      masteryUnlockState: source?.adaptiveArtifact?.validationStatus === "passed"
-        ? "pending_ceremony"
-        : "preparing",
-      locked: true,
-    });
-  }
 
   return {
     planId: `session_plan_${chart.childId}_${homeworkId ?? "homework"}_${seed}`,

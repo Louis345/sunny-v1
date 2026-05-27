@@ -227,7 +227,6 @@ describe("getChildChart", () => {
       activeHomeworkId: "hw-waterfall",
       domain: "spelling",
       testDate: "2026-05-22",
-      wordPlan: { cohortSize: 1, orderStrategy: "homework_order", words: [] },
       nodePlan: [],
       variationPolicy: {
         avoidExactPreviousNodeOrder: true,
@@ -330,7 +329,6 @@ describe("getChildChart", () => {
       activeHomeworkId: "hw-slim",
       domain: "spelling",
       testDate: "2026-05-22",
-      wordPlan: { cohortSize: 1, orderStrategy: "homework_order", words: [] },
       nodePlan: [],
       variationPolicy: {
         avoidExactPreviousNodeOrder: true,
