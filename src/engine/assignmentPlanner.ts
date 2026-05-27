@@ -100,6 +100,7 @@ export type AssignmentPlanValidationIssue = {
     | "missing_mystery_choice"
     | "missing_quest_destination"
     | "missing_boss_destination"
+    | "missing_node_measurement"
     | "target_lane_mismatch"
     | "unknown_activity_id";
   severity: "error" | "warning";
@@ -360,6 +361,7 @@ export function buildAssignmentPlanningPacket(args: {
       "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
       "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes or a long run of Word Radar.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
+      "Every activeSessionPlan.nodePlan entry must have a plannedMeasurements entry whose id is measure-${node.id}; include supportCriteria, reviseCriteria, and falsifyCriteria for the exact signal that node is meant to collect.",
       "Return a board plan that cites why every activity fits the target purpose.",
     ].join(" "),
   };
@@ -433,12 +435,20 @@ export function validateAssignmentPlannerOutput(
     group,
     targetKeys: new Set(group.words.map((word) => word.trim().toLowerCase()).filter(Boolean)),
   }));
+  const measurementIds = new Set(output.plannedMeasurements.map((measurement) => measurement.id));
   for (const node of output.activeSessionPlan.nodePlan) {
     if (!activityIds.has(node.activityId)) {
       issues.push({
         code: "unknown_activity_id",
         severity: "error",
         message: `Node ${node.id} references unknown activity ${node.activityId}.`,
+      });
+    }
+    if (!measurementIds.has(`measure-${node.id}`)) {
+      issues.push({
+        code: "missing_node_measurement",
+        severity: "error",
+        message: `Node ${node.id} must have planned measurement id measure-${node.id} with support, revise, and falsify criteria.`,
       });
     }
     const nodeTargetKeys = new Set(node.targets.map((target) => target.trim().toLowerCase()).filter(Boolean));
@@ -538,6 +548,7 @@ Rules:
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
+- Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
 - If a child needs shorter cohorts, shorten the target list and vary instruments by purpose rather than creating many same-activity nodes. Do not split one lane into a long run of consecutive Word Radar nodes; more Word Radar nodes are not better evidence when one better-chosen Word Radar node plus another instrument would answer the care-plan question.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
