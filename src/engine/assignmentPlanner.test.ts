@@ -632,6 +632,45 @@ describe("assignment planner", () => {
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
   });
 
+  it("feeds deadline-aware mastery context to the assignment planner", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+      masteryContext: {
+        nowIso: "2026-05-27T09:30:00.000-04:00",
+        localDate: "2026-05-27",
+        timeZone: "America/New_York",
+        testDate: "2026-05-29",
+        testDateSource: "human_confirmed",
+        testDateConfirmed: true,
+        daysUntilTest: 2,
+        goal: "Demonstrate mastery of the captured homework by the test date.",
+        requiredAbilities: [
+          "Spell silent-letter words from memory.",
+          "Read high-frequency words fluently.",
+        ],
+        expectedSessionsRemaining: 2,
+        sessionIntensity: "urgent",
+        questRole: "Transfer proof after baseline evidence.",
+        bossRole: "Mastery gate after quest evidence.",
+        failureLoop:
+          "If quest or boss fails, identify the failed target or skill, teach it next session, then retry the proof.",
+      },
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(packet.masteryContext).toMatchObject({
+      testDate: "2026-05-29",
+      daysUntilTest: 2,
+      sessionIntensity: "urgent",
+    });
+    expect(prompt).toContain("Demonstrate mastery of the captured homework by the test date");
+    expect(prompt).toContain("Quest is transfer proof");
+    expect(prompt).toContain("Boss is the mastery gate");
+    expect(prompt).toContain("If quest or boss fails");
+  });
+
   it("exposes a strict slot-based board contract to the planner tool", () => {
     const schema = assignmentPlannerToolJsonSchema();
     const activeSessionPlan = (schema.properties as Record<string, any>).activeSessionPlan;

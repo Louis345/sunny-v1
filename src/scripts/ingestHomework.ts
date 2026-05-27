@@ -49,11 +49,13 @@ import {
   type AssignmentSourceExtraction,
 } from "../engine/assignmentSourceExtraction";
 import {
+  buildAssignmentMasteryContext,
   buildAssignmentPlanningPacket,
   buildPlannerReadinessAudit,
   planAssignmentFromSource,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
+  type AssignmentMasteryContext,
   type AssignmentPlannerOutput,
   type AssignmentPlanningPacket,
   type AssignmentPlanValidationIssue,
@@ -1089,6 +1091,7 @@ async function extractHomework(args: {
   childId: string;
   filePath: string;
   pageImageDir: string;
+  masteryContext: AssignmentMasteryContext;
 }): Promise<ExtractionShape> {
   const assignmentSource = await extractAssignmentSource(args.filePath, {
     pageImageDir: args.pageImageDir,
@@ -1097,6 +1100,7 @@ async function extractHomework(args: {
     childId: args.childId,
     extraction: assignmentSource,
     childChart: getChildChart(args.childId),
+    masteryContext: args.masteryContext,
   });
   const plannerReadinessAudit = buildPlannerReadinessAudit(assignmentPlanningPacket.activityCatalog);
   const assignmentPlannerOutput = await planAssignmentFromSource(assignmentPlanningPacket);
@@ -1189,7 +1193,7 @@ async function extractHomework(args: {
     rawText: finalCapturedContent.rawText,
     words,
     questions,
-    testDate: null,
+    testDate: args.masteryContext.testDate,
     sourceDocuments: finalCapturedContent.sourceDocuments,
   });
 
@@ -1197,7 +1201,7 @@ async function extractHomework(args: {
     title: finalCapturedContent.title,
     type: normalizedType,
     gradeLevel: Number((args as { gradeLevel?: number }).gradeLevel ?? 2),
-    testDate: null,
+    testDate: args.masteryContext.testDate,
     words,
     wordGroups: finalCapturedContent.wordGroups,
     contentProfile,
@@ -1363,10 +1367,23 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   console.log("📄 Step 1/4: Reading homework...");
   console.log(`   Intake file: ${path.basename(incomingFile)}`);
   const storedSourcePath = storeOriginalAssignmentSource(incomingFile, pendingDir);
+  const resolvedTestDate = await resolveIngestedTestDate({
+    cliTestDate,
+    extractedTestDate: null,
+    inferredTestDate: nextFriday(),
+    interactive,
+  });
+  const { testDate, testDateSource, testDateConfirmed } = resolvedTestDate;
+  const masteryContext = buildAssignmentMasteryContext({
+    testDate,
+    testDateSource,
+    testDateConfirmed,
+  });
   const extracted = await extractHomework({
     childId,
     filePath: storedSourcePath,
     pageImageDir: path.join(pendingDir, "source-pages"),
+    masteryContext,
   });
   const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
   const selectedHomeworkDomain = homeworkDomain ?? classifierHomeworkDomain;
@@ -1375,14 +1392,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     : homeworkDomain
       ? "human_menu"
       : "classifier";
-  const resolvedTestDate = await resolveIngestedTestDate({
-    cliTestDate,
-    extractedTestDate: extracted.testDate,
-    inferredTestDate: nextFriday(),
-    interactive,
-  });
-  const { testDate, testDateSource, testDateConfirmed } = resolvedTestDate;
-  const daysUntilTest = daysUntil(testDate);
+  const daysUntilTest = masteryContext.daysUntilTest ?? daysUntil(testDate);
   const wordsLine =
     extracted.words.length <= 5
       ? extracted.words.join(", ")

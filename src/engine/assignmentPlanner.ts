@@ -69,9 +69,27 @@ export type AssignmentPlanningChildChartSummary = {
   recentEvidence: string[];
 };
 
+export type AssignmentMasteryContext = {
+  nowIso: string;
+  localDate: string;
+  timeZone: string;
+  testDate: string | null;
+  testDateSource: "cli" | "extracted" | "human_confirmed" | "inferred_next_friday" | "unknown";
+  testDateConfirmed: boolean;
+  daysUntilTest: number | null;
+  goal: string;
+  requiredAbilities: string[];
+  expectedSessionsRemaining: number | null;
+  sessionIntensity: "low" | "build" | "urgent" | "final_check";
+  questRole: string;
+  bossRole: string;
+  failureLoop: string;
+};
+
 export type AssignmentPlanningPacket = {
   packetVersion: 1;
   childId: string;
+  masteryContext: AssignmentMasteryContext;
   sourceDocument: Pick<
     AssignmentSourceExtraction,
     | "filename"
@@ -845,11 +863,90 @@ function buildBoardPlanningContext(args: {
   };
 }
 
+function systemTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+function localDateFor(now: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "01";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function dateOnlyUtcMs(date: string): number {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return Number.NaN;
+  return Date.UTC(year, month - 1, day);
+}
+
+function daysUntilDate(testDate: string | null, localDate: string): number | null {
+  if (!testDate) return null;
+  const target = dateOnlyUtcMs(testDate);
+  const today = dateOnlyUtcMs(localDate);
+  if (!Number.isFinite(target) || !Number.isFinite(today)) return null;
+  return Math.ceil((target - today) / 86_400_000);
+}
+
+function sessionIntensityForDays(daysUntilTest: number | null): AssignmentMasteryContext["sessionIntensity"] {
+  if (daysUntilTest === null) return "build";
+  if (daysUntilTest <= 0) return "final_check";
+  if (daysUntilTest <= 2) return "urgent";
+  if (daysUntilTest <= 5) return "build";
+  return "low";
+}
+
+function sessionsRemainingForDays(daysUntilTest: number | null): number | null {
+  if (daysUntilTest === null) return null;
+  return Math.max(1, Math.min(daysUntilTest + 1, 5));
+}
+
+export function buildAssignmentMasteryContext(args: {
+  now?: Date;
+  timeZone?: string;
+  testDate?: string | null;
+  testDateSource?: AssignmentMasteryContext["testDateSource"];
+  testDateConfirmed?: boolean;
+  requiredAbilities?: string[];
+} = {}): AssignmentMasteryContext {
+  const now = args.now ?? new Date();
+  const timeZone = args.timeZone ?? systemTimeZone();
+  const localDate = localDateFor(now, timeZone);
+  const testDate = args.testDate ?? null;
+  const daysUntilTest = daysUntilDate(testDate, localDate);
+  return {
+    nowIso: now.toISOString(),
+    localDate,
+    timeZone,
+    testDate,
+    testDateSource: args.testDateSource ?? "unknown",
+    testDateConfirmed: args.testDateConfirmed ?? false,
+    daysUntilTest,
+    goal: "Demonstrate mastery of the captured homework by the test date.",
+    requiredAbilities: args.requiredAbilities ?? [
+      "Infer every required ability from the captured homework evidence and source groups.",
+      "Make each source group visible in the board plan or explicitly justify deferring it.",
+      "Use baseline activities to teach and measure, Quest to prove transfer, and Boss to gate mastery.",
+    ],
+    expectedSessionsRemaining: sessionsRemainingForDays(daysUntilTest),
+    sessionIntensity: sessionIntensityForDays(daysUntilTest),
+    questRole: "Quest is transfer proof after baseline evidence.",
+    bossRole: "Boss is the mastery gate after quest evidence.",
+    failureLoop:
+      "If quest or boss fails, identify the failed target or skill, teach it next session, then retry the proof.",
+  };
+}
+
 export function buildAssignmentPlanningPacket(args: {
   childId: string;
   extraction: AssignmentSourceExtraction;
   childChart: ChildChart;
   currentEvidenceSummary?: string[];
+  masteryContext?: AssignmentMasteryContext;
 }): AssignmentPlanningPacket {
   const recentEvidence = args.currentEvidenceSummary ?? [];
   const childChart = childChartSummaryForPacket(args.childChart, recentEvidence);
@@ -857,6 +954,7 @@ export function buildAssignmentPlanningPacket(args: {
   return {
     packetVersion: 1,
     childId: args.childId,
+    masteryContext: args.masteryContext ?? buildAssignmentMasteryContext(),
     sourceDocument: {
       filename: args.extraction.filename,
       sourcePath: args.extraction.sourcePath,
@@ -888,7 +986,11 @@ export function buildAssignmentPlanningPacket(args: {
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Return a board plan that cites why every activity fits the target purpose.",
       "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
-      "Use this packet as the single planner object: childChart, sourceDocument, activityCatalog, boardPlanning, runtimeConstraints, and criticPolicy.",
+      "Use this packet as the single planner object: childChart, sourceDocument, masteryContext, activityCatalog, boardPlanning, runtimeConstraints, and criticPolicy.",
+      "Use masteryContext as the clock and deadline pressure: the goal is demonstrated homework mastery by testDate, not merely completing a cute board.",
+      "As daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.",
+      "Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.",
+      "If quest or boss fails, the next session must identify the failed target or skill, teach that skill, and retry the proof loop.",
       "Decide agency and route density from chart evidence, stamina, motivation, and evidence needs.",
       "Explain why each visible route or modal choice is worth the child's attention today.",
     ].join(" "),
@@ -1140,6 +1242,8 @@ Rules:
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
+- Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
+- As masteryContext.daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.
 - Use packet.boardPlanning as the board contract. It contains childChart, assignment, recentEvidence, algorithmContracts, choicePolicyContext, boardTemplate, runtimeConstraints, and criticPolicy.
 - Board template v1 expects a route choice after required baseline evidence, not at session start: complete at least boardTemplate.requiredBaselineCountBeforeRouteChoice baseline evidence node(s), then show a route gate only when the choices are worth the child's attention today.
 - Use algorithmContracts.choicePolicy and choicePolicyContext for route/Mystery/Quest/Boss wrapper choice evidence; preference evidence, not mastery, is what these choices produce.
@@ -1147,6 +1251,8 @@ Rules:
 - Use algorithmContracts.spacedRepetition for target dosage and support.
 - Use algorithmContracts.questReadiness for locked Quest readiness.
 - Use algorithmContracts.masteryGate for locked Boss readiness.
+- Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.
+- If quest or boss fails, the next session should identify the failed target or skill, teach that skill, then retry the proof loop.
 - Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
 - Explain why each visible route or modal choice is worth the child's attention today.
 - Return activeSessionPlan.adventureBoard as the child-facing map. nodePlan is the lab/intervention list; adventureBoard is the board experience.
