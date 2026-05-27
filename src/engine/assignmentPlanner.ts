@@ -220,6 +220,7 @@ export type AssignmentPlanValidationIssue = {
     | "missing_mystery_choice"
     | "missing_quest_destination"
     | "missing_boss_destination"
+    | "missing_node_measurement"
     | "target_lane_mismatch"
     | "unknown_activity_id"
     | "board_missing_edge_endpoint"
@@ -984,6 +985,7 @@ export function buildAssignmentPlanningPacket(args: {
       "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
       "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes or a long run of Word Radar.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
+      "Every activeSessionPlan.nodePlan entry must have a plannedMeasurements entry whose id is measure-${node.id}; include supportCriteria, reviseCriteria, and falsifyCriteria for the exact signal that node is meant to collect.",
       "Return a board plan that cites why every activity fits the target purpose.",
       "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
       "Use this packet as the single planner object: childChart, sourceDocument, masteryContext, activityCatalog, boardPlanning, runtimeConstraints, and criticPolicy.",
@@ -1069,12 +1071,20 @@ export function validateAssignmentPlannerOutput(
     group,
     targetKeys: new Set(group.words.map((word) => word.trim().toLowerCase()).filter(Boolean)),
   }));
+  const measurementIds = new Set(output.plannedMeasurements.map((measurement) => measurement.id));
   for (const node of output.activeSessionPlan.nodePlan) {
     if (!activityIds.has(node.activityId)) {
       issues.push({
         code: "unknown_activity_id",
         severity: "error",
         message: `Node ${node.id} references unknown activity ${node.activityId}.`,
+      });
+    }
+    if (!measurementIds.has(`measure-${node.id}`)) {
+      issues.push({
+        code: "missing_node_measurement",
+        severity: "error",
+        message: `Node ${node.id} must have planned measurement id measure-${node.id} with support, revise, and falsify criteria.`,
       });
     }
     const nodeTargetKeys = new Set(node.targets.map((target) => target.trim().toLowerCase()).filter(Boolean));
@@ -1240,6 +1250,7 @@ Rules:
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
+- Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.

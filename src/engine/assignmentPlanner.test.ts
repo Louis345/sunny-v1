@@ -258,6 +258,42 @@ function goodOutput(): AssignmentPlannerOutput {
         reviseCriteria: "retries or hesitation",
         falsifyCriteria: "contaminated or missing attempts",
       },
+      {
+        id: "measure-spell-check-silent-letters",
+        activityId: "spell-check",
+        target: "silent_letters",
+        evidenceType: "spell_from_memory",
+        supportCriteria: "silent-letter words spelled from memory",
+        reviseCriteria: "specific silent-letter patterns need support",
+        falsifyCriteria: "child cannot attempt independent spelling",
+      },
+      {
+        id: "measure-mystery-choice",
+        activityId: "mystery",
+        target: "activity_affinity",
+        evidenceType: "preference_signal",
+        supportCriteria: "child chooses and completes a valid option with low friction",
+        reviseCriteria: "child hesitates, skips, or abandons the option",
+        falsifyCriteria: "mystery is treated as mastery evidence",
+      },
+      {
+        id: "measure-quest-transfer",
+        activityId: "quest",
+        target: "silent_letters",
+        evidenceType: "transfer",
+        supportCriteria: "generated quest shows independent transfer on target words",
+        reviseCriteria: "quest reveals fragile targets or support needs",
+        falsifyCriteria: "quest launches without validated generated content",
+      },
+      {
+        id: "measure-boss-mastery",
+        activityId: "boss",
+        target: "mastery_gate",
+        evidenceType: "mastery",
+        supportCriteria: "boss confirms quest-supported transfer without scaffolds",
+        reviseCriteria: "boss exposes remaining fragile targets",
+        falsifyCriteria: "boss launches before quest evidence supports readiness",
+      },
     ],
     planTheory: {
       hypothesis: "Reina needs spelling production for silent letters and fluent reading for high-frequency words.",
@@ -626,6 +662,7 @@ describe("assignment planner", () => {
     expect(packet.plannerInstruction).toContain("Count target placements before returning");
     expect(packet.plannerInstruction).toContain("count consecutive activity runs");
     expect(packet.plannerInstruction).toContain("visible_read or pronunciation");
+    expect(packet.plannerInstruction).toContain("measure-${node.id}");
     expect(packet.plannerInstruction).toContain("long run of Word Radar");
     expect(packet.plannerInstruction).toContain("Decide agency and route density from chart evidence");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
@@ -826,6 +863,42 @@ describe("assignment planner", () => {
     })).toEqual([]);
   });
 
+  it("requires every planned node to have support, revise, and falsify measurement criteria", () => {
+    const output = goodOutput();
+    output.plannedMeasurements = output.plannedMeasurements.filter((measurement) =>
+      measurement.id === "measure-pronunciation-high-frequency");
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: "missing_node_measurement",
+        severity: "error",
+        message: expect.stringContaining("spell-check-silent-letters"),
+      }),
+      expect.objectContaining({
+        code: "missing_node_measurement",
+        severity: "error",
+        message: expect.stringContaining("mystery-choice"),
+      }),
+      expect.objectContaining({
+        code: "missing_node_measurement",
+        severity: "error",
+        message: expect.stringContaining("quest-transfer"),
+      }),
+      expect.objectContaining({
+        code: "missing_node_measurement",
+        severity: "error",
+        message: expect.stringContaining("boss-mastery"),
+      }),
+    ]));
+  });
+
   it("requires planner-owned Mystery, Quest, and Boss destinations", () => {
     const output = goodOutput();
     output.activeSessionPlan = planWithNodes(output.activeSessionPlan.nodePlan.filter((node) =>
@@ -882,6 +955,15 @@ describe("assignment planner", () => {
       difficulty: 1,
       source: "chart_planner",
       targetLane: "high_frequency_words",
+    });
+    output.plannedMeasurements.push({
+      id: "measure-spell-check-leak",
+      activityId: "spell-check",
+      target: "high_frequency_words",
+      evidenceType: "planner_owned_fit",
+      supportCriteria: "planner evidence supports this as a valid production probe",
+      reviseCriteria: "performance shows this is only recognition practice",
+      falsifyCriteria: "source evidence contradicts spelling-production use",
     });
 
     expect(validateAssignmentPlannerOutput(output, {
