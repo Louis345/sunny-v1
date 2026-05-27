@@ -3,6 +3,200 @@
   "childId": "reina",
   "items": [
     {
+      "contentId": "hw-spelling_test-6727f1c8:baseline-silent-letters-wr",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:baseline-hf-recognition",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - word-radar",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "among",
+        "building",
+        "circle"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose word-radar. Target lane: high_frequency."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:spelling-probe-silent",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "quiz",
+      "source": "baseline",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - spell-check",
+      "algorithmTargets": [
+        "spaced-repetition",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose spell-check. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:quest-silent-transfer",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - quest",
+      "algorithmTargets": [
+        "error-pattern-remediation",
+        "retrieval-practice",
+        "desirable-difficulty"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose quest. Target lane: silent_letters."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:boss-mastery-finale",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "game",
+      "source": "generated",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - boss",
+      "algorithmTargets": [
+        "mastery-gating",
+        "retrieval-practice"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "among",
+        "building",
+        "circle"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Assignment planner chose boss."
+    },
+    {
+      "contentId": "hw-spelling_test-6727f1c8:reading-mode",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "childId": "reina",
+      "type": "reading-mode",
+      "source": "prototype",
+      "title": "Benchmark Advance Spelling Unit 9 Week 3 - reading-mode",
+      "algorithmTargets": [
+        "reading-comprehension",
+        "pronunciation",
+        "activity-affinity"
+      ],
+      "targetSkills": [
+        "Orthographic patterns with silent consonants and automatic word recognition"
+      ],
+      "targetConcepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "targetWords": [
+        "sign",
+        "know",
+        "write",
+        "among",
+        "building",
+        "circle"
+      ],
+      "engagementHooks": [],
+      "inputEvidence": {
+        "contentFingerprint": "281771cf53524b7d"
+      },
+      "reuseStatus": "candidate",
+      "reuseReason": "Reading Mode fits Silent Letters and High-Frequency Words because the captured homework has passage text to read and reveal."
+    },
+    {
       "contentId": "hw-spelling_test-5a49d659:baseline-1-silent-spelling",
       "homeworkId": "hw-spelling_test-5a49d659",
       "childId": "reina",
@@ -1577,5 +1771,5 @@
       "reuseReason": "Countdown fits Erosion and Earth's Surface because the captured homework has comprehension or concept-check questions."
     }
   ],
-  "updatedAt": "2026-05-27T14:42:46.807Z"
+  "updatedAt": "2026-05-27T18:53:31.943Z"
 }

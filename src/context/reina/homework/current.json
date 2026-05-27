@@ -7,70 +7,43 @@
     "testDate": "2026-05-29",
     "testDateSource": "cli",
     "testDateConfirmed": true,
-    "returnTag": "#sunny_reina_hw_spelling_test_5a49d659",
+    "returnTag": "#sunny_reina_hw_spelling_test_6727f1c8",
     "wordList": [
       "sign",
       "know",
       "write",
-      "thumb",
-      "comb",
-      "gnat",
-      "knock",
-      "knife",
-      "wrong",
-      "climb",
       "among",
       "building",
-      "circle",
-      "decided",
-      "finally",
-      "heavy",
-      "include",
-      "nothing",
-      "special",
-      "wheel"
+      "circle"
     ],
     "contentProfile": {
       "practiceDomain": "spelling",
       "contentDomain": "language_arts",
-      "topic": "Silent letter spelling patterns and high-frequency word recognition",
-      "primarySkill": "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary",
-      "assignmentFormat": "Two-group spelling list: pattern-focused production targets and sight-word recognition targets",
+      "topic": "Silent Letters and High-Frequency Words",
+      "primarySkill": "Orthographic patterns with silent consonants and automatic word recognition",
+      "assignmentFormat": "Weekly spelling and sight word list",
       "concepts": [
-        "Silent consonants in English orthography",
-        "High-frequency word recognition",
-        "Pattern-based spelling versus whole-word memory"
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
       ],
       "sourceEvidence": [
         "No explicit cross-domain topic detected.",
-        "source-document-text"
+        "Benchmark Advance Unit 9 Week 3",
+        "Teacher-labeled groups distinguish spelling production from recognition"
       ]
     },
     "capturedContent": {
       "title": "Benchmark Advance Spelling Unit 9 Week 3",
       "type": "spelling_test",
-      "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\n\nSilent Letters\nsign\nknow\nwrite\nthumb\ncomb\ngnat\nknock\nknife\nwrong\nclimb\n\nHigh-Frequency Words\namong\nbuilding\ncircle\ndecided\nfinally\nheavy\ninclude\nnothing\nspecial\nwheel",
+      "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\nSilent Letters\nsign\nknow\nwrite\nHigh-Frequency Words\namong\nbuilding\ncircle",
       "words": [
         "sign",
         "know",
         "write",
-        "thumb",
-        "comb",
-        "gnat",
-        "knock",
-        "knife",
-        "wrong",
-        "climb",
         "among",
         "building",
-        "circle",
-        "decided",
-        "finally",
-        "heavy",
-        "include",
-        "nothing",
-        "special",
-        "wheel"
+        "circle"
       ],
       "homeworkWords": [
         {
@@ -98,140 +71,28 @@
           "positionIndex": 2
         },
         {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-          "text": "thumb",
-          "normalizedText": "thumb",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 3
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-          "text": "comb",
-          "normalizedText": "comb",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 4
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-          "text": "gnat",
-          "normalizedText": "gnat",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 5
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-          "text": "knock",
-          "normalizedText": "knock",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 6
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-          "text": "knife",
-          "normalizedText": "knife",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 7
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-          "text": "wrong",
-          "normalizedText": "wrong",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 8
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9",
-          "text": "climb",
-          "normalizedText": "climb",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 9
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
           "text": "among",
           "normalizedText": "among",
           "wordGroupId": "high_frequency",
           "purpose": "recognize",
-          "positionIndex": 10
+          "positionIndex": 3
         },
         {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
           "text": "building",
           "normalizedText": "building",
           "wordGroupId": "high_frequency",
           "purpose": "recognize",
-          "positionIndex": 11
+          "positionIndex": 4
         },
         {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
+          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5",
           "text": "circle",
           "normalizedText": "circle",
           "wordGroupId": "high_frequency",
           "purpose": "recognize",
-          "positionIndex": 12
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-          "text": "decided",
-          "normalizedText": "decided",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 13
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-          "text": "finally",
-          "normalizedText": "finally",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 14
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-          "text": "heavy",
-          "normalizedText": "heavy",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 15
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-          "text": "include",
-          "normalizedText": "include",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 16
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-          "text": "nothing",
-          "normalizedText": "nothing",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 17
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-          "text": "special",
-          "normalizedText": "special",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 18
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19",
-          "text": "wheel",
-          "normalizedText": "wheel",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 19
+          "positionIndex": 5
         }
       ],
       "questions": [],
@@ -243,32 +104,19 @@
           "words": [
             "sign",
             "know",
-            "write",
-            "thumb",
-            "comb",
-            "gnat",
-            "knock",
-            "knife",
-            "wrong",
-            "climb"
+            "write"
           ],
-          "confidence": 0.95,
+          "confidence": 0.9,
           "evidence": [
-            "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-            "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+            "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+            "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+            "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
           ],
           "wordGroupId": "silent_letters",
           "homeworkWordIds": [
             "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
             "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9"
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
           ]
         },
         {
@@ -278,33 +126,19 @@
           "words": [
             "among",
             "building",
-            "circle",
-            "decided",
-            "finally",
-            "heavy",
-            "include",
-            "nothing",
-            "special",
-            "wheel"
+            "circle"
           ],
-          "confidence": 0.92,
+          "confidence": 0.85,
           "evidence": [
-            "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-            "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-            "No silent-letter pattern ties these words together as a spelling cohort"
+            "Teacher heading explicitly names 'High-Frequency Words'",
+            "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+            "These words are common sight words meant to be read automatically"
           ],
           "wordGroupId": "high_frequency",
           "homeworkWordIds": [
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
           ]
         }
       ],
@@ -319,32 +153,19 @@
             "words": [
               "sign",
               "know",
-              "write",
-              "thumb",
-              "comb",
-              "gnat",
-              "knock",
-              "knife",
-              "wrong",
-              "climb"
+              "write"
             ],
-            "confidence": 0.95,
+            "confidence": 0.9,
             "evidence": [
-              "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-              "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+              "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+              "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+              "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
             ],
             "wordGroupId": "silent_letters",
             "homeworkWordIds": [
               "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
               "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9"
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
             ]
           },
           {
@@ -354,33 +175,19 @@
             "words": [
               "among",
               "building",
-              "circle",
-              "decided",
-              "finally",
-              "heavy",
-              "include",
-              "nothing",
-              "special",
-              "wheel"
+              "circle"
             ],
-            "confidence": 0.92,
+            "confidence": 0.85,
             "evidence": [
-              "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-              "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-              "No silent-letter pattern ties these words together as a spelling cohort"
+              "Teacher heading explicitly names 'High-Frequency Words'",
+              "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+              "These words are common sight words meant to be read automatically"
             ],
             "wordGroupId": "high_frequency",
             "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
             ]
           }
         ],
@@ -388,20 +195,21 @@
           {
             "id": "silent_letters-planner-source",
             "claim": "Silent Letters was preserved from the assignment planner source truth.",
-            "confidence": 0.95,
+            "confidence": 0.9,
             "evidence": [
-              "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-              "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+              "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+              "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+              "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
             ]
           },
           {
             "id": "high_frequency-planner-source",
             "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
-            "confidence": 0.92,
+            "confidence": 0.85,
             "evidence": [
-              "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-              "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-              "No silent-letter pattern ties these words together as a spelling cohort"
+              "Teacher heading explicitly names 'High-Frequency Words'",
+              "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+              "These words are common sight words meant to be read automatically"
             ]
           }
         ],
@@ -413,32 +221,19 @@
             "words": [
               "sign",
               "know",
-              "write",
-              "thumb",
-              "comb",
-              "gnat",
-              "knock",
-              "knife",
-              "wrong",
-              "climb"
+              "write"
             ],
-            "confidence": 0.95,
+            "confidence": 0.9,
             "evidence": [
-              "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-              "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+              "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+              "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+              "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
             ],
             "wordGroupId": "silent_letters",
             "homeworkWordIds": [
               "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
               "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9"
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
             ]
           }
         ],
@@ -450,33 +245,19 @@
             "words": [
               "among",
               "building",
-              "circle",
-              "decided",
-              "finally",
-              "heavy",
-              "include",
-              "nothing",
-              "special",
-              "wheel"
+              "circle"
             ],
-            "confidence": 0.92,
+            "confidence": 0.85,
             "evidence": [
-              "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-              "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-              "No silent-letter pattern ties these words together as a spelling cohort"
+              "Teacher heading explicitly names 'High-Frequency Words'",
+              "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+              "These words are common sight words meant to be read automatically"
             ],
             "wordGroupId": "high_frequency",
             "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
             ]
           }
         ],
@@ -497,44 +278,38 @@
       },
       "sourceDocuments": [
         {
-          "filename": "reina_spelling_2026-05-25.txt",
+          "filename": "sunny-reina-spelling-proof.txt",
           "mediaType": "text/plain"
         }
       ],
       "contentProfile": {
         "practiceDomain": "spelling",
         "contentDomain": "language_arts",
-        "topic": "Silent letter spelling patterns and high-frequency word recognition",
-        "primarySkill": "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary",
-        "assignmentFormat": "Two-group spelling list: pattern-focused production targets and sight-word recognition targets",
+        "topic": "Silent Letters and High-Frequency Words",
+        "primarySkill": "Orthographic patterns with silent consonants and automatic word recognition",
+        "assignmentFormat": "Weekly spelling and sight word list",
         "concepts": [
-          "Silent consonants in English orthography",
-          "High-frequency word recognition",
-          "Pattern-based spelling versus whole-word memory"
+          "silent letter patterns (kn, gn, wr)",
+          "high-frequency sight word recognition",
+          "orthographic memory"
         ],
         "sourceEvidence": [
           "No explicit cross-domain topic detected.",
-          "source-document-text"
+          "Benchmark Advance Unit 9 Week 3",
+          "Teacher-labeled groups distinguish spelling production from recognition"
         ]
       }
     },
-    "homeworkId": "hw-spelling_test-5a49d659",
-    "generatedAt": "2026-05-27T14:42:46.805Z",
+    "homeworkId": "hw-spelling_test-6727f1c8",
+    "generatedAt": "2026-05-27T18:53:31.941Z",
     "nodes": [
       {
-        "id": "baseline-1-silent-spelling",
+        "id": "baseline-silent-letters-wr",
         "type": "word-radar",
         "words": [
           "sign",
           "know",
-          "write",
-          "thumb",
-          "comb",
-          "gnat",
-          "knock",
-          "knife",
-          "wrong",
-          "climb"
+          "write"
         ],
         "difficulty": 2,
         "gameFile": null,
@@ -566,62 +341,6 @@
             ],
             "label": "Spelling",
             "subject": "spelling"
-          },
-          {
-            "display": "thumb",
-            "acceptedResponses": [
-              "thumb"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "comb",
-            "acceptedResponses": [
-              "comb"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "gnat",
-            "acceptedResponses": [
-              "gnat"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "knock",
-            "acceptedResponses": [
-              "knock"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "knife",
-            "acceptedResponses": [
-              "knife"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "wrong",
-            "acceptedResponses": [
-              "wrong"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "climb",
-            "acceptedResponses": [
-              "climb"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
           }
         ],
         "wordRadarConfig": {
@@ -634,63 +353,12 @@
         }
       },
       {
-        "id": "baseline-2-high-freq-recognition",
-        "type": "pronunciation",
-        "words": [
-          "among",
-          "building",
-          "circle",
-          "decided",
-          "finally",
-          "heavy",
-          "include",
-          "nothing",
-          "special",
-          "wheel"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "locked": false,
-        "date": "2026-05-27",
-        "approved": false
-      },
-      {
-        "id": "route-a-silent-support",
-        "type": "spell-check",
-        "words": [
-          "sign",
-          "know",
-          "write",
-          "thumb",
-          "comb",
-          "gnat",
-          "knock",
-          "knife",
-          "wrong",
-          "climb"
-        ],
-        "difficulty": 2,
-        "gameFile": null,
-        "storyFile": null,
-        "locked": false,
-        "date": "2026-05-27",
-        "approved": false
-      },
-      {
-        "id": "route-b-high-freq-fluency",
+        "id": "baseline-hf-recognition",
         "type": "word-radar",
         "words": [
           "among",
           "building",
-          "circle",
-          "decided",
-          "finally",
-          "heavy",
-          "include",
-          "nothing",
-          "special",
-          "wheel"
+          "circle"
         ],
         "difficulty": 1,
         "gameFile": null,
@@ -722,62 +390,6 @@
             ],
             "label": "Spelling",
             "subject": "spelling"
-          },
-          {
-            "display": "decided",
-            "acceptedResponses": [
-              "decided"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "finally",
-            "acceptedResponses": [
-              "finally"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "heavy",
-            "acceptedResponses": [
-              "heavy"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "include",
-            "acceptedResponses": [
-              "include"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "nothing",
-            "acceptedResponses": [
-              "nothing"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "special",
-            "acceptedResponses": [
-              "special"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "wheel",
-            "acceptedResponses": [
-              "wheel"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
           }
         ],
         "wordRadarConfig": {
@@ -790,21 +402,32 @@
         }
       },
       {
-        "id": "mystery-1",
+        "id": "spelling-probe-silent",
+        "type": "spell-check",
+        "words": [
+          "sign",
+          "know",
+          "write"
+        ],
+        "difficulty": 2,
+        "gameFile": null,
+        "storyFile": null,
+        "locked": false,
+        "date": "2026-05-27",
+        "approved": false
+      },
+      {
+        "id": "mystery-choice",
         "type": "mystery",
         "words": [
           "sign",
           "know",
           "write",
-          "thumb",
-          "comb",
-          "gnat",
-          "knock",
-          "knife",
-          "wrong",
-          "climb"
+          "among",
+          "building",
+          "circle"
         ],
-        "difficulty": 1,
+        "difficulty": 2,
         "gameFile": null,
         "storyFile": null,
         "choiceMode": "choice_lab",
@@ -813,19 +436,12 @@
         "approved": false
       },
       {
-        "id": "quest-1",
+        "id": "quest-silent-transfer",
         "type": "quest",
         "words": [
           "sign",
           "know",
-          "write",
-          "thumb",
-          "comb",
-          "gnat",
-          "knock",
-          "knife",
-          "wrong",
-          "climb"
+          "write"
         ],
         "difficulty": 2,
         "gameFile": null,
@@ -836,7 +452,7 @@
         "approved": false
       },
       {
-        "id": "boss-1",
+        "id": "boss-mastery-finale",
         "type": "boss",
         "words": [],
         "difficulty": 3,
@@ -855,70 +471,43 @@
       "testDate": "2026-05-29",
       "testDateSource": "cli",
       "testDateConfirmed": true,
-      "returnTag": "#sunny_reina_hw_spelling_test_5a49d659",
+      "returnTag": "#sunny_reina_hw_spelling_test_6727f1c8",
       "wordList": [
         "sign",
         "know",
         "write",
-        "thumb",
-        "comb",
-        "gnat",
-        "knock",
-        "knife",
-        "wrong",
-        "climb",
         "among",
         "building",
-        "circle",
-        "decided",
-        "finally",
-        "heavy",
-        "include",
-        "nothing",
-        "special",
-        "wheel"
+        "circle"
       ],
       "contentProfile": {
         "practiceDomain": "spelling",
         "contentDomain": "language_arts",
-        "topic": "Silent letter spelling patterns and high-frequency word recognition",
-        "primarySkill": "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary",
-        "assignmentFormat": "Two-group spelling list: pattern-focused production targets and sight-word recognition targets",
+        "topic": "Silent Letters and High-Frequency Words",
+        "primarySkill": "Orthographic patterns with silent consonants and automatic word recognition",
+        "assignmentFormat": "Weekly spelling and sight word list",
         "concepts": [
-          "Silent consonants in English orthography",
-          "High-frequency word recognition",
-          "Pattern-based spelling versus whole-word memory"
+          "silent letter patterns (kn, gn, wr)",
+          "high-frequency sight word recognition",
+          "orthographic memory"
         ],
         "sourceEvidence": [
           "No explicit cross-domain topic detected.",
-          "source-document-text"
+          "Benchmark Advance Unit 9 Week 3",
+          "Teacher-labeled groups distinguish spelling production from recognition"
         ]
       },
       "capturedContent": {
         "title": "Benchmark Advance Spelling Unit 9 Week 3",
         "type": "spelling_test",
-        "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\n\nSilent Letters\nsign\nknow\nwrite\nthumb\ncomb\ngnat\nknock\nknife\nwrong\nclimb\n\nHigh-Frequency Words\namong\nbuilding\ncircle\ndecided\nfinally\nheavy\ninclude\nnothing\nspecial\nwheel",
+        "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\nSilent Letters\nsign\nknow\nwrite\nHigh-Frequency Words\namong\nbuilding\ncircle",
         "words": [
           "sign",
           "know",
           "write",
-          "thumb",
-          "comb",
-          "gnat",
-          "knock",
-          "knife",
-          "wrong",
-          "climb",
           "among",
           "building",
-          "circle",
-          "decided",
-          "finally",
-          "heavy",
-          "include",
-          "nothing",
-          "special",
-          "wheel"
+          "circle"
         ],
         "homeworkWords": [
           {
@@ -946,140 +535,28 @@
             "positionIndex": 2
           },
           {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-            "text": "thumb",
-            "normalizedText": "thumb",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 3
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-            "text": "comb",
-            "normalizedText": "comb",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 4
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-            "text": "gnat",
-            "normalizedText": "gnat",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 5
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-            "text": "knock",
-            "normalizedText": "knock",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 6
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-            "text": "knife",
-            "normalizedText": "knife",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 7
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-            "text": "wrong",
-            "normalizedText": "wrong",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 8
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9",
-            "text": "climb",
-            "normalizedText": "climb",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 9
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
             "text": "among",
             "normalizedText": "among",
             "wordGroupId": "high_frequency",
             "purpose": "recognize",
-            "positionIndex": 10
+            "positionIndex": 3
           },
           {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
             "text": "building",
             "normalizedText": "building",
             "wordGroupId": "high_frequency",
             "purpose": "recognize",
-            "positionIndex": 11
+            "positionIndex": 4
           },
           {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
+            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5",
             "text": "circle",
             "normalizedText": "circle",
             "wordGroupId": "high_frequency",
             "purpose": "recognize",
-            "positionIndex": 12
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-            "text": "decided",
-            "normalizedText": "decided",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 13
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-            "text": "finally",
-            "normalizedText": "finally",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 14
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-            "text": "heavy",
-            "normalizedText": "heavy",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 15
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-            "text": "include",
-            "normalizedText": "include",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 16
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-            "text": "nothing",
-            "normalizedText": "nothing",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 17
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-            "text": "special",
-            "normalizedText": "special",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 18
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19",
-            "text": "wheel",
-            "normalizedText": "wheel",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 19
+            "positionIndex": 5
           }
         ],
         "questions": [],
@@ -1091,32 +568,19 @@
             "words": [
               "sign",
               "know",
-              "write",
-              "thumb",
-              "comb",
-              "gnat",
-              "knock",
-              "knife",
-              "wrong",
-              "climb"
+              "write"
             ],
-            "confidence": 0.95,
+            "confidence": 0.9,
             "evidence": [
-              "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-              "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+              "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+              "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+              "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
             ],
             "wordGroupId": "silent_letters",
             "homeworkWordIds": [
               "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
               "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9"
+              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
             ]
           },
           {
@@ -1126,33 +590,19 @@
             "words": [
               "among",
               "building",
-              "circle",
-              "decided",
-              "finally",
-              "heavy",
-              "include",
-              "nothing",
-              "special",
-              "wheel"
+              "circle"
             ],
-            "confidence": 0.92,
+            "confidence": 0.85,
             "evidence": [
-              "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-              "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-              "No silent-letter pattern ties these words together as a spelling cohort"
+              "Teacher heading explicitly names 'High-Frequency Words'",
+              "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+              "These words are common sight words meant to be read automatically"
             ],
             "wordGroupId": "high_frequency",
             "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
             ]
           }
         ],
@@ -1167,32 +617,19 @@
               "words": [
                 "sign",
                 "know",
-                "write",
-                "thumb",
-                "comb",
-                "gnat",
-                "knock",
-                "knife",
-                "wrong",
-                "climb"
+                "write"
               ],
-              "confidence": 0.95,
+              "confidence": 0.9,
               "evidence": [
-                "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-                "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+                "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+                "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+                "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
               ],
               "wordGroupId": "silent_letters",
               "homeworkWordIds": [
                 "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
                 "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9"
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
               ]
             },
             {
@@ -1202,33 +639,19 @@
               "words": [
                 "among",
                 "building",
-                "circle",
-                "decided",
-                "finally",
-                "heavy",
-                "include",
-                "nothing",
-                "special",
-                "wheel"
+                "circle"
               ],
-              "confidence": 0.92,
+              "confidence": 0.85,
               "evidence": [
-                "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-                "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-                "No silent-letter pattern ties these words together as a spelling cohort"
+                "Teacher heading explicitly names 'High-Frequency Words'",
+                "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+                "These words are common sight words meant to be read automatically"
               ],
               "wordGroupId": "high_frequency",
               "homeworkWordIds": [
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
               ]
             }
           ],
@@ -1236,20 +659,21 @@
             {
               "id": "silent_letters-planner-source",
               "claim": "Silent Letters was preserved from the assignment planner source truth.",
-              "confidence": 0.95,
+              "confidence": 0.9,
               "evidence": [
-                "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-                "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+                "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+                "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+                "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
               ]
             },
             {
               "id": "high_frequency-planner-source",
               "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
-              "confidence": 0.92,
+              "confidence": 0.85,
               "evidence": [
-                "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-                "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-                "No silent-letter pattern ties these words together as a spelling cohort"
+                "Teacher heading explicitly names 'High-Frequency Words'",
+                "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+                "These words are common sight words meant to be read automatically"
               ]
             }
           ],
@@ -1261,32 +685,19 @@
               "words": [
                 "sign",
                 "know",
-                "write",
-                "thumb",
-                "comb",
-                "gnat",
-                "knock",
-                "knife",
-                "wrong",
-                "climb"
+                "write"
               ],
-              "confidence": 0.95,
+              "confidence": 0.9,
               "evidence": [
-                "Teacher heading 'Silent Letters' signals a spelling pattern focus requiring production recall",
-                "Words contain silent consonants (kn-, wr-, -mb, gn-) requiring explicit orthographic memory"
+                "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+                "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+                "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
               ],
               "wordGroupId": "silent_letters",
               "homeworkWordIds": [
                 "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
                 "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:thumb:3",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:comb:4",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:gnat:5",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:knock:6",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:knife:7",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:wrong:8",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:climb:9"
+                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
               ]
             }
           ],
@@ -1298,33 +709,19 @@
               "words": [
                 "among",
                 "building",
-                "circle",
-                "decided",
-                "finally",
-                "heavy",
-                "include",
-                "nothing",
-                "special",
-                "wheel"
+                "circle"
               ],
-              "confidence": 0.92,
+              "confidence": 0.85,
               "evidence": [
-                "Teacher heading 'High-Frequency Words' signals recognition/reading fluency goals",
-                "These words are Benchmark Advance sight vocabulary for reading fluency, not spelling production drill",
-                "No silent-letter pattern ties these words together as a spelling cohort"
+                "Teacher heading explicitly names 'High-Frequency Words'",
+                "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+                "These words are common sight words meant to be read automatically"
               ],
               "wordGroupId": "high_frequency",
               "homeworkWordIds": [
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:10",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:11",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:12",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:decided:13",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:finally:14",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:heavy:15",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:include:16",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:nothing:17",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:special:18",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:wheel:19"
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
               ]
             }
           ],
@@ -1345,44 +742,38 @@
         },
         "sourceDocuments": [
           {
-            "filename": "reina_spelling_2026-05-25.txt",
+            "filename": "sunny-reina-spelling-proof.txt",
             "mediaType": "text/plain"
           }
         ],
         "contentProfile": {
           "practiceDomain": "spelling",
           "contentDomain": "language_arts",
-          "topic": "Silent letter spelling patterns and high-frequency word recognition",
-          "primarySkill": "Orthographic memory for silent-letter patterns and visual recognition of high-frequency vocabulary",
-          "assignmentFormat": "Two-group spelling list: pattern-focused production targets and sight-word recognition targets",
+          "topic": "Silent Letters and High-Frequency Words",
+          "primarySkill": "Orthographic patterns with silent consonants and automatic word recognition",
+          "assignmentFormat": "Weekly spelling and sight word list",
           "concepts": [
-            "Silent consonants in English orthography",
-            "High-frequency word recognition",
-            "Pattern-based spelling versus whole-word memory"
+            "silent letter patterns (kn, gn, wr)",
+            "high-frequency sight word recognition",
+            "orthographic memory"
           ],
           "sourceEvidence": [
             "No explicit cross-domain topic detected.",
-            "source-document-text"
+            "Benchmark Advance Unit 9 Week 3",
+            "Teacher-labeled groups distinguish spelling production from recognition"
           ]
         }
       },
-      "homeworkId": "hw-spelling_test-5a49d659",
-      "generatedAt": "2026-05-27T14:42:46.805Z",
+      "homeworkId": "hw-spelling_test-6727f1c8",
+      "generatedAt": "2026-05-27T18:53:31.941Z",
       "nodes": [
         {
-          "id": "baseline-1-silent-spelling",
+          "id": "baseline-silent-letters-wr",
           "type": "word-radar",
           "words": [
             "sign",
             "know",
-            "write",
-            "thumb",
-            "comb",
-            "gnat",
-            "knock",
-            "knife",
-            "wrong",
-            "climb"
+            "write"
           ],
           "difficulty": 2,
           "gameFile": null,
@@ -1414,62 +805,6 @@
               ],
               "label": "Spelling",
               "subject": "spelling"
-            },
-            {
-              "display": "thumb",
-              "acceptedResponses": [
-                "thumb"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "comb",
-              "acceptedResponses": [
-                "comb"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "gnat",
-              "acceptedResponses": [
-                "gnat"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "knock",
-              "acceptedResponses": [
-                "knock"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "knife",
-              "acceptedResponses": [
-                "knife"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "wrong",
-              "acceptedResponses": [
-                "wrong"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "climb",
-              "acceptedResponses": [
-                "climb"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
             }
           ],
           "wordRadarConfig": {
@@ -1482,63 +817,12 @@
           }
         },
         {
-          "id": "baseline-2-high-freq-recognition",
-          "type": "pronunciation",
-          "words": [
-            "among",
-            "building",
-            "circle",
-            "decided",
-            "finally",
-            "heavy",
-            "include",
-            "nothing",
-            "special",
-            "wheel"
-          ],
-          "difficulty": 1,
-          "gameFile": null,
-          "storyFile": null,
-          "locked": false,
-          "date": "2026-05-27",
-          "approved": false
-        },
-        {
-          "id": "route-a-silent-support",
-          "type": "spell-check",
-          "words": [
-            "sign",
-            "know",
-            "write",
-            "thumb",
-            "comb",
-            "gnat",
-            "knock",
-            "knife",
-            "wrong",
-            "climb"
-          ],
-          "difficulty": 2,
-          "gameFile": null,
-          "storyFile": null,
-          "locked": false,
-          "date": "2026-05-27",
-          "approved": false
-        },
-        {
-          "id": "route-b-high-freq-fluency",
+          "id": "baseline-hf-recognition",
           "type": "word-radar",
           "words": [
             "among",
             "building",
-            "circle",
-            "decided",
-            "finally",
-            "heavy",
-            "include",
-            "nothing",
-            "special",
-            "wheel"
+            "circle"
           ],
           "difficulty": 1,
           "gameFile": null,
@@ -1570,62 +854,6 @@
               ],
               "label": "Spelling",
               "subject": "spelling"
-            },
-            {
-              "display": "decided",
-              "acceptedResponses": [
-                "decided"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "finally",
-              "acceptedResponses": [
-                "finally"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "heavy",
-              "acceptedResponses": [
-                "heavy"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "include",
-              "acceptedResponses": [
-                "include"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "nothing",
-              "acceptedResponses": [
-                "nothing"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "special",
-              "acceptedResponses": [
-                "special"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "wheel",
-              "acceptedResponses": [
-                "wheel"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
             }
           ],
           "wordRadarConfig": {
@@ -1638,21 +866,32 @@
           }
         },
         {
-          "id": "mystery-1",
+          "id": "spelling-probe-silent",
+          "type": "spell-check",
+          "words": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "difficulty": 2,
+          "gameFile": null,
+          "storyFile": null,
+          "locked": false,
+          "date": "2026-05-27",
+          "approved": false
+        },
+        {
+          "id": "mystery-choice",
           "type": "mystery",
           "words": [
             "sign",
             "know",
             "write",
-            "thumb",
-            "comb",
-            "gnat",
-            "knock",
-            "knife",
-            "wrong",
-            "climb"
+            "among",
+            "building",
+            "circle"
           ],
-          "difficulty": 1,
+          "difficulty": 2,
           "gameFile": null,
           "storyFile": null,
           "choiceMode": "choice_lab",
@@ -1661,19 +900,12 @@
           "approved": false
         },
         {
-          "id": "quest-1",
+          "id": "quest-silent-transfer",
           "type": "quest",
           "words": [
             "sign",
             "know",
-            "write",
-            "thumb",
-            "comb",
-            "gnat",
-            "knock",
-            "knife",
-            "wrong",
-            "climb"
+            "write"
           ],
           "difficulty": 2,
           "gameFile": null,
@@ -1684,7 +916,7 @@
           "approved": false
         },
         {
-          "id": "boss-1",
+          "id": "boss-mastery-finale",
           "type": "boss",
           "words": [],
           "difficulty": 3,
@@ -1698,5 +930,5 @@
       ]
     }
   },
-  "updatedAt": "2026-05-27T14:42:46.806Z"
+  "updatedAt": "2026-05-27T18:53:31.942Z"
 }

@@ -1,10 +1,10 @@
 {
   "todaysPlan": [
     {
-      "activity": "Homework Spelling – Silent Letter Spelling Patterns And High-frequency Word Recognition",
+      "activity": "Homework Spelling – Silent Letters And High-Frequency Words",
       "priority": 1,
       "required": true,
-      "reason": "Active uploaded homework is \"Benchmark Advance Spelling Unit 9 Week 3\", so today's required work must anchor on Silent consonants in English orthography, High-frequency word recognition, Pattern-based spelling versus whole-word memory before broader profile goals.",
+      "reason": "Active uploaded homework is \"Benchmark Advance Spelling Unit 9 Week 3\", so today's required work must anchor on silent letter patterns (kn, gn, wr), high-frequency sight word recognition, orthographic memory before broader profile goals.",
       "timeboxMinutes": 8,
       "method": "Read the assignment-aligned content, ask evidence-based checks, then use profile motivators only as framing.",
       "source": "pendingHomework",
@@ -12,23 +12,9 @@
         "sign",
         "know",
         "write",
-        "thumb",
-        "comb",
-        "gnat",
-        "knock",
-        "knife",
-        "wrong",
-        "climb",
         "among",
         "building",
-        "circle",
-        "decided",
-        "finally",
-        "heavy",
-        "include",
-        "nothing",
-        "special",
-        "wheel"
+        "circle"
       ],
       "probeSequence": [
         "Read or preview the assignment content",
@@ -38,7 +24,7 @@
       ]
     }
   ],
-  "childProfile": "Reina is an 8-year-old academically advanced student who thrives on challenge, competition, and being pushed intellectually. She's a year ahead of grade level, scores 100% on spelling tests, and gets bored—not frustrated—when work is too easy. As a competitive wrestler, she responds powerfully to wrestling metaphors (takedowns, pins, championships), scoreboard tracking, and personal-best challenges. Bilingual in English and Japanese, she celebrates wins in both languages (すごい, やった) and wants her Japanese identity acknowledged. She loves the movie Matilda and sees herself in the smart girl who doesn't back down. Reina is fast-paced, sharp, catches errors instantly (debugs technical glitches analytically), and self-regulates well—she'll exit on a winning streak or ask to stop when fatigued (15-20 minute focus window). She explicitly requested multiplication and division work 79 days ago and deserves that challenge immediately. She's not here for baby talk or slow pacing—she's here to be seen as the smart, competitive champion she is.",
+  "childProfile": "Reina is an 8-year-old championship-level learner who thrives on competition, speed, and being pushed hard. She's academically a year ahead, bilingual (English + Japanese), and a competitive wrestler on an 8-year-old girls team. She learns best through challenge that matches her identity: wrestling metaphors (takedowns, pins, championships), competitive framing (streaks, scoreboards, personal bests), and fast-paced work that respects her intelligence. She celebrates in Japanese (すごい, やった) when she succeeds and self-regulates beautifully—exits on winning streaks, debugs technical glitches analytically, and advocates clearly for what she needs. Her 15-20 minute focus window is consistent; respect it by front-loading the hardest work (multiplication) first. She asked for multiplication/division help 79 days ago and deserves to be heard. Easy work makes her disengage; appropriately hard work makes her light up. She's not just smart—she's a strategic thinker who sees patterns, catches errors, and wants to be challenged like the champion she is.",
   "stopAfter": "After the active homework check is complete, or earlier if frustration is rising.",
   "rewardPolicy": "Reward only after the active homework is checked; broader review goals belong in review mode."
 }

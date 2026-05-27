@@ -1,0 +1,332 @@
+{
+  "homeworkId": "hw-spelling_test-6727f1c8",
+  "subject": "spelling_test",
+  "wordList": [
+    "sign",
+    "know",
+    "write",
+    "among",
+    "building",
+    "circle"
+  ],
+  "contentProfile": {
+    "practiceDomain": "spelling",
+    "contentDomain": "language_arts",
+    "topic": "Silent Letters and High-Frequency Words",
+    "primarySkill": "Orthographic patterns with silent consonants and automatic word recognition",
+    "assignmentFormat": "Weekly spelling and sight word list",
+    "concepts": [
+      "silent letter patterns (kn, gn, wr)",
+      "high-frequency sight word recognition",
+      "orthographic memory"
+    ],
+    "sourceEvidence": [
+      "No explicit cross-domain topic detected.",
+      "Benchmark Advance Unit 9 Week 3",
+      "Teacher-labeled groups distinguish spelling production from recognition"
+    ]
+  },
+  "capturedContent": {
+    "title": "Benchmark Advance Spelling Unit 9 Week 3",
+    "type": "spelling_test",
+    "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\nSilent Letters\nsign\nknow\nwrite\nHigh-Frequency Words\namong\nbuilding\ncircle",
+    "words": [
+      "sign",
+      "know",
+      "write",
+      "among",
+      "building",
+      "circle"
+    ],
+    "homeworkWords": [
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+        "text": "sign",
+        "normalizedText": "sign",
+        "wordGroupId": "silent_letters",
+        "purpose": "spell_from_memory",
+        "positionIndex": 0
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+        "text": "know",
+        "normalizedText": "know",
+        "wordGroupId": "silent_letters",
+        "purpose": "spell_from_memory",
+        "positionIndex": 1
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
+        "text": "write",
+        "normalizedText": "write",
+        "wordGroupId": "silent_letters",
+        "purpose": "spell_from_memory",
+        "positionIndex": 2
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+        "text": "among",
+        "normalizedText": "among",
+        "wordGroupId": "high_frequency",
+        "purpose": "recognize",
+        "positionIndex": 3
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+        "text": "building",
+        "normalizedText": "building",
+        "wordGroupId": "high_frequency",
+        "purpose": "recognize",
+        "positionIndex": 4
+      },
+      {
+        "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5",
+        "text": "circle",
+        "normalizedText": "circle",
+        "wordGroupId": "high_frequency",
+        "purpose": "recognize",
+        "positionIndex": 5
+      }
+    ],
+    "questions": [],
+    "wordGroups": [
+      {
+        "id": "silent_letters",
+        "label": "Silent Letters",
+        "purpose": "spell_from_memory",
+        "words": [
+          "sign",
+          "know",
+          "write"
+        ],
+        "confidence": 0.9,
+        "evidence": [
+          "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+          "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+          "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
+        ],
+        "wordGroupId": "silent_letters",
+        "homeworkWordIds": [
+          "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+          "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+          "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+        ]
+      },
+      {
+        "id": "high_frequency",
+        "label": "High-Frequency Words",
+        "purpose": "recognize",
+        "words": [
+          "among",
+          "building",
+          "circle"
+        ],
+        "confidence": 0.85,
+        "evidence": [
+          "Teacher heading explicitly names 'High-Frequency Words'",
+          "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+          "These words are common sight words meant to be read automatically"
+        ],
+        "wordGroupId": "high_frequency",
+        "homeworkWordIds": [
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+          "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+        ]
+      }
+    ],
+    "assignmentInterpretation": {
+      "schemaVersion": 1,
+      "status": "ready",
+      "wordGroups": [
+        {
+          "id": "silent_letters",
+          "label": "Silent Letters",
+          "purpose": "spell_from_memory",
+          "words": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "confidence": 0.9,
+          "evidence": [
+            "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+            "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+            "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
+          ],
+          "wordGroupId": "silent_letters",
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+          ]
+        },
+        {
+          "id": "high_frequency",
+          "label": "High-Frequency Words",
+          "purpose": "recognize",
+          "words": [
+            "among",
+            "building",
+            "circle"
+          ],
+          "confidence": 0.85,
+          "evidence": [
+            "Teacher heading explicitly names 'High-Frequency Words'",
+            "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+            "These words are common sight words meant to be read automatically"
+          ],
+          "wordGroupId": "high_frequency",
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+          ]
+        }
+      ],
+      "assertions": [
+        {
+          "id": "silent_letters-planner-source",
+          "claim": "Silent Letters was preserved from the assignment planner source truth.",
+          "confidence": 0.9,
+          "evidence": [
+            "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+            "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+            "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
+          ]
+        },
+        {
+          "id": "high_frequency-planner-source",
+          "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
+          "confidence": 0.85,
+          "evidence": [
+            "Teacher heading explicitly names 'High-Frequency Words'",
+            "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+            "These words are common sight words meant to be read automatically"
+          ]
+        }
+      ],
+      "selectedTargets": [
+        {
+          "id": "silent_letters",
+          "label": "Silent Letters",
+          "purpose": "spell_from_memory",
+          "words": [
+            "sign",
+            "know",
+            "write"
+          ],
+          "confidence": 0.9,
+          "evidence": [
+            "Teacher heading 'Silent Letters' in Unit 9 Week 3 spelling assignment",
+            "Words contain silent consonants (gn, kn, wr) that are canonical spelling production targets",
+            "Placement in Benchmark Advance spelling curriculum indicates these are spelling test words"
+          ],
+          "wordGroupId": "silent_letters",
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
+            "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
+          ]
+        }
+      ],
+      "heldTargets": [
+        {
+          "id": "high_frequency",
+          "label": "High-Frequency Words",
+          "purpose": "recognize",
+          "words": [
+            "among",
+            "building",
+            "circle"
+          ],
+          "confidence": 0.85,
+          "evidence": [
+            "Teacher heading explicitly names 'High-Frequency Words'",
+            "High-frequency word lists in grade 2 curricula typically focus on fast recognition and reading fluency rather than spelling production alone",
+            "These words are common sight words meant to be read automatically"
+          ],
+          "wordGroupId": "high_frequency",
+          "homeworkWordIds": [
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
+            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
+          ]
+        }
+      ],
+      "clarificationQuestions": [],
+      "reviewRecommendations": [
+        {
+          "id": "confirm-mixed-target-purposes",
+          "severity": "confirm",
+          "reason": "The worksheet has multiple target groups with different purposes; parent review should confirm Sunny's routing before the lesson plan is approved.",
+          "targetGroupIds": [
+            "silent_letters",
+            "high_frequency"
+          ]
+        }
+      ],
+      "humanAnswers": [],
+      "memoryMatches": []
+    },
+    "sourceDocuments": [
+      {
+        "filename": "sunny-reina-spelling-proof.txt",
+        "mediaType": "text/plain"
+      }
+    ],
+    "contentProfile": {
+      "practiceDomain": "spelling",
+      "contentDomain": "language_arts",
+      "topic": "Silent Letters and High-Frequency Words",
+      "primarySkill": "Orthographic patterns with silent consonants and automatic word recognition",
+      "assignmentFormat": "Weekly spelling and sight word list",
+      "concepts": [
+        "silent letter patterns (kn, gn, wr)",
+        "high-frequency sight word recognition",
+        "orthographic memory"
+      ],
+      "sourceEvidence": [
+        "No explicit cross-domain topic detected.",
+        "Benchmark Advance Unit 9 Week 3",
+        "Teacher-labeled groups distinguish spelling production from recognition"
+      ]
+    }
+  },
+  "contentFingerprint": "281771cf53524b7d",
+  "calibrationStatus": "unverified",
+  "ingestedAt": "2026-05-27",
+  "testDate": "2026-05-29",
+  "testDateSource": "cli",
+  "testDateConfirmed": true,
+  "returnTag": "#sunny_reina_hw_spelling_test_6727f1c8",
+  "assumptions": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: sign, know, write, among, building\n\n## Intervention\nactive word production from memory\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet.",
+  "postAnalysis": null,
+  "scanResult": null,
+  "delta": null,
+  "metrics": null,
+  "theory": {
+    "theoryId": "hw-spelling_test-6727f1c8:pre_quest:2026-05-27T18:53:31.936Z",
+    "stage": "pre_quest",
+    "createdAt": "2026-05-27T18:53:31.936Z",
+    "hypothesis": "No confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.",
+    "predictedPattern": "content_fit_gap",
+    "predictedRiskWords": [
+      "sign",
+      "know",
+      "write",
+      "among",
+      "building"
+    ],
+    "intervention": "active word production from memory",
+    "successCriteria": {
+      "minAccuracy": 0.8,
+      "minImprovement": 0.15
+    },
+    "evidence": [
+      "No confirmed diagnostic pattern yet."
+    ],
+    "status": "pending",
+    "markdown": "## Hypothesis\nNo confirmed diagnostic pattern yet; the quest should probe whether the homework format itself creates the gap.\n\n## Prediction\nPattern: content_fit_gap\nRisk words/items: sign, know, write, among, building\n\n## Intervention\nactive word production from memory\n\n## Success criteria\n- Accuracy at least 80%\n- Improvement at least 15 percentage points\n\n## Evidence\n- No confirmed diagnostic pattern yet."
+  }
+}

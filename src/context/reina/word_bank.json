@@ -1,7 +1,7 @@
 {
   "childId": "reina",
   "version": 1,
-  "lastUpdated": "2026-05-27T14:42:46.800Z",
+  "lastUpdated": "2026-05-27T18:53:31.932Z",
   "words": [
     {
       "word": "add",
@@ -8818,16 +8818,7 @@
         }
       },
       "homeworkPriority": false,
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "recognize",
-          "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
+      "homeworkTargets": {},
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "recognize",
       "homeworkSourceGroup": "High-Frequency Words"
@@ -9849,12 +9840,12 @@
       },
       "homeworkTargets": {
         "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
+          "homeworkId": "hw-spelling_test-6727f1c8",
           "testDate": "2026-05-29",
           "priority": true,
           "purpose": "spell_from_memory",
           "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
+          "updatedAt": "2026-05-27T18:53:31.931Z"
         }
       },
       "homeworkPriority": true,
@@ -9882,12 +9873,12 @@
       },
       "homeworkTargets": {
         "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
+          "homeworkId": "hw-spelling_test-6727f1c8",
           "testDate": "2026-05-29",
           "priority": true,
           "purpose": "spell_from_memory",
           "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
+          "updatedAt": "2026-05-27T18:53:31.931Z"
         }
       },
       "homeworkPriority": true,
@@ -9915,12 +9906,12 @@
       },
       "homeworkTargets": {
         "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
+          "homeworkId": "hw-spelling_test-6727f1c8",
           "testDate": "2026-05-29",
           "priority": true,
           "purpose": "spell_from_memory",
           "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
+          "updatedAt": "2026-05-27T18:53:31.931Z"
         }
       },
       "homeworkPriority": true,
@@ -9946,17 +9937,8 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "spell_from_memory",
-          "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
-      "homeworkPriority": true,
+      "homeworkTargets": {},
+      "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Silent Letters"
@@ -9979,17 +9961,8 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "spell_from_memory",
-          "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
-      "homeworkPriority": true,
+      "homeworkTargets": {},
+      "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Silent Letters"
@@ -10012,17 +9985,8 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "spell_from_memory",
-          "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
-      "homeworkPriority": true,
+      "homeworkTargets": {},
+      "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Silent Letters"
@@ -10045,17 +10009,8 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "spell_from_memory",
-          "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
-      "homeworkPriority": true,
+      "homeworkTargets": {},
+      "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Silent Letters"
@@ -10078,17 +10033,8 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "spell_from_memory",
-          "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
-      "homeworkPriority": true,
+      "homeworkTargets": {},
+      "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Silent Letters"
@@ -10111,17 +10057,8 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "spell_from_memory",
-          "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
-      "homeworkPriority": true,
+      "homeworkTargets": {},
+      "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Silent Letters"
@@ -10144,17 +10081,8 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "spell_from_memory",
-          "sourceGroup": "Silent Letters",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
-      "homeworkPriority": true,
+      "homeworkTargets": {},
+      "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "spell_from_memory",
       "homeworkSourceGroup": "Silent Letters"
@@ -10179,12 +10107,12 @@
       },
       "homeworkTargets": {
         "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
+          "homeworkId": "hw-spelling_test-6727f1c8",
           "testDate": "2026-05-29",
           "priority": true,
           "purpose": "recognize",
           "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
+          "updatedAt": "2026-05-27T18:53:31.931Z"
         }
       },
       "homeworkPriority": false,
@@ -10212,12 +10140,12 @@
       },
       "homeworkTargets": {
         "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
+          "homeworkId": "hw-spelling_test-6727f1c8",
           "testDate": "2026-05-29",
           "priority": true,
           "purpose": "recognize",
           "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
+          "updatedAt": "2026-05-27T18:53:31.931Z"
         }
       },
       "homeworkPriority": false,
@@ -10245,12 +10173,12 @@
       },
       "homeworkTargets": {
         "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
+          "homeworkId": "hw-spelling_test-6727f1c8",
           "testDate": "2026-05-29",
           "priority": true,
           "purpose": "recognize",
           "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
+          "updatedAt": "2026-05-27T18:53:31.931Z"
         }
       },
       "homeworkPriority": false,
@@ -10276,16 +10204,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "recognize",
-          "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
+      "homeworkTargets": {},
       "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "recognize",
@@ -10309,16 +10228,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "recognize",
-          "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
+      "homeworkTargets": {},
       "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "recognize",
@@ -10342,16 +10252,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "recognize",
-          "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
+      "homeworkTargets": {},
       "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "recognize",
@@ -10375,16 +10276,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "recognize",
-          "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
+      "homeworkTargets": {},
       "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "recognize",
@@ -10408,16 +10300,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "recognize",
-          "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
+      "homeworkTargets": {},
       "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "recognize",
@@ -10441,16 +10324,7 @@
           "regressionCount": 0
         }
       },
-      "homeworkTargets": {
-        "spelling": {
-          "homeworkId": "hw-spelling_test-5a49d659",
-          "testDate": "2026-05-29",
-          "priority": true,
-          "purpose": "recognize",
-          "sourceGroup": "High-Frequency Words",
-          "updatedAt": "2026-05-27T14:42:46.800Z"
-        }
-      },
+      "homeworkTargets": {},
       "homeworkPriority": false,
       "testDate": "2026-05-29",
       "homeworkTargetPurpose": "recognize",
