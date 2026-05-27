@@ -52,6 +52,11 @@ import {
   companionCareToView,
 } from "../engine/companionCareEngine";
 import {
+  applyChoiceEventPreference,
+  recordChoiceEvent,
+  type ChoiceEventInput,
+} from "../engine/choiceEvents";
+import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
 } from "./companionCareFeedRoute";
@@ -555,6 +560,52 @@ export function setupRoutes(app: Express): void {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });
+    }
+  });
+
+  app.post("/api/child/:childId/choice-event", async (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    if (!childId) {
+      return res.status(400).json({ ok: false, error: "Missing childId" });
+    }
+    const body = req.body as { payload?: Partial<ChoiceEventInput>; preview?: unknown } | undefined;
+    const payload = body?.payload;
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ ok: false, error: "choice event payload required" });
+    }
+    if (!Array.isArray(payload.shownOptions) || payload.shownOptions.length === 0) {
+      return res.status(400).json({ ok: false, error: "choice event shownOptions required" });
+    }
+    if (typeof payload.choiceSetId !== "string" || !payload.choiceSetId.trim()) {
+      return res.status(400).json({ ok: false, error: "choice event choiceSetId required" });
+    }
+    const preview = body?.preview;
+    const skipPersistence = preview === "free" || preview === "go-live" || preview === true;
+    const eventInput = {
+      ...payload,
+      childId,
+      source: payload.source ?? "child_choice",
+      createdAt: payload.createdAt ?? new Date().toISOString(),
+    } as ChoiceEventInput;
+    if (skipPersistence) {
+      console.log(
+        `  🎮 [choice-event] [planner-board-preview] child=${childId} context=${eventInput.context} source=${eventInput.source}`,
+      );
+      return res.json({ ok: true, applied: false, skippedPersistence: true });
+    }
+    try {
+      const event = recordChoiceEvent(eventInput);
+      const applied = await applyChoiceEventPreference(event);
+      return res.json({
+        ok: true,
+        applied: applied.applied,
+        skippedPersistence: false,
+        choiceEventId: event.choiceEventId,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
     }
   });
 

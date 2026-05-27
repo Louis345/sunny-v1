@@ -29,7 +29,7 @@ import "./AdventureBoard.css";
 type AdventureBoardProps = {
   board: AdventureBoardJson;
   onNodeClick?: (node: AdventureBoardNode) => void;
-  onChoiceClick?: (option: AdventureChoiceOption) => void;
+  onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
 };
 
 type PositionedAdventureBoardNode = AdventureBoardNode & {
@@ -186,10 +186,33 @@ export function AdventureBoard({
     const positionedNode = resolveNodePosition(node);
     return positionedNode ? [positionedNode] : [];
   });
-  const nodes = new Map(resolvedNodes.map((node) => [node.id, node]));
   const choiceSetsById = new Map((board.choiceSets ?? []).map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);
+  const [selectedOptionByChoiceSet, setSelectedOptionByChoiceSet] = useState<Record<string, string>>({});
   const openChoiceSet = openChoiceSetId ? choiceSetsById.get(openChoiceSetId) ?? null : null;
+  const skippedRouteNodeIds = new Set<string>();
+  for (const choiceSet of board.choiceSets ?? []) {
+    if (choiceSet.kind !== "baseline-route" || board.layout?.routeChoiceBehavior !== "exclusive") continue;
+    const selectedOptionId = selectedOptionByChoiceSet[choiceSet.id];
+    if (!selectedOptionId) continue;
+    for (const option of choiceSet.options) {
+      if (option.id !== selectedOptionId && option.nodeId) {
+        skippedRouteNodeIds.add(option.nodeId);
+      }
+    }
+  }
+  const effectiveNodes = resolvedNodes.map((node) => {
+    if (!skippedRouteNodeIds.has(node.id)) return node;
+    return {
+      ...node,
+      state: "locked" as const,
+      lock: {
+        reason: "route_not_picked",
+        label: "Route not picked",
+      },
+    };
+  });
+  const nodes = new Map(effectiveNodes.map((node) => [node.id, node]));
 
   return (
     <section
@@ -230,7 +253,7 @@ export function AdventureBoard({
       </svg>
 
       <div className="adventure-board__nodes">
-        {resolvedNodes.filter((node) => node.state !== "hidden").map((node) => {
+        {effectiveNodes.filter((node) => node.state !== "hidden").map((node) => {
           const Icon = iconFor(node.icon, nodeFallbackIcon(node));
           const isLocked = node.state === "locked";
           const isPreparing = node.state === "preview";
@@ -295,7 +318,15 @@ export function AdventureBoard({
         choiceSet={openChoiceSet}
         onDismiss={() => setOpenChoiceSetId(null)}
         onSelect={(option) => {
-          onChoiceClick?.(option);
+          if (openChoiceSet?.kind === "baseline-route" && board.layout?.routeChoiceBehavior === "exclusive") {
+            setSelectedOptionByChoiceSet((prev) => ({
+              ...prev,
+              [openChoiceSet.id]: option.id,
+            }));
+          }
+          if (openChoiceSet) {
+            onChoiceClick?.(option, openChoiceSet);
+          }
           setOpenChoiceSetId(null);
         }}
       />

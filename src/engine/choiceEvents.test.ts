@@ -187,6 +187,65 @@ describe("choice events", () => {
     expect(rewardCalls).toEqual([["reina", "pronunciation", true, true, 0.95]]);
   });
 
+  it("records baseline route choices as selected and skipped preference evidence", async () => {
+    writeProfile("reina");
+    const rewardCalls: unknown[][] = [];
+
+    const event = recordChoiceEvent({
+      eventName: "option_selected",
+      childId: "reina",
+      choiceSetId: "baseline-route-options",
+      sessionId: "plan-reina-1",
+      nodeId: "baseline-hf-fluency",
+      context: "baseline_route",
+      domain: "spelling",
+      source: "child_choice",
+      shownOptions: [
+        {
+          optionId: "choice-baseline-hf-recognition",
+          activityId: "word-radar",
+          nodeType: "word-radar",
+          label: "Quick Read",
+          purposeLabel: "Quick Read",
+          preferenceTraits: ["practice", "control"],
+        },
+        {
+          optionId: "choice-baseline-hf-fluency",
+          activityId: "pronunciation",
+          nodeType: "pronunciation",
+          label: "Pronunciation",
+          purposeLabel: "Pronunciation",
+          preferenceTraits: ["voice", "control"],
+        },
+      ],
+      selectedOptionId: "choice-baseline-hf-fluency",
+      skippedOptionIds: ["choice-baseline-hf-recognition"],
+      createdAt: "2026-05-12T11:15:00.000Z",
+    }, { rootDir: root });
+
+    const result = await applyChoiceEventPreference(event, {
+      rootDir: root,
+      recordBanditReward: async (...args) => {
+        rewardCalls.push(args);
+      },
+    });
+
+    const loaded = readChoiceEvents("reina", { rootDir: root });
+    const profile = JSON.parse(
+      fs.readFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "utf8"),
+    ) as LearningProfile;
+    expect(result.applied).toBe(true);
+    expect(loaded[0]).toMatchObject({
+      context: "baseline_route",
+      selectedOptionId: "choice-baseline-hf-fluency",
+      skippedOptionIds: ["choice-baseline-hf-recognition"],
+    });
+    expect(profile.activityModel?.pronunciation?.plays).toBe(1);
+    expect(profile.activityTraitModel?.voice?.positiveWeight).toBeGreaterThan(0);
+    expect(profile.activityTraitModel?.control?.positiveWeight).toBeGreaterThan(0);
+    expect(rewardCalls).toEqual([["reina", "pronunciation", true, false, 0.5]]);
+  });
+
   it("does not treat system-required activity completion as strong preference", async () => {
     const profile = profileFor("reina");
     profile.adaptiveLoadState = {

@@ -22,6 +22,7 @@ import {
 
 export type ChoiceEventContext =
   | "mystery"
+  | "baseline_route"
   | "homework_required"
   | "quest"
   | "boss"
@@ -403,6 +404,13 @@ function traitDimensionsForActivity(activityId: string): string[] {
   }
 }
 
+function traitDimensionsForOption(option: ChoiceOption): string[] {
+  const traits = option.preferenceTraits
+    ?.map((trait) => trait.trim())
+    .filter(Boolean);
+  return traits?.length ? [...new Set(traits)] : traitDimensionsForActivity(option.activityId);
+}
+
 function mergeChoiceIntoActivityTraitModel(
   priorModel: Record<string, ActivityTraitModelEntry> | undefined,
   input: {
@@ -489,7 +497,7 @@ export async function applyChoiceEventPreference(
     }),
     activityTraitModel: mergeChoiceIntoActivityTraitModel(profile.activityTraitModel, {
       activityId: option.activityId,
-      dimensions: traitDimensionsForActivity(option.activityId),
+      dimensions: traitDimensionsForOption(option),
       liked,
       weight: round(
         Math.min(

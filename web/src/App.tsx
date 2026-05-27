@@ -22,6 +22,7 @@ import type { GameIframeOverlayState } from "./components/AdventureMap";
 import type {
   AdventureBoardNode,
   AdventureChoiceOption,
+  AdventureChoiceSet,
 } from "../../src/shared/adventureBoardJson";
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
@@ -59,6 +60,10 @@ import {
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "./utils/adventureBoardLaunch";
+import {
+  buildAdventureBoardChoiceEventInput,
+  postAdventureBoardChoiceEvent,
+} from "./utils/adventureBoardChoiceEvents";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import {
   CompanionCareProvider,
@@ -891,8 +896,31 @@ function App() {
   );
 
   const handlePlannerBoardChoiceClick = useCallback(
-    (option: AdventureChoiceOption) => {
+    (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => {
       if (!plannerBoardPacket) return;
+      const choiceEvent = buildAdventureBoardChoiceEventInput(
+        plannerBoardPacket,
+        choiceSet,
+        option,
+      );
+      void postAdventureBoardChoiceEvent(choiceEvent, { preview: mapPreviewMode })
+        .then((out) => {
+          console.log(" 🎮 [AdventureBoard] choice_event", {
+            childId: adventureChildId,
+            choiceSetId: choiceEvent.choiceSetId,
+            selectedOptionId: choiceEvent.selectedOptionId,
+            skippedOptionIds: choiceEvent.skippedOptionIds,
+            applied: out.applied,
+            skippedPersistence: out.skippedPersistence,
+          });
+        })
+        .catch((err: unknown) => {
+          console.warn(" 🎮 [AdventureBoard] choice_event_failed", {
+            childId: adventureChildId,
+            choiceSetId: choiceEvent.choiceSetId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
       const launchNode = resolvePlannerBoardChoiceLaunchNode(plannerBoardPacket, option);
       if (!launchNode) {
         console.log(" 🎮 [AdventureBoard] choice_not_launchable", {
@@ -904,7 +932,7 @@ function App() {
       }
       launchPlannerBoardNode(launchNode);
     },
-    [adventureChildId, launchPlannerBoardNode, plannerBoardPacket],
+    [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket],
   );
 
   const mergedCompanionEvents = useMemo(() => {

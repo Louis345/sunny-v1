@@ -175,6 +175,7 @@ export interface MysteryChoiceOption {
   nodeType?: NodeType;
   label: string;
   purposeLabel: string;
+  preferenceTraits?: string[];
   thumbnailUrl?: string;
   gameFile?: string;
   domain?: string;

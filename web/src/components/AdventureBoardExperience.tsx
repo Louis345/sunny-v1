@@ -3,6 +3,7 @@ import type { ChildExperiencePacket } from "../../../src/profiles/childExperienc
 import type {
   AdventureBoardNode,
   AdventureChoiceOption,
+  AdventureChoiceSet,
 } from "../../../src/shared/adventureBoardJson";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
 import { AdventureBoard } from "./AdventureBoard";
@@ -14,7 +15,7 @@ export type AdventureBoardExperienceProps = {
   idlePose?: "flank" | "center";
   companionBehavior?: CompanionBehavior | null;
   onNodeClick?: (node: AdventureBoardNode) => void;
-  onChoiceClick?: (option: AdventureChoiceOption) => void;
+  onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
 };
 
 export function AdventureBoardExperience({

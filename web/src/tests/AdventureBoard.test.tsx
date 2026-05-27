@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -25,6 +25,7 @@ import {
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "../utils/adventureBoardLaunch";
+import { buildAdventureBoardChoiceEventInput } from "../utils/adventureBoardChoiceEvents";
 
 const rawHorizontalBoard = rawHorizontalBoardJson as AdventureBoardJson;
 const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
@@ -265,6 +266,69 @@ describe("AdventureBoard", () => {
     );
   });
 
+  it("locks skipped sibling routes after an exclusive board choice", () => {
+    const onChoiceClick = vi.fn();
+    render(
+      <AdventureBoard
+        board={reinaCurrentHomeworkBoard}
+        onChoiceClick={onChoiceClick}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose Path" }));
+    const dialog = screen.getByRole("dialog", { name: "Choose your path" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Pronunciation/ }));
+
+    expect(onChoiceClick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "choice-baseline-hf-fluency" }),
+      expect.objectContaining({ id: "baseline-route-options" }),
+    );
+    expect(screen.getByRole("button", { name: "Quick Read, Route not picked" })).toHaveClass(
+      "adventure-board__node--locked",
+    );
+    expect(screen.getByRole("button", { name: "Pronunciation" })).not.toHaveClass(
+      "adventure-board__node--locked",
+    );
+  });
+
+  it("builds preference-only choice evidence from planner board route options", () => {
+    const packet = packetForBoard(reinaCurrentHomeworkBoard);
+    const choiceSet = reinaCurrentHomeworkBoard.choiceSets?.find(
+      (set) => set.id === "baseline-route-options",
+    );
+    const option = choiceSet?.options.find((candidate) => candidate.id === "choice-baseline-hf-fluency");
+
+    expect(choiceSet).toBeDefined();
+    expect(option).toBeDefined();
+    const event = buildAdventureBoardChoiceEventInput(packet, choiceSet!, option!, {
+      createdAt: "2026-05-27T12:00:00.000Z",
+    });
+
+    expect(event).toMatchObject({
+      eventName: "option_selected",
+      childId: "reina",
+      choiceSetId: "baseline-route-options",
+      context: "baseline_route",
+      source: "child_choice",
+      selectedOptionId: "choice-baseline-hf-fluency",
+      skippedOptionIds: ["choice-baseline-hf-recognition"],
+    });
+    expect(event.shownOptions).toEqual([
+      expect.objectContaining({
+        optionId: "choice-baseline-hf-recognition",
+        activityId: "word-radar",
+        nodeType: "word-radar",
+        preferenceTraits: ["practice", "control"],
+      }),
+      expect.objectContaining({
+        optionId: "choice-baseline-hf-fluency",
+        activityId: "pronunciation",
+        nodeType: "pronunciation",
+        preferenceTraits: ["voice", "control"],
+      }),
+    ]);
+  });
+
   it("keeps sibling routes available for parallel route choices", () => {
     render(
       <AdventureBoard
@@ -304,7 +368,7 @@ describe("AdventureBoard", () => {
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
     expect(reinaCurrentHomeworkBoard.nodes.some((node) => node.position == null)).toBe(true);
     expect(screen.getByRole("button", { name: /Start/ })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Silent Letters/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Letter Recall/ })).toBeVisible();
   });
 });
 
@@ -360,7 +424,10 @@ describe("AdventureBoardExperience", () => {
     expect(nodeClick).toHaveBeenCalledWith(expect.objectContaining({ id: "mystery" }));
 
     fireEvent.click(screen.getByRole("button", { name: /Story Challenge/ }));
-    expect(choiceClick).toHaveBeenCalledWith(expect.objectContaining({ id: "story-challenge" }));
+    expect(choiceClick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "story-challenge" }),
+      expect.objectContaining({ id: "dense-mystery-choice" }),
+    );
   });
 
   it("resolves JSON board activity nodes into existing launch actions", () => {
