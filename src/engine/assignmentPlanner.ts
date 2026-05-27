@@ -10,7 +10,7 @@ import type {
   PlanTheory,
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
-import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import type { AdventureBoardJson, AdventureChoiceOption } from "../shared/adventureBoardJson";
 import { ALL_NODE_TYPES, type NodeType } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
 import {
@@ -1542,7 +1542,7 @@ async function callAssignmentPlannerTool(args: {
   };
 }
 
-function hydrateAssignmentPlannerOutputFromDraft(
+export function hydrateAssignmentPlannerOutputFromDraft(
   draft: AssignmentPlannerResponseObject,
   packet: AssignmentPlanningPacket,
 ): AssignmentPlannerOutput {
@@ -1643,6 +1643,68 @@ function choiceSignalForNode(node: ActiveSessionPlan["nodePlan"][number]) {
   };
 }
 
+function mysteryChoiceSetId(node: ActiveSessionPlan["nodePlan"][number]): string {
+  return `${node.id}-options`;
+}
+
+function mysteryChoiceOptions(
+  node: ActiveSessionPlan["nodePlan"][number],
+): NonNullable<AdventureBoardJson["choiceSets"]>[number]["options"] {
+  const state: AdventureChoiceOption["state"] = node.locked ? "locked" : "available";
+  const base = {
+    thumbnailUrl: thumbnailForAssignmentBoardNode(node),
+    nodeId: node.id,
+    state,
+    lock: node.locked
+      ? { reason: node.masteryUnlockState ?? "planner_locked", label: "Preparing" }
+      : undefined,
+  };
+  return [
+    {
+      id: `${node.id}-story`,
+      label: "Story Challenge",
+      description: "Try the practice inside a story wrapper.",
+      icon: "book",
+      tags: ["story", "calm", "reading"],
+      choiceSignal: {
+        algorithmFeed: "choicePolicy",
+        traits: ["story", "calm", "reading"],
+        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} story wrapper; preference only`,
+        preferenceNotMastery: true,
+      },
+      ...base,
+    },
+    {
+      id: `${node.id}-speed`,
+      label: "Speed Challenge",
+      description: "Try the practice with a fast arcade wrapper.",
+      icon: "zap",
+      tags: ["speed", "competition", "arcade"],
+      choiceSignal: {
+        algorithmFeed: "choicePolicy",
+        traits: ["speed", "competition", "arcade"],
+        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} speed wrapper; preference only`,
+        preferenceNotMastery: true,
+      },
+      ...base,
+    },
+    {
+      id: `${node.id}-puzzle`,
+      label: "Puzzle Challenge",
+      description: "Try the practice with a thinking wrapper.",
+      icon: "sparkles",
+      tags: ["puzzle", "control", "thinking"],
+      choiceSignal: {
+        algorithmFeed: "choicePolicy",
+        traits: ["puzzle", "control", "thinking"],
+        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} puzzle wrapper; preference only`,
+        preferenceNotMastery: true,
+      },
+      ...base,
+    },
+  ];
+}
+
 function kindForAssignmentNode(node: ActiveSessionPlan["nodePlan"][number]): AdventureBoardJson["nodes"][number]["kind"] {
   if (node.activityId === "mystery") return "mystery";
   if (node.activityId === "quest") return "quest";
@@ -1668,6 +1730,7 @@ function buildAssignmentBoardNode(args: {
 }): AdventureBoardJson["nodes"][number] {
   const kind = kindForAssignmentNode(args.node);
   const label = labelForAssignmentBoardNode(args.packet, args.node) ?? args.node.activityId;
+  const choiceSetId = kind === "mystery" ? mysteryChoiceSetId(args.node) : undefined;
   const lock = args.node.locked
     ? {
         reason: args.node.masteryUnlockState ?? "planner_locked",
@@ -1700,9 +1763,12 @@ function buildAssignmentBoardNode(args: {
       ? args.node.wordRadarConfig as AdventureBoardJson["nodes"][number]["wordRadarConfig"]
       : undefined,
     lock,
+    choiceSetId,
     action: args.node.locked
       ? { type: "show-locked-reason", payloadId: args.node.id }
-      : { type: "launch-activity", payloadId: args.node.id },
+      : choiceSetId
+        ? { type: "open-choice-set", payloadId: choiceSetId }
+        : { type: "launch-activity", payloadId: args.node.id },
   };
 }
 
@@ -1867,20 +1933,30 @@ function buildAssignmentAdventureBoard(args: {
     },
     nodes,
     edges,
-    choiceSets: [{
-      id: "baseline-route-options",
-      kind: "baseline-route",
-      title: "Choose your path",
-      options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node) => ({
-        id: `choice-${node.id}`,
-        label: labelForAssignmentBoardNode(args.packet, node) ?? node.activityId,
-        description: `Try ${node.activityId} next.`,
-        thumbnailUrl: thumbnailForAssignmentBoardNode(node),
-        state: node.locked ? "locked" : "available",
-        nodeId: node.id,
-        choiceSignal: choiceSignalForNode(node),
-      })),
-    }],
+    choiceSets: [
+      {
+        id: "baseline-route-options",
+        kind: "baseline-route",
+        title: "Choose your path",
+        options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node) => ({
+          id: `choice-${node.id}`,
+          label: labelForAssignmentBoardNode(args.packet, node) ?? node.activityId,
+          description: `Try ${node.activityId} next.`,
+          thumbnailUrl: thumbnailForAssignmentBoardNode(node),
+          state: node.locked ? "locked" : "available",
+          nodeId: node.id,
+          choiceSignal: choiceSignalForNode(node),
+        })),
+      },
+      ...(mysteryNode
+        ? [{
+            id: mysteryChoiceSetId(mysteryNode),
+            kind: "mystery" as const,
+            title: "Pick a mystery challenge",
+            options: mysteryChoiceOptions(mysteryNode),
+          }]
+        : []),
+    ],
     companion: {
       id: args.companionId,
       name: args.companionName,

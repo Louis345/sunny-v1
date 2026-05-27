@@ -18,6 +18,7 @@ import {
   parseAssignmentPlannerJson,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
+  hydrateAssignmentPlannerOutputFromDraft,
   type AssignmentPlannerOutput,
   type AssignmentSourceExtraction,
 } from "./assignmentPlanner";
@@ -779,6 +780,73 @@ describe("assignment planner", () => {
     expect(nodeSchema.properties.type.enum).toEqual(expect.arrayContaining(["word-radar", "spell-check", "mystery", "quest", "boss"]));
     expect(nodeSchema.properties.type.enum).not.toContain("choose-path");
     expect(nodeSchema.properties.activityId.enum).not.toContain("choose-path");
+  });
+
+  it("materializes Mystery as a preference-lab choice wrapper, not a direct launch", () => {
+    const draft = parseAssignmentPlannerJson(JSON.stringify({
+      ...(plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>),
+      activeSessionPlan: {
+        nodePlan: [
+          {
+            id: "baseline-radar",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["sign", "know", "write"],
+            difficulty: 1,
+            targetLane: "silent_letters",
+            wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+          },
+          {
+            id: "baseline-spell",
+            type: "spell-check",
+            activityId: "spell-check",
+            targets: ["sign", "know", "write"],
+            difficulty: 2,
+            targetLane: "silent_letters",
+          },
+          ...adventureSpineNodes(),
+        ],
+      },
+    }));
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
+
+    const board = parsed.activeSessionPlan.adventureBoard!;
+    const mysteryNode = board.nodes.find((node) => node.id === "mystery-choice");
+    const mysteryChoiceSet = board.choiceSets?.find((set) => set.id === "mystery-choice-options");
+
+    expect(mysteryNode).toMatchObject({
+      kind: "mystery",
+      action: { type: "open-choice-set", payloadId: "mystery-choice-options" },
+      choiceSetId: "mystery-choice-options",
+    });
+    expect(mysteryChoiceSet).toMatchObject({
+      kind: "mystery",
+      title: "Pick a mystery challenge",
+    });
+    expect(mysteryChoiceSet?.options.length).toBeGreaterThanOrEqual(2);
+    expect(mysteryChoiceSet?.options).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        label: "Story Challenge",
+        nodeId: "mystery-choice",
+        choiceSignal: expect.objectContaining({
+          preferenceNotMastery: true,
+          traits: expect.arrayContaining(["story"]),
+        }),
+      }),
+      expect.objectContaining({
+        label: "Speed Challenge",
+        nodeId: "mystery-choice",
+        choiceSignal: expect.objectContaining({
+          preferenceNotMastery: true,
+          traits: expect.arrayContaining(["speed"]),
+        }),
+      }),
+    ]));
   });
 
   it("prints a planner readiness audit table for the full activity catalog", () => {
