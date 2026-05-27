@@ -1,0 +1,175 @@
+{
+  "scenarioId": "silent-letters-adaptive",
+  "childId": "reina",
+  "model": "fixture:claude-sonnet-4-5",
+  "createdAt": "2026-05-27T12:00:00.000Z",
+  "latencyMs": 0,
+  "tokenEstimate": {
+    "inputTokens": 20000,
+    "outputTokens": 4000
+  },
+  "expectedEvidenceTerms": [
+    "challenge",
+    "spelling production"
+  ],
+  "preflight": {
+    "status": "pass",
+    "issues": []
+  },
+  "output": {
+    "planTheory": {
+      "hypothesis": "Reina responds to challenge and needs spelling production proof, so the first route can ask for more recall.",
+      "evidenceSummary": [
+        "Reina responds to challenge.",
+        "Silent-letter spelling production still needs direct evidence."
+      ],
+      "intervention": "Use partial visual recall, then spell production, then a meaningful high-frequency fluency fork.",
+      "supportCriteria": [
+        "Reina spells silent-letter words without visible-word support."
+      ],
+      "reviseCriteria": [
+        "If misses cluster, route back to scaffolded recall."
+      ],
+      "falsifyCriteria": [
+        "If production is clean, reduce repeated baseline drills."
+      ]
+    },
+    "reviewQuestions": [
+      "Does Reina prefer speed/voice once the baseline evidence exists?"
+    ],
+    "activeSessionPlan": {
+      "planId": "fixture-reina-silent-letters",
+      "childId": "reina",
+      "createdAt": "2026-05-27T12:00:00.000Z",
+      "source": "planner_scenario_lab_fixture",
+      "domain": "spelling",
+      "activeHomeworkId": "hw-silent-letters-fixture",
+      "nodePlan": [
+        {
+          "id": "letter-recall",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": ["sign", "know", "write"],
+          "targetLane": "silent_letters",
+          "difficulty": 1,
+          "source": "chart_planner",
+          "wordRadarConfig": {
+            "recallMode": "partial_visual_recall",
+            "inputMode": "letter-by-letter",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": true,
+            "requiresCapturedResponse": true
+          }
+        },
+        {
+          "id": "spell-check",
+          "type": "spell-check",
+          "activityId": "spell-check",
+          "targets": ["sign", "know", "write"],
+          "targetLane": "silent_letters",
+          "difficulty": 1,
+          "source": "chart_planner"
+        },
+        {
+          "id": "pronunciation-fluency",
+          "type": "pronunciation",
+          "activityId": "pronunciation",
+          "targets": ["among", "answer", "enough"],
+          "targetLane": "high_frequency",
+          "difficulty": 1,
+          "source": "chart_planner"
+        },
+        {
+          "id": "mystery-choice",
+          "type": "mystery",
+          "activityId": "mystery",
+          "targets": [],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "locked": false
+        },
+        {
+          "id": "quest-destination",
+          "type": "quest",
+          "activityId": "quest",
+          "targets": ["sign", "know", "write", "among", "answer"],
+          "difficulty": 2,
+          "source": "chart_planner",
+          "locked": true,
+          "masteryUnlockState": "preparing"
+        },
+        {
+          "id": "boss-destination",
+          "type": "boss",
+          "activityId": "boss",
+          "targets": [],
+          "difficulty": 3,
+          "source": "chart_planner",
+          "locked": true,
+          "masteryUnlockState": "preparing"
+        }
+      ],
+      "adventureBoard": {
+        "boardId": "fixture-board-reina-silent-letters",
+        "planId": "fixture-reina-silent-letters",
+        "childId": "reina",
+        "title": "Reina Silent Letters Scenario",
+        "domain": "spelling",
+        "theme": {
+          "backgroundImage": "/adventure/backgrounds/silent-letters.png",
+          "palette": {
+            "path": "#ffffff",
+            "completed": "#16a34a",
+            "available": "#7c3aed",
+            "locked": "#64748b",
+            "current": "#f59e0b",
+            "preview": "#60a5fa",
+            "text": "#ffffff",
+            "panel": "rgba(15, 23, 42, 0.68)"
+          }
+        },
+        "nodes": [
+          { "id": "start", "kind": "start", "label": "Start", "state": "available" },
+          { "id": "letter-recall", "kind": "activity", "activityId": "word-radar", "label": "Letter Recall", "state": "available" },
+          { "id": "spell-check", "kind": "activity", "activityId": "spell-check", "label": "Spell Check", "state": "available" },
+          { "id": "pronunciation-fluency", "kind": "activity", "activityId": "pronunciation", "label": "Pronunciation", "state": "available" },
+          { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" },
+          { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } },
+          { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }
+        ],
+        "edges": [],
+        "choiceSets": [
+          {
+            "id": "baseline-route-choice",
+            "kind": "baseline-route",
+            "options": [
+              { "id": "spell-check", "label": "Spell Check", "nodeId": "spell-check" },
+              { "id": "pronunciation", "label": "Pronunciation", "nodeId": "pronunciation-fluency" }
+            ]
+          }
+        ]
+      },
+      "evidenceUsed": [
+        {
+          "id": "reina-chart-evidence",
+          "type": "chart",
+          "summary": "Reina responds to challenge and needs spelling production evidence before Quest."
+        }
+      ],
+      "openQuestions": [],
+      "approvalStatus": "pending",
+      "planTheory": {
+        "hypothesis": "Reina responds to challenge and needs spelling production proof.",
+        "evidenceSummary": [
+          "Challenge wrapper is preference evidence.",
+          "Spelling production must be tested by an instrument."
+        ],
+        "intervention": "Use production-first evidence, then offer a meaningful route choice.",
+        "supportCriteria": ["Silent-letter spelling is first-try accurate."],
+        "reviseCriteria": ["Misses or frustration show need for scaffold."],
+        "falsifyCriteria": ["Fast route causes avoidable errors."]
+      }
+    }
+  }
+}

@@ -37,6 +37,7 @@
     "sunny:chart:migrate": "npx tsx src/scripts/migrateChildChartWaterfall.ts",
     "sunny:chart:migrate:slim": "npx tsx src/scripts/migrateChildChartWaterfall.ts --slim",
     "sunny:psychologist:audit": "npx tsx src/scripts/auditPsychologistPacket.ts",
+    "sunny:planner:qa": "npx tsx src/scripts/plannerScenarioLab.ts",
     "sunny:session:audit": "npx tsx src/scripts/auditSessionDirectory.ts",
     "sunny:spelling:certify": "npx tsx src/scripts/certifySpellingAdaptation.ts",
     "sunny:lab:spelling": "npx tsx src/scripts/runSyntheticChildLab.ts",

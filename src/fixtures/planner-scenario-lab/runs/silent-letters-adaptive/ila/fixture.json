@@ -1,0 +1,165 @@
+{
+  "scenarioId": "silent-letters-adaptive",
+  "childId": "ila",
+  "model": "fixture:claude-sonnet-4-5",
+  "createdAt": "2026-05-27T12:00:00.000Z",
+  "latencyMs": 0,
+  "tokenEstimate": {
+    "inputTokens": 20000,
+    "outputTokens": 4000
+  },
+  "expectedEvidenceTerms": [
+    "decoding hesitation",
+    "voice avoidance"
+  ],
+  "preflight": {
+    "status": "pass",
+    "issues": []
+  },
+  "output": {
+    "planTheory": {
+      "hypothesis": "Ila has decoding hesitation and voice avoidance, so the first path should be low-pressure recognition before voice demand.",
+      "evidenceSummary": [
+        "Ila has decoding hesitation.",
+        "Voice avoidance means pronunciation should not be the first required gate."
+      ],
+      "intervention": "Use visible recognition and one careful spelling check before the choice lab.",
+      "supportCriteria": [
+        "Ila reads high-frequency words with fewer hesitations."
+      ],
+      "reviseCriteria": [
+        "If she avoids the voice path again, keep voice optional and try a puzzle wrapper."
+      ],
+      "falsifyCriteria": [
+        "If visible read is fluent, move to recall sooner."
+      ]
+    },
+    "reviewQuestions": [
+      "Does Ila choose voice when it is optional?"
+    ],
+    "activeSessionPlan": {
+      "planId": "fixture-ila-silent-letters",
+      "childId": "ila",
+      "createdAt": "2026-05-27T12:00:00.000Z",
+      "source": "planner_scenario_lab_fixture",
+      "domain": "spelling",
+      "activeHomeworkId": "hw-silent-letters-fixture",
+      "nodePlan": [
+        {
+          "id": "read-support",
+          "type": "word-radar",
+          "activityId": "word-radar",
+          "targets": ["among", "answer", "enough"],
+          "targetLane": "high_frequency",
+          "difficulty": 1,
+          "source": "chart_planner",
+          "wordRadarConfig": {
+            "recallMode": "visible_read",
+            "inputMode": "whole-word",
+            "speakStyle": "option-a",
+            "showTimer": false,
+            "hideWordDuringResponse": false,
+            "requiresCapturedResponse": true
+          }
+        },
+        {
+          "id": "spell-support",
+          "type": "spell-check",
+          "activityId": "spell-check",
+          "targets": ["sign", "know"],
+          "targetLane": "silent_letters",
+          "difficulty": 1,
+          "source": "chart_planner"
+        },
+        {
+          "id": "mystery-choice",
+          "type": "mystery",
+          "activityId": "mystery",
+          "targets": [],
+          "difficulty": 1,
+          "source": "chart_planner",
+          "locked": false
+        },
+        {
+          "id": "quest-destination",
+          "type": "quest",
+          "activityId": "quest",
+          "targets": ["sign", "know", "among", "answer"],
+          "difficulty": 2,
+          "source": "chart_planner",
+          "locked": true,
+          "masteryUnlockState": "preparing"
+        },
+        {
+          "id": "boss-destination",
+          "type": "boss",
+          "activityId": "boss",
+          "targets": [],
+          "difficulty": 3,
+          "source": "chart_planner",
+          "locked": true,
+          "masteryUnlockState": "preparing"
+        }
+      ],
+      "adventureBoard": {
+        "boardId": "fixture-board-ila-silent-letters",
+        "planId": "fixture-ila-silent-letters",
+        "childId": "ila",
+        "title": "Ila Silent Letters Scenario",
+        "domain": "spelling",
+        "theme": {
+          "backgroundImage": "/adventure/backgrounds/silent-letters.png",
+          "palette": {
+            "path": "#ffffff",
+            "completed": "#16a34a",
+            "available": "#7c3aed",
+            "locked": "#64748b",
+            "current": "#f59e0b",
+            "preview": "#60a5fa",
+            "text": "#ffffff",
+            "panel": "rgba(15, 23, 42, 0.68)"
+          }
+        },
+        "nodes": [
+          { "id": "start", "kind": "start", "label": "Start", "state": "available" },
+          { "id": "read-support", "kind": "activity", "activityId": "word-radar", "label": "Careful Read", "state": "available" },
+          { "id": "spell-support", "kind": "activity", "activityId": "spell-check", "label": "Spell Check", "state": "available" },
+          { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" },
+          { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } },
+          { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }
+        ],
+        "edges": [],
+        "choiceSets": [
+          {
+            "id": "baseline-route-choice",
+            "kind": "baseline-route",
+            "options": [
+              { "id": "careful-read", "label": "Careful Read", "nodeId": "read-support" },
+              { "id": "spell-check", "label": "Spell Check", "nodeId": "spell-support" }
+            ]
+          }
+        ]
+      },
+      "evidenceUsed": [
+        {
+          "id": "ila-chart-evidence",
+          "type": "chart",
+          "summary": "Ila has decoding hesitation and voice avoidance in recent spelling sessions."
+        }
+      ],
+      "openQuestions": [],
+      "approvalStatus": "pending",
+      "planTheory": {
+        "hypothesis": "Ila has decoding hesitation and voice avoidance.",
+        "evidenceSummary": [
+          "Ila has decoding hesitation.",
+          "Voice avoidance is preference evidence, not mastery evidence."
+        ],
+        "intervention": "Keep voice optional until baseline confidence rises.",
+        "supportCriteria": ["Ila completes visible read and tries a choice path."],
+        "reviseCriteria": ["Avoidance persists."],
+        "falsifyCriteria": ["Visible read is effortless and she chooses voice."]
+      }
+    }
+  }
+}
