@@ -1,0 +1,767 @@
+{
+  "childChart": {
+    "childId": "reina",
+    "identity": {
+      "displayName": "Reina",
+      "ttsName": "Ray-nah",
+      "avatarImagePath": "/characters/reina.png"
+    },
+    "companion": {
+      "id": "matilda",
+      "displayName": "Matilda",
+      "config": {
+        "companionId": "matilda",
+        "vrmUrl": "/companions/sample.vrm",
+        "expressions": {
+          "idle": "neutral",
+          "happy": "happy",
+          "thinking": "lookDown",
+          "celebrating": "happy",
+          "concerned": "sad",
+          "winking": "blinkLeft",
+          "surprised": "surprised",
+          "angry": "angry",
+          "blink": "blink"
+        },
+        "faceCamera": {
+          "position": [
+            0,
+            1.4,
+            0.8
+          ],
+          "target": [
+            0,
+            1.4,
+            0
+          ]
+        },
+        "dopamineGames": [
+          "space-invaders",
+          "asteroid",
+          "space-frogger"
+        ],
+        "sensitivity": {
+          "session_start": 0.8,
+          "correct_answer": 0.8,
+          "wrong_answer": 0.6,
+          "mastery_unlock": 1,
+          "session_complete": 0.85,
+          "session_end": 0.8,
+          "idle_too_long": 0.4
+        },
+        "idleFrequency_ms": 45000,
+        "randomMomentProbability": 0.3,
+        "toggledOff": false
+      }
+    },
+    "companionCare": {
+      "plan": {
+        "version": 1,
+        "childId": "reina",
+        "companionId": "matilda",
+        "state": {
+          "hunger": 1,
+          "mood": 0.8500000000000001,
+          "bond": 0.3,
+          "energy": 0.8,
+          "usefulness": 0.9,
+          "thoughtClarity": 0.7,
+          "lastSeenAt": "2026-05-14T23:56:48.889Z",
+          "lastFedAt": "2026-05-14T23:56:48.889Z"
+        },
+        "memory": {
+          "firstMetAt": "2026-05-04T21:17:03.135Z"
+        },
+        "inventory": {
+          "food": [
+            {
+              "id": "apple_bite",
+              "label": "Apple Bite",
+              "description": "A crisp snack for quick hunger repair.",
+              "quantity": 2,
+              "rarity": "common"
+            },
+            {
+              "id": "brain_berry",
+              "label": "Brain Berry",
+              "description": "Helps the companion think clearly.",
+              "quantity": 1,
+              "rarity": "uncommon"
+            },
+            {
+              "id": "cozy_soup",
+              "label": "Cozy Soup",
+              "description": "Restores energy after hard work.",
+              "quantity": 1,
+              "rarity": "uncommon"
+            },
+            {
+              "id": "star_candy",
+              "label": "Star Candy",
+              "description": "A small celebration treat.",
+              "quantity": 1,
+              "rarity": "uncommon"
+            },
+            {
+              "id": "mystery_snack",
+              "label": "Mystery Snack",
+              "description": "A rare earned reward.",
+              "quantity": 1,
+              "rarity": "rare"
+            }
+          ],
+          "careItems": []
+        },
+        "economy": {
+          "coins": 8300,
+          "storeUnlocks": []
+        },
+        "updatedAt": "2026-05-14T23:56:48.889Z"
+      },
+      "view": {
+        "childId": "reina",
+        "companionId": "matilda",
+        "displayName": "Matilda",
+        "vitals": {
+          "hunger": 1,
+          "mood": 0.8500000000000001,
+          "bond": 0.3,
+          "energy": 0.8,
+          "usefulness": 0.9,
+          "thoughtClarity": 0.7,
+          "lastSeenAt": "2026-05-14T23:56:48.889Z",
+          "lastFedAt": "2026-05-14T23:56:48.889Z"
+        },
+        "economy": {
+          "coins": 8300,
+          "storeUnlocks": []
+        },
+        "inventory": {
+          "food": [
+            {
+              "id": "apple_bite",
+              "label": "Apple Bite",
+              "description": "A crisp snack for quick hunger repair.",
+              "quantity": 2,
+              "rarity": "common"
+            },
+            {
+              "id": "brain_berry",
+              "label": "Brain Berry",
+              "description": "Helps the companion think clearly.",
+              "quantity": 1,
+              "rarity": "uncommon"
+            },
+            {
+              "id": "cozy_soup",
+              "label": "Cozy Soup",
+              "description": "Restores energy after hard work.",
+              "quantity": 1,
+              "rarity": "uncommon"
+            },
+            {
+              "id": "star_candy",
+              "label": "Star Candy",
+              "description": "A small celebration treat.",
+              "quantity": 1,
+              "rarity": "uncommon"
+            },
+            {
+              "id": "mystery_snack",
+              "label": "Mystery Snack",
+              "description": "A rare earned reward.",
+              "quantity": 1,
+              "rarity": "rare"
+            }
+          ],
+          "careItems": []
+        },
+        "readiness": {
+          "hungry": false,
+          "lowEnergy": false,
+          "lowBond": false,
+          "lowThoughtClarity": false,
+          "highEnergyReluctance": false,
+          "canContinueTired": true,
+          "suggestedRepair": "continue"
+        },
+        "moodLabel": "bright",
+        "lastSeenLabel": "11 days ago"
+      },
+      "filePath": "",
+      "existed": true
+    },
+    "economy": {
+      "coinBalance": 8300
+    },
+    "adventureMapProfile": {
+      "defaultLayoutPreset": "horizontal-adventure-spine",
+      "companionSlot": "right",
+      "agencyNotes": [],
+      "visualStyleNotes": [],
+      "staminaNotes": []
+    }
+  },
+  "activeSessionPlan": {
+    "planId": "raw-json-contract",
+    "childId": "reina",
+    "createdAt": "2026-05-13T19:41:26.239Z",
+    "source": "ingest_human_loop",
+    "domain": "spelling",
+    "testDate": "2026-05-15",
+    "nodePlan": [
+      {
+        "id": "n-spell-check-hw-spelling_test-adc128c0",
+        "type": "spell-check",
+        "activityId": "spell-check",
+        "targets": [
+          "ago",
+          "about",
+          "ahead",
+          "away",
+          "alone",
+          "alike",
+          "awake",
+          "along",
+          "again",
+          "government"
+        ],
+        "difficulty": 1,
+        "source": "pending_homework"
+      },
+      {
+        "id": "n-word-radar-hw-spelling_test-adc128c0",
+        "type": "word-radar",
+        "activityId": "word-radar",
+        "targets": [
+          "ago",
+          "about",
+          "ahead",
+          "away",
+          "alone",
+          "alike",
+          "awake",
+          "along",
+          "again",
+          "government"
+        ],
+        "difficulty": 3,
+        "source": "pending_homework"
+      },
+      {
+        "id": "n-monster-stampede-hw-spelling_test-adc128c0",
+        "type": "monster-stampede",
+        "activityId": "monster-stampede",
+        "targets": [
+          "ago",
+          "about",
+          "ahead",
+          "away",
+          "alone",
+          "alike",
+          "awake",
+          "along",
+          "again",
+          "government"
+        ],
+        "difficulty": 2,
+        "source": "pending_homework"
+      },
+      {
+        "id": "n-pronunciation-hw-spelling_test-adc128c0",
+        "type": "pronunciation",
+        "activityId": "pronunciation",
+        "targets": [
+          "ago",
+          "about",
+          "ahead",
+          "away",
+          "alone",
+          "alike",
+          "awake",
+          "along",
+          "again",
+          "government"
+        ],
+        "difficulty": 1,
+        "source": "pending_homework"
+      },
+      {
+        "id": "n-mystery-hw-spelling_test-adc128c0",
+        "type": "mystery",
+        "activityId": "mystery",
+        "targets": [
+          "ago",
+          "about",
+          "ahead",
+          "away",
+          "alone",
+          "alike",
+          "awake",
+          "along",
+          "again",
+          "government"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "choiceMode": "choice_lab",
+        "choiceSource": "child_choice",
+        "locked": false
+      },
+      {
+        "id": "n-quest-hw-spelling_test-adc128c0",
+        "type": "quest",
+        "activityId": "quest",
+        "targets": [
+          "ago",
+          "about",
+          "ahead",
+          "away",
+          "alone",
+          "alike",
+          "awake",
+          "along",
+          "again",
+          "government"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "masteryUnlockState": "preparing",
+        "locked": true
+      },
+      {
+        "id": "n-boss-hw-spelling_test-adc128c0",
+        "type": "boss",
+        "activityId": "boss",
+        "targets": [],
+        "difficulty": 3,
+        "source": "chart_planner",
+        "masteryUnlockState": "preparing",
+        "locked": true
+      }
+    ],
+    "adventureBoard": {
+      "schemaVersion": 1,
+      "boardId": "raw-horizontal-contract",
+      "planId": "raw-json-contract",
+      "childId": "reina",
+      "domain": "spelling",
+      "title": "Raw JSON Board Contract",
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+        },
+        "palette": {
+          "path": "rgba(255, 255, 255, 0.88)",
+          "completed": "#1f8f68",
+          "available": "#7c3aed",
+          "locked": "#9aa3ad",
+          "current": "#f59e0b",
+          "preview": "#c6ced6",
+          "text": "#ffffff",
+          "panel": "rgba(15, 23, 42, 0.84)"
+        }
+      },
+      "layout": {
+        "preset": "horizontal-adventure-spine",
+        "companionSlot": "right",
+        "routeChoiceBehavior": "exclusive"
+      },
+      "plannerRationale": {
+        "agencyDesign": "The board JSON owns the visible route geometry and choice sets.",
+        "evidenceDesign": "Baseline nodes lead into a child-facing route gate before Mystery, Quest, and Boss.",
+        "layoutChoice": "Every node has an explicit position so the renderer only paints JSON."
+      },
+      "companion": {
+        "id": "matilda",
+        "name": "Matilda"
+      },
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "start",
+          "label": "Start",
+          "icon": "check",
+          "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+          "slot": "1",
+          "state": "completed"
+        },
+        {
+          "id": "know-write",
+          "kind": "activity",
+          "activityId": "word-radar",
+          "label": "Know / Write",
+          "icon": "radar",
+          "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+          "slot": "2",
+          "state": "completed",
+          "evidenceRole": "baseline"
+        },
+        {
+          "id": "verify",
+          "kind": "activity",
+          "activityId": "spell-check",
+          "label": "Verify",
+          "icon": "book",
+          "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+          "slot": "3",
+          "state": "available",
+          "evidenceRole": "baseline"
+        },
+        {
+          "id": "choose-path",
+          "kind": "choice-gate",
+          "label": "Choose Path",
+          "icon": "route",
+          "thumbnailUrl": "/thumbnails/mystery-fallback.svg",
+          "slot": "4",
+          "state": "locked",
+          "lock": {
+            "reason": "needs-current-check",
+            "label": "Unlocks after current check"
+          },
+          "choiceSetId": "route-options",
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "route-options"
+          }
+        },
+        {
+          "id": "light-check",
+          "kind": "activity",
+          "activityId": "word-radar",
+          "label": "Light Check",
+          "icon": "radar",
+          "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+          "slot": "5a.1",
+          "state": "available",
+          "evidenceRole": "baseline"
+        },
+        {
+          "id": "read-aloud",
+          "kind": "activity",
+          "activityId": "pronunciation",
+          "label": "Read Aloud",
+          "icon": "book",
+          "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+          "slot": "5a.2",
+          "state": "available",
+          "evidenceRole": "baseline"
+        },
+        {
+          "id": "mystery",
+          "kind": "mystery",
+          "label": "Mystery",
+          "icon": "mystery",
+          "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+          "slot": "6",
+          "state": "current",
+          "evidenceRole": "preference",
+          "choiceSetId": "mystery-options",
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "mystery-options"
+          }
+        },
+        {
+          "id": "quest",
+          "kind": "quest",
+          "activityId": "quest",
+          "label": "Quest",
+          "icon": "star",
+          "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
+          "slot": "7",
+          "state": "preview",
+          "evidenceRole": "transfer",
+          "choiceSetId": "quest-options",
+          "lock": {
+            "reason": "needs-baseline-evidence",
+            "label": "Preparing"
+          }
+        },
+        {
+          "id": "boss",
+          "kind": "boss",
+          "activityId": "boss",
+          "label": "Boss",
+          "icon": "crown",
+          "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
+          "slot": "8",
+          "state": "locked",
+          "evidenceRole": "mastery",
+          "choiceSetId": "boss-options",
+          "lock": {
+            "reason": "needs-quest-evidence",
+            "label": "After Quest"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-start-know",
+          "from": "start",
+          "to": "know-write",
+          "state": "completed"
+        },
+        {
+          "id": "e-know-verify",
+          "from": "know-write",
+          "to": "verify",
+          "state": "completed"
+        },
+        {
+          "id": "e-verify-choice",
+          "from": "verify",
+          "to": "choose-path",
+          "state": "available",
+          "style": "glow"
+        },
+        {
+          "id": "e-choice-light",
+          "from": "choose-path",
+          "to": "light-check",
+          "state": "locked",
+          "style": "dashed"
+        },
+        {
+          "id": "e-light-read",
+          "from": "light-check",
+          "to": "read-aloud",
+          "state": "locked",
+          "style": "dashed"
+        },
+        {
+          "id": "e-read-mystery",
+          "from": "read-aloud",
+          "to": "mystery",
+          "state": "locked",
+          "style": "dashed"
+        },
+        {
+          "id": "e-choice-mystery",
+          "from": "choose-path",
+          "to": "mystery",
+          "state": "locked",
+          "style": "dashed"
+        },
+        {
+          "id": "e-mystery-quest",
+          "from": "mystery",
+          "to": "quest",
+          "state": "preview",
+          "style": "dashed"
+        },
+        {
+          "id": "e-quest-boss",
+          "from": "quest",
+          "to": "boss",
+          "state": "locked",
+          "style": "dashed"
+        }
+      ],
+      "choiceSets": [
+        {
+          "id": "route-options",
+          "kind": "baseline-route",
+          "title": "Choose your path",
+          "options": [
+            {
+              "id": "light-check-route",
+              "label": "Light Check",
+              "description": "A quick recognition path before Mystery.",
+              "icon": "radar",
+              "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+              "state": "available",
+              "nodeId": "light-check",
+              "tags": [
+                "recognition"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "recognition",
+                  "quick-check"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed route preference before Mystery",
+                "preferenceNotMastery": true
+              }
+            },
+            {
+              "id": "mystery-route",
+              "label": "Mystery",
+              "description": "Jump straight to the reward choice.",
+              "icon": "mystery",
+              "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+              "state": "available",
+              "nodeId": "mystery",
+              "tags": [
+                "preference"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "reward",
+                  "direct-route"
+                ],
+                "expectedEvidence": "shown/chosen/skipped route preference before Mystery",
+                "preferenceNotMastery": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "mystery-options",
+          "kind": "mystery",
+          "title": "Pick a challenge",
+          "options": [
+            {
+              "id": "story-challenge",
+              "label": "Story Challenge",
+              "description": "Use the words inside a quick mission scene.",
+              "icon": "book",
+              "thumbnailUrl": "/thumbnails/activities/karaoke.svg",
+              "state": "available",
+              "tags": [
+                "story"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "story",
+                  "calm"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed Mystery preference",
+                "preferenceNotMastery": true
+              }
+            },
+            {
+              "id": "speed-challenge",
+              "label": "Speed Challenge",
+              "description": "Try a fast round with the same target words.",
+              "icon": "zap",
+              "thumbnailUrl": "/thumbnails/activities/speed-catcher.svg",
+              "state": "available",
+              "tags": [
+                "arcade"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "speed",
+                  "arcade"
+                ],
+                "expectedEvidence": "shown/chosen/skipped/completed Mystery preference",
+                "preferenceNotMastery": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "quest-options",
+          "kind": "quest-wrapper",
+          "title": "Quest paths",
+          "options": [
+            {
+              "id": "quest-story",
+              "label": "Story Quest",
+              "description": "Generated transfer story after evidence.",
+              "icon": "book",
+              "state": "locked",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "story",
+                  "transfer"
+                ],
+                "expectedEvidence": "shown/chosen/unlocked/completed Quest wrapper preference",
+                "preferenceNotMastery": true
+              }
+            },
+            {
+              "id": "quest-puzzle",
+              "label": "Puzzle Quest",
+              "description": "Generated puzzle after evidence.",
+              "icon": "sparkles",
+              "state": "locked",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "puzzle",
+                  "transfer"
+                ],
+                "expectedEvidence": "shown/chosen/unlocked/completed Quest wrapper preference",
+                "preferenceNotMastery": true
+              }
+            }
+          ]
+        },
+        {
+          "id": "boss-options",
+          "kind": "boss-wrapper",
+          "title": "Boss finales",
+          "options": [
+            {
+              "id": "boss-showdown",
+              "label": "Showdown",
+              "description": "Final transfer proof after Quest.",
+              "icon": "swords",
+              "state": "locked",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "competition",
+                  "mastery-wrapper"
+                ],
+                "expectedEvidence": "shown/chosen/unlocked/completed Boss wrapper preference",
+                "preferenceNotMastery": true
+              }
+            },
+            {
+              "id": "boss-puzzle",
+              "label": "Final Puzzle",
+              "description": "Final puzzle proof after Quest.",
+              "icon": "sparkles",
+              "state": "locked",
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "puzzle",
+                  "mastery-wrapper"
+                ],
+                "expectedEvidence": "shown/chosen/unlocked/completed Boss wrapper preference",
+                "preferenceNotMastery": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "variationPolicy": {
+      "avoidExactPreviousNodeOrder": true,
+      "avoidExactPreviousWordOrder": true,
+      "seed": "b7d8c929e8",
+      "previousCompletedNodeCount": 0
+    },
+    "companionPolicy": {
+      "companionId": "matilda",
+      "displayName": "Matilda",
+      "openingLinePolicy": "context_start_short",
+      "verbosity": "low",
+      "maxMicroProbes": 1
+    },
+    "evidenceUsed": [
+      {
+        "id": "hw-spelling_test-adc128c0",
+        "type": "pending_homework",
+        "summary": "19 homework word(s), test date 2026-05-15."
+      },
+      {
+        "id": "spelling_adaptive_load",
+        "type": "adaptive_load",
+        "summary": "Strong spelling evidence supports a rotated 10-word challenge."
+      }
+    ],
+    "openQuestions": []
+  }
+}

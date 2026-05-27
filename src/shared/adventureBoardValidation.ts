@@ -9,11 +9,14 @@ export type AdventureBoardValidationCode =
   | "choice_gate_missing_outgoing_edge"
   | "baseline_choice_route_disconnected"
   | "baseline_choice_missing_node"
+  | "choice_signal_missing"
+  | "choice_signal_claims_mastery"
   | "unknown_board_activity_id"
   | "preference_claims_mastery"
   | "board_background_not_image"
   | "board_companion_missing"
   | "board_node_thumbnail_missing"
+  | "board_node_slot_missing"
   | "board_node_layout_missing"
   | "board_label_too_long"
   | "board_choice_art_missing"
@@ -53,6 +56,26 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
   const choiceSets = new Map((board.choiceSets ?? []).map((choiceSet) => [choiceSet.id, choiceSet]));
   for (const choiceSet of board.choiceSets ?? []) {
     for (const option of choiceSet.options) {
+      if (["baseline-route", "mystery", "quest-wrapper", "boss-wrapper"].includes(choiceSet.kind)) {
+        if (!option.choiceSignal) {
+          issues.push({
+            code: "choice_signal_missing",
+            severity: "error",
+            choiceSetId: choiceSet.id,
+            message: `Choice option ${option.id} must declare choicePolicy preference evidence.`,
+          });
+        } else if (
+          option.choiceSignal.algorithmFeed !== "choicePolicy" ||
+          option.choiceSignal.preferenceNotMastery !== true
+        ) {
+          issues.push({
+            code: "choice_signal_claims_mastery",
+            severity: "error",
+            choiceSetId: choiceSet.id,
+            message: `Choice option ${option.id} must feed choicePolicy and explicitly stay preference-not-mastery.`,
+          });
+        }
+      }
       if (choiceSet.kind === "baseline-route" && !option.nodeId) {
         issues.push({
           code: "baseline_choice_missing_node",
@@ -215,6 +238,14 @@ export function validateBoardVisualContract(board: AdventureBoardJson): Adventur
         severity: "error",
         nodeId: node.id,
         message: `Visible board node ${node.id} must include thumbnailUrl or approved fallback art.`,
+      });
+    }
+    if (!node.slot) {
+      issues.push({
+        code: "board_node_slot_missing",
+        severity: "error",
+        nodeId: node.id,
+        message: `Visible board node ${node.id} must use a semantic horizontal slot instead of planner-owned coordinates.`,
       });
     }
     if (!node.layout?.role) {

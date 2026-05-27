@@ -11,15 +11,18 @@ import {
   buildSlotLabBoard,
 } from "../storybook/adventureBoardFixtures";
 import adventureBoardStoriesMeta, {
+  ReinaChartPacket,
   StressQuestUnlocked,
 } from "../stories/AdventureBoard.stories";
 import rawHorizontalBoardJson from "../storybook/raw-horizontal-adventure-board.json";
+import reinaChartPacketJson from "../storybook/reina-chart-experience-packet.json";
 import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson";
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 
 const rawHorizontalBoard = rawHorizontalBoardJson as AdventureBoardJson;
+const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
 
 vi.mock("../components/CompanionLayer", () => ({
   CompanionLayer: (props: {
@@ -353,6 +356,25 @@ describe("AdventureBoardExperience", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Story Challenge/ }));
     expect(choiceClick).toHaveBeenCalledWith(expect.objectContaining({ id: "story-challenge" }));
+  });
+
+  it("renders a serialized Reina chart packet with Matilda and an active board", () => {
+    expect(reinaChartPacket.childChart.childId).toBe("reina");
+    expect(reinaChartPacket.childChart.companion.id).toBe("matilda");
+    expect(reinaChartPacket.childChart.companion.config.companionId).toBe("matilda");
+    expect(reinaChartPacket.childChart.adventureMapProfile.companionSlot).toBe("right");
+    expect(reinaChartPacket.activeSessionPlan?.adventureBoard?.nodes.length).toBeGreaterThan(0);
+
+    render(<AdventureBoardExperience packet={reinaChartPacket} />);
+
+    expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-child-id", "reina");
+    expect(screen.getByTestId("companion-layer")).toHaveAttribute("data-companion-id", "matilda");
+    expect(screen.getByRole("button", { name: "Start" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Mystery" })).toBeVisible();
+  });
+
+  it("exports a Reina chart packet Storybook story", () => {
+    expect(ReinaChartPacket.render).toBeTypeOf("function");
   });
 
   it("keeps Storybook from bypassing the child experience packet for companion identity", () => {

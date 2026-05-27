@@ -51,12 +51,14 @@ import {
 } from "../engine/assignmentSourceExtraction";
 import {
   buildAssignmentPlanningPacket,
+  buildPlannerReadinessAudit,
   planAssignmentFromSource,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
   type AssignmentPlannerOutput,
   type AssignmentPlanningPacket,
   type AssignmentPlanValidationIssue,
+  type PlannerReadinessAudit,
 } from "../engine/assignmentPlanner";
 import {
   buildPlannerDecisionAudit,
@@ -90,6 +92,7 @@ type ExtractionShape = {
   assignmentPlannerOutput: AssignmentPlannerOutput;
   assignmentValidationIssues: AssignmentPlanValidationIssue[];
   plannerDecisionAudit: PlannerDecisionAudit;
+  plannerReadinessAudit: PlannerReadinessAudit;
   visualCriticDecision: AdventureBoardVisualCriticDecision;
   assignmentReviewSummary: string;
   questions: Array<{
@@ -112,6 +115,7 @@ export function buildPlannerArtifactPayloads(args: {
   packet: unknown;
   output: unknown;
   audit: PlannerDecisionAudit | { rows: unknown[]; issues: unknown[]; markdown: string };
+  readinessAudit?: { rows: unknown[]; issues: unknown[]; markdown: string };
   criticDecision: AdventureBoardVisualCriticDecision;
   visualCriticReport?: unknown;
 }): Record<string, string> {
@@ -127,6 +131,15 @@ export function buildPlannerArtifactPayloads(args: {
       : `${args.audit.markdown}\n`,
     "visual-critic-decision.json": `${JSON.stringify(args.criticDecision, null, 2)}\n`,
   };
+  if (args.readinessAudit) {
+    files["planner-readiness-audit.json"] = `${JSON.stringify({
+      rows: args.readinessAudit.rows,
+      issues: args.readinessAudit.issues,
+    }, null, 2)}\n`;
+    files["planner-readiness-audit.md"] = args.readinessAudit.markdown.endsWith("\n")
+      ? args.readinessAudit.markdown
+      : `${args.readinessAudit.markdown}\n`;
+  }
   if (args.visualCriticReport) {
     files["visual-critic-report.json"] = `${JSON.stringify(args.visualCriticReport, null, 2)}\n`;
   }
@@ -1118,12 +1131,13 @@ async function extractHomework(args: {
     extraction: assignmentSource,
     childChart: getChildChart(args.childId),
   });
+  const plannerReadinessAudit = buildPlannerReadinessAudit(assignmentPlanningPacket.activityCatalog);
   const assignmentPlannerOutput = await planAssignmentFromSource(assignmentPlanningPacket);
   const assignmentValidationIssues = validateAssignmentPlannerOutput(
     assignmentPlannerOutput,
     {
       extraction: assignmentSource,
-      activityIds: assignmentPlanningPacket.activityCatalog.map((card) => card.activityId),
+      activityCatalog: assignmentPlanningPacket.activityCatalog,
     },
   );
   const plannerDecisionAudit = buildPlannerDecisionAudit(assignmentPlannerOutput);
@@ -1231,6 +1245,7 @@ async function extractHomework(args: {
     },
     assignmentValidationIssues,
     plannerDecisionAudit,
+    plannerReadinessAudit,
     visualCriticDecision,
     assignmentReviewSummary: summarizeAssignmentPlanForReview({
       ...assignmentPlannerOutput,
@@ -1439,6 +1454,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     packet: extracted.assignmentPlanningPacket,
     output: extracted.assignmentPlannerOutput,
     audit: extracted.plannerDecisionAudit,
+    readinessAudit: extracted.plannerReadinessAudit,
     criticDecision: extracted.visualCriticDecision,
   }))) {
     fs.writeFileSync(path.join(pendingDir, filename), payload, "utf8");

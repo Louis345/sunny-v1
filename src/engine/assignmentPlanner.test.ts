@@ -6,10 +6,14 @@ import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import type { ChildChart } from "../profiles/childChart";
 import type { CapturedHomeworkContent } from "../scripts/contentAwareHomeworkPlanner";
 import {
+  ASSIGNMENT_PLANNER_TOOL_NAME,
+  assignmentPlannerToolJsonSchema,
   buildAssignmentPlanningPacket,
   buildAssignmentPlannerPrompt,
+  buildPlannerReadinessAudit,
   ASSIGNMENT_PLANNER_PERSONA,
   assignmentPlannerSourceImages,
+  parseAssignmentPlannerToolUseResponse,
   normalizeAssignmentNodeType,
   parseAssignmentPlannerJson,
   summarizeAssignmentPlanForReview,
@@ -25,6 +29,13 @@ const WORD_RADAR_LETTER_FILL_CONFIG = {
   showTimer: false,
   hideWordDuringResponse: true,
   requiresCapturedResponse: true,
+};
+
+const CHOICE_SIGNAL = {
+  algorithmFeed: "choicePolicy" as const,
+  traits: ["story", "choice"],
+  expectedEvidence: "shown/chosen/skipped/completed outcome for preference only",
+  preferenceNotMastery: true as const,
 };
 
 function adventureSpineNodes(targets = ["sign", "know", "write"]): ActiveSessionPlan["nodePlan"] {
@@ -397,9 +408,9 @@ describe("assignment planner", () => {
             layoutChoice: "Horizontal route leaves room for Matilda.",
           },
           nodes: [
-            { id: "start", kind: "start", label: "Start", state: "completed" },
-            { id: "word-radar-silent", kind: "activity", activityId: "word-radar", label: "Know / Write", state: "current" },
-            { id: "mystery-choice", kind: "mystery", activityId: "mystery", label: "Mystery", state: "available", choiceSetId: "mystery-options" },
+            { id: "start", kind: "start", label: "Start", slot: "1", state: "completed" },
+            { id: "word-radar-silent", kind: "activity", activityId: "word-radar", label: "Know / Write", slot: "2", state: "current" },
+            { id: "mystery-choice", kind: "mystery", activityId: "mystery", label: "Mystery", slot: "6", state: "available", choiceSetId: "mystery-options" },
           ],
           edges: [
             { id: "e-start-radar", from: "start", to: "word-radar-silent", state: "completed" },
@@ -410,8 +421,8 @@ describe("assignment planner", () => {
             kind: "mystery",
             title: "Pick a challenge",
             options: [
-              { id: "story", label: "Story", state: "available" },
-              { id: "speed", label: "Speed", state: "available" },
+              { id: "story", label: "Story", state: "available", choiceSignal: CHOICE_SIGNAL },
+              { id: "speed", label: "Speed", state: "available", choiceSignal: CHOICE_SIGNAL },
             ],
           }],
         },
@@ -485,6 +496,7 @@ describe("assignment planner", () => {
           activityId: null,
           label: "Start",
           state: "completed",
+          slot: "1",
           target: { laneId: null, skill: "mixed", words: ["sign"] },
           choiceSetId: null,
           thumbnailUrl: "/thumbnails/activities/word-radar.svg",
@@ -569,7 +581,7 @@ describe("assignment planner", () => {
     expect(normalizeAssignmentNodeType("evaluator", "spelling-recall")).toBe("letter-rush");
   });
 
-  it("builds a packet with source text, child chart, and a full activity catalog including Pronunciation", () => {
+  it("builds one canonical planner input with every cataloged activity and the slot board template", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",
       extraction: extraction(),
@@ -584,8 +596,13 @@ describe("assignment planner", () => {
     expect(packet.activityCatalog.some((card) => card.activityId === "mystery")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "quest")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "boss")).toBe(true);
-    expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(false);
-    expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(false);
+    expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
+    expect(packet.activityCatalog.every((card) => card.sentToPlanner)).toBe(true);
+    expect(packet.activityCatalog.find((card) => card.activityId === "word-builder")?.launchable).toBe(false);
+    expect(packet.activityCatalog.find((card) => card.activityId === "wordle")?.launchable).toBe(false);
+    expect(packet.activityCatalog.find((card) => card.activityId === "word-radar")?.launchable).toBe(true);
+    expect("activityCatalog" in packet.boardPlanning).toBe(false);
     expect(packet.activityCatalog
       .find((card) => card.activityId === "word-radar")
       ?.capabilityModes.find((mode) => mode.id === "partial_visual_recall")
@@ -593,6 +610,8 @@ describe("assignment planner", () => {
     expect(packet.boardPlanning.algorithmContracts.choicePolicy.outputs).toContain("shown_chosen_skipped_outcome");
     expect(packet.boardPlanning.algorithmContracts.spacedRepetition.guardrails).toContain("preference_is_not_mastery");
     expect(packet.boardPlanning.boardTemplate.preset).toBe("horizontal-adventure-spine");
+    expect(packet.boardPlanning.boardTemplate.slots["5a.1"]).toBe("upper-route");
+    expect(packet.boardPlanning.boardTemplate.slots["5c.1"]).toBe("middle-route");
     expect(packet.boardPlanning.boardTemplate.palette.text).toBe("#ffffff");
     expect(packet.boardPlanning.boardTemplate.palette.path).toBe("#ffffff");
     expect(JSON.stringify(packet.boardPlanning.boardTemplate)).not.toContain("routeChoiceCount");
@@ -611,6 +630,87 @@ describe("assignment planner", () => {
     expect(packet.plannerInstruction).toContain("Decide agency and route density from chart evidence");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("exposes a strict slot-based board contract to the planner tool", () => {
+    const schema = assignmentPlannerToolJsonSchema();
+    const activeSessionPlan = (schema.properties as Record<string, any>).activeSessionPlan;
+    const adventureBoard = activeSessionPlan.properties.adventureBoard;
+    const nodeSchema = adventureBoard.properties.nodes.items;
+    const nodeLayoutSchema = nodeSchema.properties.layout;
+    const choiceSetSchema = adventureBoard.properties.choiceSets.items;
+    const choiceOptionSchema = choiceSetSchema.properties.options.items;
+    const progressSchema = adventureBoard.properties.progress;
+
+    expect(activeSessionPlan.required).toEqual(expect.arrayContaining(["nodePlan", "adventureBoard"]));
+    expect(nodeSchema.properties.position).toBeUndefined();
+    expect(nodeSchema.required).toEqual(expect.arrayContaining([
+      "id",
+      "kind",
+      "label",
+      "thumbnailUrl",
+      "slot",
+      "layout",
+      "state",
+    ]));
+    expect(nodeSchema.required).not.toContain("position");
+    expect(nodeSchema.properties.slot.enum).toEqual(expect.arrayContaining(["1", "4", "5a.1", "5b.1", "5c.1", "8"]));
+    expect(nodeLayoutSchema.required).toEqual(expect.arrayContaining(["role", "lane", "order"]));
+    expect(choiceSetSchema.additionalProperties).toBe(false);
+    expect(choiceSetSchema.properties.choiceSetId).toBeUndefined();
+    expect(choiceSetSchema.properties.choices).toBeUndefined();
+    expect(choiceSetSchema.required).toEqual(["id", "kind", "title", "options"]);
+    expect(choiceOptionSchema.properties.choiceId).toBeUndefined();
+    expect(choiceOptionSchema.required).toEqual(expect.arrayContaining([
+      "id",
+      "label",
+      "description",
+      "thumbnailUrl",
+      "state",
+      "choiceSignal",
+    ]));
+    expect(choiceOptionSchema.required).not.toContain("lock");
+    expect(choiceOptionSchema.required).not.toContain("nodeId");
+    expect(progressSchema.required).toEqual(["completedNodeIds"]);
+  });
+
+  it("prints a planner readiness audit table for the full activity catalog", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const audit = buildPlannerReadinessAudit(packet.activityCatalog);
+
+    expect(audit.markdown).toContain("| activity | sent_to_planner | launchable | domains | purposes | config_source | modes | required_config | evidence_policy | status |");
+    expect(audit.rows.map((row) => row.activity)).toEqual(
+      expect.arrayContaining(["word-radar", "pronunciation", "spell-check", "letter-rush", "monster-stampede", "wheel-of-fortune", "mystery", "quest", "boss"]),
+    );
+    expect(audit.rows.find((row) => row.activity === "word-radar")).toMatchObject({
+      sentToPlanner: true,
+      launchable: true,
+      status: "ok",
+    });
+  });
+
+  it("rejects model responses that do not call the adventure session plan tool", () => {
+    expect(() => parseAssignmentPlannerToolUseResponse({
+      content: [{ type: "text", text: JSON.stringify(plannerDraftWithAdventureBoard(undefined)) }],
+    } as never)).toThrow(`assignment_planner_tool_missing:${ASSIGNMENT_PLANNER_TOOL_NAME}`);
+  });
+
+  it("accepts the forced adventure session plan tool input as the planner output object", () => {
+    const draft = plannerDraftWithAdventureBoard(undefined);
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{
+        type: "tool_use",
+        id: "toolu_1",
+        name: ASSIGNMENT_PLANNER_TOOL_NAME,
+        input: draft,
+      }],
+    } as never);
+
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("word-radar");
   });
 
   it("uses the adaptive game-director persona without hardcoding choice-count rules", () => {

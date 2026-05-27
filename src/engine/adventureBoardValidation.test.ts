@@ -22,6 +22,13 @@ const theme: AdventureBoardJson["theme"] = {
   },
 };
 
+const choiceSignal = {
+  algorithmFeed: "choicePolicy" as const,
+  traits: ["story", "choice"],
+  expectedEvidence: "shown/chosen/skipped/completed preference evidence",
+  preferenceNotMastery: true as const,
+};
+
 function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson {
   return {
     schemaVersion: 1,
@@ -41,6 +48,7 @@ function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson 
         kind: "activity",
         activityId: "spell-check",
         label: "Verify",
+        slot: "3",
         state: "completed",
         evidenceRole: "baseline",
       },
@@ -48,6 +56,7 @@ function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson 
         id: "choice_after_verify",
         kind: "choice-gate",
         label: "Choose Path",
+        slot: "4",
         state: "available",
         choiceSetId: "after-verify-route-options",
         evidenceRole: "preference",
@@ -57,6 +66,7 @@ function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson 
         kind: "activity",
         activityId: "word-radar",
         label: "Light Check",
+        slot: "5a.1",
         state: "available",
         evidenceRole: "baseline",
       },
@@ -64,6 +74,7 @@ function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson 
         id: "story_spark",
         kind: "reward",
         label: "Story Spark",
+        slot: "5b.1",
         state: "available",
         evidenceRole: "preference",
       },
@@ -72,6 +83,7 @@ function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson 
         kind: "mystery",
         activityId: "mystery",
         label: "Mystery",
+        slot: "6",
         state: "available",
         choiceSetId: "mystery-options",
         evidenceRole: "preference",
@@ -90,9 +102,9 @@ function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson 
         kind: "baseline-route",
         title: "Choose your path",
         options: [
-          { id: "light", label: "Light Check", state: "available", nodeId: "light_check" },
-          { id: "story", label: "Story Spark", state: "available", nodeId: "story_spark" },
-          { id: "mystery", label: "Mystery", state: "available", nodeId: "mystery_choice" },
+          { id: "light", label: "Light Check", state: "available", nodeId: "light_check", choiceSignal },
+          { id: "story", label: "Story Spark", state: "available", nodeId: "story_spark", choiceSignal },
+          { id: "mystery", label: "Mystery", state: "available", nodeId: "mystery_choice", choiceSignal },
         ],
       },
       {
@@ -100,9 +112,9 @@ function board(overrides: Partial<AdventureBoardJson> = {}): AdventureBoardJson 
         kind: "mystery",
         title: "Pick a challenge",
         options: [
-          { id: "story", label: "Story", state: "available" },
-          { id: "speed", label: "Speed", state: "available" },
-          { id: "voice", label: "Voice", state: "available" },
+          { id: "story", label: "Story", state: "available", choiceSignal },
+          { id: "speed", label: "Speed", state: "available", choiceSignal },
+          { id: "voice", label: "Voice", state: "available", choiceSignal },
         ],
       },
     ],
@@ -129,7 +141,7 @@ describe("adventure board validation", () => {
         {
           ...valid.choiceSets![0]!,
           options: [
-            { id: "missing", label: "Missing", state: "available", nodeId: "missing_node" },
+            { id: "missing", label: "Missing", state: "available", nodeId: "missing_node", choiceSignal },
           ],
         },
       ],
@@ -146,6 +158,7 @@ describe("adventure board validation", () => {
           kind: "activity",
           activityId: "fake-game",
           label: "Fake",
+          slot: "5a.1",
           state: "available",
           evidenceRole: "baseline",
         },
@@ -178,12 +191,31 @@ describe("adventure board validation", () => {
         kind: "baseline-route",
         title: "Choose your path",
         options: [
-          { id: "light", label: "Light Check", state: "available" },
+          { id: "light", label: "Light Check", state: "available", choiceSignal },
         ],
       }],
     });
 
     expect(issues).toEqual([expect.objectContaining({ code: "baseline_choice_missing_node" })]);
+  });
+
+  it("fails child-facing choices that do not declare choicePolicy preference signals", () => {
+    const valid = board();
+    const issues = validateBoardChoices({
+      ...valid,
+      choiceSets: [{
+        id: "after-verify-route-options",
+        kind: "baseline-route",
+        title: "Choose your path",
+        options: [
+          { id: "light", label: "Light Check", state: "available", nodeId: "light_check" },
+        ],
+      }],
+    });
+
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "choice_signal_missing" }),
+    ]));
   });
 
   it("fails baseline route choices whose destination is not connected back to the adventure spine", () => {
@@ -201,6 +233,7 @@ describe("adventure board validation", () => {
     badBoard.nodes[0] = {
       ...badBoard.nodes[0]!,
       label: "Start Your Spelling Adventure!",
+      slot: undefined,
     };
     const issues = validateBoardVisualContract(badBoard);
 
@@ -209,6 +242,7 @@ describe("adventure board validation", () => {
         expect.objectContaining({ code: "board_background_not_image" }),
         expect.objectContaining({ code: "board_companion_missing" }),
         expect.objectContaining({ code: "board_node_thumbnail_missing" }),
+        expect.objectContaining({ code: "board_node_slot_missing" }),
         expect.objectContaining({ code: "board_node_layout_missing" }),
         expect.objectContaining({ code: "board_label_too_long" }),
         expect.objectContaining({ code: "board_choice_art_missing" }),
@@ -368,8 +402,8 @@ describe("adventure board validation", () => {
           kind: "baseline-route",
           title: "Choose your path",
           options: [
-            { id: "light", label: "Light Check", state: "available", nodeId: "light_check", icon: "radar" },
-            { id: "story", label: "Story Spark", state: "available", nodeId: "story_spark", icon: "book" },
+            { id: "light", label: "Light Check", state: "available", nodeId: "light_check", icon: "radar", choiceSignal },
+            { id: "story", label: "Story Spark", state: "available", nodeId: "story_spark", icon: "book", choiceSignal },
           ],
         },
         {
@@ -377,7 +411,7 @@ describe("adventure board validation", () => {
           kind: "mystery",
           title: "Pick a challenge",
           options: [
-            { id: "story", label: "Story", state: "available", icon: "book" },
+            { id: "story", label: "Story", state: "available", icon: "book", choiceSignal },
           ],
         },
       ],

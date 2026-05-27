@@ -59,7 +59,7 @@ export type AdventureBoardLayoutRole =
   | "quest"
   | "boss";
 
-export type AdventureBoardLayoutLane = "main" | "upper" | "lower";
+export type AdventureBoardLayoutLane = "main" | "upper" | "middle" | "lower";
 export type AdventureBoardSlot =
   | "1"
   | "2"
@@ -197,6 +197,13 @@ export interface AdventureChoiceSet {
   options: AdventureChoiceOption[];
 }
 
+export interface AdventureChoiceSignal {
+  algorithmFeed: "choicePolicy";
+  traits: string[];
+  expectedEvidence: string;
+  preferenceNotMastery: true;
+}
+
 export interface AdventureChoiceOption {
   id: string;
   label: string;
@@ -206,6 +213,7 @@ export interface AdventureChoiceOption {
   state: "available" | "locked" | "completed";
   nodeId?: string;
   tags?: string[];
+  choiceSignal?: AdventureChoiceSignal;
   lock?: {
     reason: string;
     label: string;

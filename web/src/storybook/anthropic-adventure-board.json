@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "boardId": "silent-letter-adventure-001",
+  "planId": "spelling-silent-letters-plan",
+  "childId": "reina",
+  "domain": "spelling",
+  "title": "Silent Letter Adventure",
+  "theme": {
+    "background": {
+      "type": "image",
+      "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+    },
+    "palette": {
+      "path": "#ffffff",
+      "text": "#ffffff",
+      "panel": "#231437",
+      "completed": "#c9f7e6",
+      "available": "#7b3ff2",
+      "locked": "#c9d1d8",
+      "current": "#f7c948",
+      "preview": "#d8c27a"
+    }
+  },
+  "layout": {
+    "preset": "horizontal-adventure-spine",
+    "companionSlot": "right",
+    "routeChoiceBehavior": "exclusive"
+  },
+  "plannerRationale": {
+    "agencyDesign": "Choice-driven paths with pronunciation vs word hunting options",
+    "evidenceDesign": "Silent letter recognition through baseline activities leading to mystery solving",
+    "layoutChoice": "Horizontal adventure spine with branching routes converging at mystery"
+  },
+  "nodes": [
+    {
+      "id": "start",
+      "kind": "start",
+      "label": "Start",
+      "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
+      "slot": "1",
+      "layout": {
+        "role": "start",
+        "lane": "main",
+        "order": 1
+      },
+      "state": "completed"
+    },
+    {
+      "id": "word-radar-1",
+      "kind": "activity",
+      "activityId": "word-radar",
+      "label": "Find Words",
+      "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+      "slot": "2",
+      "layout": {
+        "role": "baseline",
+        "lane": "main",
+        "order": 1
+      },
+      "state": "completed",
+      "evidenceRole": "baseline"
+    },
+    {
+      "id": "spell-check-1",
+      "kind": "activity",
+      "activityId": "spell-check",
+      "label": "Check Spelling",
+      "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+      "slot": "3",
+      "layout": {
+        "role": "baseline",
+        "lane": "main",
+        "order": 2
+      },
+      "state": "current",
+      "evidenceRole": "baseline"
+    },
+    {
+      "id": "choice-gate",
+      "kind": "choice-gate",
+      "label": "Choose Path",
+      "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
+      "slot": "4",
+      "layout": {
+        "role": "choice-gate",
+        "lane": "main",
+        "order": 4
+      },
+      "state": "available",
+      "choiceSetId": "path-selection"
+    },
+    {
+      "id": "pronunciation-upper",
+      "kind": "activity",
+      "activityId": "pronunciation",
+      "label": "Say Words",
+      "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+      "slot": "5a.1",
+      "layout": {
+        "role": "evidence-route",
+        "lane": "upper",
+        "order": 1
+      },
+      "state": "locked",
+      "evidenceRole": "preference"
+    },
+    {
+      "id": "word-radar-lower",
+      "kind": "activity",
+      "activityId": "word-radar",
+      "label": "Hunt Words",
+      "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+      "slot": "5b.1",
+      "layout": {
+        "role": "evidence-route",
+        "lane": "lower",
+        "order": 1
+      },
+      "state": "locked",
+      "evidenceRole": "preference"
+    },
+    {
+      "id": "mystery",
+      "kind": "mystery",
+      "activityId": "mystery",
+      "label": "Mystery",
+      "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+      "slot": "6",
+      "layout": {
+        "role": "mystery",
+        "lane": "main"
+      },
+      "state": "locked",
+      "evidenceRole": "support"
+    },
+    {
+      "id": "quest",
+      "kind": "quest",
+      "activityId": "quest",
+      "label": "Quest",
+      "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
+      "slot": "7",
+      "layout": {
+        "role": "quest",
+        "lane": "main"
+      },
+      "state": "locked",
+      "evidenceRole": "transfer"
+    },
+    {
+      "id": "boss",
+      "kind": "boss",
+      "activityId": "boss",
+      "label": "Boss",
+      "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
+      "slot": "8",
+      "layout": {
+        "role": "boss",
+        "lane": "main"
+      },
+      "state": "locked",
+      "evidenceRole": "mastery"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "from": "start",
+      "to": "word-radar-1",
+      "state": "completed"
+    },
+    {
+      "id": "edge-2",
+      "from": "word-radar-1",
+      "to": "spell-check-1",
+      "state": "completed"
+    },
+    {
+      "id": "edge-3",
+      "from": "spell-check-1",
+      "to": "choice-gate",
+      "state": "available"
+    },
+    {
+      "id": "edge-4",
+      "from": "choice-gate",
+      "to": "pronunciation-upper",
+      "state": "locked"
+    },
+    {
+      "id": "edge-5",
+      "from": "choice-gate",
+      "to": "word-radar-lower",
+      "state": "locked"
+    },
+    {
+      "id": "edge-6",
+      "from": "pronunciation-upper",
+      "to": "mystery",
+      "state": "locked"
+    },
+    {
+      "id": "edge-7",
+      "from": "word-radar-lower",
+      "to": "mystery",
+      "state": "locked"
+    },
+    {
+      "id": "edge-8",
+      "from": "mystery",
+      "to": "quest",
+      "state": "locked"
+    },
+    {
+      "id": "edge-9",
+      "from": "quest",
+      "to": "boss",
+      "state": "locked"
+    }
+  ],
+  "choiceSets": [
+    {
+      "id": "path-selection",
+      "kind": "baseline-route",
+      "title": "Choose Your Path",
+      "options": [
+        {
+          "id": "upper-path",
+          "label": "Practice saying words",
+          "description": "Focus on pronunciation and how words sound",
+          "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+          "state": "available",
+          "nodeId": "pronunciation-upper",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "preferenceNotMastery": true
+          }
+        },
+        {
+          "id": "lower-path",
+          "label": "Hunt for more words",
+          "description": "Search for patterns and find more examples",
+          "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+          "state": "available",
+          "nodeId": "word-radar-lower",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "preferenceNotMastery": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "mystery-wrapper",
+      "kind": "mystery",
+      "title": "Mystery Challenge",
+      "options": [
+        {
+          "id": "solve-mystery",
+          "label": "Solve the silent letter mystery",
+          "description": "Use your knowledge to crack the mystery",
+          "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
+          "state": "locked",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "preferenceNotMastery": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "quest-wrapper",
+      "kind": "quest-wrapper",
+      "title": "Quest Adventure",
+      "options": [
+        {
+          "id": "complete-quest",
+          "label": "Complete the spelling quest",
+          "description": "Take on the ultimate spelling challenge",
+          "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
+          "state": "locked",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "preferenceNotMastery": true
+          }
+        }
+      ]
+    }
+  ],
+  "companion": {
+    "id": "letter-detective",
+    "name": "Letter Detective"
+  },
+  "progress": {
+    "completedNodeIds": [
+      "start",
+      "word-radar-1"
+    ],
+    "currentNodeId": "spell-check-1",
+    "activeChoiceSetId": "path-selection"
+  }
+}

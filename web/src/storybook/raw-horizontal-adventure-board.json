@@ -180,7 +180,13 @@
           "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
           "state": "available",
           "nodeId": "light-check",
-          "tags": ["recognition"]
+          "tags": ["recognition"],
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["recognition", "quick-check"],
+            "expectedEvidence": "shown/chosen/skipped/completed route preference before Mystery",
+            "preferenceNotMastery": true
+          }
         },
         {
           "id": "mystery-route",
@@ -190,7 +196,13 @@
           "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
           "state": "available",
           "nodeId": "mystery",
-          "tags": ["preference"]
+          "tags": ["preference"],
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["reward", "direct-route"],
+            "expectedEvidence": "shown/chosen/skipped route preference before Mystery",
+            "preferenceNotMastery": true
+          }
         }
       ]
     },
@@ -206,7 +218,13 @@
           "icon": "book",
           "thumbnailUrl": "/thumbnails/activities/karaoke.svg",
           "state": "available",
-          "tags": ["story"]
+          "tags": ["story"],
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["story", "calm"],
+            "expectedEvidence": "shown/chosen/skipped/completed Mystery preference",
+            "preferenceNotMastery": true
+          }
         },
         {
           "id": "speed-challenge",
@@ -215,7 +233,13 @@
           "icon": "zap",
           "thumbnailUrl": "/thumbnails/activities/speed-catcher.svg",
           "state": "available",
-          "tags": ["arcade"]
+          "tags": ["arcade"],
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["speed", "arcade"],
+            "expectedEvidence": "shown/chosen/skipped/completed Mystery preference",
+            "preferenceNotMastery": true
+          }
         }
       ]
     },
@@ -229,14 +253,26 @@
           "label": "Story Quest",
           "description": "Generated transfer story after evidence.",
           "icon": "book",
-          "state": "locked"
+          "state": "locked",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["story", "transfer"],
+            "expectedEvidence": "shown/chosen/unlocked/completed Quest wrapper preference",
+            "preferenceNotMastery": true
+          }
         },
         {
           "id": "quest-puzzle",
           "label": "Puzzle Quest",
           "description": "Generated puzzle after evidence.",
           "icon": "sparkles",
-          "state": "locked"
+          "state": "locked",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["puzzle", "transfer"],
+            "expectedEvidence": "shown/chosen/unlocked/completed Quest wrapper preference",
+            "preferenceNotMastery": true
+          }
         }
       ]
     },
@@ -250,14 +286,26 @@
           "label": "Showdown",
           "description": "Final transfer proof after Quest.",
           "icon": "swords",
-          "state": "locked"
+          "state": "locked",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["competition", "mastery-wrapper"],
+            "expectedEvidence": "shown/chosen/unlocked/completed Boss wrapper preference",
+            "preferenceNotMastery": true
+          }
         },
         {
           "id": "boss-puzzle",
           "label": "Final Puzzle",
           "description": "Final puzzle proof after Quest.",
           "icon": "sparkles",
-          "state": "locked"
+          "state": "locked",
+          "choiceSignal": {
+            "algorithmFeed": "choicePolicy",
+            "traits": ["puzzle", "mastery-wrapper"],
+            "expectedEvidence": "shown/chosen/unlocked/completed Boss wrapper preference",
+            "preferenceNotMastery": true
+          }
         }
       ]
     }

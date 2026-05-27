@@ -3,6 +3,7 @@ import React, { useMemo } from "react";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
+import { AdventureBoard } from "../components/AdventureBoard";
 import {
   bossReadyBoard,
   buildGrokFullExperienceBoard,
@@ -21,6 +22,8 @@ import {
   type AdventureBoardSlotRouteShape,
 } from "../storybook/adventureBoardFixtures";
 import rawHorizontalBoardJson from "../storybook/raw-horizontal-adventure-board.json";
+import reinaChartPacketJson from "../storybook/reina-chart-experience-packet.json";
+import anthropicAdventureBoardJson from "../storybook/anthropic-adventure-board.json";
 import type {
   AdventureBoardJson,
   AdventureChoiceOption,
@@ -64,6 +67,9 @@ const boards: Record<AdventureBoardStoryArgs["scenario"], AdventureBoardJson> = 
   slotLab: buildSlotLabBoard(),
   reinaCurrent: reinaCurrentHomeworkBoard,
 };
+
+const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
+const anthropicAdventureBoard = anthropicAdventureBoardJson as AdventureBoardJson;
 
 function playfulAdventureCompanionBehavior(board: AdventureBoardJson): CompanionBehavior {
   return {
@@ -306,6 +312,50 @@ export const SlotTemplateLab: Story = {
 export const ReinaCurrentHomework: Story = {
   args: { scenario: "reinaCurrent" },
   render: (args) => <BoardFixture {...args} />,
+};
+
+export const ReinaChartPacket: Story = {
+  args: { scenario: "grokFull" },
+  render: (args) => {
+    const board = reinaChartPacket.activeSessionPlan?.adventureBoard;
+    return (
+      <AdventureBoardExperience
+        packet={reinaChartPacket}
+        showCompanion={args.showCompanion}
+        idlePose="center"
+        companionBehavior={board ? playfulAdventureCompanionBehavior(board) : undefined}
+        onNodeClick={(node) => console.info("[storybook:adventure-board:node]", node)}
+        onChoiceClick={(option) => console.info("[storybook:adventure-board:choice]", option)}
+      />
+    );
+  },
+};
+
+export const AnthropicFixture: Story = {
+  args: { scenario: "grokFull" },
+  render: (args) => (
+    <AdventureBoardExperience
+      packet={childExperiencePacketForBoard(anthropicAdventureBoard)}
+      showCompanion={args.showCompanion}
+      idlePose="center"
+      companionBehavior={playfulAdventureCompanionBehavior(anthropicAdventureBoard)}
+      onNodeClick={(node) => console.info("[storybook:adventure-board:node]", node)}
+      onChoiceClick={(option) => console.info("[storybook:adventure-board:choice]", option)}
+    />
+  ),
+};
+
+export const AnthropicJsonDirect: Story = {
+  args: { scenario: "grokFull" },
+  render: () => (
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <AdventureBoard
+        board={anthropicAdventureBoard}
+        onNodeClick={(node) => console.info("[storybook:adventure-board:node]", node)}
+        onChoiceClick={(option) => console.info("[storybook:adventure-board:choice]", option)}
+      />
+    </div>
+  ),
 };
 
 export const StressTwoRoutes: Story = {

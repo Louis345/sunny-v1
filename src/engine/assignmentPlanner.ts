@@ -36,17 +36,25 @@ export type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 
 export type AssignmentActivityCard = {
   activityId: string;
+  nodeType?: string;
   label: string;
+  sentToPlanner: true;
+  launchable: boolean;
   domains: string[];
+  purposes: string[];
   skillTargets: string[];
   evidenceType: string;
   inputModes: string[];
   measures: string[];
+  configSource: string;
+  requiredConfig: string;
+  evidencePolicy: string;
   strengths: string[];
   weakFor: string[];
   goodFitWhen: string[];
   badFitWhen: string[];
   capabilityModes: ActivityCapabilityMode[];
+  status: "ok" | "unavailable" | "missing_config_metadata";
 };
 
 export type AssignmentPlanningChildChartSummary = {
@@ -100,7 +108,6 @@ export type AssignmentBoardPlanningContext = {
     fullText: string;
   };
   recentEvidence: string[];
-  activityCatalog: AssignmentActivityCard[];
   algorithmContracts: {
     choicePolicy: AlgorithmContract;
     spacedRepetition: AlgorithmContract;
@@ -125,6 +132,21 @@ export type AssignmentBoardPlanningContext = {
       supportsModalChoiceSets: true;
       supportsQuestBossLocks: true;
       supportsCompanionSlot: true;
+    };
+    slots: {
+      "1": "start";
+      "2": "baseline";
+      "3": "baseline";
+      "4": "choice-gate";
+      "5a.1": "upper-route";
+      "5a.2": "upper-route";
+      "5b.1": "lower-route";
+      "5b.2": "lower-route";
+      "5c.1": "middle-route";
+      "5c.2": "middle-route";
+      "6": "mystery";
+      "7": "quest";
+      "8": "boss";
     };
     art: {
       backgroundUrl: string;
@@ -193,9 +215,12 @@ export type AssignmentPlanValidationIssue = {
     | "board_learning_node_missing_node_plan_reference"
     | "board_unknown_activity_id"
     | "board_preference_claims_mastery"
+    | "board_choice_signal_missing"
+    | "board_choice_signal_claims_mastery"
     | "board_background_not_image"
     | "board_companion_missing"
     | "board_node_thumbnail_missing"
+    | "board_node_slot_missing"
     | "board_node_layout_missing"
     | "board_label_too_long"
     | "board_choice_art_missing"
@@ -215,6 +240,59 @@ export type AssignmentPlannerTelemetry = {
   usage?: LanguageModelUsage;
   latencyMs: number;
 };
+
+export type PlannerReadinessAuditRow = {
+  activity: string;
+  sentToPlanner: boolean;
+  launchable: boolean;
+  domains: string;
+  purposes: string;
+  configSource: string;
+  modes: string;
+  requiredConfig: string;
+  evidencePolicy: string;
+  status: AssignmentActivityCard["status"];
+};
+
+export type PlannerReadinessAudit = {
+  rows: PlannerReadinessAuditRow[];
+  markdown: string;
+  issues: Array<{ code: string; activity: string; message: string }>;
+};
+
+export function buildPlannerReadinessAudit(cards: AssignmentActivityCard[]): PlannerReadinessAudit {
+  const rows = cards.map((card): PlannerReadinessAuditRow => ({
+    activity: card.activityId,
+    sentToPlanner: card.sentToPlanner,
+    launchable: card.launchable,
+    domains: card.domains.join(", "),
+    purposes: card.purposes.join(", "),
+    configSource: card.configSource,
+    modes: card.capabilityModes.map((mode) => mode.id).join(", ") || "(none)",
+    requiredConfig: card.requiredConfig,
+    evidencePolicy: card.evidencePolicy,
+    status: card.status,
+  }));
+  const issues = cards
+    .filter((card) =>
+      card.launchable &&
+      (card.configSource === "unspecified" ||
+        (card.requiredConfig !== "none" && card.capabilityModes.length === 0)),
+    )
+    .map((card) => ({
+      code: "launchable_activity_missing_planner_config",
+      activity: card.activityId,
+      message: `${card.activityId} is launchable but missing planner-readable config metadata.`,
+    }));
+  const markdown = [
+    "| activity | sent_to_planner | launchable | domains | purposes | config_source | modes | required_config | evidence_policy | status |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...rows.map((row) =>
+      `| ${row.activity} | ${row.sentToPlanner} | ${row.launchable} | ${row.domains} | ${row.purposes} | ${row.configSource} | ${row.modes} | ${row.requiredConfig} | ${row.evidencePolicy} | ${row.status} |`,
+    ),
+  ].join("\n");
+  return { rows, markdown, issues };
+}
 
 const homeworkPurposeSchema = z.enum([
   "spell_from_memory",
@@ -252,6 +330,8 @@ const INSTRUMENT_RENDERERS: Record<string, NodeType> = {
 };
 export const ASSIGNMENT_PLANNER_PERSONA =
   "You are Sunny's assignment planner: a pediatric learning psychologist and adaptive game director. You decide today's learning route from the child chart, source homework, evidence, stamina, motivation, and activity instruments; code renders your plan.";
+
+export const ASSIGNMENT_PLANNER_TOOL_NAME = "write_adventure_session_plan";
 
 function normalizeNodeSlug(value: string): string {
   return value
@@ -352,6 +432,22 @@ const adventureBoardThemeSchema = z.object({
   palette: adventureBoardPaletteSchema,
 }).strict();
 
+const adventureBoardSlotSchema = z.enum([
+  "1",
+  "2",
+  "3",
+  "4",
+  "5a.1",
+  "5a.2",
+  "5b.1",
+  "5b.2",
+  "5c.1",
+  "5c.2",
+  "6",
+  "7",
+  "8",
+]);
+
 const adventureBoardLayoutSchema = z.object({
   preset: z.literal("horizontal-adventure-spine"),
   companionSlot: optionalFromNull(z.enum(["right", "left", "none"])),
@@ -360,7 +456,7 @@ const adventureBoardLayoutSchema = z.object({
 
 const adventureBoardNodeLayoutSchema = z.object({
   role: optionalFromNull(z.enum(["start", "baseline", "mystery", "evidence-route", "choice-gate", "quest", "boss"])),
-  lane: optionalFromNull(z.enum(["main", "upper", "lower"])),
+  lane: optionalFromNull(z.enum(["main", "upper", "middle", "lower"])),
   order: optionalFromNull(z.number()),
   routeGroupId: optionalFromNull(z.string().min(1)),
   selected: optionalFromNull(z.boolean()),
@@ -385,6 +481,7 @@ const adventureBoardNodeSchema = z.object({
   shortLabel: optionalFromNull(z.string().min(1)),
   icon: optionalFromNull(z.string().min(1)),
   thumbnailUrl: optionalFromNull(z.string().min(1)),
+  slot: optionalFromNull(adventureBoardSlotSchema),
   position: optionalFromNull(z.object({ x: z.number(), y: z.number() }).strict()),
   layout: optionalFromNull(adventureBoardNodeLayoutSchema),
   state: z.enum(["current", "available", "completed", "locked", "preview", "hidden"]),
@@ -420,6 +517,12 @@ const adventureBoardChoiceOptionSchema = z.object({
   state: z.enum(["available", "locked", "completed"]),
   nodeId: optionalFromNull(z.string().min(1)),
   tags: optionalFromNull(z.array(z.string().min(1))),
+  choiceSignal: optionalFromNull(z.object({
+    algorithmFeed: z.literal("choicePolicy"),
+    traits: z.array(z.string().min(1)).min(1),
+    expectedEvidence: z.string().min(1),
+    preferenceNotMastery: z.literal(true),
+  }).strict()),
   lock: optionalFromNull(z.object({
     reason: z.string().min(1),
     label: z.string().min(1),
@@ -474,7 +577,7 @@ const compactActiveSessionPlanSchema = z.object({
   plannerConfidence: z.number().optional(),
 });
 
-const assignmentPlannerDraftSchema = z.object({
+export const assignmentPlannerDraftSchema = z.object({
   capturedContent: z.object({
     title: z.string().min(1),
     type: z.enum(["spelling_test", "reading", "math", "coins", "clocks", "generic"]),
@@ -521,29 +624,48 @@ function realChildAllowedActivityIds(childId: string): Set<string> | null {
 function activityCatalog(childId = "demo_adaptive"): AssignmentActivityCard[] {
   const allowed = realChildAllowedActivityIds(childId);
   return listActivityToolContracts()
-    .filter((contract) => NODE_TYPES.has(contract.id as NodeType))
-    .filter((contract) => !allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id))
     .map((contract) => ({
-    activityId: contract.id,
-    label: contract.label,
-    domains: [...contract.domains],
-    skillTargets: [...contract.traits.skillTargets],
-    evidenceType: contract.traits.evidenceType,
-    inputModes: [...contract.traits.inputModes],
-    measures: [...contract.measures],
-    strengths: [...contract.strengths],
-    weakFor: [...contract.weakFor],
-    goodFitWhen: [...contract.goodFitWhen],
-    badFitWhen: [...contract.badFitWhen],
-    capabilityModes: contract.capabilityModes.map((mode) => ({
-      ...mode,
-      skillTargets: [...mode.skillTargets],
-      inputModes: [...mode.inputModes],
-      scaffolds: [...mode.scaffolds],
-      config: { ...mode.config },
-      measurementRisks: [...mode.measurementRisks],
-    })),
-  }));
+      activityId: contract.id,
+      nodeType: contract.nodeType,
+      label: contract.label,
+      sentToPlanner: true as const,
+      launchable: Boolean(
+        NODE_TYPES.has(contract.id as NodeType) &&
+        (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)),
+      ),
+      domains: [...contract.domains],
+      purposes: [...contract.purposes],
+      skillTargets: [...contract.traits.skillTargets],
+      evidenceType: contract.traits.evidenceType,
+      inputModes: [...contract.traits.inputModes],
+      measures: [...contract.measures],
+      configSource: contract.configSource,
+      requiredConfig: contract.capabilityModes.length > 0 ? "capabilityModes" : "none",
+      evidencePolicy: contract.evidence.writesMasteryEvidence
+        ? "mastery-eligible-with-captured-evidence"
+        : contract.evidence.writesPracticeEvidence
+          ? "practice-or-diagnostic-evidence"
+          : contract.traits.evidenceType === "reward"
+            ? "preference-evidence-only"
+            : "no-mastery-evidence",
+      strengths: [...contract.strengths],
+      weakFor: [...contract.weakFor],
+      goodFitWhen: [...contract.goodFitWhen],
+      badFitWhen: [...contract.badFitWhen],
+      capabilityModes: contract.capabilityModes.map((mode) => ({
+        ...mode,
+        skillTargets: [...mode.skillTargets],
+        inputModes: [...mode.inputModes],
+        scaffolds: [...mode.scaffolds],
+        config: { ...mode.config },
+        measurementRisks: [...mode.measurementRisks],
+      })),
+      status: (
+        NODE_TYPES.has(contract.id as NodeType) &&
+        contract.configSource !== "unspecified" &&
+        (contract.capabilityModes.length > 0 || contract.configSource === "registry-default" || contract.configSource === "reward-game")
+      ) ? "ok" : "unavailable",
+    }));
 }
 
 function summarizeCarePlan(chart: ChildChart): string | null {
@@ -574,7 +696,6 @@ function childChartSummaryForPacket(
 function buildBoardPlanningContext(args: {
   extraction: AssignmentSourceExtraction;
   childChart: AssignmentPlanningChildChartSummary;
-  activityCatalog: AssignmentActivityCard[];
 }): AssignmentBoardPlanningContext {
   return {
     childChart: args.childChart,
@@ -586,7 +707,6 @@ function buildBoardPlanningContext(args: {
       fullText: args.extraction.fullText,
     },
     recentEvidence: [...args.childChart.recentEvidence],
-    activityCatalog: args.activityCatalog,
     algorithmContracts: {
       choicePolicy: {
         id: "choicePolicy",
@@ -647,6 +767,21 @@ function buildBoardPlanningContext(args: {
         supportsModalChoiceSets: true,
         supportsQuestBossLocks: true,
         supportsCompanionSlot: true,
+      },
+      slots: {
+        "1": "start",
+        "2": "baseline",
+        "3": "baseline",
+        "4": "choice-gate",
+        "5a.1": "upper-route",
+        "5a.2": "upper-route",
+        "5b.1": "lower-route",
+        "5b.2": "lower-route",
+        "5c.1": "middle-route",
+        "5c.2": "middle-route",
+        "6": "mystery",
+        "7": "quest",
+        "8": "boss",
       },
       art: {
         backgroundUrl: "/generated/adventure-board-demo/silent-letter-world.jpeg",
@@ -736,7 +871,6 @@ export function buildAssignmentPlanningPacket(args: {
     boardPlanning: buildBoardPlanningContext({
       extraction: args.extraction,
       childChart,
-      activityCatalog: catalog,
     }),
     plannerInstruction: [
       "Interpret the assignment from the source text and source groups.",
@@ -752,7 +886,7 @@ export function buildAssignmentPlanningPacket(args: {
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Return a board plan that cites why every activity fits the target purpose.",
       "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
-      "Use boardPlanning as the single board-design contract: childChart, assignment, recentEvidence, activityCatalog, algorithmContracts, choicePolicyContext, boardTemplate, runtimeConstraints, and criticPolicy.",
+      "Use this packet as the single planner object: childChart, sourceDocument, activityCatalog, boardPlanning, runtimeConstraints, and criticPolicy.",
       "Decide agency and route density from chart evidence, stamina, motivation, and evidence needs.",
       "Explain why each visible route or modal choice is worth the child's attention today.",
     ].join(" "),
@@ -800,7 +934,11 @@ export function validateAssignmentPlannerOutput(
   }
 
   const catalog = args.activityCatalog ?? activityCatalog();
-  const activityIds = new Set(args.activityIds ?? catalog.map((card) => card.activityId));
+  const activityIds = new Set(
+    args.activityIds ?? catalog
+      .filter((card) => card.launchable)
+      .map((card) => card.activityId),
+  );
   const nodeTypes = new Set(output.activeSessionPlan.nodePlan.map((node) => node.type));
   if (!nodeTypes.has("mystery")) {
     issues.push({
@@ -901,6 +1039,10 @@ export function validateAssignmentPlannerOutput(
                     ? "board_unknown_activity_id"
                     : issue.code === "preference_claims_mastery"
                       ? "board_preference_claims_mastery"
+                      : issue.code === "choice_signal_missing"
+                        ? "board_choice_signal_missing"
+                        : issue.code === "choice_signal_claims_mastery"
+                          ? "board_choice_signal_claims_mastery"
                       : issue.code;
       issues.push({
         code,
@@ -973,6 +1115,8 @@ export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): 
 
 Create Sunny's homework interpretation and active board plan from this source-of-truth packet.
 
+Call ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once. Do not answer with free-text JSON.
+
 Rules:
 - If source page images are provided, use the worksheet image/layout as the primary source of truth and OCR text only as support.
 - Do not flatten source word groups.
@@ -989,7 +1133,8 @@ Rules:
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
-- Use packet.boardPlanning as the board contract. It contains childChart, assignment, recentEvidence, activityCatalog, algorithmContracts, choicePolicyContext, boardTemplate, runtimeConstraints, and criticPolicy.
+- Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
+- Use packet.boardPlanning as the board contract. It contains childChart, assignment, recentEvidence, algorithmContracts, choicePolicyContext, boardTemplate, runtimeConstraints, and criticPolicy.
 - Board template v1 expects a route choice after required baseline evidence, not at session start: complete at least boardTemplate.requiredBaselineCountBeforeRouteChoice baseline evidence node(s), then show a route gate only when the choices are worth the child's attention today.
 - Use algorithmContracts.choicePolicy and choicePolicyContext for route/Mystery/Quest/Boss wrapper choice evidence; preference evidence, not mastery, is what these choices produce.
 - The planner decides how many route, Mystery, Quest, or Boss choices to show from chart evidence, stamina, motivation, and uncertainty. Fewer clear choices usually produce cleaner signals; extra choices can be useful when Sunny needs more preference data.
@@ -1001,6 +1146,7 @@ Rules:
 - Return activeSessionPlan.adventureBoard as the child-facing map. nodePlan is the lab/intervention list; adventureBoard is the board experience.
 - adventureBoard may include board-only presentation nodes such as Start and Choose Path, but learning nodes must reference the nodePlan ids they represent and must not add hidden academic interventions.
 - For layout.preset "horizontal-adventure-spine", use packet.boardPlanning.boardTemplate as the board-writing tool contract, not as a loose suggestion. This preset means the approved Grok full-experience pattern: image background, selected companion on the right, visible route paths, node thumbnails, short labels, explicit layout roles, baseline route choices, modal Mystery/Quest/Boss choices, and locked Quest/Boss destinations.
+- Use boardTemplate.slots for every visible horizontal board node. You choose slot names such as "1", "2", "3", "4", "5a.1", "5b.1", "5c.1", "6", "7", and "8"; do not invent raw coordinates.
 - Use packet.boardPlanning.boardTemplate.art URLs exactly for backgroundUrl, node thumbnailUrl, and choice thumbnailUrl when they fit the activity/kind. Do not invent gradients or omit art. If a needed art key is missing, use the closest approved fallback art from that object and explain it in plannerRationale.layoutChoice.
 - Use packet.boardPlanning.boardTemplate.palette exactly for adventureBoard.theme.palette. Do not invent darker text or path colors.
 - Include adventureBoard.companion from childChart.selectedCompanionId and childChart.selectedCompanionName when companionSlot is not "none".
@@ -1009,6 +1155,7 @@ Rules:
 - Every adventureBoard activity/mystery/quest/boss node must either use the exact nodePlan[].id it represents or set action.payloadId to that nodePlan id. Prefer exact ids. Do not invent presentation-only ids for learning nodes.
 - adventureBoard choiceSets are where Mystery, Quest, and Boss modal options live. Do not rely on nodePlan alone to express child agency.
 - Every baseline-route choice option must include nodeId pointing to the board node it opens.
+- Every child-facing route, Mystery, Quest wrapper, and Boss wrapper option must include choiceSignal with algorithmFeed "choicePolicy", traits, expectedEvidence, and preferenceNotMastery true.
 - If you include a route gate, it must come after at least one baseline evidence activity. The approved pattern is Start -> required baseline evidence -> route gate -> available child-facing alternatives -> Mystery -> locked Quest -> locked Boss. Do not put Choose Path immediately after Start.
 - Start must connect to the first baseline activity, never directly to a route gate.
 - The choice gate's incoming edge must come from the last required baseline activity, and that baseline board node must have kind "activity", evidenceRole "baseline", and layout.role "baseline".
@@ -1057,9 +1204,9 @@ Rules:
         "plannerRationale": {"agencyDesign": string, "evidenceDesign": string, "layoutChoice": string},
         "theme": {"background": {"type": "image", "value": "use boardTemplate.art.backgroundUrl"}, "palette": {"path": string, "completed": string, "available": string, "locked": string, "current": string, "preview": string, "text": string, "panel": string}},
         "companion": {"id": "selected companion id", "name": "selected companion name"},
-        "nodes": [{"id": string, "kind": "start" | "activity" | "choice-gate" | "mystery" | "quest" | "boss" | "reward", "activityId": string, "label": string, "shortLabel": string, "thumbnailUrl": string, "layout": {"role": "start" | "baseline" | "choice-gate" | "evidence-route" | "mystery" | "quest" | "boss", "lane": "main" | "upper" | "lower", "order": number, "routeGroupId": string}, "state": "current" | "available" | "completed" | "locked" | "preview" | "hidden", "choiceSetId": string, "target": {"laneId": string, "skill": string, "words": string[]}}],
+        "nodes": [{"id": string, "kind": "start" | "activity" | "choice-gate" | "mystery" | "quest" | "boss" | "reward", "activityId": string, "label": string, "shortLabel": string, "thumbnailUrl": string, "slot": "1" | "2" | "3" | "4" | "5a.1" | "5a.2" | "5b.1" | "5b.2" | "5c.1" | "5c.2" | "6" | "7" | "8", "layout": {"role": "start" | "baseline" | "choice-gate" | "evidence-route" | "mystery" | "quest" | "boss", "lane": "main" | "upper" | "middle" | "lower", "order": number, "routeGroupId": string}, "state": "current" | "available" | "completed" | "locked" | "preview" | "hidden", "choiceSetId": string, "target": {"laneId": string, "skill": string, "words": string[]}}],
         "edges": [{"id": string, "from": string, "to": string, "state": "completed" | "available" | "locked" | "preview", "style": "solid" | "dashed" | "glow"}],
-        "choiceSets": [{"id": string, "kind": "baseline-route" | "mystery" | "quest-wrapper" | "boss-wrapper", "title": string, "options": [{"id": string, "label": string, "description": string, "icon": string, "thumbnailUrl": string, "state": "available" | "locked" | "completed", "nodeId": string}]}]
+        "choiceSets": [{"id": string, "kind": "baseline-route" | "mystery" | "quest-wrapper" | "boss-wrapper", "title": string, "options": [{"id": string, "label": string, "description": string, "icon": string, "thumbnailUrl": string, "state": "available" | "locked" | "completed", "nodeId": string, "choiceSignal": {"algorithmFeed": "choicePolicy", "traits": string[], "expectedEvidence": string, "preferenceNotMastery": true}}]}]
       }
     },
     "plannedMeasurements": [{"id": string, "activityId": string, "target": string, "evidenceType": string, "supportCriteria": string, "reviseCriteria": string, "falsifyCriteria": string}],
@@ -1072,6 +1219,78 @@ ${JSON.stringify(packet, null, 2)}`;
 }
 
 type AssignmentPlannerResponseObject = z.infer<typeof assignmentPlannerDraftSchema>;
+
+type JsonSchemaObject = Record<string, unknown>;
+
+function jsonObject(value: unknown): JsonSchemaObject | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as JsonSchemaObject;
+}
+
+function schemaProperties(schema: JsonSchemaObject | undefined): Record<string, JsonSchemaObject> {
+  return (jsonObject(schema?.properties) ?? {}) as Record<string, JsonSchemaObject>;
+}
+
+function schemaItems(schema: JsonSchemaObject | undefined): JsonSchemaObject | undefined {
+  return jsonObject(schema?.items);
+}
+
+function setSchemaRequired(schema: JsonSchemaObject | undefined, fields: string[]): void {
+  if (!schema) return;
+  schema.required = fields;
+}
+
+function removeSchemaProperty(schema: JsonSchemaObject | undefined, propertyName: string): void {
+  const properties = schemaProperties(schema);
+  delete properties[propertyName];
+  const required = Array.isArray(schema?.required) ? schema.required.filter((field) => field !== propertyName) : [];
+  if (schema) schema.required = required;
+}
+
+function enforceAdventureBoardToolContract(schema: JsonSchemaObject): JsonSchemaObject {
+  const activeSessionPlan = schemaProperties(schema).activeSessionPlan;
+  setSchemaRequired(activeSessionPlan, ["nodePlan", "adventureBoard"]);
+
+  const adventureBoard = schemaProperties(activeSessionPlan).adventureBoard;
+  const boardProperties = schemaProperties(adventureBoard);
+  const nodeSchema = schemaItems(boardProperties.nodes);
+  const nodeProperties = schemaProperties(nodeSchema);
+  removeSchemaProperty(nodeSchema, "position");
+  setSchemaRequired(nodeSchema, ["id", "kind", "label", "thumbnailUrl", "slot", "layout", "state"]);
+  setSchemaRequired(nodeProperties.layout, ["role", "lane", "order"]);
+
+  const choiceSetSchema = schemaItems(boardProperties.choiceSets);
+  const choiceSetProperties = schemaProperties(choiceSetSchema);
+  setSchemaRequired(choiceSetSchema, ["id", "kind", "title", "options"]);
+
+  const choiceOptionSchema = schemaItems(choiceSetProperties.options);
+  removeSchemaProperty(choiceOptionSchema, "choiceId");
+  setSchemaRequired(choiceOptionSchema, ["id", "label", "description", "thumbnailUrl", "state", "choiceSignal"]);
+
+  setSchemaRequired(boardProperties.progress, ["completedNodeIds"]);
+
+  return schema;
+}
+
+export function assignmentPlannerToolJsonSchema(): Record<string, unknown> {
+  return enforceAdventureBoardToolContract(
+    z.toJSONSchema(assignmentPlannerDraftSchema, { io: "input" }) as JsonSchemaObject,
+  );
+}
+
+export function parseAssignmentPlannerToolUseResponse(
+  response: Pick<Anthropic.Messages.Message, "content">,
+): AssignmentPlannerResponseObject {
+  const toolUse = response.content.find((block) =>
+    block.type === "tool_use" &&
+    "name" in block &&
+    block.name === ASSIGNMENT_PLANNER_TOOL_NAME,
+  );
+  if (!toolUse || !("input" in toolUse)) {
+    throw new Error(`assignment_planner_tool_missing:${ASSIGNMENT_PLANNER_TOOL_NAME}`);
+  }
+  return assignmentPlannerDraftSchema.parse(toolUse.input);
+}
 
 function firstJsonObject(value: string): string {
   const start = value.indexOf("{");
@@ -1154,28 +1373,32 @@ async function parseOrRepairAssignmentPlannerJson(
 async function callAssignmentPlannerModel(
   packet: AssignmentPlanningPacket,
   model: string,
-): Promise<{ text: string; usage?: LanguageModelUsage }> {
+): Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage }> {
   const prompt = buildAssignmentPlannerPrompt(packet);
   const images = assignmentPlannerSourceImages(packet);
-  if (images.length === 0) {
-    const { text, usage } = await generateText({
-      model: anthropic(model),
-      system: ASSIGNMENT_PLANNER_PERSONA,
-      maxOutputTokens: 12_000,
-      prompt,
-    });
-    return { text, usage };
-  }
+  return callAssignmentPlannerTool({ prompt, model, images });
+}
 
+async function callAssignmentPlannerTool(args: {
+  prompt: string;
+  model: string;
+  images?: ReturnType<typeof assignmentPlannerSourceImages>;
+}): Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage }> {
   const client = new Anthropic();
   const response = await client.messages.create({
-    model,
+    model: args.model,
     max_tokens: 12_000,
     system: ASSIGNMENT_PLANNER_PERSONA,
+    tools: [{
+      name: ASSIGNMENT_PLANNER_TOOL_NAME,
+      description: "Write Sunny's captured homework interpretation, active intervention node plan, and child-facing adventure board JSON.",
+      input_schema: assignmentPlannerToolJsonSchema() as Anthropic.Messages.Tool.InputSchema,
+    }],
+    tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
     messages: [{
       role: "user",
       content: [
-        ...images.map((image) => ({
+        ...(args.images ?? []).map((image) => ({
           type: "image" as const,
           source: {
             type: "base64" as const,
@@ -1183,16 +1406,12 @@ async function callAssignmentPlannerModel(
             data: image.data,
           },
         })),
-        { type: "text" as const, text: prompt },
+        { type: "text" as const, text: args.prompt },
       ],
     }],
   });
-  const text = response.content
-    .filter((block) => block.type === "text")
-    .map((block) => ("text" in block ? block.text : ""))
-    .join("\n");
   return {
-    text,
+    draft: parseAssignmentPlannerToolUseResponse(response),
     usage: {
       inputTokens: response.usage.input_tokens,
       inputTokenDetails: {
@@ -1261,13 +1480,11 @@ async function repairRejectedAssignmentPlannerDraft(args: {
   issues: AssignmentPlanValidationIssue[];
   model: string;
 }): Promise<AssignmentPlannerResponseObject> {
-  const { text } = await generateText({
-    model: anthropic(args.model),
-    system: ASSIGNMENT_PLANNER_PERSONA,
-    maxOutputTokens: 12_000,
+  const { draft } = await callAssignmentPlannerTool({
+    model: args.model,
     prompt: [
       "Your previous assignment planner JSON failed Sunny's contract validation.",
-      "Return one corrected full JSON object. Do not include markdown fences.",
+      `Call ${ASSIGNMENT_PLANNER_TOOL_NAME} with one corrected full object.`,
       "Keep the assignment interpretation and academic plan as stable as possible, but fix any field that caused validation failure.",
       "The renderer will not repair your board. The JSON must satisfy the boardTemplate contract directly.",
       "If a choice gate appears before baseline evidence, move it after the required baseline activities.",
@@ -1287,7 +1504,7 @@ async function repairRejectedAssignmentPlannerDraft(args: {
       JSON.stringify(args.draft, null, 2),
     ].join("\n\n"),
   });
-  return parseOrRepairAssignmentPlannerJson(text, args.model);
+  return draft;
 }
 
 async function planAssignmentFromSourceInternal(
@@ -1299,8 +1516,8 @@ async function planAssignmentFromSourceInternal(
   }
   const model = resolveAssignmentPlannerModel(opts);
   const started = Date.now();
-  const { text, usage } = await callAssignmentPlannerModel(packet, model);
-  let draft = await parseOrRepairAssignmentPlannerJson(text, model);
+  const { draft: initialDraft, usage } = await callAssignmentPlannerModel(packet, model);
+  let draft = initialDraft;
   let output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
   let validationIssues = validateAssignmentPlannerOutput(output, {
     extraction: packet.sourceDocument,
