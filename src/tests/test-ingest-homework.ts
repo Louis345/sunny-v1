@@ -817,7 +817,7 @@ describe("ingestHomework", () => {
     );
   });
 
-  it("boss placeholder appended when plan has no boss node", () => {
+  it("preserves planner node order and does not append a boss placeholder", () => {
     const out = finalizePlannedHomeworkNodes(
       [
         {
@@ -831,9 +831,9 @@ describe("ingestHomework", () => {
       ["spell", "word"],
       "2026-04-22",
     );
-    expect(out[out.length - 1]?.type).toBe("boss");
-    expect(out[out.length - 1]?.id).toBe("hw-boss");
-    expect(out[out.length - 1]?.gameFile).toBeNull();
+    expect(out.map((node) => node.id)).toEqual(["hw-1"]);
+    expect(out.some((node) => node.type === "boss")).toBe(false);
+    expect(out[0]?.date).toBe("2026-04-22");
   });
 });
 

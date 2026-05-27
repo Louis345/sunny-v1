@@ -10,6 +10,7 @@ import { generateStoryImage } from "../utils/generateStoryImage";
 import { generateStoryVideo } from "../utils/generateStoryVideo";
 import { buildProfile } from "../profiles/buildProfile";
 import { getChildChart } from "../profiles/childChart";
+import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 import {
   mirrorCompanionCareToLearningProfile,
   saveCompanionCarePlan,
@@ -536,6 +537,21 @@ export function setupRoutes(app: Express): void {
         return res.status(404).json({ error: "Unknown profile" });
       }
       res.json(profile);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/child-experience/:childId", (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    if (!childId) {
+      return res.status(400).json({ error: "Missing childId" });
+    }
+    try {
+      const chart = getChildChart(childId);
+      res.json(buildChildExperiencePacket(chart));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ error: message });

@@ -7,6 +7,8 @@ export type AdventureBoardValidationCode =
   | "choice_gate_missing_incoming_edge"
   | "choice_gate_missing_baseline_incoming_edge"
   | "choice_gate_missing_outgoing_edge"
+  | "baseline_choice_route_missing"
+  | "baseline_choice_route_too_few_options"
   | "baseline_choice_route_disconnected"
   | "baseline_choice_missing_node"
   | "choice_signal_missing"
@@ -54,7 +56,31 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
   const nodeIds = new Set(board.nodes.map((node) => node.id));
   const nodesById = new Map(board.nodes.map((node) => [node.id, node]));
   const choiceSets = new Map((board.choiceSets ?? []).map((choiceSet) => [choiceSet.id, choiceSet]));
+  const baselineRouteChoiceSets = (board.choiceSets ?? []).filter(
+    (choiceSet) => choiceSet.kind === "baseline-route",
+  );
+  if (board.layout?.preset === "horizontal-adventure-spine") {
+    const hasBaselineRouteGate = board.nodes.some((node) => {
+      if (node.kind !== "choice-gate" || !node.choiceSetId) return false;
+      return choiceSets.get(node.choiceSetId)?.kind === "baseline-route";
+    });
+    if (!hasBaselineRouteGate || baselineRouteChoiceSets.length === 0) {
+      issues.push({
+        code: "baseline_choice_route_missing",
+        severity: "error",
+        message: "Horizontal adventure boards must include a Choose Path gate backed by a baseline-route choice set.",
+      });
+    }
+  }
   for (const choiceSet of board.choiceSets ?? []) {
+    if (choiceSet.kind === "baseline-route" && choiceSet.options.length < 2) {
+      issues.push({
+        code: "baseline_choice_route_too_few_options",
+        severity: "error",
+        choiceSetId: choiceSet.id,
+        message: `Baseline route choice set ${choiceSet.id} must give the child at least two route options.`,
+      });
+    }
     for (const option of choiceSet.options) {
       if (["baseline-route", "mystery", "quest-wrapper", "boss-wrapper"].includes(choiceSet.kind)) {
         if (!option.choiceSignal) {

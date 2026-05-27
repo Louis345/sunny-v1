@@ -17,6 +17,7 @@ import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
+import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
 import type { GameIframeOverlayState } from "./components/AdventureMap";
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
@@ -50,6 +51,7 @@ import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
+import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import {
   CompanionCareProvider,
   useCompanionCare,
@@ -451,17 +453,32 @@ function App() {
     activeProfileIdRef.current = activeProfileChildId ?? null;
   }, [activeProfileChildId]);
 
+  const plannerBoardRuntimeRequested =
+    adventureMapEnabled &&
+    runtimeConfig.subject === "homework" &&
+    Boolean(adventureChildId);
+
   useEffect(() => {
     if (!adventureMapEnabled || !adventureChildId) {
       autoStartedAdventureVoiceRef.current = null;
       return;
     }
     if (state.phase !== "picker") return;
+    if (plannerBoardRuntimeRequested) {
+      setSelectedChildName(childNameFromId(adventureChildId));
+      return;
+    }
     if (autoStartedAdventureVoiceRef.current === adventureChildId) return;
     autoStartedAdventureVoiceRef.current = adventureChildId;
     setSelectedChildName(childNameFromId(adventureChildId));
     startSession(childNameFromId(adventureChildId));
-  }, [adventureChildId, adventureMapEnabled, startSession, state.phase]);
+  }, [
+    adventureChildId,
+    adventureMapEnabled,
+    plannerBoardRuntimeRequested,
+    startSession,
+    state.phase,
+  ]);
 
   /** Tamagotchi quips are suppressed on the adventure map — companion speaks via voice only. */
   const companionBubbleText = useMemo(() => {
@@ -476,6 +493,18 @@ function App() {
     profileTamagotchi,
     tamagotchProfileReady,
   ]);
+
+  const plannerBoardPacketState = useChildExperiencePacket(
+    adventureChildId,
+    plannerBoardRuntimeRequested,
+  );
+  const plannerBoardPacket =
+    plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
+      ? plannerBoardPacketState.packet
+      : null;
+  const plannerBoardRuntimeActive =
+    plannerBoardRuntimeRequested &&
+    (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
 
   const [vrrCelebrateEvent, setVrrCelebrateEvent] =
     useState<CompanionEventPayload | null>(null);
@@ -494,7 +523,9 @@ function App() {
   }, [adventureChildId]);
 
   const mapSession = useMapSession(
-    adventureMapEnabled && adventureChildId ? adventureChildId : "",
+    adventureMapEnabled && adventureChildId && !plannerBoardRuntimeRequested
+      ? adventureChildId
+      : "",
     mapPreviewMode,
     mapInspectAllMode,
     runtimeConfig.homeworkDomain,
@@ -506,6 +537,7 @@ function App() {
 
   const mapReady =
     !adventureChildId ||
+    plannerBoardRuntimeActive ||
     (mapSession.sessionStarted && (mapSession.mapState?.nodes.length ?? 0) > 0);
   const voiceReady =
     !adventureChildId ||
@@ -962,7 +994,32 @@ function App() {
   let main: ReactNode = null;
 
   if (adventureMapEnabled && adventureChildId) {
-    if (!sessionReady) {
+    if (plannerBoardPacket) {
+      main = (
+        <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+          <AdventureBoardExperience
+            packet={plannerBoardPacket}
+            showCompanion
+            idlePose="center"
+            onNodeClick={(node) => {
+              console.log(" 🎮 [AdventureBoard] node_click", {
+                childId: adventureChildId,
+                nodeId: node.id,
+                kind: node.kind,
+                activityId: node.activityId,
+              });
+            }}
+            onChoiceClick={(option) => {
+              console.log(" 🎮 [AdventureBoard] choice_click", {
+                childId: adventureChildId,
+                optionId: option.id,
+                nodeId: option.nodeId,
+              });
+            }}
+          />
+        </div>
+      );
+    } else if (!sessionReady) {
       main = (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           {theaterLoadingEnabled ? (

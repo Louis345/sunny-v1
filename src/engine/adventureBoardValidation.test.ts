@@ -142,6 +142,7 @@ describe("adventure board validation", () => {
           ...valid.choiceSets![0]!,
           options: [
             { id: "missing", label: "Missing", state: "available", nodeId: "missing_node", choiceSignal },
+            { id: "story", label: "Story Spark", state: "available", nodeId: "story_spark", choiceSignal },
           ],
         },
       ],
@@ -182,6 +183,41 @@ describe("adventure board validation", () => {
     );
   });
 
+  it("fails horizontal spine boards without a baseline route choice gate", () => {
+    const valid = board();
+    const issues = validateBoardChoices({
+      ...valid,
+      nodes: valid.nodes.filter((node) => node.kind !== "choice-gate"),
+      choiceSets: valid.choiceSets?.filter((choiceSet) => choiceSet.kind !== "baseline-route"),
+      edges: valid.edges.filter((edge) => edge.from !== "choice_after_verify" && edge.to !== "choice_after_verify"),
+    });
+
+    expect(issues).toEqual([
+      expect.objectContaining({ code: "baseline_choice_route_missing" }),
+    ]);
+  });
+
+  it("fails baseline route choice sets with fewer than two child options", () => {
+    const valid = board();
+    const issues = validateBoardChoices({
+      ...valid,
+      choiceSets: [
+        {
+          ...valid.choiceSets![0]!,
+          options: [
+            { id: "light", label: "Light Check", state: "available", nodeId: "light_check", choiceSignal },
+          ],
+        },
+      ],
+    });
+
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "baseline_choice_route_too_few_options" }),
+      ]),
+    );
+  });
+
   it("fails baseline route choices that do not identify their destination node", () => {
     const valid = board();
     const issues = validateBoardChoices({
@@ -192,6 +228,7 @@ describe("adventure board validation", () => {
         title: "Choose your path",
         options: [
           { id: "light", label: "Light Check", state: "available", choiceSignal },
+          { id: "story", label: "Story Spark", state: "available", nodeId: "story_spark", choiceSignal },
         ],
       }],
     });

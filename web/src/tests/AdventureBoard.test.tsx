@@ -293,13 +293,13 @@ describe("AdventureBoard", () => {
     ).not.toBeNull();
   });
 
-  it("does not repair real planner boards that omit explicit positions", () => {
+  it("renders real planner boards through the slot template without explicit positions", () => {
     render(<AdventureBoard board={reinaCurrentHomeworkBoard} />);
 
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
     expect(reinaCurrentHomeworkBoard.nodes.some((node) => node.position == null)).toBe(true);
-    expect(screen.queryByRole("button", { name: /Start/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Choose Path/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Start/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Silent Letters/ })).toBeVisible();
   });
 });
 
