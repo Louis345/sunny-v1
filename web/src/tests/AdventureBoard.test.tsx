@@ -20,6 +20,11 @@ import type { AdventureBoardJson } from "../../../src/shared/adventureBoardJson"
 import type { ChildExperiencePacket } from "../../../src/profiles/childExperiencePacket";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
+import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
+import {
+  resolvePlannerBoardChoiceLaunchNode,
+  resolvePlannerBoardLaunchNode,
+} from "../utils/adventureBoardLaunch";
 
 const rawHorizontalBoard = rawHorizontalBoardJson as AdventureBoardJson;
 const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
@@ -358,6 +363,151 @@ describe("AdventureBoardExperience", () => {
     expect(choiceClick).toHaveBeenCalledWith(expect.objectContaining({ id: "story-challenge" }));
   });
 
+  it("resolves JSON board activity nodes into existing launch actions", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: [
+        {
+          id: "wr-node",
+          kind: "activity",
+          activityId: "word-radar",
+          label: "Silent Letters",
+          state: "available",
+          target: {
+            laneId: "silent_letters",
+            skill: "silent_letters",
+            words: ["sign", "know"],
+          },
+          wordRadarConfig: {
+            recallMode: "partial_visual_recall",
+            inputMode: "letter-by-letter",
+            speakStyle: "option-a",
+            showTimer: false,
+            hideWordDuringResponse: true,
+            requiresCapturedResponse: true,
+          },
+          action: { type: "launch-activity", payloadId: "wr-node" },
+        },
+      ],
+      edges: [],
+      choiceSets: [],
+    };
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        nodePlan: [
+          {
+            id: "wr-node",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["sign", "know"],
+            difficulty: 2,
+            source: "chart_planner",
+            targetLane: "silent_letters",
+            wordRadarConfig: board.nodes[0].wordRadarConfig as NonNullable<
+              ChildExperiencePacket["activeSessionPlan"]
+            >["nodePlan"][number]["wordRadarConfig"],
+          },
+        ],
+      },
+    };
+
+    const node = resolvePlannerBoardLaunchNode(packet, board.nodes[0]);
+    expect(node).toMatchObject({
+      id: "wr-node",
+      type: "word-radar",
+      words: ["sign", "know"],
+      targetLane: "silent_letters",
+      difficulty: 2,
+      wordRadarItems: [
+        { display: "sign", acceptedResponses: ["sign"], label: "Spelling" },
+        { display: "know", acceptedResponses: ["know"], label: "Spelling" },
+      ],
+    });
+
+    const action = buildNodeLaunchAction(node!, {
+      childId: "reina",
+      companion: "matilda",
+      isDiagMode: true,
+      iframePreviewParam: "free",
+    });
+    expect(action).toMatchObject({
+      kind: "canvas",
+      payload: {
+        type: "word_radar",
+        wordRadarItems: [
+          { display: "sign", acceptedResponses: ["sign"], label: "Spelling" },
+          { display: "know", acceptedResponses: ["know"], label: "Spelling" },
+        ],
+      },
+    });
+  });
+
+  it("lets available route choices launch visually locked target nodes", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: [
+        {
+          id: "mystery-node",
+          kind: "mystery",
+          activityId: "mystery",
+          label: "Mystery Reward",
+          state: "locked",
+          action: { type: "open-choice-set", payloadId: "choice-mystery-wrapper" },
+          target: {
+            laneId: "silent_letters",
+            skill: "silent_letters",
+            words: ["sign", "know"],
+          },
+        },
+      ],
+      edges: [],
+      choiceSets: [
+        {
+          id: "route-choice",
+          kind: "baseline-route",
+          title: "Choose your path",
+          options: [
+            {
+              id: "route-mystery",
+              label: "Mystery",
+              state: "available",
+              nodeId: "mystery-node",
+            },
+          ],
+        },
+      ],
+    };
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        nodePlan: [
+          {
+            id: "mystery-node",
+            type: "mystery",
+            activityId: "mystery",
+            targets: ["sign", "know"],
+            difficulty: 2,
+            source: "chart_planner",
+            locked: true,
+          },
+        ],
+      },
+    };
+
+    const node = resolvePlannerBoardChoiceLaunchNode(
+      packet,
+      board.choiceSets![0].options[0],
+    );
+    expect(node).toMatchObject({
+      id: "mystery-node",
+      type: "mystery",
+      words: ["sign", "know"],
+    });
+  });
+
   it("renders a serialized Reina chart packet with Matilda and an active board", () => {
     expect(reinaChartPacket.childChart.childId).toBe("reina");
     expect(reinaChartPacket.childChart.companion.id).toBe("matilda");
@@ -385,5 +535,14 @@ describe("AdventureBoardExperience", () => {
 
     expect(source).not.toContain("COMPANION_MANIFEST");
     expect(source).not.toContain("mergeCompanionConfigWithDefaults");
+  });
+
+  it("wires the app board callbacks into the planner board launch path", () => {
+    const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+
+    expect(source).toContain("resolvePlannerBoardLaunchNode");
+    expect(source).toContain("resolvePlannerBoardChoiceLaunchNode");
+    expect(source).toContain("setPlannerBoardLaunch");
+    expect(source).not.toContain('console.log(" 🎮 [AdventureBoard] node_click"');
   });
 });

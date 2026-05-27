@@ -19,6 +19,10 @@ import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
 import type { GameIframeOverlayState } from "./components/AdventureMap";
+import type {
+  AdventureBoardNode,
+  AdventureChoiceOption,
+} from "../../src/shared/adventureBoardJson";
 import type { NodeConfig } from "../../src/shared/adventureTypes";
 import { buildNodeLaunchAction } from "../../src/shared/homeworkNodeRouting";
 import { CompanionLayer, type CompanionLayerProps } from "./components/CompanionLayer";
@@ -51,6 +55,10 @@ import { WordRadar } from "./components/WordRadar";
 import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
+import {
+  resolvePlannerBoardChoiceLaunchNode,
+  resolvePlannerBoardLaunchNode,
+} from "./utils/adventureBoardLaunch";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import {
   CompanionCareProvider,
@@ -428,6 +436,10 @@ function App() {
     iframe: null,
     url: null,
   });
+  const [plannerBoardLaunch, setPlannerBoardLaunch] = useState<{
+    node: NodeConfig;
+    iframeUrl: string | null;
+  } | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
   const [loadingSafetyReleased, setLoadingSafetyReleased] = useState(false);
@@ -611,12 +623,13 @@ function App() {
       ? "karaoke"
       : diagFlowGameOpen === "wordle"
         ? null
-        : diagFlowGameOpen ?? mapSession.launchedNode?.type ?? null;
+        : diagFlowGameOpen ?? plannerBoardLaunch?.node.type ?? mapSession.launchedNode?.type ?? null;
 
   useEffect(() => {
     registerMapNodeType(activeVoiceGameNodeType);
   }, [
     activeVoiceGameNodeType,
+    plannerBoardLaunch?.node.id,
     mapSession.launchedNode?.id,
     registerMapNodeType,
   ]);
@@ -785,6 +798,114 @@ function App() {
     setPendingDiagFlowGame(null);
     setDiagGameRestartRequested(false);
   }, []);
+
+  const closePlannerBoardLaunch = useCallback(() => {
+    setPlannerBoardLaunch(null);
+  }, []);
+
+  useEffect(() => {
+    setPlannerBoardLaunch(null);
+  }, [adventureChildId, plannerBoardPacket?.activeSessionPlan?.planId]);
+
+  const launchPlannerBoardNode = useCallback(
+    (node: NodeConfig) => {
+      const companionConfig =
+        plannerBoardPacket?.childChart.companion.config ?? effectiveCompanion;
+      const companionId =
+        companionMuted ? "off" : companionConfig?.companionId ?? "elli";
+      const companionName =
+        plannerBoardPacket?.childChart.companion.displayName ??
+        (companionId === "off"
+          ? "Companion"
+          : companionId.charAt(0).toUpperCase() + companionId.slice(1));
+      const action = buildNodeLaunchAction(node, {
+        childId: adventureChildId ?? node.id,
+        childName:
+          plannerBoardPacket?.childChart.identity.displayName ??
+          (adventureChildId ? childNameFromId(adventureChildId) : undefined),
+        companion: companionId,
+        companionName,
+        isDiagMode:
+          mapPreviewMode === "free" ||
+          mapPreviewMode === "go-live" ||
+          adventureChildId === "creator",
+        iframePreviewParam:
+          mapPreviewMode === "free"
+            ? "free"
+            : mapPreviewMode === "go-live"
+              ? "go-live"
+              : "false",
+        vrmUrl: companionConfig?.vrmUrl,
+        companionMuted,
+        companionCurrency:
+          mapSession.liveMapCurrency ?? profileCompanionCurrency,
+        dyslexiaMode: profileDyslexiaMode,
+      });
+
+      console.log(" 🎮 [AdventureBoard] node_launch_action", {
+        childId: adventureChildId,
+        nodeId: node.id,
+        nodeType: node.type,
+        kind: action.kind,
+      });
+      if (action.kind === "skip") {
+        console.warn(" 🎮 [AdventureBoard] node_launch_skip", {
+          nodeId: node.id,
+          nodeType: node.type,
+          reason: action.reason,
+        });
+        return;
+      }
+      setPlannerBoardLaunch({
+        node,
+        iframeUrl: action.kind === "iframe" ? action.url : null,
+      });
+    },
+    [
+      adventureChildId,
+      companionMuted,
+      effectiveCompanion,
+      mapSession.liveMapCurrency,
+      plannerBoardPacket,
+      profileCompanionCurrency,
+      profileDyslexiaMode,
+    ],
+  );
+
+  const handlePlannerBoardNodeClick = useCallback(
+    (boardNode: AdventureBoardNode) => {
+      if (!plannerBoardPacket) return;
+      const launchNode = resolvePlannerBoardLaunchNode(plannerBoardPacket, boardNode);
+      if (!launchNode) {
+        console.log(" 🎮 [AdventureBoard] node_not_launchable", {
+          childId: adventureChildId,
+          nodeId: boardNode.id,
+          kind: boardNode.kind,
+          action: boardNode.action?.type,
+        });
+        return;
+      }
+      launchPlannerBoardNode(launchNode);
+    },
+    [adventureChildId, launchPlannerBoardNode, plannerBoardPacket],
+  );
+
+  const handlePlannerBoardChoiceClick = useCallback(
+    (option: AdventureChoiceOption) => {
+      if (!plannerBoardPacket) return;
+      const launchNode = resolvePlannerBoardChoiceLaunchNode(plannerBoardPacket, option);
+      if (!launchNode) {
+        console.log(" 🎮 [AdventureBoard] choice_not_launchable", {
+          childId: adventureChildId,
+          optionId: option.id,
+          nodeId: option.nodeId,
+        });
+        return;
+      }
+      launchPlannerBoardNode(launchNode);
+    },
+    [adventureChildId, launchPlannerBoardNode, plannerBoardPacket],
+  );
 
   const mergedCompanionEvents = useMemo(() => {
     const base = mergeCompanionEvents(
@@ -1001,21 +1122,8 @@ function App() {
             packet={plannerBoardPacket}
             showCompanion
             idlePose="center"
-            onNodeClick={(node) => {
-              console.log(" 🎮 [AdventureBoard] node_click", {
-                childId: adventureChildId,
-                nodeId: node.id,
-                kind: node.kind,
-                activityId: node.activityId,
-              });
-            }}
-            onChoiceClick={(option) => {
-              console.log(" 🎮 [AdventureBoard] choice_click", {
-                childId: adventureChildId,
-                optionId: option.id,
-                nodeId: option.nodeId,
-              });
-            }}
+            onNodeClick={handlePlannerBoardNodeClick}
+            onChoiceClick={handlePlannerBoardChoiceClick}
           />
         </div>
       );
@@ -1278,6 +1386,7 @@ function App() {
     mapGameOverlay.active ||
     karaokeReadingActive ||
     diagFlowGameOpen != null ||
+    plannerBoardLaunch != null ||
     (state.phase === "active" && state.canvas.mode === "pronunciation") ||
     mapSession.launchedNode?.type === "karaoke" ||
     mapSession.launchedNode?.type === "visual-explainer" ||
@@ -1286,6 +1395,12 @@ function App() {
     karaokeReadingActive ||
     (diagFlowGameOpen != null &&
       DIAG_GAMES_SUPPRESS_MIC.has(diagFlowGameOpen)) ||
+    (plannerBoardLaunch != null &&
+      DIAG_GAMES_SUPPRESS_MIC.has(
+        plannerBoardLaunch.node.type === "karaoke"
+          ? "reading"
+          : plannerBoardLaunch.node.type,
+      )) ||
     wordRadarDiagOpen ||
     (state.phase === "active" && state.canvas.mode === "pronunciation") ||
     mapSession.launchedNode?.type === "karaoke" ||
@@ -1456,6 +1571,95 @@ function App() {
               console.log("  🎮 [DiagPanel] WordRadar result", result);
               setWordRadarDiagOpen(false);
             }}
+          />
+        </FlowGameOverlay>
+      ) : null}
+      {plannerBoardLaunch?.node.type === "word-radar" ? (
+        <FlowGameOverlay onBack={closePlannerBoardLaunch}>
+          <WordRadar
+            items={
+              plannerBoardLaunch.node.wordRadarItems ??
+              (plannerBoardLaunch.node.words ?? []).map((word) => ({
+                display: word,
+                acceptedResponses: [word.toLowerCase()],
+                label: "Spelling",
+              }))
+            }
+            interimTranscript={liveFlowStt}
+            sendMessage={sendMessage}
+            timerSeconds={
+              plannerBoardLaunch.node.wordRadarConfig?.showTimer
+                ? plannerBoardLaunch.node.wordRadarConfig.timerSeconds
+                : undefined
+            }
+            showKeyboard={
+              plannerBoardLaunch.node.wordRadarConfig?.inputMode === "keyboard"
+            }
+            inputMode={plannerBoardLaunch.node.wordRadarConfig?.inputMode}
+            speakStyle={plannerBoardLaunch.node.wordRadarConfig?.speakStyle}
+            recallMode={plannerBoardLaunch.node.wordRadarConfig?.recallMode}
+            hideWordDuringResponse={
+              plannerBoardLaunch.node.wordRadarConfig?.hideWordDuringResponse
+            }
+            requiresCapturedResponse={
+              plannerBoardLaunch.node.wordRadarConfig?.requiresCapturedResponse
+            }
+            nodeId={plannerBoardLaunch.node.id}
+            planId={plannerBoardLaunch.node.planId}
+            targetLane={plannerBoardLaunch.node.targetLane}
+            wordRadarConfig={plannerBoardLaunch.node.wordRadarConfig}
+            personalBests={profileWordRadar?.personalBests ?? {}}
+            companion={effectiveCompanion}
+            childId={activeProfileChildId ?? adventureChildId ?? ""}
+            enableLocalNarrationFallback
+            onComplete={(result) => {
+              console.log(" 🎮 [AdventureBoard] word_radar_complete", {
+                nodeId: plannerBoardLaunch.node.id,
+                accuracy: result.accuracy,
+                wordsAttempted: result.rawResults.length,
+              });
+              closePlannerBoardLaunch();
+            }}
+          />
+        </FlowGameOverlay>
+      ) : null}
+      {plannerBoardLaunch?.node.type === "pronunciation" ? (
+        <FlowGameOverlay onBack={closePlannerBoardLaunch}>
+          <PronunciationGameCanvas
+            words={(plannerBoardLaunch.node.words ?? []).slice(
+              0,
+              plannerBoardLaunch.node.pronunciationConfig?.baseWordCount ??
+                Math.max(3, plannerBoardLaunch.node.words?.length ?? 0),
+            )}
+            replayWords={plannerBoardLaunch.node.words ?? []}
+            pronunciationConfig={plannerBoardLaunch.node.pronunciationConfig}
+            interimTranscript={liveFlowStt}
+            sendMessage={sendMessage}
+            backgroundImageUrl={state.canvas.backgroundImageUrl}
+            accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
+            onComplete={(result) => {
+              sendMessage(
+                "pronunciation_complete",
+                result as unknown as Record<string, unknown>,
+              );
+              console.log(" 🎮 [AdventureBoard] pronunciation_complete", {
+                nodeId: plannerBoardLaunch.node.id,
+                accuracy: result.accuracy,
+                wordsAttempted: result.wordsAttempted,
+              });
+              closePlannerBoardLaunch();
+            }}
+            onExit={closePlannerBoardLaunch}
+          />
+        </FlowGameOverlay>
+      ) : null}
+      {plannerBoardLaunch?.iframeUrl ? (
+        <FlowGameOverlay onBack={closePlannerBoardLaunch}>
+          <iframe
+            ref={adventureGameIframeRef}
+            title={plannerBoardLaunch.node.type}
+            src={plannerBoardLaunch.iframeUrl}
+            style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
           />
         </FlowGameOverlay>
       ) : null}
