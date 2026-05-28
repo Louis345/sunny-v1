@@ -13,12 +13,21 @@ import {
 import type {
   ChoiceEventContext,
   ChoiceEventInput,
+  PostActivityAction,
 } from "../../../src/engine/choiceEvents";
+import type { NodeConfig } from "../../../src/shared/adventureTypes";
 
 type BuildChoiceEventOptions = {
   createdAt?: string;
   sessionId?: string;
   source?: ChoiceEventSource;
+};
+
+export type PostActivityChoiceOutcome = {
+  completed: boolean;
+  accuracy?: number;
+  activePlayTime_ms?: number;
+  frustrationScore?: number;
 };
 
 type PostChoiceEventOptions = {
@@ -44,6 +53,12 @@ function contextForChoiceSet(choiceSet: AdventureChoiceSet): ChoiceEventContext 
   if (choiceSet.kind === "quest-wrapper") return "quest";
   if (choiceSet.kind === "boss-wrapper") return "boss";
   return "free_choice";
+}
+
+function contextForNode(node: NodeConfig): ChoiceEventContext {
+  if (node.type === "quest") return "quest";
+  if (node.type === "boss") return "boss";
+  return "homework_required";
 }
 
 function boardForPacket(packet: ChildExperiencePacket): AdventureBoardJson {
@@ -96,6 +111,55 @@ export function buildAdventureBoardChoiceEventInput(
       .map((option) => option.id)
       .filter((optionId) => optionId !== selectedOption.id),
     source: options.source ?? "child_choice",
+    createdAt: options.createdAt ?? new Date().toISOString(),
+  };
+}
+
+export function buildAdventureBoardPostActivityChoiceEventInput(
+  packet: ChildExperiencePacket,
+  node: NodeConfig,
+  action: PostActivityAction,
+  outcome: PostActivityChoiceOutcome,
+  options: BuildChoiceEventOptions = {},
+): ChoiceEventInput {
+  const board = boardForPacket(packet);
+  const optionId = `${node.id}:${node.type}`;
+  const accuracy =
+    typeof outcome.accuracy === "number" && Number.isFinite(outcome.accuracy)
+      ? outcome.accuracy > 1 ? outcome.accuracy / 100 : outcome.accuracy
+      : undefined;
+  return {
+    eventName:
+      action === "replay_same" || action === "replay_harder"
+        ? "replay_requested"
+        : "activity_completed",
+    postActivityAction: action,
+    choiceSetId: `post_activity:${packet.activeSessionPlan?.planId ?? board.boardId}:${node.id}`,
+    childId: packet.childChart.childId,
+    sessionId: options.sessionId ?? packet.activeSessionPlan?.planId,
+    nodeId: node.id,
+    context: contextForNode(node),
+    domain: board.domain,
+    shownOptions: [{
+      optionId,
+      activityId: node.type,
+      nodeType: asNodeType(node.type),
+      label: node.type,
+      purposeLabel: action,
+      domain: board.domain,
+    }],
+    selectedOptionId: optionId,
+    skippedOptionIds: [],
+    source: options.source ?? "child_choice",
+    completed: action === "abandon" ? false : outcome.completed,
+    ...(accuracy != null ? { accuracy } : {}),
+    ...(typeof outcome.activePlayTime_ms === "number"
+      ? { activePlayTime_ms: outcome.activePlayTime_ms }
+      : {}),
+    replayRequested: action === "replay_same" || action === "replay_harder",
+    ...(typeof outcome.frustrationScore === "number"
+      ? { frustrationScore: outcome.frustrationScore }
+      : {}),
     createdAt: options.createdAt ?? new Date().toISOString(),
   };
 }

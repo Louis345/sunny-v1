@@ -9,6 +9,8 @@ import React, {
 import { useKaraokeReading } from "../hooks/useKaraokeReading";
 import { playGameSfx, playPronunciationHitSfx } from "../utils/gameSfx";
 import type { PronunciationNodeConfig } from "../../../src/shared/adventureTypes";
+import type { PostActivityAction } from "../../../src/engine/choiceEvents";
+import { PostActivityEngagementOverlay } from "./PostActivityEngagementOverlay";
 
 const FONT_LINK =
   "https://fonts.googleapis.com/css2?family=Fredoka:wght@700;800;900&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap";
@@ -124,6 +126,10 @@ export interface PronunciationGameCanvasProps {
   backgroundImageUrl?: string;
   accentColor?: string;
   onComplete?: (result: PronunciationCompleteResult) => void;
+  onPostActivityAction?: (
+    action: PostActivityAction,
+    result: PronunciationCompleteResult,
+  ) => void;
   onExit?: () => void;
   /** Extra top padding (px) to clear a fixed banner above the component. */
   topInset?: number;
@@ -287,6 +293,7 @@ export function PronunciationGameCanvas({
   backgroundImageUrl: _backgroundImageUrl, // eslint-disable-line @typescript-eslint/no-unused-vars
   accentColor: _accentColor, // eslint-disable-line @typescript-eslint/no-unused-vars
   onComplete,
+  onPostActivityAction,
   onExit,
   topInset = 0,
 }: PronunciationGameCanvasProps): React.ReactElement {
@@ -386,6 +393,7 @@ export function PronunciationGameCanvas({
   const [showHitBadge, setShowHitBadge] = useState(false);
   const [ended, setEnded] = useState(false);
   const [endReason, setEndReason] = useState<PronunciationRunEndReason>("timer");
+  const [finalResult, setFinalResult] = useState<PronunciationCompleteResult | null>(null);
   const [flowRound, setFlowRound] = useState(0);
   const [hits, setHits] = useState(0);
   const [wordsAttempted, setWordsAttempted] = useState(0);
@@ -779,6 +787,7 @@ export function PronunciationGameCanvas({
       completeSentRef.current = false;
       lastMilestoneStreakRef.current = 0;
       setEnded(false);
+      setFinalResult(null);
       missCountByWordRef.current = new Map();
       hitCountByWordRef.current = new Map();
     });
@@ -964,6 +973,28 @@ export function PronunciationGameCanvas({
       effectiveBestStreak >= HEAT_THRESHOLD &&
       uniqueTargetsAttempted >= Math.min(activeWordPool.length, HEAT_THRESHOLD) &&
       autoFlowRoundsRef.current < MAX_ADAPTIVE_FLOW_ROUNDS;
+    const completeResult: PronunciationCompleteResult = {
+      wordsHit: correctCount,
+      wordsAttempted: chartAttempts,
+      hitEvents: h,
+      uniqueTargetsAttempted,
+      rounds,
+      accuracy: acc,
+      totalWords: activeWordPool.length,
+      correctCount,
+      evidenceTier: "practice",
+      targetResults,
+      flaggedWords: [...fw],
+      xpEarned: x,
+      bestStreak: bs,
+      coinsEarned: c,
+      timeSurvivedMs: survived,
+      runEndedReason: reason,
+      maxHeatStreak: maxHeatStreakRef.current,
+      flowState,
+      replayOnly,
+      chartEligible: !replayOnly,
+    };
     playGameSfx("pronunciation", "completeFanfare");
     emitPronunciationGameState("complete", {
       lastOutcome: "complete",
@@ -991,28 +1022,12 @@ export function PronunciationGameCanvas({
     if (!replayOnly) {
       authoritativeCompleteSentRef.current = true;
       onComplete?.({
-        wordsHit: correctCount,
-        wordsAttempted: chartAttempts,
-        hitEvents: h,
-        uniqueTargetsAttempted,
-        rounds,
-        accuracy: acc,
-        totalWords: activeWordPool.length,
-        correctCount,
-        evidenceTier: "practice",
-        targetResults,
-        flaggedWords: [...fw],
-        xpEarned: x,
-        bestStreak: bs,
-        coinsEarned: c,
-        timeSurvivedMs: survived,
-        runEndedReason: reason,
-        maxHeatStreak: maxHeatStreakRef.current,
-        flowState,
+        ...completeResult,
         replayOnly: false,
         chartEligible: true,
       });
     }
+    setFinalResult(completeResult);
     return { shouldStartAdaptiveFlow };
   }, [activeWordPool, emitPronunciationGameState, onComplete]);
 
@@ -1040,6 +1055,24 @@ export function PronunciationGameCanvas({
       setEnded(true);
     },
     [finalizeOnce, restartPronunciation],
+  );
+
+  const handlePostActivityAction = useCallback(
+    (action: PostActivityAction) => {
+      if (finalResult) {
+        onPostActivityAction?.(action, finalResult);
+      }
+      if (action === "replay_same") {
+        restartPronunciation("normal");
+        return;
+      }
+      if (action === "replay_harder") {
+        restartPronunciation("hard");
+        return;
+      }
+      onExit?.();
+    },
+    [finalResult, onExit, onPostActivityAction, restartPronunciation],
   );
 
   const triggerMissYank = useCallback(() => {
@@ -2152,83 +2185,28 @@ export function PronunciationGameCanvas({
       </div>
 
       {ended ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 10,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            padding: 40,
-            background: "rgba(5, 7, 12, 0.55)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            pointerEvents: "auto",
+        <PostActivityEngagementOverlay
+          title={endReason === "timer" ? "GAME OVER" : "FLOW COMPLETE"}
+          outcome={{
+            completed: endReason !== "timer",
+            accuracy: wordsAttempted > 0 ? hits / wordsAttempted : 0,
+            activePlayTimeMs: finalResult?.timeSurvivedMs,
+            frustrationScore: endReason === "timer" ? 0.7 : 0.1,
           }}
+          stats={[
+            { value: hits, label: "words hit" },
+            { value: coins, label: "coins earned" },
+            { value: xp, label: "xp earned" },
+            { value: bestStreak, label: "best streak" },
+            {
+              value: `${wordsAttempted > 0 ? Math.round((hits / wordsAttempted) * 100) : 0}%`,
+              label: "accuracy",
+            },
+          ]}
+          canReplay
+          canTryHarder
+          onAction={handlePostActivityAction}
         >
-          <h1
-            style={{
-              fontFamily: "'Caveat', cursive",
-              fontSize: 64,
-              fontWeight: 700,
-              marginBottom: 16,
-            }}
-          >
-            {endReason === "timer" ? "GAME OVER" : "FLOW COMPLETE"}
-          </h1>
-          <div
-            style={{
-              display: "flex",
-              gap: 20,
-              margin: "24px 0",
-              flexWrap: "wrap",
-              justifyContent: "center",
-            }}
-          >
-            {[
-              { v: hits, l: "words hit" },
-              { v: coins, l: "coins earned" },
-              { v: xp, l: "xp earned" },
-              { v: bestStreak, l: "best streak" },
-              { v: `${wordsAttempted > 0 ? Math.round((hits / wordsAttempted) * 100) : 0}%`, l: "accuracy" },
-            ].map((st) => (
-              <div
-                key={st.l}
-                style={{
-                  padding: "18px 28px",
-                  borderRadius: 18,
-                  background: "rgba(255, 255, 255, 0.08)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  minWidth: 120,
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: "'Fredoka', sans-serif",
-                    fontSize: 36,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                  }}
-                >
-                  {st.v}
-                </div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    opacity: 0.65,
-                    marginTop: 6,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  {st.l}
-                </div>
-              </div>
-            ))}
-          </div>
           {flaggedWords.length > 0 ? (
             <div style={{ marginTop: 14 }}>
               <p style={{ fontSize: 15, opacity: 0.7 }}>tap to hear</p>
@@ -2267,75 +2245,7 @@ export function PronunciationGameCanvas({
               </div>
             </div>
           ) : null}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 12,
-              justifyContent: "center",
-              marginTop: 28,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => restartPronunciation("normal")}
-              aria-label="Play again"
-              style={{
-                border: "none",
-                borderRadius: 8,
-                padding: "12px 24px",
-                background: "linear-gradient(135deg, #fbbf24, #f97316)",
-                color: "#111827",
-                cursor: "pointer",
-                fontFamily: "'Fredoka', sans-serif",
-                fontSize: 18,
-                fontWeight: 900,
-                boxShadow: "0 12px 30px rgba(249,115,22,0.28)",
-              }}
-            >
-              Play again
-            </button>
-            <button
-              type="button"
-              onClick={() => restartPronunciation("hard")}
-              aria-label="Harder replay"
-              style={{
-                border: "none",
-                borderRadius: 8,
-                padding: "12px 24px",
-                background: "linear-gradient(135deg, #ef4444, #7c3aed)",
-                color: "white",
-                cursor: "pointer",
-                fontFamily: "'Fredoka', sans-serif",
-                fontSize: 18,
-                fontWeight: 900,
-                boxShadow: "0 12px 30px rgba(124,58,237,0.28)",
-              }}
-            >
-              Harder replay
-            </button>
-            {onExit ? (
-              <button
-                type="button"
-                onClick={onExit}
-                aria-label="Back to map"
-                style={{
-                  border: "1px solid rgba(255,255,255,0.24)",
-                  borderRadius: 8,
-                  padding: "12px 24px",
-                  background: "rgba(255,255,255,0.08)",
-                  color: "white",
-                  cursor: "pointer",
-                  fontFamily: "'Fredoka', sans-serif",
-                  fontSize: 18,
-                  fontWeight: 900,
-                }}
-              >
-                Back to map
-              </button>
-            ) : null}
-          </div>
-        </div>
+        </PostActivityEngagementOverlay>
       ) : null}
     </div>
   );

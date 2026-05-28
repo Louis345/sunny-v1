@@ -2489,6 +2489,7 @@ export async function recordMapChoiceEvent(
     ...(typeof input.accuracy === "number" ? { accuracy: input.accuracy } : {}),
     ...(typeof input.activePlayTime_ms === "number" ? { activePlayTime_ms: input.activePlayTime_ms } : {}),
     ...(typeof input.replayRequested === "boolean" ? { replayRequested: input.replayRequested } : {}),
+    ...(input.postActivityAction ? { postActivityAction: input.postActivityAction } : {}),
     ...(input.explicitSentiment ? { explicitSentiment: input.explicitSentiment } : {}),
     ...(typeof input.frustrationScore === "number" ? { frustrationScore: input.frustrationScore } : {}),
   };
@@ -2519,6 +2520,9 @@ export async function recordMapChoiceEvent(
     completed: event.completed,
     accuracy: event.accuracy,
     timeToChoose_ms: event.timeToChoose_ms,
+    postActivityAction: event.postActivityAction,
+    replayRequested: event.replayRequested,
+    frustrationScore: event.frustrationScore,
   });
   const applied = await applyChoiceEventPreference(event);
   return { ok: true, applied: applied.applied, skippedPersistence: false };

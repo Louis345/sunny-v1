@@ -10,6 +10,7 @@ import {
   preferenceWeightForChoiceSource,
   readChoiceEvents,
   recordChoiceEvent,
+  summarizeChoiceEngagement,
 } from "./choiceEvents";
 
 let root: string;
@@ -452,5 +453,230 @@ describe("choice events", () => {
         path.join(process.cwd(), "web", "public", option.thumbnailUrl!.replace(/^\//, "")),
       ),
     ).toBe(true);
+  });
+
+  it("treats successful voluntary replay as stronger preference than done-for-now", async () => {
+    writeProfile("reina");
+    writeProfile("ila");
+
+    await applyChoiceEventPreference({
+      eventName: "replay_requested",
+      postActivityAction: "replay_same",
+      childId: "reina",
+      choiceSetId: "post-word-radar",
+      sessionId: "session-replay",
+      nodeId: "n-word-radar",
+      context: "baseline_route",
+      domain: "spelling",
+      source: "child_choice",
+      shownOptions: [{
+        optionId: "word-radar",
+        activityId: "word-radar",
+        nodeType: "word-radar",
+        label: "Word Radar",
+        purposeLabel: "Visual Practice",
+        preferenceTraits: ["visual", "control"],
+      }],
+      selectedOptionId: "word-radar",
+      skippedOptionIds: [],
+      completed: true,
+      accuracy: 0.9,
+      activePlayTime_ms: 45_000,
+      replayRequested: true,
+      frustrationScore: 0.1,
+      createdAt: "2026-05-12T12:00:00.000Z",
+    }, { rootDir: root, recordBanditReward: vi.fn() });
+
+    await applyChoiceEventPreference({
+      eventName: "activity_completed",
+      postActivityAction: "back_to_map",
+      childId: "ila",
+      choiceSetId: "post-word-radar",
+      sessionId: "session-done",
+      nodeId: "n-word-radar",
+      context: "baseline_route",
+      domain: "spelling",
+      source: "child_choice",
+      shownOptions: [{
+        optionId: "word-radar",
+        activityId: "word-radar",
+        nodeType: "word-radar",
+        label: "Word Radar",
+        purposeLabel: "Visual Practice",
+        preferenceTraits: ["visual", "control"],
+      }],
+      selectedOptionId: "word-radar",
+      skippedOptionIds: [],
+      completed: true,
+      accuracy: 0.9,
+      activePlayTime_ms: 45_000,
+      replayRequested: false,
+      frustrationScore: 0.1,
+      createdAt: "2026-05-12T12:00:00.000Z",
+    }, { rootDir: root, recordBanditReward: vi.fn() });
+
+    const replayProfile = JSON.parse(
+      fs.readFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "utf8"),
+    ) as LearningProfile;
+    const doneProfile = JSON.parse(
+      fs.readFileSync(path.join(root, "src", "context", "ila", "learning_profile.json"), "utf8"),
+    ) as LearningProfile;
+
+    expect(replayProfile.activityModel?.["word-radar"]?.likedCount).toBe(1);
+    expect(doneProfile.activityModel?.["word-radar"]?.likedCount).toBe(0);
+    expect(doneProfile.activityModel?.["word-radar"]?.dislikedCount).toBe(0);
+    expect(replayProfile.activityModel?.["word-radar"]?.engagementScore).toBeGreaterThan(
+      doneProfile.activityModel?.["word-radar"]?.engagementScore ?? 1,
+    );
+  });
+
+  it("treats replay after failure as persistence instead of proof the child liked it", async () => {
+    writeProfile("reina");
+    const reward = vi.fn();
+
+    await applyChoiceEventPreference({
+      eventName: "replay_requested",
+      postActivityAction: "replay_same",
+      childId: "reina",
+      choiceSetId: "post-spell-check",
+      sessionId: "session-retry",
+      nodeId: "n-spell-check",
+      context: "homework_required",
+      domain: "spelling",
+      source: "child_choice",
+      shownOptions: [{
+        optionId: "spell-check",
+        activityId: "spell-check",
+        nodeType: "spell-check",
+        label: "Spell Check",
+        purposeLabel: "Recall",
+        preferenceTraits: ["typing", "recall"],
+      }],
+      selectedOptionId: "spell-check",
+      skippedOptionIds: [],
+      completed: false,
+      accuracy: 0.25,
+      activePlayTime_ms: 20_000,
+      replayRequested: true,
+      frustrationScore: 0.35,
+      createdAt: "2026-05-12T12:10:00.000Z",
+    }, { rootDir: root, recordBanditReward: reward });
+
+    const profile = JSON.parse(
+      fs.readFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "utf8"),
+    ) as LearningProfile;
+
+    expect(profile.activityModel?.["spell-check"]?.likedCount).toBe(0);
+    expect(profile.activityModel?.["spell-check"]?.dislikedCount).toBe(0);
+    expect(profile.activityTraitModel?.typing?.mixedWeight).toBeGreaterThan(0);
+    expect(reward).toHaveBeenCalledWith("reina", "spell-check", false, false, 0.25);
+  });
+
+  it("treats abandon with high frustration as overload or avoidance evidence", async () => {
+    writeProfile("reina");
+    const reward = vi.fn();
+
+    await applyChoiceEventPreference({
+      eventName: "activity_completed",
+      postActivityAction: "abandon",
+      childId: "reina",
+      choiceSetId: "post-letter-rush",
+      sessionId: "session-overload",
+      nodeId: "n-letter-rush",
+      context: "baseline_route",
+      domain: "spelling",
+      source: "child_choice",
+      shownOptions: [{
+        optionId: "letter-rush",
+        activityId: "letter-rush",
+        nodeType: "letter-rush",
+        label: "Letter Rush",
+        purposeLabel: "Speed Challenge",
+        preferenceTraits: ["speed", "competition"],
+      }],
+      selectedOptionId: "letter-rush",
+      skippedOptionIds: [],
+      completed: false,
+      accuracy: 0.1,
+      activePlayTime_ms: 8_000,
+      replayRequested: false,
+      frustrationScore: 0.9,
+      createdAt: "2026-05-12T12:20:00.000Z",
+    }, { rootDir: root, recordBanditReward: reward });
+
+    const profile = JSON.parse(
+      fs.readFileSync(path.join(root, "src", "context", "reina", "learning_profile.json"), "utf8"),
+    ) as LearningProfile;
+
+    expect(profile.activityModel?.["letter-rush"]?.likedCount).toBe(0);
+    expect(profile.activityModel?.["letter-rush"]?.dislikedCount).toBe(1);
+    expect(profile.activityTraitModel?.speed?.negativeWeight).toBeGreaterThan(0);
+    expect(reward).toHaveBeenCalledWith("reina", "letter-rush", false, false, 0.1);
+  });
+
+  it("summarizes wrapper traits for future Quest and Boss generation", () => {
+    const events = [
+      recordChoiceEvent({
+        eventName: "replay_requested",
+        postActivityAction: "replay_harder",
+        childId: "reina",
+        choiceSetId: "post-story",
+        sessionId: "session-story",
+        nodeId: "n-quest",
+        context: "quest",
+        domain: "spelling",
+        source: "child_choice",
+        shownOptions: [{
+          optionId: "story-quest",
+          activityId: "quest",
+          nodeType: "quest",
+          label: "Story Quest",
+          purposeLabel: "Story",
+          preferenceTraits: ["story", "challenge"],
+        }],
+        selectedOptionId: "story-quest",
+        skippedOptionIds: [],
+        completed: true,
+        accuracy: 0.95,
+        activePlayTime_ms: 60_000,
+        replayRequested: true,
+        frustrationScore: 0.05,
+        createdAt: "2026-05-12T12:30:00.000Z",
+      }, { rootDir: root }),
+      recordChoiceEvent({
+        eventName: "activity_completed",
+        postActivityAction: "abandon",
+        childId: "reina",
+        choiceSetId: "post-speed",
+        sessionId: "session-speed",
+        nodeId: "n-letter-rush",
+        context: "baseline_route",
+        domain: "spelling",
+        source: "child_choice",
+        shownOptions: [{
+          optionId: "speed",
+          activityId: "letter-rush",
+          nodeType: "letter-rush",
+          label: "Letter Rush",
+          purposeLabel: "Speed",
+          preferenceTraits: ["speed", "competition"],
+        }],
+        selectedOptionId: "speed",
+        skippedOptionIds: [],
+        completed: false,
+        accuracy: 0.2,
+        activePlayTime_ms: 9_000,
+        frustrationScore: 0.9,
+        createdAt: "2026-05-12T12:35:00.000Z",
+      }, { rootDir: root }),
+    ];
+
+    const summary = summarizeChoiceEngagement(events);
+
+    expect(summary.preferredWrappers).toContain("story");
+    expect(summary.replayedWrappers).toContain("challenge");
+    expect(summary.avoidedWrappers).toContain("speed");
+    expect(summary.challengeTolerance).toBe("likes_harder_replay");
+    expect(summary.overloadPatterns).toContain("speed");
   });
 });

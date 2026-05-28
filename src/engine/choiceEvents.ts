@@ -32,6 +32,12 @@ export type ChoiceSentiment = "like" | "dislike" | "neutral";
 
 export type ChoiceOption = MysteryChoiceOption;
 
+export type PostActivityAction =
+  | "replay_same"
+  | "replay_harder"
+  | "back_to_map"
+  | "abandon";
+
 export type ChoiceEventName =
   | "mystery_node_tap"
   | "impression"
@@ -64,6 +70,7 @@ export type ChoiceEvent = {
   accuracy?: number;
   activePlayTime_ms?: number;
   replayRequested?: boolean;
+  postActivityAction?: PostActivityAction;
   explicitSentiment?: ChoiceSentiment;
   frustrationScore?: number;
   createdAt: string;
@@ -321,7 +328,26 @@ export function readChoiceEvents(childId: string, opts: RootOptions = {}): Choic
 function preferenceLiked(event: ChoiceEvent): boolean | null {
   if (event.explicitSentiment === "like") return true;
   if (event.explicitSentiment === "dislike") return false;
-  if (event.replayRequested) return true;
+  if (event.postActivityAction === "abandon") return false;
+  if (event.postActivityAction === "back_to_map") return null;
+  if (
+    event.postActivityAction === "replay_same" ||
+    event.postActivityAction === "replay_harder"
+  ) {
+    if (
+      event.completed === true &&
+      clamp01(event.frustrationScore, 0) < 0.5 &&
+      clamp01(event.accuracy, 0) >= 0.5
+    ) {
+      return true;
+    }
+    return null;
+  }
+  if (event.replayRequested) {
+    return event.completed === true && clamp01(event.frustrationScore, 0) < 0.5
+      ? true
+      : null;
+  }
   if (event.eventName === "option_selected" && event.source === "child_choice") return true;
   if (event.eventName === "surprise_revealed" && event.started !== false) return true;
   if (event.completed === true && clamp01(event.frustrationScore, 0) < 0.5) return true;
@@ -341,13 +367,25 @@ function shouldApplyPreferenceEvent(event: ChoiceEvent): boolean {
 
 function engagementFromChoice(event: ChoiceEvent, weight: number): number {
   const liked = preferenceLiked(event);
+  const successfulReplay =
+    (event.postActivityAction === "replay_same" ||
+      event.postActivityAction === "replay_harder" ||
+      (event.postActivityAction == null && event.replayRequested === true)) &&
+    event.completed === true &&
+    clamp01(event.frustrationScore, 0) < 0.5;
+  const persistenceReplay =
+    (event.postActivityAction === "replay_same" ||
+      event.postActivityAction === "replay_harder") &&
+    event.completed !== true;
+  const abandonPenalty = event.postActivityAction === "abandon" ? 0.2 : 0;
   return clamp01(
     0.25 +
       weight * 0.3 +
       (event.completed ? 0.15 : 0) +
-      (event.replayRequested ? 0.2 : 0) +
+      (successfulReplay ? 0.2 : persistenceReplay ? 0.08 : 0) +
       (liked === true ? 0.15 : liked === false ? -0.2 : 0) -
-      clamp01(event.frustrationScore, 0) * 0.2,
+      clamp01(event.frustrationScore, 0) * 0.2 -
+      abandonPenalty,
     0.5,
   );
 }
@@ -505,7 +543,10 @@ export async function applyChoiceEventPreference(
           0.25 +
             weight * 0.45 +
             (event.completed ? 0.1 : 0) +
-            (event.replayRequested ? 0.2 : 0),
+            (event.postActivityAction === "replay_same" ||
+            event.postActivityAction === "replay_harder"
+              ? 0.2
+              : 0),
         ),
       ),
       occurredAt: event.createdAt,
@@ -521,4 +562,68 @@ export async function applyChoiceEventPreference(
     `  🎮 [choice-event] [preference-applied] child=${event.childId} activity=${option.activityId} source=${event.source}`,
   );
   return { applied: true, reason: "preference_applied", activityId: option.activityId };
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort();
+}
+
+export type ChoiceEngagementSummary = {
+  preferredWrappers: string[];
+  replayedWrappers: string[];
+  avoidedWrappers: string[];
+  challengeTolerance: "likes_harder_replay" | "pressure_sensitive" | "unknown";
+  overloadPatterns: string[];
+};
+
+export function summarizeChoiceEngagement(events: ChoiceEvent[]): ChoiceEngagementSummary {
+  const preferred: string[] = [];
+  const replayed: string[] = [];
+  const avoided: string[] = [];
+  const overload: string[] = [];
+  let harderReplay = false;
+  let pressureSensitive = false;
+
+  for (const event of events) {
+    const option = selectedOption(event);
+    if (!option) continue;
+    const traits = traitDimensionsForOption(option);
+    const liked = preferenceLiked(event);
+    if (liked === true) preferred.push(...traits);
+    if (liked === false) avoided.push(...traits);
+    if (
+      event.postActivityAction === "replay_same" ||
+      event.postActivityAction === "replay_harder"
+    ) {
+      replayed.push(...traits);
+      if (
+        event.postActivityAction === "replay_harder" &&
+        event.completed === true &&
+        clamp01(event.frustrationScore, 0) < 0.5
+      ) {
+        harderReplay = true;
+      }
+    }
+    if (
+      event.postActivityAction === "abandon" ||
+      (event.completed === false && clamp01(event.frustrationScore, 0) >= 0.65)
+    ) {
+      overload.push(...traits);
+      if (traits.some((trait) => trait === "speed" || trait === "competition")) {
+        pressureSensitive = true;
+      }
+    }
+  }
+
+  return {
+    preferredWrappers: uniqueSorted(preferred),
+    replayedWrappers: uniqueSorted(replayed),
+    avoidedWrappers: uniqueSorted(avoided),
+    challengeTolerance: harderReplay
+      ? "likes_harder_replay"
+      : pressureSensitive
+        ? "pressure_sensitive"
+        : "unknown",
+    overloadPatterns: uniqueSorted(overload),
+  };
 }

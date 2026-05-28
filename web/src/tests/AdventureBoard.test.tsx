@@ -22,11 +22,15 @@ import type { ChildExperiencePacket } from "../../../src/profiles/childExperienc
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
+import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import {
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "../utils/adventureBoardLaunch";
-import { buildAdventureBoardChoiceEventInput } from "../utils/adventureBoardChoiceEvents";
+import {
+  buildAdventureBoardChoiceEventInput,
+  buildAdventureBoardPostActivityChoiceEventInput,
+} from "../utils/adventureBoardChoiceEvents";
 import {
   buildAdventureBoardGeneratedChoiceRequest,
   buildAdventureBoardGeneratedChoiceLaunchNode,
@@ -366,6 +370,59 @@ describe("AdventureBoard", () => {
         preferenceTraits: ["voice", "control"],
       }),
     ]);
+  });
+
+  it("builds post-activity engagement evidence from planner board launches", () => {
+    const packet = packetForBoard(reinaCurrentHomeworkBoard);
+    const node: NodeConfig = {
+      id: "word-radar-baseline",
+      type: "word-radar",
+      isLocked: false,
+      isCompleted: true,
+      isGoal: false,
+      difficulty: 1,
+    };
+
+    const replayEvent = buildAdventureBoardPostActivityChoiceEventInput(
+      packet,
+      node,
+      "replay_same",
+      {
+        completed: true,
+        accuracy: 0.88,
+        activePlayTime_ms: 31_000,
+        frustrationScore: 0.1,
+      },
+      { createdAt: "2026-05-27T12:05:00.000Z" },
+    );
+    const backEvent = buildAdventureBoardPostActivityChoiceEventInput(
+      packet,
+      node,
+      "back_to_map",
+      {
+        completed: true,
+        accuracy: 0.88,
+        activePlayTime_ms: 31_000,
+        frustrationScore: 0.1,
+      },
+      { createdAt: "2026-05-27T12:06:00.000Z" },
+    );
+
+    expect(replayEvent).toMatchObject({
+      eventName: "replay_requested",
+      postActivityAction: "replay_same",
+      context: "homework_required",
+      selectedOptionId: "word-radar-baseline:word-radar",
+      completed: true,
+      replayRequested: true,
+      accuracy: 0.88,
+    });
+    expect(backEvent).toMatchObject({
+      eventName: "activity_completed",
+      postActivityAction: "back_to_map",
+      completed: true,
+      replayRequested: false,
+    });
   });
 
   it("keeps sibling routes available for parallel route choices", () => {

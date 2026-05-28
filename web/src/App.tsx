@@ -30,6 +30,10 @@ import { CompanionLayer, type CompanionLayerProps } from "./components/Companion
 import { DiagPanel } from "./components/DiagPanel";
 import { KaraokeReadingCanvas } from "./components/KaraokeReadingCanvas";
 import { PronunciationGameCanvas } from "./components/PronunciationGameCanvas";
+import {
+  PostActivityEngagementOverlay,
+  type PostActivityOutcome,
+} from "./components/PostActivityEngagementOverlay";
 import { useMapSession } from "./hooks/useMapSession";
 import {
   COMPANION_API_VERSION,
@@ -62,7 +66,9 @@ import {
 } from "./utils/adventureBoardLaunch";
 import {
   buildAdventureBoardChoiceEventInput,
+  buildAdventureBoardPostActivityChoiceEventInput,
   postAdventureBoardChoiceEvent,
+  type PostActivityChoiceOutcome,
 } from "./utils/adventureBoardChoiceEvents";
 import {
   buildAdventureBoardGeneratedChoiceLaunchNode,
@@ -75,6 +81,7 @@ import {
   useCompanionCare,
 } from "./context/CompanionCareContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
+import type { PostActivityAction } from "../../src/engine/choiceEvents";
 
 const DIAG_READING_TEST_EXCERPT =
   "Chimpanzees are apes. They inhabit steamy rainforests and other parts of Africa. Chimps gather in bands that number from 15 to 150 chimps.";
@@ -403,6 +410,71 @@ function mergeCompanionCommands(
   return out;
 }
 
+function plannerActivityTitle(node: NodeConfig): string {
+  return node.type
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function normalizeAccuracy(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return value > 1 ? value / 100 : value;
+}
+
+function plannerOutcomeFromResult(result: Record<string, unknown>): PostActivityOutcome {
+  return {
+    completed: result.completed !== false,
+    accuracy: normalizeAccuracy(result.accuracy),
+    activePlayTimeMs:
+      typeof result.timeSpent_ms === "number"
+        ? result.timeSpent_ms
+        : typeof result.timeSurvivedMs === "number"
+          ? result.timeSurvivedMs
+          : undefined,
+    frustrationScore:
+      typeof result.frustrationScore === "number"
+        ? result.frustrationScore
+        : result.completed === false
+          ? 0.7
+          : 0.1,
+  };
+}
+
+function plannerStatsFromResult(result: Record<string, unknown>): Array<{ label: string; value: string | number }> {
+  const stats: Array<{ label: string; value: string | number }> = [];
+  const accuracy = normalizeAccuracy(result.accuracy);
+  if (accuracy != null) stats.push({ label: "accuracy", value: `${Math.round(accuracy * 100)}%` });
+  const attempted =
+    typeof result.wordsAttempted === "number"
+      ? result.wordsAttempted
+      : Array.isArray(result.targetResults)
+        ? result.targetResults.length
+        : undefined;
+  if (attempted != null) stats.push({ label: "attempts", value: attempted });
+  const time =
+    typeof result.timeSpent_ms === "number"
+      ? result.timeSpent_ms
+      : typeof result.timeSurvivedMs === "number"
+        ? result.timeSurvivedMs
+        : undefined;
+  if (time != null) stats.push({ label: "time", value: `${Math.round(time / 1000)}s` });
+  return stats;
+}
+
+function choiceOutcomeFromOverlay(outcome: PostActivityOutcome): PostActivityChoiceOutcome {
+  return {
+    completed: outcome.completed,
+    ...(typeof outcome.accuracy === "number" ? { accuracy: outcome.accuracy } : {}),
+    ...(typeof outcome.activePlayTimeMs === "number"
+      ? { activePlayTime_ms: outcome.activePlayTimeMs }
+      : {}),
+    ...(typeof outcome.frustrationScore === "number"
+      ? { frustrationScore: outcome.frustrationScore }
+      : {}),
+  };
+}
+
 function App() {
   const adventureGameIframeRef = useRef<HTMLIFrameElement | null>(null);
   const theaterLoadingEnabled = shouldUseSessionLoadingOverlay();
@@ -478,7 +550,16 @@ function App() {
   const [plannerBoardLaunch, setPlannerBoardLaunch] = useState<{
     node: NodeConfig;
     iframeUrl: string | null;
+    replayNonce: number;
   } | null>(null);
+  const [postActivityEngagement, setPostActivityEngagement] = useState<{
+    node: NodeConfig;
+    outcome: PostActivityOutcome;
+    title: string;
+    stats: Array<{ label: string; value: string | number }>;
+    canTryHarder: boolean;
+  } | null>(null);
+  const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
   const [loadingSafetyReleased, setLoadingSafetyReleased] = useState(false);
@@ -844,6 +925,8 @@ function App() {
 
   const closePlannerBoardLaunch = useCallback(() => {
     setPlannerBoardLaunch(null);
+    setPostActivityEngagement(null);
+    plannerBoardIframeCompletionKeyRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -899,9 +982,12 @@ function App() {
         });
         return;
       }
+      setPostActivityEngagement(null);
+      plannerBoardIframeCompletionKeyRef.current = null;
       setPlannerBoardLaunch({
         node,
         iframeUrl: action.kind === "iframe" ? action.url : null,
+        replayNonce: 0,
       });
     },
     [
@@ -1016,6 +1102,139 @@ function App() {
     },
     [adventureChildId, launchPlannerBoardNode, mapPreviewMode, plannerBoardPacket],
   );
+
+  const recordPlannerBoardPostActivityAction = useCallback(
+    (
+      action: PostActivityAction,
+      node: NodeConfig,
+      outcome: PostActivityOutcome,
+    ) => {
+      if (!plannerBoardPacket) return;
+      const event = buildAdventureBoardPostActivityChoiceEventInput(
+        plannerBoardPacket,
+        node,
+        action,
+        choiceOutcomeFromOverlay(outcome),
+      );
+      void postAdventureBoardChoiceEvent(event, { preview: mapPreviewMode })
+        .then((out) => {
+          console.log(" 🎮 [AdventureBoard] post_activity_choice_event", {
+            childId: adventureChildId,
+            nodeId: node.id,
+            nodeType: node.type,
+            action,
+            applied: out.applied,
+            skippedPersistence: out.skippedPersistence,
+          });
+        })
+        .catch((err: unknown) => {
+          console.warn(" 🎮 [AdventureBoard] post_activity_choice_failed", {
+            childId: adventureChildId,
+            nodeId: node.id,
+            nodeType: node.type,
+            action,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+    },
+    [adventureChildId, mapPreviewMode, plannerBoardPacket],
+  );
+
+  const showPlannerBoardEngagementOverlay = useCallback(
+    (node: NodeConfig, result: Record<string, unknown>) => {
+      const outcome = plannerOutcomeFromResult(result);
+      setPostActivityEngagement({
+        node,
+        outcome,
+        title: plannerActivityTitle(node),
+        stats: plannerStatsFromResult(result),
+        canTryHarder: false,
+      });
+    },
+    [],
+  );
+
+  const replayPlannerBoardLaunch = useCallback(() => {
+    plannerBoardIframeCompletionKeyRef.current = null;
+    setPostActivityEngagement(null);
+    setPlannerBoardLaunch((prev) =>
+      prev
+        ? {
+            ...prev,
+            replayNonce: prev.replayNonce + 1,
+          }
+        : prev,
+    );
+  }, []);
+
+  const handlePlannerBoardPostActivityAction = useCallback(
+    (action: PostActivityAction) => {
+      const current = postActivityEngagement;
+      if (!current) return;
+      recordPlannerBoardPostActivityAction(action, current.node, current.outcome);
+      if (action === "replay_same" || action === "replay_harder") {
+        replayPlannerBoardLaunch();
+        return;
+      }
+      closePlannerBoardLaunch();
+    },
+    [
+      closePlannerBoardLaunch,
+      postActivityEngagement,
+      recordPlannerBoardPostActivityAction,
+      replayPlannerBoardLaunch,
+    ],
+  );
+
+  const handlePlannerBoardOverlayBack = useCallback(() => {
+    const current = postActivityEngagement;
+    if (current) {
+      recordPlannerBoardPostActivityAction("back_to_map", current.node, current.outcome);
+    } else if (plannerBoardLaunch) {
+      recordPlannerBoardPostActivityAction("abandon", plannerBoardLaunch.node, {
+        completed: false,
+        frustrationScore: 0.75,
+      });
+    }
+    closePlannerBoardLaunch();
+  }, [
+    closePlannerBoardLaunch,
+    plannerBoardLaunch,
+    postActivityEngagement,
+    recordPlannerBoardPostActivityAction,
+  ]);
+
+  useEffect(() => {
+    if (!plannerBoardLaunch?.iframeUrl) return;
+    const launch = plannerBoardLaunch;
+    function handleMessage(event: MessageEvent) {
+      const iframeWindow = adventureGameIframeRef.current?.contentWindow;
+      if (iframeWindow && event.source !== iframeWindow) return;
+      const data = event.data as { type?: string; payload?: unknown } | undefined;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "node_complete" && data.type !== "game_complete") return;
+      const key = `${launch.node.id}:${launch.replayNonce}`;
+      if (plannerBoardIframeCompletionKeyRef.current === key) return;
+      plannerBoardIframeCompletionKeyRef.current = key;
+      const payload =
+        data.payload && typeof data.payload === "object" && !Array.isArray(data.payload)
+          ? data.payload as Record<string, unknown>
+          : data as Record<string, unknown>;
+      console.log(" 🎮 [AdventureBoard] iframe_activity_complete", {
+        childId: adventureChildId,
+        nodeId: launch.node.id,
+        nodeType: launch.node.type,
+        eventType: data.type,
+      });
+      showPlannerBoardEngagementOverlay(launch.node, payload);
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [
+    adventureChildId,
+    plannerBoardLaunch,
+    showPlannerBoardEngagementOverlay,
+  ]);
 
   const mergedCompanionEvents = useMemo(() => {
     const base = mergeCompanionEvents(
@@ -1710,8 +1929,9 @@ function App() {
         </FlowGameOverlay>
       ) : null}
       {plannerBoardLaunch?.node.type === "word-radar" ? (
-        <FlowGameOverlay onBack={closePlannerBoardLaunch}>
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
           <WordRadar
+            key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
             items={
               plannerBoardLaunch.node.wordRadarItems ??
               (plannerBoardLaunch.node.words ?? []).map((word) => ({
@@ -1753,14 +1973,30 @@ function App() {
                 accuracy: result.accuracy,
                 wordsAttempted: result.rawResults.length,
               });
-              closePlannerBoardLaunch();
+              showPlannerBoardEngagementOverlay(plannerBoardLaunch.node, {
+                completed: true,
+                accuracy: result.accuracy,
+                wordsAttempted: result.rawResults.length,
+                targetResults: result.rawResults,
+              });
             }}
           />
+          {postActivityEngagement ? (
+            <PostActivityEngagementOverlay
+              title={postActivityEngagement.title}
+              outcome={postActivityEngagement.outcome}
+              stats={postActivityEngagement.stats}
+              canReplay
+              canTryHarder={postActivityEngagement.canTryHarder}
+              onAction={handlePlannerBoardPostActivityAction}
+            />
+          ) : null}
         </FlowGameOverlay>
       ) : null}
       {plannerBoardLaunch?.node.type === "pronunciation" ? (
-        <FlowGameOverlay onBack={closePlannerBoardLaunch}>
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
           <PronunciationGameCanvas
+            key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
             words={(plannerBoardLaunch.node.words ?? []).slice(
               0,
               plannerBoardLaunch.node.pronunciationConfig?.baseWordCount ??
@@ -1782,20 +2018,38 @@ function App() {
                 accuracy: result.accuracy,
                 wordsAttempted: result.wordsAttempted,
               });
-              closePlannerBoardLaunch();
+            }}
+            onPostActivityAction={(action, result) => {
+              recordPlannerBoardPostActivityAction(action, plannerBoardLaunch.node, {
+                completed: result.runEndedReason !== "timer",
+                accuracy: result.accuracy > 1 ? result.accuracy / 100 : result.accuracy,
+                activePlayTimeMs: result.timeSurvivedMs,
+                frustrationScore: result.runEndedReason === "timer" ? 0.7 : 0.1,
+              });
             }}
             onExit={closePlannerBoardLaunch}
           />
         </FlowGameOverlay>
       ) : null}
       {plannerBoardLaunch?.iframeUrl ? (
-        <FlowGameOverlay onBack={closePlannerBoardLaunch}>
+        <FlowGameOverlay onBack={handlePlannerBoardOverlayBack} backLabel="Back to map">
           <iframe
+            key={`${plannerBoardLaunch.node.id}:${plannerBoardLaunch.replayNonce}`}
             ref={adventureGameIframeRef}
             title={plannerBoardLaunch.node.type}
             src={plannerBoardLaunch.iframeUrl}
             style={{ width: "100%", height: "100%", border: "none", background: "transparent" }}
           />
+          {postActivityEngagement ? (
+            <PostActivityEngagementOverlay
+              title={postActivityEngagement.title}
+              outcome={postActivityEngagement.outcome}
+              stats={postActivityEngagement.stats}
+              canReplay
+              canTryHarder={postActivityEngagement.canTryHarder}
+              onAction={handlePlannerBoardPostActivityAction}
+            />
+          ) : null}
         </FlowGameOverlay>
       ) : null}
       {diagFlowGameOpen === "wordle" && diagWordleUrl ? (
