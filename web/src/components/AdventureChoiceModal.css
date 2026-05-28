@@ -1,0 +1,266 @@
+.adventure-choice-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 25% 18%, rgba(255, 247, 225, 0.22), transparent 18%),
+    radial-gradient(circle at 54% 82%, rgba(232, 58, 92, 0.2), transparent 35%),
+    linear-gradient(135deg, #0b0820 0%, #1f0f2d 54%, #220a2a 100%);
+  color: #fff7e1;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  animation: adventureChoiceModalFade 180ms ease-out both;
+}
+
+.adventure-choice-modal__texture {
+  position: absolute;
+  inset: 0;
+  opacity: 0.13;
+  background-image: repeating-linear-gradient(27deg, rgba(255, 247, 225, 0.32) 0 1px, transparent 1px 9px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.adventure-choice-modal__side-light {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255, 247, 225, 0.18), transparent 18%, transparent 82%, rgba(255, 247, 225, 0.11));
+  pointer-events: none;
+}
+
+.adventure-choice-modal__preview-banner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  border-bottom: 2px solid #1f0f2d;
+  background: #fcd34d;
+  color: #1f0f2d;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.adventure-choice-modal__back {
+  position: absolute;
+  top: 18px;
+  left: 32px;
+  z-index: 6;
+  height: 32px;
+  padding: 0 18px;
+  border: 2px solid rgba(255, 247, 225, 0.55);
+  border-radius: 4px;
+  background: rgba(255, 247, 225, 0.08);
+  box-shadow: 0 2px 0 rgba(255, 247, 225, 0.22);
+  color: #fff7e1;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.adventure-choice-modal__stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  align-items: center;
+  padding: 46px 24px 42px;
+}
+
+.adventure-choice-modal__heading {
+  margin-top: 0;
+  animation: adventureChoiceHeadingRise 260ms ease-out both;
+  text-align: center;
+}
+
+.adventure-choice-modal__kicker {
+  margin: 0 0 8px;
+  color: #fcd34d;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+.adventure-choice-modal__title {
+  margin: 0;
+  color: #fff7e1;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(38px, 6vw, 62px);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 0.95;
+}
+
+.adventure-choice-modal__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(18px, 4vw, 40px);
+  align-items: stretch;
+  justify-content: center;
+  width: min(100%, 860px);
+  margin-top: clamp(30px, 7vh, 86px);
+}
+
+.adventure-choice-modal__card {
+  --choice-accent: #7c3aed;
+  --choice-delay: 0ms;
+  position: relative;
+  display: flex;
+  width: clamp(160px, 24vw, 238px);
+  height: clamp(218px, 34vw, 326px);
+  flex-direction: column;
+  padding: 0;
+  border: 3px solid #1f0f2d;
+  border-radius: 8px;
+  background: #fff7e1;
+  box-shadow: 0 10px 0 var(--choice-accent), 0 22px 44px rgba(0, 0, 0, 0.34);
+  color: #1f0f2d;
+  cursor: pointer;
+  animation: adventureChoiceCardRise 420ms cubic-bezier(0.2, 0.9, 0.2, 1.1) both;
+  animation-delay: var(--choice-delay);
+  overflow: visible;
+  text-align: left;
+}
+
+.adventure-choice-modal__card--locked {
+  border-color: rgba(31, 15, 45, 0.55);
+  cursor: default;
+  filter: saturate(0.42);
+  opacity: 0.62;
+}
+
+.adventure-choice-modal__art {
+  position: relative;
+  display: block;
+  flex: 0 0 52%;
+  overflow: hidden;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  background: var(--choice-accent);
+}
+
+.adventure-choice-modal__art img,
+.adventure-choice-modal__art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.adventure-choice-modal__art-badge {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgba(255, 247, 225, 0.88);
+  border-radius: 999px;
+  background: rgba(31, 15, 45, 0.72);
+  color: #fff7e1;
+}
+
+.adventure-choice-modal__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: clamp(7px, 1.4vw, 11px);
+  justify-content: center;
+  padding: clamp(16px, 2.7vw, 28px) clamp(10px, 1.7vw, 16px);
+}
+
+.adventure-choice-modal__purpose {
+  overflow: hidden;
+  color: var(--choice-accent);
+  font-size: clamp(8px, 1.2vw, 10px);
+  font-weight: 900;
+  letter-spacing: 0.28em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.adventure-choice-modal__card strong {
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(17px, 2.8vw, 24px);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.adventure-choice-modal__card small {
+  color: #6b4b7a;
+  font-size: clamp(9px, 1.3vw, 12px);
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.adventure-choice-modal__lock-copy {
+  color: #6b4b7a;
+}
+
+@keyframes adventureChoiceModalFade {
+  from {
+    opacity: 0.001;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes adventureChoiceHeadingRise {
+  from {
+    opacity: 0.001;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes adventureChoiceCardRise {
+  from {
+    opacity: 0.001;
+    transform: translateY(70px) scale(0.94) rotate(-3deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+@media (max-width: 560px) {
+  .adventure-choice-modal__stage {
+    padding: 54px 12px 28px;
+  }
+
+  .adventure-choice-modal__back {
+    left: 16px;
+  }
+
+  .adventure-choice-modal__cards {
+    gap: 14px;
+    margin-top: 24px;
+  }
+
+  .adventure-choice-modal__card {
+    width: min(210px, 82vw);
+    height: 218px;
+  }
+}

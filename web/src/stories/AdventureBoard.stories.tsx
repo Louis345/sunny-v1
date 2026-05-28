@@ -1,10 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { DEFAULT_ADVENTURE_MAP_PROFILE } from "../../../src/context/schemas/learningProfile";
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
 import { AdventureBoard } from "../components/AdventureBoard";
+import { AdventureChoiceModal } from "../components/AdventureChoiceModal";
 import {
+  bossChoiceLockedBoard,
+  bossChoiceUnlockedBoard,
   bossReadyBoard,
   buildGrokFullExperienceBoard,
   choicePolicySpineBoard,
@@ -12,6 +15,8 @@ import {
   forkMomentBoard,
   grokFullExperienceBoard,
   linearBaselineBoard,
+  questChoiceLockedBoard,
+  questChoiceUnlockedBoard,
   questLockedBoard,
   reinaCurrentHomeworkBoard,
   buildSlotLabBoard,
@@ -312,6 +317,98 @@ export const SlotTemplateLab: Story = {
 export const ReinaCurrentHomework: Story = {
   args: { scenario: "reinaCurrent" },
   render: (args) => <BoardFixture {...args} />,
+};
+
+function BoardOnlyFixture({ board }: { board: AdventureBoardJson }) {
+  return (
+    <div style={{ width: "100vw", height: "100vh" }}>
+      <AdventureBoard
+        board={board}
+        onNodeClick={(node) =>
+          console.info("[storybook:adventure-board:node]", {
+            ...node,
+            availableChoiceSetIds: board.choiceSets?.map((choiceSet) => choiceSet.id) ?? [],
+          })
+        }
+        onChoiceClick={(option, choiceSet) => console.info("[storybook:adventure-board:choice]", { option, choiceSet })}
+      />
+    </div>
+  );
+}
+
+export const QuestChoiceLocked: Story = {
+  args: { scenario: "grokFull" },
+  render: () => <BoardOnlyFixture board={questChoiceLockedBoard} />,
+};
+
+export const QuestChoiceUnlocked: Story = {
+  args: { scenario: "grokFull" },
+  render: () => <BoardOnlyFixture board={questChoiceUnlockedBoard} />,
+};
+
+export const BossChoiceLocked: Story = {
+  args: { scenario: "grokFull" },
+  render: () => <BoardOnlyFixture board={bossChoiceLockedBoard} />,
+};
+
+export const BossChoiceUnlocked: Story = {
+  args: { scenario: "grokFull" },
+  render: () => <BoardOnlyFixture board={bossChoiceUnlockedBoard} />,
+};
+
+function ChoicePatternComparisonFixture() {
+  const choiceSets = [
+    reinaCurrentHomeworkBoard.choiceSets?.find((choiceSet) => choiceSet.kind === "baseline-route"),
+    grokFullExperienceBoard.choiceSets?.find((choiceSet) => choiceSet.kind === "mystery"),
+    questChoiceUnlockedBoard.choiceSets?.find((choiceSet) => choiceSet.kind === "quest-wrapper"),
+    bossChoiceUnlockedBoard.choiceSets?.find((choiceSet) => choiceSet.kind === "boss-wrapper"),
+  ].filter(Boolean) as NonNullable<AdventureBoardJson["choiceSets"]>;
+  const [activeChoiceSetId, setActiveChoiceSetId] = useState<string | null>(choiceSets[0]?.id ?? null);
+  const activeChoiceSet = choiceSets.find((choiceSet) => choiceSet.id === activeChoiceSetId) ?? null;
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        padding: 24,
+        background: "#0B0820",
+        color: "#FFF7E1",
+        fontFamily: "Inter, system-ui, sans-serif",
+      }}
+    >
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {choiceSets.map((choiceSet) => (
+          <button
+            key={choiceSet.id}
+            type="button"
+            onClick={() => setActiveChoiceSetId(choiceSet.id)}
+            style={{
+              borderRadius: 4,
+              border: "2px solid #FCD34D",
+              background: activeChoiceSetId === choiceSet.id ? "#FCD34D" : "transparent",
+              color: activeChoiceSetId === choiceSet.id ? "#1F0F2D" : "#FFF7E1",
+              fontWeight: 900,
+              padding: "8px 12px",
+            }}
+          >
+            {choiceSet.kind}
+          </button>
+        ))}
+      </div>
+      <AdventureChoiceModal
+        choiceSet={activeChoiceSet}
+        open={Boolean(activeChoiceSet)}
+        previewMode
+        onSelect={(option) => console.info("[storybook:adventure-choice-modal:select]", option)}
+        onDismiss={() => setActiveChoiceSetId(null)}
+      />
+    </div>
+  );
+}
+
+export const ChoicePatternComparison: Story = {
+  args: { scenario: "grokFull" },
+  render: () => <ChoicePatternComparisonFixture />,
 };
 
 export const ReinaChartPacket: Story = {

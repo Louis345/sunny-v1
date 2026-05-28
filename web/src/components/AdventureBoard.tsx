@@ -24,6 +24,7 @@ import type {
   AdventureChoiceSet,
   AdventureChoiceOption,
 } from "../../../src/shared/adventureBoardJson";
+import { AdventureChoiceModal } from "./AdventureChoiceModal";
 import "./AdventureBoard.css";
 
 type AdventureBoardProps = {
@@ -99,82 +100,6 @@ function boardBackground(board: AdventureBoardJson): React.CSSProperties {
 function resolveNodePosition(node: AdventureBoardNode): PositionedAdventureBoardNode | null {
   const position = node.position ?? (node.slot ? HORIZONTAL_ADVENTURE_SLOTS[node.slot] : undefined);
   return position ? { ...node, position } : null;
-}
-
-function AdventureChoiceOverlay({
-  choiceSet,
-  onSelect,
-  onDismiss,
-}: {
-  choiceSet: AdventureChoiceSet | null;
-  onSelect: (option: AdventureChoiceOption) => void;
-  onDismiss: () => void;
-}) {
-  if (!choiceSet) return null;
-
-  return (
-    <div
-      className="adventure-board__choice-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={choiceSet.title}
-    >
-      <button
-        type="button"
-        className="adventure-board__choice-back"
-        onClick={onDismiss}
-      >
-        Back to map
-      </button>
-      <div className="adventure-board__choice-stage">
-        <p className="adventure-board__choice-kicker">
-          {choiceSet.kind === "mystery" ? "Three Doors" : choiceSet.kind}
-        </p>
-        <h2>{choiceSet.title}</h2>
-        <div className="adventure-board__choice-cards">
-          {choiceSet.options.map((option) => {
-            const Icon = iconFor(option.icon, "sparkles");
-            const locked = option.state === "locked";
-            return (
-              <button
-                type="button"
-                key={option.id}
-                className={[
-                  "adventure-board__choice-card",
-                  locked ? "adventure-board__choice-card--locked" : "",
-                ].join(" ")}
-                disabled={locked}
-                onClick={() => onSelect(option)}
-              >
-                <span className="adventure-board__choice-art">
-                  {option.thumbnailUrl ? (
-                    <img src={option.thumbnailUrl} alt="" />
-                  ) : locked ? (
-                    <Lock size={34} strokeWidth={2.4} />
-                  ) : (
-                    <Icon size={38} strokeWidth={2.4} />
-                  )}
-                  {option.thumbnailUrl ? (
-                    <span className="adventure-board__choice-art-badge">
-                      {locked ? <Lock size={18} strokeWidth={2.5} /> : <Icon size={20} strokeWidth={2.5} />}
-                    </span>
-                  ) : null}
-                </span>
-                <span className="adventure-board__choice-card-copy">
-                  <span className="adventure-board__choice-purpose">
-                    {option.tags?.[0] ?? choiceSet.kind}
-                  </span>
-                  <strong>{option.label}</strong>
-                  {option.description ? <small>{option.description}</small> : null}
-                  {option.lock ? <small>Locked: {option.lock.label}</small> : null}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function AdventureBoard({
@@ -314,8 +239,9 @@ export function AdventureBoard({
         })}
       </div>
 
-      <AdventureChoiceOverlay
+      <AdventureChoiceModal
         choiceSet={openChoiceSet}
+        open={Boolean(openChoiceSet)}
         onDismiss={() => setOpenChoiceSetId(null)}
         onSelect={(option) => {
           if (openChoiceSet?.kind === "baseline-route" && board.layout?.routeChoiceBehavior === "exclusive") {

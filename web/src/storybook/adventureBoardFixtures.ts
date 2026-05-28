@@ -1508,3 +1508,186 @@ export function buildSlotLabBoard(options: SlotLabOptions = {}): AdventureBoardJ
     ],
   };
 }
+
+type QuestBossChoiceLabOptions = {
+  questNodeState: AdventureBoardNodeState;
+  bossNodeState: AdventureBoardNodeState;
+  questOptionState: "available" | "locked" | "completed";
+  bossOptionState: "available" | "locked" | "completed";
+};
+
+function labOptionLock(state: "available" | "locked" | "completed", label: string) {
+  return state === "locked"
+    ? { lock: { reason: "needs-evidence", label } }
+    : {};
+}
+
+export function buildQuestBossChoiceLabBoard(
+  options: QuestBossChoiceLabOptions,
+): AdventureBoardJson {
+  const board = buildSlotLabBoard({
+    routeShape: "upper",
+    chosenRoute: "5a",
+    routeChoiceBehavior: "exclusive",
+    questState: options.questNodeState === "available" ? "available" : "locked",
+  });
+  const carriedChoiceSets = (board.choiceSets ?? []).filter(
+    (choiceSet) => choiceSet.kind !== "quest-wrapper" && choiceSet.kind !== "boss-wrapper",
+  );
+  const questChoiceSet: NonNullable<AdventureBoardJson["choiceSets"]>[number] = {
+    id: "quest-options",
+    kind: "quest-wrapper",
+    title: "Pick your Quest",
+    options: [
+      {
+        id: "quest-story",
+        label: "Story Quest",
+        description: "A generated mission that checks transfer with the same spelling targets.",
+        icon: "book",
+        thumbnailUrl: fullExperienceArt.storyChoice,
+        state: options.questOptionState,
+        tags: ["story"],
+        ...labOptionLock(options.questOptionState, "Need more baseline evidence"),
+      },
+      {
+        id: "quest-puzzle",
+        label: "Puzzle Quest",
+        description: "A generated puzzle room that tests the words in a new context.",
+        icon: "sparkles",
+        thumbnailUrl: fullExperienceArt.quest,
+        state: options.questOptionState,
+        tags: ["puzzle"],
+        ...labOptionLock(options.questOptionState, "Need more baseline evidence"),
+      },
+      {
+        id: "quest-arcade",
+        label: "Arcade Quest",
+        description: "A generated action challenge after the evidence says pressure is safe.",
+        icon: "game",
+        thumbnailUrl: fullExperienceArt.speedChoice,
+        state: options.questOptionState,
+        tags: ["arcade"],
+        ...labOptionLock(options.questOptionState, "Need more baseline evidence"),
+      },
+    ],
+  };
+  const bossChoiceSet: NonNullable<AdventureBoardJson["choiceSets"]>[number] = {
+    id: "boss-options",
+    kind: "boss-wrapper",
+    title: "Pick your Boss",
+    options: [
+      {
+        id: "boss-showdown",
+        label: "Showdown",
+        description: "A generated finale that proves the skill without showing the answers.",
+        icon: "swords",
+        thumbnailUrl: fullExperienceArt.boss,
+        state: options.bossOptionState,
+        tags: ["showdown"],
+        ...labOptionLock(options.bossOptionState, "Need Quest evidence first"),
+      },
+      {
+        id: "boss-puzzle",
+        label: "Final Puzzle",
+        description: "A generated final puzzle that checks mastery from memory.",
+        icon: "sparkles",
+        thumbnailUrl: fullExperienceArt.quest,
+        state: options.bossOptionState,
+        tags: ["puzzle"],
+        ...labOptionLock(options.bossOptionState, "Need Quest evidence first"),
+      },
+      {
+        id: "boss-story",
+        label: "Final Story",
+        description: "A generated story finale that checks transfer in a fresh scene.",
+        icon: "book",
+        thumbnailUrl: fullExperienceArt.storyChoice,
+        state: options.bossOptionState,
+        tags: ["story"],
+        ...labOptionLock(options.bossOptionState, "Need Quest evidence first"),
+      },
+    ],
+  };
+
+  return {
+    ...board,
+    boardId: `storybook-choice-lab-${options.questNodeState}-${options.bossNodeState}`,
+    title: "Quest/Boss Choice Lab",
+    progress: {
+      currentNodeId: options.bossNodeState === "available" ? "boss" : "quest",
+      completedNodeIds:
+        options.bossNodeState === "available"
+          ? ["start", "know-write", "verify", "light-check", "read-aloud", "mystery", "quest"]
+          : ["start", "know-write", "verify", "light-check", "read-aloud", "mystery"],
+    },
+    nodes: board.nodes.map((node) => {
+      if (node.id === "quest") {
+        return {
+          ...node,
+          state: options.questNodeState,
+          lock:
+            options.questNodeState === "available"
+              ? undefined
+              : { reason: "needs-baseline-evidence", label: "Quest choices unlock after evidence" },
+        };
+      }
+      if (node.id === "boss") {
+        return {
+          ...node,
+          state: options.bossNodeState,
+          lock:
+            options.bossNodeState === "available"
+              ? undefined
+              : { reason: "needs-quest-evidence", label: "Boss choices unlock after Quest" },
+        };
+      }
+      return node;
+    }),
+    edges: board.edges.map((edge) => {
+      if (edge.id === "e-mystery-quest") {
+        return {
+          ...edge,
+          state: options.questNodeState === "available" ? "available" : "locked",
+          style: options.questNodeState === "available" ? "glow" : "dashed",
+        };
+      }
+      if (edge.id === "e-quest-boss") {
+        return {
+          ...edge,
+          state: options.bossNodeState === "available" ? "available" : "locked",
+          style: options.bossNodeState === "available" ? "glow" : "dashed",
+        };
+      }
+      return edge;
+    }),
+    choiceSets: [...carriedChoiceSets, questChoiceSet, bossChoiceSet],
+  };
+}
+
+export const questChoiceLockedBoard = buildQuestBossChoiceLabBoard({
+  questNodeState: "locked",
+  bossNodeState: "locked",
+  questOptionState: "locked",
+  bossOptionState: "locked",
+});
+
+export const questChoiceUnlockedBoard = buildQuestBossChoiceLabBoard({
+  questNodeState: "available",
+  bossNodeState: "locked",
+  questOptionState: "available",
+  bossOptionState: "locked",
+});
+
+export const bossChoiceLockedBoard = buildQuestBossChoiceLabBoard({
+  questNodeState: "completed",
+  bossNodeState: "locked",
+  questOptionState: "completed",
+  bossOptionState: "locked",
+});
+
+export const bossChoiceUnlockedBoard = buildQuestBossChoiceLabBoard({
+  questNodeState: "completed",
+  bossNodeState: "available",
+  questOptionState: "completed",
+  bossOptionState: "available",
+});

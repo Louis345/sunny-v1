@@ -6,6 +6,7 @@ import { AdventureBoard, HORIZONTAL_ADVENTURE_SLOTS } from "../components/Advent
 import { AdventureBoardExperience } from "../components/AdventureBoardExperience";
 import {
   buildGrokFullExperienceBoard,
+  choicePolicySpineBoard,
   grokFullExperienceBoard,
   reinaCurrentHomeworkBoard,
   buildSlotLabBoard,
@@ -114,6 +115,40 @@ function packetForBoard(
       evidenceUsed: [],
       openQuestions: [],
     },
+  };
+}
+
+function boardWithSpecialChoice(
+  nodeId: "quest" | "boss",
+  optionState: "available" | "locked" = "available",
+): AdventureBoardJson {
+  const choiceSetId = nodeId === "quest" ? "quest-choice" : "boss-choice";
+  return {
+    ...choicePolicySpineBoard,
+    boardId: `test-${nodeId}-${optionState}`,
+    nodes: choicePolicySpineBoard.nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      const { lock: _lock, ...withoutLock } = node;
+      return {
+        ...withoutLock,
+        state: "available",
+        choiceSetId,
+      };
+    }),
+    choiceSets: choicePolicySpineBoard.choiceSets?.map((choiceSet) => {
+      if (choiceSet.id !== choiceSetId) return choiceSet;
+      return {
+        ...choiceSet,
+        options: choiceSet.options.map((option) => ({
+          ...option,
+          state: optionState,
+          description: option.description ?? `${option.label} adapts the same target in a different wrapper.`,
+          ...(optionState === "locked"
+            ? { lock: { reason: "needs-evidence", label: "Needs more evidence" } }
+            : {}),
+        })),
+      };
+    }),
   };
 }
 
@@ -360,6 +395,65 @@ describe("AdventureBoard", () => {
         'img[src="/thumbnails/activities/speed-catcher.svg"]',
       ),
     ).not.toBeNull();
+  });
+
+  it("opens Quest wrapper choices in the shared card modal when Quest is available", () => {
+    render(<AdventureBoard board={boardWithSpecialChoice("quest")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Quest" }));
+
+    const modal = screen.getByTestId("adventure-choice-modal");
+    expect(modal).toHaveAttribute("data-choice-kind", "quest-wrapper");
+    expect(within(modal).getAllByTestId("adventure-choice-card")).toHaveLength(3);
+    expect(within(modal).getByRole("button", { name: /Story Quest/ })).not.toBeDisabled();
+  });
+
+  it("opens Boss wrapper choices in the shared card modal when Boss is available", () => {
+    render(<AdventureBoard board={boardWithSpecialChoice("boss")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Boss" }));
+
+    const modal = screen.getByTestId("adventure-choice-modal");
+    expect(modal).toHaveAttribute("data-choice-kind", "boss-wrapper");
+    expect(within(modal).getAllByTestId("adventure-choice-card")).toHaveLength(3);
+    expect(within(modal).getByRole("button", { name: /Showdown/ })).not.toBeDisabled();
+  });
+
+  it("renders locked Quest and Boss choice cards as disabled cards with visible lock copy", () => {
+    render(<AdventureBoard board={boardWithSpecialChoice("quest", "locked")} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Quest" }));
+    const modal = screen.getByTestId("adventure-choice-modal");
+    const storyQuest = within(modal).getByRole("button", { name: /Story Quest/ });
+
+    expect(storyQuest).toBeDisabled();
+    expect(within(storyQuest).getByText("Locked: Needs more evidence")).toBeVisible();
+  });
+
+  it("uses one shared modal/card pattern for Choose Path, Mystery, Quest, and Boss choices", () => {
+    const scenarios: Array<{
+      board: AdventureBoardJson;
+      nodeLabel: string;
+      kind: string;
+    }> = [
+      { board: reinaCurrentHomeworkBoard, nodeLabel: "Choose Path", kind: "baseline-route" },
+      { board: grokFullExperienceBoard, nodeLabel: "Mystery", kind: "mystery" },
+      { board: boardWithSpecialChoice("quest"), nodeLabel: "Quest", kind: "quest-wrapper" },
+      { board: boardWithSpecialChoice("boss"), nodeLabel: "Boss", kind: "boss-wrapper" },
+    ];
+
+    for (const scenario of scenarios) {
+      const { unmount } = render(<AdventureBoard board={scenario.board} />);
+      fireEvent.click(screen.getByRole("button", { name: scenario.nodeLabel }));
+      const modal = screen.getByTestId("adventure-choice-modal");
+      const cards = within(modal).getAllByTestId("adventure-choice-card");
+
+      expect(modal).toHaveClass("adventure-choice-modal");
+      expect(modal).toHaveAttribute("data-choice-kind", scenario.kind);
+      expect(cards[0]).toHaveClass("adventure-choice-modal__card");
+      expect(within(modal).getByRole("button", { name: "Back to map" })).toBeVisible();
+      unmount();
+    }
   });
 
   it("renders real planner boards through the slot template without explicit positions", () => {
