@@ -522,6 +522,7 @@ function sessionPromptCapabilitiesTail(subject: SessionSubject): string {
       "\n\n" +
       "The adventure map controls which activities appear on screen. " +
       "Do not use canvasShow, canvasClear, or canvasStatus. " +
+      "When the child earns digital food, remind them it goes in the companion Bookbag. " +
       "Use sessionLog and sessionStatus as usual.\n\n" +
       adaptiveMicroProbeInstructions() +
       "\n\n" +
