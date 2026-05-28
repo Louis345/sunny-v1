@@ -148,6 +148,7 @@ function CardArt({ option }: { option: MysteryChoiceOption }) {
   );
 }
 
+/** @deprecated Legacy AdventureMap overlay. Live homework choices use AdventureChoiceModal. */
 export function MysteryChoiceOverlay({
   node,
   open,

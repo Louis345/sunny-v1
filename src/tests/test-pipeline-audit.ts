@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import fs from "fs";
+import path from "path";
 import {
   isWordDrivenHomeworkNodeType,
   pendingHomeworkToNodeConfigs,
@@ -111,6 +113,20 @@ describe("pipeline audit — spelling activity wiring", () => {
       "government",
       "wait",
     ]);
+  });
+
+  it("homework opener context comes from the planner board, not the legacy map builder", () => {
+    const source = fs.readFileSync(
+      path.join(__dirname, "../server/session-bootstrap.ts"),
+      "utf-8",
+    );
+    const openerBlock = source.slice(
+      source.indexOf("export function resolveHomeworkOpenerFirstNode"),
+      source.indexOf("export function resolveBootstrapSubject"),
+    );
+
+    expect(openerBlock).toContain("activeSessionPlan.adventureBoard");
+    expect(openerBlock).not.toContain("buildAdventureMapFromSessionPlan");
   });
 });
 

@@ -18,7 +18,7 @@ import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
 import { AdventureMap } from "./components/AdventureMap";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
-import type { GameIframeOverlayState } from "./components/AdventureMap";
+import type { GameIframeOverlayState } from "./types/gameIframeOverlay";
 import type {
   AdventureBoardNode,
   AdventureChoiceOption,
@@ -170,6 +170,35 @@ function shouldUseSessionLoadingOverlay(): boolean {
   if (import.meta.env.VITE_DIAG_READING === "true") return false;
   if (import.meta.env.VITE_DIAG_PRONUNCIATION === "true") return false;
   return true;
+}
+
+function HomeworkBoardUnavailable(props: {
+  childName: string;
+  error: string | null;
+}): ReactNode {
+  return (
+    <div className="w-screen h-screen overflow-hidden relative bg-zinc-950 text-white">
+      <div className="absolute inset-0 flex items-center justify-center p-6">
+        <div className="max-w-md rounded-lg border border-white/15 bg-white/10 p-6 text-center shadow-2xl">
+          <p className="text-sm font-semibold uppercase tracking-wide text-amber-200">
+            Adventure board unavailable
+          </p>
+          <h1 className="mt-2 text-2xl font-black">
+            {props.childName}'s new board is not ready yet.
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-white/75">
+            Run homework ingestion again so Sunny can load a validated JSON
+            adventure board instead of falling back to the legacy map.
+          </p>
+          {props.error ? (
+            <p className="mt-4 rounded-md bg-black/30 px-3 py-2 text-xs text-white/65">
+              {props.error}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function usePreloadedImages(urls: Array<string | null | undefined>, enabled: boolean): boolean {
@@ -519,6 +548,10 @@ function App() {
     plannerBoardPacketState.packet?.activeSessionPlan?.adventureBoard
       ? plannerBoardPacketState.packet
       : null;
+  const homeworkBoardUnavailable =
+    plannerBoardRuntimeRequested &&
+    !plannerBoardPacketState.loading &&
+    !plannerBoardPacket;
   const plannerBoardRuntimeActive =
     plannerBoardRuntimeRequested &&
     (plannerBoardPacketState.loading || Boolean(plannerBoardPacket));
@@ -1140,63 +1173,88 @@ function App() {
     return <CompanionShowroomPage />;
   }
 
+  const adventureLoadingMain = (
+    <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+      {theaterLoadingEnabled ? (
+        <SessionLoadingOverlay
+          childName={
+            state.childName ??
+            selectedChildName ??
+            childNameFromId(adventureChildId)
+          }
+          avatarImagePath={profileAvatarImagePath}
+          accentColor={state.companion?.accentColor ?? mapSession.theme?.palette.accent}
+          accentBg={state.companion?.accentBg ?? mapSession.theme?.palette.cardBackground}
+          voiceReady={voiceReady}
+          mapReady={mapReady}
+          assetsReady={loadingAssetsReady}
+          paletteSeed={`${adventureChildId}:${mapSession.theme?.name ?? "sunny"}`}
+          onSafetyRelease={() => {
+            if (!mapReady) {
+              console.warn(
+                ` 🎮 [loading-screen] safety release waiting for ${
+                  plannerBoardRuntimeRequested ? "board" : "map"
+                }`,
+              );
+              return;
+            }
+            setLoadingSafetyReleased(true);
+          }}
+          onHardRelease={() => {
+            setSessionReady(true);
+            releaseCompanionAudioPlayback();
+          }}
+          onCurtainOpen={handleMapLoadingCurtainOpen}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p
+            className="animate-pulse text-3xl font-black tracking-wide"
+            style={{ color: "#FFD93D" }}
+          >
+            Getting ready...
+          </p>
+        </div>
+      )}
+    </div>
+  );
+
   let main: ReactNode = null;
 
   if (adventureMapEnabled && adventureChildId) {
-    if (plannerBoardPacket) {
-      main = (
-        <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-          <AdventureBoardExperience
-            packet={plannerBoardPacket}
-            showCompanion={false}
-            idlePose="center"
-            onNodeClick={handlePlannerBoardNodeClick}
-            onChoiceClick={handlePlannerBoardChoiceClick}
-          />
-        </div>
-      );
-    } else if (!sessionReady) {
-      main = (
-        <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-          {theaterLoadingEnabled ? (
-            <SessionLoadingOverlay
-              childName={
-                state.childName ??
-                selectedChildName ??
-                childNameFromId(adventureChildId)
-              }
-              avatarImagePath={profileAvatarImagePath}
-              accentColor={state.companion?.accentColor ?? mapSession.theme?.palette.accent}
-              accentBg={state.companion?.accentBg ?? mapSession.theme?.palette.cardBackground}
-              voiceReady={voiceReady}
-              mapReady={mapReady}
-              assetsReady={loadingAssetsReady}
-              paletteSeed={`${adventureChildId}:${mapSession.theme?.name ?? "sunny"}`}
-              onSafetyRelease={() => {
-                if (!mapReady) {
-                  console.warn(" 🎮 [loading-screen] safety release waiting for map");
-                  return;
-                }
-                setLoadingSafetyReleased(true);
-              }}
-              onHardRelease={() => {
-                setSessionReady(true);
-                releaseCompanionAudioPlayback();
-              }}
-              onCurtainOpen={handleMapLoadingCurtainOpen}
+    if (plannerBoardRuntimeRequested) {
+      if (plannerBoardPacket) {
+        main = (
+          <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+            <AdventureBoardExperience
+              packet={plannerBoardPacket}
+              showCompanion={false}
+              idlePose="center"
+              onNodeClick={handlePlannerBoardNodeClick}
+              onChoiceClick={handlePlannerBoardChoiceClick}
             />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p
-                className="animate-pulse text-3xl font-black tracking-wide"
-                style={{ color: "#FFD93D" }}
-              >
-                Getting ready...
-              </p>
-            </div>
-          )}
-        </div>
-      );
+          </div>
+        );
+      } else if (plannerBoardPacketState.loading) {
+        main = adventureLoadingMain;
+      } else {
+        // Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.
+        main = (
+          <HomeworkBoardUnavailable
+            childName={
+              state.childName ??
+              selectedChildName ??
+              childNameFromId(adventureChildId)
+            }
+            error={
+              plannerBoardPacketState.error ??
+              (homeworkBoardUnavailable ? "active_adventure_board_required" : null)
+            }
+          />
+        );
+      }
+    } else if (!sessionReady) {
+      main = adventureLoadingMain;
     } else {
     main = (
       <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">

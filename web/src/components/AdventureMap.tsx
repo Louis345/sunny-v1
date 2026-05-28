@@ -10,6 +10,7 @@ import type {
   CompanionConfig,
   CompanionEventPayload,
 } from "../../../src/shared/companionTypes";
+import type { GameIframeOverlayState } from "../types/gameIframeOverlay";
 import type { CompanionCareView } from "../../../src/shared/companionCareTypes";
 import { useCompanionCareOptional } from "../context/CompanionCareContext";
 import childrenCfg from "../../../children.config.json";
@@ -120,12 +121,6 @@ function practiceWordsFromReadingComplete(
   });
   return uniquePracticeWords([...targetMatches, ...evidence]).slice(0, 5);
 }
-
-export type GameIframeOverlayState = {
-  active: boolean;
-  iframe: HTMLIFrameElement | null;
-  url: string | null;
-};
 
 type PreviewStoryImageState = {
   loading: boolean;
@@ -314,6 +309,7 @@ function MapLoadingOverlay({ accent }: { accent: string }) {
 }
 
 
+/** @deprecated Legacy map renderer. Live homework uses AdventureBoardExperience. */
 export function AdventureMap(props: {
   childId: string;
   mapSession: ReturnType<typeof useMapSession>;

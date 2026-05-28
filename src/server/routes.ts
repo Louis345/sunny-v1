@@ -547,6 +547,16 @@ export function setupRoutes(app: Express): void {
     }
     try {
       const chart = getChildChart(childId);
+      if (!chart.activeSessionPlan?.adventureBoard) {
+        console.warn(
+          ` 🎮 [AdventureBoard] child_experience_missing_board child=${childId}`,
+        );
+        return res.status(409).json({
+          error: "active_adventure_board_required",
+          message:
+            "Active homework requires an activeSessionPlan.adventureBoard. Run homework ingestion before launching the board.",
+        });
+      }
       res.json(buildChildExperiencePacket(chart));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -1464,6 +1474,17 @@ Return plain text only.`,
         : undefined;
     if (!childId.trim()) {
       return res.status(400).json({ error: "childId required" });
+    }
+    const requestedRuntime = resolveSunnyRuntimeConfig(process.env, runtime);
+    if (requestedRuntime.subject === "homework") {
+      console.warn(
+        ` 🎮 [AdventureBoard] legacy_map_start_blocked child=${childId.trim().toLowerCase()}`,
+      );
+      return res.status(409).json({
+        error: "adventure_board_runtime_required",
+        message:
+          "Homework now launches from /api/child-experience and AdventureBoardExperience, not the legacy map runtime.",
+      });
     }
     try {
       const out = await startMapSession(childId, runtime);

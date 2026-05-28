@@ -25,7 +25,6 @@ import {
   type HomeworkExtractionResult,
 } from "../agents/psychologist/psychologist";
 import { planSession } from "../engine/learningEngine";
-import { buildAdventureMapFromSessionPlan } from "../engine/sessionPlanFromChart";
 import { getChildChart } from "../profiles/childChart";
 import { computeProgression } from "../engine/progression";
 import {
@@ -324,6 +323,8 @@ export function buildHomeworkSessionStartPrompt(opts: {
     "[Session start — homework map mounted]",
     "Context only: the map is mounted. Do not speak from this note.",
     "Map controls activities; wait for child action, help requests, or product issues.",
+    `When you do speak, Speak to ${opts.childName}.`,
+    "Do not address the parent or caregiver.",
     `homeworkId: ${pendingHomework?.homeworkId ?? "unknown"}`,
   ];
   if (pendingHomework?.testDate) lines.push(`testDate: ${pendingHomework.testDate}`);
@@ -367,8 +368,38 @@ export function resolveHomeworkOpenerFirstNode(opts: {
   try {
     const chart = getChildChart(opts.childId);
     if (!chart.activeSessionPlan || !chart.homework.pending) return null;
-    const nodes = buildAdventureMapFromSessionPlan(chart, chart.activeSessionPlan);
-    return nodes[0] ?? null;
+    const board = chart.activeSessionPlan.adventureBoard;
+    if (!board?.nodes?.length) return null;
+    const firstBoardNode =
+      board.nodes.find((node) =>
+        node.action?.type === "launch-activity" &&
+        node.state !== "locked" &&
+        node.state !== "hidden" &&
+        node.kind !== "start"
+      ) ??
+      board.nodes.find((node) => node.kind !== "start" && node.state !== "hidden");
+    if (!firstBoardNode) return null;
+    const payloadId = firstBoardNode.action?.payloadId;
+    const planNode = chart.activeSessionPlan.nodePlan.find((node) =>
+      node.id === payloadId ||
+      node.id === firstBoardNode.id ||
+      node.activityId === firstBoardNode.activityId
+    );
+    const words =
+      firstBoardNode.target?.words?.length
+        ? firstBoardNode.target.words
+        : planNode?.targets ?? [];
+    const type = planNode?.type ?? firstBoardNode.activityId ?? firstBoardNode.kind;
+    return {
+      type,
+      words,
+      wordRadarItems:
+        type === "word-radar"
+          ? words.map((word) => ({
+              display: word,
+            }))
+          : undefined,
+    };
   } catch (err) {
     console.warn(
       `  🎮 [session-bootstrap] [opener-node-fallback] child=${opts.childId} reason=${err instanceof Error ? err.message : String(err)}`,

@@ -23,6 +23,7 @@ export function questUnlockCompanionBubbleText(
   return companionBriefLine(childId);
 }
 
+/** @deprecated Legacy AdventureMap quest flow. Live homework Quest choices use AdventureChoiceModal. */
 export function QuestBriefingModal(props: {
   open: boolean;
   reinforceWords: readonly string[];

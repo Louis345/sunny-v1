@@ -16,6 +16,7 @@ function makeCardStars(active: boolean) {
   }));
 }
 
+/** @deprecated Legacy AdventureMap quest flow. Live homework Quest choices use AdventureChoiceModal. */
 export function QuestUnlockSequence(props: QuestUnlockState) {
   const {
     overlayActive,
@@ -234,4 +235,3 @@ export function QuestUnlockSequence(props: QuestUnlockState) {
     </>
   );
 }
-

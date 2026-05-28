@@ -713,4 +713,25 @@ describe("AdventureBoardExperience", () => {
     expect(source).toContain("showCompanion={false}");
     expect(source).not.toContain("showCompanion\n            idlePose");
   });
+
+  it("keeps live homework from falling through to the legacy AdventureMap", () => {
+    const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+    const runtimeBranch = source.slice(
+      source.indexOf("if (adventureMapEnabled && adventureChildId)"),
+      source.indexOf("} else if (state.phase === \"picker\")"),
+    );
+    const homeworkBranch = runtimeBranch.slice(
+      runtimeBranch.indexOf("if (plannerBoardRuntimeRequested)"),
+      runtimeBranch.indexOf("} else if (!sessionReady)"),
+    );
+
+    expect(source).toContain("homeworkBoardUnavailable");
+    expect(runtimeBranch).toContain("plannerBoardRuntimeRequested");
+    expect(homeworkBranch).toContain("AdventureBoardExperience");
+    expect(homeworkBranch).toContain("homeworkBoardUnavailable");
+    expect(homeworkBranch).not.toContain("<AdventureMap");
+    expect(source).toContain(
+      "Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.",
+    );
+  });
 });
