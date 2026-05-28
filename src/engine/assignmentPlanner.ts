@@ -18,6 +18,12 @@ import {
   type ActivityCapabilityMode,
 } from "./activityToolCatalog";
 import {
+  plannerEvidenceFieldsForActivity,
+  type ActivityEvidenceRole,
+  type ActivityProofStrength,
+  type PlannerEvidenceModeNote,
+} from "./activityEvidenceContract";
+import {
   buildCapturedHomeworkContent,
   normalizeContentProfile,
   type AssignmentInterpretation,
@@ -44,11 +50,16 @@ export type AssignmentActivityCard = {
   purposes: string[];
   skillTargets: string[];
   evidenceType: string;
+  evidenceRole: ActivityEvidenceRole;
+  proofStrength: ActivityProofStrength;
   inputModes: string[];
   measures: string[];
   configSource: string;
   requiredConfig: string;
   evidencePolicy: string;
+  bestFor: string[];
+  contaminationRisks: string[];
+  modeEvidenceNotes: PlannerEvidenceModeNote[];
   strengths: string[];
   weakFor: string[];
   goodFitWhen: string[];
@@ -81,9 +92,17 @@ export type AssignmentMasteryContext = {
   requiredAbilities: string[];
   expectedSessionsRemaining: number | null;
   sessionIntensity: "low" | "build" | "urgent" | "final_check";
+  readinessProof?: AssignmentReadinessProofContext;
   questRole: string;
   bossRole: string;
   failureLoop: string;
+};
+
+export type AssignmentReadinessProofContext = {
+  centralQuestion: string;
+  proofStandard: string;
+  supportEvidence: string[];
+  notEnoughEvidence: string[];
 };
 
 export type AssignmentPlanningPacket = {
@@ -790,48 +809,56 @@ function activityCatalog(
   const plannerIds = new Set(PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN[domain]);
   return listActivityToolContracts()
     .filter((contract) => plannerIds.has(contract.id))
-    .map((contract) => ({
-      activityId: contract.id,
-      nodeType: contract.nodeType,
-      label: contract.label,
-      sentToPlanner: true as const,
-      launchable: Boolean(
-        NODE_TYPES.has(contract.id as NodeType) &&
-        (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)),
-      ),
-      domains: [...contract.domains],
-      purposes: [...contract.purposes],
-      skillTargets: [...contract.traits.skillTargets],
-      evidenceType: contract.traits.evidenceType,
-      inputModes: [...contract.traits.inputModes],
-      measures: [...contract.measures],
-      configSource: contract.configSource,
-      requiredConfig: contract.capabilityModes.length > 0 ? "capabilityModes" : "none",
-      evidencePolicy: contract.evidence.writesMasteryEvidence
-        ? "mastery-eligible-with-captured-evidence"
-        : contract.evidence.writesPracticeEvidence
-          ? "practice-or-diagnostic-evidence"
-          : contract.traits.evidenceType === "reward"
-            ? "preference-evidence-only"
-            : "no-mastery-evidence",
-      strengths: [...contract.strengths],
-      weakFor: [...contract.weakFor],
-      goodFitWhen: [...contract.goodFitWhen],
-      badFitWhen: [...contract.badFitWhen],
-      capabilityModes: contract.capabilityModes.map((mode) => ({
-        ...mode,
-        skillTargets: [...mode.skillTargets],
-        inputModes: [...mode.inputModes],
-        scaffolds: [...mode.scaffolds],
-        config: { ...mode.config },
-        measurementRisks: [...mode.measurementRisks],
-      })),
-      status: (
-        NODE_TYPES.has(contract.id as NodeType) &&
-        contract.configSource !== "unspecified" &&
-        (contract.capabilityModes.length > 0 || contract.configSource === "registry-default" || contract.configSource === "reward-game")
-      ) ? "ok" : "unavailable",
-    }));
+    .map((contract) => {
+      const evidenceFields = plannerEvidenceFieldsForActivity(contract.id);
+      return {
+        activityId: contract.id,
+        nodeType: contract.nodeType,
+        label: contract.label,
+        sentToPlanner: true as const,
+        launchable: Boolean(
+          NODE_TYPES.has(contract.id as NodeType) &&
+          (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)),
+        ),
+        domains: [...contract.domains],
+        purposes: [...contract.purposes],
+        skillTargets: [...contract.traits.skillTargets],
+        evidenceType: contract.traits.evidenceType,
+        evidenceRole: evidenceFields.evidenceRole,
+        proofStrength: evidenceFields.proofStrength,
+        inputModes: [...contract.traits.inputModes],
+        measures: [...contract.measures],
+        configSource: contract.configSource,
+        requiredConfig: contract.capabilityModes.length > 0 ? "capabilityModes" : "none",
+        evidencePolicy: contract.evidence.writesMasteryEvidence
+          ? "mastery-eligible-with-captured-evidence"
+          : contract.evidence.writesPracticeEvidence
+            ? "practice-or-diagnostic-evidence"
+            : contract.traits.evidenceType === "reward"
+              ? "preference-evidence-only"
+              : "no-mastery-evidence",
+        bestFor: evidenceFields.bestFor,
+        contaminationRisks: evidenceFields.contaminationRisks,
+        modeEvidenceNotes: evidenceFields.modeEvidenceNotes,
+        strengths: [...contract.strengths],
+        weakFor: [...contract.weakFor],
+        goodFitWhen: [...contract.goodFitWhen],
+        badFitWhen: [...contract.badFitWhen],
+        capabilityModes: contract.capabilityModes.map((mode) => ({
+          ...mode,
+          skillTargets: [...mode.skillTargets],
+          inputModes: [...mode.inputModes],
+          scaffolds: [...mode.scaffolds],
+          config: { ...mode.config },
+          measurementRisks: [...mode.measurementRisks],
+        })),
+        status: (
+          NODE_TYPES.has(contract.id as NodeType) &&
+          contract.configSource !== "unspecified" &&
+          (contract.capabilityModes.length > 0 || contract.configSource === "registry-default" || contract.configSource === "reward-game")
+        ) ? "ok" : "unavailable",
+      };
+    });
 }
 
 function summarizeCarePlan(chart: ChildChart): string | null {
@@ -999,10 +1026,44 @@ export function buildAssignmentMasteryContext(args: {
     ],
     expectedSessionsRemaining: sessionsRemainingForDays(daysUntilTest),
     sessionIntensity: sessionIntensityForDays(daysUntilTest),
+    readinessProof: {
+      centralQuestion: "What would prove the child can do the captured homework without Sunny over-helping?",
+      proofStandard: "Use the homework domain to identify the decisive proof; support activities can prepare the child, but readiness needs evidence that matches the real assignment demand.",
+      supportEvidence: ["practice accuracy", "retry recovery", "help or hint use", "latency and pacing"],
+      notEnoughEvidence: ["completion alone", "preference alone", "reward choice alone"],
+    },
     questRole: "Quest is transfer proof after baseline evidence.",
     bossRole: "Boss is the mastery gate after quest evidence.",
     failureLoop:
       "If quest or boss fails, identify the failed target or skill, teach it next session, then retry the proof.",
+  };
+}
+
+function isSpellingTestExtraction(extraction: AssignmentSourceExtraction): boolean {
+  const text = `${extraction.filename}\n${extraction.fullText}`.toLowerCase();
+  return /\bspelling\b/.test(text) || /\bword list\b/.test(text) || /\bsilent letters?\b/.test(text);
+}
+
+function readinessProofForExtraction(
+  extraction: AssignmentSourceExtraction,
+  fallback: AssignmentReadinessProofContext,
+): AssignmentReadinessProofContext {
+  if (!isSpellingTestExtraction(extraction)) return fallback;
+  return {
+    centralQuestion: "Can the child spell the test words from memory without seeing the word?",
+    proofStandard: "Fresh unaided spelling production or clean recall evidence is the readiness proof for spelling-test targets.",
+    supportEvidence: [
+      "scaffolded spelling practice",
+      "letter construction support",
+      "recognition fluency",
+      "pronunciation or read-aloud fluency",
+    ],
+    notEnoughEvidence: [
+      "visible-word recognition alone",
+      "pronunciation alone",
+      "preference choice alone",
+      "completion alone",
+    ],
   };
 }
 
@@ -1016,10 +1077,18 @@ export function buildAssignmentPlanningPacket(args: {
   const recentEvidence = args.currentEvidenceSummary ?? [];
   const childChart = childChartSummaryForPacket(args.childChart, recentEvidence);
   const catalog = activityCatalog(args.childId, args.extraction);
+  const baseMasteryContext = args.masteryContext ?? buildAssignmentMasteryContext();
+  const readinessProof = readinessProofForExtraction(
+    args.extraction,
+    baseMasteryContext.readinessProof ?? buildAssignmentMasteryContext().readinessProof!,
+  );
   return {
     packetVersion: 1,
     childId: args.childId,
-    masteryContext: args.masteryContext ?? buildAssignmentMasteryContext(),
+    masteryContext: {
+      ...baseMasteryContext,
+      readinessProof,
+    },
     sourceDocument: {
       filename: args.extraction.filename,
       sourcePath: args.extraction.sourcePath,
@@ -1037,6 +1106,8 @@ export function buildAssignmentPlanningPacket(args: {
     plannerInstruction: [
       "Interpret the assignment from the source text and source groups.",
       "Activities are instruments. Choose nodes by target purpose, not by generic fun.",
+      "Use activityCatalog.evidenceRole, proofStrength, bestFor, contaminationRisks, and modeEvidenceNotes as the instrument truth table.",
+      "A mode can be academically valid even when another mode of the same activity is not; judge the selected mode's evidence, not only the activity name.",
       "Each word group must declare its learning purpose from source evidence.",
       "Do not collapse teacher-labeled groups into one skill; infer whether each group asks for spelling production, recognition, fluency, pronunciation, meaning, or review.",
       "Use recent canonical activity evidence as lesson-to-lesson labs: weak targets get support; mastered targets get smaller spaced checks or transfer instead of full repeated baseline.",
@@ -1050,6 +1121,7 @@ export function buildAssignmentPlanningPacket(args: {
       "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
       "Use this packet as the single planner object: childChart, sourceDocument, masteryContext, activityCatalog, algorithmContracts, runtimeConstraints, and criticPolicy.",
       "Use masteryContext as the clock and deadline pressure: the goal is demonstrated homework mastery by testDate, not merely completing a cute board.",
+      "Use masteryContext.readinessProof as the domain center; spelling-test readiness means unaided spelling recall unless fresh clean recall evidence already proves it.",
       "As daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.",
       "Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.",
       "If quest or boss fails, the next session should identify the failed target or skill, teach that skill, and retry the proof loop.",
@@ -1312,13 +1384,14 @@ Output contract:
 - Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
+- Use activityCatalog evidence fields as the instrument truth table; do not treat all modes of one activity as equivalent.
+- Evidence roles describe proof, not launchable node ids; nodePlan.type and nodePlan.activityId must use activityCatalog.activityId.
+- Choose the necessary evidence roles first; use the smallest launchable activity set. If crowded, remove redundant academic nodes before removing Mystery, Quest, or Boss; do not stack hidden recall, pronunciation, and spell-check to prove the same mastered target.
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
+- Use packet.masteryContext.readinessProof as the domain center; spelling-test readiness means unaided spelling recall. practice can vary, but readiness proof is unaided spelling production unless fresh clean recall evidence already proves the test targets.
 - As masteryContext.daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.
 - Use packet.boardPlanning.algorithmContracts and choicePolicyContext for route, Mystery, Quest, and Boss wrapper evidence; preference evidence, not mastery, is what these choices produce.
 - The planner decides how many route, Mystery, Quest, or Boss choices to show from chart evidence, stamina, motivation, and uncertainty. Fewer clear choices usually produce cleaner signals; extra choices can be useful when Sunny needs more preference data.
-- Use algorithmContracts.spacedRepetition for target dosage and support.
-- Use algorithmContracts.questReadiness for locked Quest readiness.
-- Use algorithmContracts.masteryGate for locked Boss readiness.
 - Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.
 - If quest or boss fails, the next session should identify the failed target or skill, teach that skill, then retry the proof loop.
 - Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
@@ -1328,32 +1401,11 @@ Output contract:
 - Agency works best when it emerges from the evidence and homework goal rather than as decoration.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
-- Treat the child-facing journey as part of your professional judgment: the experience should feel purposeful and worth effort while preserving academic validity.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
 - Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
 - Include parent-review language that explains why every group was routed to its activity.
-- Return one valid JSON object directly. Do not include markdown fences.
-- JSON shape:
-  {
-    "capturedContent": {
-      "title": string,
-      "type": "spelling_test" | "reading" | "math" | "coins" | "clocks" | "generic",
-      "rawText": string,
-      "words": string[],
-      "questions": unknown[],
-      "wordGroups": [{"id": string, "label": string, "purpose": "spell_from_memory" | "recognize" | "read_fluently" | "pronounce" | "define" | "unknown", "words": string[], "confidence": number, "evidence": string[]}],
-      "contentProfile": {"practiceDomain": "spelling" | "reading" | "math" | "writing" | "generic", "contentDomain": "science" | "social_studies" | "language_arts" | "math" | "generic", "topic": string, "primarySkill": string, "assignmentFormat": string, "concepts": string[], "sourceEvidence": string[]},
-      "sourceDocuments": [{"filename": string, "mediaType": string}]
-    },
-    "homeworkWords": [{"text": string, "sourceGroupId": string, "purpose": "spell_from_memory" | "recognize" | "read_fluently" | "pronounce" | "define" | "unknown"}],
-    "activeSessionPlan": {
-      "nodePlan": [{"id": string, "type": string, "activityId": string, "targets": string[], "difficulty": 1 | 2 | 3, "targetLane": string, "choiceMode": "choice_lab | surprise_drop only for mystery", "locked": boolean, "masteryUnlockState": "preparing for locked quest/boss", "wordRadarConfig": "only for word-radar nodes"}]
-    },
-    "plannedMeasurements": [{"id": string, "activityId": string, "target": string, "evidenceType": string, "supportCriteria": string, "reviseCriteria": string, "falsifyCriteria": string}],
-    "planTheory": {"hypothesis": string, "evidenceSummary": string[], "intervention": string, "supportCriteria": string[], "reviseCriteria": string[], "falsifyCriteria": string[]},
-    "reviewQuestions": string[]
-  }
+- Return one valid tool-call JSON object directly; the tool schema enforces capturedContent, homeworkWords, activeSessionPlan.nodePlan, plannedMeasurements, planTheory, and reviewQuestions.
 
 Packet:
 ${JSON.stringify(packet)}`;

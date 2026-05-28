@@ -138,6 +138,7 @@ export function formatActivityToolAuditReport(payload: ActivityToolAuditPayload)
     "Activity Tool Audit",
     `Contracts: ${payload.contracts.length}`,
     `Blockers: ${payload.blockers.length ? payload.blockers.join(", ") : "none"}`,
+    `Warnings: ${payload.warnings.length ? payload.warnings.join(", ") : "none"}`,
     "",
     "Tools:",
     ...payload.rows.map((row) => [

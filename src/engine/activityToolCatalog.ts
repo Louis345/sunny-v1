@@ -1,3 +1,5 @@
+import { auditActivityEvidenceContracts } from "./activityEvidenceContract";
+
 export type LearningDomain =
   | "spelling"
   | "vocabulary"
@@ -222,6 +224,7 @@ export type ActivityToolAuditRow = {
 export type ActivityToolAudit = {
   rows: ActivityToolAuditRow[];
   blockers: string[];
+  warnings: string[];
 };
 
 const DEFAULT_ACTIVITY_TRAITS: ActivityTraits = {
@@ -3335,7 +3338,8 @@ export function getActivityCapabilityModeConfig(
 }
 
 export function auditActivityToolContracts(): ActivityToolAudit {
-  const rows = listActivityToolContracts().map((contract): ActivityToolAuditRow => {
+  const contracts = listActivityToolContracts();
+  const rows = contracts.map((contract): ActivityToolAuditRow => {
     const issues: string[] = [];
     const policy = evidencePolicy(contract);
     if (!contract.evidence.writesMasteryEvidence && contract.scaffolds.length) {
@@ -3364,13 +3368,18 @@ export function auditActivityToolContracts(): ActivityToolAudit {
     };
   });
 
+  const evidenceAudit = auditActivityEvidenceContracts(contracts);
   return {
     rows,
-    blockers: rows.flatMap((row) =>
+    blockers: [
+      ...rows.flatMap((row) =>
       row.issues
         .filter((issue) => issue !== "scaffolded-practice-not-mastery")
         .map((issue) => `${row.id}:${issue}`),
-    ),
+      ),
+      ...evidenceAudit.blockers,
+    ],
+    warnings: evidenceAudit.warnings,
   };
 }
 

@@ -1,0 +1,340 @@
+{
+  "scenarioId": "spelling-ability-bands",
+  "tokenEstimate": {
+    "inputTokens": 10000,
+    "outputTokens": 4000
+  },
+  "basePacket": {
+    "packetVersion": 1,
+    "childId": "scenario_child",
+    "masteryContext": {
+      "nowIso": "2026-05-27T13:00:00.000Z",
+      "localDate": "2026-05-27",
+      "timeZone": "America/New_York",
+      "testDate": "2026-05-30",
+      "testDateSource": "human_confirmed",
+      "testDateConfirmed": true,
+      "daysUntilTest": 3,
+      "goal": "Demonstrate mastery of the captured spelling homework by the test date.",
+      "requiredAbilities": [
+        "Spell silent-letter words from memory.",
+        "Read high-frequency words fluently without turning them into spelling-production work unless evidence requires it.",
+        "Use Quest as transfer proof after baseline evidence and Boss as the mastery gate after Quest evidence."
+      ],
+      "expectedSessionsRemaining": 3,
+      "sessionIntensity": "build",
+      "questRole": "Quest is transfer proof after baseline evidence.",
+      "bossRole": "Boss is the mastery gate after quest evidence.",
+      "failureLoop": "If quest or boss fails, identify the failed target or skill, teach it next session, then retry the proof."
+    },
+    "sourceDocument": {
+      "filename": "spelling-ability-bands.txt",
+      "sourcePath": "fixture://planner-scenario-lab/spelling-ability-bands",
+      "sourceKind": "fixture",
+      "mediaType": "text/plain",
+      "fileHash": "fixture-spelling-ability-bands",
+      "extractionMethod": "fixture",
+      "warnings": [],
+      "pages": [],
+      "fullText": "Spelling Words: sign, know, write. High-Frequency Words: among, answer, enough. Spelling words should be spelled from memory. High-frequency words should be read fluently."
+    },
+    "childChart": {
+      "childId": "scenario_child",
+      "displayName": "Scenario Child",
+      "grade": 2,
+      "selectedCompanionId": "elli",
+      "selectedCompanionName": "Elli",
+      "activeHomeworkSummary": "hw-spelling-ability-bands:silent letters and high-frequency words",
+      "carePlanSummary": "Synthetic planner lab chart. Use recent evidence as the source of truth for this case.",
+      "recentEvidence": []
+    },
+    "activityCatalog": [
+      {
+        "activityId": "spelling-recall",
+        "nodeType": "activity",
+        "label": "Spelling Recall",
+        "sentToPlanner": true,
+        "launchable": true,
+        "domains": ["spelling"],
+        "purposes": ["spell_from_memory"],
+        "skillTargets": ["independent_spelling_recall", "retrieval_practice"],
+        "evidenceType": "independent typed spelling production",
+        "inputModes": ["typed"],
+        "measures": ["accuracy", "missed_letters", "latency", "retries"],
+        "configSource": "activityCatalog",
+        "requiredConfig": "target words",
+        "evidencePolicy": "mastery-eligible when cold and target-level",
+        "strengths": ["clean baseline for spelling production"],
+        "weakFor": ["reading fluency", "pronunciation"],
+        "goodFitWhen": ["spelling production is the question"],
+        "badFitWhen": ["the source asks only for recognition or read fluency"],
+        "capabilityModes": [],
+        "status": "ok"
+      },
+      {
+        "activityId": "word-radar",
+        "nodeType": "word-radar",
+        "label": "Word Radar",
+        "sentToPlanner": true,
+        "launchable": true,
+        "domains": ["spelling", "reading"],
+        "purposes": ["spell_from_memory", "recognize", "read_fluently"],
+        "skillTargets": ["visual_recognition", "partial_visual_recall", "hidden_word_recall", "fluency_access"],
+        "evidenceType": "mode-dependent target response",
+        "inputModes": ["whole-word", "letter-by-letter"],
+        "measures": ["accuracy", "mode", "response_time", "captures_response"],
+        "configSource": "activityCatalog",
+        "requiredConfig": "wordRadarConfig",
+        "evidencePolicy": "mode determines whether it is recognition, scaffolded spelling, or harder recall",
+        "strengths": ["flexible baseline or support instrument"],
+        "weakFor": ["paper handwriting transfer"],
+        "goodFitWhen": ["mode matches the target purpose"],
+        "badFitWhen": ["hidden recall is used before support evidence"],
+        "capabilityModes": [
+          {
+            "id": "visible_read",
+            "label": "Visible Read",
+            "description": "Visible word reading or recognition evidence.",
+            "config": {
+              "recallMode": "visible_read",
+              "inputMode": "whole-word",
+              "showTimer": false,
+              "hideWordDuringResponse": false,
+              "requiresCapturedResponse": true
+            }
+          },
+          {
+            "id": "partial_visual_recall",
+            "label": "Guided Letter Recall",
+            "description": "Scaffolded spelling construction with the word hidden during response.",
+            "config": {
+              "recallMode": "partial_visual_recall",
+              "inputMode": "letter-by-letter",
+              "showTimer": false,
+              "hideWordDuringResponse": true,
+              "requiresCapturedResponse": true
+            }
+          },
+          {
+            "id": "hidden_word_recall",
+            "label": "Hidden Word Recall",
+            "description": "Harder recall for mastered or near-mastered targets.",
+            "config": {
+              "recallMode": "hidden_word_recall",
+              "inputMode": "whole-word",
+              "showTimer": false,
+              "hideWordDuringResponse": true,
+              "requiresCapturedResponse": true
+            }
+          }
+        ],
+        "status": "ok"
+      },
+      {
+        "activityId": "spell-check",
+        "nodeType": "activity",
+        "label": "Spell Check",
+        "sentToPlanner": true,
+        "launchable": true,
+        "domains": ["spelling"],
+        "purposes": ["spell_from_memory"],
+        "skillTargets": ["typed_spelling_production", "error_pattern_detection"],
+        "evidenceType": "typed spelling check",
+        "inputModes": ["typed"],
+        "measures": ["accuracy", "missed_words", "corrections", "latency"],
+        "configSource": "activityCatalog",
+        "requiredConfig": "target words",
+        "evidencePolicy": "valid spelling baseline when not scaffolded too heavily",
+        "strengths": ["production evidence", "target-level misses"],
+        "weakFor": ["read fluency only groups"],
+        "goodFitWhen": ["source or evidence asks for spelling production"],
+        "badFitWhen": ["the target is only high-frequency recognition"],
+        "capabilityModes": [],
+        "status": "ok"
+      },
+      {
+        "activityId": "word-builder",
+        "nodeType": "activity",
+        "label": "Word Builder",
+        "sentToPlanner": true,
+        "launchable": true,
+        "domains": ["spelling"],
+        "purposes": ["spell_from_memory"],
+        "skillTargets": ["scaffolded_spelling_construction", "letter_pattern_support"],
+        "evidenceType": "supported construction practice",
+        "inputModes": ["drag", "typed"],
+        "measures": ["placements", "hints", "corrections"],
+        "configSource": "activityCatalog",
+        "requiredConfig": "target words",
+        "evidencePolicy": "support/practice, not first proof of mastery",
+        "strengths": ["slow learner scaffolding", "letter pattern support"],
+        "weakFor": ["advanced mastered targets", "cold mastery proof"],
+        "goodFitWhen": ["misses, retries, or frustration show need for support"],
+        "badFitWhen": ["recent evidence is clean first-try mastery"],
+        "capabilityModes": [],
+        "status": "ok"
+      },
+      {
+        "activityId": "letter-rush",
+        "nodeType": "activity",
+        "label": "Letter Rush",
+        "sentToPlanner": true,
+        "launchable": true,
+        "domains": ["spelling"],
+        "purposes": ["spell_from_memory"],
+        "skillTargets": ["speeded_recall", "persistence", "activity_affinity"],
+        "evidenceType": "speed wrapper after baseline",
+        "inputModes": ["typed", "arcade"],
+        "measures": ["accuracy", "speed", "persistence", "frustration"],
+        "configSource": "activityCatalog",
+        "requiredConfig": "target words",
+        "evidencePolicy": "preference and pressure evidence after baseline, not first fragile probe",
+        "strengths": ["competition hook", "fluency under pressure"],
+        "weakFor": ["slow decoder first node", "unsupported weak targets"],
+        "goodFitWhen": ["child likes competition and baseline is protected"],
+        "badFitWhen": ["first node for a struggling learner"],
+        "capabilityModes": [],
+        "status": "ok"
+      },
+      {
+        "activityId": "pronunciation",
+        "nodeType": "activity",
+        "label": "Pronunciation",
+        "sentToPlanner": true,
+        "launchable": true,
+        "domains": ["spelling", "reading"],
+        "purposes": ["read_fluently", "pronounce"],
+        "skillTargets": ["read_aloud", "pronunciation", "fluency"],
+        "evidenceType": "voice response",
+        "inputModes": ["voice"],
+        "measures": ["speech_match", "hesitation", "recovery_after_model"],
+        "configSource": "activityCatalog",
+        "requiredConfig": "target words",
+        "evidencePolicy": "voice evidence, not written spelling mastery",
+        "strengths": ["read fluency", "pronunciation"],
+        "weakFor": ["voice avoidance", "written spelling production"],
+        "goodFitWhen": ["source asks for pronounce or read fluently"],
+        "badFitWhen": ["voice avoidance is high and voice is not required"],
+        "capabilityModes": [],
+        "status": "ok"
+      },
+      {
+        "activityId": "mystery",
+        "nodeType": "mystery",
+        "label": "Mystery",
+        "sentToPlanner": true,
+        "launchable": true,
+        "domains": ["generic"],
+        "purposes": ["preference"],
+        "skillTargets": ["activity_affinity"],
+        "evidenceType": "choice preference",
+        "inputModes": ["choice"],
+        "measures": ["chosen_option", "completion", "replay", "skip"],
+        "configSource": "activityCatalog",
+        "requiredConfig": "choice options",
+        "evidencePolicy": "preference evidence only, not mastery",
+        "strengths": ["engagement discovery"],
+        "weakFor": ["academic mastery proof"],
+        "goodFitWhen": ["after evidence-generating baseline work"],
+        "badFitWhen": ["used as the academic intervention"],
+        "capabilityModes": [],
+        "status": "ok"
+      }
+    ],
+    "boardPlanning": {
+      "algorithmContracts": {
+        "choicePolicy": {
+          "id": "choicePolicy",
+          "purpose": "Rank valid child-facing choices by preference evidence, uncertainty, replay, completion, frustration, and outcomes.",
+          "needs": ["options_shown", "option_chosen", "skips", "replays", "completion", "frustration", "outcome"],
+          "outputs": ["shown_chosen_skipped_outcome", "preference_signal", "uncertainty_signal"],
+          "guardrails": ["preference_is_not_mastery", "shown_but_not_chosen_is_weak_neutral"]
+        },
+        "spacedRepetition": {
+          "id": "spacedRepetition",
+          "purpose": "Keep weak or due targets supported while mastered targets receive lighter spaced checks.",
+          "needs": ["target_accuracy", "latency", "retries", "help", "last_seen", "due_state"],
+          "outputs": ["target_dosage", "support_level", "review_timing"],
+          "guardrails": ["preference_is_not_mastery", "do_not_expand_mastered_targets_over_weak_targets"]
+        },
+        "questReadiness": {
+          "id": "questReadiness",
+          "purpose": "Require baseline evidence plus a named theory before generated transfer content unlocks.",
+          "needs": ["baseline_evidence", "target_theory", "contradictions", "support_revise_falsify_criteria"],
+          "outputs": ["quest_locked_or_ready", "transfer_theory"],
+          "guardrails": ["quest_is_not_random_loot", "missing_baseline_keeps_quest_locked"]
+        },
+        "masteryGate": {
+          "id": "masteryGate",
+          "purpose": "Require quest or transfer evidence before boss/mastery finale unlocks.",
+          "needs": ["quest_evidence", "transfer_result", "per_target_results", "contradictions"],
+          "outputs": ["boss_locked_or_ready", "mastery_claim_evidence"],
+          "guardrails": ["boss_requires_quest_evidence", "in_app_success_is_not_final_transfer_proof"]
+        }
+      },
+      "choicePolicyContext": {
+        "purpose": "Choice points collect preference and engagement evidence that can improve future wrappers without claiming academic mastery.",
+        "evidenceSignals": ["shown_options", "chosen_option", "replayed_path", "completed_path", "skipped_path", "frustration_or_recovery", "learning_outcome_after_choice"],
+        "signalQualityNotes": ["Use a small set of clear choices for clean evidence.", "Extra choices are useful only when uncertainty is high.", "Preference is not mastery."],
+        "plannerDecision": "The planner decides route, Mystery, Quest, and Boss choice density from evidence, stamina, motivation, and uncertainty."
+      },
+      "runtimeConstraints": {
+        "rendererOnly": true,
+        "noRuntimePlanning": true,
+        "outputMustBeSerializableJson": true
+      },
+      "criticPolicy": {
+        "semanticAudit": "always",
+        "visualCritic": "risk_gated",
+        "riskSignals": ["planner_confidence_low", "semantic_audit_failed", "complex_choice_graph"],
+        "retryLimit": 1
+      }
+    },
+    "plannerInstruction": "Design a spelling-only adventure plan. The planner is the tutor/doctor: use the child chart evidence to choose instruments, dosage, route choice, Mystery, locked Quest, and locked Boss. Do not use the same activity repeatedly unless the measured signal changes. Keep high-frequency read-fluency words in recognition or pronunciation lanes unless evidence says spelling production is the actual gap."
+  },
+  "cases": [
+    {
+      "childId": "advanced_speller",
+      "displayName": "Advanced Speller",
+      "recentEvidence": ["Silent-letter targets were first-try accurate with low latency yesterday.", "This child likes concise challenge and gets bored by full scaffolds."],
+      "expectedEvidenceTerms": ["first-try accurate", "low latency"],
+      "scenarioExpectations": { "requiredEvidenceRoles": ["clean_spelling_recall"], "discouragedActivities": ["word-builder"], "discouragedFirstActivities": ["word-builder", "letter-rush"], "expectedTargetLanes": ["silent_letters"], "maximumAcademicNodeCount": 2 }
+    },
+    {
+      "childId": "typical_speller",
+      "displayName": "Typical Speller",
+      "recentEvidence": ["No prior spelling baseline exists for this homework.", "The child usually completes normal baseline work without strong preference signals."],
+      "expectedEvidenceTerms": ["no prior spelling baseline"],
+      "scenarioExpectations": { "requiredEvidenceRoles": ["spelling_production", "scaffolded_spelling_practice"], "expectedWordRadarModes": ["partial_visual_recall/letter-by-letter"], "expectedTargetLanes": ["silent_letters", "high_frequency"] }
+    },
+    {
+      "childId": "slow_decoder",
+      "displayName": "Slow Decoder",
+      "recentEvidence": ["The child misses silent letters and has high retry counts when support is removed.", "Frustration rises when speed pressure appears first."],
+      "expectedEvidenceTerms": ["misses silent letters", "high retry"],
+      "scenarioExpectations": { "requiredEvidenceRoles": ["construction_support", "scaffolded_spelling_practice"], "discouragedFirstActivities": ["letter-rush"], "forbiddenWordRadarModes": ["hidden_word_recall/whole-word"], "expectedWordRadarModes": ["partial_visual_recall/letter-by-letter"], "expectedTargetLanes": ["silent_letters"] }
+    },
+    {
+      "childId": "voice_avoidant",
+      "displayName": "Voice Avoidant",
+      "recentEvidence": ["Voice avoidance is high in recent homework sessions.", "Typed and visual activities produce more complete attempts."],
+      "expectedEvidenceTerms": ["voice avoidance"],
+      "scenarioExpectations": { "requiredEvidenceRoles": ["spelling_production", "recognition_fluency"], "discouragedActivities": ["pronunciation"], "expectedWordRadarModes": ["visible_read/whole-word"], "expectedTargetLanes": ["high_frequency", "silent_letters"] }
+    },
+    {
+      "childId": "speed_motivated",
+      "displayName": "Speed Motivated",
+      "recentEvidence": ["Competition increases persistence and replay.", "Accuracy still needs a valid baseline before pressure becomes useful evidence."],
+      "expectedEvidenceTerms": ["competition"],
+      "scenarioExpectations": { "requiredEvidenceRoles": ["spelling_production", "pressure_mastery_candidate"], "discouragedFirstActivities": ["letter-rush"], "expectedTargetLanes": ["silent_letters"] }
+    },
+    {
+      "childId": "test_tomorrow_mixed",
+      "displayName": "Test Tomorrow Mixed",
+      "recentEvidence": ["The test tomorrow creates urgency.", "The source has mixed purpose: silent-letter spelling and high-frequency read fluency."],
+      "expectedEvidenceTerms": ["test tomorrow", "mixed purpose"],
+      "scenarioExpectations": { "requiredEvidenceRoles": ["spelling_production", "recognition_fluency"], "expectedWordRadarModes": ["visible_read/whole-word"], "expectedTargetLanes": ["silent_letters", "high_frequency"], "maximumAcademicNodeCount": 4 },
+      "masteryContext": { "daysUntilTest": 1, "expectedSessionsRemaining": 1, "sessionIntensity": "urgent" }
+    }
+  ]
+}

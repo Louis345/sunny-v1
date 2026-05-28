@@ -737,6 +737,26 @@ describe("assignment planner", () => {
     expect(prompt).toContain("If quest or boss fails");
   });
 
+  it("centers spelling-test readiness on unaided recall instead of broad spelling practice", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+      currentEvidenceSummary: ["No fresh unaided spelling recall evidence."],
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(packet.masteryContext.readinessProof).toMatchObject({
+      centralQuestion: "Can the child spell the test words from memory without seeing the word?",
+      proofStandard: "Fresh unaided spelling production or clean recall evidence is the readiness proof for spelling-test targets.",
+    });
+    expect(packet.masteryContext.readinessProof?.supportEvidence).toContain("scaffolded spelling practice");
+    expect(packet.masteryContext.readinessProof?.notEnoughEvidence).toContain("visible-word recognition alone");
+    expect(packet.plannerInstruction).toContain("spelling-test readiness means unaided spelling recall");
+    expect(prompt).toContain("spelling-test readiness means unaided spelling recall");
+    expect(prompt).toContain("practice can vary, but readiness proof is unaided spelling production");
+  });
+
   it("keeps the planner request lean while preserving curriculum authority", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",
@@ -760,6 +780,32 @@ describe("assignment planner", () => {
     expect(prompt).toContain("plannedMeasurements");
     expect(prompt).toContain("Quest is transfer proof");
     expect(prompt).toContain("Boss is the mastery gate");
+  });
+
+  it("tells the planner evidence roles are not launchable node ids", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(prompt).toContain("Evidence roles describe proof, not launchable node ids");
+    expect(prompt).toContain("nodePlan.type and nodePlan.activityId must use activityCatalog.activityId");
+  });
+
+  it("teaches the planner to preserve the spine while using the smallest sufficient evidence set", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(prompt).toContain("Choose the necessary evidence roles first");
+    expect(prompt).toContain("smallest launchable activity set");
+    expect(prompt).toContain("remove redundant academic nodes before removing Mystery, Quest, or Boss");
+    expect(prompt).toContain("do not stack hidden recall, pronunciation, and spell-check to prove the same mastered target");
   });
 
   it("keeps renderer board JSON out of the planner tool contract", () => {

@@ -1,0 +1,334 @@
+[
+  {
+    "scenarioId": "spelling-ability-bands",
+    "childId": "advanced_speller",
+    "model": "fixture:claude-sonnet-4-5",
+    "createdAt": "2026-05-27T13:00:00.000Z",
+    "latencyMs": 0,
+    "tokenEstimate": { "inputTokens": 20000, "outputTokens": 4000 },
+    "expectedEvidenceTerms": ["first-try accurate", "low latency"],
+    "scenarioExpectations": {
+      "requiredEvidenceRoles": ["clean_spelling_recall"],
+      "discouragedActivities": ["word-builder"],
+      "discouragedFirstActivities": ["word-builder", "letter-rush"],
+      "expectedTargetLanes": ["silent_letters"],
+      "maximumAcademicNodeCount": 2
+    },
+    "preflight": { "status": "pass", "issues": [] },
+    "output": {
+      "planTheory": {
+        "hypothesis": "Recent work was first-try accurate with low latency, so this child needs a small spaced proof rather than a full scaffold.",
+        "evidenceSummary": ["first-try accurate spelling", "low latency recall"],
+        "intervention": "Use one hidden recall check and one cold spell check before preference evidence.",
+        "supportCriteria": ["spaced recall stays clean"],
+        "reviseCriteria": ["misses cluster on silent letters"],
+        "falsifyCriteria": ["hidden recall collapses"]
+      },
+      "reviewQuestions": ["Does the short proof hold without visible support?"],
+      "activeSessionPlan": {
+        "planId": "fixture-advanced-speller",
+        "childId": "advanced_speller",
+        "createdAt": "2026-05-27T13:00:00.000Z",
+        "source": "planner_scenario_lab_fixture",
+        "domain": "spelling",
+        "activeHomeworkId": "hw-spelling-ability-bands",
+        "nodePlan": [
+          {
+            "id": "spaced-recall",
+            "type": "word-radar",
+            "activityId": "word-radar",
+            "targets": ["sign", "know"],
+            "targetLane": "silent_letters",
+            "difficulty": 2,
+            "source": "chart_planner",
+            "wordRadarConfig": {
+              "recallMode": "hidden_word_recall",
+              "inputMode": "whole-word",
+              "speakStyle": "option-a",
+              "showTimer": false,
+              "hideWordDuringResponse": true,
+              "requiresCapturedResponse": true
+            }
+          },
+          {
+            "id": "cold-spell-check",
+            "type": "spell-check",
+            "activityId": "spell-check",
+            "targets": ["write"],
+            "targetLane": "silent_letters",
+            "difficulty": 2,
+            "source": "chart_planner"
+          },
+          { "id": "mystery-choice", "type": "mystery", "activityId": "mystery", "targets": [], "difficulty": 1, "source": "chart_planner", "locked": false },
+          { "id": "quest-destination", "type": "quest", "activityId": "quest", "targets": ["sign", "know", "write"], "targetLane": "silent_letters", "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" },
+          { "id": "boss-destination", "type": "boss", "activityId": "boss", "targets": [], "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" }
+        ],
+        "adventureBoard": {
+          "boardId": "fixture-board-advanced-speller",
+          "planId": "fixture-advanced-speller",
+          "childId": "advanced_speller",
+          "title": "Advanced Speller Check",
+          "domain": "spelling",
+          "theme": { "backgroundImage": "/adventure/backgrounds/silent-letters.png", "palette": { "path": "#ffffff", "completed": "#16a34a", "available": "#7c3aed", "locked": "#64748b", "current": "#f59e0b", "preview": "#60a5fa", "text": "#ffffff", "panel": "rgba(15, 23, 42, 0.68)" } },
+          "nodes": [
+            { "id": "start", "kind": "start", "label": "Start", "state": "available" },
+            { "id": "spaced-recall", "kind": "activity", "activityId": "word-radar", "label": "Spaced Recall", "state": "available" },
+            { "id": "cold-spell-check", "kind": "activity", "activityId": "spell-check", "label": "Cold Spell Check", "state": "available" },
+            { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" },
+            { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } },
+            { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }
+          ],
+          "edges": [],
+          "choiceSets": [{ "id": "baseline-route-choice", "kind": "baseline-route", "options": [{ "id": "recall", "label": "Spaced Recall", "nodeId": "spaced-recall" }, { "id": "spell", "label": "Cold Spell Check", "nodeId": "cold-spell-check" }] }]
+        },
+        "evidenceUsed": [{ "id": "advanced-evidence", "type": "chart", "summary": "The child was first-try accurate with low latency on the target spelling words." }],
+        "openQuestions": [],
+        "approvalStatus": "pending",
+        "planTheory": {
+          "hypothesis": "first-try accurate low latency spelling makes redundant scaffolding unnecessary.",
+          "evidenceSummary": ["first-try accurate", "low latency"],
+          "intervention": "short spaced proof",
+          "supportCriteria": ["fast clean recall"],
+          "reviseCriteria": ["one target slips"],
+          "falsifyCriteria": ["multiple misses"]
+        }
+      }
+    }
+  },
+  {
+    "scenarioId": "spelling-ability-bands",
+    "childId": "typical_speller",
+    "model": "fixture:claude-sonnet-4-5",
+    "createdAt": "2026-05-27T13:00:00.000Z",
+    "latencyMs": 0,
+    "tokenEstimate": { "inputTokens": 20000, "outputTokens": 4000 },
+    "expectedEvidenceTerms": ["no prior spelling baseline"],
+    "scenarioExpectations": {
+      "requiredEvidenceRoles": ["spelling_production", "scaffolded_spelling_practice"],
+      "expectedWordRadarModes": ["partial_visual_recall/letter-by-letter"],
+      "expectedTargetLanes": ["silent_letters", "high_frequency"]
+    },
+    "preflight": { "status": "pass", "issues": [] },
+    "output": {
+      "planTheory": {
+        "hypothesis": "There is no prior spelling baseline, so this child needs clean baseline evidence before the preference lab.",
+        "evidenceSummary": ["no prior spelling baseline"],
+        "intervention": "Use guided letter recall, a spell check, and visible high-frequency reading.",
+        "supportCriteria": ["baseline identifies target-level strengths"],
+        "reviseCriteria": ["misses cluster by word group"],
+        "falsifyCriteria": ["all targets are already clean"]
+      },
+      "reviewQuestions": ["Which baseline instrument gives the clearest first signal?"],
+      "activeSessionPlan": {
+        "planId": "fixture-typical-speller",
+        "childId": "typical_speller",
+        "createdAt": "2026-05-27T13:00:00.000Z",
+        "source": "planner_scenario_lab_fixture",
+        "domain": "spelling",
+        "activeHomeworkId": "hw-spelling-ability-bands",
+        "nodePlan": [
+          { "id": "letter-recall", "type": "word-radar", "activityId": "word-radar", "targets": ["sign", "know"], "targetLane": "silent_letters", "difficulty": 1, "source": "chart_planner", "wordRadarConfig": { "recallMode": "partial_visual_recall", "inputMode": "letter-by-letter", "speakStyle": "option-a", "showTimer": false, "hideWordDuringResponse": true, "requiresCapturedResponse": true } },
+          { "id": "spell-check", "type": "spell-check", "activityId": "spell-check", "targets": ["sign", "know", "write"], "targetLane": "silent_letters", "difficulty": 1, "source": "chart_planner" },
+          { "id": "read-high-frequency", "type": "word-radar", "activityId": "word-radar", "targets": ["among", "answer"], "targetLane": "high_frequency", "difficulty": 1, "source": "chart_planner", "wordRadarConfig": { "recallMode": "visible_read", "inputMode": "whole-word", "speakStyle": "option-a", "showTimer": false, "hideWordDuringResponse": false, "requiresCapturedResponse": true } },
+          { "id": "mystery-choice", "type": "mystery", "activityId": "mystery", "targets": [], "difficulty": 1, "source": "chart_planner", "locked": false },
+          { "id": "quest-destination", "type": "quest", "activityId": "quest", "targets": ["sign", "know", "write"], "targetLane": "silent_letters", "difficulty": 2, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" },
+          { "id": "boss-destination", "type": "boss", "activityId": "boss", "targets": [], "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" }
+        ],
+        "adventureBoard": {
+          "boardId": "fixture-board-typical-speller",
+          "planId": "fixture-typical-speller",
+          "childId": "typical_speller",
+          "title": "Typical Speller Baseline",
+          "domain": "spelling",
+          "theme": { "backgroundImage": "/adventure/backgrounds/silent-letters.png", "palette": { "path": "#ffffff", "completed": "#16a34a", "available": "#7c3aed", "locked": "#64748b", "current": "#f59e0b", "preview": "#60a5fa", "text": "#ffffff", "panel": "rgba(15, 23, 42, 0.68)" } },
+          "nodes": [
+            { "id": "start", "kind": "start", "label": "Start", "state": "available" },
+            { "id": "letter-recall", "kind": "activity", "activityId": "word-radar", "label": "Letter Recall", "state": "available" },
+            { "id": "spell-check", "kind": "activity", "activityId": "spell-check", "label": "Spell Check", "state": "available" },
+            { "id": "read-high-frequency", "kind": "activity", "activityId": "word-radar", "label": "Read Words", "state": "available" },
+            { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" },
+            { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } },
+            { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }
+          ],
+          "edges": [],
+          "choiceSets": [{ "id": "baseline-route-choice", "kind": "baseline-route", "options": [{ "id": "letters", "label": "Letter Recall", "nodeId": "letter-recall" }, { "id": "read", "label": "Read Words", "nodeId": "read-high-frequency" }] }]
+        },
+        "evidenceUsed": [{ "id": "typical-evidence", "type": "chart", "summary": "There is no prior spelling baseline for these homework targets." }],
+        "openQuestions": [],
+        "approvalStatus": "pending",
+        "planTheory": { "hypothesis": "no prior spelling baseline", "evidenceSummary": ["no prior spelling baseline"], "intervention": "collect first baseline", "supportCriteria": ["clear target results"], "reviseCriteria": ["mixed targets"], "falsifyCriteria": ["baseline already mastered"] }
+      }
+    }
+  },
+  {
+    "scenarioId": "spelling-ability-bands",
+    "childId": "slow_decoder",
+    "model": "fixture:claude-sonnet-4-5",
+    "createdAt": "2026-05-27T13:00:00.000Z",
+    "latencyMs": 0,
+    "tokenEstimate": { "inputTokens": 20000, "outputTokens": 4000 },
+    "expectedEvidenceTerms": ["misses silent letters", "high retry"],
+    "scenarioExpectations": {
+      "requiredEvidenceRoles": ["construction_support", "scaffolded_spelling_practice"],
+      "discouragedFirstActivities": ["letter-rush"],
+      "forbiddenWordRadarModes": ["hidden_word_recall/whole-word"],
+      "expectedWordRadarModes": ["partial_visual_recall/letter-by-letter"],
+      "expectedTargetLanes": ["silent_letters"]
+    },
+    "preflight": { "status": "pass", "issues": [] },
+    "output": {
+      "planTheory": { "hypothesis": "This child misses silent letters with high retry counts, so the plan teaches before it pressures.", "evidenceSummary": ["misses silent letters", "high retry"], "intervention": "Build the pattern, then use guided recall.", "supportCriteria": ["retry count drops"], "reviseCriteria": ["specific letters still disappear"], "falsifyCriteria": ["scaffold does not improve response"] },
+      "reviewQuestions": ["Which silent letter pattern breaks first?"],
+      "activeSessionPlan": {
+        "planId": "fixture-slow-decoder",
+        "childId": "slow_decoder",
+        "createdAt": "2026-05-27T13:00:00.000Z",
+        "source": "planner_scenario_lab_fixture",
+        "domain": "spelling",
+        "activeHomeworkId": "hw-spelling-ability-bands",
+        "nodePlan": [
+          { "id": "word-build", "type": "word-builder", "activityId": "word-builder", "targets": ["sign", "know"], "targetLane": "silent_letters", "difficulty": 1, "source": "chart_planner" },
+          { "id": "guided-radar", "type": "word-radar", "activityId": "word-radar", "targets": ["sign", "know"], "targetLane": "silent_letters", "difficulty": 1, "source": "chart_planner", "wordRadarConfig": { "recallMode": "partial_visual_recall", "inputMode": "letter-by-letter", "speakStyle": "option-a", "showTimer": false, "hideWordDuringResponse": true, "requiresCapturedResponse": true } },
+          { "id": "spell-check", "type": "spell-check", "activityId": "spell-check", "targets": ["sign"], "targetLane": "silent_letters", "difficulty": 1, "source": "chart_planner" },
+          { "id": "mystery-choice", "type": "mystery", "activityId": "mystery", "targets": [], "difficulty": 1, "source": "chart_planner", "locked": false },
+          { "id": "quest-destination", "type": "quest", "activityId": "quest", "targets": ["sign", "know"], "targetLane": "silent_letters", "difficulty": 2, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" },
+          { "id": "boss-destination", "type": "boss", "activityId": "boss", "targets": [], "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" }
+        ],
+        "adventureBoard": {
+          "boardId": "fixture-board-slow-decoder",
+          "planId": "fixture-slow-decoder",
+          "childId": "slow_decoder",
+          "title": "Slow Decoder Support",
+          "domain": "spelling",
+          "theme": { "backgroundImage": "/adventure/backgrounds/silent-letters.png", "palette": { "path": "#ffffff", "completed": "#16a34a", "available": "#7c3aed", "locked": "#64748b", "current": "#f59e0b", "preview": "#60a5fa", "text": "#ffffff", "panel": "rgba(15, 23, 42, 0.68)" } },
+          "nodes": [{ "id": "start", "kind": "start", "label": "Start", "state": "available" }, { "id": "word-build", "kind": "activity", "activityId": "word-builder", "label": "Build Words", "state": "available" }, { "id": "guided-radar", "kind": "activity", "activityId": "word-radar", "label": "Guided Recall", "state": "available" }, { "id": "spell-check", "kind": "activity", "activityId": "spell-check", "label": "Gentle Check", "state": "available" }, { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" }, { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } }, { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }],
+          "edges": [],
+          "choiceSets": [{ "id": "baseline-route-choice", "kind": "baseline-route", "options": [{ "id": "build", "label": "Build Words", "nodeId": "word-build" }, { "id": "guided", "label": "Guided Recall", "nodeId": "guided-radar" }] }]
+        },
+        "evidenceUsed": [{ "id": "slow-evidence", "type": "chart", "summary": "The child misses silent letters and has high retry counts when recall is hidden." }],
+        "openQuestions": [],
+        "approvalStatus": "pending",
+        "planTheory": { "hypothesis": "misses silent letters high retry", "evidenceSummary": ["misses silent letters", "high retry"], "intervention": "scaffold first", "supportCriteria": ["retries drop"], "reviseCriteria": ["pattern still weak"], "falsifyCriteria": ["support fails"] }
+      }
+    }
+  },
+  {
+    "scenarioId": "spelling-ability-bands",
+    "childId": "voice_avoidant",
+    "model": "fixture:claude-sonnet-4-5",
+    "createdAt": "2026-05-27T13:00:00.000Z",
+    "latencyMs": 0,
+    "tokenEstimate": { "inputTokens": 20000, "outputTokens": 4000 },
+    "expectedEvidenceTerms": ["voice avoidance"],
+    "scenarioExpectations": {
+      "requiredEvidenceRoles": ["spelling_production", "recognition_fluency"],
+      "discouragedActivities": ["pronunciation"],
+      "expectedWordRadarModes": ["visible_read/whole-word"],
+      "expectedTargetLanes": ["high_frequency", "silent_letters"]
+    },
+    "preflight": { "status": "pass", "issues": [] },
+    "output": {
+      "planTheory": { "hypothesis": "Voice avoidance means the first evidence should be visual or typed, not spoken.", "evidenceSummary": ["voice avoidance"], "intervention": "Use visible read and typed spelling before optional preference evidence.", "supportCriteria": ["child completes without avoidance"], "reviseCriteria": ["typed work creates fatigue"], "falsifyCriteria": ["voice is chosen voluntarily"] },
+      "reviewQuestions": ["Does voice remain avoided when optional?"],
+      "activeSessionPlan": {
+        "planId": "fixture-voice-avoidant",
+        "childId": "voice_avoidant",
+        "createdAt": "2026-05-27T13:00:00.000Z",
+        "source": "planner_scenario_lab_fixture",
+        "domain": "spelling",
+        "activeHomeworkId": "hw-spelling-ability-bands",
+        "nodePlan": [
+          { "id": "visible-read", "type": "word-radar", "activityId": "word-radar", "targets": ["among", "answer"], "targetLane": "high_frequency", "difficulty": 1, "source": "chart_planner", "wordRadarConfig": { "recallMode": "visible_read", "inputMode": "whole-word", "speakStyle": "option-a", "showTimer": false, "hideWordDuringResponse": false, "requiresCapturedResponse": true } },
+          { "id": "typed-spell", "type": "spell-check", "activityId": "spell-check", "targets": ["sign", "write"], "targetLane": "silent_letters", "difficulty": 1, "source": "chart_planner" },
+          { "id": "mystery-choice", "type": "mystery", "activityId": "mystery", "targets": [], "difficulty": 1, "source": "chart_planner", "locked": false },
+          { "id": "quest-destination", "type": "quest", "activityId": "quest", "targets": ["sign", "write"], "targetLane": "silent_letters", "difficulty": 2, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" },
+          { "id": "boss-destination", "type": "boss", "activityId": "boss", "targets": [], "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" }
+        ],
+        "adventureBoard": { "boardId": "fixture-board-voice-avoidant", "planId": "fixture-voice-avoidant", "childId": "voice_avoidant", "title": "Voice Avoidant Path", "domain": "spelling", "theme": { "backgroundImage": "/adventure/backgrounds/silent-letters.png", "palette": { "path": "#ffffff", "completed": "#16a34a", "available": "#7c3aed", "locked": "#64748b", "current": "#f59e0b", "preview": "#60a5fa", "text": "#ffffff", "panel": "rgba(15, 23, 42, 0.68)" } }, "nodes": [{ "id": "start", "kind": "start", "label": "Start", "state": "available" }, { "id": "visible-read", "kind": "activity", "activityId": "word-radar", "label": "Read Words", "state": "available" }, { "id": "typed-spell", "kind": "activity", "activityId": "spell-check", "label": "Typed Spell", "state": "available" }, { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" }, { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } }, { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }], "edges": [], "choiceSets": [{ "id": "baseline-route-choice", "kind": "baseline-route", "options": [{ "id": "read", "label": "Read Words", "nodeId": "visible-read" }, { "id": "type", "label": "Typed Spell", "nodeId": "typed-spell" }] }] },
+        "evidenceUsed": [{ "id": "voice-evidence", "type": "chart", "summary": "Recent sessions show voice avoidance, so pronunciation should not be the first gate." }],
+        "openQuestions": [],
+        "approvalStatus": "pending",
+        "planTheory": { "hypothesis": "voice avoidance", "evidenceSummary": ["voice avoidance"], "intervention": "avoid required voice", "supportCriteria": ["completion improves"], "reviseCriteria": ["typing fatigue"], "falsifyCriteria": ["voluntary voice"] }
+      }
+    }
+  },
+  {
+    "scenarioId": "spelling-ability-bands",
+    "childId": "speed_motivated",
+    "model": "fixture:claude-sonnet-4-5",
+    "createdAt": "2026-05-27T13:00:00.000Z",
+    "latencyMs": 0,
+    "tokenEstimate": { "inputTokens": 20000, "outputTokens": 4000 },
+    "expectedEvidenceTerms": ["competition"],
+    "scenarioExpectations": {
+      "requiredEvidenceRoles": ["spelling_production", "pressure_mastery_candidate"],
+      "discouragedFirstActivities": ["letter-rush"],
+      "expectedTargetLanes": ["silent_letters"]
+    },
+    "preflight": { "status": "pass", "issues": [] },
+    "output": {
+      "planTheory": { "hypothesis": "Competition is motivating, but baseline proof should come before speed pressure.", "evidenceSummary": ["competition"], "intervention": "Spell check first, then a speed wrapper for preference and persistence.", "supportCriteria": ["accuracy survives speed"], "reviseCriteria": ["speed creates careless misses"], "falsifyCriteria": ["child avoids speed"] },
+      "reviewQuestions": ["Does speed increase effort after baseline proof?"],
+      "activeSessionPlan": {
+        "planId": "fixture-speed-motivated",
+        "childId": "speed_motivated",
+        "createdAt": "2026-05-27T13:00:00.000Z",
+        "source": "planner_scenario_lab_fixture",
+        "domain": "spelling",
+        "activeHomeworkId": "hw-spelling-ability-bands",
+        "nodePlan": [
+          { "id": "spell-check", "type": "spell-check", "activityId": "spell-check", "targets": ["sign", "know"], "targetLane": "silent_letters", "difficulty": 1, "source": "chart_planner" },
+          { "id": "letter-rush", "type": "letter-rush", "activityId": "letter-rush", "targets": ["write"], "targetLane": "silent_letters", "difficulty": 2, "source": "chart_planner" },
+          { "id": "mystery-choice", "type": "mystery", "activityId": "mystery", "targets": [], "difficulty": 1, "source": "chart_planner", "locked": false },
+          { "id": "quest-destination", "type": "quest", "activityId": "quest", "targets": ["sign", "know", "write"], "targetLane": "silent_letters", "difficulty": 2, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" },
+          { "id": "boss-destination", "type": "boss", "activityId": "boss", "targets": [], "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" }
+        ],
+        "adventureBoard": { "boardId": "fixture-board-speed-motivated", "planId": "fixture-speed-motivated", "childId": "speed_motivated", "title": "Speed Motivated Path", "domain": "spelling", "theme": { "backgroundImage": "/adventure/backgrounds/silent-letters.png", "palette": { "path": "#ffffff", "completed": "#16a34a", "available": "#7c3aed", "locked": "#64748b", "current": "#f59e0b", "preview": "#60a5fa", "text": "#ffffff", "panel": "rgba(15, 23, 42, 0.68)" } }, "nodes": [{ "id": "start", "kind": "start", "label": "Start", "state": "available" }, { "id": "spell-check", "kind": "activity", "activityId": "spell-check", "label": "Spell Check", "state": "available" }, { "id": "letter-rush", "kind": "activity", "activityId": "letter-rush", "label": "Letter Rush", "state": "available" }, { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" }, { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } }, { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }], "edges": [], "choiceSets": [{ "id": "baseline-route-choice", "kind": "baseline-route", "options": [{ "id": "spell", "label": "Spell Check", "nodeId": "spell-check" }, { "id": "rush", "label": "Letter Rush", "nodeId": "letter-rush" }] }] },
+        "evidenceUsed": [{ "id": "speed-evidence", "type": "chart", "summary": "Competition increases persistence, but speed is preference evidence until accuracy holds." }],
+        "openQuestions": [],
+        "approvalStatus": "pending",
+        "planTheory": { "hypothesis": "competition motivates", "evidenceSummary": ["competition"], "intervention": "baseline then speed", "supportCriteria": ["accuracy holds"], "reviseCriteria": ["speed errors"], "falsifyCriteria": ["speed avoidance"] }
+      }
+    }
+  },
+  {
+    "scenarioId": "spelling-ability-bands",
+    "childId": "test_tomorrow_mixed",
+    "model": "fixture:claude-sonnet-4-5",
+    "createdAt": "2026-05-27T13:00:00.000Z",
+    "latencyMs": 0,
+    "tokenEstimate": { "inputTokens": 20000, "outputTokens": 4000 },
+    "expectedEvidenceTerms": ["test tomorrow", "mixed purpose"],
+    "scenarioExpectations": {
+      "requiredEvidenceRoles": ["spelling_production", "recognition_fluency"],
+      "expectedWordRadarModes": ["visible_read/whole-word"],
+      "expectedTargetLanes": ["silent_letters", "high_frequency"],
+      "maximumAcademicNodeCount": 4
+    },
+    "preflight": { "status": "pass", "issues": [] },
+    "output": {
+      "planTheory": { "hypothesis": "The test tomorrow raises intensity, but mixed purpose means spelling words and high-frequency reading need different instruments.", "evidenceSummary": ["test tomorrow", "mixed purpose"], "intervention": "Use a tight spelling proof and visible read fluency check before Quest prep.", "supportCriteria": ["both lanes produce evidence"], "reviseCriteria": ["one lane is weak"], "falsifyCriteria": ["high-frequency words are misrouted to spelling"] },
+      "reviewQuestions": ["Does urgency hide a lane mismatch?"],
+      "activeSessionPlan": {
+        "planId": "fixture-test-tomorrow-mixed",
+        "childId": "test_tomorrow_mixed",
+        "createdAt": "2026-05-27T13:00:00.000Z",
+        "source": "planner_scenario_lab_fixture",
+        "domain": "spelling",
+        "activeHomeworkId": "hw-spelling-ability-bands",
+        "nodePlan": [
+          { "id": "spell-proof", "type": "spell-check", "activityId": "spell-check", "targets": ["sign", "know", "write"], "targetLane": "silent_letters", "difficulty": 2, "source": "chart_planner" },
+          { "id": "read-fluency", "type": "word-radar", "activityId": "word-radar", "targets": ["among", "answer", "enough"], "targetLane": "high_frequency", "difficulty": 1, "source": "chart_planner", "wordRadarConfig": { "recallMode": "visible_read", "inputMode": "whole-word", "speakStyle": "option-a", "showTimer": false, "hideWordDuringResponse": false, "requiresCapturedResponse": true } },
+          { "id": "mystery-choice", "type": "mystery", "activityId": "mystery", "targets": [], "difficulty": 1, "source": "chart_planner", "locked": false },
+          { "id": "quest-destination", "type": "quest", "activityId": "quest", "targets": ["sign", "know", "write"], "targetLane": "silent_letters", "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" },
+          { "id": "boss-destination", "type": "boss", "activityId": "boss", "targets": [], "difficulty": 3, "source": "chart_planner", "locked": true, "masteryUnlockState": "preparing" }
+        ],
+        "adventureBoard": { "boardId": "fixture-board-test-tomorrow-mixed", "planId": "fixture-test-tomorrow-mixed", "childId": "test_tomorrow_mixed", "title": "Test Tomorrow Mixed Path", "domain": "spelling", "theme": { "backgroundImage": "/adventure/backgrounds/silent-letters.png", "palette": { "path": "#ffffff", "completed": "#16a34a", "available": "#7c3aed", "locked": "#64748b", "current": "#f59e0b", "preview": "#60a5fa", "text": "#ffffff", "panel": "rgba(15, 23, 42, 0.68)" } }, "nodes": [{ "id": "start", "kind": "start", "label": "Start", "state": "available" }, { "id": "spell-proof", "kind": "activity", "activityId": "spell-check", "label": "Spell Proof", "state": "available" }, { "id": "read-fluency", "kind": "activity", "activityId": "word-radar", "label": "Fast Read", "state": "available" }, { "id": "mystery-choice", "kind": "mystery", "activityId": "mystery", "label": "Mystery", "state": "available" }, { "id": "quest-destination", "kind": "quest", "activityId": "quest", "label": "Quest", "state": "preview", "lock": { "label": "Preparing" } }, { "id": "boss-destination", "kind": "boss", "activityId": "boss", "label": "Boss", "state": "locked", "lock": { "label": "After Quest" } }], "edges": [], "choiceSets": [{ "id": "baseline-route-choice", "kind": "baseline-route", "options": [{ "id": "spell", "label": "Spell Proof", "nodeId": "spell-proof" }, { "id": "read", "label": "Fast Read", "nodeId": "read-fluency" }] }] },
+        "evidenceUsed": [{ "id": "deadline-evidence", "type": "chart", "summary": "The test tomorrow creates urgency, and the source has mixed purpose lanes." }],
+        "openQuestions": [],
+        "approvalStatus": "pending",
+        "planTheory": { "hypothesis": "test tomorrow mixed purpose", "evidenceSummary": ["test tomorrow", "mixed purpose"], "intervention": "tight lane-specific evidence", "supportCriteria": ["both lanes pass"], "reviseCriteria": ["one lane weak"], "falsifyCriteria": ["lane mismatch"] }
+      }
+    }
+  }
+]
