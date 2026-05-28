@@ -7,6 +7,7 @@ import {
   copySessionLogsToRepo,
   resolveExpiredUploadedLocalPaths,
   resolveUploadedLocalPaths,
+  uploadedStatusIsVerified,
 } from "./uploadSessionLogs";
 
 function makeTempDir(): string {
@@ -104,5 +105,77 @@ describe("uploadSessionLogs", () => {
       path.join(sourceRoot, "2026-05-01"),
       path.join(sourceRoot, "2026", "05", "2026-05-01T10-00-00_reina_homework_old001"),
     ]);
+  });
+
+  it("requires copied upload-status proof before local logs are eligible for deletion", () => {
+    const root = makeTempDir();
+    const source = path.join(root, "source");
+    const repo = path.join(root, "repo");
+    const session = path.join(source, "2026", "05", "2026-05-01T10-00-00_reina_homework_old001");
+    fs.mkdirSync(session, { recursive: true });
+    fs.writeFileSync(path.join(session, "summary.md"), "# summary\n");
+    fs.writeFileSync(
+      path.join(session, "upload-status.json"),
+      JSON.stringify({ uploaded: false, updatedAt: "2026-05-01T10:00:00.000Z" }),
+    );
+    copySessionLogsToRepo({
+      sourceRoot: source,
+      repoRoot: repo,
+      files: collectSessionLogFiles(source),
+    });
+
+    expect(uploadedStatusIsVerified(source, repo, session)).toBe(true);
+    fs.writeFileSync(
+      path.join(repo, "sessions", "2026", "05", "2026-05-01T10-00-00_reina_homework_old001", "upload-status.json"),
+      JSON.stringify({ uploaded: false }),
+    );
+    expect(uploadedStatusIsVerified(source, repo, session)).toBe(false);
+  });
+
+  it("uploads companion video call trace folders and honors 7-day retention after upload proof", () => {
+    const root = makeTempDir();
+    const source = path.join(root, "source");
+    const repo = path.join(root, "repo");
+    const traceFolder = path.join(
+      source,
+      "2026",
+      "05",
+      "2026-05-01T22-10-00_showroom_video_call_trace123",
+    );
+    fs.mkdirSync(traceFolder, { recursive: true });
+    fs.writeFileSync(path.join(traceFolder, "companion-call-trace.ndjson"), "{}\n");
+    fs.writeFileSync(path.join(traceFolder, "trace-summary.json"), "{}\n");
+    fs.writeFileSync(
+      path.join(traceFolder, "upload-status.json"),
+      JSON.stringify({ uploaded: false }),
+    );
+
+    const files = collectSessionLogFiles(source);
+    copySessionLogsToRepo({ sourceRoot: source, repoRoot: repo, files });
+
+    expect(files).toEqual([
+      path.join(traceFolder, "companion-call-trace.ndjson"),
+      path.join(traceFolder, "trace-summary.json"),
+      path.join(traceFolder, "upload-status.json"),
+    ]);
+    expect(
+      fs.existsSync(
+        path.join(
+          repo,
+          "sessions",
+          "2026",
+          "05",
+          "2026-05-01T22-10-00_showroom_video_call_trace123",
+          "companion-call-trace.ndjson",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      resolveExpiredUploadedLocalPaths(source, files, {
+        now: new Date("2026-05-09T00:00:00.000Z"),
+        retentionDays: 7,
+      }),
+    ).toEqual([traceFolder]);
+    expect(uploadedStatusIsVerified(source, repo, traceFolder)).toBe(true);
   });
 });

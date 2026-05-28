@@ -88,14 +88,27 @@ import {
 } from "./companionShowroomVoice";
 import {
   buildShowroomClaudeMessages,
+  buildShowroomTalkMemoryPrompt,
   buildShowroomTalkSystemPrompt,
+  createShowroomCompanionActivityRequest,
   createShowroomCompanionActCommand,
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
+  getShowroomCompanionActivityTools,
   getShowroomCompanionActTools,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
 } from "./companionShowroomTalk";
+import {
+  maybeCompactCompanionInteractionMemory,
+  readCompanionCareMemoryForPrompt,
+  recordCompanionInteractionEvent,
+} from "./companionInteractionMemory";
+import {
+  readCompanionVideoCallTracePacket,
+  recordCompanionVideoCallTraceEvent,
+  type CompanionVideoCallTraceEventName,
+} from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
 
@@ -109,6 +122,24 @@ type ChildName = keyof typeof companions;
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
+const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
+  "call_started",
+  "call_ended",
+  "speech_listen_start",
+  "speech_result",
+  "speech_error",
+  "echo_suppressed",
+  "loop_suspected",
+  "talk_request_start",
+  "talk_response_received",
+  "audio_play_start",
+  "audio_ended",
+  "audio_error",
+  "handsfree_rearm_scheduled",
+  "handsfree_rearm_starting",
+  "handsfree_rearm_skipped",
+  "activity_context_changed",
+]);
 
 function isValidChild(name: string): name is ChildName {
   return name === "Ila" || name === "Reina";
@@ -134,6 +165,48 @@ function normalizeWrittenScore(raw: unknown): 0 | 0.5 | 1 {
   return 0;
 }
 
+function tracePayloadFromRequestBody(body: unknown): Record<string, unknown> {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return {};
+  const raw = body as Record<string, unknown>;
+  const payload =
+    raw.payload && typeof raw.payload === "object" && !Array.isArray(raw.payload)
+      ? (raw.payload as Record<string, unknown>)
+      : {};
+  return payload;
+}
+
+function safeRecordCompanionVideoCallTrace(input: {
+  callTraceId?: string;
+  turnId?: string;
+  eventName: CompanionVideoCallTraceEventName;
+  childId?: string;
+  companionId?: string;
+  callSource?: string;
+  relationshipState?: string;
+  payload?: Record<string, unknown>;
+  timestamp?: number;
+}): void {
+  if (!input.callTraceId) return;
+  try {
+    recordCompanionVideoCallTraceEvent({
+      traceId: input.callTraceId,
+      turnId: input.turnId,
+      eventName: input.eventName,
+      childId: input.childId,
+      companionId: input.companionId,
+      callSource: input.callSource,
+      relationshipState: input.relationshipState,
+      timestamp: input.timestamp,
+      payload: input.payload,
+    });
+  } catch (err: unknown) {
+    console.error(
+      " 🔴 [companion-video-trace] [append] [error]",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
 const DIAG_REWARD_TRIGGER_TYPES = new Set([
   "correct_attempt",
   "mastered_word",
@@ -153,6 +226,23 @@ function pickDiagSpellingWord(childId: string): string {
 }
 
 type ShowroomLine = "intro" | "plead";
+const SHOWROOM_BANTER_SPEECH_SOURCE = "video_game_banter";
+const SHOWROOM_BANTER_SPEECH_MAX_CHARS = 180;
+
+export function normalizeShowroomBanterSpeechText(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw.replace(/\s+/g, " ").trim().slice(0, SHOWROOM_BANTER_SPEECH_MAX_CHARS);
+}
+
+export function shouldUseShowroomBanterSpeech(input: {
+  source?: unknown;
+  text?: unknown;
+}): boolean {
+  return (
+    input.source === SHOWROOM_BANTER_SPEECH_SOURCE &&
+    normalizeShowroomBanterSpeechText(input.text).length > 0
+  );
+}
 
 type ShowroomJson = {
   personality?: unknown;
@@ -731,6 +821,12 @@ export function setupRoutes(app: Express): void {
         : "";
     const lineRaw = typeof req.body?.line === "string" ? req.body.line.trim() : "";
     const line: ShowroomLine = lineRaw === "plead" ? "plead" : "intro";
+    const banterText = shouldUseShowroomBanterSpeech({
+      source: req.body?.source,
+      text: req.body?.text,
+    })
+      ? normalizeShowroomBanterSpeechText(req.body?.text)
+      : "";
     const languageRaw =
       typeof req.body?.language === "string" ? req.body.language.trim().toLowerCase() : "en";
     const language = languageRaw || "en";
@@ -776,7 +872,10 @@ export function setupRoutes(app: Express): void {
     }
 
     try {
-      const text = readShowroomScript(companion.id, companion.name, line, language);
+      const text = banterText || readShowroomScript(companion.id, companion.name, line, language);
+      console.log(
+        ` 🎮 [showroom-speak] [tts] companion=${companion.id} source=${banterText ? SHOWROOM_BANTER_SPEECH_SOURCE : line}`,
+      );
       const client = new ElevenLabsClient({ apiKey });
       const locators = getPronunciationLocators();
       const audio = await client.textToSpeech.convert(voiceId, {
@@ -791,6 +890,65 @@ export function setupRoutes(app: Express): void {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/companions/video-call-traces/:traceId/events", (req: Request, res: Response) => {
+    const traceId =
+      typeof req.params.traceId === "string" ? req.params.traceId.trim() : "";
+    const eventName =
+      typeof req.body?.eventName === "string" ? req.body.eventName.trim() : "";
+    if (!traceId) {
+      return res.status(400).json({ ok: false, error: "traceId_required" });
+    }
+    if (!COMPANION_VIDEO_CALL_TRACE_EVENTS.has(eventName as CompanionVideoCallTraceEventName)) {
+      return res.status(400).json({ ok: false, error: "invalid_trace_event" });
+    }
+    try {
+      recordCompanionVideoCallTraceEvent({
+        traceId,
+        turnId: typeof req.body?.turnId === "string" ? req.body.turnId : undefined,
+        eventName: eventName as CompanionVideoCallTraceEventName,
+        childId: typeof req.body?.childId === "string" ? req.body.childId : undefined,
+        companionId:
+          typeof req.body?.companionId === "string" ? req.body.companionId : undefined,
+        callSource:
+          typeof req.body?.callSource === "string" ? req.body.callSource : undefined,
+        relationshipState:
+          typeof req.body?.relationshipState === "string"
+            ? req.body.relationshipState
+            : undefined,
+        timestamp:
+          typeof req.body?.timestamp === "number" && Number.isFinite(req.body.timestamp)
+            ? req.body.timestamp
+            : undefined,
+        payload: tracePayloadFromRequestBody(req.body),
+      });
+      return res.json({
+        ok: true,
+        traceId,
+        traceUrl: `/api/companions/video-call-traces/${encodeURIComponent(traceId)}`,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.get("/api/companions/video-call-traces/:traceId", (req: Request, res: Response) => {
+    const traceId =
+      typeof req.params.traceId === "string" ? req.params.traceId.trim() : "";
+    if (!traceId) {
+      return res.status(400).json({ ok: false, error: "traceId_required" });
+    }
+    try {
+      return res.json(readCompanionVideoCallTracePacket(traceId));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.startsWith("trace_not_found:")) {
+        return res.status(404).json({ ok: false, error: "trace_not_found" });
+      }
+      return res.status(500).json({ ok: false, error: message });
     }
   });
 
@@ -841,9 +999,31 @@ export function setupRoutes(app: Express): void {
 
     try {
       const talk = resolved.request;
+      const talkTraceStartedAt = Date.now();
+      safeRecordCompanionVideoCallTrace({
+        callTraceId: talk.callTraceId,
+        turnId: talk.turnId,
+        eventName: "talk_request_start",
+        childId: talk.childId,
+        companionId: talk.companionId,
+        callSource: talk.callSource,
+        relationshipState: talk.relationshipState,
+        timestamp: talkTraceStartedAt,
+        payload: {
+          questionText: talk.question,
+          showroomTheme: talk.showroomTheme,
+          mode: talk.mode ?? "showroom",
+          activeActivity: talk.activeActivity,
+          visualSnapshot: talk.visualSnapshot,
+          visionRequested: Boolean(talk.visualSnapshot),
+        },
+      });
       const personality = readShowroomPersonality(
         companion.id,
         companion.personalityMarkdown ?? "",
+      );
+      const companionMemory = buildShowroomTalkMemoryPrompt(
+        readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
       );
       const system = buildShowroomTalkSystemPrompt({
         companionId: companion.id,
@@ -853,6 +1033,11 @@ export function setupRoutes(app: Express): void {
         mode: talk.mode,
         hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
         lastVisualSummary: talk.lastVisualSummary,
+        callSource: talk.callSource,
+        relationshipState: talk.relationshipState,
+        rewardContext: talk.rewardContext,
+        activeActivity: talk.activeActivity,
+        companionMemory,
       });
       const messages = buildShowroomClaudeMessages({
         question: talk.question,
@@ -860,21 +1045,31 @@ export function setupRoutes(app: Express): void {
         visualSnapshot: talk.visualSnapshot,
       });
       const client = new Anthropic();
+      const showroomTools = [
+        ...getShowroomCompanionActTools(),
+        ...getShowroomCompanionActivityTools(),
+      ];
       const msg = await client.messages.create({
         model: HOMEWORK_SONNET_MODEL,
         max_tokens: 180,
         system,
         messages: messages as Anthropic.MessageParam[],
-        tools: getShowroomCompanionActTools(),
+        tools: showroomTools,
       });
-      const toolUseBlocks = msg.content
+      const companionActToolUseBlocks = msg.content
         .filter(
           (block): block is Anthropic.ToolUseBlock =>
             block.type === "tool_use" && block.name === "companionAct",
         )
         .slice(0, 4);
+      const activityToolUseBlocks = msg.content
+        .filter(
+          (block): block is Anthropic.ToolUseBlock =>
+            block.type === "tool_use" && block.name === "openCompanionActivity",
+        )
+        .slice(0, 2);
       const commandByToolUseId = new Map<string, ReturnType<typeof createShowroomCompanionActCommand>>();
-      for (const block of toolUseBlocks) {
+      for (const block of companionActToolUseBlocks) {
         commandByToolUseId.set(
           block.id,
           createShowroomCompanionActCommand({
@@ -883,26 +1078,62 @@ export function setupRoutes(app: Express): void {
           }),
         );
       }
+      const activityByToolUseId = new Map<
+        string,
+        ReturnType<typeof createShowroomCompanionActivityRequest>
+      >();
+      for (const block of activityToolUseBlocks) {
+        activityByToolUseId.set(
+          block.id,
+          createShowroomCompanionActivityRequest({
+            childId: talk.childId,
+            companionId: talk.companionId,
+            rawInput: block.input,
+          }),
+        );
+      }
       const companionCommands = [...commandByToolUseId.values()].filter(
         (command): command is NonNullable<typeof command> => Boolean(command),
       );
+      const activityRequests = [...activityByToolUseId.values()].filter(
+        (request): request is NonNullable<typeof request> => Boolean(request),
+      );
       let text = extractAnthropicText(msg);
-      if (toolUseBlocks.length > 0) {
-        const toolResults: Anthropic.ToolResultBlockParam[] = toolUseBlocks.map((block) => {
-          const command = commandByToolUseId.get(block.id);
-          return {
-            type: "tool_result",
-            tool_use_id: block.id,
-            is_error: !command,
-            content: JSON.stringify({
-              type: "showroom_companion_act_result",
-              accepted: Boolean(command),
-              commandType: command?.type ?? null,
-              instruction:
-                "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
-            }),
-          };
-        });
+      if (companionActToolUseBlocks.length > 0 || activityToolUseBlocks.length > 0) {
+        const companionToolResults: Anthropic.ToolResultBlockParam[] =
+          companionActToolUseBlocks.map((block) => {
+            const command = commandByToolUseId.get(block.id);
+            return {
+              type: "tool_result",
+              tool_use_id: block.id,
+              is_error: !command,
+              content: JSON.stringify({
+                type: "showroom_companion_act_result",
+                accepted: Boolean(command),
+                commandType: command?.type ?? null,
+                instruction:
+                  "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
+              }),
+            };
+          });
+        const activityToolResults: Anthropic.ToolResultBlockParam[] =
+          activityToolUseBlocks.map((block) => {
+            const activity = activityByToolUseId.get(block.id);
+            return {
+              type: "tool_result",
+              tool_use_id: block.id,
+              is_error: !activity,
+              content: JSON.stringify({
+                type: "showroom_companion_activity_result",
+                accepted: Boolean(activity),
+                activityId: activity?.activityId ?? null,
+                surface: activity?.surface ?? null,
+                instruction:
+                  "If accepted, say one short playful sentence inviting the child into the game. Do not explain UI implementation.",
+              }),
+            };
+          });
+        const toolResults = [...companionToolResults, ...activityToolResults];
         const afterTool = await client.messages.create({
           model: HOMEWORK_SONNET_MODEL,
           max_tokens: 160,
@@ -918,14 +1149,14 @@ export function setupRoutes(app: Express): void {
               content: toolResults,
             },
           ],
-          tools: getShowroomCompanionActTools(),
+          tools: showroomTools,
           tool_choice: { type: "none" },
         });
         text = extractAnthropicText(afterTool) || text;
       }
       const spokenText = resolveShowroomSpokenText({
         rawText: text,
-        companionCommandCount: companionCommands.length,
+        companionCommandCount: companionCommands.length + activityRequests.length,
       });
       let audioBase64: string | undefined;
       let audioContentType: string | undefined;
@@ -948,23 +1179,74 @@ export function setupRoutes(app: Express): void {
         question: talk.question,
         responseText: spokenText,
         mode: talk.mode,
+        callSource: talk.callSource,
+        relationshipState: talk.relationshipState,
+        rewardContext: talk.rewardContext,
         visionUsed: Boolean(talk.visualSnapshot),
         visualSnapshot: talk.visualSnapshot,
       });
+      try {
+        recordCompanionInteractionEvent({
+          childId: talk.childId,
+          companionId: talk.companionId,
+          callSource: talk.callSource,
+          relationshipState: talk.relationshipState,
+          eventType: "companion_talk_completed",
+        questionText: talk.question,
+        companionText: spokenText,
+        commandCount: companionCommands.length,
+          visionUsed: Boolean(talk.visualSnapshot),
+          visualSnapshot: talk.visualSnapshot,
+          rewardContext: talk.rewardContext,
+        });
+        void maybeCompactCompanionInteractionMemory({
+          childId: talk.childId,
+          companionId: talk.companionId,
+        }).catch((err: unknown) => {
+          console.error(
+            " 🔴 [companion-memory] [compact_async] [error]",
+            err instanceof Error ? err.message : String(err),
+          );
+        });
+      } catch (err: unknown) {
+        console.error(
+          " 🔴 [companion-memory] [ledger_append] [error]",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
       const visualSummary =
         talk.mode === "video_call" && talk.visualSnapshot
           ? spokenText.slice(0, 220)
           : undefined;
 
       console.log(
-        ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme} mode=${talk.mode ?? "showroom"} vision=${Boolean(talk.visualSnapshot)} companionCommands=${companionCommands.length}`,
+        ` 🎮 [showroom-talk] completed child=${talk.childId} companion=${talk.companionId} room=${talk.showroomTheme} mode=${talk.mode ?? "showroom"} vision=${Boolean(talk.visualSnapshot)} companionCommands=${companionCommands.length} activityRequests=${activityRequests.length}`,
       );
+      safeRecordCompanionVideoCallTrace({
+        callTraceId: talk.callTraceId,
+        turnId: talk.turnId,
+        eventName: "talk_response_received",
+        childId: talk.childId,
+        companionId: talk.companionId,
+        callSource: talk.callSource,
+        relationshipState: talk.relationshipState,
+        timestamp: Date.now(),
+        payload: {
+          responseText: spokenText,
+          commandCount: companionCommands.length,
+          activityRequestCount: activityRequests.length,
+          visionUsed: Boolean(talk.visualSnapshot),
+          requestToResponseMs: Date.now() - talkTraceStartedAt,
+          activeActivity: talk.activeActivity,
+        },
+      });
       res.json({
         ok: true,
         text: spokenText,
         ...(audioBase64 && { audioBase64 }),
         ...(audioContentType && { audioContentType }),
         companionCommands,
+        activityRequests,
         ...(visualSummary && { visualSummary }),
         event,
         phaseCommands: {
@@ -1533,6 +1815,17 @@ Return plain text only.`,
       ) {
         const events = handleMapClientMessage(sessionId, {
           type: "game_state_update",
+          payload: body.payload as Record<string, unknown>,
+        });
+        return res.json({ events });
+      }
+      if (
+        body.phase === "activity_evidence" &&
+        body.payload != null &&
+        typeof body.payload === "object"
+      ) {
+        const events = handleMapClientMessage(sessionId, {
+          type: "activity_evidence",
           payload: body.payload as Record<string, unknown>,
         });
         return res.json({ events });
