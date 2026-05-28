@@ -333,14 +333,10 @@ describe("VisualExplainerDemo", () => {
     vi.unstubAllGlobals();
   });
 
-  it("exposes a map-launched demo route and map node integration", () => {
+  it("exposes a legacy-map-free visual explainer demo route and node integration", () => {
     const main = readFileSync(join(process.cwd(), "src/main.tsx"), "utf-8");
     const mapDemo = readFileSync(
       join(process.cwd(), "src/components/VisualExplainer/VisualExplainerMapDemo.tsx"),
-      "utf-8",
-    );
-    const adventureMap = readFileSync(
-      join(process.cwd(), "src/components/AdventureMap.tsx"),
       "utf-8",
     );
     const activityCatalog = readFileSync(
@@ -349,16 +345,12 @@ describe("VisualExplainerDemo", () => {
     );
 
     expect(main).toContain('runtimeConfig.demoRoute === "visual-explainer-map"');
-    expect(mapDemo).toContain('type: "visual-explainer"');
-    expect(mapDemo).toContain("<CompanionLayer");
+    expect(mapDemo).toContain("<VisualExplainerDemo");
     expect(mapDemo).toContain("visual-learner-map-mode-switcher");
     expect(mapDemo).toContain("visualLearnerFlowMode");
-    expect(mapDemo).toContain("speechBubbleText={null}");
+    expect(mapDemo).not.toContain("../AdventureMap");
     expect(mapDemo).not.toContain("I am watching the model with you.");
     expect(mapDemo).not.toContain("I will stay quiet while the model plays all the way through.");
-    expect(adventureMap).toContain('launchedNode.type === "visual-explainer"');
-    expect(adventureMap).toContain("visualLearnerFlowMode");
-    expect(adventureMap).toContain("VisualExplainerDemo");
     expect(activityCatalog).toContain('nodeType: "visual-explainer"');
   });
 });

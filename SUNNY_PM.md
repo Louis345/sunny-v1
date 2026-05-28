@@ -131,5 +131,21 @@ Do Not:
 - Do not add companion narration.
 - Do not change scoring thresholds without a failing fixture.
 
+### T011 - Rehome Slot Machine Variable Reward
+Owner: AI
+Status: queued
+Goal: Keep the slot-machine reward idea as a new-board engagement instrument, not as a reason to preserve the legacy AdventureMap.
+Files:
+- `web/src/components/SlotMachineOverlay.tsx`
+- new JSON-board Mystery/variable-reward integration tests
+Success:
+- Mystery or reward choice sets can use a slot-machine reveal ceremony from the new `AdventureBoardExperience` path.
+- Slot reveal events record anticipation/reveal/replay/back signals as engagement evidence only.
+- The component is renamed or wrapped as a neutral variable-reward reveal if that makes ownership clearer.
+- No import from or dependency on legacy `AdventureMap`.
+Do Not:
+- Do not count slot-machine reward engagement as mastery.
+- Do not keep the old AdventureMap alive for this component.
+
 ## Next Command
 Re-ingest/replan Reina spelling with the updated planner prompt, then run `src/scripts/preflightHomeworkSession.ts --child=reina`.

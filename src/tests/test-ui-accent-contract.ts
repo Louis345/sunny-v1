@@ -8,15 +8,14 @@ function read(filePath: string): string {
 }
 
 describe("UI accent contract", () => {
-  it("does not define legacy companion accent helper", () => {
-    const src = read("web/src/components/AdventureMap.tsx");
-    const legacyName = `companion${"Accent"}`;
-    expect(src.includes(`function ${legacyName}`)).toBe(false);
+  it("does not ship the legacy AdventureMap companion accent helper", () => {
+    expect(fs.existsSync(path.resolve(process.cwd(), "web/src/components/AdventureMap.tsx"))).toBe(false);
   });
 
   it("does not use Ila/Reina object keys in component files", () => {
     const files = [
-      "web/src/components/AdventureMap.tsx",
+      "web/src/components/AdventureBoard.tsx",
+      "web/src/components/AdventureBoardExperience.tsx",
       "web/src/components/SessionScreen.tsx",
       "web/src/components/ChildPicker.tsx",
     ];

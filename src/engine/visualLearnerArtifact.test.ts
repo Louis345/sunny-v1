@@ -15,10 +15,6 @@ const SHELL_PATH = join(
   PROJECT_ROOT,
   "web/public/generated/openai-visual-probe/artifact-shell.js",
 );
-const ADVENTURE_MAP_PATH = join(
-  PROJECT_ROOT,
-  "web/src/components/AdventureMap.tsx",
-);
 const PROBE_SCRIPT_PATH = join(PROJECT_ROOT, "scripts/openaiVisualLearnerProbe.ts");
 
 describe("visual learner artifact config", () => {
@@ -161,15 +157,7 @@ describe("visual learner generated HTML artifact", () => {
   });
 });
 
-describe("visual learner adventure-map routing", () => {
-  it("stores the visual learner companion anchor in the outer adventure wrapper", () => {
-    const adventureMap = readFileSync(ADVENTURE_MAP_PATH, "utf-8");
-
-    expect(adventureMap).toContain('t === "companion_anchor"');
-    expect(adventureMap).toContain("setVisualLearnerCompanionAnchor");
-    expect(adventureMap).toContain('data-testid="visual-learner-companion-anchor"');
-  });
-
+describe("visual learner launch routing", () => {
   it("launches a visual-explainer node as an iframe with the artifact config path", () => {
     const action = buildNodeLaunchAction(
       {

@@ -1,5 +1,4 @@
 import {
-  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -16,9 +15,7 @@ import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
 import { CanvasTestOverlay } from "./components/CanvasTestPanel";
-import { AdventureMap } from "./components/AdventureMap";
 import { AdventureBoardExperience } from "./components/AdventureBoardExperience";
-import type { GameIframeOverlayState } from "./types/gameIframeOverlay";
 import type {
   AdventureBoardNode,
   AdventureChoiceOption,
@@ -34,7 +31,6 @@ import {
   PostActivityEngagementOverlay,
   type PostActivityOutcome,
 } from "./components/PostActivityEngagementOverlay";
-import { useMapSession } from "./hooks/useMapSession";
 import {
   COMPANION_API_VERSION,
   type CompanionCommand,
@@ -51,7 +47,6 @@ import {
   getTamagotchiSpeechBubble,
   type TamagotchiState,
 } from "../../src/shared/vrrTypes";
-import { TamagotchiSheet, type TamagotchiSheetProps } from "./components/TamagotchiSheet";
 import { RewardDiagOverlay } from "./components/RewardDiagOverlay";
 import { RewardTriggerPanel } from "./components/RewardTriggerPanel";
 import { isRewardDiagEnabled, type RewardDiagEvent } from "./types/rewardDiag";
@@ -136,7 +131,6 @@ function resolveMapPreviewMode(): false | "free" | "go-live" {
 
 const mapPreviewMode = resolveMapPreviewMode();
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env as Record<string, string>);
-const mapInspectAllMode = runtimeConfig.nodeAccess === "inspect-all";
 
 function childNameFromId(childId: string | null): string {
   if (!childId) return "Sunny";
@@ -150,25 +144,6 @@ function CompanionLayerWithCare(props: CompanionLayerProps) {
       {...props}
       companionCare={companionCare.care}
       companionBehavior={companionCare.behavior}
-    />
-  );
-}
-
-function TamagotchiSheetWithCare(
-  props: Omit<
-    TamagotchiSheetProps,
-    "companionCare" | "onFeed" | "isFeeding"
-  >,
-) {
-  const companionCare = useCompanionCare();
-  return (
-    <TamagotchiSheet
-      {...props}
-      companionCare={companionCare.care ?? undefined}
-      onFeed={(itemId) => {
-        void companionCare.feed(itemId);
-      }}
-      isFeeding={companionCare.isFeeding}
     />
   );
 }
@@ -368,28 +343,6 @@ const diagMapPanelEnabled =
   import.meta.env.VITE_ADVENTURE_MAP === "true" &&
   import.meta.env.VITE_DIAG_CHILD_ID?.trim().toLowerCase() === "creator";
 
-function companionEventDedupeKey(p: CompanionEventPayload): string {
-  const trig = p.trigger ?? "";
-  const em = p.emote ?? "";
-  return `${p.timestamp}|${p.childId.trim().toLowerCase()}|${em}|${trig}`;
-}
-
-function mergeCompanionEvents(
-  voice: CompanionEventPayload[],
-  map: CompanionEventPayload[],
-): CompanionEventPayload[] {
-  const seen = new Set<string>();
-  const out: CompanionEventPayload[] = [];
-  for (const p of [...voice, ...map]) {
-    const k = companionEventDedupeKey(p);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(p);
-  }
-  out.sort((a, b) => a.timestamp - b.timestamp);
-  return out;
-}
-
 function companionCommandDedupeKey(c: CompanionCommand): string {
   return `${c.timestamp}|${c.childId.trim().toLowerCase()}|${c.type}|${JSON.stringify(c.payload)}`;
 }
@@ -523,9 +476,6 @@ function App() {
     personalBests: Record<string, number>;
     inputMode: "whole-word" | "letter-by-letter" | "keyboard";
   } | null>(null);
-  const [profileReinforceWords, setProfileReinforceWords] = useState<
-    string[] | null
-  >(null);
   const [profileDyslexiaMode, setProfileDyslexiaMode] = useState(false);
   const [wordRadarDiagOpen, setWordRadarDiagOpen] = useState(false);
   const [diagWordleUrl, setDiagWordleUrl] = useState<string | null>(null);
@@ -538,15 +488,9 @@ function App() {
   >(null);
   const [diagGameRestartRequested, setDiagGameRestartRequested] = useState(false);
   const lastDiagLaunchEventRef = useRef<string | null>(null);
-  const [companionSheetOpen, setCompanionSheetOpen] = useState(false);
   const [diagCompanionCommands, setDiagCompanionCommands] = useState<
     CompanionCommand[]
   >([]);
-  const [mapGameOverlay, setMapGameOverlay] = useState<GameIframeOverlayState>({
-    active: false,
-    iframe: null,
-    url: null,
-  });
   const [plannerBoardLaunch, setPlannerBoardLaunch] = useState<{
     node: NodeConfig;
     iframeUrl: string | null;
@@ -569,7 +513,6 @@ function App() {
     adventureChildId,
     setAdventureChildId,
     activeNodeScreen,
-    setActiveNodeScreen,
     karaokeReadingActive,
     companionMuted,
     activeProfileChildId,
@@ -651,62 +594,24 @@ function App() {
     return () => window.clearTimeout(id);
   }, [vrrCelebrateEvent]);
 
-  useEffect(() => {
-    if (adventureChildId) return;
-    startTransition(() => {
-      setCompanionSheetOpen(false);
-    });
-  }, [adventureChildId]);
-
-  const mapSession = useMapSession(
-    adventureMapEnabled && adventureChildId && !plannerBoardRuntimeRequested
-      ? adventureChildId
-      : "",
-    mapPreviewMode,
-    mapInspectAllMode,
-    runtimeConfig.homeworkDomain,
-  );
-
-  const prevMapProgRef = useRef<string | null>(null);
   const lastSessionCompleteTsRef = useRef<number | null>(null);
-  const profileMapProgressKey = `${mapSession.mapState?.xp ?? ""}:${mapSession.mapState?.level ?? ""}:${(mapSession.mapState?.completedNodes ?? []).join(",")}`;
 
   const mapReady =
     !adventureChildId ||
-    plannerBoardRuntimeActive ||
-    (mapSession.sessionStarted && (mapSession.mapState?.nodes.length ?? 0) > 0);
+    !plannerBoardRuntimeRequested ||
+    plannerBoardRuntimeActive;
   const voiceReady =
     !adventureChildId ||
     !theaterLoadingEnabled ||
     (state.sessionBootReady && state.firstAudioChunkReceived);
   const profileReady = !activeProfileChildId || profileCompanion !== null;
-  const themeImageUrls = [
-    profileAvatarImagePath,
-    mapSession.mapState?.theme.backgroundUrl,
-    mapSession.mapState?.theme.castleUrl,
-    ...Object.values(mapSession.mapState?.theme.nodeThumbnails ?? {}),
-  ];
+  const themeImageUrls = [profileAvatarImagePath];
   const imagesReady = usePreloadedImages(
     themeImageUrls,
     theaterLoadingEnabled && !!adventureChildId && mapReady && profileReady,
   );
   const loadingAssetsReady =
     !adventureChildId || !theaterLoadingEnabled || (profileReady && imagesReady);
-
-  const onLockedMapNodeTap = useCallback(
-    (node: NodeConfig) => {
-      const currentUnlockedNode = mapSession.mapState?.nodes.find(
-        (candidate) => !candidate.isLocked && !candidate.isCompleted,
-      );
-      sendMessage("locked_node_tap", {
-        childId: adventureChildId,
-        nodeId: node.id,
-        nodeType: node.type,
-        currentUnlockedNodeId: currentUnlockedNode?.id,
-      });
-    },
-    [adventureChildId, mapSession.mapState?.nodes, sendMessage],
-  );
 
   useEffect(() => {
     setSessionReady(false);
@@ -747,14 +652,13 @@ function App() {
       ? "karaoke"
       : diagFlowGameOpen === "wordle"
         ? null
-        : diagFlowGameOpen ?? plannerBoardLaunch?.node.type ?? mapSession.launchedNode?.type ?? null;
+        : diagFlowGameOpen ?? plannerBoardLaunch?.node.type ?? null;
 
   useEffect(() => {
     registerMapNodeType(activeVoiceGameNodeType);
   }, [
     activeVoiceGameNodeType,
     plannerBoardLaunch?.node.id,
-    mapSession.launchedNode?.id,
     registerMapNodeType,
   ]);
 
@@ -848,8 +752,7 @@ function App() {
             isDiagMode: true,
             /** Live _contract.js bridge so game_state_update reaches the voice session (not preview=free). */
             iframePreviewParam: "go-live",
-            companionCurrency:
-              mapSession.liveMapCurrency ?? profileCompanionCurrency,
+            companionCurrency: profileCompanionCurrency,
           },
         );
         if (action.kind === "iframe") {
@@ -886,7 +789,6 @@ function App() {
       activeProfileChildId,
       adventureChildId,
       effectiveCompanion?.companionId,
-      mapSession.liveMapCurrency,
       profileCompanionCurrency,
       endSession,
       startDiagGameMicSession,
@@ -963,8 +865,7 @@ function App() {
               : "false",
         vrmUrl: companionConfig?.vrmUrl,
         companionMuted,
-        companionCurrency:
-          mapSession.liveMapCurrency ?? profileCompanionCurrency,
+        companionCurrency: profileCompanionCurrency,
         dyslexiaMode: profileDyslexiaMode,
       });
 
@@ -994,7 +895,6 @@ function App() {
       adventureChildId,
       companionMuted,
       effectiveCompanion,
-      mapSession.liveMapCurrency,
       plannerBoardPacket,
       profileCompanionCurrency,
       profileDyslexiaMode,
@@ -1237,51 +1137,15 @@ function App() {
   ]);
 
   const mergedCompanionEvents = useMemo(() => {
-    const base = mergeCompanionEvents(
-      voiceCompanionEvents,
-      mapSession.companionEvents,
-    );
+    const base = voiceCompanionEvents;
     return vrrCelebrateEvent ? [...base, vrrCelebrateEvent] : base;
-  }, [voiceCompanionEvents, mapSession.companionEvents, vrrCelebrateEvent]);
+  }, [voiceCompanionEvents, vrrCelebrateEvent]);
 
   const mergedCompanionCommands = useMemo(
     () =>
-      mergeCompanionCommands(
-        mergeCompanionCommands(
-          voiceCompanionCommands,
-          mapSession.companionCommands,
-        ),
-        diagCompanionCommands,
-      ),
-    [
-      voiceCompanionCommands,
-      mapSession.companionCommands,
-      diagCompanionCommands,
-    ],
+      mergeCompanionCommands(voiceCompanionCommands, diagCompanionCommands),
+    [voiceCompanionCommands, diagCompanionCommands],
   );
-
-  useEffect(() => {
-    prevMapProgRef.current = null;
-  }, [adventureChildId]);
-
-  useEffect(() => {
-    if (!adventureMapEnabled || !adventureChildId || !activeProfileChildId) {
-      return;
-    }
-    if (prevMapProgRef.current === null) {
-      prevMapProgRef.current = profileMapProgressKey;
-      return;
-    }
-    if (prevMapProgRef.current !== profileMapProgressKey) {
-      prevMapProgRef.current = profileMapProgressKey;
-      setProfileReloadNonce((n) => n + 1);
-    }
-  }, [
-    activeProfileChildId,
-    adventureChildId,
-    adventureMapEnabled,
-    profileMapProgressKey,
-  ]);
 
   useEffect(() => {
     if (!adventureMapEnabled) return;
@@ -1291,20 +1155,6 @@ function App() {
     lastSessionCompleteTsRef.current = ev.timestamp;
     setProfileReloadNonce((n) => n + 1);
   }, [adventureMapEnabled, mergedCompanionEvents]);
-
-  const handleGameIframeOverlayChange = useCallback(
-    (s: GameIframeOverlayState) => {
-      setMapGameOverlay(s);
-    },
-    [],
-  );
-
-  const handleGameIframeMount = useCallback(
-    (el: HTMLIFrameElement | null) => {
-      adventureGameIframeRef.current = el;
-    },
-    [],
-  );
 
   const handleDiagCamera = useCallback(
     (angle: "close-up" | "mid-shot" | "full-body" | "wide") => {
@@ -1339,7 +1189,6 @@ function App() {
       setProfileTamagotchi(null);
       setProfileCompanionCare(null);
       setProfileWordRadar(null);
-      setProfileReinforceWords(null);
       setProfileDyslexiaMode(false);
       return;
     }
@@ -1360,7 +1209,6 @@ function App() {
           } | null;
           companionCurrency?: number;
           dyslexiaMode?: boolean;
-          pendingHomework?: { reinforceWords?: unknown };
           wordRadar?: {
             showTimer?: boolean;
             timerSeconds?: number;
@@ -1389,11 +1237,6 @@ function App() {
             : Number(data.companionCurrency ?? 0);
         setProfileCompanionCurrency(Math.max(0, Math.floor(cur)));
         setProfileDyslexiaMode(data.dyslexiaMode === true);
-        const ph = data.pendingHomework;
-        const rw = Array.isArray(ph?.reinforceWords)
-          ? ph.reinforceWords.map(String).filter(Boolean)
-          : [];
-        setProfileReinforceWords(rw);
         const wr = data.wordRadar;
         if (wr && typeof wr === "object") {
           const pb = wr.personalBests;
@@ -1427,7 +1270,6 @@ function App() {
           setProfileTamagotchi(null);
           setProfileCompanionCare(null);
           setProfileWordRadar(null);
-          setProfileReinforceWords(null);
           setProfileDyslexiaMode(false);
           setProfileCompanionCurrency(0);
         }
@@ -1451,17 +1293,17 @@ function App() {
             childNameFromId(adventureChildId)
           }
           avatarImagePath={profileAvatarImagePath}
-          accentColor={state.companion?.accentColor ?? mapSession.theme?.palette.accent}
-          accentBg={state.companion?.accentBg ?? mapSession.theme?.palette.cardBackground}
+          accentColor={state.companion?.accentColor}
+          accentBg={state.companion?.accentBg}
           voiceReady={voiceReady}
           mapReady={mapReady}
           assetsReady={loadingAssetsReady}
-          paletteSeed={`${adventureChildId}:${mapSession.theme?.name ?? "sunny"}`}
+          paletteSeed={`${adventureChildId}:sunny`}
           onSafetyRelease={() => {
             if (!mapReady) {
               console.warn(
                 ` 🎮 [loading-screen] safety release waiting for ${
-                  plannerBoardRuntimeRequested ? "board" : "map"
+                  plannerBoardRuntimeRequested ? "board" : "session"
                 }`,
               );
               return;
@@ -1489,147 +1331,36 @@ function App() {
 
   let main: ReactNode = null;
 
-  if (adventureMapEnabled && adventureChildId) {
-    if (plannerBoardRuntimeRequested) {
-      if (plannerBoardPacket) {
-        main = (
-          <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-            <AdventureBoardExperience
-              packet={plannerBoardPacket}
-              showCompanion={false}
-              idlePose="center"
-              onNodeClick={handlePlannerBoardNodeClick}
-              onChoiceClick={handlePlannerBoardChoiceClick}
-            />
-          </div>
-        );
-      } else if (plannerBoardPacketState.loading) {
-        main = adventureLoadingMain;
-      } else {
-        // Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.
-        main = (
-          <HomeworkBoardUnavailable
-            childName={
-              state.childName ??
-              selectedChildName ??
-              childNameFromId(adventureChildId)
-            }
-            error={
-              plannerBoardPacketState.error ??
-              (homeworkBoardUnavailable ? "active_adventure_board_required" : null)
-            }
+  if (plannerBoardRuntimeRequested && adventureChildId) {
+    if (plannerBoardPacket) {
+      main = (
+        <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
+          <AdventureBoardExperience
+            packet={plannerBoardPacket}
+            showCompanion={false}
+            idlePose="center"
+            onNodeClick={handlePlannerBoardNodeClick}
+            onChoiceClick={handlePlannerBoardChoiceClick}
           />
-        );
-      }
-    } else if (!sessionReady) {
+        </div>
+      );
+    } else if (plannerBoardPacketState.loading) {
       main = adventureLoadingMain;
     } else {
-    main = (
-      <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-        <AdventureMap
-          childId={adventureChildId}
-          mapSession={mapSession}
-          previewMode={mapPreviewMode}
-          inspectAllMode={mapInspectAllMode}
-          onLockedNodeTap={onLockedMapNodeTap}
-          mapCompanion={effectiveCompanion}
-          companionMutedForMap={companionMuted}
-          tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
-          companionCare={profileCompanionCare ?? undefined}
-          tamagotchHydrated={tamagotchProfileReady}
-          onGameIframeMount={handleGameIframeMount}
-          onTamagotchiSynced={(t) => setProfileTamagotchi(t)}
-          onVrrPhase1Begin={() => {
-            const cid = activeProfileChildId?.trim().toLowerCase();
-            if (!cid) return;
-            setVrrCelebrateEvent({
-              childId: cid,
-              emote: "celebrating",
-              intensity: 1,
-              timestamp: Date.now(),
-            });
-          }}
-          onGameIframeOverlayChange={handleGameIframeOverlayChange}
-          onActiveNodeScreenChange={setActiveNodeScreen}
-          onOpenTamagotchiSheet={
-            adventureChildId && activeProfileChildId
-              ? () => setCompanionSheetOpen(true)
-              : undefined
+      // Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.
+      main = (
+        <HomeworkBoardUnavailable
+          childName={
+            state.childName ??
+            selectedChildName ??
+            childNameFromId(adventureChildId)
           }
-          karaokeReadingForMapNode={{
-            words: state.canvas.karaokeWords ?? [],
-            interimTranscript: liveFlowStt,
-            sendMessage,
-            companion: effectiveCompanion,
-            childId: activeProfileChildId ?? undefined,
-            backgroundImageUrl: state.canvas.backgroundImageUrl,
-            accentColor:
-              mapSession.theme?.palette?.accent ?? state.companion?.accentColor,
-            cardBackground: mapSession.theme?.palette?.cardBackground,
-            fontSize: state.readingCanvas.fontSize,
-            lineHeight: state.readingCanvas.lineHeight,
-            wordsPerLine: state.readingCanvas.wordsPerLine,
-            storyTitle: state.canvas.storyTitle,
-          }}
-          wordRadarFromProfile={
-            profileWordRadar ?? {
-              showTimer: true,
-              timerSeconds: 20,
-              showKeyboard: false,
-              personalBests: {},
-              inputMode: "letter-by-letter",
-            }
+          error={
+            plannerBoardPacketState.error ??
+            (homeworkBoardUnavailable ? "active_adventure_board_required" : null)
           }
-          reinforceWords={profileReinforceWords ?? []}
-          dyslexiaMode={profileDyslexiaMode}
-          companionCurrency={
-            mapSession.liveMapCurrency ?? profileCompanionCurrency
-          }
-          storyImageLoading={state.storyImageLoading}
-          storyImageUrl={state.storyImageUrl}
-          storyImageFailed={state.storyImageFailed}
         />
-        {karaokeReadingActive &&
-          mapSession.launchedNode?.type !== "karaoke" && (
-            <div className="fixed inset-0 z-50">
-              <KaraokeReadingCanvas
-                words={state.canvas.karaokeWords!}
-                interimTranscript={liveFlowStt}
-                sendMessage={sendMessage}
-                companion={effectiveCompanion}
-                childId={activeProfileChildId ?? undefined}
-                backgroundImageUrl={state.canvas.backgroundImageUrl}
-                accentColor={
-                  mapSession.theme?.palette?.accent ?? state.companion?.accentColor
-                }
-                cardBackground={mapSession.theme?.palette?.cardBackground}
-                fontSize={state.readingCanvas.fontSize}
-                lineHeight={state.readingCanvas.lineHeight}
-                wordsPerLine={state.readingCanvas.wordsPerLine}
-                storyTitle={state.canvas.storyTitle}
-              />
-            </div>
-          )}
-        {state.canvas.mode === "pronunciation" &&
-          (state.canvas.pronunciationWords?.length ?? 0) > 0 && (
-            <div className="fixed inset-0 z-50">
-              <PronunciationGameCanvas
-                words={state.canvas.pronunciationWords!}
-                interimTranscript={liveFlowStt}
-                sendMessage={sendMessage}
-                backgroundImageUrl={state.canvas.backgroundImageUrl}
-                accentColor={
-                  mapSession.theme?.palette?.accent ?? state.companion?.accentColor
-                }
-                onComplete={(result) => {
-                  sendMessage("pronunciation_complete", result);
-                }}
-                onExit={sendCanvasDone}
-              />
-            </div>
-          )}
-      </div>
-    );
+      );
     }
   } else if (state.phase === "picker") {
     main = (
@@ -1642,7 +1373,7 @@ function App() {
         <ChildPicker
           onSelect={(name, opts) => {
             setSelectedChildName(name);
-            if (adventureMapEnabled) {
+            if (runtimeConfig.subject === "homework") {
               setAdventureChildId(name.trim().toLowerCase());
             }
             startSession(name, opts);
@@ -1717,7 +1448,7 @@ function App() {
           storyImageFailed={state.storyImageFailed}
           accentColor={state.companion?.accentColor ?? "#7C3AED"}
           accentBg={state.companion?.accentBg ?? "#F3E8FF"}
-          sessionTheme={mapSession.theme}
+          sessionTheme={null}
         />
       </div>
     );
@@ -1737,14 +1468,10 @@ function App() {
   }
 
   const companionPortraitMode =
-    mapGameOverlay.active ||
     karaokeReadingActive ||
     diagFlowGameOpen != null ||
     plannerBoardLaunch != null ||
-    (state.phase === "active" && state.canvas.mode === "pronunciation") ||
-    mapSession.launchedNode?.type === "karaoke" ||
-    mapSession.launchedNode?.type === "visual-explainer" ||
-    (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
+    (state.phase === "active" && state.canvas.mode === "pronunciation");
   const voiceGameCompanionMicMuted =
     karaokeReadingActive ||
     (diagFlowGameOpen != null &&
@@ -1756,10 +1483,7 @@ function App() {
           : plannerBoardLaunch.node.type,
       )) ||
     wordRadarDiagOpen ||
-    (state.phase === "active" && state.canvas.mode === "pronunciation") ||
-    mapSession.launchedNode?.type === "karaoke" ||
-    mapSession.launchedNode?.type === "visual-explainer" ||
-    (mapSession.launchedNode?.type as string | undefined) === "pronunciation";
+    (state.phase === "active" && state.canvas.mode === "pronunciation");
 
   return (
     <>
@@ -1850,20 +1574,6 @@ function App() {
         micMuted={micMuted || voiceGameCompanionMicMuted}
         onToggleMute={toggleMicMute}
       />
-      {adventureMapEnabled &&
-      adventureChildId &&
-      !companionPortraitMode &&
-      tamagotchProfileReady ? (
-        <TamagotchiSheetWithCare
-          open={companionSheetOpen}
-          tamagotchi={profileTamagotchi ?? DEFAULT_TAMAGOTCHI}
-          companionName={effectiveCompanion?.companionId ?? "Companion"}
-          companionCurrency={
-            mapSession.liveMapCurrency ?? profileCompanionCurrency
-          }
-          onClose={() => setCompanionSheetOpen(false)}
-        />
-      ) : null}
       </CompanionCareProvider>
       {isRewardDiagEnabled() ? (
         <>
@@ -1878,8 +1588,7 @@ function App() {
             interimTranscript={liveFlowStt}
             sendMessage={sendMessage}
             backgroundImageUrl="https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600"
-            accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
-            cardBackground={mapSession.theme?.palette?.cardBackground}
+            accentColor={state.companion?.accentColor}
             fontSize={state.readingCanvas.fontSize}
             lineHeight={state.readingCanvas.lineHeight}
             wordsPerLine={state.readingCanvas.wordsPerLine}
@@ -1895,7 +1604,7 @@ function App() {
             interimTranscript={liveFlowStt}
             sendMessage={sendMessage}
             backgroundImageUrl={state.canvas.backgroundImageUrl}
-            accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
+            accentColor={state.companion?.accentColor}
             onComplete={(result) => {
               sendMessage("pronunciation_complete", result);
               closeDiagFlowGame();
@@ -2007,7 +1716,7 @@ function App() {
             interimTranscript={liveFlowStt}
             sendMessage={sendMessage}
             backgroundImageUrl={state.canvas.backgroundImageUrl}
-            accentColor={mapSession.theme?.palette?.accent ?? state.companion?.accentColor}
+            accentColor={state.companion?.accentColor}
             onComplete={(result) => {
               sendMessage(
                 "pronunciation_complete",

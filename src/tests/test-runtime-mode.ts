@@ -164,14 +164,13 @@ describe("package.json runtime launcher scripts", () => {
     expect(ignore).toContain("src/context/*/homework/pending/**/learning-plan.*");
   });
 
-  it("AdventureMap uses launched node Word Radar config instead of profile mode fallbacks", () => {
+  it("new AdventureBoard launch path uses launched node Word Radar config instead of profile mode fallbacks", () => {
     const src = fs.readFileSync(
-      path.join(__dirname, "../../web/src/components/AdventureMap.tsx"),
+      path.join(__dirname, "../../web/src/App.tsx"),
       "utf-8",
     );
-    expect(src).toContain("word-radar-missing-config");
-    expect(src).toContain("launchedNode.wordRadarConfig.showTimer");
-    expect(src).toContain("launchedNode.wordRadarConfig.inputMode");
+    expect(src).toContain("plannerBoardLaunch.node.wordRadarConfig?.showTimer");
+    expect(src).toContain("plannerBoardLaunch.node.wordRadarConfig?.inputMode");
     expect(src).not.toContain("props.wordRadarFromProfile?.timerSeconds");
     expect(src).not.toContain("props.wordRadarFromProfile?.inputMode");
     expect(src).not.toContain(

@@ -3,7 +3,6 @@ import type { MapState, NodeConfig } from "../../../src/shared/adventureTypes";
 import { applyHomeworkStyleNodeLocks } from "../../../src/shared/mapNodeLocks";
 import { buildMapSummaryFromPendingNodes } from "../../../src/shared/mapSummary";
 import { applyLocalNodeResult } from "../../../src/shared/mapLocalProgress";
-import { displayNodesForAdventureMap } from "../components/AdventureMap";
 
 function wr(id: string): NodeConfig {
   return {
@@ -60,44 +59,6 @@ describe("applyHomeworkStyleNodeLocks", () => {
     );
     expect(out[2]?.isLocked).toBe(true);
     expect(out[2]?.isCompleted).toBe(false);
-  });
-});
-
-describe("displayNodesForAdventureMap", () => {
-  it("diag unlock mode leaves practice nodes inspectable while quest and boss stay locked", () => {
-    const quest: NodeConfig = {
-      id: "quest",
-      type: "quest",
-      isLocked: false,
-      isCompleted: false,
-      isGoal: false,
-      difficulty: 2,
-      gameFile: "monster-stampede.html",
-    };
-    const boss: NodeConfig = {
-      id: "boss",
-      type: "boss",
-      isLocked: true,
-      isCompleted: false,
-      isGoal: true,
-      difficulty: 3,
-    };
-    const out = displayNodesForAdventureMap(
-      [
-        { ...wr("n1"), isCompleted: true },
-        { ...sc("n2"), isLocked: true, isCompleted: true },
-        quest,
-        boss,
-      ],
-      [],
-      true,
-      true,
-    );
-
-    expect(out[0]?.isLocked).toBe(false);
-    expect(out[1]?.isLocked).toBe(false);
-    expect(out[2]?.isLocked).toBe(true);
-    expect(out[3]?.isLocked).toBe(true);
   });
 });
 

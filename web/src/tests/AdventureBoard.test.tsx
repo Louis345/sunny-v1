@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { AdventureBoard, HORIZONTAL_ADVENTURE_SLOTS } from "../components/AdventureBoard";
@@ -879,31 +879,33 @@ describe("AdventureBoardExperience", () => {
   it("keeps live homework from falling through to the legacy AdventureMap", () => {
     const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
     const runtimeBranch = source.slice(
-      source.indexOf("if (adventureMapEnabled && adventureChildId)"),
+      source.indexOf("if (plannerBoardRuntimeRequested && adventureChildId)"),
       source.indexOf("} else if (state.phase === \"picker\")"),
-    );
-    const homeworkBranch = runtimeBranch.slice(
-      runtimeBranch.indexOf("if (plannerBoardRuntimeRequested)"),
-      runtimeBranch.indexOf("} else if (!sessionReady)"),
     );
 
     expect(source).toContain("homeworkBoardUnavailable");
     expect(runtimeBranch).toContain("plannerBoardRuntimeRequested");
-    expect(homeworkBranch).toContain("AdventureBoardExperience");
-    expect(homeworkBranch).toContain("homeworkBoardUnavailable");
-    expect(homeworkBranch).not.toContain("<AdventureMap");
+    expect(runtimeBranch).toContain("AdventureBoardExperience");
+    expect(runtimeBranch).toContain("homeworkBoardUnavailable");
+    expect(runtimeBranch).not.toContain("<AdventureMap");
     expect(source).toContain(
       "Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.",
     );
   });
 
-  it("keeps legacy AdventureMap from owning Mystery, Quest, or Boss choice ceremonies", () => {
-    const source = readFileSync(resolve(__dirname, "../components/AdventureMap.tsx"), "utf8");
+  it("removes the legacy AdventureMap frontend while keeping SlotMachine logged for rehome", () => {
+    const appSource = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
+    const pmLog = readFileSync(resolve(__dirname, "../../../SUNNY_PM.md"), "utf8");
+    const childConfig = readFileSync(resolve(__dirname, "../../../children.config.json"), "utf8");
 
-    expect(source).not.toContain("MysteryChoiceOverlay");
-    expect(source).not.toContain("QuestBriefingModal");
-    expect(source).not.toContain("QuestUnlockSequence");
-    expect(source).not.toContain("useQuestBriefing");
-    expect(source).not.toContain("useQuestUnlockSequence");
+    expect(existsSync(resolve(__dirname, "../components/AdventureMap.tsx"))).toBe(false);
+    expect(existsSync(resolve(__dirname, "../components/AdventureMap.css"))).toBe(false);
+    expect(existsSync(resolve(__dirname, "../components/SlotMachineOverlay.tsx"))).toBe(true);
+    expect(existsSync(resolve(__dirname, "../utils/childQuestConfig.ts"))).toBe(false);
+    expect(appSource).not.toContain("./components/AdventureMap");
+    expect(appSource).not.toContain("<AdventureMap");
+    expect(childConfig).not.toContain("questUnlocked");
+    expect(pmLog).toContain("T011 - Rehome Slot Machine Variable Reward");
+    expect(pmLog).toContain("Do not keep the old AdventureMap alive for this component.");
   });
 });

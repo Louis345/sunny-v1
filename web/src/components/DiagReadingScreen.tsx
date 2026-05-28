@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { useSession } from "../hooks/useSession";
-import { useMapSession } from "../hooks/useMapSession";
-import { AdventureMap } from "./AdventureMap";
 import { CompanionLayer } from "./CompanionLayer";
 import { FlowGameOverlay } from "./FlowGameOverlay";
 import { KaraokeReadingCanvas } from "./KaraokeReadingCanvas";
@@ -59,8 +57,6 @@ const DIAG_WORDS = [
 
 const DIAG_BACKGROUND =
   "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1600";
-
-const adventureMapEnabled = import.meta.env.VITE_ADVENTURE_MAP === "true";
 
 function homeworkMapPreviewFromSearch(): boolean {
   if (typeof window === "undefined") return false;
@@ -226,7 +222,6 @@ export function DiagReadingScreen() {
     );
   }, []);
 
-  const mapSession = useMapSession(adventureMapEnabled ? mapChildId : "");
   const companion = useMemo(() => cloneCompanionDefaults(), []);
   const [standaloneReadingVisible, setStandaloneReadingVisible] = useState(true);
   const [wordRadarFromProfile, setWordRadarFromProfile] = useState<{
@@ -238,10 +233,6 @@ export function DiagReadingScreen() {
     keyboardStyle?: "option-b" | "option-c";
     personalBests: Record<string, number>;
   } | null>(null);
-
-  const handleGameIframeMount = useCallback((el: HTMLIFrameElement | null) => {
-    adventureGameIframeRef.current = el;
-  }, []);
 
   useEffect(() => {
     startSession("creator", {
@@ -341,64 +332,6 @@ export function DiagReadingScreen() {
 
   /** Partial STT (`interim`) + last finalized phrase (`final`) so flow games stay live after each Flux turn. */
   const liveFlowStt = state.interimTranscript || state.gameTranscript;
-
-  if (adventureMapEnabled) {
-    return (
-      <>
-        <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
-          <AdventureMap
-            childId={mapChildId}
-            mapSession={mapSession}
-            showFlowGameBackChrome
-            onGameIframeMount={handleGameIframeMount}
-            wordRadarFromProfile={
-              wordRadarFromProfile ?? {
-                showTimer: true,
-                timerSeconds: 20,
-                showKeyboard: false,
-                inputMode: "letter-by-letter",
-                speakStyle: "option-a",
-                keyboardStyle: "option-c",
-                personalBests: {},
-              }
-            }
-            karaokeReadingForMapNode={{
-              words: state.canvas.karaokeWords ?? [],
-              interimTranscript: liveFlowStt,
-              sendMessage,
-              backgroundImageUrl: state.canvas.backgroundImageUrl,
-              accentColor:
-                mapSession.theme?.palette?.accent ?? state.companion?.accentColor,
-              cardBackground: mapSession.theme?.palette?.cardBackground,
-              fontSize: state.readingCanvas.fontSize,
-              lineHeight: state.readingCanvas.lineHeight,
-              wordsPerLine: state.readingCanvas.wordsPerLine,
-              storyTitle: state.canvas.storyTitle,
-            }}
-          />
-        </div>
-        <CompanionLayer
-          childId={mapChildId}
-          companion={companion}
-          toggledOff={false}
-          mode="portrait"
-          micMuted={micMuted}
-          onToggleMute={toggleMicMute}
-          analyserNodeRef={analyserNodeRef}
-        />
-        <WordRadarDiagPanel
-          adventureMapEnabled
-          interimTranscript={liveFlowStt}
-          mapChildId={mapChildId}
-          sessionChildDisplayName={
-            state.phase === "active" ? (state.childName ?? "") : ""
-          }
-          sendMessage={sendMessage}
-          wordRadar={wordRadarUi}
-        />
-      </>
-    );
-  }
 
   return (
     <>

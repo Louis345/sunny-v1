@@ -25,9 +25,8 @@ describe("App companion overlay stack", () => {
     expect(src).not.toContain("CompanionBridge");
   });
 
-  it("mapGameOverlay.active triggers portrait mode (iframe game overlay)", () => {
-    // CompanionLayer must switch to portrait when a game iframe is open.
-    expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}mapGameOverlay\.active/);
+  it("planner board launch triggers portrait mode (activity overlay)", () => {
+    expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}plannerBoardLaunch != null/);
   });
 
   it("karaokeReadingActive triggers portrait mode (story/karaoke canvas)", () => {
@@ -38,37 +37,28 @@ describe("App companion overlay stack", () => {
     expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}canvas\.mode.*pronunciation/);
   });
 
-  it("mapSession launchedNode karaoke triggers portrait mode", () => {
-    expect(src).toMatch(/companionPortraitMode[\s\S]{0,350}launchedNode.*karaoke/);
-  });
-
-  it("mapSession launchedNode pronunciation triggers portrait mode", () => {
-    expect(src).toMatch(/companionPortraitMode[\s\S]{0,350}launchedNode.*pronunciation/);
-  });
-
   it("local diag flow games register as active voice game node types", () => {
     expect(src).toContain("activeVoiceGameNodeType");
     expect(src).toMatch(/diagFlowGameOpen === "reading"[\s\S]{0,80}"karaoke"/);
     expect(src).toMatch(/registerMapNodeType\(activeVoiceGameNodeType\)/);
   });
 
-  it("map karaoke and pronunciation use liveFlowStt instead of final-only gameTranscript", () => {
+  it("new board karaoke/pronunciation paths use liveFlowStt instead of final-only gameTranscript", () => {
     expect(src).toContain("const liveFlowStt = state.interimTranscript || state.gameTranscript");
-    expect(src).toMatch(/karaokeReadingForMapNode=\{\{[\s\S]{0,220}interimTranscript: liveFlowStt/);
-    expect(src).toMatch(/<KaraokeReadingCanvas[\s\S]{0,220}interimTranscript=\{liveFlowStt\}/);
-    expect(src).toMatch(/<PronunciationGameCanvas[\s\S]{0,220}interimTranscript=\{liveFlowStt\}/);
+    expect(src).toMatch(/plannerBoardLaunch\?\.node\.type === "word-radar"[\s\S]{0,1200}interimTranscript=\{liveFlowStt\}/);
+    expect(src).toMatch(/plannerBoardLaunch\?\.node\.type === "pronunciation"[\s\S]{0,1200}interimTranscript=\{liveFlowStt\}/);
   });
 
   it("story karaoke keeps the companion visible as a muted portrait", () => {
     expect(src).toMatch(/voiceGameCompanionMicMuted[\s\S]{0,260}karaokeReadingActive/);
-    expect(src).toMatch(/voiceGameCompanionMicMuted[\s\S]{0,260}mapSession\.launchedNode\?\.type === "karaoke"/);
     expect(src).not.toContain("karaokeShellCompanionOff");
     expect(src).toContain("toggledOff={false}");
     expect(src).toContain("micMuted={micMuted || voiceGameCompanionMicMuted}");
   });
 
-  it("preselected adventure map child starts companion voice once", () => {
+  it("preselected homework board child starts companion voice once only outside planner-board runtime", () => {
     expect(src).toContain("autoStartedAdventureVoiceRef");
+    expect(src).toContain("if (plannerBoardRuntimeRequested)");
     expect(src).toMatch(/startSession\(childNameFromId\(adventureChildId\)/);
   });
 });

@@ -10,15 +10,11 @@ function read(rel: string): string {
 }
 
 describe("map button audit", () => {
-  it("adventure mode does not render an app-level Back button to the child picker", () => {
+  it("new homework board mode does not render the legacy AdventureMap", () => {
     const src = read("src/App.tsx");
-    const adventureBranch = src.slice(
-      src.indexOf("main = ("),
-      src.indexOf("<AdventureMap"),
-    );
-    expect(adventureBranch).not.toContain("resetToPicker()");
-    expect(adventureBranch).not.toContain("setSelectedChildName(null)");
-    expect(adventureBranch).not.toContain("{mapSession.launchedNode ? \"Back to map\" : \"Back\"}");
+    expect(src).toContain("AdventureBoardExperience");
+    expect(src).not.toContain("<AdventureMap");
+    expect(src).not.toContain("./components/AdventureMap");
   });
 
   it("iframe game Back to map buttons post to the parent instead of using browser history", () => {
@@ -34,52 +30,26 @@ describe("map button audit", () => {
     }
   });
 
-  it("AdventureMap listens for iframe map_back messages", () => {
-    const src = read("src/components/AdventureMap.tsx");
-    expect(src).toContain('if (t === "map_back")');
-    expect(src).toContain("setLaunchedUrl(null)");
-  });
-
-  it("AdventureMap forwards direct iframe narration requests for preview-safe Say It audio", () => {
-    const src = read("src/components/AdventureMap.tsx");
-    expect(src).toContain('if (t === "narration_request")');
-    expect(src).toContain('trigger: "narration_request"');
-    expect(src).toContain("forwardMapIframeCompanionEvent");
-  });
-
   it("pronunciation completion includes an explicit Back to map exit", () => {
-    const mapSrc = read("src/components/AdventureMap.tsx");
     const pronunciationSrc = read("src/components/PronunciationGameCanvas.tsx");
+    const appSrc = read("src/App.tsx");
     expect(pronunciationSrc).toContain("onExit?: () => void");
     expect(pronunciationSrc).toContain("Back to map");
-    expect(mapSrc).toContain("onExit={() => clearLaunchedNode()}");
+    expect(appSrc).toContain("onExit={closePlannerBoardLaunch}");
   });
 
-  it("map-owned pronunciation completion records a node result without closing the overlay", () => {
-    const src = read("src/components/AdventureMap.tsx");
-    const start = src.indexOf("<PronunciationGameCanvas");
+  it("new board pronunciation records post-activity engagement without closing before the child chooses", () => {
+    const src = read("src/App.tsx");
+    const start = src.indexOf('plannerBoardLaunch?.node.type === "pronunciation"');
     const block = src.slice(start, start + 2600);
-    expect(block).toContain("sendNodeResult");
-    expect(block).toContain('activityId: "pronunciation"');
+    expect(block).toContain("onPostActivityAction");
+    expect(block).toContain("recordPlannerBoardPostActivityAction");
     expect(block).toContain("wordsAttempted: result.wordsAttempted");
-    expect(src).toContain("{ keepLaunchedNode: true }");
-    expect(src).toContain("pronunciationNodeCompletionRecordedRef");
-    expect(block).not.toContain(
-      "}).then(() => {\n                clearLaunchedNode();\n              });",
-    );
-  });
-
-  it("adapts pronunciation words from story words the child skipped or flagged", () => {
-    const src = read("src/components/AdventureMap.tsx");
-    expect(src).toContain("adaptiveStoryPracticeWords");
-    expect(src).toContain("practiceWordsFromReadingComplete");
-    expect(src).toContain("pronunciationWordsForNode");
   });
 
   it("passes an extended pronunciation pool so harder replay can grow the streak run", () => {
-    const src = read("src/components/AdventureMap.tsx");
-    expect(src).toContain("pronunciationReplayWordsForNode");
-    expect(src).toContain("replayWords={pronunciationReplayWordsForNode}");
+    const src = read("src/App.tsx");
+    expect(src).toContain("replayWords={plannerBoardLaunch.node.words ?? []}");
   });
 
   it("adventure voice prompt reminds the companion about earned digital food", () => {
