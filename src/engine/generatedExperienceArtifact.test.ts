@@ -342,6 +342,7 @@ describe("generated experience artifact from chart", () => {
         attempts: 1,
         validatedAt: "2026-05-13T13:00:00.000Z",
         runtimeValidation: {
+          engine: "playwright",
           passed: true,
           screenshotPaths: ["/tmp/quest.png"],
           consoleErrors: [],
@@ -452,6 +453,7 @@ describe("generated experience artifact from chart", () => {
         attempts: 1,
         validatedAt: "2026-05-13T13:00:00.000Z",
         runtimeValidation: {
+          engine: "playwright",
           passed: false,
           screenshotPaths: ["/tmp/quest.png"],
           consoleErrors: [],

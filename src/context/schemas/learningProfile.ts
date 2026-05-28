@@ -381,6 +381,7 @@ export interface AIContentCatalogItem {
       warnings: string[];
     };
     runtimeValidation?: {
+      engine?: "playwright";
       passed: boolean;
       screenshotPaths: string[];
       consoleErrors: string[];
@@ -667,6 +668,7 @@ export interface LearningProfile {
             warnings: string[];
           };
           runtimeValidation?: {
+            engine?: "playwright";
             passed: boolean;
             screenshotPaths: string[];
             consoleErrors: string[];

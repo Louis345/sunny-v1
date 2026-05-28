@@ -6,6 +6,7 @@ import {
   validateGeneratedArtifactRuntime,
   type GeneratedArtifactBrowserSnapshot,
 } from "./generatedArtifactRuntimeValidator";
+import { resolveSyntheticChildBrowserAvailability } from "./syntheticChildBrowserDriver";
 
 const WORDS = ["above", "ago", "about", "ahead", "away"];
 
@@ -49,6 +50,7 @@ describe("generated artifact runtime validator", () => {
     expect(report.passed).toBe(false);
     expect(report.failures.join(" ")).toMatch(/attempt event count/i);
     expect(report.runtimeValidation).toMatchObject({
+      engine: "playwright",
       passed: false,
       attemptedTargets: 1,
       completed: true,
@@ -82,10 +84,87 @@ describe("generated artifact runtime validator", () => {
     expect(report.passed).toBe(true);
     expect(report.score).toBe(100);
     expect(report.runtimeValidation).toMatchObject({
+      engine: "playwright",
       passed: true,
       attemptedTargets: WORDS.length,
       completed: true,
       screenshotPaths: [path.join(dir, "quest.png")],
     });
+  });
+
+  it("fails closed when the Playwright browser run is unavailable", async () => {
+    const dir = makeDir();
+    dirs.push(dir);
+
+    const report = await validateGeneratedArtifactRuntime({
+      html: "<html><body>Quest ready</body></html>",
+      childId: "reina",
+      stage: "quest",
+      homeworkType: "spelling_test",
+      words: WORDS,
+      outputDir: dir,
+      now: new Date("2026-05-14T12:00:00.000Z"),
+      runBrowser: async () => {
+        throw new Error("Playwright unavailable: playwright chromium browser is not installed");
+      },
+    });
+
+    expect(report.passed).toBe(false);
+    expect(report.failures.join(" ")).toContain("Playwright unavailable");
+    expect(report.runtimeValidation).toMatchObject({
+      engine: "playwright",
+      passed: false,
+      screenshotPaths: [],
+      attemptedTargets: 0,
+      completed: false,
+    });
+  });
+
+  it("runs the default Playwright validator against a real generated artifact", async () => {
+    const availability = await resolveSyntheticChildBrowserAvailability();
+    if (!availability.available) {
+      expect(availability.reason).toContain("chromium");
+      return;
+    }
+    const dir = makeDir();
+    dirs.push(dir);
+
+    const report = await validateGeneratedArtifactRuntime({
+      html: `
+        <html>
+          <body>
+            <main>Quest ready</main>
+            <script>
+              window.SUNNY_VALIDATION_HOOKS = {
+                playthrough: async ({ words }) => {
+                  for (const target of words) {
+                    window.postMessage({ type: "attempt_event", payload: { target, correct: true } }, "*");
+                  }
+                  window.postMessage({
+                    type: "node_complete",
+                    payload: { completed: true, accuracy: 1, wordsAttempted: words.length }
+                  }, "*");
+                }
+              };
+            </script>
+          </body>
+        </html>
+      `,
+      childId: "reina",
+      stage: "quest",
+      homeworkType: "spelling_test",
+      words: WORDS,
+      outputDir: dir,
+      now: new Date("2026-05-14T12:00:00.000Z"),
+    });
+
+    expect(report.passed).toBe(true);
+    expect(report.runtimeValidation).toMatchObject({
+      engine: "playwright",
+      attemptedTargets: WORDS.length,
+      completed: true,
+      usedValidationHook: true,
+    });
+    expect(report.runtimeValidation?.screenshotPaths.every((file) => fs.existsSync(file))).toBe(true);
   });
 });

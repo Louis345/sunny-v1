@@ -143,6 +143,7 @@ export type MasteryUnlockState =
 export type AdaptiveArtifactValidationStatus = "passed" | "failed" | "warning";
 
 export interface AdaptiveArtifactRuntimeValidationReport {
+  engine?: "playwright";
   passed: boolean;
   screenshotPaths: string[];
   consoleErrors: string[];

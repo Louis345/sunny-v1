@@ -1181,6 +1181,7 @@ describe("map coordinator (TASK-010)", () => {
               attempts: 1,
               validatedAt: "2026-05-12T20:12:00.000Z",
               runtimeValidation: {
+                engine: "playwright",
                 passed: true,
                 screenshotPaths: ["quest-generated.png"],
                 consoleErrors: [],
@@ -1303,6 +1304,7 @@ describe("map coordinator (TASK-010)", () => {
             attempts: 1,
             validatedAt: "2026-05-14T12:00:00.000Z",
             runtimeValidation: {
+              engine: "playwright",
               passed: true,
               screenshotPaths: ["quest-experiment.png"],
               consoleErrors: [],

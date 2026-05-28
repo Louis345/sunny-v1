@@ -50,6 +50,7 @@ export type GenerateExperienceHtmlArgs = {
   profile: LearningProfile;
   plan: ActiveSessionPlan;
   brief: GeneratedExperienceBrief;
+  parentFeedback?: string;
   experienceContextPacket: ExperienceContextPacket;
   homeworkCycle: HomeworkCycle;
   artifact: AdaptiveQuestArtifact;
@@ -68,6 +69,7 @@ export type GenerateExperienceArtifactFromChartInput = {
   now?: Date;
   briefId?: string;
   kind?: AdaptiveQuestArtifactStage;
+  parentFeedback?: string;
   generateHtml?: (args: GenerateExperienceHtmlArgs) => Promise<string> | string;
   validateRuntime?: (args: {
     html: string;
@@ -94,6 +96,7 @@ export type ExperienceArtifactValidationReport = {
     warnings: string[];
   };
   runtimeValidation?: {
+    engine?: "playwright";
     passed: boolean;
     screenshotPaths: string[];
     consoleErrors: string[];
@@ -293,6 +296,7 @@ export async function generateExperienceHtmlWithSonnet(
       },
       activeSessionPlan: args.plan,
       generatedExperienceBrief: args.brief,
+      parentFeedback: args.parentFeedback,
       experienceContextPacket: args.experienceContextPacket,
       adaptiveArtifactBrief: args.artifact.brief,
       homework: args.homeworkCycle.capturedContent,
@@ -319,6 +323,7 @@ async function buildValidatedHtml(args: {
   profile: LearningProfile;
   plan: ActiveSessionPlan;
   brief: QuestBossBrief;
+  parentFeedback?: string;
   experienceContextPacket: ExperienceContextPacket;
   homeworkCycle: HomeworkCycle;
   artifact: AdaptiveQuestArtifact;
@@ -556,6 +561,7 @@ export async function generateExperienceArtifactFromChart(
     profile,
     plan,
     brief,
+    parentFeedback: input.parentFeedback,
     experienceContextPacket,
     homeworkCycle: cycle,
     artifact,

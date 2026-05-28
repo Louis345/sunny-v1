@@ -60,26 +60,17 @@ import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
 } from "./companionCareFeedRoute";
-import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import {
   applyHomeworkClarificationAnswer,
   type CapturedHomeworkContent,
   type HomeworkTargetPurpose,
 } from "../scripts/contentAwareHomeworkPlanner";
-import { generateQuestGameHtml } from "../scripts/generateGame";
-import { validateGeneratedGame } from "../scripts/validateGeneratedGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
 import { recordLearningAttempt } from "./learningAttemptEvents";
-import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
-import { readHomeworkCycle } from "../engine/homeworkCycleLoop";
 import {
-  attachArtifactToHomeworkNode,
-  catalogAdaptiveQuestArtifact,
-  type AdaptiveQuestArtifact,
-  generateAdaptiveQuestArtifact,
-  markAdaptiveArtifactValidation,
-} from "../engine/adaptiveQuestArtifact";
-import { upsertProfileContentCatalog } from "../engine/learningDecisionContext";
+  generateExperienceArtifactFromChart,
+  generateExperienceHtmlWithSonnet,
+} from "../engine/generatedExperienceArtifact";
 import {
   buildAdaptiveEvidenceSnapshot,
   questGateFromSnapshot,
@@ -1260,6 +1251,8 @@ export function setupRoutes(app: Express): void {
         typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
       const date = typeof req.body?.date === "string" ? req.body.date.trim() : "";
       const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const briefId =
+        typeof req.body?.briefId === "string" ? req.body.briefId.trim() : "";
       const feedback =
         typeof req.body?.feedback === "string" ? req.body.feedback.trim() : "";
       if (!childId || !date || !nodeId) {
@@ -1311,142 +1304,36 @@ Return plain text only.`,
         node.storyFile = newFile;
         node.storyText = fs.readFileSync(storyPath, "utf8");
       } else if (node.type === "quest" || node.type === "boss") {
-        const classificationPath = path.join(pendingDir, "classification.json");
-        const extracted = fs.existsSync(classificationPath)
-          ? JSON.parse(fs.readFileSync(classificationPath, "utf8"))
-          : {};
-        const homeworkId =
-          (pending as typeof pending & { homeworkId?: string }).homeworkId ??
-          pending.weekOf;
-        const cycle = homeworkId ? readHomeworkCycle(childId, homeworkId) : null;
-        const learningTheory =
-          node.type === "boss"
-            ? cycle?.bossTheory?.markdown ?? cycle?.theory?.markdown
-            : cycle?.theory?.markdown ?? cycle?.assumptions ?? undefined;
-        if (!cycle) {
-          return res.status(404).json({ ok: false, error: "homework_cycle_not_found" });
-        }
-        const theory = node.type === "boss"
-          ? cycle.bossTheory ?? cycle.theory
-          : cycle.theory;
-        const generatedName = node.gameFile || `${node.type}-${date}.html`;
-        let artifact: AdaptiveQuestArtifact;
-        try {
-          artifact = generateAdaptiveQuestArtifact({
-            childChart: getChildChart(childId),
-            homeworkCycle: cycle,
-            assignmentInterpretation: cycle.capturedContent?.assignmentInterpretation,
-            carePlan: null,
-            theory,
-            baselineEvidence: (cycle.interventionHistory ?? []).filter((item) =>
-              node.type === "boss"
-                ? item.nodeType !== "boss"
-                : item.nodeType !== "quest" && item.nodeType !== "boss",
-            ),
-            contentCatalogMemory: profile.aiContentCatalog ?? [],
-            generationStage: node.type,
-            generatedPath: generatedName,
-          });
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          return res.status(409).json({ ok: false, error: "adaptive_artifact_blocked", reason: message });
-        }
-        const client = new Anthropic();
-        const errorSignals = scanChildErrorPatterns(childId).patterns;
-        const buildGenerationPayload = (validationFeedback?: Record<string, unknown>) =>
-          JSON.stringify({
-            ...extracted,
-            feedback,
-            adaptiveArtifactBrief: artifact.brief,
-            ...(validationFeedback ? { validationFeedback } : {}),
-          }, null, 2);
-        let html = await generateQuestGameHtml({
-          client,
-          extractedJsonPretty: buildGenerationPayload(),
-          learningTheory,
-          errorSignals,
-        });
-        let contractedHtml = ensureQuestHtmlContract(html);
-        let attempts = 1;
-        let validation = validateGeneratedGame(contractedHtml, {
-          words: artifact.targetWords,
-          homeworkType: cycle.subject,
+        const result = await generateExperienceArtifactFromChart({
           childId,
-          generationStage: node.type,
+          kind: node.type,
+          ...(briefId ? { briefId } : {}),
+          ...(feedback ? { parentFeedback: feedback } : {}),
+          generateHtml: generateExperienceHtmlWithSonnet,
         });
-        if (!validation.passed && validation.shouldRegenerate) {
-          attempts = 2;
-          console.log(
-            `  🎮 [generated-game-validation] [retry] child=${childId} node=${node.type} failures=${validation.failures.join(" | ")}`,
-          );
-          html = await generateQuestGameHtml({
-            client,
-            extractedJsonPretty: buildGenerationPayload({
-              failures: validation.failures,
-              warnings: validation.warnings,
-              instruction: "Revise the generated HTML so it passes Sunny's game contract validation.",
-            }),
-            learningTheory,
-            errorSignals,
-          });
-          contractedHtml = ensureQuestHtmlContract(html);
-          validation = validateGeneratedGame(contractedHtml, {
-            words: artifact.targetWords,
-            homeworkType: cycle.subject,
-            childId,
-            generationStage: node.type,
-          });
-        }
-        const validationReport = {
-          passed: validation.passed,
-          score: validation.score,
-          failures: [...validation.failures],
-          warnings: [...validation.warnings],
-          attempts,
-          validatedAt: new Date().toISOString(),
-        };
-        artifact = markAdaptiveArtifactValidation(artifact, {
-          ...validationReport,
-          status: validation.passed
-            ? validation.warnings.length
-              ? "warning"
-              : "passed"
-            : "failed",
-        });
-        if (!validation.passed) {
-          const failedCatalogItem = {
-            ...catalogAdaptiveQuestArtifact(artifact, {
-              childId,
-              title: `${cycle.capturedContent?.title ?? homeworkId} ${node.type} failed validation`,
-            }),
-            reuseStatus: "retire" as const,
-            reuseReason: `Generated ${node.type} failed validation and was not made playable.`,
-          };
-          const nextProfile = upsertProfileContentCatalog(profile, [failedCatalogItem]);
-          Object.assign(profile, nextProfile);
-          writeLearningProfile(childId, profile);
-          console.log(
-            `  🎮 [generated-game-validation] [blocked] child=${childId} node=${node.type} score=${validation.score}`,
-          );
-          return res.status(409).json({
+        if (!result.ok) {
+          const status = result.reason === "generated_game_validation_failed"
+            ? 409
+            : result.reason === "homework_cycle_missing" ||
+                result.reason === "generated_experience_brief_missing"
+              ? 404
+              : 409;
+          return res.status(status).json({
             ok: false,
-            error: "generated_game_validation_failed",
-            validationReport,
+            error: result.reason,
+            reason: result.reason,
+            ...("validationReport" in result && result.validationReport
+              ? { validationReport: result.validationReport }
+              : {}),
           });
         }
-        newFile = generatedName;
-        fs.writeFileSync(path.join(pendingDir, newFile), contractedHtml, "utf8");
-        Object.assign(node, attachArtifactToHomeworkNode(node as never, artifact));
-        const catalogItem = catalogAdaptiveQuestArtifact(artifact, {
-          childId,
-          title: `${cycle.capturedContent?.title ?? homeworkId} ${node.type}`,
-        });
-        const nextProfile = upsertProfileContentCatalog(profile, [catalogItem]);
-        Object.assign(profile, nextProfile);
+        newFile = result.filename;
       } else {
         return res.json({ ok: true, newFile: "" });
       }
-      writeLearningProfile(childId, profile);
+      if (node.type !== "quest" && node.type !== "boss") {
+        writeLearningProfile(childId, profile);
+      }
       res.json({ ok: true, newFile });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
