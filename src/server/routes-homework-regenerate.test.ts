@@ -158,7 +158,15 @@ describe("POST /api/homework/regenerate", () => {
     });
 
     expect(out.status).toBe(200);
-    expect(out.body).toMatchObject({ ok: true, newFile: "quest-brief-quest-transfer.html" });
+    expect(out.body).toMatchObject({
+      ok: true,
+      newFile: "quest-brief-quest-transfer.html",
+      contentId: "content-quest",
+      validationReport: {
+        passed: true,
+        runtimeValidation: { engine: "playwright", passed: true },
+      },
+    });
     expect(mockedGenerateExperienceArtifactFromChart).toHaveBeenCalledWith(expect.objectContaining({
       childId: "reina",
       kind: "quest",

@@ -1338,12 +1338,16 @@ Return plain text only.`,
           });
         }
         newFile = result.filename;
+        return res.json({
+          ok: true,
+          newFile,
+          contentId: result.contentId,
+          validationReport: result.validationReport,
+        });
       } else {
         return res.json({ ok: true, newFile: "" });
       }
-      if (node.type !== "quest" && node.type !== "boss") {
-        writeLearningProfile(childId, profile);
-      }
+      writeLearningProfile(childId, profile);
       res.json({ ok: true, newFile });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

@@ -27,6 +27,10 @@ import {
   resolvePlannerBoardLaunchNode,
 } from "../utils/adventureBoardLaunch";
 import { buildAdventureBoardChoiceEventInput } from "../utils/adventureBoardChoiceEvents";
+import {
+  buildAdventureBoardGeneratedChoiceRequest,
+  buildAdventureBoardGeneratedChoiceLaunchNode,
+} from "../utils/adventureBoardGeneratedChoices";
 
 const rawHorizontalBoard = rawHorizontalBoardJson as AdventureBoardJson;
 const reinaChartPacket = reinaChartPacketJson as unknown as ChildExperiencePacket;
@@ -666,6 +670,107 @@ describe("AdventureBoardExperience", () => {
       id: "mystery-node",
       type: "mystery",
       words: ["sign", "know"],
+    });
+  });
+
+  it("turns Quest wrapper card selection into a validated regenerate request and launch node", () => {
+    const board = boardWithSpecialChoice("quest");
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        activeHomeworkId: "hw-spelling-smoke",
+        createdAt: "2026-05-27T12:00:00.000Z",
+        nodePlan: [
+          {
+            id: "quest",
+            type: "quest",
+            activityId: "quest",
+            targets: ["sign", "know"],
+            difficulty: 3,
+            source: "chart_planner",
+            locked: true,
+          },
+        ],
+        generatedExperienceBriefs: [
+          {
+            briefId: "quest-story",
+            experimentId: "experiment-quest-story",
+            kind: "quest",
+            title: "Story Quest",
+            learningGoal: "Prove spelling transfer.",
+            targetSkills: ["spelling recall"],
+            targetConcepts: ["silent letters"],
+            targetWords: ["sign", "know"],
+            engagementHooks: ["story"],
+            algorithmTargets: ["retrieval-practice"],
+            evidenceUsed: ["baseline"],
+            artifactStatus: "brief_only",
+            validationRequired: true,
+          },
+        ],
+      },
+    };
+    const choiceSet = board.choiceSets!.find((set) => set.id === "quest-choice")!;
+    const option = choiceSet.options.find((candidate) => candidate.id === "quest-story")!;
+
+    const request = buildAdventureBoardGeneratedChoiceRequest(packet, choiceSet, option);
+
+    expect(request).toMatchObject({
+      childId: "reina",
+      date: "2026-05-27",
+      nodeId: "quest",
+      briefId: "quest-story",
+      kind: "quest",
+    });
+    expect(request?.feedback).toContain("Story Quest");
+
+    const launchNode = buildAdventureBoardGeneratedChoiceLaunchNode(packet, request!, {
+      ok: true,
+      newFile: "quest-quest-story.html",
+      contentId: "content-quest-story",
+      validationReport: {
+        passed: true,
+        score: 100,
+        failures: [],
+        warnings: [],
+        attempts: 1,
+        validatedAt: "2026-05-27T12:01:00.000Z",
+        runtimeValidation: {
+          engine: "playwright",
+          passed: true,
+          screenshotPaths: ["/tmp/quest.png"],
+          consoleErrors: [],
+          pageErrors: [],
+          attemptedTargets: 2,
+          completed: true,
+          completionPayloads: [{ completed: true }],
+          usedValidationHook: true,
+        },
+      },
+    });
+
+    expect(launchNode).toMatchObject({
+      id: "quest",
+      type: "quest",
+      gameFile: "quest-quest-story.html",
+      date: "2026-05-27",
+      words: ["sign", "know"],
+      adaptiveArtifact: {
+        contentId: "content-quest-story",
+        generationStage: "quest",
+        validationStatus: "passed",
+      },
+    });
+    expect(
+      buildNodeLaunchAction(launchNode!, {
+        childId: "reina",
+        companion: "matilda",
+        isDiagMode: true,
+      }),
+    ).toMatchObject({
+      kind: "iframe",
+      url: expect.stringContaining("/homework/reina/2026-05-27/quest-quest-story.html"),
     });
   });
 

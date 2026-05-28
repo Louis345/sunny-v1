@@ -64,6 +64,11 @@ import {
   buildAdventureBoardChoiceEventInput,
   postAdventureBoardChoiceEvent,
 } from "./utils/adventureBoardChoiceEvents";
+import {
+  buildAdventureBoardGeneratedChoiceLaunchNode,
+  buildAdventureBoardGeneratedChoiceRequest,
+  type HomeworkRegenerateSuccess,
+} from "./utils/adventureBoardGeneratedChoices";
 import { useChildExperiencePacket } from "./hooks/useChildExperiencePacket";
 import {
   CompanionCareProvider,
@@ -954,6 +959,50 @@ function App() {
             error: err instanceof Error ? err.message : String(err),
           });
         });
+      const generatedChoiceRequest = buildAdventureBoardGeneratedChoiceRequest(
+        plannerBoardPacket,
+        choiceSet,
+        option,
+      );
+      if (generatedChoiceRequest) {
+        void fetch("/api/homework/regenerate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(generatedChoiceRequest),
+        })
+          .then(async (response) => {
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok || body?.ok !== true) {
+              throw new Error(body?.error ?? `regenerate_http_${response.status}`);
+            }
+            const launchNode = buildAdventureBoardGeneratedChoiceLaunchNode(
+              plannerBoardPacket,
+              generatedChoiceRequest,
+              body as HomeworkRegenerateSuccess,
+            );
+            console.log(" 🎮 [AdventureBoard] generated_choice_validated", {
+              childId: adventureChildId,
+              choiceSetId: choiceSet.id,
+              selectedOptionId: option.id,
+              nodeId: generatedChoiceRequest.nodeId,
+              newFile: body.newFile,
+              validationPassed: body.validationReport?.passed,
+              runtimeEngine: body.validationReport?.runtimeValidation?.engine,
+              runtimeScreenshots: body.validationReport?.runtimeValidation?.screenshotPaths,
+            });
+            if (!launchNode) return;
+            launchPlannerBoardNode(launchNode);
+          })
+          .catch((err: unknown) => {
+            console.warn(" 🎮 [AdventureBoard] generated_choice_failed", {
+              childId: adventureChildId,
+              choiceSetId: choiceSet.id,
+              selectedOptionId: option.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+        return;
+      }
       const launchNode = resolvePlannerBoardChoiceLaunchNode(plannerBoardPacket, option);
       if (!launchNode) {
         console.log(" 🎮 [AdventureBoard] choice_not_launchable", {

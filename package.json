@@ -20,6 +20,7 @@
     "sunny:experience:generate": "npx tsx src/scripts/generateExperienceArtifact.ts",
     "sunny:experience:validate": "npx tsx src/scripts/validateExperienceArtifact.ts",
     "sunny:adventure-choice-lab:screenshots": "npx tsx src/scripts/captureAdventureChoiceLab.ts",
+    "sunny:quest-boss:smoke": "npx tsx src/scripts/captureQuestBossLaunchSmoke.ts",
     "logs:upload": "npx tsx src/scripts/uploadSessionLogs.ts",
     "logs:upload:delete-local": "npx tsx src/scripts/uploadSessionLogs.ts --delete-local",
     "sunny:ingest:companion": "npx tsx src/scripts/ingestCompanions.ts",
