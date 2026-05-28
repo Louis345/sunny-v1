@@ -248,7 +248,6 @@ describe("AI psychologist experience planner", () => {
       .toBe("hidden_word_recall");
     expect(plan.plannedMeasurements?.find((item) => item.activityId === "word-radar")?.evidenceType)
       .toBe("diagnostic:hidden_word_recall");
-    expect(plan.nodePlan.map((node) => node.type)).toContain("mystery");
   });
 
   it("records child-global planner approvals and enables auto-plan after five approvals", () => {

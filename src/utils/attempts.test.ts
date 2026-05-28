@@ -24,7 +24,7 @@ describe("attempt NDJSON schema", () => {
     tempRoots.push(root);
     vi.stubEnv("SUNNY_CONTEXT_ROOT", path.join(root, "src", "context"));
 
-    appendAttemptLine("Ila", {
+    appendAttemptLine("sandbox_ila", {
       word: "blister",
       attemptedValue: "blster",
       correct: false,
@@ -37,7 +37,7 @@ describe("attempt NDJSON schema", () => {
       },
     });
 
-    const attemptsDir = path.join(root, "src", "context", "ila", "attempts");
+    const attemptsDir = path.join(root, "src", "context", "sandbox_ila", "attempts");
     const file = fs.readdirSync(attemptsDir)[0];
     const line = fs.readFileSync(path.join(attemptsDir, file), "utf-8").trim();
     const parsed = JSON.parse(line);

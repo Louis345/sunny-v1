@@ -149,6 +149,15 @@ export {
   tryPushCreatorDiagPronunciation,
   tryPushCreatorDiagReadingKaraoke,
 } from "./creatorDiagControls";
+
+function pronunciationCueFor(word: string | undefined): string | null {
+  const clean = String(word ?? "").trim().toLowerCase();
+  if (!clean) return null;
+  if (clean === "able") return "a-ble";
+  if (clean.length <= 3) return clean.split("").join("-");
+  const midpoint = Math.max(1, Math.floor(clean.length / 2));
+  return `${clean.slice(0, midpoint)}-${clean.slice(midpoint)}`;
+}
 export { isSpellingAttempt, stripSvgFences } from "./sessionTextHelpers";
 
 type CanvasActivitySnapshot = {
@@ -1525,6 +1534,38 @@ export class SessionManager {
       }).catch((err: unknown) => {
         console.error("  🔴 [urgent-learning] organic evidence failed:", err);
       });
+      if (
+        urgentRoute.context.activityId === "pronunciation" &&
+        (urgentRoute.intent.type === "help_request" ||
+          urgentRoute.intent.type === "frustration")
+      ) {
+        const cue = pronunciationCueFor(urgentRoute.context.currentWord);
+        const currentWord = urgentRoute.context.currentWord ?? "this word";
+        const supportText = cue
+          ? `I can help. Try breaking ${currentWord} into ${cue}, then say it slowly once.`
+          : "I can help. Say it slowly once, then try it again.";
+        this.turnSM.clearPendingTranscript("urgent_pronunciation_support");
+        this.debugRecorder.recordTranscript("user", transcript);
+        this.debugRecorder.recordEvent("urgent_learning", "pronunciation_support", {
+          intent: urgentRoute.intent.type,
+          currentWord: urgentRoute.context.currentWord,
+          cue,
+        });
+        this.send("game_message", {
+          forward: {
+            type: "pronunciation_support",
+            currentWord: urgentRoute.context.currentWord,
+            cue,
+            source: "companion",
+            timestamp: Date.now(),
+          },
+        });
+        console.log(
+          `  🎮 [urgent-learning] [pronunciation_support] word=${currentWord} cue=${cue ?? "none"}`,
+        );
+        await this.handleCompanionTurn(supportText);
+        return;
+      }
     }
 
     if (

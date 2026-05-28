@@ -110,7 +110,7 @@ describe("POST /api/homework/approve", () => {
     expect(mockedWriteLearningProfile).not.toHaveBeenCalled();
   });
 
-  it("saves parent homework clarification and replans from the confirmed interpretation", async () => {
+  it("saves parent homework clarification and requires planner replan from the confirmed interpretation", async () => {
     mockedReadLearningProfile.mockReturnValue({
       childId: "reina",
       bondPatterns: {
@@ -202,15 +202,13 @@ describe("POST /api/homework/approve", () => {
     });
 
     expect(out.status).toBe(200);
-    expect(out.body).toMatchObject({ ok: true });
+    expect(out.body).toMatchObject({ ok: true, requiresReplan: true });
     expect(mockedWriteLearningProfile).toHaveBeenCalledOnce();
     const saved = mockedWriteLearningProfile.mock.calls[0]?.[1] as {
       pendingHomework?: { nodes?: Array<{ type?: string }> };
       homeworkInterpretationMemory?: unknown[];
     };
-    expect(saved.pendingHomework?.nodes?.map((node) => node.type)).toEqual([
-      "spell-check",
-    ]);
+    expect(saved.pendingHomework?.nodes).toEqual([]);
     expect(saved.homeworkInterpretationMemory).toHaveLength(1);
   });
 });

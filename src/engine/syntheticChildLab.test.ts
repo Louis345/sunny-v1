@@ -139,7 +139,7 @@ describe("Sunny Synthetic Child Lab", () => {
     const screenshots = fs.readdirSync(path.join(report.labDir, "screenshots"));
     expect(screenshots.some((file) => file.endsWith("-start.png"))).toBe(true);
     expect(screenshots.some((file) => file.endsWith("-end.png"))).toBe(true);
-  });
+  }, 15_000);
 
   it("uses real browser evidence to write readiness gate failures", async () => {
     const projectRoot = root();

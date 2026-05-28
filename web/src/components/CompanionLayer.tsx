@@ -170,7 +170,6 @@ export function CompanionLayer({
   companion,
   toggledOff,
   mode = "full",
-  idlePose,
   karaokeActive = false,
   companionEvents = [],
   correctStreak = 0,
@@ -540,8 +539,6 @@ export function CompanionLayer({
     camera.lookAt(0, 1, 0);
     cameraRef.current = camera;
     motor.setCamera(camera);
-    const showroomIdle = idlePose ?? (mode === "full" ? "flank" : null);
-    motor.setShowroomIdle(showroomIdle, 0.37);
     console.log("CompanionLayer: [effect] scene + camera ready", {
       aspect: camera.aspect,
       mountCss: {
@@ -729,7 +726,7 @@ export function CompanionLayer({
         rendererRef.current = null;
       }
     };
-  }, [childId, companion?.companionId, companion?.vrmUrl, idlePose, mode, startLoop, stopLoop]);
+  }, [childId, companion?.companionId, companion?.vrmUrl, mode, startLoop, stopLoop]);
 
   if (!childId || !companion) {
     return null;

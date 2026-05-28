@@ -954,17 +954,36 @@ export function buildCapturedHomeworkContent(args: {
     questions,
     contentProfile: args.contentProfile,
   });
-  const assignmentInterpretation = args.wordGroups?.length
+  const memoryMatches = (args.interpretationMemoryMatches ?? []).filter((match) =>
+    String(match?.patternKey ?? "").trim(),
+  );
+  const sourceWordGroups = args.wordGroups?.length
+    ? repairSpellingTestGroups(
+      {
+        title: args.title,
+        type,
+        words,
+        questions,
+        interpretationMemoryMatches: memoryMatches,
+        contentProfile,
+      },
+      applyInterpretationMemory(args.wordGroups.map((group) => ({
+        ...group,
+        wordGroupId: group.wordGroupId ?? group.id,
+      })), memoryMatches),
+    )
+    : [];
+  const assignmentInterpretation = sourceWordGroups.length
     ? buildAssignmentInterpretation({
-      wordGroups: args.wordGroups,
-      assertions: args.wordGroups.map((group) => ({
+      wordGroups: sourceWordGroups,
+      assertions: sourceWordGroups.map((group) => ({
         id: `${group.id}-planner-source`,
         claim: `${group.label} was preserved from the assignment planner source truth.`,
         confidence: group.confidence,
         evidence: group.evidence.length ? group.evidence : [`Planner source group: ${group.label}`],
       })),
       spellingDomain: practiceDomainFor(String(type)) === "spelling",
-      memoryMatches: [],
+      memoryMatches,
     })
     : interpretHomeworkAssignment({
       title: args.title,

@@ -343,6 +343,14 @@ async function installSyntheticChildBridge(page: Page): Promise<void> {
         return originalWebSocketSend.call(this, data);
       };
     }
+    const originalPostMessage = typeof win.postMessage === "function" ? win.postMessage.bind(win) : null;
+    if (originalPostMessage) {
+      win.postMessage = (message: unknown, targetOrigin: string) => {
+        const messageRecord = asRecord(message);
+        recordEvidence(pickString(messageRecord, ["type"]) ?? "message", messageRecord);
+        originalPostMessage(message, targetOrigin);
+      };
+    }
     const customEvents: Array<[string, string]> = [
       ["sunny:activity:snapshot", "activity_snapshot"],
       ["sunny:activity:attempt", "activity_attempt"],
@@ -485,6 +493,46 @@ async function installSyntheticChildBridgeOnCurrentPage(page: Page): Promise<voi
         });
       })();
     `,
+  });
+}
+
+async function recordSyntheticMicrophonePreflight(page: Page, url: string): Promise<void> {
+  if (!/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(url)) return;
+  await page.evaluate(async () => {
+    type SyntheticWindow = {
+      __sunnyMicPreflightRecorded?: boolean;
+      postMessage?: (message: unknown, targetOrigin: string) => void;
+    };
+    type SyntheticMediaStreamTrack = { stop?: () => void };
+    type SyntheticMediaStream = { getTracks?: () => SyntheticMediaStreamTrack[] };
+    type SyntheticNavigator = {
+      mediaDevices?: {
+        getUserMedia?: (constraints: { audio: boolean }) => Promise<SyntheticMediaStream>;
+      };
+    };
+    const win = globalThis as unknown as SyntheticWindow;
+    if (win.__sunnyMicPreflightRecorded) return;
+    win.__sunnyMicPreflightRecorded = true;
+    const mediaDevices = (navigator as unknown as SyntheticNavigator).mediaDevices;
+    const getUserMedia = mediaDevices?.getUserMedia?.bind(mediaDevices);
+    if (!getUserMedia) return;
+    try {
+      const stream = await getUserMedia({ audio: true });
+      win.postMessage?.({
+        type: "game_state_update",
+        payload: { activityId: "mic-preflight", phase: "ready" },
+      }, "*");
+      stream.getTracks?.().forEach((track) => track.stop?.());
+    } catch (error) {
+      win.postMessage?.({
+        type: "game_state_update",
+        payload: {
+          activityId: "mic-preflight",
+          phase: "mic_error",
+          lastHeard: error instanceof Error ? error.name : String(error),
+        },
+      }, "*");
+    }
   });
 }
 
@@ -678,6 +726,7 @@ export async function runSyntheticChildBrowserActions(
     await installSyntheticChildBridge(page);
     await page.goto(input.url, { waitUntil: "domcontentloaded" });
     await installSyntheticChildBridgeOnCurrentPage(page);
+    await recordSyntheticMicrophonePreflight(page, input.url);
     await selectChildProfileIfPresent(page, input.browserProfileChildId);
     screenshots.push(
       await captureSyntheticChildScreenshot({

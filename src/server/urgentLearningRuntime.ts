@@ -34,7 +34,7 @@ function getActiveLearningGame(
     String(value ?? "").trim().toLowerCase().replace(/\s+/g, "-");
   const stateGame = normalize(currentActivityState?.game);
   const canvasMode = normalize((currentCanvasState as { mode?: ActivityModeLike } | null)?.mode);
-  const suppressibleGames = new Set(["pronunciation"]);
+  const suppressibleGames = new Set(["pronunciation", "word-radar"]);
   if (suppressibleGames.has(stateGame)) return stateGame;
   if (suppressibleGames.has(canvasMode)) return canvasMode;
   return "";
@@ -63,8 +63,27 @@ export function shouldSuppressTranscriptDuringActiveLearningGame(input: {
     /^(stop|pause|help|end session|quit|back to map)\b/i.test(text) ||
     /\b(what word|which word|say the word|say it|didn'?t say|did not say|that'?s wrong|not right|game skipped|it skipped)\b/i.test(text) ||
     /\b(worse than before|wrong words?|same words?|not high frequency|more words only|make some more words|fix this|this is bad)\b/i.test(text) ||
-    /\b(matilda|elli|sunny|charlotte)\b/i.test(text);
+      /\b(matilda|elli|sunny|charlotte)\b/i.test(text);
   if (commandLike) return false;
+
+  if (activeGame === "word-radar") {
+    const target = String(
+      input.currentActivityState?.currentWord ??
+        input.currentActivityState?.word ??
+        input.currentActivityState?.targetWord ??
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    const tokens = text
+      .toLowerCase()
+      .split(/\s+/)
+      .map((token) => token.replace(/[^a-z0-9]+/g, ""))
+      .filter(Boolean);
+    if (tokens.length > 1 && tokens.every((token) => token.length === 1)) return false;
+    const spoken = text.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    if (!target || spoken !== target.replace(/[^a-z0-9]+/g, "")) return false;
+  }
 
   console.log(`  🎮 [${activeGame}] transcript suppressed during active game`);
   return true;

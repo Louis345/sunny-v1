@@ -65,6 +65,16 @@ export type AdaptabilityLabReport = {
   };
 };
 
+const HIDDEN_WORD_RECALL_CONFIG = {
+  recallMode: "hidden_word_recall" as const,
+  inputMode: "whole-word" as const,
+  speakStyle: "option-b" as const,
+  showTimer: true,
+  timerSeconds: 10,
+  hideWordDuringResponse: true,
+  requiresCapturedResponse: true,
+};
+
 export function sandboxContextRoot(rootDir = process.cwd()): string {
   return path.join(rootDir, ".sunny-sandbox", "context");
 }
@@ -129,6 +139,7 @@ function demoProfile(scenario: AdaptabilityScenario): LearningProfile {
         difficulty: 1,
         gameFile: null,
         storyFile: null,
+        wordRadarConfig: HIDDEN_WORD_RECALL_CONFIG,
       },
       {
         id: `n-spell-check-hw-adapt-${scenario}`,

@@ -1607,6 +1607,9 @@ export async function startMapSession(
   } else if (profile.pendingHomework?.nodes?.length) {
     const hw = sanitizePendingHomeworkForLaunch(profile.pendingHomework);
     profile.pendingHomework = hw;
+    if (isDiagMapMode()) {
+      nodes = withGoalFlags(pendingHomeworkToNodeConfigs(hw, []));
+    } else {
     const chart = getChildChart(childId);
     const chartHomeworkId =
       chart.homework.pending?.homeworkId ?? chart.homework.pending?.weekOf;
@@ -1660,6 +1663,7 @@ export async function startMapSession(
       `🎮 [chart-plan] [map] plan=${activeSessionPlan.planId} nodes=${chartPlannedNodes.map((node) => node.type).join(",")}`,
     );
     nodes = withGoalFlags(chartPlannedNodes);
+    }
   } else {
     nodes = await buildNodeList(profile, theme);
   }
