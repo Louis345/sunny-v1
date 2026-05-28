@@ -17,10 +17,6 @@ describe("child chart decision doorway", () => {
   });
 
   it("does not ship the audited child-specific runtime copy/default leaks", () => {
-    const questSource = fs.readFileSync(
-      path.join(process.cwd(), "web/src/components/quest/QuestBriefingModal.tsx"),
-      "utf8",
-    );
     const adventureMapSource = fs.readFileSync(
       path.join(process.cwd(), "web/src/components/AdventureMap.tsx"),
       "utf8",
@@ -35,8 +31,9 @@ describe("child chart decision doorway", () => {
       fs.readFileSync(path.join(process.cwd(), "src/engine/learningEngine.ts"), "utf8"),
     ].join("\n");
 
-    expect(questSource).not.toContain("You got this, Ila!");
-    expect(questSource).not.toContain("Show 'em what you've got, Reina!");
+    expect(
+      fs.existsSync(path.join(process.cwd(), "web/src/components/quest/QuestBriefingModal.tsx")),
+    ).toBe(false);
     expect(adventureMapSource).not.toContain("Reina's story came to life.");
     expect(canvasSource).not.toContain('gamePlayerName ?? "Ila"');
     expect(profileSources).not.toContain('childId === "ila"');

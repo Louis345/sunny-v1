@@ -734,4 +734,14 @@ describe("AdventureBoardExperience", () => {
       "Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.",
     );
   });
+
+  it("keeps legacy AdventureMap from owning Mystery, Quest, or Boss choice ceremonies", () => {
+    const source = readFileSync(resolve(__dirname, "../components/AdventureMap.tsx"), "utf8");
+
+    expect(source).not.toContain("MysteryChoiceOverlay");
+    expect(source).not.toContain("QuestBriefingModal");
+    expect(source).not.toContain("QuestUnlockSequence");
+    expect(source).not.toContain("useQuestBriefing");
+    expect(source).not.toContain("useQuestUnlockSequence");
+  });
 });
