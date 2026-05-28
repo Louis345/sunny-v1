@@ -1112,6 +1112,59 @@ describe("PronunciationGameCanvas", () => {
     );
   });
 
+  it("keeps the pronunciation arcade end screen while emitting post-activity engagement actions", async () => {
+    const onPostActivityAction = vi.fn();
+    const onExit = vi.fn();
+    const { unmount } = render(
+      <PronunciationGameCanvas
+        words={["alpha"]}
+        interimTranscript=""
+        sendMessage={vi.fn()}
+        onPostActivityAction={onPostActivityAction}
+        onExit={onExit}
+      />,
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(60000);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("pronunciation-end-overlay")).toBeTruthy();
+    expect(screen.queryByTestId("post-activity-engagement-overlay")).toBeNull();
+
+    act(() => {
+      screen.getByRole("button", { name: /play again/i }).click();
+    });
+    expect(onPostActivityAction).toHaveBeenCalledWith(
+      "replay_same",
+      expect.objectContaining({ runEndedReason: "timer" }),
+    );
+    unmount();
+
+    render(
+      <PronunciationGameCanvas
+        words={["alpha"]}
+        interimTranscript=""
+        sendMessage={vi.fn()}
+        onPostActivityAction={onPostActivityAction}
+        onExit={onExit}
+      />,
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(60000);
+      await Promise.resolve();
+    });
+    act(() => {
+      screen.getByRole("button", { name: /back to map/i }).click();
+    });
+    expect(onPostActivityAction).toHaveBeenCalledWith(
+      "back_to_map",
+      expect.objectContaining({ runEndedReason: "timer" }),
+    );
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
   it("finishes the evidence pass and automatically enters capped adaptive flow when vitals are strong", async () => {
     const sendMessage = vi.fn();
     const onComplete = vi.fn();
