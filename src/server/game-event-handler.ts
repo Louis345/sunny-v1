@@ -8,8 +8,33 @@ import { childIdFromName, recordAttempt } from "../engine/learningEngine";
 import { recordLearningAttempt } from "./learningAttemptEvents";
 import { buildFlowGameEventFields } from "./flow-game-debug";
 import { buildGameContextSummary } from "./gameContextSummary";
+import {
+  recordCompanionVideoCallTraceEvent,
+  type CompanionVideoCallTraceEventName,
+} from "./companionVideoCallTrace";
 
 export const WB_ACTIVITY_MS = 90_000;
+
+const TRACEABLE_GAME_EVENT_TYPES = new Set([
+  "combo_breaker",
+  "pronunciation_hit",
+  "pronunciation_miss",
+  "pronunciation_latency_span",
+  "voice_control",
+  "narration_request",
+  "game_state_update",
+  "attempt_event",
+  "activity_evidence",
+  "game_complete",
+  "node_complete",
+  "video_chat_started",
+  "companion_video_call_trace",
+  "companion_tic_tac_toe_started",
+  "companion_tic_tac_toe_child_move",
+  "companion_tic_tac_toe_companion_move",
+  "companion_tic_tac_toe_round_complete",
+  "companion_tic_tac_toe_reset",
+]);
 
 /** @internal SessionManager instance — fields accessed intentionally across module boundary */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,24 +198,52 @@ export function handleGameEventForSession(
 
   const type = event.type as string;
 
-  if (
-    type === "combo_breaker" ||
-    type === "pronunciation_hit" ||
-    type === "pronunciation_miss" ||
-    type === "pronunciation_latency_span" ||
-    type === "voice_control" ||
-    type === "narration_request" ||
-    type === "game_state_update" ||
-    type === "attempt_event" ||
-    type === "game_complete" ||
-    type === "node_complete"
-  ) {
+  if (TRACEABLE_GAME_EVENT_TYPES.has(type)) {
     s.recordDebugEvent?.("flow_game", type, buildFlowGameEventFields(event));
     s.recordGameTrace?.({
       ...event,
       type,
       source: "game_event_handler",
     });
+  }
+
+  if (type === "companion_video_call_trace") {
+    const traceId = typeof event.traceId === "string" ? event.traceId : "";
+    const eventName = typeof event.eventName === "string" ? event.eventName : "";
+    if (traceId && eventName) {
+      try {
+        recordCompanionVideoCallTraceEvent({
+          traceId,
+          turnId: typeof event.turnId === "string" ? event.turnId : undefined,
+          eventName: eventName as CompanionVideoCallTraceEventName,
+          childId: typeof event.childId === "string" ? event.childId : undefined,
+          companionId: typeof event.companionId === "string" ? event.companionId : undefined,
+          callSource: typeof event.callSource === "string" ? event.callSource : undefined,
+          relationshipState:
+            typeof event.relationshipState === "string"
+              ? event.relationshipState
+              : undefined,
+          timestamp:
+            typeof event.timestamp === "number" && Number.isFinite(event.timestamp)
+              ? event.timestamp
+              : undefined,
+          payload:
+            event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+              ? (event.payload as Record<string, unknown>)
+              : {},
+        });
+      } catch (err: unknown) {
+        console.error(
+          "  🔴 [companion-video-trace] append failed:",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+    }
+    return;
+  }
+
+  if (type === "activity_evidence") {
+    return;
   }
 
   if (type === "narration_request") {

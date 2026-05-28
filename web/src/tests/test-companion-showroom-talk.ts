@@ -5,9 +5,14 @@ import {
   createShowroomVideoCallStatusCopy,
   createShowroomVideoChatEntryCopy,
   createShowroomVideoChatStartedEvent,
+  createShowroomVideoActivityContextFromEvent,
   createShowroomTalkPayload,
+  createShowroomVideoCallContextFromSearch,
+  getShowroomVideoChatLatencyBudget,
+  resolveShowroomTalkChildId,
   getShowroomTalkRequestedAnimation,
   getShowroomVoiceErrorRecovery,
+  resolveShowroomContainedSlotFraming,
   shouldIgnoreShowroomAutoResumeTranscript,
   shouldApplyShowroomTalkCommand,
   shouldGateShowroomTalkMic,
@@ -16,6 +21,17 @@ import {
   selectShowroomTalkPlaybackCommands,
   toShowroomIdleLoopCommand,
 } from "../components/CompanionShowroom";
+
+function readShowroomSource(): string {
+  return readFileSync(resolve(__dirname, "../components/CompanionShowroom.tsx"), "utf8");
+}
+
+function readVideoCallSource(): string {
+  return readFileSync(
+    resolve(__dirname, "../components/CompanionVideoCallOverlay.tsx"),
+    "utf8",
+  );
+}
 
 describe("CompanionShowroom talk mode", () => {
   it("sends the selected companion, selected voice, room, child, and question", () => {
@@ -33,6 +49,8 @@ describe("CompanionShowroom talk mode", () => {
       voiceId: "voice_b",
       showroomTheme: "crystal",
       question: "Can you help with spelling?",
+      callSource: "showroom",
+      relationshipState: "previewing",
     });
   });
 
@@ -58,10 +76,7 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("wires a Talk button without adding direct pose or motor animation calls", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = readShowroomSource();
 
     expect(source).toContain("Talk with");
     expect(source).toContain("showroomTalkPhase");
@@ -100,11 +115,9 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("wires an unlocked Video Chat shell without economy lock copy", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
 
+    expect(source).toContain("CompanionVideoCallOverlay");
     expect(source).toContain("Video Chat");
     expect(source).toContain("showroomVideoChatOpen");
     expect(source).toContain("Start camera");
@@ -116,10 +129,7 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("wires video chat voice through the existing showroom talk loop", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
 
     expect(source).toContain('aria-label="Ask by voice in video chat"');
     expect(source).toContain("startShowroomTalkListening");
@@ -129,15 +139,165 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).not.toContain("navigator.mediaDevices.getUserMedia({ audio: true");
   });
 
+  it("wires openCompanionActivity tool results into a tic-tac-toe FaceTime overlay", () => {
+    const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
+
+    expect(source).toContain("activeVideoCallActivity");
+    expect(source).toContain("activityRequests");
+    expect(source).toContain("openCompanionActivity");
+    expect(source).toContain("tic_tac_toe");
+    expect(source).toContain("CompanionTicTacToe");
+    expect(source).toContain("activitySlot");
+  });
+
+  it("bridges video-call play activity events into the existing live session log stream", () => {
+    const source = readShowroomSource();
+
+    expect(source).toContain("postShowroomVideoCallActivityEvent");
+    expect(source).toContain("game_state_update");
+    expect(source).toContain("companion_tic_tac_toe_child_move");
+    expect(source).toContain("companion_tic_tac_toe_companion_move");
+    expect(source).toContain("companion_tic_tac_toe_round_complete");
+    expect(source).toContain("callSource");
+    expect(source).toContain("relationshipState");
+  });
+
+  it("voices tic-tac-toe banter through the existing companion voice route and keeps hands-free alive", () => {
+    const source = readShowroomSource();
+
+    expect(source).toContain("speakShowroomVideoGameBanter");
+    expect(source).toContain('source: "video_game_banter"');
+    expect(source).toContain("game_banter_audio_ended");
+    expect(source).toContain("onBanter");
+    expect(source).toContain("videoChatHandsFreeRearmRef.current?.(");
+    expect(source).toContain("startShowroomTalkListening({ source: \"video_call\", quiet: true })");
+    expect(source).not.toContain("from \"socket.io-client\"");
+  });
+
+  it("carries active tic-tac-toe context into video-call talk payloads", () => {
+    const activeActivity = createShowroomVideoActivityContextFromEvent({
+      type: "companion_tic_tac_toe_child_move",
+      activityId: "tic_tac_toe",
+      surface: "video_call_overlay",
+      companionName: "Elli",
+      timestamp: 1000,
+      board: ["X", null, null, null, null, null, null, null, null],
+      square: 1,
+      mark: "X",
+    });
+
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "What should I do next?",
+        activeActivity,
+      }),
+    ).toMatchObject({
+      mode: "video_call",
+      activeActivity: {
+        activityId: "tic_tac_toe",
+        surface: "video_call_overlay",
+        status: "active",
+        board: ["X", null, null, null, null, null, null, null, null],
+        childMark: "X",
+        companionMark: "O",
+        turn: "companion",
+        lastMove: {
+          by: "child",
+          square: 1,
+          mark: "X",
+        },
+      },
+    });
+  });
+
+  it("carries the call trace id and turn id into video-call talk payloads", () => {
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "Can you see this?",
+        callTraceId: "trace123",
+        turnId: "trace123_turn_1",
+      }),
+    ).toMatchObject({
+      mode: "video_call",
+      callTraceId: "trace123",
+      turnId: "trace123_turn_1",
+    });
+  });
+
+  it("wires copyable trace links through the standalone video-call preview", () => {
+    const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
+
+    expect(source).toContain("emitShowroomVideoCallTrace");
+    expect(source).toContain("showroomVideoCallTraceId");
+    expect(source).toContain("buildCompanionVideoTraceUrl");
+    expect(source).toContain("traceLink");
+    expect(source).toContain("onCopyTraceLink");
+    expect(source).toContain("Copy trace link");
+  });
+
+  it("records the selected video-call layout so the lab can compare call versus play sessions", () => {
+    const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
+
+    expect(source).toContain("videoCallLayout");
+    expect(source).toContain("setVideoCallLayout");
+    expect(source).toContain("onLayoutChange");
+    expect(source).toContain("layout=");
+  });
+
+  it("sends showroom video calls as previewing relationship context", () => {
+    expect(
+      createShowroomTalkPayload({
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        question: "Can we talk?",
+        mode: "video_call",
+      }),
+    ).toMatchObject({
+      callSource: "showroom",
+      relationshipState: "previewing",
+      mode: "video_call",
+    });
+  });
+
+  it("supports a dev-preview earned video-call context from query params", () => {
+    expect(
+      createShowroomVideoCallContextFromSearch(
+        "?callSource=dev_preview&relationshipState=earned_reward&rewardId=video_call_ticket&earnedBy=finished%20word%20radar",
+      ),
+    ).toEqual({
+      callSource: "dev_preview",
+      relationshipState: "earned_reward",
+      rewardContext: {
+        rewardId: "video_call_ticket",
+        earnedBy: "finished word radar",
+      },
+    });
+  });
+
+  it("can route the standalone preview to a real child context by query param", () => {
+    expect(resolveShowroomTalkChildId(undefined, "?child=ila")).toBe("ila");
+    expect(resolveShowroomTalkChildId("Reina", "?child=ila")).toBe("reina");
+    expect(resolveShowroomTalkChildId(undefined, "")).toBe("showroom");
+  });
+
   it("starts video chat camera and listening from the call entry", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
 
     expect(source).toContain("void startShowroomVideoChatCamera({ autoListen: true })");
     expect(source).toContain("startShowroomTalkListening({ source: \"video_call\" })");
-    expect(source).toContain("showroomVideoChatCameraState === \"live\"");
+    expect(source).toContain("cameraState === \"live\"");
   });
 
   it("shows a ringing and answer ceremony before camera/listening starts", () => {
@@ -163,23 +323,19 @@ describe("CompanionShowroom talk mode", () => {
       status: "Connecting camera",
     });
 
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = readShowroomSource();
     expect(source).toContain("playVideoCallRingtone");
     expect(source).toContain("showroomVideoCallPhase");
     expect(source).toContain("SHOWROOM_VIDEO_CHAT_RING_MS");
     expect(source).toContain("SHOWROOM_VIDEO_CHAT_ANSWER_MS");
+    expect(source).toContain("SHOWROOM_VIDEO_CHAT_RINGTONE_STYLE = \"familiar-video-call\"");
+    expect(source).toContain("SHOWROOM_VIDEO_CHAT_RINGTONE_NOTES");
     expect(source).toContain("[showroom-video-chat] ringing");
     expect(source).toContain("[showroom-video-chat] answered");
   });
 
   it("captures one small camera snapshot only for visual video-call moments", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
 
     expect(source).toContain("shouldAttachVideoSnapshotForQuestion");
     expect(source).toContain("captureShowroomVideoSnapshot");
@@ -192,10 +348,7 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("defaults video chat to guarded hands-free rearming after companion speech", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = readShowroomSource();
 
     expect(source).toContain("videoChatContinuousListenRef");
     expect(source).toContain("startShowroomTalkListening({ source: \"video_call\" })");
@@ -208,6 +361,37 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).not.toContain("queueVideoChatListeningResumeRef");
     expect(source).not.toContain("listen_resume");
     expect(source).not.toContain("Push to talk");
+  });
+
+  it("keeps video-call hands-free rearming under a half-second artificial delay", () => {
+    expect(getShowroomVideoChatLatencyBudget()).toMatchObject({
+      handsFreeRearmMs: 360,
+      noSpeechRetryDelayMs: 560,
+    });
+
+    const source = readShowroomSource();
+    expect(source).toContain("[showroom-talk] request_start");
+    expect(source).toContain("[showroom-talk] response_received");
+    expect(source).toContain("[showroom-talk] audio_play_start");
+  });
+
+  it("uses safer video portrait framing for tall display-scaled companions", () => {
+    expect(
+      resolveShowroomContainedSlotFraming({ contained: true, displayScale: 2 }),
+    ).toEqual({
+      cameraAngle: "full-body",
+      cssScale: 1.06,
+      motorDisplayScale: 1,
+      transformOrigin: "50% 50%",
+    });
+
+    expect(
+      resolveShowroomContainedSlotFraming({ contained: true, displayScale: 1 }),
+    ).toMatchObject({
+      cameraAngle: "mid-shot",
+      cssScale: 1.38,
+      motorDisplayScale: 1,
+    });
   });
 
   it("does not submit tiny auto-resume echoes from Elli's previous spoken answer", () => {
@@ -238,10 +422,7 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("clears stale companion text before video chat starts a fresh listening turn", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = readShowroomSource();
     const listeningBody = source.match(
       /const startShowroomTalkListening = useCallback\([\s\S]*?recognition\.start\(\);/,
     )?.[0];
@@ -252,10 +433,7 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("keeps video chat attentive without looping the t-rex-prone think animation", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = readShowroomSource();
 
     expect(source).toContain("createShowroomEmoteCommand");
     expect(source).toContain('emote: "thinking"');
@@ -413,10 +591,7 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("logs the video-call speech-to-idle transition for human-caught pose bugs", () => {
-    const source = readFileSync(
-      resolve(__dirname, "../components/CompanionShowroom.tsx"),
-      "utf8",
-    );
+    const source = readShowroomSource();
 
     expect(source).toContain("[showroom-talk] speaking_start");
     expect(source).toContain("[showroom-talk] audio_ended");

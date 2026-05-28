@@ -224,8 +224,13 @@ describe("CompanionShowroom command source", () => {
       "utf8",
     );
 
-    expect(source).toContain('motor?.setCameraAngle("mid-shot", 680)');
-    expect(source).toContain('motor.setCameraAngle("mid-shot", 0)');
+    expect(source).toContain('cameraAngle: "mid-shot"');
+    expect(source).toContain(
+      "motor?.setCameraAngle(containedFraming.cameraAngle, 680)",
+    );
+    expect(source).toContain(
+      "motor.setCameraAngle(containedFraming.cameraAngle, 0)",
+    );
     expect(source).not.toContain('contained ? "mid-shot" : "full-body"');
   });
 
@@ -258,7 +263,10 @@ describe("CompanionShowroom command source", () => {
 
     expect(source).toContain("SHOWROOM_MAX_DISPLAY_SCALE");
     expect(source).toContain("showroomCompanionConfig");
-    expect(source).toContain("displayScale: SHOWROOM_MAX_DISPLAY_SCALE");
+    expect(source).toContain(
+      "motorDisplayScale: Math.min(displayScale, SHOWROOM_MAX_DISPLAY_SCALE)",
+    );
+    expect(source).toContain("displayScale: motorDisplayScale");
     expect(source).toContain(
       "motor.attachVrm(vrm, scene, size.w, size.h, showroomCompanionConfig)",
     );
@@ -292,9 +300,7 @@ describe("CompanionShowroom command source", () => {
       resolve(__dirname, "../components/CompanionShowroom.tsx"),
       "utf8",
     );
-    const portraitSlot = source.match(
-      /aria-label=\{`\$\{current\.name\} companion portrait`\}[\s\S]*?<CompanionSlot[\s\S]*?\/>/,
-    )?.[0];
+    const portraitSlot = source.match(/portrait=\{[\s\S]*?<CompanionSlot[\s\S]*?\/>/)?.[0];
 
     expect(portraitSlot).toBeDefined();
     expect(source).toContain("const noopShowroomSlotSettled = useCallback");
