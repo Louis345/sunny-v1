@@ -12,6 +12,7 @@ import type {
 } from "../context/schemas/homeworkCycle";
 import {
   generateExperienceArtifactFromChart,
+  generateExperienceHtmlWithSonnet,
   type GenerateExperienceHtmlArgs,
 } from "../engine/generatedExperienceArtifact";
 import { resolveSyntheticChildBrowserAvailability } from "../engine/syntheticChildBrowserDriver";
@@ -24,6 +25,16 @@ const WORDS = ["sign", "know", "write"];
 
 function log(action: string, result: string) {
   console.log(`🎮 [quest-boss-smoke] [${action}] ${result}`);
+}
+
+function hasFlag(name: string): boolean {
+  return process.argv.includes(`--${name}`) || process.argv.includes(`--${name}=true`);
+}
+
+function optionValue(name: string): string | null {
+  const prefix = `--${name}=`;
+  const match = process.argv.find((arg) => arg.startsWith(prefix));
+  return match ? match.slice(prefix.length) : null;
 }
 
 function timestamp(): string {
@@ -355,10 +366,10 @@ function smokeHtml(args: GenerateExperienceHtmlArgs): string {
     const words = ${wordsJson};
     function finish() {
       words.forEach((word) => {
-        fireAttemptEvent({ target: word, word, correct: true });
+        window.fireAttemptEvent({ target: word, word, correct: true });
       });
-      fireCompanionEvent("correct_answer", { childId: params.childId || "", timestamp: Date.now() });
-      sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: words.length });
+      window.fireCompanionEvent("correct_answer", { childId: params.childId || "", timestamp: Date.now() });
+      window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: words.length });
       document.getElementById("done").hidden = false;
     }
     document.getElementById("start").addEventListener("click", finish);
@@ -418,12 +429,25 @@ async function screenshotLaunch(root: string, outputDir: string, stage: "quest" 
   try {
     const url = `${server.baseUrl}/homework/${CHILD_ID}/${GAME_DATE}/${filename}?preview=go-live&childId=${CHILD_ID}&nodeId=${stage}-smoke&words=${encodeURIComponent(WORDS.join(","))}`;
     await page.goto(url, { waitUntil: "load" });
-    await page.getByRole("button", { name: /Start Smoke Run/ }).click();
-    await page.waitForTimeout(250);
-    const screenshotPath = path.join(outputDir, `${stage}-launched.png`);
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    log("launch-screenshot", screenshotPath);
-    return { url, screenshotPath };
+    const loadedScreenshotPath = path.join(outputDir, `${stage}-loaded.png`);
+    await page.screenshot({ path: loadedScreenshotPath, fullPage: true });
+    log("launch-screenshot", loadedScreenshotPath);
+    const launchButton = page.getByRole("button").filter({
+      hasText: /start|let'?s go|begin|play|launch|continue/i,
+    }).first();
+    if (await launchButton.count()) {
+      await launchButton.click();
+      await page.waitForTimeout(500);
+    }
+    const afterStartScreenshotPath = path.join(outputDir, `${stage}-after-start.png`);
+    await page.screenshot({ path: afterStartScreenshotPath, fullPage: true });
+    log("launch-screenshot", afterStartScreenshotPath);
+    return {
+      url,
+      screenshotPath: afterStartScreenshotPath,
+      loadedScreenshotPath,
+      afterStartScreenshotPath,
+    };
   } finally {
     await page.close();
     await browser.close();
@@ -532,14 +556,29 @@ async function captureChoiceModalScreenshots(outputDir: string) {
 }
 
 async function main() {
+  const useAi = hasFlag("ai");
+  const stageFilter = optionValue("stage");
+  if (stageFilter && stageFilter !== "quest" && stageFilter !== "boss") {
+    throw new Error(`Unsupported --stage=${stageFilter}; expected quest or boss`);
+  }
   const availability = await resolveSyntheticChildBrowserAvailability();
   if (!availability.available) {
     throw new Error(`Playwright unavailable: ${availability.reason ?? "unknown reason"}`);
   }
 
-  const outputDir = path.join(process.cwd(), "web", "test-artifacts", "quest-boss-launch-smoke", timestamp());
+  const outputDir = path.join(
+    process.cwd(),
+    "web",
+    "test-artifacts",
+    useAi ? "quest-boss-paid-smoke" : "quest-boss-launch-smoke",
+    timestamp(),
+  );
   const root = path.join(outputDir, "fixture-root");
   fs.mkdirSync(outputDir, { recursive: true });
+  log(
+    "mode",
+    `${useAi ? "paid-ai=true model=claude-sonnet-4-20250514" : "paid-ai=false deterministic fixture"} stage=${stageFilter ?? "quest,boss"}`,
+  );
   writeJson(root, `src/context/${CHILD_ID}/learning_profile.json`, profile());
   writeJson(root, `src/context/${CHILD_ID}/word_bank.json`, { childId: CHILD_ID, words: [] });
   writeJson(root, `src/context/${CHILD_ID}/homework/cycles/${HOMEWORK_ID}.json`, homeworkCycle());
@@ -547,18 +586,23 @@ async function main() {
   await captureChoiceModalScreenshots(outputDir);
 
   const outputs = [];
-  for (const [stage, briefId] of [
+  const stageBriefs = [
     ["quest", "quest-story-smoke"],
     ["boss", "boss-showdown-smoke"],
-  ] as const) {
+  ] as const;
+  for (const [stage, briefId] of stageBriefs.filter(([stage]) => !stageFilter || stage === stageFilter)) {
     const result = await generateExperienceArtifactFromChart({
       childId: CHILD_ID,
       rootDir: root,
       now: new Date(`${GAME_DATE}T13:00:00.000Z`),
       kind: stage,
       briefId,
-      parentFeedback: `Smoke selected ${briefId}`,
-      generateHtml: smokeHtml,
+      parentFeedback: [
+        `Smoke selected ${briefId}.`,
+        "Use flow-state design guidance: clear goal, immediate feedback, challenge-skill balance, control, and low-friction focus.",
+        "Hide the spelling proof inside the adventure loop, but preserve mastery evidence through per-target attempt events.",
+      ].join(" "),
+      generateHtml: useAi ? generateExperienceHtmlWithSonnet : smokeHtml,
     });
     if (!result.ok) {
       throw new Error(`${stage} generation failed: ${result.reason}`);
@@ -580,6 +624,8 @@ async function main() {
     createdAt: new Date().toISOString(),
     childId: CHILD_ID,
     homeworkId: HOMEWORK_ID,
+    paidAi: useAi,
+    model: useAi ? "claude-sonnet-4-20250514" : "deterministic-smoke-html",
     outputDir,
     outputs,
   };
@@ -593,6 +639,8 @@ async function main() {
       "",
       `- child: ${CHILD_ID}`,
       `- homework: ${HOMEWORK_ID}`,
+      `- paid AI: ${useAi ? "yes" : "no"}`,
+      `- model: ${useAi ? "claude-sonnet-4-20250514" : "deterministic-smoke-html"}`,
       `- output: ${outputDir}`,
       "",
       ...outputs.map((item) => [

@@ -728,7 +728,10 @@ export function buildHomeworkPreviewCommand(childId: string): {
 }
 
 export function ensureQuestHtmlContract(html: string): string {
-  let out = html;
+  let out = html.replace(
+    /src=(["'])(?:\.\/)?(?:games\/)?_contract\.js\1/gi,
+    'src="/games/_contract.js"',
+  );
   if (!out.includes('_contract.js')) {
     if (/<head[^>]*>/i.test(out)) {
       out = out.replace(
@@ -745,7 +748,7 @@ export function ensureQuestHtmlContract(html: string): string {
   if (!out.includes("fireCompanionEvent(")) {
     out += `\n<script>
 function __sunnyFire(evt, payload) {
-  if (typeof fireCompanionEvent === "function") fireCompanionEvent(evt, payload || {});
+  if (typeof window.fireCompanionEvent === "function") window.fireCompanionEvent(evt, payload || {});
 }
 __sunnyFire("game_start", {});
 </script>\n`;

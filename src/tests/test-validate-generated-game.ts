@@ -92,6 +92,26 @@ fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 
     expect(r.failures.some((f) => f.includes("Visible spelling targets"))).toBe(true);
   });
 
+  it("blocks quest validation when spelling targets are visible", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<div class="word-chip">apple</div>
+<script>
+const params = window.GAME_PARAMS || {};
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "ila",
+      generationStage: "quest",
+    });
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((f) => f.includes("Visible spelling targets"))).toBe(true);
+  });
+
   it("rejects generated games that do not report attempt events", () => {
     const html = `${BASE}
 <div id="sunny-companion"></div>
@@ -128,6 +148,146 @@ document.getElementById("finish").addEventListener("click", () => {
     expect(r.passed).toBe(false);
     expect(r.failures.some((f) => f.includes("one-click"))).toBe(true);
     expect(r.shouldRegenerate).toBe(true);
+  });
+
+  it("rejects Quest/Boss artifacts that use bare contract globals instead of window contract calls", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<script>
+const params = window.GAME_PARAMS || {};
+fireCompanionEvent("correct_answer", {});
+fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(false);
+    expect(r.failures.join(" ")).toMatch(/window\.fireAttemptEvent/);
+    expect(r.failures.join(" ")).toMatch(/window\.sendNodeComplete/);
+    expect(r.shouldRegenerate).toBe(true);
+  });
+
+  it("rejects Quest/Boss artifacts that load the contract from a relative path", () => {
+    const html = `<!DOCTYPE html><html><head><script src="_contract.js"></script></head><body>
+<div id="sunny-companion"></div>
+<script>
+const params = window.GAME_PARAMS || {};
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(false);
+    expect(r.failures.join(" ")).toContain("/games/_contract.js");
+  });
+
+  it("rejects Quest/Boss artifacts with hardcoded child fallback values", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<script>
+const params = window.GAME_PARAMS || {};
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1, childId: window.GAME_PARAMS?.childId || "reina" });
+</script></body></html>`;
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "reina",
+      generationStage: "quest",
+    });
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((f) => f.includes("Hardcoded childId"))).toBe(true);
+  });
+
+  it("accepts Quest/Boss artifacts that use window contract calls", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<script>
+const params = window.GAME_PARAMS || {};
+window.fireCompanionEvent("correct_answer", { childId: params.childId || "" });
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(true);
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it("does not block separate correct and wrong feedback branches just because wrong copy says correct spelling", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<p class="feedback"></p>
+<script>
+const params = window.GAME_PARAMS || {};
+function gradeAnswer(isCorrect) {
+  const feedback = document.querySelector(".feedback");
+  if (isCorrect) {
+    feedback.className = "feedback correct";
+    feedback.textContent = "Correct!";
+    window.fireCompanionEvent("correct_answer", {});
+  } else {
+    feedback.className = "feedback incorrect";
+    feedback.textContent = "Not quite. The correct spelling appears after this attempt.";
+    window.fireCompanionEvent("wrong_answer", {});
+  }
+  window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "aple", correct: isCorrect, quality: isCorrect ? 5 : 1, scaffoldLevel: 0 });
+  window.sendNodeComplete({ completed: true, accuracy: isCorrect ? 1 : 0, wordsAttempted: 1 });
+}
+</script></body></html>`;
+
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(true);
+    expect(r.failures).toHaveLength(0);
+  });
+
+  it("does not warn on generic word-chip UI when spelling targets appear only inside script data", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<div class="word-chip">Silent Letters</div>
+<script>
+const params = window.GAME_PARAMS || {};
+const targetWords = ["sign"];
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: targetWords[0], attemptedValue: targetWords[0], correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+
+    const r = validateGeneratedGame(html, {
+      words: ["sign"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(true);
+    expect(r.warnings.some((warning) => warning.includes("Word list may be visible"))).toBe(false);
   });
 
   it("passes valid generated game HTML", () => {

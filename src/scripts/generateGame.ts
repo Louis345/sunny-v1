@@ -315,7 +315,7 @@ Design rules:
 - rewardPreferences → match feedback style to profile
 - Profile improves over time — your design reflects
   current data, not static assumptions
-- NEVER hardcode child name — use GAME_PARAMS.childId
+- NEVER hardcode child name — use window.GAME_PARAMS.childId
 - NEVER hardcode colors or fonts — derive from profile
 `
     : "";
@@ -339,12 +339,12 @@ Confirmed error signals:
 ${JSON.stringify(errorSignals ?? [], null, 2)}
 
 The mechanic is the treatment. Build interactions that directly test the theory.
-If this is a spelling game, every scored interaction must call fireAttemptEvent().
+If this is a spelling game, every scored interaction must call window.fireAttemptEvent().
 
 `
       : "";
 
-  return `${validationPreamble}${purposeBlock}${referenceBlock}${diagnosticBlock}Generate a complete single-file interactive HTML game for Ila (age 8, grade 2).
+  return `${validationPreamble}${purposeBlock}${referenceBlock}${diagnosticBlock}Generate a complete single-file interactive HTML game for the child described in the Sunny payload.
 Match this EXACT visual style:
 - Background: rich dark gradient (not flat dark blue).
   Use: linear-gradient(160deg, #064e3b, #065f46, #047857, #1a3a1a)
@@ -368,6 +368,10 @@ bottom:20px;right:20px;width:120px;height:120px;
 z-index:9999;pointer-events:none;'></div>
 This is mandatory. Never omit it.
 
+REQUIRED: Load the Sunny game contract with this exact head script:
+<script src="/games/_contract.js"></script>
+Do not use "_contract.js", "./_contract.js", a module script, or any other path.
+
 BEFORE game starts:
   Show modal overlay:
   '📚 Today's Quest: {n} questions worth {n*10} XP total'
@@ -386,33 +390,35 @@ WRITTEN / fill_in grading — call Sunny server Haiku (same origin as iframe):
 Multiple choice / exact fill: 10 XP + confetti on correct; 0 XP on wrong; show feedback.
 
 On complete:
-  call sendNodeComplete({
+  call window.sendNodeComplete({
     accuracy: (total XP earned) / (n * 10),
     completed: true,
     timeSpent_ms: Date.now() - startTime,
-    childId: GAME_PARAMS.childId
+    childId: window.GAME_PARAMS.childId
   });
 
-COMPANION EVENTS — fire these via postMessage:
-After _contract.js loads, call fireCompanionEvent() at:
-- correct answer: fireCompanionEvent('correct_answer', 
+COMPANION EVENTS — fire these through the Sunny contract:
+After _contract.js loads, call window.fireCompanionEvent() at:
+- correct answer: window.fireCompanionEvent('correct_answer',
     { word: currentWord, xp: 10 })
-- wrong answer: fireCompanionEvent('wrong_answer', 
+- wrong answer: window.fireCompanionEvent('wrong_answer',
     { question: problem.question })
-- streak of 3: fireCompanionEvent('streak_3', 
+- streak of 3: window.fireCompanionEvent('streak_3',
     { streak: 3 })
-- game complete: fireCompanionEvent('game_complete', 
+- game complete: window.fireCompanionEvent('game_complete',
     { accuracy, xpEarned: totalXP })
-- 10 seconds idle: fireCompanionEvent('idle_10s', {})
+- 10 seconds idle: window.fireCompanionEvent('idle_10s', {})
 
-fireCompanionEvent is already defined in _contract.js
-which is loaded at top of <head>
+These functions are defined on window by _contract.js, which is loaded at
+top of <head>. Do not use bare fireCompanionEvent(), fireAttemptEvent(), or
+sendNodeComplete() calls. Do not use <script type="module"> for the game
+contract code.
 
 ATTEMPT EVENTS — mandatory for learning diagnostics:
-Every assessable interaction must call fireAttemptEvent() exactly once after
+Every assessable interaction must call window.fireAttemptEvent() exactly once after
 the answer is graded. This is separate from fireCompanionEvent().
 Use:
-fireAttemptEvent({
+window.fireAttemptEvent({
   domain: 'spelling' | 'math' | 'reading' | 'history',
   target: expectedAnswerOrWord,
   attemptedValue: childAnswerString, // include whenever the child produced text
@@ -421,14 +427,16 @@ fireAttemptEvent({
   scaffoldLevel: 0 | 1 | 2 | 3 | 4
 });
 For spelling, target is the word being tested and attemptedValue is exactly
-what the child typed. Do not create a spelling input without fireAttemptEvent().
+what the child typed. Do not create a spelling input without window.fireAttemptEvent().
 
 RUNTIME VALIDATION HOOK — mandatory:
 Expose a deterministic QA hook so Sunny can test your game before a child sees it:
 window.SUNNY_VALIDATION_HOOKS = {
   playthrough: async ({ words }) => {
     // Programmatically complete the game by filling real inputs/clicking real buttons.
-    // It must trigger the same fireAttemptEvent() and sendNodeComplete() paths as child play.
+    // It must trigger the same window.fireAttemptEvent() and window.sendNodeComplete() paths as child play.
+    // After each submit, wait until the next enabled input/button is visible or completion is shown.
+    // Do not type/click while the previous round input is disabled or during a transition timeout.
   }
 }
 Do not make a one-click "finish quest" shortcut. The hook must produce one
@@ -472,10 +480,10 @@ function buildOpusPrompt(
     2. Tests mastery not just recognition
     3. Has a dramatic boss battle feel
     4. Uses same visual style as quest game
-    5. Includes companion events via fireCompanionEvent()
-    6. Accepts URL params via GAME_PARAMS from _contract.js
-    7. Posts node_complete on finish
-    8. No hardcoded child names — use GAME_PARAMS.childId
+    5. Includes companion events via window.fireCompanionEvent()
+    6. Accepts URL params via window.GAME_PARAMS from _contract.js
+    7. Calls window.sendNodeComplete() on finish
+    8. No hardcoded child names — use window.GAME_PARAMS.childId
     9. Lexend font, cream bg, large text for dyslexia
     10. 5-7 minutes to complete
     

@@ -165,6 +165,26 @@ function writeProfile(rootDir: string, childId: string, profile: LearningProfile
   writeJson(path.join(contextDir(rootDir, childId), "learning_profile.json"), slimLearningProfileForDoorway(profile), now);
 }
 
+function writeFailedValidationArtifacts(args: {
+  validationOutputDir: string;
+  html: string;
+  report: ExperienceArtifactValidationReport;
+  childId: string;
+  stage: AdaptiveQuestArtifactStage;
+  briefId: string;
+}): void {
+  fs.mkdirSync(args.validationOutputDir, { recursive: true });
+  fs.writeFileSync(path.join(args.validationOutputDir, "failed-generated-artifact.html"), args.html, "utf8");
+  fs.writeFileSync(
+    path.join(args.validationOutputDir, "failed-validation-report.json"),
+    JSON.stringify(args.report, null, 2),
+    "utf8",
+  );
+  console.log(
+    `🎮 [experience-artifact] [failed-html-saved] child=${args.childId} stage=${args.stage} brief=${args.briefId}`,
+  );
+}
+
 function readHomeworkCycle(rootDir: string, childId: string, homeworkId: string): HomeworkCycle | null {
   return readJson<HomeworkCycle>(
     path.join(contextDir(rootDir, childId), "homework", "cycles", `${homeworkId}.json`),
@@ -250,8 +270,8 @@ function defaultQuestHtml(args: GenerateExperienceHtmlArgs): string {
         const attemptedValue = input.value.trim();
         const ok = attemptedValue.toLowerCase() === String(target).toLowerCase();
         if (ok) correct += 1;
-        fireAttemptEvent({ domain: "spelling", target, attemptedValue, correct: ok, quality: ok ? 5 : 1, scaffoldLevel: 0 });
-        fireCompanionEvent(ok ? "correct_answer" : "wrong_answer", { word: target });
+        window.fireAttemptEvent({ domain: "spelling", target, attemptedValue, correct: ok, quality: ok ? 5 : 1, scaffoldLevel: 0 });
+        window.fireCompanionEvent(ok ? "correct_answer" : "wrong_answer", { word: target });
         feedback.textContent = ok ? "Correct" : "Try the next one";
         round.classList.remove("active");
         index += 1;
@@ -259,7 +279,7 @@ function defaultQuestHtml(args: GenerateExperienceHtmlArgs): string {
         if (next) {
           next.classList.add("active");
         } else {
-          sendNodeComplete({ completed: true, accuracy: correct / Math.max(1, targets.length), timeSpent_ms: Date.now() - startTime, wordsAttempted: targets.length });
+          window.sendNodeComplete({ completed: true, accuracy: correct / Math.max(1, targets.length), timeSpent_ms: Date.now() - startTime, wordsAttempted: targets.length });
         }
       });
       rounds.appendChild(round);
@@ -576,6 +596,14 @@ export async function generateExperienceArtifactFromChart(
   });
 
   if (!report.passed) {
+    writeFailedValidationArtifacts({
+      validationOutputDir,
+      html,
+      report,
+      childId,
+      stage,
+      briefId: brief.briefId,
+    });
     const failedCatalogItem = {
       ...catalogAdaptiveQuestArtifact(artifact, {
         childId,

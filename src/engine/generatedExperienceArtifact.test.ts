@@ -301,9 +301,9 @@ function validHtml(): string {
 const params = window.GAME_PARAMS || {};
 function finish() {
   const words = params.words || ["target"];
-  words.forEach((word) => fireAttemptEvent({ word, correct: true }));
-  fireCompanionEvent("correct_answer", {});
-  sendNodeComplete({ completed: true, accuracy: 1, timeSpent_ms: 1000, wordsAttempted: words.length });
+  words.forEach((word) => window.fireAttemptEvent({ word, correct: true }));
+  window.fireCompanionEvent("correct_answer", {});
+  window.sendNodeComplete({ completed: true, accuracy: 1, timeSpent_ms: 1000, wordsAttempted: words.length });
 }
 document.getElementById("start").addEventListener("click", finish);
 window.SUNNY_VALIDATION_HOOKS = { playthrough: async () => finish() };
@@ -476,5 +476,15 @@ describe("generated experience artifact from chart", () => {
     expect(quest?.gameFile).toBeNull();
     expect(quest?.adaptiveArtifact).toBeUndefined();
     expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("failed");
+    const validationDir = path.join(
+      root,
+      `src/context/${CHILD_ID}/homework/games/2026-05-13/.validation/brief-quest-transfer`,
+    );
+    expect(fs.readFileSync(path.join(validationDir, "failed-generated-artifact.html"), "utf8")).toContain(
+      "SUNNY_VALIDATION_HOOKS",
+    );
+    expect(readJson<{ passed: boolean }>(validationDir, "failed-validation-report.json")).toMatchObject({
+      passed: false,
+    });
   });
 });

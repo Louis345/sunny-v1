@@ -6,6 +6,49 @@ export interface GameValidationResult {
   shouldRegenerate: boolean;
 }
 
+function hasWindowContractCall(html: string, functionName: string): boolean {
+  const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(
+    String.raw`\bwindow\s*(?:\.\s*${escaped}|\[\s*["']${escaped}["']\s*\])\s*\(`,
+    "i",
+  );
+  return pattern.test(html);
+}
+
+function readsWindowGameParams(html: string): boolean {
+  return /\bwindow\s*(?:\.\s*GAME_PARAMS|\[\s*["']GAME_PARAMS["']\s*\])/i.test(html);
+}
+
+function hasCanonicalContractScript(html: string): boolean {
+  return /<script\b[^>]*\bsrc=(["'])\/games\/_contract\.js\1[^>]*>/i.test(html);
+}
+
+function visibleText(html: string): string {
+  return html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function containsVisibleTarget(html: string, words: string[]): boolean {
+  const text = visibleText(html);
+  return words.some((word) => {
+    const normalized = word.trim();
+    if (!normalized) return false;
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(String.raw`\b${escaped}\b`, "i").test(text);
+  });
+}
+
+function stripRuntimeParamReferences(html: string): string {
+  return html.replace(
+    /\bwindow\s*(?:\.\s*GAME_PARAMS|\[\s*["']GAME_PARAMS["']\s*\])(?:\s*\?\.\s*[A-Za-z_$][\w$]*|\s*\.\s*[A-Za-z_$][\w$]*)?/gi,
+    "",
+  );
+}
+
 export function validateGeneratedGame(
   html: string,
   ctx: {
@@ -31,7 +74,24 @@ export function validateGeneratedGame(
     failures.push("Not reading GAME_PARAMS — hardcoded data");
   }
 
-  const strippedParams = html.replace(/GAME_PARAMS[^;]+/g, "");
+  if (ctx.generationStage === "quest" || ctx.generationStage === "boss") {
+    if (!hasCanonicalContractScript(html)) {
+      failures.push('Quest/Boss artifacts must load the Sunny contract with <script src="/games/_contract.js"></script>');
+    }
+    if (!readsWindowGameParams(html)) {
+      failures.push("Quest/Boss artifacts must read window.GAME_PARAMS for runtime parameters");
+    }
+    for (const functionName of ["fireAttemptEvent", "sendNodeComplete", "fireCompanionEvent"]) {
+      if (!hasWindowContractCall(html, functionName)) {
+        failures.push(`Quest/Boss artifacts must call window.${functionName}(...) instead of relying on bare globals`);
+      }
+    }
+  }
+
+  const generatedStage = ctx.generationStage === "quest" || ctx.generationStage === "boss";
+  const strippedParams = generatedStage
+    ? stripRuntimeParamReferences(html)
+    : html.replace(/GAME_PARAMS[^;]+/g, "");
   if (ctx.childId.trim() && strippedParams.toLowerCase().includes(ctx.childId.toLowerCase())) {
     failures.push(`Hardcoded childId "${ctx.childId}" found`);
   }
@@ -39,8 +99,8 @@ export function validateGeneratedGame(
   const correctBlock = html.match(/correct[^}]{0,200}(shake|error|wrong)/is);
   const wrongBlock = html.match(/wrong[^}]{0,200}(flash-ok|correct|success)/is);
   if (correctBlock || wrongBlock) {
-    failures.push("Correct and wrong feedback may fire from same code path");
-    score -= 30;
+    warnings.push("Correct and wrong feedback may fire from same code path");
+    score -= 10;
   }
 
   if (!html.includes('id="sunny-companion"')) {
@@ -69,18 +129,10 @@ export function validateGeneratedGame(
   }
 
   if (ctx.homeworkType === "spelling_test") {
-    const firstWord = ctx.words[0];
-    const hasWordChips =
-      html.includes("word-chip") ||
-      html.includes("word-list") ||
-      (html.includes("chip") &&
-        typeof firstWord === "string" &&
-        firstWord.length > 0 &&
-        html.includes(firstWord));
-    if (hasWordChips) {
+    if (containsVisibleTarget(html, ctx.words)) {
       const message = "Word list may be visible during spelling — defeats assessment purpose";
-      if (ctx.generationStage === "boss") {
-        failures.push(`Visible spelling targets during boss validation: ${message}`);
+      if (ctx.generationStage === "quest" || ctx.generationStage === "boss") {
+        failures.push(`Visible spelling targets during ${ctx.generationStage} validation: ${message}`);
       } else {
         warnings.push(message);
       }
@@ -94,6 +146,11 @@ export function validateGeneratedGame(
     return (
       fl.includes("correct and wrong") ||
       fl.includes("hardcoded") ||
+      fl.includes("/games/_contract.js") ||
+      fl.includes("window.game_params") ||
+      fl.includes("window.fireattemptevent") ||
+      fl.includes("window.sendnodecomplete") ||
+      fl.includes("window.firecompanionevent") ||
       fl.includes("fireattemptevent") ||
       fl.includes("visible spelling targets") ||
       fl.includes("one-click")

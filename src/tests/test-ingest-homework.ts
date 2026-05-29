@@ -720,6 +720,14 @@ describe("ingestHomework", () => {
     expect(html).toContain("fireCompanionEvent");
   });
 
+  it("quest HTML normalizes relative contract script URLs to the shared game contract path", () => {
+    const html = ensureQuestHtmlContract(
+      '<html><head><script src="_contract.js"></script></head><body><h1>Game</h1></body></html>',
+    );
+    expect(html).toContain('<script src="/games/_contract.js"></script>');
+    expect(html).not.toContain('src="_contract.js"');
+  });
+
   it("boss node skipped without --opus flag", () => {
     expect(shouldGenerateBossNode(false)).toBe(false);
   });
