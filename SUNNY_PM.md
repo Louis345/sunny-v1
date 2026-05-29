@@ -147,5 +147,26 @@ Do Not:
 - Do not count slot-machine reward engagement as mastery.
 - Do not keep the old AdventureMap alive for this component.
 
+### T012 - Quest/Boss Spec Shell And Candidate Lifecycle
+Owner: AI
+Status: queued
+Goal: Stop asking AI to invent the whole Quest/Boss runtime. Sunny owns the validated shell; AI owns theme, story, scenes, and challenge design.
+Files:
+- Quest/Boss shell renderer and tests
+- generated QuestSpec schema and validator
+- generated artifact candidate/review lifecycle
+Success:
+- AI outputs a QuestSpec JSON, not full runtime HTML, for the first Quest/Boss shell.
+- Sunny-owned shell handles `/games/_contract.js`, `#sunny-companion`, hidden-recall loops, attempt events, completion events, target hiding, replay/back overlay, validation hooks, and logs.
+- Generated candidates move through explicit states: candidate, validation_failed, validated_available, selected, not_selected, preserved, revised, discarded, retired.
+- Discarded candidates stay audit evidence only and never become playable or child-chart mastery evidence.
+- If a child sees two valid Quest/Boss options and picks one, the unpicked option is recorded as `not_selected`, not `discarded`.
+- Choice logs capture shown options, selected option, not-selected option ids, option traits, position/order, validation status, and later play outcome for the selected option.
+- Bandit/engagement model treats not-selection as a weak preference signal only after repeated exposures; selected play outcome and voluntary replay carry stronger weight.
+Do Not:
+- Do not let AI render companion chrome or runtime evidence plumbing.
+- Do not count unchosen options as dislike or mastery failure.
+- Do not delete unchosen valid artifacts immediately; expire or retire them only through explicit lifecycle rules.
+
 ## Next Command
 Re-ingest/replan Reina spelling with the updated planner prompt, then run `src/scripts/preflightHomeworkSession.ts --child=reina`.
