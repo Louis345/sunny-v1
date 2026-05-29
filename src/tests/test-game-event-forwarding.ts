@@ -442,6 +442,7 @@ describe("_contract.js GameBridge.startHeartbeat", () => {
 
   it("fireAttemptEvent posts a normalized attempt_event with contract params", () => {
     const posts: unknown[] = [];
+    const log = vi.fn();
     const mockDoc = {
       addEventListener: (_event: string, cb: () => void) => cb(),
       title: "Attempt Contract Test",
@@ -462,6 +463,7 @@ describe("_contract.js GameBridge.startHeartbeat", () => {
       setInterval: () => 1,
       clearInterval: () => {},
       Date: { now: () => 123 },
+      console: { log },
     };
 
     vm.runInNewContext(contractSrc, context);
@@ -495,6 +497,9 @@ describe("_contract.js GameBridge.startHeartbeat", () => {
           timestamp: 123,
         }),
       }),
+    );
+    expect(log).toHaveBeenCalledWith(
+      "🎮 [game-contract] [post] type=attempt_event child=ila node=n1",
     );
   });
 });

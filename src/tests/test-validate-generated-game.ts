@@ -69,6 +69,70 @@ fireAttemptEvent({ domain: "spelling", target: "apple", correct: true, quality: 
     expect(r.score).toBe(90);
   });
 
+  it("blocks Quest/Boss artifacts that omit the Sunny companion anchor", () => {
+    const html = `${BASE}
+<script>
+const params = window.GAME_PARAMS || {};
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((f) => f.includes("sunny-companion"))).toBe(true);
+    expect(r.shouldRegenerate).toBe(true);
+  });
+
+  it("blocks Quest/Boss artifacts that render their own companion chrome", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<div class="quest-giver"><div class="quest-avatar">Matilda</div></div>
+<div class="speech-bubble">I will help from inside the game.</div>
+<script>
+const params = window.GAME_PARAMS || {};
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((f) => f.includes("own companion chrome"))).toBe(true);
+    expect(r.shouldRegenerate).toBe(true);
+  });
+
+  it("allows non-companion game-world speech bubble styling", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<div class="speech-bubble">The door creaks open after you solve the clue.</div>
+<script>
+const params = window.GAME_PARAMS || {};
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "apple", correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
+</script></body></html>`;
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(true);
+    expect(r.failures).toHaveLength(0);
+  });
+
   it("warns when spelling test shows word list", () => {
     const html = compliantHtml("ila", '<div class="word-chip">apple</div>\n');
     const r = validateGeneratedGame(html, {

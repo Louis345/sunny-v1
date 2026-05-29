@@ -349,12 +349,13 @@ Match this EXACT visual style:
 - Background: rich dark gradient (not flat dark blue).
   Use: linear-gradient(160deg, #064e3b, #065f46, #047857, #1a3a1a)
 - Fonts: Fredoka One (titles), Nunito (body) from Google Fonts
-- Quest giver: fixed bottom-left, oval shape with gradient,
-  emoji + name label + animated mouth div
-  (div.mouth that toggles class 'talking' on interval)
-- Speech bubble: white rounded card next to quest giver
-- Elli corner: fixed bottom-right, purple circle, 🌟 emoji
-- Vocabulary strip: semi-transparent card with pill-shaped word chips
+- Companion chrome is owned by Sunny outside the iframe.
+  Do not render a quest giver, companion avatar, speech bubble, Elli/Matilda corner,
+  talking mouth, companion name label, or companion helper card inside the game.
+  Use only #sunny-companion as the anchor and send context through the contract.
+- Skill/status strip: semi-transparent card with pill labels for modes/progress only.
+  For spelling Quest/Boss, never show the actual target spelling words before the
+  child has submitted an attempt.
 - Question cards: white cards with colored top border (4px gradient)
 - Multiple choice: full-width buttons with letter circles (A/B/C/D)
 - Written: textarea with focus border glow
@@ -376,7 +377,7 @@ BEFORE game starts:
   Show modal overlay:
   '📚 Today's Quest: {n} questions worth {n*10} XP total'
   (n = number of problems in homework JSON)
-  Elli emoji bouncing in modal
+  Use a generic mission icon in the modal, not Elli/Matilda or any companion identity.
   [Let's Go! button] dismisses modal
 
 WRITTEN / fill_in grading — call Sunny server Haiku (same origin as iframe):
@@ -413,6 +414,9 @@ These functions are defined on window by _contract.js, which is loaded at
 top of <head>. Do not use bare fireCompanionEvent(), fireAttemptEvent(), or
 sendNodeComplete() calls. Do not use <script type="module"> for the game
 contract code.
+Do not draw companion UI yourself. The only valid companion integration is
+window.fireCompanionEvent(), window.GameBridge.reportState(), and
+window.GameBridge.reportCompanionAnchor() when visual context is useful.
 
 ATTEMPT EVENTS — mandatory for learning diagnostics:
 Every assessable interaction must call window.fireAttemptEvent() exactly once after
@@ -481,11 +485,14 @@ function buildOpusPrompt(
     3. Has a dramatic boss battle feel
     4. Uses same visual style as quest game
     5. Includes companion events via window.fireCompanionEvent()
-    6. Accepts URL params via window.GAME_PARAMS from _contract.js
+    6. Accepts URL params via window.GAME_PARAMS from /games/_contract.js
     7. Calls window.sendNodeComplete() on finish
     8. No hardcoded child names — use window.GAME_PARAMS.childId
     9. Lexend font, cream bg, large text for dyslexia
     10. 5-7 minutes to complete
+    11. Does not render companion avatars, speech bubbles, Elli/Matilda corners,
+        or companion helper cards. Sunny owns companion chrome through
+        #sunny-companion and the contract events.
     
     Return raw HTML only. No markdown.`;
 }

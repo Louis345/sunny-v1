@@ -19,6 +19,7 @@
     "sunny:activity:plan": "npx tsx src/scripts/inspectActivityTools.ts --plan",
     "sunny:experience:generate": "npx tsx src/scripts/generateExperienceArtifact.ts",
     "sunny:experience:validate": "npx tsx src/scripts/validateExperienceArtifact.ts",
+    "sunny:experience:review": "npx tsx src/scripts/reviewGeneratedExperienceArtifact.ts",
     "sunny:adventure-choice-lab:screenshots": "npx tsx src/scripts/captureAdventureChoiceLab.ts",
     "sunny:quest-boss:smoke": "npx tsx src/scripts/captureQuestBossLaunchSmoke.ts",
     "logs:upload": "npx tsx src/scripts/uploadSessionLogs.ts",

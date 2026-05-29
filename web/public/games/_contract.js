@@ -1,6 +1,6 @@
 /**
  * Standard iframe game ↔ parent (adventure map / voice canvas) contract.
- * Load: <script src="_contract.js"></script>
+ * Load: <script src="/games/_contract.js"></script>
  *
  * ?preview=free|true — dry run: no postMessage for node_complete / game_complete (banner only);
  *   companion_event, game_state_update, and currency_award suppressed.
@@ -101,6 +101,27 @@ window.GameBridge = (function () {
     document.body.appendChild(div);
   }
 
+  function logContract(action, result) {
+    try {
+      if (window.SUNNY_CONTRACT_LOGS === false) return;
+      if (typeof console === "undefined" || typeof console.log !== "function") return;
+      console.log("🎮 [game-contract] [" + action + "] " + result);
+    } catch (_err) {
+      // Contract logging should never break the child activity.
+    }
+  }
+
+  function postSummary(type, payload) {
+    var p = payload && typeof payload === "object" && !Array.isArray(payload)
+      ? payload
+      : {};
+    return [
+      "type=" + type,
+      "child=" + (p.childId || GAME_PARAMS.childId),
+      "node=" + (p.nodeId || GAME_PARAMS.nodeId),
+    ].join(" ");
+  }
+
   function post(type, payload) {
     if (GAME_PARAMS.previewDryRun) {
       if (
@@ -108,9 +129,11 @@ window.GameBridge = (function () {
         type === "game_state_update" ||
         type === "currency_award"
       ) {
+        logContract("suppressed", postSummary(type, payload));
         return;
       }
     }
+    logContract("post", postSummary(type, payload));
     window.parent.postMessage(
       { type: type, payload: payload || {}, version: VERSION },
       "*",
@@ -297,6 +320,7 @@ window.GameBridge = (function () {
         targetSelectorId: GAME_PARAMS.targetSelectorId,
       });
       post("game_complete", merged);
+      logContract("post", postSummary("node_complete", merged));
       window.parent.postMessage(
         Object.assign({ type: "node_complete", version: VERSION }, merged),
         "*",

@@ -23,6 +23,28 @@ function hasCanonicalContractScript(html: string): boolean {
   return /<script\b[^>]*\bsrc=(["'])\/games\/_contract\.js\1[^>]*>/i.test(html);
 }
 
+function hasSunnyCompanionAnchor(html: string): boolean {
+  return /<[^>]+\bid=(["'])sunny-companion\1[^>]*>/i.test(html);
+}
+
+function hasSelfOwnedCompanionChrome(html: string): boolean {
+  const hardMarkers = [
+    /\bquest-giver\b/i,
+    /\bquest-avatar\b/i,
+    /\belli-corner\b/i,
+    /\bcompanion-bubble\b/i,
+    /\bcompanion-avatar\b/i,
+    /\bcompanion-panel\b/i,
+    /\bid=(["'])questGiver\1/i,
+  ];
+  if (hardMarkers.some((marker) => marker.test(html))) return true;
+
+  const hasSpeechBubble = /\bspeech-bubble\b|\bid=(["'])speechBubble\1/i.test(html);
+  const speechBubbleLooksLikeCompanion =
+    hasSpeechBubble && /\b(Elli|Matilda|companion|quest\s+giver|helper)\b/i.test(visibleText(html));
+  return speechBubbleLooksLikeCompanion;
+}
+
 function visibleText(html: string): string {
   return html
     .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
@@ -86,6 +108,12 @@ export function validateGeneratedGame(
         failures.push(`Quest/Boss artifacts must call window.${functionName}(...) instead of relying on bare globals`);
       }
     }
+    if (!hasSunnyCompanionAnchor(html)) {
+      failures.push("Quest/Boss artifacts must include #sunny-companion so Sunny owns companion rendering");
+    }
+    if (hasSelfOwnedCompanionChrome(html)) {
+      failures.push("Quest/Boss artifacts must not render their own companion chrome; use #sunny-companion plus contract companion events");
+    }
   }
 
   const generatedStage = ctx.generationStage === "quest" || ctx.generationStage === "boss";
@@ -103,7 +131,7 @@ export function validateGeneratedGame(
     score -= 10;
   }
 
-  if (!html.includes('id="sunny-companion"')) {
+  if (!hasSunnyCompanionAnchor(html)) {
     warnings.push("Missing #sunny-companion anchor");
     score -= 10;
   }
@@ -151,6 +179,8 @@ export function validateGeneratedGame(
       fl.includes("window.fireattemptevent") ||
       fl.includes("window.sendnodecomplete") ||
       fl.includes("window.firecompanionevent") ||
+      fl.includes("sunny-companion") ||
+      fl.includes("own companion chrome") ||
       fl.includes("fireattemptevent") ||
       fl.includes("visible spelling targets") ||
       fl.includes("one-click")
