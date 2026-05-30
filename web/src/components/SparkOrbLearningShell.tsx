@@ -405,6 +405,8 @@ export function SparkOrbLearningShell({
     scrubbedCaptureProgress === null ? flightState : flightStateForProgress(scrubbedCaptureProgress);
   const scrubbedCaptureActive = scrubbedCaptureProgress !== null && scrubbedCaptureProgress > 0;
   const collectionSettled = displayFlightState === "settled";
+  const visualCaptureStage = collectionSettled ? "free" : displayCaptureStage;
+  const visualLaunchAim = collectionSettled ? "idle" : launchAim;
   const ready = phase === "ready";
   const launchSucceeded = launchSkill === "success";
   const launching = phase === "launching" || launchSucceeded || scrubbedCaptureActive;
@@ -420,7 +422,9 @@ export function SparkOrbLearningShell({
     (displayCaptureStage === "collection-added" && !collectionSettled);
   const charged = chargeCount >= chargeGoal && (ready || launching || collected || scrubbedCaptureActive);
   const creatureCaptureMotion: CreatureCaptureMotion =
-    displayCaptureStage === "pulling"
+    collectionSettled
+      ? "hidden"
+      : displayCaptureStage === "pulling"
       ? "pulling"
       : displayCaptureStage === "shrinking"
         ? "shrinking"
@@ -704,6 +708,10 @@ export function SparkOrbLearningShell({
           setCollectionCardVisible(false);
           setFlightState("settled");
           setCaptureEffect("inactive");
+          setCaptureStage("free");
+          setLaunchAim("idle");
+          aimVectorRef.current = { startX: 0, startY: 0, pullX: 0, pullY: 0 };
+          setAimVector(aimVectorRef.current);
           emitLaunchEvent({
             type: "collection_settled",
             chargeCount,
@@ -770,11 +778,11 @@ export function SparkOrbLearningShell({
         data-testid="spark-orb-encounter"
         data-phase={phase}
         data-launch-skill={launchSkill}
-        data-launch-aim={launchAim}
+        data-launch-aim={visualLaunchAim}
         data-flight={displayFlightState}
         data-hit-quality={launchPhysics?.hitQuality ?? "none"}
         data-capture-effect={displayCaptureEffect}
-        data-capture-stage={displayCaptureStage}
+        data-capture-stage={visualCaptureStage}
         data-collection-state={collectionSettled ? "settled" : collected ? "collected" : "active"}
         style={launchStyle}
       >

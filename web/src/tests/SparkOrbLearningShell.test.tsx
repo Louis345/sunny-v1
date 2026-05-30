@@ -502,6 +502,8 @@ describe("SparkOrbLearningShell", () => {
     expect(encounter).toHaveAttribute("data-flight", "settled");
     expect(encounter).toHaveAttribute("data-collection-state", "settled");
     expect(encounter).toHaveAttribute("data-capture-effect", "inactive");
+    expect(encounter).toHaveAttribute("data-capture-stage", "free");
+    expect(encounter).toHaveAttribute("data-launch-aim", "idle");
     expect(screen.queryByRole("dialog", { name: "Lumipuff added to collection" })).not.toBeInTheDocument();
     expect(screen.getByTestId("spark-orb")).toHaveAttribute("data-on-ground", "true");
     expect(onEncounterEvent).toHaveBeenCalledWith(
