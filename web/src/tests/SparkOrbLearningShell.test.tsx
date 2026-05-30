@@ -511,6 +511,74 @@ describe("SparkOrbLearningShell", () => {
     );
   });
 
+  it("clicking the settled orb replays the collection animation in reverse", () => {
+    vi.useFakeTimers();
+    const onEncounterEvent = vi.fn();
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+        onEncounterEvent={onEncounterEvent}
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    flickCleanLaunch();
+    act(() => {
+      vi.advanceTimersByTime(3800);
+    });
+
+    const encounter = screen.getByTestId("spark-orb-encounter");
+    expect(encounter).toHaveAttribute("data-collection-state", "settled");
+
+    fireEvent.click(screen.getByTestId("spark-orb-reverse-control"));
+
+    expect(encounter).toHaveAttribute("data-collection-state", "reversing");
+    expect(encounter).toHaveAttribute("data-capture-stage", "collection-added");
+    expect(encounter).toHaveAttribute("data-capture-effect", "active");
+    expect(screen.queryByRole("dialog", { name: "Lumipuff added to collection" })).not.toBeInTheDocument();
+    expect(onEncounterEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "collection_reverse_started", result: "success" }),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+
+    expect(encounter).toHaveAttribute("data-collection-state", "reversing");
+    expect(encounter).toHaveAttribute("data-capture-stage", "shrinking");
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-capture-motion",
+      "shrinking",
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(encounter).toHaveAttribute("data-collection-state", "preview-open");
+    expect(encounter).toHaveAttribute("data-capture-stage", "free");
+    expect(encounter).toHaveAttribute("data-capture-effect", "inactive");
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-capture-motion",
+      "free",
+    );
+    expect(screen.getByTestId("spark-orb")).toHaveAttribute("data-on-ground", "true");
+    expect(screen.queryByText("Clean launch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Charge 3 / 3")).not.toBeInTheDocument();
+    expect(onEncounterEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "collection_reverse_complete", result: "success" }),
+    );
+  });
+
   it("keeps the capture readable before the collection card appears", () => {
     vi.useFakeTimers();
 

@@ -55,7 +55,9 @@ export type SparkOrbLearningEncounterEventType =
   | "capture_shrink"
   | "capture_lock"
   | "collectible_revealed"
-  | "collection_settled";
+  | "collection_settled"
+  | "collection_reverse_started"
+  | "collection_reverse_complete";
 
 export type SparkOrbLaunchResult = "success" | "miss-early" | "miss-late";
 export type SparkOrbHitQuality = "direct" | "near" | "wide";
@@ -376,6 +378,8 @@ export function SparkOrbLearningShell({
   const [captureStage, setCaptureStage] = useState<CaptureStage>("free");
   const [collectibleRevealed, setCollectibleRevealed] = useState(false);
   const [collectionCardVisible, setCollectionCardVisible] = useState(false);
+  const [reverseReplayActive, setReverseReplayActive] = useState(false);
+  const [reversePreviewOpen, setReversePreviewOpen] = useState(false);
   const [launchPower, setLaunchPower] = useState(0);
   const [launchPhysics, setLaunchPhysics] = useState<SparkOrbLaunchPhysics | null>(null);
   const [aimVector, setAimVector] = useState<LaunchAimVector>({
@@ -404,7 +408,8 @@ export function SparkOrbLearningShell({
   const displayFlightState =
     scrubbedCaptureProgress === null ? flightState : flightStateForProgress(scrubbedCaptureProgress);
   const scrubbedCaptureActive = scrubbedCaptureProgress !== null && scrubbedCaptureProgress > 0;
-  const collectionSettled = displayFlightState === "settled";
+  const reversePreviewing = reverseReplayActive || reversePreviewOpen;
+  const collectionSettled = displayFlightState === "settled" && !reversePreviewing;
   const visualCaptureStage = collectionSettled ? "free" : displayCaptureStage;
   const visualLaunchAim = collectionSettled ? "idle" : launchAim;
   const ready = phase === "ready";
@@ -412,7 +417,16 @@ export function SparkOrbLearningShell({
   const launching = phase === "launching" || launchSucceeded || scrubbedCaptureActive;
   const collected =
     phase === "collected" || collectibleRevealed || displayCaptureStage === "collection-added";
-  const rewardFocused = collected;
+  const collectionState = reverseReplayActive
+    ? "reversing"
+    : reversePreviewOpen
+      ? "preview-open"
+      : collectionSettled
+        ? "settled"
+        : collected
+          ? "collected"
+          : "active";
+  const rewardFocused = collected || reversePreviewing;
   const showCollectionCard =
     scrubbedCaptureProgress === null
       ? collectionCardVisible
@@ -420,10 +434,14 @@ export function SparkOrbLearningShell({
   const captureLocked =
     displayCaptureStage === "locked" ||
     (displayCaptureStage === "collection-added" && !collectionSettled);
+  const canReverseCollection = collectionSettled && scrubbedCaptureProgress === null;
+  const showCaptureEffects = !collectionSettled && !reversePreviewOpen;
   const charged = chargeCount >= chargeGoal && (ready || launching || collected || scrubbedCaptureActive);
   const creatureCaptureMotion: CreatureCaptureMotion =
-    collectionSettled
-      ? "hidden"
+    reversePreviewOpen
+      ? "free"
+      : collectionSettled
+        ? "hidden"
       : displayCaptureStage === "pulling"
       ? "pulling"
       : displayCaptureStage === "shrinking"
@@ -509,6 +527,8 @@ export function SparkOrbLearningShell({
       setCaptureStage("free");
       setCollectibleRevealed(false);
       setCollectionCardVisible(false);
+      setReverseReplayActive(false);
+      setReversePreviewOpen(false);
       setChargeOverride(null);
       setLaunchPower(0);
       setLaunchPhysics(null);
@@ -627,6 +647,8 @@ export function SparkOrbLearningShell({
       setCaptureStage("incoming");
       setCollectibleRevealed(false);
       setCollectionCardVisible(false);
+      setReverseReplayActive(false);
+      setReversePreviewOpen(false);
       playSparkOrbSfx("launch", sfx);
       emitLaunchEvent({
         type: "release_success",
@@ -734,6 +756,8 @@ export function SparkOrbLearningShell({
     setCaptureStage("free");
     setCollectibleRevealed(false);
     setCollectionCardVisible(false);
+    setReverseReplayActive(false);
+    setReversePreviewOpen(false);
     setChargeOverride(0);
     setRemainingOrbCount(nextOrbCount);
     playSparkOrbSfx("miss", sfx);
@@ -766,6 +790,59 @@ export function SparkOrbLearningShell({
     });
   }
 
+  function handleReverseCollectionReplay(): void {
+    if (!canReverseCollection) return;
+    clearPayoffTimers();
+    setReverseReplayActive(true);
+    setReversePreviewOpen(false);
+    setCollectionCardVisible(false);
+    setCaptureEffect("active");
+    setCaptureStage("collection-added");
+    setFlightState("settled");
+    setLaunchAim("idle");
+    playSparkOrbSfx("capturePull", sfx);
+    emitLaunchEvent({
+      type: "collection_reverse_started",
+      chargeCount,
+      orbCount: remainingOrbCount,
+      result: "success",
+      hitDistance: launchPhysics?.hitDistance,
+      hitQuality: launchPhysics?.hitQuality,
+      holdPower: launchPhysics?.power,
+    });
+
+    payoffTimerRefs.current = [
+      window.setTimeout(() => {
+        setCaptureStage("locked");
+        playSparkOrbSfx("captureLock", sfx);
+      }, 250),
+      window.setTimeout(() => {
+        setCaptureStage("shrinking");
+        playSparkOrbSfx("captureShrink", sfx);
+      }, 650),
+      window.setTimeout(() => {
+        setCaptureStage("pulling");
+        playSparkOrbSfx("capturePull", sfx);
+      }, 1050),
+      window.setTimeout(() => {
+        setReverseReplayActive(false);
+        setReversePreviewOpen(true);
+        setCaptureEffect("inactive");
+        setCaptureStage("free");
+        setFlightState("settled");
+        emitLaunchEvent({
+          type: "collection_reverse_complete",
+          chargeCount,
+          orbCount: remainingOrbCount,
+          result: "success",
+          hitDistance: launchPhysics?.hitDistance,
+          hitQuality: launchPhysics?.hitQuality,
+          holdPower: launchPhysics?.power,
+        });
+      }, 1550),
+    ];
+  }
+
   return (
     <div className="spark-orb-learning-shell" data-phase={phase}>
       <section className="spark-orb-learning-shell__problem" aria-label="Learning problem panel">
@@ -783,7 +860,7 @@ export function SparkOrbLearningShell({
         data-hit-quality={launchPhysics?.hitQuality ?? "none"}
         data-capture-effect={displayCaptureEffect}
         data-capture-stage={visualCaptureStage}
-        data-collection-state={collectionSettled ? "settled" : collected ? "collected" : "active"}
+        data-collection-state={collectionState}
         style={launchStyle}
       >
         <img
@@ -817,12 +894,12 @@ export function SparkOrbLearningShell({
         />
         <div
           className="spark-orb-learning-shell__aura"
-          data-active={charged ? "true" : "false"}
+          data-active={charged && showCaptureEffects ? "true" : "false"}
           aria-hidden="true"
         />
         <div
           className="spark-orb-learning-shell__stream"
-          data-active={launching ? "true" : "false"}
+          data-active={launching && showCaptureEffects ? "true" : "false"}
           aria-hidden="true"
         />
         <div className="spark-orb-learning-shell__capture-vortex" aria-hidden="true" />
@@ -837,14 +914,23 @@ export function SparkOrbLearningShell({
           data-testid="spark-orb"
           data-phase={phase}
           data-ready={ready ? "true" : "false"}
-          data-launching={launching ? "true" : "false"}
-          data-collected={collected ? "true" : "false"}
+          data-launching={launching && !reversePreviewOpen ? "true" : "false"}
+          data-collected={collected && !reversePreviewing ? "true" : "false"}
           data-capture-lock={captureLocked ? "true" : "false"}
-          data-on-ground={collectionSettled ? "true" : "false"}
+          data-on-ground={collectionSettled || reversePreviewing ? "true" : "false"}
           src={`${assetBase}/spark-orb.png`}
           alt=""
           aria-hidden="true"
         />
+        {canReverseCollection ? (
+          <button
+            type="button"
+            aria-label="Replay collection animation in reverse"
+            className="spark-orb-learning-shell__reverse-button"
+            data-testid="spark-orb-reverse-control"
+            onClick={handleReverseCollectionReplay}
+          />
+        ) : null}
         {ready && !rewardFocused ? (
           <div className="spark-orb-learning-shell__launch-skill" data-state={launchSkill}>
             {canHoldToLaunch ? (
@@ -1056,6 +1142,10 @@ export function SparkOrbLearningShell({
             drop-shadow(0 0 22px rgba(255, 228, 107, 0.7))
             brightness(1.18);
           z-index: 8;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-collection-state="reversing"] .spark-orb-learning-shell__creature[data-capture-motion="shrinking"] {
+          animation: sparkLearningCreatureShrinkIntoOrb 0.76s cubic-bezier(0.2, 0.8, 0.2, 1) reverse both;
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="hidden"] {
@@ -1343,6 +1433,38 @@ export function SparkOrbLearningShell({
           opacity: 1;
           transform: translateX(-50%) rotate(-7deg) scale(0.58);
           z-index: 7;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-collection-state="reversing"] .spark-orb-learning-shell__orb,
+        .spark-orb-learning-shell__orb-stage[data-collection-state="preview-open"] .spark-orb-learning-shell__orb {
+          bottom: 74px;
+          opacity: 1;
+          transform: translateX(-50%) rotate(-7deg) scale(0.58);
+          z-index: 7;
+        }
+
+        .spark-orb-learning-shell__orb-stage[data-collection-state="reversing"] .spark-orb-learning-shell__orb {
+          animation: sparkLearningOrbReversePulse 0.72s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__reverse-button {
+          background: transparent;
+          border: 0;
+          border-radius: 50%;
+          bottom: 74px;
+          cursor: pointer;
+          height: clamp(70px, 12vw, 108px);
+          left: 50%;
+          padding: 0;
+          position: absolute;
+          transform: translateX(-50%);
+          width: clamp(70px, 12vw, 108px);
+          z-index: 14;
+        }
+
+        .spark-orb-learning-shell__reverse-button:focus-visible {
+          outline: 3px solid rgba(255, 228, 107, 0.9);
+          outline-offset: 4px;
         }
 
         .spark-orb-learning-shell__orb[data-capture-lock="true"] {
@@ -1893,6 +2015,22 @@ export function SparkOrbLearningShell({
           100% {
             opacity: 1;
             transform: translateX(-50%) translate(0, 0) rotate(-7deg) scale(0.58);
+          }
+        }
+
+        @keyframes sparkLearningOrbReversePulse {
+          0%, 100% {
+            filter:
+              drop-shadow(0 16px 16px rgba(8, 51, 68, 0.28))
+              drop-shadow(0 0 16px rgba(255, 228, 107, 0.26));
+            transform: translateX(-50%) rotate(-7deg) scale(0.58);
+          }
+          50% {
+            filter:
+              drop-shadow(0 18px 18px rgba(8, 51, 68, 0.26))
+              drop-shadow(0 0 34px rgba(124, 255, 241, 0.56))
+              drop-shadow(0 0 28px rgba(255, 228, 107, 0.48));
+            transform: translateX(-50%) rotate(-2deg) scale(0.66);
           }
         }
 
