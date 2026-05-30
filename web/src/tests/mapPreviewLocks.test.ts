@@ -64,7 +64,7 @@ describe("applyHomeworkStyleNodeLocks", () => {
 });
 
 describe("displayNodesForAdventureMap", () => {
-  it("diag unlock mode leaves practice nodes inspectable while quest and boss stay locked", () => {
+  it("diag unlock mode leaves practice and quest nodes inspectable while boss stays locked without a game", () => {
     const quest: NodeConfig = {
       id: "quest",
       type: "quest",
@@ -96,7 +96,7 @@ describe("displayNodesForAdventureMap", () => {
 
     expect(out[0]?.isLocked).toBe(false);
     expect(out[1]?.isLocked).toBe(false);
-    expect(out[2]?.isLocked).toBe(true);
+    expect(out[2]?.isLocked).toBe(false);
     expect(out[3]?.isLocked).toBe(true);
   });
 });

@@ -54,30 +54,26 @@ import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
 } from "./companionCareFeedRoute";
-import { ensureQuestHtmlContract } from "../scripts/ingestHomework";
 import {
   applyHomeworkClarificationAnswer,
   type CapturedHomeworkContent,
   type HomeworkTargetPurpose,
 } from "../scripts/contentAwareHomeworkPlanner";
-import { generateQuestGameHtml } from "../scripts/generateGame";
-import { validateGeneratedGame } from "../scripts/validateGeneratedGame";
 import { applySpellCheckMapResults } from "./spellCheckMapResults";
 import { recordLearningAttempt } from "./learningAttemptEvents";
-import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
-import { readHomeworkCycle } from "../engine/homeworkCycleLoop";
 import {
-  attachArtifactToHomeworkNode,
-  catalogAdaptiveQuestArtifact,
-  type AdaptiveQuestArtifact,
-  generateAdaptiveQuestArtifact,
-  markAdaptiveArtifactValidation,
-} from "../engine/adaptiveQuestArtifact";
-import { upsertProfileContentCatalog } from "../engine/learningDecisionContext";
+  generateExperienceArtifactFromChart,
+  generateExperienceHtmlWithSonnet,
+} from "../engine/generatedExperienceArtifact";
 import {
   buildAdaptiveEvidenceSnapshot,
   questGateFromSnapshot,
 } from "../engine/adaptiveEvidenceSnapshot";
+import {
+  prepareQuestVisualCandidates,
+  resolveQuestVisualCandidateImagePath,
+  selectQuestVisualCandidate,
+} from "../engine/questVisualCandidateService";
 import { comparePronunciationScienceProviders } from "../engine/pronunciationScienceProviders";
 import {
   validateActivityEngineConfig,
@@ -1526,138 +1522,31 @@ Return plain text only.`,
         node.storyFile = newFile;
         node.storyText = fs.readFileSync(storyPath, "utf8");
       } else if (node.type === "quest" || node.type === "boss") {
-        const classificationPath = path.join(pendingDir, "classification.json");
-        const extracted = fs.existsSync(classificationPath)
-          ? JSON.parse(fs.readFileSync(classificationPath, "utf8"))
-          : {};
-        const homeworkId =
-          (pending as typeof pending & { homeworkId?: string }).homeworkId ??
-          pending.weekOf;
-        const cycle = homeworkId ? readHomeworkCycle(childId, homeworkId) : null;
-        const learningTheory =
-          node.type === "boss"
-            ? cycle?.bossTheory?.markdown ?? cycle?.theory?.markdown
-            : cycle?.theory?.markdown ?? cycle?.assumptions ?? undefined;
-        if (!cycle) {
-          return res.status(404).json({ ok: false, error: "homework_cycle_not_found" });
-        }
-        const theory = node.type === "boss"
-          ? cycle.bossTheory ?? cycle.theory
-          : cycle.theory;
-        const generatedName = node.gameFile || `${node.type}-${date}.html`;
-        let artifact: AdaptiveQuestArtifact;
-        try {
-          artifact = generateAdaptiveQuestArtifact({
-            childChart: getChildChart(childId),
-            homeworkCycle: cycle,
-            assignmentInterpretation: cycle.capturedContent?.assignmentInterpretation,
-            carePlan: null,
-            theory,
-            baselineEvidence: (cycle.interventionHistory ?? []).filter((item) =>
-              node.type === "boss"
-                ? item.nodeType !== "boss"
-                : item.nodeType !== "quest" && item.nodeType !== "boss",
-            ),
-            contentCatalogMemory: profile.aiContentCatalog ?? [],
-            generationStage: node.type,
-            generatedPath: generatedName,
-          });
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          return res.status(409).json({ ok: false, error: "adaptive_artifact_blocked", reason: message });
-        }
-        const client = new Anthropic();
-        const errorSignals = scanChildErrorPatterns(childId).patterns;
-        const buildGenerationPayload = (validationFeedback?: Record<string, unknown>) =>
-          JSON.stringify({
-            ...extracted,
-            feedback,
-            adaptiveArtifactBrief: artifact.brief,
-            ...(validationFeedback ? { validationFeedback } : {}),
-          }, null, 2);
-        let html = await generateQuestGameHtml({
-          client,
-          extractedJsonPretty: buildGenerationPayload(),
-          learningTheory,
-          errorSignals,
-        });
-        let contractedHtml = ensureQuestHtmlContract(html);
-        let attempts = 1;
-        let validation = validateGeneratedGame(contractedHtml, {
-          words: artifact.targetWords,
-          homeworkType: cycle.subject,
+        const briefId =
+          typeof req.body?.briefId === "string" && req.body.briefId.trim()
+            ? req.body.briefId.trim()
+            : undefined;
+        const result = await generateExperienceArtifactFromChart({
           childId,
-          generationStage: node.type,
+          briefId,
+          kind: node.type,
+          parentFeedback: feedback || undefined,
+          generateHtml: generateExperienceHtmlWithSonnet,
         });
-        if (!validation.passed && validation.shouldRegenerate) {
-          attempts = 2;
-          console.log(
-            `  🎮 [generated-game-validation] [retry] child=${childId} node=${node.type} failures=${validation.failures.join(" | ")}`,
-          );
-          html = await generateQuestGameHtml({
-            client,
-            extractedJsonPretty: buildGenerationPayload({
-              failures: validation.failures,
-              warnings: validation.warnings,
-              instruction: "Revise the generated HTML so it passes Sunny's game contract validation.",
-            }),
-            learningTheory,
-            errorSignals,
-          });
-          contractedHtml = ensureQuestHtmlContract(html);
-          validation = validateGeneratedGame(contractedHtml, {
-            words: artifact.targetWords,
-            homeworkType: cycle.subject,
-            childId,
-            generationStage: node.type,
-          });
-        }
-        const validationReport = {
-          passed: validation.passed,
-          score: validation.score,
-          failures: [...validation.failures],
-          warnings: [...validation.warnings],
-          attempts,
-          validatedAt: new Date().toISOString(),
-        };
-        artifact = markAdaptiveArtifactValidation(artifact, {
-          ...validationReport,
-          status: validation.passed
-            ? validation.warnings.length
-              ? "warning"
-              : "passed"
-            : "failed",
-        });
-        if (!validation.passed) {
-          const failedCatalogItem = {
-            ...catalogAdaptiveQuestArtifact(artifact, {
-              childId,
-              title: `${cycle.capturedContent?.title ?? homeworkId} ${node.type} failed validation`,
-            }),
-            reuseStatus: "retire" as const,
-            reuseReason: `Generated ${node.type} failed validation and was not made playable.`,
-          };
-          const nextProfile = upsertProfileContentCatalog(profile, [failedCatalogItem]);
-          Object.assign(profile, nextProfile);
-          writeLearningProfile(childId, profile);
-          console.log(
-            `  🎮 [generated-game-validation] [blocked] child=${childId} node=${node.type} score=${validation.score}`,
-          );
-          return res.status(409).json({
+        if (!result.ok) {
+          const status = result.reason === "generated_game_validation_failed" ? 409 : 400;
+          return res.status(status).json({
             ok: false,
-            error: "generated_game_validation_failed",
-            validationReport,
+            error: result.reason,
+            validationReport: result.validationReport,
           });
         }
-        newFile = generatedName;
-        fs.writeFileSync(path.join(pendingDir, newFile), contractedHtml, "utf8");
-        Object.assign(node, attachArtifactToHomeworkNode(node as never, artifact));
-        const catalogItem = catalogAdaptiveQuestArtifact(artifact, {
-          childId,
-          title: `${cycle.capturedContent?.title ?? homeworkId} ${node.type}`,
+        return res.json({
+          ok: true,
+          newFile: result.filename,
+          contentId: result.contentId,
+          validationReport: result.validationReport,
         });
-        const nextProfile = upsertProfileContentCatalog(profile, [catalogItem]);
-        Object.assign(profile, nextProfile);
       } else {
         return res.json({ ok: true, newFile: "" });
       }
@@ -1667,6 +1556,102 @@ Return plain text only.`,
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ ok: false, error: message });
     }
+  });
+
+  app.post("/api/homework/generated-candidates/prepare", async (req: Request, res: Response) => {
+    try {
+      const childId =
+        typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+      const kind = req.body?.kind === "boss" ? "boss" : "quest";
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const choiceSetId =
+        typeof req.body?.choiceSetId === "string" && req.body.choiceSetId.trim()
+          ? req.body.choiceSetId.trim()
+          : undefined;
+      const paid = req.body?.paid === true || process.env.SUNNY_QUEST_VISUAL_PAID === "true";
+      if (!childId || !nodeId) {
+        return res.status(400).json({ ok: false, error: "childId and nodeId required" });
+      }
+      const result = await prepareQuestVisualCandidates({
+        childId,
+        kind,
+        nodeId,
+        choiceSetId,
+        paid,
+      });
+      if (!result.ok) {
+        const status = result.error === "pending_homework_missing" ? 404 : 400;
+        return res.status(status).json(result);
+      }
+      console.log(
+        ` 🎮 [quest-visual-candidates] [prepare] child=${childId} node=${nodeId} choiceSet=${result.choiceSetId} count=${result.cards.length}`,
+      );
+      return res.json({
+        ok: true,
+        choiceSetId: result.choiceSetId,
+        cards: result.cards,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(" 🔴 [quest-visual-candidates] [prepare] [failed]", message);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/generated-candidates/select", async (req: Request, res: Response) => {
+    try {
+      const childId =
+        typeof req.body?.childId === "string" ? req.body.childId.trim().toLowerCase() : "";
+      const kind = req.body?.kind === "boss" ? "boss" : "quest";
+      const nodeId = typeof req.body?.nodeId === "string" ? req.body.nodeId.trim() : "";
+      const choiceSetId =
+        typeof req.body?.choiceSetId === "string" ? req.body.choiceSetId.trim() : "";
+      const selectedCandidateId =
+        typeof req.body?.selectedCandidateId === "string"
+          ? req.body.selectedCandidateId.trim()
+          : "";
+      if (!childId || !nodeId || !choiceSetId || !selectedCandidateId) {
+        return res.status(400).json({
+          ok: false,
+          error: "childId, nodeId, choiceSetId, selectedCandidateId required",
+        });
+      }
+      const result = await selectQuestVisualCandidate({
+        childId,
+        kind,
+        nodeId,
+        choiceSetId,
+        selectedCandidateId,
+      });
+      if (!result.ok) {
+        const status = result.error === "generated_game_validation_failed" ? 409 : 400;
+        return res.status(status).json(result);
+      }
+      console.log(
+        ` 🎮 [quest-visual-candidates] [select] child=${childId} node=${nodeId} selected=${selectedCandidateId} file=${result.newFile}`,
+      );
+      return res.json(result);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(" 🔴 [quest-visual-candidates] [select] [failed]", message);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.get("/api/homework/generated-candidates/:childId/:choiceSetId/:filename", (req: Request, res: Response) => {
+    const childId =
+      typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    const choiceSetId =
+      typeof req.params.choiceSetId === "string" ? req.params.choiceSetId.trim() : "";
+    const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
+    if (!childId || !choiceSetId || !filename) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    const file = resolveQuestVisualCandidateImagePath({ childId, choiceSetId, filename });
+    if (!file) return res.status(404).json({ error: "File not found" });
+    const ext = path.extname(file).toLowerCase();
+    res.type(ext === ".svg" ? "svg" : "png");
+    return res.sendFile(file);
   });
 
   app.get("/api/homework/:name/:date/:filename", (req: Request, res: Response) => {

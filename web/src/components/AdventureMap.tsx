@@ -177,7 +177,7 @@ export function displayNodesForAdventureMap(
   return nodes.map((node) => ({
     ...node,
     isLocked:
-      previewActive && (node.type === "quest" || node.type === "boss")
+      previewActive && node.type === "boss"
         ? true
         : node.type === "boss" && !node.gameHtmlPath
           ? true
@@ -212,6 +212,34 @@ type ActiveMysteryChoiceRun = {
   selectedAt: number;
   launchedAt?: number;
 };
+
+type QuestVisualCandidatePrepareResponse =
+  | {
+      ok: true;
+      choiceSetId: string;
+      cards: MysteryChoiceOption[];
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+type QuestVisualCandidateSelectResponse =
+  | {
+      ok: true;
+      selectedCandidateId: string;
+      notSelectedCandidateIds: string[];
+      newFile: string;
+      gameHtmlPath: string;
+      contentId: string;
+      choiceEvent?: {
+        masteryEvidence?: boolean;
+      };
+    }
+  | {
+      ok: false;
+      error: string;
+    };
 
 function optionNodeType(option: MysteryChoiceOption, fallback: NodeConfig["type"]): NodeConfig["type"] {
   return option.nodeType ?? fallback;
@@ -430,6 +458,7 @@ export function AdventureMap(props: {
 	  const [launchedUrl, setLaunchedUrl] = useState<string | null>(null);
 	  const [mysteryChoiceOverlay, setMysteryChoiceOverlay] =
 	    useState<MysteryChoiceOverlayState | null>(null);
+  const [questVisualPreparingNodeId, setQuestVisualPreparingNodeId] = useState<string | null>(null);
 	  const activeMysteryChoiceRef = useRef<ActiveMysteryChoiceRun | null>(null);
 	  const priorMasteryStatesRef = useRef<Record<string, NodeConfig["masteryUnlockState"]>>({});
   const [
@@ -699,6 +728,24 @@ export function AdventureMap(props: {
         const inner = (d as { payload?: unknown }).payload;
         if (inner && typeof inner === "object" && !Array.isArray(inner)) {
           forwardMapIframeGameStateUpdate(inner as Record<string, unknown>);
+        }
+        return;
+      }
+      if (t === "activity_evidence") {
+        const inner = (d as { payload?: unknown }).payload;
+        if (inner && typeof inner === "object" && !Array.isArray(inner) && sessionIdRef.current) {
+          void fetch("/api/map/node-complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: sessionIdRef.current,
+              phase: "activity_evidence",
+              payload: inner,
+              preview: props.previewMode,
+            }),
+          }).catch((err) => {
+            console.error("  🔴 [AdventureMap] activity_evidence failed:", err);
+          });
         }
         return;
       }
@@ -1122,6 +1169,65 @@ export function AdventureMap(props: {
     triggerQuestLaunch,
 	  });
 
+  async function prepareQuestVisualChoiceOverlay(node: NodeConfig): Promise<boolean> {
+    if ((node.type !== "quest" && node.type !== "boss") || node.gameFile || node.gameHtmlPath) return false;
+    const choiceSetId = node.choiceSetId ?? `${node.type}-${node.id}-visuals`;
+    setQuestVisualPreparingNodeId(node.id);
+    console.log("  🎮 [quest-visual-candidates] [prepare-start]", {
+      childId: resolved,
+      nodeId: node.id,
+      choiceSetId,
+    });
+    try {
+      const res = await fetch("/api/homework/generated-candidates/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childId: resolved,
+          kind: node.type,
+          nodeId: node.id,
+          choiceSetId,
+        }),
+      });
+      const data = await res.json() as QuestVisualCandidatePrepareResponse;
+      if (!res.ok || !data.ok) {
+        console.warn("  🎮 [quest-visual-candidates] [prepare-blocked]", data);
+        return false;
+      }
+      const choiceNode: NodeConfig = {
+        ...node,
+        choiceSetId: data.choiceSetId,
+        choiceSource: "child_choice",
+        mysteryMode: "choice_lab",
+        choiceOptions: data.cards,
+      };
+      setMysteryChoiceOverlay({ node: choiceNode, openedAt: Date.now() });
+      recordMysteryChoiceEvent({
+        eventName: "mystery_node_tap",
+        node: choiceNode,
+        started: true,
+      });
+      window.setTimeout(() => {
+        recordMysteryChoiceEvent({
+          eventName: "impression",
+          node: choiceNode,
+          started: true,
+        });
+      }, 80);
+      console.log("  🎮 [quest-visual-candidates] [prepare-ready]", {
+        childId: resolved,
+        nodeId: node.id,
+        count: data.cards.length,
+      });
+      return true;
+    } catch (err) {
+      console.error("  🔴 [quest-visual-candidates] [prepare-failed]", err);
+      return false;
+    } finally {
+      setQuestVisualPreparingNodeId(null);
+    }
+  }
+
 	  async function handleNodeLaunch(node: NodeConfig, bypassReadiness = false) {
       const nudge = getCompanionReadinessNudge({
         nodeType: node.type,
@@ -1185,14 +1291,27 @@ export function AdventureMap(props: {
         console.log("  🎮 [AdventureMap] node_click skipped no-result");
         return;
       }
+      if (
+        (result.type === "quest" || result.type === "boss") &&
+        !result.gameFile &&
+        !result.gameHtmlPath
+      ) {
+        const opened = await prepareQuestVisualChoiceOverlay(result);
+        if (opened) return;
+      }
       if (result.type === "boss" && !result.gameFile) {
         setLaunchedUrl(null);
         setShowBossPlaceholder(true);
         return;
       }
+      const isSelectedVisualQuest =
+        result.type === "quest" &&
+        typeof result.contentId === "string" &&
+        result.contentId.startsWith("quest-visual-");
       if (
         result.type === "quest" &&
-        quest.canOpenQuestBriefing
+        quest.canOpenQuestBriefing &&
+        !isSelectedVisualQuest
       ) {
         if (inspectAllMode || mapPreview) {
           quest.beginQuestUnlockSequence({ force: true });
@@ -1300,7 +1419,22 @@ export function AdventureMap(props: {
 	      const overlay = mysteryChoiceOverlay;
 	      if (!overlay) return;
 	      const elapsed = Date.now() - overlay.openedAt;
-	      const selectedNode = nodeFromMysteryOption(overlay.node, option);
+      const launchSelectedNode = (selectedNode: NodeConfig) => {
+        setMysteryChoiceOverlay(null);
+        void handleNodeLaunch(selectedNode, true).then(() => {
+          const run = activeMysteryChoiceRef.current;
+          if (run?.nodeId === overlay.node.id) {
+            run.launchedAt = Date.now();
+          }
+          recordMysteryChoiceEvent({
+            eventName: "activity_launched",
+            node: overlay.node,
+            selectedOption: option,
+            started: true,
+            timeToChoose_ms: elapsed,
+          });
+        });
+      };
 	      activeMysteryChoiceRef.current = {
 	        nodeId: overlay.node.id,
 	        choiceSetId: overlay.node.choiceSetId ?? "",
@@ -1329,24 +1463,59 @@ export function AdventureMap(props: {
 	            .map((candidate) => candidate.optionId)
 	            .filter((id) => id !== option.optionId),
 	          started: true,
-	        });
+	          });
 	      }
-	      setMysteryChoiceOverlay(null);
-	      void handleNodeLaunch(selectedNode, true).then(() => {
-	        const run = activeMysteryChoiceRef.current;
-	        if (run?.nodeId === overlay.node.id) {
-	          run.launchedAt = Date.now();
-	        }
-	        recordMysteryChoiceEvent({
-	          eventName: "activity_launched",
-	          node: overlay.node,
-	          selectedOption: option,
-	          started: true,
-	          timeToChoose_ms: elapsed,
-	        });
-	      });
+      if (
+        (overlay.node.type === "quest" || overlay.node.type === "boss") &&
+        (option.activityId === "quest-visual-candidate" || option.activityId === "boss-visual-candidate")
+      ) {
+        setQuestVisualPreparingNodeId(overlay.node.id);
+        console.log("  🎮 [quest-visual-candidates] [select-start]", {
+          nodeId: overlay.node.id,
+          selectedCandidateId: option.optionId,
+        });
+        void fetch("/api/homework/generated-candidates/select", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            childId: resolved,
+            kind: overlay.node.type,
+            nodeId: overlay.node.id,
+            choiceSetId: overlay.node.choiceSetId,
+            selectedCandidateId: option.optionId,
+          }),
+        })
+          .then(async (res) => {
+            const data = await res.json() as QuestVisualCandidateSelectResponse;
+            if (!res.ok) {
+              throw new Error(data.ok ? `candidate select ${res.status}` : data.error);
+            }
+            if (!data.ok) {
+              throw new Error(data.error);
+            }
+            const selectedNode: NodeConfig = {
+              ...nodeFromMysteryOption(overlay.node, option),
+              gameFile: data.newFile,
+              gameHtmlPath: data.gameHtmlPath,
+              contentId: data.contentId,
+            };
+            console.log("  🎮 [quest-visual-candidates] [select-ready]", {
+              nodeId: overlay.node.id,
+              selectedCandidateId: data.selectedCandidateId,
+              notSelectedCandidateIds: data.notSelectedCandidateIds,
+              masteryEvidence: data.choiceEvent?.masteryEvidence,
+            });
+            launchSelectedNode(selectedNode);
+          })
+          .catch((err) => {
+            console.error("  🔴 [quest-visual-candidates] [select-failed]", err);
+          })
+          .finally(() => setQuestVisualPreparingNodeId(null));
+        return;
+      }
+      launchSelectedNode(nodeFromMysteryOption(overlay.node, option));
 	    },
-	    [mysteryChoiceOverlay, recordMysteryChoiceEvent],
+	    [handleNodeLaunch, mysteryChoiceOverlay, recordMysteryChoiceEvent, resolved],
 	  );
 
 	  const handleMysteryChoiceDismiss = useCallback(() => {
@@ -2343,6 +2512,35 @@ export function AdventureMap(props: {
 	        onSelect={handleMysteryChoiceSelect}
 	        onDismiss={handleMysteryChoiceDismiss}
 	      />
+      {questVisualPreparingNodeId ? (
+        <div
+          data-testid="quest-visual-candidates-preparing"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "grid",
+            placeItems: "center",
+            background: "rgba(5, 11, 22, 0.62)",
+            color: "#FFF7E1",
+            fontFamily: "Inter, system-ui, sans-serif",
+            fontWeight: 950,
+            letterSpacing: "0.02em",
+          }}
+        >
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,.22)",
+              borderRadius: 18,
+              padding: "18px 24px",
+              background: "rgba(8, 17, 31, .9)",
+              boxShadow: "0 24px 80px rgba(0,0,0,.34)",
+            }}
+          >
+            Building Quest choices...
+          </div>
+        </div>
+      ) : null}
 	      <QuestUnlockSequence {...quest} />
       <QuestBriefingModal {...briefing.modalProps} />
       {false && pendingVrr && (

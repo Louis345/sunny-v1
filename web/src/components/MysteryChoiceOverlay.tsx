@@ -40,6 +40,20 @@ function CardArt({ option }: { option: MysteryChoiceOption }) {
     height: "100%",
     display: "block",
   };
+  if (option.thumbnailUrl) {
+    return (
+      <img
+        src={option.thumbnailUrl}
+        alt=""
+        aria-hidden
+        style={{
+          ...common,
+          objectFit: "cover",
+          background: accent,
+        }}
+      />
+    );
+  }
   if (option.activityId === "monster-stampede" || option.activityId === "asteroid") {
     return (
       <svg viewBox="0 0 236 168" aria-hidden style={common}>
