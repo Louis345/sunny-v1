@@ -460,6 +460,30 @@ export function renderQuestBossFreeVisionShell(input: {
       height:100vh;
       background:#02040a;
       isolation:isolate;
+      --charge:0%;
+    }
+    .free-vision::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      opacity:0;
+      pointer-events:none;
+      z-index:1;
+      mix-blend-mode:screen;
+      background:
+        radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--glow) 70%, transparent), transparent 18%),
+        radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--accent) 48%, transparent), transparent 32%);
+      transition:opacity .18s ease;
+    }
+    .free-vision.vfx-hit::before { animation:sunnyQuestBossBurst .62s ease-out; }
+    .free-vision.vfx-miss::before {
+      background:
+        radial-gradient(circle at 50% 46%, rgba(255,120,120,.55), transparent 18%),
+        radial-gradient(circle at 50% 46%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 34%);
+      animation:sunnyQuestBossFlicker .52s ease-out;
+    }
+    .free-vision.vfx-complete::before {
+      animation:sunnyQuestBossComplete .9s ease-out;
     }
     .free-vision-image {
       position:absolute;
@@ -496,6 +520,49 @@ export function renderQuestBossFreeVisionShell(input: {
       border-radius:999px;
       background:rgba(2,6,16,.64);
       box-shadow:0 14px 40px rgba(0,0,0,.34);
+      z-index:2;
+    }
+    .challenge-readout {
+      grid-column:1 / -1;
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px 12px;
+      align-items:center;
+      padding:0 4px 1px;
+    }
+    .charge-track {
+      height:8px;
+      border-radius:999px;
+      overflow:hidden;
+      background:rgba(255,255,255,.18);
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+    }
+    .charge-fill {
+      height:100%;
+      width:var(--charge);
+      border-radius:inherit;
+      background:linear-gradient(90deg, var(--accent), var(--glow));
+      box-shadow:0 0 18px color-mix(in srgb, var(--glow) 64%, transparent);
+      transition:width .34s cubic-bezier(.2,.9,.2,1);
+    }
+    .round-pips {
+      display:flex;
+      gap:6px;
+      align-items:center;
+      min-width:max-content;
+    }
+    .round-pip {
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.3);
+      box-shadow:0 0 0 1px rgba(255,255,255,.16);
+      transition:background .2s ease, transform .2s ease, box-shadow .2s ease;
+    }
+    .round-pip.complete {
+      background:var(--glow);
+      transform:scale(1.16);
+      box-shadow:0 0 14px color-mix(in srgb, var(--glow) 72%, transparent);
     }
     .recall-strip input {
       min-width:0;
@@ -531,6 +598,7 @@ export function renderQuestBossFreeVisionShell(input: {
       opacity:0;
       transition:opacity .16s ease;
       pointer-events:none;
+      z-index:2;
     }
     .status.visible { opacity:1; }
     .reward {
@@ -548,22 +616,47 @@ export function renderQuestBossFreeVisionShell(input: {
       opacity:0;
       transition:opacity .2s ease;
       pointer-events:none;
+      z-index:2;
     }
     .reward.visible { opacity:1; }
+    @keyframes sunnyQuestBossBurst {
+      0% { opacity:0; transform:scale(.96); filter:blur(4px); }
+      35% { opacity:.72; transform:scale(1); filter:blur(0); }
+      100% { opacity:0; transform:scale(1.08); filter:blur(10px); }
+    }
+    @keyframes sunnyQuestBossFlicker {
+      0% { opacity:0; }
+      35% { opacity:.42; }
+      65% { opacity:.18; }
+      100% { opacity:0; }
+    }
+    @keyframes sunnyQuestBossComplete {
+      0% { opacity:0; transform:scale(.9); filter:blur(6px); }
+      30% { opacity:.86; transform:scale(1); filter:blur(0); }
+      100% { opacity:0; transform:scale(1.18); filter:blur(14px); }
+    }
   </style>
 </head>
 <body>
-  <main class="free-vision" data-testid="quest-boss-free-vision" data-free-vision-runtime="true" data-overlay-policy="minimal">
+  <main class="free-vision" data-testid="quest-boss-free-vision" data-free-vision-runtime="true" data-overlay-policy="minimal" data-progress="0" data-vfx-state="idle">
     <img class="free-vision-image" data-free-vision-raw-image src="${escapeHtml(worldImage)}" alt="" />
     <div id="sunny-companion" data-free-vision-overlay aria-hidden="true"></div>
     <div class="status" id="status" data-free-vision-overlay>${companionLine}</div>
     <div class="reward" id="reward" data-free-vision-overlay>${rewardMoment}</div>
-    <section class="recall-strip" id="rounds" data-free-vision-overlay aria-label="${escapeHtml(mechanic.inputLabel)}"></section>
+    <section class="recall-strip" id="rounds" data-free-vision-overlay aria-label="${escapeHtml(mechanic.inputLabel)}">
+      <div class="challenge-readout" aria-hidden="true">
+        <div class="charge-track"><div class="charge-fill" id="chargeFill"></div></div>
+        <div class="round-pips" id="roundPips"></div>
+      </div>
+    </section>
   </main>
   <script>
     const fallbackTargets = [];
     const targets = (window.GAME_PARAMS && window.GAME_PARAMS.words && window.GAME_PARAMS.words.length ? window.GAME_PARAMS.words : fallbackTargets).filter(Boolean);
+    const world = document.querySelector("[data-free-vision-runtime='true']");
     const rounds = document.getElementById("rounds");
+    const chargeFill = document.getElementById("chargeFill");
+    const roundPips = document.getElementById("roundPips");
     const status = document.getElementById("status");
     const reward = document.getElementById("reward");
     let index = 0;
@@ -574,6 +667,68 @@ export function renderQuestBossFreeVisionShell(input: {
     const missLanguage = ${escapeScriptJson(mechanic.missLanguage)};
     const kind = ${escapeScriptJson(candidate.kind)};
     const candidateId = ${escapeScriptJson(candidate.candidateId)};
+    window.__sunnyQuestBossStateSnapshots = [];
+    const maxRounds = Math.max(1, targets.length);
+    const recordState = (phase) => {
+      const progress = Math.min(index, targets.length) / maxRounds;
+      const percent = Math.round(progress * 100);
+      world.dataset.progress = String(percent);
+      world.dataset.vfxState = phase;
+      world.style.setProperty("--charge", percent + "%");
+      chargeFill.style.width = percent + "%";
+      roundPips.querySelectorAll(".round-pip").forEach((pip, pipIndex) => {
+        pip.classList.toggle("complete", pipIndex < index);
+      });
+      const snapshot = { phase, progress: percent, index, clean, targetCount: targets.length, candidateId, kind };
+      window.__sunnyQuestBossStateSnapshots.push(snapshot);
+      console.log("🎮 [quest-boss-shell] [quest_boss_vfx_state]", JSON.stringify(snapshot));
+    };
+    const setupPips = () => {
+      roundPips.innerHTML = "";
+      targets.forEach(() => {
+        const pip = document.createElement("span");
+        pip.className = "round-pip";
+        roundPips.appendChild(pip);
+      });
+    };
+    const playSfxCue = (cue) => {
+      console.log("🎮 [quest-boss-shell] [quest_boss_sfx_cue]", cue);
+      try {
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return;
+        const ctx = window.__sunnyQuestBossAudioContext ||= new AudioContextCtor();
+        const run = () => {
+          const oscillator = ctx.createOscillator();
+          const gain = ctx.createGain();
+          oscillator.type = cue === "miss" ? "triangle" : "sine";
+          oscillator.frequency.value = cue === "complete" ? 880 : cue === "hit" ? 660 : 220;
+          gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(cue === "complete" ? 0.16 : 0.09, ctx.currentTime + 0.018);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (cue === "complete" ? 0.34 : 0.18));
+          oscillator.connect(gain).connect(ctx.destination);
+          oscillator.start();
+          oscillator.stop(ctx.currentTime + (cue === "complete" ? 0.36 : 0.2));
+        };
+        if (ctx.state === "suspended") {
+          ctx.resume().then(run).catch((err) => {
+            console.warn("🎮 [quest-boss-shell] [sfx_resume_failed]", err instanceof Error ? err.message : String(err));
+          });
+        } else {
+          run();
+        }
+      } catch (err) {
+        console.warn("🎮 [quest-boss-shell] [sfx_failed]", err instanceof Error ? err.message : String(err));
+      }
+    };
+    const applyWorldReaction = (ok, complete) => {
+      const state = complete ? "complete" : ok ? "hit" : "miss";
+      world.classList.remove("vfx-hit", "vfx-miss", "vfx-complete");
+      void world.offsetWidth;
+      world.classList.add("vfx-" + state);
+      recordState(state);
+      playSfxCue(state === "complete" ? "complete" : ok ? "hit" : "miss");
+      window.setTimeout(() => world.classList.remove("vfx-hit", "vfx-miss", "vfx-complete"), 900);
+    };
     const showStatus = (text) => {
       status.textContent = text;
       status.classList.add("visible");
@@ -620,6 +775,7 @@ export function renderQuestBossFreeVisionShell(input: {
         index += 1;
         const nextInput = rounds.querySelectorAll("input")[index];
         const nextButton = rounds.querySelectorAll("button")[index];
+        applyWorldReaction(ok, !nextInput || !nextButton);
         if (nextInput && nextButton) {
           nextInput.style.display = "block";
           nextButton.style.display = "block";
@@ -642,6 +798,8 @@ export function renderQuestBossFreeVisionShell(input: {
       });
       return [input, button];
     };
+    setupPips();
+    recordState("idle");
     targets.forEach((target, i) => rounds.append(...makeRound(target, i)));
     fireCompanion();
     window.SUNNY_VALIDATION_HOOKS = {

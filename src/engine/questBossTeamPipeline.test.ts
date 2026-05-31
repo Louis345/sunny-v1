@@ -326,6 +326,30 @@ describe("quest boss team pipeline", () => {
     expect(html).not.toContain("Final gate");
   });
 
+  it("makes free-vision a stateful challenge with VFX and SFX cues, not just static art plus input", () => {
+    const html = renderQuestBossFreeVisionShell({
+      candidate: baseCandidates[0]!,
+      assignment: {
+        domain: "spelling",
+        title: "Benchmark Advance Spelling Unit 8 Week 3",
+        targetWords: ["faster", "fastest"],
+        concepts: ["comparative suffixes"],
+      },
+    });
+
+    expect(html).toContain('data-progress="0"');
+    expect(html).toContain('data-vfx-state="idle"');
+    expect(html).toContain('class="charge-fill"');
+    expect(html).toContain('class="round-pips"');
+    expect(html).toContain("applyWorldReaction");
+    expect(html).toContain("playSfxCue");
+    expect(html).toContain("AudioContext");
+    expect(html).toContain("quest_boss_sfx_cue");
+    expect(html).toContain("quest_boss_vfx_state");
+    expect(html).toContain("window.__sunnyQuestBossStateSnapshots");
+    expect(html).not.toContain('class="hud"');
+  });
+
   it("keeps free-vision static validation strict while target words stay out of saved HTML", () => {
     const html = renderQuestBossFreeVisionShell({
       candidate: baseCandidates[0]!,
