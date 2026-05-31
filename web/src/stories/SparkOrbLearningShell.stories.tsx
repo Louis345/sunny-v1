@@ -9,6 +9,11 @@ import {
   type OrbLearningLastMoment,
   type SparkOrbLearningEncounterEvent,
 } from "../components/SparkOrbLearningShell";
+import {
+  createStorybookMonsterInventory,
+  recordCapturedCreatureReward,
+  type OrbCaptureCompletedEvent,
+} from "../components/capturedMonsterReward";
 import type { SparkOrbEncounterPhase } from "../components/SparkOrbEncounterPost";
 
 export type SparkOrbLearningShellStoryArgs = {
@@ -87,6 +92,17 @@ function logCompanionAnchor(context: OrbCompanionAnchorContext): void {
 
 function logEncounterEvent(event: SparkOrbLearningEncounterEvent): void {
   console.info(" 🎮 [storybook:spark-orb-learning] [encounter-event] [reported]", event);
+}
+
+const storybookSparkOrbInventory = createStorybookMonsterInventory({ childId: "ila" });
+
+function logCaptureCompleted(event: OrbCaptureCompletedEvent): void {
+  const receipt = recordCapturedCreatureReward({
+    mode: "storybook_only",
+    event,
+    inventory: storybookSparkOrbInventory,
+  });
+  console.info(" 🎮 [storybook:spark-orb-learning] [capture-reward] [reported]", receipt);
 }
 
 function ProblemCard({
@@ -226,6 +242,7 @@ function ShellStory({
       lastMoment={args.lastMoment}
       onCompanionAnchor={logCompanionAnchor}
       onEncounterEvent={logEncounterEvent}
+      onCaptureCompleted={logCaptureCompleted}
     >
       {children}
     </SparkOrbLearningShell>
