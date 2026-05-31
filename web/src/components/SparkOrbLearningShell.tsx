@@ -12,6 +12,15 @@ import type { CompanionBehavior } from "../context/companionCareBehavior";
 import { playSparkOrbSfx, type SparkOrbSfxOptions } from "../utils/sparkOrbSfx";
 import { CompanionLayer } from "./CompanionLayer";
 import type { SparkOrbEncounterPhase } from "./SparkOrbEncounterPost";
+import {
+  LUMIPUFF_MONSTER,
+  type CapturedMonsterConfig,
+} from "./capturedMonsterCatalog";
+import {
+  buildCapturedCreatureReward,
+  buildOrbCaptureCompletedEvent,
+  type OrbCaptureCompletedEvent,
+} from "./capturedMonsterReward";
 
 export type OrbLearningLastMoment =
   | "watching"
@@ -91,10 +100,12 @@ export interface SparkOrbLearningShellProps {
   statLabel?: string;
   statValue?: number;
   orbCount?: number;
+  capturedCreature?: CapturedMonsterConfig;
   captureProgress?: number;
   sfx?: SparkOrbSfxOptions;
   onCompanionAnchor?: (context: OrbCompanionAnchorContext) => void;
   onEncounterEvent?: (event: SparkOrbLearningEncounterEvent) => void;
+  onCaptureCompleted?: (event: OrbCaptureCompletedEvent) => void;
 }
 
 const assetBase = "/encounters/spark-orb";
@@ -360,14 +371,16 @@ export function SparkOrbLearningShell({
   currentTarget,
   lastMoment = "watching",
   allowedRole = "emote_and_tiny_reaction",
-  creatureName = "Lumipuff",
-  statLabel = "SPARK",
-  statValue = 214,
+  creatureName,
+  statLabel,
+  statValue,
   orbCount = 7,
+  capturedCreature = LUMIPUFF_MONSTER,
   captureProgress,
   sfx,
   onCompanionAnchor,
   onEncounterEvent,
+  onCaptureCompleted,
 }: SparkOrbLearningShellProps) {
   const [remainingOrbCount, setRemainingOrbCount] = useState(orbCount);
   const [chargeOverride, setChargeOverride] = useState<number | null>(null);
@@ -397,6 +410,9 @@ export function SparkOrbLearningShell({
   });
   const launchTimerRef = useRef<number | null>(null);
   const payoffTimerRefs = useRef<number[]>([]);
+  const displayCreatureName = creatureName ?? capturedCreature.speciesName;
+  const displayStatLabel = statLabel ?? capturedCreature.statLabel;
+  const displayStatValue = statValue ?? capturedCreature.statValue;
   const phaseChargeCount = Math.min(chargeGoal, chargeCountForPhase(phase));
   const chargeCount = chargeOverride ?? phaseChargeCount;
   const scrubbedCaptureProgress =
@@ -571,6 +587,28 @@ export function SparkOrbLearningShell({
     onEncounterEvent?.(payload);
   }
 
+  function emitCaptureCompleted(launchScore: SparkOrbLaunchPhysics): void {
+    const reward = buildCapturedCreatureReward({
+      creature: capturedCreature,
+      childId,
+      domain,
+      currentTarget,
+      source: "spark_orb_learning_shell",
+    });
+    const payload = buildOrbCaptureCompletedEvent({
+      reward,
+      chargeGoal,
+      orbCount: remainingOrbCount,
+      hitDistance: launchScore.hitDistance,
+      hitQuality: launchScore.hitQuality,
+    });
+    console.info(
+      " 🎮 [spark-orb-learning-shell] [orb_capture_completed] [storybook_only]",
+      payload,
+    );
+    onCaptureCompleted?.(payload);
+  }
+
   function launchPullPower(vector: LaunchAimVector): number {
     return clampPercent((Math.max(0, vector.pullY) / 220) * 100);
   }
@@ -743,6 +781,7 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
+          emitCaptureCompleted(launchScore);
         }, 3650),
       ];
       return;
@@ -861,6 +900,7 @@ export function SparkOrbLearningShell({
         data-capture-effect={displayCaptureEffect}
         data-capture-stage={visualCaptureStage}
         data-collection-state={collectionState}
+        data-captured-creature-id={capturedCreature.id}
         style={launchStyle}
       >
         <img
@@ -872,9 +912,9 @@ export function SparkOrbLearningShell({
         <div className="spark-orb-learning-shell__wash" aria-hidden="true" />
         <div className="spark-orb-learning-shell__orb-hud">
           <div className="spark-orb-learning-shell__nameplate">
-            <strong>{creatureName}</strong>
+            <strong>{displayCreatureName}</strong>
             <span>
-              {statLabel} {statValue}
+              {displayStatLabel} {displayStatValue}
             </span>
           </div>
           <div className="spark-orb-learning-shell__orb-count" aria-label={`${remainingOrbCount} Sunny orbs left`}>
@@ -888,7 +928,7 @@ export function SparkOrbLearningShell({
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
           data-capture-motion={creatureCaptureMotion}
-          src={`${assetBase}/lumipuff.png`}
+          src={capturedCreature.imageSrc}
           alt=""
           aria-hidden="true"
         />
@@ -982,9 +1022,9 @@ export function SparkOrbLearningShell({
           />
         </div>
         {showCollectionCard ? (
-          <div className="spark-orb-learning-shell__collect-card" role="dialog" aria-label={`${creatureName} added to collection`}>
+          <div className="spark-orb-learning-shell__collect-card" role="dialog" aria-label={`${displayCreatureName} added to collection`}>
             <span>Added to collection</span>
-            <strong>Spark Garden friend</strong>
+            <strong>{capturedCreature.collectionTitle}</strong>
           </div>
         ) : null}
       </section>

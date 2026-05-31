@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import {
   CapturedMonsterCard,
   MonsterDenPreview,
@@ -7,6 +7,10 @@ import {
   type CapturedMonsterEvent,
 } from "../components/CapturedMonsterDen";
 import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
+import {
+  buildCapturedCreatureReward,
+  createStorybookMonsterInventory,
+} from "../components/capturedMonsterReward";
 
 export type CapturedMonsterDenStoryArgs = {
   nickname: string;
@@ -50,9 +54,37 @@ function logMonsterEvent(event: CapturedMonsterEvent): void {
 function CaptureToDenHandoffStory(args: CapturedMonsterDenStoryArgs): ReactElement {
   const [denOpen, setDenOpen] = useState(false);
   const [nickname, setNickname] = useState(args.nickname);
+  const inventory = useMemo(() => createStorybookMonsterInventory({ childId: "ila" }), []);
+  const captureReward = useMemo(
+    () =>
+      buildCapturedCreatureReward({
+        creature: LUMIPUFF_MONSTER,
+        childId: "ila",
+        domain: "storybook-handoff",
+        currentTarget: "captured:lumipuff",
+        capturedAt: "2026-05-30T17:00:00.000Z",
+        nickname: args.nickname,
+        mood: args.mood,
+        bond: args.bond,
+        source: "spark_orb_learning_shell",
+      }),
+    [args.bond, args.mood, args.nickname],
+  );
+  const [inventoryCount, setInventoryCount] = useState(0);
+  const rewardRecord = captureReward.inventoryRecord;
+
+  useEffect(() => {
+    const nextState = inventory.recordCapture(captureReward);
+    setInventoryCount(nextState.capturedCreatures.length);
+  }, [captureReward, inventory]);
 
   return (
-    <main className="captured-monster-story captured-monster-story--handoff">
+    <main
+      className="captured-monster-story captured-monster-story--handoff"
+      data-testid="captured-monster-handoff"
+      data-reward-record-id={rewardRecord.id}
+      data-inventory-count={inventoryCount}
+    >
       {denOpen ? (
         <MonsterDenPreview
           creature={LUMIPUFF_MONSTER}
@@ -64,8 +96,8 @@ function CaptureToDenHandoffStory(args: CapturedMonsterDenStoryArgs): ReactEleme
           <CapturedMonsterCard
             creature={LUMIPUFF_MONSTER}
             nickname={nickname}
-            mood={args.mood}
-            bond={args.bond}
+            mood={rewardRecord.mood}
+            bond={rewardRecord.bond}
             onEvent={(event) => {
               if (event.type === "monster_named") {
                 setNickname(event.nickname);
