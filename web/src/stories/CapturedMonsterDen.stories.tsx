@@ -10,6 +10,8 @@ import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
 import {
   buildCapturedCreatureReward,
   createStorybookMonsterInventory,
+  recordCapturedCreatureReward,
+  buildOrbCaptureCompletedEvent,
 } from "../components/capturedMonsterReward";
 
 export type CapturedMonsterDenStoryArgs = {
@@ -74,7 +76,19 @@ function CaptureToDenHandoffStory(args: CapturedMonsterDenStoryArgs): ReactEleme
   const rewardRecord = captureReward.inventoryRecord;
 
   useEffect(() => {
-    const nextState = inventory.recordCapture(captureReward);
+    const event = buildOrbCaptureCompletedEvent({
+      reward: captureReward,
+      chargeGoal: 3,
+      orbCount: 7,
+      hitDistance: 0,
+      hitQuality: "direct",
+    });
+    recordCapturedCreatureReward({
+      mode: "storybook_only",
+      event,
+      inventory,
+    });
+    const nextState = inventory.state();
     setInventoryCount(nextState.capturedCreatures.length);
   }, [captureReward, inventory]);
 

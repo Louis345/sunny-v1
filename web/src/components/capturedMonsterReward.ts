@@ -74,6 +74,40 @@ export interface StorybookMonsterInventory {
   state: () => StorybookMonsterInventoryState;
 }
 
+export type CapturedCreatureRewardGatewayMode = "storybook_only" | "child_chart";
+
+export interface CapturedCreatureRewardChildChartContext {
+  childId: string;
+  source: "child_chart";
+  writeCapturedCreature: (
+    event: OrbCaptureCompletedEvent,
+  ) => CapturedCreatureRewardGatewayReceipt;
+}
+
+export interface CapturedCreatureRewardGatewayInput {
+  mode: CapturedCreatureRewardGatewayMode;
+  event: OrbCaptureCompletedEvent;
+  inventory?: StorybookMonsterInventory;
+  childChartContext?: CapturedCreatureRewardChildChartContext;
+}
+
+export interface CapturedCreatureRewardGatewayReceipt {
+  mode: CapturedCreatureRewardGatewayMode;
+  status: "recorded";
+  childId: string;
+  creatureId: string;
+  recordId: string;
+  domain: string;
+  currentTarget: string;
+  chargeGoal: number;
+  orbCount: number;
+  hitDistance?: number;
+  hitQuality?: CapturedCreatureHitQuality;
+  capturedAt: string;
+  chartWriteAttempted: boolean;
+  reward: CapturedCreatureReward;
+}
+
 export function buildCapturedCreatureReward({
   creature,
   childId,
@@ -183,4 +217,81 @@ export function createStorybookMonsterInventory({
       };
     },
   };
+}
+
+function receiptFor(
+  mode: CapturedCreatureRewardGatewayMode,
+  event: OrbCaptureCompletedEvent,
+  chartWriteAttempted: boolean,
+): CapturedCreatureRewardGatewayReceipt {
+  const record = event.reward.inventoryRecord;
+  return {
+    mode,
+    status: "recorded",
+    childId: record.childId,
+    creatureId: record.creatureId,
+    recordId: record.id,
+    domain: record.origin.domain,
+    currentTarget: record.origin.currentTarget,
+    chargeGoal: event.chargeGoal,
+    orbCount: event.orbCount,
+    hitDistance: event.hitDistance,
+    hitQuality: event.hitQuality,
+    capturedAt: record.capturedAt,
+    chartWriteAttempted,
+    reward: event.reward,
+  };
+}
+
+export function recordCapturedCreatureReward({
+  mode,
+  event,
+  inventory,
+  childChartContext,
+}: CapturedCreatureRewardGatewayInput): CapturedCreatureRewardGatewayReceipt {
+  if (mode === "storybook_only") {
+    const storybookInventory =
+      inventory ?? createStorybookMonsterInventory({ childId: event.reward.inventoryRecord.childId });
+    storybookInventory.recordCapture(event.reward);
+    const receipt = receiptFor("storybook_only", event, false);
+    console.info(
+      " 🎮 [captured-creature-reward-gateway] [record_capture] [storybook_only]",
+      {
+        type: "captured_creature_reward_recorded",
+        mode: "storybook_only",
+        childId: receipt.childId,
+        creatureId: receipt.creatureId,
+        recordId: receipt.recordId,
+        domain: receipt.domain,
+        currentTarget: receipt.currentTarget,
+        hitQuality: receipt.hitQuality,
+      },
+    );
+    return receipt;
+  }
+
+  if (!childChartContext) {
+    throw new Error("captured_creature_child_chart_writer_required");
+  }
+
+  const rewardChildId = event.reward.inventoryRecord.childId;
+  if (childChartContext.childId !== rewardChildId) {
+    throw new Error("captured_creature_child_chart_child_mismatch");
+  }
+
+  const receipt = childChartContext.writeCapturedCreature(event);
+  console.info(
+    " 🎮 [captured-creature-reward-gateway] [record_capture] [child_chart]",
+    {
+      type: "captured_creature_reward_recorded",
+      mode: "child_chart",
+      childId: receipt.childId,
+      creatureId: receipt.creatureId,
+      recordId: receipt.recordId,
+      domain: receipt.domain,
+      currentTarget: receipt.currentTarget,
+      hitQuality: receipt.hitQuality,
+    },
+  );
+  return receipt;
 }
