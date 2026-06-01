@@ -7,9 +7,26 @@ import React, {
   useState,
 } from "react";
 import { useKaraokeReading } from "../hooks/useKaraokeReading";
-import { playGameSfx, playPronunciationHitSfx } from "../utils/gameSfx";
+import {
+  playGameSfx,
+  playPronunciationHitSfx,
+  pronunciationHitSfxEffectForStreak,
+} from "../utils/gameSfx";
 import type { PronunciationNodeConfig } from "../../../src/shared/adventureTypes";
 import type { PostActivityAction } from "../../../src/engine/choiceEvents";
+import { buildPronunciationTranscriptWindow } from "../../../src/shared/pronunciationTranscriptHygiene";
+import {
+  PronunciationLatencyAttemptTracker,
+  resolvePronunciationFlowTier,
+  type PronunciationFlowTier,
+  type PronunciationLatencySpan,
+} from "../../../src/shared/pronunciationLatencySpans";
+import {
+  PronunciationTempoCalibrationState,
+  resolveTierSpeedIntent,
+} from "../../../src/shared/pronunciationTempoCalibration";
+import type { PronunciationFlowHook } from "../../../src/shared/adventureTypes";
+import { createActivityEvidenceClient } from "../utils/activityEvidence";
 
 const FONT_LINK =
   "https://fonts.googleapis.com/css2?family=Fredoka:wght@700;800;900&family=Lexend:wght@400;600&family=Caveat:wght@700&display=swap";
@@ -25,8 +42,6 @@ const NORMAL_COIN_AWARD = 10;
 const HEAT_COIN_AWARD = 30;
 const HEAT_THRESHOLD = 3;
 const COMBO_BREAKER_STREAK = 8;
-const HEAT_SPEED_MULTIPLIER = 1.45;
-const COMBO_BREAKER_SPEED_MULTIPLIER = 1.7;
 const HEAT_TIMER_DRAIN_MULTIPLIER = 1.6;
 const COMBO_BREAKER_TIMER_DRAIN_MULTIPLIER = 2.1;
 const COMBO_BREAKER_BANNER_MS = 1800;
@@ -37,6 +52,77 @@ const YANK_OUT_MS = 300;
 const YANK_BACK_MS = 400;
 const HEARD_STICKY_MS = 450;
 const STT_STALE_MS = 4000;
+const MAX_PRONUNCIATION_TIMER_DRAIN_MULTIPLIER = 2.2;
+const DEFAULT_PRONUNCIATION_RHYTHM_CONFIG: Required<
+  Pick<
+    PronunciationNodeConfig,
+    "durationMs" | "baseBeatMs" | "minBeatMs" | "rampEveryMs" | "rampStepMs"
+  >
+> = {
+  durationMs: 45_000,
+  baseBeatMs: 950,
+  minBeatMs: 520,
+  rampEveryMs: 8_000,
+  rampStepMs: 60,
+};
+type PronunciationSfxMode = NonNullable<PronunciationNodeConfig["sfxMode"]>;
+type PronunciationRhythmConfig = typeof DEFAULT_PRONUNCIATION_RHYTHM_CONFIG;
+
+function positiveMs(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : fallback;
+}
+
+function normalizePronunciationRhythmConfig(
+  config: PronunciationNodeConfig | undefined,
+): PronunciationRhythmConfig {
+  const durationMs = positiveMs(
+    config?.durationMs,
+    DEFAULT_PRONUNCIATION_RHYTHM_CONFIG.durationMs,
+  );
+  const baseBeatMs = positiveMs(
+    config?.baseBeatMs,
+    DEFAULT_PRONUNCIATION_RHYTHM_CONFIG.baseBeatMs,
+  );
+  const minBeatMs = Math.min(
+    baseBeatMs,
+    positiveMs(config?.minBeatMs, DEFAULT_PRONUNCIATION_RHYTHM_CONFIG.minBeatMs),
+  );
+  const rampEveryMs = positiveMs(
+    config?.rampEveryMs,
+    DEFAULT_PRONUNCIATION_RHYTHM_CONFIG.rampEveryMs,
+  );
+  const rampStepMs =
+    typeof config?.rampStepMs === "number" && Number.isFinite(config.rampStepMs)
+      ? Math.max(0, config.rampStepMs)
+      : DEFAULT_PRONUNCIATION_RHYTHM_CONFIG.rampStepMs;
+  return { durationMs, baseBeatMs, minBeatMs, rampEveryMs, rampStepMs };
+}
+
+function tempoLevelForElapsed(elapsedMs: number, rampEveryMs: number): number {
+  return Math.max(0, Math.floor(Math.max(0, elapsedMs) / rampEveryMs));
+}
+
+function rawBeatMsForTempo(
+  elapsedMs: number,
+  config: PronunciationRhythmConfig,
+): number {
+  const level = tempoLevelForElapsed(elapsedMs, config.rampEveryMs);
+  return Math.max(config.minBeatMs, config.baseBeatMs - level * config.rampStepMs);
+}
+
+function rhythmBeatMsForTempo(
+  elapsedMs: number,
+  config: PronunciationRhythmConfig,
+  reliefSteps: number,
+): number {
+  const rawBeat = rawBeatMsForTempo(elapsedMs, config);
+  return Math.min(
+    config.baseBeatMs,
+    rawBeat + Math.max(0, reliefSteps) * config.rampStepMs,
+  );
+}
 
 function transcriptWords(text: string): string[] {
   return text.trim().split(/\s+/).filter(Boolean);
@@ -60,14 +146,21 @@ function normalizePracticeWord(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
 }
 
-type PronunciationRunEndReason = "timer" | "completed_targets";
-
-function pronunciationFlowSpeedMultiplier(flowRound: number): number {
-  return 1 + Math.min(0.36, Math.max(0, flowRound) * 0.12);
-}
+type PronunciationRunEndReason = "timer" | "completed_targets" | "meter_expired";
 
 function pronunciationFlowTimerDrainMultiplier(flowRound: number): number {
-  return 1 + Math.min(0.45, Math.max(0, flowRound) * 0.15);
+  return 1 + Math.min(0.3, Math.max(0, flowRound) * 0.1);
+}
+
+function cappedPronunciationTimerDrainMultiplier(
+  hitStreak: number,
+  flowRound: number,
+): number {
+  return Math.min(
+    MAX_PRONUNCIATION_TIMER_DRAIN_MULTIPLIER,
+    pronunciationTimerDrainMultiplier(hitStreak) *
+      pronunciationFlowTimerDrainMultiplier(flowRound),
+  );
 }
 
 function pronunciationFlowRewardMultiplier(flowRound: number): number {
@@ -80,6 +173,13 @@ export type PronunciationCompleteResult = {
   hitEvents?: number;
   uniqueTargetsAttempted?: number;
   rounds?: number;
+  rhythmMode?: boolean;
+  rhythmRound?: number;
+  meterRemainingMs?: number;
+  beatMs?: number;
+  tempoLevel?: number;
+  finalBeatMs?: number;
+  sfxMode?: PronunciationSfxMode;
   accuracy: number;
   totalWords: number;
   correctCount: number;
@@ -88,6 +188,10 @@ export type PronunciationCompleteResult = {
     target: string;
     correct: boolean;
     attempts: number;
+    contaminatedAttempts?: number;
+    contaminationReasons?: string[];
+    heardExamples?: string[];
+    orthographicAmbiguity?: boolean;
     scaffoldLevel: number;
     mode: string;
     struggleSignals: string[];
@@ -111,6 +215,12 @@ export type PronunciationCompleteResult = {
     replayRequests: number;
     powerBarSurvival_ms: number;
     abandoned: boolean;
+    meterExpired?: boolean;
+    tempoIncreased?: boolean;
+    rhythmRound?: number;
+    tempoLevel?: number;
+    beatMs?: number;
+    finalBeatMs?: number;
   };
   replayOnly?: boolean;
   chartEligible?: boolean;
@@ -120,6 +230,8 @@ export interface PronunciationGameCanvasProps {
   words: string[];
   replayWords?: string[];
   pronunciationConfig?: PronunciationNodeConfig;
+  /** Profile-driven flow wrapper (presentation only). */
+  flowHooks?: PronunciationFlowHook[];
   interimTranscript: string;
   sendMessage: (type: string, payload?: Record<string, unknown>) => void;
   backgroundImageUrl?: string;
@@ -132,6 +244,14 @@ export interface PronunciationGameCanvasProps {
   onExit?: () => void;
   /** Extra top padding (px) to clear a fixed banner above the component. */
   topInset?: number;
+}
+
+function pronunciationFlowHookBanner(flowHooks: PronunciationFlowHook[] | undefined): string | null {
+  if (!flowHooks?.length) return null;
+  if (flowHooks.includes("competition")) return "COMPETITION MODE";
+  if (flowHooks.includes("speed")) return "SPEED RUN";
+  if (flowHooks.includes("challenge")) return "CHALLENGE MODE";
+  return null;
 }
 
 type BlockPhase = "approaching" | "hit" | "miss";
@@ -166,12 +286,6 @@ function scoreForHit(hitStreakAfterHit: number, displayStreak: number): number {
   const mult =
     hitStreakAfterHit >= HEAT_THRESHOLD ? 2.0 : streakMultiplier(displayStreak);
   return Math.round(10 * mult);
-}
-
-function pronunciationSpeedMultiplier(hitStreak: number): number {
-  if (hitStreak >= COMBO_BREAKER_STREAK) return COMBO_BREAKER_SPEED_MULTIPLIER;
-  if (hitStreak >= HEAT_THRESHOLD) return HEAT_SPEED_MULTIPLIER;
-  return 1;
 }
 
 function pronunciationTimerDrainMultiplier(hitStreak: number): number {
@@ -244,13 +358,22 @@ function isSyntheticSessionTranscript(value: string): boolean {
   return false;
 }
 
-function buildPronunciationFlowWords(pool: string[], cycles = 1): string[] {
+function buildPronunciationFlowWords(pool: string[], cycles: number): string[] {
   if (pool.length === 0) return [];
   const flowWords: string[] = [];
   for (let i = 0; i < cycles; i += 1) {
     flowWords.push(...pool);
   }
   return flowWords;
+}
+
+function pronunciationRhythmCycles(
+  poolCount: number,
+  config: Required<Pick<PronunciationNodeConfig, "durationMs" | "minBeatMs">>,
+): number {
+  if (poolCount <= 0) return 1;
+  const fastestExpectedTargets = Math.ceil(config.durationMs / Math.max(120, config.minBeatMs * 0.35));
+  return Math.max(2, Math.ceil(fastestExpectedTargets / poolCount) + 2);
 }
 
 function clampWordCount(value: number, min: number, max: number): number {
@@ -287,6 +410,7 @@ export function PronunciationGameCanvas({
   words: rawWords,
   replayWords: rawReplayWords,
   pronunciationConfig,
+  flowHooks: flowHooksProp,
   interimTranscript,
   sendMessage,
   backgroundImageUrl: _backgroundImageUrl, // eslint-disable-line @typescript-eslint/no-unused-vars
@@ -299,6 +423,14 @@ export function PronunciationGameCanvas({
   const rawWordsKey = pronunciationWordsKey(rawWords);
   const replayWordsKey = pronunciationWordsKey(rawReplayWords ?? []);
   const pronunciationConfigKey = JSON.stringify(pronunciationConfig ?? null);
+  const isRhythmMode = pronunciationConfig?.mode === "rhythm";
+  const rhythmConfig = useMemo(
+    () => normalizePronunciationRhythmConfig(pronunciationConfig),
+    [pronunciationConfigKey],
+  );
+  const sfxMode: PronunciationSfxMode = pronunciationConfig?.sfxMode ?? "scored";
+  const pronunciationSfxEnabled = sfxMode === "scored";
+  const initialTimeRemainingMs = isRhythmMode ? rhythmConfig.durationMs : TIMER_START_MS;
   const [replaySeed, setReplaySeed] = useState(0);
   const [challengeMode, setChallengeMode] = useState<"normal" | "hard">("normal");
   const baseWordPool = useMemo(() => dedupePronunciationWords(rawWords), [rawWordsKey]);
@@ -324,17 +456,23 @@ export function PronunciationGameCanvas({
     void replaySeed;
     return [...(challengeMode === "hard" ? hardReplayWords : baseWords)];
   }, [baseWords, challengeMode, hardReplayWords, replaySeed]);
+  const rhythmMatcherCycles = isRhythmMode
+    ? pronunciationRhythmCycles(activeWordPool.length, rhythmConfig)
+    : 1;
   const words = useMemo(
-    () => buildPronunciationFlowWords(activeWordPool),
-    [activeWordPool],
+    () => buildPronunciationFlowWords(activeWordPool, rhythmMatcherCycles),
+    [activeWordPool, rhythmMatcherCycles],
   );
   const flowWordsKey = pronunciationWordsKey(words);
   const pronunciationRunKey = `${challengeMode}:${replaySeed}:${flowWordsKey}`;
+  const flowHooks = flowHooksProp ?? pronunciationConfig?.flowHooks;
+  const flowHookBanner = pronunciationFlowHookBanner(flowHooks);
   const videoRef = useRef<HTMLVideoElement>(null);
   const particlesRef = useRef<HTMLCanvasElement>(null);
   const particlesDataRef = useRef<Particle[]>([]);
   const rafParticlesRef = useRef(0);
   const blockWrapRef = useRef<HTMLDivElement>(null);
+  const presentedEvidenceRef = useRef("");
 
   const completeSentRef = useRef(false);
   const authoritativeCompleteSentRef = useRef(false);
@@ -354,19 +492,21 @@ export function PronunciationGameCanvas({
   const hitProcessedForWordIndexRef = useRef(-1);
   const missSeqRef = useRef(0);
   const timeoutArmedRef = useRef(true);
-  const lastLoggedDrainMultiplierRef = useRef(1);
+  const lastLoggedDrainMultiplierRef = useRef("");
   const interimRef = useRef(interimTranscript);
   const heardClearTimeoutRef = useRef<number | null>(null);
   const comboBannerTimeoutRef = useRef<number | null>(null);
   const lastMilestoneStreakRef = useRef(0);
   const wordIndexRef = useRef(0);
+  const rhythmRoundRef = useRef(1);
+  const prevRhythmRoundRef = useRef(1);
   const hitsRef = useRef(0);
   const wordsAttemptedRef = useRef(0);
   const xpRef = useRef(0);
   const bestStreakRef = useRef(0);
   const hitStreakRef = useRef(0);
   const coinsRef = useRef(0);
-  const timeRemainingRef = useRef(TIMER_START_MS);
+  const timeRemainingRef = useRef(initialTimeRemainingMs);
   const lastCoinAwardRef = useRef(0);
   const lastTimeAwardRef = useRef(0);
   const maxHeatStreakRef = useRef(0);
@@ -375,14 +515,82 @@ export function PronunciationGameCanvas({
   const flaggedWordsRef = useRef<string[]>([]);
   const missCountByWordRef = useRef<Map<string, number>>(new Map());
   const hitCountByWordRef = useRef<Map<string, number>>(new Map());
+  const contaminatedCountByWordRef = useRef<Map<string, number>>(new Map());
+  const contaminationReasonsByWordRef = useRef<Map<string, Set<string>>>(new Map());
+  const contaminationExamplesByWordRef = useRef<Map<string, string[]>>(new Map());
+  const orthographicAmbiguityByWordRef = useRef<Set<string>>(new Set());
   const replayRequestsRef = useRef(0);
   const bonusWordIndexRef = useRef<number | null>(null);
   const ignoreReplayTranscriptRef = useRef("");
   const staleHitWordIndexAfterResetRef = useRef<number | null>(null);
   const stateUpdateFingerprintRef = useRef("");
+  const lastContaminationFingerprintRef = useRef("");
+  const blockedNoTargetsFingerprintRef = useRef("");
   const supportClearTimeoutRef = useRef<number | null>(null);
   const lastTranscriptAtRef = useRef(performance.now());
+  const latencyTrackerRef = useRef(new PronunciationLatencyAttemptTracker());
+  const tempoCalibrationRef = useRef(new PronunciationTempoCalibrationState());
+  const tempoReliefStepsRef = useRef(0);
+  const tempoReliefWordsRemainingRef = useRef(0);
+  const lastRhythmBeatMsRef = useRef(rhythmConfig.baseBeatMs);
+  const lastRhythmTempoLevelRef = useRef(0);
 
+  const emitLatencySpan = useCallback(
+    (span: PronunciationLatencySpan) => {
+      console.log(
+        ` 🎮 [pronunciation] [latency] target=${span.target} outcome=${span.outcome} scoreLoopMs=${span.scoreLoopMs} marginMs=${span.marginMs} staleTailMs=${span.staleTailMs} tier=${span.flowTier}`,
+      );
+      sendMessage("game_event", {
+        event: {
+          type: "pronunciation_latency_span",
+          payload: span,
+          version: "1.0",
+        },
+      });
+    },
+    [sendMessage],
+  );
+
+  const recordLatencySpan = useCallback(
+    (span: PronunciationLatencySpan) => {
+      tempoCalibrationRef.current.recordSpan({
+        outcome: span.outcome,
+        scoreLoopMs: span.scoreLoopMs,
+        marginMs: span.marginMs,
+        staleTailMs: span.staleTailMs,
+        flowTier: span.flowTier,
+      });
+      const deesc = tempoCalibrationRef.current.shouldDeescalate();
+      if (deesc.drop) {
+        tempoReliefStepsRef.current = Math.min(
+          2,
+          tempoReliefStepsRef.current + deesc.reliefSteps,
+        );
+        tempoReliefWordsRemainingRef.current = 2;
+        console.log(
+          ` 🎮 [pronunciation] [tempo-cal] deescalate reason=${deesc.reason} reliefSteps=${tempoReliefStepsRef.current}`,
+        );
+        sendMessage("game_event", {
+          event: {
+            type: "pronunciation_flow_tempo_adjusted",
+            payload: {
+              game: "pronunciation",
+              reason: deesc.reason,
+              reliefSteps: tempoReliefStepsRef.current,
+              rollingP95ScoreLoopMs: tempoCalibrationRef.current.rollingP95ScoreLoopMs,
+              rollingP95MarginMs: tempoCalibrationRef.current.rollingP95MarginMs,
+            },
+            version: "1.0",
+          },
+        });
+      }
+      emitLatencySpan(span);
+      setTempoCalRevision((value) => value + 1);
+    },
+    [emitLatencySpan, sendMessage],
+  );
+
+  const [tempoCalRevision, setTempoCalRevision] = useState(0);
   const [cameraOk, setCameraOk] = useState(false);
   const [hasStarted, setHasStarted] = useState(true);
   const [cycleKey, setCycleKey] = useState(0);
@@ -390,6 +598,7 @@ export function PronunciationGameCanvas({
   const [missSeq, setMissSeq] = useState(0);
   const [showWrongBadge, setShowWrongBadge] = useState(false);
   const [showHitBadge, setShowHitBadge] = useState(false);
+  const [showRecoveryBadge, setShowRecoveryBadge] = useState(false);
   const [ended, setEnded] = useState(false);
   const [endReason, setEndReason] = useState<PronunciationRunEndReason>("timer");
   const [finalResult, setFinalResult] = useState<PronunciationCompleteResult | null>(null);
@@ -398,7 +607,7 @@ export function PronunciationGameCanvas({
   const [wordsAttempted, setWordsAttempted] = useState(0);
   const [xp, setXp] = useState(0);
   const [coins, setCoins] = useState(0);
-  const [timeRemainingMs, setTimeRemainingMs] = useState(TIMER_START_MS);
+  const [timeRemainingMs, setTimeRemainingMs] = useState(initialTimeRemainingMs);
   const [streak, setStreak] = useState(0);
   const [hitStreak, setHitStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
@@ -412,17 +621,74 @@ export function PronunciationGameCanvas({
   const [lastHitWasBonus, setLastHitWasBonus] = useState(false);
   const [supportCue, setSupportCue] = useState<PronunciationSupportCue | null>(null);
   const [sttStatus, setSttStatus] = useState<"listening" | "reconnecting">("listening");
+  const evidence = useMemo(
+    () =>
+      createActivityEvidenceClient({
+        context: {
+          activityId: "pronunciation",
+          childId: "unknown",
+          activityMode: "pronunciation",
+          ...(pronunciationConfig
+            ? { activityConfig: pronunciationConfig as unknown as Record<string, unknown> }
+            : {}),
+        },
+        sendMessage,
+      }),
+    [pronunciationConfigKey, sendMessage],
+  );
+  const emitPronunciationSfxCue = useCallback(
+    (
+      id: string,
+      played: boolean,
+      source: "scored_event" | "visual_only_suppressed",
+    ) => {
+      sendMessage("game_event", {
+        event: {
+          type: "pronunciation_sfx_cue",
+          payload: {
+            game: "pronunciation",
+            id,
+            played,
+            source,
+            rhythmMode: isRhythmMode,
+            sfxMode,
+          },
+          version: "1.0",
+        },
+      });
+    },
+    [isRhythmMode, sendMessage, sfxMode],
+  );
+  const playPronunciationScoredSfx = useCallback(
+    (id: string, play: () => boolean) => {
+      if (!pronunciationSfxEnabled) {
+        emitPronunciationSfxCue(id, false, "visual_only_suppressed");
+        return false;
+      }
+      const played = play();
+      emitPronunciationSfxCue(id, played, "scored_event");
+      return played;
+    },
+    [emitPronunciationSfxCue, pronunciationSfxEnabled],
+  );
 
   const childSpeechTranscript = isSyntheticSessionTranscript(interimTranscript)
     ? ""
     : interimTranscript;
   const latestChildSpeechTranscript = latestPronunciationScoringWindow(childSpeechTranscript);
+  const currentScoringTarget =
+    words[Math.min(wordIndexRef.current, Math.max(0, words.length - 1))] ?? "";
+  const pronunciationTranscriptWindow = buildPronunciationTranscriptWindow({
+    target: currentScoringTarget,
+    rawTranscript: latestChildSpeechTranscript,
+    acceptedPrefix: words.slice(0, wordIndexRef.current),
+  });
   const interimFingerprint = transcriptFingerprint(latestChildSpeechTranscript);
   const scoringInterimTranscript =
     ignoreReplayTranscriptRef.current &&
     interimFingerprint === ignoreReplayTranscriptRef.current
       ? ""
-      : latestChildSpeechTranscript;
+      : pronunciationTranscriptWindow.scoringText;
 
   useEffect(() => {
     if (rawWordsKeyRef.current === rawWordsKey) return;
@@ -432,6 +698,10 @@ export function PronunciationGameCanvas({
     autoFlowRoundsRef.current = 0;
     flowRoundRef.current = 0;
     setFlowRound(0);
+    tempoCalibrationRef.current = new PronunciationTempoCalibrationState();
+    tempoReliefStepsRef.current = 0;
+    tempoReliefWordsRemainingRef.current = 0;
+    setTempoCalRevision(0);
   }, [rawWordsKey]);
 
   useEffect(() => {
@@ -461,6 +731,10 @@ export function PronunciationGameCanvas({
     matchMode: "pronunciation",
     sequentialMatchScope: "tail",
   });
+  const rhythmRound =
+    isRhythmMode && activeWordPool.length > 0
+      ? Math.floor(wordIndex / activeWordPool.length) + 1
+      : 1;
 
   useEffect(() => {
     sendMessage("game_event", {
@@ -505,6 +779,13 @@ export function PronunciationGameCanvas({
           ? heardWords.slice(-expectedTokenCount).join(" ") || trimmed
           : heardWords.at(-1) ?? trimmed,
       );
+      if (blockPhase === "approaching" && !ended && !isComplete && expected) {
+        latencyTrackerRef.current.noteInterim(
+          latestChildSpeechTranscript || trimmed,
+          expected,
+          performance.now(),
+        );
+      }
       return;
     }
     if (heardClearTimeoutRef.current !== null) {
@@ -514,7 +795,14 @@ export function PronunciationGameCanvas({
       heardClearTimeoutRef.current = null;
       setHeardTranscript("");
     }, HEARD_STICKY_MS);
-  }, [scoringInterimTranscript, words]);
+  }, [
+    blockPhase,
+    ended,
+    isComplete,
+    latestChildSpeechTranscript,
+    scoringInterimTranscript,
+    words,
+  ]);
 
   useEffect(() => {
     if (ended) return;
@@ -540,7 +828,13 @@ export function PronunciationGameCanvas({
   }, []);
   useEffect(() => {
     wordIndexRef.current = wordIndex;
-  });
+    rhythmRoundRef.current = rhythmRound;
+    if (rhythmRound !== prevRhythmRoundRef.current) {
+      prevRhythmRoundRef.current = rhythmRound;
+      prevWordIndexRef.current = -1;
+      hitProcessedForWordIndexRef.current = -1;
+    }
+  }, [rhythmRound, wordIndex]);
   useEffect(() => {
     hitsRef.current = hits;
     wordsAttemptedRef.current = wordsAttempted;
@@ -556,25 +850,148 @@ export function PronunciationGameCanvas({
 
   const expectedWord =
     wordIndex < words.length ? (words[wordIndex] ?? "") : "";
+  const hasVisibleExpectedWord = expectedWord.trim().length > 0;
   const heard =
-    heardTranscript || scoringInterimTranscript.trim().split(/\s+/).filter(Boolean).pop() || "—";
+    heardTranscript ||
+    scoringInterimTranscript.trim().split(/\s+/).filter(Boolean).pop() ||
+    "waiting";
   const supportActive = supportCue !== null;
   const supportPaused = supportCue?.mode === "pause";
-  const speedMultiplier =
-    pronunciationSpeedMultiplier(hitStreak) *
-    pronunciationFlowSpeedMultiplier(flowRound) *
-    (challengeMode === "hard" ? 1.25 : 1) *
-    (supportActive && !supportPaused ? 0.6 : 1);
-  const timerDrainMultiplier =
-    pronunciationTimerDrainMultiplier(hitStreak) *
-    pronunciationFlowTimerDrainMultiplier(flowRound);
+  const displayHeat = hitStreak >= HEAT_THRESHOLD;
+  const flowTier = resolvePronunciationFlowTier({
+    hitStreak,
+    flowRound,
+  });
+  const tempoCal = tempoCalibrationRef.current;
+  const canHeatTempo = tempoCal.canEscalateFlowTier("heat");
+  const canFlowTempo = tempoCal.canEscalateFlowTier("flow");
+  const canComboTempo = tempoCal.canEscalateFlowTier("combo");
+  const activeHeat = displayHeat && canHeatTempo;
+  const warmHeat = displayHeat && !canHeatTempo;
+  const gatedStreakForTempo = displayHeat
+    ? hitStreak
+    : Math.min(hitStreak, HEAT_THRESHOLD - 1);
+  // Flow round from earned adaptive replay always affects tempo; heat/combo stay margin-gated.
+  const gatedFlowRoundForTempo = flowRound;
+  const tierSpeedIntent = resolveTierSpeedIntent({
+    hitStreak: gatedStreakForTempo,
+    flowRound: gatedFlowRoundForTempo,
+    challengeHard: challengeMode === "hard",
+    supportSlow: supportActive && !supportPaused,
+    comboBreaker: canComboTempo && hitStreak >= COMBO_BREAKER_STREAK,
+  });
+  const marginTier: PronunciationFlowTier =
+    !canComboTempo && flowTier === "combo"
+      ? "heat"
+      : !canFlowTempo && flowTier === "flow"
+        ? canHeatTempo
+          ? "heat"
+          : "normal"
+        : !canHeatTempo && (flowTier === "heat" || warmHeat)
+          ? "normal"
+          : flowTier;
+  const tempoReliefSteps =
+    tempoReliefWordsRemainingRef.current > 0 ? tempoReliefStepsRef.current : 0;
+  const calibratedTempo = tempoCal.resolveTempoForTier({
+    baseTravelMs: TRAVEL_MS,
+    baseZoneMs: ZONE_MS,
+    tier: marginTier,
+    tierSpeedIntent,
+    tempoReliefSteps,
+  });
+  const rhythmElapsedMs = isRhythmMode
+    ? Math.max(0, rhythmConfig.durationMs - timeRemainingMs)
+    : 0;
+  const rhythmTempoLevel = isRhythmMode
+    ? tempoLevelForElapsed(rhythmElapsedMs, rhythmConfig.rampEveryMs)
+    : 0;
+  const rhythmRawBeatMs = isRhythmMode
+    ? rawBeatMsForTempo(rhythmElapsedMs, rhythmConfig)
+    : rhythmConfig.baseBeatMs;
+  const rhythmBeatMs = isRhythmMode
+    ? rhythmBeatMsForTempo(rhythmElapsedMs, rhythmConfig, tempoReliefSteps)
+    : rhythmConfig.baseBeatMs;
+  lastRhythmBeatMsRef.current = rhythmBeatMs;
+  lastRhythmTempoLevelRef.current = rhythmTempoLevel;
+  const speedMultiplier = isRhythmMode
+    ? Number(Math.max(0.1, rhythmConfig.baseBeatMs / Math.max(1, rhythmBeatMs)).toFixed(2))
+    : calibratedTempo.effectiveMultiplier;
+  const travelMs = isRhythmMode
+    ? Math.max(220, Math.round(rhythmBeatMs * 0.68))
+    : calibratedTempo.travelMs;
+  const totalMs = isRhythmMode ? rhythmBeatMs : calibratedTempo.totalMs;
+  const drainStreak = activeHeat ? hitStreak : gatedStreakForTempo;
+  const drainIntent = cappedPronunciationTimerDrainMultiplier(
+    drainStreak,
+    gatedFlowRoundForTempo,
+  );
+  const tempoDrainRatio =
+    calibratedTempo.intentMultiplier > 0
+      ? calibratedTempo.effectiveMultiplier / calibratedTempo.intentMultiplier
+      : 1;
+  const timerDrainMultiplier = isRhythmMode
+    ? 1
+    : Math.min(
+        MAX_PRONUNCIATION_TIMER_DRAIN_MULTIPLIER,
+        drainIntent * tempoDrainRatio,
+      );
   const heatBeatMs = Math.round(900 / speedMultiplier);
-  const travelMs = Math.round(TRAVEL_MS / speedMultiplier);
-  const zoneMs = Math.round(ZONE_MS / speedMultiplier);
-  const totalMs = travelMs + zoneMs;
-  const heatedUp = hitStreak >= HEAT_THRESHOLD;
-  const timerFillPct = Math.max(0, Math.min(100, (timeRemainingMs / TIMER_MAX_MS) * 100));
+  const heatedUp = activeHeat || warmHeat;
+  void tempoCalRevision;
+  const timerMaxMs = isRhythmMode ? rhythmConfig.durationMs : TIMER_MAX_MS;
+  const timerFillPct = Math.max(0, Math.min(100, (timeRemainingMs / timerMaxMs) * 100));
+  const rhythmMeterRatio = isRhythmMode
+    ? Math.max(0, Math.min(1, timeRemainingMs / rhythmConfig.durationMs))
+    : 0;
+  const rhythmBeatPhase = isRhythmMode
+    ? (rhythmElapsedMs % rhythmBeatMs) / Math.max(1, rhythmBeatMs)
+    : 0;
+  const rhythmPulseScale = 1 + (1 - rhythmBeatPhase) * 0.2;
   const lowTime = timeRemainingMs <= 10_000;
+  const noPronunciationTargets = activeWordPool.length === 0;
+
+  useEffect(() => {
+    const firstTarget = activeWordPool[0] ?? "";
+    evidence.activityStarted({
+      target: firstTarget || undefined,
+      targets: activeWordPool,
+      activityMode: "pronunciation",
+      activityConfig: pronunciationConfig ?? null,
+      visibleState: {
+        wordVisible: Boolean(firstTarget),
+        cameraEnabled: cameraOk,
+      },
+    });
+  }, [activeWordPool, cameraOk, evidence, pronunciationConfigKey]);
+
+  useEffect(() => {
+    if (!hasVisibleExpectedWord) return;
+    const key = `${pronunciationRunKey}:${wordIndex}:${expectedWord}`;
+    if (presentedEvidenceRef.current === key) return;
+    presentedEvidenceRef.current = key;
+    evidence.targetPresented({
+      target: expectedWord,
+      itemIndex: wordIndex,
+      activityMode: "pronunciation",
+      visibleState: {
+        wordVisible: true,
+        blockPhase,
+        flowTier,
+        heatMode: displayHeat,
+        supportActive,
+      },
+    });
+  }, [
+    blockPhase,
+    displayHeat,
+    evidence,
+    expectedWord,
+    flowTier,
+    hasVisibleExpectedWord,
+    pronunciationRunKey,
+    supportActive,
+    wordIndex,
+  ]);
 
   const emitPronunciationGameState = useCallback(
     (phase: string, extra: Record<string, unknown> = {}) => {
@@ -583,7 +1000,10 @@ export function PronunciationGameCanvas({
         typeof extra.wordIndex === "number" ? extra.wordIndex : idx;
       const visibleWordIndex = Math.max(
         0,
-        Math.min(rawWordIndex, activeWordPool.length),
+        Math.min(
+          rawWordIndex,
+          activeWordPool.length > 0 ? activeWordPool.length - 1 : 0,
+        ),
       );
       const currentWord =
         typeof extra.currentWord === "string"
@@ -602,19 +1022,29 @@ export function PronunciationGameCanvas({
         missCount: missCountByWordRef.current.get(normalizePracticeWord(String(currentWord))) ?? 0,
         accuracy: attempts > 0 ? hitsRef.current / attempts : undefined,
         timeRemainingMs: timeRemainingRef.current,
-        timerMaxMs: TIMER_MAX_MS,
+        timerMaxMs,
         coins: coinsRef.current,
-        heatMode: hitStreakRef.current >= HEAT_THRESHOLD,
+        heatMode: activeHeat,
+        warmHeat,
         flowRound: flowRoundRef.current,
-        tempoMultiplier:
-          pronunciationSpeedMultiplier(hitStreakRef.current) *
-          pronunciationFlowSpeedMultiplier(flowRoundRef.current),
-        timerDrainMultiplier:
-          pronunciationTimerDrainMultiplier(hitStreakRef.current) *
-          pronunciationFlowTimerDrainMultiplier(flowRoundRef.current),
+        tempoMultiplier: speedMultiplier,
+        tempoCalReason: isRhythmMode ? "rhythm_meter" : calibratedTempo.reason,
+        timerDrainMultiplier,
         lastTimeAwardMs: lastTimeAwardRef.current,
         lastCoinAward: lastCoinAwardRef.current,
         replayOnly: replayRunRef.current > 0,
+        ...(isRhythmMode
+          ? {
+              rhythmMode: true,
+              rhythmRound: rhythmRoundRef.current,
+              meterRemainingMs: timeRemainingRef.current,
+              beatMs: lastRhythmBeatMsRef.current,
+              rawBeatMs: rhythmRawBeatMs,
+              tempoLevel: lastRhythmTempoLevelRef.current,
+              tempoReliefSteps,
+              sfxMode,
+            }
+          : {}),
         ...extra,
       };
       const fingerprint = JSON.stringify(payload);
@@ -622,8 +1052,161 @@ export function PronunciationGameCanvas({
       stateUpdateFingerprintRef.current = fingerprint;
       sendMessage("game_state_update", payload);
     },
-    [activeWordPool, sendMessage, sttStatus, words],
+    [
+      activeHeat,
+      activeWordPool,
+      calibratedTempo.reason,
+      isRhythmMode,
+      rhythmRawBeatMs,
+      sendMessage,
+      speedMultiplier,
+      sttStatus,
+      sfxMode,
+      tempoReliefSteps,
+      timerDrainMultiplier,
+      timerMaxMs,
+      warmHeat,
+      words,
+    ],
   );
+
+  useEffect(() => {
+    if (!noPronunciationTargets) return;
+    const fingerprint = rawWordsKey || "empty";
+    if (fingerprint === blockedNoTargetsFingerprintRef.current) return;
+    blockedNoTargetsFingerprintRef.current = fingerprint;
+    console.warn(
+      ` 🎮 [pronunciation] [blocked_no_targets] rawWords=${rawWords.length}`,
+    );
+    sendMessage("game_state_update", {
+      game: "pronunciation",
+      phase: "blocked_no_targets",
+      currentWord: null,
+      expectedWords: [],
+      wordIndex: 0,
+      totalWords: 0,
+      reason: "no_valid_pronunciation_targets",
+    });
+    sendMessage("game_event", {
+      event: {
+        type: "pronunciation_blocked_no_targets",
+        payload: {
+          game: "pronunciation",
+          rawWordCount: rawWords.length,
+          reason: "no_valid_pronunciation_targets",
+        },
+        version: "1.0",
+      },
+    });
+  }, [noPronunciationTargets, rawWords.length, rawWordsKey, sendMessage]);
+
+  useEffect(() => {
+    if (ended || isComplete || !pronunciationTranscriptWindow.rawTranscript.trim()) return;
+    const target = words[wordIndexRef.current] ?? currentScoringTarget;
+    const targetKey = normalizePracticeWord(target);
+    if (!target || !targetKey) return;
+
+    if (!pronunciationTranscriptWindow.contaminated) {
+      if (pronunciationTranscriptWindow.orthographicAmbiguity) {
+        orthographicAmbiguityByWordRef.current.add(targetKey);
+      }
+      return;
+    }
+
+    const recoverableTailMatch = Boolean(
+      pronunciationTranscriptWindow.scoringText.trim() &&
+      pronunciationTranscriptWindow.reasons.includes("transcript_tail"),
+    );
+    if (recoverableTailMatch) {
+      if (pronunciationTranscriptWindow.orthographicAmbiguity) {
+        orthographicAmbiguityByWordRef.current.add(targetKey);
+      }
+      return;
+    }
+
+    const fingerprint = [
+      targetKey,
+      pronunciationTranscriptWindow.rawTranscript,
+      pronunciationTranscriptWindow.reasons.join("|"),
+    ].join("\u0001");
+    if (fingerprint === lastContaminationFingerprintRef.current) return;
+    lastContaminationFingerprintRef.current = fingerprint;
+
+    contaminatedCountByWordRef.current.set(
+      targetKey,
+      (contaminatedCountByWordRef.current.get(targetKey) ?? 0) + 1,
+    );
+    const reasonSet =
+      contaminationReasonsByWordRef.current.get(targetKey) ?? new Set<string>();
+    for (const reason of pronunciationTranscriptWindow.reasons) {
+      reasonSet.add(reason);
+    }
+    contaminationReasonsByWordRef.current.set(targetKey, reasonSet);
+    const examples = contaminationExamplesByWordRef.current.get(targetKey) ?? [];
+    if (examples.length < 3) {
+      examples.push(pronunciationTranscriptWindow.heardTail || pronunciationTranscriptWindow.rawTranscript.slice(0, 80));
+      contaminationExamplesByWordRef.current.set(targetKey, examples);
+    }
+
+    console.log(
+      ` 🎮 [pronunciation] [contaminated_retry] word=${target} reasons=${pronunciationTranscriptWindow.reasons.join(",")}`,
+    );
+    sendMessage("game_event", {
+      event: {
+        type: "pronunciation_contaminated_transcript",
+        payload: {
+          game: "pronunciation",
+          word: target,
+          wordIndex: wordIndexRef.current,
+          heardTail: pronunciationTranscriptWindow.heardTail,
+          contaminationReasons: pronunciationTranscriptWindow.reasons,
+        },
+        version: "1.0",
+      },
+    });
+    evidence.attemptRecorded({
+      target,
+      itemIndex: wordIndexRef.current,
+      activityMode: "pronunciation",
+      visibleState: {
+        wordVisible: true,
+        blockPhase,
+        contaminationStatus: "contaminated",
+      },
+      childAction: {
+        rawTranscript: pronunciationTranscriptWindow.rawTranscript,
+        heardTail: pronunciationTranscriptWindow.heardTail,
+      },
+      result: {
+        status: "contaminated",
+        correct: false,
+        matchReason: "pronunciation_contaminated_transcript",
+        contaminationReasons: pronunciationTranscriptWindow.reasons,
+      },
+    });
+    emitPronunciationGameState("contaminated_retry", {
+      currentWord: target,
+      wordIndex: wordIndexRef.current,
+      lastOutcome: "contaminated_retry",
+      lastOutcomeWord: target,
+      lastHeard: pronunciationTranscriptWindow.heardTail || pronunciationTranscriptWindow.rawTranscript,
+      contaminationStatus: "contaminated",
+      contaminationReasons: pronunciationTranscriptWindow.reasons,
+      heatMode: false,
+      lastCoinAward: 0,
+      lastTimeAwardMs: 0,
+    });
+  }, [
+    currentScoringTarget,
+    emitPronunciationGameState,
+    ended,
+    evidence,
+    isComplete,
+    blockPhase,
+    pronunciationTranscriptWindow,
+    sendMessage,
+    words,
+  ]);
 
   useEffect(() => {
     if (ended || isComplete || wordIndex >= words.length) return;
@@ -650,12 +1233,21 @@ export function PronunciationGameCanvas({
   }, [emitPronunciationGameState, ended, expectedWord, isComplete, sttStatus, wordIndex, words.length]);
 
   useEffect(() => {
-    if (lastLoggedDrainMultiplierRef.current === timerDrainMultiplier) return;
-    lastLoggedDrainMultiplierRef.current = timerDrainMultiplier;
+    const signature = `${speedMultiplier}|${timerDrainMultiplier}|${calibratedTempo.reason}`;
+    if (lastLoggedDrainMultiplierRef.current === signature) return;
+    lastLoggedDrainMultiplierRef.current = signature;
     console.log(
-      ` 🎮 [pronunciation] [tempo] speed=${speedMultiplier.toFixed(2)} drain=${timerDrainMultiplier.toFixed(2)}`,
+      ` 🎮 [pronunciation] [tempo-cal] p95ScoreLoop=${tempoCal.rollingP95ScoreLoopMs} window=${totalMs} intent=${calibratedTempo.intentMultiplier.toFixed(2)} effective=${speedMultiplier.toFixed(2)} drain=${timerDrainMultiplier.toFixed(2)} reason=${calibratedTempo.reason} warm=${warmHeat}`,
     );
-  }, [speedMultiplier, timerDrainMultiplier]);
+  }, [
+    calibratedTempo.intentMultiplier,
+    calibratedTempo.reason,
+    speedMultiplier,
+    tempoCal,
+    timerDrainMultiplier,
+    totalMs,
+    warmHeat,
+  ]);
 
   useEffect(() => {
     const onSupport = (event: Event) => {
@@ -748,6 +1340,7 @@ export function PronunciationGameCanvas({
 
   useLayoutEffect(() => {
     if (!hasStarted) return;
+    latencyTrackerRef.current = new PronunciationLatencyAttemptTracker();
     runSerialRef.current += 1;
     staleHitWordIndexAfterResetRef.current = wordIndex > 0 ? wordIndex : null;
     prevWordIndexRef.current = -1;
@@ -755,12 +1348,27 @@ export function PronunciationGameCanvas({
     cycleStartRef.current = performance.now();
     runStartedAtRef.current = performance.now();
     lastTimerTickAtRef.current = performance.now();
-    timeRemainingRef.current = TIMER_START_MS;
+    rhythmRoundRef.current = 1;
+    prevRhythmRoundRef.current = 1;
+    const startingTimeMs = isRhythmMode ? rhythmConfig.durationMs : TIMER_START_MS;
+    timeRemainingRef.current = startingTimeMs;
     coinsRef.current = 0;
     lastCoinAwardRef.current = 0;
     lastTimeAwardRef.current = 0;
     maxHeatStreakRef.current = 0;
     hitStreakRef.current = 0;
+    hitsRef.current = 0;
+    wordsAttemptedRef.current = 0;
+    xpRef.current = 0;
+    bestStreakRef.current = 0;
+    flaggedWordsRef.current = [];
+    missCountByWordRef.current = new Map();
+    hitCountByWordRef.current = new Map();
+    contaminatedCountByWordRef.current = new Map();
+    contaminationReasonsByWordRef.current = new Map();
+    contaminationExamplesByWordRef.current = new Map();
+    orthographicAmbiguityByWordRef.current = new Set();
+    lastContaminationFingerprintRef.current = "";
     flowRoundRef.current = replayRunRef.current;
     timeoutArmedRef.current = true;
     queueMicrotask(() => {
@@ -770,7 +1378,7 @@ export function PronunciationGameCanvas({
       setWordsAttempted(0);
       setXp(0);
       setCoins(0);
-      setTimeRemainingMs(TIMER_START_MS);
+      setTimeRemainingMs(startingTimeMs);
       setStreak(0);
       setHitStreak(0);
       setBestStreak(0);
@@ -782,15 +1390,14 @@ export function PronunciationGameCanvas({
       setLastCoinAward(0);
       setLastTimeAwardMs(0);
       setLastHitWasBonus(false);
+      setShowRecoveryBadge(false);
       setFlowRound(replayRunRef.current);
       completeSentRef.current = false;
       lastMilestoneStreakRef.current = 0;
       setEnded(false);
       setFinalResult(null);
-      missCountByWordRef.current = new Map();
-      hitCountByWordRef.current = new Map();
     });
-  }, [pronunciationRunKey, hasStarted]);
+  }, [pronunciationRunKey, hasStarted, isRhythmMode, rhythmConfig.durationMs]);
 
   const triggerComboBreaker = useCallback(
     (streakCount: number, nextWordIndex: number) => {
@@ -850,7 +1457,15 @@ export function PronunciationGameCanvas({
       ignoreReplayTranscriptRef.current = transcriptFingerprint(interimRef.current);
       setChallengeMode(mode);
       setHeardTranscript("");
-      playGameSfx("pronunciation", "replayStart");
+      completeSentRef.current = false;
+      setEnded(false);
+      tempoCalibrationRef.current = new PronunciationTempoCalibrationState();
+      tempoReliefStepsRef.current = 0;
+      tempoReliefWordsRemainingRef.current = 0;
+      setTempoCalRevision((value) => value + 1);
+      playPronunciationScoredSfx("replayStart", () =>
+        playGameSfx("pronunciation", "replayStart"),
+      );
       sendMessage("game_event", {
         event: {
           type: "replay_requested",
@@ -869,10 +1484,12 @@ export function PronunciationGameCanvas({
         source,
         flowRound: replayRunRef.current,
         totalWords: nextWords.length,
+        wordIndex: 0,
+        currentWord: nextWords[0] ?? "",
       });
       setReplaySeed((seed) => seed + 1);
     },
-    [baseWords, emitPronunciationGameState, hardReplayWords, sendMessage],
+    [baseWords, emitPronunciationGameState, hardReplayWords, playPronunciationScoredSfx, sendMessage],
   );
 
   useEffect(() => {
@@ -895,22 +1512,26 @@ export function PronunciationGameCanvas({
       lastTimerTickAtRef.current = now;
       setTimeRemainingMs((remaining) => {
         if (remaining <= 0) return 0;
-        const drain =
-          pronunciationTimerDrainMultiplier(hitStreakRef.current) *
-          pronunciationFlowTimerDrainMultiplier(flowRoundRef.current);
+        const drain = isRhythmMode
+          ? 1
+          : cappedPronunciationTimerDrainMultiplier(
+              hitStreakRef.current,
+              flowRoundRef.current,
+            );
         const next = Math.max(0, remaining - elapsed * drain);
         timeRemainingRef.current = next;
         if (next <= 0) {
-          console.log(" 🎮 [pronunciation] [timer] game_over");
-          endReasonRef.current = "timer";
-          setEndReason("timer");
+          const reason = isRhythmMode ? "meter_expired" : "timer";
+          console.log(` 🎮 [pronunciation] [timer] ${reason}`);
+          endReasonRef.current = reason;
+          setEndReason(reason);
           setEnded(true);
         }
         return next;
       });
     }, TIMER_TICK_MS);
     return () => window.clearInterval(tickId);
-  }, [hasStarted, ended, supportPaused]);
+  }, [hasStarted, ended, isRhythmMode, supportPaused]);
 
   const finalizeOnce = useCallback((reason: PronunciationRunEndReason) => {
     if (completeSentRef.current) return { shouldStartAdaptiveFlow: false };
@@ -926,29 +1547,69 @@ export function PronunciationGameCanvas({
       const key = normalizePracticeWord(word);
       const hitsForWord = hitCountByWordRef.current.get(key) ?? 0;
       const missesForWord = missCountByWordRef.current.get(key) ?? 0;
-      const chartAttempts = missesForWord + (hitsForWord > 0 ? 1 : 0);
+      const contaminatedAttempts = contaminatedCountByWordRef.current.get(key) ?? 0;
+      const contaminationReasons = [
+        ...(contaminationReasonsByWordRef.current.get(key) ?? new Set<string>()),
+      ];
+      const heardExamples = contaminationExamplesByWordRef.current.get(key) ?? [];
+      const orthographicAmbiguity = orthographicAmbiguityByWordRef.current.has(key);
+      const chartAttempts = isRhythmMode
+        ? missesForWord + hitsForWord
+        : missesForWord + (hitsForWord > 0 ? 1 : 0);
+      const contaminationSignals = Array.from(
+        new Set(
+          contaminationReasons.map((reason) =>
+            reason === "background_speech"
+              ? "background_speech_contamination"
+              : reason === "transcript_tail" || reason === "target_not_tail"
+                ? "transcript_tail_contamination"
+                : `${reason}_contamination`,
+          ),
+        ),
+      );
       return {
         target: word,
         correct: hitsForWord > 0,
         attempts: chartAttempts,
+        contaminatedAttempts,
+        contaminationReasons,
+        heardExamples,
+        orthographicAmbiguity,
         scaffoldLevel: missesForWord > 0 ? 1 : 0,
         mode: "pronunciation",
         evidenceTier: "practice",
         masteryEligible: false,
-        struggleSignals: missesForWord > 0 ? ["missed_then_recovered"] : [],
+        struggleSignals: [
+          ...(missesForWord > 0
+            ? [hitsForWord > 0 ? "missed_then_recovered" : "missed"]
+            : []),
+          ...(orthographicAmbiguity ? ["orthographic_ambiguity"] : []),
+          ...contaminationSignals,
+        ],
       };
     });
     const correctCount = targetResults.filter((row) => row.correct).length;
     const uniqueTargetsAttempted = targetResults.filter((row) => row.attempts > 0).length;
     const chartAttempts = targetResults.reduce((sum, row) => sum + row.attempts, 0);
     const retryCount = targetResults.reduce((sum, row) => sum + Math.max(0, row.attempts - 1), 0);
-    const rounds = Math.max(
-      1,
-      activeWordPool.length > 0 ? Math.ceil(rawResolvedAttempts / activeWordPool.length) : 0,
-    );
+    const rounds = isRhythmMode
+      ? rhythmRoundRef.current
+      : Math.max(
+          1,
+          activeWordPool.length > 0 ? Math.ceil(rawResolvedAttempts / activeWordPool.length) : 0,
+        );
     const missToHitRecoveries = targetResults.filter((row) =>
       row.correct && row.struggleSignals.includes("missed_then_recovered"),
     ).length;
+    const finalRhythmElapsedMs = isRhythmMode
+      ? rhythmConfig.durationMs - Math.max(0, timeRemainingRef.current)
+      : 0;
+    const finalTempoLevel = isRhythmMode
+      ? tempoLevelForElapsed(finalRhythmElapsedMs, rhythmConfig.rampEveryMs)
+      : undefined;
+    const finalBeatMs = isRhythmMode
+      ? rawBeatMsForTempo(finalRhythmElapsedMs, rhythmConfig)
+      : undefined;
     const flowState = {
       timeOnTask_ms: survived,
       bestStreak: bs,
@@ -961,8 +1622,30 @@ export function PronunciationGameCanvas({
       replayRequests: replayRequestsRef.current,
       powerBarSurvival_ms: survived,
       abandoned: false,
+      ...(isRhythmMode
+        ? {
+            meterExpired: reason === "meter_expired",
+            tempoIncreased: (finalTempoLevel ?? 0) > 0,
+            rhythmRound: rhythmRoundRef.current,
+            tempoLevel: finalTempoLevel,
+            beatMs: finalBeatMs,
+            finalBeatMs,
+          }
+        : {}),
     };
-    const accuracyRatio = chartAttempts > 0 ? correctCount / chartAttempts : 0;
+    const rhythmCompleteFields = isRhythmMode
+      ? {
+          rhythmMode: true,
+          rhythmRound: rhythmRoundRef.current,
+          meterRemainingMs: Math.max(0, Math.round(timeRemainingRef.current)),
+          beatMs: finalBeatMs,
+          tempoLevel: finalTempoLevel,
+          finalBeatMs,
+          sfxMode,
+        }
+      : {};
+    const totalEvidenceTargets = Math.max(baseWordPool.length, activeWordPool.length);
+    const accuracyRatio = totalEvidenceTargets > 0 ? correctCount / totalEvidenceTargets : 0;
     const acc = Math.round(accuracyRatio * 100);
     const replayOnly = authoritativeCompleteSentRef.current || replayRunRef.current > 0;
     const effectiveBestStreak = Math.max(bs, hitStreakRef.current, correctCount);
@@ -971,7 +1654,8 @@ export function PronunciationGameCanvas({
       accuracyRatio >= 0.8 &&
       effectiveBestStreak >= HEAT_THRESHOLD &&
       uniqueTargetsAttempted >= Math.min(activeWordPool.length, HEAT_THRESHOLD) &&
-      autoFlowRoundsRef.current < MAX_ADAPTIVE_FLOW_ROUNDS;
+      autoFlowRoundsRef.current < MAX_ADAPTIVE_FLOW_ROUNDS &&
+      tempoCalibrationRef.current.canStartAdaptiveFlow();
     const completeResult: PronunciationCompleteResult = {
       wordsHit: correctCount,
       wordsAttempted: chartAttempts,
@@ -979,7 +1663,7 @@ export function PronunciationGameCanvas({
       uniqueTargetsAttempted,
       rounds,
       accuracy: acc,
-      totalWords: activeWordPool.length,
+      totalWords: totalEvidenceTargets,
       correctCount,
       evidenceTier: "practice",
       targetResults,
@@ -993,8 +1677,26 @@ export function PronunciationGameCanvas({
       flowState,
       replayOnly,
       chartEligible: !replayOnly,
+      ...rhythmCompleteFields,
     };
-    playGameSfx("pronunciation", "completeFanfare");
+    playPronunciationScoredSfx("completeFanfare", () =>
+      playGameSfx("pronunciation", "completeFanfare"),
+    );
+    evidence.activityCompleted({
+      activityMode: "pronunciation",
+      targetResults,
+      accuracy: accuracyRatio,
+      wordsAttempted: chartAttempts,
+      correctCount,
+      totalWords: totalEvidenceTargets,
+      result: {
+        status: "completed",
+        correct: accuracyRatio >= 1,
+        matchReason: reason,
+      },
+      flowState,
+      timeSpent_ms: survived,
+    });
     emitPronunciationGameState("complete", {
       lastOutcome: "complete",
       replayOnly,
@@ -1017,6 +1719,7 @@ export function PronunciationGameCanvas({
       maxHeatStreak: maxHeatStreakRef.current,
       flowState,
       evidenceTier: "practice",
+      ...rhythmCompleteFields,
     });
     if (!replayOnly) {
       authoritativeCompleteSentRef.current = true;
@@ -1024,11 +1727,22 @@ export function PronunciationGameCanvas({
         ...completeResult,
         replayOnly: false,
         chartEligible: true,
+        ...rhythmCompleteFields,
       });
     }
     setFinalResult(completeResult);
     return { shouldStartAdaptiveFlow };
-  }, [activeWordPool, emitPronunciationGameState, onComplete]);
+  }, [
+    activeWordPool,
+    baseWordPool.length,
+    emitPronunciationGameState,
+    evidence,
+    isRhythmMode,
+    onComplete,
+    playPronunciationScoredSfx,
+    rhythmConfig,
+    sfxMode,
+  ]);
 
   useEffect(() => {
     if (!ended) return;
@@ -1092,8 +1806,31 @@ export function PronunciationGameCanvas({
     const newCount = prev + 1;
     missCountByWordRef.current.set(missKey, newCount);
     if (newCount === 1) {
-      playGameSfx("pronunciation", "missThunk");
+      playPronunciationScoredSfx("missThunk", () =>
+        playGameSfx("pronunciation", "missThunk"),
+      );
     }
+    if (isRhythmMode) {
+      tempoReliefStepsRef.current = Math.max(1, tempoReliefStepsRef.current);
+      tempoReliefWordsRemainingRef.current = 2;
+      setTempoCalRevision((value) => value + 1);
+    }
+    const latencySpan = latencyTrackerRef.current.finishAttempt({
+      target: w,
+      wordIndex: wordIndexRef.current,
+      attempt: newCount,
+      outcome: "miss",
+      flowTier: resolvePronunciationFlowTier({
+        hitStreak: 0,
+        flowRound: flowRoundRef.current,
+      }),
+      flowRound: flowRoundRef.current,
+      heatMode: false,
+      tempoMultiplier: speedMultiplier,
+      windowMs: totalMs,
+      lastHeard: heardTranscript || interimRef.current.trim(),
+    });
+    recordLatencySpan(latencySpan);
     const seq = (missSeqRef.current += 1);
     sendMessage("game_event", {
       event: {
@@ -1107,6 +1844,42 @@ export function PronunciationGameCanvas({
         version: "1.0",
       },
     });
+    const missEvidence = {
+      target: w,
+      itemIndex: wordIndexRef.current,
+      attemptNumber: newCount,
+      activityMode: "pronunciation",
+      latencyMs: latencySpan.scoreLoopMs,
+      visibleState: {
+        wordVisible: true,
+        blockPhase,
+        flowTier: latencySpan.flowTier,
+        heatMode: false,
+      },
+      childAction: {
+        rawTranscript: heardTranscript || interimRef.current.trim(),
+      },
+      result: {
+        status: "missed",
+        correct: false,
+        matchReason: "pronunciation_miss",
+      },
+    };
+    evidence.attemptRecorded(missEvidence);
+    evidence.targetCompleted(missEvidence);
+    const missRhythmElapsedMs = isRhythmMode
+      ? rhythmConfig.durationMs - Math.max(0, timeRemainingRef.current)
+      : 0;
+    const missTempoLevel = isRhythmMode
+      ? tempoLevelForElapsed(missRhythmElapsedMs, rhythmConfig.rampEveryMs)
+      : 0;
+    const missBeatMs = isRhythmMode
+      ? rhythmBeatMsForTempo(
+          missRhythmElapsedMs,
+          rhythmConfig,
+          tempoReliefWordsRemainingRef.current > 0 ? tempoReliefStepsRef.current : 0,
+        )
+      : undefined;
     emitPronunciationGameState("miss", {
       currentWord: w,
       wordIndex: wordIndexRef.current,
@@ -1115,10 +1888,18 @@ export function PronunciationGameCanvas({
       missCount: newCount,
       heatMode: false,
       flowRound: flowRoundRef.current,
-      tempoMultiplier: pronunciationFlowSpeedMultiplier(flowRoundRef.current),
-      timerDrainMultiplier: pronunciationFlowTimerDrainMultiplier(flowRoundRef.current),
+      tempoMultiplier: speedMultiplier,
+      timerDrainMultiplier,
       lastCoinAward: 0,
       lastTimeAwardMs: 0,
+      ...(isRhythmMode
+        ? {
+            rhythmMode: true,
+            tempoLevel: missTempoLevel,
+            beatMs: missBeatMs,
+            tempoReliefSteps: tempoReliefStepsRef.current,
+          }
+        : {}),
     });
     setMissSeq(seq);
     setShowWrongBadge(true);
@@ -1139,13 +1920,49 @@ export function PronunciationGameCanvas({
       setBonusWordIndex(null);
     }
     window.setTimeout(() => {
+      const staleInterimFingerprint = transcriptFingerprint(interimRef.current);
+      if (staleInterimFingerprint) {
+        ignoreReplayTranscriptRef.current = staleInterimFingerprint;
+      }
+      setHeardTranscript("");
+      lastContaminationFingerprintRef.current = "";
       setCycleKey((k) => k + 1);
       setBlockPhase("approaching");
       setShowWrongBadge(false);
       cycleStartRef.current = performance.now();
       timeoutArmedRef.current = true;
     }, YANK_OUT_MS + YANK_BACK_MS);
-  }, [blockPhase, emitPronunciationGameState, ended, isComplete, sendMessage, words]);
+  }, [
+    blockPhase,
+    evidence,
+    recordLatencySpan,
+    emitPronunciationGameState,
+    ended,
+    isComplete,
+    heardTranscript,
+    isRhythmMode,
+    playPronunciationScoredSfx,
+    rhythmConfig,
+    sendMessage,
+    speedMultiplier,
+    timerDrainMultiplier,
+    timerMaxMs,
+    totalMs,
+    words,
+  ]);
+
+  useEffect(() => {
+    if (blockPhase !== "approaching" || ended || isComplete) return;
+    if (wordIndex >= words.length) return;
+    if (tempoReliefWordsRemainingRef.current > 0) {
+      tempoReliefWordsRemainingRef.current -= 1;
+      if (tempoReliefWordsRemainingRef.current === 0) {
+        tempoReliefStepsRef.current = Math.max(0, tempoReliefStepsRef.current - 1);
+        setTempoCalRevision((value) => value + 1);
+      }
+    }
+    latencyTrackerRef.current.beginWordAttempt(performance.now());
+  }, [blockPhase, cycleKey, ended, isComplete, wordIndex, words.length]);
 
   useEffect(() => {
     if (blockPhase !== "approaching" || ended || isComplete) return;
@@ -1220,6 +2037,16 @@ export function PronunciationGameCanvas({
     prevWordIndexRef.current = wordIndex;
     hitProcessedForWordIndexRef.current = wordIndex;
 
+    const nextWordIndex = wordIndex;
+    if (nextWordIndex < words.length) {
+      const staleInterimFingerprint = transcriptFingerprint(interimRef.current);
+      if (staleInterimFingerprint) {
+        ignoreReplayTranscriptRef.current = staleInterimFingerprint;
+      }
+      setHeardTranscript("");
+      lastContaminationFingerprintRef.current = "";
+    }
+
     console.log(
       "[PG] HIT | wordIndex advanced to:",
       wordIndex,
@@ -1244,8 +2071,25 @@ export function PronunciationGameCanvas({
     lastHitInterimRef.current = interimRef.current.trim();
     const hitWordIndex = advancedTo - 1;
     const hitWord = words[hitWordIndex] ?? "";
-    const nextWord = words[advancedTo] ?? hitWord;
     const hitKey = normalizePracticeWord(hitWord);
+    const recoveredAfterMiss = (missCountByWordRef.current.get(hitKey) ?? 0) > 0;
+    const latencySpan = latencyTrackerRef.current.finishAttempt({
+      target: hitWord,
+      wordIndex: hitWordIndex,
+      attempt: (missCountByWordRef.current.get(hitKey) ?? 0) + 1,
+      outcome: "hit",
+      flowTier: resolvePronunciationFlowTier({
+        hitStreak: hitStreakRef.current + 1,
+        flowRound: flowRoundRef.current,
+      }),
+      flowRound: flowRoundRef.current,
+      heatMode: hitStreakRef.current + 1 >= HEAT_THRESHOLD,
+      tempoMultiplier: speedMultiplier,
+      windowMs: totalMs,
+      lastHeard: interimRef.current.trim() || heardTranscript,
+    });
+    recordLatencySpan(latencySpan);
+    const nextWord = words[advancedTo] ?? hitWord;
     const hitRunSerial = runSerialRef.current;
     hitCountByWordRef.current.set(
       hitKey,
@@ -1253,10 +2097,48 @@ export function PronunciationGameCanvas({
     );
     hitsRef.current += 1;
     wordsAttemptedRef.current += 1;
+    const hitEvidence = {
+      target: hitWord,
+      itemIndex: hitWordIndex,
+      attemptNumber: (missCountByWordRef.current.get(hitKey) ?? 0) + 1,
+      activityMode: "pronunciation",
+      latencyMs: latencySpan.scoreLoopMs,
+      visibleState: {
+        wordVisible: true,
+        blockPhase,
+        flowTier: latencySpan.flowTier,
+        heatMode: hitStreakRef.current + 1 >= HEAT_THRESHOLD,
+      },
+      childAction: {
+        rawTranscript: interimRef.current.trim() || heardTranscript,
+      },
+      result: {
+        status: "correct",
+        correct: true,
+        matchReason: "pronunciation_hit",
+        orthographicAmbiguity: orthographicAmbiguityByWordRef.current.has(hitKey),
+      },
+    };
+    evidence.attemptRecorded(hitEvidence);
+    evidence.targetCompleted(hitEvidence);
+    if (recoveredAfterMiss) {
+      sendMessage("game_event", {
+        event: {
+          type: "pronunciation_recovery",
+          payload: {
+            game: "pronunciation",
+            word: hitWord,
+            wordIndex: hitWordIndex,
+            rhythmMode: isRhythmMode,
+          },
+          version: "1.0",
+        },
+      });
+    }
     emitPronunciationGameState("hit", {
       currentWord: nextWord,
       wordIndex: advancedTo,
-      lastOutcome: "hit",
+      lastOutcome: recoveredAfterMiss ? "recovered_hit" : "hit",
       lastOutcomeWord: hitWord,
     });
     const wasBonusHit = bonusWordIndexRef.current === hitWordIndex;
@@ -1267,6 +2149,7 @@ export function PronunciationGameCanvas({
     queueMicrotask(() => {
       if (hitRunSerial !== runSerialRef.current) return;
       setShowHitBadge(true);
+      setShowRecoveryBadge(recoveredAfterMiss);
       setBlockPhase("hit");
       setHits((h) => h + 1);
       setWordsAttempted((wa) => wa + 1);
@@ -1286,11 +2169,13 @@ export function PronunciationGameCanvas({
             1,
             Math.round((nextHeat ? HEAT_COIN_AWARD : NORMAL_COIN_AWARD) * rewardMultiplier),
           );
-          const timeAward = Math.round(
-            (nextHeat ? HEAT_TIME_AWARD_MS : NORMAL_TIME_AWARD_MS) * rewardMultiplier,
-          );
+          const timeAward = isRhythmMode
+            ? 0
+            : Math.round(
+                (nextHeat ? HEAT_TIME_AWARD_MS : NORMAL_TIME_AWARD_MS) * rewardMultiplier,
+              );
           const nextCoins = coinsRef.current + coinAward;
-          const nextTime = Math.min(TIMER_MAX_MS, timeRemainingRef.current + timeAward);
+          const nextTime = Math.min(timerMaxMs, timeRemainingRef.current + timeAward);
           coinsRef.current = nextCoins;
           timeRemainingRef.current = nextTime;
           lastCoinAwardRef.current = coinAward;
@@ -1320,32 +2205,34 @@ export function PronunciationGameCanvas({
           emitPronunciationGameState("hit", {
             currentWord: nextWord,
             wordIndex: advancedTo,
-            lastOutcome: "hit",
+            lastOutcome: recoveredAfterMiss ? "recovered_hit" : "hit",
             lastOutcomeWord: hitWord,
             coins: nextCoins,
             timeRemainingMs: nextTime,
             heatMode: nextHeat,
             flowRound: flowRoundRef.current,
-            tempoMultiplier:
-              pronunciationSpeedMultiplier(nhs) *
-              pronunciationFlowSpeedMultiplier(flowRoundRef.current),
-            timerDrainMultiplier:
-              pronunciationTimerDrainMultiplier(nhs) *
-              pronunciationFlowTimerDrainMultiplier(flowRoundRef.current),
+            tempoMultiplier: speedMultiplier,
+            timerDrainMultiplier,
             lastCoinAward: coinAward,
             lastTimeAwardMs: timeAward,
           });
           if (nhs > lastMilestoneStreakRef.current) {
-            playPronunciationHitSfx(nhs);
+            const effect = pronunciationHitSfxEffectForStreak(nhs);
+            playPronunciationScoredSfx(effect, () => playPronunciationHitSfx(nhs));
             lastMilestoneStreakRef.current = nhs;
+          }
+          if (recoveredAfterMiss) {
+            playPronunciationScoredSfx("recovery", () =>
+              playGameSfx("pronunciation", "combo"),
+            );
           }
           if (nextHeat) {
             setHeatBanner("heating");
           }
-          if (nhs === COMBO_BREAKER_STREAK) {
+          if (nhs === COMBO_BREAKER_STREAK && tempoCalibrationRef.current.canEscalateFlowTier("combo")) {
             triggerComboBreaker(nhs, advancedTo);
           }
-          if (advancedTo >= words.length) {
+          if (!isRhythmMode && advancedTo >= words.length) {
             window.setTimeout(() => {
               if (hitRunSerial === runSerialRef.current) {
                 finishRound("completed_targets");
@@ -1368,7 +2255,8 @@ export function PronunciationGameCanvas({
     window.setTimeout(() => {
       if (hitRunSerial !== runSerialRef.current) return;
       setShowHitBadge(false);
-      if (advancedTo >= words.length) return;
+      setShowRecoveryBadge(false);
+      if (!isRhythmMode && advancedTo >= words.length) return;
       setCycleKey((k) => k + 1);
       setBlockPhase("approaching");
       cycleStartRef.current = performance.now();
@@ -1376,7 +2264,24 @@ export function PronunciationGameCanvas({
     }, HIT_MS);
     // Diagnostic log reads words/blockPhase; effect timing unchanged from pre-log version.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- PG diagnostics only
-  }, [wordIndex, words, ended, burst, emitPronunciationGameState, finishRound, triggerComboBreaker]);
+  }, [
+    wordIndex,
+    words,
+    ended,
+    burst,
+    evidence,
+    isRhythmMode,
+    playPronunciationScoredSfx,
+    recordLatencySpan,
+    emitPronunciationGameState,
+    finishRound,
+    heardTranscript,
+    sendMessage,
+    speedMultiplier,
+    timerDrainMultiplier,
+    totalMs,
+    triggerComboBreaker,
+  ]);
 
   useEffect(() => {
     const c = particlesRef.current;
@@ -1421,7 +2326,7 @@ export function PronunciationGameCanvas({
   }, []);
 
   const listening =
-    !ended && activeWordPool.length > 0 && wordIndex < words.length;
+    !ended && activeWordPool.length > 0 && (isRhythmMode || wordIndex < words.length);
 
   const css = `
     @keyframes pg-approach {
@@ -1453,10 +2358,26 @@ export function PronunciationGameCanvas({
       100% { transform: translateX(-50%) translateY(-50%) scale(0.3) rotate(12deg);
              opacity: 0; filter: grayscale(1); }
     }
+    @keyframes pg-rhythm-miss-wobble {
+      0%, 100% { transform: translateX(-50%) translateY(-50%) scale(1.18); }
+      20% { transform: translate(calc(-50% + 10px), -50%) scale(1.16); }
+      40% { transform: translate(calc(-50% - 8px), -50%) scale(1.15); }
+      70% { transform: translate(calc(-50% + 4px), -50%) scale(1.12); filter: brightness(1.2); }
+    }
+    @keyframes pg-rhythm-ring {
+      0% { transform: translate(-50%, -50%) scale(0.78); opacity: 0.95; }
+      80% { opacity: 0.16; }
+      100% { transform: translate(-50%, -50%) scale(1.34); opacity: 0; }
+    }
     @keyframes pg-miss-stamp {
       0%   { transform: translate(-50%, -50%) rotate(4deg) scale(0); }
       50%  { transform: translate(-50%, -50%) rotate(4deg) scale(1.3); opacity: 1; }
       100% { transform: translate(-50%, -50%) rotate(4deg) scale(1); opacity: 0.85; }
+    }
+    @keyframes pg-recovery-pop {
+      0% { transform: translate(-50%, -40%) scale(0.7); opacity: 0; }
+      45% { transform: translate(-50%, -80%) scale(1.1); opacity: 1; }
+      100% { transform: translate(-50%, -132%) scale(0.9); opacity: 0; }
     }
     @keyframes pg-heat-banner-in {
       from { transform: translateY(-120%); opacity: 0; }
@@ -1504,8 +2425,62 @@ export function PronunciationGameCanvas({
       ? `pg-approach ${travelMs}ms linear forwards`
       : blockPhase === "hit"
         ? `pg-hit-pass ${HIT_MS}ms ease-out forwards`
-        : `pg-miss-shatter ${YANK_OUT_MS + YANK_BACK_MS}ms cubic-bezier(0.33, 1, 0.68, 1) forwards`;
+        : isRhythmMode
+          ? `pg-rhythm-miss-wobble ${YANK_OUT_MS + YANK_BACK_MS}ms ease-out forwards`
+          : `pg-miss-shatter ${YANK_OUT_MS + YANK_BACK_MS}ms cubic-bezier(0.33, 1, 0.68, 1) forwards`;
   const isBonusWord = bonusWordIndex === wordIndex && blockPhase === "approaching";
+  const visibleProgressWordNumber =
+    activeWordPool.length === 0
+      ? 0
+      : isRhythmMode
+        ? (wordIndex % activeWordPool.length) + 1
+        : Math.min(wordIndex + 1, activeWordPool.length);
+
+  if (noPronunciationTargets) {
+    return (
+      <div
+        data-testid="pronunciation-blocked-no-targets"
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(ellipse at center, #0e172a 0%, #05070c 75%)",
+          display: "grid",
+          placeItems: "center",
+          fontFamily: "'Lexend', system-ui, sans-serif",
+          color: "white",
+          padding: 24,
+          textAlign: "center",
+        }}
+      >
+        <style>{css}</style>
+        <div
+          style={{
+            maxWidth: 520,
+            display: "grid",
+            gap: 10,
+            borderRadius: 18,
+            padding: "22px 26px",
+            background: "rgba(15, 23, 42, 0.9)",
+            border: "1px solid rgba(125, 211, 252, 0.45)",
+            boxShadow: "0 18px 60px rgba(14, 165, 233, 0.22)",
+          }}
+        >
+          <strong
+            style={{
+              fontFamily: "'Fredoka', sans-serif",
+              fontSize: 30,
+              fontWeight: 900,
+            }}
+          >
+            Pronunciation needs real words.
+          </strong>
+          <span style={{ color: "#bae6fd", fontSize: 16, fontWeight: 700 }}>
+            This activity was blocked before showing a fake target.
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (!hasStarted) {
     return (
@@ -1628,8 +2603,65 @@ export function PronunciationGameCanvas({
           pointerEvents: "none",
         }}
       >
-        Word {activeWordPool.length > 0 ? Math.min(wordIndex + 1, activeWordPool.length) : 0} / {activeWordPool.length}
+        {isRhythmMode ? `Round ${rhythmRound}` : "Word"} {visibleProgressWordNumber} / {activeWordPool.length}
       </div>
+      {isRhythmMode ? (
+        <div
+          data-testid="pronunciation-rhythm-meter"
+          aria-label="rhythm meter"
+          style={{
+            position: "fixed",
+            top: Math.max(66, topInset + 58),
+            left: 84,
+            zIndex: 40,
+            width: 260,
+            maxWidth: "calc(100vw - 168px)",
+            padding: "10px 14px",
+            borderRadius: 8,
+            background: "rgba(5, 7, 12, 0.76)",
+            border: "1px solid rgba(255, 255, 255, 0.14)",
+            boxShadow: "0 12px 34px rgba(14, 165, 233, 0.18)",
+            pointerEvents: "none",
+            display: "grid",
+            gap: 7,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              fontFamily: "'Fredoka', sans-serif",
+              fontSize: 13,
+              fontWeight: 900,
+              color: "#e0f2fe",
+            }}
+          >
+            <span>{Math.ceil(timeRemainingMs / 1000)}s</span>
+            <span>{rhythmBeatMs}ms</span>
+            <span>L{rhythmTempoLevel}</span>
+          </div>
+          <div
+            style={{
+              height: 7,
+              borderRadius: 999,
+              overflow: "hidden",
+              background: "rgba(255,255,255,0.13)",
+            }}
+          >
+            <div
+              style={{
+                width: `${rhythmMeterRatio * 100}%`,
+                height: "100%",
+                borderRadius: 999,
+                background: "linear-gradient(90deg, #22c55e, #facc15 54%, #f97316)",
+                transition: "width 100ms linear",
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
       {flowRound > 0 ? (
         <div
           data-testid="pronunciation-flow-round"
@@ -1830,21 +2862,22 @@ export function PronunciationGameCanvas({
         </div>
       ) : null}
 
-      <div
-        data-testid="pronunciation-word-runner"
-        key={`${cycleKey}-${wordIndex}-${missSeq}`}
-        ref={blockWrapRef}
-        style={{
-          position: "fixed",
-          left: "50%",
-          top: "42%",
-          transform: "translateX(-50%) translateY(-50%)",
-          zIndex: 3,
-          pointerEvents: "none",
-          animation: supportPaused ? `${blockAnim} paused` : blockAnim,
-          willChange: "transform, opacity",
-        }}
-      >
+      {hasVisibleExpectedWord ? (
+        <div
+          data-testid="pronunciation-word-runner"
+          key={`${cycleKey}-${wordIndex}-${missSeq}`}
+          ref={blockWrapRef}
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: "42%",
+            transform: "translateX(-50%) translateY(-50%)",
+            zIndex: 3,
+            pointerEvents: "none",
+            animation: supportPaused ? `${blockAnim} paused` : blockAnim,
+            willChange: "transform, opacity",
+          }}
+        >
         {heatedUp && !isBonusWord ? (
           <div
             data-testid="pronunciation-heat-fire"
@@ -1903,6 +2936,26 @@ export function PronunciationGameCanvas({
             ))}
           </div>
         ) : null}
+        {isRhythmMode && blockPhase === "approaching" ? (
+          <div
+            data-testid="pronunciation-rhythm-beat-ring"
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: 340,
+              height: 188,
+              borderRadius: 30,
+              border: "3px solid rgba(34, 211, 238, 0.72)",
+              boxShadow: "0 0 34px rgba(34,211,238,0.32)",
+              transform: `translate(-50%, -50%) scale(${rhythmPulseScale})`,
+              animation: `pg-rhythm-ring ${rhythmBeatMs}ms linear infinite`,
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          />
+        ) : null}
         <div
           data-testid="pronunciation-word-card"
           style={{
@@ -1953,9 +3006,7 @@ export function PronunciationGameCanvas({
               x2 SUPER HARD
             </div>
           ) : null}
-          <span style={{ position: "relative", zIndex: 1 }}>
-            {expectedWord || "—"}
-          </span>
+          <span style={{ position: "relative", zIndex: 1 }}>{expectedWord}</span>
         </div>
 
         {showHitBadge &&
@@ -2003,6 +3054,28 @@ export function PronunciationGameCanvas({
           </div>
         ) : null}
 
+        {showRecoveryBadge ? (
+          <div
+            data-testid="pronunciation-recovery-badge"
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "18%",
+              fontFamily: "'Fredoka', sans-serif",
+              fontWeight: 900,
+              fontSize: 25,
+              color: "#bbf7d0",
+              textShadow: "0 0 14px rgba(34,197,94,0.9)",
+              animation: "pg-recovery-pop 900ms ease-out both",
+              pointerEvents: "none",
+              whiteSpace: "nowrap",
+              zIndex: 22,
+            }}
+          >
+            RECOVERED!
+          </div>
+        ) : null}
+
         {showWrongBadge ? (
           <div
             style={{
@@ -2022,10 +3095,11 @@ export function PronunciationGameCanvas({
               zIndex: 20,
             }}
           >
-            MISS!
+            {isRhythmMode ? "KEEP GOING!" : "MISS!"}
           </div>
         ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <canvas
         ref={particlesRef}
@@ -2062,8 +3136,31 @@ export function PronunciationGameCanvas({
                 "pg-heat-banner-in 420ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
             }}
           >
-            THEY'RE HEATING UP 🔥
+            {warmHeat ? "WARMING UP — FINDING YOUR RHYTHM" : "THEY'RE HEATING UP 🔥"}
           </div>
+        </div>
+      ) : null}
+
+      {flowHookBanner && heatBanner === "heating" ? (
+        <div
+          data-testid="pronunciation-flow-hook-banner"
+          style={{
+            position: "fixed",
+            top: 56 + topInset,
+            left: 0,
+            right: 0,
+            zIndex: 39,
+            display: "flex",
+            justifyContent: "center",
+            pointerEvents: "none",
+            fontFamily: "'Lexend', sans-serif",
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            color: "rgba(251, 191, 36, 0.95)",
+          }}
+        >
+          {flowHookBanner}
         </div>
       ) : null}
 
@@ -2210,7 +3307,11 @@ export function PronunciationGameCanvas({
               marginBottom: 16,
             }}
           >
-            {endReason === "timer" ? "GAME OVER" : "FLOW COMPLETE"}
+            {endReason === "meter_expired"
+              ? "RHYTHM COMPLETE"
+              : endReason === "timer"
+                ? "GAME OVER"
+                : "FLOW COMPLETE"}
           </h1>
           <div
             style={{

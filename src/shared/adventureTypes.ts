@@ -119,6 +119,13 @@ export interface PronunciationNodeConfig {
   supportPolicy: "slow_on_help_or_repeated_miss";
   /** Profile-driven engagement wrapper (presentation only; tempo uses latency calibration). */
   flowHooks?: PronunciationFlowHook[];
+  mode?: "standard" | "rhythm";
+  durationMs?: number;
+  baseBeatMs?: number;
+  minBeatMs?: number;
+  rampEveryMs?: number;
+  rampStepMs?: number;
+  sfxMode?: "scored" | "visual-only";
 }
 
 export type MysteryActivityKind =
