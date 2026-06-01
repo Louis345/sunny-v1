@@ -24,6 +24,7 @@
     "sunny:quest-boss:smoke": "npx tsx src/scripts/captureQuestBossLaunchSmoke.ts",
     "logs:upload": "npx tsx src/scripts/uploadSessionLogs.ts",
     "logs:upload:delete-local": "npx tsx src/scripts/uploadSessionLogs.ts --delete-local",
+    "sunny:ingest": "npx tsx src/scripts/sunnyIngest.ts",
     "sunny:ingest:companion": "npx tsx src/scripts/ingestCompanions.ts",
     "sunny:ingest:homework": "npx tsx src/scripts/ingestHomework.ts",
     "sunny:ingest:spelling": "npm run sunny:ingest:homework -- --domain spelling",

@@ -125,6 +125,14 @@ export type AssignmentPlanningPacket = {
   activityCatalog: AssignmentActivityCard[];
   boardPlanning: AssignmentBoardPlanningContext;
   plannerInstruction: string;
+  parentDialogue?: AssignmentPlannerDialogueTurn[];
+  priorPlannerOutput?: AssignmentPlannerOutput;
+};
+
+export type AssignmentPlannerDialogueTurn = {
+  role: "parent" | "sunny";
+  message: string;
+  createdAt: string;
 };
 
 export type AlgorithmContract = {
@@ -1076,6 +1084,8 @@ export function buildAssignmentPlanningPacket(args: {
   childChart: ChildChart;
   currentEvidenceSummary?: string[];
   masteryContext?: AssignmentMasteryContext;
+  parentDialogue?: AssignmentPlannerDialogueTurn[];
+  priorPlannerOutput?: AssignmentPlannerOutput;
 }): AssignmentPlanningPacket {
   const recentEvidence = args.currentEvidenceSummary ?? [];
   const childChart = childChartSummaryForPacket(args.childChart, recentEvidence);
@@ -1131,6 +1141,8 @@ export function buildAssignmentPlanningPacket(args: {
       "Decide agency and route density from chart evidence, stamina, motivation, and evidence needs.",
       "Explain why the journey you chose fits this child today.",
     ].join(" "),
+    ...(args.parentDialogue?.length ? { parentDialogue: args.parentDialogue.map((turn) => ({ ...turn })) } : {}),
+    ...(args.priorPlannerOutput ? { priorPlannerOutput: args.priorPlannerOutput } : {}),
   };
 }
 
@@ -1364,6 +1376,9 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
 }
 
 export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
+  const revisionInstruction = packet.parentDialogue?.length || packet.priorPlannerOutput
+    ? "\n- This is a human-in-the-loop revision. Use parentDialogue and priorPlannerOutput as context, then return one coherent revised plan from the same source."
+    : "";
   return `${ASSIGNMENT_PLANNER_PERSONA}
 
 Design today's learning journey for this child from the source-of-truth packet.
@@ -1409,6 +1424,7 @@ Output contract:
 - Set masteryUnlockState only on locked quest and boss nodes. For those nodes use exactly "masteryUnlockState": "preparing". Omit masteryUnlockState from baseline, teaching, practice, pronunciation, word-radar, spell-check, letter-rush, monster-stampede, and mystery nodes.
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today; if the same activity shell appears more than once before Mystery, explicitly explain why this will not feel like grind or revise the node plan.
+- Use the packet as the only source of assignment truth.${revisionInstruction}
 - Return one valid tool-call JSON object directly; the tool schema enforces capturedContent, homeworkWords, activeSessionPlan.nodePlan, plannedMeasurements, planTheory, and reviewQuestions.
 
 Packet:

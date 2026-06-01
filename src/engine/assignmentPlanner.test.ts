@@ -1059,6 +1059,27 @@ describe("assignment planner", () => {
     expect(prompt).not.toContain("Use audio_cued_letter_recall when the child should fill slots");
   });
 
+  it("keeps parent dialogue and prior planner output in the single planner packet for revisions", () => {
+    const priorPlannerOutput = goodOutput();
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+      parentDialogue: [{
+        role: "parent",
+        message: "High-frequency words are pronunciation, not spelling.",
+        createdAt: "2026-06-01T12:00:00.000Z",
+      }],
+      priorPlannerOutput,
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(packet.parentDialogue?.[0]?.message).toBe("High-frequency words are pronunciation, not spelling.");
+    expect(packet.priorPlannerOutput?.activeSessionPlan.planId).toBe(priorPlannerOutput.activeSessionPlan.planId);
+    expect(prompt).toContain("human-in-the-loop revision");
+    expect(prompt).toContain("High-frequency words are pronunciation, not spelling.");
+  });
+
   it("keeps masteryUnlockState restricted to locked destination nodes", () => {
     const prompt = buildAssignmentPlannerPrompt(buildAssignmentPlanningPacket({
       childId: "reina",

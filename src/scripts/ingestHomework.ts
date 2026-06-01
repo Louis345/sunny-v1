@@ -106,6 +106,19 @@ type ExtractionShape = {
   }>;
 };
 
+export type PlannedHomeworkIngestArgs = {
+  childId: string;
+  sourceFile: string;
+  assignmentSource: AssignmentSourceExtraction;
+  assignmentPlanningPacket: AssignmentPlanningPacket;
+  assignmentPlannerOutput: AssignmentPlannerOutput;
+  homeworkDomain?: HomeworkDomain;
+  testDate?: string | null;
+  approvedAt?: string;
+  reviewer?: string;
+  syncAfterWrite?: boolean;
+};
+
 type PlannedNode = PlannedHomeworkNode;
 
 export type IngestHomeworkDomain = HomeworkDomain;
@@ -1089,6 +1102,132 @@ export function archiveHomeworkReasoningToHistory(args: {
   return dest;
 }
 
+export function buildHomeworkExtractionFromAssignmentPlan(args: {
+  childId: string;
+  assignmentSource: AssignmentSourceExtraction;
+  assignmentPlanningPacket: AssignmentPlanningPacket;
+  assignmentPlannerOutput: AssignmentPlannerOutput;
+}): ExtractionShape {
+  const assignmentValidationIssues = validateAssignmentPlannerOutput(
+    args.assignmentPlannerOutput,
+    {
+      extraction: args.assignmentSource,
+      activityCatalog: args.assignmentPlanningPacket.activityCatalog,
+    },
+  );
+  const blockingIssues = assignmentValidationIssues.filter((issue) => issue.severity === "error");
+  if (blockingIssues.length > 0) {
+    throw new Error(
+      [
+        "assignment_plan_invalid",
+        ...blockingIssues.map((issue) => `${issue.code}: ${issue.message}`),
+      ].join("\n"),
+    );
+  }
+  const plannerReadinessAudit = buildPlannerReadinessAudit(args.assignmentPlanningPacket.activityCatalog);
+  const plannerDecisionAudit = buildPlannerDecisionAudit(args.assignmentPlannerOutput);
+  const semanticAuditIssues = [
+    ...assignmentValidationIssues.map((issue) => ({
+      code: issue.code,
+      severity: issue.severity,
+    })),
+    ...plannerDecisionAudit.issues.map((issue) => ({
+      code: issue.code,
+      severity: issue.severity,
+    })),
+  ];
+  const choiceOptionCount = (args.assignmentPlannerOutput.activeSessionPlan.adventureBoard?.choiceSets ?? [])
+    .reduce((sum, choiceSet) => sum + choiceSet.options.length, 0);
+  const visualCriticDecision = shouldRunAdventureBoardVisualCritic({
+    plannerConfidence: args.assignmentPlannerOutput.activeSessionPlan.plannerConfidence,
+    semanticAuditIssues,
+    choiceOptionCount,
+    force: process.env.SUNNY_FORCE_BOARD_CRITIC === "true",
+  });
+
+  const capturedContent = args.assignmentPlannerOutput.capturedContent;
+  const extractedType = normalizeHomeworkType(capturedContent.type);
+  const words = capturedContent.words.map((word) => String(word));
+  const questions = capturedContent.questions.map((q, idx) => {
+    const raw = q as {
+      id?: number;
+      question?: string;
+      type?: "multiple_choice" | "written" | "fill_in";
+      options?: string[] | null;
+      correctAnswer?: string | null;
+      hint?: string;
+    };
+    return {
+      id: Number(raw.id ?? idx + 1),
+      question: String(raw.question ?? ""),
+      type: raw.type ?? "written",
+      options: Array.isArray(raw.options) ? raw.options : null,
+      correctAnswer: typeof raw.correctAnswer === "string" ? raw.correctAnswer : null,
+      hint: String(raw.hint ?? ""),
+    };
+  });
+  const contentProfile = normalizeContentProfile({
+    title: capturedContent.title,
+    type: extractedType,
+    words,
+    wordGroups: capturedContent.wordGroups,
+    questions,
+    contentProfile: capturedContent.contentProfile,
+  });
+  const normalizedType = resolveHomeworkTypeFromProfile(
+    extractedType,
+    contentProfile,
+    capturedContent.title,
+    questions,
+  );
+  const finalCapturedContent = buildCapturedHomeworkContent({
+    title: capturedContent.title,
+    type: normalizedType,
+    rawText: args.assignmentSource.fullText,
+    words,
+    wordGroups: capturedContent.wordGroups,
+    questions,
+    sourceDocuments: capturedContent.sourceDocuments.length
+      ? capturedContent.sourceDocuments
+      : [{ filename: args.assignmentSource.filename, mediaType: args.assignmentSource.mediaType }],
+    contentProfile,
+  });
+  const contentFingerprint = generateContentFingerprint({
+    childId: args.childId,
+    title: finalCapturedContent.title,
+    rawText: finalCapturedContent.rawText,
+    words,
+    questions,
+    testDate: args.assignmentPlanningPacket.masteryContext.testDate,
+    sourceDocuments: finalCapturedContent.sourceDocuments,
+  });
+  const hydratedOutput: AssignmentPlannerOutput = {
+    ...args.assignmentPlannerOutput,
+    capturedContent: finalCapturedContent,
+    assignmentInterpretation: finalCapturedContent.assignmentInterpretation!,
+  };
+
+  return {
+    title: finalCapturedContent.title,
+    type: normalizedType,
+    gradeLevel: 2,
+    testDate: args.assignmentPlanningPacket.masteryContext.testDate,
+    words,
+    wordGroups: finalCapturedContent.wordGroups,
+    contentProfile,
+    capturedContent: finalCapturedContent,
+    contentFingerprint,
+    assignmentSource: args.assignmentSource,
+    assignmentPlanningPacket: args.assignmentPlanningPacket,
+    assignmentPlannerOutput: hydratedOutput,
+    assignmentValidationIssues,
+    plannerDecisionAudit,
+    plannerReadinessAudit,
+    visualCriticDecision,
+    assignmentReviewSummary: summarizeAssignmentPlanForReview(hydratedOutput),
+    questions,
+  };
+}
 
 async function extractHomework(args: {
   childId: string;
@@ -1322,6 +1461,228 @@ function homeworkNodesFromAssignmentPlan(plan: ActiveSessionPlan, weekOf: string
         }
       : {}),
   }));
+}
+
+export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs): Promise<void> {
+  const today = (args.approvedAt ?? new Date().toISOString()).slice(0, 10);
+  const contextBase = path.join(process.cwd(), "src", "context", args.childId, "homework");
+  const pendingDir = path.join(contextBase, "pending", today);
+  fs.mkdirSync(pendingDir, { recursive: true });
+  if (fs.existsSync(args.sourceFile)) {
+    storeOriginalAssignmentSource(args.sourceFile, pendingDir);
+  }
+
+  const extracted = buildHomeworkExtractionFromAssignmentPlan({
+    childId: args.childId,
+    assignmentSource: args.assignmentSource,
+    assignmentPlanningPacket: args.assignmentPlanningPacket,
+    assignmentPlannerOutput: args.assignmentPlannerOutput,
+  });
+  const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
+  const selectedHomeworkDomain = args.homeworkDomain ?? classifierHomeworkDomain;
+  const testDate = validIsoDate(args.testDate)
+    ? args.testDate
+    : validIsoDate(extracted.assignmentPlannerOutput.activeSessionPlan.testDate)
+      ? extracted.assignmentPlannerOutput.activeSessionPlan.testDate
+      : nextFriday();
+  const testDateSource: HomeworkTestDateSource = validIsoDate(args.testDate)
+    ? "human_confirmed"
+    : validIsoDate(extracted.assignmentPlannerOutput.activeSessionPlan.testDate)
+      ? "extracted"
+      : "inferred_next_friday";
+  const testDateConfirmed = validIsoDate(args.testDate);
+
+  fs.writeFileSync(path.join(pendingDir, "classification.json"), JSON.stringify({ ...extracted, testDate }, null, 2), "utf8");
+  fs.writeFileSync(path.join(pendingDir, "assignment-source-extraction.json"), JSON.stringify(extracted.assignmentSource, null, 2), "utf8");
+  fs.writeFileSync(path.join(pendingDir, "assignment-planning-packet.json"), JSON.stringify(extracted.assignmentPlanningPacket, null, 2), "utf8");
+  fs.writeFileSync(path.join(pendingDir, "assignment-planner-output.json"), JSON.stringify(extracted.assignmentPlannerOutput, null, 2), "utf8");
+  for (const [filename, payload] of Object.entries(buildPlannerArtifactPayloads({
+    packet: extracted.assignmentPlanningPacket,
+    output: extracted.assignmentPlannerOutput,
+    audit: extracted.plannerDecisionAudit,
+    readinessAudit: extracted.plannerReadinessAudit,
+    criticDecision: extracted.visualCriticDecision,
+  }))) {
+    fs.writeFileSync(path.join(pendingDir, filename), payload, "utf8");
+  }
+  fs.writeFileSync(path.join(pendingDir, "assignment-plan-review.md"), extracted.assignmentReviewSummary, "utf8");
+  fs.writeFileSync(
+    path.join(pendingDir, "assignment-interpretation.json"),
+    JSON.stringify(extracted.capturedContent.assignmentInterpretation, null, 2),
+    "utf8",
+  );
+
+  const homeworkId = generateHomeworkId(extracted.type, extracted.words);
+  const wordBank = readWordBank(args.childId);
+  for (const entry of wordBank.words) {
+    if (entry.homeworkTargets?.[selectedHomeworkDomain]) {
+      entry.homeworkTargets = { ...entry.homeworkTargets };
+      delete entry.homeworkTargets[selectedHomeworkDomain];
+    }
+    if (selectedHomeworkDomain === "spelling") {
+      entry.homeworkPriority = false;
+    }
+  }
+  const groups = extracted.capturedContent.assignmentInterpretation?.wordGroups ?? [];
+  const groupForWord = (word: string) => groups.find((group) =>
+    group.words.some((candidate) => candidate.toLowerCase() === word.toLowerCase()),
+  );
+  for (const raw of extracted.words) {
+    const word = String(raw ?? "").trim();
+    if (!word) continue;
+    const lower = word.toLowerCase();
+    const sourceGroup = groupForWord(word);
+    const purpose = resolveHomeworkWordPurpose(word, groups);
+    let entry = wordBank.words.find((w) => w.word.toLowerCase() === lower);
+    if (!entry) {
+      entry = {
+        word,
+        addedAt: new Date().toISOString(),
+        source: "homework",
+        tracks: {},
+      };
+      wordBank.words.push(entry);
+    }
+    const isSpellingTarget = selectedHomeworkDomain === "spelling" && purpose === "spell_from_memory";
+    entry.homeworkTargets = {
+      ...(entry.homeworkTargets ?? {}),
+      [selectedHomeworkDomain]: {
+        homeworkId,
+        testDate,
+        priority: true,
+        purpose,
+        sourceGroup: sourceGroup?.label,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+    if (selectedHomeworkDomain === "spelling") {
+      entry.homeworkPriority = isSpellingTarget;
+      entry.testDate = testDate;
+      entry.homeworkTargetPurpose = purpose;
+      entry.homeworkSourceGroup = sourceGroup?.label;
+    }
+    if (isSpellingTarget && !entry.tracks.spelling) {
+      entry.tracks.spelling = createFreshSM2Track(today);
+    }
+    if (!isSpellingTarget && purpose !== "unknown" && !entry.tracks.reading) {
+      entry.tracks.reading = createFreshSM2Track(today);
+    }
+    const st = isSpellingTarget
+      ? entry.tracks.spelling
+      : purpose === "unknown"
+        ? undefined
+        : entry.tracks.reading;
+    if (st && st.nextReviewDate > today) {
+      st.nextReviewDate = today;
+    }
+  }
+  writeWordBank(args.childId, wordBank);
+
+  const returnTag = buildHomeworkReturnTag(args.childId, homeworkId);
+  const cyclesDir = path.join(process.cwd(), "src", "context", args.childId, "homework", "cycles");
+  fs.mkdirSync(cyclesDir, { recursive: true });
+  const cycleStub = buildCycleStub({
+    homeworkId,
+    subject: extracted.type,
+    wordList: extracted.words,
+    contentProfile: extracted.contentProfile,
+    capturedContent: extracted.capturedContent,
+    contentFingerprint: extracted.contentFingerprint,
+    ingestedAt: today,
+    testDate,
+    testDateSource,
+    testDateConfirmed,
+    returnTag,
+  });
+  const patternResult = scanChildErrorPatterns(args.childId);
+  const theory = buildPreQuestTheory({
+    cycle: cycleStub,
+    patterns: patternResult.patterns,
+  });
+  cycleStub.assumptions = theory.markdown;
+  cycleStub.theory = theory;
+  fs.writeFileSync(path.join(cyclesDir, `${homeworkId}.json`), JSON.stringify(cycleStub, null, 2), "utf8");
+
+  const assumptionsDir = path.join(process.cwd(), "src", "context", args.childId, "assumptions");
+  fs.mkdirSync(assumptionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(assumptionsDir, `${today}-pre.md`),
+    `## Homework ingested\n\n**homeworkId:** ${homeworkId}\n**returnTag:** ${returnTag}\n**words:** ${extracted.words.join(", ")}\n**testDate:** ${testDate}\n**testDateSource:** ${testDateSource}\n**testDateConfirmed:** ${testDateConfirmed}\n\n${theory.markdown}\n`,
+    "utf8",
+  );
+
+  const profileDoc = readLearningProfile(args.childId);
+  if (!profileDoc) {
+    throw new Error(`Could not read learning_profile.json for child: ${args.childId}`);
+  }
+  const homeworkNodes = homeworkNodesFromAssignmentPlan(extracted.assignmentPlannerOutput.activeSessionPlan, today);
+  const activityArtifacts = writeActivityConfigArtifacts({
+    childId: args.childId,
+    homeworkId,
+    nodes: homeworkNodes,
+  });
+  const learningPlanArtifact = buildHomeworkLearningPlanArtifact({
+    homeworkId,
+    childId: args.childId,
+    title: extracted.title,
+    type: extracted.type,
+    words: extracted.words,
+    contentProfile: extracted.contentProfile,
+  });
+  const pendingHomework = buildPendingHomeworkPayload({
+    weekOf: today,
+    testDate,
+    testDateSource,
+    testDateConfirmed,
+    returnTag,
+    wordList: extracted.words,
+    contentProfile: extracted.contentProfile,
+    capturedContent: extracted.capturedContent,
+    homeworkId,
+    nodes: homeworkNodes,
+  });
+  const profileWithHomeworkLane = withActiveHomeworkLane(
+    appendHomeworkIntakeHistory({
+      profile: profileDoc,
+      source: "classifier",
+      selectedDomain: selectedHomeworkDomain,
+      classifierDomain: classifierHomeworkDomain,
+      homeworkId,
+      title: extracted.title,
+    }),
+    selectedHomeworkDomain,
+    pendingHomework,
+    { select: true },
+  );
+  const catalogItems = buildHomeworkContentCatalogItems({
+    childId: args.childId,
+    homeworkId,
+    capturedContent: extracted.capturedContent,
+    contentFingerprint: extracted.contentFingerprint,
+    nodes: homeworkNodes,
+    baselineActivities: recommendBaselineActivities(extracted.capturedContent),
+  });
+  writeLearningProfile(args.childId, upsertProfileContentCatalog(profileWithHomeworkLane, catalogItems));
+  const activeSessionPlan = finalizeAssignmentActiveSessionPlan({
+    plan: extracted.assignmentPlannerOutput.activeSessionPlan,
+    childId: args.childId,
+    homeworkId,
+    domain: selectedHomeworkDomain,
+    testDate,
+    output: extracted.assignmentPlannerOutput,
+  });
+  writeActiveSessionPlan(args.childId, {
+    ...activeSessionPlan,
+    approvalStatus: "approved",
+  });
+  fs.writeFileSync(path.join(pendingDir, "learning-plan.json"), JSON.stringify(learningPlanArtifact.plan, null, 2), "utf8");
+  fs.writeFileSync(path.join(pendingDir, "learning-plan.md"), learningPlanArtifact.markdown, "utf8");
+  console.log(
+    ` 🎮 [ingestHomework] [planned-apply] child=${args.childId} homeworkId=${homeworkId} words=${extracted.words.length} activityConfigs=${activityArtifacts.length}`,
+  );
+  if (args.syncAfterWrite !== false) {
+    await runPsychologistSync(args.childId, { planningMode: "homework" });
+  }
 }
 
 export async function runIngestHomework(argv: string[]): Promise<void> {
