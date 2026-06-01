@@ -9,8 +9,10 @@ import {
   createShowroomTalkCompletedEvent,
   createShowroomTalkPhaseCommand,
   getShowroomCompanionActivityTools,
+  shouldRequireShowroomActivityReactionSpeech,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
+  shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
 
 describe("companion showroom talk contract", () => {
@@ -146,6 +148,98 @@ describe("companion showroom talk contract", () => {
     });
   });
 
+  it("accepts a lightweight conversation intent so active games do not overpower social chat", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "Can you hear me?",
+        conversationIntent: "social",
+        activeActivity: {
+          activityId: "tic_tac_toe",
+          surface: "video_call_overlay",
+          status: "active",
+          board: ["X", null, "O", "O", "O", "X", "X", null, null],
+          childMark: "X",
+          companionMark: "O",
+          turn: "child",
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        conversationIntent: "social",
+        activeActivity: expect.objectContaining({
+          activityId: "tic_tac_toe",
+        }),
+      }),
+    });
+  });
+
+  it("accepts activity reactions with tic-tac-toe board context", () => {
+    const result = resolveShowroomTalkRequest(
+      {
+        childId: "ila",
+        companionId: "elli",
+        voiceId: "voice_a",
+        showroomTheme: "crystal",
+        mode: "video_call",
+        question: "React to the tic-tac-toe companion move.",
+        activityReaction: {
+          activityId: "tic_tac_toe",
+          eventType: "companion_move",
+          board: ["X", null, null, null, "O", null, null, null, null],
+          childMark: "X",
+          companionMark: "O",
+          turn: "child",
+          lastMove: {
+            by: "companion",
+            square: 5,
+            mark: "O",
+            timestamp: 1000,
+          },
+          desiredTone: "warm_playful",
+        },
+      },
+      {
+        routeCompanionId: "elli",
+        voiceOptions,
+        fallbackVoiceId: "voice_a",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        activityReaction: {
+          activityId: "tic_tac_toe",
+          eventType: "companion_move",
+          board: ["X", null, null, null, "O", null, null, null, null],
+          childMark: "X",
+          companionMark: "O",
+          turn: "child",
+          lastMove: {
+            by: "companion",
+            square: 5,
+            mark: "O",
+            timestamp: 1000,
+          },
+          desiredTone: "warm_playful",
+        },
+      }),
+    });
+  });
+
   it("accepts video-call trace and turn ids without treating them as provider content", () => {
     const result = resolveShowroomTalkRequest(
       {
@@ -213,6 +307,128 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("show emotion through movement");
     expect(prompt).not.toContain("award coins");
     expect(prompt).not.toContain("award XP");
+  });
+
+  it("makes video calls companion-first instead of tutor-first", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality:
+        "Elli is Ila's best friend. She never sounds like a teacher. She sounds like the friend who happens to know a lot.",
+      mode: "video_call",
+      conversationIntent: "social",
+    });
+
+    expect(prompt).toContain("video-call companion friend");
+    expect(prompt).toContain("never sounds like a teacher");
+    expect(prompt).toContain("Never tutor unless the child explicitly asks");
+    expect(prompt).toContain("follow the child's conversational lead");
+    expect(prompt).not.toContain("interactive Sunny learning companion");
+  });
+
+  it("keeps an active game as background when the child is just socializing", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality:
+        "Elli is Ila's best friend. She never sounds like a teacher.",
+      mode: "video_call",
+      conversationIntent: "social",
+      activeActivity: {
+        activityId: "tic_tac_toe",
+        surface: "video_call_overlay",
+        status: "active",
+        board: ["X", null, "O", "O", "O", "X", "X", null, null],
+        childMark: "X",
+        companionMark: "O",
+        turn: "child",
+      },
+    });
+
+    expect(prompt).toContain("Conversation intent: social.");
+    expect(prompt).toContain("The game is background context for this turn");
+    expect(prompt).toContain("do not redirect back to tic-tac-toe");
+  });
+
+  it("protects repeat-after turns from being interpreted as tic-tac-toe moves", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality:
+        "Elli is Ila's best friend. She never sounds like a teacher.",
+      mode: "video_call",
+      conversationIntent: "repeat_after",
+      activeActivity: {
+        activityId: "tic_tac_toe",
+        surface: "video_call_overlay",
+        status: "active",
+        board: ["X", null, "O", "O", "O", "X", "X", null, null],
+        childMark: "X",
+        companionMark: "O",
+        turn: "child",
+      },
+    });
+
+    expect(prompt).toContain("Conversation intent: repeat_after.");
+    expect(prompt).toContain("repeat the child's newest words");
+    expect(prompt).toContain("Do not treat numbers as tic-tac-toe squares");
+  });
+
+  it("guards against repeated greetings and repeated game confusion", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality: "Warm, playful, brave.",
+      mode: "video_call",
+      activeActivity: {
+        activityId: "tic_tac_toe",
+        surface: "video_call_overlay",
+        status: "active",
+        board: ["X", null, null, null, "O", null, null, null, null],
+        childMark: "X",
+        companionMark: "O",
+        turn: "child",
+      },
+    });
+
+    expect(prompt).toContain("Do not repeat your previous greeting");
+    expect(prompt).toContain("do not ask to start tic-tac-toe again");
+  });
+
+  it("tells Claude activity reactions must be AI-authored and gesture matched", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality: "Warm, playful, brave.",
+      mode: "video_call",
+      activityReaction: {
+        activityId: "tic_tac_toe",
+        eventType: "round_complete",
+        board: ["X", "X", "O", "O", "O", "X", "X", "X", "O"],
+        childMark: "X",
+        companionMark: "O",
+        turn: "none",
+        result: "draw",
+        desiredTone: "warm_playful",
+      },
+    });
+
+    expect(prompt).toContain("activity reaction");
+    expect(prompt).toContain("Use companionAct for a gesture that matches the words");
+    expect(prompt).toContain("Round draw: shrug or thoughtful gesture");
+    expect(prompt).not.toContain("Use local canned tic-tac-toe banter");
+  });
+
+  it("requires spoken AI reactions for key tic-tac-toe moments", () => {
+    expect(shouldRequireShowroomActivityReactionSpeech("game_started")).toBe(true);
+    expect(shouldRequireShowroomActivityReactionSpeech("companion_move")).toBe(true);
+    expect(shouldRequireShowroomActivityReactionSpeech("round_complete")).toBe(true);
+    expect(shouldRequireShowroomActivityReactionSpeech("child_move")).toBe(false);
   });
 
   it("adds active tic-tac-toe board context to the video-call prompt", () => {
@@ -641,6 +857,47 @@ describe("companion showroom talk contract", () => {
     expect(routeSource).not.toContain(
       "text || `${companion.name} is thinking. Ask me that one more time.`",
     );
+  });
+
+  it("runs a Claude followup when an activity reaction returns tool-only content", () => {
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: true,
+        rawText: "",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: true,
+        rawText: "Your corner move made this interesting.",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: false,
+        rawText: "Let's play.",
+        companionActToolUseCount: 0,
+        activityToolUseCount: 1,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps tic-tac-toe activity reactions to one Claude round trip when speech is already present and records latency spans", () => {
+    const routeSource = readFileSync(resolve(__dirname, "routes.ts"), "utf8");
+
+    expect(routeSource).toContain("shouldRunToolFollowup");
+    expect(routeSource).toContain("shouldRunShowroomToolFollowup");
+    expect(routeSource).toContain("isActivityReaction: Boolean(talk.activityReaction)");
+    expect(routeSource).toContain("claudeMs");
+    expect(routeSource).toContain("toolFollowupMs");
+    expect(routeSource).toContain("ttsMs");
+    expect(routeSource).toContain("latencySpans");
   });
 
 });

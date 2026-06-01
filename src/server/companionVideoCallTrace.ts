@@ -15,14 +15,26 @@ export type CompanionVideoCallTraceEventName =
   | "audio_play_start"
   | "audio_ended"
   | "audio_error"
+  | "activity_reaction_request_start"
+  | "activity_reaction_response_received"
+  | "activity_reaction_stale_dropped"
+  | "activity_reaction_audio_start"
+  | "activity_reaction_audio_ended"
+  | "activity_reaction_fallback"
   | "handsfree_rearm_scheduled"
   | "handsfree_rearm_starting"
   | "handsfree_rearm_skipped"
-  | "activity_context_changed";
+  | "activity_context_changed"
+  | "conversation_mode_changed"
+  | "activity_phase_changed";
 
 export type CompanionVideoCallLikelyCause =
   | "none"
   | "speech_recognition_echo"
+  | "stale_activity_reaction"
+  | "activity_reaction_missing_audio"
+  | "activity_open_interrupted_audio"
+  | "game_context_overrode_social_intent"
   | "repeated_turn"
   | "handsfree_rearm_loop"
   | "slow_response";
@@ -31,6 +43,7 @@ export type CompanionVideoCallTraceEventInput = {
   traceId: string;
   turnId?: string;
   eventName: CompanionVideoCallTraceEventName;
+  origin?: "client" | "server";
   childId?: string;
   companionId?: string;
   callSource?: string;
@@ -43,6 +56,7 @@ export type CompanionVideoCallTraceRecord = {
   traceId: string;
   turnId?: string;
   eventName: CompanionVideoCallTraceEventName;
+  origin?: "client" | "server";
   childId?: string;
   companionId?: string;
   callSource?: string;
@@ -83,8 +97,17 @@ export type CompanionVideoCallTracePacket = {
   loopSuspected: boolean;
   likelyCause: CompanionVideoCallLikelyCause;
   activeTicTacToeState?: unknown;
+  activityReactions?: {
+    aiAuthoredCount: number;
+    fallbackCount: number;
+    staleDroppedCount: number;
+    spokenCount: number;
+    missingAudioCount: number;
+    averageResponseMs?: number;
+  };
   eventOrder: Array<{
     eventName: CompanionVideoCallTraceEventName;
+    origin?: "client" | "server";
     turnId?: string;
     timestamp: number;
     transcriptPreview?: string;
@@ -112,8 +135,96 @@ function defaultTraceRoot(): string {
   return path.join(process.cwd(), "logs", "sessions");
 }
 
+function buildActivityReactionSummary(
+  records: CompanionVideoCallTraceRecord[],
+): CompanionVideoCallTracePacket["activityReactions"] {
+  const responseRecords = records.filter(
+    (record) => record.eventName === "activity_reaction_response_received",
+  );
+  const fallbackRecords = records.filter(
+    (record) => record.eventName === "activity_reaction_fallback",
+  );
+  const staleDroppedRecords = records.filter(
+    (record) => record.eventName === "activity_reaction_stale_dropped",
+  );
+  const audioStartRecords = records.filter(
+    (record) => record.eventName === "activity_reaction_audio_start",
+  );
+  const responseKeys = new Set(
+    responseRecords.map(
+      (record) => record.turnId ?? `${record.timestamp}:${record.responseHash ?? ""}`,
+    ),
+  );
+  const fallbackKeys = new Set(
+    fallbackRecords.map((record) => record.turnId ?? `${record.timestamp}:fallback`),
+  );
+  const aiAuthoredCount = responseKeys.size;
+  const fallbackCount = fallbackKeys.size;
+  const staleDroppedCount = new Set(
+    staleDroppedRecords.map(
+      (record) => record.turnId ?? `${record.timestamp}:stale_activity_reaction`,
+    ),
+  ).size;
+  const staleDroppedKeys = new Set(
+    staleDroppedRecords.map(
+      (record) => record.turnId ?? `${record.timestamp}:stale_activity_reaction`,
+    ),
+  );
+  const audioStartKeys = new Set(
+    audioStartRecords.map((record) => record.turnId ?? `${record.timestamp}:audio_start`),
+  );
+  const spokenCount = [...audioStartKeys].filter((key) => responseKeys.has(key)).length;
+  const missingAudioCount = [...responseKeys].filter(
+    (key) => !audioStartKeys.has(key) && !fallbackKeys.has(key) && !staleDroppedKeys.has(key),
+  ).length;
+  if (
+    aiAuthoredCount === 0 &&
+    fallbackCount === 0 &&
+    staleDroppedCount === 0 &&
+    spokenCount === 0
+  ) {
+    return undefined;
+  }
+  const seenDurationKeys = new Set<string>();
+  const responseDurations = responseRecords
+    .map((record) => {
+      const key = record.turnId ?? `${record.timestamp}:${record.responseHash ?? ""}`;
+      if (seenDurationKeys.has(key)) return undefined;
+      seenDurationKeys.add(key);
+      const direct = record.payload?.requestToResponseMs;
+      if (typeof direct === "number" && Number.isFinite(direct)) return direct;
+      if (!record.turnId) return undefined;
+      const start = records.find(
+        (candidate) =>
+          candidate.turnId === record.turnId &&
+          candidate.eventName === "activity_reaction_request_start",
+      );
+      return start ? record.timestamp - start.timestamp : undefined;
+    })
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const averageResponseMs =
+    responseDurations.length > 0
+      ? Math.round(
+          responseDurations.reduce((sum, value) => sum + value, 0) /
+            responseDurations.length,
+        )
+      : undefined;
+  return {
+    aiAuthoredCount,
+    fallbackCount,
+    staleDroppedCount,
+    spokenCount,
+    missingAudioCount,
+    ...(averageResponseMs !== undefined && { averageResponseMs }),
+  };
+}
+
 function safeTraceId(traceId: string): string {
   return traceId.trim().replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80) || "trace";
+}
+
+function normalizeTraceOrigin(value: unknown): "client" | "server" | undefined {
+  return value === "client" || value === "server" ? value : undefined;
 }
 
 function traceStamp(timestamp: number): string {
@@ -150,6 +261,19 @@ function textSimilarity(a: string | undefined, b: string | undefined): number | 
     if (right.has(word)) overlap += 1;
   }
   return Number((overlap / Math.max(left.size, right.size)).toFixed(3));
+}
+
+function responseOverridesConversationIntent(
+  record: CompanionVideoCallTraceRecord,
+): boolean {
+  if (record.eventName !== "talk_response_received") return false;
+  const intent = String(record.payload?.conversationIntent ?? "").toLowerCase();
+  if (intent !== "social" && intent !== "repeat_after") return false;
+  const response = (record.responsePreview ?? "").toLowerCase();
+  if (!response) return false;
+  return /\b(tic[- ]?tac[- ]?toe|square|board|your turn|place an x|place a mark|game going)\b/.test(
+    response,
+  );
 }
 
 function sanitizePayloadValue(value: unknown, key = ""): unknown {
@@ -222,6 +346,7 @@ export function normalizeCompanionVideoCallTraceEvent(
     traceId: safeTraceId(input.traceId),
     ...(input.turnId && { turnId: input.turnId.trim().slice(0, 120) }),
     eventName: input.eventName,
+    ...(normalizeTraceOrigin(input.origin) && { origin: normalizeTraceOrigin(input.origin) }),
     ...(input.childId && { childId: input.childId.trim().toLowerCase().slice(0, 80) }),
     ...(input.companionId && { companionId: input.companionId.trim().toLowerCase().slice(0, 80) }),
     ...(input.callSource && { callSource: input.callSource.trim().slice(0, 80) }),
@@ -296,6 +421,29 @@ function likelyCauseForRecords(records: CompanionVideoCallTraceRecord[]): Compan
   if (
     records.some(
       (record) =>
+        record.eventName === "audio_error" &&
+        String(record.payload?.reason ?? "")
+          .toLowerCase()
+          .includes("interrupted by a call to pause") &&
+        (record.payload?.activeActivity as { activityId?: unknown } | undefined)?.activityId ===
+          "tic_tac_toe",
+    )
+  ) {
+    return "activity_open_interrupted_audio";
+  }
+  const activityReactions = buildActivityReactionSummary(records);
+  if ((activityReactions?.missingAudioCount ?? 0) > 0) {
+    return "activity_reaction_missing_audio";
+  }
+  if (records.some((record) => record.eventName === "activity_reaction_stale_dropped")) {
+    return "stale_activity_reaction";
+  }
+  if (records.some(responseOverridesConversationIntent)) {
+    return "game_context_overrode_social_intent";
+  }
+  if (
+    records.some(
+      (record) =>
         record.eventName === "echo_suppressed" ||
         (record.eventName === "loop_suspected" &&
           String(record.payload?.reason ?? "").includes("echo")),
@@ -303,19 +451,23 @@ function likelyCauseForRecords(records: CompanionVideoCallTraceRecord[]): Compan
   ) {
     return "speech_recognition_echo";
   }
-  const transcriptCounts = new Map<string, number>();
-  const responseCounts = new Map<string, number>();
+  const transcriptCounts = new Map<string, Set<string>>();
+  const responseCounts = new Map<string, Set<string>>();
   for (const record of records) {
     if (record.transcriptHash) {
-      transcriptCounts.set(record.transcriptHash, (transcriptCounts.get(record.transcriptHash) ?? 0) + 1);
+      const turns = transcriptCounts.get(record.transcriptHash) ?? new Set<string>();
+      turns.add(record.turnId ?? `${record.timestamp}:${record.eventName}`);
+      transcriptCounts.set(record.transcriptHash, turns);
     }
     if (record.responseHash) {
-      responseCounts.set(record.responseHash, (responseCounts.get(record.responseHash) ?? 0) + 1);
+      const turns = responseCounts.get(record.responseHash) ?? new Set<string>();
+      turns.add(record.turnId ?? `${record.timestamp}:${record.eventName}`);
+      responseCounts.set(record.responseHash, turns);
     }
   }
   if (
-    [...transcriptCounts.values()].some((count) => count > 1) ||
-    [...responseCounts.values()].some((count) => count > 1)
+    [...transcriptCounts.values()].some((turns) => turns.size > 1) ||
+    [...responseCounts.values()].some((turns) => turns.size > 1)
   ) {
     return "repeated_turn";
   }
@@ -382,6 +534,11 @@ export function buildCompanionVideoCallTracePacket(
   const lastActivity = [...ordered]
     .reverse()
     .find((record) => record.payload?.activeActivity)?.payload?.activeActivity;
+  const activityReactions = buildActivityReactionSummary(ordered);
+  const loopCause =
+    likelyCause === "speech_recognition_echo" ||
+    likelyCause === "repeated_turn" ||
+    likelyCause === "handsfree_rearm_loop";
   return {
     traceId: first?.traceId ?? "unknown",
     ...(first?.childId && { childId: first.childId }),
@@ -392,11 +549,13 @@ export function buildCompanionVideoCallTracePacket(
     ...(last?.eventName === "call_ended" && { endedAt: new Date(last.timestamp).toISOString() }),
     eventCount: ordered.length,
     loopSuspected:
-      likelyCause !== "none" || ordered.some((record) => record.eventName === "loop_suspected"),
+      loopCause || ordered.some((record) => record.eventName === "loop_suspected"),
     likelyCause,
     ...(lastActivity !== undefined ? { activeTicTacToeState: lastActivity } : {}),
+    ...(activityReactions && { activityReactions }),
     eventOrder: ordered.map((record) => ({
       eventName: record.eventName,
+      ...(record.origin && { origin: record.origin }),
       ...(record.turnId && { turnId: record.turnId }),
       timestamp: record.timestamp,
       ...(record.transcriptPreview && { transcriptPreview: record.transcriptPreview }),
