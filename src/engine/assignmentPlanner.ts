@@ -369,7 +369,10 @@ export const ASSIGNMENT_PLANNER_PERSONA = [
   "You design each session like a thoughtful human tutor would: academically serious, emotionally aware, playful when it helps, and aimed at real mastery by the due date.",
   "You have a strong sense of taste. A good session feels purposeful, varied, alive, and confidence-building.",
   "The board is not a worksheet; it is how the child experiences the care plan.",
-  "Activities are instruments and experiences. You choose them because they reveal useful evidence, teach the right skill, and keep the child willing to keep going.",
+  "Use the activity catalog like a tutor's table full of materials: checks, teaching tools, practice games, recovery beats, and proof moments.",
+  "Choose activities for evidence, teaching, and willingness to continue without making the child feel like this is a grind.",
+  "The child experiences the activity, not the internal capability mode. If the same activity shell appears more than once before Mystery, vary material or explain why repetition is right.",
+  "nodes exist to change the lived lesson, not decorate the map.",
   "You notice boredom, avoidance, fatigue, pride, curiosity, and recovery as part of the learning picture.",
   "You are free to choose the path from the chart, assignment evidence, due date, and mastery goal.",
 ].join(" ");
@@ -1331,7 +1334,7 @@ export function resolveAssignmentPlannerModel(
   opts: AssignmentPlanningOptions = {},
   env: Partial<Pick<NodeJS.ProcessEnv, "SUNNY_EXPERIENCE_PLANNER_MODEL">> = process.env,
 ): string {
-  return opts.model ?? env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? "claude-sonnet-4-5";
+  return opts.model ?? env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? "claude-sonnet-4-6";
 }
 
 function imageMediaType(filePath: string): "image/png" | "image/jpeg" | "image/webp" | null {
@@ -1395,16 +1398,17 @@ Output contract:
 - Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.
 - If quest or boss fails, the next session should identify the failed target or skill, teach that skill, then retry the proof loop.
 - Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
-- In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - The app materializes presentation board JSON from your nodePlan after validation. Your job is curriculum, evidence, sequence, route intent, and agency rationale.
 - Route choice is part of tutoring judgment: when you include it, the alternatives should be academically valid or preference-only by design, and planTheory or reviewQuestions should make your rationale legible.
 - Agency works best when it emerges from the evidence and homework goal rather than as decoration.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
-- Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
+- Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
 - Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
+- Set masteryUnlockState only on locked quest and boss nodes. For those nodes use exactly "masteryUnlockState": "preparing". Omit masteryUnlockState from baseline, teaching, practice, pronunciation, word-radar, spell-check, letter-rush, monster-stampede, and mystery nodes.
 - Include parent-review language that explains why every group was routed to its activity.
+- In planTheory or reviewQuestions, explain why the journey you chose fits this child today; if the same activity shell appears more than once before Mystery, explicitly explain why this will not feel like grind or revise the node plan.
 - Return one valid tool-call JSON object directly; the tool schema enforces capturedContent, homeworkWords, activeSessionPlan.nodePlan, plannedMeasurements, planTheory, and reviewQuestions.
 
 Packet:

@@ -16,6 +16,7 @@ import {
   parseAssignmentPlannerToolUseResponse,
   normalizeAssignmentNodeType,
   parseAssignmentPlannerJson,
+  resolveAssignmentPlannerModel,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
   hydrateAssignmentPlannerOutputFromDraft,
@@ -342,6 +343,10 @@ function plannerDraftWithAdventureBoard(adventureBoard: unknown): unknown {
 }
 
 describe("assignment planner", () => {
+  it("defaults to the current available Sonnet planner model", () => {
+    expect(resolveAssignmentPlannerModel({}, {})).toBe("claude-sonnet-4-6");
+  });
+
   it("parses the first planner JSON object even when the model adds trailing text", () => {
     const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
       capturedContent: {
@@ -1015,6 +1020,9 @@ describe("assignment planner", () => {
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("homework as the reality anchor");
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("strong sense of taste");
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("The board is not a worksheet");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("table full of materials");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("without making the child feel like this is a grind");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("same activity shell appears more than once before Mystery");
     expect(prompt).toContain("Design today's learning journey");
     expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
     expect(prompt).toContain("explain why the journey you chose fits this child today");
@@ -1035,6 +1043,31 @@ describe("assignment planner", () => {
     expect(prompt).toContain("adventureMapProfile");
     expect(prompt).not.toContain("maxVisibleChoices");
     expect(prompt).not.toContain("paradox of choice");
+  });
+
+  it("does not ask the planner to put capability-mode ids into Word Radar recallMode", () => {
+    const prompt = buildAssignmentPlannerPrompt(buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    }));
+
+    expect(prompt).toContain("If you choose the catalog's audio_cued_letter_recall capability mode");
+    expect(prompt).toContain("emit recallMode partial_visual_recall");
+    expect(prompt).toContain("Never emit audio_cued_letter_recall as recallMode");
+    expect(prompt).toContain("cite capability ids only in rationale");
+    expect(prompt).not.toContain("Use audio_cued_letter_recall when the child should fill slots");
+  });
+
+  it("keeps masteryUnlockState restricted to locked destination nodes", () => {
+    const prompt = buildAssignmentPlannerPrompt(buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    }));
+
+    expect(prompt).toContain("masteryUnlockState only on locked quest and boss nodes");
+    expect(prompt).toContain("\"masteryUnlockState\": \"preparing\"");
   });
 
   it("keeps lesson-to-lesson adaptation guidance in the planner prompt without adding deterministic category blockers", () => {

@@ -44,6 +44,7 @@
     "sunny:session:audit": "npx tsx src/scripts/auditSessionDirectory.ts",
     "sunny:spelling:certify": "npx tsx src/scripts/certifySpellingAdaptation.ts",
     "sunny:lab:spelling": "npx tsx src/scripts/runSyntheticChildLab.ts",
+    "sunny:lab:planner-tutor": "npx tsx src/scripts/runPlannerTutorLab.ts",
     "sunny:lab:miss-review": "npx tsx src/scripts/runHumanMissReview.ts",
     "sunny:pronunciation:science:audit": "npx tsx src/scripts/pronunciationScienceAudit.ts",
     "sunny": "npm run sunny:run -- --subject review",
