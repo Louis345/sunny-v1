@@ -6,6 +6,7 @@ import meta, {
   CollectedAnimation,
   type SparkOrbLearningShellStoryArgs,
 } from "../stories/SparkOrbLearningShell.stories";
+import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 
 vi.mock("../components/CompanionLayer", () => ({
   CompanionLayer: ({ companion }: { companion: { companionId?: string } | null }) => (
@@ -23,32 +24,58 @@ afterEach(() => {
 });
 
 describe("SparkOrbLearningShell stories", () => {
-  it("exposes the aim-and-launch skill story as the primary launch mechanic", () => {
+  it("charges the orb by answering questions before exposing the aim-and-launch mechanic", () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     const storyArgs: SparkOrbLearningShellStoryArgs = {
-      phase: AimAndLaunchSkill.args?.phase ?? meta.args?.phase ?? "ready",
+      phase: AimAndLaunchSkill.args?.phase ?? meta.args?.phase ?? "idle",
       domain: AimAndLaunchSkill.args?.domain ?? meta.args?.domain ?? "spelling",
       currentTarget: AimAndLaunchSkill.args?.currentTarget ?? meta.args?.currentTarget ?? "word:because",
-      lastMoment: AimAndLaunchSkill.args?.lastMoment ?? meta.args?.lastMoment ?? "orb_ready",
+      lastMoment: AimAndLaunchSkill.args?.lastMoment ?? meta.args?.lastMoment ?? "watching",
     };
     const rendered = AimAndLaunchSkill.render?.(storyArgs, {} as never) as ReactElement;
     render(rendered);
 
+    expect(screen.getByText("Charge 0 / 3")).toBeInTheDocument();
+    expect(screen.getByText("Question 1 of 3")).toBeInTheDocument();
+    expect(screen.queryByTestId("spark-orb-launch-control")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "because" }));
+    expect(screen.getByText("Charge 1 / 3")).toBeInTheDocument();
+    expect(screen.getByText("Question 2 of 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "garden" }));
+    expect(screen.getByText("Charge 2 / 3")).toBeInTheDocument();
+    expect(screen.getByText("Question 3 of 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "spark" }));
+    expect(screen.getByText("Charge 3 / 3")).toBeInTheDocument();
     expect(screen.getByTestId("spark-orb-launch-control")).toHaveAttribute(
       "aria-label",
       "Grab the orb to aim and launch",
     );
     expect(screen.queryByText("Flick up")).not.toBeInTheDocument();
     expect(screen.queryByText("Aim up, then release")).not.toBeInTheDocument();
+    expect(vi.mocked(playSparkOrbSfx)).toHaveBeenCalledWith("charge");
+    expect(vi.mocked(playSparkOrbSfx)).toHaveBeenCalledWith("ready");
+    expect(infoSpy).toHaveBeenCalledWith(
+      " 🎮 [storybook:spark-orb-learning] [question-answer] [charge-earned]",
+      expect.objectContaining({
+        questionIndex: 3,
+        chargeCount: 3,
+        chargeGoal: 3,
+        phase: "ready",
+      }),
+    );
   });
 
   it("routes successful Spark Orb captures through the Storybook reward gateway", () => {
     vi.useFakeTimers();
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
     const storyArgs: SparkOrbLearningShellStoryArgs = {
-      phase: AimAndLaunchSkill.args?.phase ?? meta.args?.phase ?? "ready",
+      phase: "ready",
       domain: AimAndLaunchSkill.args?.domain ?? meta.args?.domain ?? "spelling",
       currentTarget: AimAndLaunchSkill.args?.currentTarget ?? meta.args?.currentTarget ?? "word:because",
-      lastMoment: AimAndLaunchSkill.args?.lastMoment ?? meta.args?.lastMoment ?? "orb_ready",
+      lastMoment: "orb_ready",
     };
 
     render(AimAndLaunchSkill.render?.(storyArgs, {} as never) as ReactElement);
