@@ -131,6 +131,73 @@ describe("CompanionVideoCallOverlay", () => {
     expect(screen.getByRole("button", { name: "End video chat" })).toBeInTheDocument();
   });
 
+  it("makes the ringing and answered ceremony feel personal before the camera is live", () => {
+    const { rerender } = render(
+      <CompanionVideoCallOverlay
+        open
+        companionName="Elli"
+        phase="calling"
+        cameraState="off"
+        talkPhase="idle"
+        responseText=""
+        error={null}
+        question=""
+        statusCopy={{
+          heading: "Calling Elli...",
+          status: "Ringing",
+          helperText: "Elli will answer, then the camera starts.",
+        }}
+        primaryBackground="linear-gradient(135deg, #7c5cff, #5b3ee0)"
+        portrait={<div data-testid="portrait-slot">VRM portrait</div>}
+        onAskVoice={vi.fn()}
+        onQuestionChange={vi.fn()}
+        onSubmitQuestion={vi.fn()}
+        onLook={vi.fn()}
+        onStartCamera={vi.fn()}
+        onStopCamera={vi.fn()}
+        onEnd={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByText("Calling Elli...").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByTestId("portrait-slot")).toBeInTheDocument();
+    expect(screen.getByLabelText("Elli companion portrait")).toHaveAttribute(
+      "data-call-phase",
+      "calling",
+    );
+
+    rerender(
+      <CompanionVideoCallOverlay
+        open
+        companionName="Elli"
+        phase="answered"
+        cameraState="off"
+        talkPhase="speaking"
+        responseText="Hiii Ila! I was hoping you'd call."
+        error={null}
+        question=""
+        statusCopy={{
+          heading: "Elli answered",
+          status: "Saying hi",
+          helperText: "Starting camera and listening.",
+        }}
+        primaryBackground="linear-gradient(135deg, #7c5cff, #5b3ee0)"
+        portrait={<div data-testid="portrait-slot">VRM portrait</div>}
+        onAskVoice={vi.fn()}
+        onQuestionChange={vi.fn()}
+        onSubmitQuestion={vi.fn()}
+        onLook={vi.fn()}
+        onStartCamera={vi.fn()}
+        onStopCamera={vi.fn()}
+        onEnd={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Video chat caption")).toHaveTextContent(
+      "Hiii Ila! I was hoping you'd call.",
+    );
+  });
+
   it("floats FaceTime activities opposite the companion portrait controls", () => {
     render(
       <CompanionVideoCallOverlay

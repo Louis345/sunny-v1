@@ -5,6 +5,10 @@ import path from "path";
 export type CompanionVideoCallTraceEventName =
   | "call_started"
   | "call_ended"
+  | "call_greeting_selected"
+  | "call_greeting_audio_start"
+  | "call_greeting_audio_ended"
+  | "call_greeting_skipped"
   | "speech_listen_start"
   | "speech_result"
   | "speech_error"

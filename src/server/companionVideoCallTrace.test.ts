@@ -24,6 +24,10 @@ describe("companion video call traces", () => {
   it("registers every trace event accepted by the trace packet layer in the route allowlist", () => {
     const routesSource = fs.readFileSync(path.join(__dirname, "routes.ts"), "utf8");
 
+    expect(routesSource).toContain('"call_greeting_selected"');
+    expect(routesSource).toContain('"call_greeting_audio_start"');
+    expect(routesSource).toContain('"call_greeting_audio_ended"');
+    expect(routesSource).toContain('"call_greeting_skipped"');
     expect(routesSource).toContain('"activity_reaction_stale_dropped"');
     expect(routesSource).toContain('"conversation_mode_changed"');
     expect(routesSource).toContain('"activity_phase_changed"');

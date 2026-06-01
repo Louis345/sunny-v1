@@ -401,6 +401,7 @@ export function CompanionVideoCallOverlay({
 
           <div
             aria-label={`${companionName} companion portrait`}
+            data-call-phase={phase}
             data-companion-view={resolvedCompanionView}
             style={{
               position: "absolute",
@@ -420,7 +421,10 @@ export function CompanionVideoCallOverlay({
               border: "1px solid rgba(255,255,255,0.24)",
               background:
                 "linear-gradient(180deg, rgba(255,255,255,0.16), rgba(15,23,42,0.74))",
-              boxShadow: "0 22px 72px rgba(0,0,0,0.38)",
+              boxShadow:
+                phase === "calling"
+                  ? "0 0 0 10px rgba(124,92,255,0.16), 0 22px 72px rgba(0,0,0,0.38), 0 0 52px rgba(124,92,255,0.38)"
+                  : "0 22px 72px rgba(0,0,0,0.38)",
               overflow: "hidden",
               backdropFilter: "blur(18px)",
             }}

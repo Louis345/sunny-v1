@@ -5,6 +5,7 @@ import {
   createShowroomVideoCallStatusCopy,
   createShowroomVideoChatEntryCopy,
   createShowroomVideoChatStartedEvent,
+  resolveVideoCallPickupGreeting,
   createShowroomVideoActivityContextFromEvent,
   createShowroomTalkPayload,
   createShowroomVideoCallContextFromSearch,
@@ -118,6 +119,86 @@ describe("CompanionShowroom talk mode", () => {
     });
   });
 
+  it("resolves companion-specific showroom pickup greetings", () => {
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "elli",
+        companionName: "Elli",
+        childName: "Ila",
+        callSource: "showroom",
+        relationshipState: "previewing",
+      }),
+    ).toEqual({
+      text: "Hiii Ila! I was hoping you'd call.",
+      usedMemorySeed: false,
+    });
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "kefla",
+        companionName: "Kefla",
+        childName: "Ila",
+        callSource: "showroom",
+        relationshipState: "previewing",
+      }).text,
+    ).toBe("You called? Good. I was ready for a challenge.");
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "matilda",
+        companionName: "Matilda",
+        childName: "Ila",
+        callSource: "showroom",
+        relationshipState: "previewing",
+      }).text,
+    ).toBe("Hi Ila. I saved a calm little spot for us.");
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "princess",
+        companionName: "Princess",
+        childName: "Ila",
+        callSource: "showroom",
+        relationshipState: "previewing",
+      }).text,
+    ).toBe("Ila, you made it. The quest can begin.");
+  });
+
+  it("uses earned reward and safe memory pickup variants without making memory mandatory", () => {
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "elli",
+        companionName: "Elli",
+        childName: "Ila",
+        callSource: "game_reward",
+        relationshipState: "earned_reward",
+      }),
+    ).toEqual({
+      text: "Ila! You earned this call. I was hoping we'd get a minute together.",
+      usedMemorySeed: false,
+    });
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "elli",
+        companionName: "Elli",
+        childName: "Ila",
+        callSource: "showroom",
+        relationshipState: "selected",
+        memory: { reunionLineSeed: "Last time we played tic-tac-toe." },
+      }),
+    ).toEqual({
+      text: "Hiii Ila! Last time we played tic-tac-toe.",
+      usedMemorySeed: true,
+    });
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "elli",
+        companionName: "Elli",
+        childName: "Ila",
+        callSource: "showroom",
+        relationshipState: "selected",
+        memory: { reunionLineSeed: "   " },
+      }).usedMemorySeed,
+    ).toBe(false);
+  });
+
   it("wires an unlocked Video Chat shell without economy lock copy", () => {
     const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
 
@@ -130,6 +211,18 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).not.toContain("Locked Reward");
     expect(source).not.toContain("Placeholder economy: final costs and balances TBD.");
     expect(source).not.toContain("coinsAwarded");
+  });
+
+  it("wires pickup greeting through existing companion speak route and trace events", () => {
+    const source = readShowroomSource();
+
+    expect(source).toContain("resolveVideoCallPickupGreeting");
+    expect(source).toContain("call_greeting_selected");
+    expect(source).toContain("call_greeting_audio_start");
+    expect(source).toContain("call_greeting_audio_ended");
+    expect(source).toContain("call_greeting_skipped");
+    expect(source).toContain("/speak");
+    expect(source).not.toContain("new WebSocket");
   });
 
   it("wires video chat voice through Deepgram barge-in plus the existing showroom talk loop", () => {
@@ -598,7 +691,10 @@ describe("CompanionShowroom talk mode", () => {
   it("starts video chat camera and listening from the call entry", () => {
     const source = `${readShowroomSource()}\n${readVideoCallSource()}`;
 
-    expect(source).toContain("void startShowroomVideoChatCamera({ autoListen: true })");
+    expect(source).toContain("playShowroomVideoCallGreeting");
+    expect(source).toContain("startCameraOnce(\"audio_start\")");
+    expect(source).toContain("rearmAfterGreeting(\"audio_ended\")");
+    expect(source).toContain("startShowroomVideoChatCamera({ autoListen: false })");
     expect(source).toContain("startShowroomVideoCallListening");
     expect(source).toContain(".start({");
     expect(source).toContain("cameraState === \"live\"");

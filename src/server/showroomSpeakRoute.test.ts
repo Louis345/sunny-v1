@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   normalizeShowroomBanterSpeechText,
+  readShowroomPersonality,
   shouldUseShowroomBanterSpeech,
 } from "./routes";
 
 describe("showroom companion speak route", () => {
-  it("allows only short explicit video-game banter text through the voice route", () => {
+  it("allows short explicit game banter and video-call greeting text through the voice route", () => {
     expect(
       shouldUseShowroomBanterSpeech({
         source: "video_game_banter",
         text: "Nice corner move. I need to think.",
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseShowroomBanterSpeech({
+        source: "video_call_greeting",
+        text: "Hiii Ila! I was hoping you'd call.",
       }),
     ).toBe(true);
     expect(
@@ -32,5 +39,15 @@ describe("showroom companion speak route", () => {
     );
     expect(normalizeShowroomBanterSpeechText("x".repeat(220))).toHaveLength(180);
     expect(normalizeShowroomBanterSpeechText(42)).toBe("");
+  });
+
+  it("builds companion talk personality from the full showroom profile, not only one sentence", () => {
+    const personality = readShowroomPersonality("elli", "");
+
+    expect(personality).toContain("Warm, funny, playful");
+    expect(personality).toContain("Tags: sparkly, funny, brave");
+    expect(personality).toContain("Likes: riddles, word games, silly ideas");
+    expect(personality).toContain("Catchphrases: Let's try it together!");
+    expect(personality).toContain("Role: Ila's best friend and learning buddy");
   });
 });
