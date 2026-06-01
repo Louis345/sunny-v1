@@ -13,6 +13,7 @@ import type {
   MasteryUnlockState,
   NodeType,
   PronunciationNodeConfig,
+  RewardWrapperConfig,
   WordRadarNodeConfig,
 } from "../../shared/adventureTypes";
 
@@ -139,6 +140,7 @@ export interface ActiveSessionPlan {
     locked?: boolean;
     pronunciationConfig?: PronunciationNodeConfig;
     wordRadarConfig?: WordRadarNodeConfig;
+    rewardWrapper?: RewardWrapperConfig;
   }>;
   variationPolicy: {
     avoidExactPreviousNodeOrder: boolean;

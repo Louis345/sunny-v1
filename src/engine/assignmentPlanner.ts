@@ -11,10 +11,12 @@ import type {
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
 import { ALL_NODE_TYPES, type NodeType } from "../shared/adventureTypes";
+import type { RewardWrapperConfig } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
 import {
   listActivityToolContracts,
   type ActivityCapabilityMode,
+  type ActivityPlannerVisibility,
 } from "./activityToolCatalog";
 import {
   buildCapturedHomeworkContent,
@@ -45,6 +47,23 @@ export type AssignmentActivityCard = {
   goodFitWhen: string[];
   badFitWhen: string[];
   capabilityModes: ActivityCapabilityMode[];
+  plannerVisibility?: ActivityPlannerVisibility;
+};
+
+export type AssignmentPlannerDialogueTurn = {
+  role: "parent" | "sunny";
+  message: string;
+  createdAt: string;
+};
+
+export type AssignmentPlannerReferenceDoc = {
+  id: string;
+  title: string;
+  path: string;
+  configOwner: string;
+  plannerUse: string;
+  appliesWhen: string[];
+  checklist: string[];
 };
 
 export type AssignmentPlanningPacket = {
@@ -71,6 +90,9 @@ export type AssignmentPlanningPacket = {
     recentEvidence: string[];
   };
   activityCatalog: AssignmentActivityCard[];
+  plannerReferences?: AssignmentPlannerReferenceDoc[];
+  parentDialogue?: AssignmentPlannerDialogueTurn[];
+  priorPlannerOutput?: AssignmentPlannerOutput;
   plannerInstruction: string;
 };
 
@@ -101,7 +123,12 @@ export type AssignmentPlanValidationIssue = {
     | "missing_quest_destination"
     | "missing_boss_destination"
     | "target_lane_mismatch"
-    | "unknown_activity_id";
+    | "unknown_activity_id"
+    | "wrapper_activity_used_as_node"
+    | "unknown_reward_wrapper_activity"
+    | "reward_wrapper_activity_not_wrapper"
+    | "unknown_reward_wrapper_mode"
+    | "reward_wrapper_requires_domain_payload_node";
   severity: "error" | "warning";
   message: string;
 };
@@ -147,9 +174,68 @@ const contentProfileSchema: z.ZodType<ContentProfile> = z.object({
 
 const NODE_TYPES = new Set<NodeType>(ALL_NODE_TYPES);
 const PLANNER_DESTINATION_ACTIVITY_IDS = new Set(["mystery", "quest", "boss"]);
+const ASSIGNMENT_PLANNER_EXCLUDED_ACTIVITY_IDS = new Set(["word-builder"]);
 const INSTRUMENT_RENDERERS: Record<string, NodeType> = {
   "spelling-recall": "letter-rush",
 };
+export const ASSIGNMENT_PLANNER_PERSONA = [
+  "You are Sunny's learning journey designer: part master tutor, part pediatric learning psychologist, part adaptive game director.",
+  "You know the child through her chart and treat the homework as the reality anchor.",
+  "You are planning a real tutoring session, not filling a board.",
+  "You design each session like a thoughtful human tutor would: academically serious, emotionally aware, playful when it helps, and aimed to help the child master it by the due date.",
+  "You have a strong sense of taste. A good session feels purposeful, varied, alive, and confidence-building.",
+  "The board is not a worksheet; it is how the child experiences the care plan.",
+  "Use the activity catalog the way a tutor uses a table full of materials: quick checks, teaching tools, practice games, recovery beats, and proof-of-mastery moments.",
+  "Activities are instruments and experiences. You choose them because they reveal useful evidence, teach the right skill, and keep the child willing to keep going without making the child feel like this is a grind.",
+  "The child experiences the activity, not your internal capability mode. If two academically different checks use the same game shell, choose a different material or explain why the repetition is the right tutor move.",
+  "Before you return a plan, read it as the child would. If the same activity shell appears more than once before Mystery, revise to a different-feeling material or include a parent-facing rationale for why this will not feel like grind.",
+  "nodes exist to change the lived lesson, not to decorate the map.",
+  "You notice boredom, avoidance, fatigue, pride, curiosity, and recovery as part of the learning picture.",
+  "You are free to choose the path from the chart, assignment evidence, due date, and mastery goal.",
+].join(" ");
+
+export const ASSIGNMENT_PLANNER_REFERENCE_DOCS: AssignmentPlannerReferenceDoc[] = [
+  {
+    id: "activity-tool-protocol",
+    title: "Activity Tool Protocol",
+    path: "docs/activity-tool-protocol.md",
+    configOwner: "src/engine/activityToolCatalog.ts",
+    plannerUse:
+      "Use this to assess whether a proposed class activity should enter Sunny as a cataloged activity instrument or remain a prototype.",
+    appliesWhen: [
+      "A new class activity, game wrapper, reward shell, or generated tool is proposed.",
+      "The planner needs to decide if an activity has enough mechanic truth and evidence safety.",
+      "A prototype needs to graduate from Storybook or lab mode into the adaptive path.",
+    ],
+    checklist: [
+      "No orphan activities: every new activity needs an Activity Tool Contract before active-path use.",
+      "Declare purposes, domains, strengths, weak spots, good-fit conditions, and bad-fit conditions.",
+      "Name the mechanic truth: what the child actually clicks, says, types, sorts, or recalls.",
+      "Declare scaffolds that can contaminate mastery evidence.",
+      "Only mastery-eligible activities with captured per-target results may write mastery evidence.",
+      "Use src/engine/activityToolCatalog.ts as the machine-readable source of truth.",
+    ],
+  },
+  {
+    id: "spark-orb-learning-contract",
+    title: "Spark Orb Learning Contract",
+    path: "docs/spark-orb-learning-contract.md",
+    configOwner: "src/engine/activityToolCatalog.ts",
+    plannerUse:
+      "Use this when deciding whether Spark Orb should wrap a domain-valid activity, stay as a reward bridge, or stay out of the plan.",
+    appliesWhen: [
+      "The planner considers Spark Orb, earned collectibles, orb charge, or reward wrappers.",
+      "A child needs a motivating bridge after evidence-generating work.",
+      "A domain payload could keep academic evidence while Spark Orb supplies engagement.",
+    ],
+    checklist: [
+      "Spark Orb is optional and must never be forced.",
+      "Capture and launch are engagement/reward evidence, not mastery.",
+      "domain_payload_wrapper requires the embedded activity to own per-target learning evidence.",
+      "Avoid Spark Orb for clean cold baseline or when a reward shell would contaminate the signal.",
+    ],
+  },
+];
 
 function normalizeNodeSlug(value: string): string {
   return value
@@ -202,6 +288,12 @@ const wordRadarNodeConfigSchema = z.object({
   requiresCapturedResponse: z.boolean(),
 });
 
+const rewardWrapperSchema: z.ZodType<RewardWrapperConfig> = z.object({
+  activityId: z.string().min(1),
+  mode: z.enum(["charge_bridge", "domain_payload_wrapper"]),
+  reason: z.string().min(1),
+});
+
 const compactTargetsSchema = z.preprocess((value) => {
   if (typeof value !== "string") return value;
   return value
@@ -223,6 +315,10 @@ const compactNodePlanSchema = z.object({
   wordRadarConfig: z.preprocess(
     (value) => value === null ? undefined : value,
     wordRadarNodeConfigSchema.optional(),
+  ),
+  rewardWrapper: z.preprocess(
+    (value) => value === null ? undefined : value,
+    rewardWrapperSchema.optional(),
   ),
 });
 
@@ -285,8 +381,14 @@ function realChildAllowedActivityIds(childId: string): Set<string> | null {
 function activityCatalog(childId = "demo_adaptive"): AssignmentActivityCard[] {
   const allowed = realChildAllowedActivityIds(childId);
   return listActivityToolContracts()
-    .filter((contract) => NODE_TYPES.has(contract.id as NodeType))
-    .filter((contract) => !allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id))
+    .filter((contract) =>
+      NODE_TYPES.has(contract.id as NodeType) || contract.plannerVisibility === "wrapper")
+    .filter((contract) => !ASSIGNMENT_PLANNER_EXCLUDED_ACTIVITY_IDS.has(contract.id))
+    .filter((contract) =>
+      !allowed ||
+      allowed.has(contract.id) ||
+      PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id) ||
+      contract.plannerVisibility === "wrapper")
     .map((contract) => ({
     activityId: contract.id,
     label: contract.label,
@@ -299,6 +401,7 @@ function activityCatalog(childId = "demo_adaptive"): AssignmentActivityCard[] {
     weakFor: [...contract.weakFor],
     goodFitWhen: [...contract.goodFitWhen],
     badFitWhen: [...contract.badFitWhen],
+    plannerVisibility: contract.plannerVisibility,
     capabilityModes: contract.capabilityModes.map((mode) => ({
       ...mode,
       skillTargets: [...mode.skillTargets],
@@ -321,7 +424,31 @@ export function buildAssignmentPlanningPacket(args: {
   extraction: AssignmentSourceExtraction;
   childChart: ChildChart;
   currentEvidenceSummary?: string[];
+  parentDialogue?: AssignmentPlannerDialogueTurn[];
+  priorPlannerOutput?: AssignmentPlannerOutput;
 }): AssignmentPlanningPacket {
+  const plannerInstruction = [
+    "Interpret the assignment from the source text and source groups.",
+    "Think like the tutor sitting beside the child: what does the assignment require, what should you check first, what will teach or reveal the next thing, and when should you switch the emotional texture so the child stays with you?",
+    "The child experiences the activity, not your internal capability mode; if two academically different checks use the same game shell, choose a different material or explain why the repetition is the right tutor move.",
+    "Before you return a plan, read it as the child would. If the same activity shell appears more than once before Mystery, revise to a different-feeling material or include a parent-facing rationale for why this will not feel like grind.",
+    "nodes exist to change the lived lesson, not to decorate the map.",
+    "Activities are instruments and materials. Choose nodes by target purpose, child state, and lived experience, not by generic fun.",
+    "Each word group must declare its learning purpose from source evidence.",
+    "Do not collapse teacher-labeled groups into one skill; infer whether each group asks for spelling production, recognition, fluency, pronunciation, meaning, or review.",
+    "Before planning the next board, ask: What changed since the last session? What should this plan try differently because of that evidence?",
+    "Use recent canonical activity evidence as lesson-to-lesson labs: weak targets get support; mastered targets get smaller spaced checks or transfer instead of full repeated baseline.",
+    "When exact weak targets are named, give those weak targets strictly more academic support than mastered targets; light reinforcement must be smaller than support.",
+    "When evidence conflicts, the first academic node should probe those exact contradictory targets; give them more academic placements than clean/mastered targets, and do not create a same-activity run just to replay clean words.",
+    "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
+    "When a recognition/read-fluency lane needs spoken fluency, include a pronunciation instrument; if visible_read alone is sufficient, explain that limitation in reviewQuestions.",
+    "If parent dialogue is present, treat it as human-in-the-loop correction context and revise the prior planner output instead of ignoring subtle assignment nuance.",
+    "If priorPlannerOutput is present, this is a revision. Preserve good prior decisions, update only what the parent dialogue or source evidence changes, and keep one coherent board.",
+    "Use plannerReferences when evaluating whether a new class activity should enter Sunny; docs explain the product rule, while configOwner points to the machine-readable contract.",
+    "Use the child-facing journey as part of professional judgment: the experience should feel purposeful and worth effort while preserving academic validity.",
+    "Each activity must be chosen because its measured skills fit that declared purpose.",
+    "Return a board plan that cites why every activity fits the target purpose.",
+  ].join(" ");
   return {
     packetVersion: 1,
     childId: args.childId,
@@ -348,20 +475,14 @@ export function buildAssignmentPlanningPacket(args: {
       recentEvidence: args.currentEvidenceSummary ?? [],
     },
     activityCatalog: activityCatalog(args.childId),
-    plannerInstruction: [
-      "Interpret the assignment from the source text and source groups.",
-      "Activities are instruments. Choose nodes by target purpose, not by generic fun.",
-      "Each word group must declare its learning purpose from source evidence.",
-      "Do not collapse teacher-labeled groups into one skill; infer whether each group asks for spelling production, recognition, fluency, pronunciation, meaning, or review.",
-      "Use recent canonical activity evidence as lesson-to-lesson labs: weak targets get support; mastered targets get smaller spaced checks or transfer instead of full repeated baseline.",
-      "When exact weak targets are named, give those weak targets strictly more academic support than mastered targets; light reinforcement must be smaller than support.",
-      "When evidence conflicts, the first academic node should probe those exact contradictory targets; give them more academic placements than clean/mastered targets, and do not create a same-activity run just to replay clean words.",
-      "Count target placements before returning and count consecutive activity runs; if clean/mastered targets outnumber weak or contradictory targets in academic nodes, or any same-activity run exceeds two nodes, revise the nodePlan.",
-      "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
-      "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes or a long run of Word Radar.",
-      "Each activity must be chosen because its measured skills fit that declared purpose.",
-      "Return a board plan that cites why every activity fits the target purpose.",
-    ].join(" "),
+    plannerReferences: ASSIGNMENT_PLANNER_REFERENCE_DOCS.map((doc) => ({
+      ...doc,
+      appliesWhen: [...doc.appliesWhen],
+      checklist: [...doc.checklist],
+    })),
+    ...(args.parentDialogue?.length ? { parentDialogue: args.parentDialogue.map((turn) => ({ ...turn })) } : {}),
+    ...(args.priorPlannerOutput ? { priorPlannerOutput: args.priorPlannerOutput } : {}),
+    plannerInstruction,
   };
 }
 
@@ -407,6 +528,20 @@ export function validateAssignmentPlannerOutput(
 
   const catalog = args.activityCatalog ?? activityCatalog();
   const activityIds = new Set(args.activityIds ?? catalog.map((card) => card.activityId));
+  const catalogByActivityId = new Map(catalog.map((card) => [card.activityId, card]));
+  const wrapperActivityIds = new Set(
+    catalog
+      .filter((card) => card.plannerVisibility === "wrapper")
+      .map((card) => card.activityId),
+  );
+  const wrapperModesByActivityId = new Map(
+    catalog
+      .filter((card) => card.plannerVisibility === "wrapper")
+      .map((card) => [
+        card.activityId,
+        new Set(card.capabilityModes.map((mode) => mode.id)),
+      ]),
+  );
   const nodeTypes = new Set(output.activeSessionPlan.nodePlan.map((node) => node.type));
   if (!nodeTypes.has("mystery")) {
     issues.push({
@@ -440,6 +575,46 @@ export function validateAssignmentPlannerOutput(
         severity: "error",
         message: `Node ${node.id} references unknown activity ${node.activityId}.`,
       });
+    }
+    if (wrapperActivityIds.has(node.activityId)) {
+      issues.push({
+        code: "wrapper_activity_used_as_node",
+        severity: "error",
+        message: `Node ${node.id} uses wrapper activity ${node.activityId} as a standalone node; attach it as rewardWrapper on a domain-valid node instead.`,
+      });
+    }
+    const rewardWrapper = "rewardWrapper" in node ? node.rewardWrapper : undefined;
+    if (rewardWrapper) {
+      const wrapperCard = catalogByActivityId.get(rewardWrapper.activityId);
+      if (!wrapperCard) {
+        issues.push({
+          code: "unknown_reward_wrapper_activity",
+          severity: "error",
+          message: `Node ${node.id} references unknown reward wrapper ${rewardWrapper.activityId}.`,
+        });
+      } else if (wrapperCard.plannerVisibility !== "wrapper") {
+        issues.push({
+          code: "reward_wrapper_activity_not_wrapper",
+          severity: "error",
+          message: `Node ${node.id} references ${rewardWrapper.activityId} as a reward wrapper, but the catalog does not mark it as a wrapper.`,
+        });
+      } else if (!wrapperModesByActivityId.get(rewardWrapper.activityId)?.has(rewardWrapper.mode)) {
+        issues.push({
+          code: "unknown_reward_wrapper_mode",
+          severity: "error",
+          message: `Node ${node.id} references unsupported wrapper mode ${rewardWrapper.activityId}:${rewardWrapper.mode}.`,
+        });
+      }
+      if (
+        rewardWrapper.mode === "domain_payload_wrapper" &&
+        (node.locked === true || node.type === "quest" || node.type === "boss" || node.type === "mystery")
+      ) {
+        issues.push({
+          code: "reward_wrapper_requires_domain_payload_node",
+          severity: "error",
+          message: `Node ${node.id} uses domain_payload_wrapper on ${node.type}; attach it to an unlocked evidence-generating domain node instead.`,
+        });
+      }
     }
     const nodeTargetKeys = new Set(node.targets.map((target) => target.trim().toLowerCase()).filter(Boolean));
     const matchingGroup = sourceGroupsByTargets.find(({ targetKeys }) =>
@@ -491,7 +666,7 @@ export function resolveAssignmentPlannerModel(
   opts: AssignmentPlanningOptions = {},
   env: Partial<Pick<NodeJS.ProcessEnv, "SUNNY_EXPERIENCE_PLANNER_MODEL">> = process.env,
 ): string {
-  return opts.model ?? env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? "claude-sonnet-4-5";
+  return opts.model ?? env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? "claude-sonnet-4-6";
 }
 
 function imageMediaType(filePath: string): "image/png" | "image/jpeg" | "image/webp" | null {
@@ -520,10 +695,12 @@ export function assignmentPlannerSourceImages(packet: AssignmentPlanningPacket):
     .filter((image): image is { mediaType: "image/png" | "image/jpeg" | "image/webp"; data: string } => Boolean(image));
 }
 
-function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
-  return `Create Sunny's homework interpretation and active board plan from this source-of-truth packet.
+export function buildAssignmentPlannerPrompt(packet: AssignmentPlanningPacket): string {
+  return `${ASSIGNMENT_PLANNER_PERSONA}
 
-Rules:
+Design today's learning journey for this child from the source-of-truth packet.
+
+Output contract:
 - If source page images are provided, use the worksheet image/layout as the primary source of truth and OCR text only as support.
 - Do not flatten source word groups.
 - Infer each source group's target purpose from the assignment evidence.
@@ -532,18 +709,24 @@ Rules:
 - Mastery evidence should shrink redundant baseline work. Do not repeat a full scaffolded baseline for targets that were all correct first try with low latency and no support; use a small spaced reinforcement check, Mystery for preference data, and locked Quest for transfer readiness.
 - Light spaced reinforcement means fewer mastered targets and fewer academic placements than the weak/fragile targets. If a prior lesson names exact missed targets, those weak targets should receive strictly more academic measurement/support than the mastered targets, unless your planTheory explicitly argues otherwise.
 - When evidence conflicts, the first academic node should probe those exact contradictory targets; give them more academic placements than clean/mastered targets, and do not create a same-activity run just to replay clean words.
-- Count target placements before returning and count consecutive activity runs; if clean/mastered targets outnumber weak or contradictory targets in academic nodes, or any same-activity run exceeds two nodes, revise the nodePlan.
 - Match each source group to activities whose cataloged skills can actually measure that purpose.
 - For source groups whose purpose is recognize, read_fluently, or pronounce, prefer pronunciation or visible_read-style recognition evidence. Do not turn high-frequency recognition words into spelling-production work unless the source explicitly says those words are spelling targets or prior evidence shows spelling production is the gap.
+- If a recognition/read-fluency group needs spoken fluency, include a pronunciation node. If you choose visible_read without pronunciation, reviewQuestions must explain why visible-read recognition is sufficient for this assignment.
+- If parent dialogue or priorPlannerOutput is present in the packet, this is a human-in-the-loop revision. Use the parent correction as context and return a revised complete plan from the same source of truth.
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
+- Planner-visible wrapper activities are not map nodes. If a wrapper fits organically, attach it as rewardWrapper on a domain-valid node instead of replacing the academic activity.
+- Spark Orb may be selected only as rewardWrapper when its catalog/docs fit the child and assignment. It is optional; choosing not to use it is valid when baseline evidence should stay clean.
+- domain_payload_wrapper must attach to an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or any locked destination.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
-- Every word-radar node must include wordRadarConfig from the activity catalog capability modes. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. Use audio_cued_letter_recall when the child should fill slots from hearing the word instead of seeing the flash. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
-- If a child needs shorter cohorts, shorten the target list and vary instruments by purpose rather than creating many same-activity nodes. Do not split one lane into a long run of consecutive Word Radar nodes; more Word Radar nodes are not better evidence when one better-chosen Word Radar node plus another instrument would answer the care-plan question.
-- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
+- Every word-radar node must include wordRadarConfig from the activity catalog capability modes. wordRadarConfig.recallMode has exactly three allowed values: visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode. Capability mode ids may appear in rationale, not in wordRadarConfig.recallMode. For spelling construction that is new/weak/fragile, use partial_visual_recall with letter-by-letter input, no timer, hidden during response, and captured response required. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with the provided audio-cued config values; do not put capability-mode ids into recallMode. Use hidden_word_recall only when prior evidence supports harder recall. Use visible_read for recognition/fluency/accessibility evidence, especially when the source purpose is recognize or read_fluently. Omit wordRadarConfig on non-word-radar nodes.
+- Treat the child-facing journey as part of your professional judgment: the experience should feel purposeful and worth effort while preserving academic validity.
+- Include the adventure spine in activeSessionPlan.nodePlan: enough baseline evidence to know the gap, then teaching or practice that changes the lived lesson, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
 - Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest targets the current theory targets, Boss may have empty targets until quest evidence exists.
+- Set masteryUnlockState only on locked quest and boss nodes. For those nodes use exactly "masteryUnlockState": "preparing". Omit masteryUnlockState from baseline, teaching, practice, pronunciation, word-radar, spell-check, letter-rush, monster-stampede, and mystery nodes.
 - Include parent-review language that explains why every group was routed to its activity.
+- In planTheory or reviewQuestions, explain why the journey you chose fits this child today; if the same activity shell appears more than once before Mystery, explicitly explain why this will not feel like grind or revise the node plan.
 - Return one valid JSON object directly. Do not include markdown fences.
 - JSON shape:
   {
@@ -558,7 +741,7 @@ Rules:
       "sourceDocuments": [{"filename": string, "mediaType": string}]
     },
     "homeworkWords": [{"text": string, "sourceGroupId": string, "purpose": "spell_from_memory" | "recognize" | "read_fluently" | "pronounce" | "define" | "unknown"}],
-    "activeSessionPlan": {"nodePlan": [{"id": string, "type": string, "activityId": string, "targets": string[], "difficulty": 1 | 2 | 3, "targetLane": string, "choiceMode": "choice_lab | surprise_drop only for mystery", "locked": boolean, "masteryUnlockState": "preparing for locked quest/boss", "wordRadarConfig": "only for word-radar nodes: {\"recallMode\": \"visible_read\" | \"partial_visual_recall\" | \"hidden_word_recall\", \"inputMode\": \"whole-word\" | \"letter-by-letter\" | \"keyboard\", \"speakStyle\": \"option-a\" | \"option-b\", \"showTimer\": boolean, \"timerSeconds\": number, \"hideWordDuringResponse\": boolean, \"requiresCapturedResponse\": boolean}"}]},
+    "activeSessionPlan": {"nodePlan": [{"id": string, "type": string, "activityId": string, "targets": string[], "difficulty": 1 | 2 | 3, "targetLane": string, "choiceMode": "choice_lab | surprise_drop only for mystery", "locked": boolean, "masteryUnlockState": "only on locked quest/boss nodes, exactly \"preparing\"", "wordRadarConfig": "only for word-radar nodes: {\"recallMode\": \"visible_read\" | \"partial_visual_recall\" | \"hidden_word_recall\", \"inputMode\": \"whole-word\" | \"letter-by-letter\" | \"keyboard\", \"speakStyle\": \"option-a\" | \"option-b\", \"showTimer\": boolean, \"timerSeconds\": number, \"hideWordDuringResponse\": boolean, \"requiresCapturedResponse\": boolean}", "rewardWrapper": "optional wrapper only: {\"activityId\": \"spark-orb-charge\", \"mode\": \"charge_bridge\" | \"domain_payload_wrapper\", \"reason\": string}"}]},
     "plannedMeasurements": [{"id": string, "activityId": string, "target": string, "evidenceType": string, "supportCriteria": string, "reviseCriteria": string, "falsifyCriteria": string}],
     "planTheory": {"hypothesis": string, "evidenceSummary": string[], "intervention": string, "supportCriteria": string[], "reviseCriteria": string[], "falsifyCriteria": string[]},
     "reviewQuestions": string[]
@@ -634,7 +817,7 @@ async function callAssignmentPlannerModel(
   if (images.length === 0) {
     const { text, usage } = await generateText({
       model: anthropic(model),
-      system: "You are Sunny's assignment planner. You interpret source homework and design a measurable adaptive board from activity instruments.",
+      system: ASSIGNMENT_PLANNER_PERSONA,
       prompt,
     });
     return { text, usage };
@@ -644,7 +827,7 @@ async function callAssignmentPlannerModel(
   const response = await client.messages.create({
     model,
     max_tokens: 12_000,
-    system: "You are Sunny's assignment planner. You interpret the visible homework source first, then design a measurable adaptive board from activity instruments.",
+    system: `${ASSIGNMENT_PLANNER_PERSONA} Use the visible homework source first, then OCR text as support.`,
     messages: [{
       role: "user",
       content: [

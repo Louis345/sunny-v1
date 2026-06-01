@@ -6,10 +6,13 @@ import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import type { ChildChart } from "../profiles/childChart";
 import type { CapturedHomeworkContent } from "../scripts/contentAwareHomeworkPlanner";
 import {
+  ASSIGNMENT_PLANNER_PERSONA,
   buildAssignmentPlanningPacket,
+  buildAssignmentPlannerPrompt,
   assignmentPlannerSourceImages,
   normalizeAssignmentNodeType,
   parseAssignmentPlannerJson,
+  resolveAssignmentPlannerModel,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
   type AssignmentPlannerOutput,
@@ -254,6 +257,10 @@ function goodOutput(): AssignmentPlannerOutput {
 }
 
 describe("assignment planner", () => {
+  it("defaults to the current available Sonnet planner model", () => {
+    expect(resolveAssignmentPlannerModel({}, {})).toBe("claude-sonnet-4-6");
+  });
+
   it("parses the first planner JSON object even when the model adds trailing text", () => {
     const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
       capturedContent: {
@@ -389,6 +396,15 @@ describe("assignment planner", () => {
     expect(packet.sourceDocument.fullText).toContain("High-Frequency Words");
     expect(packet.childChart.childId).toBe("reina");
     expect(packet.activityCatalog.some((card) => card.activityId === "pronunciation")).toBe(true);
+    const sparkOrb = packet.activityCatalog.find((card) => card.activityId === "spark-orb-charge");
+    expect(sparkOrb).toMatchObject({
+      plannerVisibility: "wrapper",
+      evidenceType: "practice",
+    });
+    expect(sparkOrb?.capabilityModes.map((mode) => mode.id)).toEqual([
+      "charge_bridge",
+      "domain_payload_wrapper",
+    ]);
     expect(packet.activityCatalog.some((card) => card.activityId === "mystery")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "quest")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "boss")).toBe(true);
@@ -398,15 +414,71 @@ describe("assignment planner", () => {
       .find((card) => card.activityId === "word-radar")
       ?.capabilityModes.find((mode) => mode.id === "partial_visual_recall")
       ?.config).toMatchObject(WORD_RADAR_LETTER_FILL_CONFIG);
+    const protocolDoc = (packet as any).plannerReferences?.find(
+      (doc: { id?: string }) => doc.id === "activity-tool-protocol",
+    );
+    expect(protocolDoc).toMatchObject({
+      path: "docs/activity-tool-protocol.md",
+      configOwner: "src/engine/activityToolCatalog.ts",
+    });
+    expect(protocolDoc.plannerUse).toMatch(/assess whether a proposed class activity should enter Sunny/i);
+    const sparkOrbDoc = (packet as any).plannerReferences?.find(
+      (doc: { id?: string }) => doc.id === "spark-orb-learning-contract",
+    );
+    expect(sparkOrbDoc).toMatchObject({
+      path: "docs/spark-orb-learning-contract.md",
+      configOwner: "src/engine/activityToolCatalog.ts",
+    });
     expect(packet.plannerInstruction).toContain("mastered targets get smaller spaced checks");
+    expect(packet.plannerInstruction).toContain("plannerReferences");
     expect(packet.plannerInstruction).toContain("strictly more academic support than mastered targets");
     expect(packet.plannerInstruction).toContain("first academic node should probe those exact contradictory targets");
-    expect(packet.plannerInstruction).toContain("Count target placements before returning");
-    expect(packet.plannerInstruction).toContain("count consecutive activity runs");
     expect(packet.plannerInstruction).toContain("visible_read or pronunciation");
-    expect(packet.plannerInstruction).toContain("long run of Word Radar");
+    expect(packet.plannerInstruction).toContain("child-facing journey");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("parses Spark Orb reward wrapper decisions without turning the orb into a node type", () => {
+    const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
+      capturedContent: {
+        title: "Demo",
+        type: "spelling_test",
+        rawText: "Silent Letters\nsign",
+        words: ["sign"],
+        questions: [],
+        wordGroups: [{ id: "silent_letters", label: "Silent Letters", purpose: "spell_from_memory", words: ["sign"], confidence: 0.95, evidence: ["source"] }],
+        contentProfile: { practiceDomain: "spelling", contentDomain: "language_arts", topic: "Demo", primarySkill: "spelling", assignmentFormat: "word list", concepts: [], sourceEvidence: [] },
+        sourceDocuments: [{ filename: "demo.pdf", mediaType: "application/pdf" }],
+      },
+      homeworkWords: [{ text: "sign", sourceGroupId: "silent_letters", purpose: "spell_from_memory" }],
+      activeSessionPlan: {
+        nodePlan: [{
+          id: "spell",
+          type: "spell-check",
+          activityId: "spell-check",
+          targets: ["sign"],
+          difficulty: 1,
+          targetLane: "silent_letters",
+          rewardWrapper: {
+            activityId: "spark-orb-charge",
+            mode: "domain_payload_wrapper",
+            reason: "Use the orb as an earned shell around the spelling payload.",
+          },
+        }],
+      },
+      plannedMeasurements: [{ id: "m", activityId: "spell-check", target: "sign", evidenceType: "spell_from_memory", supportCriteria: "correct", reviseCriteria: "miss", falsifyCriteria: "missing" }],
+      planTheory: { hypothesis: "h", evidenceSummary: ["e"], intervention: "i", supportCriteria: ["s"], reviseCriteria: ["r"], falsifyCriteria: ["f"] },
+      reviewQuestions: ["Review?"],
+    })}`);
+
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("spell-check");
+    expect(parsed.activeSessionPlan.nodePlan[0]?.type).toBe("spell-check");
+    expect((parsed.activeSessionPlan.nodePlan[0] as any)?.rewardWrapper).toEqual({
+      activityId: "spark-orb-charge",
+      mode: "domain_payload_wrapper",
+      reason: "Use the orb as an earned shell around the spelling payload.",
+    });
   });
 
   it("keeps lesson-to-lesson adaptation guidance in the planner prompt without adding deterministic category blockers", () => {
@@ -416,9 +488,102 @@ describe("assignment planner", () => {
     expect(source).toContain("Mastery evidence should shrink redundant baseline work");
     expect(source).toContain("Light spaced reinforcement means fewer mastered targets");
     expect(source).toContain("prefer pronunciation or visible_read-style recognition evidence");
-    expect(source).toContain("Do not split one lane into a long run of consecutive Word Radar nodes");
+    expect(source).toContain("child-facing journey");
+    expect(source).not.toContain("same-activity run exceeds");
+    expect(source).not.toContain("Do not split one lane into a long run");
     expect(source).not.toContain("if (purpose === \"read_fluently\")");
     expect(source).not.toContain("if (group.label === \"High-Frequency Words\")");
+  });
+
+  it("uses a learning-journey persona instead of hardcoded engagement rules", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("learning journey designer");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("homework as the reality anchor");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("strong sense of taste");
+    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("The board is not a worksheet");
+    expect(prompt).toContain("Design today's learning journey");
+    expect(prompt).toContain("explain why the journey you chose fits this child today");
+    expect(prompt).not.toContain("same-activity run exceeds");
+    expect(prompt).not.toContain("Do not split one lane into a long run");
+  });
+
+  it("frames planning like a real tutor choosing materials, not code steering node choices", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(prompt).toContain("real tutoring session, not filling a board");
+    expect(prompt).toContain("table full of materials");
+    expect(prompt).toContain("master it by the due date");
+    expect(prompt).toContain("without making the child feel like this is a grind");
+    expect(prompt).toContain("check first");
+    expect(prompt).toContain("teach or reveal the next thing");
+    expect(prompt).toContain("switch the emotional texture");
+    expect(prompt).toContain("The child experiences the activity, not your internal capability mode");
+    expect(prompt).toContain("same game shell");
+    expect(prompt).toContain("choose a different material or explain why the repetition is the right tutor move");
+    expect(prompt).toContain("same activity shell appears more than once before Mystery");
+    expect(prompt).toContain("why this will not feel like grind");
+    expect(prompt).toContain("nodes exist to change the lived lesson");
+    expect(prompt).not.toContain("After the first clean measurement");
+    expect(prompt).not.toContain("consider Letter Rush or Monster Stampede");
+  });
+
+  it("does not ask the planner to put capability-mode ids into Word Radar recallMode", () => {
+    const prompt = buildAssignmentPlannerPrompt(buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    }));
+
+    expect(prompt).toContain("If you choose the catalog's audio_cued_letter_recall capability mode");
+    expect(prompt).toContain("emit recallMode partial_visual_recall");
+    expect(prompt).toContain("Never emit audio_cued_letter_recall as recallMode");
+    expect(prompt).toContain("Capability mode ids may appear in rationale, not in wordRadarConfig.recallMode");
+    expect(prompt).not.toContain("Use audio_cued_letter_recall when the child should fill slots");
+  });
+
+  it("keeps masteryUnlockState restricted to locked destination nodes", () => {
+    const prompt = buildAssignmentPlannerPrompt(buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    }));
+
+    expect(prompt).toContain("masteryUnlockState only on locked quest and boss nodes");
+    expect(prompt).toContain("\"masteryUnlockState\": \"preparing\"");
+    expect(prompt).not.toContain("\"masteryUnlockState\": \"preparing for locked quest/boss\"");
+  });
+
+  it("keeps adaptive evidence and activity materials visible together for iterative planning", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+      currentEvidenceSummary: [
+        "Last session: Letter Rush was high-engagement and clean for known words.",
+        "Last session: Word Radar fatigue appeared after repeated similar nodes.",
+      ],
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(prompt).toContain("Letter Rush was high-engagement");
+    expect(prompt).toContain("Word Radar fatigue");
+    expect(packet.activityCatalog.some((card) => card.activityId === "letter-rush")).toBe(true);
+    expect(packet.activityCatalog.some((card) => card.activityId === "monster-stampede")).toBe(true);
+    expect(prompt).toContain("\"activityId\": \"letter-rush\"");
+    expect(prompt).toContain("\"activityId\": \"monster-stampede\"");
+    expect(prompt).toContain("What changed since the last session?");
+    expect(prompt).toContain("What should this plan try differently because of that evidence?");
   });
 
   it("keeps source page images available for image-first planning", () => {
@@ -449,6 +614,89 @@ describe("assignment planner", () => {
         childChart: chart(),
       }).activityCatalog,
     })).toEqual([]);
+  });
+
+  it("accepts organic non-selection when Spark Orb is available but not chosen", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+
+    expect(packet.activityCatalog.some((card) => card.activityId === "spark-orb-charge")).toBe(true);
+    expect(validateAssignmentPlannerOutput(goodOutput(), {
+      extraction: extraction(),
+      activityCatalog: packet.activityCatalog,
+    })).toEqual([]);
+  });
+
+  it("accepts a valid Spark Orb wrapper on a domain-valid spelling node", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan[1] = {
+      ...output.activeSessionPlan.nodePlan[1]!,
+      rewardWrapper: {
+        activityId: "spark-orb-charge",
+        mode: "domain_payload_wrapper",
+        reason: "Earned launch wraps the spelling payload after target evidence is captured.",
+      },
+    } as any;
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual([]);
+  });
+
+  it("rejects Spark Orb as a standalone mastery node instead of a wrapper", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan.unshift({
+      id: "spark-orb-standalone",
+      type: "spell-check",
+      activityId: "spark-orb-charge",
+      targets: ["sign"],
+      difficulty: 1,
+      source: "chart_planner",
+      targetLane: "silent_letters",
+    });
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "wrapper_activity_used_as_node" }),
+    ]));
+  });
+
+  it("rejects domain payload wrappers on locked destinations", () => {
+    const output = goodOutput();
+    const questIndex = output.activeSessionPlan.nodePlan.findIndex((node) => node.type === "quest");
+    output.activeSessionPlan.nodePlan[questIndex] = {
+      ...output.activeSessionPlan.nodePlan[questIndex]!,
+      rewardWrapper: {
+        activityId: "spark-orb-charge",
+        mode: "domain_payload_wrapper",
+        reason: "Do not let a locked destination pretend it owns live target evidence.",
+      },
+    } as any;
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "reward_wrapper_requires_domain_payload_node" }),
+    ]));
   });
 
   it("requires planner-owned Mystery, Quest, and Boss destinations", () => {
