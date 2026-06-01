@@ -1768,6 +1768,17 @@ export function resolveShowroomTalkChildId(
   return fromQuery?.trim().toLowerCase() || "showroom";
 }
 
+export function resolveShowroomChildDisplayName(
+  childName: string | undefined,
+  childId: string,
+): string | undefined {
+  const fromProp = childName?.trim();
+  if (fromProp) return fromProp;
+  if (childId === "ila") return "Ila";
+  if (childId === "reina") return "Reina";
+  return undefined;
+}
+
 function resolveShowroomVideoCallSttChildName(childId: string): "Ila" | "Reina" {
   return childId === "reina" ? "Reina" : "Ila";
 }
@@ -5156,7 +5167,7 @@ export function CompanionShowroom({
     const greeting = resolveVideoCallPickupGreeting({
       companionId: current.id,
       companionName: current.name,
-      childName,
+      childName: resolveShowroomChildDisplayName(childName, talkChildId),
       callSource: activeVideoCallContext.callSource,
       relationshipState: activeVideoCallContext.relationshipState,
     });
@@ -5305,6 +5316,7 @@ export function CompanionShowroom({
     emitShowroomVideoCallTrace,
     playCurrentCompanionAnimation,
     startShowroomVideoChatCamera,
+    talkChildId,
     voiceSelections,
   ]);
 
