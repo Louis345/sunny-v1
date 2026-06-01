@@ -30,6 +30,12 @@ export interface CompanionCareMemory {
   lastThingTheyWorkedOn?: string;
   lastEmotionalMoment?: string;
   reunionLineSeed?: string;
+  relationshipFacts?: string[];
+  favoriteMoments?: string[];
+  emotionalTone?: string;
+  lastCompanionInteractionCompactedAt?: string;
+  lastCompanionInteractionId?: string;
+  interactionSummaryRevision?: number;
 }
 
 export interface CompanionCarePlan {

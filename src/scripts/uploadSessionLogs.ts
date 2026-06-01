@@ -147,6 +147,30 @@ export function resolveExpiredUploadedLocalPaths(
   return [...paths].sort();
 }
 
+export function uploadedStatusIsVerified(
+  sourceRoot: string,
+  repoRoot: string,
+  localLogFolder: string,
+): boolean {
+  const source = path.resolve(sourceRoot);
+  const local = path.resolve(localLogFolder);
+  const repo = path.resolve(repoRoot);
+  if (!isInside(source, local)) return false;
+  const rel = repoRelativePath(source, path.join(local, "upload-status.json"));
+  const repoStatusFile = path.join(repo, rel);
+  try {
+    const status = JSON.parse(fs.readFileSync(repoStatusFile, "utf8")) as unknown;
+    return (
+      status != null &&
+      typeof status === "object" &&
+      !Array.isArray(status) &&
+      (status as Record<string, unknown>).uploaded === true
+    );
+  } catch {
+    return false;
+  }
+}
+
 function runGit(repoRoot: string, args: string[]): string {
   return execFileSync("git", args, {
     cwd: repoRoot,
