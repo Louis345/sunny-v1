@@ -93,7 +93,45 @@ describe("CompanionVideoCallOverlay", () => {
     expect(screen.getByTestId("activity-slot")).toHaveTextContent("Tic-tac-toe board");
   });
 
-  it("keeps FaceTime activities in a compact side tray instead of covering the child", () => {
+  it("collapses to compact controls when hands-free voice owns the call", () => {
+    render(
+      <CompanionVideoCallOverlay
+        open
+        companionName="Elli"
+        phase="live"
+        cameraState="live"
+        talkPhase="listening"
+        responseText=""
+        error={null}
+        question=""
+        statusCopy={{
+          heading: "Video Chat with Elli",
+          status: "Camera live",
+          helperText: "Elli is here.",
+        }}
+        primaryBackground="linear-gradient(135deg, #7c5cff, #5b3ee0)"
+        portrait={<div data-testid="portrait-slot">VRM portrait</div>}
+        handsFree
+        onAskVoice={vi.fn()}
+        onQuestionChange={vi.fn()}
+        onSubmitQuestion={vi.fn()}
+        onLook={vi.fn()}
+        onStartCamera={vi.fn()}
+        onStopCamera={vi.fn()}
+        onEnd={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Video chat hands-free controls")).toBeInTheDocument();
+    expect(screen.getByText("Hands-free")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ask by voice in video chat" })).toBeNull();
+    expect(screen.queryByPlaceholderText("Ask Elli")).toBeNull();
+    expect(screen.getByRole("button", { name: "Let companion look" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop camera" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "End video chat" })).toBeInTheDocument();
+  });
+
+  it("floats FaceTime activities opposite the companion portrait controls", () => {
     render(
       <CompanionVideoCallOverlay
         open
@@ -124,25 +162,95 @@ describe("CompanionVideoCallOverlay", () => {
 
     const activityTray = screen.getByLabelText("Video chat activity");
     const style = activityTray.getAttribute("style") ?? "";
-    expect(style).toContain("left: 3vw");
     expect(style).toContain("top: auto");
-    expect(style).toContain("bottom: 14vh");
-    expect(style).toContain("width: 34vw");
-    expect(style).toContain("max-width: 360px");
+    expect(style).toContain("max-width: 300px");
+    expect(style).toContain("right: auto");
+    expect(style).not.toContain("right: clamp");
+    expect(style).not.toContain("right: calc");
     expect(style).not.toContain("translateX(-50%)");
+
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionVideoCallOverlay.tsx"),
+      "utf8",
+    );
+    expect(source).toContain('left: "clamp(16px, 3vw, 34px)"');
+    expect(source).toContain("right: \"auto\"");
+    expect(source).toContain('bottom: "clamp(92px, 12vh, 118px)"');
+    expect(source).toContain('width: "min(28vw, 300px)"');
   });
 
-  it("slides FaceTime activities in and out without moving the call surface", () => {
+  it("uses a compact caption instead of a large transcript panel during activity play", () => {
+    render(
+      <CompanionVideoCallOverlay
+        open
+        companionName="Elli"
+        phase="live"
+        cameraState="live"
+        talkPhase="listening"
+        responseText="Your turn to make the first move!"
+        error={null}
+        question=""
+        statusCopy={{
+          heading: "Video Chat with Elli",
+          status: "Playing",
+          helperText: "Elli is here.",
+        }}
+        primaryBackground="linear-gradient(135deg, #7c5cff, #5b3ee0)"
+        portrait={<div data-testid="portrait-slot">VRM portrait</div>}
+        activitySlot={<div data-testid="activity-slot">Tic-tac-toe board</div>}
+        layout="play"
+        onAskVoice={vi.fn()}
+        onQuestionChange={vi.fn()}
+        onSubmitQuestion={vi.fn()}
+        onLook={vi.fn()}
+        onStartCamera={vi.fn()}
+        onStopCamera={vi.fn()}
+        onEnd={vi.fn()}
+      />,
+    );
+
+    const caption = screen.getByLabelText("Video chat caption");
+    const style = caption.getAttribute("style") ?? "";
+    expect(caption).toHaveTextContent("Elli");
+    expect(caption).toHaveTextContent("Your turn to make the first move!");
+    expect(caption).not.toHaveTextContent("Elli is listening");
+    expect(style).toContain("bottom: auto");
+
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionVideoCallOverlay.tsx"),
+      "utf8",
+    );
+    expect(source).toContain('width: isPlayLayout ? "min(46vw, 420px)"');
+    expect(source).toContain('top: isPlayLayout ? "clamp(84px, 12vh, 112px)"');
+  });
+
+  it("pops FaceTime activities into place without sliding across the camera", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionVideoCallOverlay.tsx"),
       "utf8",
     );
 
     expect(source).toContain('key="video-call-activity-tray"');
-    expect(source).toContain("initial={{ opacity: 0, x: -28, scale: 0.96 }}");
-    expect(source).toContain("animate={{ opacity: 1, x: 0, scale: 1 }}");
-    expect(source).toContain("exit={{ opacity: 0, x: -24, scale: 0.97 }}");
-    expect(source).toContain("transition={{ duration: 0.24, ease: \"easeOut\" }}");
+    expect(source).toContain("initial={{ opacity: 0, scale: 0.72 }}");
+    expect(source).toContain("animate={{ opacity: 1, scale: [0.72, 1.04, 1] }}");
+    expect(source).toContain("exit={{ opacity: 0, scale: 0.88 }}");
+    expect(source).toContain("transformOrigin: \"center center\"");
+    expect(source).toContain("transition={{ duration: 0.38, ease: \"easeOut\" }}");
+    expect(source).not.toContain("initial={{ opacity: 0, x: 42");
+    expect(source).toContain('data-testid="companion-activity-link"');
+  });
+
+  it("exposes portrait and full-body companion framing for activity play", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionVideoCallOverlay.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("companionView");
+    expect(source).toContain("onCompanionViewChange");
+    expect(source).toContain("Portrait view");
+    expect(source).toContain("Full body view");
+    expect(source).toContain("data-companion-view");
   });
 
   it("exposes Call and Play layouts so reward games can feel different from normal conversation", () => {

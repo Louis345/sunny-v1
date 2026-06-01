@@ -21,6 +21,14 @@ function readTraceFolder(root: string, traceId: string): string {
 }
 
 describe("companion video call traces", () => {
+  it("registers every trace event accepted by the trace packet layer in the route allowlist", () => {
+    const routesSource = fs.readFileSync(path.join(__dirname, "routes.ts"), "utf8");
+
+    expect(routesSource).toContain('"activity_reaction_stale_dropped"');
+    expect(routesSource).toContain('"conversation_mode_changed"');
+    expect(routesSource).toContain('"activity_phase_changed"');
+  });
+
   it("appends sanitized trace rows under logs/sessions YYYY/MM folders", () => {
     const root = makeTraceRoot();
 
@@ -186,5 +194,408 @@ describe("companion video call traces", () => {
     );
     expect(JSON.stringify(packet)).not.toContain("base64");
     expect(JSON.stringify(packet)).not.toContain("audioBase64");
+  });
+
+  it("summarizes AI-authored activity reactions and gesture fallbacks", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_activity_reaction",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+    };
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "reaction_1",
+        eventName: "activity_reaction_request_start",
+        timestamp: Date.parse("2026-05-28T18:00:00.000Z"),
+        payload: {
+          activityReaction: {
+            activityId: "tic_tac_toe",
+            eventType: "companion_move",
+            board: ["X", null, null, null, "O", null, null, null, null],
+          },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "reaction_1",
+        eventName: "activity_reaction_response_received",
+        timestamp: Date.parse("2026-05-28T18:00:01.100Z"),
+        payload: {
+          responseText: "I’ll take the center. Tiny sparkle strategy.",
+          commandCount: 1,
+          aiAuthored: true,
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "reaction_2",
+        eventName: "activity_reaction_fallback",
+        timestamp: Date.parse("2026-05-28T18:00:02.000Z"),
+        payload: {
+          reason: "talk_failed",
+          fallback: "gesture_only",
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_activity_reaction", {
+      rootDir: root,
+    });
+
+    expect(packet.activityReactions).toMatchObject({
+      aiAuthoredCount: 1,
+      fallbackCount: 1,
+      staleDroppedCount: 0,
+      averageResponseMs: 1100,
+      spokenCount: 0,
+      missingAudioCount: 1,
+    });
+    expect(packet.eventOrder.map((event) => event.eventName)).toEqual([
+      "activity_reaction_request_start",
+      "activity_reaction_response_received",
+      "activity_reaction_fallback",
+    ]);
+  });
+
+  it("surfaces stale activity reactions without misclassifying them as speech loops", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_stale_reaction",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+    };
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "reaction_1",
+        eventName: "activity_reaction_request_start",
+        timestamp: Date.parse("2026-05-28T18:10:00.000Z"),
+        payload: {
+          activityReaction: {
+            activityId: "tic_tac_toe",
+            eventType: "companion_move",
+            board: ["X", null, null, "O", "O", null, "X", null, null],
+            boardSignature: "X--OO-X--",
+          },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "reaction_1",
+        eventName: "activity_reaction_stale_dropped",
+        timestamp: Date.parse("2026-05-28T18:10:04.600Z"),
+        payload: {
+          reason: "board_changed_before_audio",
+          boardSignature: "X--OO-X--",
+          currentBoardSignature: "XXOOOXXXO",
+          latencyMs: 4600,
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_stale_reaction", {
+      rootDir: root,
+    });
+
+    expect(packet).toMatchObject({
+      traceId: "trace_stale_reaction",
+      likelyCause: "stale_activity_reaction",
+      loopSuspected: false,
+      activityReactions: {
+        aiAuthoredCount: 0,
+        fallbackCount: 0,
+        staleDroppedCount: 1,
+      },
+    });
+    expect(packet.eventOrder).toEqual([
+      expect.objectContaining({ eventName: "activity_reaction_request_start" }),
+      expect.objectContaining({ eventName: "activity_reaction_stale_dropped" }),
+    ]);
+  });
+
+  it("reports missing activity reaction audio before generic slow response", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_missing_activity_audio",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+    };
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "reaction_1",
+        eventName: "activity_reaction_request_start",
+        timestamp: Date.parse("2026-05-28T18:30:00.000Z"),
+        payload: {
+          activityReaction: {
+            activityId: "tic_tac_toe",
+            eventType: "companion_move",
+            board: ["X", null, null, null, "O", null, null, null, null],
+          },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "reaction_1",
+        eventName: "activity_reaction_response_received",
+        timestamp: Date.parse("2026-05-28T18:30:06.500Z"),
+        payload: {
+          responseText: "",
+          commandCount: 1,
+          aiAuthored: true,
+          latencySpans: {
+            claudeMs: 6500,
+            ttsMs: 0,
+            requestToResponseMs: 6500,
+          },
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_missing_activity_audio", {
+      rootDir: root,
+    });
+
+    expect(packet.likelyCause).toBe("activity_reaction_missing_audio");
+    expect(packet.activityReactions).toMatchObject({
+      aiAuthoredCount: 1,
+      missingAudioCount: 1,
+      spokenCount: 0,
+    });
+  });
+
+  it("reports board-open audio interruption as its own likely cause", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_interrupted_open",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+    };
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "turn_1",
+        eventName: "audio_error",
+        timestamp: Date.parse("2026-05-28T19:00:00.000Z"),
+        payload: {
+          reason: "The play() request was interrupted by a call to pause().",
+          activeActivity: {
+            activityId: "tic_tac_toe",
+          },
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_interrupted_open", {
+      rootDir: root,
+    });
+
+    expect(packet.likelyCause).toBe("activity_open_interrupted_audio");
+  });
+
+  it("reports tic-tac-toe context hijacking a social turn before generic slow response", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_game_hijacked_social",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+      turnId: "turn_12",
+    };
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        eventName: "speech_result",
+        timestamp: Date.parse("2026-05-30T00:35:31.000Z"),
+        payload: { transcript: "Hello. Can you hear me?" },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        eventName: "talk_request_start",
+        timestamp: Date.parse("2026-05-30T00:35:31.100Z"),
+        payload: {
+          questionText: "Hello. Can you hear me?",
+          conversationIntent: "social",
+          activeActivity: { activityId: "tic_tac_toe", turn: "child" },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        eventName: "talk_response_received",
+        timestamp: Date.parse("2026-05-30T00:35:37.000Z"),
+        payload: {
+          responseText:
+            "Yes! I can hear you perfectly! I see we have our tic-tac-toe game going - it's your turn to place an X!",
+          conversationIntent: "social",
+          activeActivity: { activityId: "tic_tac_toe", turn: "child" },
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_game_hijacked_social", {
+      rootDir: root,
+    });
+
+    expect(packet).toMatchObject({
+      likelyCause: "game_context_overrode_social_intent",
+      loopSuspected: false,
+    });
+  });
+
+  it("reports tic-tac-toe context hijacking repeat-after before repeated or slow response", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_game_hijacked_repeat",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+      turnId: "turn_14",
+    };
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        eventName: "speech_result",
+        timestamp: Date.parse("2026-05-30T00:36:00.000Z"),
+        payload: { transcript: "Ten" },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        eventName: "talk_request_start",
+        timestamp: Date.parse("2026-05-30T00:36:00.050Z"),
+        payload: {
+          questionText: "Ten",
+          conversationIntent: "repeat_after",
+          activeActivity: { activityId: "tic_tac_toe", turn: "child" },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        eventName: "talk_response_received",
+        timestamp: Date.parse("2026-05-30T00:36:01.400Z"),
+        payload: {
+          responseText:
+            'Hmm, I\'m not sure what "ten" means for our tic-tac-toe game! Are you trying to pick square 10?',
+          conversationIntent: "repeat_after",
+          activeActivity: { activityId: "tic_tac_toe", turn: "child" },
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_game_hijacked_repeat", {
+      rootDir: root,
+    });
+
+    expect(packet).toMatchObject({
+      likelyCause: "game_context_overrode_social_intent",
+      loopSuspected: false,
+    });
+  });
+
+  it("does not flag mirrored client/server lifecycle records as repeated turns", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_mirrored",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+      turnId: "turn_1",
+    };
+
+    for (const timestamp of [
+      Date.parse("2026-05-28T18:20:00.000Z"),
+      Date.parse("2026-05-28T18:20:00.010Z"),
+    ]) {
+      recordCompanionVideoCallTraceEvent(
+        {
+          ...base,
+          eventName: "talk_request_start",
+          timestamp,
+          origin: timestamp === Date.parse("2026-05-28T18:20:00.000Z") ? "client" : "server",
+          payload: { questionText: "Let's play tic-tac-toe." },
+        },
+        { rootDir: root },
+      );
+    }
+    for (const timestamp of [
+      Date.parse("2026-05-28T18:20:01.000Z"),
+      Date.parse("2026-05-28T18:20:01.030Z"),
+    ]) {
+      recordCompanionVideoCallTraceEvent(
+        {
+          ...base,
+          eventName: "talk_response_received",
+          timestamp,
+          origin: timestamp === Date.parse("2026-05-28T18:20:01.000Z") ? "server" : "client",
+          payload: { responseText: "Let's play!" },
+        },
+        { rootDir: root },
+      );
+    }
+
+    const packet = readCompanionVideoCallTracePacket("trace_mirrored", {
+      rootDir: root,
+    });
+
+    expect(packet).toMatchObject({
+      likelyCause: "none",
+      loopSuspected: false,
+    });
+    expect(packet.eventOrder).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ eventName: "talk_request_start", origin: "client" }),
+        expect.objectContaining({ eventName: "talk_request_start", origin: "server" }),
+        expect.objectContaining({ eventName: "talk_response_received", origin: "server" }),
+        expect.objectContaining({ eventName: "talk_response_received", origin: "client" }),
+      ]),
+    );
   });
 });

@@ -34,6 +34,7 @@ describe("companion video call trace adapter", () => {
       expect.objectContaining({
         traceId: "trace123",
         eventName: "speech_result",
+        origin: "client",
         transcriptPreview: "look at this",
         transcriptHash: expect.any(String),
       }),
@@ -71,6 +72,7 @@ describe("companion video call trace adapter", () => {
     expect(body).toMatchObject({
       traceId: "trace123",
       eventName: "activity_context_changed",
+      origin: "client",
       payload: {
         activeActivity: {
           activityId: "tic_tac_toe",

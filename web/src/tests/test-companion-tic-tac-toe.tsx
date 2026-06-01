@@ -1,10 +1,19 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { CompanionTicTacToe } from "../components/CompanionTicTacToe";
+import {
+  COMPANION_TIC_TAC_TOE_THINK_JITTER_MS,
+  COMPANION_TIC_TAC_TOE_THINK_MS,
+  CompanionTicTacToe,
+} from "../components/CompanionTicTacToe";
 
 describe("CompanionTicTacToe", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("emits structured activity events that can land in live session logs", async () => {
     const onGameEvent = vi.fn();
 
@@ -30,7 +39,7 @@ describe("CompanionTicTacToe", () => {
       () => {
         expect(screen.getByRole("gridcell", { name: "Square 5 O" })).toBeInTheDocument();
       },
-      { timeout: 2500 },
+      { timeout: 4000 },
     );
 
     expect(onGameEvent).toHaveBeenCalledWith(
@@ -51,20 +60,87 @@ describe("CompanionTicTacToe", () => {
     );
   });
 
-  it("uses a small thinking beat before the companion move so play feels conversational", () => {
+  it("emits round completion once even when the parent rerenders after the completed board", async () => {
+    vi.useFakeTimers();
+    const onGameEvent = vi.fn();
+
+    function RerenderingParent() {
+      const [tick, setTick] = useState(0);
+      return (
+        <>
+          <CompanionTicTacToe
+            companionName="Elli"
+            onClose={vi.fn()}
+            onGameEvent={(event) => {
+              onGameEvent(event);
+              if (event.type === "companion_tic_tac_toe_round_complete" && tick === 0) {
+                setTick(1);
+              }
+            }}
+          />
+          <div data-testid="parent-tick">{tick}</div>
+        </>
+      );
+    }
+
+    render(<RerenderingParent />);
+
+    const play = async (square: number) => {
+      fireEvent.click(screen.getByRole("gridcell", { name: `Square ${square}` }));
+      await act(async () => {
+        vi.advanceTimersByTime(4_000);
+      });
+    };
+
+    await play(1);
+    await play(2);
+    await play(7);
+    await play(6);
+    fireEvent.click(screen.getByRole("gridcell", { name: "Square 8" }));
+
+    expect(screen.getByText(/Draw game/i)).toBeInTheDocument();
+    expect(screen.getByTestId("parent-tick")).toHaveTextContent("1");
+
+    const completeEvents = onGameEvent.mock.calls.filter(
+      ([event]) => event.type === "companion_tic_tac_toe_round_complete",
+    );
+    expect(completeEvents).toHaveLength(1);
+  });
+
+  it("uses a deliberate thinking beat before the companion move so play feels conversational", () => {
     const source = readFileSync(
       resolve(__dirname, "../components/CompanionTicTacToe.tsx"),
       "utf8",
     );
 
     expect(source).toContain("COMPANION_TIC_TAC_TOE_THINK_MS");
-    expect(source).toContain("1180");
+    expect(source).toContain("2200");
     expect(source).toContain("COMPANION_TIC_TAC_TOE_THINK_JITTER_MS");
     expect(source).toContain("getCompanionTicTacToeThinkDelay");
     expect(source).not.toContain("}, 360)");
   });
 
-  it("emits banter for child and companion moves so the call can stay conversational", async () => {
+  it("uses a deliberate decision rhythm so companion moves do not feel like computer reflexes", () => {
+    expect(COMPANION_TIC_TAC_TOE_THINK_MS).toBeGreaterThanOrEqual(1_900);
+    expect(COMPANION_TIC_TAC_TOE_THINK_MS).toBeLessThanOrEqual(2_600);
+    expect(COMPANION_TIC_TAC_TOE_THINK_JITTER_MS).toBeGreaterThanOrEqual(450);
+    expect(COMPANION_TIC_TAC_TOE_THINK_MS + COMPANION_TIC_TAC_TOE_THINK_JITTER_MS).toBeLessThanOrEqual(
+      3_400,
+    );
+  });
+
+  it("records planned and actual companion decision timing for trace review", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../components/CompanionTicTacToe.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("decisionStartedAt");
+    expect(source).toContain("plannedDecisionDelayMs");
+    expect(source).toContain("decisionLatencyMs");
+  });
+
+  it("emits game events for AI-authored reactions without local spoken lines", async () => {
     const onCompanionTurn = vi.fn();
     const onBanter = vi.fn();
 
@@ -84,7 +160,6 @@ describe("CompanionTicTacToe", () => {
       expect.objectContaining({
         phase: "child_move",
         square: 1,
-        line: expect.stringMatching(/\S/),
       }),
     );
 
@@ -92,19 +167,17 @@ describe("CompanionTicTacToe", () => {
       () => {
         expect(screen.getByRole("gridcell", { name: "Square 5 O" })).toBeInTheDocument();
       },
-      { timeout: 2500 },
+      { timeout: 4000 },
     );
     expect(onCompanionTurn).toHaveBeenCalledWith(
       expect.objectContaining({
         square: 5,
-        line: expect.stringContaining("my turn"),
       }),
     );
     expect(onBanter).toHaveBeenCalledWith(
       expect.objectContaining({
         phase: "companion_move",
         square: 5,
-        line: expect.stringMatching(/my turn|square|center/i),
       }),
     );
   });
@@ -119,7 +192,8 @@ describe("CompanionTicTacToe", () => {
     expect(source).toContain("child_move");
     expect(source).toContain("companion_move");
     expect(source).toContain("round_complete");
-    expect(source).toContain("companionTurnLines");
+    expect(source).not.toContain("companionTurnLines");
+    expect(source).not.toContain("getCompanionTicTacToeBanterLine");
     expect(source).not.toContain("/api/companions/");
   });
 

@@ -8,7 +8,7 @@ type RoundResult = "child_win" | "companion_win" | "draw";
 type TicTacToeSfx = "child_move" | "companion_move" | "round_complete";
 export type CompanionTicTacToeTurn = {
   square: number;
-  line: string;
+  line?: string;
 };
 export type CompanionTicTacToeBanter = {
   phase:
@@ -16,7 +16,7 @@ export type CompanionTicTacToeBanter = {
     | "companion_thinking"
     | "companion_move"
     | "round_complete";
-  line: string;
+  line?: string;
   square?: number;
   result?: RoundResult;
 };
@@ -35,6 +35,9 @@ export type CompanionTicTacToeGameEvent = {
   square?: number;
   mark?: CompanionTicTacToeMark;
   result?: RoundResult;
+  decisionStartedAt?: number;
+  plannedDecisionDelayMs?: number;
+  decisionLatencyMs?: number;
 };
 
 export type CompanionTicTacToeProps = {
@@ -59,125 +62,13 @@ const WIN_LINES = [
 ] as const;
 
 const EMPTY_BOARD: Square[] = Array.from({ length: 9 }, () => null);
-const companionTurnLines = [
-  "my turn. I pick the center.",
-  "my turn. Tiny strategy sparkle.",
-  "my turn. I see a good square.",
-];
-export const COMPANION_TIC_TAC_TOE_THINK_MS = 1180;
-export const COMPANION_TIC_TAC_TOE_THINK_JITTER_MS = 260;
+export const COMPANION_TIC_TAC_TOE_THINK_MS = 2200;
+export const COMPANION_TIC_TAC_TOE_THINK_JITTER_MS = 650;
 
 function getCompanionTicTacToeThinkDelay(): number {
   return (
     COMPANION_TIC_TAC_TOE_THINK_MS +
     Math.round(Math.random() * COMPANION_TIC_TAC_TOE_THINK_JITTER_MS)
-  );
-}
-
-function pickTicTacToeLine(lines: readonly string[], seed = 0): string {
-  return lines[Math.abs(seed) % lines.length] ?? lines[0] ?? "Nice move.";
-}
-
-function getCompanionTicTacToeBanterLine(input: {
-  companionId?: string;
-  companionName: string;
-  phase: CompanionTicTacToeBanter["phase"];
-  square?: number;
-  result?: RoundResult;
-}): string {
-  const squareSeed = (input.square ?? 1) - 1;
-  const companionId = input.companionId?.toLowerCase() ?? "";
-  const phase = input.phase;
-  const persona =
-    companionId.includes("kefla")
-      ? "challenge"
-      : companionId.includes("matilda")
-        ? "strategic"
-        : companionId.includes("princess")
-          ? "quest"
-          : "warm";
-
-  if (phase === "round_complete") {
-    if (input.result === "child_win") {
-      return persona === "challenge"
-        ? "Okay, that was sharp. Run it back."
-        : persona === "strategic"
-          ? "You found the line. That was a thoughtful finish."
-          : persona === "quest"
-            ? "Victory is yours. The board bows to you."
-            : "You got me. That was a really good move.";
-    }
-    if (input.result === "companion_win") {
-      return persona === "challenge"
-        ? "Three in a row. Your rematch starts now."
-        : persona === "strategic"
-          ? "I found a little pattern there. Want to try again?"
-          : persona === "quest"
-            ? "I claimed the path this time. Shall we quest again?"
-            : "I got three in a row. Want a rematch?";
-    }
-    return persona === "challenge"
-      ? "Draw. That means we both need one more round."
-      : persona === "strategic"
-        ? "Draw game. We balanced each other perfectly."
-        : persona === "quest"
-          ? "A noble draw. One more quest?"
-          : "Draw game. That was close.";
-  }
-
-  if (phase === "companion_thinking") {
-    return persona === "challenge"
-      ? "Hold on. I’m reading the board."
-      : persona === "strategic"
-        ? "Give me a second. I’m checking the pattern."
-        : persona === "quest"
-          ? "Let me search the path."
-          : "Hmm, let me think for one second.";
-  }
-
-  if (phase === "companion_move") {
-    if (persona === "challenge") {
-      return pickTicTacToeLine(
-        ["my turn. I’m taking that square.", "my turn. I see the angle.", "my turn. Pressure stays on."],
-        squareSeed,
-      );
-    }
-    if (persona === "strategic") {
-      return pickTicTacToeLine(
-        ["my turn. I’ll take the center.", "my turn. That square keeps me safe.", "my turn. I found a quiet little block."],
-        squareSeed,
-      );
-    }
-    if (persona === "quest") {
-      return pickTicTacToeLine(
-        ["my turn. I choose this royal square.", "my turn. This path protects the crown.", "my turn. A gentle block."],
-        squareSeed,
-      );
-    }
-    return companionTurnLines[squareSeed % companionTurnLines.length] ?? "my turn.";
-  }
-
-  if (persona === "challenge") {
-    return pickTicTacToeLine(
-      ["Bold move.", "Corner pressure. I like it.", "You’re trying to trap me."],
-      squareSeed,
-    );
-  }
-  if (persona === "strategic") {
-    return pickTicTacToeLine(
-      ["Good square.", "That opens a diagonal.", "I see your plan."],
-      squareSeed,
-    );
-  }
-  if (persona === "quest") {
-    return pickTicTacToeLine(
-      ["A brave square.", "The quest begins there.", "A clever path."],
-      squareSeed,
-    );
-  }
-  return pickTicTacToeLine(
-    ["Ooh, good spot.", "I see what you’re doing.", "Nice, that square matters."],
-    squareSeed,
   );
 }
 
@@ -261,6 +152,10 @@ function resultFromBoard(board: readonly Square[]): RoundResult | null {
   return board.every(Boolean) ? "draw" : null;
 }
 
+function boardSignature(board: readonly Square[]): string {
+  return board.map((mark) => mark ?? "-").join("");
+}
+
 function statusCopy(result: RoundResult | null, companionName: string, thinking: boolean) {
   if (result === "child_win") return "You won. Nice move.";
   if (result === "companion_win") return `${companionName} got three in a row.`;
@@ -270,7 +165,6 @@ function statusCopy(result: RoundResult | null, companionName: string, thinking:
 }
 
 export function CompanionTicTacToe({
-  companionId,
   companionName,
   onClose,
   onBanter,
@@ -282,6 +176,9 @@ export function CompanionTicTacToe({
   const [companionThinking, setCompanionThinking] = useState(false);
   const [lastMove, setLastMove] = useState<number | null>(null);
   const didEmitStartedRef = useRef(false);
+  const emittedRoundCompleteRef = useRef<string | null>(null);
+  const decisionStartedAtRef = useRef<number | null>(null);
+  const plannedDecisionDelayMsRef = useRef<number | null>(null);
   const result = useMemo(() => resultFromBoard(board), [board]);
   const emitGameEvent = useCallback(
     (
@@ -305,6 +202,7 @@ export function CompanionTicTacToe({
   useEffect(() => {
     if (didEmitStartedRef.current) return;
     didEmitStartedRef.current = true;
+    playTicTacToeSfx("companion_move");
     onGameEvent?.({
       type: "companion_tic_tac_toe_started",
       activityId: "tic_tac_toe",
@@ -317,34 +215,44 @@ export function CompanionTicTacToe({
 
   useEffect(() => {
     if (!result) return;
+    const completionKey = `${result}:${boardSignature(board)}`;
+    if (emittedRoundCompleteRef.current === completionKey) return;
+    emittedRoundCompleteRef.current = completionKey;
     playTicTacToeSfx("round_complete");
     console.log(` 🎮 [companion-tic-tac-toe] [round_complete] [${result}]`);
-    emitGameEvent({ type: "companion_tic_tac_toe_round_complete", result });
+    emitGameEvent({
+      type: "companion_tic_tac_toe_round_complete",
+      result,
+      board,
+    });
     onBanter?.({
       phase: "round_complete",
       result,
-      line: getCompanionTicTacToeBanterLine({
-        companionId,
-        companionName,
-        phase: "round_complete",
-        result,
-      }),
     });
     onRoundComplete?.(result);
-  }, [companionId, companionName, emitGameEvent, onBanter, onRoundComplete, result]);
+  }, [board, emitGameEvent, onBanter, onRoundComplete, result]);
 
   useEffect(() => {
     if (!companionThinking || result) return;
+    const decisionStartedAt = decisionStartedAtRef.current ?? Date.now();
+    const plannedDecisionDelayMs =
+      plannedDecisionDelayMsRef.current ?? getCompanionTicTacToeThinkDelay();
     const timer = window.setTimeout(() => {
       const move = getCompanionMove(board);
       if (move == null || resultFromBoard(board)) {
         setCompanionThinking(false);
+        decisionStartedAtRef.current = null;
+        plannedDecisionDelayMsRef.current = null;
         return;
       }
       const next = [...board];
       next[move] = "O";
+      const movedAt = Date.now();
+      const decisionLatencyMs = Math.max(0, movedAt - decisionStartedAt);
       playTicTacToeSfx("companion_move");
-      console.log(` 🎮 [companion-tic-tac-toe] [companion_move] [square_${move + 1}]`);
+      console.log(
+        ` 🎮 [companion-tic-tac-toe] [companion_move] [square_${move + 1}] planned_ms=${plannedDecisionDelayMs} actual_ms=${decisionLatencyMs}`,
+      );
       setLastMove(move);
       setBoard(next);
       emitGameEvent({
@@ -352,31 +260,31 @@ export function CompanionTicTacToe({
         square: move + 1,
         mark: "O",
         board: next,
-      });
-      const line = getCompanionTicTacToeBanterLine({
-        companionId,
-        companionName,
-        phase: "companion_move",
-        square: move + 1,
+        decisionStartedAt,
+        plannedDecisionDelayMs,
+        decisionLatencyMs,
       });
       onBanter?.({
         phase: "companion_move",
         square: move + 1,
-        line,
       });
       onCompanionTurn?.({
         square: move + 1,
-        line,
       });
       setCompanionThinking(false);
-    }, getCompanionTicTacToeThinkDelay());
+      decisionStartedAtRef.current = null;
+      plannedDecisionDelayMsRef.current = null;
+    }, plannedDecisionDelayMs);
     return () => window.clearTimeout(timer);
-  }, [board, companionId, companionName, companionThinking, emitGameEvent, onBanter, onCompanionTurn, result]);
+  }, [board, companionThinking, emitGameEvent, onBanter, onCompanionTurn, result]);
 
   const resetRound = () => {
+    emittedRoundCompleteRef.current = null;
     setBoard(EMPTY_BOARD);
     setCompanionThinking(false);
     setLastMove(null);
+    decisionStartedAtRef.current = null;
+    plannedDecisionDelayMsRef.current = null;
     console.log(" 🎮 [companion-tic-tac-toe] [reset] [ok]");
     emitGameEvent({ type: "companion_tic_tac_toe_reset", board: EMPTY_BOARD });
   };
@@ -398,21 +306,12 @@ export function CompanionTicTacToe({
     onBanter?.({
       phase: "child_move",
       square: index + 1,
-      line: getCompanionTicTacToeBanterLine({
-        companionId,
-        companionName,
-        phase: "child_move",
-        square: index + 1,
-      }),
     });
     if (!resultFromBoard(next)) {
+      decisionStartedAtRef.current = Date.now();
+      plannedDecisionDelayMsRef.current = getCompanionTicTacToeThinkDelay();
       onBanter?.({
         phase: "companion_thinking",
-        line: getCompanionTicTacToeBanterLine({
-          companionId,
-          companionName,
-          phase: "companion_thinking",
-        }),
       });
       setCompanionThinking(true);
     }

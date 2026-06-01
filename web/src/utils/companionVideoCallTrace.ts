@@ -11,10 +11,18 @@ export type CompanionVideoCallTraceEventName =
   | "audio_play_start"
   | "audio_ended"
   | "audio_error"
+  | "activity_reaction_request_start"
+  | "activity_reaction_response_received"
+  | "activity_reaction_stale_dropped"
+  | "activity_reaction_audio_start"
+  | "activity_reaction_audio_ended"
+  | "activity_reaction_fallback"
   | "handsfree_rearm_scheduled"
   | "handsfree_rearm_starting"
   | "handsfree_rearm_skipped"
-  | "activity_context_changed";
+  | "activity_context_changed"
+  | "conversation_mode_changed"
+  | "activity_phase_changed";
 
 export type CompanionVideoCallTraceInput = {
   traceId: string;
@@ -226,6 +234,7 @@ export async function emitCompanionVideoCallTrace(input: CompanionVideoCallTrace
   const payload = sanitizeCompanionVideoCallTracePayload(input.payload ?? {});
   const event = {
     ...input,
+    origin: "client",
     timestamp: input.timestamp ?? Date.now(),
     payload,
     ...payload,
