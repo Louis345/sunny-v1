@@ -434,6 +434,13 @@ type CompanionVideoCallContext = {
   relationshipState?: CompanionRelationshipState;
   rewardContext?: CompanionRewardContext;
 };
+type VideoCallPickupMemory = {
+  reunionLineSeed?: string;
+};
+export type VideoCallPickupGreeting = {
+  text: string;
+  usedMemorySeed: boolean;
+};
 type ShowroomCompanionActivityId = "tic_tac_toe";
 type ShowroomCompanionActivityRequest = {
   source: "claude";
@@ -537,6 +544,7 @@ const SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS = 360;
 const SHOWROOM_VIDEO_CHAT_VISUAL_ACTION_REARM_MS = 1900;
 const SHOWROOM_VIDEO_CHAT_RING_MS = 1300;
 const SHOWROOM_VIDEO_CHAT_ANSWER_MS = 650;
+const SHOWROOM_VIDEO_CHAT_GREETING_CAMERA_CEILING_MS = 900;
 const SHOWROOM_VIDEO_CHAT_RINGTONE_STYLE = "familiar-video-call";
 const SHOWROOM_VIDEO_CALL_SOURCES = new Set<CompanionCallSource>([
   "showroom",
@@ -1906,8 +1914,11 @@ export function createShowroomVideoCallStatusCopy(args: {
   if (args.phase === "answered" || args.cameraState === "requesting") {
     return {
       heading: `${args.companionName} answered`,
-      status: "Connecting camera",
-      helperText: "Starting camera and listening.",
+      status: args.cameraState === "requesting" ? "Connecting camera" : "Saying hi",
+      helperText:
+        args.cameraState === "requesting"
+          ? "Starting camera and listening."
+          : `${args.companionName} is answering the call.`,
     };
   }
   return {
@@ -1930,6 +1941,82 @@ export function createShowroomVideoChatStartedEvent(args: {
     showroomTheme: args.showroomTheme,
     mode: "showroom_camera_shell",
     timestamp: args.now ?? Date.now(),
+  };
+}
+
+function normalizePickupName(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  return trimmed || fallback;
+}
+
+function normalizePickupMemorySeed(memory?: VideoCallPickupMemory): string | null {
+  const seed = memory?.reunionLineSeed?.replace(/\s+/g, " ").trim();
+  if (!seed || seed.length > 90) return null;
+  return seed;
+}
+
+export function resolveVideoCallPickupGreeting(args: {
+  companionId: string;
+  companionName: string;
+  childName?: string;
+  callSource: CompanionCallSource;
+  relationshipState: CompanionRelationshipState;
+  memory?: VideoCallPickupMemory;
+}): VideoCallPickupGreeting {
+  const child = normalizePickupName(args.childName, "friend");
+  const companionId = args.companionId.trim().toLowerCase();
+  const memorySeed =
+    args.relationshipState !== "previewing" ? normalizePickupMemorySeed(args.memory) : null;
+  if (memorySeed) {
+    const prefix = companionId === "elli" ? `Hiii ${child}!` : `${child},`;
+    return {
+      text: `${prefix} ${memorySeed}`,
+      usedMemorySeed: true,
+    };
+  }
+
+  if (args.relationshipState === "earned_reward" || args.callSource === "game_reward") {
+    return {
+      text:
+        companionId === "kefla"
+          ? `${child}, you earned this call. I was ready for a challenge.`
+          : companionId === "matilda"
+            ? `Hi ${child}. You earned this call, so I saved a calm little spot for us.`
+            : companionId === "princess"
+              ? `${child}, you earned this call. The quest can begin.`
+              : `${child}! You earned this call. I was hoping we'd get a minute together.`,
+      usedMemorySeed: false,
+    };
+  }
+
+  if (companionId === "kefla") {
+    return {
+      text: "You called? Good. I was ready for a challenge.",
+      usedMemorySeed: false,
+    };
+  }
+  if (companionId === "matilda") {
+    return {
+      text: `Hi ${child}. I saved a calm little spot for us.`,
+      usedMemorySeed: false,
+    };
+  }
+  if (companionId === "princess") {
+    return {
+      text: `${child}, you made it. The quest can begin.`,
+      usedMemorySeed: false,
+    };
+  }
+  if (companionId === "elli") {
+    return {
+      text: `Hiii ${child}! I was hoping you'd call.`,
+      usedMemorySeed: false,
+    };
+  }
+
+  return {
+    text: `Hi ${child}! ${args.companionName} is here.`,
+    usedMemorySeed: false,
   };
 }
 
@@ -5061,6 +5148,166 @@ export function CompanionShowroom({
     }
   }, [startShowroomVideoCallListening, stopShowroomVideoChatCamera]);
 
+  const playShowroomVideoCallGreeting = useCallback(async () => {
+    if (!current) return;
+    const currentDefaultVoice =
+      current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
+    const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
+    const greeting = resolveVideoCallPickupGreeting({
+      companionId: current.id,
+      companionName: current.name,
+      childName,
+      callSource: activeVideoCallContext.callSource,
+      relationshipState: activeVideoCallContext.relationshipState,
+    });
+    const greetingStartedAt = performance.now();
+    let cameraStarted = false;
+    const startCameraOnce = (reason: string) => {
+      if (cameraStarted || !videoChatContinuousListenRef.current) return;
+      cameraStarted = true;
+      console.log(` 🎮 [showroom-video-chat] greeting_camera_start reason=${reason}`);
+      void startShowroomVideoChatCamera({ autoListen: false });
+    };
+    const rearmAfterGreeting = (reason: string) => {
+      videoChatHandsFreeRearmRef.current?.(
+        `greeting_${reason}`,
+        SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS,
+      );
+    };
+
+    setShowroomTalkResponse(greeting.text);
+    setShowroomTalkError(null);
+    setShowroomTalkPhase("speaking");
+    emitShowroomVideoCallTrace({
+      eventName: "call_greeting_selected",
+      payload: {
+        greetingText: greeting.text,
+        usedMemorySeed: greeting.usedMemorySeed,
+        callSource: activeVideoCallContext.callSource,
+        relationshipState: activeVideoCallContext.relationshipState,
+      },
+    });
+
+    const ceilingTimer = window.setTimeout(() => {
+      startCameraOnce("timeout");
+    }, SHOWROOM_VIDEO_CHAT_GREETING_CAMERA_CEILING_MS);
+
+    if (!selectedVoiceId) {
+      window.clearTimeout(ceilingTimer);
+      emitShowroomVideoCallTrace({
+        eventName: "call_greeting_skipped",
+        payload: { reason: "voice_unavailable", usedMemorySeed: greeting.usedMemorySeed },
+      });
+      setShowroomTalkPhase("idle");
+      startCameraOnce("voice_unavailable");
+      rearmAfterGreeting("voice_unavailable");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/companions/${encodeURIComponent(current.id)}/speak`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          line: "intro",
+          language: "en",
+          voiceId: selectedVoiceId,
+          source: "video_call_greeting",
+          text: greeting.text,
+        }),
+      });
+      if (!response.ok) {
+        const err = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(err?.error ?? `greeting_${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      speechUrlRef.current = url;
+      const audio = new Audio(url);
+      const AudioContextCtor =
+        window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+      if (!AudioContextCtor) {
+        throw new Error("audio_context_unavailable");
+      }
+      const context = new AudioContextCtor();
+      const source = context.createMediaElementSource(audio);
+      const analyser = ensurePlaybackAnalyser(context);
+      source.connect(analyser);
+      analyser.connect(context.destination);
+      speechAnalyserRef.current = analyser;
+      speechAudioRef.current = { audio, context };
+      audio.addEventListener("ended", () => {
+        window.clearTimeout(ceilingTimer);
+        emitShowroomVideoCallTrace({
+          eventName: "call_greeting_audio_ended",
+          payload: {
+            latencyMs: Math.round(performance.now() - greetingStartedAt),
+            usedMemorySeed: greeting.usedMemorySeed,
+          },
+        });
+        setShowroomTalkPhase("idle");
+        playCurrentCompanionAnimation("idle", { loop: true });
+        speechAudioRef.current = null;
+        speechAnalyserRef.current = null;
+        void context.close().catch((err: unknown) => {
+          console.warn(" 🎮 [showroom-video-chat] greeting_audio_context_close_failed", err);
+        });
+        URL.revokeObjectURL(url);
+        if (speechUrlRef.current === url) {
+          speechUrlRef.current = null;
+        }
+        startCameraOnce("audio_ended");
+        rearmAfterGreeting("audio_ended");
+      });
+      audio.addEventListener("error", () => {
+        window.clearTimeout(ceilingTimer);
+        emitShowroomVideoCallTrace({
+          eventName: "call_greeting_skipped",
+          payload: { reason: "audio_element_error", usedMemorySeed: greeting.usedMemorySeed },
+        });
+        setShowroomTalkPhase("idle");
+        playCurrentCompanionAnimation("idle", { loop: true });
+        startCameraOnce("audio_error");
+        rearmAfterGreeting("audio_error");
+      });
+      await context.resume();
+      await audio.play();
+      emitShowroomVideoCallTrace({
+        eventName: "call_greeting_audio_start",
+        payload: {
+          latencyMs: Math.round(performance.now() - greetingStartedAt),
+          usedMemorySeed: greeting.usedMemorySeed,
+        },
+      });
+      startCameraOnce("audio_start");
+      console.log(
+        ` 🎮 [showroom-video-chat] greeting_audio_start companion=${current.id} usedMemory=${String(greeting.usedMemorySeed)}`,
+      );
+    } catch (err: unknown) {
+      window.clearTimeout(ceilingTimer);
+      console.warn(" 🎮 [showroom-video-chat] greeting_skipped", err);
+      emitShowroomVideoCallTrace({
+        eventName: "call_greeting_skipped",
+        payload: {
+          reason: err instanceof Error ? err.message : String(err),
+          usedMemorySeed: greeting.usedMemorySeed,
+        },
+      });
+      setShowroomTalkPhase("idle");
+      playCurrentCompanionAnimation("idle", { loop: true });
+      startCameraOnce("request_failed");
+      rearmAfterGreeting("request_failed");
+    }
+  }, [
+    activeVideoCallContext,
+    childName,
+    current,
+    emitShowroomVideoCallTrace,
+    playCurrentCompanionAnimation,
+    startShowroomVideoChatCamera,
+    voiceSelections,
+  ]);
+
   const openShowroomVideoChat = useCallback(() => {
     if (!current) return;
     const traceId = createCompanionVideoCallTraceId();
@@ -5122,6 +5369,7 @@ export function CompanionShowroom({
     startMusic();
     stopSpeech();
     resetShowroomTalk();
+    setShowroomTalkResponse("");
     setShowroomTalkOpen(false);
     setSpotlightOpen(false);
     setIntroVisible(false);
@@ -5149,7 +5397,7 @@ export function CompanionShowroom({
       console.log(" 🎮 [showroom-video-chat] answered");
       schedule(() => {
         if (!videoChatContinuousListenRef.current) return;
-        void startShowroomVideoChatCamera({ autoListen: true });
+        void playShowroomVideoCallGreeting();
       }, SHOWROOM_VIDEO_CHAT_ANSWER_MS);
     }, SHOWROOM_VIDEO_CHAT_RING_MS);
 	  }, [
@@ -5157,10 +5405,10 @@ export function CompanionShowroom({
 	    activeThemeId,
 	    childName,
 	    current,
+    playShowroomVideoCallGreeting,
     playCurrentCompanionAnimation,
     resetShowroomTalk,
     schedule,
-    startShowroomVideoChatCamera,
 	    startMusic,
 	    stopSpeech,
       talkChildId,

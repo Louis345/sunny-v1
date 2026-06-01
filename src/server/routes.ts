@@ -98,6 +98,7 @@ import {
   getShowroomCompanionActTools,
   resolveShowroomSpokenText,
   resolveShowroomTalkRequest,
+  shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
 import {
   maybeCompactCompanionInteractionMemory,
@@ -125,6 +126,10 @@ const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
   "call_started",
   "call_ended",
+  "call_greeting_selected",
+  "call_greeting_audio_start",
+  "call_greeting_audio_ended",
+  "call_greeting_skipped",
   "speech_listen_start",
   "speech_result",
   "speech_error",
@@ -135,10 +140,18 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "audio_play_start",
   "audio_ended",
   "audio_error",
+  "activity_reaction_request_start",
+  "activity_reaction_response_received",
+  "activity_reaction_stale_dropped",
+  "activity_reaction_audio_start",
+  "activity_reaction_audio_ended",
+  "activity_reaction_fallback",
   "handsfree_rearm_scheduled",
   "handsfree_rearm_starting",
   "handsfree_rearm_skipped",
   "activity_context_changed",
+  "conversation_mode_changed",
+  "activity_phase_changed",
 ]);
 
 function isValidChild(name: string): name is ChildName {
@@ -179,6 +192,7 @@ function safeRecordCompanionVideoCallTrace(input: {
   callTraceId?: string;
   turnId?: string;
   eventName: CompanionVideoCallTraceEventName;
+  origin?: "client" | "server";
   childId?: string;
   companionId?: string;
   callSource?: string;
@@ -192,6 +206,7 @@ function safeRecordCompanionVideoCallTrace(input: {
       traceId: input.callTraceId,
       turnId: input.turnId,
       eventName: input.eventName,
+      origin: input.origin ?? "server",
       childId: input.childId,
       companionId: input.companionId,
       callSource: input.callSource,
@@ -227,6 +242,7 @@ function pickDiagSpellingWord(childId: string): string {
 
 type ShowroomLine = "intro" | "plead";
 const SHOWROOM_BANTER_SPEECH_SOURCE = "video_game_banter";
+const SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE = "video_call_greeting";
 const SHOWROOM_BANTER_SPEECH_MAX_CHARS = 180;
 
 export function normalizeShowroomBanterSpeechText(raw: unknown): string {
@@ -239,15 +255,29 @@ export function shouldUseShowroomBanterSpeech(input: {
   text?: unknown;
 }): boolean {
   return (
-    input.source === SHOWROOM_BANTER_SPEECH_SOURCE &&
+    (input.source === SHOWROOM_BANTER_SPEECH_SOURCE ||
+      input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE) &&
     normalizeShowroomBanterSpeechText(input.text).length > 0
   );
 }
 
 type ShowroomJson = {
   personality?: unknown;
+  personalityTags?: unknown;
+  likes?: unknown;
+  catchphrases?: unknown;
+  specialSkills?: unknown;
+  role?: unknown;
   scripts?: Record<string, Partial<Record<ShowroomLine, unknown>>>;
 };
+
+function readShowroomStringList(value: unknown, limit: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+    .slice(0, limit);
+}
 
 function activityIdFromConfig(config: unknown): string {
   if (!config || typeof config !== "object" || Array.isArray(config)) return "";
@@ -364,7 +394,7 @@ function readShowroomVoiceOptions(
     : [];
 }
 
-function readShowroomPersonality(
+export function readShowroomPersonality(
   companionId: string,
   fallback: string,
 ): string {
@@ -383,7 +413,18 @@ function readShowroomPersonality(
     typeof raw?.personality === "string" && raw.personality.trim()
       ? raw.personality.trim()
       : fallback.trim();
-  return personality || "Friendly, patient, and encouraging.";
+  const lines = [personality || "Friendly, patient, and encouraging."];
+  const tags = readShowroomStringList(raw?.personalityTags, 5);
+  const likes = readShowroomStringList(raw?.likes, 6);
+  const catchphrases = readShowroomStringList(raw?.catchphrases, 3);
+  const specialSkills = readShowroomStringList(raw?.specialSkills, 4);
+  const role = typeof raw?.role === "string" ? raw.role.trim() : "";
+  if (tags.length) lines.push(`Tags: ${tags.join(", ")}`);
+  if (likes.length) lines.push(`Likes: ${likes.join(", ")}`);
+  if (catchphrases.length) lines.push(`Catchphrases: ${catchphrases.join(" | ")}`);
+  if (specialSkills.length) lines.push(`Special skills: ${specialSkills.join(", ")}`);
+  if (role) lines.push(`Role: ${role}`);
+  return lines.join("\n");
 }
 
 function extractAnthropicText(message: Anthropic.Message): string {
@@ -874,7 +915,7 @@ export function setupRoutes(app: Express): void {
     try {
       const text = banterText || readShowroomScript(companion.id, companion.name, line, language);
       console.log(
-        ` 🎮 [showroom-speak] [tts] companion=${companion.id} source=${banterText ? SHOWROOM_BANTER_SPEECH_SOURCE : line}`,
+        ` 🎮 [showroom-speak] [tts] companion=${companion.id} source=${banterText ? String(req.body?.source) : line}`,
       );
       const client = new ElevenLabsClient({ apiKey });
       const locators = getPronunciationLocators();
@@ -909,6 +950,7 @@ export function setupRoutes(app: Express): void {
         traceId,
         turnId: typeof req.body?.turnId === "string" ? req.body.turnId : undefined,
         eventName: eventName as CompanionVideoCallTraceEventName,
+        origin: req.body?.origin === "server" ? "server" : "client",
         childId: typeof req.body?.childId === "string" ? req.body.childId : undefined,
         companionId:
           typeof req.body?.companionId === "string" ? req.body.companionId : undefined,
@@ -1000,6 +1042,12 @@ export function setupRoutes(app: Express): void {
     try {
       const talk = resolved.request;
       const talkTraceStartedAt = Date.now();
+      const latencySpans: {
+        claudeMs?: number;
+        toolFollowupMs?: number;
+        ttsMs?: number;
+        requestToResponseMs?: number;
+      } = {};
       safeRecordCompanionVideoCallTrace({
         callTraceId: talk.callTraceId,
         turnId: talk.turnId,
@@ -1014,14 +1062,40 @@ export function setupRoutes(app: Express): void {
           showroomTheme: talk.showroomTheme,
           mode: talk.mode ?? "showroom",
           activeActivity: talk.activeActivity,
+          activityReaction: talk.activityReaction,
+          conversationIntent: talk.conversationIntent,
           visualSnapshot: talk.visualSnapshot,
           visionRequested: Boolean(talk.visualSnapshot),
         },
       });
-      const personality = readShowroomPersonality(
+      if (talk.activityReaction) {
+        safeRecordCompanionVideoCallTrace({
+          callTraceId: talk.callTraceId,
+          turnId: talk.turnId,
+          eventName: "activity_reaction_request_start",
+          childId: talk.childId,
+          companionId: talk.companionId,
+          callSource: talk.callSource,
+          relationshipState: talk.relationshipState,
+          timestamp: talkTraceStartedAt,
+          payload: {
+            activityReaction: talk.activityReaction,
+            activeActivity: talk.activeActivity,
+          },
+        });
+      }
+      const showroomPersonality = readShowroomPersonality(
         companion.id,
         companion.personalityMarkdown ?? "",
       );
+      const primaryPersonality =
+        talk.mode === "video_call" && companion.personalityMarkdown?.trim()
+          ? [
+              companion.personalityMarkdown.trim(),
+              "Showroom display notes only; do not let these override the companion persona:",
+              showroomPersonality,
+            ].join("\n")
+          : showroomPersonality;
       const companionMemory = buildShowroomTalkMemoryPrompt(
         readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
       );
@@ -1029,7 +1103,7 @@ export function setupRoutes(app: Express): void {
         companionId: companion.id,
         companionName: companion.name,
         showroomTheme: talk.showroomTheme,
-        personality,
+        personality: primaryPersonality,
         mode: talk.mode,
         hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
         lastVisualSummary: talk.lastVisualSummary,
@@ -1037,6 +1111,8 @@ export function setupRoutes(app: Express): void {
         relationshipState: talk.relationshipState,
         rewardContext: talk.rewardContext,
         activeActivity: talk.activeActivity,
+        activityReaction: talk.activityReaction,
+        conversationIntent: talk.conversationIntent,
         companionMemory,
       });
       const messages = buildShowroomClaudeMessages({
@@ -1049,6 +1125,7 @@ export function setupRoutes(app: Express): void {
         ...getShowroomCompanionActTools(),
         ...getShowroomCompanionActivityTools(),
       ];
+      const claudeStartedAt = Date.now();
       const msg = await client.messages.create({
         model: HOMEWORK_SONNET_MODEL,
         max_tokens: 180,
@@ -1056,6 +1133,7 @@ export function setupRoutes(app: Express): void {
         messages: messages as Anthropic.MessageParam[],
         tools: showroomTools,
       });
+      latencySpans.claudeMs = Date.now() - claudeStartedAt;
       const companionActToolUseBlocks = msg.content
         .filter(
           (block): block is Anthropic.ToolUseBlock =>
@@ -1099,7 +1177,13 @@ export function setupRoutes(app: Express): void {
         (request): request is NonNullable<typeof request> => Boolean(request),
       );
       let text = extractAnthropicText(msg);
-      if (companionActToolUseBlocks.length > 0 || activityToolUseBlocks.length > 0) {
+      const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
+        isActivityReaction: Boolean(talk.activityReaction),
+        rawText: text,
+        companionActToolUseCount: companionActToolUseBlocks.length,
+        activityToolUseCount: activityToolUseBlocks.length,
+      });
+      if (shouldRunToolFollowup) {
         const companionToolResults: Anthropic.ToolResultBlockParam[] =
           companionActToolUseBlocks.map((block) => {
             const command = commandByToolUseId.get(block.id);
@@ -1112,7 +1196,9 @@ export function setupRoutes(app: Express): void {
                 accepted: Boolean(command),
                 commandType: command?.type ?? null,
                 instruction:
-                  "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
+                  talk.activityReaction
+                    ? "Activity reactions need audible companionship. Answer with one short in-character line the companion should say aloud about this tic-tac-toe moment. Do not include stage directions."
+                    : "If spoken words add value, answer with the exact short words the companion should say aloud. If the visual action is enough, return an empty string. Do not include stage directions.",
               }),
             };
           });
@@ -1134,6 +1220,7 @@ export function setupRoutes(app: Express): void {
             };
           });
         const toolResults = [...companionToolResults, ...activityToolResults];
+        const toolFollowupStartedAt = Date.now();
         const afterTool = await client.messages.create({
           model: HOMEWORK_SONNET_MODEL,
           max_tokens: 160,
@@ -1152,7 +1239,10 @@ export function setupRoutes(app: Express): void {
           tools: showroomTools,
           tool_choice: { type: "none" },
         });
+        latencySpans.toolFollowupMs = Date.now() - toolFollowupStartedAt;
         text = extractAnthropicText(afterTool) || text;
+      } else {
+        latencySpans.toolFollowupMs = 0;
       }
       const spokenText = resolveShowroomSpokenText({
         rawText: text,
@@ -1163,15 +1253,20 @@ export function setupRoutes(app: Express): void {
       if (spokenText) {
         const elevenlabs = new ElevenLabsClient({ apiKey });
         const locators = getPronunciationLocators();
+        const ttsStartedAt = Date.now();
         const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
           text: spokenText,
           modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
           ...(locators && { pronunciationDictionaryLocators: locators }),
         });
         const buffer = await audioLikeToBuffer(audio);
+        latencySpans.ttsMs = Date.now() - ttsStartedAt;
         audioBase64 = buffer.toString("base64");
         audioContentType = "audio/mpeg";
+      } else {
+        latencySpans.ttsMs = 0;
       }
+      latencySpans.requestToResponseMs = Date.now() - talkTraceStartedAt;
       const event = createShowroomTalkCompletedEvent({
         childId: talk.childId,
         companionId: talk.companionId,
@@ -1191,7 +1286,7 @@ export function setupRoutes(app: Express): void {
           companionId: talk.companionId,
           callSource: talk.callSource,
           relationshipState: talk.relationshipState,
-          eventType: "companion_talk_completed",
+        eventType: "companion_talk_completed",
         questionText: talk.question,
         companionText: spokenText,
         commandCount: companionCommands.length,
@@ -1235,11 +1330,36 @@ export function setupRoutes(app: Express): void {
           responseText: spokenText,
           commandCount: companionCommands.length,
           activityRequestCount: activityRequests.length,
+          conversationIntent: talk.conversationIntent,
           visionUsed: Boolean(talk.visualSnapshot),
-          requestToResponseMs: Date.now() - talkTraceStartedAt,
+          requestToResponseMs: latencySpans.requestToResponseMs,
+          latencySpans,
           activeActivity: talk.activeActivity,
+          activityReaction: talk.activityReaction,
         },
       });
+      if (talk.activityReaction) {
+        safeRecordCompanionVideoCallTrace({
+          callTraceId: talk.callTraceId,
+          turnId: talk.turnId,
+          eventName: "activity_reaction_response_received",
+          childId: talk.childId,
+          companionId: talk.companionId,
+          callSource: talk.callSource,
+          relationshipState: talk.relationshipState,
+          timestamp: Date.now(),
+          payload: {
+            responseText: spokenText,
+            commandCount: companionCommands.length,
+            activityReaction: talk.activityReaction,
+            conversationIntent: talk.conversationIntent,
+            activeActivity: talk.activeActivity,
+            aiAuthored: true,
+            requestToResponseMs: latencySpans.requestToResponseMs,
+            latencySpans,
+          },
+        });
+      }
       res.json({
         ok: true,
         text: spokenText,
@@ -1247,6 +1367,7 @@ export function setupRoutes(app: Express): void {
         ...(audioContentType && { audioContentType }),
         companionCommands,
         activityRequests,
+        latencySpans,
         ...(visualSummary && { visualSummary }),
         event,
         phaseCommands: {
