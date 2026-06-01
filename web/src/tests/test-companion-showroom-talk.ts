@@ -6,6 +6,7 @@ import {
   createShowroomVideoChatEntryCopy,
   createShowroomVideoChatStartedEvent,
   resolveVideoCallPickupGreeting,
+  resolveShowroomChildDisplayName,
   createShowroomVideoActivityContextFromEvent,
   createShowroomTalkPayload,
   createShowroomVideoCallContextFromSearch,
@@ -197,6 +198,19 @@ describe("CompanionShowroom talk mode", () => {
         memory: { reunionLineSeed: "   " },
       }).usedMemorySeed,
     ).toBe(false);
+  });
+
+  it("uses the child query display name for pickup greetings when dbz preview omits childName prop", () => {
+    expect(resolveShowroomChildDisplayName(undefined, "ila")).toBe("Ila");
+    expect(
+      resolveVideoCallPickupGreeting({
+        companionId: "elli",
+        companionName: "Elli",
+        childName: resolveShowroomChildDisplayName(undefined, "ila"),
+        callSource: "showroom",
+        relationshipState: "previewing",
+      }).text,
+    ).toBe("Hiii Ila! I was hoping you'd call.");
   });
 
   it("wires an unlocked Video Chat shell without economy lock copy", () => {
