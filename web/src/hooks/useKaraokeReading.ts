@@ -118,6 +118,9 @@ export interface UseKaraokeReadingArgs {
   matchMode?: KaraokeMatchMode;
   /** Pronunciation should only score the newest utterance tail; story karaoke can scan the phrase. */
   sequentialMatchScope?: "anywhere" | "tail";
+  /** Rhythm mode keeps cycling the selected target pool until an external meter completes the run. */
+  loopOnEnd?: boolean;
+  onLoop?: (round: number) => void;
 }
 
 export type KaraokeReadingCompleteResult = {
@@ -143,6 +146,7 @@ export type KaraokeReadingTargetResult = {
 
 export interface UseKaraokeReadingResult {
   wordIndex: number;
+  loopRound: number;
   skippedIndices: number[];
   handleSkipWord: (idx: number) => void;
   completeReading: (reason?: "preview") => void;
@@ -171,9 +175,12 @@ export function useKaraokeReading(
     resetKey = "",
     matchMode = "speech",
     sequentialMatchScope = "anywhere",
+    loopOnEnd = false,
+    onLoop,
   } = args;
 
   const [wordIndex, setWordIndex] = useState(0);
+  const [loopRound, setLoopRound] = useState(1);
   const [skippedIndices, setSkippedIndices] = useState<number[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [flaggedWords, setFlaggedWords] = useState<string[]>([]);
@@ -182,6 +189,7 @@ export function useKaraokeReading(
   // Refs are the canonical source of truth inside effects and callbacks;
   // state drives renders only.
   const wordIndexRef = useRef(0);
+  const loopRoundRef = useRef(1);
   const isCompleteRef = useRef(false);
   const lastInterimRef = useRef("");
   const spelledWordsRef = useRef<string[]>([]);
@@ -196,6 +204,7 @@ export function useKaraokeReading(
   const pendingHitBlockRef = useRef<Set<number>>(new Set());
   const lastMatchedSequentialFingerprintRef = useRef("");
   const targetResultsRef = useRef<Map<number, KaraokeReadingTargetResult>>(new Map());
+  const loopResetSerialRef = useRef(0);
 
   const sendProgress = useCallback(
     (payload: ReturnType<typeof buildKaraokeReadingProgressPayload>) => {
@@ -230,13 +239,26 @@ export function useKaraokeReading(
       >,
     ) => {
       const target = words[index]?.toLowerCase().trim();
-      if (!target || targetResultsRef.current.has(index)) return;
+      if (!target) return;
+      const recorded = targetResultsRef.current.get(index);
+      const struggleSignals = Array.from(
+        new Set([
+          ...(recorded?.struggleSignals ?? []),
+          ...(result.struggleSignals ?? []),
+        ]),
+      );
       const targetResult: KaraokeReadingTargetResult = {
         target,
         mode: "karaoke",
         evidenceTier: "practice",
         masteryEligible: false,
-        ...result,
+        correct: Boolean(recorded?.correct || result.correct),
+        attempts: (recorded?.attempts ?? 0) + (result.attempts ?? 0),
+        skipped:
+          recorded?.correct === true || result.correct === true
+            ? false
+            : (result.skipped ?? recorded?.skipped),
+        ...(struggleSignals.length > 0 ? { struggleSignals } : {}),
       };
       targetResultsRef.current.set(index, targetResult);
       emitActivityEvidence("attempt_recorded", {
@@ -287,6 +309,7 @@ export function useKaraokeReading(
     if (nextFingerprint === prevWordsFingerprintRef.current) return;
     prevWordsFingerprintRef.current = nextFingerprint;
     wordIndexRef.current = 0;
+    loopRoundRef.current = 1;
     isCompleteRef.current = false;
     lastInterimRef.current = "";
     spelledWordsRef.current = [];
@@ -299,7 +322,9 @@ export function useKaraokeReading(
     pendingHitBlockRef.current = new Set();
     lastMatchedSequentialFingerprintRef.current = "";
     targetResultsRef.current = new Map();
+    loopResetSerialRef.current += 1;
     setWordIndex(0);
+    setLoopRound(1);
     setSkippedIndices([]);
     setIsComplete(false);
     setFlaggedWords([]);
@@ -324,6 +349,32 @@ export function useKaraokeReading(
     const id = window.setTimeout(() => setHitWordIndex(null), 0);
     return () => window.clearTimeout(id);
   }, [hitWordIndex]);
+
+  const advanceSequentialIndex = useCallback(
+    (next: number): { completed: boolean; wordIndex: number } => {
+      if (next >= words.length && loopOnEnd && words.length > 0) {
+        const nextRound = loopRoundRef.current + 1;
+        const resetSerial = loopResetSerialRef.current + 1;
+        loopResetSerialRef.current = resetSerial;
+        wordIndexRef.current = 0;
+        mismatchCountForCurrentRef.current = 0;
+        lastMatchedSequentialFingerprintRef.current = "";
+        setWordIndex(next);
+        window.setTimeout(() => {
+          if (loopResetSerialRef.current !== resetSerial || isCompleteRef.current) return;
+          loopRoundRef.current = nextRound;
+          setLoopRound(nextRound);
+          setWordIndex(0);
+          onLoop?.(nextRound);
+        }, 0);
+        return { completed: false, wordIndex: next };
+      }
+      wordIndexRef.current = next;
+      setWordIndex(next);
+      return { completed: next >= words.length, wordIndex: next };
+    },
+    [loopOnEnd, onLoop, words.length],
+  );
 
   const completeReading = useCallback(
     (reason?: "preview") => {
@@ -400,17 +451,15 @@ export function useKaraokeReading(
         skipped: true,
       });
       const next = globalIdx + 1;
-      wordIndexRef.current = next;
-      mismatchCountForCurrentRef.current = 0;
-      setWordIndex(next);
+      const advance = advanceSequentialIndex(next);
       setSkippedIndices((prev) => [...prev, globalIdx]);
-      if (next >= words.length) {
+      if (advance.completed) {
         completeReading();
         return;
       }
       sendProgress(
         buildKaraokeReadingProgressPayload({
-          wordIndex: next,
+          wordIndex: advance.wordIndex,
           totalWords: words.length,
           hesitations: hesitationsRef.current,
           flaggedWords: Array.from(flaggedWordsSetRef.current),
@@ -420,7 +469,7 @@ export function useKaraokeReading(
         }),
       );
     },
-    [words, sendProgress, mode, completeReading, recordTargetResult],
+    [words, sendProgress, mode, completeReading, recordTargetResult, advanceSequentialIndex],
   );
 
   // Process interim transcript: sequential advance, or multi-belt match.
@@ -570,9 +619,8 @@ export function useKaraokeReading(
     });
     mismatchCountForCurrentRef.current = 0;
     const next = prev + 1;
-    wordIndexRef.current = next;
-    setWordIndex(next);
-    if (next >= words.length) {
+    const advance = advanceSequentialIndex(next);
+    if (advance.completed) {
       completeReading();
     }
   }, [
@@ -587,6 +635,7 @@ export function useKaraokeReading(
     sequentialMatchScope,
     completeReading,
     recordTargetResult,
+    advanceSequentialIndex,
   ]);
 
   // Periodic progress heartbeat every 3 seconds.
@@ -615,6 +664,7 @@ export function useKaraokeReading(
 
   return {
     wordIndex,
+    loopRound,
     skippedIndices,
     handleSkipWord,
     completeReading,
