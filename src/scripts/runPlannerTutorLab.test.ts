@@ -53,6 +53,7 @@ function activityCard(activityId: string, label = activityId): AssignmentActivit
     goodFitWhen: ["the planner cites a target-purpose fit"],
     badFitWhen: ["the planner is using it as filler"],
     capabilityModes: [],
+    plannerVisibility: "map_node",
     status: "ok",
   };
 }
