@@ -65,7 +65,15 @@ export function buildFlowGameEventFields(event: Record<string, unknown>): Compac
     game: typeof event.game === "string" ? event.game : "unknown",
     type: typeof event.type === "string" ? event.type : "unknown",
   };
+  addString(out, "activityId", event.activityId);
+  addString(out, "childId", event.childId);
+  addString(out, "companionId", event.companionId);
+  addString(out, "surface", event.surface);
   addNumber(out, "streak", event.streak);
+  addNumber(out, "square", event.square);
+  addString(out, "mark", event.mark);
+  addString(out, "callSource", event.callSource);
+  addString(out, "relationshipState", event.relationshipState);
   addString(out, "word", event.word);
   addString(out, "bonusWord", event.bonusWord);
   addNumber(out, "bonusMultiplier", event.bonusMultiplier);

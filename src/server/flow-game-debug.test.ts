@@ -76,4 +76,32 @@ describe("flow-game debug payloads", () => {
       difficulty: "super_hard",
     });
   });
+
+  it("keeps companion activity trace fields without storing noisy blobs", () => {
+    expect(
+      buildFlowGameEventFields({
+        type: "companion_tic_tac_toe_child_move",
+        activityId: "tic_tac_toe",
+        childId: "ila",
+        companionId: "elli",
+        surface: "video_call_overlay",
+        square: 1,
+        mark: "X",
+        callSource: "showroom",
+        relationshipState: "previewing",
+        payload: { ignored: true },
+      }),
+    ).toEqual({
+      game: "unknown",
+      type: "companion_tic_tac_toe_child_move",
+      activityId: "tic_tac_toe",
+      childId: "ila",
+      companionId: "elli",
+      surface: "video_call_overlay",
+      square: 1,
+      mark: "X",
+      callSource: "showroom",
+      relationshipState: "previewing",
+    });
+  });
 });

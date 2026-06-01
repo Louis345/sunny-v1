@@ -72,6 +72,11 @@ import {
   generateExperienceHtmlWithSonnet,
 } from "../engine/generatedExperienceArtifact";
 import {
+  prepareQuestVisualCandidates,
+  resolveQuestVisualCandidateImagePath,
+  selectQuestVisualCandidate,
+} from "../engine/questVisualCandidateService";
+import {
   buildAdaptiveEvidenceSnapshot,
   questGateFromSnapshot,
 } from "../engine/adaptiveEvidenceSnapshot";
@@ -694,6 +699,78 @@ export function setupRoutes(app: Express): void {
       res.status(500).json({ error: message });
     }
   });
+
+  app.post("/api/homework/generated-candidates/prepare", async (req: Request, res: Response) => {
+    const body = req.body && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
+    try {
+      const result = await prepareQuestVisualCandidates({
+        childId: typeof body.childId === "string" ? body.childId : "",
+        kind: body.kind === "boss" ? "boss" : "quest",
+        nodeId: typeof body.nodeId === "string" ? body.nodeId : "",
+        choiceSetId: typeof body.choiceSetId === "string" ? body.choiceSetId : undefined,
+        paid: body.paid === true,
+        model: typeof body.model === "string" ? body.model : undefined,
+      });
+      if (!result.ok) return res.status(409).json(result);
+      console.log(
+        ` 🎮 [quest-visual-candidates] [prepare] [ok] child=${body.childId ?? ""} choiceSet=${result.choiceSetId}`,
+      );
+      return res.json({
+        ok: true,
+        choiceSetId: result.choiceSetId,
+        cards: result.cards,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(" 🔴 [quest-visual-candidates] [prepare] [error]", message);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/generated-candidates/select", async (req: Request, res: Response) => {
+    const body = req.body && typeof req.body === "object" ? req.body as Record<string, unknown> : {};
+    try {
+      const result = await selectQuestVisualCandidate({
+        childId: typeof body.childId === "string" ? body.childId : "",
+        kind: body.kind === "boss" ? "boss" : "quest",
+        nodeId: typeof body.nodeId === "string" ? body.nodeId : "",
+        choiceSetId: typeof body.choiceSetId === "string" ? body.choiceSetId : "",
+        selectedCandidateId:
+          typeof body.selectedCandidateId === "string" ? body.selectedCandidateId : "",
+      });
+      if (!result.ok) return res.status(409).json(result);
+      console.log(
+        ` 🎮 [quest-visual-candidates] [select] [ok] child=${body.childId ?? ""} selected=${result.selectedCandidateId}`,
+      );
+      return res.json({
+        ok: true,
+        selectedCandidateId: result.selectedCandidateId,
+        notSelectedCandidateIds: result.notSelectedCandidateIds,
+        newFile: result.newFile,
+        contentId: result.contentId,
+        validationReport: result.validationReport,
+        choiceEvent: result.choiceEvent,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(" 🔴 [quest-visual-candidates] [select] [error]", message);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.get(
+    "/api/homework/generated-candidates/:childId/:choiceSetId/:filename",
+    (req: Request, res: Response) => {
+      const childId =
+        typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+      const choiceSetId =
+        typeof req.params.choiceSetId === "string" ? req.params.choiceSetId.trim() : "";
+      const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
+      const imagePath = resolveQuestVisualCandidateImagePath({ childId, choiceSetId, filename });
+      if (!imagePath) return res.status(404).json({ ok: false, error: "candidate_image_not_found" });
+      return res.sendFile(imagePath);
+    },
+  );
 
   app.post("/api/child/:childId/choice-event", async (req: Request, res: Response) => {
     const childId =

@@ -326,7 +326,7 @@ describe("AdventureBoard", () => {
       expect.objectContaining({ label: "Pronunciation" }),
       expect.objectContaining({ id: "baseline-route-options" }),
     );
-    expect(screen.getByRole("button", { name: "Mystery, Route not picked" })).toHaveClass(
+    expect(screen.getByRole("button", { name: "Quick Read, Route not picked" })).toHaveClass(
       "adventure-board__node--locked",
     );
     expect(screen.getByRole("button", { name: "Pronunciation" })).not.toHaveClass(
@@ -362,9 +362,9 @@ describe("AdventureBoard", () => {
     );
     expect(event.shownOptions).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        optionId: "choice-mystery-choice",
-        activityId: "mystery",
-        nodeType: "mystery",
+        optionId: "choice-baseline-hf-recognition",
+        activityId: "word-radar",
+        nodeType: "word-radar",
         preferenceTraits: ["practice", "control"],
       }),
       expect.objectContaining({
