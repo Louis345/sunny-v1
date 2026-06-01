@@ -401,6 +401,48 @@ describe("assignment planner", () => {
     expect(parsed.activeSessionPlan.nodePlan[0]?.wordRadarConfig).toEqual(WORD_RADAR_LETTER_FILL_CONFIG);
   });
 
+  it("parses Spark Orb reward wrapper decisions without adding Spark Orb to node types", () => {
+    const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
+      capturedContent: {
+        title: "Demo",
+        type: "spelling_test",
+        rawText: "Silent Letters\nsign",
+        words: ["sign"],
+        questions: [],
+        wordGroups: [{ id: "silent_letters", label: "Silent Letters", purpose: "spell_from_memory", words: ["sign"], confidence: 0.95, evidence: ["source"] }],
+        contentProfile: { practiceDomain: "spelling", contentDomain: "language_arts", topic: "Demo", primarySkill: "spelling", assignmentFormat: "word list", concepts: [], sourceEvidence: [] },
+        sourceDocuments: [{ filename: "demo.pdf", mediaType: "application/pdf" }],
+      },
+      homeworkWords: [{ text: "sign", sourceGroupId: "silent_letters", purpose: "spell_from_memory" }],
+      activeSessionPlan: {
+        nodePlan: [{
+          id: "spell",
+          type: "spell-check",
+          activityId: "spell-check",
+          targets: ["sign"],
+          difficulty: 1,
+          targetLane: "silent_letters",
+          rewardWrapper: {
+            activityId: "spark-orb-charge",
+            mode: "domain_payload_wrapper",
+            reason: "Use the orb as an earned shell around spelling evidence.",
+          },
+        }],
+      },
+      plannedMeasurements: [{ id: "m", activityId: "spell-check", target: "sign", evidenceType: "spell_from_memory", supportCriteria: "correct", reviseCriteria: "miss", falsifyCriteria: "missing" }],
+      planTheory: { hypothesis: "h", evidenceSummary: ["e"], intervention: "i", supportCriteria: ["s"], reviseCriteria: ["r"], falsifyCriteria: ["f"] },
+      reviewQuestions: ["Review?"],
+    })}`);
+
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("spell-check");
+    expect(parsed.activeSessionPlan.nodePlan[0]?.type).toBe("spell-check");
+    expect(parsed.activeSessionPlan.nodePlan[0]?.rewardWrapper).toEqual({
+      activityId: "spark-orb-charge",
+      mode: "domain_payload_wrapper",
+      reason: "Use the orb as an earned shell around spelling evidence.",
+    });
+  });
+
   it("preserves planner-authored child-facing adventureBoard through schema parsing", () => {
     const parsed = parseAssignmentPlannerJson(`\n${JSON.stringify({
       capturedContent: {
@@ -674,6 +716,17 @@ describe("assignment planner", () => {
     expect(packet.activityCatalog.some((card) => card.activityId === "mystery")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "quest")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "boss")).toBe(true);
+    const sparkOrb = packet.activityCatalog.find((card) => card.activityId === "spark-orb-charge");
+    expect(sparkOrb).toMatchObject({
+      plannerVisibility: "wrapper",
+      launchable: false,
+      evidenceType: "practice",
+      status: "ok",
+    });
+    expect(sparkOrb?.capabilityModes.map((mode) => mode.id)).toEqual([
+      "charge_bridge",
+      "domain_payload_wrapper",
+    ]);
     expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(false);
     expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(false);
     expect(packet.activityCatalog.length).toBeLessThanOrEqual(12);
@@ -689,7 +742,19 @@ describe("assignment planner", () => {
     expect(packet.boardPlanning.algorithmContracts.spacedRepetition.guardrails).toContain("preference_is_not_mastery");
     expect(packet.boardPlanning.runtimeConstraints.noRuntimePlanning).toBe(true);
     expect(packet.boardPlanning.criticPolicy.semanticAudit).toBe("always");
+    const protocolDoc = packet.plannerReferences?.find((doc) => doc.id === "activity-tool-protocol");
+    expect(protocolDoc).toMatchObject({
+      path: "docs/activity-tool-protocol.md",
+      configOwner: "src/engine/activityToolCatalog.ts",
+    });
+    const sparkOrbDoc = packet.plannerReferences?.find((doc) => doc.id === "spark-orb-learning-contract");
+    expect(sparkOrbDoc).toMatchObject({
+      path: "docs/spark-orb-learning-contract.md",
+      configOwner: "src/engine/activityToolCatalog.ts",
+    });
     expect(packet.plannerInstruction).toContain("mastered targets get smaller spaced checks");
+    expect(packet.plannerInstruction).toContain("plannerReferences");
+    expect(packet.plannerInstruction).toContain("Spark Orb may be selected only as rewardWrapper");
     expect(packet.plannerInstruction).toContain("strictly more academic support than mastered targets");
     expect(packet.plannerInstruction).toContain("first academic node should probe those exact contradictory targets");
     expect(packet.plannerInstruction).toContain("visible_read or pronunciation");
@@ -701,6 +766,26 @@ describe("assignment planner", () => {
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
     expect(JSON.stringify(packet)).not.toContain("boardTemplate");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("carries parent dialogue in the planning packet without changing planner arguments", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+      parentDialogue: [{
+        role: "parent",
+        createdAt: "2026-06-01T10:00:00.000Z",
+        message: "Use a reward bridge only after clean spelling evidence.",
+      }],
+    });
+
+    expect(packet.parentDialogue).toEqual([{
+      role: "parent",
+      createdAt: "2026-06-01T10:00:00.000Z",
+      message: "Use a reward bridge only after clean spelling evidence.",
+    }]);
+    expect(packet.plannerInstruction).toContain("human-in-the-loop correction context");
   });
 
   it("feeds deadline-aware mastery context to the assignment planner", () => {
@@ -773,7 +858,7 @@ describe("assignment planner", () => {
     const schemaText = JSON.stringify(assignmentPlannerToolJsonSchema());
     const packetText = JSON.stringify(packet);
 
-    expect(prompt.length + schemaText.length).toBeLessThan(50_000);
+    expect(prompt.length + schemaText.length).toBeLessThan(60_000);
     expect(packet.activityCatalog.length).toBeLessThanOrEqual(12);
     expect(schemaText.length).toBeLessThan(9_000);
     expect(packetText).not.toContain("\"boardTemplate\"");
@@ -1133,6 +1218,98 @@ describe("assignment planner", () => {
         childChart: chart(),
       }).activityCatalog,
     })).toEqual([]);
+  });
+
+  it("accepts organic non-selection when Spark Orb is available but not chosen", () => {
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+
+    expect(packet.activityCatalog.some((card) => card.activityId === "spark-orb-charge")).toBe(true);
+    expect(validateAssignmentPlannerOutput(goodOutput(), {
+      extraction: extraction(),
+      activityCatalog: packet.activityCatalog,
+    })).toEqual([]);
+  });
+
+  it("accepts a valid Spark Orb wrapper on a domain-valid spelling node", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan[1] = {
+      ...output.activeSessionPlan.nodePlan[1]!,
+      rewardWrapper: {
+        activityId: "spark-orb-charge",
+        mode: "domain_payload_wrapper",
+        reason: "Earned launch wraps the spelling payload after target evidence is captured.",
+      },
+    };
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual([]);
+  });
+
+  it("rejects Spark Orb as a standalone mastery node instead of a wrapper", () => {
+    const output = goodOutput();
+    output.activeSessionPlan.nodePlan.unshift({
+      id: "spark-orb-standalone",
+      type: "spell-check",
+      activityId: "spark-orb-charge",
+      targets: ["sign"],
+      difficulty: 1,
+      source: "chart_planner",
+      targetLane: "silent_letters",
+    });
+    output.plannedMeasurements.push({
+      id: "measure-spark-orb-standalone",
+      activityId: "spark-orb-charge",
+      target: "silent_letters",
+      evidenceType: "reward",
+      supportCriteria: "not academic evidence",
+      reviseCriteria: "used as standalone node",
+      falsifyCriteria: "wrapper treated as mastery",
+    });
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "wrapper_activity_used_as_node" }),
+    ]));
+  });
+
+  it("rejects domain payload wrappers on locked destinations", () => {
+    const output = goodOutput();
+    const questIndex = output.activeSessionPlan.nodePlan.findIndex((node) => node.type === "quest");
+    output.activeSessionPlan.nodePlan[questIndex] = {
+      ...output.activeSessionPlan.nodePlan[questIndex]!,
+      rewardWrapper: {
+        activityId: "spark-orb-charge",
+        mode: "domain_payload_wrapper",
+        reason: "Do not let a locked destination pretend it owns live target evidence.",
+      },
+    };
+
+    expect(validateAssignmentPlannerOutput(output, {
+      extraction: extraction(),
+      activityCatalog: buildAssignmentPlanningPacket({
+        childId: "reina",
+        extraction: extraction(),
+        childChart: chart(),
+      }).activityCatalog,
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "reward_wrapper_requires_domain_payload_node" }),
+    ]));
   });
 
   it("requires every planned node to have support, revise, and falsify measurement criteria", () => {

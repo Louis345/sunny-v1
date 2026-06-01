@@ -16,6 +16,7 @@ import type { ChildChart } from "../profiles/childChart";
 import {
   listActivityToolContracts,
   type ActivityCapabilityMode,
+  type ActivityPlannerVisibility,
 } from "./activityToolCatalog";
 import {
   plannerEvidenceFieldsForActivity,
@@ -65,7 +66,24 @@ export type AssignmentActivityCard = {
   goodFitWhen: string[];
   badFitWhen: string[];
   capabilityModes: ActivityCapabilityMode[];
+  plannerVisibility: ActivityPlannerVisibility;
   status: "ok" | "unavailable" | "missing_config_metadata";
+};
+
+export type AssignmentPlannerDialogueTurn = {
+  role: "parent" | "sunny";
+  message: string;
+  createdAt: string;
+};
+
+export type AssignmentPlannerReferenceDoc = {
+  id: string;
+  title: string;
+  path: string;
+  configOwner: string;
+  plannerUse: string;
+  appliesWhen: string[];
+  checklist: string[];
 };
 
 export type AssignmentPlanningChildChartSummary = {
@@ -124,15 +142,10 @@ export type AssignmentPlanningPacket = {
   childChart: AssignmentPlanningChildChartSummary;
   activityCatalog: AssignmentActivityCard[];
   boardPlanning: AssignmentBoardPlanningContext;
-  plannerInstruction: string;
+  plannerReferences?: AssignmentPlannerReferenceDoc[];
   parentDialogue?: AssignmentPlannerDialogueTurn[];
+  plannerInstruction: string;
   priorPlannerOutput?: AssignmentPlannerOutput;
-};
-
-export type AssignmentPlannerDialogueTurn = {
-  role: "parent" | "sunny";
-  message: string;
-  createdAt: string;
 };
 
 export type AlgorithmContract = {
@@ -198,6 +211,11 @@ export type AssignmentPlanValidationIssue = {
     | "missing_node_measurement"
     | "target_lane_mismatch"
     | "unknown_activity_id"
+    | "wrapper_activity_used_as_node"
+    | "unknown_reward_wrapper_activity"
+    | "reward_wrapper_activity_not_wrapper"
+    | "unknown_reward_wrapper_mode"
+    | "reward_wrapper_requires_domain_payload_node"
     | "board_missing_edge_endpoint"
     | "board_choice_option_missing_node"
     | "board_choice_gate_missing_choice_set"
@@ -384,6 +402,50 @@ export const ASSIGNMENT_PLANNER_PERSONA = [
   "You notice boredom, avoidance, fatigue, pride, curiosity, and recovery as part of the learning picture.",
   "You are free to choose the path from the chart, assignment evidence, due date, and mastery goal.",
 ].join(" ");
+
+export const ASSIGNMENT_PLANNER_REFERENCE_DOCS: AssignmentPlannerReferenceDoc[] = [
+  {
+    id: "activity-tool-protocol",
+    title: "Activity Tool Protocol",
+    path: "docs/activity-tool-protocol.md",
+    configOwner: "src/engine/activityToolCatalog.ts",
+    plannerUse:
+      "Use this to decide whether a proposed class activity should enter Sunny as a cataloged activity instrument or remain a prototype.",
+    appliesWhen: [
+      "A new class activity, game wrapper, reward shell, or generated tool is proposed.",
+      "The planner needs to decide if an activity has enough mechanic truth and evidence safety.",
+      "A prototype needs to graduate from Storybook or lab mode into the adaptive path.",
+    ],
+    checklist: [
+      "No orphan activities: every active-path activity needs an Activity Tool Contract.",
+      "Declare purposes, domains, strengths, weak spots, good-fit conditions, and bad-fit conditions.",
+      "Name the mechanic truth: what the child actually clicks, says, types, sorts, or recalls.",
+      "Declare scaffolds that can contaminate mastery evidence.",
+      "Only mastery-eligible activities with captured per-target results may write mastery evidence.",
+      "Use src/engine/activityToolCatalog.ts as the machine-readable source of truth.",
+    ],
+  },
+  {
+    id: "spark-orb-learning-contract",
+    title: "Spark Orb Learning Contract",
+    path: "docs/spark-orb-learning-contract.md",
+    configOwner: "src/engine/activityToolCatalog.ts",
+    plannerUse:
+      "Use this when Spark Orb is available as an optional reward wrapper around real learning evidence.",
+    appliesWhen: [
+      "A child needs a short exciting reward bridge after valid domain work.",
+      "A domain activity can preserve target-level evidence while Spark Orb handles charge, launch, and reward feel.",
+      "The planner is deciding whether to use or decline Spark Orb organically.",
+    ],
+    checklist: [
+      "Spark Orb is not standalone mastery evidence.",
+      "The embedded spelling, reading, math, or history payload owns academic correctness.",
+      "Use rewardWrapper.activityId spark-orb-charge instead of a map node.",
+      "Use domain_payload_wrapper only on unlocked evidence-generating domain nodes.",
+      "Skip Spark Orb when the session needs a clean baseline, calm practice, or reduced arcade reward.",
+    ],
+  },
+];
 
 export const ASSIGNMENT_PLANNER_TOOL_NAME = "write_adventure_session_plan";
 
@@ -587,6 +649,14 @@ const compactNodePlanSchema = z.object({
   wordRadarConfig: z.preprocess(
     (value) => value === null ? undefined : value,
     wordRadarNodeConfigSchema.optional(),
+  ),
+  rewardWrapper: z.preprocess(
+    (value) => value === null ? undefined : value,
+    z.object({
+      activityId: z.literal("spark-orb-charge"),
+      mode: z.enum(["charge_bridge", "domain_payload_wrapper"]),
+      reason: z.string().min(1),
+    }).strict().optional(),
   ),
 });
 
@@ -819,9 +889,11 @@ function activityCatalog(
   const domain = inferPlannerCatalogDomain(extraction);
   const plannerIds = new Set(PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN[domain]);
   return listActivityToolContracts()
-    .filter((contract) => plannerIds.has(contract.id))
+    .filter((contract) =>
+      plannerIds.has(contract.id) || contract.plannerVisibility === "wrapper")
     .map((contract) => {
       const evidenceFields = plannerEvidenceFieldsForActivity(contract.id);
+      const plannerVisibility = contract.plannerVisibility;
       return {
         activityId: contract.id,
         nodeType: contract.nodeType,
@@ -831,6 +903,7 @@ function activityCatalog(
           NODE_TYPES.has(contract.id as NodeType) &&
           (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)),
         ),
+        plannerVisibility,
         domains: [...contract.domains],
         purposes: [...contract.purposes],
         skillTargets: [...contract.traits.skillTargets],
@@ -864,9 +937,12 @@ function activityCatalog(
           measurementRisks: [...mode.measurementRisks],
         })),
         status: (
-          NODE_TYPES.has(contract.id as NodeType) &&
-          contract.configSource !== "unspecified" &&
-          (contract.capabilityModes.length > 0 || contract.configSource === "registry-default" || contract.configSource === "reward-game")
+          contract.plannerVisibility === "wrapper" ||
+          (
+            NODE_TYPES.has(contract.id as NodeType) &&
+            contract.configSource !== "unspecified" &&
+            (contract.capabilityModes.length > 0 || contract.configSource === "registry-default" || contract.configSource === "reward-game")
+          )
         ) ? "ok" : "unavailable",
       };
     });
@@ -1116,10 +1192,21 @@ export function buildAssignmentPlanningPacket(args: {
     childChart,
     activityCatalog: catalog,
     boardPlanning: buildBoardPlanningContext(),
+    plannerReferences: ASSIGNMENT_PLANNER_REFERENCE_DOCS.map((doc) => ({
+      ...doc,
+      appliesWhen: [...doc.appliesWhen],
+      checklist: [...doc.checklist],
+    })),
+    ...(args.parentDialogue?.length ? { parentDialogue: args.parentDialogue.map((turn) => ({ ...turn })) } : {}),
     plannerInstruction: [
       "Interpret the assignment from the source text and source groups.",
       "Activities are instruments. Choose nodes by target purpose, not by generic fun.",
       "Use activityCatalog.evidenceRole, proofStrength, bestFor, contaminationRisks, and modeEvidenceNotes as the instrument truth table.",
+      "Use plannerReferences when evaluating whether a new class activity should enter Sunny; docs explain product rules and configOwner points to the machine-readable contract.",
+      "If parent dialogue is present, treat it as human-in-the-loop correction context without weakening source evidence or target-level measurement.",
+      "Planner-visible wrapper activities are not map nodes. If a wrapper fits organically, attach it as rewardWrapper on a domain-valid node instead of replacing the academic activity.",
+      "Spark Orb may be selected only as rewardWrapper when its catalog/docs fit the child and assignment. It is optional; choosing not to use it is valid when baseline evidence should stay clean.",
+      "domain_payload_wrapper must attach to an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or any locked destination.",
       "A mode can be academically valid even when another mode of the same activity is not; judge the selected mode's evidence, not only the activity name.",
       "Each word group must declare its learning purpose from source evidence.",
       "Do not collapse teacher-labeled groups into one skill; infer whether each group asks for spelling production, recognition, fluency, pronunciation, meaning, or review.",
@@ -1141,7 +1228,6 @@ export function buildAssignmentPlanningPacket(args: {
       "Decide agency and route density from chart evidence, stamina, motivation, and evidence needs.",
       "Explain why the journey you chose fits this child today.",
     ].join(" "),
-    ...(args.parentDialogue?.length ? { parentDialogue: args.parentDialogue.map((turn) => ({ ...turn })) } : {}),
     ...(args.priorPlannerOutput ? { priorPlannerOutput: args.priorPlannerOutput } : {}),
   };
 }
@@ -1187,9 +1273,23 @@ export function validateAssignmentPlannerOutput(
   }
 
   const catalog = args.activityCatalog ?? activityCatalog();
+  const catalogByActivityId = new Map(catalog.map((card) => [card.activityId, card]));
+  const wrapperActivityIds = new Set(
+    catalog
+      .filter((card) => card.plannerVisibility === "wrapper")
+      .map((card) => card.activityId),
+  );
+  const wrapperModesByActivityId = new Map(
+    catalog
+      .filter((card) => card.plannerVisibility === "wrapper")
+      .map((card) => [
+        card.activityId,
+        new Set(card.capabilityModes.map((mode) => mode.id)),
+      ]),
+  );
   const activityIds = new Set(
     args.activityIds ?? catalog
-      .filter((card) => card.launchable)
+      .filter((card) => card.launchable || card.plannerVisibility === "wrapper")
       .map((card) => card.activityId),
   );
   const nodeTypes = new Set(output.activeSessionPlan.nodePlan.map((node) => node.type));
@@ -1226,6 +1326,46 @@ export function validateAssignmentPlannerOutput(
         severity: "error",
         message: `Node ${node.id} references unknown activity ${node.activityId}.`,
       });
+    }
+    if (wrapperActivityIds.has(node.activityId)) {
+      issues.push({
+        code: "wrapper_activity_used_as_node",
+        severity: "error",
+        message: `Node ${node.id} uses wrapper activity ${node.activityId} as a standalone node; attach it as rewardWrapper on a domain-valid node instead.`,
+      });
+    }
+    const rewardWrapper = "rewardWrapper" in node ? node.rewardWrapper : undefined;
+    if (rewardWrapper) {
+      const wrapperCard = catalogByActivityId.get(rewardWrapper.activityId);
+      if (!wrapperCard) {
+        issues.push({
+          code: "unknown_reward_wrapper_activity",
+          severity: "error",
+          message: `Node ${node.id} references unknown reward wrapper ${rewardWrapper.activityId}.`,
+        });
+      } else if (wrapperCard.plannerVisibility !== "wrapper") {
+        issues.push({
+          code: "reward_wrapper_activity_not_wrapper",
+          severity: "error",
+          message: `Node ${node.id} references ${rewardWrapper.activityId} as a reward wrapper, but the catalog does not mark it as a wrapper.`,
+        });
+      } else if (!wrapperModesByActivityId.get(rewardWrapper.activityId)?.has(rewardWrapper.mode)) {
+        issues.push({
+          code: "unknown_reward_wrapper_mode",
+          severity: "error",
+          message: `Node ${node.id} references unsupported wrapper mode ${rewardWrapper.activityId}:${rewardWrapper.mode}.`,
+        });
+      }
+      if (
+        rewardWrapper.mode === "domain_payload_wrapper" &&
+        (node.locked === true || node.type === "quest" || node.type === "boss" || node.type === "mystery")
+      ) {
+        issues.push({
+          code: "reward_wrapper_requires_domain_payload_node",
+          severity: "error",
+          message: `Node ${node.id} uses domain_payload_wrapper on ${node.type}; attach it to an unlocked evidence-generating domain node instead.`,
+        });
+      }
     }
     if (!measurementIds.has(`measure-${node.id}`)) {
       issues.push({
@@ -1398,6 +1538,11 @@ Output contract:
 - For source groups whose purpose is recognize, read_fluently, or pronounce, prefer pronunciation or visible_read-style recognition evidence. Do not turn high-frequency recognition words into spelling-production work unless the source explicitly says those words are spelling targets or prior evidence shows spelling production is the gap.
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
+- If parentDialogue is present in the packet, this is human-in-the-loop context. Use it to revise the plan without overriding captured source evidence.
+- Use plannerReferences when evaluating wrapper activities and activity graduation rules.
+- Planner-visible wrapper activities are not map nodes. If a wrapper fits organically, attach it as rewardWrapper on a domain-valid node instead of replacing the academic activity.
+- Spark Orb may be selected only as rewardWrapper when its catalog/docs fit the child and assignment. It is optional; choosing not to use it is valid when baseline evidence should stay clean.
+- domain_payload_wrapper must attach to an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or any locked destination.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
 - Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
@@ -1422,6 +1567,7 @@ Output contract:
 - Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
 - Set masteryUnlockState only on locked quest and boss nodes. For those nodes use exactly "masteryUnlockState": "preparing". Omit masteryUnlockState from baseline, teaching, practice, pronunciation, word-radar, spell-check, letter-rush, monster-stampede, and mystery nodes.
+- rewardWrapper is optional and only supports {"activityId":"spark-orb-charge","mode":"charge_bridge"|"domain_payload_wrapper","reason":string}; omit it unless the wrapper improves engagement while preserving academic evidence.
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today; if the same activity shell appears more than once before Mystery, explicitly explain why this will not feel like grind or revise the node plan.
 - Use the packet as the only source of assignment truth.${revisionInstruction}

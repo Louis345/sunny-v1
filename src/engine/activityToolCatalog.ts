@@ -102,6 +102,8 @@ export type ActivityConfigSource =
   | "registry-default"
   | "reward-game";
 
+export type ActivityPlannerVisibility = "map_node" | "wrapper" | "reference_only";
+
 export type ActivityTraits = {
   skillTargets: ActivitySkillTarget[];
   friction: ActivityFriction;
@@ -143,6 +145,8 @@ type ActivityToolContractSource = {
   gameIds?: string[];
   /** How this activity receives its runtime configuration. */
   configSource?: ActivityConfigSource;
+  /** How the assignment planner may expose this activity without forcing it into the map. */
+  plannerVisibility?: ActivityPlannerVisibility;
   purposes: ActivityPurpose[];
   domains: LearningDomain[];
   strengths: string[];
@@ -174,6 +178,7 @@ export type ActivityToolContract = ActivityToolContractSource & {
   capabilityModes: ActivityCapabilityMode[];
   gameIds: string[];
   configSource: ActivityConfigSource;
+  plannerVisibility: ActivityPlannerVisibility;
 } & ActivityPlannerAudit;
 
 export type LearnerState = "unknown" | "none" | "partial" | "ready" | "mastered";
@@ -445,6 +450,15 @@ const ACTIVITY_TRAITS_BY_ID = {
     evidenceType: "reward",
     preferenceDimensions: ["novelty", "control", "competition", "social"],
   },
+  "spark-orb-charge": {
+    skillTargets: ["retrieval_practice", "attention_control", "reward_recovery"],
+    friction: "low",
+    pacing: "burst",
+    inputModes: ["click", "touch", "visual", "mixed"],
+    scaffoldLevel: "medium",
+    evidenceType: "practice",
+    preferenceDimensions: ["novelty", "challenge", "movement", "visual", "confidence"],
+  },
   "wheel-of-fortune": {
     skillTargets: ["reward_recovery", "retrieval_practice"],
     friction: "low",
@@ -615,6 +629,10 @@ const ACTIVITY_RUNTIME_CONFIG_BY_ID = {
   mystery: {
     gameIds: [],
     configSource: "reward-game",
+  },
+  "spark-orb-charge": {
+    gameIds: [],
+    configSource: "activity-config-file",
   },
   "wheel-of-fortune": {
     gameIds: ["WheelOfFortune"],
@@ -1454,6 +1472,85 @@ const ACTIVITY_PLANNER_AUDIT_BY_ID = {
       "Use after evidence-generating work, not before baseline.",
       "Record preferences, but do not let preference override assignment validity.",
       "Keep options real and child-visible.",
+    ],
+  },
+  "spark-orb-charge": {
+    measures: [
+      "Engagement and anticipation while a Quest or Boss artifact is preparing.",
+      "Persistence, recharge behavior, launch timing, and recovery after a miss.",
+      "Only the embedded domain payload can provide academic target evidence.",
+    ],
+    configKnobs: [
+      "domain",
+      "embeddedActivityId",
+      "embeddedActivityMode",
+      "targetSkills",
+      "chargeGoal",
+      "questBuildId",
+      "requiresEmbeddedTargetEvidence",
+    ],
+    realDifficultyLevels: [
+      "charge_bridge: short motivation bridge while generated content validates.",
+      "domain_payload_wrapper: Spark Orb wraps a domain-valid task with target-level evidence.",
+    ],
+    signalsEmitted: [
+      "charge earned",
+      "release success or miss",
+      "orb spent",
+      "recharge needed",
+      "collectible revealed",
+      "embedded target results when supplied by the payload",
+    ],
+    signalsMissing: [
+      "Standalone mastery.",
+      "Academic transfer unless the embedded payload captures per-target responses.",
+      "Generated artifact validation result unless linked to the Quest/Boss build.",
+    ],
+    psychologistGuidance: [
+      "Use only when the planner chooses an energetic bridge; Spark Orb is optional, never mandatory.",
+      "Treat the orb as a wrapper around the embedded instrument, not as the academic instrument by itself.",
+      "Mastery claims require embedded target-level evidence and should flow through the chart.",
+    ],
+    capabilityModes: [
+      {
+        id: "charge_bridge",
+        label: "Charge Bridge",
+        difficulty: 1,
+        purpose: "practice",
+        skillTargets: ["attention_control", "reward_recovery"],
+        inputModes: ["click", "touch", "visual"],
+        scaffolds: ["companion-coaching"],
+        evidenceType: "practice",
+        masteryEligible: false,
+        config: {
+          optionalPlannerTool: true,
+          claimsMastery: false,
+          chargeGoal: 3,
+          bridgeOnly: true,
+        },
+        measurementRisks: [
+          "A fun launch or collectible reveal is engagement evidence, not learning proof.",
+        ],
+      },
+      {
+        id: "domain_payload_wrapper",
+        label: "Domain Payload Wrapper",
+        difficulty: 2,
+        purpose: "practice",
+        skillTargets: ["retrieval_practice", "generated_transfer"],
+        inputModes: ["mixed"],
+        scaffolds: ["companion-coaching"],
+        evidenceType: "practice",
+        masteryEligible: "requires_captured_response",
+        config: {
+          optionalPlannerTool: true,
+          requiresEmbeddedTargetEvidence: true,
+          embeddedPayloadOwnsMastery: true,
+        },
+        measurementRisks: [
+          "Only the embedded spelling, reading, math, or science payload can write target-level evidence.",
+        ],
+      },
     ],
   },
   quest: {
@@ -2741,6 +2838,34 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     },
   },
   {
+    id: "spark-orb-charge",
+    label: "Spark Orb Charge",
+    plannerVisibility: "wrapper",
+    purposes: ["practice", "reward"],
+    domains: ["spelling", "reading", "science", "math", "vocabulary", "attention"],
+    strengths: [
+      "Creates a short earned-energy bridge while generated Quest or Boss content is preparing.",
+      "Adds anticipation, persistence, launch timing, and recovery signals around a real domain payload.",
+    ],
+    weakFor: ["standalone-mastery", "initial-baseline", "unvalidated-generated-content"],
+    goodFitWhen: [
+      "The planner wants a motivating bridge while the selected generated adventure validates.",
+      "A domain-valid embedded activity can emit target-level evidence inside the wrapper.",
+    ],
+    badFitWhen: [
+      "Sunny needs a clean cold baseline with no reward wrapper.",
+      "The implementation would treat the orb launch or collectible as academic mastery.",
+    ],
+    scaffolds: ["companion-coaching", "retry"],
+    evidence: {
+      writesPracticeEvidence: true,
+      writesMasteryEvidence: false,
+      requiresPerTargetResult: false,
+      allowedEvidence: ["practice", "attention", "reward"],
+      contaminationRisks: ["companion-coaching", "retry"],
+    },
+  },
+  {
     id: "wheel-of-fortune",
     label: "Wheel of Fortune",
     nodeType: "wheel-of-fortune",
@@ -3253,6 +3378,7 @@ export function listActivityToolContracts(): ActivityToolContract[] {
       ...contract,
       gameIds: [...(contract.gameIds ?? runtime?.gameIds ?? [])],
       configSource: contract.configSource ?? runtime?.configSource ?? "unspecified",
+      plannerVisibility: contract.plannerVisibility ?? (contract.nodeType ? "map_node" : "reference_only"),
       purposes: [...contract.purposes],
       domains: [...contract.domains],
       strengths: [...contract.strengths],

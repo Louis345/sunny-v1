@@ -104,6 +104,14 @@ export interface WordRadarNodeConfig {
   requiresCapturedResponse: boolean;
 }
 
+export type RewardWrapperMode = "charge_bridge" | "domain_payload_wrapper";
+
+export interface RewardWrapperConfig {
+  activityId: string;
+  mode: RewardWrapperMode;
+  reason: string;
+}
+
 export type PronunciationFlowHook = "competition" | "speed" | "challenge";
 
 export interface PronunciationNodeConfig {
@@ -216,6 +224,8 @@ export interface NodeConfig {
   }>;
   /** Planner-selected Word Radar measurement mode; profile config is only fallback. */
   wordRadarConfig?: WordRadarNodeConfig;
+  /** Optional planner-selected reward shell around the learning node. */
+  rewardWrapper?: RewardWrapperConfig;
   /** Planner-selected pronunciation dosage; the game renders this instead of choosing word counts. */
   pronunciationConfig?: PronunciationNodeConfig;
   /** Chart word group / activity target lane used to choose this node's targets. */

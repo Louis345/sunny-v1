@@ -148,6 +148,28 @@ describe("activity tool catalog", () => {
     expect(wheel.psychologistGuidance.join(" ")).toMatch(/reward|mystery|not.*mastery/i);
   });
 
+  it("marks Spark Orb as a planner-visible wrapper without mastery authority", () => {
+    const sparkOrb = getActivityToolContract("spark-orb-charge");
+
+    expect(sparkOrb.plannerVisibility).toBe("wrapper");
+    expect(sparkOrb.purposes).toEqual(expect.arrayContaining(["practice", "reward"]));
+    expect(sparkOrb.domains).toEqual(expect.arrayContaining(["spelling", "reading", "math"]));
+    expect(sparkOrb.evidence.writesPracticeEvidence).toBe(true);
+    expect(sparkOrb.evidence.writesMasteryEvidence).toBe(false);
+    expect(sparkOrb.capabilityModes.map((mode) => mode.id)).toEqual([
+      "charge_bridge",
+      "domain_payload_wrapper",
+    ]);
+    expect(sparkOrb.capabilityModes.find((mode) => mode.id === "domain_payload_wrapper"))
+      .toMatchObject({
+        masteryEligible: "requires_captured_response",
+        config: {
+          requiresEmbeddedTargetEvidence: true,
+          embeddedPayloadOwnsMastery: true,
+        },
+      });
+  });
+
   it("audits Quest and Boss as generated destinations with explicit gates and evidence risks", () => {
     const quest = getActivityToolContract("quest");
     const boss = getActivityToolContract("boss");
@@ -200,6 +222,43 @@ describe("activity tool catalog", () => {
       purpose: "boss",
       masteryEligible: "requires_captured_response",
       config: { requiresQuestMeasurement: true, validationStatus: "passed", playable: true },
+    });
+  });
+
+  it("exposes Spark Orb as an optional wrapper bridge instead of standalone mastery", () => {
+    const spark = getActivityToolContract("spark-orb-charge");
+
+    expect(spark.label).toMatch(/spark orb/i);
+    expect(spark.domains).toEqual(expect.arrayContaining([
+      "spelling",
+      "reading",
+      "science",
+      "math",
+    ]));
+    expect(spark.purposes).toEqual(expect.arrayContaining(["practice", "reward"]));
+    expect(spark.configSource).toBe("activity-config-file");
+    expect(spark.evidence.writesPracticeEvidence).toBe(true);
+    expect(spark.evidence.writesMasteryEvidence).toBe(false);
+    expect(spark.weakFor).toEqual(expect.arrayContaining(["standalone-mastery"]));
+    expect(spark.psychologistGuidance.join(" ")).toMatch(/optional|planner|embedded/i);
+    expect(spark.capabilityModes.map((mode) => mode.id)).toEqual([
+      "charge_bridge",
+      "domain_payload_wrapper",
+    ]);
+    expect(spark.capabilityModes[0]).toMatchObject({
+      id: "charge_bridge",
+      masteryEligible: false,
+      config: {
+        optionalPlannerTool: true,
+        claimsMastery: false,
+      },
+    });
+    expect(spark.capabilityModes[1]).toMatchObject({
+      id: "domain_payload_wrapper",
+      masteryEligible: "requires_captured_response",
+      config: {
+        requiresEmbeddedTargetEvidence: true,
+      },
     });
   });
 

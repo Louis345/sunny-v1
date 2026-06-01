@@ -13,6 +13,7 @@ import type {
   MasteryUnlockState,
   NodeType,
   PronunciationNodeConfig,
+  RewardWrapperConfig,
   WordRadarNodeConfig,
 } from "../../shared/adventureTypes";
 import type { AdventureBoardJson } from "../../shared/adventureBoardJson";
@@ -140,6 +141,7 @@ export interface ActiveSessionPlan {
     locked?: boolean;
     pronunciationConfig?: PronunciationNodeConfig;
     wordRadarConfig?: WordRadarNodeConfig;
+    rewardWrapper?: RewardWrapperConfig;
   }>;
   adventureBoard?: AdventureBoardJson;
   variationPolicy: {
