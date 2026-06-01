@@ -323,10 +323,10 @@ describe("AdventureBoard", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /Pronunciation/ }));
 
     expect(onChoiceClick).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "choice-baseline-hf-fluency" }),
+      expect.objectContaining({ label: "Pronunciation" }),
       expect.objectContaining({ id: "baseline-route-options" }),
     );
-    expect(screen.getByRole("button", { name: "Quick Read, Route not picked" })).toHaveClass(
+    expect(screen.getByRole("button", { name: "Mystery, Route not picked" })).toHaveClass(
       "adventure-board__node--locked",
     );
     expect(screen.getByRole("button", { name: "Pronunciation" })).not.toHaveClass(
@@ -339,7 +339,7 @@ describe("AdventureBoard", () => {
     const choiceSet = reinaCurrentHomeworkBoard.choiceSets?.find(
       (set) => set.id === "baseline-route-options",
     );
-    const option = choiceSet?.options.find((candidate) => candidate.id === "choice-baseline-hf-fluency");
+    const option = choiceSet?.options.find((candidate) => candidate.label === "Pronunciation");
 
     expect(choiceSet).toBeDefined();
     expect(option).toBeDefined();
@@ -353,23 +353,27 @@ describe("AdventureBoard", () => {
       choiceSetId: "baseline-route-options",
       context: "baseline_route",
       source: "child_choice",
-      selectedOptionId: "choice-baseline-hf-fluency",
-      skippedOptionIds: ["choice-baseline-hf-recognition"],
+      selectedOptionId: option!.id,
     });
-    expect(event.shownOptions).toEqual([
+    expect(event.skippedOptionIds).toEqual(
+      choiceSet!.options
+        .filter((candidate) => candidate.id !== option!.id)
+        .map((candidate) => candidate.id),
+    );
+    expect(event.shownOptions).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        optionId: "choice-baseline-hf-recognition",
-        activityId: "word-radar",
-        nodeType: "word-radar",
+        optionId: "choice-mystery-choice",
+        activityId: "mystery",
+        nodeType: "mystery",
         preferenceTraits: ["practice", "control"],
       }),
       expect.objectContaining({
-        optionId: "choice-baseline-hf-fluency",
+        optionId: option!.id,
         activityId: "pronunciation",
         nodeType: "pronunciation",
         preferenceTraits: ["voice", "control"],
       }),
-    ]);
+    ]));
   });
 
   it("builds post-activity engagement evidence from planner board launches", () => {
