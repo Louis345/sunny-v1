@@ -10,7 +10,7 @@ import type {
   PlanTheory,
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
-import type { AdventureBoardJson, AdventureChoiceOption } from "../shared/adventureBoardJson";
+import type { AdventureBoardJson, AdventureChoiceOption, AdventureChoiceSet } from "../shared/adventureBoardJson";
 import { ALL_NODE_TYPES, type NodeType } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
 import {
@@ -96,6 +96,35 @@ export type AssignmentPlanningChildChartSummary = {
   activeHomeworkSummary?: string | null;
   carePlanSummary?: string | null;
   recentEvidence: string[];
+  learningSignals?: AssignmentPlanningChildLearningSignals;
+};
+
+export type AssignmentPlanningChildLearningSignals = {
+  activityAffinities: Array<{
+    activityId: string;
+    plays: number;
+    completions: number;
+    completionRate: number;
+    averageAccuracy: number;
+    averageTimePerTarget_ms?: number;
+    engagementScore: number;
+    frustrationScore: number;
+    likedCount?: number;
+    dislikedCount?: number;
+    lastRating?: "like" | "dislike" | "implicit";
+    domains: Record<string, number>;
+    missedWords: string[];
+  }>;
+  traitSignals: Array<{
+    dimension: string;
+    positiveWeight: number;
+    negativeWeight: number;
+    mixedWeight: number;
+    evidenceCount: number;
+    confidence: number;
+    activityCounts: Record<string, number>;
+  }>;
+  notes: string[];
 };
 
 export type AssignmentMasteryContext = {
@@ -397,7 +426,7 @@ export const ASSIGNMENT_PLANNER_PERSONA = [
   "The board is not a worksheet; it is how the child experiences the care plan.",
   "Use the activity catalog like a tutor's table full of materials: checks, teaching tools, practice games, recovery beats, and proof moments.",
   "Choose activities for evidence, teaching, and willingness to continue without making the child feel like this is a grind.",
-  "The child experiences the activity, not the internal capability mode. If the same activity shell appears more than once before Mystery, vary material or explain why repetition is right.",
+  "The child experiences the activity, not the internal capability mode. Select materials for the lived lesson they create, not for internal labels.",
   "nodes exist to change the lived lesson, not decorate the map.",
   "You notice boredom, avoidance, fatigue, pride, curiosity, and recovery as part of the learning picture.",
   "You are free to choose the path from the chart, assignment evidence, due date, and mastery goal.",
@@ -954,6 +983,67 @@ function summarizeCarePlan(chart: ChildChart): string | null {
   return String(current.signal ?? current.summary ?? "Care plan present.");
 }
 
+function roundPlannerSignal(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function childLearningSignalsForPacket(chart: ChildChart): AssignmentPlanningChildLearningSignals | undefined {
+  const learningProfile = chart.learningProfile as ChildChart["learningProfile"] | undefined;
+  const activityAffinities = Object.values(learningProfile?.activityModel ?? {})
+    .filter((entry) => entry && entry.plays > 0)
+    .sort((a, b) => {
+      const bScore = b.plays * Math.max(0, b.engagementScore - b.frustrationScore);
+      const aScore = a.plays * Math.max(0, a.engagementScore - a.frustrationScore);
+      return bScore - aScore;
+    })
+    .slice(0, 10)
+    .map((entry) => ({
+      activityId: entry.activityId,
+      plays: entry.plays,
+      completions: entry.completions,
+      completionRate: roundPlannerSignal(entry.completionRate),
+      averageAccuracy: roundPlannerSignal(entry.averageAccuracy),
+      ...(typeof entry.averageTimePerTarget_ms === "number"
+        ? { averageTimePerTarget_ms: roundPlannerSignal(entry.averageTimePerTarget_ms) }
+        : {}),
+      engagementScore: roundPlannerSignal(entry.engagementScore),
+      frustrationScore: roundPlannerSignal(entry.frustrationScore),
+      ...(typeof entry.likedCount === "number" ? { likedCount: entry.likedCount } : {}),
+      ...(typeof entry.dislikedCount === "number" ? { dislikedCount: entry.dislikedCount } : {}),
+      ...(entry.lastRating ? { lastRating: entry.lastRating } : {}),
+      domains: { ...entry.domains },
+      missedWords: [...(entry.missedWords ?? [])].slice(0, 8),
+    }));
+
+  const traitSignals = Object.values(learningProfile?.activityTraitModel ?? {})
+    .filter((entry) => entry && entry.evidenceCount > 0)
+    .sort((a, b) => {
+      const bScore = b.confidence * (Math.abs(b.positiveWeight) + Math.abs(b.negativeWeight) + Math.abs(b.mixedWeight));
+      const aScore = a.confidence * (Math.abs(a.positiveWeight) + Math.abs(a.negativeWeight) + Math.abs(a.mixedWeight));
+      return bScore - aScore;
+    })
+    .slice(0, 12)
+    .map((entry) => ({
+      dimension: entry.dimension,
+      positiveWeight: roundPlannerSignal(entry.positiveWeight),
+      negativeWeight: roundPlannerSignal(entry.negativeWeight),
+      mixedWeight: roundPlannerSignal(entry.mixedWeight),
+      evidenceCount: entry.evidenceCount,
+      confidence: roundPlannerSignal(entry.confidence),
+      activityCounts: { ...entry.activityCounts },
+    }));
+
+  if (activityAffinities.length === 0 && traitSignals.length === 0) return undefined;
+  return {
+    activityAffinities,
+    traitSignals,
+    notes: [
+      "Activity affinity and trait signals describe engagement/preference evidence, not mastery proof.",
+      "Use target-level attempts, baseline evidence, Quest, Boss, and graded calibration for mastery claims.",
+    ],
+  };
+}
+
 function childChartSummaryForPacket(
   chart: ChildChart,
   recentEvidence: string[],
@@ -970,6 +1060,7 @@ function childChartSummaryForPacket(
       : null,
     carePlanSummary: summarizeCarePlan(chart),
     recentEvidence,
+    learningSignals: childLearningSignalsForPacket(chart),
   };
 }
 
@@ -985,10 +1076,10 @@ function buildBoardPlanningContext(): AssignmentBoardPlanningContext {
       },
       spacedRepetition: {
         id: "spacedRepetition",
-        purpose: "Keep weak or due targets supported while mastered targets receive lighter spaced checks.",
+        purpose: "Use target history, latency, retries, help, and due state as context for support, review, challenge, or transfer.",
         needs: ["target_accuracy", "latency", "retries", "help", "last_seen", "due_state"],
         outputs: ["target_dosage", "support_level", "review_timing"],
-        guardrails: ["preference_is_not_mastery", "do_not_expand_mastered_targets_over_weak_targets"],
+        guardrails: ["preference_is_not_mastery", "explain_how_target_history_informs_the_plan"],
       },
       questReadiness: {
         id: "questReadiness",
@@ -1017,8 +1108,10 @@ function buildBoardPlanningContext(): AssignmentBoardPlanningContext {
         "learning_outcome_after_choice",
       ],
       signalQualityNotes: [
-        "A small set of clear choices usually produces cleaner evidence than many noisy options.",
-        "Extra choices can be useful when uncertainty is high or Sunny needs preference data.",
+        "Child choice is not decoration; it is a diagnostic reading about which kind of effort the child is willing to enter.",
+        "A choice between academically valid paths can reveal voice, speed, puzzle, story, competition, calm practice, construction, recall, or other wrapper affinity.",
+        "Mystery is not a replacement for route agency; Mystery measures wrapper preference after work, while route choice measures willingness among valid academic routes.",
+        "That preference evidence can shape future Quest and Boss content while mastery still comes from target-level outcomes.",
         "Shown-but-not-chosen is weak neutral evidence; explicit dislike or abandonment is stronger negative evidence.",
       ],
       plannerDecision: "The planner decides how many route, Mystery, Quest, or Boss choices are worth the child's attention from chart evidence, stamina, motivation, and uncertainty.",
@@ -1206,14 +1299,14 @@ export function buildAssignmentPlanningPacket(args: {
       "If parent dialogue is present, treat it as human-in-the-loop correction context without weakening source evidence or target-level measurement.",
       "Planner-visible wrapper activities are not map nodes. If a wrapper fits organically, attach it as rewardWrapper on a domain-valid node instead of replacing the academic activity.",
       "Spark Orb may be selected only as rewardWrapper when its catalog/docs fit the child and assignment. It is optional; choosing not to use it is valid when baseline evidence should stay clean.",
+      "Do not emit rewardWrapper as null, {}, or a partial object; either omit it or provide the exact supported object.",
       "domain_payload_wrapper must attach to an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or any locked destination.",
       "A mode can be academically valid even when another mode of the same activity is not; judge the selected mode's evidence, not only the activity name.",
       "Each word group must declare its learning purpose from source evidence.",
       "Do not collapse teacher-labeled groups into one skill; infer whether each group asks for spelling production, recognition, fluency, pronunciation, meaning, or review.",
-      "Use recent canonical activity evidence as lesson-to-lesson labs: weak targets get support; mastered targets get smaller spaced checks or transfer instead of full repeated baseline.",
-      "When exact weak targets are named, give those weak targets strictly more academic support than mastered targets; light reinforcement must be smaller than support.",
-      "When evidence conflicts, the first academic node should probe those exact contradictory targets; give them more academic placements than clean/mastered targets, and do not create a same-activity run just to replay clean words.",
-      "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
+      "In a spelling-test packet, a section title such as High-Frequency Words usually names spelling targets unless the source explicitly says reading, definition, vocabulary meaning, or fluency instead.",
+      "Use recent canonical activity evidence as lesson-to-lesson context: misses, second attempts, help, skips, fast first-try correct responses, replay, and frustration are signals a thoughtful tutor would consider.",
+      "When evidence conflicts, name the contradiction and choose a path that can clarify what the child actually needs next.",
       "Use the child-facing journey as part of professional judgment: the experience should feel purposeful and worth effort while preserving academic validity.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Every activeSessionPlan.nodePlan entry must have a plannedMeasurements entry whose id is measure-${node.id}; include supportCriteria, reviseCriteria, and falsifyCriteria for the exact signal that node is meant to collect.",
@@ -1222,10 +1315,15 @@ export function buildAssignmentPlanningPacket(args: {
       "Use this packet as the single planner object: childChart, sourceDocument, masteryContext, activityCatalog, algorithmContracts, runtimeConstraints, and criticPolicy.",
       "Use masteryContext as the clock and deadline pressure: the goal is demonstrated homework mastery by testDate, not merely completing a cute board.",
       "Use masteryContext.readinessProof as the domain center; spelling-test readiness means unaided spelling recall unless fresh clean recall evidence already proves it.",
-      "As daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.",
+      "Use date, time, and daysUntilTest as care-plan context when deciding the session's intensity and pacing.",
       "Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.",
       "If quest or boss fails, the next session should identify the failed target or skill, teach that skill, and retry the proof loop.",
-      "Decide agency and route density from chart evidence, stamina, motivation, and evidence needs.",
+      "Child choice is not decoration; it is a diagnostic reading about which kind of effort the child is willing to enter.",
+      "When multiple academically valid paths exist, route choice can reveal voice, speed, puzzle, story, competition, calm practice, construction, recall, or other wrapper affinity.",
+      "Mystery is not a replacement for route agency; Mystery asks which wrapper feels motivating after work, while route agency lets the child choose between route-worthy alternatives that are academically valid.",
+      "When the assignment and catalog provide route-worthy alternatives, include them as real launchable intervention nodes before Mystery so the choice can teach Sunny something about the child's willingness and learning style.",
+      "Route-worthy alternatives can be different valid instruments or wrappers for the same target lane after enough baseline to avoid blind choice; they do not have to be different worksheet sections.",
+      "That preference evidence can shape future Quest and Boss content while mastery still comes from target-level outcomes.",
       "Explain why the journey you chose fits this child today.",
     ].join(" "),
     ...(args.priorPlannerOutput ? { priorPlannerOutput: args.priorPlannerOutput } : {}),
@@ -1530,18 +1628,17 @@ Output contract:
 - Do not flatten source word groups.
 - Infer each source group's target purpose from the assignment evidence.
 - Do not assume every group on a spelling handout has the same success target; teacher headings can distinguish spelling production from reading fluency, recognition, vocabulary, or review.
-- Use recent canonical activity evidence as lesson-to-lesson labs: misses/second attempts/help/skips increase support and dosage for those exact targets; fast first-try correct evidence reduces dosage and moves the target toward spaced checks or transfer.
-- Mastery evidence should shrink redundant baseline work. Do not repeat a full scaffolded baseline for targets that were all correct first try with low latency and no support; use a small spaced reinforcement check, Mystery for preference data, and locked Quest for transfer readiness.
-- Light spaced reinforcement means fewer mastered targets and fewer academic placements than the weak/fragile targets. If a prior lesson names exact missed targets, those weak targets should receive strictly more academic measurement/support than the mastered targets, unless your planTheory explicitly argues otherwise.
-- When evidence conflicts, the first academic node should probe those exact contradictory targets; give them more academic placements than clean/mastered targets, and do not create a same-activity run just to replay clean words.
+- In a spelling-test packet, a section title such as High-Frequency Words usually names spelling targets unless the source explicitly says reading, definition, vocabulary meaning, or fluency instead.
+- Use recent canonical activity evidence as lesson-to-lesson context: misses, second attempts, help, skips, fast first-try correct responses, replay, and frustration are signals a thoughtful tutor would consider.
+- When evidence conflicts, name the contradiction and choose a path that can clarify what the child actually needs next.
 - Match each source group to activities whose cataloged skills can actually measure that purpose.
-- For source groups whose purpose is recognize, read_fluently, or pronounce, prefer pronunciation or visible_read-style recognition evidence. Do not turn high-frequency recognition words into spelling-production work unless the source explicitly says those words are spelling targets or prior evidence shows spelling production is the gap.
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - If parentDialogue is present in the packet, this is human-in-the-loop context. Use it to revise the plan without overriding captured source evidence.
 - Use plannerReferences when evaluating wrapper activities and activity graduation rules.
 - Planner-visible wrapper activities are not map nodes. If a wrapper fits organically, attach it as rewardWrapper on a domain-valid node instead of replacing the academic activity.
 - Spark Orb may be selected only as rewardWrapper when its catalog/docs fit the child and assignment. It is optional; choosing not to use it is valid when baseline evidence should stay clean.
+- Do not emit rewardWrapper as null, {}, or a partial object; either omit it or provide the exact supported object.
 - domain_payload_wrapper must attach to an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or any locked destination.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
 - Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
@@ -1549,15 +1646,19 @@ Output contract:
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
 - Use activityCatalog evidence fields as the instrument truth table; do not treat all modes of one activity as equivalent.
 - Evidence roles describe proof, not launchable node ids; nodePlan.type and nodePlan.activityId must use activityCatalog.activityId.
-- Choose the necessary evidence roles first; use the smallest launchable activity set. If crowded, remove redundant academic nodes before removing Mystery, Quest, or Boss; do not stack hidden recall, pronunciation, and spell-check to prove the same mastered target.
+- Use the activity catalog as a tutor's table of valid materials. Choose a lived journey that can teach, measure, and reveal willingness while preserving evidence validity.
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
 - Use packet.masteryContext.readinessProof as the domain center; spelling-test readiness means unaided spelling recall. practice can vary, but readiness proof is unaided spelling production unless fresh clean recall evidence already proves the test targets.
-- As masteryContext.daysUntilTest shrinks, increase intensity by reducing fluff, tightening target coverage, and moving faster toward transfer/mastery evidence.
+- Use date, time, and daysUntilTest as care-plan context when deciding the session's intensity and pacing.
 - Use packet.boardPlanning.algorithmContracts and choicePolicyContext for route, Mystery, Quest, and Boss wrapper evidence; preference evidence, not mastery, is what these choices produce.
-- The planner decides how many route, Mystery, Quest, or Boss choices to show from chart evidence, stamina, motivation, and uncertainty. Fewer clear choices usually produce cleaner signals; extra choices can be useful when Sunny needs more preference data.
+- Child choice is not decoration; it is a diagnostic reading about which kind of effort the child is willing to enter.
+- When multiple academically valid paths exist, route choice can reveal voice, speed, puzzle, story, competition, calm practice, construction, recall, or other wrapper affinity.
+- Mystery is not a replacement for route agency; Mystery asks which wrapper feels motivating after work, while route agency lets the child choose between route-worthy alternatives that are academically valid.
+- When the assignment and catalog provide route-worthy alternatives, include them as real launchable intervention nodes before Mystery so the choice can teach Sunny something about the child's willingness and learning style.
+- Route-worthy alternatives can be different valid instruments or wrappers for the same target lane after enough baseline to avoid blind choice; they do not have to be different worksheet sections.
+- That preference evidence can shape future Quest and Boss content while mastery still comes from target-level outcomes.
 - Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.
 - If quest or boss fails, the next session should identify the failed target or skill, teach that skill, then retry the proof loop.
-- Decide how much agency/route choice to show from chart evidence, stamina, motivation, and evidence needs.
 - The app materializes presentation board JSON from your nodePlan after validation. Your job is curriculum, evidence, sequence, route intent, and agency rationale.
 - Route choice is part of tutoring judgment: when you include it, the alternatives should be academically valid or preference-only by design, and planTheory or reviewQuestions should make your rationale legible.
 - Agency works best when it emerges from the evidence and homework goal rather than as decoration.
@@ -1566,10 +1667,10 @@ Output contract:
 - Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
 - Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
-- Set masteryUnlockState only on locked quest and boss nodes. For those nodes use exactly "masteryUnlockState": "preparing". Omit masteryUnlockState from baseline, teaching, practice, pronunciation, word-radar, spell-check, letter-rush, monster-stampede, and mystery nodes.
+- Set masteryUnlockState only on locked quest and boss nodes. For those nodes use exactly "masteryUnlockState": "preparing". Omit masteryUnlockState from every unlocked, non-destination, or choice node.
 - rewardWrapper is optional and only supports {"activityId":"spark-orb-charge","mode":"charge_bridge"|"domain_payload_wrapper","reason":string}; omit it unless the wrapper improves engagement while preserving academic evidence.
 - Include parent-review language that explains why every group was routed to its activity.
-- In planTheory or reviewQuestions, explain why the journey you chose fits this child today; if the same activity shell appears more than once before Mystery, explicitly explain why this will not feel like grind or revise the node plan.
+- In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
 - Return one valid tool-call JSON object directly; the tool schema enforces capturedContent, homeworkWords, activeSessionPlan.nodePlan, plannedMeasurements, planTheory, and reviewQuestions.
 
@@ -1845,11 +1946,25 @@ function labelForAssignmentBoardNode(
   node: ActiveSessionPlan["nodePlan"][number],
 ): string | undefined {
   const catalogLabel = packet.activityCatalog.find((card) => card.activityId === node.activityId)?.label;
+  const lanePrefix = compactLabelForTargetLane(node.targetLane);
   if (node.activityId === "quest") return "Quest";
   if (node.activityId === "boss") return "Boss";
   if (node.activityId === "mystery") return "Mystery";
-  if (node.activityId === "word-radar") return labelForWordRadarBoardNode(node) ?? catalogLabel;
+  if (node.activityId === "spell-check" && lanePrefix) return `${lanePrefix} Spell`;
+  if (node.activityId === "word-radar") {
+    const wordRadarLabel = labelForWordRadarBoardNode(node);
+    if (wordRadarLabel === "Hear & Spell" && lanePrefix) return `${lanePrefix} Build`;
+    return wordRadarLabel ?? catalogLabel;
+  }
   return catalogLabel;
+}
+
+function compactLabelForTargetLane(targetLane: string | undefined): string | undefined {
+  if (!targetLane) return undefined;
+  const normalized = targetLane.toLowerCase();
+  if (normalized === "silent_letters") return "Silent";
+  if (normalized === "high_frequency" || normalized === "high_frequency_words") return "Sight";
+  return undefined;
 }
 
 function labelForWordRadarBoardNode(node: ActiveSessionPlan["nodePlan"][number]): string | undefined {
@@ -2030,15 +2145,10 @@ function buildAssignmentAdventureBoard(args: {
   const bossNode = args.nodePlan.find((node) => node.activityId === "boss");
   const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNode ?? questNode ?? bossNode;
   const lastRequired = requiredNodes[requiredNodes.length - 1] ?? firstRequired;
-  const routeSlots = ["5a.1", "5b.1", "5c.1"] as const;
-  const routeLanes = ["upper", "lower", "middle"] as const;
-  const routeChoices = routeNodes.length >= 2
-    ? routeNodes.slice(0, 3)
-    : [
-        ...routeNodes,
-        ...(mysteryNode ? [mysteryNode] : []),
-        ...(questNode ? [questNode] : []),
-      ].slice(0, 3);
+  const routeSlots = ["5a.1", "5b.1", "5a.2"] as const;
+  const routeLanes = ["upper", "lower", "upper"] as const;
+  const hasRealRouteChoice = routeNodes.length >= 2;
+  const routeChoices = hasRealRouteChoice ? routeNodes.slice(0, 3) : [];
   const nodes: AdventureBoardJson["nodes"] = [
     {
       id: "start",
@@ -2062,25 +2172,27 @@ function buildAssignmentAdventureBoard(args: {
         order: index + 1,
       }),
     ),
-    {
+    ...(hasRealRouteChoice ? [{
       id: "choose-path",
-      kind: "choice-gate",
+      kind: "choice-gate" as const,
       label: "Choose Path",
       shortLabel: "Choose Path",
       thumbnailUrl: ASSIGNMENT_BOARD_THUMBNAILS["choice-gate"],
-      slot: "4",
-      layout: { role: "choice-gate", lane: "main", order: 1 },
-      state: "available",
-      evidenceRole: "preference",
+      slot: "4" as const,
+      layout: { role: "choice-gate" as const, lane: "main" as const, order: 1 },
+      state: "available" as const,
+      evidenceRole: "preference" as const,
       choiceSetId: "baseline-route-options",
-      action: { type: "open-choice-set", payloadId: "baseline-route-options" },
-    },
+      action: { type: "open-choice-set" as const, payloadId: "baseline-route-options" },
+    }] : []),
     ...routeNodes.map((node, index) =>
       buildAssignmentBoardNode({
         packet: args.packet,
         node,
         state: "available",
-        slot: routeSlots[index] ?? "5c.1",
+        slot: hasRealRouteChoice
+          ? routeSlots[index] ?? "5c.1"
+          : (index === 0 ? "4" : routeSlots[index - 1] ?? "5c.1"),
         role: "evidence-route",
         lane: routeLanes[index] ?? "middle",
         order: 1,
@@ -2127,20 +2239,28 @@ function buildAssignmentAdventureBoard(args: {
       style: "solid",
     });
   }
-  if (lastRequired) {
+  if (hasRealRouteChoice && lastRequired) {
     edges.push({ id: `edge-${lastRequired.id}-choose-path`, from: lastRequired.id, to: "choose-path", state: "available", style: "solid" });
   }
-  for (const routeNode of routeNodes) {
+  for (const routeNode of hasRealRouteChoice ? routeNodes : []) {
     edges.push({ id: `edge-choose-path-${routeNode.id}`, from: "choose-path", to: routeNode.id, state: "available", style: "glow" });
   }
   const routeExit = mysteryNode ?? questNode ?? bossNode;
-  for (const routeNode of routeNodes) {
-    if (routeExit) {
-      edges.push({ id: `edge-${routeNode.id}-${routeExit.id}`, from: routeNode.id, to: routeExit.id, state: "available", style: "solid" });
+  if (hasRealRouteChoice) {
+    for (const routeNode of routeNodes) {
+      if (routeExit) {
+        edges.push({ id: `edge-${routeNode.id}-${routeExit.id}`, from: routeNode.id, to: routeExit.id, state: "available", style: "solid" });
+      }
     }
-  }
-  if (routeNodes.length === 0 && routeExit) {
-    edges.push({ id: `edge-choose-path-${routeExit.id}`, from: "choose-path", to: routeExit.id, state: "available", style: "glow" });
+  } else {
+    const linearNodes = [...routeNodes, ...(routeExit ? [routeExit] : [])];
+    let previous = lastRequired;
+    for (const node of linearNodes) {
+      if (previous) {
+        edges.push({ id: `edge-${previous.id}-${node.id}`, from: previous.id, to: node.id, state: node.locked ? "locked" : "available", style: node.locked ? "dashed" : "solid" });
+      }
+      previous = node;
+    }
   }
   if (mysteryNode && questNode) {
     edges.push({ id: `edge-${mysteryNode.id}-${questNode.id}`, from: mysteryNode.id, to: questNode.id, state: "locked", style: "dashed" });
@@ -2148,6 +2268,35 @@ function buildAssignmentAdventureBoard(args: {
   if (questNode && bossNode) {
     edges.push({ id: `edge-${questNode.id}-${bossNode.id}`, from: questNode.id, to: bossNode.id, state: "locked", style: "dashed" });
   }
+  const choiceSets: AdventureChoiceSet[] = [
+    ...(hasRealRouteChoice ? [{
+      id: "baseline-route-options",
+      kind: "baseline-route" as const,
+      title: "Choose your path",
+      options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node): AdventureChoiceOption => {
+        const label = labelForAssignmentBoardNode(args.packet, node) ?? node.activityId;
+        const state: AdventureChoiceOption["state"] = node.locked ? "locked" : "available";
+        return {
+          id: `choice-${node.id}`,
+          label,
+          description: `Try ${label} next.`,
+          thumbnailUrl: thumbnailForAssignmentBoardNode(node),
+          state,
+          nodeId: node.id,
+          choiceSignal: choiceSignalForNode(node),
+        };
+      }),
+    }] : []),
+    ...(mysteryNode
+      ? [{
+          id: mysteryChoiceSetId(mysteryNode),
+          kind: "mystery" as const,
+          title: "Pick a mystery challenge",
+          options: mysteryChoiceOptions(mysteryNode),
+        }]
+      : []),
+  ];
+
   return {
     schemaVersion: 1,
     boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
@@ -2161,7 +2310,7 @@ function buildAssignmentAdventureBoard(args: {
     layout: {
       preset: "horizontal-adventure-spine",
       companionSlot: args.packet.childChart.adventureMapProfile?.companionSlot ?? "right",
-      routeChoiceBehavior: "exclusive",
+      ...(hasRealRouteChoice ? { routeChoiceBehavior: "exclusive" as const } : {}),
     },
     plannerRationale: {
       agencyDesign: args.planTheory.intervention,
@@ -2170,33 +2319,7 @@ function buildAssignmentAdventureBoard(args: {
     },
     nodes,
     edges,
-    choiceSets: [
-      {
-        id: "baseline-route-options",
-        kind: "baseline-route",
-        title: "Choose your path",
-        options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node) => {
-          const label = labelForAssignmentBoardNode(args.packet, node) ?? node.activityId;
-          return {
-            id: `choice-${node.id}`,
-            label,
-            description: `Try ${label} next.`,
-            thumbnailUrl: thumbnailForAssignmentBoardNode(node),
-            state: node.locked ? "locked" : "available",
-            nodeId: node.id,
-            choiceSignal: choiceSignalForNode(node),
-          };
-        }),
-      },
-      ...(mysteryNode
-        ? [{
-            id: mysteryChoiceSetId(mysteryNode),
-            kind: "mystery" as const,
-            title: "Pick a mystery challenge",
-            options: mysteryChoiceOptions(mysteryNode),
-          }]
-        : []),
-    ],
+    choiceSets,
     companion: {
       id: args.companionId,
       name: args.companionName,
@@ -2204,7 +2327,7 @@ function buildAssignmentAdventureBoard(args: {
     progress: {
       currentNodeId: firstRequired?.id,
       completedNodeIds: [],
-      activeChoiceSetId: "baseline-route-options",
+      activeChoiceSetId: hasRealRouteChoice ? "baseline-route-options" : undefined,
     },
   };
 }

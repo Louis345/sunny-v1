@@ -57,6 +57,10 @@ vi.mock("../components/CompanionLayer", () => ({
   ),
 }));
 
+function labelPattern(label: string): RegExp {
+  return new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+}
+
 function packetForBoard(
   board: AdventureBoardJson,
   overrides: Partial<ChildExperiencePacket["childChart"]["adventureMapProfile"]> = {},
@@ -311,6 +315,20 @@ describe("AdventureBoard", () => {
 
   it("locks skipped sibling routes after an exclusive board choice", () => {
     const onChoiceClick = vi.fn();
+    const choiceSet = reinaCurrentHomeworkBoard.choiceSets?.find(
+      (set) => set.id === "baseline-route-options",
+    );
+    const selectedOption = choiceSet?.options[0];
+    const skippedOption = choiceSet?.options.find((option) => option.id !== selectedOption?.id);
+    const selectedNode = reinaCurrentHomeworkBoard.nodes.find((node) => node.id === selectedOption?.nodeId);
+    const skippedNode = reinaCurrentHomeworkBoard.nodes.find((node) => node.id === skippedOption?.nodeId);
+
+    expect(choiceSet).toBeDefined();
+    expect(selectedOption).toBeDefined();
+    expect(skippedOption).toBeDefined();
+    expect(selectedNode).toBeDefined();
+    expect(skippedNode).toBeDefined();
+
     render(
       <AdventureBoard
         board={reinaCurrentHomeworkBoard}
@@ -320,16 +338,16 @@ describe("AdventureBoard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Choose Path" }));
     const dialog = screen.getByRole("dialog", { name: "Choose your path" });
-    fireEvent.click(within(dialog).getByRole("button", { name: /Pronunciation/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: labelPattern(selectedOption!.label) }));
 
     expect(onChoiceClick).toHaveBeenCalledWith(
-      expect.objectContaining({ label: "Pronunciation" }),
+      expect.objectContaining({ label: selectedOption!.label }),
       expect.objectContaining({ id: "baseline-route-options" }),
     );
-    expect(screen.getByRole("button", { name: "Quick Read, Route not picked" })).toHaveClass(
+    expect(screen.getByRole("button", { name: `${skippedNode!.label}, Route not picked` })).toHaveClass(
       "adventure-board__node--locked",
     );
-    expect(screen.getByRole("button", { name: "Pronunciation" })).not.toHaveClass(
+    expect(screen.getByRole("button", { name: selectedNode!.label })).not.toHaveClass(
       "adventure-board__node--locked",
     );
   });
@@ -339,7 +357,7 @@ describe("AdventureBoard", () => {
     const choiceSet = reinaCurrentHomeworkBoard.choiceSets?.find(
       (set) => set.id === "baseline-route-options",
     );
-    const option = choiceSet?.options.find((candidate) => candidate.label === "Pronunciation");
+    const option = choiceSet?.options[0];
 
     expect(choiceSet).toBeDefined();
     expect(option).toBeDefined();
@@ -360,20 +378,14 @@ describe("AdventureBoard", () => {
         .filter((candidate) => candidate.id !== option!.id)
         .map((candidate) => candidate.id),
     );
+    expect(event.shownOptions).toHaveLength(choiceSet!.options.length);
     expect(event.shownOptions).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        optionId: "choice-baseline-hf-recognition",
-        activityId: "word-radar",
-        nodeType: "word-radar",
-        preferenceTraits: ["practice", "control"],
-      }),
-      expect.objectContaining({
         optionId: option!.id,
-        activityId: "pronunciation",
-        nodeType: "pronunciation",
-        preferenceTraits: ["voice", "control"],
+        label: option!.label,
       }),
     ]));
+    expect(choiceSet!.options.every((shown) => shown.choiceSignal?.preferenceNotMastery === true)).toBe(true);
   });
 
   it("builds post-activity engagement evidence from planner board launches", () => {
@@ -527,7 +539,9 @@ describe("AdventureBoard", () => {
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
     expect(reinaCurrentHomeworkBoard.nodes.some((node) => node.position == null)).toBe(true);
     expect(screen.getByRole("button", { name: /Start/ })).toBeVisible();
-    expect(screen.getByRole("button", { name: /Letter Recall/ })).toBeVisible();
+    const firstActivity = reinaCurrentHomeworkBoard.nodes.find((node) => node.kind === "activity");
+    expect(firstActivity).toBeDefined();
+    expect(screen.getByRole("button", { name: firstActivity!.label })).toBeVisible();
   });
 });
 

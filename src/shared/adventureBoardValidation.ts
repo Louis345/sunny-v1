@@ -59,7 +59,10 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
   const baselineRouteChoiceSets = (board.choiceSets ?? []).filter(
     (choiceSet) => choiceSet.kind === "baseline-route",
   );
-  if (board.layout?.preset === "horizontal-adventure-spine") {
+  if (
+    board.layout?.preset === "horizontal-adventure-spine" &&
+    board.layout.routeChoiceBehavior === "exclusive"
+  ) {
     const hasBaselineRouteGate = board.nodes.some((node) => {
       if (node.kind !== "choice-gate" || !node.choiceSetId) return false;
       return choiceSets.get(node.choiceSetId)?.kind === "baseline-route";

@@ -197,6 +197,29 @@ describe("adventure board validation", () => {
     ]);
   });
 
+  it("allows linear horizontal boards when the planner did not create true route agency", () => {
+    const valid = board();
+    const issues = validateBoardChoices({
+      ...valid,
+      layout: {
+        preset: "horizontal-adventure-spine",
+        companionSlot: "right",
+      },
+      nodes: valid.nodes.filter((node) => node.kind !== "choice-gate"),
+      choiceSets: valid.choiceSets?.filter((choiceSet) => choiceSet.kind !== "baseline-route"),
+      edges: [
+        { id: "e-verify-light", from: "baseline_spelling_diagnostic", to: "light_check", state: "available" },
+        { id: "e-light-mystery", from: "light_check", to: "mystery_choice", state: "available" },
+      ],
+    });
+
+    expect(issues).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "baseline_choice_route_missing" }),
+      ]),
+    );
+  });
+
   it("fails baseline route choice sets with fewer than two child options", () => {
     const valid = board();
     const issues = validateBoardChoices({
