@@ -100,4 +100,25 @@ describe("ws handler", () => {
       expect.objectContaining({ message: "Unknown type: locked_node_tap" }),
     );
   });
+
+  it("reports session start failures without crashing the websocket handler", async () => {
+    startMock.mockRejectedValueOnce(new Error("DEEPGRAM_API_KEY not set in .env"));
+    const ws = new FakeWs();
+    handleWsConnection(ws as never, req() as never);
+
+    await sendJson(ws, {
+      type: "start_session",
+      child: "Ila",
+      sttOnly: true,
+      silentTts: true,
+    });
+    await Promise.resolve();
+
+    expect(startMock).toHaveBeenCalledTimes(1);
+    expect(ws.sent).toContainEqual({
+      type: "error",
+      code: "voice_connection_unavailable",
+      message: "Voice connection is having trouble. You can still type.",
+    });
+  });
 });

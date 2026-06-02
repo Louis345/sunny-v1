@@ -61,7 +61,7 @@ import {
   type CompanionTicTacToeMark,
 } from "./CompanionTicTacToe";
 import {
-  createCompanionActivityThinkingCommand,
+  createCompanionActivityThinkingCue,
   resolveCompanionActivityPhase,
   resolveCompanionConversationMode,
   selectCompanionActivityContextForTalk,
@@ -3702,17 +3702,12 @@ export function CompanionShowroom({
       console.log(
         ` 🎮 [showroom-activity-runtime] [thinking] [applied] companion=${current.id} reason=${opts.reason}`,
       );
+      const cue = createCompanionActivityThinkingCue();
       playCurrentCompanionEmote({
-        emote: "thinking",
-        intensity: opts.intensity ?? 0.62,
-        durationMs: opts.durationMs ?? 1200,
+        emote: cue.emote,
+        intensity: opts.intensity ?? cue.intensity,
+        durationMs: opts.durationMs ?? cue.durationMs,
       });
-      const command = createCompanionActivityThinkingCommand({
-        childId: SHOWROOM_COMMAND_CHILD_ID,
-      });
-      processShowroomCommand(motorsRef.current.current, command);
-      processShowroomCommand(cardMotorRef.current, command);
-      processShowroomCommand(videoChatMotorRef.current, command);
       emitShowroomVideoCallTrace({
         eventName: "activity_phase_changed",
         turnId: opts.turnId,
@@ -3720,8 +3715,9 @@ export function CompanionShowroom({
           phase: "companion_thinking",
           reason: opts.reason,
           conversationMode: videoCallConversationModeRef.current,
-          commandType: command.type,
-          animation: command.payload.animation,
+          commandType: "emote",
+          emote: cue.emote,
+          animation: null,
         },
       });
     },
