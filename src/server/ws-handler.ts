@@ -109,7 +109,29 @@ export function handleWsConnection(
               }
             : undefined;
         session = new SessionManager(ws, child, diagKiosk, sessionOptions);
-        await session.start();
+        try {
+          await session.start();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const voiceUnavailable = message.includes("DEEPGRAM_API_KEY");
+          console.error(
+            ` 🎮 [ws-handler] [start_session] [error] child=${child} reason=${message}`,
+          );
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              code: voiceUnavailable
+                ? "voice_connection_unavailable"
+                : "session_start_failed",
+              message: voiceUnavailable
+                ? "Voice connection is having trouble. You can still type."
+                : "Voice session could not start. Please try again.",
+            }),
+          );
+          session = null;
+          audioGate = null;
+          return;
+        }
         audioGate = createAudioGate({
           sendAudio: (pcm) => {
             session?.receiveAudio(pcm);

@@ -39,6 +39,13 @@ function readVideoCallSource(): string {
   );
 }
 
+function readActivityRuntimeSource(): string {
+  return readFileSync(
+    resolve(__dirname, "../components/CompanionActivityRuntime.ts"),
+    "utf8",
+  );
+}
+
 describe("CompanionShowroom talk mode", () => {
   it("sends the selected companion, selected voice, room, child, and question", () => {
     expect(
@@ -847,12 +854,13 @@ describe("CompanionShowroom talk mode", () => {
   });
 
   it("keeps video chat attentive without looping the t-rex-prone think animation", () => {
-    const source = readShowroomSource();
+    const source = `${readShowroomSource()}\n${readActivityRuntimeSource()}`;
 
     expect(source).toContain("createShowroomEmoteCommand");
-    expect(source).toContain("createCompanionActivityThinkingCommand");
+    expect(source).toContain("createCompanionActivityThinkingCue");
     expect(source).toContain("applyShowroomThinkingBodyLanguage");
     expect(source).toContain('emote: "thinking"');
+    expect(source).not.toContain('animation: "think"');
     expect(source).not.toContain('playCurrentCompanionAnimation("think", { loop: true })');
   });
 
