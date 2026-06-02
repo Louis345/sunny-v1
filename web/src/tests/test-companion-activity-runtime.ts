@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CompanionTicTacToeGameEvent } from "../components/CompanionTicTacToe";
 import {
-  createCompanionActivityThinkingCommand,
+  createCompanionActivityThinkingCue,
   resolveCompanionActivityPhase,
   resolveCompanionConversationMode,
   selectCompanionActivityContextForTalk,
@@ -125,21 +125,17 @@ describe("CompanionActivityRuntime", () => {
     );
   });
 
-  it("creates a non-looping thinking cue through the validated command contract", () => {
-    const command = createCompanionActivityThinkingCommand({
-      childId: "showroom",
+  it("creates a thinking cue without emitting the t-rex-prone think animation", () => {
+    const cue = createCompanionActivityThinkingCue({
       now: 1234,
     });
 
-    expect(command).toMatchObject({
-      apiVersion: "1.0",
-      childId: "showroom",
-      source: "diag",
-      type: "animate",
-      payload: {
-        animation: "think",
-        loop: false,
-      },
+    expect(cue).toEqual({
+      emote: "thinking",
+      intensity: 0.62,
+      durationMs: 1200,
+      timestamp: 1234,
     });
+    expect(JSON.stringify(cue)).not.toContain('"animation":"think"');
   });
 });

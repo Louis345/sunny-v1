@@ -1,6 +1,3 @@
-import type { CompanionCommand } from "../../../src/shared/companions/companionContract";
-import { COMPANION_CAPABILITIES } from "../../../src/shared/companions/registry";
-import { validateCompanionCommand } from "../../../src/shared/companions/validateCompanionCommand";
 import type {
   CompanionTicTacToeBanter,
   CompanionTicTacToeGameEvent,
@@ -20,7 +17,12 @@ export type CompanionActivityContextLike = {
   status?: string;
 };
 
-let thinkingCommandSequence = 0;
+export type CompanionActivityThinkingCue = {
+  emote: "thinking";
+  intensity: number;
+  durationMs: number;
+  timestamp: number;
+};
 
 function isRepeatAfterStart(question: string): boolean {
   return /\b(repeat after me|copy me|say what i say|repeat what i say)\b/i.test(question);
@@ -94,30 +96,13 @@ export function resolveCompanionActivityPhase(
   return "round_complete";
 }
 
-export function createCompanionActivityThinkingCommand(input: {
-  childId: string;
+export function createCompanionActivityThinkingCue(input?: {
   now?: number;
-}): CompanionCommand {
-  const command = validateCompanionCommand(
-    {
-      type: "animate",
-      payload: {
-        animation: "think",
-        loop: false,
-      },
-    },
-    COMPANION_CAPABILITIES,
-    {
-      childId: input.childId,
-      source: "diag",
-      now: input.now,
-    },
-  );
-  if (!command) {
-    throw new Error("invalid_companion_activity_thinking_command");
-  }
+}): CompanionActivityThinkingCue {
   return {
-    ...command,
-    timestamp: command.timestamp * 1000 + thinkingCommandSequence++,
+    emote: "thinking",
+    intensity: 0.62,
+    durationMs: 1200,
+    timestamp: input?.now ?? Date.now(),
   };
 }
