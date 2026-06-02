@@ -14,6 +14,10 @@ import {
   recordCapturedCreatureReward,
   type OrbCaptureCompletedEvent,
 } from "../components/capturedMonsterReward";
+import {
+  LUMIPUFF_MONSTER,
+  type CapturedMonsterCapturePersonality,
+} from "../components/capturedMonsterCatalog";
 import type { SparkOrbEncounterPhase } from "../components/SparkOrbEncounterPost";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 
@@ -22,6 +26,7 @@ export type SparkOrbLearningShellStoryArgs = {
   domain: string;
   currentTarget: string;
   lastMoment: OrbLearningLastMoment;
+  capturePersonality: CapturedMonsterCapturePersonality;
 };
 
 const phases: SparkOrbEncounterPhase[] = [
@@ -43,6 +48,13 @@ const moments: OrbLearningLastMoment[] = [
   "collected",
 ];
 
+const capturePersonalities: CapturedMonsterCapturePersonality[] = [
+  "playful",
+  "shy",
+  "brave",
+  "sleepy",
+];
+
 const meta: Meta<SparkOrbLearningShellStoryArgs> = {
   title: "Reward Encounters/Spark Orb Learning Shell",
   parameters: {
@@ -59,12 +71,14 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     domain: { control: "text" },
     currentTarget: { control: "text" },
     lastMoment: { control: "select", options: moments },
+    capturePersonality: { control: "select", options: capturePersonalities },
   },
   args: {
     phase: "idle",
     domain: "spelling",
     currentTarget: "word:because",
     lastMoment: "watching",
+    capturePersonality: "playful",
   },
 };
 
@@ -418,6 +432,10 @@ function CollectedAnimationStory(args: SparkOrbLearningShellStoryArgs): ReactEle
         domain={args.domain}
         currentTarget={args.currentTarget}
         lastMoment={captureProgress >= 92 ? "collected" : "orb_ready"}
+        capturedCreature={{
+          ...LUMIPUFF_MONSTER,
+          capturePersonality: args.capturePersonality,
+        }}
         captureProgress={captureProgress}
         onCompanionAnchor={logCompanionAnchor}
         onEncounterEvent={logEncounterEvent}

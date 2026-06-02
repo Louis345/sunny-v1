@@ -31,6 +31,8 @@ describe("SparkOrbLearningShell stories", () => {
       domain: AimAndLaunchSkill.args?.domain ?? meta.args?.domain ?? "spelling",
       currentTarget: AimAndLaunchSkill.args?.currentTarget ?? meta.args?.currentTarget ?? "word:because",
       lastMoment: AimAndLaunchSkill.args?.lastMoment ?? meta.args?.lastMoment ?? "watching",
+      capturePersonality:
+        AimAndLaunchSkill.args?.capturePersonality ?? meta.args?.capturePersonality ?? "playful",
     };
     const rendered = AimAndLaunchSkill.render?.(storyArgs, {} as never) as ReactElement;
     render(rendered);
@@ -76,6 +78,8 @@ describe("SparkOrbLearningShell stories", () => {
       domain: AimAndLaunchSkill.args?.domain ?? meta.args?.domain ?? "spelling",
       currentTarget: AimAndLaunchSkill.args?.currentTarget ?? meta.args?.currentTarget ?? "word:because",
       lastMoment: "orb_ready",
+      capturePersonality:
+        AimAndLaunchSkill.args?.capturePersonality ?? meta.args?.capturePersonality ?? "playful",
     };
 
     render(AimAndLaunchSkill.render?.(storyArgs, {} as never) as ReactElement);
@@ -100,12 +104,19 @@ describe("SparkOrbLearningShell stories", () => {
   });
 
   it("renders a scrubbed collected animation story for inspecting capture timing", () => {
-    const storyArgs: SparkOrbLearningShellStoryArgs = {
+    expect(meta.argTypes).toHaveProperty("capturePersonality");
+    expect(meta.argTypes?.capturePersonality).toMatchObject({
+      control: "select",
+      options: ["playful", "shy", "brave", "sleepy"],
+    });
+
+    const storyArgs = {
       phase: CollectedAnimation.args?.phase ?? meta.args?.phase ?? "ready",
       domain: CollectedAnimation.args?.domain ?? meta.args?.domain ?? "spelling",
       currentTarget: CollectedAnimation.args?.currentTarget ?? meta.args?.currentTarget ?? "word:because",
       lastMoment: CollectedAnimation.args?.lastMoment ?? meta.args?.lastMoment ?? "orb_ready",
-    };
+      capturePersonality: "sleepy",
+    } as SparkOrbLearningShellStoryArgs & { capturePersonality: "sleepy" };
     const rendered = CollectedAnimation.render?.(storyArgs, {} as never) as ReactElement;
     render(rendered);
 
@@ -116,6 +127,14 @@ describe("SparkOrbLearningShell stories", () => {
     expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
       "data-capture-stage",
       "shrinking",
+    );
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
+      "data-capture-personality",
+      "sleepy",
+    );
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-personality-reaction",
+      "float",
     );
 
     fireEvent.change(scrubber, { target: { value: "94" } });

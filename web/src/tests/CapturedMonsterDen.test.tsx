@@ -36,6 +36,7 @@ describe("Captured monster den", () => {
       mode: "css-png",
       futureAtlasReady: true,
     });
+    expect(LUMIPUFF_MONSTER).toHaveProperty("capturePersonality", "playful");
   });
 
   it("renders the captured monster card and emits name and sidekick events", () => {

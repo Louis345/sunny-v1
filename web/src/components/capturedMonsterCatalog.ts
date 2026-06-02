@@ -6,6 +6,11 @@ export type CapturedMonsterLifeState =
   | "celebrate";
 
 export type CapturedMonsterRarity = "common" | "uncommon" | "rare";
+export type CapturedMonsterCapturePersonality =
+  | "playful"
+  | "shy"
+  | "brave"
+  | "sleepy";
 
 export interface CapturedMonsterConfig {
   id: string;
@@ -16,6 +21,7 @@ export interface CapturedMonsterConfig {
   statValue: number;
   imageSrc: string;
   collectionTitle: string;
+  capturePersonality: CapturedMonsterCapturePersonality;
   personalityTags: string[];
   lifeStates: CapturedMonsterLifeState[];
   sprite: {
@@ -36,6 +42,7 @@ export const LUMIPUFF_MONSTER: CapturedMonsterConfig = {
   statValue: 214,
   imageSrc: "/encounters/spark-orb/lumipuff.png",
   collectionTitle: "Spark Garden friend",
+  capturePersonality: "playful",
   personalityTags: ["sunny", "gentle", "curious"],
   lifeStates: ["idle", "curious", "happy", "sleep", "celebrate"],
   sprite: {

@@ -15,6 +15,7 @@ import type { SparkOrbEncounterPhase } from "./SparkOrbEncounterPost";
 import {
   LUMIPUFF_MONSTER,
   type CapturedMonsterConfig,
+  type CapturedMonsterCapturePersonality,
 } from "./capturedMonsterCatalog";
 import {
   buildCapturedCreatureReward,
@@ -81,6 +82,7 @@ export interface SparkOrbLearningEncounterEvent {
   hitDistance?: number;
   hitQuality?: SparkOrbHitQuality;
   holdPower?: number;
+  capturePersonality: CapturedMonsterCapturePersonality;
   currentTarget: string;
 }
 
@@ -199,6 +201,37 @@ function flightStateForProgress(progress: number): LaunchFlightState {
   if (progress >= 18) return "impact";
   if (progress >= 5) return "traveling";
   return "idle";
+}
+
+function personalityReactionForCaptureStage(
+  capturePersonality: CapturedMonsterCapturePersonality,
+  captureStage: CaptureStage,
+): string {
+  if (captureStage === "incoming") {
+    if (capturePersonality === "playful") return "peek";
+    if (capturePersonality === "shy") return "flinch";
+    if (capturePersonality === "brave") return "brace";
+    return "drowsy";
+  }
+  if (captureStage === "pulling") {
+    if (capturePersonality === "playful") return "dodge";
+    if (capturePersonality === "shy") return "flinch";
+    if (capturePersonality === "brave") return "resist";
+    return "drowsy";
+  }
+  if (captureStage === "shrinking") {
+    if (capturePersonality === "playful") return "peek";
+    if (capturePersonality === "shy") return "curl";
+    if (capturePersonality === "brave") return "resist";
+    return "float";
+  }
+  if (captureStage === "locked" || captureStage === "collection-added") {
+    if (capturePersonality === "playful") return "smile";
+    if (capturePersonality === "shy") return "relax";
+    if (capturePersonality === "brave") return "proud";
+    return "confused";
+  }
+  return "watching";
 }
 
 export function computeSparkOrbLaunchPhysics({
@@ -465,6 +498,10 @@ export function SparkOrbLearningShell({
         : displayCaptureStage === "locked" || displayCaptureStage === "collection-added"
           ? "hidden"
           : "free";
+  const personalityReaction = personalityReactionForCaptureStage(
+    capturedCreature.capturePersonality,
+    visualCaptureStage,
+  );
   const companionBehavior = companionBehaviorForMoment(phase, lastMoment);
   const speechBubbleText = rewardFocused ? null : companionLineForMoment(childName, phase, lastMoment);
   const canHoldToLaunch =
@@ -575,12 +612,16 @@ export function SparkOrbLearningShell({
   }
 
   function emitLaunchEvent(
-    event: Omit<SparkOrbLearningEncounterEvent, "phase" | "chargeGoal" | "currentTarget">,
+    event: Omit<
+      SparkOrbLearningEncounterEvent,
+      "phase" | "chargeGoal" | "currentTarget" | "capturePersonality"
+    >,
   ): void {
     const payload: SparkOrbLearningEncounterEvent = {
       ...event,
       phase,
       chargeGoal,
+      capturePersonality: capturedCreature.capturePersonality,
       currentTarget,
     };
     console.info(" 🎮 [spark-orb-learning-shell] [launch-skill] [reported]", payload);
@@ -899,6 +940,8 @@ export function SparkOrbLearningShell({
         data-hit-quality={launchPhysics?.hitQuality ?? "none"}
         data-capture-effect={displayCaptureEffect}
         data-capture-stage={visualCaptureStage}
+        data-capture-personality={capturedCreature.capturePersonality}
+        data-personality-reaction={personalityReaction}
         data-collection-state={collectionState}
         data-captured-creature-id={capturedCreature.id}
         style={launchStyle}
@@ -928,6 +971,8 @@ export function SparkOrbLearningShell({
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
           data-capture-motion={creatureCaptureMotion}
+          data-capture-personality={capturedCreature.capturePersonality}
+          data-personality-reaction={personalityReaction}
           src={capturedCreature.imageSrc}
           alt=""
           aria-hidden="true"
@@ -1182,6 +1227,55 @@ export function SparkOrbLearningShell({
             drop-shadow(0 0 22px rgba(255, 228, 107, 0.7))
             brightness(1.18);
           z-index: 8;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="pulling"][data-personality-reaction="dodge"] {
+          animation: sparkLearningCreaturePlayfulDodge 0.72s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="pulling"][data-personality-reaction="flinch"] {
+          animation: sparkLearningCreatureShyFlinch 0.78s ease-in-out infinite;
+          filter:
+            drop-shadow(0 18px 28px rgba(72, 58, 114, 0.24))
+            drop-shadow(0 0 26px rgba(179, 236, 255, 0.58))
+            saturate(0.96);
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="pulling"][data-personality-reaction="resist"],
+        .spark-orb-learning-shell__creature[data-capture-motion="shrinking"][data-personality-reaction="resist"] {
+          animation: sparkLearningCreatureBraveResist 0.68s ease-in-out infinite;
+          filter:
+            drop-shadow(0 20px 28px rgba(72, 58, 114, 0.32))
+            drop-shadow(0 0 30px rgba(255, 228, 107, 0.62))
+            saturate(1.14);
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="pulling"][data-personality-reaction="drowsy"] {
+          animation: sparkLearningCreatureSleepyDrowsy 1.22s ease-in-out infinite;
+          filter:
+            drop-shadow(0 18px 28px rgba(72, 58, 114, 0.22))
+            drop-shadow(0 0 22px rgba(190, 244, 255, 0.46))
+            saturate(0.92);
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="shrinking"][data-personality-reaction="peek"] {
+          animation: sparkLearningCreaturePlayfulPeekShrink 0.84s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="shrinking"][data-personality-reaction="curl"] {
+          animation: sparkLearningCreatureShyCurlShrink 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          filter:
+            drop-shadow(0 0 28px rgba(179, 236, 255, 0.64))
+            drop-shadow(0 0 18px rgba(255, 228, 107, 0.5))
+            brightness(1.08);
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="shrinking"][data-personality-reaction="float"] {
+          animation: sparkLearningCreatureSleepyFloatShrink 1.04s cubic-bezier(0.22, 0.72, 0.18, 1) both;
+          filter:
+            drop-shadow(0 0 28px rgba(190, 244, 255, 0.7))
+            drop-shadow(0 0 14px rgba(255, 228, 107, 0.42))
+            brightness(1.12);
         }
 
         .spark-orb-learning-shell__orb-stage[data-collection-state="reversing"] .spark-orb-learning-shell__creature[data-capture-motion="shrinking"] {
@@ -1860,6 +1954,107 @@ export function SparkOrbLearningShell({
           100% {
             opacity: 0;
             transform: translate(-50%, 76%) scale(0.06) rotate(18deg);
+          }
+        }
+
+        @keyframes sparkLearningCreaturePlayfulDodge {
+          0%, 100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+          }
+          36% {
+            opacity: 0.98;
+            transform: translate(-63%, -42%) scale(0.96) rotate(-7deg);
+          }
+          72% {
+            opacity: 0.94;
+            transform: translate(-43%, -36%) scale(0.92) rotate(5deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureShyFlinch {
+          0%, 100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+          }
+          48% {
+            opacity: 0.9;
+            transform: translate(-50%, -43%) scale(0.86, 0.94) rotate(3deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureBraveResist {
+          0%, 100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1.02) rotate(0deg);
+          }
+          50% {
+            opacity: 0.96;
+            transform: translate(-50%, -47%) scale(1.04) rotate(-1deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureSleepyDrowsy {
+          0%, 100% {
+            opacity: 0.96;
+            transform: translate(-50%, -50%) scale(0.98) rotate(-2deg);
+          }
+          50% {
+            opacity: 0.82;
+            transform: translate(-50%, -40%) scale(0.92) rotate(4deg);
+          }
+        }
+
+        @keyframes sparkLearningCreaturePlayfulPeekShrink {
+          0% {
+            opacity: 1;
+            transform: translate(-48%, -34%) scale(0.94) rotate(-8deg);
+          }
+          42% {
+            opacity: 0.9;
+            transform: translate(-56%, 2%) scale(0.64) rotate(8deg);
+          }
+          72% {
+            opacity: 0.62;
+            transform: translate(-44%, 42%) scale(0.28) rotate(-10deg);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, 76%) scale(0.06) rotate(14deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureShyCurlShrink {
+          0% {
+            opacity: 1;
+            transform: translate(-50%, -32%) scale(0.86, 0.94) rotate(3deg);
+          }
+          46% {
+            opacity: 0.84;
+            transform: translate(-50%, 8%) scale(0.52, 0.6) rotate(12deg);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, 76%) scale(0.04) rotate(26deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureSleepyFloatShrink {
+          0% {
+            opacity: 0.92;
+            transform: translate(-50%, -34%) scale(0.92) rotate(-5deg);
+          }
+          45% {
+            opacity: 0.78;
+            transform: translate(-48%, 8%) scale(0.58) rotate(9deg);
+          }
+          72% {
+            opacity: 0.52;
+            transform: translate(-52%, 42%) scale(0.3) rotate(-7deg);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, 76%) scale(0.06) rotate(12deg);
           }
         }
 

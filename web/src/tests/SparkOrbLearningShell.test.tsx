@@ -5,6 +5,7 @@ import {
   computeSparkOrbLaunchPhysics,
   SparkOrbLearningShell,
 } from "../components/SparkOrbLearningShell";
+import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
 import { COMPANION_DEFAULTS, type CompanionConfig } from "../../../src/shared/companionTypes";
 
 const playSparkOrbSfxMock = vi.hoisted(() => vi.fn());
@@ -143,6 +144,83 @@ describe("SparkOrbLearningShell", () => {
     );
   });
 
+  it("renders capture personality markers from the captured monster identity", () => {
+    const shyLumipuff = {
+      ...LUMIPUFF_MONSTER,
+      capturePersonality: "shy",
+    } as typeof LUMIPUFF_MONSTER & { capturePersonality: "shy" };
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+        capturedCreature={shyLumipuff}
+        captureProgress={24}
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
+      "data-capture-personality",
+      "shy",
+    );
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-capture-personality",
+      "shy",
+    );
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-personality-reaction",
+      "flinch",
+    );
+  });
+
+  it.each([
+    ["playful", 24, "dodge"],
+    ["shy", 58, "curl"],
+    ["brave", 24, "resist"],
+    ["sleepy", 58, "float"],
+  ] as const)(
+    "renders %s capture personality during the capture flow",
+    (capturePersonality, captureProgress, expectedReaction) => {
+      const creature = { ...LUMIPUFF_MONSTER, capturePersonality } as typeof LUMIPUFF_MONSTER & {
+        capturePersonality: typeof capturePersonality;
+      };
+
+      render(
+        <SparkOrbLearningShell
+          childId="ila"
+          childName="Ila"
+          companion={elliCompanion}
+          phase="ready"
+          chargeGoal={3}
+          domain="spelling"
+          currentTarget="because"
+          lastMoment="orb_ready"
+          capturedCreature={creature}
+          captureProgress={captureProgress}
+        >
+          <div>Spell the word you hear</div>
+        </SparkOrbLearningShell>,
+      );
+
+      expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+        "data-capture-personality",
+        capturePersonality,
+      );
+      expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+        "data-personality-reaction",
+        expectedReaction,
+      );
+    },
+  );
+
   it("builds companion anchor context as travel-buddy context instead of tutor authority", () => {
     expect(
       buildOrbCompanionAnchorContext({
@@ -253,6 +331,51 @@ describe("SparkOrbLearningShell", () => {
         result: "success",
         hitQuality: "direct",
         hitDistance: expect.any(Number),
+      }),
+    );
+  });
+
+  it("includes capture personality in successful launch and capture events", () => {
+    vi.useFakeTimers();
+    const onEncounterEvent = vi.fn();
+    const braveLumipuff = {
+      ...LUMIPUFF_MONSTER,
+      capturePersonality: "brave",
+    } as typeof LUMIPUFF_MONSTER & { capturePersonality: "brave" };
+
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+        capturedCreature={braveLumipuff}
+        onEncounterEvent={onEncounterEvent}
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    flickCleanLaunch();
+
+    expect(onEncounterEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "release_success",
+        capturePersonality: "brave",
+      }),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(650);
+    });
+    expect(onEncounterEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "capture_pull",
+        capturePersonality: "brave",
       }),
     );
   });
