@@ -752,20 +752,132 @@ describe("assignment planner", () => {
       path: "docs/spark-orb-learning-contract.md",
       configOwner: "src/engine/activityToolCatalog.ts",
     });
-    expect(packet.plannerInstruction).toContain("mastered targets get smaller spaced checks");
+    expect(packet.plannerInstruction).toContain("lesson-to-lesson context");
     expect(packet.plannerInstruction).toContain("plannerReferences");
     expect(packet.plannerInstruction).toContain("Spark Orb may be selected only as rewardWrapper");
-    expect(packet.plannerInstruction).toContain("strictly more academic support than mastered targets");
-    expect(packet.plannerInstruction).toContain("first academic node should probe those exact contradictory targets");
-    expect(packet.plannerInstruction).toContain("visible_read or pronunciation");
+    expect(packet.plannerInstruction).toContain("signals a thoughtful tutor would consider");
+    expect(packet.plannerInstruction).toContain("name the contradiction");
     expect(packet.plannerInstruction).toContain("measure-${node.id}");
     expect(packet.plannerInstruction).toContain("child-facing journey");
-    expect(packet.plannerInstruction).toContain("Decide agency and route density from chart evidence");
+    expect(packet.plannerInstruction).toContain("Child choice is not decoration");
+    expect(packet.plannerInstruction).toContain("diagnostic reading");
+    expect(packet.plannerInstruction).toContain("future Quest and Boss");
+    expect(packet.plannerInstruction).toContain("Mystery is not a replacement for route agency");
+    expect(packet.plannerInstruction).toContain("route-worthy alternatives");
+    expect(packet.plannerInstruction).toContain("same target lane");
+    expect(packet.plannerInstruction).toContain("High-Frequency Words");
+    expect(packet.plannerInstruction).toContain("spelling targets");
+    expect(packet.plannerInstruction).not.toContain("smallest launchable activity set");
+    expect(packet.plannerInstruction).not.toContain("shrink redundant baseline work");
+    expect(packet.plannerInstruction).not.toContain("prefer pronunciation");
+    expect(packet.boardPlanning.choicePolicyContext.signalQualityNotes.join(" ")).not.toContain("small set of clear choices");
     expect(packet.plannerInstruction).not.toContain("Count target placements before returning");
     expect(packet.plannerInstruction).not.toContain("long run of Word Radar");
     expect(packet.plannerInstruction).not.toContain("High-Frequency Words must");
     expect(JSON.stringify(packet)).not.toContain("boardTemplate");
     expect(JSON.stringify(packet)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("carries child activity and trait evidence into the planner packet", () => {
+    const childChart = chart();
+    childChart.learningProfile.activityModel = {
+      "spell-check": {
+        activityId: "spell-check",
+        plays: 104,
+        completions: 104,
+        completionRate: 1,
+        averageAccuracy: 1,
+        averageTimePerTarget_ms: 2400,
+        engagementScore: 0.992,
+        frustrationScore: 0.1,
+        likedCount: 104,
+        dislikedCount: 0,
+        lastRating: "like",
+        lastPlayed: "2026-05-30T12:00:00.000Z",
+        domains: { spelling: 104 },
+        missedWords: [],
+      },
+      "word-radar": {
+        activityId: "word-radar",
+        plays: 70,
+        completions: 70,
+        completionRate: 1,
+        averageAccuracy: 0.66,
+        averageTimePerTarget_ms: 3100,
+        engagementScore: 0.859,
+        frustrationScore: 0.27,
+        likedCount: 70,
+        dislikedCount: 0,
+        lastRating: "like",
+        lastPlayed: "2026-05-30T12:00:00.000Z",
+        domains: { spelling: 70 },
+        missedWords: ["slowly", "lucky"],
+      },
+    };
+    childChart.learningProfile.activityTraitModel = {
+      competition: {
+        dimension: "competition",
+        positiveWeight: 3.731,
+        negativeWeight: 0,
+        mixedWeight: 0,
+        evidenceCount: 5,
+        confidence: 0.746,
+        lastUpdated: "2026-05-30T12:00:00.000Z",
+        activityCounts: { "wheel-of-fortune": 5 },
+      },
+      help: {
+        dimension: "help",
+        positiveWeight: 0,
+        negativeWeight: 3.825,
+        mixedWeight: 0,
+        evidenceCount: 5,
+        confidence: 0.765,
+        lastUpdated: "2026-05-30T12:00:00.000Z",
+        activityCounts: { "spell-check": 3 },
+      },
+    };
+
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart,
+    });
+    const prompt = buildAssignmentPlannerPrompt(packet);
+
+    expect(packet.childChart.learningSignals?.activityAffinities).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        activityId: "spell-check",
+        plays: 104,
+        completionRate: 1,
+        averageAccuracy: 1,
+        engagementScore: 0.992,
+        frustrationScore: 0.1,
+      }),
+      expect.objectContaining({
+        activityId: "word-radar",
+        averageAccuracy: 0.66,
+        missedWords: ["slowly", "lucky"],
+      }),
+    ]));
+    expect(packet.childChart.learningSignals?.traitSignals).toEqual(expect.arrayContaining([
+      expect.objectContaining({ dimension: "competition", positiveWeight: 3.731 }),
+      expect.objectContaining({ dimension: "help", negativeWeight: 3.825 }),
+    ]));
+    expect(prompt).toContain("activityAffinities");
+    expect(prompt).toContain("spell-check");
+    expect(prompt).toContain("competition");
+  });
+
+  it("treats missing child learning profile as no learning signals instead of crashing", () => {
+    const { learningProfile: _learningProfile, ...childChart } = chart() as ChildChart;
+
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: childChart as ChildChart,
+    });
+
+    expect(packet.childChart.learningSignals).toBeUndefined();
   });
 
   it("carries parent dialogue in the planning packet without changing planner arguments", () => {
@@ -884,7 +996,7 @@ describe("assignment planner", () => {
     expect(prompt).toContain("nodePlan.type and nodePlan.activityId must use activityCatalog.activityId");
   });
 
-  it("teaches the planner to preserve the spine while using the smallest sufficient evidence set", () => {
+  it("teaches the planner to preserve the spine while choosing a lived journey", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",
       extraction: extraction(),
@@ -892,10 +1004,10 @@ describe("assignment planner", () => {
     });
     const prompt = buildAssignmentPlannerPrompt(packet);
 
-    expect(prompt).toContain("Choose the necessary evidence roles first");
-    expect(prompt).toContain("smallest launchable activity set");
-    expect(prompt).toContain("remove redundant academic nodes before removing Mystery, Quest, or Boss");
-    expect(prompt).toContain("do not stack hidden recall, pronunciation, and spell-check to prove the same mastered target");
+    expect(prompt).toContain("Use the activity catalog as a tutor's table of valid materials");
+    expect(prompt).toContain("Choose a lived journey that can teach, measure, and reveal willingness");
+    expect(prompt).toContain("Child choice is not decoration");
+    expect(prompt).not.toContain("smallest launchable activity set");
   });
 
   it("keeps renderer board JSON out of the planner tool contract", () => {
@@ -1054,6 +1166,143 @@ describe("assignment planner", () => {
     ]);
   });
 
+  it("keeps same-shell route choices visually distinct by target lane", () => {
+    const plannerDraft = plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>;
+    const capturedContent = plannerDraft.capturedContent as {
+      words: string[];
+      wordGroups: Array<{ id: string; label: string; purpose: string; words: string[]; confidence: number; evidence: string[] }>;
+    };
+    capturedContent.words = ["sign", "know", "write", "among", "building", "circle"];
+    capturedContent.wordGroups = [
+      { id: "silent_letters", label: "Silent Letters", purpose: "spell_from_memory", words: ["sign", "know", "write"], confidence: 0.95, evidence: ["source"] },
+      { id: "high_frequency_words", label: "High-Frequency Words", purpose: "spell_from_memory", words: ["among", "building", "circle"], confidence: 0.95, evidence: ["source"] },
+    ];
+    plannerDraft.homeworkWords = [
+      { text: "sign", sourceGroupId: "silent_letters", purpose: "spell_from_memory" },
+      { text: "know", sourceGroupId: "silent_letters", purpose: "spell_from_memory" },
+      { text: "write", sourceGroupId: "silent_letters", purpose: "spell_from_memory" },
+      { text: "among", sourceGroupId: "high_frequency_words", purpose: "spell_from_memory" },
+      { text: "building", sourceGroupId: "high_frequency_words", purpose: "spell_from_memory" },
+      { text: "circle", sourceGroupId: "high_frequency_words", purpose: "spell_from_memory" },
+    ];
+    const draft = parseAssignmentPlannerJson(JSON.stringify({
+      ...plannerDraft,
+      activeSessionPlan: {
+        nodePlan: [
+          {
+            id: "baseline-silent-letters-audio-spell",
+            type: "spell-check",
+            activityId: "spell-check",
+            targets: ["sign", "know", "write"],
+            difficulty: 2,
+            targetLane: "silent_letters",
+          },
+          {
+            id: "baseline-high-freq-audio-spell",
+            type: "spell-check",
+            activityId: "spell-check",
+            targets: ["among", "building", "circle"],
+            difficulty: 2,
+            targetLane: "high_frequency_words",
+          },
+          {
+            id: "route-choice-silent-practice",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["sign", "know", "write"],
+            difficulty: 2,
+            targetLane: "silent_letters",
+            wordRadarConfig: { ...WORD_RADAR_LETTER_FILL_CONFIG, speakStyle: "option-b" },
+          },
+          {
+            id: "route-choice-silent-arcade",
+            type: "monster-stampede",
+            activityId: "monster-stampede",
+            targets: ["sign", "know", "write"],
+            difficulty: 2,
+            targetLane: "silent_letters",
+          },
+          {
+            id: "practice-high-freq-scaffolded",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["among", "building", "circle"],
+            difficulty: 2,
+            targetLane: "high_frequency_words",
+            wordRadarConfig: { ...WORD_RADAR_LETTER_FILL_CONFIG, speakStyle: "option-b" },
+          },
+          ...adventureSpineNodes(),
+        ],
+      },
+    }));
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
+
+    const board = parsed.activeSessionPlan.adventureBoard!;
+    const labels = new Map(board.nodes.map((node) => [node.id, node.label]));
+    const baselineRoute = board.choiceSets?.find((set) => set.id === "baseline-route-options");
+
+    expect(labels.get("baseline-silent-letters-audio-spell")).toBe("Silent Spell");
+    expect(labels.get("baseline-high-freq-audio-spell")).toBe("Sight Spell");
+    expect(baselineRoute?.options.map((option) => option.label)).toEqual([
+      "Silent Build",
+      "Monster Stampede",
+      "Sight Build",
+    ]);
+    expect(board.nodes.find((node) => node.id === "practice-high-freq-scaffolded")?.slot).toBe("5a.2");
+  });
+
+  it("does not invent fake route agency from Mystery or locked Quest when only one route node exists", () => {
+    const draft = parseAssignmentPlannerJson(JSON.stringify({
+      ...(plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>),
+      activeSessionPlan: {
+        nodePlan: [
+          {
+            id: "baseline-silent-letters",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["sign", "know", "write"],
+            difficulty: 1,
+            targetLane: "silent_letters",
+            wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+          },
+          {
+            id: "baseline-high-frequency",
+            type: "word-radar",
+            activityId: "word-radar",
+            targets: ["among", "building", "circle"],
+            difficulty: 1,
+            targetLane: "high_frequency",
+            wordRadarConfig: WORD_RADAR_LETTER_FILL_CONFIG,
+          },
+          ...adventureSpineNodes(),
+        ],
+      },
+    }));
+    const packet = buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
+    const board = parsed.activeSessionPlan.adventureBoard!;
+
+    expect(board.nodes.some((node) => node.kind === "choice-gate")).toBe(false);
+    expect(board.choiceSets?.some((choiceSet) => choiceSet.kind === "baseline-route")).toBe(false);
+    expect(board.choiceSets?.flatMap((choiceSet) => choiceSet.options).map((option) => option.nodeId)).not.toEqual(
+      expect.arrayContaining(["mystery-choice", "quest-transfer"]),
+    );
+    expect(board.progress?.activeChoiceSetId).toBeUndefined();
+    expect(board.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ from: "baseline-silent-letters", to: "baseline-high-frequency" }),
+      expect.objectContaining({ from: "baseline-high-frequency", to: "mystery-choice" }),
+    ]));
+  });
+
   it("prints a planner readiness audit table for the full activity catalog", () => {
     const packet = buildAssignmentPlanningPacket({
       childId: "reina",
@@ -1107,18 +1356,38 @@ describe("assignment planner", () => {
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("The board is not a worksheet");
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("table full of materials");
     expect(ASSIGNMENT_PLANNER_PERSONA).toContain("without making the child feel like this is a grind");
-    expect(ASSIGNMENT_PLANNER_PERSONA).toContain("same activity shell appears more than once before Mystery");
+    expect(ASSIGNMENT_PLANNER_PERSONA).not.toContain("same activity shell appears more than once before Mystery");
+    expect(ASSIGNMENT_PLANNER_PERSONA).not.toContain("Before you return a plan");
+    expect(ASSIGNMENT_PLANNER_PERSONA).not.toContain("read it as the child would");
     expect(prompt).toContain("Design today's learning journey");
-    expect(prompt).toContain("Decide how much agency/route choice to show from chart evidence");
+    expect(prompt).toContain("Child choice is not decoration");
+    expect(prompt).toContain("diagnostic reading");
+    expect(prompt).toContain("future Quest and Boss");
+    expect(prompt).toContain("Mystery is not a replacement for route agency");
+    expect(prompt).toContain("route-worthy alternatives");
+    expect(prompt).toContain("same target lane");
+    expect(prompt).toContain("High-Frequency Words");
+    expect(prompt).toContain("spelling targets");
     expect(prompt).toContain("explain why the journey you chose fits this child today");
     expect(prompt).toContain("The app materializes presentation board JSON from your nodePlan after validation");
+    expect(prompt).not.toContain("smallest launchable activity set");
+    expect(prompt).not.toContain("shrink redundant baseline work");
+    expect(prompt).not.toContain("prefer pronunciation");
+    expect(prompt).not.toContain("small set of clear choices");
+    expect(prompt).not.toContain("same activity shell appears more than once before Mystery");
+    expect(prompt).not.toContain("why this will not feel like grind");
+    expect(prompt).not.toContain("Before you return a plan");
     expect(prompt).not.toContain("same-activity run exceeds");
     expect(prompt).not.toContain("Do not split one lane into a long run");
     expect(prompt).not.toContain("do not repeat the same visible activity");
+    expect(prompt).not.toContain("consider Letter Rush");
+    expect(prompt).not.toContain("consider Monster Stampede");
+    expect(prompt).not.toContain("consider Spell Check");
     expect(prompt).toContain("boardPlanning");
     expect(prompt).toContain("choicePolicy");
     expect(prompt).toContain("preference evidence, not mastery");
     expect(prompt).toContain("planner decides how many route, Mystery, Quest, or Boss choices");
+    expect(prompt).toContain("Do not emit rewardWrapper as null, {}, or a partial object");
     expect(prompt).not.toContain("Mystery modal choice: 3");
     expect(prompt).not.toContain("Quest wrapper choices: 2");
     expect(prompt).not.toContain("Boss wrapper choices: 2");
@@ -1176,14 +1445,16 @@ describe("assignment planner", () => {
     expect(prompt).toContain("\"masteryUnlockState\": \"preparing\"");
   });
 
-  it("keeps lesson-to-lesson adaptation guidance in the planner prompt without adding deterministic category blockers", () => {
+  it("keeps lesson-to-lesson context in the planner prompt without adding deterministic category blockers", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/assignmentPlanner.ts"), "utf8");
 
-    expect(source).toContain("Use recent canonical activity evidence as lesson-to-lesson labs");
-    expect(source).toContain("Mastery evidence should shrink redundant baseline work");
-    expect(source).toContain("Light spaced reinforcement means fewer mastered targets");
-    expect(source).toContain("prefer pronunciation or visible_read-style recognition evidence");
+    expect(source).toContain("Use recent canonical activity evidence as lesson-to-lesson context");
+    expect(source).toContain("signals a thoughtful tutor would consider");
+    expect(source).toContain("name the contradiction");
     expect(source).toContain("child-facing journey");
+    expect(source).not.toContain("smallest launchable activity set");
+    expect(source).not.toContain("Mastery evidence should shrink redundant baseline work");
+    expect(source).not.toContain("prefer pronunciation");
     expect(source).not.toContain("same-activity run exceeds");
     expect(source).not.toContain("Do not split one lane into a long run");
     expect(source).not.toContain("if (purpose === \"read_fluently\")");
