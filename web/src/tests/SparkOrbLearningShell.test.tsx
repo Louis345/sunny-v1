@@ -665,6 +665,7 @@ describe("SparkOrbLearningShell", () => {
     fireEvent.click(screen.getByTestId("spark-orb-reverse-control"));
 
     expect(encounter).toHaveAttribute("data-collection-state", "reversing");
+    expect(encounter).toHaveAttribute("data-capture-direction", "reverse");
     expect(encounter).toHaveAttribute("data-capture-stage", "collection-added");
     expect(encounter).toHaveAttribute("data-capture-effect", "active");
     expect(screen.queryByRole("dialog", { name: "Lumipuff added to collection" })).not.toBeInTheDocument();
@@ -677,6 +678,7 @@ describe("SparkOrbLearningShell", () => {
     });
 
     expect(encounter).toHaveAttribute("data-collection-state", "reversing");
+    expect(encounter).toHaveAttribute("data-capture-direction", "reverse");
     expect(encounter).toHaveAttribute("data-capture-stage", "shrinking");
     expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
       "data-capture-motion",

@@ -203,6 +203,16 @@ function flightStateForProgress(progress: number): LaunchFlightState {
   return "idle";
 }
 
+function captureShrinkProgressForProgress(progress: number): number {
+  if (progress < 42) return 0;
+  if (progress > 76) return 1;
+  return Math.max(0, Math.min(1, (progress - 42) / 34));
+}
+
+function formatMotionNumber(value: number): string {
+  return value.toFixed(2);
+}
+
 function personalityReactionForCaptureStage(
   capturePersonality: CapturedMonsterCapturePersonality,
   captureStage: CaptureStage,
@@ -457,6 +467,26 @@ export function SparkOrbLearningShell({
   const displayFlightState =
     scrubbedCaptureProgress === null ? flightState : flightStateForProgress(scrubbedCaptureProgress);
   const scrubbedCaptureActive = scrubbedCaptureProgress !== null && scrubbedCaptureProgress > 0;
+  const scrubbedCaptureShrinkProgress =
+    scrubbedCaptureProgress === null
+      ? null
+      : captureShrinkProgressForProgress(scrubbedCaptureProgress);
+  const scrubbedCaptureScale =
+    scrubbedCaptureShrinkProgress === null
+      ? null
+      : 0.92 - scrubbedCaptureShrinkProgress * 0.86;
+  const scrubbedCaptureY =
+    scrubbedCaptureShrinkProgress === null
+      ? null
+      : -34 + scrubbedCaptureShrinkProgress * 110;
+  const scrubbedCaptureRotation =
+    scrubbedCaptureShrinkProgress === null
+      ? null
+      : -2 + scrubbedCaptureShrinkProgress * 20;
+  const scrubbedCaptureOpacity =
+    scrubbedCaptureShrinkProgress === null
+      ? null
+      : 1 - scrubbedCaptureShrinkProgress * 0.9;
   const reversePreviewing = reverseReplayActive || reversePreviewOpen;
   const collectionSettled = displayFlightState === "settled" && !reversePreviewing;
   const visualCaptureStage = collectionSettled ? "free" : displayCaptureStage;
@@ -502,6 +532,19 @@ export function SparkOrbLearningShell({
     capturedCreature.capturePersonality,
     visualCaptureStage,
   );
+  const captureDirection = reverseReplayActive ? "reverse" : "capture";
+  const creatureCaptureStyle =
+    scrubbedCaptureScale === null ||
+    scrubbedCaptureY === null ||
+    scrubbedCaptureRotation === null ||
+    scrubbedCaptureOpacity === null
+      ? undefined
+      : ({
+          "--capture-scrub-scale": formatMotionNumber(scrubbedCaptureScale),
+          "--capture-scrub-y": `${formatMotionNumber(scrubbedCaptureY)}%`,
+          "--capture-scrub-rotation": `${formatMotionNumber(scrubbedCaptureRotation)}deg`,
+          "--capture-scrub-opacity": formatMotionNumber(scrubbedCaptureOpacity),
+        } as CSSProperties);
   const companionBehavior = companionBehaviorForMoment(phase, lastMoment);
   const speechBubbleText = rewardFocused ? null : companionLineForMoment(childName, phase, lastMoment);
   const canHoldToLaunch =
@@ -940,6 +983,7 @@ export function SparkOrbLearningShell({
         data-hit-quality={launchPhysics?.hitQuality ?? "none"}
         data-capture-effect={displayCaptureEffect}
         data-capture-stage={visualCaptureStage}
+        data-capture-direction={captureDirection}
         data-capture-personality={capturedCreature.capturePersonality}
         data-personality-reaction={personalityReaction}
         data-collection-state={collectionState}
@@ -971,8 +1015,19 @@ export function SparkOrbLearningShell({
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
           data-capture-motion={creatureCaptureMotion}
+          data-capture-direction={captureDirection}
+          data-capture-scrubbed={scrubbedCaptureProgress === null ? "false" : "true"}
+          data-capture-shrink-progress={
+            scrubbedCaptureShrinkProgress === null
+              ? undefined
+              : formatMotionNumber(scrubbedCaptureShrinkProgress)
+          }
+          data-capture-scale={
+            scrubbedCaptureScale === null ? undefined : formatMotionNumber(scrubbedCaptureScale)
+          }
           data-capture-personality={capturedCreature.capturePersonality}
           data-personality-reaction={personalityReaction}
+          style={creatureCaptureStyle}
           src={capturedCreature.imageSrc}
           alt=""
           aria-hidden="true"
@@ -1227,6 +1282,15 @@ export function SparkOrbLearningShell({
             drop-shadow(0 0 22px rgba(255, 228, 107, 0.7))
             brightness(1.18);
           z-index: 8;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-scrubbed="true"][data-capture-motion="shrinking"] {
+          animation: none;
+          opacity: var(--capture-scrub-opacity);
+          transform:
+            translate(-50%, var(--capture-scrub-y))
+            scale(var(--capture-scrub-scale))
+            rotate(var(--capture-scrub-rotation));
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="pulling"][data-personality-reaction="dodge"] {

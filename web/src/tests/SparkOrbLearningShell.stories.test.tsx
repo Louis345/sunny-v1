@@ -103,6 +103,42 @@ describe("SparkOrbLearningShell stories", () => {
     );
   });
 
+  it("applies selected monster personality inside the full aim-and-launch story", () => {
+    vi.useFakeTimers();
+    const storyArgs: SparkOrbLearningShellStoryArgs = {
+      phase: "idle",
+      domain: "spelling",
+      currentTarget: "word:because",
+      lastMoment: "watching",
+      capturePersonality: "brave",
+    };
+
+    render(AimAndLaunchSkill.render?.(storyArgs, {} as never) as ReactElement);
+
+    fireEvent.click(screen.getByRole("button", { name: "because" }));
+    fireEvent.click(screen.getByRole("button", { name: "garden" }));
+    fireEvent.click(screen.getByRole("button", { name: "spark" }));
+
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
+      "data-capture-personality",
+      "brave",
+    );
+
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+    fireEvent.pointerMove(launchControl, { clientX: 338, clientY: 450 });
+    fireEvent.pointerUp(launchControl, { clientX: 338, clientY: 450 });
+
+    act(() => {
+      vi.advanceTimersByTime(650);
+    });
+
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-personality-reaction",
+      "resist",
+    );
+  });
+
   it("renders a scrubbed collected animation story for inspecting capture timing", () => {
     expect(meta.argTypes).toHaveProperty("capturePersonality");
     expect(meta.argTypes?.capturePersonality).toMatchObject({
@@ -122,6 +158,17 @@ describe("SparkOrbLearningShell stories", () => {
 
     const scrubber = screen.getByRole("slider", { name: "Capture animation progress" });
     expect(scrubber).toBeInTheDocument();
+
+    fireEvent.change(scrubber, { target: { value: "45" } });
+    expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(
+      "data-capture-stage",
+      "shrinking",
+    );
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-capture-scrubbed",
+      "true",
+    );
+    expect(Number(screen.getByTestId("spark-orb-creature").getAttribute("data-capture-scale"))).toBeLessThan(0.92);
 
     fireEvent.change(scrubber, { target: { value: "58" } });
     expect(screen.getByTestId("spark-orb-encounter")).toHaveAttribute(

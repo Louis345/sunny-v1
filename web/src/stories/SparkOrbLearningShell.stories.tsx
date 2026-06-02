@@ -382,6 +382,10 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
       domain={args.domain}
       currentTarget={activeQuestion?.target ?? args.currentTarget}
       lastMoment={lastMoment}
+      capturedCreature={{
+        ...LUMIPUFF_MONSTER,
+        capturePersonality: args.capturePersonality,
+      }}
       onCompanionAnchor={logCompanionAnchor}
       onEncounterEvent={logEncounterEvent}
       onCaptureCompleted={logCaptureCompleted}
