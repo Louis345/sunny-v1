@@ -238,4 +238,32 @@ describe("useDeepgramVideoCallStt", () => {
     expect(onError).toHaveBeenCalledWith("Voice connection is having trouble. You can still type.");
     expect(onError).not.toHaveBeenCalledWith("deepgram_video_call_ws_error");
   });
+
+  it("reports a kid-safe typed fallback instead of raw microphone permission errors", async () => {
+    (navigator.mediaDevices.getUserMedia as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new DOMException("Permission denied", "NotAllowedError"),
+    );
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useDeepgramVideoCallStt({
+        assistantAudioPlaying: false,
+        onFinalTranscript: vi.fn(),
+        onError,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.start({
+        childName: "Ila",
+        chartChildId: "ila",
+      });
+      await Promise.resolve();
+    });
+
+    expect(onError).toHaveBeenCalledWith(
+      "Microphone permission is blocked. You can still type to Elli.",
+    );
+    expect(onError).not.toHaveBeenCalledWith("Permission denied");
+    expect(result.current.status).toBe("blocked");
+  });
 });
