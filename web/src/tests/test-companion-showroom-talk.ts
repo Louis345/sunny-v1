@@ -13,10 +13,14 @@ import {
   getShowroomActivityBoardSignature,
   getShowroomVideoPermissionFallbackMessage,
   getShowroomVideoChatLatencyBudget,
+  resolveShowroomActivityReactionDeliveryMode,
+  createShowroomPresenceReactionLine,
+  shouldUseShowroomPresenceReaction,
   inferShowroomVideoConversationIntent,
   isShowroomActivityReactionCurrent,
   resolveShowroomTalkChildId,
   getShowroomTalkRequestedAnimation,
+  type ShowroomActivityReactionContext,
   getShowroomVoiceErrorRecovery,
   resolveShowroomContainedSlotFraming,
   shouldIgnoreShowroomAutoResumeTranscript,
@@ -282,7 +286,7 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("relationshipState");
   });
 
-  it("routes tic-tac-toe moments through AI-authored activity reactions instead of canned voice banter", () => {
+  it("keeps Claude-authored tic-tac-toe reactions as the default comparison lane", () => {
     const source = readShowroomSource();
 
     expect(source).toContain("requestShowroomVideoActivityReaction");
@@ -292,9 +296,37 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("onBanter");
     expect(source).toContain("videoChatHandsFreeRearmRef.current?.(");
     expect(source).toContain("videoChatStartListeningRef.current?.()");
-    expect(source).not.toContain("speakShowroomVideoGameBanter");
     expect(source).not.toContain('source: "video_game_banter"');
     expect(source).not.toContain("from \"socket.io-client\"");
+  });
+
+  it("can route semantic tic-tac-toe moments through a fast presence lane for latency comparison", () => {
+    const source = readShowroomSource();
+    const reaction: ShowroomActivityReactionContext = {
+      activityId: "tic_tac_toe" as const,
+      eventType: "companion_move" as const,
+      momentType: "companion_blocked_child" as const,
+      salience: "medium" as const,
+      board: ["X", "X", "O", null, "O", null, null, null, null],
+      boardSignature: "XXO-O----",
+      childMark: "X" as const,
+      companionMark: "O" as const,
+      turn: "child" as const,
+      desiredTone: "playful_strategic",
+      updatedAt: 1000,
+    };
+
+    expect(resolveShowroomActivityReactionDeliveryMode("?activityReactionMode=presence")).toBe(
+      "presence",
+    );
+    expect(resolveShowroomActivityReactionDeliveryMode("?activityReactionMode=claude")).toBe(
+      "claude",
+    );
+    expect(shouldUseShowroomPresenceReaction(reaction, "presence")).toBe(true);
+    expect(createShowroomPresenceReactionLine(reaction, "Elli")).toContain("blocked");
+    expect(source).toContain("requestShowroomVideoPresenceReaction");
+    expect(source).toContain('source: "video_presence_reaction"');
+    expect(source).toContain('reactionLane: "presence"');
   });
 
   it("does not request AI speech for ordinary child moves that will immediately become stale", () => {

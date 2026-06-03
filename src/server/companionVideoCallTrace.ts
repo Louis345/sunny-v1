@@ -103,11 +103,13 @@ export type CompanionVideoCallTracePacket = {
   activeTicTacToeState?: unknown;
   activityReactions?: {
     aiAuthoredCount: number;
+    presenceCount: number;
     fallbackCount: number;
     staleDroppedCount: number;
     spokenCount: number;
     missingAudioCount: number;
     averageResponseMs?: number;
+    averagePresenceResponseMs?: number;
   };
   eventOrder: Array<{
     eventName: CompanionVideoCallTraceEventName;
@@ -154,15 +156,24 @@ function buildActivityReactionSummary(
   const audioStartRecords = records.filter(
     (record) => record.eventName === "activity_reaction_audio_start",
   );
-  const responseKeys = new Set(
-    responseRecords.map(
-      (record) => record.turnId ?? `${record.timestamp}:${record.responseHash ?? ""}`,
-    ),
+  const responseKeyFor = (record: CompanionVideoCallTraceRecord) =>
+    record.turnId ?? `${record.timestamp}:${record.responseHash ?? ""}`;
+  const responseKeys = new Set(responseRecords.map(responseKeyFor));
+  const presenceRecords = responseRecords.filter(
+    (record) =>
+      record.payload?.aiAuthored === false ||
+      String(record.payload?.reactionLane ?? "") === "presence",
+  );
+  const claudeRecords = responseRecords.filter(
+    (record) =>
+      record.payload?.aiAuthored !== false &&
+      String(record.payload?.reactionLane ?? "") !== "presence",
   );
   const fallbackKeys = new Set(
     fallbackRecords.map((record) => record.turnId ?? `${record.timestamp}:fallback`),
   );
-  const aiAuthoredCount = responseKeys.size;
+  const aiAuthoredCount = new Set(claudeRecords.map(responseKeyFor)).size;
+  const presenceCount = new Set(presenceRecords.map(responseKeyFor)).size;
   const fallbackCount = fallbackKeys.size;
   const staleDroppedCount = new Set(
     staleDroppedRecords.map(
@@ -182,7 +193,8 @@ function buildActivityReactionSummary(
     (key) => !audioStartKeys.has(key) && !fallbackKeys.has(key) && !staleDroppedKeys.has(key),
   ).length;
   if (
-    aiAuthoredCount === 0 &&
+      aiAuthoredCount === 0 &&
+      presenceCount === 0 &&
     fallbackCount === 0 &&
     staleDroppedCount === 0 &&
     spokenCount === 0
@@ -190,11 +202,30 @@ function buildActivityReactionSummary(
     return undefined;
   }
   const seenDurationKeys = new Set<string>();
-  const responseDurations = responseRecords
+  const durationForRecords = (recordsToMeasure: CompanionVideoCallTraceRecord[]) =>
+    recordsToMeasure
     .map((record) => {
-      const key = record.turnId ?? `${record.timestamp}:${record.responseHash ?? ""}`;
+      const key = responseKeyFor(record);
       if (seenDurationKeys.has(key)) return undefined;
       seenDurationKeys.add(key);
+      const direct = record.payload?.requestToResponseMs;
+      if (typeof direct === "number" && Number.isFinite(direct)) return direct;
+      if (!record.turnId) return undefined;
+      const start = records.find(
+        (candidate) =>
+          candidate.turnId === record.turnId &&
+          candidate.eventName === "activity_reaction_request_start",
+      );
+      return start ? record.timestamp - start.timestamp : undefined;
+    })
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const responseDurations = durationForRecords(responseRecords);
+  const seenPresenceDurationKeys = new Set<string>();
+  const presenceDurations = presenceRecords
+    .map((record) => {
+      const key = responseKeyFor(record);
+      if (seenPresenceDurationKeys.has(key)) return undefined;
+      seenPresenceDurationKeys.add(key);
       const direct = record.payload?.requestToResponseMs;
       if (typeof direct === "number" && Number.isFinite(direct)) return direct;
       if (!record.turnId) return undefined;
@@ -215,11 +246,18 @@ function buildActivityReactionSummary(
       : undefined;
   return {
     aiAuthoredCount,
+    presenceCount,
     fallbackCount,
     staleDroppedCount,
     spokenCount,
     missingAudioCount,
     ...(averageResponseMs !== undefined && { averageResponseMs }),
+    ...(presenceDurations.length > 0 && {
+      averagePresenceResponseMs: Math.round(
+        presenceDurations.reduce((sum, value) => sum + value, 0) /
+          presenceDurations.length,
+      ),
+    }),
   };
 }
 

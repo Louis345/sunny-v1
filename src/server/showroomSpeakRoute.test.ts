@@ -21,6 +21,12 @@ describe("showroom companion speak route", () => {
     ).toBe(true);
     expect(
       shouldUseShowroomBanterSpeech({
+        source: "video_presence_reaction",
+        text: "Nice block. I felt that one.",
+      }),
+    ).toBe(true);
+    expect(
+      shouldUseShowroomBanterSpeech({
         source: "showroom_intro",
         text: "Nice corner move. I need to think.",
       }),

@@ -421,6 +421,7 @@ type ShowroomVideoChatCameraState = "off" | "requesting" | "live" | "blocked";
 export type ShowroomVideoCallPhase = "idle" | "calling" | "answered" | "live";
 type ShowroomTalkMode = "showroom" | "video_call";
 export type ShowroomConversationIntent = "social" | "game" | "repeat_after" | "visual";
+export type ShowroomActivityReactionDeliveryMode = "claude" | "presence";
 type CompanionCallSource = "showroom" | "mystery_box" | "game_reward" | "dev_preview";
 type CompanionRelationshipState = "previewing" | "selected" | "earned_reward";
 type CompanionRewardContext = {
@@ -1580,6 +1581,49 @@ function createShowroomActivityReactionQuestion(
     return "React to winning tic-tac-toe without bragging.";
   }
   return "React to the tic-tac-toe round ending in a draw.";
+}
+
+export function resolveShowroomActivityReactionDeliveryMode(
+  search: string,
+): ShowroomActivityReactionDeliveryMode {
+  const params = new URLSearchParams(search);
+  const raw = params.get("activityReactionMode") ?? params.get("reactionMode") ?? "";
+  return raw === "presence" || raw === "fast" ? "presence" : "claude";
+}
+
+export function shouldUseShowroomPresenceReaction(
+  reaction: ShowroomActivityReactionContext,
+  mode: ShowroomActivityReactionDeliveryMode,
+): boolean {
+  return mode === "presence" && reaction.activityId === "tic_tac_toe";
+}
+
+export function createShowroomPresenceReactionLine(
+  reaction: ShowroomActivityReactionContext,
+  companionName: string,
+): string {
+  if (reaction.eventType === "game_started") {
+    return `${companionName} is ready. You go first.`;
+  }
+  if (reaction.momentType === "companion_blocked_child") {
+    return "I blocked that one. Your move.";
+  }
+  if (reaction.momentType === "child_blocked_companion") {
+    return "Nice block. I felt that one.";
+  }
+  if (reaction.result === "child_win") {
+    return "You got me. That was a great win.";
+  }
+  if (reaction.result === "companion_win") {
+    return "I found three, but you made me work for it.";
+  }
+  if (reaction.result === "draw" || reaction.eventType === "round_complete") {
+    return "That was close. We both held the line.";
+  }
+  if (reaction.eventType === "companion_move") {
+    return "My move. Your turn.";
+  }
+  return "Ooo, interesting move.";
 }
 
 export function getShowroomActivityBoardSignature(
@@ -3416,6 +3460,13 @@ export function CompanionShowroom({
       },
     };
   }, [videoCallContext]);
+  const activityReactionDeliveryMode = useMemo(
+    () =>
+      resolveShowroomActivityReactionDeliveryMode(
+        typeof window === "undefined" ? "" : window.location.search,
+      ),
+    [],
+  );
   const talkChildId = useMemo(
     () =>
       resolveShowroomTalkChildId(
@@ -3462,6 +3513,13 @@ export function CompanionShowroom({
   } | null>(null);
   const activityReactionQueueGuardRef = useRef(0);
   const activityReactionRequesterRef = useRef<
+    | ((
+        reaction: ShowroomActivityReactionContext,
+        activeActivity: ShowroomVideoActivityContext,
+      ) => void)
+    | null
+  >(null);
+  const activityPresenceReactionRequesterRef = useRef<
     | ((
         reaction: ShowroomActivityReactionContext,
         activeActivity: ShowroomVideoActivityContext,
@@ -3926,7 +3984,19 @@ export function CompanionShowroom({
           nextActivityContext,
         );
         if (reaction) {
-          activityReactionRequesterRef.current?.(reaction, nextActivityContext);
+          if (
+            shouldUseShowroomPresenceReaction(
+              reaction,
+              activityReactionDeliveryMode,
+            )
+          ) {
+            activityPresenceReactionRequesterRef.current?.(
+              reaction,
+              nextActivityContext,
+            );
+          } else {
+            activityReactionRequesterRef.current?.(reaction, nextActivityContext);
+          }
         }
       }
       if (window.parent && window.parent !== window) {
@@ -3943,6 +4013,7 @@ export function CompanionShowroom({
     [
       activeThemeId,
       activeVideoCallContext,
+      activityReactionDeliveryMode,
       current,
       emitShowroomVideoCallTrace,
       talkChildId,
@@ -4298,6 +4369,233 @@ export function CompanionShowroom({
   );
 
   activityReactionRequesterRef.current = requestShowroomVideoActivityReaction;
+
+  const requestShowroomVideoPresenceReaction = useCallback(
+    async (
+      reaction: ShowroomActivityReactionContext,
+      activeActivity: ShowroomVideoActivityContext,
+    ) => {
+      if (!current) return;
+      const latestBefore = showroomVideoActiveActivityRef.current;
+      if (
+        !isShowroomActivityReactionCurrent({
+          reaction,
+          currentActivity: latestBefore,
+        })
+      ) {
+        emitShowroomVideoCallTrace({
+          eventName: "activity_reaction_stale_dropped",
+          payload: {
+            reason: "presence_lane_stale_before_tts",
+            reactionLane: "presence",
+            activityReaction: reaction,
+            activeActivity: latestBefore,
+          },
+        });
+        return;
+      }
+      const currentDefaultVoice =
+        current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
+      const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
+      const traceTurnId = nextShowroomVideoTurnId();
+      const reactionStartMs = performance.now();
+      const line = createShowroomPresenceReactionLine(reaction, current.name);
+      const runGestureOnlyFallback = (reason: string) => {
+        emitShowroomVideoCallTrace({
+          eventName: "activity_reaction_fallback",
+          turnId: traceTurnId,
+          payload: {
+            reason,
+            reactionLane: "presence",
+            fallback: "gesture_only",
+            activityReaction: reaction,
+            activeActivity,
+          },
+        });
+        playCurrentCompanionAnimation(
+          getShowroomActivityReactionFallbackAnimation(reaction),
+          { loop: false },
+        );
+        schedule(() => playCurrentCompanionAnimation("idle", { loop: true }), 1100);
+        videoChatHandsFreeRearmRef.current?.(
+          "presence_activity_reaction_fallback",
+          SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS,
+        );
+      };
+
+      emitShowroomVideoCallTrace({
+        eventName: "activity_reaction_request_start",
+        turnId: traceTurnId,
+        payload: {
+          reactionLane: "presence",
+          activityReaction: reaction,
+          activeActivity,
+        },
+      });
+      if (!selectedVoiceId) {
+        runGestureOnlyFallback("missing_voice");
+        return;
+      }
+
+      try {
+        showroomSpeechRecognitionRef.current?.abort();
+        setShowroomTalkOpen(false);
+        setShowroomTalkError(null);
+        setShowroomTalkResponse(`${current.name}: ${line}`);
+        setShowroomTalkPhase("speaking");
+        stopSpeech();
+        playCurrentCompanionAnimation(
+          getShowroomActivityReactionFallbackAnimation(reaction),
+          { loop: false },
+        );
+        const response = await fetch(
+          `/api/companions/${encodeURIComponent(current.id)}/speak`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              line: "intro",
+              language: "en",
+              voiceId: selectedVoiceId,
+              source: "video_presence_reaction",
+              text: line,
+            }),
+          },
+        );
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(data?.error ?? `presence_reaction_${response.status}`);
+        }
+        const latestAfter = showroomVideoActiveActivityRef.current;
+        if (
+          !isShowroomActivityReactionCurrent({
+            reaction,
+            currentActivity: latestAfter,
+          })
+        ) {
+          emitShowroomVideoCallTrace({
+            eventName: "activity_reaction_stale_dropped",
+            turnId: traceTurnId,
+            payload: {
+              reason: "presence_lane_board_changed_before_audio",
+              reactionLane: "presence",
+              latencyMs: Math.round(performance.now() - reactionStartMs),
+              activityReaction: reaction,
+              activeActivity: latestAfter,
+            },
+          });
+          setShowroomTalkPhase("idle");
+          videoChatHandsFreeRearmRef.current?.(
+            "presence_activity_reaction_stale",
+            SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS,
+          );
+          return;
+        }
+        const blob = await response.blob();
+        const latencyMs = Math.round(performance.now() - reactionStartMs);
+        emitShowroomVideoCallTrace({
+          eventName: "activity_reaction_response_received",
+          turnId: traceTurnId,
+          payload: {
+            responseText: line,
+            requestToResponseMs: latencyMs,
+            reactionLane: "presence",
+            aiAuthored: false,
+            commandCount: 0,
+            activityReaction: reaction,
+            activeActivity,
+            latencySpans: {
+              ttsMs: latencyMs,
+              requestToResponseMs: latencyMs,
+            },
+          },
+        });
+        const url = URL.createObjectURL(blob);
+        speechUrlRef.current = url;
+        const audio = new Audio(url);
+        const AudioContextCtor =
+          window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+        if (!AudioContextCtor) {
+          throw new Error("audio_context_unavailable");
+        }
+        const context = new AudioContextCtor();
+        const source = context.createMediaElementSource(audio);
+        const analyser = ensurePlaybackAnalyser(context);
+        source.connect(analyser);
+        analyser.connect(context.destination);
+        speechAnalyserRef.current = analyser;
+        speechAudioRef.current = { audio, context };
+        let completed = false;
+        const finishAudio = (outcome: "audio_ended" | "audio_error") => {
+          if (completed) return;
+          completed = true;
+          emitShowroomVideoCallTrace({
+            eventName:
+              outcome === "audio_ended"
+                ? "activity_reaction_audio_ended"
+                : "audio_error",
+            turnId: traceTurnId,
+            payload: {
+              reason: outcome,
+              reactionLane: "presence",
+              latencyMs: Math.round(performance.now() - reactionStartMs),
+              activityReaction: reaction,
+            },
+          });
+          setShowroomTalkPhase("idle");
+          playCurrentCompanionAnimation("idle", { loop: true });
+          if (speechAudioRef.current?.audio === audio) {
+            speechAudioRef.current = null;
+          }
+          if (speechAnalyserRef.current === analyser) {
+            speechAnalyserRef.current = null;
+          }
+          void context.close().catch((err: unknown) => {
+            console.warn(
+              " 🎮 [showroom-presence-reaction] audio_context_close_failed",
+              err,
+            );
+          });
+          URL.revokeObjectURL(url);
+          if (speechUrlRef.current === url) {
+            speechUrlRef.current = null;
+          }
+          videoChatHandsFreeRearmRef.current?.(
+            "presence_activity_reaction_audio_ended",
+            SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS,
+          );
+        };
+        audio.addEventListener("ended", () => finishAudio("audio_ended"));
+        audio.addEventListener("error", () => finishAudio("audio_error"));
+        await context.resume();
+        emitShowroomVideoCallTrace({
+          eventName: "activity_reaction_audio_start",
+          turnId: traceTurnId,
+          payload: {
+            latencyMs: Math.round(performance.now() - reactionStartMs),
+            reactionLane: "presence",
+            activityReaction: reaction,
+          },
+        });
+        await audio.play();
+      } catch (err: unknown) {
+        console.warn(" 🎮 [showroom-presence-reaction] request_failed", err);
+        setShowroomTalkPhase("idle");
+        runGestureOnlyFallback(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [
+      current,
+      emitShowroomVideoCallTrace,
+      nextShowroomVideoTurnId,
+      playCurrentCompanionAnimation,
+      schedule,
+      stopSpeech,
+      voiceSelections,
+    ],
+  );
+
+  activityPresenceReactionRequesterRef.current = requestShowroomVideoPresenceReaction;
 
   const openVideoCallActivityRequest = useCallback(
     (

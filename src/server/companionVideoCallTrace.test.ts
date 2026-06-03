@@ -273,6 +273,72 @@ describe("companion video call traces", () => {
     ]);
   });
 
+  it("separates fast presence-lane reactions from Claude-authored activity reactions", () => {
+    const root = makeTraceRoot();
+    const base = {
+      traceId: "trace_presence_lane",
+      childId: "ila",
+      companionId: "elli",
+      callSource: "showroom" as const,
+      relationshipState: "previewing" as const,
+    };
+
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "presence_1",
+        eventName: "activity_reaction_request_start",
+        timestamp: Date.parse("2026-05-28T18:05:00.000Z"),
+        payload: {
+          reactionLane: "presence",
+          activityReaction: {
+            activityId: "tic_tac_toe",
+            eventType: "companion_move",
+          },
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "presence_1",
+        eventName: "activity_reaction_response_received",
+        timestamp: Date.parse("2026-05-28T18:05:00.420Z"),
+        payload: {
+          responseText: "Nice block.",
+          aiAuthored: false,
+          reactionLane: "presence",
+          requestToResponseMs: 420,
+        },
+      },
+      { rootDir: root },
+    );
+    recordCompanionVideoCallTraceEvent(
+      {
+        ...base,
+        turnId: "presence_1",
+        eventName: "activity_reaction_audio_start",
+        timestamp: Date.parse("2026-05-28T18:05:00.430Z"),
+        payload: {
+          reactionLane: "presence",
+        },
+      },
+      { rootDir: root },
+    );
+
+    const packet = readCompanionVideoCallTracePacket("trace_presence_lane", {
+      rootDir: root,
+    });
+
+    expect(packet.activityReactions).toMatchObject({
+      aiAuthoredCount: 0,
+      presenceCount: 1,
+      spokenCount: 1,
+      averagePresenceResponseMs: 420,
+    });
+  });
+
   it("surfaces stale activity reactions without misclassifying them as speech loops", () => {
     const root = makeTraceRoot();
     const base = {

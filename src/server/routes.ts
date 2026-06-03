@@ -248,6 +248,7 @@ function pickDiagSpellingWord(childId: string): string {
 type ShowroomLine = "intro" | "plead";
 const SHOWROOM_BANTER_SPEECH_SOURCE = "video_game_banter";
 const SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE = "video_call_greeting";
+const SHOWROOM_VIDEO_PRESENCE_REACTION_SOURCE = "video_presence_reaction";
 const SHOWROOM_BANTER_SPEECH_MAX_CHARS = 180;
 
 export function normalizeShowroomBanterSpeechText(raw: unknown): string {
@@ -261,7 +262,8 @@ export function shouldUseShowroomBanterSpeech(input: {
 }): boolean {
   return (
     (input.source === SHOWROOM_BANTER_SPEECH_SOURCE ||
-      input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE) &&
+      input.source === SHOWROOM_VIDEO_CALL_GREETING_SPEECH_SOURCE ||
+      input.source === SHOWROOM_VIDEO_PRESENCE_REACTION_SOURCE) &&
     normalizeShowroomBanterSpeechText(input.text).length > 0
   );
 }
