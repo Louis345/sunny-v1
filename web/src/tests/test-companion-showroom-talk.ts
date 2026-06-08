@@ -11,6 +11,7 @@ import {
   createShowroomTalkPayload,
   createShowroomVideoCallContextFromSearch,
   getShowroomActivityBoardSignature,
+  getShowroomVideoPermissionFallbackMessage,
   getShowroomVideoChatLatencyBudget,
   inferShowroomVideoConversationIntent,
   isShowroomActivityReactionCurrent,
@@ -719,6 +720,19 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("startShowroomVideoCallListening");
     expect(source).toContain(".start({");
     expect(source).toContain("cameraState === \"live\"");
+  });
+
+  it("maps blocked camera permission to typed fallback copy instead of raw browser errors", () => {
+    const source = readShowroomSource();
+
+    expect(
+      getShowroomVideoPermissionFallbackMessage(
+        new DOMException("Permission denied", "NotAllowedError"),
+      ),
+    ).toBe("Camera permission is blocked. You can still type or try again.");
+    expect(source).toContain("getShowroomVideoPermissionFallbackMessage");
+    expect(source).toContain("Camera permission is blocked. You can still type or try again.");
+    expect(source).not.toContain("err instanceof Error ? err.message : \"Camera permission was blocked.\"");
   });
 
   it("shows a ringing and answer ceremony before camera/listening starts", () => {

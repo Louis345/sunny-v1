@@ -1939,6 +1939,24 @@ export function createShowroomVideoCallStatusCopy(args: {
   };
 }
 
+export function getShowroomVideoPermissionFallbackMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const name = err instanceof DOMException ? err.name : err instanceof Error ? err.name : "";
+  const lower = `${name} ${raw}`.toLowerCase();
+  if (
+    lower.includes("notallowederror") ||
+    lower.includes("permission denied") ||
+    lower.includes("permission dismissed") ||
+    lower.includes("permission")
+  ) {
+    return "Camera permission is blocked. You can still type or try again.";
+  }
+  if (lower.includes("notfounderror") || lower.includes("not found")) {
+    return "No camera was found. You can still type to the companion.";
+  }
+  return "Camera is having trouble. You can still type or try again.";
+}
+
 export function createShowroomVideoChatStartedEvent(args: {
   childId: string;
   companionId: string;
@@ -5148,10 +5166,9 @@ export function CompanionShowroom({
     } catch (err: unknown) {
       setShowroomVideoChatCameraState("blocked");
       setShowroomVideoCallPhase("answered");
-      setShowroomVideoChatError(
-        err instanceof Error ? err.message : "Camera permission was blocked.",
-      );
-      console.warn(" 🎮 [showroom-video-chat] camera_blocked", err);
+      const message = getShowroomVideoPermissionFallbackMessage(err);
+      setShowroomVideoChatError(message);
+      console.warn(" 🎮 [showroom-video-chat] camera_blocked", message);
     }
   }, [startShowroomVideoCallListening, stopShowroomVideoChatCamera]);
 

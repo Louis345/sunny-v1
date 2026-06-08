@@ -31,6 +31,33 @@ const BARGE_IN_RMS_THRESHOLD = 0.045;
 const BARGE_IN_CONSECUTIVE_FRAMES = 2;
 const VIDEO_CALL_STT_CONNECTION_MESSAGE =
   "Voice connection is having trouble. You can still type.";
+const VIDEO_CALL_STT_MIC_PERMISSION_MESSAGE =
+  "Microphone permission is blocked. You can still type to Elli.";
+
+function getVideoCallSttErrorMessage(err: unknown): {
+  message: string;
+  status: VideoCallSttStatus;
+} {
+  const raw = err instanceof Error ? err.message : String(err);
+  const name = err instanceof DOMException ? err.name : err instanceof Error ? err.name : "";
+  const lower = `${name} ${raw}`.toLowerCase();
+  if (
+    lower.includes("notallowederror") ||
+    lower.includes("permission denied") ||
+    lower.includes("permission dismissed") ||
+    lower.includes("permission")
+  ) {
+    return {
+      message: VIDEO_CALL_STT_MIC_PERMISSION_MESSAGE,
+      status: "blocked",
+    };
+  }
+  return {
+    message:
+      raw === "deepgram_video_call_ws_error" ? VIDEO_CALL_STT_CONNECTION_MESSAGE : raw,
+    status: "error",
+  };
+}
 
 export function useDeepgramVideoCallStt(
   input: UseDeepgramVideoCallSttInput,
@@ -218,14 +245,10 @@ export function useDeepgramVideoCallStt(
         console.log(" 🎮 [deepgram-video-call-stt] [start] [ok]");
       } catch (err: unknown) {
         stopMic();
-        const message = err instanceof Error ? err.message : String(err);
-        setStatus("error");
-        onErrorRef.current?.(
-          message === "deepgram_video_call_ws_error"
-            ? VIDEO_CALL_STT_CONNECTION_MESSAGE
-            : message,
-        );
-        console.warn(" 🎮 [deepgram-video-call-stt] [start] [error]", message);
+        const fallback = getVideoCallSttErrorMessage(err);
+        setStatus(fallback.status);
+        onErrorRef.current?.(fallback.message);
+        console.warn(" 🎮 [deepgram-video-call-stt] [start] [error]", fallback.message);
       }
     },
     [sendMessage, startMic, stop, stopMic],
