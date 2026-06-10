@@ -45,13 +45,17 @@ describe("Captured monster den", () => {
     });
     expect(LUMIPUFF_MONSTER.expression).toMatchObject({
       blink: {
-        mode: "css-overlay",
-        cadenceMs: [3200, 6200],
-        eyeMask: {
-          top: "30%",
-          left: "24%",
-          width: "52%",
-          height: "16%",
+        mode: "frame-swap",
+        frames: {
+          open: "/encounters/spark-orb/lumipuff.png",
+          half: "/encounters/spark-orb/lumipuff-blink-half.png",
+          closed: "/encounters/spark-orb/lumipuff-blink-closed.png",
+        },
+        timing: {
+          durationMs: 140,
+          minIntervalMs: 3000,
+          maxIntervalMs: 7000,
+          doubleBlinkChance: 0.12,
         },
       },
       soundProfile: {
