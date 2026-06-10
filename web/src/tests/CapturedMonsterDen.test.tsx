@@ -10,8 +10,15 @@ import {
   capturedMonsterCatalog,
 } from "../components/capturedMonsterCatalog";
 
+const playMonsterSfxMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../utils/monsterSfx", () => ({
+  playMonsterSfx: playMonsterSfxMock,
+}));
+
 describe("Captured monster den", () => {
   afterEach(() => {
+    playMonsterSfxMock.mockClear();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -35,6 +42,22 @@ describe("Captured monster den", () => {
     expect(LUMIPUFF_MONSTER.sprite).toMatchObject({
       mode: "css-png",
       futureAtlasReady: true,
+    });
+    expect(LUMIPUFF_MONSTER.expression).toMatchObject({
+      blink: {
+        mode: "css-overlay",
+        cadenceMs: [3200, 6200],
+        eyeMask: {
+          top: "30%",
+          left: "24%",
+          width: "52%",
+          height: "16%",
+        },
+      },
+      soundProfile: {
+        voice: "soft-chime",
+        cues: expect.arrayContaining(["noticed_orb", "ready", "happy", "sleepy", "captured"]),
+      },
     });
     expect(LUMIPUFF_MONSTER).toHaveProperty("capturePersonality", "playful");
   });
@@ -98,12 +121,14 @@ describe("Captured monster den", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Pet Sparkle" }));
     expect(screen.getByTestId("monster-life-layer")).toHaveAttribute("data-life-state", "happy");
+    expect(playMonsterSfxMock).toHaveBeenCalledWith(LUMIPUFF_MONSTER, "happy", undefined);
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "monster_pet", creatureId: "lumipuff" }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Feed treat" }));
     expect(screen.getByTestId("monster-life-layer")).toHaveAttribute("data-life-state", "celebrate");
+    expect(playMonsterSfxMock).toHaveBeenCalledWith(LUMIPUFF_MONSTER, "happy", undefined);
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "monster_fed", creatureId: "lumipuff" }),
     );
@@ -113,12 +138,14 @@ describe("Captured monster den", () => {
       vi.advanceTimersByTime(6_200);
     });
     expect(screen.getByTestId("monster-life-layer")).toHaveAttribute("data-life-state", "sleep");
+    expect(playMonsterSfxMock).toHaveBeenCalledWith(LUMIPUFF_MONSTER, "sleepy", undefined);
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "monster_sleep", creatureId: "lumipuff" }),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Wake Sparkle" }));
     expect(screen.getByTestId("monster-life-layer")).toHaveAttribute("data-life-state", "curious");
+    expect(playMonsterSfxMock).toHaveBeenCalledWith(LUMIPUFF_MONSTER, "idle", undefined);
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "monster_wake", creatureId: "lumipuff" }),
     );

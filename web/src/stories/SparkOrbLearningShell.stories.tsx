@@ -19,6 +19,7 @@ import {
   type CapturedMonsterCapturePersonality,
 } from "../components/capturedMonsterCatalog";
 import type { SparkOrbEncounterPhase } from "../components/SparkOrbEncounterPost";
+import type { MonsterSfxAudioMode } from "../utils/monsterSfx";
 import { playSparkOrbSfx } from "../utils/sparkOrbSfx";
 
 export type SparkOrbLearningShellStoryArgs = {
@@ -27,6 +28,7 @@ export type SparkOrbLearningShellStoryArgs = {
   currentTarget: string;
   lastMoment: OrbLearningLastMoment;
   capturePersonality: CapturedMonsterCapturePersonality;
+  monsterAudioMode?: MonsterSfxAudioMode;
 };
 
 const phases: SparkOrbEncounterPhase[] = [
@@ -55,6 +57,8 @@ const capturePersonalities: CapturedMonsterCapturePersonality[] = [
   "sleepy",
 ];
 
+const monsterAudioModes: MonsterSfxAudioMode[] = ["synthetic", "muted"];
+
 const meta: Meta<SparkOrbLearningShellStoryArgs> = {
   title: "Reward Encounters/Spark Orb Learning Shell",
   parameters: {
@@ -72,6 +76,7 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     currentTarget: { control: "text" },
     lastMoment: { control: "select", options: moments },
     capturePersonality: { control: "select", options: capturePersonalities },
+    monsterAudioMode: { control: "select", options: monsterAudioModes },
   },
   args: {
     phase: "idle",
@@ -79,6 +84,7 @@ const meta: Meta<SparkOrbLearningShellStoryArgs> = {
     currentTarget: "word:because",
     lastMoment: "watching",
     capturePersonality: "playful",
+    monsterAudioMode: "synthetic",
   },
 };
 
@@ -386,6 +392,7 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
         ...LUMIPUFF_MONSTER,
         capturePersonality: args.capturePersonality,
       }}
+      monsterSfx={{ audioMode: args.monsterAudioMode ?? "synthetic" }}
       onCompanionAnchor={logCompanionAnchor}
       onEncounterEvent={logEncounterEvent}
       onCaptureCompleted={logCaptureCompleted}
@@ -441,6 +448,7 @@ function CollectedAnimationStory(args: SparkOrbLearningShellStoryArgs): ReactEle
           capturePersonality: args.capturePersonality,
         }}
         captureProgress={captureProgress}
+        monsterSfx={{ audioMode: args.monsterAudioMode ?? "synthetic" }}
         onCompanionAnchor={logCompanionAnchor}
         onEncounterEvent={logEncounterEvent}
       >

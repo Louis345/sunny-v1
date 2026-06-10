@@ -8,7 +8,13 @@ import {
 import type {
   CapturedMonsterConfig,
   CapturedMonsterLifeState,
+  CapturedMonsterSoundCue,
 } from "./capturedMonsterCatalog";
+import {
+  MonsterExpressionLayer,
+  type MonsterExpressionState,
+} from "./MonsterExpressionLayer";
+import { playMonsterSfx, type MonsterSfxOptions } from "../utils/monsterSfx";
 
 export type CapturedMonsterEventType =
   | "monster_named"
@@ -49,6 +55,7 @@ export interface MonsterLifeLayerProps {
 export interface MonsterDenPreviewProps {
   creature: CapturedMonsterConfig;
   initialNickname?: string;
+  monsterSfx?: MonsterSfxOptions;
   onEvent?: (event: CapturedMonsterEvent) => void;
 }
 
@@ -76,6 +83,26 @@ function rarityLabel(rarity: CapturedMonsterConfig["rarity"]): string {
   if (rarity === "rare") return "Rare";
   if (rarity === "uncommon") return "Uncommon";
   return "Common";
+}
+
+function expressionStateForLifeState(
+  lifeState: CapturedMonsterLifeState,
+): MonsterExpressionState {
+  if (lifeState === "sleep") return "sleepy";
+  if (lifeState === "happy" || lifeState === "celebrate") return "happy";
+  if (lifeState === "curious") return "alert";
+  return "idle";
+}
+
+function monsterSfxCueForEvent(
+  type: CapturedMonsterEventType,
+): CapturedMonsterSoundCue | null {
+  if (type === "monster_pet" || type === "monster_fed" || type === "monster_celebrate") {
+    return "happy";
+  }
+  if (type === "monster_sleep") return "sleepy";
+  if (type === "monster_wake" || type === "monster_idle") return "idle";
+  return null;
 }
 
 export function CapturedMonsterCard({
@@ -170,7 +197,13 @@ export function MonsterLifeLayer({
         onClick={onPet}
       >
         <span className="monster-life-layer__glow" aria-hidden="true" />
-        <img src={creature.imageSrc} alt="" aria-hidden="true" />
+        <span className="monster-life-layer__creature">
+          <img src={creature.imageSrc} alt="" aria-hidden="true" />
+          <MonsterExpressionLayer
+            creature={creature}
+            expressionState={expressionStateForLifeState(lifeState)}
+          />
+        </span>
         <span className="monster-life-layer__shadow" aria-hidden="true" />
         <span className="monster-life-layer__name">{nickname}</span>
       </button>
@@ -182,6 +215,7 @@ export function MonsterLifeLayer({
 export function MonsterDenPreview({
   creature,
   initialNickname,
+  monsterSfx,
   onEvent,
 }: MonsterDenPreviewProps): ReactElement {
   const [nickname, setNickname] = useState(initialNickname ?? creature.defaultNickname);
@@ -219,6 +253,8 @@ export function MonsterDenPreview({
     markActivity();
     setLifeState(nextState);
     setBond(nextBond);
+    const cue = monsterSfxCueForEvent(type);
+    if (cue) playMonsterSfx(creature, cue, monsterSfx);
     emit(type, nextState, nextBond);
   }
 
@@ -228,6 +264,7 @@ export function MonsterDenPreview({
     const id = window.setTimeout(() => {
       if (activitySeqRef.current !== seq) return;
       setLifeState("sleep");
+      playMonsterSfx(creature, "sleepy", monsterSfx);
       emit("monster_sleep", "sleep", bond);
     }, sleepAfterMs);
     return () => window.clearTimeout(id);
@@ -539,6 +576,18 @@ function MonsterDenStyles(): ReactElement {
         z-index: 2;
       }
 
+      .monster-life-layer__creature {
+        display: block;
+        position: relative;
+        width: 100%;
+        z-index: 2;
+      }
+
+      .monster-life-layer__creature img {
+        display: block;
+        height: auto;
+      }
+
       .monster-life-layer__glow {
         background: radial-gradient(circle, rgba(255, 228, 107, 0.38), rgba(124, 255, 241, 0.2) 48%, transparent 70%);
         border-radius: 50%;
@@ -568,19 +617,19 @@ function MonsterDenStyles(): ReactElement {
         padding: 8px 14px;
       }
 
-      .monster-life-layer[data-life-state="idle"] img {
+      .monster-life-layer[data-life-state="idle"] .monster-life-layer__creature {
         animation: monsterLifeBreathe 2.4s ease-in-out infinite;
       }
 
-      .monster-life-layer[data-life-state="curious"] img {
+      .monster-life-layer[data-life-state="curious"] .monster-life-layer__creature {
         animation: monsterLifeCurious 1.3s ease-in-out infinite;
       }
 
-      .monster-life-layer[data-life-state="happy"] img {
+      .monster-life-layer[data-life-state="happy"] .monster-life-layer__creature {
         animation: monsterLifeHappy 0.72s ease-in-out infinite;
       }
 
-      .monster-life-layer[data-life-state="celebrate"] img {
+      .monster-life-layer[data-life-state="celebrate"] .monster-life-layer__creature {
         animation: monsterLifeCelebrate 0.82s cubic-bezier(0.2, 0.9, 0.2, 1) infinite;
       }
 
@@ -588,7 +637,7 @@ function MonsterDenStyles(): ReactElement {
         cursor: pointer;
       }
 
-      .monster-life-layer[data-life-state="sleep"] img {
+      .monster-life-layer[data-life-state="sleep"] .monster-life-layer__creature {
         animation: monsterLifeSleep 3s ease-in-out infinite;
         filter: grayscale(0.08) brightness(0.92) drop-shadow(0 14px 20px rgba(52, 45, 96, 0.2));
       }

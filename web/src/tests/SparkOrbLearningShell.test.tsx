@@ -9,6 +9,7 @@ import { LUMIPUFF_MONSTER } from "../components/capturedMonsterCatalog";
 import { COMPANION_DEFAULTS, type CompanionConfig } from "../../../src/shared/companionTypes";
 
 const playSparkOrbSfxMock = vi.hoisted(() => vi.fn());
+const playMonsterSfxMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../components/CompanionLayer", () => ({
   CompanionLayer: ({
@@ -35,6 +36,10 @@ vi.mock("../components/CompanionLayer", () => ({
 
 vi.mock("../utils/sparkOrbSfx", () => ({
   playSparkOrbSfx: playSparkOrbSfxMock,
+}));
+
+vi.mock("../utils/monsterSfx", () => ({
+  playMonsterSfx: playMonsterSfxMock,
 }));
 
 const elliCompanion: CompanionConfig = {
@@ -71,6 +76,7 @@ const elliCompanion: CompanionConfig = {
 
 afterEach(() => {
   playSparkOrbSfxMock.mockClear();
+  playMonsterSfxMock.mockClear();
   vi.useRealTimers();
 });
 
@@ -178,6 +184,155 @@ describe("SparkOrbLearningShell", () => {
     expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
       "data-personality-reaction",
       "flinch",
+    );
+  });
+
+  it("renders the creature with reusable alive-state hooks before capture starts", () => {
+    render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="idle"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="watching"
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    const creature = screen.getByTestId("spark-orb-creature");
+    expect(creature).toHaveAttribute("data-life-state", "idle");
+    expect(creature).toHaveAttribute("data-attention-target", "world");
+    expect(creature).toHaveAttribute("data-alive-motion", "breathe");
+    expect(creature).toHaveAttribute("data-personality-tempo", "quick");
+    expect(creature).toHaveAttribute("data-alive-presence", "expressive");
+    expect(screen.getByTestId("spark-orb-creature-blink")).toBeInTheDocument();
+    expect(screen.getByTestId("spark-orb-creature-glow")).toBeInTheDocument();
+    expect(screen.getByTestId("spark-orb-creature-life-motes")).toBeInTheDocument();
+  });
+
+  it("lets the creature notice the charged orb and track the launch gesture", () => {
+    const { rerender } = render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="charge-2"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="spark_earned"
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-attention-target",
+      "orb",
+    );
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-alive-motion",
+      "notice-orb",
+    );
+    expect(screen.getByTestId("spark-orb-creature-life-motes")).toHaveAttribute(
+      "data-visible",
+      "true",
+    );
+
+    rerender(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    const launchControl = screen.getByTestId("spark-orb-launch-control");
+    fireEvent.pointerDown(launchControl, { clientX: 320, clientY: 620 });
+
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-attention-target",
+      "launch",
+    );
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-alive-motion",
+      "track-launch",
+    );
+  });
+
+  it("plays reusable monster sound cues for charge, ready, and capture", () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="idle"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="watching"
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+
+    rerender(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="charge-1"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="spark_earned"
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+    expect(playMonsterSfxMock).toHaveBeenCalledWith(
+      LUMIPUFF_MONSTER,
+      "noticed_orb",
+      undefined,
+    );
+
+    rerender(
+      <SparkOrbLearningShell
+        childId="ila"
+        childName="Ila"
+        companion={elliCompanion}
+        phase="ready"
+        chargeGoal={3}
+        domain="spelling"
+        currentTarget="because"
+        lastMoment="orb_ready"
+      >
+        <div>Spell the word you hear</div>
+      </SparkOrbLearningShell>,
+    );
+    expect(playMonsterSfxMock).toHaveBeenCalledWith(LUMIPUFF_MONSTER, "ready", undefined);
+
+    flickCleanLaunch();
+    act(() => {
+      vi.advanceTimersByTime(2_150);
+    });
+
+    expect(playMonsterSfxMock).toHaveBeenCalledWith(
+      LUMIPUFF_MONSTER,
+      "captured",
+      undefined,
     );
   });
 
@@ -497,7 +652,7 @@ describe("SparkOrbLearningShell", () => {
     );
 
     act(() => {
-      vi.advanceTimersByTime(1500);
+      vi.advanceTimersByTime(1850);
     });
     expect(encounter).toHaveAttribute("data-flight", "reward");
     expect(screen.getByRole("dialog", { name: "Lumipuff added to collection" })).toBeInTheDocument();
@@ -559,6 +714,10 @@ describe("SparkOrbLearningShell", () => {
     });
     expect(encounter).toHaveAttribute("data-capture-stage", "shrinking");
     expect(creature).toHaveAttribute("data-capture-motion", "shrinking");
+    expect(creature).toHaveAttribute("data-capture-motion-model", "shared-keyframes");
+    expect(creature).toHaveAttribute("data-capture-scrubbed", "false");
+    expect(creature.getAttribute("style")).toContain("--capture-shrink-start-scale");
+    expect(orb).toHaveAttribute("data-capture-socket", "true");
     expect(screen.queryByRole("dialog", { name: "Lumipuff added to collection" })).not.toBeInTheDocument();
     expect(playSparkOrbSfxMock).toHaveBeenCalledWith(
       "captureShrink",
@@ -566,7 +725,7 @@ describe("SparkOrbLearningShell", () => {
     );
 
     act(() => {
-      vi.advanceTimersByTime(550);
+      vi.advanceTimersByTime(900);
     });
     expect(encounter).toHaveAttribute("data-capture-stage", "locked");
     expect(orb).toHaveAttribute("data-capture-lock", "true");
@@ -608,7 +767,7 @@ describe("SparkOrbLearningShell", () => {
 
     flickCleanLaunch();
     act(() => {
-      vi.advanceTimersByTime(2200);
+      vi.advanceTimersByTime(2600);
     });
 
     expect(screen.getByRole("dialog", { name: "Lumipuff added to collection" })).toBeInTheDocument();
@@ -656,7 +815,7 @@ describe("SparkOrbLearningShell", () => {
 
     flickCleanLaunch();
     act(() => {
-      vi.advanceTimersByTime(3800);
+      vi.advanceTimersByTime(4200);
     });
 
     const encounter = screen.getByTestId("spark-orb-encounter");
@@ -742,7 +901,7 @@ describe("SparkOrbLearningShell", () => {
     expect(screen.queryByRole("dialog", { name: "Lumipuff added to collection" })).not.toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(450);
+      vi.advanceTimersByTime(800);
     });
     expect(encounter).toHaveAttribute("data-capture-stage", "locked");
     expect(screen.queryByRole("dialog", { name: "Lumipuff added to collection" })).not.toBeInTheDocument();

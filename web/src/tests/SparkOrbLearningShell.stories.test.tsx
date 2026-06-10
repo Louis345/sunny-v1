@@ -89,7 +89,7 @@ describe("SparkOrbLearningShell stories", () => {
     fireEvent.pointerMove(launchControl, { clientX: 338, clientY: 450 });
     fireEvent.pointerUp(launchControl, { clientX: 338, clientY: 450 });
     act(() => {
-      vi.advanceTimersByTime(3650);
+      vi.advanceTimersByTime(4200);
     });
 
     expect(infoSpy).toHaveBeenCalledWith(
@@ -167,6 +167,13 @@ describe("SparkOrbLearningShell stories", () => {
     expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
       "data-capture-scrubbed",
       "true",
+    );
+    expect(screen.getByTestId("spark-orb-creature")).toHaveAttribute(
+      "data-capture-motion-model",
+      "shared-keyframes",
+    );
+    expect(screen.getByTestId("spark-orb-creature").getAttribute("style")).toContain(
+      "--capture-scrub-animation-delay",
     );
     expect(Number(screen.getByTestId("spark-orb-creature").getAttribute("data-capture-scale"))).toBeLessThan(0.92);
 

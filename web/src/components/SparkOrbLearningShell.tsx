@@ -9,13 +9,19 @@ import {
 } from "react";
 import type { CompanionConfig } from "../../../src/shared/companionTypes";
 import type { CompanionBehavior } from "../context/companionCareBehavior";
+import { playMonsterSfx, type MonsterSfxOptions } from "../utils/monsterSfx";
 import { playSparkOrbSfx, type SparkOrbSfxOptions } from "../utils/sparkOrbSfx";
 import { CompanionLayer } from "./CompanionLayer";
+import {
+  MonsterExpressionLayer,
+  type MonsterExpressionState,
+} from "./MonsterExpressionLayer";
 import type { SparkOrbEncounterPhase } from "./SparkOrbEncounterPost";
 import {
   LUMIPUFF_MONSTER,
   type CapturedMonsterConfig,
   type CapturedMonsterCapturePersonality,
+  type CapturedMonsterLifeState,
 } from "./capturedMonsterCatalog";
 import {
   buildCapturedCreatureReward,
@@ -105,6 +111,7 @@ export interface SparkOrbLearningShellProps {
   capturedCreature?: CapturedMonsterConfig;
   captureProgress?: number;
   sfx?: SparkOrbSfxOptions;
+  monsterSfx?: MonsterSfxOptions;
   onCompanionAnchor?: (context: OrbCompanionAnchorContext) => void;
   onEncounterEvent?: (event: SparkOrbLearningEncounterEvent) => void;
   onCaptureCompleted?: (event: OrbCaptureCompletedEvent) => void;
@@ -122,6 +129,26 @@ type LaunchFlightState = "idle" | "traveling" | "impact" | "reward" | "settled" 
 type CaptureEffectState = "inactive" | "charging" | "active";
 type CaptureStage = "free" | "incoming" | "pulling" | "shrinking" | "locked" | "collection-added";
 type CreatureCaptureMotion = "free" | "pulling" | "shrinking" | "hidden";
+type CreatureAttentionTarget = "world" | "orb" | "launch" | "beam" | "collection" | "recharge";
+type CreatureAliveMotion =
+  | "breathe"
+  | "notice-orb"
+  | "watch-orb"
+  | "track-launch"
+  | "brace-launch"
+  | "capture-react"
+  | "celebrate"
+  | "recharge-look";
+type CreaturePersonalityTempo = "quick" | "soft" | "steady" | "slow";
+
+interface CreatureAliveBehavior {
+  lifeState: CapturedMonsterLifeState;
+  attentionTarget: CreatureAttentionTarget;
+  motion: CreatureAliveMotion;
+  personalityTempo: CreaturePersonalityTempo;
+}
+
+const CAPTURE_SHRINK_ANIMATION_MS = 880;
 
 interface LaunchAimVector {
   startX: number;
@@ -213,6 +240,34 @@ function formatMotionNumber(value: number): string {
   return value.toFixed(2);
 }
 
+function buildCaptureShrinkStyle(
+  shrinkProgress: number | null,
+): CSSProperties {
+  const style = {
+    "--capture-shrink-duration": `${CAPTURE_SHRINK_ANIMATION_MS}ms`,
+    "--capture-shrink-start-y": "-34%",
+    "--capture-shrink-start-scale": "0.92",
+    "--capture-shrink-start-rotation": "-2deg",
+    "--capture-shrink-mid-y": "18%",
+    "--capture-shrink-mid-scale": "0.52",
+    "--capture-shrink-mid-rotation": "7deg",
+    "--capture-shrink-end-y": "76%",
+    "--capture-shrink-end-scale": "0.06",
+    "--capture-shrink-end-rotation": "18deg",
+  } as CSSProperties;
+
+  if (shrinkProgress !== null) {
+    return {
+      ...style,
+      "--capture-scrub-animation-delay": `-${Math.round(
+        shrinkProgress * CAPTURE_SHRINK_ANIMATION_MS,
+      )}ms`,
+    } as CSSProperties;
+  }
+
+  return style;
+}
+
 function personalityReactionForCaptureStage(
   capturePersonality: CapturedMonsterCapturePersonality,
   captureStage: CaptureStage,
@@ -242,6 +297,123 @@ function personalityReactionForCaptureStage(
     return "confused";
   }
   return "watching";
+}
+
+function personalityTempoForCapturePersonality(
+  capturePersonality: CapturedMonsterCapturePersonality,
+): CreaturePersonalityTempo {
+  if (capturePersonality === "playful") return "quick";
+  if (capturePersonality === "shy") return "soft";
+  if (capturePersonality === "brave") return "steady";
+  return "slow";
+}
+
+function aliveBehaviorForEncounter({
+  capturePersonality,
+  chargeCount,
+  chargeGoal,
+  phase,
+  launchAim,
+  launchSkill,
+  flightState,
+  captureStage,
+  collectionState,
+}: {
+  capturePersonality: CapturedMonsterCapturePersonality;
+  chargeCount: number;
+  chargeGoal: number;
+  phase: SparkOrbEncounterPhase;
+  launchAim: LaunchAimState;
+  launchSkill: LaunchSkillState;
+  flightState: LaunchFlightState;
+  captureStage: CaptureStage;
+  collectionState: "active" | "collected" | "preview-open" | "reversing" | "settled";
+}): CreatureAliveBehavior {
+  const personalityTempo = personalityTempoForCapturePersonality(capturePersonality);
+
+  if (collectionState === "collected" || collectionState === "settled") {
+    return {
+      lifeState: "celebrate",
+      attentionTarget: "collection",
+      motion: "celebrate",
+      personalityTempo,
+    };
+  }
+
+  if (
+    captureStage === "incoming" ||
+    captureStage === "pulling" ||
+    captureStage === "shrinking" ||
+    captureStage === "locked"
+  ) {
+    return {
+      lifeState: "curious",
+      attentionTarget: "beam",
+      motion: "capture-react",
+      personalityTempo,
+    };
+  }
+
+  if (launchAim === "aiming") {
+    return {
+      lifeState: "curious",
+      attentionTarget: "launch",
+      motion: "track-launch",
+      personalityTempo,
+    };
+  }
+
+  if (flightState === "traveling" || flightState === "impact") {
+    return {
+      lifeState: "curious",
+      attentionTarget: "launch",
+      motion: "brace-launch",
+      personalityTempo,
+    };
+  }
+
+  if (launchSkill === "spent" || flightState === "fizzle") {
+    return {
+      lifeState: "curious",
+      attentionTarget: "recharge",
+      motion: "recharge-look",
+      personalityTempo,
+    };
+  }
+
+  if (phase === "ready" || chargeCount >= chargeGoal) {
+    return {
+      lifeState: "happy",
+      attentionTarget: "orb",
+      motion: "watch-orb",
+      personalityTempo,
+    };
+  }
+
+  if (chargeCount > 0) {
+    return {
+      lifeState: "curious",
+      attentionTarget: "orb",
+      motion: "notice-orb",
+      personalityTempo,
+    };
+  }
+
+  return {
+    lifeState: "idle",
+    attentionTarget: "world",
+    motion: "breathe",
+    personalityTempo,
+  };
+}
+
+function expressionStateForAliveBehavior(
+  behavior: CreatureAliveBehavior,
+): MonsterExpressionState {
+  if (behavior.lifeState === "sleep") return "sleepy";
+  if (behavior.lifeState === "happy" || behavior.lifeState === "celebrate") return "happy";
+  if (behavior.attentionTarget !== "world") return "alert";
+  return "idle";
 }
 
 export function computeSparkOrbLaunchPhysics({
@@ -421,6 +593,7 @@ export function SparkOrbLearningShell({
   capturedCreature = LUMIPUFF_MONSTER,
   captureProgress,
   sfx,
+  monsterSfx,
   onCompanionAnchor,
   onEncounterEvent,
   onCaptureCompleted,
@@ -458,6 +631,7 @@ export function SparkOrbLearningShell({
   const displayStatValue = statValue ?? capturedCreature.statValue;
   const phaseChargeCount = Math.min(chargeGoal, chargeCountForPhase(phase));
   const chargeCount = chargeOverride ?? phaseChargeCount;
+  const previousChargeCountRef = useRef(chargeCount);
   const scrubbedCaptureProgress =
     typeof captureProgress === "number" ? clampPercent(captureProgress) : null;
   const displayCaptureStage =
@@ -513,6 +687,10 @@ export function SparkOrbLearningShell({
   const captureLocked =
     displayCaptureStage === "locked" ||
     (displayCaptureStage === "collection-added" && !collectionSettled);
+  const captureSocketActive =
+    visualCaptureStage === "pulling" ||
+    visualCaptureStage === "shrinking" ||
+    visualCaptureStage === "locked";
   const canReverseCollection = collectionSettled && scrubbedCaptureProgress === null;
   const showCaptureEffects = !collectionSettled && !reversePreviewOpen;
   const charged = chargeCount >= chargeGoal && (ready || launching || collected || scrubbedCaptureActive);
@@ -532,18 +710,35 @@ export function SparkOrbLearningShell({
     capturedCreature.capturePersonality,
     visualCaptureStage,
   );
+  const creatureAliveBehavior = aliveBehaviorForEncounter({
+    capturePersonality: capturedCreature.capturePersonality,
+    chargeCount,
+    chargeGoal,
+    phase,
+    launchAim: visualLaunchAim,
+    launchSkill,
+    flightState: displayFlightState,
+    captureStage: visualCaptureStage,
+    collectionState,
+  });
+  const creatureExpressionState = expressionStateForAliveBehavior(creatureAliveBehavior);
   const captureDirection = reverseReplayActive ? "reverse" : "capture";
   const creatureCaptureStyle =
-    scrubbedCaptureScale === null ||
-    scrubbedCaptureY === null ||
-    scrubbedCaptureRotation === null ||
-    scrubbedCaptureOpacity === null
+    creatureCaptureMotion !== "shrinking"
       ? undefined
       : ({
-          "--capture-scrub-scale": formatMotionNumber(scrubbedCaptureScale),
-          "--capture-scrub-y": `${formatMotionNumber(scrubbedCaptureY)}%`,
-          "--capture-scrub-rotation": `${formatMotionNumber(scrubbedCaptureRotation)}deg`,
-          "--capture-scrub-opacity": formatMotionNumber(scrubbedCaptureOpacity),
+          ...buildCaptureShrinkStyle(scrubbedCaptureShrinkProgress),
+          ...(scrubbedCaptureScale === null ||
+          scrubbedCaptureY === null ||
+          scrubbedCaptureRotation === null ||
+          scrubbedCaptureOpacity === null
+            ? {}
+            : {
+                "--capture-scrub-scale": formatMotionNumber(scrubbedCaptureScale),
+                "--capture-scrub-y": `${formatMotionNumber(scrubbedCaptureY)}%`,
+                "--capture-scrub-rotation": `${formatMotionNumber(scrubbedCaptureRotation)}deg`,
+                "--capture-scrub-opacity": formatMotionNumber(scrubbedCaptureOpacity),
+              }),
         } as CSSProperties);
   const companionBehavior = companionBehaviorForMoment(phase, lastMoment);
   const speechBubbleText = rewardFocused ? null : companionLineForMoment(childName, phase, lastMoment);
@@ -612,6 +807,23 @@ export function SparkOrbLearningShell({
   useEffect(() => {
     setRemainingOrbCount(orbCount);
   }, [orbCount]);
+
+  useEffect(() => {
+    if (scrubbedCaptureProgress !== null) {
+      previousChargeCountRef.current = chargeCount;
+      return;
+    }
+
+    const previousChargeCount = previousChargeCountRef.current;
+    previousChargeCountRef.current = chargeCount;
+    if (chargeCount <= previousChargeCount) return;
+
+    playMonsterSfx(
+      capturedCreature,
+      chargeCount >= chargeGoal ? "ready" : "noticed_orb",
+      monsterSfx,
+    );
+  }, [capturedCreature, chargeCount, chargeGoal, monsterSfx, scrubbedCaptureProgress]);
 
   useEffect(() => {
     if (phase !== "ready") {
@@ -822,6 +1034,7 @@ export function SparkOrbLearningShell({
         window.setTimeout(() => {
           setCaptureStage("locked");
           playSparkOrbSfx("captureLock", sfx);
+          playMonsterSfx(capturedCreature, "captured", monsterSfx);
           emitLaunchEvent({
             type: "capture_lock",
             chargeCount,
@@ -831,7 +1044,7 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 1800),
+        }, 2150),
         window.setTimeout(() => {
           setFlightState("reward");
           setCaptureStage("collection-added");
@@ -847,7 +1060,7 @@ export function SparkOrbLearningShell({
             hitQuality: launchScore.hitQuality,
             holdPower: launchScore.power,
           });
-        }, 2150),
+        }, 2500),
         window.setTimeout(() => {
           setCollectionCardVisible(false);
           setFlightState("settled");
@@ -866,7 +1079,7 @@ export function SparkOrbLearningShell({
             holdPower: launchScore.power,
           });
           emitCaptureCompleted(launchScore);
-        }, 3650),
+        }, 4000),
       ];
       return;
     }
@@ -1011,10 +1224,13 @@ export function SparkOrbLearningShell({
         </div>
 
         <div className="spark-orb-learning-shell__creature-shadow" aria-hidden="true" />
-        <img
+        <div
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
           data-capture-motion={creatureCaptureMotion}
+          data-capture-motion-model={
+            creatureCaptureMotion === "shrinking" ? "shared-keyframes" : undefined
+          }
           data-capture-direction={captureDirection}
           data-capture-scrubbed={scrubbedCaptureProgress === null ? "false" : "true"}
           data-capture-shrink-progress={
@@ -1027,11 +1243,43 @@ export function SparkOrbLearningShell({
           }
           data-capture-personality={capturedCreature.capturePersonality}
           data-personality-reaction={personalityReaction}
+          data-life-state={creatureAliveBehavior.lifeState}
+          data-attention-target={creatureAliveBehavior.attentionTarget}
+          data-alive-motion={creatureAliveBehavior.motion}
+          data-personality-tempo={creatureAliveBehavior.personalityTempo}
+          data-alive-presence="expressive"
           style={creatureCaptureStyle}
-          src={capturedCreature.imageSrc}
-          alt=""
           aria-hidden="true"
-        />
+        >
+          <img
+            className="spark-orb-learning-shell__creature-image"
+            src={capturedCreature.imageSrc}
+            alt=""
+          />
+          <span
+            className="spark-orb-learning-shell__creature-glow"
+            data-testid="spark-orb-creature-glow"
+          />
+          <MonsterExpressionLayer
+            creature={capturedCreature}
+            expressionState={creatureExpressionState}
+            testIds={{
+              layer: "spark-orb-creature-expression",
+              blink: "spark-orb-creature-blink",
+            }}
+          />
+          <span
+            className="spark-orb-learning-shell__creature-life-motes"
+            data-testid="spark-orb-creature-life-motes"
+            data-visible={creatureAliveBehavior.attentionTarget === "world" ? "idle" : "true"}
+          >
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+          </span>
+        </div>
         <div
           className="spark-orb-learning-shell__aura"
           data-active={charged && showCaptureEffects ? "true" : "false"}
@@ -1057,6 +1305,7 @@ export function SparkOrbLearningShell({
           data-launching={launching && !reversePreviewOpen ? "true" : "false"}
           data-collected={collected && !reversePreviewing ? "true" : "false"}
           data-capture-lock={captureLocked ? "true" : "false"}
+          data-capture-socket={captureSocketActive ? "true" : "false"}
           data-on-ground={collectionSettled || reversePreviewing ? "true" : "false"}
           src={`${assetBase}/spark-orb.png`}
           alt=""
@@ -1248,6 +1497,8 @@ export function SparkOrbLearningShell({
         }
 
         .spark-orb-learning-shell__creature {
+          --creature-life-duration: 2.6s;
+          --creature-glow-opacity: 0.2;
           filter: drop-shadow(0 18px 28px rgba(72, 58, 114, 0.28));
           left: 50%;
           position: absolute;
@@ -1261,9 +1512,144 @@ export function SparkOrbLearningShell({
           z-index: 4;
         }
 
-        .spark-orb-learning-shell[data-phase="ready"] .spark-orb-learning-shell__creature,
-        .spark-orb-learning-shell[data-phase="collected"] .spark-orb-learning-shell__creature {
-          animation: sparkLearningCreatureBounce 1.7s ease-in-out infinite;
+        .spark-orb-learning-shell__creature-image {
+          display: block;
+          height: auto;
+          position: relative;
+          width: 100%;
+          z-index: 2;
+        }
+
+        .spark-orb-learning-shell__creature-glow,
+        .spark-orb-learning-shell__creature-life-motes {
+          pointer-events: none;
+          position: absolute;
+          z-index: 3;
+        }
+
+        .spark-orb-learning-shell__creature-glow {
+          background:
+            radial-gradient(circle at 50% 54%, rgba(255, 228, 107, 0.5), transparent 34%),
+            radial-gradient(circle at 52% 42%, rgba(124, 255, 241, 0.42), transparent 56%);
+          border-radius: 50%;
+          filter: blur(10px);
+          inset: 12% 17% 10%;
+          mix-blend-mode: screen;
+          opacity: var(--creature-glow-opacity);
+          transform: scale(0.86);
+        }
+
+        .spark-orb-learning-shell__creature-life-motes {
+          inset: -10% -8% -6%;
+          opacity: 0.28;
+          transition: opacity 180ms ease, transform 180ms ease;
+          z-index: 4;
+        }
+
+        .spark-orb-learning-shell__creature-life-motes[data-visible="true"] {
+          opacity: 1;
+          transform: scale(1.04);
+        }
+
+        .spark-orb-learning-shell__creature-life-motes i {
+          background: #ffe46b;
+          border-radius: 999px;
+          box-shadow:
+            0 0 12px rgba(255, 228, 107, 0.86),
+            0 0 18px rgba(124, 255, 241, 0.42);
+          display: block;
+          height: 7px;
+          left: 50%;
+          opacity: 0.72;
+          position: absolute;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          width: 7px;
+        }
+
+        .spark-orb-learning-shell__creature-life-motes i:nth-child(1) {
+          animation: sparkLearningCreatureMoteOne 2.3s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature-life-motes i:nth-child(2) {
+          animation: sparkLearningCreatureMoteTwo 2.8s ease-in-out 0.16s infinite;
+        }
+
+        .spark-orb-learning-shell__creature-life-motes i:nth-child(3) {
+          animation: sparkLearningCreatureMoteThree 2.5s ease-in-out 0.28s infinite;
+        }
+
+        .spark-orb-learning-shell__creature-life-motes i:nth-child(4) {
+          animation: sparkLearningCreatureMoteFour 2.7s ease-in-out 0.42s infinite;
+        }
+
+        .spark-orb-learning-shell__creature-life-motes i:nth-child(5) {
+          animation: sparkLearningCreatureMoteFive 2.1s ease-in-out 0.55s infinite;
+          background: #7cffef;
+          box-shadow:
+            0 0 12px rgba(124, 255, 241, 0.82),
+            0 0 18px rgba(255, 228, 107, 0.36);
+        }
+
+        .spark-orb-learning-shell__creature-life-motes[data-visible="true"] i {
+          animation-duration: 1.35s;
+          height: 9px;
+          opacity: 0.95;
+          width: 9px;
+        }
+
+        .spark-orb-learning-shell__creature[data-personality-tempo="quick"] {
+          --creature-life-duration: 1.95s;
+        }
+
+        .spark-orb-learning-shell__creature[data-personality-tempo="soft"] {
+          --creature-life-duration: 3.25s;
+        }
+
+        .spark-orb-learning-shell__creature[data-personality-tempo="steady"] {
+          --creature-life-duration: 2.85s;
+        }
+
+        .spark-orb-learning-shell__creature[data-personality-tempo="slow"] {
+          --creature-life-duration: 4.1s;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"] {
+          animation: sparkLearningCreatureBreathe var(--creature-life-duration) ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"][data-alive-motion="notice-orb"] {
+          --creature-glow-opacity: 0.36;
+          animation: sparkLearningCreatureNoticeOrb var(--creature-life-duration) ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"][data-alive-motion="watch-orb"] {
+          --creature-glow-opacity: 0.48;
+          animation: sparkLearningCreatureWatchOrb 1.1s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"][data-alive-motion="track-launch"] {
+          --creature-glow-opacity: 0.54;
+          animation: sparkLearningCreatureTrackLaunch 0.48s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"][data-alive-motion="brace-launch"] {
+          --creature-glow-opacity: 0.42;
+          animation: sparkLearningCreatureBraceLaunch 0.5s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"][data-alive-motion="recharge-look"] {
+          --creature-glow-opacity: 0.08;
+          animation: sparkLearningCreatureRechargeLook 1.18s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"][data-alive-motion="celebrate"] {
+          --creature-glow-opacity: 0.36;
+          animation: sparkLearningCreatureBounce 1.1s ease-in-out infinite;
+        }
+
+        .spark-orb-learning-shell__creature[data-capture-motion="free"] .spark-orb-learning-shell__creature-glow {
+          animation: sparkLearningCreatureGlow 2.4s ease-in-out infinite;
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="pulling"] {
@@ -1276,7 +1662,7 @@ export function SparkOrbLearningShell({
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="shrinking"] {
-          animation: sparkLearningCreatureShrinkIntoOrb 0.86s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          animation: sparkLearningCreatureShrinkIntoOrb var(--capture-shrink-duration) cubic-bezier(0.2, 0.8, 0.2, 1) both;
           filter:
             drop-shadow(0 0 34px rgba(124, 255, 241, 0.72))
             drop-shadow(0 0 22px rgba(255, 228, 107, 0.7))
@@ -1285,12 +1671,8 @@ export function SparkOrbLearningShell({
         }
 
         .spark-orb-learning-shell__creature[data-capture-scrubbed="true"][data-capture-motion="shrinking"] {
-          animation: none;
-          opacity: var(--capture-scrub-opacity);
-          transform:
-            translate(-50%, var(--capture-scrub-y))
-            scale(var(--capture-scrub-scale))
-            rotate(var(--capture-scrub-rotation));
+          animation-delay: var(--capture-scrub-animation-delay);
+          animation-play-state: paused;
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="pulling"][data-personality-reaction="dodge"] {
@@ -1340,6 +1722,15 @@ export function SparkOrbLearningShell({
             drop-shadow(0 0 28px rgba(190, 244, 255, 0.7))
             drop-shadow(0 0 14px rgba(255, 228, 107, 0.42))
             brightness(1.12);
+        }
+
+        .spark-orb-learning-shell__orb-stage .spark-orb-learning-shell__creature[data-capture-motion="shrinking"] {
+          animation: sparkLearningCreatureShrinkIntoOrb var(--capture-shrink-duration) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+        }
+
+        .spark-orb-learning-shell__orb-stage .spark-orb-learning-shell__creature[data-capture-scrubbed="true"][data-capture-motion="shrinking"] {
+          animation-delay: var(--capture-scrub-animation-delay);
+          animation-play-state: paused;
         }
 
         .spark-orb-learning-shell__orb-stage[data-collection-state="reversing"] .spark-orb-learning-shell__creature[data-capture-motion="shrinking"] {
@@ -1613,6 +2004,15 @@ export function SparkOrbLearningShell({
             scale(var(--orb-impact-scale));
         }
 
+        .spark-orb-learning-shell__orb-stage[data-capture-stage="pulling"] .spark-orb-learning-shell__orb,
+        .spark-orb-learning-shell__orb-stage[data-capture-stage="shrinking"] .spark-orb-learning-shell__orb,
+        .spark-orb-learning-shell__orb-stage[data-capture-stage="locked"] .spark-orb-learning-shell__orb {
+          bottom: 96px;
+          opacity: 1;
+          transform: translateX(-50%) rotate(-8deg) scale(0.86);
+          z-index: 8;
+        }
+
         .spark-orb-learning-shell__orb-stage[data-flight="reward"] .spark-orb-learning-shell__orb {
           bottom: 96px;
           opacity: 0.08;
@@ -1667,6 +2067,7 @@ export function SparkOrbLearningShell({
 
         .spark-orb-learning-shell__orb[data-capture-lock="true"] {
           animation: sparkLearningOrbLockBoom 0.58s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+          bottom: 96px;
           filter:
             drop-shadow(0 28px 24px rgba(8, 51, 68, 0.24))
             drop-shadow(0 0 54px rgba(255, 228, 107, 0.88))
@@ -1986,9 +2387,110 @@ export function SparkOrbLearningShell({
           50% { transform: translateX(-50%) scale(1.08); }
         }
 
+        @keyframes sparkLearningCreatureBreathe {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+          }
+          50% {
+            transform: translate(-50%, -56%) scale(1.045, 0.985) rotate(-1deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureNoticeOrb {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+          }
+          35% {
+            transform: translate(-56%, -55%) scale(1.045) rotate(-5deg);
+          }
+          72% {
+            transform: translate(-46%, -53%) scale(1.03) rotate(3.6deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureWatchOrb {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1.01) rotate(0deg);
+          }
+          46% {
+            transform: translate(-50%, -59%) scale(1.08) rotate(-2deg);
+          }
+          72% {
+            transform: translate(-48%, -54%) scale(1.045) rotate(2deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureTrackLaunch {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1.01) rotate(0deg);
+          }
+          34% {
+            transform: translate(-61%, -54%) scale(1.055) rotate(-8deg);
+          }
+          68% {
+            transform: translate(-42%, -55%) scale(1.06) rotate(6deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureBraceLaunch {
+          0%, 100% {
+            transform: translate(-50%, -50%) scale(1.01, 0.99) rotate(0deg);
+          }
+          50% {
+            transform: translate(-50%, -45%) scale(0.95, 1.06) rotate(-3deg);
+          }
+        }
+
+        @keyframes sparkLearningCreatureRechargeLook {
+          0%, 100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(0.99) rotate(0deg);
+          }
+          50% {
+            opacity: 0.92;
+            transform: translate(-50%, -48%) scale(0.965) rotate(2deg);
+          }
+        }
+
         @keyframes sparkLearningCreatureBounce {
           0%, 100% { transform: translate(-50%, -50%); }
           50% { transform: translate(-50%, -53%); }
+        }
+
+        @keyframes sparkLearningCreatureGlow {
+          0%, 100% {
+            opacity: 0.1;
+            transform: scale(0.82);
+          }
+          50% {
+            opacity: var(--creature-glow-opacity);
+            transform: scale(1);
+          }
+        }
+
+        @keyframes sparkLearningCreatureMoteOne {
+          0%, 100% { opacity: 0.28; transform: translate(-82%, -96%) scale(0.72); }
+          45% { opacity: 1; transform: translate(-122%, -132%) scale(1.18); }
+        }
+
+        @keyframes sparkLearningCreatureMoteTwo {
+          0%, 100% { opacity: 0.24; transform: translate(92%, -102%) scale(0.7); }
+          52% { opacity: 0.95; transform: translate(132%, -142%) scale(1.1); }
+        }
+
+        @keyframes sparkLearningCreatureMoteThree {
+          0%, 100% { opacity: 0.24; transform: translate(-118%, -8%) scale(0.72); }
+          50% { opacity: 0.9; transform: translate(-152%, -36%) scale(1.12); }
+        }
+
+        @keyframes sparkLearningCreatureMoteFour {
+          0%, 100% { opacity: 0.24; transform: translate(108%, 2%) scale(0.7); }
+          48% { opacity: 0.92; transform: translate(150%, -28%) scale(1.1); }
+        }
+
+        @keyframes sparkLearningCreatureMoteFive {
+          0%, 100% { opacity: 0.26; transform: translate(2%, -138%) scale(0.68); }
+          44% { opacity: 0.95; transform: translate(12%, -178%) scale(1.08); }
         }
 
         @keyframes sparkLearningCreaturePull {
@@ -2005,19 +2507,24 @@ export function SparkOrbLearningShell({
         @keyframes sparkLearningCreatureShrinkIntoOrb {
           0% {
             opacity: 1;
-            transform: translate(-50%, -34%) scale(0.92) rotate(-2deg);
+            transform:
+              translate(-50%, var(--capture-shrink-start-y))
+              scale(var(--capture-shrink-start-scale))
+              rotate(var(--capture-shrink-start-rotation));
           }
-          42% {
+          58% {
             opacity: 0.9;
-            transform: translate(-50%, 4%) scale(0.62) rotate(5deg);
-          }
-          72% {
-            opacity: 0.64;
-            transform: translate(-50%, 42%) scale(0.28) rotate(12deg);
+            transform:
+              translate(-50%, var(--capture-shrink-mid-y))
+              scale(var(--capture-shrink-mid-scale))
+              rotate(var(--capture-shrink-mid-rotation));
           }
           100% {
             opacity: 0;
-            transform: translate(-50%, 76%) scale(0.06) rotate(18deg);
+            transform:
+              translate(-50%, var(--capture-shrink-end-y))
+              scale(var(--capture-shrink-end-scale))
+              rotate(var(--capture-shrink-end-rotation));
           }
         }
 
@@ -2254,35 +2761,19 @@ export function SparkOrbLearningShell({
         @keyframes sparkLearningOrbLockBoom {
           0% {
             opacity: 1;
-            transform:
-              translateX(-50%)
-              translate(var(--orb-impact-x), var(--orb-impact-y))
-              rotate(-10deg)
-              scale(1.18);
+            transform: translateX(-50%) rotate(-10deg) scale(0.96);
           }
           24% {
             opacity: 1;
-            transform:
-              translateX(-50%)
-              translate(var(--orb-impact-x), var(--orb-impact-y))
-              rotate(8deg)
-              scale(1.38);
+            transform: translateX(-50%) rotate(8deg) scale(1.16);
           }
           52% {
             opacity: 1;
-            transform:
-              translateX(-50%)
-              translate(var(--orb-impact-x), var(--orb-impact-y))
-              rotate(-5deg)
-              scale(1.08);
+            transform: translateX(-50%) rotate(-5deg) scale(0.9);
           }
           100% {
             opacity: 1;
-            transform:
-              translateX(-50%)
-              translate(var(--orb-impact-x), var(--orb-impact-y))
-              rotate(0deg)
-              scale(1.18);
+            transform: translateX(-50%) rotate(0deg) scale(0.96);
           }
         }
 
