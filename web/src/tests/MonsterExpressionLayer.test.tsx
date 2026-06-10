@@ -105,7 +105,7 @@ describe("MonsterExpressionLayer", () => {
 
   it("advances through blink frames within the configured duration", () => {
     vi.useFakeTimers();
-    const random = vi.fn(() => 0);
+    const random = vi.fn(() => 0.5);
 
     render(
       <MonsterExpressionLayer
@@ -145,7 +145,7 @@ describe("MonsterExpressionLayer", () => {
 
   it("schedules a second blink when doubleBlinkChance hits", () => {
     vi.useFakeTimers();
-    const random = vi.fn(() => 0);
+    const random = vi.fn(() => 0.5);
 
     render(
       <MonsterExpressionLayer
@@ -178,7 +178,7 @@ describe("MonsterExpressionLayer", () => {
 
   it("holds closed longer in sleepy expression state", () => {
     vi.useFakeTimers();
-    const random = vi.fn(() => 0);
+    const random = vi.fn(() => 0.5);
 
     render(
       <MonsterExpressionLayer
@@ -194,7 +194,7 @@ describe("MonsterExpressionLayer", () => {
     const layer = screen.getByTestId("monster-expression-layer");
 
     act(() => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(5500);
     });
     expect(layer).toHaveAttribute("data-blink-frame", "half");
 
@@ -204,12 +204,12 @@ describe("MonsterExpressionLayer", () => {
     expect(layer).toHaveAttribute("data-blink-frame", "closed");
 
     act(() => {
-      vi.advanceTimersByTime(80);
+      vi.advanceTimersByTime(50);
     });
     expect(layer).toHaveAttribute("data-blink-frame", "closed");
 
     act(() => {
-      vi.advanceTimersByTime(80);
+      vi.advanceTimersByTime(40);
     });
     expect(layer).toHaveAttribute("data-blink-frame", "half");
   });

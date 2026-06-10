@@ -1,45 +1,149 @@
-import type { CSSProperties, ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 import type { CapturedMonsterConfig } from "./capturedMonsterCatalog";
+import {
+  assertBlinkLoopGuard,
+  getBlinkPhaseDurationMs,
+  getBlinkSequenceSteps,
+  hasBlinkFrames,
+  pickBlinkIntervalMs,
+  pickBlinkSequence,
+  shouldDoubleBlink,
+  type BlinkPhase,
+  type MonsterExpressionState,
+} from "../utils/monsterBlinkTiming";
 
-export type MonsterExpressionState = "idle" | "alert" | "happy" | "sleepy";
+export type { MonsterExpressionState };
 
 export interface MonsterExpressionLayerProps {
   creature: CapturedMonsterConfig;
   expressionState: MonsterExpressionState;
+  blinkRandom?: () => number;
   testIds?: {
     layer?: string;
     blink?: string;
   };
 }
 
-function blinkCycleForExpression(
-  expressionState: MonsterExpressionState,
-  cadenceMs: readonly [number, number],
-): number {
-  const [minCadence, maxCadence] = cadenceMs;
-  if (expressionState === "alert") return Math.round(minCadence * 0.78);
-  if (expressionState === "happy") return Math.round((minCadence + maxCadence) * 0.36);
-  if (expressionState === "sleepy") return Math.round(maxCadence * 0.88);
-  return Math.round((minCadence + maxCadence) / 2);
+const DOUBLE_BLINK_GAP_MS = 220;
+const warnedCreatureIds = new Set<string>();
+
+function warnMissingBlinkFrames(creatureId: string): void {
+  if (warnedCreatureIds.has(creatureId)) return;
+  warnedCreatureIds.add(creatureId);
+  console.warn(
+    ` 🎮 [monster-expression] [blink-frames-missing] [skipped] creature=${creatureId}`,
+  );
 }
 
 export function MonsterExpressionLayer({
   creature,
   expressionState,
+  blinkRandom,
   testIds,
-}: MonsterExpressionLayerProps): ReactElement {
+}: MonsterExpressionLayerProps): ReactElement | null {
   const blink = creature.expression.blink;
-  const style = {
-    "--monster-eye-top": blink.eyeMask.top,
-    "--monster-eye-left": blink.eyeMask.left,
-    "--monster-eye-width": blink.eyeMask.width,
-    "--monster-eye-height": blink.eyeMask.height,
-    "--monster-blink-cycle": `${blinkCycleForExpression(expressionState, blink.cadenceMs)}ms`,
-    "--monster-blink-cycle-min": `${blink.cadenceMs[0]}ms`,
-    "--monster-blink-cycle-max": `${blink.cadenceMs[1]}ms`,
-    "--monster-eyelid-color": blink.eyelidColor,
-    "--monster-blink-opacity": String(blink.opacity),
-  } as CSSProperties;
+  const random = blinkRandom ?? Math.random;
+
+  if (blink.mode !== "frame-swap" || !hasBlinkFrames(blink.frames)) {
+    warnMissingBlinkFrames(creature.id);
+    return null;
+  }
+
+  const [blinkFrame, setBlinkFrame] = useState<BlinkPhase>("open");
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loopCountRef = useRef(0);
+  const previousExpressionRef = useRef(expressionState);
+
+  const clearBlinkTimeout = useCallback((): void => {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const runBlinkRef = useRef<((options?: { forceDouble?: boolean }) => void) | null>(null);
+
+  const scheduleNextBlink = useCallback((): void => {
+    const interval = pickBlinkIntervalMs(expressionState, blink.timing, random);
+    timeoutRef.current = setTimeout(() => {
+      runBlinkRef.current?.();
+    }, interval);
+  }, [blink.timing, expressionState, random]);
+
+  const runBlink = useCallback(
+    (options?: { forceDouble?: boolean }): void => {
+      loopCountRef.current += 1;
+      assertBlinkLoopGuard(loopCountRef.current);
+      clearBlinkTimeout();
+
+      const sequence = pickBlinkSequence(expressionState, random);
+      const steps = getBlinkSequenceSteps(sequence);
+      let stepIndex = 0;
+
+      const advanceStep = (): void => {
+        if (stepIndex >= steps.length) {
+          loopCountRef.current = 0;
+          setBlinkFrame("open");
+          const double =
+            options?.forceDouble ?? shouldDoubleBlink(blink.timing, random);
+          if (double) {
+            timeoutRef.current = setTimeout(() => {
+              runBlinkRef.current?.({ forceDouble: false });
+            }, DOUBLE_BLINK_GAP_MS);
+            return;
+          }
+          scheduleNextBlink();
+          return;
+        }
+
+        const phase = steps[stepIndex];
+        setBlinkFrame(phase);
+        const holdMs = getBlinkPhaseDurationMs(
+          phase,
+          expressionState,
+          blink.timing,
+          sequence,
+        );
+        stepIndex += 1;
+        timeoutRef.current = setTimeout(advanceStep, holdMs);
+      };
+
+      advanceStep();
+    },
+    [blink.timing, clearBlinkTimeout, expressionState, random, scheduleNextBlink],
+  );
+
+  runBlinkRef.current = runBlink;
+
+  useEffect(() => {
+    loopCountRef.current = 0;
+    setBlinkFrame("open");
+    clearBlinkTimeout();
+    scheduleNextBlink();
+    return () => {
+      clearBlinkTimeout();
+    };
+  }, [clearBlinkTimeout, creature.id, expressionState, scheduleNextBlink]);
+
+  useEffect(() => {
+    if (previousExpressionRef.current === expressionState) return;
+    previousExpressionRef.current = expressionState;
+    loopCountRef.current = 0;
+    runBlinkRef.current?.();
+  }, [expressionState]);
+
+  const frameSrc =
+    blinkFrame === "half"
+      ? blink.frames.half
+      : blinkFrame === "closed"
+        ? blink.frames.closed
+        : undefined;
 
   return (
     <>
@@ -48,13 +152,23 @@ export function MonsterExpressionLayer({
         data-testid={testIds?.layer}
         data-expression-state={expressionState}
         data-blink-mode={blink.mode}
-        style={style}
+        data-blink-frame={blinkFrame}
       >
-        <span
-          className="monster-expression-layer__blink"
-          data-testid={testIds?.blink}
-          aria-hidden="true"
-        />
+        {frameSrc ? (
+          <img
+            className="monster-expression-layer__frame"
+            data-testid={testIds?.blink}
+            src={frameSrc}
+            alt=""
+            aria-hidden="true"
+          />
+        ) : (
+          <span
+            className="monster-expression-layer__frame-placeholder"
+            data-testid={testIds?.blink}
+            aria-hidden="true"
+          />
+        )}
       </span>
       <MonsterExpressionLayerStyles />
     </>
@@ -71,98 +185,24 @@ function MonsterExpressionLayerStyles(): ReactElement {
         z-index: 5;
       }
 
-      .monster-expression-layer__blink {
-        height: var(--monster-eye-height);
-        left: var(--monster-eye-left);
-        opacity: 0;
-        position: absolute;
-        top: var(--monster-eye-top);
-        transform: scaleY(0.08);
-        transform-origin: 50% 50%;
-        width: var(--monster-eye-width);
-      }
-
-      .monster-expression-layer__blink::before,
-      .monster-expression-layer__blink::after {
-        background:
-          radial-gradient(ellipse at 50% 42%, rgba(255, 255, 255, 0.2), transparent 34%),
-          var(--monster-eyelid-color);
-        border-radius: 999px;
-        content: "";
-        filter: blur(0.2px);
+      .monster-expression-layer__frame,
+      .monster-expression-layer__frame-placeholder {
         height: 100%;
-        opacity: var(--monster-blink-opacity);
+        left: 0;
         position: absolute;
         top: 0;
-        width: 28%;
+        width: 100%;
       }
 
-      .monster-expression-layer__blink::before {
-        left: 16%;
+      .monster-expression-layer__frame {
+        object-fit: contain;
+        opacity: 1;
+        transition: opacity 40ms ease-out;
       }
 
-      .monster-expression-layer__blink::after {
-        right: 16%;
-      }
-
-      .monster-expression-layer[data-blink-mode="css-overlay"][data-expression-state="idle"] .monster-expression-layer__blink {
-        animation: monsterExpressionBlink var(--monster-blink-cycle) ease-in-out infinite;
-      }
-
-      .monster-expression-layer[data-blink-mode="css-overlay"][data-expression-state="alert"] .monster-expression-layer__blink {
-        animation: monsterExpressionAlertBlink var(--monster-blink-cycle) ease-in-out infinite;
-      }
-
-      .monster-expression-layer[data-blink-mode="css-overlay"][data-expression-state="happy"] .monster-expression-layer__blink {
-        animation: monsterExpressionHappyBlink var(--monster-blink-cycle) ease-in-out infinite;
-      }
-
-      .monster-expression-layer[data-blink-mode="css-overlay"][data-expression-state="sleepy"] .monster-expression-layer__blink {
-        animation: monsterExpressionSleepyBlink var(--monster-blink-cycle) ease-in-out infinite;
-      }
-
-      @keyframes monsterExpressionBlink {
-        0%, 88%, 100% {
-          opacity: 0;
-          transform: scaleY(0.08);
-        }
-        91%, 94% {
-          opacity: 0.92;
-          transform: scaleY(0.88);
-        }
-      }
-
-      @keyframes monsterExpressionAlertBlink {
-        0%, 72%, 100% {
-          opacity: 0;
-          transform: scaleY(0.08);
-        }
-        75%, 79% {
-          opacity: 0.96;
-          transform: scaleY(0.72);
-        }
-      }
-
-      @keyframes monsterExpressionHappyBlink {
-        0%, 78%, 100% {
-          opacity: 0;
-          transform: translateY(0) scaleY(0.06);
-        }
-        82%, 88% {
-          opacity: 0.78;
-          transform: translateY(2%) scaleY(0.46);
-        }
-      }
-
-      @keyframes monsterExpressionSleepyBlink {
-        0%, 52%, 100% {
-          opacity: 0.72;
-          transform: translateY(2%) scaleY(0.64);
-        }
-        62%, 72% {
-          opacity: 0;
-          transform: translateY(0) scaleY(0.08);
-        }
+      .monster-expression-layer[data-blink-frame="open"] .monster-expression-layer__frame {
+        opacity: 0;
+        pointer-events: none;
       }
     `}</style>
   );

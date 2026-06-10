@@ -11,7 +11,7 @@ export type CapturedMonsterCapturePersonality =
   | "shy"
   | "brave"
   | "sleepy";
-export type CapturedMonsterBlinkMode = "css-overlay" | "atlas-frame";
+export type CapturedMonsterBlinkMode = "frame-swap" | "sprite-atlas";
 export type CapturedMonsterSoundVoice = "soft-chime";
 export type CapturedMonsterSoundCue =
   | "idle"
@@ -21,20 +21,24 @@ export type CapturedMonsterSoundCue =
   | "sleepy"
   | "captured";
 
-export interface CapturedMonsterEyeMask {
-  top: string;
-  left: string;
-  width: string;
-  height: string;
+export interface CapturedMonsterBlinkFrames {
+  open: string;
+  half?: string;
+  closed?: string;
+}
+
+export interface CapturedMonsterBlinkTiming {
+  durationMs: number;
+  minIntervalMs: number;
+  maxIntervalMs: number;
+  doubleBlinkChance: number;
 }
 
 export interface CapturedMonsterExpressionConfig {
   blink: {
     mode: CapturedMonsterBlinkMode;
-    cadenceMs: readonly [number, number];
-    eyeMask: CapturedMonsterEyeMask;
-    eyelidColor: string;
-    opacity: number;
+    frames: CapturedMonsterBlinkFrames;
+    timing: CapturedMonsterBlinkTiming;
   };
   soundProfile: {
     voice: CapturedMonsterSoundVoice;
@@ -76,16 +80,18 @@ export const LUMIPUFF_MONSTER: CapturedMonsterConfig = {
   capturePersonality: "playful",
   expression: {
     blink: {
-      mode: "css-overlay",
-      cadenceMs: [3200, 6200],
-      eyeMask: {
-        top: "30%",
-        left: "24%",
-        width: "52%",
-        height: "16%",
+      mode: "frame-swap",
+      frames: {
+        open: "/encounters/spark-orb/lumipuff.png",
+        half: "/encounters/spark-orb/lumipuff-blink-half.png",
+        closed: "/encounters/spark-orb/lumipuff-blink-closed.png",
       },
-      eyelidColor: "rgba(105, 74, 137, 0.5)",
-      opacity: 0.82,
+      timing: {
+        durationMs: 140,
+        minIntervalMs: 3000,
+        maxIntervalMs: 7000,
+        doubleBlinkChance: 0.12,
+      },
     },
     soundProfile: {
       voice: "soft-chime",
