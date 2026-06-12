@@ -88,6 +88,46 @@ export const SEEDED_HUMAN_BUG_INVARIANTS: LabInvariant[] = [
     suggestedFailingTest:
       "Companion/session summary generation cannot say 100 percent perfect when Word Radar node evidence is 60 percent.",
   },
+  {
+    code: "target_purpose_must_travel_with_selected_target",
+    source: "human_caught_bug",
+    invariant:
+      "Every selected learning target must carry its purpose through intent, launch, trace, and summary so the domain oracle can prove the activity fits the target.",
+    suggestedFailingTest:
+      "Word Radar clean-recall launch is blocked or retargeted when selected targets lack spell_from_memory or recall_from_memory purpose proof.",
+  },
+  {
+    code: "pronunciation_homophone_equivalence",
+    source: "human_caught_bug",
+    invariant:
+      "Pronunciation scoring must treat accepted homophones as pronunciation success while recording orthographic ambiguity evidence.",
+    suggestedFailingTest:
+      "Pronunciation accepts Pear for target pair and records homophone ambiguity instead of a miss.",
+  },
+  {
+    code: "single_audio_owner_per_activity",
+    source: "human_caught_bug",
+    invariant:
+      "Each activity interaction has one audio owner and one narration proof; repeated clicks may debounce, but one user action cannot create duplicate voices.",
+    suggestedFailingTest:
+      "Rapid Monster Stampede voice clicks produce one narration event and one speak event for the current target.",
+  },
+  {
+    code: "companion_unlock_claim_requires_board_truth",
+    source: "human_caught_bug",
+    invariant:
+      "Companion unlock or mastery claims must be grounded in current board truth, latest authoritative activity result, and quest/boss lock state.",
+    suggestedFailingTest:
+      "Elli cannot claim boss unlocked when CompanionTurnTruth says quest incomplete or boss locked.",
+  },
+  {
+    code: "post_session_adaptation_diff_required",
+    source: "human_caught_bug",
+    invariant:
+      "Every completed learning session must write a next-plan decision: changed plan or explicit stay-course reason tied to interpreted evidence.",
+    suggestedFailingTest:
+      "A session with Word Radar or Monster target evidence cannot write next_plan_unchanged because the node was treated as non-word-driven.",
+  },
 ];
 
 function ensureDir(dir: string): void {

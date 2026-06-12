@@ -1,0 +1,15 @@
+{
+  "source": "post-session-truth",
+  "status": "interpreted",
+  "generatedAt": "2026-05-21T23:34:11.000Z",
+  "evidenceRead": {
+    "activityReports": 1,
+    "targetEvidence": 3,
+    "contradictions": 0,
+    "contaminationWarnings": 0
+  },
+  "adaptationDecision": {
+    "status": "stay_course",
+    "reason": "Keep spelling production active and retarget know because it was a clean miss."
+  }
+}

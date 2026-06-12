@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  SEEDED_HUMAN_BUG_INVARIANTS,
   buildHumanCaughtBugReview,
   buildInvariantCoverage,
   renderHumanCaughtBugReviewMarkdown,
@@ -137,5 +138,15 @@ describe("human-caught bug review", () => {
 
     expect(lines[0]).toContain("Organic first");
     expect(lines[1]).toContain("Every human-caught child-session bug must become a lab invariant");
+  });
+
+  it("seeds lab invariants for the latest source-of-truth and pronunciation escapes", () => {
+    const codes = SEEDED_HUMAN_BUG_INVARIANTS.map((invariant) => invariant.code);
+
+    expect(codes).toContain("target_purpose_must_travel_with_selected_target");
+    expect(codes).toContain("pronunciation_homophone_equivalence");
+    expect(codes).toContain("single_audio_owner_per_activity");
+    expect(codes).toContain("companion_unlock_claim_requires_board_truth");
+    expect(codes).toContain("post_session_adaptation_diff_required");
   });
 });
