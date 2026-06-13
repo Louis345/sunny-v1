@@ -1,0 +1,159 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildCompanionVideoCallTraceScoreReport,
+  renderCompanionVideoCallTraceScoreMarkdown,
+} from "./companionVideoCallTraceReport";
+import type { CompanionVideoCallTraceRecord } from "./companionVideoCallTrace";
+
+const base = {
+  traceId: "trace_score",
+  childId: "ila",
+  companionId: "elli",
+  callSource: "showroom",
+  relationshipState: "previewing",
+  recordedAt: "2026-06-13T23:16:54.000Z",
+} as const;
+
+function record(
+  eventName: CompanionVideoCallTraceRecord["eventName"],
+  timestamp: number,
+  extras: Partial<CompanionVideoCallTraceRecord> = {},
+): CompanionVideoCallTraceRecord {
+  return {
+    ...base,
+    eventName,
+    timestamp,
+    ...extras,
+  };
+}
+
+describe("companion video call trace score report", () => {
+  it("fails human review when activity reactions are stale and mostly unspoken", () => {
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("talk_request_start", 100, {
+        turnId: "turn_social",
+        payload: { conversationIntent: "social" },
+      }),
+      record("talk_response_received", 5200, {
+        turnId: "turn_social",
+        responsePreview: "Yes! Let's play!",
+        payload: {
+          conversationIntent: "social",
+          latencySpans: {
+            claudeMs: 2100,
+            toolFollowupMs: 1900,
+            ttsMs: 1100,
+            requestToResponseMs: 5100,
+          },
+          requestToResponseMs: 5100,
+        },
+      }),
+      record("activity_reaction_request_start", 6000, {
+        turnId: "reaction_1",
+        payload: { activityReaction: { eventType: "companion_move" } },
+      }),
+      record("activity_reaction_response_received", 10600, {
+        turnId: "reaction_1",
+        responsePreview: "Nice block!",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 4600,
+          latencySpans: { requestToResponseMs: 4600 },
+        },
+      }),
+      record("activity_reaction_stale_dropped", 10620, {
+        turnId: "reaction_1",
+        payload: { reason: "board_changed_before_audio" },
+      }),
+      record("activity_reaction_request_start", 12000, {
+        turnId: "reaction_2",
+        payload: { activityReaction: { eventType: "round_complete" } },
+      }),
+      record("activity_reaction_response_received", 16400, {
+        turnId: "reaction_2",
+        responsePreview: "Good game!",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 4400,
+          latencySpans: { requestToResponseMs: 4400 },
+        },
+      }),
+      record("activity_reaction_audio_start", 16410, { turnId: "reaction_2" }),
+      record("activity_reaction_audio_ended", 19000, { turnId: "reaction_2" }),
+      record("call_ended", 20000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+
+    expect(report.readyForHumanReview).toBe(false);
+    expect(report.metrics.activityStaleDroppedCount).toBe(1);
+    expect(report.metrics.activitySpokenCount).toBe(1);
+    expect(report.metrics.activityUsefulSpeechRate).toBe(0.5);
+    expect(report.metrics.socialResponseP95Ms).toBe(5100);
+    expect(report.blockers).toContain(
+      "Activity reactions arrived stale. The board changed before speech could play.",
+    );
+    expect(report.blockers).toContain(
+      "Too few activity reactions became spoken moments. The game will feel quiet or behind.",
+    );
+
+    const markdown = renderCompanionVideoCallTraceScoreMarkdown(report);
+
+    expect(markdown).toContain("Demo readiness: FAIL");
+    expect(markdown).toContain("Activity stale drops: 1");
+    expect(markdown).toContain("Useful activity speech rate: 50%");
+  });
+
+  it("passes human review when latency, authorship, stale drops, and spoken coverage are healthy", () => {
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("talk_request_start", 100, {
+        turnId: "turn_social",
+        payload: { conversationIntent: "social" },
+      }),
+      record("talk_response_received", 2400, {
+        turnId: "turn_social",
+        responsePreview: "I hear you!",
+        payload: {
+          conversationIntent: "social",
+          requestToResponseMs: 2300,
+          latencySpans: {
+            claudeMs: 900,
+            toolFollowupMs: 500,
+            ttsMs: 700,
+            requestToResponseMs: 2300,
+          },
+        },
+      }),
+      record("activity_reaction_response_received", 3500, {
+        turnId: "reaction_1",
+        responsePreview: "Tiny sparkle strategy.",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 1100,
+          latencySpans: { requestToResponseMs: 1100 },
+        },
+      }),
+      record("activity_reaction_audio_start", 3510, { turnId: "reaction_1" }),
+      record("activity_reaction_audio_ended", 5000, { turnId: "reaction_1" }),
+      record("activity_reaction_response_received", 6500, {
+        turnId: "reaction_2",
+        responsePreview: "Good game.",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 1300,
+          latencySpans: { requestToResponseMs: 1300 },
+        },
+      }),
+      record("activity_reaction_audio_start", 6510, { turnId: "reaction_2" }),
+      record("activity_reaction_audio_ended", 8000, { turnId: "reaction_2" }),
+      record("call_ended", 9000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+
+    expect(report.readyForHumanReview).toBe(true);
+    expect(report.blockers).toEqual([]);
+  });
+});
