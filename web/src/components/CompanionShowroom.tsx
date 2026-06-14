@@ -1385,11 +1385,7 @@ export function createShowroomTalkPayload(args: {
 export function shouldRequestShowroomActivityReaction(
   event: CompanionTicTacToeGameEvent,
 ): boolean {
-  const moment = getShowroomTicTacToeReactionMoment(event);
-  return (
-    shouldRequestCompanionActivityAiReaction(event) ||
-    (moment != null && moment.salience !== "low")
-  );
+  return shouldRequestCompanionActivityAiReaction(event);
 }
 
 type ShowroomTicTacToeLine = readonly [number, number, number];
