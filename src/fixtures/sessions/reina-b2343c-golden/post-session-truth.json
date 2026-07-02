@@ -1,0 +1,98 @@
+{
+  "packetVersion": 1,
+  "sessionDir": "src/fixtures/sessions/reina-b2343c-golden",
+  "generatedAt": "2026-05-21T23:34:11.000Z",
+  "sessionSummary": {
+    "childId": "reina",
+    "subject": "homework",
+    "activityCount": 1,
+    "readingCount": 3,
+    "targetCount": 3,
+    "sourceFiles": ["system-log.ndjson", "adventure-log.ndjson", "game-traces.ndjson", "activities/"]
+  },
+  "assignmentSourceSummary": {
+    "homeworkIds": ["hw-spelling-fixture"],
+    "targetGroups": ["silent_letters"],
+    "targetPurposes": ["spell_from_memory"]
+  },
+  "activityReports": [
+    {
+      "activityId": "spell-check",
+      "readings": 3,
+      "targets": ["sign", "know", "write"],
+      "correctTargets": ["sign", "write"],
+      "missedTargets": ["know"],
+      "recoveredTargets": [],
+      "contaminatedTargets": [],
+      "evidenceTiers": ["practice"],
+      "helpRequests": 0,
+      "skips": 0,
+      "accuracy": 0.6667,
+      "interpretation": ["activity reading captured for psychologist interpretation", "target evidence available for retargeting"]
+    }
+  ],
+  "targetEvidence": [
+    {
+      "target": "sign",
+      "activities": ["spell-check"],
+      "correctCount": 1,
+      "missedCount": 0,
+      "recoveredCount": 0,
+      "contaminatedCount": 0,
+      "lastStatus": "correct",
+      "lastQuality": "clean",
+      "evidenceTiers": ["practice"]
+    },
+    {
+      "target": "know",
+      "activities": ["spell-check"],
+      "correctCount": 0,
+      "missedCount": 1,
+      "recoveredCount": 0,
+      "contaminatedCount": 0,
+      "lastStatus": "missed",
+      "lastQuality": "clean",
+      "evidenceTiers": ["practice"]
+    },
+    {
+      "target": "write",
+      "activities": ["spell-check"],
+      "correctCount": 1,
+      "missedCount": 0,
+      "recoveredCount": 0,
+      "contaminatedCount": 0,
+      "lastStatus": "correct",
+      "lastQuality": "clean",
+      "evidenceTiers": ["practice"]
+    }
+  ],
+  "flowAndPreferenceSignals": {
+    "helpRequests": 0,
+    "skips": 0,
+    "replays": 0,
+    "frustrationSignals": 0
+  },
+  "contradictions": [],
+  "contaminationWarnings": [],
+  "questBossReadiness": {
+    "quest": { "status": "locked", "evidenceSeen": false },
+    "boss": { "status": "locked", "evidenceSeen": false }
+  },
+  "trustworthiness": {
+    "trustworthyTargets": [],
+    "weakTargets": ["know"],
+    "contaminatedTargets": [],
+    "missingEvidence": []
+  },
+  "evidenceInterpreted": {
+    "activities": ["spell-check"],
+    "targets": ["sign", "know", "write"],
+    "missedTargets": ["know"],
+    "correctTargets": ["sign", "write"],
+    "contaminatedTargets": []
+  },
+  "adaptationDecision": {
+    "status": "stay_course",
+    "reason": "Fixture keeps the current spelling-production lane and retargets know for support before mastery."
+  }
+}

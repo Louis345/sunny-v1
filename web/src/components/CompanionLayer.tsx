@@ -7,7 +7,6 @@ import {
   type RefObject,
 } from "react";
 import * as THREE from "three";
-import { WebGPURenderer } from "three/webgpu";
 import {
   COMPANION_ANIMATE_TO_EXPRESSION_KEY,
   type CompanionCommand,
@@ -63,11 +62,7 @@ export interface CompanionLayerProps {
   onToggleMute?: () => void;
 }
 
-type CompanionRenderer = WebGPURenderer | THREE.WebGLRenderer;
-
-function isWebGpuRenderer(r: CompanionRenderer): r is WebGPURenderer {
-  return "isWebGPURenderer" in r && r.isWebGPURenderer === true;
-}
+type CompanionRenderer = THREE.WebGLRenderer;
 
 function resolveModelUrl(vrmUrl: string): string {
   if (vrmUrl.startsWith("http://") || vrmUrl.startsWith("https://")) {
@@ -163,7 +158,7 @@ function playCompanionFeedSfx(reference: string, comboCount: number) {
 }
 
 /**
- * Full-screen overlay (pointer-events none); WebGPU canvas when supported, else WebGL fallback (COMPANION-002).
+ * Full-screen overlay (pointer-events none); WebGL canvas with classic VRM materials (COMPANION-002).
  */
 export function CompanionLayer({
   childId,
@@ -548,8 +543,8 @@ export function CompanionLayer({
       usedSize: { w: cw0, h: ch0 },
     });
 
-    const finishSetup = (renderer: CompanionRenderer, webgpuMaterials: boolean) => {
-      console.log("CompanionLayer: [finishSetup] enter", { webgpuMaterials, cancelled });
+    const finishSetup = (renderer: CompanionRenderer) => {
+      console.log("CompanionLayer: [finishSetup] enter", { materialPipeline: "WebGL classic MToon", cancelled });
       if (cancelled) {
         console.log("CompanionLayer: [finishSetup] cancelled, disposing renderer");
         renderer.dispose();
@@ -573,9 +568,9 @@ export function CompanionLayer({
 
       const modelUrl = resolveModelUrl(companion.vrmUrl);
       console.log("CompanionLayer: [finishSetup] calling loadCompanionVrm", modelUrl, {
-        webgpu: webgpuMaterials,
+        webgpu: false,
       });
-      loadCompanionVrm(modelUrl, { webgpu: webgpuMaterials })
+      loadCompanionVrm(modelUrl, { webgpu: false })
       .then((vrm) => {
         if (cancelled) {
           vrm.scene.removeFromParent();
@@ -636,33 +631,13 @@ export function CompanionLayer({
         return;
       }
 
-      let renderer: CompanionRenderer | undefined;
-      let webgpuAttempt: WebGPURenderer | undefined;
-
-      try {
-        console.log("CompanionLayer: [init] constructing WebGPURenderer...");
-        webgpuAttempt = new WebGPURenderer({ antialias: true });
-        console.log("CompanionLayer: [init] awaiting webgpuAttempt.init()...");
-        await webgpuAttempt.init();
-        console.log("CompanionLayer: [init] WebGPURenderer init() succeeded");
-        renderer = webgpuAttempt;
-      } catch (e: unknown) {
-        console.error("WebGPU failed, falling back:", e);
-        if (webgpuAttempt) {
-          try {
-            webgpuAttempt.dispose();
-          } catch (disposeErr: unknown) {
-            console.error("CompanionLayer: [init] WebGPU dispose after failure:", disposeErr);
-          }
-        }
-        console.log("CompanionLayer: [init] constructing THREE.WebGLRenderer fallback...");
-        renderer = new THREE.WebGLRenderer({
-          alpha: true,
-          antialias: true,
-          powerPreference: "high-performance",
-        });
-        console.log("CompanionLayer: [init] WebGLRenderer constructed");
-      }
+      console.log("CompanionLayer: [init] constructing THREE.WebGLRenderer...");
+      const renderer = new THREE.WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        powerPreference: "high-performance",
+      });
+      console.log("CompanionLayer: [init] WebGLRenderer constructed");
 
       if (cancelled || !renderer) {
         console.log("CompanionLayer: [init] stop after create", { cancelled, hasRenderer: Boolean(renderer) });
@@ -695,13 +670,10 @@ export function CompanionLayer({
       );
 
       renderer.outputColorSpace = THREE.SRGBColorSpace;
-      if (!isWebGpuRenderer(renderer)) {
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      }
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
-      const webgpuMaterials = isWebGpuRenderer(renderer);
-      console.log("CompanionLayer: [init] material pipeline", webgpuMaterials ? "WebGPU (MToonNode)" : "WebGL (classic MToon)");
-      finishSetup(renderer, webgpuMaterials);
+      console.log("CompanionLayer: [init] material pipeline", "WebGL (classic MToon)");
+      finishSetup(renderer);
     })();
 
     return () => {

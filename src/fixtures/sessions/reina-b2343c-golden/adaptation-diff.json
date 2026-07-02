@@ -1,0 +1,10 @@
+{
+  "changed": false,
+  "status": "stay_course",
+  "reason": "The fixture has clean but limited practice evidence; continue the same lane with know prioritized.",
+  "evidence": {
+    "weakTargets": ["know"],
+    "contaminatedTargets": [],
+    "trustworthyTargets": []
+  }
+}

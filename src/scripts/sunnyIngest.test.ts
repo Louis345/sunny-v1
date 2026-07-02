@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AssignmentPlannerOutput, AssignmentPlanningPacket } from "../engine/assignmentPlanner";
+import { buildPlannerArtifactPayloads, plannerComparisonArtifact } from "./ingestHomework";
 import {
   applyApprovedSunnyIngestDraft,
   applyHumanIngestEdits,
@@ -237,7 +238,7 @@ function plannerOutput(overrides: Partial<AssignmentPlannerOutput> = {}): Assign
     planTheory: {
       hypothesis: "Silent-letter words need spelling production; high-frequency words need recognition/pronunciation.",
       evidenceSummary: ["The source image has separate columns."],
-      intervention: "Use one planner-owned plan with different instruments by source group.",
+      intervention: "Use one compiler-materialized plan with different instruments by source group.",
       supportCriteria: ["Silent-letter words spelled", "high-frequency words read aloud"],
       reviseCriteria: ["High-frequency spelling gap appears"],
       falsifyCriteria: ["Teacher says high-frequency column is also written spelling."],
@@ -289,6 +290,50 @@ describe("sunny ingest front door", () => {
     expect(text).toContain("High-Frequency Words (recognize): among, building, circle");
     expect(text).toContain("spell-check -> pronunciation -> mystery -> quest (locked) -> boss (locked)");
     expect(text).toContain("does not feel like grind");
+  });
+
+  it("does not write dead visual critic decision artifacts", () => {
+    const artifacts = buildPlannerArtifactPayloads({
+      packet: { childId: "ila" },
+      output: { activeSessionPlan: { nodePlan: [] } },
+      audit: { rows: [], issues: [], markdown: "# Audit\n" },
+    });
+
+    expect(Object.keys(artifacts)).not.toContain("visual-critic-decision.json");
+    expect(Object.keys(artifacts)).not.toContain("visual-critic-report.json");
+  });
+
+  it("counts planner routes from learningRoutes rather than compiled board JSON", () => {
+    const output = plannerOutput({
+      activeSessionPlan: {
+        ...plannerOutput().activeSessionPlan,
+        adventureBoard: undefined,
+        learningRoutes: [
+          {
+            id: "spelling-build",
+            label: "Spelling Build",
+            rationale: "Measure spelling production.",
+            nodeIds: ["baseline-silent"],
+          },
+          {
+            id: "fluency-read",
+            label: "Fluency Read",
+            rationale: "Measure high-frequency reading.",
+            nodeIds: ["pronunciation-hfw"],
+          },
+        ],
+      },
+    });
+
+    expect(plannerComparisonArtifact({
+      packet: { childId: "ila" } as AssignmentPlanningPacket,
+      output,
+      plannerModel: "test-model",
+    })).toMatchObject({
+      plannerModel: "test-model",
+      routeCount: 2,
+      verdict: "Pass",
+    });
   });
 
   it("passes scanned page images to the assignment planner packet when OCR text is empty", async () => {
@@ -350,24 +395,44 @@ describe("sunny ingest front door", () => {
           requiredAbilities: [],
           expectedSessionsRemaining: null,
           sessionIntensity: "build",
-          questRole: "transfer proof",
-          bossRole: "mastery gate",
-          failureLoop: "teach then retest",
         },
         sourceDocument: extraction(root),
+        capturedHomework: {
+          title: "Spelling",
+          type: "spelling_test",
+          words: ["sign", "among"],
+          questions: [],
+          wordGroups: [
+            {
+              id: "silent_letters",
+              label: "Silent Letters",
+              purpose: "spell_from_memory",
+              words: ["sign"],
+              confidence: 0.9,
+              evidence: ["fixture"],
+            },
+            {
+              id: "high_frequency_words",
+              label: "High-Frequency Words",
+              purpose: "read_fluently",
+              words: ["among"],
+              confidence: 0.9,
+              evidence: ["fixture"],
+            },
+          ],
+          sourceDocuments: [{ filename: "5_18_spelling.pdf", mediaType: "application/pdf" }],
+          contentProfile: {
+            practiceDomain: "spelling",
+            contentDomain: "language_arts",
+            topic: "Spelling",
+            primarySkill: "Spell words from memory",
+            assignmentFormat: "Spelling list",
+            concepts: [],
+            sourceEvidence: ["fixture"],
+          },
+        },
         childChart: { childId: "ila", displayName: "Ila", recentEvidence: [] },
         activityCatalog: [],
-        boardPlanning: {
-          algorithmContracts: {
-            choicePolicy: { id: "choicePolicy", purpose: "choice", needs: [], outputs: [], guardrails: [] },
-            spacedRepetition: { id: "spacedRepetition", purpose: "spacing", needs: [], outputs: [], guardrails: [] },
-            questReadiness: { id: "questReadiness", purpose: "quest", needs: [], outputs: [], guardrails: [] },
-            masteryGate: { id: "masteryGate", purpose: "boss", needs: [], outputs: [], guardrails: [] },
-          },
-          choicePolicyContext: { purpose: "choice", evidenceSignals: [], signalQualityNotes: [], plannerDecision: "small" },
-          runtimeConstraints: { rendererOnly: true, noRuntimePlanning: true, outputMustBeSerializableJson: true },
-          criticPolicy: { semanticAudit: "always", visualCritic: "risk_gated", riskSignals: [], retryLimit: 1 },
-        },
         plannerInstruction: "Interpret assignment.",
       },
     });

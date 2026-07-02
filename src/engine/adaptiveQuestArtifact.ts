@@ -1,4 +1,4 @@
-import type { AIContentCatalogItem, LearningProfile } from "../context/schemas/learningProfile";
+import type { AIContentCatalogItem, GeneratedArtifactLifecycleStatus, LearningProfile } from "../context/schemas/learningProfile";
 import type {
   CapturedHomeworkContentRecord,
   HomeworkCycle,
@@ -30,6 +30,7 @@ export type AdaptiveQuestArtifact = {
   contentId: string;
   contentFingerprint?: string;
   generatedPath?: string;
+  artifactStatus?: GeneratedArtifactLifecycleStatus;
   validationStatus?: AdaptiveArtifactValidationStatus;
   validationReport?: AdaptiveArtifactValidationReport;
   successCriteria: LearningTheory["successCriteria"];

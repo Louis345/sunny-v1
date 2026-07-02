@@ -8,7 +8,7 @@ import type { ErrorSignal } from "../algorithms/types";
 import { scanChildErrorPatterns } from "../engine/error-signals/patternDetector";
 
 export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
-export const SONNET_MODEL = "claude-sonnet-4-20250514";
+export const SONNET_MODEL = "claude-sonnet-4-5";
 
 const GAME_GOAL_BY_TYPE: Record<string, string> = {
   spelling_test: `This game prepares a child for a spelling test.

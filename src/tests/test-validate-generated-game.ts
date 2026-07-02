@@ -354,6 +354,52 @@ window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: 1 });
     expect(r.warnings.some((warning) => warning.includes("Word list may be visible"))).toBe(false);
   });
 
+  it("rejects Quest/Boss artifacts that invent script-owned spelling targets outside the approved list", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<script>
+const params = window.GAME_PARAMS || {};
+const WORDS = ["sign", "know", "extra"];
+window.fireCompanionEvent("correct_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: WORDS[0], attemptedValue: WORDS[0], correct: true, quality: 5, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 1, wordsAttempted: WORDS.length });
+</script></body></html>`;
+
+    const r = validateGeneratedGame(html, {
+      words: ["sign", "know"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "boss",
+    });
+
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((failure) => failure.includes("Unapproved spelling targets"))).toBe(true);
+    expect(r.shouldRegenerate).toBe(true);
+  });
+
+  it("rejects Quest/Boss artifacts with malformed inline JavaScript before unlock", () => {
+    const html = `${BASE}
+<div id="sunny-companion"></div>
+<script>
+const params = window.GAME_PARAMS || {};
+const message = 'You can't pass yet';
+window.fireCompanionEvent("wrong_answer", {});
+window.fireAttemptEvent({ domain: "spelling", target: "apple", attemptedValue: "aple", correct: false, quality: 1, scaffoldLevel: 0 });
+window.sendNodeComplete({ completed: true, accuracy: 0, wordsAttempted: 1 });
+</script></body></html>`;
+
+    const r = validateGeneratedGame(html, {
+      words: ["apple"],
+      homeworkType: "spelling_test",
+      childId: "uqchildmarker012",
+      generationStage: "quest",
+    });
+
+    expect(r.passed).toBe(false);
+    expect(r.failures.some((failure) => failure.includes("Inline script syntax error"))).toBe(true);
+    expect(r.shouldRegenerate).toBe(true);
+  });
+
   it("passes valid generated game HTML", () => {
     const html = compliantHtml("uqchildmarker012");
     const r = validateGeneratedGame(html, {

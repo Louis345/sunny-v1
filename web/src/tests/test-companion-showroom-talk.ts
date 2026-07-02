@@ -312,7 +312,7 @@ describe("CompanionShowroom talk mode", () => {
     ).toBe(false);
   });
 
-  it("requests AI-authored comments for meaningful tic-tac-toe blocks, not every move", () => {
+  it("keeps meaningful tic-tac-toe move beats nonverbal so live speech cannot go stale", () => {
     expect(
       shouldRequestShowroomActivityReaction({
         type: "companion_tic_tac_toe_companion_move",
@@ -324,7 +324,7 @@ describe("CompanionShowroom talk mode", () => {
         square: 3,
         mark: "O",
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldRequestShowroomActivityReaction({
         type: "companion_tic_tac_toe_child_move",
@@ -336,7 +336,7 @@ describe("CompanionShowroom talk mode", () => {
         square: 3,
         mark: "X",
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldRequestShowroomActivityReaction({
         type: "companion_tic_tac_toe_companion_move",
@@ -361,6 +361,8 @@ describe("CompanionShowroom talk mode", () => {
     expect(source).toContain("salience");
     expect(source).toContain("blocked the child");
     expect(source).toContain("child blocked");
+    expect(source).toContain("shouldRequestCompanionActivityAiReaction(event)");
+    expect(source).not.toContain("moment != null && moment.salience !== \"low\"");
   });
 
   it("marks activity reactions stale when the board advances before speech is ready", () => {

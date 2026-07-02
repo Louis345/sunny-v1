@@ -128,6 +128,15 @@ function playthroughScript(words: string[]): string {
 `;
 }
 
+function completionObservedScript(): string {
+  return `
+(() => {
+  const messages = window.__sunnyValidation?.messages || [];
+  return messages.some((message) => message && (message.type === "node_complete" || message.type === "game_complete"));
+})()
+`;
+}
+
 function normalizeMessagePayload(message: unknown): unknown {
   if (!message || typeof message !== "object") return message;
   const record = message as Record<string, unknown>;
@@ -173,6 +182,7 @@ async function runPlaywrightBrowser(input: GeneratedArtifactRuntimeValidationInp
     const hook = await page.evaluate<{ used: boolean; error?: string }>(
       `${playthroughScript(input.words)}.catch((err) => ({ used: false, error: String(err && err.message ? err.message : err) }))`,
     );
+    await page.waitForFunction(completionObservedScript(), null, { timeout: 2500 }).catch(() => undefined);
     await mkdir(input.outputDir, { recursive: true });
     const screenshotPath = path.join(input.outputDir, `${input.stage}-runtime.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });

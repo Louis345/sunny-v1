@@ -6,6 +6,7 @@ import {
   classifyAssignmentSource,
   extractAssignmentSource,
   isWeakExtractedText,
+  PDF_PREVIEW_IMAGE_MAX_EDGE_PX,
 } from "./assignmentSourceExtraction";
 
 const tempDirs: string[] = [];
@@ -36,6 +37,10 @@ describe("assignment source extraction", () => {
   it("treats empty or tiny PDF text as weak and eligible for OCR fallback", () => {
     expect(isWeakExtractedText("")).toBe(true);
     expect(isWeakExtractedText("Benchmark Advance Spelling\nSilent Letters\nsign know write")).toBe(false);
+  });
+
+  it("keeps PDF preview images small enough for live vision capture", () => {
+    expect(PDF_PREVIEW_IMAGE_MAX_EDGE_PX).toBeLessThanOrEqual(1200);
   });
 
   it("extracts text files with method metadata, source hash, pages, and warnings", async () => {

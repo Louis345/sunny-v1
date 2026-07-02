@@ -1,0 +1,66 @@
+{
+  "adaptationDecision": {
+    "status": "missing",
+    "reason": "No next-plan decision was written after interpreted activity evidence."
+  },
+  "nextBoardEvidence": [
+    {
+      "activityId": "letter-rush",
+      "missedTargets": [],
+      "recoveredTargets": [],
+      "contaminatedTargets": []
+    },
+    {
+      "activityId": "monster-stampede",
+      "missedTargets": [
+        "decided"
+      ],
+      "recoveredTargets": [],
+      "contaminatedTargets": []
+    },
+    {
+      "activityId": "pronunciation",
+      "missedTargets": [
+        "comb",
+        "gnat",
+        "know",
+        "thumb",
+        "write"
+      ],
+      "recoveredTargets": [],
+      "contaminatedTargets": []
+    },
+    {
+      "activityId": "Spell Check",
+      "missedTargets": [
+        "climb",
+        "decided"
+      ],
+      "recoveredTargets": [],
+      "contaminatedTargets": []
+    },
+    {
+      "activityId": "spell-check",
+      "missedTargets": [],
+      "recoveredTargets": [],
+      "contaminatedTargets": []
+    },
+    {
+      "activityId": "word-radar",
+      "missedTargets": [
+        "among",
+        "climb",
+        "comb",
+        "decided",
+        "gnat",
+        "know",
+        "sign",
+        "thumb",
+        "write",
+        "wrong"
+      ],
+      "recoveredTargets": [],
+      "contaminatedTargets": []
+    }
+  ]
+}

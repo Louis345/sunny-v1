@@ -66,6 +66,26 @@ export interface PlannedMeasurement {
   falsifyCriteria: string;
 }
 
+export interface LearningRoutePrescription {
+  id: string;
+  label: string;
+  rationale: string;
+  nodeIds: string[];
+}
+
+export type GeneratedArtifactLifecycleStatus =
+  | "brief_only"
+  | "generating"
+  | "validating"
+  | "ready_for_review"
+  | "approved_ready"
+  | "failed_retryable"
+  | "failed_final"
+  | "retired"
+  | "generated"
+  | "validated"
+  | "failed";
+
 export interface GeneratedExperienceBrief {
   briefId: string;
   experimentId?: string;
@@ -78,7 +98,7 @@ export interface GeneratedExperienceBrief {
   engagementHooks: string[];
   algorithmTargets: string[];
   evidenceUsed: string[];
-  artifactStatus: "brief_only" | "generated" | "validated" | "failed";
+  artifactStatus: GeneratedArtifactLifecycleStatus;
   validationRequired: boolean;
 }
 
@@ -143,6 +163,7 @@ export interface ActiveSessionPlan {
     wordRadarConfig?: WordRadarNodeConfig;
     rewardWrapper?: RewardWrapperConfig;
   }>;
+  learningRoutes?: LearningRoutePrescription[];
   adventureBoard?: AdventureBoardJson;
   variationPolicy: {
     avoidExactPreviousNodeOrder: boolean;
@@ -368,6 +389,12 @@ export interface AIContentCatalogItem {
   };
   reuseStatus: "candidate" | "reuse" | "revise" | "retire";
   reuseReason: string;
+  reviewStatus?: GeneratedArtifactLifecycleStatus;
+  reviewDecision?: "approve" | "revise" | "reject" | "regenerate";
+  reviewReason?: string;
+  reviewLessons?: string[];
+  reviewedBy?: string;
+  reviewedAt?: string;
   validationStatus?: "passed" | "failed" | "warning";
   validationReport?: {
     passed: boolean;
@@ -641,6 +668,7 @@ export interface LearningProfile {
       choiceMode?: "choice_lab" | "surprise_drop";
       choiceSource?: ChoiceEventSource;
       masteryUnlockState?: MasteryUnlockState;
+      artifactStatus?: GeneratedArtifactLifecycleStatus;
       locked?: boolean;
       approved?: boolean;
       date?: string;
@@ -655,6 +683,7 @@ export interface LearningProfile {
         homeworkWordIds: string[];
         baselineEvidenceIds: string[];
         generatedPath?: string;
+        artifactStatus?: GeneratedArtifactLifecycleStatus;
         validationStatus?: "passed" | "failed" | "warning";
         validationReport?: {
           passed: boolean;

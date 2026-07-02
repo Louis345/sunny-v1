@@ -623,3 +623,15 @@ export function readCompanionVideoCallTracePacket(
   }
   return buildCompanionVideoCallTracePacket(readTraceRecords(traceFolder));
 }
+
+export function readCompanionVideoCallTraceRecords(
+  traceId: string,
+  options: { rootDir?: string } = {},
+): CompanionVideoCallTraceRecord[] {
+  const rootDir = path.resolve(options.rootDir ?? defaultTraceRoot());
+  const traceFolder = findTraceFolder(rootDir, traceId);
+  if (!traceFolder) {
+    throw new Error(`trace_not_found:${safeTraceId(traceId)}`);
+  }
+  return readTraceRecords(traceFolder);
+}

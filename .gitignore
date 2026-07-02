@@ -20,15 +20,18 @@ CANVAS_CAPABILITIES.md
 /logs/
 /.sunny-sandbox/
 web/test-artifacts/
+test-artifacts/
 tsconfig.tsbuildinfo
 
 # Runtime child-chart evidence (local/private; code should use fixtures for tests)
 src/context/*/activity_results/
 src/context/*/attempts/*.ndjson
 src/context/*/choice_events/
+src/context/*/companion_interactions/
 src/context/*/ratings/*.ndjson
 src/context/*/session_notes/*.md
 src/context/*/themes/*.json
+src/context/*/decision_traces/
 src/context/*/assumptions/*-pre.md
 src/context/*/companion_care/*.json
 src/context/*/homework/games/hw-*/

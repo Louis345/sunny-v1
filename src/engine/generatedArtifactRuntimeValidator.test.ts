@@ -167,4 +167,53 @@ describe("generated artifact runtime validator", () => {
     });
     expect(report.runtimeValidation?.screenshotPaths.every((file) => fs.existsSync(file))).toBe(true);
   });
+
+  it("waits for delayed completion after a custom validation hook resolves", async () => {
+    const availability = await resolveSyntheticChildBrowserAvailability();
+    if (!availability.available) {
+      expect(availability.reason).toContain("chromium");
+      return;
+    }
+    const dir = makeDir();
+    dirs.push(dir);
+
+    const report = await validateGeneratedArtifactRuntime({
+      html: `
+        <html>
+          <body>
+            <main>Quest waits for delayed completion</main>
+            <script>
+              window.SUNNY_VALIDATION_HOOKS = {
+                playthrough: async ({ words }) => {
+                  for (const target of words) {
+                    window.postMessage({ type: "attempt_event", payload: { target, correct: true } }, "*");
+                  }
+                  setTimeout(() => {
+                    window.postMessage({
+                      type: "node_complete",
+                      payload: { completed: true, accuracy: 1, wordsAttempted: words.length }
+                    }, "*");
+                  }, 650);
+                }
+              };
+            </script>
+          </body>
+        </html>
+      `,
+      childId: "reina",
+      stage: "quest",
+      homeworkType: "spelling_test",
+      words: WORDS,
+      outputDir: dir,
+      now: new Date("2026-05-14T12:00:00.000Z"),
+    });
+
+    expect(report.passed).toBe(true);
+    expect(report.runtimeValidation).toMatchObject({
+      engine: "playwright",
+      attemptedTargets: WORDS.length,
+      completed: true,
+      usedValidationHook: true,
+    });
+  });
 });

@@ -274,7 +274,7 @@ export function validateBoardVisualContract(board: AdventureBoardJson): Adventur
         code: "board_node_slot_missing",
         severity: "error",
         nodeId: node.id,
-        message: `Visible board node ${node.id} must use a semantic horizontal slot instead of planner-owned coordinates.`,
+        message: `Visible board node ${node.id} must use compiler-owned layout slots instead of authored coordinates.`,
       });
     }
     if (!node.layout?.role) {

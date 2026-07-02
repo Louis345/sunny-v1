@@ -19,6 +19,12 @@ export type ChildExperiencePacket = {
 };
 
 export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePacket {
+  const selectedDomain = chart.homework.selectedDomain ?? undefined;
+  const selectedDomainPlan = selectedDomain
+    ? chart.sessionPlan?.waterfall.activeByDomain[selectedDomain] ??
+      (chart as ChildChart & { activeSessionPlanByDomain?: Record<string, ChildChart["activeSessionPlan"]> })
+        .activeSessionPlanByDomain?.[selectedDomain]
+    : undefined;
   return {
     childChart: {
       childId: chart.childId,
@@ -32,6 +38,6 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       economy: chart.economy,
       adventureMapProfile: chart.adventureMapProfile,
     },
-    activeSessionPlan: chart.activeSessionPlan,
+    activeSessionPlan: selectedDomainPlan ?? chart.activeSessionPlan,
   };
 }

@@ -1,0 +1,16 @@
+{
+  "source": "post-session-truth",
+  "status": "requires_psychologist_interpretation",
+  "generatedAt": "2026-05-21T23:45:45.094Z",
+  "evidenceRead": {
+    "activityReports": 6,
+    "targetEvidence": 11,
+    "contradictions": 0,
+    "contaminationWarnings": 0
+  },
+  "interpretationBoundary": "Code captured truth and quality signals. The AI psychologist should interpret the pattern before changing educational strategy.",
+  "adaptationDecision": {
+    "status": "missing",
+    "reason": "No next-plan decision was written after interpreted activity evidence."
+  }
+}

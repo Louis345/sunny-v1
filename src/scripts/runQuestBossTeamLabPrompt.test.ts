@@ -17,4 +17,16 @@ describe("Quest/Boss free-vision visual prompt", () => {
     expect(source).toContain("Use invented glyphs or abstract icons instead of readable alphabet letters");
     expect(source).toContain("Human-caught invariant");
   });
+
+  it("uses a Haiku dynamic creative brief before AI HTML artifact generation", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/runQuestBossTeamLab.ts"), "utf8");
+
+    expect(source).toContain("generateQuestBossDynamicPromptBrief");
+    expect(source).toContain("buildQuestBossCreativeDirectorInput");
+    expect(source).toContain("buildQuestBossArtifactPrompt");
+    expect(source).toContain("dynamicPromptBrief");
+    expect(source).toContain("dynamicArtifactPrompt");
+    expect(source).toContain("create_quest_boss_dynamic_prompt_brief");
+    expect(source).toContain("tool_choice");
+  });
 });

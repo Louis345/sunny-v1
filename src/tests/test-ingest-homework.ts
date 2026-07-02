@@ -23,9 +23,11 @@ import {
   resolveIngestHomeworkFile,
   reviewExperiencePlan,
   resolveIngestedTestDate,
+  resolveIngestPlannerTimeoutMs,
   resolveHomeworkWordPurpose,
   resolveHomeworkTypeFromProfile,
   shouldGenerateBossNode,
+  withIngestPlannerTimeout,
 } from "../scripts/ingestHomework";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import {
@@ -184,6 +186,34 @@ describe("ingestHomework", () => {
     });
   });
 
+  it("times out the direct planner call instead of letting ingestion hang forever", async () => {
+    await expect(
+      withIngestPlannerTimeout(new Promise(() => {}), 5, "reina:spelling"),
+    ).rejects.toThrow("ingest_homework_planner_timeout:reina:spelling:5ms");
+  });
+
+  it("includes the failed stage and saved planning artifact paths when ingestion planning times out", async () => {
+    await expect(
+      withIngestPlannerTimeout(new Promise(() => {}), 5, "reina:assignment-planner", {
+        stage: "assignment-planner",
+        artifactPaths: [
+          "/tmp/sunny/assignment-source-extraction.json",
+          "/tmp/sunny/assignment-planning-packet.json",
+        ],
+      } as never),
+    ).rejects.toThrow(
+      "ingest_homework_planner_timeout:reina:assignment-planner:5ms:stage=assignment-planner:artifacts=/tmp/sunny/assignment-source-extraction.json,/tmp/sunny/assignment-planning-packet.json",
+    );
+  });
+
+  it("reads the direct ingestion planner timeout from env with a safe default", () => {
+    expect(resolveIngestPlannerTimeoutMs({ SUNNY_INGEST_PLANNER_TIMEOUT_MS: "42" })).toBe(42);
+    expect(resolveIngestPlannerTimeoutMs({ SUNNY_INGEST_PLANNER_TIMEOUT_MS: "0" })).toBe(150000);
+    expect(resolveIngestPlannerTimeoutMs({ SUNNY_INGEST_PLANNER_TIMEOUT_MS: "not-a-number" })).toBe(
+      150000,
+    );
+  });
+
   it("parseCliArgs accepts --pdf override path", () => {
     const childId = sampleChildIdFromConfig();
     const pdfPath = path.join(process.cwd(), "src", "context", childId, "homework", "incoming", "test.pdf");
@@ -200,6 +230,13 @@ describe("ingestHomework", () => {
     expect(parseCliArgs(["--child=reina", `--file=${filePath}`])).toMatchObject({
       childId: "reina",
       pdfOverridePath: filePath,
+    });
+  });
+
+  it("parseCliArgs accepts a planner model for model comparison runs", () => {
+    expect(parseCliArgs(["--child=reina", "--planner-model=claude-opus-4-1"])).toMatchObject({
+      childId: "reina",
+      plannerModel: "claude-opus-4-1",
     });
   });
 
@@ -338,7 +375,7 @@ describe("ingestHomework", () => {
     expect(reviewed.nodePlan[0]?.type).toBe("pronunciation");
     expect(reviewed.nodePlan[0]?.targets).toHaveLength(10);
     expect(printed.join("\n")).toContain("quest(locked, 5 targets)");
-    expect(printed.join("\n")).toContain("boss(locked, mastery finale, 0 targets)");
+    expect(printed.join("\n")).toContain("boss(locked, targets selected after quest evidence)");
   });
 
   it("resolves pasted homework paths from the interactive file menu", async () => {
@@ -513,16 +550,15 @@ describe("ingestHomework", () => {
     );
   });
 
-  it("builds planner-owned board artifacts for the homework pending folder", () => {
+  it("builds lean planner artifacts for the homework pending folder", () => {
     const files = buildPlannerArtifactPayloads({
-      packet: { childId: "reina", boardPlanning: { runtimeConstraints: { noRuntimePlanning: true } } },
+      packet: { childId: "reina", activityCatalog: [] },
       output: { activeSessionPlan: { planId: "assignment-plan-reina", adventureBoard: { boardId: "board" } } },
       audit: {
         rows: [],
         issues: [],
         markdown: "| node | source evidence | target purpose | activity/mode | algorithm feed | expected signal | status |\n",
       },
-      criticDecision: { shouldRun: false, reasons: [] },
     });
 
     expect(Object.keys(files)).toEqual(expect.arrayContaining([
@@ -530,10 +566,46 @@ describe("ingestHomework", () => {
       "planner-output.json",
       "planner-decision-audit.json",
       "planner-decision-audit.md",
-      "visual-critic-decision.json",
     ]));
-    expect(files["planner-input.json"]).toContain("\"noRuntimePlanning\": true");
+    expect(Object.keys(files)).not.toContain("visual-critic-decision.json");
+    expect(files["planner-input.json"]).toContain("\"activityCatalog\": []");
     expect(files["planner-decision-audit.md"]).toContain("| node | source evidence |");
+  });
+
+  it("records planner model, route count, and verdict for comparison artifacts", () => {
+    const files = buildPlannerArtifactPayloads({
+      packet: { childId: "reina", activityCatalog: [] },
+      output: {
+        activeSessionPlan: {
+          planId: "assignment-plan-reina",
+          adventureBoard: {
+            boardId: "board",
+            choiceSets: [{
+              id: "baseline-route-options",
+              kind: "baseline-route",
+              options: [{ nodeId: "route-a" }, { nodeId: "route-b" }],
+            }],
+          },
+        },
+      },
+      audit: {
+        rows: [],
+        issues: [],
+        markdown: "| node | source evidence | target purpose | activity/mode | algorithm feed | expected signal | status |\n",
+      },
+      comparison: {
+        plannerModel: "claude-sonnet-4-6",
+        promptHash: "prompt-hash",
+        routeCount: 2,
+        verdict: "Pass",
+        screenshotPaths: ["/tmp/reina-board.png"],
+      },
+    } as never);
+
+    expect(Object.keys(files)).toContain("planner-comparison.json");
+    expect(files["planner-comparison.json"]).toContain("\"plannerModel\": \"claude-sonnet-4-6\"");
+    expect(files["planner-comparison.json"]).toContain("\"routeCount\": 2");
+    expect(files["planner-comparison.json"]).toContain("\"verdict\": \"Pass\"");
   });
 
   it("resolves CLI, extracted, interactive, and non-interactive test dates with source metadata", async () => {

@@ -1,21 +1,23 @@
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
-import { generateText, type LanguageModelUsage } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import type { LanguageModelUsage } from "ai";
 import { z } from "zod";
 import type {
   ActiveSessionPlan,
   GeneratedExperienceBrief,
+  LearningRoutePrescription,
   PlanTheory,
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
-import type { AdventureBoardJson, AdventureChoiceOption, AdventureChoiceSet } from "../shared/adventureBoardJson";
-import { ALL_NODE_TYPES, type NodeType } from "../shared/adventureTypes";
+import type { AdventureBoardJson } from "../shared/adventureBoardJson";
+import { buildAdventureBoardFromActiveSessionPlan } from "../shared/adventureBoardFromPlan";
+import type { NodeType } from "../shared/adventureTypes";
 import type { ChildChart } from "../profiles/childChart";
 import {
   listActivityToolContracts,
   type ActivityCapabilityMode,
+  type LearningDomain,
   type ActivityPlannerVisibility,
 } from "./activityToolCatalog";
 import {
@@ -37,7 +39,6 @@ import {
   type AssignmentSourceExtraction,
 } from "./assignmentSourceExtraction";
 import { certifySpellingAdaptation } from "./spellingCertification";
-import { validateAdventureBoardJson } from "../shared/adventureBoardValidation";
 
 export type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 
@@ -61,14 +62,15 @@ export type AssignmentActivityCard = {
   bestFor: string[];
   contaminationRisks: string[];
   modeEvidenceNotes: PlannerEvidenceModeNote[];
-  strengths: string[];
-  weakFor: string[];
-  goodFitWhen: string[];
-  badFitWhen: string[];
-  capabilityModes: ActivityCapabilityMode[];
+  capabilityModes: PlannerActivityCapabilityMode[];
   plannerVisibility: ActivityPlannerVisibility;
   status: "ok" | "unavailable" | "missing_config_metadata";
 };
+
+export type PlannerActivityCapabilityMode = Pick<
+  ActivityCapabilityMode,
+  "id" | "label" | "difficulty" | "purpose" | "evidenceType" | "masteryEligible" | "config"
+>;
 
 export type AssignmentPlannerDialogueTurn = {
   role: "parent" | "sunny";
@@ -140,9 +142,6 @@ export type AssignmentMasteryContext = {
   expectedSessionsRemaining: number | null;
   sessionIntensity: "low" | "build" | "urgent" | "final_check";
   readinessProof?: AssignmentReadinessProofContext;
-  questRole: string;
-  bossRole: string;
-  failureLoop: string;
 };
 
 export type AssignmentReadinessProofContext = {
@@ -168,48 +167,19 @@ export type AssignmentPlanningPacket = {
     | "pages"
     | "fullText"
   >;
+  capturedHomework: AssignmentPlanningCapturedHomework;
   childChart: AssignmentPlanningChildChartSummary;
   activityCatalog: AssignmentActivityCard[];
-  boardPlanning: AssignmentBoardPlanningContext;
   plannerReferences?: AssignmentPlannerReferenceDoc[];
   parentDialogue?: AssignmentPlannerDialogueTurn[];
   plannerInstruction: string;
   priorPlannerOutput?: AssignmentPlannerOutput;
 };
 
-export type AlgorithmContract = {
-  id: "choicePolicy" | "spacedRepetition" | "questReadiness" | "masteryGate";
-  purpose: string;
-  needs: string[];
-  outputs: string[];
-  guardrails: string[];
-};
-
-export type AssignmentBoardPlanningContext = {
-  algorithmContracts: {
-    choicePolicy: AlgorithmContract;
-    spacedRepetition: AlgorithmContract;
-    questReadiness: AlgorithmContract;
-    masteryGate: AlgorithmContract;
-  };
-  choicePolicyContext: {
-    purpose: string;
-    evidenceSignals: string[];
-    signalQualityNotes: string[];
-    plannerDecision: string;
-  };
-  runtimeConstraints: {
-    rendererOnly: true;
-    noRuntimePlanning: true;
-    outputMustBeSerializableJson: true;
-  };
-  criticPolicy: {
-    semanticAudit: "always";
-    visualCritic: "risk_gated";
-    riskSignals: string[];
-    retryLimit: 1;
-  };
-};
+export type AssignmentPlanningCapturedHomework = Pick<
+  CapturedHomeworkContent,
+  "title" | "type" | "words" | "questions" | "wordGroups" | "sourceDocuments" | "contentProfile"
+>;
 
 export type AssignmentPlannerHomeworkWord = {
   text: string;
@@ -234,48 +204,16 @@ export type AssignmentPlanValidationIssue = {
     | "missing_word_groups"
     | "word_missing_source_group"
     | "missing_word_radar_config"
-    | "missing_mystery_choice"
-    | "missing_quest_destination"
-    | "missing_boss_destination"
     | "missing_node_measurement"
     | "target_lane_mismatch"
-    | "unknown_activity_id"
-    | "wrapper_activity_used_as_node"
-    | "unknown_reward_wrapper_activity"
-    | "reward_wrapper_activity_not_wrapper"
-    | "unknown_reward_wrapper_mode"
-    | "reward_wrapper_requires_domain_payload_node"
-    | "board_missing_edge_endpoint"
-    | "board_choice_option_missing_node"
-    | "board_choice_gate_missing_choice_set"
-    | "board_fake_agency"
-    | "choice_gate_missing_baseline_incoming_edge"
-    | "board_baseline_choice_route_missing"
-    | "board_baseline_choice_route_too_few_options"
-    | "baseline_choice_route_disconnected"
-    | "board_choice_gate_missing_outgoing_edge"
-    | "board_baseline_choice_missing_node"
-    | "board_learning_node_missing_node_plan_reference"
-    | "board_unknown_activity_id"
-    | "board_preference_claims_mastery"
-    | "board_choice_signal_missing"
-    | "board_choice_signal_claims_mastery"
-    | "board_background_not_image"
-    | "board_companion_missing"
-    | "board_node_thumbnail_missing"
-    | "board_node_slot_missing"
-    | "board_node_layout_missing"
-    | "board_label_too_long"
-    | "board_choice_art_missing"
-    | "board_route_layout_order_gap"
-    | "board_baseline_layout_order_gap"
-    | "board_palette_not_approved";
+    | "unknown_activity_id";
   severity: "error" | "warning";
   message: string;
 };
 
 export type AssignmentPlanningOptions = {
   model?: string;
+  callPlannerModel?: AssignmentPlannerModelCaller;
 };
 
 export type AssignmentPlannerTelemetry = {
@@ -283,6 +221,11 @@ export type AssignmentPlannerTelemetry = {
   usage?: LanguageModelUsage;
   latencyMs: number;
 };
+
+export type AssignmentPlannerModelCaller = (
+  packet: AssignmentPlanningPacket,
+  model: string,
+) => Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage }>;
 
 export type PlannerReadinessAuditRow = {
   activity: string;
@@ -366,71 +309,39 @@ const contentProfileSchema: z.ZodType<ContentProfile> = z.object({
   sourceEvidence: z.array(z.string().min(1)).default([]),
 });
 
-const NODE_TYPES = new Set<NodeType>(ALL_NODE_TYPES);
-const PLANNER_NODE_ACTIVITY_IDS = [...ALL_NODE_TYPES] as [NodeType, ...NodeType[]];
 const PLANNER_DESTINATION_ACTIVITY_IDS = new Set(["mystery", "quest", "boss"]);
-const PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN: Record<string, string[]> = {
-  spelling: [
-    "word-radar",
-    "pronunciation",
-    "spell-check",
-    "letter-rush",
-    "monster-stampede",
-    "wheel-of-fortune",
-    "mystery",
-    "quest",
-    "boss",
-  ],
-  reading: [
-    "pronunciation",
-    "karaoke",
-    "word-radar",
-    "concept-check",
-    "visual-explainer",
-    "wheel-of-fortune",
-    "mystery",
-    "quest",
-    "boss",
-  ],
-  math: [
-    "concept-check",
-    "visual-explainer",
-    "clock-game",
-    "coin-counter",
-    "mystery",
-    "quest",
-    "boss",
-  ],
-  generic: [
-    "word-radar",
-    "pronunciation",
-    "spell-check",
-    "letter-rush",
-    "monster-stampede",
-    "wheel-of-fortune",
-    "concept-check",
-    "visual-explainer",
-    "mystery",
-    "quest",
-    "boss",
-  ],
-};
+const PLANNER_NODE_ACTIVITY_IDS = plannerNodeActivityIds();
+const NODE_TYPES = new Set<NodeType>(PLANNER_NODE_ACTIVITY_IDS as unknown as NodeType[]);
 const INSTRUMENT_RENDERERS: Record<string, NodeType> = {
   "spelling-recall": "letter-rush",
 };
+
+function plannerNodeActivityIds(): [string, ...string[]] {
+  const ids = [
+    ...listActivityToolContracts()
+      .filter((contract) => contract.plannerVisibility === "map_node" || (
+        !contract.plannerVisibility && contract.nodeType
+      ))
+      .map((contract) => contract.id),
+    ...PLANNER_DESTINATION_ACTIVITY_IDS,
+  ];
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) {
+    throw new Error("assignment_planner_activity_catalog_empty");
+  }
+  return unique as [string, ...string[]];
+}
+
+function isPlannerDestinationActivity(activityId: string): boolean {
+  return PLANNER_DESTINATION_ACTIVITY_IDS.has(activityId);
+}
+
 export const ASSIGNMENT_PLANNER_PERSONA = [
-  "You are Sunny's learning journey designer: part master tutor, part pediatric learning psychologist, part adaptive game director.",
-  "You know the child through her chart and treat the homework as the reality anchor.",
-  "You design each session like a thoughtful human tutor would: academically serious, emotionally aware, playful when it helps, and aimed at real mastery by the due date.",
-  "You have a strong sense of taste. A good session feels purposeful, varied, alive, and confidence-building.",
-  "The board is not a worksheet; it is how the child experiences the care plan.",
-  "Use the activity catalog like a tutor's table full of materials: checks, teaching tools, practice games, recovery beats, and proof moments.",
-  "Choose activities for evidence, teaching, and willingness to continue without making the child feel like this is a grind.",
-  "The child experiences the activity, not the internal capability mode. Select materials for the lived lesson they create, not for internal labels.",
-  "nodes exist to change the lived lesson, not decorate the map.",
-  "You notice boredom, avoidance, fatigue, pride, curiosity, and recovery as part of the learning picture.",
-  "You are free to choose the path from the chart, assignment evidence, due date, and mastery goal.",
+  "You are Sunny's assignment planner.",
+  "Treat homework as the reality anchor.",
+  "Use the child chart and activity catalog to choose a concise evidence-based learning plan.",
 ].join(" ");
+const ASSIGNMENT_PLANNER_MAX_TOKENS = 6_000;
 
 export const ASSIGNMENT_PLANNER_REFERENCE_DOCS: AssignmentPlannerReferenceDoc[] = [
   {
@@ -679,176 +590,19 @@ const compactNodePlanSchema = z.object({
     (value) => value === null ? undefined : value,
     wordRadarNodeConfigSchema.optional(),
   ),
-  rewardWrapper: z.preprocess(
-    (value) => value === null ? undefined : value,
-    z.object({
-      activityId: z.literal("spark-orb-charge"),
-      mode: z.enum(["charge_bridge", "domain_payload_wrapper"]),
-      reason: z.string().min(1),
-    }).strict().optional(),
-  ),
 });
 
-function optionalFromNull<T extends z.ZodTypeAny>(schema: T) {
-  return z.preprocess((value) => value === null ? undefined : value, schema.optional());
-}
-
-const adventureBoardPaletteSchema = z.object({
-  path: z.string().min(1),
-  completed: z.string().min(1),
-  available: z.string().min(1),
-  locked: z.string().min(1),
-  current: z.string().min(1),
-  preview: z.string().min(1),
-  text: z.string().min(1),
-  panel: z.string().min(1),
-}).strict();
-
-const adventureBoardThemeSchema = z.object({
-  background: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("image"), value: z.string().min(1) }).strict(),
-    z.object({ type: z.literal("gradient"), value: z.string().min(1) }).strict(),
-    z.object({ type: z.literal("solid"), value: z.string().min(1) }).strict(),
-  ]),
-  palette: adventureBoardPaletteSchema,
-}).strict();
-
-const adventureBoardSlotSchema = z.enum([
-  "1",
-  "2",
-  "3",
-  "4",
-  "5a.1",
-  "5a.2",
-  "5b.1",
-  "5b.2",
-  "5c.1",
-  "5c.2",
-  "6",
-  "7",
-  "8",
-]);
-
-const adventureBoardLayoutSchema = z.object({
-  preset: z.literal("horizontal-adventure-spine"),
-  companionSlot: optionalFromNull(z.enum(["right", "left", "none"])),
-  routeChoiceBehavior: optionalFromNull(z.enum(["exclusive", "parallel"])),
-}).strict();
-
-const adventureBoardNodeLayoutSchema = z.object({
-  role: optionalFromNull(z.enum(["start", "baseline", "mystery", "evidence-route", "choice-gate", "quest", "boss"])),
-  lane: optionalFromNull(z.enum(["main", "upper", "middle", "lower"])),
-  order: optionalFromNull(z.number()),
-  routeGroupId: optionalFromNull(z.string().min(1)),
-  selected: optionalFromNull(z.boolean()),
-}).strict();
-
-const adventureBoardTargetSchema = z.preprocess((value) => {
-  if (value === null || typeof value !== "object") return value === null ? undefined : value;
-  const record = value as Record<string, unknown>;
-  if (record.laneId == null || record.skill == null) return undefined;
-  return value;
-}, z.object({
-  laneId: z.string().min(1),
-  skill: z.string().min(1),
-  words: optionalFromNull(z.array(z.string().min(1))),
-}).strict().optional());
-
-const adventureBoardNodeSchema = z.object({
-  id: z.string().min(1),
-  kind: z.enum(["start", "activity", "choice-gate", "mystery", "quest", "boss", "reward"]),
-  activityId: optionalFromNull(z.string().min(1)),
-  label: z.string().min(1),
-  shortLabel: optionalFromNull(z.string().min(1)),
-  icon: optionalFromNull(z.string().min(1)),
-  thumbnailUrl: optionalFromNull(z.string().min(1)),
-  slot: optionalFromNull(adventureBoardSlotSchema),
-  position: optionalFromNull(z.object({ x: z.number(), y: z.number() }).strict()),
-  layout: optionalFromNull(adventureBoardNodeLayoutSchema),
-  state: z.enum(["current", "available", "completed", "locked", "preview", "hidden"]),
-  evidenceRole: optionalFromNull(z.enum(["baseline", "preference", "support", "transfer", "mastery"])),
-  target: adventureBoardTargetSchema,
-  wordRadarConfig: optionalFromNull(z.record(z.string(), z.unknown())),
-  lock: optionalFromNull(z.object({
-    reason: z.string().min(1),
-    label: z.string().min(1),
-    progressLabel: optionalFromNull(z.string().min(1)),
-  }).strict()),
-  choiceSetId: optionalFromNull(z.string().min(1)),
-  action: optionalFromNull(z.object({
-    type: z.enum(["launch-activity", "open-choice-set", "show-locked-reason"]),
-    payloadId: z.string().min(1),
-  }).strict()),
-}).strict();
-
-const adventureBoardEdgeSchema = z.object({
-  id: z.string().min(1),
-  from: z.string().min(1),
-  to: z.string().min(1),
-  state: z.enum(["completed", "available", "locked", "preview"]),
-  style: z.enum(["solid", "dashed", "glow"]).optional(),
-}).strict();
-
-const adventureBoardChoiceOptionSchema = z.object({
+const learningRouteSchema: z.ZodType<LearningRoutePrescription> = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  description: optionalFromNull(z.string()),
-  icon: optionalFromNull(z.string().min(1)),
-  thumbnailUrl: optionalFromNull(z.string().min(1)),
-  state: z.enum(["available", "locked", "completed"]),
-  nodeId: optionalFromNull(z.string().min(1)),
-  tags: optionalFromNull(z.array(z.string().min(1))),
-  choiceSignal: optionalFromNull(z.object({
-    algorithmFeed: z.literal("choicePolicy"),
-    traits: z.array(z.string().min(1)).min(1),
-    expectedEvidence: z.string().min(1),
-    preferenceNotMastery: z.literal(true),
-  }).strict()),
-  lock: optionalFromNull(z.object({
-    reason: z.string().min(1),
-    label: z.string().min(1),
-  }).strict()),
-}).strict();
-
-const adventureBoardChoiceSetSchema = z.object({
-  id: z.string().min(1),
-  kind: z.enum(["baseline-route", "mystery", "quest-wrapper", "boss-wrapper"]),
-  title: z.string().min(1),
-  options: z.array(adventureBoardChoiceOptionSchema).min(1),
-}).strict();
-
-const adventureBoardJsonSchema = z.object({
-  schemaVersion: z.literal(1),
-  boardId: z.string().min(1),
-  planId: z.string().min(1),
-  childId: z.string().min(1),
-  domain: z.enum(["spelling", "reading", "math", "science", "generic"]),
-  title: optionalFromNull(z.string()),
-  theme: adventureBoardThemeSchema,
-  layout: optionalFromNull(adventureBoardLayoutSchema),
-  plannerRationale: optionalFromNull(z.object({
-    agencyDesign: z.string().min(1),
-    evidenceDesign: z.string().min(1),
-    layoutChoice: z.string().min(1),
-  }).strict()),
-  nodes: z.array(adventureBoardNodeSchema).min(1),
-  edges: z.array(adventureBoardEdgeSchema),
-  choiceSets: optionalFromNull(z.array(adventureBoardChoiceSetSchema)),
-  companion: optionalFromNull(z.object({
-    id: z.string().min(1),
-    name: z.string().min(1),
-  }).strict()),
-  progress: optionalFromNull(z.object({
-    currentNodeId: optionalFromNull(z.string().min(1)),
-    completedNodeIds: z.array(z.string().min(1)),
-    activeChoiceSetId: optionalFromNull(z.string().min(1)),
-  }).strict()),
-}).strict().transform((board) => board as AdventureBoardJson);
+  rationale: z.string().min(1),
+  nodeIds: z.array(z.string().min(1)).min(1),
+});
 
 const compactActiveSessionPlanSchema = z.object({
   planId: z.string().min(1).optional(),
-  nodePlan: z.array(compactNodePlanSchema).min(1),
-  adventureBoard: adventureBoardJsonSchema.optional(),
+  nodePlan: z.array(compactNodePlanSchema).min(1).max(9),
+  learningRoutes: z.array(learningRouteSchema).min(2).max(3).default([]),
   evidenceUsed: z.array(z.object({
     id: z.string().min(1),
     type: z.string().min(1),
@@ -858,37 +612,33 @@ const compactActiveSessionPlanSchema = z.object({
   plannerConfidence: z.number().optional(),
 });
 
-export const assignmentPlannerDraftSchema = z.object({
-  capturedContent: z.object({
-    title: z.string().min(1),
-    type: z.enum(["spelling_test", "reading", "math", "coins", "clocks", "generic"]),
-    rawText: z.string(),
-    words: z.array(z.string().min(1)),
-    questions: z.array(z.unknown()),
-    wordGroups: z.array(wordGroupSchema).min(1),
-    contentProfile: contentProfileSchema,
-    sourceDocuments: z.array(z.object({
-      filename: z.string().min(1),
-      mediaType: z.string().optional(),
-    })).min(1),
-  }),
-  homeworkWords: z.array(z.object({
-    text: z.string().min(1),
-    sourceGroupId: z.string().min(1),
-    purpose: homeworkPurposeSchema,
+const capturedContentDraftSchema = z.object({
+  title: z.string().min(1),
+  type: z.enum(["spelling_test", "reading", "math", "coins", "clocks", "generic"]),
+  rawText: z.string(),
+  words: z.array(z.string().min(1)),
+  questions: z.array(z.unknown()),
+  wordGroups: z.array(wordGroupSchema).min(1),
+  contentProfile: contentProfileSchema,
+  sourceDocuments: z.array(z.object({
+    filename: z.string().min(1),
+    mediaType: z.string().optional(),
   })).min(1),
+});
+
+export const assignmentPlannerDraftSchema = z.object({
   activeSessionPlan: compactActiveSessionPlanSchema,
-  plannedMeasurements: z.array(plannedMeasurementSchema),
+  plannedMeasurements: z.array(plannedMeasurementSchema).max(12),
   planTheory: planTheorySchema,
-  reviewQuestions: z.array(z.string().min(1)),
+  reviewQuestions: z.array(z.string().min(1)).max(8),
   generatedExperienceBriefs: z.array(z.object({
     kind: z.enum(["quest", "boss", "visual-explainer"]),
     title: z.string().min(1),
     learningGoal: z.string().min(1),
     targetWords: z.array(z.string().min(1)),
     evidenceUsed: z.array(z.string().min(1)),
-  })).optional(),
-});
+  })).max(3).optional(),
+}).passthrough();
 
 function realChildAllowedActivityIds(childId: string): Set<string> | null {
   try {
@@ -902,12 +652,17 @@ function realChildAllowedActivityIds(childId: string): Set<string> | null {
   }
 }
 
-function inferPlannerCatalogDomain(extraction?: AssignmentSourceExtraction): keyof typeof PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN {
-  const text = extraction?.fullText.toLowerCase() ?? "";
-  if (/\b(spelling|spell|word list|silent letters?|high-frequency)\b/.test(text)) return "spelling";
-  if (/\b(clock|coin|math|add|subtract|multiply|divide|fraction)\b/.test(text)) return "math";
-  if (/\b(read|reading|fluency|passage|comprehension)\b/.test(text)) return "reading";
-  return "generic";
+function inferPlannerCatalogDomain(extraction?: AssignmentSourceExtraction): LearningDomain {
+  const text = [
+    extraction?.filename,
+    extraction?.sourcePath,
+    extraction?.fullText,
+    ...(extraction?.pages ?? []).map((page) => page.text),
+  ].filter(Boolean).join("\n").toLowerCase();
+  if (/(^|[^a-z])(spelling|spell|word list|silent letters?|high-frequency)([^a-z]|$)/.test(text)) return "spelling";
+  if (/(^|[^a-z])(clock|coin|math|add|subtract|multiply|divide|fraction)([^a-z]|$)/.test(text)) return "math";
+  if (/(^|[^a-z])(read|reading|fluency|passage|comprehension)([^a-z]|$)/.test(text)) return "reading";
+  return "reading";
 }
 
 function activityCatalog(
@@ -916,10 +671,17 @@ function activityCatalog(
 ): AssignmentActivityCard[] {
   const allowed = realChildAllowedActivityIds(childId);
   const domain = inferPlannerCatalogDomain(extraction);
-  const plannerIds = new Set(PLANNER_ACTIVITY_CATALOG_IDS_BY_DOMAIN[domain]);
   return listActivityToolContracts()
     .filter((contract) =>
-      plannerIds.has(contract.id) || contract.plannerVisibility === "wrapper")
+      contract.domains.includes(domain) &&
+      (
+        contract.plannerVisibility === "wrapper" ||
+        contract.plannerVisibility === "map_node" ||
+        (
+          !contract.plannerVisibility &&
+          contract.nodeType
+        )
+      ))
     .map((contract) => {
       const evidenceFields = plannerEvidenceFieldsForActivity(contract.id);
       const plannerVisibility = contract.plannerVisibility;
@@ -929,6 +691,7 @@ function activityCatalog(
         label: contract.label,
         sentToPlanner: true as const,
         launchable: Boolean(
+          contract.plannerVisibility !== "wrapper" &&
           NODE_TYPES.has(contract.id as NodeType) &&
           (!allowed || allowed.has(contract.id) || PLANNER_DESTINATION_ACTIVITY_IDS.has(contract.id)),
         ),
@@ -953,17 +716,14 @@ function activityCatalog(
         bestFor: evidenceFields.bestFor,
         contaminationRisks: evidenceFields.contaminationRisks,
         modeEvidenceNotes: evidenceFields.modeEvidenceNotes,
-        strengths: [...contract.strengths],
-        weakFor: [...contract.weakFor],
-        goodFitWhen: [...contract.goodFitWhen],
-        badFitWhen: [...contract.badFitWhen],
         capabilityModes: contract.capabilityModes.map((mode) => ({
-          ...mode,
-          skillTargets: [...mode.skillTargets],
-          inputModes: [...mode.inputModes],
-          scaffolds: [...mode.scaffolds],
+          id: mode.id,
+          label: mode.label,
+          difficulty: mode.difficulty,
+          purpose: mode.purpose,
+          evidenceType: mode.evidenceType,
+          masteryEligible: mode.masteryEligible,
           config: { ...mode.config },
-          measurementRisks: [...mode.measurementRisks],
         })),
         status: (
           contract.plannerVisibility === "wrapper" ||
@@ -1064,77 +824,6 @@ function childChartSummaryForPacket(
   };
 }
 
-function buildBoardPlanningContext(): AssignmentBoardPlanningContext {
-  return {
-    algorithmContracts: {
-      choicePolicy: {
-        id: "choicePolicy",
-        purpose: "Rank valid child-facing choices by preference evidence, uncertainty, replay, completion, frustration, and outcomes.",
-        needs: ["options_shown", "option_chosen", "skips", "replays", "completion", "frustration", "outcome"],
-        outputs: ["shown_chosen_skipped_outcome", "preference_signal", "uncertainty_signal"],
-        guardrails: ["preference_is_not_mastery", "shown_but_not_chosen_is_weak_neutral"],
-      },
-      spacedRepetition: {
-        id: "spacedRepetition",
-        purpose: "Use target history, latency, retries, help, and due state as context for support, review, challenge, or transfer.",
-        needs: ["target_accuracy", "latency", "retries", "help", "last_seen", "due_state"],
-        outputs: ["target_dosage", "support_level", "review_timing"],
-        guardrails: ["preference_is_not_mastery", "explain_how_target_history_informs_the_plan"],
-      },
-      questReadiness: {
-        id: "questReadiness",
-        purpose: "Require baseline evidence plus a named theory before generated transfer content unlocks.",
-        needs: ["baseline_evidence", "target_theory", "contradictions", "support_revise_falsify_criteria"],
-        outputs: ["quest_locked_or_ready", "transfer_theory"],
-        guardrails: ["quest_is_not_random_loot", "missing_baseline_keeps_quest_locked"],
-      },
-      masteryGate: {
-        id: "masteryGate",
-        purpose: "Require quest or transfer evidence before boss/mastery finale unlocks.",
-        needs: ["quest_evidence", "transfer_result", "per_target_results", "contradictions"],
-        outputs: ["boss_locked_or_ready", "mastery_claim_evidence"],
-        guardrails: ["boss_requires_quest_evidence", "in_app_success_is_not_final_transfer_proof"],
-      },
-    },
-    choicePolicyContext: {
-      purpose: "Choice points collect preference and engagement evidence that can improve future wrappers without claiming academic mastery.",
-      evidenceSignals: [
-        "shown_options",
-        "chosen_option",
-        "replayed_path",
-        "completed_path",
-        "skipped_path",
-        "frustration_or_recovery",
-        "learning_outcome_after_choice",
-      ],
-      signalQualityNotes: [
-        "Child choice is not decoration; it is a diagnostic reading about which kind of effort the child is willing to enter.",
-        "A choice between academically valid paths can reveal voice, speed, puzzle, story, competition, calm practice, construction, recall, or other wrapper affinity.",
-        "Mystery is not a replacement for route agency; Mystery measures wrapper preference after work, while route choice measures willingness among valid academic routes.",
-        "That preference evidence can shape future Quest and Boss content while mastery still comes from target-level outcomes.",
-        "Shown-but-not-chosen is weak neutral evidence; explicit dislike or abandonment is stronger negative evidence.",
-      ],
-      plannerDecision: "The planner decides how many route, Mystery, Quest, or Boss choices are worth the child's attention from chart evidence, stamina, motivation, and uncertainty.",
-    },
-    runtimeConstraints: {
-      rendererOnly: true,
-      noRuntimePlanning: true,
-      outputMustBeSerializableJson: true,
-    },
-    criticPolicy: {
-      semanticAudit: "always",
-      visualCritic: "risk_gated",
-      riskSignals: [
-        "planner_confidence_low",
-        "semantic_audit_failed",
-        "complex_choice_graph",
-        "forced_by_cli",
-      ],
-      retryLimit: 1,
-    },
-  };
-}
-
 function systemTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
@@ -1212,10 +901,6 @@ export function buildAssignmentMasteryContext(args: {
       supportEvidence: ["practice accuracy", "retry recovery", "help or hint use", "latency and pacing"],
       notEnoughEvidence: ["completion alone", "preference alone", "reward choice alone"],
     },
-    questRole: "Quest is transfer proof after baseline evidence.",
-    bossRole: "Boss is the mastery gate after quest evidence.",
-    failureLoop:
-      "If quest or boss fails, identify the failed target or skill, teach it next session, then retry the proof.",
   };
 }
 
@@ -1247,6 +932,102 @@ function readinessProofForExtraction(
   };
 }
 
+function slugForSourceHeading(value: string, fallback: string): string {
+  const slug = normalizeNodeSlug(value);
+  return slug || fallback;
+}
+
+function spellingGroupsFromSourceText(extraction: AssignmentSourceExtraction): Array<{
+  id: string;
+  label: string;
+  purpose: HomeworkTargetPurpose;
+  words: string[];
+  confidence: number;
+  evidence: string[];
+}> {
+  const text = extraction.fullText || extraction.pages.map((page) => page.text).join("\n");
+  const lines = text
+    .split(/\r?\n/g)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const headingIndex = lines.findIndex((line) => /silent letters?/i.test(line) && /high[- ]frequency/i.test(line));
+  if (headingIndex < 0) return [];
+
+  const leftWords: string[] = [];
+  const rightWords: string[] = [];
+  for (const line of lines.slice(headingIndex + 1)) {
+    const tokens = [...line.matchAll(/[A-Za-z][A-Za-z'-]*/g)]
+      .map((match) => match[0].toLowerCase().replace(/[^a-z'-]/g, ""))
+      .filter((token) => token.length >= 3 && !/^o+$/.test(token));
+    if (tokens.length !== 2) continue;
+    leftWords.push(tokens[0]!);
+    rightWords.push(tokens[1]!);
+  }
+  if (leftWords.length === 0 || rightWords.length === 0) return [];
+  return [
+    {
+      id: slugForSourceHeading("Silent Letters", "silent-letters").replace(/-/g, "_"),
+      label: "Silent Letters",
+      purpose: "spell_from_memory",
+      words: leftWords,
+      confidence: 0.9,
+      evidence: ["Source heading pairs Silent Letters under Benchmark Advance Spelling."],
+    },
+    {
+      id: slugForSourceHeading("High-Frequency Words", "high-frequency-words").replace(/-/g, "_"),
+      label: "High-Frequency Words",
+      purpose: "spell_from_memory",
+      words: rightWords,
+      confidence: 0.86,
+      evidence: ["Source is a spelling test word list; high-frequency words are part of the test words."],
+    },
+  ];
+}
+
+function capturedHomeworkFromSource(extraction: AssignmentSourceExtraction): AssignmentPlanningCapturedHomework {
+  const spellingGroups = isSpellingTestExtraction(extraction)
+    ? spellingGroupsFromSourceText(extraction)
+    : [];
+  const words = spellingGroups.flatMap((group) => group.words);
+  const title = isSpellingTestExtraction(extraction)
+    ? "Benchmark Advance Spelling Unit 9 Week 3"
+    : extraction.filename;
+  const captured = buildCapturedHomeworkContent({
+    title,
+    type: isSpellingTestExtraction(extraction) ? "spelling_test" : "generic",
+    rawText: extraction.fullText,
+    words,
+    questions: [],
+    wordGroups: spellingGroups,
+    sourceDocuments: [{ filename: extraction.filename, mediaType: extraction.mediaType }],
+    contentProfile: {
+      practiceDomain: isSpellingTestExtraction(extraction) ? "spelling" : "generic",
+      contentDomain: "language_arts",
+      topic: isSpellingTestExtraction(extraction) ? "Silent letters and high-frequency words" : extraction.filename,
+      primarySkill: isSpellingTestExtraction(extraction) ? "Spell words from memory" : "content_understanding",
+      assignmentFormat: isSpellingTestExtraction(extraction)
+        ? "Spelling test word list"
+        : "worksheet",
+      concepts: isSpellingTestExtraction(extraction)
+        ? ["silent letter patterns", "high-frequency word spelling"]
+        : [],
+      sourceEvidence: [
+        extraction.filename,
+        ...extraction.warnings,
+      ],
+    },
+  });
+  return {
+    title: captured.title,
+    type: captured.type,
+    words: captured.words,
+    questions: captured.questions,
+    wordGroups: captured.wordGroups,
+    sourceDocuments: captured.sourceDocuments,
+    contentProfile: captured.contentProfile,
+  };
+}
+
 export function buildAssignmentPlanningPacket(args: {
   childId: string;
   extraction: AssignmentSourceExtraction;
@@ -1259,6 +1040,7 @@ export function buildAssignmentPlanningPacket(args: {
   const recentEvidence = args.currentEvidenceSummary ?? [];
   const childChart = childChartSummaryForPacket(args.childChart, recentEvidence);
   const catalog = activityCatalog(args.childId, args.extraction);
+  const capturedHomework = capturedHomeworkFromSource(args.extraction);
   const baseMasteryContext = args.masteryContext ?? buildAssignmentMasteryContext();
   const readinessProof = readinessProofForExtraction(
     args.extraction,
@@ -1282,49 +1064,23 @@ export function buildAssignmentPlanningPacket(args: {
       pages: args.extraction.pages.map((page) => ({ ...page })),
       fullText: args.extraction.fullText,
     },
+    capturedHomework,
     childChart,
     activityCatalog: catalog,
-    boardPlanning: buildBoardPlanningContext(),
-    plannerReferences: ASSIGNMENT_PLANNER_REFERENCE_DOCS.map((doc) => ({
-      ...doc,
-      appliesWhen: [...doc.appliesWhen],
-      checklist: [...doc.checklist],
-    })),
     ...(args.parentDialogue?.length ? { parentDialogue: args.parentDialogue.map((turn) => ({ ...turn })) } : {}),
     plannerInstruction: [
-      "Interpret the assignment from the source text and source groups.",
+      "Use capturedHomework as the assignment truth; do not echo captured content back.",
       "Activities are instruments. Choose nodes by target purpose, not by generic fun.",
-      "Use activityCatalog.evidenceRole, proofStrength, bestFor, contaminationRisks, and modeEvidenceNotes as the instrument truth table.",
-      "Use plannerReferences when evaluating whether a new class activity should enter Sunny; docs explain product rules and configOwner points to the machine-readable contract.",
-      "If parent dialogue is present, treat it as human-in-the-loop correction context without weakening source evidence or target-level measurement.",
-      "Planner-visible wrapper activities are not map nodes. If a wrapper fits organically, attach it as rewardWrapper on a domain-valid node instead of replacing the academic activity.",
-      "Spark Orb may be selected only as rewardWrapper when its catalog/docs fit the child and assignment. It is optional; choosing not to use it is valid when baseline evidence should stay clean.",
-      "Do not emit rewardWrapper as null, {}, or a partial object; either omit it or provide the exact supported object.",
-      "domain_payload_wrapper must attach to an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or any locked destination.",
-      "A mode can be academically valid even when another mode of the same activity is not; judge the selected mode's evidence, not only the activity name.",
-      "Each word group must declare its learning purpose from source evidence.",
-      "Do not collapse teacher-labeled groups into one skill; infer whether each group asks for spelling production, recognition, fluency, pronunciation, meaning, or review.",
-      "In a spelling-test packet, a section title such as High-Frequency Words usually names spelling targets unless the source explicitly says reading, definition, vocabulary meaning, or fluency instead.",
-      "Use recent canonical activity evidence as lesson-to-lesson context: misses, second attempts, help, skips, fast first-try correct responses, replay, and frustration are signals a thoughtful tutor would consider.",
-      "When evidence conflicts, name the contradiction and choose a path that can clarify what the child actually needs next.",
-      "Use the child-facing journey as part of professional judgment: the experience should feel purposeful and worth effort while preserving academic validity.",
+      "Do not collapse teacher-labeled groups into one skill.",
+      "Use recent canonical activity evidence as lesson-to-lesson labs: weak targets get support; mastered targets get smaller checks or transfer instead of full repeated baseline.",
+      "When evidence conflicts, probe contradictory targets first and explain the uncertainty.",
+      "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
+      "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes.",
+      "Keep the returned plan compact.",
+      "Design two named learning routes when the catalog has enough launchable instruments; each route should feel like a real child choice and test a distinct route hypothesis.",
+      "Each learning route needs a child-specific rationale, target groups, nodeIds, and activities that measure the route hypothesis.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
-      "Every activeSessionPlan.nodePlan entry must have a plannedMeasurements entry whose id is measure-${node.id}; include supportCriteria, reviseCriteria, and falsifyCriteria for the exact signal that node is meant to collect.",
-      "Return a board plan that cites why every activity fits the target purpose.",
-      "Use adventureMapProfile as delivery preference and layout intent, not as today's board JSON.",
-      "Use this packet as the single planner object: childChart, sourceDocument, masteryContext, activityCatalog, algorithmContracts, runtimeConstraints, and criticPolicy.",
-      "Use masteryContext as the clock and deadline pressure: the goal is demonstrated homework mastery by testDate, not merely completing a cute board.",
-      "Use masteryContext.readinessProof as the domain center; spelling-test readiness means unaided spelling recall unless fresh clean recall evidence already proves it.",
-      "Use date, time, and daysUntilTest as care-plan context when deciding the session's intensity and pacing.",
-      "Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.",
-      "If quest or boss fails, the next session should identify the failed target or skill, teach that skill, and retry the proof loop.",
-      "Child choice is not decoration; it is a diagnostic reading about which kind of effort the child is willing to enter.",
-      "When multiple academically valid paths exist, route choice can reveal voice, speed, puzzle, story, competition, calm practice, construction, recall, or other wrapper affinity.",
-      "Mystery is not a replacement for route agency; Mystery asks which wrapper feels motivating after work, while route agency lets the child choose between route-worthy alternatives that are academically valid.",
-      "When the assignment and catalog provide route-worthy alternatives, include them as real launchable intervention nodes before Mystery so the choice can teach Sunny something about the child's willingness and learning style.",
-      "Route-worthy alternatives can be different valid instruments or wrappers for the same target lane after enough baseline to avoid blind choice; they do not have to be different worksheet sections.",
-      "That preference evidence can shape future Quest and Boss content while mastery still comes from target-level outcomes.",
-      "Explain why the journey you chose fits this child today.",
+      "Always include reviewQuestions with concise tutor-facing explanations for the activity choices and evidence checks.",
     ].join(" "),
     ...(args.priorPlannerOutput ? { priorPlannerOutput: args.priorPlannerOutput } : {}),
   };
@@ -1371,51 +1127,11 @@ export function validateAssignmentPlannerOutput(
   }
 
   const catalog = args.activityCatalog ?? activityCatalog();
-  const catalogByActivityId = new Map(catalog.map((card) => [card.activityId, card]));
-  const wrapperActivityIds = new Set(
-    catalog
-      .filter((card) => card.plannerVisibility === "wrapper")
-      .map((card) => card.activityId),
-  );
-  const wrapperModesByActivityId = new Map(
-    catalog
-      .filter((card) => card.plannerVisibility === "wrapper")
-      .map((card) => [
-        card.activityId,
-        new Set(card.capabilityModes.map((mode) => mode.id)),
-      ]),
-  );
   const activityIds = new Set(
     args.activityIds ?? catalog
-      .filter((card) => card.launchable || card.plannerVisibility === "wrapper")
+      .filter((card) => card.launchable)
       .map((card) => card.activityId),
   );
-  const nodeTypes = new Set(output.activeSessionPlan.nodePlan.map((node) => node.type));
-  if (!nodeTypes.has("mystery")) {
-    issues.push({
-      code: "missing_mystery_choice",
-      severity: "error",
-      message: "Planner output must include one Mystery/Bandit choice node after evidence-generating work.",
-    });
-  }
-  if (!nodeTypes.has("quest")) {
-    issues.push({
-      code: "missing_quest_destination",
-      severity: "error",
-      message: "Planner output must include a locked Quest destination for generated transfer after baseline evidence.",
-    });
-  }
-  if (!nodeTypes.has("boss")) {
-    issues.push({
-      code: "missing_boss_destination",
-      severity: "error",
-      message: "Planner output must include a locked Boss destination after Quest evidence.",
-    });
-  }
-  const sourceGroupsByTargets = groups.map((group) => ({
-    group,
-    targetKeys: new Set(group.words.map((word) => word.trim().toLowerCase()).filter(Boolean)),
-  }));
   const measurementIds = new Set(output.plannedMeasurements.map((measurement) => measurement.id));
   for (const node of output.activeSessionPlan.nodePlan) {
     if (!activityIds.has(node.activityId)) {
@@ -1425,51 +1141,11 @@ export function validateAssignmentPlannerOutput(
         message: `Node ${node.id} references unknown activity ${node.activityId}.`,
       });
     }
-    if (wrapperActivityIds.has(node.activityId)) {
-      issues.push({
-        code: "wrapper_activity_used_as_node",
-        severity: "error",
-        message: `Node ${node.id} uses wrapper activity ${node.activityId} as a standalone node; attach it as rewardWrapper on a domain-valid node instead.`,
-      });
-    }
-    const rewardWrapper = "rewardWrapper" in node ? node.rewardWrapper : undefined;
-    if (rewardWrapper) {
-      const wrapperCard = catalogByActivityId.get(rewardWrapper.activityId);
-      if (!wrapperCard) {
-        issues.push({
-          code: "unknown_reward_wrapper_activity",
-          severity: "error",
-          message: `Node ${node.id} references unknown reward wrapper ${rewardWrapper.activityId}.`,
-        });
-      } else if (wrapperCard.plannerVisibility !== "wrapper") {
-        issues.push({
-          code: "reward_wrapper_activity_not_wrapper",
-          severity: "error",
-          message: `Node ${node.id} references ${rewardWrapper.activityId} as a reward wrapper, but the catalog does not mark it as a wrapper.`,
-        });
-      } else if (!wrapperModesByActivityId.get(rewardWrapper.activityId)?.has(rewardWrapper.mode)) {
-        issues.push({
-          code: "unknown_reward_wrapper_mode",
-          severity: "error",
-          message: `Node ${node.id} references unsupported wrapper mode ${rewardWrapper.activityId}:${rewardWrapper.mode}.`,
-        });
-      }
-      if (
-        rewardWrapper.mode === "domain_payload_wrapper" &&
-        (node.locked === true || node.type === "quest" || node.type === "boss" || node.type === "mystery")
-      ) {
-        issues.push({
-          code: "reward_wrapper_requires_domain_payload_node",
-          severity: "error",
-          message: `Node ${node.id} uses domain_payload_wrapper on ${node.type}; attach it to an unlocked evidence-generating domain node instead.`,
-        });
-      }
-    }
-    if (!measurementIds.has(`measure-${node.id}`)) {
+    if (!isPlannerDestinationActivity(node.activityId) && !measurementIds.has(`measure-${node.id}`)) {
       issues.push({
         code: "missing_node_measurement",
         severity: "error",
-        message: `Node ${node.id} must have planned measurement id measure-${node.id} with support, revise, and falsify criteria.`,
+        message: `Learning node ${node.id} must have planned measurement id measure-${node.id} with support, revise, and falsify criteria.`,
       });
     }
     const nodeTargetKeys = new Set(node.targets.map((target) => target.trim().toLowerCase()).filter(Boolean));
@@ -1485,72 +1161,11 @@ export function validateAssignmentPlannerOutput(
         });
       }
     }
-    const matchingGroup = sourceGroupsByTargets.find(({ targetKeys }) =>
-      nodeTargetKeys.size > 0 &&
-      [...nodeTargetKeys].every((target) => targetKeys.has(target)),
-    )?.group;
-    if (matchingGroup && node.targetLane !== matchingGroup.id) {
-      issues.push({
-        code: "target_lane_mismatch",
-        severity: "error",
-        message: `Node ${node.id} targetLane must be exact source group id ${matchingGroup.id}.`,
-      });
-    }
     if (node.type === "word-radar" && !node.wordRadarConfig) {
       issues.push({
         code: "missing_word_radar_config",
         severity: "error",
-        message: `Word Radar node ${node.id} must include planner-authored wordRadarConfig.`,
-      });
-    }
-  }
-
-  if (output.activeSessionPlan.adventureBoard) {
-    const planNodeIds = new Set(output.activeSessionPlan.nodePlan.map((node) => node.id));
-    for (const boardNode of output.activeSessionPlan.adventureBoard.nodes) {
-      if (
-        ["activity", "mystery", "quest", "boss"].includes(boardNode.kind) &&
-        !planNodeIds.has(boardNode.id) &&
-        !planNodeIds.has(boardNode.action?.payloadId ?? "")
-      ) {
-        issues.push({
-          code: "board_learning_node_missing_node_plan_reference",
-          severity: "error",
-          message: `Board learning node ${boardNode.id} must use a nodePlan id or action.payloadId reference.`,
-        });
-      }
-    }
-    const boardIssues = validateAdventureBoardJson(output.activeSessionPlan.adventureBoard, activityIds);
-    for (const issue of boardIssues) {
-      const code = issue.code === "missing_edge_endpoint"
-        ? "board_missing_edge_endpoint"
-        : issue.code === "choice_option_missing_node"
-          ? "board_choice_option_missing_node"
-          : issue.code === "choice_gate_missing_choice_set"
-            ? "board_choice_gate_missing_choice_set"
-            : issue.code === "choice_gate_missing_incoming_edge"
-              ? "board_fake_agency"
-              : issue.code === "choice_gate_missing_outgoing_edge"
-                ? "board_choice_gate_missing_outgoing_edge"
-                : issue.code === "baseline_choice_route_missing"
-                  ? "board_baseline_choice_route_missing"
-                  : issue.code === "baseline_choice_route_too_few_options"
-                    ? "board_baseline_choice_route_too_few_options"
-                : issue.code === "baseline_choice_missing_node"
-                  ? "board_baseline_choice_missing_node"
-                  : issue.code === "unknown_board_activity_id"
-                    ? "board_unknown_activity_id"
-                    : issue.code === "preference_claims_mastery"
-                      ? "board_preference_claims_mastery"
-                      : issue.code === "choice_signal_missing"
-                        ? "board_choice_signal_missing"
-                        : issue.code === "choice_signal_claims_mastery"
-                          ? "board_choice_signal_claims_mastery"
-                      : issue.code;
-      issues.push({
-        code,
-        severity: issue.severity,
-        message: issue.message,
+        message: `Word Radar node ${node.id} must include planner-selected wordRadarConfig.`,
       });
     }
   }
@@ -1560,6 +1175,13 @@ export function validateAssignmentPlannerOutput(
 
 export function summarizeAssignmentPlanForReview(output: AssignmentPlannerOutput): string {
   const lines: string[] = [];
+  const reasoningLines = [
+    output.planTheory.hypothesis,
+    ...output.reviewQuestions,
+  ]
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const seenReasoning = new Set<string>();
   lines.push("Assignment planning review");
   lines.push("");
   lines.push("Source groups:");
@@ -1573,9 +1195,11 @@ export function summarizeAssignmentPlanForReview(output: AssignmentPlannerOutput
   }
   lines.push("");
   lines.push("Reasoning:");
-  lines.push(`- ${output.planTheory.hypothesis}`);
-  for (const question of output.reviewQuestions) {
-    lines.push(`- ${question}`);
+  for (const reasoning of reasoningLines) {
+    const key = reasoning.toLowerCase();
+    if (seenReasoning.has(key)) continue;
+    seenReasoning.add(key);
+    lines.push(`- ${reasoning}`);
   }
   return lines.join("\n");
 }
@@ -1624,55 +1248,32 @@ Design today's learning journey for this child from the source-of-truth packet.
 Call ${ASSIGNMENT_PLANNER_TOOL_NAME} exactly once. Do not answer with free-text JSON.
 
 Output contract:
-- If source page images are provided, use the worksheet image/layout as the primary source of truth and OCR text only as support.
-- Do not flatten source word groups.
-- Infer each source group's target purpose from the assignment evidence.
+- Use packet.capturedHomework as the captured assignment truth. Do not return capturedContent or homeworkWords.
+- Do not flatten capturedHomework.wordGroups.
+- Use each source group's captured target purpose from packet.capturedHomework.assignmentInterpretation.
 - Do not assume every group on a spelling handout has the same success target; teacher headings can distinguish spelling production from reading fluency, recognition, vocabulary, or review.
-- In a spelling-test packet, a section title such as High-Frequency Words usually names spelling targets unless the source explicitly says reading, definition, vocabulary meaning, or fluency instead.
-- Use recent canonical activity evidence as lesson-to-lesson context: misses, second attempts, help, skips, fast first-try correct responses, replay, and frustration are signals a thoughtful tutor would consider.
-- When evidence conflicts, name the contradiction and choose a path that can clarify what the child actually needs next.
 - Match each source group to activities whose cataloged skills can actually measure that purpose.
 - For any node targeting one source word group, targetLane must exactly equal that source wordGroups[].id. Do not invent expanded lane names.
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - If parentDialogue is present in the packet, this is human-in-the-loop context. Use it to revise the plan without overriding captured source evidence.
-- Use plannerReferences when evaluating wrapper activities and activity graduation rules.
-- Planner-visible wrapper activities are not map nodes. If a wrapper fits organically, attach it as rewardWrapper on a domain-valid node instead of replacing the academic activity.
-- Spark Orb may be selected only as rewardWrapper when its catalog/docs fit the child and assignment. It is optional; choosing not to use it is valid when baseline evidence should stay clean.
-- Do not emit rewardWrapper as null, {}, or a partial object; either omit it or provide the exact supported object.
-- domain_payload_wrapper must attach to an unlocked evidence-generating activity node, not Mystery, Quest, Boss, or any locked destination.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
+- Keep the tool output compact: no prose outside fields, no repeated rationales, no more nodes than the adventure spine needs.
+- Create activeSessionPlan.learningRoutes with two named learning routes when the activity catalog has enough launchable instruments. Each route must include a route hypothesis, child-specific rationale, and nodeIds that refer to real nodePlan entries.
 - Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
+- Code owns board ids, edges, locks, choice gates, and payload ids. You own the learning journey, route names, route hypotheses, target groups, and why those routes fit the child.
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
 - Use activityCatalog evidence fields as the instrument truth table; do not treat all modes of one activity as equivalent.
-- Evidence roles describe proof, not launchable node ids; nodePlan.type and nodePlan.activityId must use activityCatalog.activityId.
-- Use the activity catalog as a tutor's table of valid materials. Choose a lived journey that can teach, measure, and reveal willingness while preserving evidence validity.
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
-- Use packet.masteryContext.readinessProof as the domain center; spelling-test readiness means unaided spelling recall. practice can vary, but readiness proof is unaided spelling production unless fresh clean recall evidence already proves the test targets.
-- Use date, time, and daysUntilTest as care-plan context when deciding the session's intensity and pacing.
-- Use packet.boardPlanning.algorithmContracts and choicePolicyContext for route, Mystery, Quest, and Boss wrapper evidence; preference evidence, not mastery, is what these choices produce.
-- Child choice is not decoration; it is a diagnostic reading about which kind of effort the child is willing to enter.
-- When multiple academically valid paths exist, route choice can reveal voice, speed, puzzle, story, competition, calm practice, construction, recall, or other wrapper affinity.
-- Mystery is not a replacement for route agency; Mystery asks which wrapper feels motivating after work, while route agency lets the child choose between route-worthy alternatives that are academically valid.
-- When the assignment and catalog provide route-worthy alternatives, include them as real launchable intervention nodes before Mystery so the choice can teach Sunny something about the child's willingness and learning style.
-- Route-worthy alternatives can be different valid instruments or wrappers for the same target lane after enough baseline to avoid blind choice; they do not have to be different worksheet sections.
-- That preference evidence can shape future Quest and Boss content while mastery still comes from target-level outcomes.
-- Quest is transfer proof after baseline evidence; Boss is the mastery gate after quest evidence.
-- If quest or boss fails, the next session should identify the failed target or skill, teach that skill, then retry the proof loop.
-- The app materializes presentation board JSON from your nodePlan after validation. Your job is curriculum, evidence, sequence, route intent, and agency rationale.
-- Route choice is part of tutoring judgment: when you include it, the alternatives should be academically valid or preference-only by design, and planTheory or reviewQuestions should make your rationale legible.
-- Agency works best when it emerges from the evidence and homework goal rather than as decoration.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
-- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
-- Mystery is choice/preference evidence, not mastery. Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
+- Include the adventure spine in activeSessionPlan.nodePlan: baseline measurement nodes first, then route nodes referenced by learningRoutes, then exactly one mystery node for child choice/bandit preference evidence after evidence-generating work, then a locked quest destination for generated transfer, then a locked boss destination for the mastery finale after quest evidence.
+- Use type/activityId "mystery", choiceMode "choice_lab", locked false, and targets from the relevant active homework targets.
 - Quest and Boss are destinations, not playable baseline nodes. Use type/activityId "quest" and "boss", locked true, masteryUnlockState "preparing"; Quest should target one exact source group if the theory is about one group, otherwise omit targetLane. Boss may have empty targets until quest evidence exists. Never invent targetLane values such as "all_homework", "mixed", or "combined".
-- Set masteryUnlockState only on locked quest and boss nodes. For those nodes use exactly "masteryUnlockState": "preparing". Omit masteryUnlockState from every unlocked, non-destination, or choice node.
-- rewardWrapper is optional and only supports {"activityId":"spark-orb-charge","mode":"charge_bridge"|"domain_payload_wrapper","reason":string}; omit it unless the wrapper improves engagement while preserving academic evidence.
 - Include parent-review language that explains why every group was routed to its activity.
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
-- Return one valid tool-call JSON object directly; the tool schema enforces capturedContent, homeworkWords, activeSessionPlan.nodePlan, plannedMeasurements, planTheory, and reviewQuestions.
+- Return one valid tool-call JSON object directly; the tool schema enforces activeSessionPlan.nodePlan, activeSessionPlan.learningRoutes, plannedMeasurements, planTheory, and reviewQuestions.
 
 Packet:
 ${JSON.stringify(packet)}`;
@@ -1706,7 +1307,7 @@ function removeSchemaProperty(schema: JsonSchemaObject | undefined, propertyName
 function enforcePlannerToolContract(schema: JsonSchemaObject): JsonSchemaObject {
   const activeSessionPlan = schemaProperties(schema).activeSessionPlan;
   removeSchemaProperty(activeSessionPlan, "adventureBoard");
-  setSchemaRequired(activeSessionPlan, ["nodePlan"]);
+  setSchemaRequired(activeSessionPlan, ["nodePlan", "learningRoutes"]);
 
   return schema;
 }
@@ -1715,6 +1316,69 @@ export function assignmentPlannerToolJsonSchema(): Record<string, unknown> {
   return enforcePlannerToolContract(
     z.toJSONSchema(assignmentPlannerDraftSchema, { io: "input" }) as JsonSchemaObject,
   );
+}
+
+export class AssignmentPlannerToolInvalidError extends Error {
+  readonly toolInput: unknown;
+  readonly issues: z.core.$ZodIssue[];
+  readonly keys: string;
+
+  constructor(toolInput: unknown, issues: z.core.$ZodIssue[]) {
+    const keys = toolInput && typeof toolInput === "object" && !Array.isArray(toolInput)
+      ? Object.keys(toolInput).sort().join(",")
+      : typeof toolInput;
+    super(`assignment_planner_tool_invalid:keys=${keys}:issues=${JSON.stringify(issues)}`);
+    this.name = "AssignmentPlannerToolInvalidError";
+    this.toolInput = toolInput;
+    this.issues = issues;
+    this.keys = keys;
+  }
+}
+
+function fallbackPlanTheoryForToolInput(input: Record<string, unknown>): PlanTheory {
+  const activeSessionPlan = jsonObject(input.activeSessionPlan);
+  const routes = Array.isArray(activeSessionPlan?.learningRoutes)
+    ? activeSessionPlan.learningRoutes as Array<Record<string, unknown>>
+    : [];
+  const reviewQuestions = Array.isArray(input.reviewQuestions)
+    ? input.reviewQuestions.map((item) => String(item)).filter(Boolean)
+    : [];
+  const routeSummary = routes
+    .map((route) => `${route.label ?? route.id ?? "route"}: ${route.rationale ?? ""}`.trim())
+    .filter(Boolean);
+  const evidenceSummary = [
+    ...routeSummary.slice(0, 2),
+    ...reviewQuestions.slice(0, 2),
+  ].filter(Boolean);
+  return {
+    hypothesis: reviewQuestions[0] ?? routeSummary[0] ?? "Planner returned a compact intervention plan from the captured homework packet.",
+    evidenceSummary: evidenceSummary.length ? evidenceSummary : ["Captured homework packet and child chart informed the intervention plan."],
+    intervention: routeSummary[0] ?? "Use the selected nodePlan and learningRoutes as the intervention hypothesis.",
+    supportCriteria: ["Node-level planned measurements support the route hypothesis."],
+    reviseCriteria: ["Node-level planned measurements show fragile targets, retries, or support needs."],
+    falsifyCriteria: ["Measurements contradict the selected route hypothesis or miss the captured homework targets."],
+  };
+}
+
+function normalizeAssignmentPlannerToolInput(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const record = input as Record<string, unknown>;
+  if (!record.activeSessionPlan || !record.plannedMeasurements) return input;
+  const planTheory = record.planTheory ?? fallbackPlanTheoryForToolInput(record);
+  const normalized: Record<string, unknown> = {
+    ...record,
+    planTheory,
+  };
+  if (!record.reviewQuestions) {
+    const theory = planTheory as PlanTheory;
+    normalized.reviewQuestions = [
+      theory.hypothesis,
+      theory.intervention,
+      ...theory.supportCriteria,
+      ...theory.reviseCriteria,
+    ].filter(Boolean).slice(0, 8);
+  }
+  return normalized;
 }
 
 export function parseAssignmentPlannerToolUseResponse(
@@ -1728,7 +1392,14 @@ export function parseAssignmentPlannerToolUseResponse(
   if (!toolUse || !("input" in toolUse)) {
     throw new Error(`assignment_planner_tool_missing:${ASSIGNMENT_PLANNER_TOOL_NAME}`);
   }
-  return assignmentPlannerDraftSchema.parse(toolUse.input);
+  try {
+    return assignmentPlannerDraftSchema.parse(normalizeAssignmentPlannerToolInput(toolUse.input));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new AssignmentPlannerToolInvalidError(toolUse.input, error.issues);
+    }
+    throw error;
+  }
 }
 
 function firstJsonObject(value: string): string {
@@ -1766,46 +1437,7 @@ export function parseAssignmentPlannerJson(value: string): AssignmentPlannerResp
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "");
   const parsed = JSON.parse(firstJsonObject(trimmed)) as unknown;
-  return assignmentPlannerDraftSchema.parse(parsed);
-}
-
-function summarizePlannerParseError(error: unknown): string {
-  if (error instanceof z.ZodError) {
-    return error.issues
-      .slice(0, 30)
-      .map((issue) => `${issue.path.join(".") || "<root>"}: ${issue.message}`)
-      .join("\n");
-  }
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-async function parseOrRepairAssignmentPlannerJson(
-  value: string,
-  model: string,
-): Promise<AssignmentPlannerResponseObject> {
-  try {
-    return parseAssignmentPlannerJson(value);
-  } catch (error) {
-    const { text } = await generateText({
-      model: anthropic(model),
-      system: [
-        "Repair Sunny assignment planner JSON so it matches the required schema.",
-        "Return only one valid JSON object.",
-        "Do not add, remove, or reinterpret educational decisions.",
-        "Do not put presentation-only nodes in activeSessionPlan.nodePlan.",
-        "activeSessionPlan.nodePlan contains only real interventions with activityId and targets.",
-      ].join(" "),
-      maxOutputTokens: 12_000,
-      prompt: [
-        "Parse/schema error:",
-        summarizePlannerParseError(error),
-        "JSON to repair:",
-        firstJsonObject(value),
-      ].join("\n\n"),
-    });
-    return parseAssignmentPlannerJson(text);
-  }
+  return assignmentPlannerDraftSchema.parse(normalizeAssignmentPlannerToolInput(parsed));
 }
 
 async function callAssignmentPlannerModel(
@@ -1817,6 +1449,23 @@ async function callAssignmentPlannerModel(
   return callAssignmentPlannerTool({ prompt, model, images });
 }
 
+function usageFromAnthropic(response: Pick<Anthropic.Messages.Message, "usage">): LanguageModelUsage {
+  return {
+    inputTokens: response.usage.input_tokens,
+    inputTokenDetails: {
+      noCacheTokens: response.usage.input_tokens,
+      cacheReadTokens: response.usage.cache_read_input_tokens ?? undefined,
+      cacheWriteTokens: response.usage.cache_creation_input_tokens ?? undefined,
+    },
+    outputTokens: response.usage.output_tokens,
+    outputTokenDetails: {
+      textTokens: response.usage.output_tokens,
+      reasoningTokens: undefined,
+    },
+    totalTokens: response.usage.input_tokens + response.usage.output_tokens,
+  };
+}
+
 async function callAssignmentPlannerTool(args: {
   prompt: string;
   model: string;
@@ -1825,7 +1474,7 @@ async function callAssignmentPlannerTool(args: {
   const client = new Anthropic();
   const response = await client.messages.create({
     model: args.model,
-    max_tokens: 12_000,
+    max_tokens: ASSIGNMENT_PLANNER_MAX_TOKENS,
     system: ASSIGNMENT_PLANNER_PERSONA,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
@@ -1850,20 +1499,7 @@ async function callAssignmentPlannerTool(args: {
   });
   return {
     draft: parseAssignmentPlannerToolUseResponse(response),
-    usage: {
-      inputTokens: response.usage.input_tokens,
-      inputTokenDetails: {
-        noCacheTokens: response.usage.input_tokens,
-        cacheReadTokens: response.usage.cache_read_input_tokens ?? undefined,
-        cacheWriteTokens: response.usage.cache_creation_input_tokens ?? undefined,
-      },
-      outputTokens: response.usage.output_tokens,
-      outputTokenDetails: {
-        textTokens: response.usage.output_tokens,
-        reasoningTokens: undefined,
-      },
-      totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-    },
+    usage: usageFromAnthropic(response),
   };
 }
 
@@ -1871,30 +1507,58 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   draft: AssignmentPlannerResponseObject,
   packet: AssignmentPlanningPacket,
 ): AssignmentPlannerOutput {
-  const capturedContent = buildCapturedHomeworkContent({
-    title: draft.capturedContent.title,
-    type: draft.capturedContent.type as HomeworkType,
+  const legacyCapturedContent = capturedContentDraftSchema.safeParse((draft as Record<string, unknown>).capturedContent);
+  const packetCapturedContent = buildCapturedHomeworkContent({
+    title: packet.capturedHomework.title,
+    type: packet.capturedHomework.type,
     rawText: packet.sourceDocument.fullText,
-    words: draft.capturedContent.words,
-    wordGroups: draft.capturedContent.wordGroups,
-    questions: draft.capturedContent.questions,
-    sourceDocuments: draft.capturedContent.sourceDocuments,
-    contentProfile: normalizeContentProfile({
-      title: draft.capturedContent.title,
-      type: draft.capturedContent.type as HomeworkType,
-      words: draft.capturedContent.words,
-      wordGroups: draft.capturedContent.wordGroups,
-      questions: draft.capturedContent.questions,
-      contentProfile: draft.capturedContent.contentProfile,
-    }),
+    words: packet.capturedHomework.words,
+    wordGroups: packet.capturedHomework.wordGroups,
+    questions: packet.capturedHomework.questions,
+    sourceDocuments: packet.capturedHomework.sourceDocuments,
+    contentProfile: packet.capturedHomework.contentProfile,
   });
+  const capturedContent = packetCapturedContent.words.length > 0
+    ? packetCapturedContent
+    : legacyCapturedContent.success
+      ? buildCapturedHomeworkContent({
+          title: legacyCapturedContent.data.title,
+          type: legacyCapturedContent.data.type as HomeworkType,
+          rawText: packet.sourceDocument.fullText,
+          words: legacyCapturedContent.data.words,
+          wordGroups: legacyCapturedContent.data.wordGroups,
+          questions: legacyCapturedContent.data.questions,
+          sourceDocuments: legacyCapturedContent.data.sourceDocuments,
+          contentProfile: normalizeContentProfile({
+            title: legacyCapturedContent.data.title,
+            type: legacyCapturedContent.data.type as HomeworkType,
+            words: legacyCapturedContent.data.words,
+            wordGroups: legacyCapturedContent.data.wordGroups,
+            questions: legacyCapturedContent.data.questions,
+            contentProfile: legacyCapturedContent.data.contentProfile,
+          }),
+        })
+      : packetCapturedContent;
+  const homeworkWords = capturedContent.homeworkWords?.map((word) => ({
+    text: word.text,
+    sourceGroupId: word.wordGroupId ?? "",
+    purpose: word.purpose,
+  })).filter((word) => word.sourceGroupId) ?? [];
+  const legacyHomeworkWords = z.array(z.object({
+    text: z.string().min(1),
+    sourceGroupId: z.string().min(1),
+    purpose: homeworkPurposeSchema,
+  })).safeParse((draft as Record<string, unknown>).homeworkWords);
+  const plannerHomeworkWords = homeworkWords.length > 0
+    ? homeworkWords
+    : legacyHomeworkWords.success ? legacyHomeworkWords.data : [];
 
   const generatedExperienceBriefs = hydrateGeneratedExperienceBriefs(draft.generatedExperienceBriefs, packet);
   const activeSessionPlan = hydrateActiveSessionPlanFromDraft({
     draft: draft.activeSessionPlan,
     packet,
     capturedContent,
-    homeworkWords: draft.homeworkWords,
+    homeworkWords: plannerHomeworkWords,
     planTheory: draft.planTheory,
     plannedMeasurements: draft.plannedMeasurements,
     generatedExperienceBriefs,
@@ -1903,7 +1567,7 @@ export function hydrateAssignmentPlannerOutputFromDraft(
   return {
     capturedContent,
     assignmentInterpretation: capturedContent.assignmentInterpretation!,
-    homeworkWords: draft.homeworkWords,
+    homeworkWords: plannerHomeworkWords,
     activeSessionPlan,
     plannedMeasurements: draft.plannedMeasurements,
     planTheory: draft.planTheory,
@@ -1983,419 +1647,32 @@ function thumbnailForAssignmentBoardNode(node: ActiveSessionPlan["nodePlan"][num
   return ASSIGNMENT_BOARD_THUMBNAILS[node.activityId] ?? ASSIGNMENT_BOARD_THUMBNAILS[node.type];
 }
 
-function choiceSignalForNode(node: ActiveSessionPlan["nodePlan"][number]) {
-  return {
-    algorithmFeed: "choicePolicy" as const,
-    traits: [
-      node.activityId === "pronunciation" ? "voice" : "practice",
-      node.activityId === "spell-check" ? "typing" : "control",
-    ],
-    expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.activityId}; preference only`,
-    preferenceNotMastery: true as const,
-  };
-}
-
-function mysteryChoiceSetId(node: ActiveSessionPlan["nodePlan"][number]): string {
-  return `${node.id}-options`;
-}
-
-function mysteryChoiceOptions(
-  node: ActiveSessionPlan["nodePlan"][number],
-): NonNullable<AdventureBoardJson["choiceSets"]>[number]["options"] {
-  const state: AdventureChoiceOption["state"] = node.locked ? "locked" : "available";
-  const base = {
-    thumbnailUrl: thumbnailForAssignmentBoardNode(node),
-    nodeId: node.id,
-    state,
-    lock: node.locked
-      ? { reason: node.masteryUnlockState ?? "planner_locked", label: "Preparing" }
-      : undefined,
-  };
-  return [
-    {
-      id: `${node.id}-story`,
-      label: "Story Challenge",
-      description: "Try the practice inside a story wrapper.",
-      icon: "book",
-      tags: ["story", "calm", "reading"],
-      choiceSignal: {
-        algorithmFeed: "choicePolicy",
-        traits: ["story", "calm", "reading"],
-        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} story wrapper; preference only`,
-        preferenceNotMastery: true,
-      },
-      ...base,
-    },
-    {
-      id: `${node.id}-speed`,
-      label: "Speed Challenge",
-      description: "Try the practice with a fast arcade wrapper.",
-      icon: "zap",
-      tags: ["speed", "competition", "arcade"],
-      choiceSignal: {
-        algorithmFeed: "choicePolicy",
-        traits: ["speed", "competition", "arcade"],
-        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} speed wrapper; preference only`,
-        preferenceNotMastery: true,
-      },
-      ...base,
-    },
-    {
-      id: `${node.id}-puzzle`,
-      label: "Puzzle Challenge",
-      description: "Try the practice with a thinking wrapper.",
-      icon: "sparkles",
-      tags: ["puzzle", "control", "thinking"],
-      choiceSignal: {
-        algorithmFeed: "choicePolicy",
-        traits: ["puzzle", "control", "thinking"],
-        expectedEvidence: `shown/chosen/skipped/completed outcome for ${node.id} puzzle wrapper; preference only`,
-        preferenceNotMastery: true,
-      },
-      ...base,
-    },
-  ];
-}
-
-function kindForAssignmentNode(node: ActiveSessionPlan["nodePlan"][number]): AdventureBoardJson["nodes"][number]["kind"] {
-  if (node.activityId === "mystery") return "mystery";
-  if (node.activityId === "quest") return "quest";
-  if (node.activityId === "boss") return "boss";
-  return "activity";
-}
-
-function evidenceRoleForAssignmentNode(node: ActiveSessionPlan["nodePlan"][number]): AdventureBoardJson["nodes"][number]["evidenceRole"] {
-  if (node.activityId === "mystery") return "preference";
-  if (node.activityId === "quest") return "transfer";
-  if (node.activityId === "boss") return "mastery";
-  return "baseline";
-}
-
-function buildAssignmentBoardNode(args: {
-  packet: AssignmentPlanningPacket;
-  node: ActiveSessionPlan["nodePlan"][number];
-  state: AdventureBoardJson["nodes"][number]["state"];
-  slot: NonNullable<AdventureBoardJson["nodes"][number]["slot"]>;
-  role: NonNullable<NonNullable<AdventureBoardJson["nodes"][number]["layout"]>["role"]>;
-  lane?: NonNullable<NonNullable<AdventureBoardJson["nodes"][number]["layout"]>["lane"]>;
-  order: number;
-}): AdventureBoardJson["nodes"][number] {
-  const kind = kindForAssignmentNode(args.node);
-  const label = labelForAssignmentBoardNode(args.packet, args.node) ?? args.node.activityId;
-  const choiceSetId = kind === "mystery" ? mysteryChoiceSetId(args.node) : undefined;
-  const lock = args.node.locked
-    ? {
-        reason: args.node.masteryUnlockState ?? "planner_locked",
-        label: args.node.activityId === "boss" ? "After Quest" : "Preparing",
-      }
-    : undefined;
-  return {
-    id: args.node.id,
-    kind,
-    activityId: args.node.activityId,
-    label,
-    shortLabel: label.length > 18 ? label.slice(0, 18) : label,
-    thumbnailUrl: thumbnailForAssignmentBoardNode(args.node),
-    slot: args.slot,
-    layout: {
-      role: args.role,
-      lane: args.lane ?? "main",
-      order: args.order,
-    },
-    state: args.state,
-    evidenceRole: evidenceRoleForAssignmentNode(args.node),
-    target: args.node.targetLane
-      ? {
-          laneId: args.node.targetLane,
-          skill: args.node.targetLane,
-          words: args.node.targets,
-        }
-      : undefined,
-    wordRadarConfig: args.node.activityId === "word-radar"
-      ? args.node.wordRadarConfig as AdventureBoardJson["nodes"][number]["wordRadarConfig"]
-      : undefined,
-    lock,
-    choiceSetId,
-    action: args.node.locked
-      ? { type: "show-locked-reason", payloadId: args.node.id }
-      : choiceSetId
-        ? { type: "open-choice-set", payloadId: choiceSetId }
-        : { type: "launch-activity", payloadId: args.node.id },
-  };
-}
-
-function buildAssignmentAdventureBoard(args: {
-  packet: AssignmentPlanningPacket;
-  planId: string;
-  domain: string;
-  title: string;
-  nodePlan: ActiveSessionPlan["nodePlan"];
-  companionId: string;
-  companionName: string;
-  planTheory: PlanTheory;
-}): AdventureBoardJson {
-  const baselineNodes = args.nodePlan.filter((node) =>
-    node.activityId !== "mystery" && node.activityId !== "quest" && node.activityId !== "boss",
-  );
-  const requiredBaselineCount = baselineNodes.length >= 4 ? 2 : 1;
-  const requiredNodes = baselineNodes.slice(0, requiredBaselineCount);
-  const routeNodes = baselineNodes.slice(requiredBaselineCount);
-  const mysteryNode = args.nodePlan.find((node) => node.activityId === "mystery");
-  const questNode = args.nodePlan.find((node) => node.activityId === "quest");
-  const bossNode = args.nodePlan.find((node) => node.activityId === "boss");
-  const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNode ?? questNode ?? bossNode;
-  const lastRequired = requiredNodes[requiredNodes.length - 1] ?? firstRequired;
-  const routeSlots = ["5a.1", "5b.1", "5a.2"] as const;
-  const routeLanes = ["upper", "lower", "upper"] as const;
-  const hasRealRouteChoice = routeNodes.length >= 2;
-  const routeChoices = hasRealRouteChoice ? routeNodes.slice(0, 3) : [];
-  const nodes: AdventureBoardJson["nodes"] = [
-    {
-      id: "start",
-      kind: "start",
-      label: "Start",
-      shortLabel: "Start",
-      thumbnailUrl: ASSIGNMENT_BOARD_THUMBNAILS.start,
-      slot: "1",
-      layout: { role: "start", lane: "main", order: 1 },
-      state: "completed",
-      evidenceRole: "baseline",
-    },
-    ...requiredNodes.map((node, index) =>
-      buildAssignmentBoardNode({
-        packet: args.packet,
-        node,
-        state: index === 0 ? "current" : "available",
-        slot: (index === 0 ? "2" : "3") as "2" | "3",
-        role: "baseline",
-        lane: "main",
-        order: index + 1,
-      }),
-    ),
-    ...(hasRealRouteChoice ? [{
-      id: "choose-path",
-      kind: "choice-gate" as const,
-      label: "Choose Path",
-      shortLabel: "Choose Path",
-      thumbnailUrl: ASSIGNMENT_BOARD_THUMBNAILS["choice-gate"],
-      slot: "4" as const,
-      layout: { role: "choice-gate" as const, lane: "main" as const, order: 1 },
-      state: "available" as const,
-      evidenceRole: "preference" as const,
-      choiceSetId: "baseline-route-options",
-      action: { type: "open-choice-set" as const, payloadId: "baseline-route-options" },
-    }] : []),
-    ...routeNodes.map((node, index) =>
-      buildAssignmentBoardNode({
-        packet: args.packet,
-        node,
-        state: "available",
-        slot: hasRealRouteChoice
-          ? routeSlots[index] ?? "5c.1"
-          : (index === 0 ? "4" : routeSlots[index - 1] ?? "5c.1"),
-        role: "evidence-route",
-        lane: routeLanes[index] ?? "middle",
-        order: 1,
-      }),
-    ),
-    ...(mysteryNode ? [buildAssignmentBoardNode({
-      packet: args.packet,
-      node: mysteryNode,
-      state: "available",
-      slot: "6",
-      role: "mystery",
-      lane: "main",
-      order: 1,
-    })] : []),
-    ...(questNode ? [buildAssignmentBoardNode({
-      packet: args.packet,
-      node: questNode,
-      state: "locked",
-      slot: "7",
-      role: "quest",
-      lane: "main",
-      order: 1,
-    })] : []),
-    ...(bossNode ? [buildAssignmentBoardNode({
-      packet: args.packet,
-      node: bossNode,
-      state: "locked",
-      slot: "8",
-      role: "boss",
-      lane: "main",
-      order: 1,
-    })] : []),
-  ];
-  const edges: AdventureBoardJson["edges"] = [];
-  if (firstRequired) {
-    edges.push({ id: `edge-start-${firstRequired.id}`, from: "start", to: firstRequired.id, state: "available", style: "solid" });
-  }
-  for (let index = 0; index < requiredNodes.length - 1; index += 1) {
-    edges.push({
-      id: `edge-${requiredNodes[index]!.id}-${requiredNodes[index + 1]!.id}`,
-      from: requiredNodes[index]!.id,
-      to: requiredNodes[index + 1]!.id,
-      state: "available",
-      style: "solid",
-    });
-  }
-  if (hasRealRouteChoice && lastRequired) {
-    edges.push({ id: `edge-${lastRequired.id}-choose-path`, from: lastRequired.id, to: "choose-path", state: "available", style: "solid" });
-  }
-  for (const routeNode of hasRealRouteChoice ? routeNodes : []) {
-    edges.push({ id: `edge-choose-path-${routeNode.id}`, from: "choose-path", to: routeNode.id, state: "available", style: "glow" });
-  }
-  const routeExit = mysteryNode ?? questNode ?? bossNode;
-  if (hasRealRouteChoice) {
-    for (const routeNode of routeNodes) {
-      if (routeExit) {
-        edges.push({ id: `edge-${routeNode.id}-${routeExit.id}`, from: routeNode.id, to: routeExit.id, state: "available", style: "solid" });
-      }
-    }
-  } else {
-    const linearNodes = [...routeNodes, ...(routeExit ? [routeExit] : [])];
-    let previous = lastRequired;
-    for (const node of linearNodes) {
-      if (previous) {
-        edges.push({ id: `edge-${previous.id}-${node.id}`, from: previous.id, to: node.id, state: node.locked ? "locked" : "available", style: node.locked ? "dashed" : "solid" });
-      }
-      previous = node;
-    }
-  }
-  if (mysteryNode && questNode) {
-    edges.push({ id: `edge-${mysteryNode.id}-${questNode.id}`, from: mysteryNode.id, to: questNode.id, state: "locked", style: "dashed" });
-  }
-  if (questNode && bossNode) {
-    edges.push({ id: `edge-${questNode.id}-${bossNode.id}`, from: questNode.id, to: bossNode.id, state: "locked", style: "dashed" });
-  }
-  const choiceSets: AdventureChoiceSet[] = [
-    ...(hasRealRouteChoice ? [{
-      id: "baseline-route-options",
-      kind: "baseline-route" as const,
-      title: "Choose your path",
-      options: routeChoices.slice(0, Math.max(2, routeChoices.length)).map((node): AdventureChoiceOption => {
-        const label = labelForAssignmentBoardNode(args.packet, node) ?? node.activityId;
-        const state: AdventureChoiceOption["state"] = node.locked ? "locked" : "available";
-        return {
-          id: `choice-${node.id}`,
-          label,
-          description: `Try ${label} next.`,
-          thumbnailUrl: thumbnailForAssignmentBoardNode(node),
-          state,
-          nodeId: node.id,
-          choiceSignal: choiceSignalForNode(node),
-        };
-      }),
-    }] : []),
-    ...(mysteryNode
-      ? [{
-          id: mysteryChoiceSetId(mysteryNode),
-          kind: "mystery" as const,
-          title: "Pick a mystery challenge",
-          options: mysteryChoiceOptions(mysteryNode),
-        }]
-      : []),
-  ];
-
-  return {
-    schemaVersion: 1,
-    boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
-    planId: args.planId,
-    childId: args.packet.childId,
-    domain: ["spelling", "reading", "math", "science"].includes(args.domain)
-      ? args.domain as AdventureBoardJson["domain"]
-      : "generic",
-    title: args.title,
-    theme: ASSIGNMENT_BOARD_THEME,
-    layout: {
-      preset: "horizontal-adventure-spine",
-      companionSlot: args.packet.childChart.adventureMapProfile?.companionSlot ?? "right",
-      ...(hasRealRouteChoice ? { routeChoiceBehavior: "exclusive" as const } : {}),
-    },
-    plannerRationale: {
-      agencyDesign: args.planTheory.intervention,
-      evidenceDesign: args.planTheory.hypothesis,
-      layoutChoice: "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan.",
-    },
-    nodes,
-    edges,
-    choiceSets,
-    companion: {
-      id: args.companionId,
-      name: args.companionName,
-    },
-    progress: {
-      currentNodeId: firstRequired?.id,
-      completedNodeIds: [],
-      activeChoiceSetId: hasRealRouteChoice ? "baseline-route-options" : undefined,
-    },
-  };
-}
-
-async function repairRejectedAssignmentPlannerDraft(args: {
-  draft: AssignmentPlannerResponseObject;
-  packet: AssignmentPlanningPacket;
-  issues: AssignmentPlanValidationIssue[];
-  model: string;
-}): Promise<AssignmentPlannerResponseObject> {
-  const { draft } = await callAssignmentPlannerTool({
-    model: args.model,
-    prompt: [
-      "Your previous assignment planner JSON failed Sunny's contract validation.",
-      `Call ${ASSIGNMENT_PLANNER_TOOL_NAME} with one corrected full object.`,
-      "Keep the assignment interpretation and academic plan as stable as possible, but fix any field that caused validation failure.",
-      "The app renders the board after validation; repair only the homework interpretation, nodePlan, plannedMeasurements, and theory.",
-      "If child agency appears before baseline evidence, move the route-worthy alternatives after the required baseline activities.",
-      "Validation issues:",
-      JSON.stringify(args.issues.map((issue) => ({
-        code: issue.code,
-        severity: issue.severity,
-        message: issue.message,
-      })), null, 2),
-      "Previous JSON:",
-      JSON.stringify(args.draft, null, 2),
-    ].join("\n\n"),
-  });
-  return draft;
-}
-
 async function planAssignmentFromSourceInternal(
   packet: AssignmentPlanningPacket,
   opts: AssignmentPlanningOptions = {},
 ): Promise<{ output: AssignmentPlannerOutput; telemetry: AssignmentPlannerTelemetry }> {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.ANTHROPIC_API_KEY && !opts.callPlannerModel) {
     throw new Error("assignment_planner_ai_unavailable:ANTHROPIC_API_KEY");
   }
   const model = resolveAssignmentPlannerModel(opts);
   const started = Date.now();
-  const { draft: initialDraft, usage } = await callAssignmentPlannerModel(packet, model);
-  let draft = initialDraft;
-  let output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
-  let validationIssues = validateAssignmentPlannerOutput(output, {
+  const callPlannerModel = opts.callPlannerModel ?? callAssignmentPlannerModel;
+  const result = await callPlannerModel(packet, model);
+  const output = hydrateAssignmentPlannerOutputFromDraft(result.draft, packet);
+  const validationIssues = validateAssignmentPlannerOutput(output, {
     extraction: packet.sourceDocument,
     activityCatalog: packet.activityCatalog,
   });
-  for (let repairCount = 0; repairCount < 2; repairCount += 1) {
-    const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
-    if (blockingIssues.length === 0) break;
-    draft = await repairRejectedAssignmentPlannerDraft({
-      draft,
-      packet,
-      issues: blockingIssues,
-      model,
-    });
-    output = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
-    validationIssues = validateAssignmentPlannerOutput(output, {
-      extraction: packet.sourceDocument,
-      activityCatalog: packet.activityCatalog,
-    });
+  const blockingIssues = validationIssues.filter((issue) => issue.severity === "error");
+  if (blockingIssues.length > 0) {
+    throw new Error(`assignment_planner_validation_failed:${blockingIssues.map((issue) => issue.code).join(",")}`);
   }
 
   return {
     output,
     telemetry: {
       model,
-      usage,
+      usage: result.usage,
       latencyMs: Date.now() - started,
     },
   };
@@ -2439,15 +1716,35 @@ function hydrateActiveSessionPlanFromDraft(args: {
     domain: args.capturedContent.contentProfile.practiceDomain,
     testDate: null,
     nodePlan,
-    adventureBoard: args.draft.adventureBoard ?? buildAssignmentAdventureBoard({
-      packet: args.packet,
-      planId,
-      domain: args.capturedContent.contentProfile.practiceDomain,
+    learningRoutes: args.draft.learningRoutes,
+    adventureBoard: buildAdventureBoardFromActiveSessionPlan({
+      plan: {
+        planId,
+        childId: args.packet.childId,
+        domain: args.capturedContent.contentProfile.practiceDomain,
+        nodePlan,
+        learningRoutes: args.draft.learningRoutes,
+      },
+      boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
       title: args.capturedContent.title,
-      nodePlan,
-      companionId,
-      companionName: args.packet.childChart.selectedCompanionName ?? companionId,
-      planTheory: args.planTheory,
+      theme: ASSIGNMENT_BOARD_THEME,
+      layout: {
+        preset: "horizontal-adventure-spine",
+        companionSlot: args.packet.childChart.adventureMapProfile?.companionSlot ?? "right",
+      },
+      plannerRationale: {
+        agencyDesign: args.planTheory.intervention,
+        evidenceDesign: args.planTheory.hypothesis,
+        layoutChoice: "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan.",
+      },
+      companion: {
+        id: companionId,
+        name: args.packet.childChart.selectedCompanionName ?? companionId,
+      },
+      labelForNode: (node) =>
+        labelForAssignmentBoardNode(args.packet, node as ActiveSessionPlan["nodePlan"][number]),
+      thumbnailForNode: (node) =>
+        thumbnailForAssignmentBoardNode(node as ActiveSessionPlan["nodePlan"][number]),
     }),
     variationPolicy: {
       avoidExactPreviousNodeOrder: true,

@@ -321,7 +321,14 @@ describe("generated experience artifact from chart", () => {
     }
   });
 
-  it("validates, writes, catalogs, and attaches an approved quest brief", async () => {
+  it("serializes the Sonnet artifact context compactly so paid generation stays under model limits", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/generatedExperienceArtifact.ts"), "utf8");
+
+    expect(source).toContain("const payload = JSON.stringify(");
+    expect(source).not.toContain("null,\n    2,\n  );");
+  });
+
+  it("validates, writes, catalogs, and attaches a quest as ready for human review only", async () => {
     const root = makeRoot();
     roots.push(root);
     writeJson(root, `src/context/${CHILD_ID}/learning_profile.json`, profile());
@@ -386,7 +393,7 @@ describe("generated experience artifact from chart", () => {
       generatedArtifactIds: [result.contentId],
       status: "active",
     });
-    expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("validated");
+    expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("ready_for_review");
 
     const chart = getChildChart(CHILD_ID, { rootDir: root });
     const nodes = buildAdventureMapFromSessionPlan(chart, chart.activeSessionPlan!);
@@ -395,8 +402,8 @@ describe("generated experience artifact from chart", () => {
       gameFile: result.filename,
       date: "2026-05-13",
       contentId: result.contentId,
-      artifactStatus: "ready",
-      masteryUnlockState: "pending_ceremony",
+      artifactStatus: "ready_for_review",
+      masteryUnlockState: "preparing",
       isLocked: true,
     });
   });
@@ -425,7 +432,7 @@ describe("generated experience artifact from chart", () => {
     const quest = updated.pendingHomework?.nodes.find((node) => node.type === "quest");
     expect(quest?.gameFile).toBeNull();
     expect(quest?.adaptiveArtifact).toBeUndefined();
-    expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("failed");
+    expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("failed_retryable");
     expect(updated.aiContentCatalog?.[0]).toMatchObject({
       reuseStatus: "retire",
       validationStatus: "failed",
@@ -475,7 +482,7 @@ describe("generated experience artifact from chart", () => {
     const quest = updated.pendingHomework?.nodes.find((node) => node.type === "quest");
     expect(quest?.gameFile).toBeNull();
     expect(quest?.adaptiveArtifact).toBeUndefined();
-    expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("failed");
+    expect(updated.activeSessionPlan?.generatedExperienceBriefs?.[0]?.artifactStatus).toBe("failed_retryable");
     const validationDir = path.join(
       root,
       `src/context/${CHILD_ID}/homework/games/2026-05-13/.validation/brief-quest-transfer`,

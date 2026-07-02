@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import readline from "readline/promises";
@@ -53,6 +54,7 @@ import {
   buildAssignmentPlanningPacket,
   buildPlannerReadinessAudit,
   planAssignmentFromSource,
+  resolveAssignmentPlannerModel,
   summarizeAssignmentPlanForReview,
   validateAssignmentPlannerOutput,
   type AssignmentMasteryContext,
@@ -65,10 +67,6 @@ import {
   buildPlannerDecisionAudit,
   type PlannerDecisionAudit,
 } from "../engine/plannerDecisionAudit";
-import {
-  shouldRunAdventureBoardVisualCritic,
-  type AdventureBoardVisualCriticDecision,
-} from "../engine/adventureBoardVisualCritic";
 
 type ExtractionShape = {
   title: string;
@@ -94,7 +92,6 @@ type ExtractionShape = {
   assignmentValidationIssues: AssignmentPlanValidationIssue[];
   plannerDecisionAudit: PlannerDecisionAudit;
   plannerReadinessAudit: PlannerReadinessAudit;
-  visualCriticDecision: AdventureBoardVisualCriticDecision;
   assignmentReviewSummary: string;
   questions: Array<{
     id: number;
@@ -105,6 +102,44 @@ type ExtractionShape = {
     hint: string;
   }>;
 };
+
+const DEFAULT_INGEST_PLANNER_TIMEOUT_MS = 150000;
+
+export function resolveIngestPlannerTimeoutMs(
+  env: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
+): number {
+  const raw = env.SUNNY_INGEST_PLANNER_TIMEOUT_MS;
+  if (!raw) return DEFAULT_INGEST_PLANNER_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_INGEST_PLANNER_TIMEOUT_MS;
+  return parsed;
+}
+
+export async function withIngestPlannerTimeout<T>(
+  promise: Promise<T>,
+  ms = resolveIngestPlannerTimeoutMs(),
+  label = "assignment-planner",
+  details: {
+    stage?: string;
+    artifactPaths?: string[];
+  } = {},
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      const suffix = [
+        details.stage ? `stage=${details.stage}` : "",
+        details.artifactPaths?.length ? `artifacts=${details.artifactPaths.join(",")}` : "",
+      ].filter(Boolean).join(":");
+      reject(new Error(
+        `ingest_homework_planner_timeout:${label}:${ms}ms${suffix ? `:${suffix}` : ""}`,
+      ));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
+}
 
 export type PlannedHomeworkIngestArgs = {
   childId: string;
@@ -130,8 +165,13 @@ export function buildPlannerArtifactPayloads(args: {
   output: unknown;
   audit: PlannerDecisionAudit | { rows: unknown[]; issues: unknown[]; markdown: string };
   readinessAudit?: { rows: unknown[]; issues: unknown[]; markdown: string };
-  criticDecision: AdventureBoardVisualCriticDecision;
-  visualCriticReport?: unknown;
+  comparison?: {
+    plannerModel: string;
+    promptHash: string;
+    routeCount: number;
+    verdict: "Pass" | "Partial pass" | "Fail";
+    screenshotPaths: string[];
+  };
 }): Record<string, string> {
   const files: Record<string, string> = {
     "planner-input.json": `${JSON.stringify(args.packet, null, 2)}\n`,
@@ -143,7 +183,6 @@ export function buildPlannerArtifactPayloads(args: {
     "planner-decision-audit.md": args.audit.markdown.endsWith("\n")
       ? args.audit.markdown
       : `${args.audit.markdown}\n`,
-    "visual-critic-decision.json": `${JSON.stringify(args.criticDecision, null, 2)}\n`,
   };
   if (args.readinessAudit) {
     files["planner-readiness-audit.json"] = `${JSON.stringify({
@@ -154,10 +193,33 @@ export function buildPlannerArtifactPayloads(args: {
       ? args.readinessAudit.markdown
       : `${args.readinessAudit.markdown}\n`;
   }
-  if (args.visualCriticReport) {
-    files["visual-critic-report.json"] = `${JSON.stringify(args.visualCriticReport, null, 2)}\n`;
+  if (args.comparison) {
+    files["planner-comparison.json"] = `${JSON.stringify(args.comparison, null, 2)}\n`;
   }
   return files;
+}
+
+function plannerInputHash(packet: unknown): string {
+  return createHash("sha256").update(JSON.stringify(packet)).digest("hex").slice(0, 16);
+}
+
+function routeCountForPlannerOutput(output: AssignmentPlannerOutput): number {
+  return output.activeSessionPlan.learningRoutes?.filter((route) => route.nodeIds.length > 0).length ?? 0;
+}
+
+export function plannerComparisonArtifact(args: {
+  packet: AssignmentPlanningPacket;
+  output: AssignmentPlannerOutput;
+  plannerModel: string;
+}) {
+  const routeCount = routeCountForPlannerOutput(args.output);
+  return {
+    plannerModel: args.plannerModel,
+    promptHash: plannerInputHash(args.packet),
+    routeCount,
+    verdict: routeCount >= 2 ? "Pass" as const : "Fail" as const,
+    screenshotPaths: [],
+  };
 }
 
 function readCliValue(argv: string[], flags: string[]): string | null {
@@ -343,9 +405,23 @@ function nodeReviewLabel(node: ActiveSessionPlan["nodePlan"][number]): string {
     return `quest(${node.locked ? "locked, " : ""}${node.targets.length} targets)`;
   }
   if (node.type === "boss") {
+    if (node.locked && node.targets.length === 0) {
+      return "boss(locked, targets selected after quest evidence)";
+    }
     return `boss(${node.locked ? "locked, " : ""}mastery finale, ${node.targets.length} targets)`;
   }
   return `${node.type}(${node.targets.length} targets)`;
+}
+
+function describeAssignmentSourceWarning(warning: string): string {
+  switch (warning) {
+    case "pdf_embedded_text_empty_used_ocr":
+      return "PDF had no embedded text, so Sunny used OCR. Verify captured words.";
+    case "pdf_ocr_quicklook_preview_one_image":
+      return "OCR came from one preview image. Verify all pages/words were captured.";
+    default:
+      return warning;
+  }
 }
 
 function printExperiencePlanReview(
@@ -905,6 +981,7 @@ export function parseCliArgs(argv: string[]): {
   opus: boolean;
   testDate: string | null;
   pdfOverridePath: string | null;
+  plannerModel?: string;
   homeworkDomain?: IngestHomeworkDomain;
 } {
   const childRaw = readCliValue(argv, ["--child"]);
@@ -913,6 +990,8 @@ export function parseCliArgs(argv: string[]): {
   const testDate = testDateRaw.length > 0 ? testDateRaw : null;
   const pdfRaw = readCliValue(argv, ["--pdf", "--file"]) ?? "";
   const pdfOverridePath = pdfRaw ? path.resolve(process.cwd(), pdfRaw) : null;
+  const plannerModelRaw = readCliValue(argv, ["--planner-model", "--model"]) ?? "";
+  const plannerModel = plannerModelRaw.trim() || undefined;
   const homeworkDomain = normalizeIngestDomain(
     readCliValue(argv, ["--domain", "--homework-domain"]),
   );
@@ -921,6 +1000,7 @@ export function parseCliArgs(argv: string[]): {
     opus: argv.includes("--opus"),
     testDate,
     pdfOverridePath,
+    ...(plannerModel ? { plannerModel } : {}),
     ...(homeworkDomain ? { homeworkDomain } : {}),
   };
 }
@@ -1126,24 +1206,6 @@ export function buildHomeworkExtractionFromAssignmentPlan(args: {
   }
   const plannerReadinessAudit = buildPlannerReadinessAudit(args.assignmentPlanningPacket.activityCatalog);
   const plannerDecisionAudit = buildPlannerDecisionAudit(args.assignmentPlannerOutput);
-  const semanticAuditIssues = [
-    ...assignmentValidationIssues.map((issue) => ({
-      code: issue.code,
-      severity: issue.severity,
-    })),
-    ...plannerDecisionAudit.issues.map((issue) => ({
-      code: issue.code,
-      severity: issue.severity,
-    })),
-  ];
-  const choiceOptionCount = (args.assignmentPlannerOutput.activeSessionPlan.adventureBoard?.choiceSets ?? [])
-    .reduce((sum, choiceSet) => sum + choiceSet.options.length, 0);
-  const visualCriticDecision = shouldRunAdventureBoardVisualCritic({
-    plannerConfidence: args.assignmentPlannerOutput.activeSessionPlan.plannerConfidence,
-    semanticAuditIssues,
-    choiceOptionCount,
-    force: process.env.SUNNY_FORCE_BOARD_CRITIC === "true",
-  });
 
   const capturedContent = args.assignmentPlannerOutput.capturedContent;
   const extractedType = normalizeHomeworkType(capturedContent.type);
@@ -1223,7 +1285,6 @@ export function buildHomeworkExtractionFromAssignmentPlan(args: {
     assignmentValidationIssues,
     plannerDecisionAudit,
     plannerReadinessAudit,
-    visualCriticDecision,
     assignmentReviewSummary: summarizeAssignmentPlanForReview(hydratedOutput),
     questions,
   };
@@ -1234,6 +1295,7 @@ async function extractHomework(args: {
   filePath: string;
   pageImageDir: string;
   masteryContext: AssignmentMasteryContext;
+  plannerModel?: string;
 }): Promise<ExtractionShape> {
   const assignmentSource = await extractAssignmentSource(args.filePath, {
     pageImageDir: args.pageImageDir,
@@ -1245,7 +1307,20 @@ async function extractHomework(args: {
     masteryContext: args.masteryContext,
   });
   const plannerReadinessAudit = buildPlannerReadinessAudit(assignmentPlanningPacket.activityCatalog);
-  const assignmentPlannerOutput = await planAssignmentFromSource(assignmentPlanningPacket);
+  const pendingDir = path.dirname(args.pageImageDir);
+  const sourceArtifactPath = path.join(pendingDir, "assignment-source-extraction.json");
+  const packetArtifactPath = path.join(pendingDir, "assignment-planning-packet.json");
+  fs.writeFileSync(sourceArtifactPath, JSON.stringify(assignmentSource, null, 2), "utf8");
+  fs.writeFileSync(packetArtifactPath, JSON.stringify(assignmentPlanningPacket, null, 2), "utf8");
+  const assignmentPlannerOutput = await withIngestPlannerTimeout(
+    planAssignmentFromSource(assignmentPlanningPacket, args.plannerModel ? { model: args.plannerModel } : {}),
+    resolveIngestPlannerTimeoutMs(),
+    `${args.childId}:assignment-planner`,
+    {
+      stage: "assignment-planner",
+      artifactPaths: [sourceArtifactPath, packetArtifactPath],
+    },
+  );
   const assignmentValidationIssues = validateAssignmentPlannerOutput(
     assignmentPlannerOutput,
     {
@@ -1254,24 +1329,6 @@ async function extractHomework(args: {
     },
   );
   const plannerDecisionAudit = buildPlannerDecisionAudit(assignmentPlannerOutput);
-  const semanticAuditIssues = [
-    ...assignmentValidationIssues.map((issue) => ({
-      code: issue.code,
-      severity: issue.severity,
-    })),
-    ...plannerDecisionAudit.issues.map((issue) => ({
-      code: issue.code,
-      severity: issue.severity,
-    })),
-  ];
-  const choiceOptionCount = (assignmentPlannerOutput.activeSessionPlan.adventureBoard?.choiceSets ?? [])
-    .reduce((sum, choiceSet) => sum + choiceSet.options.length, 0);
-  const visualCriticDecision = shouldRunAdventureBoardVisualCritic({
-    plannerConfidence: assignmentPlannerOutput.activeSessionPlan.plannerConfidence,
-    semanticAuditIssues,
-    choiceOptionCount,
-    force: process.env.SUNNY_FORCE_BOARD_CRITIC === "true",
-  });
   const blockingIssues = assignmentValidationIssues.filter((issue) => issue.severity === "error");
   if (blockingIssues.length > 0) {
     throw new Error(
@@ -1359,7 +1416,6 @@ async function extractHomework(args: {
     assignmentValidationIssues,
     plannerDecisionAudit,
     plannerReadinessAudit,
-    visualCriticDecision,
     assignmentReviewSummary: summarizeAssignmentPlanForReview({
       ...assignmentPlannerOutput,
       capturedContent: finalCapturedContent,
@@ -1501,7 +1557,6 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
     output: extracted.assignmentPlannerOutput,
     audit: extracted.plannerDecisionAudit,
     readinessAudit: extracted.plannerReadinessAudit,
-    criticDecision: extracted.visualCriticDecision,
   }))) {
     fs.writeFileSync(path.join(pendingDir, filename), payload, "utf8");
   }
@@ -1691,6 +1746,7 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     testDate: cliTestDate,
     pdfOverridePath,
     homeworkDomain: cliHomeworkDomain,
+    plannerModel,
   } = parseCliArgs(argv);
   const interactive = Boolean(
     input.isTTY && output.isTTY && process.env.SUNNY_NON_INTERACTIVE !== "true",
@@ -1748,7 +1804,11 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     filePath: storedSourcePath,
     pageImageDir: path.join(pendingDir, "source-pages"),
     masteryContext,
+    plannerModel,
   });
+  const resolvedPlannerModel = resolveAssignmentPlannerModel(
+    plannerModel ? { model: plannerModel } : {},
+  );
   const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
   const selectedHomeworkDomain = homeworkDomain ?? classifierHomeworkDomain;
   const intakeDecisionSource: "human_menu" | "cli" | "classifier" = cliHomeworkDomain
@@ -1771,7 +1831,10 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
   );
   console.log(`   Source: ${extracted.assignmentSource.sourceKind} via ${extracted.assignmentSource.extractionMethod}`);
   if (extracted.assignmentSource.warnings.length) {
-    console.log(`   Source warnings: ${extracted.assignmentSource.warnings.join(", ")}`);
+    console.log("   Source warnings:");
+    for (const warning of extracted.assignmentSource.warnings) {
+      console.log(`   - ${describeAssignmentSourceWarning(warning)}`);
+    }
   }
   console.log("");
   console.log(extracted.assignmentReviewSummary);
@@ -1800,7 +1863,11 @@ export async function runIngestHomework(argv: string[]): Promise<void> {
     output: extracted.assignmentPlannerOutput,
     audit: extracted.plannerDecisionAudit,
     readinessAudit: extracted.plannerReadinessAudit,
-    criticDecision: extracted.visualCriticDecision,
+    comparison: plannerComparisonArtifact({
+      packet: extracted.assignmentPlanningPacket,
+      output: extracted.assignmentPlannerOutput,
+      plannerModel: resolvedPlannerModel,
+    }),
   }))) {
     fs.writeFileSync(path.join(pendingDir, filename), payload, "utf8");
   }

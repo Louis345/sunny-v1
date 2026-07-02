@@ -1,0 +1,10 @@
+{
+  "nodes": [
+    { "id": "node-1-silent-baseline", "type": "spell-check", "targets": ["know", "sign", "write"] },
+    { "id": "node-2-pronunciation", "type": "pronunciation", "targets": ["among", "decided"] }
+  ],
+  "adaptationDecision": {
+    "status": "stay_course",
+    "reason": "No new branch unlock; keep support on know."
+  }
+}

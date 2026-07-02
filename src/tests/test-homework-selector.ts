@@ -237,7 +237,7 @@ describe("homeworkSelector", () => {
     );
   });
 
-  it("keeps active planner-authored homework when the matching cycle has no saved nodes", () => {
+  it("keeps active planned homework when the matching cycle has no saved nodes", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-23T12:00:00.000Z"));
     const activeNode: NonNullable<LearningProfile["pendingHomework"]>["nodes"][number] = {

@@ -1,0 +1,2 @@
+{"ts":"2026-05-21T23:33:50.100Z","type":"node_opened","nodeId":"node-1-silent-baseline","activityId":"spell-check","plannedNodeIndex":0}
+{"ts":"2026-05-21T23:34:10.000Z","type":"node_completed","nodeId":"node-1-silent-baseline","activityId":"spell-check","progressionStatus":"advanced","nextNodeId":"node-2-pronunciation"}

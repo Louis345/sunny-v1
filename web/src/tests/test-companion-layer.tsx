@@ -58,6 +58,36 @@ const WebGPURendererConstructor = vi.hoisted(() =>
   }),
 );
 
+const WebGLRendererConstructor = vi.hoisted(() =>
+  vi.fn().mockImplementation((opts?: { alpha?: boolean; antialias?: boolean; powerPreference?: string }) => {
+    const el = document.createElement("canvas");
+    (
+      el as HTMLCanvasElement & {
+        __webglOpts?: { alpha?: boolean; antialias?: boolean; powerPreference?: string };
+      }
+    ).__webglOpts = opts;
+    Object.assign(el.style, { zIndex: "", pointerEvents: "" });
+    return {
+      domElement: el,
+      outputColorSpace: "",
+      toneMapping: 0,
+      setSize: vi.fn(),
+      setPixelRatio: vi.fn(),
+      setClearColor: vi.fn(),
+      render: vi.fn(),
+      dispose: vi.fn(),
+    };
+  }),
+);
+
+vi.mock("three", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("three")>();
+  return {
+    ...mod,
+    WebGLRenderer: WebGLRendererConstructor as unknown as typeof mod.WebGLRenderer,
+  };
+});
+
 vi.mock("three/webgpu", async (importOriginal) => {
   const mod = await importOriginal<typeof import("three/webgpu")>();
   return {
@@ -76,6 +106,7 @@ const companion: CompanionConfig = cloneCompanionDefaults();
 describe("CompanionLayer (COMPANION-002)", () => {
   beforeEach(() => {
     vi.mocked(loadCompanionVrm).mockClear();
+    WebGLRendererConstructor.mockClear();
     WebGPURendererConstructor.mockClear();
   });
 
@@ -102,12 +133,13 @@ describe("CompanionLayer (COMPANION-002)", () => {
       <CompanionLayer childId="fixture" companion={companion} toggledOff={false} />,
     );
     await waitFor(() => {
-      expect(WebGPURendererConstructor).toHaveBeenCalled();
+      expect(loadCompanionVrm).toHaveBeenCalled();
     });
-    const call = WebGPURendererConstructor.mock.calls[0]?.[0] as
-      | { antialias?: boolean }
-      | undefined;
-    expect(call?.antialias).toBe(true);
+    expect(WebGPURendererConstructor).not.toHaveBeenCalled();
+    expect(loadCompanionVrm).toHaveBeenCalledWith(
+      expect.stringContaining("/companions/sample.vrm"),
+      { webgpu: false },
+    );
     const canvas = container.querySelector("canvas");
     expect(canvas).toBeTruthy();
     expect(canvas?.style.zIndex).toBe("10");
@@ -127,8 +159,9 @@ describe("CompanionLayer (COMPANION-002)", () => {
     );
 
     await waitFor(() => {
-      expect(WebGPURendererConstructor).toHaveBeenCalled();
+      expect(loadCompanionVrm).toHaveBeenCalled();
     });
+    expect(WebGPURendererConstructor).not.toHaveBeenCalled();
   });
 
   it("sets canvas display none when toggledOff", async () => {

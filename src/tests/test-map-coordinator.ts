@@ -766,7 +766,7 @@ describe("map coordinator (TASK-010)", () => {
     expect(vi.mocked(buildNodeList).mock.calls.length).toBe(0);
   });
 
-  it("materializes planner-authored science Word Radar without runtime repair", async () => {
+  it("materializes planner-selected science Word Radar without runtime repair", async () => {
     vi.mocked(buildNodeList).mockClear();
     const pendingHomework: NonNullable<import("../shared/childProfile").ChildProfile["pendingHomework"]> = {
       weekOf: "2026-05-05",
@@ -1172,6 +1172,7 @@ describe("map coordinator (TASK-010)", () => {
             homeworkWordIds: ["w-1", "w-2"],
             baselineEvidenceIds: ["n-word-radar"],
             generatedPath: "quest-generated.html",
+            artifactStatus: "approved_ready",
             validationStatus: "passed",
             validationReport: {
               passed: true,

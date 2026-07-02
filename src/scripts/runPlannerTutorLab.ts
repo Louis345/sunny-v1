@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { extractAssignmentSource, type AssignmentSourceExtraction } from "../engine/assignmentSourceExtraction";
 import {
+  assignmentPlannerToolJsonSchema,
   buildAssignmentPlannerPrompt,
   buildAssignmentPlanningPacket,
   planAssignmentFromSourceWithTelemetry,
@@ -77,6 +78,12 @@ export type PlannerTutorRunReport = {
     recentEvidence: string[];
   };
   boardSequence: string[];
+  routeCount: number;
+  routeActivities: string[];
+  launchableEvidenceNodeCount: number;
+  questLocked: boolean;
+  bossLocked: boolean;
+  comprehensivePlan: boolean;
   tutorQuestions: PlannerTutorQuestionResult[];
   validationIssues: Array<{ code: string; severity: string; message: string }>;
   reviewSummary: string;
@@ -113,6 +120,19 @@ export type PlannerTutorLabReport = {
 type PlanAssignmentResult =
   | AssignmentPlannerOutput
   | { output: AssignmentPlannerOutput; telemetry?: AssignmentPlannerTelemetry };
+
+type PlannerRequestDiagnostics = {
+  model: string;
+  timeoutMs: number;
+  promptChars: number;
+  packetBytes: number;
+  schemaBytes: number;
+  imageCount: number;
+  sourceHasPageImages: boolean;
+  sourceTextLength: number;
+  activityCount: number;
+  activityIds: string[];
+};
 
 export type RunPlannerTutorLabOptions = {
   rootDir?: string;
@@ -301,6 +321,61 @@ function materialVariety(output: AssignmentPlannerOutput): boolean {
   return new Set(preMysteryNodes(output).map((node) => node.activityId)).size >= 2 || hasAntiGrindRationale(output);
 }
 
+function launchableActivityIds(packet: AssignmentPlanningPacket): Set<string> {
+  return new Set(packet.activityCatalog
+    .filter((card) => card.launchable && card.plannerVisibility === "map_node")
+    .map((card) => card.activityId));
+}
+
+function routeCount(output: AssignmentPlannerOutput): number {
+  const routes = output.activeSessionPlan.learningRoutes ?? [];
+  return routes.filter((route) => route.nodeIds.length > 0).length;
+}
+
+function routeActivities(output: AssignmentPlannerOutput): string[] {
+  const routeNodeIds = new Set((output.activeSessionPlan.learningRoutes ?? [])
+    .flatMap((route) => route.nodeIds));
+  const seen = new Set<string>();
+  const activities: string[] = [];
+  for (const node of output.activeSessionPlan.nodePlan) {
+    if (!routeNodeIds.has(node.id) || DESTINATION_ACTIVITY_IDS.has(node.activityId) || seen.has(node.activityId)) continue;
+    seen.add(node.activityId);
+    activities.push(node.activityId);
+  }
+  return activities.length ? activities : [...new Set(preMysteryNodes(output).map((node) => node.activityId))];
+}
+
+function launchableEvidenceNodeCount(packet: AssignmentPlanningPacket, output: AssignmentPlannerOutput): number {
+  const launchable = launchableActivityIds(packet);
+  return preMysteryNodes(output).filter((node) => launchable.has(node.activityId)).length;
+}
+
+function lockedDestination(output: AssignmentPlannerOutput, activityId: "quest" | "boss"): boolean {
+  return output.activeSessionPlan.nodePlan.some((node) =>
+    node.activityId === activityId &&
+    node.locked === true &&
+    node.masteryUnlockState !== "unlocked" &&
+    node.masteryUnlockState !== "completed");
+}
+
+function comprehensiveSessionPlan(args: {
+  packet: AssignmentPlanningPacket;
+  output: AssignmentPlannerOutput;
+  routeCount: number;
+  launchableEvidenceNodeCount: number;
+  questLocked: boolean;
+  bossLocked: boolean;
+}): boolean {
+  const launchableOptions = launchableActivityIds(args.packet)
+    .size;
+  const routeRequirement = launchableOptions >= 2 ? args.routeCount >= 2 : args.routeCount >= 1;
+  return routeRequirement &&
+    args.launchableEvidenceNodeCount >= 2 &&
+    hasAdventureSpine(args.output) &&
+    args.questLocked &&
+    args.bossLocked;
+}
+
 function estimateCostUsd(model: string, telemetry: AssignmentPlannerTelemetry | null): number {
   const usage = telemetry?.usage as {
     inputTokens?: number;
@@ -366,6 +441,19 @@ export function analyzePlannerTutorOutput(args: {
     extraction: validationExtractionFromPacket(args.packet),
     activityIds: [...knownActivityIds(args.packet)],
   });
+  const actualRouteCount = routeCount(args.output);
+  const actualRouteActivities = routeActivities(args.output);
+  const actualLaunchableEvidenceNodeCount = launchableEvidenceNodeCount(args.packet, args.output);
+  const actualQuestLocked = lockedDestination(args.output, "quest");
+  const actualBossLocked = lockedDestination(args.output, "boss");
+  const actualComprehensivePlan = comprehensiveSessionPlan({
+    packet: args.packet,
+    output: args.output,
+    routeCount: actualRouteCount,
+    launchableEvidenceNodeCount: actualLaunchableEvidenceNodeCount,
+    questLocked: actualQuestLocked,
+    bossLocked: actualBossLocked,
+  });
 
   const tutorQuestions: PlannerTutorQuestionResult[] = [
     {
@@ -388,6 +476,21 @@ export function analyzePlannerTutorOutput(args: {
         hasNodeForLane(args.output, silentLanes, new Set(["spell-check", "letter-rush", "word-radar"])) &&
         (hfwLanes.size === 0 || hasNodeForLane(args.output, hfwLanes, new Set(["pronunciation", "word-radar"]))),
       evidence: boardSequence(args.output).join(" -> "),
+    },
+    {
+      question: "Can they give the child multiple real routes?",
+      passed: actualRouteCount >= 2 && actualRouteActivities.length >= 2,
+      evidence: `routes=${actualRouteCount}; activities=${actualRouteActivities.join(" -> ") || "none"}`,
+    },
+    {
+      question: "Is this a comprehensive session plan?",
+      passed: actualComprehensivePlan,
+      evidence: `launchableEvidenceNodes=${actualLaunchableEvidenceNodeCount}; routeCount=${actualRouteCount}; questLocked=${actualQuestLocked}; bossLocked=${actualBossLocked}`,
+    },
+    {
+      question: "Are Quest and Boss still evidence gates?",
+      passed: actualQuestLocked && actualBossLocked,
+      evidence: `questLocked=${actualQuestLocked}; bossLocked=${actualBossLocked}`,
     },
     {
       question: "Can they keep the child engaged?",
@@ -439,6 +542,12 @@ export function analyzePlannerTutorOutput(args: {
       recentEvidence: [...args.packet.childChart.recentEvidence],
     },
     boardSequence: boardSequence(args.output),
+    routeCount: actualRouteCount,
+    routeActivities: actualRouteActivities,
+    launchableEvidenceNodeCount: actualLaunchableEvidenceNodeCount,
+    questLocked: actualQuestLocked,
+    bossLocked: actualBossLocked,
+    comprehensivePlan: actualComprehensivePlan,
     tutorQuestions,
     validationIssues,
     reviewSummary: summarizeAssignmentPlanForReview(args.output),
@@ -487,6 +596,10 @@ function boardSignature(run: PlannerTutorRunReport): string {
   return run.boardSequence.join(" -> ");
 }
 
+function routeActivitySignature(run: PlannerTutorRunReport): string {
+  return run.routeActivities.join(" -> ");
+}
+
 function crossRunFindings(runs: PlannerTutorRunReport[]): { findings: string[]; failures: string[] } {
   const findings: string[] = [];
   const failures: string[] = [];
@@ -510,6 +623,17 @@ function crossRunFindings(runs: PlannerTutorRunReport[]): { findings: string[]; 
     } else {
       findings.push("Child-profile comparison produced different board sequences.");
     }
+    const ila = coldRuns.find((run) => run.childId === "ila");
+    const reina = coldRuns.find((run) => run.childId === "reina");
+    if (ila && reina) {
+      const ilaRoutes = routeActivitySignature(ila);
+      const reinaRoutes = routeActivitySignature(reina);
+      if (ilaRoutes === reinaRoutes) {
+        failures.push("Ila/Reina cold_start route activities did not differ by child care plan");
+      } else {
+        findings.push(`Ila/Reina cold_start route activities differed: ila=${ilaRoutes}; reina=${reinaRoutes}`);
+      }
+    }
   }
   return { findings, failures };
 }
@@ -531,6 +655,25 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   return Promise.race([promise, timeoutPromise]).finally(() => {
     if (timeout) clearTimeout(timeout);
   });
+}
+
+function plannerRequestDiagnostics(args: {
+  packet: AssignmentPlanningPacket;
+  model?: string;
+  timeoutMs: number;
+}): PlannerRequestDiagnostics {
+  return {
+    model: args.model ?? "default",
+    timeoutMs: args.timeoutMs,
+    promptChars: buildAssignmentPlannerPrompt(args.packet).length,
+    packetBytes: Buffer.byteLength(JSON.stringify(args.packet)),
+    schemaBytes: Buffer.byteLength(JSON.stringify(assignmentPlannerToolJsonSchema())),
+    imageCount: args.packet.sourceDocument.pages.filter((page) => Boolean(page.imagePath)).length,
+    sourceHasPageImages: args.packet.sourceDocument.pages.some((page) => Boolean(page.imagePath)),
+    sourceTextLength: args.packet.sourceDocument.fullText.length,
+    activityCount: args.packet.activityCatalog.length,
+    activityIds: args.packet.activityCatalog.map((card) => card.activityId),
+  };
 }
 
 function writeJson(file: string, value: unknown): void {
@@ -561,6 +704,8 @@ function renderMarkdown(report: PlannerTutorLabReport): string {
     lines.push(`### ${run.childId} / ${run.evidenceState}`);
     lines.push(`- passed: ${run.passed ? "yes" : "no"}`);
     lines.push(`- board: ${run.boardSequence.join(" -> ")}`);
+    lines.push(`- routes: ${run.routeCount} (${run.routeActivities.join(" -> ") || "none"})`);
+    lines.push(`- comprehensivePlan: ${run.comprehensivePlan ? "yes" : "no"}`);
     lines.push(`- promptHash: ${run.promptHash}`);
     lines.push(`- inputHash: ${run.inputHash}`);
     for (const question of run.tutorQuestions) {
@@ -620,6 +765,11 @@ export async function runPlannerTutorLab(
         childChart,
         currentEvidenceSummary: evidenceStateSummaries[evidenceState],
       });
+      const diagnostics = plannerRequestDiagnostics({
+        packet,
+        model: opts.model,
+        timeoutMs: callTimeoutMs,
+      });
       logger.log(`🎮 [planner-tutor-lab] [plan-start] child=${childId} state=${evidenceState}`);
       let output: AssignmentPlannerOutput;
       let telemetry: AssignmentPlannerTelemetry | null;
@@ -639,6 +789,7 @@ export async function runPlannerTutorLab(
           childId,
           evidenceState,
           message,
+          plannerRequestDiagnostics: diagnostics,
           packetSummary: {
             sourceFile: packet.sourceDocument.filename,
             sourceHasPageImages: packet.sourceDocument.pages.some((page) => Boolean(page.imagePath)),

@@ -48,10 +48,6 @@ function activityCard(activityId: string, label = activityId): AssignmentActivit
     bestFor: ["planner-choice tests"],
     contaminationRisks: [],
     modeEvidenceNotes: [],
-    strengths: ["useful when the planner chooses it for the right purpose"],
-    weakFor: ["unsupported claims"],
-    goodFitWhen: ["the planner cites a target-purpose fit"],
-    badFitWhen: ["the planner is using it as filler"],
     capabilityModes: [],
     plannerVisibility: "map_node",
     status: "ok",
@@ -127,7 +123,7 @@ function plannerOutput(overrides: Partial<AssignmentPlannerOutput> = {}): Assign
       { text: "building", sourceGroupId: "high_frequency_words", purpose: "read_fluently" },
       { text: "circle", sourceGroupId: "high_frequency_words", purpose: "read_fluently" },
     ],
-    activeSessionPlan: {
+      activeSessionPlan: {
       planId: "assignment-plan-lab",
       childId: "ila",
       createdAt: "2026-05-31T12:00:00.000Z",
@@ -193,6 +189,20 @@ function plannerOutput(overrides: Partial<AssignmentPlannerOutput> = {}): Assign
           source: "chart_planner",
           masteryUnlockState: "preparing",
           locked: true,
+        },
+      ],
+      learningRoutes: [
+        {
+          id: "build-check",
+          label: "Build & Check",
+          rationale: "Ila gets a careful build path that starts with unaided spelling and then checks silent-letter recovery.",
+          nodeIds: ["spell-check-silent", "letter-rush-silent"],
+        },
+        {
+          id: "read-flow",
+          label: "Read Flow",
+          rationale: "Ila gets a fluency path for high-frequency words so the board does not turn reading words into spelling grind.",
+          nodeIds: ["pronunciation-hfw"],
         },
       ],
       variationPolicy: {
@@ -271,6 +281,9 @@ describe("planner tutor lab", () => {
       "Can this tutor read the assignment?",
       "Can they understand my child?",
       "Can they choose materials well?",
+      "Can they give the child multiple real routes?",
+      "Is this a comprehensive session plan?",
+      "Are Quest and Boss still evidence gates?",
       "Can they keep the child engaged?",
       "Can they avoid grind?",
       "Can they explain the plan like a real person?",
@@ -284,7 +297,62 @@ describe("planner tutor lab", () => {
       "quest (locked)",
       "boss (locked)",
     ]);
+    expect(result.routeCount).toBe(2);
+    expect(result.comprehensivePlan).toBe(true);
+    expect(result.routeActivities).toEqual(["spell-check", "pronunciation", "letter-rush"]);
     expect(result.failures).toEqual([]);
+  });
+
+  it("fails a spelling plan that has no real route agency", () => {
+    const output = plannerOutput({
+      activeSessionPlan: {
+        ...plannerOutput().activeSessionPlan,
+        learningRoutes: [
+          {
+            id: "single-track",
+            label: "Single Track",
+            rationale: "This only gives one path.",
+            nodeIds: ["spell-check-silent"],
+          },
+        ],
+      },
+    });
+
+    const result = analyzePlannerTutorOutput({
+      childId: "reina",
+      evidenceState: "cold_start",
+      packet: {
+        childId: "reina",
+        sourceDocument: extraction(fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-tutor-lab-"))),
+        childChart: {
+          childId: "reina",
+          displayName: "Reina",
+          selectedCompanionName: "Matilda",
+          activeHomeworkSummary: null,
+          carePlanSummary: "Reina care plan favors competitive route choices.",
+          recentEvidence: [],
+        },
+        activityCatalog: [
+          activityCard("spell-check", "Spell Check"),
+          activityCard("pronunciation", "Pronunciation"),
+          activityCard("letter-rush", "Letter Rush"),
+          activityCard("mystery", "Mystery"),
+          activityCard("quest", "Quest"),
+          activityCard("boss", "Boss"),
+        ],
+        packetVersion: 1,
+        plannerInstruction: "Plan like a tutor.",
+      } as unknown as AssignmentPlanningPacket,
+      output,
+      model: "test-model",
+      estimatedCostUsd: 0.02,
+      telemetry: { model: "test-model", latencyMs: 1 },
+    });
+
+    expect(result.passed).toBe(false);
+    expect(result.routeCount).toBe(1);
+    expect(result.failures).toContain("Can they give the child multiple real routes?");
+    expect(result.failures).toContain("Is this a comprehensive session plan?");
   });
 
   it("fails a boring repeated-shell board unless the planner gives a tutor-quality rationale", () => {
@@ -400,17 +468,55 @@ describe("planner tutor lab", () => {
                   baseNodes[0]!,
                   baseNodes[2]!,
                   baseNodes[1]!,
+                ...baseNodes.slice(3),
+              ]
+            : packet.childId === "reina"
+              ? [
+                  baseNodes[0]!,
+                  {
+                    id: "monster-stampede-energy",
+                    type: "monster-stampede" as const,
+                    activityId: "monster-stampede",
+                    targets: ["know", "write"],
+                    difficulty: 2 as const,
+                    source: "chart_planner" as const,
+                    targetLane: "silent_letters",
+                  },
+                  baseNodes[1]!,
                   ...baseNodes.slice(3),
                 ]
               : baseNodes;
+        const remappedNodePlan = nodePlan.map((node) => ({
+          ...node,
+          id: `${packet.childId}-${packet.childChart.recentEvidence.length}-${node.id}`,
+        }));
+        const remapNodeIds = (nodeIds: string[]) =>
+          nodeIds.map((nodeId) => `${packet.childId}-${packet.childChart.recentEvidence.length}-${nodeId}`);
+        const learningRoutes = packet.childId === "reina"
+          ? [
+              {
+                id: "reina-power-route",
+                label: "Power Route",
+                rationale: "Reina gets a competition-feeling route because her care plan favors energy and strategy.",
+                nodeIds: remapNodeIds(["spell-check-silent", "monster-stampede-energy"]),
+              },
+              {
+                id: "reina-fluency-route",
+                label: "Fluency Route",
+                rationale: "Reina also gets a pronunciation route for high-frequency words.",
+                nodeIds: remapNodeIds(["pronunciation-hfw"]),
+              },
+            ]
+          : plannerOutput().activeSessionPlan.learningRoutes?.map((route) => ({
+              ...route,
+              nodeIds: remapNodeIds(route.nodeIds),
+            }));
         outputs.push(plannerOutput({
           activeSessionPlan: {
             ...plannerOutput().activeSessionPlan,
             childId: packet.childId,
-            nodePlan: nodePlan.map((node) => ({
-              ...node,
-              id: `${packet.childId}-${packet.childChart.recentEvidence.length}-${node.id}`,
-            })),
+            nodePlan: remappedNodePlan,
+            learningRoutes,
           },
           planTheory: {
             ...plannerOutput().planTheory,
@@ -441,6 +547,40 @@ describe("planner tutor lab", () => {
     expect(fs.existsSync(path.join(report.labDir, "planner-tutor-report.json"))).toBe(true);
     expect(fs.existsSync(path.join(report.labDir, "planner-tutor-report.md"))).toBe(true);
     expect(fs.existsSync(path.join(root, "src/context/ila/homework/current.json"))).toBe(false);
+  });
+
+  it("fails the lab when Ila and Reina cold-start route activities are identical", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-planner-tutor-lab-identical-"));
+    const report = await runPlannerTutorLab({
+      rootDir: root,
+      sourceFile: "/tmp/5_18_spelling.pdf",
+      children: ["ila", "reina"],
+      evidenceStates: ["cold_start"],
+      generatedAt: "2026-05-31T12:30:00.000Z",
+      extractSource: async () => extraction(root),
+      getChart: (childId) => ({
+        childId,
+        identity: { displayName: childId === "ila" ? "Ila" : "Reina" },
+        demographics: { grade: 2 },
+        companion: { displayName: childId === "ila" ? "Elli" : "Matilda", presetId: childId === "ila" ? "elli" : "matilda" },
+        homework: { pending: null },
+        carePlan: { current: { summary: `${childId} care plan` } },
+      } as never),
+      planAssignment: async (packet) => plannerOutput({
+        activeSessionPlan: {
+          ...plannerOutput().activeSessionPlan,
+          childId: packet.childId,
+        },
+        planTheory: {
+          ...plannerOutput().planTheory,
+          evidenceSummary: [`${packet.childId} care plan was visible.`],
+        },
+      }),
+      logger: { log: () => undefined },
+    });
+
+    expect(report.proved).toBe(false);
+    expect(report.failures.join("\n")).toContain("Ila/Reina cold_start route activities did not differ by child care plan");
   });
 
   it("keeps the human target board and evidence-state prompts visible as proof targets", () => {
@@ -474,6 +614,18 @@ describe("planner tutor lab", () => {
 
     expect(report.proved).toBe(false);
     expect(report.failures.join("\n")).toContain("planner_tutor_lab_call_timeout:ila:cold_start");
+    const errorArtifact = JSON.parse(
+      fs.readFileSync(path.join(report.labDir, "ila-cold_start-error.json"), "utf8"),
+    ) as { plannerRequestDiagnostics?: Record<string, unknown> };
+    expect(errorArtifact.plannerRequestDiagnostics).toMatchObject({
+      model: "default",
+      timeoutMs: 1,
+      imageCount: 1,
+      sourceHasPageImages: true,
+    });
+    expect(errorArtifact.plannerRequestDiagnostics?.promptChars).toEqual(expect.any(Number));
+    expect(errorArtifact.plannerRequestDiagnostics?.schemaBytes).toEqual(expect.any(Number));
+    expect(errorArtifact.plannerRequestDiagnostics?.packetBytes).toEqual(expect.any(Number));
   });
 
   it("records planner call failures in the lab report instead of losing the proof artifact", async () => {

@@ -1,0 +1,6 @@
+{
+  "nodes": [
+    { "id": "node-1-silent-baseline", "type": "spell-check", "targets": ["sign", "know", "write"] },
+    { "id": "node-2-pronunciation", "type": "pronunciation", "targets": ["among", "decided"] }
+  ]
+}

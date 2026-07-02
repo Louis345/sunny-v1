@@ -19,6 +19,37 @@ import { applyLocalNodeResult } from "../../../src/shared/mapLocalProgress";
 
 export type MapConnectionStatus = "idle" | "connecting" | "open" | "error";
 
+export type QuestBossArtifactLifecycleStatus =
+  | "brief_only"
+  | "generating"
+  | "validating"
+  | "ready_for_review"
+  | "approved_ready"
+  | "failed_retryable"
+  | "failed_final"
+  | "retired"
+  | "generated"
+  | "validated"
+  | "failed";
+
+export type QuestBossPreparationStatus = {
+  ok: true;
+  childId: string;
+  jobs: Array<{
+    childId: string;
+    homeworkId?: string;
+    briefId: string;
+    kind: "quest" | "boss";
+    status: QuestBossArtifactLifecycleStatus;
+  }>;
+  running: string[];
+  briefs: Array<{
+    briefId: string;
+    kind: "quest" | "boss";
+    status: QuestBossArtifactLifecycleStatus;
+  }>;
+};
+
 export class MapRequestError extends Error {
   readonly status: number;
 
@@ -172,6 +203,39 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    let detail = `http_${res.status}`;
+    try {
+      const payload = await res.json() as { error?: unknown; message?: unknown };
+      const serverMessage =
+        typeof payload.error === "string"
+          ? payload.error
+          : typeof payload.message === "string"
+            ? payload.message
+            : "";
+      if (serverMessage.trim()) detail = serverMessage.trim();
+    } catch {
+      /* keep HTTP status fallback */
+    }
+    console.error("  🔴 [useMapSession] GET failed", url, detail);
+    throw new MapRequestError(res.status, detail);
+  }
+  return res.json() as Promise<T>;
+}
+
+function shouldPollQuestBossPreparation(status: QuestBossPreparationStatus | null): boolean {
+  if (!status) return false;
+  if (status.running.length > 0 || status.jobs.length > 0) return true;
+  return status.briefs.some((brief) =>
+    brief.status === "brief_only" ||
+    brief.status === "generating" ||
+    brief.status === "validating" ||
+    brief.status === "failed_retryable",
+  );
+}
+
 /**
  * Map session over REST (TASK-010). Outbound shapes match the coordinator
  * WebSocket contract for a future dedicated map socket.
@@ -216,6 +280,7 @@ export function useMapSession(
   /** Server-pushed balance while map WS is open; null = use profile-only value from parent. */
   liveMapCurrency: number | null;
   sessionStarted: boolean;
+  questBossPreparation: QuestBossPreparationStatus | null;
 } {
   const [mapState, setMapState] = useState<MapState | null>(null);
   const [theme, setTheme] = useState<SessionTheme | null>(null);
@@ -232,11 +297,32 @@ export function useMapSession(
   );
   const [sessionStarted, setSessionStarted] = useState(false);
   const [liveMapCurrency, setLiveMapCurrency] = useState<number | null>(null);
+  const [questBossPreparation, setQuestBossPreparation] =
+    useState<QuestBossPreparationStatus | null>(null);
 
   const mapStateRef = useRef<MapState | null>(null);
   useEffect(() => {
     mapStateRef.current = mapState;
   }, [mapState]);
+
+  const triggerQuestBossPreparation = useCallback(async (): Promise<QuestBossPreparationStatus | null> => {
+    const id = childId.trim().toLowerCase();
+    if (!id || previewMode === "free" || previewMode === "go-live") return null;
+    try {
+      const status = await postJson<QuestBossPreparationStatus>(
+        "/api/homework/quest-boss/prepare",
+        { childId: id },
+      );
+      setQuestBossPreparation(status);
+      return status;
+    } catch (err) {
+      console.warn(" 🎮 [useMapSession] quest_boss_prep_start_failed", {
+        childId: id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }, [childId, previewMode]);
 
   useEffect(() => {
     if (!childId.trim()) {
@@ -248,6 +334,7 @@ export function useMapSession(
       setCompanionCommands([]);
       setSessionStarted(false);
       setLiveMapCurrency(null);
+      setQuestBossPreparation(null);
       setConnectionStatus("idle");
       setConnectionError(null);
       const w = window as unknown as { _mapWs?: WebSocket };
@@ -258,6 +345,7 @@ export function useMapSession(
     setCompanionCommands([]);
     setSessionStarted(false);
     setLiveMapCurrency(null);
+    setQuestBossPreparation(null);
     let cancelled = false;
     setConnectionStatus("connecting");
     setConnectionError(null);
@@ -290,6 +378,57 @@ export function useMapSession(
       cancelled = true;
     };
   }, [childId, homeworkDomain, inspectAllMode, previewMode]);
+
+  useEffect(() => {
+    const id = childId.trim().toLowerCase();
+    if (!id || !sessionStarted || previewMode === "free" || previewMode === "go-live") {
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pollCount = 0;
+
+    const pollStatus = async () => {
+      if (cancelled) return;
+      pollCount += 1;
+      if (pollCount > 120) {
+        console.warn(" 🎮 [useMapSession] quest_boss_prep_poll_guard", { childId: id });
+        return;
+      }
+      try {
+        const status = await getJson<QuestBossPreparationStatus>(
+          `/api/homework/quest-boss/status?childId=${encodeURIComponent(id)}`,
+        );
+        if (cancelled) return;
+        setQuestBossPreparation(status);
+        if (shouldPollQuestBossPreparation(status)) {
+          timer = setTimeout(() => {
+            void pollStatus();
+          }, 5000);
+        }
+      } catch (err) {
+        console.warn(" 🎮 [useMapSession] quest_boss_prep_status_failed", {
+          childId: id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    };
+
+    triggerQuestBossPreparation()
+      .then((status) => {
+        if (cancelled || !status) return;
+        if (shouldPollQuestBossPreparation(status)) {
+          timer = setTimeout(() => {
+            void pollStatus();
+          }, 5000);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [childId, previewMode, sessionStarted, triggerQuestBossPreparation]);
 
   useEffect(() => {
     const id = childId.trim();
@@ -515,6 +654,7 @@ export function useMapSession(
           console.log("companion_event received (REST):", ev);
           setCompanionEvents((prev) => [...prev, ev.payload]);
         }
+        void triggerQuestBossPreparation();
         return res.mapState;
       } catch (err) {
         console.error("  🔴 [useMapSession] node result failed:", err);
@@ -522,7 +662,7 @@ export function useMapSession(
         return null;
       }
     },
-    [sessionId, previewMode],
+    [sessionId, previewMode, triggerQuestBossPreparation],
   );
 
   const sendNodeRating = useCallback(
@@ -566,5 +706,6 @@ export function useMapSession(
     purchaseStoryMovie,
     liveMapCurrency,
     sessionStarted,
+    questBossPreparation,
   };
 }

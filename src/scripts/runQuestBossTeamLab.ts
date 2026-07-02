@@ -5,9 +5,18 @@ import http from "http";
 import path from "path";
 import { pathToFileURL } from "url";
 import { chromium } from "playwright";
+import { z } from "zod";
 import type { ActiveSessionPlan, GeneratedExperienceBrief } from "../context/schemas/learningProfile";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { generateExperienceArtifactFromChart, generateExperienceHtmlWithSonnet } from "../engine/generatedExperienceArtifact";
+import {
+  buildQuestBossArtifactPrompt,
+  buildQuestBossCreativeDirectorInput,
+  buildQuestBossCreativeDirectorPrompt,
+  parseQuestBossDynamicPromptBrief,
+  questBossDynamicPromptBriefSchema,
+  type QuestBossDynamicPromptBrief,
+} from "../engine/questBossDynamicPromptBrief";
 import { selectQuestBossLabCandidate } from "../engine/questBossLabSelection";
 import { renderQuestBossFreeVisionShell, renderQuestBossShell } from "../engine/questBossExperienceShell";
 import {
@@ -20,6 +29,7 @@ import {
   type QuestBossEvidence,
   type QuestBossKind,
 } from "../engine/questBossTeamPipeline";
+import { HAIKU_MODEL, SONNET_MODEL } from "./generateGame";
 
 loadDotenv({ override: false });
 
@@ -40,7 +50,7 @@ type ScreenshotEntry = {
   path: string;
 };
 
-const DEFAULT_MODEL = process.env.SUNNY_QUEST_BOSS_MODEL ?? "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = process.env.SUNNY_QUEST_BOSS_MODEL ?? SONNET_MODEL;
 const DEFAULT_OPENAI_IMAGE_MODEL = process.env.SUNNY_QUEST_BOSS_IMAGE_MODEL ?? "gpt-image-1";
 const DEFAULT_OPENAI_IMAGE_QUALITY = process.env.SUNNY_QUEST_BOSS_IMAGE_QUALITY ?? "medium";
 const ESTIMATED_CARD_ART_COST_USD = 0.07;
@@ -586,6 +596,62 @@ Rules:
   }));
   return {
     candidates,
+    usage: message.usage,
+    latencyMs: Date.now() - started,
+  };
+}
+
+async function generateQuestBossDynamicPromptBrief(input: {
+  childId: string;
+  kind: QuestBossKind;
+  assignment: ReturnType<typeof assignmentFromCycle>;
+  designerBrief: ReturnType<typeof buildDesignerBriefFromLabContext>;
+  baselineEvidence: Array<{ nodeId: string; summary: string }>;
+  questEvidence?: QuestBossEvidence;
+}): Promise<{ brief: QuestBossDynamicPromptBrief; usage?: unknown; latencyMs: number }> {
+  const started = Date.now();
+  const directorInput = buildQuestBossCreativeDirectorInput({
+    childId: input.childId,
+    kind: input.kind,
+    assignment: input.assignment,
+    designerBrief: input.designerBrief,
+    baselineEvidence: input.baselineEvidence,
+    questEvidence: input.questEvidence
+      ? {
+          contentId: input.questEvidence.contentId,
+          accuracy: input.questEvidence.accuracy,
+          targetResults: input.questEvidence.targetResults,
+        }
+      : null,
+  });
+  const client = new Anthropic();
+  const toolName = "create_quest_boss_dynamic_prompt_brief";
+  const message = await client.messages.create({
+    model: HAIKU_MODEL,
+    max_tokens: 1800,
+    tools: [{
+      name: toolName,
+      description: "Create a schema-valid dynamic Quest/Boss creative brief for one child and one homework plan.",
+      input_schema: z.toJSONSchema(questBossDynamicPromptBriefSchema, { io: "input" }) as Anthropic.Messages.Tool.InputSchema,
+    }],
+    tool_choice: {
+      type: "tool",
+      name: toolName,
+    },
+    messages: [{
+      role: "user",
+      content: buildQuestBossCreativeDirectorPrompt(directorInput),
+    }],
+  });
+  const toolUse = message.content.find((part): part is Anthropic.ToolUseBlock =>
+    part.type === "tool_use" && part.name === toolName,
+  );
+  if (!toolUse) {
+    throw new Error("Haiku dynamic prompt brief did not call create_quest_boss_dynamic_prompt_brief.");
+  }
+  const brief = parseQuestBossDynamicPromptBrief(toolUse.input);
+  return {
+    brief,
     usage: message.usage,
     latencyMs: Date.now() - started,
   };
@@ -1248,6 +1314,26 @@ async function main(): Promise<void> {
   });
   addBrief(labRoot, args.childId, questBrief);
   const useAiRuntime = args.paid && args.runtime === "ai-html";
+  const questDynamicPrompt = useAiRuntime
+    ? await generateQuestBossDynamicPromptBrief({
+        childId: args.childId,
+        kind: "quest",
+        assignment,
+        designerBrief,
+        baselineEvidence,
+      })
+    : null;
+  if (questDynamicPrompt) {
+    modelUsage.push({
+      stage: "quest_dynamic_prompt_brief",
+      model: HAIKU_MODEL,
+      usage: questDynamicPrompt.usage,
+      latencyMs: questDynamicPrompt.latencyMs,
+    });
+  }
+  const questDynamicArtifactPrompt = questDynamicPrompt
+    ? buildQuestBossArtifactPrompt({ brief: questDynamicPrompt.brief })
+    : undefined;
   const questSelection = await selectQuestBossCandidate({
     childId: args.childId,
     kind: "quest",
@@ -1260,6 +1346,7 @@ async function main(): Promise<void> {
         childId: args.childId,
         rootDir: labRoot,
         briefId: questBrief.briefId,
+        parentFeedback: questDynamicArtifactPrompt,
         generateHtml: useAiRuntime
           ? generateExperienceHtmlWithSonnet
           : () => renderLabRuntimeShell({ runtime: args.runtime, candidate, assignment }),
@@ -1374,6 +1461,27 @@ async function main(): Promise<void> {
     now: new Date(),
   });
   addBrief(labRoot, args.childId, bossBrief);
+  const bossDynamicPrompt = useAiRuntime
+    ? await generateQuestBossDynamicPromptBrief({
+        childId: args.childId,
+        kind: "boss",
+        assignment,
+        designerBrief,
+        baselineEvidence,
+        questEvidence,
+      })
+    : null;
+  if (bossDynamicPrompt) {
+    modelUsage.push({
+      stage: "boss_dynamic_prompt_brief",
+      model: HAIKU_MODEL,
+      usage: bossDynamicPrompt.usage,
+      latencyMs: bossDynamicPrompt.latencyMs,
+    });
+  }
+  const bossDynamicArtifactPrompt = bossDynamicPrompt
+    ? buildQuestBossArtifactPrompt({ brief: bossDynamicPrompt.brief })
+    : undefined;
   const bossSelection = await selectQuestBossCandidate({
     childId: args.childId,
     kind: "boss",
@@ -1386,6 +1494,7 @@ async function main(): Promise<void> {
         childId: args.childId,
         rootDir: labRoot,
         briefId: bossBrief.briefId,
+        parentFeedback: bossDynamicArtifactPrompt,
         generateHtml: useAiRuntime
           ? generateExperienceHtmlWithSonnet
           : () => renderLabRuntimeShell({ runtime: args.runtime, candidate, assignment }),
@@ -1462,6 +1571,8 @@ async function main(): Promise<void> {
     modelUsage,
     visualGenerations,
     quest: {
+      dynamicPromptBrief: questDynamicPrompt?.brief ?? null,
+      dynamicArtifactPrompt: questDynamicArtifactPrompt ?? null,
       candidates: questPrepared.candidates,
       selectedCandidateId: selectedQuest.candidateId,
       selectionSource: questSelectionDecision.source,
@@ -1474,6 +1585,8 @@ async function main(): Promise<void> {
       evidence: questEvidence,
     },
     boss: {
+      dynamicPromptBrief: bossDynamicPrompt?.brief ?? null,
+      dynamicArtifactPrompt: bossDynamicArtifactPrompt ?? null,
       candidates: bossPrepared.candidates,
       selectedCandidateId: selectedBoss.candidateId,
       selectionSource: bossSelectionDecision.source,
