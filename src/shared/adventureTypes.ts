@@ -29,6 +29,19 @@ export type NodeType =
   | "boss"
   | "wheel-of-fortune";
 
+export type AdaptiveArtifactLifecycleStatus =
+  | "brief_only"
+  | "generating"
+  | "validating"
+  | "ready_for_review"
+  | "approved_ready"
+  | "failed_retryable"
+  | "failed_final"
+  | "retired"
+  | "generated"
+  | "validated"
+  | "failed";
+
 export type EvidenceTier =
   | "practice"
   | "clean_recall"
@@ -259,11 +272,12 @@ export interface NodeConfig {
     homeworkWordIds: string[];
     baselineEvidenceIds: string[];
     generatedPath?: string;
+    artifactStatus?: AdaptiveArtifactLifecycleStatus;
     validationStatus?: AdaptiveArtifactValidationStatus;
     validationReport?: AdaptiveArtifactValidationReport;
   };
   /** Locked mastery nodes can be visible while generated content is still being prepared. */
-  artifactStatus?: "ready" | "preparing";
+  artifactStatus?: "ready" | "preparing" | AdaptiveArtifactLifecycleStatus;
   /** Mystery node preference-lab/surprise-drop payload. */
   mysteryMode?: MysteryMode;
   choiceSetId?: string;

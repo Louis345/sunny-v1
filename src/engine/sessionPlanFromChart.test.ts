@@ -687,7 +687,7 @@ describe("patient-chart session plan", () => {
     expect(nodes.some((node) => node.type === "boss")).toBe(false);
   });
 
-  it("preserves planner-authored Word Radar config from pending homework exactly", () => {
+  it("preserves planner-selected Word Radar config from pending homework exactly", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";

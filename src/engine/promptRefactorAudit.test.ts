@@ -125,7 +125,7 @@ describe("prompt refactor audit", () => {
       [
         "# Prompt audit",
         "Date: 2026-05-22.",
-        "Reviewed AGENTS Laws 1-14.",
+        "Reviewed AGENTS Laws 1-14, including Law 12, Law 13, and Law 14.",
       ].join("\n"),
     );
     write(

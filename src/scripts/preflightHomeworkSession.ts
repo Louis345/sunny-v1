@@ -157,17 +157,17 @@ export function runHomeworkSessionPreflight(input: {
         issues,
         "high",
         "missing_word_radar_config",
-        `Word Radar node ${node.id} is missing planner-authored wordRadarConfig.`,
+        `Word Radar node ${node.id} is missing planner-selected wordRadarConfig.`,
       );
     }
   }
 
   for (const reason of missingAdventureSpineReasons(plan)) {
     const message = reason === "missing_mystery_choice"
-      ? "Active plan is missing the planner-owned Mystery/Bandit choice node."
+      ? "Active plan is missing the compiler-owned Mystery/Bandit choice node."
       : reason === "missing_quest_destination"
-        ? "Active plan is missing the locked planner-owned Quest destination."
-        : "Active plan is missing the locked planner-owned Boss destination.";
+        ? "Active plan is missing the locked compiler-owned Quest destination."
+        : "Active plan is missing the locked compiler-owned Boss destination.";
     add(issues, "high", reason, message);
   }
 

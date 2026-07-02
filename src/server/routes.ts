@@ -71,6 +71,11 @@ import {
   generateExperienceArtifactFromChart,
   generateExperienceHtmlWithSonnet,
 } from "../engine/generatedExperienceArtifact";
+import { recordQuestBossArtifactReview } from "../engine/generatedArtifactReview";
+import {
+  readQuestBossArtifactPreparationStatus,
+  startQuestBossArtifactPreparation,
+} from "../engine/questBossArtifactPreparation";
 import {
   prepareQuestVisualCandidates,
   resolveQuestVisualCandidateImagePath,
@@ -754,6 +759,83 @@ export function setupRoutes(app: Express): void {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(" 🔴 [quest-visual-candidates] [select] [error]", message);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/quest-boss/prepare", (req: Request, res: Response) => {
+    try {
+      const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
+      const childId = rawChildId.toLowerCase();
+      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
+      if (!childId || !isValidChild(childName)) {
+        return res.status(400).json({ ok: false, error: "invalid_child_id" });
+      }
+      const status = startQuestBossArtifactPreparation({ childId });
+      if (!status.ok) {
+        return res.status(404).json(status);
+      }
+      return res.status(202).json(status);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.get("/api/homework/quest-boss/status", (req: Request, res: Response) => {
+    try {
+      const rawChildId = typeof req.query.childId === "string" ? req.query.childId.trim() : "";
+      const childId = rawChildId.toLowerCase();
+      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
+      if (!childId || !isValidChild(childName)) {
+        return res.status(400).json({ ok: false, error: "invalid_child_id" });
+      }
+      const status = readQuestBossArtifactPreparationStatus({ childId });
+      if (!status.ok) {
+        return res.status(404).json(status);
+      }
+      return res.json(status);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ ok: false, error: message });
+    }
+  });
+
+  app.post("/api/homework/quest-boss/review", (req: Request, res: Response) => {
+    try {
+      const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
+      const childId = rawChildId.toLowerCase();
+      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
+      const decision = req.body?.decision;
+      if (!childId || !isValidChild(childName)) {
+        return res.status(400).json({ ok: false, error: "invalid_child_id" });
+      }
+      if (decision !== "approve" && decision !== "revise" && decision !== "reject" && decision !== "regenerate") {
+        return res.status(400).json({ ok: false, error: "invalid_review_decision" });
+      }
+      const artifactPath = typeof req.body?.artifactPath === "string" ? req.body.artifactPath : "";
+      const contentId = typeof req.body?.contentId === "string" ? req.body.contentId : "";
+      const briefId = typeof req.body?.briefId === "string" ? req.body.briefId : "";
+      const reason = typeof req.body?.reason === "string" ? req.body.reason : "";
+      if (!artifactPath.trim() || !contentId.trim() || !briefId.trim() || !reason.trim()) {
+        return res.status(400).json({ ok: false, error: "missing_review_fields" });
+      }
+      const reusableLessons = Array.isArray(req.body?.reusableLessons)
+        ? req.body.reusableLessons.filter((item: unknown): item is string => typeof item === "string")
+        : [];
+      const review = recordQuestBossArtifactReview({
+        childId,
+        artifactPath,
+        contentId,
+        briefId,
+        decision,
+        reason,
+        reusableLessons,
+        reviewer: typeof req.body?.reviewer === "string" ? req.body.reviewer : undefined,
+      });
+      return res.json({ ok: true, review });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       return res.status(500).json({ ok: false, error: message });
     }
   });

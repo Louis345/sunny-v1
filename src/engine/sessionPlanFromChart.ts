@@ -857,6 +857,10 @@ function masteryNodeConfig(input: {
   masteryUnlockState?: MasteryUnlockState;
 }): NodeConfig {
   const artifactPassed = passedArtifact(input.source);
+  const artifactStatus = artifactPassed
+    ? input.source?.artifactStatus ?? input.source?.adaptiveArtifact?.artifactStatus ?? "preparing"
+    : "preparing";
+  const artifactApproved = artifactStatus === "approved_ready";
   return {
     id: input.id,
     type: input.type,
@@ -867,8 +871,8 @@ function masteryNodeConfig(input: {
     date: artifactPassed ? input.source?.date ?? input.pendingWeekOf : undefined,
     contentId: artifactPassed ? input.source?.adaptiveArtifact?.contentId : undefined,
     adaptiveArtifact: artifactPassed ? input.source?.adaptiveArtifact : undefined,
-    artifactStatus: artifactPassed ? "ready" : "preparing",
-    masteryUnlockState: artifactPassed ? "pending_ceremony" : input.masteryUnlockState ?? "preparing",
+    artifactStatus,
+    masteryUnlockState: artifactApproved ? "pending_ceremony" : input.masteryUnlockState ?? "preparing",
     isLocked: true,
     isCompleted: false,
     isGoal: false,

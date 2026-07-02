@@ -3,10 +3,14 @@ import type { NodeConfig } from "./adventureTypes";
 export function hasPlayableMasteryArtifact(node: NodeConfig): boolean {
   const status = node.adaptiveArtifact?.validationStatus;
   const validationPassed = status === "passed" || status === "warning";
+  const approved =
+    node.artifactStatus === "approved_ready" ||
+    node.adaptiveArtifact?.artifactStatus === "approved_ready";
   return Boolean(
     node.adaptiveArtifact?.artifactId &&
       node.adaptiveArtifact.contentId &&
       validationPassed &&
+      approved &&
       (node.gameFile || node.gameHtmlPath),
   );
 }

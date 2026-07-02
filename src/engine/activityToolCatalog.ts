@@ -2680,7 +2680,7 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
     label: "Pronunciation",
     nodeType: "pronunciation",
     purposes: ["practice", "fluency"],
-    domains: ["pronunciation", "reading", "science", "vocabulary"],
+    domains: ["pronunciation", "reading", "science", "vocabulary", "spelling"],
     strengths: [
       "Creates high-flow repetition for spoken academic words.",
       "Can reinforce vocabulary from reading or science homework.",

@@ -308,6 +308,8 @@ describe("adventure board validation", () => {
         expect.objectContaining({ code: "board_choice_art_missing" }),
       ]),
     );
+    expect(issues.map((issue) => issue.message).join(" ")).not.toMatch(/planner-owned|planner-authored/);
+    expect(issues.map((issue) => issue.message).join(" ")).toContain("compiler-owned layout slots");
   });
 
   it("fails horizontal spine boards that put the route choice before baseline evidence", () => {

@@ -64,6 +64,50 @@ function containsVisibleTarget(html: string, words: string[]): boolean {
   });
 }
 
+function normalizeWord(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function scriptOwnedTargetWords(html: string): string[] {
+  const words: string[] = [];
+  const scripts = html.match(/<script\b[\s\S]*?<\/script>/gi) ?? [];
+  const arrayPattern = /\b(?:const|let|var)\s+(?:WORDS|targetWords|targets)\s*=\s*\[([\s\S]*?)\]/gi;
+  for (const script of scripts) {
+    for (const match of script.matchAll(arrayPattern)) {
+      const body = match[1] ?? "";
+      for (const item of body.matchAll(/["']([A-Za-z][A-Za-z'-]{1,})["']/g)) {
+        words.push(item[1] ?? "");
+      }
+    }
+  }
+  return words;
+}
+
+function inlineScriptSyntaxFailures(html: string): string[] {
+  const failures: string[] = [];
+  const scripts = html.match(/<script\b[\s\S]*?<\/script>/gi) ?? [];
+  scripts.forEach((script, index) => {
+    if (/\bsrc\s*=/i.test(script)) return;
+    const typeMatch = script.match(/\btype=(["'])(.*?)\1/i);
+    const type = typeMatch?.[2]?.trim().toLowerCase();
+    if (type && !["text/javascript", "application/javascript", "module"].includes(type)) return;
+    const body = script
+      .replace(/^<script\b[^>]*>/i, "")
+      .replace(/<\/script>$/i, "");
+    try {
+      if (type === "module") {
+        new Function(`"use strict";\n${body}`);
+      } else {
+        new Function(body);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      failures.push(`Inline script syntax error in script ${index + 1}: ${message}`);
+    }
+  });
+  return failures;
+}
+
 function stripRuntimeParamReferences(html: string): string {
   return html.replace(
     /\bwindow\s*(?:\.\s*GAME_PARAMS|\[\s*["']GAME_PARAMS["']\s*\])(?:\s*\?\.\s*[A-Za-z_$][\w$]*|\s*\.\s*[A-Za-z_$][\w$]*)?/gi,
@@ -97,6 +141,7 @@ export function validateGeneratedGame(
   }
 
   if (ctx.generationStage === "quest" || ctx.generationStage === "boss") {
+    failures.push(...inlineScriptSyntaxFailures(html));
     if (!hasCanonicalContractScript(html)) {
       failures.push('Quest/Boss artifacts must load the Sunny contract with <script src="/games/_contract.js"></script>');
     }
@@ -157,6 +202,16 @@ export function validateGeneratedGame(
   }
 
   if (ctx.homeworkType === "spelling_test") {
+    if (ctx.generationStage === "quest" || ctx.generationStage === "boss") {
+      const approved = new Set(ctx.words.map(normalizeWord).filter(Boolean));
+      const unapproved = scriptOwnedTargetWords(html)
+        .map(normalizeWord)
+        .filter((word) => word && !approved.has(word));
+      if (unapproved.length > 0) {
+        failures.push(`Unapproved spelling targets in generated ${ctx.generationStage}: ${[...new Set(unapproved)].join(", ")}`);
+        score -= 30;
+      }
+    }
     if (containsVisibleTarget(html, ctx.words)) {
       const message = "Word list may be visible during spelling — defeats assessment purpose";
       if (ctx.generationStage === "quest" || ctx.generationStage === "boss") {
@@ -182,8 +237,10 @@ export function validateGeneratedGame(
       fl.includes("sunny-companion") ||
       fl.includes("own companion chrome") ||
       fl.includes("fireattemptevent") ||
+      fl.includes("unapproved spelling targets") ||
       fl.includes("visible spelling targets") ||
-      fl.includes("one-click")
+      fl.includes("one-click") ||
+      fl.includes("inline script syntax error")
     );
   });
 

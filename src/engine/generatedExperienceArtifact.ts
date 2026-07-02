@@ -306,25 +306,21 @@ export async function generateExperienceHtmlWithSonnet(
   args: GenerateExperienceHtmlArgs,
 ): Promise<string> {
   const client = new Anthropic();
-  const payload = JSON.stringify(
-    {
-      childChart: {
-        childId: args.chart.childId,
-        identity: args.chart.identity,
-        adaptiveLoadState: args.profile.adaptiveLoadState,
-        activityTraitModel: args.profile.activityTraitModel,
-      },
-      activeSessionPlan: args.plan,
-      generatedExperienceBrief: args.brief,
-      parentFeedback: args.parentFeedback,
-      experienceContextPacket: args.experienceContextPacket,
-      adaptiveArtifactBrief: args.artifact.brief,
-      homework: args.homeworkCycle.capturedContent,
-      validationFeedback: args.validationFeedback,
+  const payload = JSON.stringify({
+    childChart: {
+      childId: args.chart.childId,
+      identity: args.chart.identity,
+      adaptiveLoadState: args.profile.adaptiveLoadState,
+      activityTraitModel: args.profile.activityTraitModel,
     },
-    null,
-    2,
-  );
+    activeSessionPlan: args.plan,
+    generatedExperienceBrief: args.brief,
+    parentFeedback: args.parentFeedback,
+    experienceContextPacket: args.experienceContextPacket,
+    adaptiveArtifactBrief: args.artifact.brief,
+    homework: args.homeworkCycle.capturedContent,
+    validationFeedback: args.validationFeedback,
+  });
   return generateQuestGameHtml({
     client,
     extractedJsonPretty: payload,
@@ -436,6 +432,7 @@ function attachArtifactToProfileNode(args: {
   stage: AdaptiveQuestArtifactStage;
   artifact: AdaptiveQuestArtifact;
   gameDate: string;
+  artifactStatus: GeneratedExperienceBrief["artifactStatus"];
 }): LearningProfile {
   const pending = args.profile.pendingHomework;
   if (!pending) return args.profile;
@@ -455,7 +452,10 @@ function attachArtifactToProfileNode(args: {
           words: attached.words,
           gameFile: attached.gameFile ?? null,
           storyFile: attached.storyFile ?? node.storyFile ?? null,
-          adaptiveArtifact: attached.adaptiveArtifact,
+          adaptiveArtifact: attached.adaptiveArtifact
+            ? { ...attached.adaptiveArtifact, artifactStatus: args.artifactStatus }
+            : attached.adaptiveArtifact,
+          artifactStatus: args.artifactStatus,
           date: args.gameDate,
         };
       }),
@@ -613,7 +613,7 @@ export async function generateExperienceArtifactFromChart(
       reuseReason: `Generated ${stage} failed validation and was not made playable.`,
     };
     const withCatalog = upsertProfileContentCatalog(profile, [failedCatalogItem]);
-    const failedPlan = updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "failed");
+    const failedPlan = updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "failed_retryable");
     const withFailedBrief = failedPlan
       ? withActiveSessionPlanLane(withCatalog, failedPlan)
       : withCatalog;
@@ -648,31 +648,37 @@ export async function generateExperienceArtifactFromChart(
   fs.writeFileSync(filePath, html, "utf8");
   console.log(`🎮 [experience-artifact] [validated] child=${childId} stage=${stage} file=${filename}`);
 
-  const catalogItem = catalogAdaptiveQuestArtifact(artifact, {
-    childId,
-    title: `${cycle.capturedContent?.title ?? homeworkId} ${stage}`,
-  });
+  artifact = { ...artifact, artifactStatus: "ready_for_review" };
+  const catalogItem = {
+    ...catalogAdaptiveQuestArtifact(artifact, {
+      childId,
+      title: `${cycle.capturedContent?.title ?? homeworkId} ${stage}`,
+    }),
+    reviewStatus: "ready_for_review" as const,
+    reuseReason: "Generated artifact passed validation and is waiting for human quality review.",
+  };
   const withAttachedNode = attachArtifactToProfileNode({
     profile,
     stage,
     artifact,
     gameDate,
+    artifactStatus: "ready_for_review",
   });
   const withExperiment = activateExperimentForArtifact(withAttachedNode, artifact.experimentId, artifact.contentId, now);
   const withCatalog = upsertProfileContentCatalog(withExperiment, [catalogItem]);
-  const validatedPlan = updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "validated");
+  const validatedPlan = updateBriefStatus(withCatalog.activeSessionPlan, brief.briefId, "ready_for_review");
   const withValidatedBrief = validatedPlan
     ? withActiveSessionPlanLane(withCatalog, validatedPlan)
     : withCatalog;
   writeProfile(rootDir, childId, withValidatedBrief, now);
   writeWaterfallContentCatalog(childId, withValidatedBrief, { rootDir, now });
   appendDecisionTrace(childId, {
-    traceId: `trace-${stage}-validated-${brief.briefId}`,
+    traceId: `trace-${stage}-ready-for-review-${brief.briefId}`,
     eventType: stage === "boss" ? "boss_generation" : "quest_generation",
     evidenceRead: artifact.baselineEvidenceIds,
     theoryUsed: artifact.brief.hypothesis,
-    changeSummary: `${stage} artifact ${artifact.contentId} validated and attached.`,
-    reason: `Runtime/static validation passed with score ${report.score}.`,
+    changeSummary: `${stage} artifact ${artifact.contentId} validated and queued for human review.`,
+    reason: `Runtime/static validation passed with score ${report.score}; approval is still required before unlock.`,
     writesTo: [filePath, path.join(contextDir(rootDir, childId), "learning_profile.json")],
     createdAt: now.toISOString(),
   }, { rootDir, now });

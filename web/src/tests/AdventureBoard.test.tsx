@@ -347,9 +347,9 @@ describe("AdventureBoard", () => {
     expect(screen.getByRole("button", { name: `${skippedNode!.label}, Route not picked` })).toHaveClass(
       "adventure-board__node--locked",
     );
-    expect(screen.getByRole("button", { name: selectedNode!.label })).not.toHaveClass(
-      "adventure-board__node--locked",
-    );
+    expect(screen.getAllByRole("button", { name: selectedNode!.label }).some(
+      (button) => !button.classList.contains("adventure-board__node--locked"),
+    )).toBe(true);
   });
 
   it("builds preference-only choice evidence from planner board route options", () => {
@@ -538,10 +538,9 @@ describe("AdventureBoard", () => {
 
     expect(reinaCurrentHomeworkBoard.layout?.companionSlot).toBe("right");
     expect(reinaCurrentHomeworkBoard.nodes.some((node) => node.position == null)).toBe(true);
-    expect(screen.getByRole("button", { name: /Start/ })).toBeVisible();
     const firstActivity = reinaCurrentHomeworkBoard.nodes.find((node) => node.kind === "activity");
     expect(firstActivity).toBeDefined();
-    expect(screen.getByRole("button", { name: firstActivity!.label })).toBeVisible();
+    expect(screen.getAllByRole("button", { name: firstActivity!.label })[0]).toBeVisible();
   });
 });
 

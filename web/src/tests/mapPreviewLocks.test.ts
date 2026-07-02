@@ -135,6 +135,7 @@ describe("applyLocalNodeResult (preview client path)", () => {
         targetGroupIds: ["g1"],
         homeworkWordIds: ["w1"],
         baselineEvidenceIds: ["n1"],
+        artifactStatus: "approved_ready",
         validationStatus: "passed",
         validationReport: {
           passed: true,

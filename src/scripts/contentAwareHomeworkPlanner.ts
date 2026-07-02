@@ -26,6 +26,7 @@ import type {
 } from "../engine/activityEngineConfig";
 import { buildConceptCheckConfigFromCapturedHomework } from "../engine/activityEngineConfig";
 import type {
+  AdaptiveArtifactLifecycleStatus,
   AdaptiveArtifactValidationReport,
   ChoiceEventSource,
   MasteryUnlockState,
@@ -281,6 +282,7 @@ export type PlannedHomeworkNode = {
     homeworkWordIds: string[];
     baselineEvidenceIds: string[];
     generatedPath?: string;
+    artifactStatus?: AdaptiveArtifactLifecycleStatus;
     validationStatus?: "passed" | "failed" | "warning";
     validationReport?: AdaptiveArtifactValidationReport;
   };

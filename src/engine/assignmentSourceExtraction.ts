@@ -40,6 +40,7 @@ export type AssignmentSourceExtractionOptions = {
 };
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
+export const PDF_PREVIEW_IMAGE_MAX_EDGE_PX = 1000;
 
 export function isWeakExtractedText(text: string): boolean {
   const cleaned = text.replace(/\s+/g, " ").trim();
@@ -111,7 +112,7 @@ async function renderPdfPreviewImages(
   await execFile("qlmanage", [
     "-t",
     "-s",
-    "2000",
+    String(PDF_PREVIEW_IMAGE_MAX_EDGE_PX),
     "-o",
     outputDir,
     filePath,

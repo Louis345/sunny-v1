@@ -777,7 +777,7 @@ export const reinaMay24PlannerAdventureBoard: AdventureBoardJson = {
     agencyDesign:
       "The planner separates silent-letter spelling production from high-frequency recognition before offering a Mystery recovery moment.",
     evidenceDesign:
-      "Word Radar keeps the planner-authored modes intact, Spell Check verifies spelling, and Quest/Boss stay locked for later evidence.",
+      "Word Radar keeps the planner-selected modes intact, Spell Check verifies spelling, and Quest/Boss stay locked for later evidence.",
     layoutChoice:
       "Horizontal map leaves room for Matilda while keeping the May 24 interventions attached to their planner ids.",
   },

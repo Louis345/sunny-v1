@@ -82,7 +82,7 @@ function profileWithWordRadarPlan(childId: string): LearningProfile {
     evidenceUsed: [{ id: "fixture", type: "assignment_source", summary: "Fixture" }],
     openQuestions: [],
     planTheory: {
-      hypothesis: "Word Radar needs planner-authored mode config.",
+      hypothesis: "Word Radar needs planner-selected mode config.",
       evidenceSummary: ["fixture"],
       intervention: "word radar",
       supportCriteria: ["config present"],
@@ -127,7 +127,7 @@ describe("homework session preflight", () => {
     }
   });
 
-  it("reports missing planner-authored Word Radar config instead of letting runtime invent it", () => {
+  it("reports missing planner-selected Word Radar config instead of letting runtime invent it", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -137,9 +137,11 @@ describe("homework session preflight", () => {
     const report = runHomeworkSessionPreflight({ childId, rootDir: root });
 
     expect(report.issues.some((issue) => issue.code === "missing_word_radar_config")).toBe(true);
+    expect(report.issues.map((issue) => issue.message).join(" ")).not.toMatch(/planner-authored|planner-owned/);
+    expect(report.issues.map((issue) => issue.message).join(" ")).toContain("planner-selected wordRadarConfig");
   });
 
-  it("reports missing planner-owned Mystery, Quest, and Boss destinations", () => {
+  it("reports missing compiler-owned Mystery, Quest, and Boss destinations", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
@@ -153,5 +155,7 @@ describe("homework session preflight", () => {
       "missing_quest_destination",
       "missing_boss_destination",
     ]));
+    expect(report.issues.map((issue) => issue.message).join(" ")).not.toMatch(/planner-authored|planner-owned/);
+    expect(report.issues.map((issue) => issue.message).join(" ")).toContain("compiler-owned Mystery");
   });
 });
