@@ -22,6 +22,11 @@ import {
   buildOrbCaptureCompletedEvent,
   type OrbCaptureCompletedEvent,
 } from "./capturedMonsterReward";
+import { SparkOrbCreatureLife } from "./SparkOrbCreatureLife";
+import {
+  resolveLifeProfile,
+  type CreatureLifeReaction,
+} from "./creatureLifeProfiles";
 
 export type OrbLearningLastMoment =
   | "watching"
@@ -532,6 +537,22 @@ export function SparkOrbLearningShell({
     capturedCreature.capturePersonality,
     visualCaptureStage,
   );
+  const creatureLifeProfile = useMemo(
+    () => resolveLifeProfile(capturedCreature),
+    [capturedCreature],
+  );
+  const creatureLifeSuppressed = creatureCaptureMotion !== "free" || collectionSettled;
+  const creatureLifeReaction: CreatureLifeReaction = creatureLifeSuppressed
+    ? "none"
+    : launchSkill === "holding"
+      ? "alert"
+      : phase === "ready"
+        ? "excited"
+        : lastMoment === "spark_earned" || lastMoment === "recovered"
+          ? "perk"
+          : lastMoment === "missed_try"
+            ? "concerned"
+            : "none";
   const captureDirection = reverseReplayActive ? "reverse" : "capture";
   const creatureCaptureStyle =
     scrubbedCaptureScale === null ||
@@ -1011,7 +1032,7 @@ export function SparkOrbLearningShell({
         </div>
 
         <div className="spark-orb-learning-shell__creature-shadow" aria-hidden="true" />
-        <img
+        <div
           className="spark-orb-learning-shell__creature"
           data-testid="spark-orb-creature"
           data-capture-motion={creatureCaptureMotion}
@@ -1028,10 +1049,22 @@ export function SparkOrbLearningShell({
           data-capture-personality={capturedCreature.capturePersonality}
           data-personality-reaction={personalityReaction}
           style={creatureCaptureStyle}
-          src={capturedCreature.imageSrc}
-          alt=""
           aria-hidden="true"
-        />
+        >
+          <SparkOrbCreatureLife
+            profile={creatureLifeProfile}
+            reaction={creatureLifeReaction}
+            reactionPulseKey={chargeCount}
+            suppressed={creatureLifeSuppressed}
+          >
+            <img
+              className="spark-orb-learning-shell__creature-sprite"
+              src={capturedCreature.imageSrc}
+              alt=""
+              aria-hidden="true"
+            />
+          </SparkOrbCreatureLife>
+        </div>
         <div
           className="spark-orb-learning-shell__aura"
           data-active={charged && showCaptureEffects ? "true" : "false"}
@@ -1261,9 +1294,9 @@ export function SparkOrbLearningShell({
           z-index: 4;
         }
 
-        .spark-orb-learning-shell[data-phase="ready"] .spark-orb-learning-shell__creature,
-        .spark-orb-learning-shell[data-phase="collected"] .spark-orb-learning-shell__creature {
-          animation: sparkLearningCreatureBounce 1.7s ease-in-out infinite;
+        .spark-orb-learning-shell__creature-sprite {
+          display: block;
+          width: 100%;
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="pulling"] {
@@ -1984,11 +2017,6 @@ export function SparkOrbLearningShell({
         @keyframes sparkLearningReadyPulse {
           0%, 100% { transform: translateX(-50%) scale(1); }
           50% { transform: translateX(-50%) scale(1.08); }
-        }
-
-        @keyframes sparkLearningCreatureBounce {
-          0%, 100% { transform: translate(-50%, -50%); }
-          50% { transform: translate(-50%, -53%); }
         }
 
         @keyframes sparkLearningCreaturePull {

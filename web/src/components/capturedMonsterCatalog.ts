@@ -1,3 +1,8 @@
+import type {
+  CreatureLifeAnchors,
+  CreatureLifeProfile,
+} from "./creatureLifeProfiles";
+
 export type CapturedMonsterLifeState =
   | "idle"
   | "curious"
@@ -12,6 +17,12 @@ export type CapturedMonsterCapturePersonality =
   | "brave"
   | "sleepy";
 
+export type CapturedMonsterLifeProfileOverrides = {
+  [Key in Exclude<keyof CreatureLifeProfile, "reactionAmp">]?: Partial<
+    CreatureLifeProfile[Key]
+  >;
+} & { reactionAmp?: number };
+
 export interface CapturedMonsterConfig {
   id: string;
   speciesName: string;
@@ -24,6 +35,8 @@ export interface CapturedMonsterConfig {
   capturePersonality: CapturedMonsterCapturePersonality;
   personalityTags: string[];
   lifeStates: CapturedMonsterLifeState[];
+  lifeAnchors?: CreatureLifeAnchors;
+  lifeProfile?: CapturedMonsterLifeProfileOverrides;
   sprite: {
     mode: "css-png";
     futureAtlasReady: boolean;
@@ -45,6 +58,13 @@ export const LUMIPUFF_MONSTER: CapturedMonsterConfig = {
   capturePersonality: "playful",
   personalityTags: ["sunny", "gentle", "curious"],
   lifeStates: ["idle", "curious", "happy", "sleep", "celebrate"],
+  lifeAnchors: {
+    eyeLeft: { xPct: 39, yPct: 34 },
+    eyeRight: { xPct: 61, yPct: 34 },
+    eyeWidthPct: 13,
+    eyeHeightPct: 11,
+    lidColor: "#d9b8ea",
+  },
   sprite: {
     mode: "css-png",
     futureAtlasReady: true,
