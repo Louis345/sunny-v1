@@ -447,7 +447,7 @@ describe("SparkOrbLearningShell", () => {
       "spent",
     );
     expect(screen.getByText("Answer more to recharge.")).toBeInTheDocument();
-    expect(screen.getByText("Charge 0 / 3")).toBeInTheDocument();
+    expect(screen.getByText("Charge 1 / 3")).toBeInTheDocument();
     expect(screen.getByLabelText("6 Sunny orbs left")).toBeInTheDocument();
     expect(onEncounterEvent).toHaveBeenCalledWith(
       expect.objectContaining({ type: "release_miss", result: "miss-early" }),
@@ -456,7 +456,7 @@ describe("SparkOrbLearningShell", () => {
       expect.objectContaining({ type: "orb_spent", orbCount: 6 }),
     );
     expect(onEncounterEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "recharge_needed", chargeCount: 0 }),
+      expect.objectContaining({ type: "recharge_needed", chargeCount: 1 }),
     );
   });
 
