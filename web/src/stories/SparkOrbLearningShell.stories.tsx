@@ -340,6 +340,18 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
     setChargeCount(chargeCountForStoryPhase(args.phase));
   }, [args.phase]);
 
+  function handleEncounterEvent(event: SparkOrbLearningEncounterEvent): void {
+    logEncounterEvent(event);
+    if (event.type === "recharge_needed") {
+      setChargeCount(Math.max(0, Math.min(event.chargeCount, 2)));
+      setFeedback(
+        event.result === "success"
+          ? "It wiggled free! Answer to recharge the orb."
+          : "So close! Answer to recharge the orb.",
+      );
+    }
+  }
+
   function handleAnswer(choice: string): void {
     if (ready || !activeQuestion) return;
     const correct = choice === activeQuestion.answer;
@@ -387,7 +399,7 @@ function AimAndLaunchLearningStory(args: SparkOrbLearningShellStoryArgs): ReactE
         capturePersonality: args.capturePersonality,
       }}
       onCompanionAnchor={logCompanionAnchor}
-      onEncounterEvent={logEncounterEvent}
+      onEncounterEvent={handleEncounterEvent}
       onCaptureCompleted={logCaptureCompleted}
     >
       <ProblemCard
