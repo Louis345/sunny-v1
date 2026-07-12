@@ -156,4 +156,56 @@ describe("companion video call trace score report", () => {
     expect(report.readyForHumanReview).toBe(true);
     expect(report.blockers).toEqual([]);
   });
+
+  it("reports move packet metrics without changing pass thresholds", () => {
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("activity_move_packet_requested", 1000, {
+        turnId: "packet_1",
+        payload: { plannedMove: 5 },
+      }),
+      record("activity_move_packet_arrived", 2600, {
+        turnId: "packet_1",
+        payload: { latencyMs: 1600, plannedMove: 5 },
+      }),
+      record("activity_reaction_response_received", 2600, {
+        turnId: "packet_1",
+        responsePreview: "Center square, mine!",
+        payload: {
+          aiAuthored: true,
+          requestToResponseMs: 1600,
+          latencySpans: { requestToResponseMs: 1600 },
+        },
+      }),
+      record("activity_reaction_audio_start", 2650, { turnId: "packet_1" }),
+      record("activity_reaction_audio_ended", 4200, { turnId: "packet_1" }),
+      record("activity_move_packet_requested", 6000, {
+        turnId: "packet_2",
+        payload: { plannedMove: 3 },
+      }),
+      record("activity_move_packet_timeout", 10000, {
+        payload: { plannedMove: 3, timeoutMs: 4000 },
+      }),
+      record("activity_reaction_fallback", 10010, {
+        turnId: "packet_2",
+        payload: { reason: "move_packet_timeout", fallback: "gesture_only" },
+      }),
+      record("call_ended", 11000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+
+    expect(report.metrics.movePacketRequestedCount).toBe(2);
+    expect(report.metrics.movePacketArrivedCount).toBe(1);
+    expect(report.metrics.movePacketTimeoutCount).toBe(1);
+    expect(report.metrics.movePacketP95Ms).toBe(1600);
+    expect(report.metrics.activityStaleDroppedCount).toBe(0);
+    expect(report.readyForHumanReview).toBe(true);
+
+    const markdown = renderCompanionVideoCallTraceScoreMarkdown(report);
+    expect(markdown).toContain("Move packets requested: 2");
+    expect(markdown).toContain("Move packets arrived: 1");
+    expect(markdown).toContain("Move packet timeouts: 1");
+    expect(markdown).toContain("Move packet p95: 1600ms");
+  });
 });

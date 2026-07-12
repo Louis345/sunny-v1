@@ -21,6 +21,10 @@ export type CompanionVideoCallTraceScoreReport = {
     activityMissingAudioCount: number;
     activityFallbackCount: number;
     activityUsefulSpeechRate: number;
+    movePacketRequestedCount: number;
+    movePacketArrivedCount: number;
+    movePacketTimeoutCount: number;
+    movePacketP95Ms?: number;
     averageClaudeMs?: number;
     averageToolFollowupMs?: number;
     averageTtsMs?: number;
@@ -120,6 +124,19 @@ export function buildCompanionVideoCallTraceScoreReport(
   const fallbackKeys = uniqueTurnKeys(
     ordered.filter((record) => record.eventName === "activity_reaction_fallback"),
   );
+  const movePacketRequestedKeys = uniqueTurnKeys(
+    ordered.filter((record) => record.eventName === "activity_move_packet_requested"),
+  );
+  const movePacketArrived = ordered.filter(
+    (record) => record.eventName === "activity_move_packet_arrived",
+  );
+  const movePacketArrivedKeys = uniqueTurnKeys(movePacketArrived);
+  const movePacketTimeoutKeys = uniqueTurnKeys(
+    ordered.filter((record) => record.eventName === "activity_move_packet_timeout"),
+  );
+  const movePacketLatencies = movePacketArrived
+    .map((record) => finiteNumber(record.payload?.latencyMs))
+    .filter((value): value is number => value !== undefined);
   const missingAudioCount = [...aiAuthoredKeys].filter(
     (key) => !spokenKeys.has(key) && !staleKeys.has(key) && !fallbackKeys.has(key),
   ).length;
@@ -184,6 +201,12 @@ export function buildCompanionVideoCallTraceScoreReport(
       activityMissingAudioCount: missingAudioCount,
       activityFallbackCount: fallbackKeys.size,
       activityUsefulSpeechRate: usefulSpeechRate,
+      movePacketRequestedCount: movePacketRequestedKeys.size,
+      movePacketArrivedCount: movePacketArrivedKeys.size,
+      movePacketTimeoutCount: movePacketTimeoutKeys.size,
+      ...(percentile(movePacketLatencies, 0.95) !== undefined && {
+        movePacketP95Ms: percentile(movePacketLatencies, 0.95),
+      }),
       ...(average(spans.map((span) => span.claudeMs).filter((value): value is number => value !== undefined)) !==
         undefined && {
         averageClaudeMs: average(
@@ -241,6 +264,10 @@ export function renderCompanionVideoCallTraceScoreMarkdown(
     `- Activity missing audio: ${report.metrics.activityMissingAudioCount}`,
     `- Activity fallback count: ${report.metrics.activityFallbackCount}`,
     `- Useful activity speech rate: ${pct(report.metrics.activityUsefulSpeechRate)}`,
+    `- Move packets requested: ${report.metrics.movePacketRequestedCount}`,
+    `- Move packets arrived: ${report.metrics.movePacketArrivedCount}`,
+    `- Move packet timeouts: ${report.metrics.movePacketTimeoutCount}`,
+    `- Move packet p95: ${ms(report.metrics.movePacketP95Ms)}`,
     `- Average Claude latency: ${ms(report.metrics.averageClaudeMs)}`,
     `- Average tool follow-up latency: ${ms(report.metrics.averageToolFollowupMs)}`,
     `- Average ElevenLabs latency: ${ms(report.metrics.averageTtsMs)}`,

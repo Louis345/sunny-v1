@@ -240,6 +240,54 @@ describe("companion showroom talk contract", () => {
     });
   });
 
+  it("accepts a planned move on companion_move reactions and drops invalid squares", () => {
+    const buildBody = (plannedMove: unknown) => ({
+      childId: "ila",
+      companionId: "elli",
+      voiceId: "voice_a",
+      showroomTheme: "crystal",
+      mode: "video_call",
+      question: "You are about to place your O on square 5.",
+      activityReaction: {
+        activityId: "tic_tac_toe",
+        eventType: "companion_move",
+        board: ["X", null, null, null, null, null, null, null, null],
+        childMark: "X",
+        companionMark: "O",
+        turn: "companion",
+        plannedMove,
+      },
+    });
+    const opts = {
+      routeCompanionId: "elli",
+      voiceOptions,
+      fallbackVoiceId: "voice_a",
+    };
+
+    const accepted = resolveShowroomTalkRequest(buildBody(5), opts);
+    expect(accepted).toEqual({
+      ok: true,
+      request: expect.objectContaining({
+        activityReaction: expect.objectContaining({
+          eventType: "companion_move",
+          plannedMove: 5,
+        }),
+      }),
+    });
+
+    const occupied = resolveShowroomTalkRequest(buildBody(1), opts);
+    expect(occupied.ok).toBe(true);
+    if (occupied.ok) {
+      expect(occupied.request.activityReaction?.plannedMove).toBeUndefined();
+    }
+
+    const outOfRange = resolveShowroomTalkRequest(buildBody(12), opts);
+    expect(outOfRange.ok).toBe(true);
+    if (outOfRange.ok) {
+      expect(outOfRange.request.activityReaction?.plannedMove).toBeUndefined();
+    }
+  });
+
   it("accepts video-call trace and turn ids without treating them as provider content", () => {
     const result = resolveShowroomTalkRequest(
       {
@@ -822,6 +870,31 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("visual action is preferred");
     expect(prompt).not.toContain("Always include words for Elli to say aloud");
     expect(prompt).not.toContain("even when you call companionAct");
+  });
+
+  it("prompts a present-tense line around the planned move for gated companion turns", () => {
+    const prompt = buildShowroomTalkSystemPrompt({
+      companionId: "elli",
+      companionName: "Elli",
+      showroomTheme: "crystal",
+      personality: "Warm, playful, brave.",
+      mode: "video_call",
+      activityReaction: {
+        activityId: "tic_tac_toe",
+        eventType: "companion_move",
+        board: ["X", null, null, null, null, null, null, null, null],
+        childMark: "X",
+        companionMark: "O",
+        turn: "companion",
+        plannedMove: 5,
+      },
+    });
+
+    expect(prompt).toContain(
+      "You are about to place your O on square 5; the board shown is from before that move.",
+    );
+    expect(prompt).toContain("Speak as you make this move");
+    expect(prompt).toContain("Say the line in this same response");
   });
 
   it("does not synthesize fallback speech for companionAct-only turns", () => {

@@ -40,6 +40,11 @@ export type CompanionTicTacToeGameEvent = {
   decisionLatencyMs?: number;
 };
 
+export type CompanionTicTacToeTurnPlan = {
+  board: Array<CompanionTicTacToeMark | null>;
+  plannedMove: number;
+};
+
 export type CompanionTicTacToeProps = {
   companionId?: string;
   companionName: string;
@@ -48,6 +53,13 @@ export type CompanionTicTacToeProps = {
   onCompanionTurn?: (turn: CompanionTicTacToeTurn) => void;
   onRoundComplete?: (result: RoundResult) => void;
   onGameEvent?: (event: CompanionTicTacToeGameEvent) => void;
+  /**
+   * Gate for the companion move reveal. Receives the post-child-move board
+   * (before the companion's O is placed) and the planned square (1-9); the
+   * move, gesture, and any speech reveal together once the promise settles.
+   * Absent → the staged local think delay is used.
+   */
+  resolveCompanionTurn?: (plan: CompanionTicTacToeTurnPlan) => Promise<void>;
 };
 
 const WIN_LINES = [
@@ -64,6 +76,7 @@ const WIN_LINES = [
 const EMPTY_BOARD: Square[] = Array.from({ length: 9 }, () => null);
 export const COMPANION_TIC_TAC_TOE_THINK_MS = 2200;
 export const COMPANION_TIC_TAC_TOE_THINK_JITTER_MS = 650;
+export const COMPANION_TIC_TAC_TOE_MIN_REVEAL_MS = 1100;
 
 function getCompanionTicTacToeThinkDelay(): number {
   return (
@@ -171,6 +184,7 @@ export function CompanionTicTacToe({
   onCompanionTurn,
   onRoundComplete,
   onGameEvent,
+  resolveCompanionTurn,
 }: CompanionTicTacToeProps) {
   const [board, setBoard] = useState<Square[]>(EMPTY_BOARD);
   const [companionThinking, setCompanionThinking] = useState(false);
@@ -179,6 +193,7 @@ export function CompanionTicTacToe({
   const emittedRoundCompleteRef = useRef<string | null>(null);
   const decisionStartedAtRef = useRef<number | null>(null);
   const plannedDecisionDelayMsRef = useRef<number | null>(null);
+  const roundTokenRef = useRef(0);
   const result = useMemo(() => resultFromBoard(board), [board]);
   const emitGameEvent = useCallback(
     (
@@ -232,20 +247,11 @@ export function CompanionTicTacToe({
     onRoundComplete?.(result);
   }, [board, emitGameEvent, onBanter, onRoundComplete, result]);
 
-  useEffect(() => {
-    if (!companionThinking || result) return;
-    const decisionStartedAt = decisionStartedAtRef.current ?? Date.now();
-    const plannedDecisionDelayMs =
-      plannedDecisionDelayMsRef.current ?? getCompanionTicTacToeThinkDelay();
-    const timer = window.setTimeout(() => {
-      const move = getCompanionMove(board);
-      if (move == null || resultFromBoard(board)) {
-        setCompanionThinking(false);
-        decisionStartedAtRef.current = null;
-        plannedDecisionDelayMsRef.current = null;
-        return;
-      }
-      const next = [...board];
+  const applyCompanionMove = useCallback(
+    (boardBefore: readonly Square[], move: number) => {
+      const decisionStartedAt = decisionStartedAtRef.current ?? Date.now();
+      const plannedDecisionDelayMs = plannedDecisionDelayMsRef.current ?? 0;
+      const next = [...boardBefore];
       next[move] = "O";
       const movedAt = Date.now();
       const decisionLatencyMs = Math.max(0, movedAt - decisionStartedAt);
@@ -274,12 +280,37 @@ export function CompanionTicTacToe({
       setCompanionThinking(false);
       decisionStartedAtRef.current = null;
       plannedDecisionDelayMsRef.current = null;
+    },
+    [emitGameEvent, onBanter, onCompanionTurn],
+  );
+
+  useEffect(() => {
+    // Gated turns are revealed from playSquare via resolveCompanionTurn.
+    if (!companionThinking || result || resolveCompanionTurn) return;
+    const plannedDecisionDelayMs =
+      plannedDecisionDelayMsRef.current ?? getCompanionTicTacToeThinkDelay();
+    const timer = window.setTimeout(() => {
+      const move = getCompanionMove(board);
+      if (move == null || resultFromBoard(board)) {
+        setCompanionThinking(false);
+        decisionStartedAtRef.current = null;
+        plannedDecisionDelayMsRef.current = null;
+        return;
+      }
+      applyCompanionMove(board, move);
     }, plannedDecisionDelayMs);
     return () => window.clearTimeout(timer);
-  }, [board, companionThinking, emitGameEvent, onBanter, onCompanionTurn, result]);
+  }, [applyCompanionMove, board, companionThinking, resolveCompanionTurn, result]);
+
+  useEffect(() => {
+    return () => {
+      roundTokenRef.current += 1;
+    };
+  }, []);
 
   const resetRound = () => {
     emittedRoundCompleteRef.current = null;
+    roundTokenRef.current += 1;
     setBoard(EMPTY_BOARD);
     setCompanionThinking(false);
     setLastMove(null);
@@ -309,6 +340,30 @@ export function CompanionTicTacToe({
     });
     if (!resultFromBoard(next)) {
       decisionStartedAtRef.current = Date.now();
+      if (resolveCompanionTurn) {
+        const plannedMove = getCompanionMove(next);
+        if (plannedMove == null) return;
+        plannedDecisionDelayMsRef.current = COMPANION_TIC_TAC_TOE_MIN_REVEAL_MS;
+        onBanter?.({
+          phase: "companion_thinking",
+        });
+        setCompanionThinking(true);
+        const token = roundTokenRef.current;
+        const minReveal = new Promise<void>((resolve) => {
+          window.setTimeout(resolve, COMPANION_TIC_TAC_TOE_MIN_REVEAL_MS);
+        });
+        const gate = resolveCompanionTurn({
+          board: [...next],
+          plannedMove: plannedMove + 1,
+        }).catch((err: unknown) => {
+          console.warn(" 🎮 [companion-tic-tac-toe] [turn_gate] [error]", err);
+        });
+        void Promise.all([gate, minReveal]).then(() => {
+          if (roundTokenRef.current !== token) return;
+          applyCompanionMove(next, plannedMove);
+        });
+        return;
+      }
       plannedDecisionDelayMsRef.current = getCompanionTicTacToeThinkDelay();
       onBanter?.({
         phase: "companion_thinking",

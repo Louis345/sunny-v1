@@ -113,6 +113,8 @@ export type ShowroomActivityReactionContext = {
   summary?: string;
   desiredTone?: string;
   updatedAt?: number;
+  /** Square (1-9) the companion is about to play; the board is from before that move. */
+  plannedMove?: number;
 };
 export type ShowroomVisualSnapshot = {
   base64: string;
@@ -454,6 +456,15 @@ function resolveShowroomActivityReaction(
     typeof raw.updatedAt === "number" && Number.isFinite(raw.updatedAt)
       ? raw.updatedAt
       : undefined;
+  const rawPlannedMove =
+    typeof raw.plannedMove === "number" ? raw.plannedMove : Number(raw.plannedMove);
+  const plannedMove =
+    Number.isInteger(rawPlannedMove) &&
+    rawPlannedMove >= 1 &&
+    rawPlannedMove <= 9 &&
+    board[rawPlannedMove - 1] == null
+      ? rawPlannedMove
+      : undefined;
   return {
     activityId: "tic_tac_toe",
     eventType,
@@ -466,6 +477,7 @@ function resolveShowroomActivityReaction(
     ...(summary && { summary }),
     ...(desiredTone && { desiredTone }),
     ...(updatedAt !== undefined && { updatedAt }),
+    ...(plannedMove !== undefined && { plannedMove }),
   };
 }
 
@@ -742,6 +754,13 @@ export function buildShowroomTalkSystemPrompt(input: {
       `Activity reaction event: ${input.activityReaction.eventType}.`,
       `Reaction board: ${board}.`,
       `Reaction turn: ${input.activityReaction.turn}.`,
+      ...(input.activityReaction.eventType === "companion_move" &&
+      input.activityReaction.plannedMove
+        ? [
+            `You are about to place your O on square ${input.activityReaction.plannedMove}; the board shown is from before that move.`,
+            "Speak as you make this move - present tense, one short playful line that fits why this square is a good pick.",
+          ]
+        : []),
       "Gesture map: companion move = thinking, pointing, or confident gesture; child strong move = surprised, curious, or respectful gesture; child win = happy, wave, or surprise; companion win = playful confidence; Round draw: shrug or thoughtful gesture.",
     );
     if (input.activityReaction.lastMove) {

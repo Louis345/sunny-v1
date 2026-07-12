@@ -87,7 +87,7 @@ describe("CompanionActivityRuntime", () => {
     ).toBe(completedTicTacToe);
   });
 
-  it("keeps ordinary companion moves local and reserves AI speech for authored beats", () => {
+  it("keeps post-move events nonverbal; companion-move speech arrives via the gated move packet instead", () => {
     const companionMove: CompanionTicTacToeGameEvent = {
       type: "companion_tic_tac_toe_companion_move",
       activityId: "tic_tac_toe",

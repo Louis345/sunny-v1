@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  COMPANION_TIC_TAC_TOE_MIN_REVEAL_MS,
   COMPANION_TIC_TAC_TOE_THINK_JITTER_MS,
   COMPANION_TIC_TAC_TOE_THINK_MS,
   CompanionTicTacToe,
@@ -195,6 +196,71 @@ describe("CompanionTicTacToe", () => {
     expect(source).not.toContain("companionTurnLines");
     expect(source).not.toContain("getCompanionTicTacToeBanterLine");
     expect(source).not.toContain("/api/companions/");
+  });
+
+  it("defers the gated companion reveal until resolveCompanionTurn settles and keeps the board locked", async () => {
+    vi.useFakeTimers();
+    let resolveGate: (() => void) | undefined;
+    const resolveCompanionTurn = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveGate = resolve;
+        }),
+    );
+    const onCompanionTurn = vi.fn();
+
+    render(
+      <CompanionTicTacToe
+        companionName="Elli"
+        onClose={vi.fn()}
+        onCompanionTurn={onCompanionTurn}
+        resolveCompanionTurn={resolveCompanionTurn}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("gridcell", { name: "Square 1" }));
+
+    expect(resolveCompanionTurn).toHaveBeenCalledTimes(1);
+    expect(resolveCompanionTurn).toHaveBeenCalledWith({
+      board: ["X", null, null, null, null, null, null, null, null],
+      plannedMove: 5,
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(COMPANION_TIC_TAC_TOE_MIN_REVEAL_MS + 3_000);
+    });
+    expect(screen.queryByRole("gridcell", { name: "Square 5 O" })).toBeNull();
+    expect(onCompanionTurn).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("gridcell", { name: "Square 2" }));
+    expect(screen.queryByRole("gridcell", { name: "Square 2 X" })).toBeNull();
+
+    await act(async () => {
+      resolveGate?.();
+    });
+    expect(screen.getByRole("gridcell", { name: "Square 5 O" })).toBeInTheDocument();
+    expect(onCompanionTurn).toHaveBeenCalledWith(expect.objectContaining({ square: 5 }));
+    expect(screen.queryByRole("gridcell", { name: "Square 2 X" })).toBeNull();
+  });
+
+  it("fail-opens the gated reveal when resolveCompanionTurn rejects", async () => {
+    vi.useFakeTimers();
+    const resolveCompanionTurn = vi.fn(() => Promise.reject(new Error("packet_failed")));
+
+    render(
+      <CompanionTicTacToe
+        companionName="Elli"
+        onClose={vi.fn()}
+        resolveCompanionTurn={resolveCompanionTurn}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("gridcell", { name: "Square 1" }));
+    await act(async () => {
+      vi.advanceTimersByTime(COMPANION_TIC_TAC_TOE_MIN_REVEAL_MS + 50);
+    });
+
+    expect(screen.getByRole("gridcell", { name: "Square 5 O" })).toBeInTheDocument();
   });
 
   it("adds small square motion so moves feel placed instead of appearing instantly", () => {

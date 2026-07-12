@@ -59,6 +59,7 @@ import {
   type CompanionTicTacToeBanter,
   type CompanionTicTacToeGameEvent,
   type CompanionTicTacToeMark,
+  type CompanionTicTacToeTurnPlan,
 } from "./CompanionTicTacToe";
 import {
   createCompanionActivityThinkingCue,
@@ -500,7 +501,16 @@ export type ShowroomActivityReactionContext = {
   summary?: string;
   desiredTone?: string;
   updatedAt?: number;
+  plannedMove?: number;
 };
+type ShowroomActivityMovePacketOptions = {
+  onReveal: () => void;
+  isCancelled: () => boolean;
+};
+type ShowroomActivityReactionRequestOptions = {
+  movePacket?: ShowroomActivityMovePacketOptions;
+};
+const SHOWROOM_TIC_TAC_TOE_MOVE_PACKET_TIMEOUT_MS = 4000;
 const SHOWROOM_VIDEO_CALL_ACTIVITY_LOG_TYPES = new Set([
   "companion_tic_tac_toe_started",
   "companion_tic_tac_toe_child_move",
@@ -1555,6 +1565,9 @@ function createShowroomActivityReactionQuestion(
 ): string {
   if (reaction.eventType === "game_started") {
     return "React to starting tic-tac-toe in the video call.";
+  }
+  if (reaction.eventType === "companion_move" && reaction.plannedMove) {
+    return `You are about to place your O on square ${reaction.plannedMove}. Say one short playful line as you make the move.`;
   }
   if (reaction.momentType === "companion_blocked_child") {
     return "You blocked the child from getting three in a row. Respond as Elli with one short playful sentence, then let the child move.";
@@ -3455,12 +3468,14 @@ export function CompanionShowroom({
   const activityReactionQueueRef = useRef<{
     reaction: ShowroomActivityReactionContext;
     activeActivity: ShowroomVideoActivityContext;
+    options?: ShowroomActivityReactionRequestOptions;
   } | null>(null);
   const activityReactionQueueGuardRef = useRef(0);
   const activityReactionRequesterRef = useRef<
     | ((
         reaction: ShowroomActivityReactionContext,
         activeActivity: ShowroomVideoActivityContext,
+        options?: ShowroomActivityReactionRequestOptions,
       ) => void)
     | null
   >(null);
@@ -3950,14 +3965,18 @@ export function CompanionShowroom({
     async (
       reaction: ShowroomActivityReactionContext,
       activeActivity: ShowroomVideoActivityContext,
+      options?: ShowroomActivityReactionRequestOptions,
     ) => {
       if (!current) return;
+      const movePacket = options?.movePacket;
       const currentDefaultVoice =
         current.voices.find((voice) => voice.default)?.id ?? current.voices[0]?.id ?? "";
       const selectedVoiceId = voiceSelections[current.id] ?? currentDefaultVoice;
       const traceTurnId = nextShowroomVideoTurnId();
       const reactionStartMs = performance.now();
       const runGestureOnlyFallback = (reason: string) => {
+        // A gated move reveal must never wait on a failed reaction request.
+        movePacket?.onReveal();
         console.warn(
           ` 🎮 [showroom-activity-reaction] fallback companion=${current.id} event=${reaction.eventType} reason=${reason}`,
         );
@@ -3989,8 +4008,18 @@ export function CompanionShowroom({
         runGestureOnlyFallback("missing_voice");
         return;
       }
+      if (movePacket?.isCancelled()) {
+        console.log(
+          ` 🎮 [showroom-activity-reaction] move_packet_cancelled companion=${current.id} event=${reaction.eventType}`,
+        );
+        videoChatHandsFreeRearmRef.current?.(
+          "move_packet_cancelled",
+          SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS,
+        );
+        return;
+      }
       if (activityReactionInFlightRef.current) {
-        activityReactionQueueRef.current = { reaction, activeActivity };
+        activityReactionQueueRef.current = { reaction, activeActivity, options };
         console.log(
           ` 🎮 [showroom-activity-reaction] queued companion=${current.id} event=${reaction.eventType}`,
         );
@@ -4022,6 +4051,16 @@ export function CompanionShowroom({
       console.log(
         ` 🎮 [showroom-activity-reaction] request_start companion=${current.id} event=${reaction.eventType}`,
       );
+      if (movePacket) {
+        emitShowroomVideoCallTrace({
+          eventName: "activity_move_packet_requested",
+          turnId: traceTurnId,
+          payload: {
+            plannedMove: reaction.plannedMove,
+            activityReaction: reaction,
+          },
+        });
+      }
 
       const finishReaction = (reason: string) => {
         activityReactionInFlightRef.current = false;
@@ -4036,6 +4075,7 @@ export function CompanionShowroom({
           void requestShowroomVideoActivityReaction(
             next.reaction,
             next.activeActivity,
+            next.options,
           ).catch((err: unknown) => {
             console.warn(
               " 🎮 [showroom-activity-reaction] queued_request_failed",
@@ -4104,8 +4144,30 @@ export function CompanionShowroom({
         if (!response.ok || !data?.ok) {
           throw new Error(data?.error ?? `activity_reaction_${response.status}`);
         }
+        if (movePacket) {
+          if (movePacket.isCancelled()) {
+            console.log(
+              ` 🎮 [showroom-activity-reaction] move_packet_late companion=${current.id} square=${reaction.plannedMove ?? "unknown"}`,
+            );
+            setShowroomTalkPhase("idle");
+            finishReaction("move_packet_late");
+            return;
+          }
+          // Reveal the board move now so O, gesture, and voice land together.
+          movePacket.onReveal();
+          emitShowroomVideoCallTrace({
+            eventName: "activity_move_packet_arrived",
+            turnId: traceTurnId,
+            payload: {
+              latencyMs: Math.round(performance.now() - reactionStartMs),
+              plannedMove: reaction.plannedMove,
+              latencySpans: data.latencySpans,
+            },
+          });
+        }
         const latestActivity = showroomVideoActiveActivityRef.current;
         if (
+          !movePacket &&
           !isShowroomActivityReactionCurrent({
             reaction,
             currentActivity: latestActivity,
@@ -4294,6 +4356,64 @@ export function CompanionShowroom({
   );
 
   activityReactionRequesterRef.current = requestShowroomVideoActivityReaction;
+
+  const resolveShowroomTicTacToeCompanionTurn = useCallback(
+    (plan: CompanionTicTacToeTurnPlan): Promise<void> => {
+      const activeActivity = showroomVideoActiveActivityRef.current;
+      if (!current || !activeActivity || activeActivity.activityId !== "tic_tac_toe") {
+        return Promise.resolve();
+      }
+      const reaction: ShowroomActivityReactionContext = {
+        activityId: "tic_tac_toe",
+        eventType: "companion_move",
+        board: plan.board,
+        boardSignature: getShowroomActivityBoardSignature(plan.board),
+        childMark: "X",
+        companionMark: "O",
+        turn: "companion",
+        ...(activeActivity.lastMove && { lastMove: activeActivity.lastMove }),
+        summary: activeActivity.summary,
+        updatedAt: activeActivity.updatedAt,
+        desiredTone: "playful_confident_move",
+        plannedMove: plan.plannedMove,
+      };
+      return new Promise<void>((resolve) => {
+        let settled = false;
+        let timedOut = false;
+        let timeoutId: number | undefined;
+        const settle = () => {
+          if (settled) return;
+          settled = true;
+          if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+          resolve();
+        };
+        timeoutId = window.setTimeout(() => {
+          if (settled) return;
+          timedOut = true;
+          console.warn(
+            ` 🎮 [showroom-activity-reaction] move_packet_timeout companion=${current.id} square=${plan.plannedMove}`,
+          );
+          emitShowroomVideoCallTrace({
+            eventName: "activity_move_packet_timeout",
+            payload: {
+              plannedMove: plan.plannedMove,
+              timeoutMs: SHOWROOM_TIC_TAC_TOE_MOVE_PACKET_TIMEOUT_MS,
+              activityReaction: reaction,
+            },
+          });
+          setShowroomTalkPhase("idle");
+          settle();
+        }, SHOWROOM_TIC_TAC_TOE_MOVE_PACKET_TIMEOUT_MS);
+        activityReactionRequesterRef.current?.(reaction, activeActivity, {
+          movePacket: {
+            onReveal: settle,
+            isCancelled: () => timedOut,
+          },
+        });
+      });
+    },
+    [current, emitShowroomVideoCallTrace],
+  );
 
   const openVideoCallActivityRequest = useCallback(
     (
@@ -6825,6 +6945,7 @@ export function CompanionShowroom({
 	              }}
 	              onGameEvent={postShowroomVideoCallActivityEvent}
 	              onBanter={handleShowroomTicTacToeBanter}
+	              resolveCompanionTurn={resolveShowroomTicTacToeCompanionTurn}
 	              onCompanionTurn={() => {
 	                setShowroomTalkOpen(false);
 	              }}
