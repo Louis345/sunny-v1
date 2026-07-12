@@ -31,6 +31,12 @@ export interface CapturedCreatureInventoryRecord {
   capturedAt: string;
   chartWriteMode: CapturedCreatureChartWriteMode;
   origin: CapturedCreatureOrigin;
+  /** Bonus tier earned by throw quality (1-3 stars). Variable bonus, never variable loss. */
+  starTier?: number;
+  /** Rare sparkle variant (low-probability delight bonus). */
+  shiny?: boolean;
+  /** Captured after at least one breakout this encounter. */
+  comeback?: boolean;
 }
 
 export interface CapturedCreatureReward {
@@ -51,6 +57,9 @@ export interface BuildCapturedCreatureRewardInput {
   nickname?: string;
   mood?: CapturedMonsterLifeState;
   bond?: number;
+  starTier?: number;
+  shiny?: boolean;
+  comeback?: boolean;
   source: CapturedCreatureRewardSource;
 }
 
@@ -120,6 +129,9 @@ export function buildCapturedCreatureReward({
   nickname = creature.defaultNickname,
   mood = "curious",
   bond = 18,
+  starTier,
+  shiny,
+  comeback,
   source,
 }: BuildCapturedCreatureRewardInput): CapturedCreatureReward {
   const inventoryRecord: CapturedCreatureInventoryRecord = {
@@ -143,6 +155,9 @@ export function buildCapturedCreatureReward({
       domain,
       currentTarget,
     },
+    starTier,
+    shiny,
+    comeback,
   };
 
   return {

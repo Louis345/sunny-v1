@@ -128,6 +128,7 @@ export interface SparkOrbStrugglePlan {
   baseBreakoutChance: number;
 }
 
+const SHINY_CAPTURE_CHANCE = 0.05;
 const CAPTURE_PULL_AT_MS = 650;
 const FIRST_STRUGGLE_PULSE_AT_MS = 1150;
 const STRUGGLE_PULSE_GAP_MS = 520;
@@ -567,6 +568,18 @@ export function SparkOrbLearningShell({
   const [struggling, setStruggling] = useState(false);
   const [breakoutPop, setBreakoutPop] = useState(false);
   const [breakoutTick, setBreakoutTick] = useState(0);
+  const [sparkFlightTick, setSparkFlightTick] = useState(0);
+  const [captureBonus, setCaptureBonus] = useState<{
+    starTier: number;
+    shiny: boolean;
+    comeback: boolean;
+  } | null>(null);
+  const captureBonusRef = useRef<{
+    starTier: number;
+    shiny: boolean;
+    comeback: boolean;
+  } | null>(null);
+  const prevChargeCountRef = useRef<number | null>(null);
   const launchPowerRef = useRef(0);
   const aimVectorRef = useRef<LaunchAimVector>({
     startX: 0,
@@ -854,6 +867,14 @@ export function SparkOrbLearningShell({
   }, [phase]);
 
   useEffect(() => {
+    const previous = prevChargeCountRef.current;
+    prevChargeCountRef.current = chargeCount;
+    if (previous !== null && chargeCount > previous) {
+      setSparkFlightTick((tick) => tick + 1);
+    }
+  }, [chargeCount]);
+
+  useEffect(() => {
     if (phase !== "ready" || remainingOrbCount > 0) return;
     evidence.recordOrbGranted();
     setRemainingOrbCount(1);
@@ -888,6 +909,8 @@ export function SparkOrbLearningShell({
       setLaunchPhysics(null);
       setStruggling(false);
       setBreakoutPop(false);
+      setCaptureBonus(null);
+      captureBonusRef.current = null;
       cheerCountRef.current = 0;
       launchPowerRef.current = 0;
       aimVectorRef.current = { startX: 0, startY: 0, pullX: 0, pullY: 0 };
@@ -933,11 +956,16 @@ export function SparkOrbLearningShell({
   }
 
   function emitCaptureCompleted(launchScore: SparkOrbLaunchPhysics): void {
+    const bonus = captureBonusRef.current;
     const reward = buildCapturedCreatureReward({
       creature: capturedCreature,
       childId,
       domain,
       currentTarget,
+      bond: 18 + (bonus ? bonus.starTier * 4 + (bonus.comeback ? 6 : 0) : 0),
+      starTier: bonus?.starTier,
+      shiny: bonus?.shiny,
+      comeback: bonus?.comeback,
       source: "spark_orb_learning_shell",
     });
     const summary = evidence.buildSummary();
@@ -1151,7 +1179,16 @@ export function SparkOrbLearningShell({
             );
             return;
           }
+          const comeback = consecutiveBreakoutsRef.current > 0;
           consecutiveBreakoutsRef.current = 0;
+          const bonus = {
+            starTier: launchScore.hitQuality === "direct" ? 3 : 2,
+            shiny: captureRandomRef.current() < SHINY_CAPTURE_CHANCE,
+            comeback,
+          };
+          captureBonusRef.current = bonus;
+          setCaptureBonus(bonus);
+          console.info(" 🎮 [spark-orb-learning-shell] [capture-bonus] [rolled]", bonus);
           evidence.recordThrow({
             result: "success",
             hitQuality: launchScore.hitQuality,
@@ -1509,10 +1546,38 @@ export function SparkOrbLearningShell({
             speechBubbleText={speechBubbleText}
           />
         </div>
+        {sparkFlightTick > 0 ? (
+          <div
+            key={sparkFlightTick}
+            className="spark-orb-learning-shell__spark-flight"
+            data-testid="spark-orb-spark-flight"
+            aria-hidden="true"
+          />
+        ) : null}
         {showCollectionCard ? (
-          <div className="spark-orb-learning-shell__collect-card" role="dialog" aria-label={`${displayCreatureName} added to collection`}>
-            <span>Added to collection</span>
+          <div
+            className="spark-orb-learning-shell__collect-card"
+            role="dialog"
+            aria-label={`${displayCreatureName} added to collection`}
+            data-shiny={captureBonus?.shiny ? "true" : "false"}
+          >
+            <span>{captureBonus?.shiny ? "Shiny friend found!" : "Added to collection"}</span>
             <strong>{capturedCreature.collectionTitle}</strong>
+            {captureBonus ? (
+              <em
+                className="spark-orb-learning-shell__star-tier"
+                aria-label={`${captureBonus.starTier} star throw`}
+              >
+                {"★".repeat(captureBonus.starTier)}
+                {"☆".repeat(Math.max(0, 3 - captureBonus.starTier))}
+              </em>
+            ) : null}
+            {captureBonus?.comeback ? (
+              <i className="spark-orb-learning-shell__comeback">Never gave up!</i>
+            ) : null}
+            <p className="spark-orb-learning-shell__word-hook">
+              {displayCreatureName} loves the word “{currentTarget.replace(/^word:/, "")}”!
+            </p>
           </div>
         ) : null}
       </section>
@@ -2399,6 +2464,93 @@ export function SparkOrbLearningShell({
           font-size: 24px;
           font-weight: 950;
           margin-top: 6px;
+        }
+
+        .spark-orb-learning-shell__collect-card[data-shiny="true"] {
+          animation:
+            sparkLearningCollectionCardPop 0.58s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+            sparkLearningShinyShimmer 1.2s ease-in-out infinite;
+          border-color: rgba(255, 228, 107, 0.9);
+        }
+
+        .spark-orb-learning-shell__collect-card[data-shiny="true"] span {
+          color: #b8860b;
+        }
+
+        .spark-orb-learning-shell__star-tier {
+          color: #f2b90d;
+          display: block;
+          font-size: 26px;
+          font-style: normal;
+          letter-spacing: 4px;
+          margin-top: 6px;
+          text-shadow: 0 2px 8px rgba(242, 185, 13, 0.4);
+        }
+
+        .spark-orb-learning-shell__comeback {
+          background: #10202d;
+          border-radius: 999px;
+          color: #ffe46b;
+          display: inline-block;
+          font-size: 12px;
+          font-style: normal;
+          font-weight: 950;
+          margin-top: 8px;
+          padding: 5px 12px;
+        }
+
+        .spark-orb-learning-shell__word-hook {
+          color: rgba(16, 32, 45, 0.78);
+          font-size: 15px;
+          font-weight: 800;
+          line-height: 1.3;
+          margin: 10px 0 0;
+        }
+
+        .spark-orb-learning-shell__spark-flight {
+          animation: sparkLearningSparkFlight 0.85s cubic-bezier(0.2, 0.6, 0.3, 1) both;
+          background: radial-gradient(circle, #fff8d8 18%, #ffe46b 52%, rgba(255, 228, 107, 0) 72%);
+          border-radius: 50%;
+          box-shadow:
+            0 0 18px rgba(255, 228, 107, 0.9),
+            0 0 40px rgba(124, 255, 241, 0.5);
+          height: 34px;
+          pointer-events: none;
+          position: absolute;
+          width: 34px;
+          z-index: 13;
+        }
+
+        @keyframes sparkLearningSparkFlight {
+          0% {
+            left: 2%;
+            opacity: 0;
+            top: 42%;
+            transform: scale(0.5);
+          }
+          14% {
+            opacity: 1;
+            transform: scale(1);
+          }
+          58% {
+            left: 32%;
+            top: 52%;
+            transform: scale(1.05);
+          }
+          88% {
+            opacity: 1;
+          }
+          100% {
+            left: calc(50% - 17px);
+            opacity: 0;
+            top: calc(100% - 170px);
+            transform: scale(1.7);
+          }
+        }
+
+        @keyframes sparkLearningShinyShimmer {
+          0%, 100% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 22px rgba(255, 228, 107, 0.45); }
+          50% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 44px rgba(255, 228, 107, 0.85); }
         }
 
         .spark-orb-learning-shell__companion-anchor {
