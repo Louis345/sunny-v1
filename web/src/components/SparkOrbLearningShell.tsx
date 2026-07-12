@@ -1,4 +1,7 @@
 import {
+  createContext,
+  useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -32,6 +35,13 @@ import {
   sparkOrbDifficultyParams,
   sparkOrbDriftOffsetX,
 } from "./sparkOrbDifficulty";
+import {
+  createSparkOrbEvidenceSession,
+  type SparkOrbAttemptRecord,
+  type SparkOrbAttemptReport,
+  type SparkOrbEvidenceSession,
+  type SparkOrbGameStateUpdate,
+} from "./sparkOrbEvidence";
 
 export type OrbLearningLastMoment =
   | "watching"
@@ -166,6 +176,21 @@ export function sparkOrbBreakoutChance(
   return Math.max(0, baseChance - cheerCount * CHEER_BREAKOUT_REDUCTION);
 }
 
+export interface SparkOrbLearningApi {
+  /** Embedded problem panels report every assessable interaction here (Law 14). */
+  reportAttempt: (report: SparkOrbAttemptReport) => SparkOrbAttemptRecord;
+}
+
+const SparkOrbLearningContext = createContext<SparkOrbLearningApi | null>(null);
+
+export function useSparkOrbLearning(): SparkOrbLearningApi {
+  const api = useContext(SparkOrbLearningContext);
+  if (!api) {
+    throw new Error("spark_orb_learning_context_missing");
+  }
+  return api;
+}
+
 export interface SparkOrbLearningShellProps {
   children: ReactNode;
   childId: string;
@@ -187,6 +212,8 @@ export interface SparkOrbLearningShellProps {
   sfx?: SparkOrbSfxOptions;
   captureRandom?: () => number;
   driftNow?: () => number;
+  onAttemptRecorded?: (record: SparkOrbAttemptRecord) => void;
+  onGameEvent?: (event: SparkOrbGameStateUpdate) => void;
   onCompanionAnchor?: (context: OrbCompanionAnchorContext) => void;
   onEncounterEvent?: (event: SparkOrbLearningEncounterEvent) => void;
   onCaptureCompleted?: (event: OrbCaptureCompletedEvent) => void;
@@ -512,6 +539,8 @@ export function SparkOrbLearningShell({
   sfx,
   captureRandom = Math.random,
   driftNow = () => performance.now(),
+  onAttemptRecorded,
+  onGameEvent,
   onCompanionAnchor,
   onEncounterEvent,
   onCaptureCompleted,
@@ -556,6 +585,53 @@ export function SparkOrbLearningShell({
   const driftStartRef = useRef<number | null>(null);
   const driftNowRef = useRef(driftNow);
   driftNowRef.current = driftNow;
+  const evidenceRef = useRef<SparkOrbEvidenceSession | null>(null);
+  if (evidenceRef.current === null) {
+    evidenceRef.current = createSparkOrbEvidenceSession({ childId, domain });
+  }
+  const evidence = evidenceRef.current;
+  const onAttemptRecordedRef = useRef(onAttemptRecorded);
+  onAttemptRecordedRef.current = onAttemptRecorded;
+  const onGameEventRef = useRef(onGameEvent);
+  onGameEventRef.current = onGameEvent;
+
+  const reportAttempt = useCallback(
+    (report: SparkOrbAttemptReport): SparkOrbAttemptRecord => {
+      const record = evidenceRef.current!.recordAttempt(report);
+      console.info(" 🎮 [spark-orb-learning-shell] [attempt_event] [recorded]", record);
+      onAttemptRecordedRef.current?.(record);
+      return record;
+    },
+    [],
+  );
+  const learningApi = useMemo<SparkOrbLearningApi>(
+    () => ({ reportAttempt }),
+    [reportAttempt],
+  );
+
+  function emitGameStateUpdate(
+    progress: string,
+    summary?: SparkOrbGameStateUpdate["payload"]["summary"],
+  ): void {
+    const event: SparkOrbGameStateUpdate = {
+      type: "game_state_update",
+      version: "1.0",
+      payload: {
+        game: "Spark Orb",
+        phase,
+        childId,
+        domain,
+        currentTarget,
+        chargeCount,
+        chargeGoal,
+        orbCount: remainingOrbCount,
+        progress,
+        summary,
+      },
+    };
+    console.info(" 🎮 [spark-orb-learning-shell] [game_state_update] [reported]", event);
+    onGameEventRef.current?.(event);
+  }
   const displayCreatureName = creatureName ?? capturedCreature.speciesName;
   const displayStatLabel = statLabel ?? capturedCreature.statLabel;
   const displayStatValue = statValue ?? capturedCreature.statValue;
@@ -773,7 +849,13 @@ export function SparkOrbLearningShell({
   }, [orbCount]);
 
   useEffect(() => {
+    emitGameStateUpdate(`Encounter phase ${phase}.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  useEffect(() => {
     if (phase !== "ready" || remainingOrbCount > 0) return;
+    evidence.recordOrbGranted();
     setRemainingOrbCount(1);
     const grantEvent: SparkOrbLearningEncounterEvent = {
       type: "orb_granted",
@@ -858,12 +940,15 @@ export function SparkOrbLearningShell({
       currentTarget,
       source: "spark_orb_learning_shell",
     });
+    const summary = evidence.buildSummary();
+    emitGameStateUpdate("Capture completed.", summary);
     const payload = buildOrbCaptureCompletedEvent({
       reward,
       chargeGoal,
       orbCount: remainingOrbCount,
       hitDistance: launchScore.hitDistance,
       hitQuality: launchScore.hitQuality,
+      summary,
     });
     console.info(
       " 🎮 [spark-orb-learning-shell] [orb_capture_completed] [storybook_only]",
@@ -1000,6 +1085,7 @@ export function SparkOrbLearningShell({
         ...strugglePlan.pulseAtMs.map((pulseAt, index) =>
           window.setTimeout(() => {
             setStruggling(true);
+            evidence.recordStrugglePulse();
             playSparkOrbSfx("capturePull", sfx);
             emitLaunchEvent({
               type: "capture_struggle",
@@ -1020,6 +1106,16 @@ export function SparkOrbLearningShell({
           );
           if (breakoutRoll < chance) {
             consecutiveBreakoutsRef.current += 1;
+            evidence.recordThrow({
+              result: "breakout",
+              hitQuality: launchScore.hitQuality,
+              hitDistance: launchScore.hitDistance,
+              difficultyLevel: difficulty.level,
+              captureRadius: difficulty.captureRadius,
+              driftOffsetX: releaseDriftOffsetX,
+              cheerCount: cheerCountRef.current,
+            });
+            evidence.recordOrbSpent();
             const nextOrbCount = Math.max(0, remainingOrbCount - 1);
             setRemainingOrbCount(nextOrbCount);
             setLaunchSkill("spent");
@@ -1056,6 +1152,15 @@ export function SparkOrbLearningShell({
             return;
           }
           consecutiveBreakoutsRef.current = 0;
+          evidence.recordThrow({
+            result: "success",
+            hitQuality: launchScore.hitQuality,
+            hitDistance: launchScore.hitDistance,
+            difficultyLevel: difficulty.level,
+            captureRadius: difficulty.captureRadius,
+            driftOffsetX: releaseDriftOffsetX,
+            cheerCount: cheerCountRef.current,
+          });
           const runShrink = () => {
             setCaptureStage("shrinking");
             playSparkOrbSfx("captureShrink", sfx);
@@ -1101,6 +1206,16 @@ export function SparkOrbLearningShell({
       return;
     }
 
+    evidence.recordThrow({
+      result,
+      hitQuality: launchScore.hitQuality,
+      hitDistance: launchScore.hitDistance,
+      difficultyLevel: difficulty.level,
+      captureRadius: difficulty.captureRadius,
+      driftOffsetX: releaseDriftOffsetX,
+      cheerCount: 0,
+    });
+    evidence.recordOrbSpent();
     const nextOrbCount = Math.max(0, remainingOrbCount - 1);
     clearPayoffTimers();
     setLaunchSkill("spent");
@@ -1149,6 +1264,7 @@ export function SparkOrbLearningShell({
   function handleCheer(): void {
     if (!struggling) return;
     cheerCountRef.current += 1;
+    evidence.recordCheer();
     playSparkOrbSfx("charge", sfx);
     emitLaunchEvent({
       type: "cheer",
@@ -1212,6 +1328,7 @@ export function SparkOrbLearningShell({
   }
 
   return (
+    <SparkOrbLearningContext.Provider value={learningApi}>
     <div className="spark-orb-learning-shell" data-phase={phase}>
       <section className="spark-orb-learning-shell__problem" aria-label="Learning problem panel">
         {children}
@@ -2693,5 +2810,6 @@ export function SparkOrbLearningShell({
         }
       `}</style>
     </div>
+    </SparkOrbLearningContext.Provider>
   );
 }
