@@ -27,6 +27,11 @@ import {
   resolveLifeProfile,
   type CreatureLifeReaction,
 } from "./creatureLifeProfiles";
+import {
+  nextSparkOrbDifficultyLevel,
+  sparkOrbDifficultyParams,
+  sparkOrbDriftOffsetX,
+} from "./sparkOrbDifficulty";
 
 export type OrbLearningLastMoment =
   | "watching"
@@ -64,6 +69,7 @@ export type SparkOrbLearningEncounterEventType =
   | "release_success"
   | "release_miss"
   | "orb_spent"
+  | "orb_granted"
   | "recharge_needed"
   | "capture_effect"
   | "capture_pull"
@@ -94,6 +100,9 @@ export interface SparkOrbLearningEncounterEvent {
   strugglePulseCount?: number;
   cheerCount?: number;
   consecutiveBreakouts?: number;
+  difficultyLevel?: number;
+  captureRadius?: number;
+  driftOffsetX?: number;
   capturePersonality: CapturedMonsterCapturePersonality;
   currentTarget: string;
 }
@@ -177,6 +186,7 @@ export interface SparkOrbLearningShellProps {
   captureProgress?: number;
   sfx?: SparkOrbSfxOptions;
   captureRandom?: () => number;
+  driftNow?: () => number;
   onCompanionAnchor?: (context: OrbCompanionAnchorContext) => void;
   onEncounterEvent?: (event: SparkOrbLearningEncounterEvent) => void;
   onCaptureCompleted?: (event: OrbCaptureCompletedEvent) => void;
@@ -206,6 +216,10 @@ export interface SparkOrbLaunchPhysicsInput {
   pullX: number;
   pullY: number;
   holdPower?: number;
+  /** Creature's lateral drift offset at release time; aim must lead the target. */
+  targetOffsetX?: number;
+  /** Adaptive capture radius from the difficulty controller. */
+  captureRadius?: number;
 }
 
 export interface SparkOrbLaunchPhysics {
@@ -320,6 +334,8 @@ export function computeSparkOrbLaunchPhysics({
   pullX,
   pullY,
   holdPower = 0,
+  targetOffsetX = 0,
+  captureRadius = creatureCaptureRadius,
 }: SparkOrbLaunchPhysicsInput): SparkOrbLaunchPhysics {
   const verticalPull = Math.max(0, Math.min(320, pullY));
   const horizontalPull = Math.max(-170, Math.min(170, pullX));
@@ -327,10 +343,11 @@ export function computeSparkOrbLaunchPhysics({
   const underpowered = verticalPull < 112;
   const verticalSweetSpot = 178;
   const verticalPenalty = Math.abs(verticalPull - verticalSweetSpot) * 0.24;
-  const hitDistance = Math.round(Math.hypot(horizontalPull * 0.82, verticalPenalty));
+  const horizontalError = horizontalPull * 0.82 - targetOffsetX;
+  const hitDistance = Math.round(Math.hypot(horizontalError, verticalPenalty));
   const hitQuality: SparkOrbHitQuality =
-    hitDistance <= 34 ? "direct" : hitDistance <= creatureCaptureRadius ? "near" : "wide";
-  const insideCaptureRadius = hitDistance <= creatureCaptureRadius;
+    hitDistance <= 34 ? "direct" : hitDistance <= captureRadius ? "near" : "wide";
+  const insideCaptureRadius = hitDistance <= captureRadius;
   const result: SparkOrbLaunchResult =
     insideCaptureRadius ? "success" : underpowered ? "miss-early" : "miss-late";
   const impactX = Math.round(horizontalPull * 0.72);
@@ -494,6 +511,7 @@ export function SparkOrbLearningShell({
   captureProgress,
   sfx,
   captureRandom = Math.random,
+  driftNow = () => performance.now(),
   onCompanionAnchor,
   onEncounterEvent,
   onCaptureCompleted,
@@ -533,6 +551,11 @@ export function SparkOrbLearningShell({
   const consecutiveBreakoutsRef = useRef(0);
   const captureRandomRef = useRef(captureRandom);
   captureRandomRef.current = captureRandom;
+  const [difficultyLevel, setDifficultyLevel] = useState(0);
+  const throwResultsRef = useRef<boolean[]>([]);
+  const driftStartRef = useRef<number | null>(null);
+  const driftNowRef = useRef(driftNow);
+  driftNowRef.current = driftNow;
   const displayCreatureName = creatureName ?? capturedCreature.speciesName;
   const displayStatLabel = statLabel ?? capturedCreature.statLabel;
   const displayStatValue = statValue ?? capturedCreature.statValue;
@@ -630,6 +653,42 @@ export function SparkOrbLearningShell({
             : lastMoment === "missed_try"
               ? "concerned"
               : "none";
+  const difficulty = sparkOrbDifficultyParams(difficultyLevel);
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const driftAmpPx = reducedMotion
+    ? 0
+    : Math.round(creatureLifeProfile.drift.ampPx * difficulty.driftAmpScale);
+  const driftPeriodMs = creatureLifeProfile.drift.periodMs;
+  const driftActive =
+    phase === "ready" &&
+    creatureCaptureMotion === "free" &&
+    launchSkill !== "success" &&
+    !scrubbedCaptureActive &&
+    !collectionSettled &&
+    !reversePreviewing &&
+    driftAmpPx > 0;
+
+  useEffect(() => {
+    if (driftActive && driftStartRef.current === null) {
+      driftStartRef.current = driftNowRef.current();
+    }
+    if (!driftActive) {
+      driftStartRef.current = null;
+    }
+  }, [driftActive]);
+
+  function currentDriftOffsetX(): number {
+    if (!driftActive || driftStartRef.current === null) return 0;
+    return sparkOrbDriftOffsetX(
+      driftNowRef.current(),
+      driftStartRef.current,
+      driftAmpPx,
+      driftPeriodMs,
+    );
+  }
   const captureDirection = reverseReplayActive ? "reverse" : "capture";
   const creatureCaptureStyle =
     scrubbedCaptureScale === null ||
@@ -671,6 +730,8 @@ export function SparkOrbLearningShell({
     "--orb-peak-scale": `${displayLaunchPhysics.peakScale}`,
     "--orb-flight-scale": `${displayLaunchPhysics.flightScale}`,
     "--orb-impact-scale": `${displayLaunchPhysics.impactScale}`,
+    "--drift-amp": `${driftAmpPx}px`,
+    "--drift-period": `${driftPeriodMs}ms`,
   } as CSSProperties;
   const anchorContext = useMemo(
     () =>
@@ -710,6 +771,23 @@ export function SparkOrbLearningShell({
   useEffect(() => {
     setRemainingOrbCount(orbCount);
   }, [orbCount]);
+
+  useEffect(() => {
+    if (phase !== "ready" || remainingOrbCount > 0) return;
+    setRemainingOrbCount(1);
+    const grantEvent: SparkOrbLearningEncounterEvent = {
+      type: "orb_granted",
+      phase,
+      chargeCount: chargeOverride ?? chargeCountForPhase(phase),
+      chargeGoal,
+      orbCount: 1,
+      capturePersonality: capturedCreature.capturePersonality,
+      currentTarget,
+    };
+    console.info(" 🎮 [spark-orb-learning-shell] [orb-granted] [reported]", grantEvent);
+    onEncounterEvent?.(grantEvent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, remainingOrbCount]);
 
   useEffect(() => {
     if (phase !== "ready") {
@@ -850,12 +928,31 @@ export function SparkOrbLearningShell({
     const finalAimVector = aimVectorRef.current;
     const pullPower = launchPullPower(finalAimVector);
     const holdPower = Math.round(Math.max(launchPowerRef.current, pullPower));
+    const releaseDriftOffsetX = Math.round(currentDriftOffsetX());
     const launchScore = computeSparkOrbLaunchPhysics({
       pullX: finalAimVector.pullX,
       pullY: finalAimVector.pullY,
       holdPower,
+      targetOffsetX: releaseDriftOffsetX,
+      captureRadius: difficulty.captureRadius,
     });
     const result = launchScore.result;
+    throwResultsRef.current = [
+      ...throwResultsRef.current.slice(-9),
+      result === "success",
+    ];
+    const nextDifficultyLevel = nextSparkOrbDifficultyLevel(
+      difficultyLevel,
+      throwResultsRef.current,
+    );
+    if (nextDifficultyLevel !== difficultyLevel) {
+      console.info(" 🎮 [spark-orb-learning-shell] [difficulty] [adjusted]", {
+        from: difficultyLevel,
+        to: nextDifficultyLevel,
+        recentResults: [...throwResultsRef.current],
+      });
+      setDifficultyLevel(nextDifficultyLevel);
+    }
     const aimResult: LaunchAimState =
       result === "success" ? "clean" : result === "miss-early" ? "weak" : "wide";
     setLaunchPower(launchScore.power);
@@ -882,6 +979,9 @@ export function SparkOrbLearningShell({
         hitDistance: launchScore.hitDistance,
         hitQuality: launchScore.hitQuality,
         holdPower: launchScore.power,
+        difficultyLevel: difficulty.level,
+        captureRadius: difficulty.captureRadius,
+        driftOffsetX: releaseDriftOffsetX,
       };
       emitLaunchEvent({ type: "release_success", ...baseEvent });
       const strugglePlan = buildSparkOrbStrugglePlan(
@@ -1022,6 +1122,9 @@ export function SparkOrbLearningShell({
       hitDistance: launchScore.hitDistance,
       hitQuality: launchScore.hitQuality,
       holdPower: launchScore.power,
+      difficultyLevel: difficulty.level,
+      captureRadius: difficulty.captureRadius,
+      driftOffsetX: releaseDriftOffsetX,
     });
     emitLaunchEvent({
       type: "orb_spent",
@@ -1171,6 +1274,7 @@ export function SparkOrbLearningShell({
           }
           data-capture-personality={capturedCreature.capturePersonality}
           data-personality-reaction={personalityReaction}
+          data-drifting={driftActive ? "true" : "false"}
           style={creatureCaptureStyle}
           aria-hidden="true"
         >
@@ -1431,6 +1535,16 @@ export function SparkOrbLearningShell({
         .spark-orb-learning-shell__creature-sprite {
           display: block;
           width: 100%;
+        }
+
+        .spark-orb-learning-shell__creature[data-drifting="true"] {
+          animation: sparkLearningCreatureDrift var(--drift-period) ease-in-out infinite;
+        }
+
+        @keyframes sparkLearningCreatureDrift {
+          0%, 100% { transform: translate(-50%, -50%); }
+          25% { transform: translate(calc(-50% + var(--drift-amp)), -50%); }
+          75% { transform: translate(calc(-50% - var(--drift-amp)), -50%); }
         }
 
         .spark-orb-learning-shell__creature[data-capture-motion="pulling"] {
