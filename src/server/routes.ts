@@ -133,6 +133,7 @@ type ChildName = keyof typeof companions;
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-5";
 const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
+const VIDEO_CALL_FLASH_TTS_MODEL = "eleven_flash_v2_5";
 const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
   "call_started",
   "call_ended",
@@ -1287,9 +1288,14 @@ export function setupRoutes(app: Express): void {
         ...getShowroomCompanionActTools(),
         ...getShowroomCompanionActivityTools(),
       ];
+      // Game beats (activity reactions, move packets) ride the fast model;
+      // social turns keep Sonnet for persona and memory nuance.
+      const talkModel = talk.activityReaction
+        ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
+        : process.env.SUNNY_COMPANION_TALK_MODEL || HOMEWORK_SONNET_MODEL;
       const claudeStartedAt = Date.now();
       const msg = await client.messages.create({
-        model: HOMEWORK_SONNET_MODEL,
+        model: talkModel,
         max_tokens: 180,
         system,
         messages: messages as Anthropic.MessageParam[],
@@ -1385,7 +1391,7 @@ export function setupRoutes(app: Express): void {
         const toolResults = [...companionToolResults, ...activityToolResults];
         const toolFollowupStartedAt = Date.now();
         const afterTool = await client.messages.create({
-          model: HOMEWORK_SONNET_MODEL,
+          model: talkModel,
           max_tokens: 160,
           system,
           messages: [
@@ -1413,14 +1419,20 @@ export function setupRoutes(app: Express): void {
       });
       let audioBase64: string | undefined;
       let audioContentType: string | undefined;
+      // Video-call turns use the low-latency flash model; it does not support
+      // pronunciation dictionaries, which companion banter does not need.
+      const isVideoCallTts = talk.mode === "video_call";
+      const ttsModelId = isVideoCallTts
+        ? process.env.SUNNY_VIDEO_CALL_TTS_MODEL || VIDEO_CALL_FLASH_TTS_MODEL
+        : (companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL);
       if (spokenText) {
         const elevenlabs = new ElevenLabsClient({ apiKey });
         const locators = getPronunciationLocators();
         const ttsStartedAt = Date.now();
         const audio = await elevenlabs.textToSpeech.convert(talk.voiceId, {
           text: spokenText,
-          modelId: companion.voiceModelId ?? DEFAULT_ELEVENLABS_MODEL,
-          ...(locators && { pronunciationDictionaryLocators: locators }),
+          modelId: ttsModelId,
+          ...(!isVideoCallTts && locators && { pronunciationDictionaryLocators: locators }),
         });
         const buffer = await audioLikeToBuffer(audio);
         latencySpans.ttsMs = Date.now() - ttsStartedAt;
@@ -1497,6 +1509,8 @@ export function setupRoutes(app: Express): void {
           visionUsed: Boolean(talk.visualSnapshot),
           requestToResponseMs: latencySpans.requestToResponseMs,
           latencySpans,
+          model: talkModel,
+          ttsModelId,
           activeActivity: talk.activeActivity,
           activityReaction: talk.activityReaction,
         },
