@@ -41,6 +41,7 @@ export interface CreatureLifeProfile {
   blink: { minGapMs: number; maxGapMs: number; doubleBlinkChance: number };
   glance: { minGapMs: number; maxGapMs: number };
   fidget: { minGapMs: number; maxGapMs: number; moves: CreatureFidgetMove[] };
+  drift: { periodMs: number; ampPx: number };
   reactionAmp: number;
 }
 
@@ -60,6 +61,7 @@ export const PERSONALITY_LIFE_DEFAULTS: Record<
     blink: { minGapMs: 2000, maxGapMs: 6200, doubleBlinkChance: 0.14 },
     glance: { minGapMs: 3600, maxGapMs: 8200 },
     fidget: { minGapMs: 7000, maxGapMs: 13000, moves: ["look-left", "look-right", "hop", "ear-wiggle"] },
+    drift: { periodMs: 3200, ampPx: 46 },
     reactionAmp: 1,
   },
   shy: {
@@ -69,6 +71,7 @@ export const PERSONALITY_LIFE_DEFAULTS: Record<
     blink: { minGapMs: 2400, maxGapMs: 7000, doubleBlinkChance: 0.2 },
     glance: { minGapMs: 4400, maxGapMs: 9400 },
     fidget: { minGapMs: 9000, maxGapMs: 16000, moves: ["shrink-peek", "sway", "look-left"] },
+    drift: { periodMs: 4200, ampPx: 28 },
     reactionAmp: 0.7,
   },
   brave: {
@@ -78,6 +81,7 @@ export const PERSONALITY_LIFE_DEFAULTS: Record<
     blink: { minGapMs: 2600, maxGapMs: 7200, doubleBlinkChance: 0.08 },
     glance: { minGapMs: 4000, maxGapMs: 8800 },
     fidget: { minGapMs: 8000, maxGapMs: 14000, moves: ["chest-up", "look-left", "look-right"] },
+    drift: { periodMs: 3600, ampPx: 38 },
     reactionAmp: 1.15,
   },
   sleepy: {
@@ -87,6 +91,7 @@ export const PERSONALITY_LIFE_DEFAULTS: Record<
     blink: { minGapMs: 4000, maxGapMs: 9000, doubleBlinkChance: 0.05 },
     glance: { minGapMs: 6000, maxGapMs: 12000 },
     fidget: { minGapMs: 10000, maxGapMs: 18000, moves: ["yawn", "slow-sway"] },
+    drift: { periodMs: 5200, ampPx: 20 },
     reactionAmp: 0.6,
   },
 };
@@ -116,6 +121,10 @@ function validateLifeProfile(profile: CreatureLifeProfile): void {
   }
   assertGapRange("glance", profile.glance.minGapMs, profile.glance.maxGapMs);
   assertGapRange("fidget", profile.fidget.minGapMs, profile.fidget.maxGapMs);
+  assertPositive("drift_period", profile.drift.periodMs, 30000);
+  if (!Number.isFinite(profile.drift.ampPx) || profile.drift.ampPx < 0 || profile.drift.ampPx > 120) {
+    throw new Error("creature_life_profile_invalid:drift_amp");
+  }
   if (profile.fidget.moves.length === 0) {
     throw new Error("creature_life_profile_invalid:fidget_moves_empty");
   }
@@ -166,6 +175,7 @@ export function resolveLifeProfile(
     blink: { ...defaults.blink, ...overrides.blink },
     glance: { ...defaults.glance, ...overrides.glance },
     fidget: { ...defaults.fidget, ...overrides.fidget },
+    drift: { ...defaults.drift, ...overrides.drift },
     reactionAmp: overrides.reactionAmp ?? defaults.reactionAmp,
   };
   validateLifeProfile(merged);
