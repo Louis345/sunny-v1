@@ -131,7 +131,7 @@ const companions = {
 type ChildName = keyof typeof companions;
 
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
-const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-20250514";
+const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-5";
 const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
   "call_started",
