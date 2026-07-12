@@ -2,6 +2,7 @@ import type {
   CapturedMonsterConfig,
   CapturedMonsterLifeState,
 } from "./capturedMonsterCatalog";
+import type { SparkOrbCompletionSummary } from "./sparkOrbEvidence";
 
 export type CapturedCreatureRewardSource = "spark_orb_learning_shell";
 export type CapturedCreatureChartWriteMode = "storybook_only";
@@ -60,6 +61,8 @@ export interface OrbCaptureCompletedEvent {
   orbCount: number;
   hitDistance?: number;
   hitQuality?: CapturedCreatureHitQuality;
+  /** Law 14 completion summary aggregated by the learning shell. */
+  summary?: SparkOrbCompletionSummary;
   reward: CapturedCreatureReward;
 }
 
@@ -158,12 +161,14 @@ export function buildOrbCaptureCompletedEvent({
   orbCount,
   hitDistance,
   hitQuality,
+  summary,
 }: {
   reward: CapturedCreatureReward;
   chargeGoal: number;
   orbCount: number;
   hitDistance?: number;
   hitQuality?: CapturedCreatureHitQuality;
+  summary?: SparkOrbCompletionSummary;
 }): OrbCaptureCompletedEvent {
   return {
     type: "orb_capture_completed",
@@ -172,6 +177,7 @@ export function buildOrbCaptureCompletedEvent({
     orbCount,
     hitDistance,
     hitQuality,
+    summary,
     reward,
   };
 }
