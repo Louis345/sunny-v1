@@ -1,7 +1,9 @@
-# Spark Orb Flagship Capture — Plan (no implementation yet)
+# Spark Orb Flagship Capture — Plan
 
 Branch: `claude/spark-orb-flagship-capture` · Worktree: `sunny-spark-orb-flagship`
-Status: **awaiting human approval per Law 6** (plan touches far more than 2 files).
+Status: **Phases 1–6 implemented and committed** (approved 2026-07-12; one commit per phase).
+- Phase 1 creature life system · Phase 2 struggle/breakout + charge floor · Phase 3 moving target + adaptive difficulty · Phase 4 Law 14 evidence contract · Phase 5 learning-moment juice + bonus tiers · Phase 6 keyboard path + aria-live + reduced motion.
+- Still open (deferred scope): session/adventure-board node wiring, server-side captured-creature chart writer, multi-species art, Den migration onto the life system.
 Related other-AI worktree: `sunny-spark-orb-capture-personality` on `codex/spark-orb-alive-creature` — do not overlap; coordinate before Phase 1 lands.
 
 ## 1. What exists today (audit)
