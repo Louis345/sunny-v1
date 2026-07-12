@@ -642,7 +642,9 @@ export function buildShowroomTalkSystemPrompt(input: {
     "Speech is optional; visual action is preferred when the child is working, feeding, earning a reward, or just hanging out.",
     "When no spoken answer adds value, use companionAct and leave the spoken text empty.",
     "This chat cannot grant coins, XP, store purchases, or talent unlocks.",
-    "Return only the words the companion should say aloud, or an empty string when silence is better.",
+    "Put the words the companion says aloud in the message text of this same response, alongside any companionAct or openCompanionActivity tool calls. Never wait for tool results before speaking.",
+    "When silence is better, call companionAct and leave the message text empty on purpose.",
+    "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.",
   ];
   if (input.conversationIntent) {
     lines.push(`Conversation intent: ${input.conversationIntent}.`);
@@ -735,7 +737,7 @@ export function buildShowroomTalkSystemPrompt(input: {
       "Use companionAct for a gesture that matches the words. Every AI-authored activity reaction should include one gesture when possible.",
       "Do not use local canned tic-tac-toe banter. Author the reaction from the board, last move, result, and companion persona.",
       requiresSpeech
-        ? "This activity reaction requires one short spoken line plus companionAct when possible."
+        ? "This activity reaction requires one short spoken line plus companionAct when possible. Say the line in this same response; do not wait for tool results."
         : "For child_move reactions, prefer a quick gesture and keep spoken words optional so stale speech does not trail the board.",
       `Activity reaction event: ${input.activityReaction.eventType}.`,
       `Reaction board: ${board}.`,
@@ -821,11 +823,15 @@ export function shouldRunShowroomToolFollowup(input: {
   rawText: string;
   companionActToolUseCount: number;
   activityToolUseCount: number;
+  activityReactionEventType?: ShowroomActivityReactionEventType;
 }): boolean {
   const toolUseCount = input.companionActToolUseCount + input.activityToolUseCount;
   if (toolUseCount === 0) return false;
+  if (input.rawText.trim().length > 0) return false;
   if (!input.isActivityReaction) return true;
-  return input.rawText.trim().length === 0;
+  return input.activityReactionEventType
+    ? shouldRequireShowroomActivityReactionSpeech(input.activityReactionEventType)
+    : true;
 }
 
 export function buildShowroomClaudeMessages(input: {

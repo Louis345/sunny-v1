@@ -1341,6 +1341,7 @@ export function setupRoutes(app: Express): void {
         rawText: text,
         companionActToolUseCount: companionActToolUseBlocks.length,
         activityToolUseCount: activityToolUseBlocks.length,
+        activityReactionEventType: talk.activityReaction?.eventType,
       });
       if (shouldRunToolFollowup) {
         const companionToolResults: Anthropic.ToolResultBlockParam[] =

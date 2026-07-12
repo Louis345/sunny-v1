@@ -305,6 +305,8 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("1-3 short sentences");
     expect(prompt).toContain("companionAct");
     expect(prompt).toContain("show emotion through movement");
+    expect(prompt).toContain("in the message text of this same response");
+    expect(prompt).toContain("Never wait for tool results before speaking");
     expect(prompt).not.toContain("award coins");
     expect(prompt).not.toContain("award XP");
   });
@@ -859,7 +861,7 @@ describe("companion showroom talk contract", () => {
     );
   });
 
-  it("runs a Claude followup when an activity reaction returns tool-only content", () => {
+  it("runs a Claude followup only when tool-only content still needs speech", () => {
     expect(
       shouldRunShowroomToolFollowup({
         isActivityReaction: true,
@@ -868,6 +870,26 @@ describe("companion showroom talk contract", () => {
         activityToolUseCount: 0,
       }),
     ).toBe(true);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: true,
+        rawText: "",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+        activityReactionEventType: "companion_move",
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: true,
+        rawText: "",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+        activityReactionEventType: "child_move",
+      }),
+    ).toBe(false);
 
     expect(
       shouldRunShowroomToolFollowup({
@@ -885,7 +907,25 @@ describe("companion showroom talk contract", () => {
         companionActToolUseCount: 0,
         activityToolUseCount: 1,
       }),
+    ).toBe(false);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: false,
+        rawText: "",
+        companionActToolUseCount: 1,
+        activityToolUseCount: 0,
+      }),
     ).toBe(true);
+
+    expect(
+      shouldRunShowroomToolFollowup({
+        isActivityReaction: false,
+        rawText: "",
+        companionActToolUseCount: 0,
+        activityToolUseCount: 0,
+      }),
+    ).toBe(false);
   });
 
   it("keeps tic-tac-toe activity reactions to one Claude round trip when speech is already present and records latency spans", () => {
