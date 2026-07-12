@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
 } from "react";
@@ -569,6 +570,7 @@ export function SparkOrbLearningShell({
   const [breakoutPop, setBreakoutPop] = useState(false);
   const [breakoutTick, setBreakoutTick] = useState(0);
   const [sparkFlightTick, setSparkFlightTick] = useState(0);
+  const [liveAnnouncement, setLiveAnnouncement] = useState("");
   const [captureBonus, setCaptureBonus] = useState<{
     starTier: number;
     shiny: boolean;
@@ -863,6 +865,9 @@ export function SparkOrbLearningShell({
 
   useEffect(() => {
     emitGameStateUpdate(`Encounter phase ${phase}.`);
+    if (phase === "ready") {
+      setLiveAnnouncement("The orb is glowing and ready to launch.");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
@@ -871,13 +876,15 @@ export function SparkOrbLearningShell({
     prevChargeCountRef.current = chargeCount;
     if (previous !== null && chargeCount > previous) {
       setSparkFlightTick((tick) => tick + 1);
+      setLiveAnnouncement(`Spark earned! Charge ${chargeCount} of ${chargeGoal}.`);
     }
-  }, [chargeCount]);
+  }, [chargeCount, chargeGoal]);
 
   useEffect(() => {
     if (phase !== "ready" || remainingOrbCount > 0) return;
     evidence.recordOrbGranted();
     setRemainingOrbCount(1);
+    setLiveAnnouncement("Sunny gave you a bonus orb!");
     const grantEvent: SparkOrbLearningEncounterEvent = {
       type: "orb_granted",
       phase,
@@ -1037,6 +1044,89 @@ export function SparkOrbLearningShell({
   function handleLaunchRelease(event: PointerEvent<HTMLButtonElement>): void {
     if (launchSkill !== "holding") return;
     handleLaunchAimMove(event);
+    releaseHold();
+  }
+
+  const KEYBOARD_AIM_STEP_X = 14;
+  const KEYBOARD_AIM_STEP_Y = 16;
+  const KEYBOARD_BASE_PULL_Y = 178;
+
+  function beginKeyboardHold(): void {
+    if (!canHoldToLaunch || launchTimerRef.current !== null) return;
+    const nextAimVector = {
+      startX: 0,
+      startY: 0,
+      pullX: 0,
+      pullY: KEYBOARD_BASE_PULL_Y,
+    };
+    aimVectorRef.current = nextAimVector;
+    setAimVector(nextAimVector);
+    launchPowerRef.current = 0;
+    setLaunchPower(launchPullPower(nextAimVector));
+    setLaunchPhysics(null);
+    setLaunchSkill("holding");
+    setLaunchAim("aiming");
+    emitLaunchEvent({
+      type: "hold_start",
+      chargeCount,
+      orbCount: remainingOrbCount,
+      holdPower: 0,
+    });
+    launchTimerRef.current = window.setInterval(() => {
+      const nextPower = Math.min(100, launchPowerRef.current + 2);
+      launchPowerRef.current = nextPower;
+      setLaunchPower(Math.max(nextPower, launchPullPower(aimVectorRef.current)));
+      if (nextPower >= 100) {
+        stopLaunchTimer();
+      }
+    }, 40);
+  }
+
+  function adjustKeyboardAim(deltaX: number, deltaY: number): void {
+    if (launchSkill !== "holding") return;
+    const currentAim = aimVectorRef.current;
+    const nextAimVector = {
+      ...currentAim,
+      pullX: Math.max(-170, Math.min(170, currentAim.pullX + deltaX)),
+      pullY: Math.max(0, Math.min(320, currentAim.pullY + deltaY)),
+    };
+    aimVectorRef.current = nextAimVector;
+    setAimVector(nextAimVector);
+    setLaunchPower(Math.max(launchPowerRef.current, launchPullPower(nextAimVector)));
+  }
+
+  function handleLaunchKeyDown(event: KeyboardEvent<HTMLButtonElement>): void {
+    if (event.key === " " || event.key === "Enter") {
+      event.preventDefault();
+      if (event.repeat || launchSkill === "holding") return;
+      beginKeyboardHold();
+      return;
+    }
+    if (launchSkill !== "holding") return;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustKeyboardAim(-KEYBOARD_AIM_STEP_X, 0);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustKeyboardAim(KEYBOARD_AIM_STEP_X, 0);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      adjustKeyboardAim(0, KEYBOARD_AIM_STEP_Y);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      adjustKeyboardAim(0, -KEYBOARD_AIM_STEP_Y);
+    }
+  }
+
+  function handleLaunchKeyUp(event: KeyboardEvent<HTMLButtonElement>): void {
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    if (launchSkill !== "holding") return;
+    releaseHold();
+  }
+
+  function releaseHold(): void {
+    if (launchSkill !== "holding") return;
     stopLaunchTimer();
     const finalAimVector = aimVectorRef.current;
     const pullPower = launchPullPower(finalAimVector);
@@ -1114,6 +1204,11 @@ export function SparkOrbLearningShell({
           window.setTimeout(() => {
             setStruggling(true);
             evidence.recordStrugglePulse();
+            if (index === 0) {
+              setLiveAnnouncement(
+                `${displayCreatureName} is wiggling! Cheer to help the capture.`,
+              );
+            }
             playSparkOrbSfx("capturePull", sfx);
             emitLaunchEvent({
               type: "capture_struggle",
@@ -1153,6 +1248,9 @@ export function SparkOrbLearningShell({
             setChargeOverride(1);
             setBreakoutPop(true);
             setBreakoutTick((tick) => tick + 1);
+            setLiveAnnouncement(
+              `${displayCreatureName} wiggled free! Answer questions to recharge the orb.`,
+            );
             playSparkOrbSfx("miss", sfx);
             emitLaunchEvent({
               type: "capture_breakout",
@@ -1221,6 +1319,7 @@ export function SparkOrbLearningShell({
               setCaptureStage("collection-added");
               setCollectibleRevealed(true);
               setCollectionCardVisible(true);
+              setLiveAnnouncement(`${displayCreatureName} joined your collection!`);
               playSparkOrbSfx("collected", sfx);
               emitLaunchEvent({ type: "collectible_revealed", ...baseEvent });
             }, strugglePlan.revealAtMs - strugglePlan.resolveAtMs),
@@ -1253,6 +1352,7 @@ export function SparkOrbLearningShell({
       cheerCount: 0,
     });
     evidence.recordOrbSpent();
+    setLiveAnnouncement("Missed! Answer more questions to recharge the orb.");
     const nextOrbCount = Math.max(0, remainingOrbCount - 1);
     clearPayoffTimers();
     setLaunchSkill("spent");
@@ -1501,13 +1601,15 @@ export function SparkOrbLearningShell({
             {canHoldToLaunch ? (
               <button
                 type="button"
-                aria-label="Grab the orb to aim and launch"
+                aria-label="Grab the orb to aim and launch. Keyboard: hold Space to charge, arrow keys to aim, release Space to launch."
                 data-testid="spark-orb-launch-control"
                 className="spark-orb-learning-shell__launch-button"
                 onPointerDown={handleLaunchHoldStart}
                 onPointerMove={handleLaunchAimMove}
                 onPointerUp={handleLaunchRelease}
                 onPointerCancel={handleLaunchRelease}
+                onKeyDown={handleLaunchKeyDown}
+                onKeyUp={handleLaunchKeyUp}
               />
             ) : null}
             <div className="spark-orb-learning-shell__aim-guide" aria-hidden="true">
@@ -1519,7 +1621,11 @@ export function SparkOrbLearningShell({
             </div>
             {launchSkill === "success" || launchSkill === "spent" ? (
               <strong>
-                {launchSkill === "success" ? "Clean launch" : "Answer more to recharge."}
+                {launchSkill === "success"
+                  ? launchPhysics?.hitQuality === "direct"
+                    ? "Perfect throw!"
+                    : "Great throw!"
+                  : "Answer more to recharge."}
               </strong>
             ) : null}
           </div>
@@ -1554,6 +1660,14 @@ export function SparkOrbLearningShell({
             aria-hidden="true"
           />
         ) : null}
+        <div
+          role="status"
+          aria-live="polite"
+          className="spark-orb-learning-shell__live-region"
+          data-testid="spark-orb-live-region"
+        >
+          {liveAnnouncement}
+        </div>
         {showCollectionCard ? (
           <div
             className="spark-orb-learning-shell__collect-card"
@@ -2551,6 +2665,45 @@ export function SparkOrbLearningShell({
         @keyframes sparkLearningShinyShimmer {
           0%, 100% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 22px rgba(255, 228, 107, 0.45); }
           50% { box-shadow: 0 22px 54px rgba(16, 24, 40, 0.24), 0 0 44px rgba(255, 228, 107, 0.85); }
+        }
+
+        .spark-orb-learning-shell__live-region {
+          border: 0;
+          clip: rect(0 0 0 0);
+          clip-path: inset(50%);
+          height: 1px;
+          margin: -1px;
+          overflow: hidden;
+          padding: 0;
+          position: absolute;
+          white-space: nowrap;
+          width: 1px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .spark-orb-learning-shell__capture-vortex,
+          .spark-orb-learning-shell__energy-tether,
+          .spark-orb-learning-shell__stream,
+          .spark-orb-learning-shell__spark-burst,
+          .spark-orb-learning-shell__spark-burst i,
+          .spark-orb-learning-shell__spark-flight,
+          .spark-orb-learning-shell__cheer-button,
+          .spark-orb-learning-shell__aura {
+            animation: none !important;
+          }
+
+          .spark-orb-learning-shell__orb-stage[data-struggling="true"] .spark-orb-learning-shell__orb {
+            animation: none;
+          }
+
+          .spark-orb-learning-shell__orb[data-ready="true"] {
+            animation: none;
+          }
+
+          .spark-orb-learning-shell__creature[data-capture-motion="pulling"],
+          .spark-orb-learning-shell__creature[data-capture-motion="shrinking"] {
+            animation-duration: 1.6s;
+          }
         }
 
         .spark-orb-learning-shell__companion-anchor {
