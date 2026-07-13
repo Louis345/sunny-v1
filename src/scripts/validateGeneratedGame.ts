@@ -121,7 +121,7 @@ export function validateGeneratedGame(
     words: string[];
     homeworkType: string;
     childId: string;
-    generationStage?: "quest" | "boss";
+    generationStage?: "quest" | "boss" | "baseline";
   },
 ): GameValidationResult {
   const failures: string[] = [];
@@ -140,28 +140,43 @@ export function validateGeneratedGame(
     failures.push("Not reading GAME_PARAMS — hardcoded data");
   }
 
-  if (ctx.generationStage === "quest" || ctx.generationStage === "boss") {
+  if (ctx.generationStage === "quest" || ctx.generationStage === "boss" || ctx.generationStage === "baseline") {
     failures.push(...inlineScriptSyntaxFailures(html));
     if (!hasCanonicalContractScript(html)) {
-      failures.push('Quest/Boss artifacts must load the Sunny contract with <script src="/games/_contract.js"></script>');
+      failures.push('Generated artifacts must load the Sunny contract with <script src="/games/_contract.js"></script>');
     }
     if (!readsWindowGameParams(html)) {
-      failures.push("Quest/Boss artifacts must read window.GAME_PARAMS for runtime parameters");
+      failures.push("Generated artifacts must read window.GAME_PARAMS for runtime parameters");
     }
     for (const functionName of ["fireAttemptEvent", "sendNodeComplete", "fireCompanionEvent"]) {
       if (!hasWindowContractCall(html, functionName)) {
-        failures.push(`Quest/Boss artifacts must call window.${functionName}(...) instead of relying on bare globals`);
+        failures.push(`Generated artifacts must call window.${functionName}(...) instead of relying on bare globals`);
       }
     }
     if (!hasSunnyCompanionAnchor(html)) {
-      failures.push("Quest/Boss artifacts must include #sunny-companion so Sunny owns companion rendering");
+      failures.push("Generated artifacts must include #sunny-companion so Sunny owns companion rendering");
     }
     if (hasSelfOwnedCompanionChrome(html)) {
-      failures.push("Quest/Boss artifacts must not render their own companion chrome; use #sunny-companion plus contract companion events");
+      failures.push("Generated artifacts must not render their own companion chrome; use #sunny-companion plus contract companion events");
     }
   }
 
-  const generatedStage = ctx.generationStage === "quest" || ctx.generationStage === "boss";
+  if (ctx.generationStage === "baseline") {
+    const readsConfig =
+      /\bconfig\b/i.test(html) &&
+      (/\/api\/activity-config\//i.test(html) ||
+        /fetch\s*\(\s*[^)]*config/i.test(html) ||
+        /params\.get\(\s*["']config["']\s*\)/i.test(html));
+    if (!readsConfig) {
+      failures.push("Baseline shell must load refillable config JSON via config URL param");
+    }
+    if (!/GameBridge\.reportState|reportState\s*\(/i.test(html)) {
+      failures.push("Baseline shell must call GameBridge.reportState for companion context");
+    }
+  }
+
+  const generatedStage =
+    ctx.generationStage === "quest" || ctx.generationStage === "boss" || ctx.generationStage === "baseline";
   const strippedParams = generatedStage
     ? stripRuntimeParamReferences(html)
     : html.replace(/GAME_PARAMS[^;]+/g, "");

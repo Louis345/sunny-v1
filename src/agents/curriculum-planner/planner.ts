@@ -27,7 +27,7 @@ export async function curriculumPlanner(
   const attemptHistory = loadAttemptHistory(childName);
 
   const { text: updatedCurriculum } = await generateText({
-    model: anthropic("claude-sonnet-4-20250514"),
+    model: anthropic(process.env.SUNNY_PLANNER_MODEL ?? "claude-sonnet-5"),
     system: buildCurriculumPlannerPrompt(childName),
     prompt: `
 Current session notes:

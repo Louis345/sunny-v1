@@ -896,14 +896,15 @@ describe("AdventureBoardExperience", () => {
   it("keeps live homework from falling through to the legacy AdventureMap", () => {
     const source = readFileSync(resolve(__dirname, "../App.tsx"), "utf8");
     const runtimeBranch = source.slice(
-      source.indexOf("if (plannerBoardRuntimeRequested && adventureChildId)"),
+      source.indexOf("if (homeworkBoardMode)"),
       source.indexOf("} else if (state.phase === \"picker\")"),
     );
 
     expect(source).toContain("homeworkBoardUnavailable");
-    expect(runtimeBranch).toContain("plannerBoardRuntimeRequested");
+    expect(runtimeBranch).toContain("homeworkBoardMode");
     expect(runtimeBranch).toContain("AdventureBoardExperience");
     expect(runtimeBranch).toContain("homeworkBoardUnavailable");
+    expect(source).toContain("never let homework silently fall through to it");
     expect(runtimeBranch).not.toContain("<AdventureMap");
     expect(source).toContain(
       "Human-caught invariant: Storybook proves the JSON board can render, but only the live App branch can prove old-board fallback is gone.",

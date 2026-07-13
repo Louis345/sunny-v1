@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gearlock Story Vault</title>
+<style>
+  :root{
+    --gold:#f4c95d;
+    --bronze:#c8843a;
+    --indigo-deep:#140a2c;
+    --indigo:#241348;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;height:100%;
+    font-family:'Trebuchet MS', 'Segoe UI', sans-serif;
+    color:#fff8ea;
+    overflow-x:hidden;
+  }
+  body{
+    background:
+      linear-gradient(rgba(15,8,35,0.6), rgba(10,5,25,0.85)),
+      url('/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg');
+    background-size:cover;
+    background-position:center;
+    background-attachment:fixed;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:18px 12px 60px;
+  }
+
+  #sunny-companion{
+    position:fixed;
+    bottom:12px;
+    left:12px;
+    width:1px;height:1px;
+    z-index:50;
+  }
+
+  header{
+    width:100%;
+    max-width:900px;
+    text-align:center;
+    margin-bottom:10px;
+  }
+  h1{
+    font-size:1.8rem;
+    margin:6px 0 4px;
+    text-shadow:0 0 12px rgba(244,201,93,0.8), 0 2px 4px #000;
+    letter-spacing:1px;
+  }
+  .sub{
+    font-size:0.95rem;
+    opacity:0.85;
+    margin-bottom:10px;
+  }
+
+  .progress-arc-wrap{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:14px;
+    margin:8px auto 4px;
+  }
+  .arc-star{
+    font-size:2rem;
+    filter:grayscale(1) brightness(0.6);
+    transition:filter 0.4s ease, transform 0.4s ease;
+  }
+  .arc-star.lit{
+    filter:grayscale(0) brightness(1.2) drop-shadow(0 0 10px gold);
+    transform:scale(1.25) rotate(10deg);
+  }
+  #story-progress-arc-visual{
+    font-size:0.8rem;
+    opacity:0.75;
+  }
+
+  .gear-hall{
+    display:flex;
+    flex-wrap:wrap;
+    gap:26px;
+    justify-content:center;
+    width:100%;
+    max-width:1000px;
+    margin:18px 0 24px;
+  }
+
+  .gear-panel{
+    position:relative;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,0.08), transparent 60%),
+      linear-gradient(160deg, #3a2359, #241041 70%);
+    border:6px solid;
+    border-image: conic-gradient(var(--gold), var(--bronze), var(--gold), var(--bronze)) 1;
+    border-radius:26px;
+    width:330px;
+    max-width:92vw;
+    padding:16px 16px 20px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.55), inset 0 0 25px rgba(244,201,93,0.08);
+    transition:opacity 0.6s ease, transform 0.6s ease, box-shadow 0.5s ease;
+  }
+  .gear-panel.locked-hidden{
+    opacity:0.35;
+    transform:translateY(14px) scale(0.94);
+    filter:blur(1px);
+  }
+  .gear-panel[data-locked="true"]{
+    box-shadow:0 0 0 3px var(--gold), 0 0 34px 8px rgba(244,201,93,0.75), inset 0 0 30px rgba(244,201,93,0.25);
+  }
+  .gear-panel .corner-gear{
+    position:absolute;
+    top:-14px;
+    right:-14px;
+    font-size:1.8rem;
+    animation:spin 9s linear infinite;
+    opacity:0.85;
+    text-shadow:0 0 8px #000;
+  }
+  @keyframes spin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+  .story-prompt{
+    font-size:0.95rem;
+    line-height:1.35;
+    margin:10px 4px 12px;
+    text-align:center;
+    min-height:58px;
+  }
+
+  .gear-illustration{
+    position:relative;
+    background:rgba(0,0,0,0.25);
+    border-radius:16px;
+    padding:10px;
+    min-height:120px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+  .reveal-btn{
+    background:linear-gradient(180deg,#ffe08a,#e0a13f);
+    border:none;
+    border-radius:20px;
+    padding:6px 14px;
+    font-weight:bold;
+    color:#3a2000;
+    cursor:pointer;
+    box-shadow:0 3px 0 #8a5a1c;
+    font-size:0.85rem;
+  }
+  .reveal-btn:active{ transform:translateY(2px); box-shadow:0 1px 0 #8a5a1c; }
+
+  .scene-grid{
+    display:grid;
+    gap:6px;
+    justify-content:center;
+  }
+  .scene-grid.boxes{ grid-template-columns:repeat(4,1fr); }
+  .scene-grid.rows{ grid-template-columns:repeat(10,1fr); grid-auto-rows:auto; }
+
+  .box-cell{
+    width:44px;height:44px;
+    background:rgba(255,255,255,0.06);
+    border:2px dashed rgba(255,224,138,0.5);
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:0.55rem;
+    gap:2px;
+    flex-wrap:wrap;
+  }
+  .box-cell span{
+    opacity:0;
+    transform:scale(0.2);
+    transition:opacity 0.35s ease, transform 0.35s ease;
+    font-size:0.8rem;
+  }
+  .gear-illustration.revealed .box-cell span,
+  .gear-illustration.complete .box-cell span{
+    opacity:1;
+    transform:scale(1);
+  }
+
+  .star-cell{
+    width:20px;height:20px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:0.95rem;
+    opacity:0;
+    transform:scale(0.2) rotate(-40deg);
+    transition:opacity 0.3s ease, transform 0.3s ease;
+  }
+  .gear-illustration.revealed .star-cell,
+  .gear-illustration.complete .star-cell{
+    opacity:1;
+    transform:scale(1) rotate(0deg);
+  }
+
+  .gear-illustration.invite-recount{
+    animation:pulseSoft 1.2s ease-in-out 2;
+  }
+  @keyframes pulseSoft{
+    0%,100%{ background:rgba(0,0,0,0.25); }
+    50%{ background:rgba(255,120,120,0.18); }
+  }
+
+  .gear-illustration.complete{
+    box-shadow:0 0 24px 4px rgba(244,201,93,0.65) inset;
+  }
+
+  .notch-wrap{
+    display:flex;
+    justify-content:center;
+    margin-top:14px;
+  }
+  .gear-notch{
+    width:78px;height:78px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #3d2b17, #1b1006 80%);
+    border:4px solid var(--bronze);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.6rem;
+    font-weight:bold;
+    color:#ffe9a8;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.7);
+    transition:box-shadow 0.3s ease, background 0.3s ease, transform 0.25s ease;
+  }
+  .gear-notch.hover{
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.7), 0 0 0 5px rgba(244,201,93,0.5);
+    transform:scale(1.05);
+  }
+  .gear-notch.filled{
+    background:radial-gradient(circle at 35% 30%, #7a5a1c, #3a2609 80%);
+    box-shadow:0 0 22px 6px rgba(244,201,93,0.85), inset 0 0 10px #000;
+    color:#fff6d8;
+  }
+
+  .recovery-pulse{
+    margin-top:12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:rgba(90,20,20,0.35);
+    border:2px solid rgba(255,120,120,0.5);
+    border-radius:14px;
+    padding:8px 10px;
+    font-size:0.8rem;
+    animation:fadeIn 0.3s ease;
+  }
+  .recovery-pulse .owl{ font-size:1.6rem; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:translateY(0);} }
+
+  .tooth-tray{
+    width:100%;
+    max-width:900px;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:14px;
+    background:rgba(0,0,0,0.28);
+    border:3px solid rgba(244,201,93,0.4);
+    border-radius:22px;
+    padding:16px;
+    margin-bottom:26px;
+  }
+  .gear-tooth{
+    width:64px;height:64px;
+    border-radius:14px;
+    background:linear-gradient(160deg,#ffe08a,#c8843a 85%);
+    border:3px solid #7a4a12;
+    color:#3a2000;
+    font-weight:bold;
+    font-size:1.15rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:grab;
+    box-shadow:0 4px 0 #5c3a10, 0 6px 10px rgba(0,0,0,0.4);
+    user-select:none;
+    transition:transform 0.15s ease, opacity 0.3s ease;
+  }
+  .gear-tooth:active{ cursor:grabbing; }
+  .gear-tooth.dragging{ opacity:0.4; transform:scale(0.92); }
+  .gear-tooth.used{
+    opacity:0.15;
+    pointer-events:none;
+    filter:grayscale(1);
+  }
+
+  .inner-vault-alcove{
+    position:relative;
+    width:100%;
+    max-width:480px;
+    min-height:110px;
+    border-radius:20px;
+    background:rgba(10,5,25,0.5);
+    border:3px solid rgba(244,201,93,0.25);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:2.6rem;
+    overflow:hidden;
+    margin-bottom:18px;
+  }
+  .inner-vault-alcove::before, .inner-vault-alcove::after{
+    content:'';
+    position:absolute;
+    top:0;bottom:0;
+    width:50%;
+    background:linear-gradient(180deg,#2c1c52,#150a2e);
+    transition:transform 1s ease;
+    z-index:2;
+    box-shadow:0 0 20px rgba(0,0,0,0.6);
+  }
+  .inner-vault-alcove::before{ left:0; transform:translateX(0); border-right:3px solid var(--gold); }
+  .inner-vault-alcove::after{ right:0; transform:translateX(0); border-left:3px solid var(--gold); }
+  .inner-vault-alcove[data-open="true"]::before{ transform:translateX(-100%); }
+  .inner-vault-alcove[data-open="true"]::after{ transform:translateX(100%); }
+  .chest-silhouette{ position:relative; z-index:1; filter:drop-shadow(0 0 18px rgba(244,201,93,0.8)); }
+
+  .completion-banner{
+    text-align:center;
+    background:linear-gradient(160deg,#ffe9a8,#f4c95d);
+    color:#3a2000;
+    border-radius:20px;
+    padding:16px 26px;
+    box-shadow:0 0 40px rgba(244,201,93,0.9);
+    animation:popIn 0.5s ease;
+  }
+  .completion-banner h2{ margin:0 0 6px; font-size:1.5rem; }
+  .completion-banner p{ margin:0; font-size:0.95rem; }
+  @keyframes popIn{
+    0%{ transform:scale(0.5); opacity:0; }
+    70%{ transform:scale(1.1); opacity:1; }
+    100%{ transform:scale(1); }
+  }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width:700px){
+    .gear-panel{ width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="sunny-companion"></div>
+
+<header>
+  <h1>⚙️ Gearlock Story Vault ⚙️</h1>
+  <p class="sub">Solve each story-gear to unlock the inner vault!</p>
+  <div class="progress-arc-wrap">
+    <span class="arc-star">★</span>
+    <span class="arc-star">★</span>
+  </div>
+  <div id="story-progress-arc" data-testid="story-progress-arc" data-filled="0" style="display:none"></div>
+</header>
+
+<div class="gear-hall">
+
+  <!-- PENCIL GEAR -->
+  <section class="gear-panel" data-testid="story-gear-pencils" data-locked="false" id="gearPencils">
+    <div class="corner-gear">⚙️</div>
+    <p class="story-prompt">Mrs. K puts <b>5 pencils</b> in each of <b>4 boxes</b>. How many pencils are there in all?</p>
+    <div class="gear-illustration" id="illoPencils">
+      <div class="scene-grid boxes" id="pencilBoxes"></div>
+      <button class="reveal-btn" data-reveal="pencils">👀 Tap to see!</button>
+    </div>
+    <div class="notch-wrap">
+      <div class="gear-notch" data-testid="gear-notch-pencils" data-answer="20">?</div>
+    </div>
+    <div class="recovery-pulse" data-testid="recovery-pulse-pencils" hidden>
+      <div class="owl">🦉</div>
+      <p>Count the boxes, then count what's inside each one!</p>
+    </div>
+  </section>
+
+  <!-- STAR GEAR -->
+  <section class="gear-panel locked-hidden" data-testid="story-gear-stars" data-locked="false" id="gearStars">
+    <div class="corner-gear">⚙️</div>
+    <p class="story-prompt">There are <b>3 rows</b> of <b>10 stars</b>. How many stars are there?</p>
+    <div class="gear-illustration" id="illoStars">
+      <div class="scene-grid rows" id="starRows"></div>
+      <button class="reveal-btn" data-reveal="stars">👀 Tap to see!</button>
+    </div>
+    <div class="notch-wrap">
+      <div class="gear-notch" data-testid="gear-notch-stars" data-answer="30">?</div>
+    </div>
+    <div class="recovery-pulse" data-testid="recovery-pulse-stars" hidden>
+      <div class="owl">🦉</div>
+      <p>Count the rows, then count the stars in each row!</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="tooth-tray" id="toothTray">
+  <!-- teeth injected by JS -->
+</div>
+
+<div class="inner-vault-alcove" data-testid="inner-vault-alcove" data-open="false">
+  <div class="chest-silhouette">🗝️📦</div>
+</div>
+
+<div class="completion-banner" data-testid="completion-banner" hidden>
+  <h2>🌟 Story Solved! 🌟</h2>
+  <p>The inner vault has opened! Great multiplying, Reina!</p>
+</div>
+
+<script>
+(function(){
+  // ---------- build scenes ----------
+  const pencilBoxesEl = document.getElementById('pencilBoxes');
+  for(let b=0;b<4;b++){
+    const cell = document.createElement('div');
+    cell.className='box-cell';
+    for(let p=0;p<5;p++){
+      const s = document.createElement('span');
+      s.textContent='✏️';
+      cell.appendChild(s);
+    }
+    pencilBoxesEl.appendChild(cell);
+  }
+
+  const starRowsEl = document.getElementById('starRows');
+  for(let i=0;i<30;i++){
+    const s = document.createElement('div');
+    s.className='star-cell';
+    s.textContent='⭐';
+    starRowsEl.appendChild(s);
+  }
+
+  // reveal buttons
+  document.querySelectorAll('[data-reveal]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.getAttribute('data-reveal');
+      const illo = document.getElementById(key==='pencils' ? 'illoPencils' : 'illoStars');
+      illo.classList.add('revealed');
+    });
+  });
+
+  // ---------- tooth tray ----------
+  const toothValues = [9,20,45,54,13,30,103,33];
+  const tray = document.getElementById('toothTray');
+  toothValues.forEach(v=>{
+    const t = document.createElement('div');
+    t.className='gear-tooth';
+    t.draggable = true;
+    t.setAttribute('data-testid','gear-tooth-'+v);
+    t.setAttribute('data-value', String(v));
+    t.textContent = v;
+    tray.appendChild(t);
+  });
+
+  // ---------- drag logic ----------
+  let draggedTooth = null;
+
+  document.addEventListener('dragstart', (e)=>{
+    const t = e.target.closest && e.target.closest('[data-testid^="gear-tooth-"]');
+    if(t){
+      draggedTooth = t;
+      t.classList.add('dragging');
+      if(e.dataTransfer){
+        try{ e.dataTransfer.setData('text/plain', t.getAttribute('data-value')); }catch(err){}
+      }
+    }
+  });
+
+  document.addEventListener('dragend', (e)=>{
+    const t = e.target.closest && e.target.closest('[data-testid^="gear-tooth-"]');
+    if(t){ t.classList.remove('dragging'); }
+  });
+
+  const notches = document.querySelectorAll('.gear-notch');
+  notches.forEach(notch=>{
+    notch.addEventListener('dragenter', (e)=>{
+      if(e.preventDefault) e.preventDefault();
+      notch.classList.add('hover');
+    });
+    notch.addEventListener('dragover', (e)=>{
+      if(e.preventDefault) e.preventDefault();
+    });
+    notch.addEventListener('dragleave', ()=>{
+      notch.classList.remove('hover');
+    });
+    notch.addEventListener('drop', (e)=>{
+      if(e.preventDefault) e.preventDefault();
+      notch.classList.remove('hover');
+      handleDrop(notch);
+    });
+  });
+
+  // ---------- state ----------
+  let progress = 0;
+  const arcEl = document.getElementById('story-progress-arc');
+  const arcStars = document.querySelectorAll('.arc-star');
+  const qStartTimes = { pencils: Date.now(), stars: null };
+
+  function updateArcVisual(){
+    arcStars.forEach((el, idx)=>{
+      el.classList.toggle('lit', idx < progress);
+    });
+  }
+
+  function handleDrop(notch){
+    if(!draggedTooth) return;
+    const tooth = draggedTooth;
+    const notchTestId = notch.getAttribute('data-testid'); // gear-notch-pencils / gear-notch-stars
+    const gearKey = notchTestId.replace('gear-notch-','');
+    const gearPanel = document.querySelector('[data-testid="story-gear-'+gearKey+'"]');
+
+    if(gearPanel.getAttribute('data-locked') === 'true'){
+      draggedTooth = null;
+      return;
+    }
+
+    const value = tooth.getAttribute('data-value');
+    const correctAnswer = notch.getAttribute('data-answer');
+    const isCorrect = value === correctAnswer;
+    const targetId = gearKey === 'pencils' ? 'q1' : 'q2';
+    const startTime = qStartTimes[gearKey] || Date.now();
+    const responseTimeMs = Date.now() - startTime;
+
+    try{
+      window.parent.postMessage({
+        type:"attempt_event",
+        payload:{ domain:"math", targetId, correct: isCorrect, responseTimeMs }
+      }, "*");
+    }catch(err){}
+
+    if(isCorrect){
+      lockGear(gearKey, gearPanel, notch, value, tooth);
+    }else{
+      showRecovery(gearKey);
+      qStartTimes[gearKey] = Date.now();
+    }
+    draggedTooth = null;
+  }
+
+  function showRecovery(gearKey){
+    const pulse = document.querySelector('[data-testid="recovery-pulse-'+gearKey+'"]');
+    const illo = document.getElementById(gearKey==='pencils' ? 'illoPencils' : 'illoStars');
+    pulse.hidden = false;
+    illo.classList.add('invite-recount');
+    setTimeout(()=>{
+      illo.classList.remove('invite-recount');
+    }, 2400);
+    setTimeout(()=>{
+      pulse.hidden = true;
+    }, 3200);
+  }
+
+  function lockGear(gearKey, panel, notch, value, tooth){
+    panel.setAttribute('data-locked','true');
+    notch.textContent = value;
+    notch.classList.add('filled');
+    tooth.classList.add('used');
+    tooth.draggable = false;
+
+    const illo = document.getElementById(gearKey==='pencils' ? 'illoPencils' : 'illoStars');
+    illo.classList.add('revealed');
+    illo.classList.add('complete');
+
+    progress++;
+    arcEl.setAttribute('data-filled', String(progress));
+    updateArcVisual();
+
+    if(gearKey === 'pencils'){
+      const starsPanel = document.getElementById('gearStars');
+      starsPanel.classList.remove('locked-hidden');
+      qStartTimes.stars = Date.now();
+    }
+
+    if(progress === 2){
+      openVault();
+    }
+  }
+
+  function openVault(){
+    const alcove = document.querySelector('[data-testid="inner-vault-alcove"]');
+    alcove.setAttribute('data-open','true');
+    const banner = document.querySelector('[data-testid="completion-banner"]');
+    banner.hidden = false;
+
+    try{
+      window.parent.postMessage({
+        type:"node_complete",
+        payload:{ nodeId:"gear-lock-word-problems", completed:true }
+      }, "*");
+    }catch(err){}
+  }
+
+  updateArcVisual();
+})();
+</script>
+</body>
+</html>

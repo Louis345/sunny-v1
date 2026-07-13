@@ -26,6 +26,14 @@ describe("quest visual candidate service", () => {
     return rootDir;
   }
 
+  it("does not turn visual candidates into a generic Quest/Boss shell", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "src/engine/questVisualCandidateService.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain("renderPlayableVisualQuestShell");
+  });
+
   it("keeps generated Quest choice cards attached to the current learning domain", async () => {
     const profile = initializeLearningProfile({
       childId: "reader",

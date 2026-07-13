@@ -40,7 +40,8 @@ export type EvidenceKind =
   | "attention"
   | "reward"
   | "companion"
-  | "quest-gate";
+  | "quest-gate"
+  | "generated";
 
 export type ActivitySkillTarget =
   | "spell_from_memory"
@@ -386,6 +387,15 @@ const ACTIVITY_TRAITS_BY_ID = {
     scaffoldLevel: "medium",
     evidenceType: "practice",
     preferenceDimensions: ["visual", "control", "challenge"],
+  },
+  "generated-baseline": {
+    skillTargets: ["math_reasoning", "retrieval_practice", "concept_understanding"],
+    friction: "medium",
+    pacing: "medium",
+    inputModes: ["click", "touch", "mixed"],
+    scaffoldLevel: "medium",
+    evidenceType: "practice",
+    preferenceDimensions: ["challenge", "novelty", "visual", "competition"],
   },
   "bubble-pop": {
     skillTargets: ["attention_control", "visual_recognition"],
@@ -1768,11 +1778,13 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
   {
     id: "concept-check",
     label: "Concept Check",
+    nodeType: "concept-check",
     purposes: ["evaluate"],
-    domains: ["reading", "science", "vocabulary"],
+    domains: ["reading", "science", "math", "vocabulary"],
     strengths: [
       "Finds what the child already understands before teaching.",
       "Produces question-level evidence for concept transfer.",
+      "Seed instrument for math concepts when no approved generated shell covers them yet.",
     ],
     weakFor: ["spelling-recall", "flow-state-practice"],
     goodFitWhen: [
@@ -3199,6 +3211,63 @@ const ACTIVITY_TOOL_CONTRACTS: ActivityToolContractSource[] = [
         ],
       },
     ],
+  },
+  {
+    id: "generated-baseline",
+    label: "Generated Baseline Shell",
+    nodeType: "generated-baseline",
+    configSource: "generated-artifact",
+    purposes: ["practice", "evaluate", "fluency"],
+    domains: ["math", "reading", "science", "spelling", "vocabulary"],
+    strengths: [
+      "Reusable generated shell that loads per-homework config JSON.",
+      "Keeps domain-valid fun mechanics without hand-building a new HTML game each time.",
+    ],
+    weakFor: ["unreviewed-artifact", "hardcoded-content", "missing-config-injection"],
+    goodFitWhen: [
+      "An approved generated shell matches the captured homework domain and skill target.",
+      "The shell passed refillability and companion-contract validation.",
+    ],
+    badFitWhen: [
+      "The artifact is not approved_ready.",
+      "The homework domain does not match the shell skill target.",
+    ],
+    scaffolds: ["hint", "retry"],
+    measures: [
+      "Per-target attempt evidence from generated shell play.",
+      "Engagement and instrument quality for catalog reuse decisions.",
+    ],
+    configKnobs: [
+      "activity-config JSON",
+      "approved shell html path",
+      "domain",
+      "skill target",
+      "engagement wrapper",
+    ],
+    realDifficultyLevels: [
+      "Approved refillable shell with config-driven rounds.",
+      "Candidate shell awaiting human review.",
+    ],
+    signalsEmitted: [
+      "attempt_event",
+      "game_state_update",
+      "completion summary",
+      "companion_event",
+    ],
+    signalsMissing: [
+      "delayed transfer calibration",
+    ],
+    psychologistGuidance: [
+      "Generated baseline shells are instruments first; dopamine wrapper must not replace evidence capture.",
+      "Prefer an approved shell over inventing a mismatched hand-built game.",
+    ],
+    evidence: {
+      writesPracticeEvidence: true,
+      writesMasteryEvidence: false,
+      requiresPerTargetResult: true,
+      allowedEvidence: ["practice", "generated"],
+      contaminationRisks: ["hint", "model-answer"],
+    },
   },
   {
     id: "store-game",

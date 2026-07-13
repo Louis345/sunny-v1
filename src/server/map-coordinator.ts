@@ -24,7 +24,6 @@ import {
   planSession,
   registerMysteryGameForSessionFinalize,
 } from "../engine/learningEngine";
-import { recordHomeworkNodeMeasurement } from "../engine/homeworkCycleLoop";
 import {
   appendChildActivityEvidence,
   updateContentCatalogFromActivityEvidence,
@@ -87,6 +86,14 @@ import {
   type ActivityIntentEvidence,
 } from "../engine/activityIntent";
 import { nodeLaunchWords } from "../shared/nodeRegistry";
+import {
+  buildInitialEngagementTheory,
+  readEngagementTheory,
+  updateEngagementTheoryFromActivityEvidence,
+  writeEngagementTheory,
+} from "../engine/engagementTheory";
+import { recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
+import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
 
 /** Grok prompts for homework map nodes (filled when theme has no thumbnail for that type). */
 export const NODE_THUMBNAIL_PROMPTS: Record<string, string> = {
@@ -390,6 +397,9 @@ export function companionTriggerToSessionEventType(
     case "session_complete":
       return "session_complete";
     case "session_start":
+      // A game iframe just opened — let the companion react instead of
+      // dropping the trigger (the board felt mute without it).
+      return "game_started";
     case "mastery_unlock":
       return null;
     default:
@@ -1053,6 +1063,22 @@ function writePostNodeLearningEvidence(
     if (evidence.contentId) {
       updateContentCatalogFromActivityEvidence(childId, evidence);
     }
+    const chart = getChildChart(childId);
+    const theory = readEngagementTheory(childId) ?? chart.engagementTheory ?? buildInitialEngagementTheory({
+      childId,
+      domain: evidence.domain,
+    });
+    const enrichedTheory = updateEngagementTheoryFromActivityEvidence(theory, {
+      activityId: evidence.activityId,
+      contentId: evidence.contentId,
+      experimentId: (node as { experimentId?: string }).experimentId,
+      dimensions: (node as { engagementDimensions?: string[] }).engagementDimensions,
+      completed: evidence.completed,
+      frustrationScore: evidence.frustrationScore,
+      liked: typeof evidence.liked === "boolean" ? evidence.liked : undefined,
+      createdAt: evidence.occurredAt,
+    });
+    writeEngagementTheory(childId, enrichedTheory);
     console.log(
       `  🎮 [adaptive-evidence] recorded activity=${evidence.activityId} domain=${evidence.domain} targets=${evidence.targetCount ?? 0}`,
     );
@@ -1092,7 +1118,13 @@ function writeLearningExperimentResult(
 
 function attemptDomainForMapNode(node: NodeConfig): "spelling" | "reading" | "math" {
   if (node.type === "pronunciation" || node.type === "karaoke") return "reading";
-  if (node.type === "clock-game" || node.type === "coin-counter") return "math";
+  if (
+    node.type === "clock-game" ||
+    node.type === "coin-counter" ||
+    node.type === "generated-baseline"
+  ) {
+    return "math";
+  }
   return "spelling";
 }
 
@@ -2253,35 +2285,45 @@ export async function applyNodeResult(
     writeLearningExperimentResult(st.childId, nodeCfg, result);
   }
 
-	  if (!skipSessionPersistence && result.completed) {
-	    try {
-	      const lp = readLearningProfile(st.childId);
-      const pending = lp?.pendingHomework as
-        | (NonNullable<ChildProfile["pendingHomework"]> & { homeworkId?: string })
-        | undefined;
-      const homeworkId = pending?.homeworkId ?? pending?.weekOf;
-      if (homeworkId) {
-        const updatedCycle = recordHomeworkNodeMeasurement({
+  if (!skipSessionPersistence && result.completed && !wasAlreadyCompleted) {
+    try {
+      const cycle = getChildChart(st.childId).learningCycle;
+      if (cycle) {
+        const frustrationSignals = Array.isArray(result.vitalSigns?.frustrationSignals)
+          ? result.vitalSigns.frustrationSignals.map(String)
+          : [];
+        const updated = recordCanonicalNodeCompletion({
           childId: st.childId,
-          homeworkId,
+          homeworkId: cycle.homeworkId,
+          sessionId,
           nodeId: result.nodeId,
-          nodeType: nodeCfg.type,
-          accuracy: result.accuracy,
-          completedAt: new Date().toISOString(),
+          result: {
+            completed: result.completed,
+            accuracy: result.accuracy,
+            timeSpent_ms: result.timeSpent_ms,
+            targetResults: result.targetResults,
+            frustrationSignals,
+          },
         });
-        if (updatedCycle?.questMeasurement) {
-          console.log(
-            `  🎮 [homework-cycle] quest measurement ${updatedCycle.questMeasurement.status} accuracy=${updatedCycle.questMeasurement.interventionAccuracy}`,
-          );
-        }
-        if (updatedCycle?.bossTheory) {
-          console.log(
-            `  🎮 [homework-cycle] boss theory ready for ${homeworkId}`,
-          );
+        console.log(
+          `  🎮 [learning-cycle] [transition] node=${result.nodeId} lifecycle=${updated?.lifecycle ?? "unchanged"} revision=${updated?.revision ?? cycle.revision}`,
+        );
+        if (updated?.lifecycle === "quest_generating" || updated?.lifecycle === "boss_generating") {
+          void generateCanonicalProgressionArtifact({
+            childId: updated.childId,
+            homeworkId: updated.homeworkId,
+          }).then((generated) => {
+            console.log(
+              `  🎮 [learning-cycle] [artifact-bound] lifecycle=${generated.lifecycle} revision=${generated.revision}`,
+            );
+          }).catch((generationError: unknown) => {
+            const message = generationError instanceof Error ? generationError.message : String(generationError);
+            console.error(`  🔴 [learning-cycle] progression generation failed: ${message}`);
+          });
         }
       }
     } catch (err) {
-      console.error("  🔴 [map-coordinator] homework cycle measurement failed:", err);
+      console.error("  🔴 [learning-cycle] canonical transition failed:", err);
     }
   }
 
@@ -2496,6 +2538,11 @@ export async function recordMapChoiceEvent(
     ...(input.postActivityAction ? { postActivityAction: input.postActivityAction } : {}),
     ...(input.explicitSentiment ? { explicitSentiment: input.explicitSentiment } : {}),
     ...(typeof input.frustrationScore === "number" ? { frustrationScore: input.frustrationScore } : {}),
+    ...(typeof input.theoryId === "string" ? { theoryId: input.theoryId } : {}),
+    ...(typeof input.experimentId === "string" ? { experimentId: input.experimentId } : {}),
+    ...(typeof input.contentId === "string" ? { contentId: input.contentId } : {}),
+    ...(Array.isArray(input.engagementDimensions) ? { engagementDimensions: input.engagementDimensions } : {}),
+    ...(typeof input.engagementHypothesis === "string" ? { engagementHypothesis: input.engagementHypothesis } : {}),
   };
   if (!eventInput.choiceSetId || eventInput.shownOptions.length === 0) {
     throw new MapSessionError("invalid_choice_event", 400);

@@ -199,6 +199,9 @@ describe("map node routing", () => {
       "mystery",
       "quest",
       "boss",
+      "generated-baseline",
+      "clock-game",
+      "coin-counter",
       "dopamine",
       "concept-check",
       "visual-explainer",
@@ -381,6 +384,37 @@ describe("map node routing", () => {
       if (action.kind !== "iframe") throw new Error("expected iframe action");
       expect(action.url).toContain(url);
     }
+  });
+
+  it("clock-game node builds iframe URL to clock-game.html", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "n-clock",
+        type: "clock-game",
+        words: ["2:30"],
+        difficulty: 1,
+      } as const,
+      { childId: "demo-pashley", companion: "elli", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/clock-game.html");
+    expect(action.url).toContain("childId=demo-pashley");
+  });
+
+  it("coin-counter node builds iframe URL to coin-counter.html", () => {
+    const action = buildNodeLaunchAction(
+      {
+        id: "n-coins",
+        type: "coin-counter",
+        words: ["35c"],
+        difficulty: 1,
+      } as const,
+      { childId: "demo-pashley", companion: "elli", isDiagMode: true },
+    );
+    expect(action.kind).toBe("iframe");
+    if (action.kind !== "iframe") throw new Error("expected iframe action");
+    expect(action.url).toContain("/games/coin-counter.html");
   });
 
   it("karaoke handler returns storyText from node", () => {

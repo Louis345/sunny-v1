@@ -1,0 +1,23 @@
+export type CanonicalNodeCompletionInput = {
+  childId: string;
+  homeworkId: string;
+  nodeId: string;
+  result: Record<string, unknown> & {
+    completed?: boolean;
+    accuracy?: number;
+    timeSpent_ms?: number;
+  };
+};
+
+export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletionInput): Promise<{
+  lifecycle: string;
+  revision: number;
+}> {
+  const response = await fetch("/api/learning-cycle/node-complete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(`canonical_node_completion_${response.status}`);
+  return response.json() as Promise<{ lifecycle: string; revision: number }>;
+}

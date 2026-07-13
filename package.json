@@ -30,7 +30,7 @@
     "sunny:ingest:homework": "npx tsx src/scripts/ingestHomework.ts",
     "sunny:ingest:spelling": "npm run sunny:ingest:homework -- --domain spelling",
     "sunny:ingest:reading": "npm run sunny:ingest:homework -- --domain reading",
-    "sunny:ingest:math": "npm run sunny:ingest:homework -- --domain math",
+    "sunny:ingest:math": "npx tsx src/scripts/ingestMathDirect.ts",
     "sunny:ingest:science": "npm run sunny:ingest:homework -- --domain science",
     "sunny:homework:upload": "npx tsx src/scripts/uploadGradedHomework.ts",
     "sunny:ingest:scan": "npx tsx src/scripts/ingestScanResult.ts --child=ila",
@@ -54,6 +54,7 @@
     "sunny:homework:preflight": "npx tsx src/scripts/preflightHomeworkSession.ts",
     "sunny:homework:spelling": "npm run sunny:run -- --subject homework --homework-domain spelling",
     "sunny:spelling": "npm run sunny:homework:spelling",
+    "sunny:math": "npm run sunny:run -- --subject homework --homework-domain math",
     "sunny:preview": "npm run sunny:run -- --subject homework --preview free --node-access inspect-all",
     "sunny:diag": "npm run sunny:run -- --subject diag --session-mode diag --preview free --node-access inspect-all --child creator",
     "sunny:adventure": "npm run sunny:run -- --subject review",
@@ -112,7 +113,9 @@
     "prepare": "husky",
     "postinstall": "node scripts/download-companion-vrms.mjs",
     "sunny:download:companion-vrms": "node scripts/download-companion-vrms.mjs",
-    "sunny:visuallearner:openai": "npx tsx scripts/openaiVisualLearnerProbe.ts"
+    "sunny:visuallearner:openai": "npx tsx scripts/openaiVisualLearnerProbe.ts",
+    "demo:game-factory": "npx tsx src/scripts/demoGameFactory.ts",
+    "verify:math-dod": "npx tsx -r dotenv/config src/scripts/verifyMathPlanDefinitionOfDone.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",

@@ -71,6 +71,20 @@ describe("PostSessionTruthPacket", () => {
     expect(packet.adaptationDecision.reason).toContain("No next-plan decision");
   });
 
+  it("rejects next_plan_unchanged when no explicit reason was written", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-post-session-unchanged-reason-"));
+    fs.writeFileSync(
+      path.join(dir, "adaptation-diff.json"),
+      JSON.stringify({ status: "unchanged" }),
+      "utf8",
+    );
+
+    const packet = writePostSessionTruthPacket(dir);
+
+    expect(packet.adaptationDecision.status).toBe("missing");
+    expect(packet.adaptationDecision.reason).toContain("requires an explicit reason");
+  });
+
   it("writes interpreted evidence and a next-plan diff for the session folder", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-post-session-truth-"));
     fs.mkdirSync(path.join(dir, "activities"), { recursive: true });

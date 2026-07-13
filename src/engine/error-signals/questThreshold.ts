@@ -42,7 +42,7 @@ export function evaluateQuestThreshold(input: {
 
 export function computeQuestThreshold(childId: string): boolean {
   const profile = readLearningProfile(childId);
-  const totalSessions = profile?.sessionStats.totalSessions ?? 0;
+  const totalSessions = profile?.sessionStats?.totalSessions ?? 0;
   const patternResult = scanChildErrorPatterns(childId);
   const threshold = evaluateQuestThreshold({
     totalSessions,

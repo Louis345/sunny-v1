@@ -1,1488 +1,1128 @@
 {
   "version": 1,
   "childId": "reina",
-  "selectedDomain": "spelling",
+  "selectedDomain": "math",
   "current": {
-    "planId": "reina-2026-05-27-silent-letters-baseline",
+    "planId": "plan-reina-hw-math-6b68e575-r54",
     "childId": "reina",
-    "createdAt": "2026-05-27T19:28:05.803Z",
+    "createdAt": "2026-07-13T09:49:47.009Z",
     "source": "ingest_human_loop",
-    "domain": "spelling",
-    "testDate": "2026-05-29",
+    "activeHomeworkId": "hw-math-a179d2a0",
+    "domain": "math",
+    "testDate": null,
     "nodePlan": [
       {
-        "id": "baseline-silent-letters-wr",
-        "type": "word-radar",
-        "activityId": "word-radar",
+        "id": "gear-lock-facts",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
         "targets": [
-          "sign",
-          "know",
-          "write"
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q5"
         ],
         "difficulty": 2,
-        "targetLane": "silent_letters",
+        "source": "chart_planner",
+        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
         "locked": false,
-        "wordRadarConfig": {
-          "recallMode": "partial_visual_recall",
-          "inputMode": "letter-by-letter",
-          "speakStyle": "option-a",
-          "showTimer": false,
-          "hideWordDuringResponse": true,
-          "requiresCapturedResponse": true
-        },
-        "source": "chart_planner"
+        "masteryUnlockState": "unlocked",
+        "title": "Gearlock Facts Chamber",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+        "contentId": "hw-math-a179d2a0:gear-lock-facts",
+        "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+        "engagementDimensions": [
+          "puzzle"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png"
+          ]
+        }
       },
       {
-        "id": "baseline-silent-letters-spell",
-        "type": "spell-check",
-        "activityId": "spell-check",
+        "id": "gear-lock-word-problems",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
         "targets": [
-          "sign",
-          "know",
-          "write"
+          "q1",
+          "q2"
         ],
         "difficulty": 2,
-        "targetLane": "silent_letters",
+        "source": "chart_planner",
+        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
         "locked": false,
-        "source": "chart_planner"
-      },
-      {
-        "id": "baseline-hf-recognition",
-        "type": "word-radar",
-        "activityId": "word-radar",
-        "targets": [
-          "among",
-          "building",
-          "circle"
+        "masteryUnlockState": "unlocked",
+        "title": "Gearlock Story Vault",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+        "contentId": "hw-math-a179d2a0:gear-lock-word-problems",
+        "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+        "engagementDimensions": [
+          "puzzle"
         ],
-        "difficulty": 1,
-        "targetLane": "high_frequency",
-        "locked": false,
-        "wordRadarConfig": {
-          "recallMode": "visible_read",
-          "inputMode": "whole-word",
-          "speakStyle": "option-a",
-          "showTimer": false,
-          "hideWordDuringResponse": false,
-          "requiresCapturedResponse": true
-        },
-        "source": "chart_planner"
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png"
+          ]
+        }
       },
       {
-        "id": "baseline-hf-fluency",
-        "type": "pronunciation",
-        "activityId": "pronunciation",
+        "id": "comet-run-facts",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
         "targets": [
-          "among",
-          "building",
-          "circle"
-        ],
-        "difficulty": 1,
-        "targetLane": "high_frequency",
-        "locked": false,
-        "source": "chart_planner"
-      },
-      {
-        "id": "mystery-choice",
-        "type": "mystery",
-        "activityId": "mystery",
-        "targets": [
-          "sign",
-          "know",
-          "write",
-          "among",
-          "building",
-          "circle"
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q5"
         ],
         "difficulty": 2,
-        "choiceMode": "choice_lab",
+        "source": "chart_planner",
+        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
         "locked": false,
-        "source": "chart_planner"
+        "masteryUnlockState": "unlocked",
+        "title": "Comet Trail Facts Sprint",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+        "contentId": "hw-math-a179d2a0:comet-run-facts",
+        "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+        "engagementDimensions": [
+          "speed"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png"
+          ]
+        }
       },
       {
-        "id": "quest-destination",
+        "id": "comet-run-word-problems",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Comet Trail Story Sprint",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+        "contentId": "hw-math-a179d2a0:comet-run-word-problems",
+        "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+        "engagementDimensions": [
+          "speed"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "quest",
         "type": "quest",
         "activityId": "quest",
-        "targets": [
-          "sign",
-          "know",
-          "write"
-        ],
+        "targets": [],
         "difficulty": 2,
-        "targetLane": "silent_letters",
+        "source": "chart_planner",
         "locked": true,
         "masteryUnlockState": "preparing",
-        "source": "chart_planner"
+        "title": "Quest",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg"
       },
       {
-        "id": "boss-destination",
+        "id": "boss",
         "type": "boss",
         "activityId": "boss",
         "targets": [],
         "difficulty": 3,
+        "source": "chart_planner",
         "locked": true,
         "masteryUnlockState": "preparing",
-        "source": "chart_planner"
+        "title": "Boss",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg"
+      }
+    ],
+    "learningRoutes": [
+      {
+        "id": "route-a",
+        "label": "Puzzle Gate",
+        "rationale": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
+        "nodeIds": [
+          "gear-lock-facts",
+          "gear-lock-word-problems",
+          "quest",
+          "boss"
+        ]
+      },
+      {
+        "id": "route-b",
+        "label": "Comet Gate",
+        "rationale": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
+        "nodeIds": [
+          "comet-run-facts",
+          "comet-run-word-problems",
+          "quest",
+          "boss"
+        ]
       }
     ],
     "adventureBoard": {
       "schemaVersion": 1,
-      "boardId": "assignment-board-reina-f671295b",
-      "planId": "reina-2026-05-27-silent-letters-baseline",
+      "boardId": "direct:hw-math-a179d2a0",
+      "planId": "plan-reina-hw-math-6b68e575-r54",
       "childId": "reina",
-      "domain": "spelling",
-      "title": "Benchmark Advance Spelling Unit 9 Week 3",
+      "domain": "math",
+      "title": "The Skip-Count Star Vault",
       "theme": {
         "background": {
           "type": "image",
-          "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+          "value": "/generated/direct-math/hw-math-a179d2a0-background.jpeg"
         },
         "palette": {
-          "path": "#ffffff",
-          "completed": "#1f8f68",
+          "path": "#fff4c2",
+          "completed": "#34d399",
           "available": "#7c3aed",
-          "locked": "#aeb7c2",
+          "locked": "#64748b",
           "current": "#f59e0b",
-          "preview": "#d5dde5",
+          "preview": "#94a3b8",
           "text": "#ffffff",
-          "panel": "rgba(15, 23, 42, 0.84)"
+          "panel": "rgba(15,23,42,.82)"
         }
       },
       "layout": {
         "preset": "horizontal-adventure-spine",
         "companionSlot": "right",
-        "routeChoiceBehavior": "exclusive"
+        "routeChoiceBehavior": "parallel"
       },
       "plannerRationale": {
-        "agencyDesign": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
-        "evidenceDesign": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
-        "layoutChoice": "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan."
+        "agencyDesign": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "evidenceDesign": "academic targets (x2, x5, x10 facts + 2 equal-groups word problems); question count (7 total: 5 fluency facts + 2 word problems); difficulty (grade 3, single correct answer per item); evidence contract (completion, accuracy, frustration, liked/disliked signal captured identically)",
+        "layoutChoice": "Two visible choose-your-adventure routes converge on a locked Quest."
       },
       "nodes": [
         {
           "id": "start",
           "kind": "start",
           "label": "Start",
-          "shortLabel": "Start",
-          "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
-          "slot": "1",
-          "layout": {
-            "role": "start",
-            "lane": "main",
-            "order": 1
-          },
           "state": "completed",
-          "evidenceRole": "baseline"
-        },
-        {
-          "id": "baseline-silent-letters-wr",
-          "kind": "activity",
-          "activityId": "word-radar",
-          "label": "Letter Recall",
-          "shortLabel": "Letter Recall",
-          "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
-          "slot": "2",
-          "layout": {
-            "role": "baseline",
-            "lane": "main",
-            "order": 1
-          },
-          "state": "current",
-          "evidenceRole": "baseline",
-          "target": {
-            "laneId": "silent_letters",
-            "skill": "silent_letters",
-            "words": [
-              "sign",
-              "know",
-              "write"
-            ]
-          },
-          "wordRadarConfig": {
-            "recallMode": "partial_visual_recall",
-            "inputMode": "letter-by-letter",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": true,
-            "requiresCapturedResponse": true
-          },
-          "action": {
-            "type": "launch-activity",
-            "payloadId": "baseline-silent-letters-wr"
-          }
-        },
-        {
-          "id": "baseline-silent-letters-spell",
-          "kind": "activity",
-          "activityId": "spell-check",
-          "label": "Spell Check",
-          "shortLabel": "Spell Check",
-          "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
-          "slot": "3",
-          "layout": {
-            "role": "baseline",
-            "lane": "main",
-            "order": 2
-          },
-          "state": "available",
-          "evidenceRole": "baseline",
-          "target": {
-            "laneId": "silent_letters",
-            "skill": "silent_letters",
-            "words": [
-              "sign",
-              "know",
-              "write"
-            ]
-          },
-          "action": {
-            "type": "launch-activity",
-            "payloadId": "baseline-silent-letters-spell"
+          "position": {
+            "x": 0.08,
+            "y": 0.78
           }
         },
         {
           "id": "choose-path",
           "kind": "choice-gate",
-          "label": "Choose Path",
-          "shortLabel": "Choose Path",
-          "thumbnailUrl": "/thumbnails/mystery-fallback.svg",
-          "slot": "4",
-          "layout": {
-            "role": "choice-gate",
-            "lane": "main",
-            "order": 1
+          "label": "Which gate should we open first?",
+          "state": "current",
+          "position": {
+            "x": 0.2,
+            "y": 0.58
           },
-          "state": "available",
-          "evidenceRole": "preference",
-          "choiceSetId": "baseline-route-options",
           "action": {
             "type": "open-choice-set",
-            "payloadId": "baseline-route-options"
-          }
+            "payloadId": "direct-route-choice"
+          },
+          "choiceSetId": "direct-route-choice"
         },
         {
-          "id": "baseline-hf-recognition",
+          "id": "gear-lock-facts",
           "kind": "activity",
-          "activityId": "word-radar",
-          "label": "Quick Read",
-          "shortLabel": "Quick Read",
-          "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
-          "slot": "5a.1",
-          "layout": {
-            "role": "evidence-route",
-            "lane": "upper",
-            "order": 1
-          },
+          "activityId": "generated-baseline",
+          "label": "Gearlock Facts Chamber",
           "state": "available",
-          "evidenceRole": "baseline",
-          "target": {
-            "laneId": "high_frequency",
-            "skill": "high_frequency",
-            "words": [
-              "among",
-              "building",
-              "circle"
-            ]
-          },
-          "wordRadarConfig": {
-            "recallMode": "visible_read",
-            "inputMode": "whole-word",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": false,
-            "requiresCapturedResponse": true
+          "position": {
+            "x": 0.37,
+            "y": 0.32
           },
           "action": {
             "type": "launch-activity",
-            "payloadId": "baseline-hf-recognition"
-          }
+            "payloadId": "gear-lock-facts"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+          "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+          "engagementDimensions": [
+            "puzzle"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:gear-lock-facts"
         },
         {
-          "id": "baseline-hf-fluency",
+          "id": "gear-lock-word-problems",
           "kind": "activity",
-          "activityId": "pronunciation",
-          "label": "Pronunciation",
-          "shortLabel": "Pronunciation",
-          "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
-          "slot": "5b.1",
-          "layout": {
-            "role": "evidence-route",
-            "lane": "lower",
-            "order": 1
-          },
+          "activityId": "generated-baseline",
+          "label": "Gearlock Story Vault",
           "state": "available",
-          "evidenceRole": "baseline",
-          "target": {
-            "laneId": "high_frequency",
-            "skill": "high_frequency",
-            "words": [
-              "among",
-              "building",
-              "circle"
-            ]
+          "position": {
+            "x": 0.49,
+            "y": 0.32
           },
           "action": {
             "type": "launch-activity",
-            "payloadId": "baseline-hf-fluency"
-          }
-        },
-        {
-          "id": "mystery-choice",
-          "kind": "mystery",
-          "activityId": "mystery",
-          "label": "Mystery",
-          "shortLabel": "Mystery",
-          "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-          "slot": "6",
-          "layout": {
-            "role": "mystery",
-            "lane": "main",
-            "order": 1
+            "payloadId": "gear-lock-word-problems"
           },
-          "state": "available",
-          "evidenceRole": "preference",
-          "choiceSetId": "mystery-choice-options",
-          "action": {
-            "type": "open-choice-set",
-            "payloadId": "mystery-choice-options"
-          }
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+          "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+          "engagementDimensions": [
+            "puzzle"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:gear-lock-word-problems"
         },
         {
-          "id": "quest-destination",
+          "id": "comet-run-facts",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Comet Trail Facts Sprint",
+          "state": "available",
+          "position": {
+            "x": 0.37,
+            "y": 0.72
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "comet-run-facts"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+          "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:comet-run-facts"
+        },
+        {
+          "id": "comet-run-word-problems",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Comet Trail Story Sprint",
+          "state": "available",
+          "position": {
+            "x": 0.49,
+            "y": 0.72
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "comet-run-word-problems"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+          "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:comet-run-word-problems"
+        },
+        {
+          "id": "quest",
           "kind": "quest",
-          "activityId": "quest",
           "label": "Quest",
-          "shortLabel": "Quest",
-          "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
-          "slot": "7",
-          "layout": {
-            "role": "quest",
-            "lane": "main",
-            "order": 1
-          },
           "state": "locked",
-          "evidenceRole": "transfer",
-          "target": {
-            "laneId": "silent_letters",
-            "skill": "silent_letters",
-            "words": [
-              "sign",
-              "know",
-              "write"
-            ]
+          "position": {
+            "x": 0.68,
+            "y": 0.48
           },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg",
           "lock": {
-            "reason": "preparing",
-            "label": "Preparing"
+            "reason": "Complete your adventure routes to reveal the Quest.",
+            "label": "Locked"
           },
           "action": {
             "type": "show-locked-reason",
-            "payloadId": "quest-destination"
+            "payloadId": "quest"
           }
         },
         {
-          "id": "boss-destination",
+          "id": "boss",
           "kind": "boss",
-          "activityId": "boss",
           "label": "Boss",
-          "shortLabel": "Boss",
-          "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
-          "slot": "8",
-          "layout": {
-            "role": "boss",
-            "lane": "main",
-            "order": 1
-          },
           "state": "locked",
-          "evidenceRole": "mastery",
+          "position": {
+            "x": 0.91,
+            "y": 0.28
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg",
           "lock": {
-            "reason": "preparing",
-            "label": "After Quest"
+            "reason": "Complete the Quest before facing the Boss.",
+            "label": "Locked"
           },
           "action": {
             "type": "show-locked-reason",
-            "payloadId": "boss-destination"
+            "payloadId": "boss"
           }
         }
       ],
       "edges": [
         {
-          "id": "edge-start-baseline-silent-letters-wr",
+          "id": "start-choice",
           "from": "start",
-          "to": "baseline-silent-letters-wr",
-          "state": "available",
-          "style": "solid"
-        },
-        {
-          "id": "edge-baseline-silent-letters-wr-baseline-silent-letters-spell",
-          "from": "baseline-silent-letters-wr",
-          "to": "baseline-silent-letters-spell",
-          "state": "available",
-          "style": "solid"
-        },
-        {
-          "id": "edge-baseline-silent-letters-spell-choose-path",
-          "from": "baseline-silent-letters-spell",
           "to": "choose-path",
-          "state": "available",
-          "style": "solid"
+          "state": "available"
         },
         {
-          "id": "edge-choose-path-baseline-hf-recognition",
+          "id": "choose-path-gear-lock-facts",
           "from": "choose-path",
-          "to": "baseline-hf-recognition",
-          "state": "available",
-          "style": "glow"
+          "to": "gear-lock-facts",
+          "state": "available"
         },
         {
-          "id": "edge-choose-path-baseline-hf-fluency",
+          "id": "gear-lock-facts-gear-lock-word-problems",
+          "from": "gear-lock-facts",
+          "to": "gear-lock-word-problems",
+          "state": "available"
+        },
+        {
+          "id": "gear-lock-word-problems-quest",
+          "from": "gear-lock-word-problems",
+          "to": "quest",
+          "state": "locked"
+        },
+        {
+          "id": "choose-path-comet-run-facts",
           "from": "choose-path",
-          "to": "baseline-hf-fluency",
-          "state": "available",
-          "style": "glow"
+          "to": "comet-run-facts",
+          "state": "available"
         },
         {
-          "id": "edge-baseline-hf-recognition-mystery-choice",
-          "from": "baseline-hf-recognition",
-          "to": "mystery-choice",
-          "state": "available",
-          "style": "solid"
+          "id": "comet-run-facts-comet-run-word-problems",
+          "from": "comet-run-facts",
+          "to": "comet-run-word-problems",
+          "state": "available"
         },
         {
-          "id": "edge-baseline-hf-fluency-mystery-choice",
-          "from": "baseline-hf-fluency",
-          "to": "mystery-choice",
-          "state": "available",
-          "style": "solid"
+          "id": "comet-run-word-problems-quest",
+          "from": "comet-run-word-problems",
+          "to": "quest",
+          "state": "locked"
         },
         {
-          "id": "edge-mystery-choice-quest-destination",
-          "from": "mystery-choice",
-          "to": "quest-destination",
-          "state": "locked",
-          "style": "dashed"
-        },
-        {
-          "id": "edge-quest-destination-boss-destination",
-          "from": "quest-destination",
-          "to": "boss-destination",
-          "state": "locked",
-          "style": "dashed"
+          "id": "quest-boss",
+          "from": "quest",
+          "to": "boss",
+          "state": "locked"
         }
       ],
       "choiceSets": [
         {
-          "id": "baseline-route-options",
+          "id": "direct-route-choice",
           "kind": "baseline-route",
-          "title": "Choose your path",
+          "title": "Which gate should we open first?",
           "options": [
             {
-              "id": "choice-baseline-hf-recognition",
-              "label": "Quick Read",
-              "description": "Try Quick Read next.",
-              "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+              "id": "route-a",
+              "label": "Puzzle Gate",
+              "description": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
               "state": "available",
-              "nodeId": "baseline-hf-recognition",
+              "nodeId": "gear-lock-facts",
+              "engagementDimensions": [
+                "puzzle (manipulable gear-lock mechanic)"
+              ],
               "choiceSignal": {
                 "algorithmFeed": "choicePolicy",
                 "traits": [
-                  "practice",
-                  "control"
+                  "puzzle (manipulable gear-lock mechanic)"
                 ],
-                "expectedEvidence": "shown/chosen/skipped/completed outcome for word-radar; preference only",
+                "expectedEvidence": "selection, start, completion, abandonment, replay",
                 "preferenceNotMastery": true
               }
             },
             {
-              "id": "choice-baseline-hf-fluency",
-              "label": "Pronunciation",
-              "description": "Try pronunciation next.",
-              "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+              "id": "route-b",
+              "label": "Comet Gate",
+              "description": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
               "state": "available",
-              "nodeId": "baseline-hf-fluency",
+              "nodeId": "comet-run-facts",
+              "engagementDimensions": [
+                "speed (timed sequential comet-run mechanic)"
+              ],
               "choiceSignal": {
                 "algorithmFeed": "choicePolicy",
                 "traits": [
-                  "voice",
-                  "control"
+                  "speed (timed sequential comet-run mechanic)"
                 ],
-                "expectedEvidence": "shown/chosen/skipped/completed outcome for pronunciation; preference only",
+                "expectedEvidence": "selection, start, completion, abandonment, replay",
                 "preferenceNotMastery": true
               }
-            }
-          ]
-        },
-        {
-          "id": "mystery-choice-options",
-          "kind": "mystery",
-          "title": "Pick a mystery challenge",
-          "options": [
-            {
-              "id": "mystery-choice-story",
-              "label": "Story Challenge",
-              "description": "Try the practice inside a story wrapper.",
-              "icon": "book",
-              "tags": [
-                "story",
-                "calm",
-                "reading"
-              ],
-              "choiceSignal": {
-                "algorithmFeed": "choicePolicy",
-                "traits": [
-                  "story",
-                  "calm",
-                  "reading"
-                ],
-                "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice story wrapper; preference only",
-                "preferenceNotMastery": true
-              },
-              "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-              "nodeId": "mystery-choice",
-              "state": "available"
-            },
-            {
-              "id": "mystery-choice-speed",
-              "label": "Speed Challenge",
-              "description": "Try the practice with a fast arcade wrapper.",
-              "icon": "zap",
-              "tags": [
-                "speed",
-                "competition",
-                "arcade"
-              ],
-              "choiceSignal": {
-                "algorithmFeed": "choicePolicy",
-                "traits": [
-                  "speed",
-                  "competition",
-                  "arcade"
-                ],
-                "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice speed wrapper; preference only",
-                "preferenceNotMastery": true
-              },
-              "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-              "nodeId": "mystery-choice",
-              "state": "available"
-            },
-            {
-              "id": "mystery-choice-puzzle",
-              "label": "Puzzle Challenge",
-              "description": "Try the practice with a thinking wrapper.",
-              "icon": "sparkles",
-              "tags": [
-                "puzzle",
-                "control",
-                "thinking"
-              ],
-              "choiceSignal": {
-                "algorithmFeed": "choicePolicy",
-                "traits": [
-                  "puzzle",
-                  "control",
-                  "thinking"
-                ],
-                "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice puzzle wrapper; preference only",
-                "preferenceNotMastery": true
-              },
-              "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-              "nodeId": "mystery-choice",
-              "state": "available"
             }
           ]
         }
       ],
       "companion": {
-        "id": "matilda",
-        "name": "Matilda"
+        "id": "elli",
+        "name": "Elli"
       },
       "progress": {
-        "currentNodeId": "baseline-silent-letters-wr",
-        "completedNodeIds": [],
-        "activeChoiceSetId": "baseline-route-options"
+        "currentNodeId": "choose-path",
+        "completedNodeIds": [
+          "start"
+        ],
+        "activeChoiceSetId": "direct-route-choice"
       }
     },
     "variationPolicy": {
       "avoidExactPreviousNodeOrder": true,
       "avoidExactPreviousWordOrder": true,
-      "seed": "f671295be41e",
+      "seed": "hw-math-a179d2a0",
       "previousCompletedNodeCount": 0
     },
     "companionPolicy": {
-      "companionId": "matilda",
-      "displayName": "Matilda",
+      "companionId": "elli",
+      "displayName": "Elli",
       "openingLinePolicy": "context_start_short",
       "verbosity": "low",
       "maxMicroProbes": 1
     },
     "evidenceUsed": [
       {
-        "id": "source-doc",
-        "type": "homework",
-        "summary": "Benchmark Advance Unit 9 Week 3: two groups with distinct purposes (silent letter spelling vs high-frequency recognition)"
+        "id": "planner-evidence-1",
+        "type": "child_chart",
+        "summary": "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)"
       },
       {
-        "id": "mastery-context",
-        "type": "deadline",
-        "summary": "Test date 2026-05-29, 2 days remaining, urgent intensity, 3 expected sessions"
+        "id": "planner-evidence-2",
+        "type": "child_chart",
+        "summary": "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)"
       },
       {
-        "id": "child-chart",
-        "type": "learner-profile",
-        "summary": "Reina, grade 2, no recent evidence on file, horizontal adventure spine preference"
+        "id": "planner-evidence-3",
+        "type": "child_chart",
+        "summary": "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail"
       },
       {
-        "id": "assignment-source",
-        "type": "assignment_source",
-        "summary": "Board generated from stored source assignment and local OCR/text extraction."
+        "id": "planner-evidence-4",
+        "type": "child_chart",
+        "summary": "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence"
+      },
+      {
+        "id": "planner-evidence-5",
+        "type": "child_chart",
+        "summary": "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence"
+      },
+      {
+        "id": "planner-evidence-6",
+        "type": "child_chart",
+        "summary": "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well"
+      },
+      {
+        "id": "planner-evidence-7",
+        "type": "child_chart",
+        "summary": "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
       }
     ],
-    "openQuestions": [
-      "Which silent letter pattern (kn-, -gn, wr-) will require the most support?",
-      "Will Reina show spelling confidence or hesitation on 'know' vs 'write'?",
-      "Are the high-frequency words already automatized or will they need fluency practice?",
-      "Does Reina prefer visible scaffolding or independent recall challenges?"
-    ],
-    "plannerConfidence": 0.88,
-    "approvalStatus": "pending",
+    "openQuestions": [],
+    "approvalStatus": "approved",
     "planTheory": {
-      "hypothesis": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
+      "hypothesis": "Assignment targets two distinct sub-skills bundled under \"multiplication\": (1) automatic recall of x2/x5/x10 facts, and (2) translating equal-groups word problems (boxes of pencils, rows of stars) into multiplication sentences. Both need direct, comparable practice today. Reina's engagement theory (evidenceCount 23+, confidence ~0.73-0.92) shows strong positive weight for puzzle (5.0) and speed (5.0) framing, near-zero/negative for competition, control, calm, and generic quiz shells (generated-baseline: 20% completion, dislike, frustration 0.554). Per Keller's ARCS and the child's own nextExperiment (variable: mechanic, arms unset), this board holds academic targets/question count/difficulty/evidence contract constant across two routes while varying MECHANIC (puzzle-lock manipulation vs. timed-speed run) to test which drives higher completion/engagement without adding competitive pressure or heavy control demands.",
       "evidenceSummary": [
-        "Source document shows two teacher-labeled groups with distinct instructional purposes",
-        "Silent Letters group (sign, know, write) carries orthographic pattern focus and Benchmark Advance spelling production expectation",
-        "High-Frequency Words group (among, building, circle) carries automaticity and recognition focus, not pattern analysis",
-        "Mastery context shows 2 days until test, urgent intensity, 3 expected sessions remaining",
-        "Child chart shows no recent evidence, so today is first baseline for this homework",
-        "Grade 2 learner with horizontal adventure spine preference and companion Matilda"
+        "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)",
+        "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)",
+        "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail",
+        "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence",
+        "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence",
+        "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well",
+        "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
       ],
-      "intervention": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
+      "intervention": "Deep beneath an old observatory, a vault of frozen starlight has locked away its glittering treasure using ancient multiplication seals. Reina has found two entrances carved into the vault door: a Puzzle Gate of interlocking gears and a Comet Gate that only opens for those who move at comet-speed. Both paths lead to the same starlit treasure room, but only one gate will open first tonight.",
       "supportCriteria": [
-        "Silent letter words (sign, know, write) all correct on first try in both Word Radar and Spell Check with low latency and no retries",
-        "High-frequency words (among, building, circle) all recognized and pronounced fluently with no hesitation",
-        "Reina completes all four baseline nodes with positive affect and engages willingly with Mystery choice",
-        "Evidence snapshot shows clean baseline across both groups, allowing Quest unlock for transfer proof next session"
+        "Real child evidence supports transfer."
       ],
       "reviseCriteria": [
-        "One or two silent letter words require retry or show hesitation in Word Radar or Spell Check; partial mastery suggests need for targeted pattern support next session",
-        "One or two high-frequency words show hesitation or mispronunciation; mixed automaticity suggests need for pronunciation practice or repeated exposure",
-        "Reina shows fatigue or avoidance signals during baseline work; dosage or pacing should adjust for session 2",
-        "Evidence snapshot identifies exact weak targets; session 2 should give those weak targets strictly more academic support than mastered targets"
+        "Real child evidence is mixed."
       ],
       "falsifyCriteria": [
-        "Two or more silent letter words missed or heavily struggled across both Word Radar and Spell Check; widespread pattern confusion requires explicit silent letter teaching before transfer",
-        "Two or more high-frequency words missed, skipped, or heavily hesitated; recognition gap requires phonics support or visible scaffolding before fluency work",
-        "Reina avoids baseline work, shows frustration, or abandons session; motivation drop requires smaller dosage, more scaffolding, or different activity sequence",
-        "Baseline evidence is too contradictory or incomplete to support a Quest theory; session 2 should probe the contradictory targets before Quest unlock"
+        "Real child evidence contradicts the theory."
       ]
-    },
-    "plannedMeasurements": [
-      {
-        "id": "measure-baseline-silent-letters-wr",
-        "activityId": "word-radar",
-        "target": "silent_letters group (sign, know, write)",
-        "evidenceType": "partial_visual_recall spelling practice with letter-by-letter input",
-        "supportCriteria": "All three words completed first-try with low latency and no retries; Reina shows confidence with silent letter patterns",
-        "reviseCriteria": "One or two words require retry or show hesitation; mixed confidence suggests partial mastery and need for targeted support",
-        "falsifyCriteria": "Two or more words missed or skipped; heavy retry usage; frustration signals; need audio-cued or visible scaffolding before independent recall"
-      },
-      {
-        "id": "measure-baseline-silent-letters-spell",
-        "activityId": "spell-check",
-        "target": "silent_letters group (sign, know, write)",
-        "evidenceType": "audio-prompted spelling construction with hidden target",
-        "supportCriteria": "All three words spelled correctly from audio prompt without visible support; confirms independent spelling readiness",
-        "reviseCriteria": "One word requires retry or shows silent letter error; theory should add targeted pattern support for that exact word",
-        "falsifyCriteria": "Two or more spelling errors; persistent silent letter confusion; need to drop back to visible pattern teaching or letter-by-letter scaffolding"
-      },
-      {
-        "id": "measure-baseline-hf-recognition",
-        "activityId": "word-radar",
-        "target": "high_frequency group (among, building, circle)",
-        "evidenceType": "visible_read recognition and fluency with whole-word voice response",
-        "supportCriteria": "All three words read fluently with fast correct responses and no hesitation; confirms automatic recognition",
-        "reviseCriteria": "One word shows hesitation, mispronunciation, or retry; mixed automaticity suggests need for pronunciation practice",
-        "falsifyCriteria": "Two or more words missed, skipped, or heavily hesitated; recognition gap requires phonics support or repeated exposure before fluency work"
-      },
-      {
-        "id": "measure-baseline-hf-fluency",
-        "activityId": "pronunciation",
-        "target": "high_frequency group (among, building, circle)",
-        "evidenceType": "read-aloud fluency and pronunciation accuracy",
-        "supportCriteria": "All three words pronounced correctly with natural fluency; no decoding struggle; confirms high-frequency automaticity",
-        "reviseCriteria": "One word mispronounced or hesitated; pronunciation gap suggests need for supported read-aloud practice",
-        "falsifyCriteria": "Two or more pronunciation errors or heavy decoding struggle; need phonics review or chunk-by-chunk teaching before fluency dosage"
-      },
-      {
-        "id": "measure-mystery-choice",
-        "activityId": "mystery",
-        "target": "all homework words",
-        "evidenceType": "preference and choice signal after baseline work",
-        "supportCriteria": "Reina engages willingly; chooses activity and completes it; positive affect and recovery",
-        "reviseCriteria": "Reina skips or replays; neutral engagement; preference signal is weak or unclear",
-        "falsifyCriteria": "Reina avoids choice, shows frustration, or abandons Mystery; motivation drop requires smaller baseline dosage or more scaffolding next session"
-      },
-      {
-        "id": "measure-quest-destination",
-        "activityId": "quest",
-        "target": "silent_letters group transfer readiness",
-        "evidenceType": "locked destination; will unlock after baseline evidence supports transfer theory",
-        "supportCriteria": "Baseline shows all silent letter words correct with confidence; Quest unlocks for generated transfer proof",
-        "reviseCriteria": "Baseline shows one or two silent letter misses; Quest should unlock after targeted support next session",
-        "falsifyCriteria": "Baseline shows widespread silent letter confusion; Quest remains locked; next session should teach pattern explicitly before transfer"
-      },
-      {
-        "id": "measure-boss-destination",
-        "activityId": "boss",
-        "target": "full homework mastery gate",
-        "evidenceType": "locked destination; will unlock after Quest evidence confirms transfer readiness",
-        "supportCriteria": "Quest evidence shows independent transfer success across both groups; Boss unlocks for final mastery gate",
-        "reviseCriteria": "Quest evidence shows partial success; Boss should unlock after targeted support for weak targets",
-        "falsifyCriteria": "Quest evidence shows transfer failure; Boss remains locked; next session should reteach failed skill and retry Quest loop"
-      }
-    ],
-    "activeHomeworkId": "hw-spelling_test-6727f1c8"
+    }
   },
   "activeByDomain": {
-    "spelling": {
-      "planId": "reina-2026-05-27-silent-letters-baseline",
+    "math": {
+      "planId": "plan-reina-hw-math-6b68e575-r54",
       "childId": "reina",
-      "createdAt": "2026-05-27T19:28:05.803Z",
+      "createdAt": "2026-07-13T09:49:47.009Z",
       "source": "ingest_human_loop",
-      "domain": "spelling",
-      "testDate": "2026-05-29",
+      "activeHomeworkId": "hw-math-a179d2a0",
+      "domain": "math",
+      "testDate": null,
       "nodePlan": [
         {
-          "id": "baseline-silent-letters-wr",
-          "type": "word-radar",
-          "activityId": "word-radar",
+          "id": "gear-lock-facts",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
           "targets": [
-            "sign",
-            "know",
-            "write"
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "q5"
           ],
           "difficulty": 2,
-          "targetLane": "silent_letters",
+          "source": "chart_planner",
+          "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
           "locked": false,
-          "wordRadarConfig": {
-            "recallMode": "partial_visual_recall",
-            "inputMode": "letter-by-letter",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": true,
-            "requiresCapturedResponse": true
-          },
-          "source": "chart_planner"
+          "masteryUnlockState": "unlocked",
+          "title": "Gearlock Facts Chamber",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+          "contentId": "hw-math-a179d2a0:gear-lock-facts",
+          "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+          "engagementDimensions": [
+            "puzzle"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png"
+            ]
+          }
         },
         {
-          "id": "baseline-silent-letters-spell",
-          "type": "spell-check",
-          "activityId": "spell-check",
+          "id": "gear-lock-word-problems",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
           "targets": [
-            "sign",
-            "know",
-            "write"
+            "q1",
+            "q2"
           ],
           "difficulty": 2,
-          "targetLane": "silent_letters",
+          "source": "chart_planner",
+          "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
           "locked": false,
-          "source": "chart_planner"
-        },
-        {
-          "id": "baseline-hf-recognition",
-          "type": "word-radar",
-          "activityId": "word-radar",
-          "targets": [
-            "among",
-            "building",
-            "circle"
+          "masteryUnlockState": "unlocked",
+          "title": "Gearlock Story Vault",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+          "contentId": "hw-math-a179d2a0:gear-lock-word-problems",
+          "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+          "engagementDimensions": [
+            "puzzle"
           ],
-          "difficulty": 1,
-          "targetLane": "high_frequency",
-          "locked": false,
-          "wordRadarConfig": {
-            "recallMode": "visible_read",
-            "inputMode": "whole-word",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": false,
-            "requiresCapturedResponse": true
-          },
-          "source": "chart_planner"
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png"
+            ]
+          }
         },
         {
-          "id": "baseline-hf-fluency",
-          "type": "pronunciation",
-          "activityId": "pronunciation",
+          "id": "comet-run-facts",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
           "targets": [
-            "among",
-            "building",
-            "circle"
-          ],
-          "difficulty": 1,
-          "targetLane": "high_frequency",
-          "locked": false,
-          "source": "chart_planner"
-        },
-        {
-          "id": "mystery-choice",
-          "type": "mystery",
-          "activityId": "mystery",
-          "targets": [
-            "sign",
-            "know",
-            "write",
-            "among",
-            "building",
-            "circle"
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "q5"
           ],
           "difficulty": 2,
-          "choiceMode": "choice_lab",
+          "source": "chart_planner",
+          "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
           "locked": false,
-          "source": "chart_planner"
+          "masteryUnlockState": "unlocked",
+          "title": "Comet Trail Facts Sprint",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+          "contentId": "hw-math-a179d2a0:comet-run-facts",
+          "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png"
+            ]
+          }
         },
         {
-          "id": "quest-destination",
+          "id": "comet-run-word-problems",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "q1",
+            "q2"
+          ],
+          "difficulty": 2,
+          "source": "chart_planner",
+          "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Comet Trail Story Sprint",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+          "contentId": "hw-math-a179d2a0:comet-run-word-problems",
+          "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+            ]
+          }
+        },
+        {
+          "id": "quest",
           "type": "quest",
           "activityId": "quest",
-          "targets": [
-            "sign",
-            "know",
-            "write"
-          ],
+          "targets": [],
           "difficulty": 2,
-          "targetLane": "silent_letters",
+          "source": "chart_planner",
           "locked": true,
           "masteryUnlockState": "preparing",
-          "source": "chart_planner"
+          "title": "Quest",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg"
         },
         {
-          "id": "boss-destination",
+          "id": "boss",
           "type": "boss",
           "activityId": "boss",
           "targets": [],
           "difficulty": 3,
+          "source": "chart_planner",
           "locked": true,
           "masteryUnlockState": "preparing",
-          "source": "chart_planner"
+          "title": "Boss",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg"
+        }
+      ],
+      "learningRoutes": [
+        {
+          "id": "route-a",
+          "label": "Puzzle Gate",
+          "rationale": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
+          "nodeIds": [
+            "gear-lock-facts",
+            "gear-lock-word-problems",
+            "quest",
+            "boss"
+          ]
+        },
+        {
+          "id": "route-b",
+          "label": "Comet Gate",
+          "rationale": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
+          "nodeIds": [
+            "comet-run-facts",
+            "comet-run-word-problems",
+            "quest",
+            "boss"
+          ]
         }
       ],
       "adventureBoard": {
         "schemaVersion": 1,
-        "boardId": "assignment-board-reina-f671295b",
-        "planId": "reina-2026-05-27-silent-letters-baseline",
+        "boardId": "direct:hw-math-a179d2a0",
+        "planId": "plan-reina-hw-math-6b68e575-r54",
         "childId": "reina",
-        "domain": "spelling",
-        "title": "Benchmark Advance Spelling Unit 9 Week 3",
+        "domain": "math",
+        "title": "The Skip-Count Star Vault",
         "theme": {
           "background": {
             "type": "image",
-            "value": "/generated/adventure-board-demo/silent-letter-world.jpeg"
+            "value": "/generated/direct-math/hw-math-a179d2a0-background.jpeg"
           },
           "palette": {
-            "path": "#ffffff",
-            "completed": "#1f8f68",
+            "path": "#fff4c2",
+            "completed": "#34d399",
             "available": "#7c3aed",
-            "locked": "#aeb7c2",
+            "locked": "#64748b",
             "current": "#f59e0b",
-            "preview": "#d5dde5",
+            "preview": "#94a3b8",
             "text": "#ffffff",
-            "panel": "rgba(15, 23, 42, 0.84)"
+            "panel": "rgba(15,23,42,.82)"
           }
         },
         "layout": {
           "preset": "horizontal-adventure-spine",
           "companionSlot": "right",
-          "routeChoiceBehavior": "exclusive"
+          "routeChoiceBehavior": "parallel"
         },
         "plannerRationale": {
-          "agencyDesign": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
-          "evidenceDesign": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
-          "layoutChoice": "Sunny materialized the horizontal adventure board from the planner's validated intervention node plan."
+          "agencyDesign": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "evidenceDesign": "academic targets (x2, x5, x10 facts + 2 equal-groups word problems); question count (7 total: 5 fluency facts + 2 word problems); difficulty (grade 3, single correct answer per item); evidence contract (completion, accuracy, frustration, liked/disliked signal captured identically)",
+          "layoutChoice": "Two visible choose-your-adventure routes converge on a locked Quest."
         },
         "nodes": [
           {
             "id": "start",
             "kind": "start",
             "label": "Start",
-            "shortLabel": "Start",
-            "thumbnailUrl": "/thumbnails/activities/word-radar.svg",
-            "slot": "1",
-            "layout": {
-              "role": "start",
-              "lane": "main",
-              "order": 1
-            },
             "state": "completed",
-            "evidenceRole": "baseline"
-          },
-          {
-            "id": "baseline-silent-letters-wr",
-            "kind": "activity",
-            "activityId": "word-radar",
-            "label": "Letter Recall",
-            "shortLabel": "Letter Recall",
-            "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
-            "slot": "2",
-            "layout": {
-              "role": "baseline",
-              "lane": "main",
-              "order": 1
-            },
-            "state": "current",
-            "evidenceRole": "baseline",
-            "target": {
-              "laneId": "silent_letters",
-              "skill": "silent_letters",
-              "words": [
-                "sign",
-                "know",
-                "write"
-              ]
-            },
-            "wordRadarConfig": {
-              "recallMode": "partial_visual_recall",
-              "inputMode": "letter-by-letter",
-              "speakStyle": "option-a",
-              "showTimer": false,
-              "hideWordDuringResponse": true,
-              "requiresCapturedResponse": true
-            },
-            "action": {
-              "type": "launch-activity",
-              "payloadId": "baseline-silent-letters-wr"
-            }
-          },
-          {
-            "id": "baseline-silent-letters-spell",
-            "kind": "activity",
-            "activityId": "spell-check",
-            "label": "Spell Check",
-            "shortLabel": "Spell Check",
-            "thumbnailUrl": "/generated/adventure-board-demo/spell-check.jpeg",
-            "slot": "3",
-            "layout": {
-              "role": "baseline",
-              "lane": "main",
-              "order": 2
-            },
-            "state": "available",
-            "evidenceRole": "baseline",
-            "target": {
-              "laneId": "silent_letters",
-              "skill": "silent_letters",
-              "words": [
-                "sign",
-                "know",
-                "write"
-              ]
-            },
-            "action": {
-              "type": "launch-activity",
-              "payloadId": "baseline-silent-letters-spell"
+            "position": {
+              "x": 0.08,
+              "y": 0.78
             }
           },
           {
             "id": "choose-path",
             "kind": "choice-gate",
-            "label": "Choose Path",
-            "shortLabel": "Choose Path",
-            "thumbnailUrl": "/thumbnails/mystery-fallback.svg",
-            "slot": "4",
-            "layout": {
-              "role": "choice-gate",
-              "lane": "main",
-              "order": 1
+            "label": "Which gate should we open first?",
+            "state": "current",
+            "position": {
+              "x": 0.2,
+              "y": 0.58
             },
-            "state": "available",
-            "evidenceRole": "preference",
-            "choiceSetId": "baseline-route-options",
             "action": {
               "type": "open-choice-set",
-              "payloadId": "baseline-route-options"
-            }
+              "payloadId": "direct-route-choice"
+            },
+            "choiceSetId": "direct-route-choice"
           },
           {
-            "id": "baseline-hf-recognition",
+            "id": "gear-lock-facts",
             "kind": "activity",
-            "activityId": "word-radar",
-            "label": "Quick Read",
-            "shortLabel": "Quick Read",
-            "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
-            "slot": "5a.1",
-            "layout": {
-              "role": "evidence-route",
-              "lane": "upper",
-              "order": 1
-            },
+            "activityId": "generated-baseline",
+            "label": "Gearlock Facts Chamber",
             "state": "available",
-            "evidenceRole": "baseline",
-            "target": {
-              "laneId": "high_frequency",
-              "skill": "high_frequency",
-              "words": [
-                "among",
-                "building",
-                "circle"
-              ]
-            },
-            "wordRadarConfig": {
-              "recallMode": "visible_read",
-              "inputMode": "whole-word",
-              "speakStyle": "option-a",
-              "showTimer": false,
-              "hideWordDuringResponse": false,
-              "requiresCapturedResponse": true
+            "position": {
+              "x": 0.37,
+              "y": 0.32
             },
             "action": {
               "type": "launch-activity",
-              "payloadId": "baseline-hf-recognition"
-            }
+              "payloadId": "gear-lock-facts"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+            "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+            "engagementDimensions": [
+              "puzzle"
+            ],
+            "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+            "contentId": "hw-math-a179d2a0:gear-lock-facts"
           },
           {
-            "id": "baseline-hf-fluency",
+            "id": "gear-lock-word-problems",
             "kind": "activity",
-            "activityId": "pronunciation",
-            "label": "Pronunciation",
-            "shortLabel": "Pronunciation",
-            "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
-            "slot": "5b.1",
-            "layout": {
-              "role": "evidence-route",
-              "lane": "lower",
-              "order": 1
-            },
+            "activityId": "generated-baseline",
+            "label": "Gearlock Story Vault",
             "state": "available",
-            "evidenceRole": "baseline",
-            "target": {
-              "laneId": "high_frequency",
-              "skill": "high_frequency",
-              "words": [
-                "among",
-                "building",
-                "circle"
-              ]
+            "position": {
+              "x": 0.49,
+              "y": 0.32
             },
             "action": {
               "type": "launch-activity",
-              "payloadId": "baseline-hf-fluency"
-            }
-          },
-          {
-            "id": "mystery-choice",
-            "kind": "mystery",
-            "activityId": "mystery",
-            "label": "Mystery",
-            "shortLabel": "Mystery",
-            "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-            "slot": "6",
-            "layout": {
-              "role": "mystery",
-              "lane": "main",
-              "order": 1
+              "payloadId": "gear-lock-word-problems"
             },
-            "state": "available",
-            "evidenceRole": "preference",
-            "choiceSetId": "mystery-choice-options",
-            "action": {
-              "type": "open-choice-set",
-              "payloadId": "mystery-choice-options"
-            }
+            "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+            "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+            "engagementDimensions": [
+              "puzzle"
+            ],
+            "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+            "contentId": "hw-math-a179d2a0:gear-lock-word-problems"
           },
           {
-            "id": "quest-destination",
+            "id": "comet-run-facts",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Comet Trail Facts Sprint",
+            "state": "available",
+            "position": {
+              "x": 0.37,
+              "y": 0.72
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "comet-run-facts"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+            "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+            "engagementDimensions": [
+              "speed"
+            ],
+            "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+            "contentId": "hw-math-a179d2a0:comet-run-facts"
+          },
+          {
+            "id": "comet-run-word-problems",
+            "kind": "activity",
+            "activityId": "generated-baseline",
+            "label": "Comet Trail Story Sprint",
+            "state": "available",
+            "position": {
+              "x": 0.49,
+              "y": 0.72
+            },
+            "action": {
+              "type": "launch-activity",
+              "payloadId": "comet-run-word-problems"
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+            "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+            "engagementDimensions": [
+              "speed"
+            ],
+            "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+            "contentId": "hw-math-a179d2a0:comet-run-word-problems"
+          },
+          {
+            "id": "quest",
             "kind": "quest",
-            "activityId": "quest",
             "label": "Quest",
-            "shortLabel": "Quest",
-            "thumbnailUrl": "/generated/adventure-board-demo/quest.jpeg",
-            "slot": "7",
-            "layout": {
-              "role": "quest",
-              "lane": "main",
-              "order": 1
-            },
             "state": "locked",
-            "evidenceRole": "transfer",
-            "target": {
-              "laneId": "silent_letters",
-              "skill": "silent_letters",
-              "words": [
-                "sign",
-                "know",
-                "write"
-              ]
+            "position": {
+              "x": 0.68,
+              "y": 0.48
             },
+            "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg",
             "lock": {
-              "reason": "preparing",
-              "label": "Preparing"
+              "reason": "Complete your adventure routes to reveal the Quest.",
+              "label": "Locked"
             },
             "action": {
               "type": "show-locked-reason",
-              "payloadId": "quest-destination"
+              "payloadId": "quest"
             }
           },
           {
-            "id": "boss-destination",
+            "id": "boss",
             "kind": "boss",
-            "activityId": "boss",
             "label": "Boss",
-            "shortLabel": "Boss",
-            "thumbnailUrl": "/generated/adventure-board-demo/boss.jpeg",
-            "slot": "8",
-            "layout": {
-              "role": "boss",
-              "lane": "main",
-              "order": 1
-            },
             "state": "locked",
-            "evidenceRole": "mastery",
+            "position": {
+              "x": 0.91,
+              "y": 0.28
+            },
+            "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg",
             "lock": {
-              "reason": "preparing",
-              "label": "After Quest"
+              "reason": "Complete the Quest before facing the Boss.",
+              "label": "Locked"
             },
             "action": {
               "type": "show-locked-reason",
-              "payloadId": "boss-destination"
+              "payloadId": "boss"
             }
           }
         ],
         "edges": [
           {
-            "id": "edge-start-baseline-silent-letters-wr",
+            "id": "start-choice",
             "from": "start",
-            "to": "baseline-silent-letters-wr",
-            "state": "available",
-            "style": "solid"
-          },
-          {
-            "id": "edge-baseline-silent-letters-wr-baseline-silent-letters-spell",
-            "from": "baseline-silent-letters-wr",
-            "to": "baseline-silent-letters-spell",
-            "state": "available",
-            "style": "solid"
-          },
-          {
-            "id": "edge-baseline-silent-letters-spell-choose-path",
-            "from": "baseline-silent-letters-spell",
             "to": "choose-path",
-            "state": "available",
-            "style": "solid"
+            "state": "available"
           },
           {
-            "id": "edge-choose-path-baseline-hf-recognition",
+            "id": "choose-path-gear-lock-facts",
             "from": "choose-path",
-            "to": "baseline-hf-recognition",
-            "state": "available",
-            "style": "glow"
+            "to": "gear-lock-facts",
+            "state": "available"
           },
           {
-            "id": "edge-choose-path-baseline-hf-fluency",
+            "id": "gear-lock-facts-gear-lock-word-problems",
+            "from": "gear-lock-facts",
+            "to": "gear-lock-word-problems",
+            "state": "available"
+          },
+          {
+            "id": "gear-lock-word-problems-quest",
+            "from": "gear-lock-word-problems",
+            "to": "quest",
+            "state": "locked"
+          },
+          {
+            "id": "choose-path-comet-run-facts",
             "from": "choose-path",
-            "to": "baseline-hf-fluency",
-            "state": "available",
-            "style": "glow"
+            "to": "comet-run-facts",
+            "state": "available"
           },
           {
-            "id": "edge-baseline-hf-recognition-mystery-choice",
-            "from": "baseline-hf-recognition",
-            "to": "mystery-choice",
-            "state": "available",
-            "style": "solid"
+            "id": "comet-run-facts-comet-run-word-problems",
+            "from": "comet-run-facts",
+            "to": "comet-run-word-problems",
+            "state": "available"
           },
           {
-            "id": "edge-baseline-hf-fluency-mystery-choice",
-            "from": "baseline-hf-fluency",
-            "to": "mystery-choice",
-            "state": "available",
-            "style": "solid"
+            "id": "comet-run-word-problems-quest",
+            "from": "comet-run-word-problems",
+            "to": "quest",
+            "state": "locked"
           },
           {
-            "id": "edge-mystery-choice-quest-destination",
-            "from": "mystery-choice",
-            "to": "quest-destination",
-            "state": "locked",
-            "style": "dashed"
-          },
-          {
-            "id": "edge-quest-destination-boss-destination",
-            "from": "quest-destination",
-            "to": "boss-destination",
-            "state": "locked",
-            "style": "dashed"
+            "id": "quest-boss",
+            "from": "quest",
+            "to": "boss",
+            "state": "locked"
           }
         ],
         "choiceSets": [
           {
-            "id": "baseline-route-options",
+            "id": "direct-route-choice",
             "kind": "baseline-route",
-            "title": "Choose your path",
+            "title": "Which gate should we open first?",
             "options": [
               {
-                "id": "choice-baseline-hf-recognition",
-                "label": "Quick Read",
-                "description": "Try Quick Read next.",
-                "thumbnailUrl": "/generated/adventure-board-demo/word-radar.jpeg",
+                "id": "route-a",
+                "label": "Puzzle Gate",
+                "description": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
                 "state": "available",
-                "nodeId": "baseline-hf-recognition",
+                "nodeId": "gear-lock-facts",
+                "engagementDimensions": [
+                  "puzzle (manipulable gear-lock mechanic)"
+                ],
                 "choiceSignal": {
                   "algorithmFeed": "choicePolicy",
                   "traits": [
-                    "practice",
-                    "control"
+                    "puzzle (manipulable gear-lock mechanic)"
                   ],
-                  "expectedEvidence": "shown/chosen/skipped/completed outcome for word-radar; preference only",
+                  "expectedEvidence": "selection, start, completion, abandonment, replay",
                   "preferenceNotMastery": true
                 }
               },
               {
-                "id": "choice-baseline-hf-fluency",
-                "label": "Pronunciation",
-                "description": "Try pronunciation next.",
-                "thumbnailUrl": "/generated/adventure-board-demo/pronunciation.jpeg",
+                "id": "route-b",
+                "label": "Comet Gate",
+                "description": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
                 "state": "available",
-                "nodeId": "baseline-hf-fluency",
+                "nodeId": "comet-run-facts",
+                "engagementDimensions": [
+                  "speed (timed sequential comet-run mechanic)"
+                ],
                 "choiceSignal": {
                   "algorithmFeed": "choicePolicy",
                   "traits": [
-                    "voice",
-                    "control"
+                    "speed (timed sequential comet-run mechanic)"
                   ],
-                  "expectedEvidence": "shown/chosen/skipped/completed outcome for pronunciation; preference only",
+                  "expectedEvidence": "selection, start, completion, abandonment, replay",
                   "preferenceNotMastery": true
                 }
-              }
-            ]
-          },
-          {
-            "id": "mystery-choice-options",
-            "kind": "mystery",
-            "title": "Pick a mystery challenge",
-            "options": [
-              {
-                "id": "mystery-choice-story",
-                "label": "Story Challenge",
-                "description": "Try the practice inside a story wrapper.",
-                "icon": "book",
-                "tags": [
-                  "story",
-                  "calm",
-                  "reading"
-                ],
-                "choiceSignal": {
-                  "algorithmFeed": "choicePolicy",
-                  "traits": [
-                    "story",
-                    "calm",
-                    "reading"
-                  ],
-                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice story wrapper; preference only",
-                  "preferenceNotMastery": true
-                },
-                "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-                "nodeId": "mystery-choice",
-                "state": "available"
-              },
-              {
-                "id": "mystery-choice-speed",
-                "label": "Speed Challenge",
-                "description": "Try the practice with a fast arcade wrapper.",
-                "icon": "zap",
-                "tags": [
-                  "speed",
-                  "competition",
-                  "arcade"
-                ],
-                "choiceSignal": {
-                  "algorithmFeed": "choicePolicy",
-                  "traits": [
-                    "speed",
-                    "competition",
-                    "arcade"
-                  ],
-                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice speed wrapper; preference only",
-                  "preferenceNotMastery": true
-                },
-                "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-                "nodeId": "mystery-choice",
-                "state": "available"
-              },
-              {
-                "id": "mystery-choice-puzzle",
-                "label": "Puzzle Challenge",
-                "description": "Try the practice with a thinking wrapper.",
-                "icon": "sparkles",
-                "tags": [
-                  "puzzle",
-                  "control",
-                  "thinking"
-                ],
-                "choiceSignal": {
-                  "algorithmFeed": "choicePolicy",
-                  "traits": [
-                    "puzzle",
-                    "control",
-                    "thinking"
-                  ],
-                  "expectedEvidence": "shown/chosen/skipped/completed outcome for mystery-choice puzzle wrapper; preference only",
-                  "preferenceNotMastery": true
-                },
-                "thumbnailUrl": "/generated/adventure-board-demo/mystery.jpeg",
-                "nodeId": "mystery-choice",
-                "state": "available"
               }
             ]
           }
         ],
         "companion": {
-          "id": "matilda",
-          "name": "Matilda"
+          "id": "elli",
+          "name": "Elli"
         },
         "progress": {
-          "currentNodeId": "baseline-silent-letters-wr",
-          "completedNodeIds": [],
-          "activeChoiceSetId": "baseline-route-options"
+          "currentNodeId": "choose-path",
+          "completedNodeIds": [
+            "start"
+          ],
+          "activeChoiceSetId": "direct-route-choice"
         }
       },
       "variationPolicy": {
         "avoidExactPreviousNodeOrder": true,
         "avoidExactPreviousWordOrder": true,
-        "seed": "f671295be41e",
+        "seed": "hw-math-a179d2a0",
         "previousCompletedNodeCount": 0
       },
       "companionPolicy": {
-        "companionId": "matilda",
-        "displayName": "Matilda",
+        "companionId": "elli",
+        "displayName": "Elli",
         "openingLinePolicy": "context_start_short",
         "verbosity": "low",
         "maxMicroProbes": 1
       },
       "evidenceUsed": [
         {
-          "id": "source-doc",
-          "type": "homework",
-          "summary": "Benchmark Advance Unit 9 Week 3: two groups with distinct purposes (silent letter spelling vs high-frequency recognition)"
+          "id": "planner-evidence-1",
+          "type": "child_chart",
+          "summary": "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)"
         },
         {
-          "id": "mastery-context",
-          "type": "deadline",
-          "summary": "Test date 2026-05-29, 2 days remaining, urgent intensity, 3 expected sessions"
+          "id": "planner-evidence-2",
+          "type": "child_chart",
+          "summary": "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)"
         },
         {
-          "id": "child-chart",
-          "type": "learner-profile",
-          "summary": "Reina, grade 2, no recent evidence on file, horizontal adventure spine preference"
+          "id": "planner-evidence-3",
+          "type": "child_chart",
+          "summary": "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail"
         },
         {
-          "id": "assignment-source",
-          "type": "assignment_source",
-          "summary": "Board generated from stored source assignment and local OCR/text extraction."
+          "id": "planner-evidence-4",
+          "type": "child_chart",
+          "summary": "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence"
+        },
+        {
+          "id": "planner-evidence-5",
+          "type": "child_chart",
+          "summary": "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence"
+        },
+        {
+          "id": "planner-evidence-6",
+          "type": "child_chart",
+          "summary": "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well"
+        },
+        {
+          "id": "planner-evidence-7",
+          "type": "child_chart",
+          "summary": "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
         }
       ],
-      "openQuestions": [
-        "Which silent letter pattern (kn-, -gn, wr-) will require the most support?",
-        "Will Reina show spelling confidence or hesitation on 'know' vs 'write'?",
-        "Are the high-frequency words already automatized or will they need fluency practice?",
-        "Does Reina prefer visible scaffolding or independent recall challenges?"
-      ],
-      "plannerConfidence": 0.88,
-      "approvalStatus": "pending",
+      "openQuestions": [],
+      "approvalStatus": "approved",
       "planTheory": {
-        "hypothesis": "Reina's homework separates silent letter spelling construction from high-frequency word recognition. The silent letter group requires independent spelling recall, while the high-frequency group requires automatic recognition and fluency. With 2 days until test and no prior evidence, today's session must establish a clean baseline for both groups, identify any weak targets, and prepare a transfer theory for Quest unlock.",
+        "hypothesis": "Assignment targets two distinct sub-skills bundled under \"multiplication\": (1) automatic recall of x2/x5/x10 facts, and (2) translating equal-groups word problems (boxes of pencils, rows of stars) into multiplication sentences. Both need direct, comparable practice today. Reina's engagement theory (evidenceCount 23+, confidence ~0.73-0.92) shows strong positive weight for puzzle (5.0) and speed (5.0) framing, near-zero/negative for competition, control, calm, and generic quiz shells (generated-baseline: 20% completion, dislike, frustration 0.554). Per Keller's ARCS and the child's own nextExperiment (variable: mechanic, arms unset), this board holds academic targets/question count/difficulty/evidence contract constant across two routes while varying MECHANIC (puzzle-lock manipulation vs. timed-speed run) to test which drives higher completion/engagement without adding competitive pressure or heavy control demands.",
         "evidenceSummary": [
-          "Source document shows two teacher-labeled groups with distinct instructional purposes",
-          "Silent Letters group (sign, know, write) carries orthographic pattern focus and Benchmark Advance spelling production expectation",
-          "High-Frequency Words group (among, building, circle) carries automaticity and recognition focus, not pattern analysis",
-          "Mastery context shows 2 days until test, urgent intensity, 3 expected sessions remaining",
-          "Child chart shows no recent evidence, so today is first baseline for this homework",
-          "Grade 2 learner with horizontal adventure spine preference and companion Matilda"
+          "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)",
+          "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)",
+          "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail",
+          "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence",
+          "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence",
+          "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well",
+          "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
         ],
-        "intervention": "Four baseline measurement nodes plus Mystery choice plus locked Quest/Boss destinations. Silent letter group receives two measurements: partial_visual_recall Word Radar for scaffolded practice, then audio-prompted Spell Check for independent construction evidence. High-frequency group receives visible_read Word Radar for recognition evidence, then Pronunciation for fluency evidence. Mystery provides preference data and recovery after baseline work. Quest destination is locked and targets silent_letters group for generated transfer after baseline evidence supports it. Boss destination is locked until Quest evidence confirms mastery readiness. This structure respects the two-group source distinction, measures each group by its declared purpose, and creates the evidence spine needed for transfer theory and Quest unlock by session 2.",
+        "intervention": "Deep beneath an old observatory, a vault of frozen starlight has locked away its glittering treasure using ancient multiplication seals. Reina has found two entrances carved into the vault door: a Puzzle Gate of interlocking gears and a Comet Gate that only opens for those who move at comet-speed. Both paths lead to the same starlit treasure room, but only one gate will open first tonight.",
         "supportCriteria": [
-          "Silent letter words (sign, know, write) all correct on first try in both Word Radar and Spell Check with low latency and no retries",
-          "High-frequency words (among, building, circle) all recognized and pronounced fluently with no hesitation",
-          "Reina completes all four baseline nodes with positive affect and engages willingly with Mystery choice",
-          "Evidence snapshot shows clean baseline across both groups, allowing Quest unlock for transfer proof next session"
+          "Real child evidence supports transfer."
         ],
         "reviseCriteria": [
-          "One or two silent letter words require retry or show hesitation in Word Radar or Spell Check; partial mastery suggests need for targeted pattern support next session",
-          "One or two high-frequency words show hesitation or mispronunciation; mixed automaticity suggests need for pronunciation practice or repeated exposure",
-          "Reina shows fatigue or avoidance signals during baseline work; dosage or pacing should adjust for session 2",
-          "Evidence snapshot identifies exact weak targets; session 2 should give those weak targets strictly more academic support than mastered targets"
+          "Real child evidence is mixed."
         ],
         "falsifyCriteria": [
-          "Two or more silent letter words missed or heavily struggled across both Word Radar and Spell Check; widespread pattern confusion requires explicit silent letter teaching before transfer",
-          "Two or more high-frequency words missed, skipped, or heavily hesitated; recognition gap requires phonics support or visible scaffolding before fluency work",
-          "Reina avoids baseline work, shows frustration, or abandons session; motivation drop requires smaller dosage, more scaffolding, or different activity sequence",
-          "Baseline evidence is too contradictory or incomplete to support a Quest theory; session 2 should probe the contradictory targets before Quest unlock"
+          "Real child evidence contradicts the theory."
         ]
-      },
-      "plannedMeasurements": [
-        {
-          "id": "measure-baseline-silent-letters-wr",
-          "activityId": "word-radar",
-          "target": "silent_letters group (sign, know, write)",
-          "evidenceType": "partial_visual_recall spelling practice with letter-by-letter input",
-          "supportCriteria": "All three words completed first-try with low latency and no retries; Reina shows confidence with silent letter patterns",
-          "reviseCriteria": "One or two words require retry or show hesitation; mixed confidence suggests partial mastery and need for targeted support",
-          "falsifyCriteria": "Two or more words missed or skipped; heavy retry usage; frustration signals; need audio-cued or visible scaffolding before independent recall"
-        },
-        {
-          "id": "measure-baseline-silent-letters-spell",
-          "activityId": "spell-check",
-          "target": "silent_letters group (sign, know, write)",
-          "evidenceType": "audio-prompted spelling construction with hidden target",
-          "supportCriteria": "All three words spelled correctly from audio prompt without visible support; confirms independent spelling readiness",
-          "reviseCriteria": "One word requires retry or shows silent letter error; theory should add targeted pattern support for that exact word",
-          "falsifyCriteria": "Two or more spelling errors; persistent silent letter confusion; need to drop back to visible pattern teaching or letter-by-letter scaffolding"
-        },
-        {
-          "id": "measure-baseline-hf-recognition",
-          "activityId": "word-radar",
-          "target": "high_frequency group (among, building, circle)",
-          "evidenceType": "visible_read recognition and fluency with whole-word voice response",
-          "supportCriteria": "All three words read fluently with fast correct responses and no hesitation; confirms automatic recognition",
-          "reviseCriteria": "One word shows hesitation, mispronunciation, or retry; mixed automaticity suggests need for pronunciation practice",
-          "falsifyCriteria": "Two or more words missed, skipped, or heavily hesitated; recognition gap requires phonics support or repeated exposure before fluency work"
-        },
-        {
-          "id": "measure-baseline-hf-fluency",
-          "activityId": "pronunciation",
-          "target": "high_frequency group (among, building, circle)",
-          "evidenceType": "read-aloud fluency and pronunciation accuracy",
-          "supportCriteria": "All three words pronounced correctly with natural fluency; no decoding struggle; confirms high-frequency automaticity",
-          "reviseCriteria": "One word mispronounced or hesitated; pronunciation gap suggests need for supported read-aloud practice",
-          "falsifyCriteria": "Two or more pronunciation errors or heavy decoding struggle; need phonics review or chunk-by-chunk teaching before fluency dosage"
-        },
-        {
-          "id": "measure-mystery-choice",
-          "activityId": "mystery",
-          "target": "all homework words",
-          "evidenceType": "preference and choice signal after baseline work",
-          "supportCriteria": "Reina engages willingly; chooses activity and completes it; positive affect and recovery",
-          "reviseCriteria": "Reina skips or replays; neutral engagement; preference signal is weak or unclear",
-          "falsifyCriteria": "Reina avoids choice, shows frustration, or abandons Mystery; motivation drop requires smaller baseline dosage or more scaffolding next session"
-        },
-        {
-          "id": "measure-quest-destination",
-          "activityId": "quest",
-          "target": "silent_letters group transfer readiness",
-          "evidenceType": "locked destination; will unlock after baseline evidence supports transfer theory",
-          "supportCriteria": "Baseline shows all silent letter words correct with confidence; Quest unlocks for generated transfer proof",
-          "reviseCriteria": "Baseline shows one or two silent letter misses; Quest should unlock after targeted support next session",
-          "falsifyCriteria": "Baseline shows widespread silent letter confusion; Quest remains locked; next session should teach pattern explicitly before transfer"
-        },
-        {
-          "id": "measure-boss-destination",
-          "activityId": "boss",
-          "target": "full homework mastery gate",
-          "evidenceType": "locked destination; will unlock after Quest evidence confirms transfer readiness",
-          "supportCriteria": "Quest evidence shows independent transfer success across both groups; Boss unlocks for final mastery gate",
-          "reviseCriteria": "Quest evidence shows partial success; Boss should unlock after targeted support for weak targets",
-          "falsifyCriteria": "Quest evidence shows transfer failure; Boss remains locked; next session should reteach failed skill and retry Quest loop"
-        }
-      ],
-      "activeHomeworkId": "hw-spelling_test-6727f1c8"
+      }
     }
   },
-  "updatedAt": "2026-05-27T19:28:05.821Z"
+  "updatedAt": "2026-07-13T10:12:03.941Z"
 }

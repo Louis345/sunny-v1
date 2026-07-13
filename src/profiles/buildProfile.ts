@@ -9,6 +9,7 @@ import { applyPassiveDepletion } from "../engine/vrrEngine";
 import { CompanionRegistry } from "../prompts/companions/registry";
 import { buildWordRadarPersonalBests } from "../utils/wordRadarProfile";
 import { sm2 } from "../algorithms/sm2";
+import { sm2Facts } from "../algorithms/sm2Facts";
 import { desirableDifficulty } from "../algorithms/desirableDifficulty";
 import { interleaving } from "../algorithms/interleaving";
 import { masteryGating as computeMasteryGating } from "../algorithms/masteryGating";
@@ -126,6 +127,7 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
   const tamagotchi = companionCareToTamagotchi(chart.companionCare.plan);
 
   const { dueWords, sm2Stats } = sm2(wordBank);
+  const { dueFacts } = sm2Facts(chart.factBank);
   const { mathRotation } = interleaving(
     ((lp as unknown as { mathHistory?: unknown[] }).mathHistory ?? []) as Array<{
       type?: string;
@@ -178,6 +180,7 @@ export async function buildProfile(childIdRaw: string): Promise<ChildProfile | n
     dyslexiaMode: lp.readingProfile?.dyslexiaMode ?? false,
     companionColor: accent,
     dueWords,
+    dueFacts,
     sm2Stats,
     currentDifficulty,
     masteryGating,

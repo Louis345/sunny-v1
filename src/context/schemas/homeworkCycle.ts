@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { LearningProfile } from "./learningProfile";
 
 export interface WordAttempt {
   word: string;
@@ -37,7 +38,7 @@ export interface LearningTheory {
     minImprovement: number;
   };
   evidence: string[];
-  status: "pending" | "supported" | "falsified" | "inconclusive";
+  status: "pending" | "supported" | "falsified" | "inconclusive" | "awaiting_calibration";
   markdown: string;
 }
 
@@ -161,6 +162,9 @@ export interface HomeworkCycle {
   testDateSource?: HomeworkTestDateSource;
   testDateConfirmed?: boolean;
   returnTag?: string;
+
+  /** Node plan generated at ingest time; required to rehydrate pendingHomework without a full replan. */
+  nodes?: NonNullable<LearningProfile["pendingHomework"]>["nodes"];
 
   // Written by Psychologist BEFORE session cycle
   assumptions: string | null; // markdown — what the system predicted

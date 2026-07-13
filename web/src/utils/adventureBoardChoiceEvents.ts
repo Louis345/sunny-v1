@@ -76,7 +76,7 @@ function optionToChoiceOption(
   const boardNode = option.nodeId
     ? board.nodes.find((node) => node.id === option.nodeId)
     : undefined;
-  const activityId = boardNode?.activityId ?? option.nodeId ?? option.id;
+  const activityId = option.activityId ?? boardNode?.activityId ?? option.nodeId ?? option.id;
   return {
     optionId: option.id,
     activityId,
@@ -86,6 +86,13 @@ function optionToChoiceOption(
     preferenceTraits: option.choiceSignal?.traits,
     thumbnailUrl: option.thumbnailUrl,
     domain: board.domain,
+    activityKind: "learning_activity",
+    gameFile: option.gameHtmlPath,
+    theoryId: option.theoryId ?? boardNode?.theoryId,
+    experimentId: option.experimentId ?? boardNode?.experimentId,
+    contentId: option.contentId ?? boardNode?.contentId,
+    engagementDimensions: option.engagementDimensions ?? boardNode?.engagementDimensions,
+    engagementHypothesis: option.engagementHypothesis ?? boardNode?.engagementHypothesis,
   };
 }
 

@@ -57,6 +57,37 @@ describe("generated artifact runtime validator", () => {
     });
   });
 
+  it("expects three gameplay screenshots for baseline stage", async () => {
+    const dir = makeDir();
+    dirs.push(dir);
+
+    const report = await validateGeneratedArtifactRuntime({
+      html: "<html><body>Baseline ready</body></html>",
+      childId: "demo-pashley",
+      stage: "baseline",
+      homeworkType: "math",
+      words: ["f1", "f2"],
+      outputDir: dir,
+      now: new Date("2026-05-14T12:00:00.000Z"),
+      runBrowser: async (): Promise<GeneratedArtifactBrowserSnapshot> => ({
+        screenshotPaths: [
+          path.join(dir, "baseline-load.png"),
+          path.join(dir, "baseline-midplay.png"),
+        ],
+        bodyText: "Baseline ready",
+        consoleErrors: [],
+        pageErrors: [],
+        attemptEvents: [{ target: "f1", correct: true }, { target: "f2", correct: true }],
+        companionEvents: [],
+        completionEvents: [{ completed: true }],
+        validationHookResult: { used: true },
+      }),
+    });
+
+    expect(report.passed).toBe(false);
+    expect(report.failures.join(" ")).toMatch(/3 gameplay screenshots/i);
+  });
+
   it("passes when the browser run captures screenshots, attempt events, and completion", async () => {
     const dir = makeDir();
     dirs.push(dir);
@@ -90,6 +121,38 @@ describe("generated artifact runtime validator", () => {
       completed: true,
       screenshotPaths: [path.join(dir, "quest.png")],
     });
+  });
+
+  it("passes baseline stage when three screenshots and evidence are captured", async () => {
+    const dir = makeDir();
+    dirs.push(dir);
+
+    const report = await validateGeneratedArtifactRuntime({
+      html: "<html><body>Baseline ready</body></html>",
+      childId: "demo-pashley",
+      stage: "baseline",
+      homeworkType: "math",
+      words: ["f1", "f2"],
+      outputDir: dir,
+      now: new Date("2026-05-14T12:00:00.000Z"),
+      runBrowser: async (): Promise<GeneratedArtifactBrowserSnapshot> => ({
+        screenshotPaths: [
+          path.join(dir, "baseline-load.png"),
+          path.join(dir, "baseline-midplay.png"),
+          path.join(dir, "baseline-completion.png"),
+        ],
+        bodyText: "Baseline ready",
+        consoleErrors: [],
+        pageErrors: [],
+        attemptEvents: [{ target: "f1", correct: true }, { target: "f2", correct: true }],
+        companionEvents: [],
+        completionEvents: [{ completed: true }],
+        validationHookResult: { used: true },
+      }),
+    });
+
+    expect(report.passed).toBe(true);
+    expect(report.runtimeValidation?.screenshotPaths).toHaveLength(3);
   });
 
   it("fails closed when the Playwright browser run is unavailable", async () => {

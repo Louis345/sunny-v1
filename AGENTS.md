@@ -51,14 +51,29 @@ Give Cursor this to add to AGENTS.md:
 
 ## Development Laws
 
-### Law 1: Tests First — No Exceptions
+### Autonomous Milestone Mode
+
+When the human explicitly approves a defined milestone and asks the agent to work unattended (for example, "finish this while I sleep" or "run without checkpoints"), that approval covers the complete stated milestone.
+
+In autonomous milestone mode:
+
+- Follow red-green testing, but do not pause after reporting red tests; continue directly to implementation and green verification.
+- Change all files required by the approved architecture without asking again solely because the change spans more than two files.
+- Fix all blockers discovered inside the approved milestone instead of stopping after the first bug.
+- Send concise progress updates, but treat them as informational rather than approval checkpoints.
+- Do not broaden scope beyond the approved milestone, perform destructive operations, publish changes, or weaken child-safety/evidence boundaries without separate authorization.
+- Finish with the build, relevant tests, one end-to-end acceptance run, and an honest human-test readiness result.
+
+An unattended request is not permission to loop indefinitely. Use bounded attempts, preserve diagnostics, and stop with a precise blocker when external credentials, provider availability, or an unapproved product decision makes further progress impossible.
+
+### Law 1: Tests First
 
 Before writing any implementation:
 
 1. Write the test file
 2. Run the tests — they must FAIL (red)
 3. Report failing tests to the human
-4. Wait for human to say "implement"
+4. Wait for human to say "implement" unless autonomous milestone mode is active
 5. Then write implementation
 6. Tests must pass green before PR
 
@@ -82,6 +97,8 @@ One bug → one test → one fix → one commit.
 If you find other bugs while fixing —
 log them to BUGS.md and stop.
 
+In autonomous milestone mode, related blockers in the approved end-to-end path may be fixed in sequence without stopping. Keep each red-green change independently understandable and log unrelated discoveries to `BUGS.md`.
+
 ### Law 4: No Silent Failures
 
 Every promise chain must have .catch()
@@ -100,6 +117,8 @@ Format: " 🎮 [component] [action] [result]"
 If a fix requires changing more than 2 files
 STOP and ask the human first.
 Show the plan. Get approval. Then build.
+
+The human's approval of a named architecture or autonomous milestone satisfies this law for files required by that scope. Ask again only when the work would materially change the approved product behavior or expand beyond the milestone.
 
 ### Law 7: Run The Tests
 

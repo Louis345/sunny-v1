@@ -27,6 +27,7 @@ import type {
   PronunciationNodeConfig,
   WordRadarNodeConfig,
 } from "../shared/adventureTypes";
+import { assertLearningCycleProjectionWrite } from "./learningCycleRepository";
 
 export type PlanHomeworkSessionInput = {
   source: ActiveSessionPlanSource;
@@ -797,6 +798,7 @@ export function writeActiveSessionPlan(
   opts: WriteActiveSessionPlanOptions = {},
 ): void {
   const rootDir = opts.rootDir ?? process.cwd();
+  assertLearningCycleProjectionWrite(childId, plan, { rootDir });
   const file = profilePath(rootDir, childId.trim().toLowerCase());
   const profile = JSON.parse(fs.readFileSync(file, "utf8")) as LearningProfile;
   const nextProfile = withActiveSessionPlanLane(profile, plan);
@@ -967,6 +969,9 @@ export function buildAdventureMapFromSessionPlan(
       storyTitle: source?.storyTitle,
       storyImagePrompt: source?.storyImagePrompt,
       activityConfigPath: source?.activityConfigPath,
+      gameHtmlPath: source?.gameHtmlPath,
+      thumbnailUrl: source?.thumbnailUrl,
+      thumbnailPrompt: source?.thumbnailPrompt,
       date: source?.date ?? pending.weekOf,
       isLocked: planned.locked ?? false,
       isCompleted: false,

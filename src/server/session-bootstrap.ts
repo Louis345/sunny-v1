@@ -105,6 +105,19 @@ export function resolveSpellingWordListForHomework(opts: {
   return extractWordsFromHomework(opts.rawContent);
 }
 
+export function buildContextStartGreeting(pendingHomework: any): string {
+  const firstNode = (pendingHomework?.nodes ?? []).find((node: any) => !node.locked) ?? pendingHomework?.nodes?.[0];
+  const lane = String(firstNode?.targetLane ?? "").replace(/[_-]+/g, " ").trim();
+  const target = String(firstNode?.words?.[0] ?? "").trim();
+  if (!lane && !target) return "Your first challenge is ready. Want to try it?";
+  const focus = lane && lane !== "unknown" ? lane : target;
+  const title = focus.replace(/\b\w/g, (letter: string) => letter.toUpperCase());
+  const greeting = `Your ${title} challenge is ready. Want to try it?`;
+  return greeting.split(/\s+/).length <= 12
+    ? greeting
+    : "Your first challenge is ready. Want to try it?";
+}
+
 export function shouldLoadLegacyHomeworkFolder(opts: {
   diagKioskFast: boolean;
   homeworkMode: boolean;
@@ -1391,6 +1404,21 @@ This is a safe space to test everything.
       }
     }
 
+    if (
+      (subject === "homework" || subject === "spelling") &&
+      sessionLearningProfile?.pendingHomework &&
+      !session.companion.openingLine.trim()
+    ) {
+      session.companion.openingLine = buildContextStartGreeting(
+        sessionLearningProfile.pendingHomework,
+      );
+      session.recordDebugEvent?.("companion", "greeting_generated", {
+        source: "live_homework_context",
+        words: session.companion.openingLine.split(/\s+/).length,
+      });
+      console.log(`  🎮 [companion] [greeting] generated: ${session.companion.openingLine}`);
+    }
+
     session.send("session_started", {
       child: session.childName,
       childName: session.childName,
@@ -1472,9 +1500,20 @@ This is a safe space to test everything.
         (subject === "homework" || subject === "spelling") &&
         sessionLearningProfile?.pendingHomework
       ) {
-        console.log(
-          "  🎮 [session-bootstrap] [context-start] homework opener skipped — map starts silently",
-        );
+        // Planner owns the opener policy: context_start_short means one warm
+        // greeting when the adventure board appears; silent/none stays quiet.
+        const openingPolicy =
+          sessionLearningProfile.activeSessionPlan?.companionPolicy?.openingLinePolicy ??
+          "context_start_short";
+        if (openingPolicy === "context_start_short" && !session.options?.sttOnly) {
+          await session.handleCompanionTurn(
+            "[Adventure board just appeared] Greet the child by name in ONE short warm sentence and invite them to pick the first spot on today's adventure map. Do not list the nodes or explain rules.",
+          );
+        } else {
+          console.log(
+            `  🎮 [session-bootstrap] [context-start] homework opener policy=${openingPolicy} — map starts silently`,
+          );
+        }
       } else {
         console.log("  🎮 [session-bootstrap] [opening-line] skipped");
       }

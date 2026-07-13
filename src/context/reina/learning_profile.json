@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-05-27T19:28:05.820Z",
+  "lastUpdated": "2026-07-13T10:12:03.941Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -48,62 +48,6 @@
   },
   "moodHistory": [
     {
-      "date": "2026-04-04T23:53:44.860Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0.925,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-30T23:11:44.400Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-30T23:17:23.470Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-30T23:26:30.387Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-30T23:28:24.475Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-04-30T23:39:55.623Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
-      "date": "2026-05-05T00:22:39.892Z",
-      "startMood": "neutral",
-      "endMood": "neutral",
-      "bondQuality": "moderate",
-      "sessionAccuracy": 0,
-      "notableSignals": []
-    },
-    {
       "date": "2026-05-05T00:25:16.505Z",
       "startMood": "neutral",
       "endMood": "neutral",
@@ -121,6 +65,62 @@
     },
     {
       "date": "2026-05-14T23:57:34.594Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-07-10T22:27:47.077Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-07-10T23:27:26.758Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-07-11T17:02:10.745Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-07-11T18:00:33.251Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-07-11T18:44:22.615Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-07-11T23:05:09.742Z",
+      "startMood": "neutral",
+      "endMood": "neutral",
+      "bondQuality": "moderate",
+      "sessionAccuracy": 0,
+      "notableSignals": []
+    },
+    {
+      "date": "2026-07-11T23:20:37.363Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -147,14 +147,14 @@
     "dyslexiaMode": false
   },
   "sessionStats": {
-    "totalSessions": 11,
-    "averageAccuracy": 0.16818181818181818,
+    "totalSessions": 18,
+    "averageAccuracy": 0.10277777777777779,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 37,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-05-14T23:57:34.594Z"
+    "lastSessionDate": "2026-07-11T23:20:37.363Z"
   },
   "totalSessionSeconds": 750,
   "longestStreak": 5,
@@ -198,11 +198,6 @@
   },
   "banditState": {
     "counts": [
-      2,
-      0,
-      0,
-      0,
-      2,
       0,
       0,
       0,
@@ -210,11 +205,6 @@
       0,
       0,
       0,
-      2,
-      2,
-      0,
-      0,
-      2,
       0,
       0,
       0,
@@ -222,14 +212,20 @@
       0,
       0,
       0,
-      4
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      17,
+      0
     ],
     "values": [
-      1,
-      0,
-      0,
-      0,
-      1,
       0,
       0,
       0,
@@ -237,11 +233,6 @@
       0,
       0,
       0,
-      0.9910000000000001,
-      1,
-      0,
-      0,
-      1,
       0,
       0,
       0,
@@ -249,7 +240,18 @@
       0,
       0,
       0,
-      0.7999999999999999
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0.18067226890756305,
+      0
     ]
   },
   "lastMysteryGame": "wheel-of-fortune",
@@ -272,37 +274,37 @@
   "activityModel": {
     "spell-check": {
       "activityId": "spell-check",
-      "plays": 104,
-      "completions": 104,
+      "plays": 161,
+      "completions": 161,
       "completionRate": 1,
       "averageAccuracy": 1,
-      "averageTimePerTarget_ms": 4471.373,
+      "averageTimePerTarget_ms": 4162.874,
       "engagementScore": 0.992,
       "frustrationScore": 0.1,
-      "likedCount": 104,
+      "likedCount": 161,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.420Z",
+      "lastPlayed": "2026-07-12T14:20:24.491Z",
       "domains": {
-        "spelling": 104
+        "spelling": 161
       },
       "missedWords": []
     },
     "word-radar": {
       "activityId": "word-radar",
-      "plays": 70,
-      "completions": 70,
+      "plays": 108,
+      "completions": 108,
       "completionRate": 1,
-      "averageAccuracy": 0.66,
-      "averageTimePerTarget_ms": 2082.957,
+      "averageAccuracy": 0.655,
+      "averageTimePerTarget_ms": 1983.396,
       "engagementScore": 0.859,
-      "frustrationScore": 0.27,
-      "likedCount": 70,
+      "frustrationScore": 0.271,
+      "likedCount": 108,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.398Z",
+      "lastPlayed": "2026-07-12T14:20:24.478Z",
       "domains": {
-        "spelling": 70
+        "spelling": 108
       },
       "missedWords": [
         "slowly",
@@ -315,19 +317,19 @@
     },
     "bubble-pop": {
       "activityId": "bubble-pop",
-      "plays": 34,
-      "completions": 34,
+      "plays": 53,
+      "completions": 53,
       "completionRate": 1,
       "averageAccuracy": 0.82,
       "averageTimePerTarget_ms": 5333,
       "engagementScore": 0.85,
       "frustrationScore": 0.1,
-      "likedCount": 34,
+      "likedCount": 53,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.493Z",
+      "lastPlayed": "2026-07-12T14:20:24.536Z",
       "domains": {
-        "attention": 34
+        "attention": 53
       },
       "missedWords": []
     },
@@ -401,6 +403,40 @@
         "spelling": 2
       },
       "missedWords": []
+    },
+    "generated-baseline": {
+      "activityId": "generated-baseline",
+      "plays": 32,
+      "completions": 4,
+      "completionRate": 0.125,
+      "averageAccuracy": 0.559,
+      "engagementScore": 0.193,
+      "frustrationScore": 0.583,
+      "likedCount": 4,
+      "dislikedCount": 23,
+      "lastRating": "dislike",
+      "lastPlayed": "2026-07-13T10:12:03.898Z",
+      "domains": {
+        "math": 32
+      },
+      "missedWords": []
+    },
+    "quest": {
+      "activityId": "quest",
+      "plays": 1,
+      "completions": 0,
+      "completionRate": 0,
+      "averageAccuracy": 0.5,
+      "engagementScore": 0,
+      "frustrationScore": 0.75,
+      "likedCount": 0,
+      "dislikedCount": 1,
+      "lastRating": "dislike",
+      "lastPlayed": "2026-07-12T18:49:35.954Z",
+      "domains": {
+        "math": 1
+      },
+      "missedWords": []
     }
   },
   "adaptiveLoadState": {
@@ -416,7 +452,7 @@
         "targetCount": 5,
         "frustrationScore": 0.1,
         "strongEvidence": true,
-        "occurredAt": "2026-05-17T19:19:59.420Z"
+        "occurredAt": "2026-07-12T14:20:24.491Z"
       }
     },
     "attention": {
@@ -431,7 +467,7 @@
         "targetCount": 12,
         "frustrationScore": 0.1,
         "strongEvidence": false,
-        "occurredAt": "2026-05-17T19:19:59.493Z"
+        "occurredAt": "2026-07-12T14:20:24.536Z"
       }
     }
   },
@@ -451,50 +487,56 @@
     "novelty": {
       "dimension": "novelty",
       "positiveWeight": 3,
-      "negativeWeight": 0,
-      "mixedWeight": 0,
-      "evidenceCount": 4,
-      "confidence": 0.75,
-      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "negativeWeight": 16.8,
+      "mixedWeight": 4.1,
+      "evidenceCount": 33,
+      "confidence": 0.724,
+      "lastUpdated": "2026-07-13T10:12:03.898Z",
       "activityCounts": {
-        "wheel-of-fortune": 4
+        "wheel-of-fortune": 4,
+        "generated-baseline": 28,
+        "quest": 1
       }
     },
     "competition": {
       "dimension": "competition",
       "positiveWeight": 3.731,
-      "negativeWeight": 0,
-      "mixedWeight": 0,
-      "evidenceCount": 5,
-      "confidence": 0.746,
-      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "negativeWeight": 16.8,
+      "mixedWeight": 4.1,
+      "evidenceCount": 34,
+      "confidence": 0.724,
+      "lastUpdated": "2026-07-13T10:12:03.898Z",
       "activityCounts": {
-        "wheel-of-fortune": 5
+        "wheel-of-fortune": 5,
+        "generated-baseline": 28,
+        "quest": 1
       }
     },
     "control": {
       "dimension": "control",
-      "positiveWeight": 3,
+      "positiveWeight": 4.4,
       "negativeWeight": 0,
       "mixedWeight": 0.533,
-      "evidenceCount": 5,
-      "confidence": 0.707,
-      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "evidenceCount": 7,
+      "confidence": 0.705,
+      "lastUpdated": "2026-07-12T18:48:55.239Z",
       "activityCounts": {
         "wheel-of-fortune": 4,
-        "word-radar": 1
+        "word-radar": 1,
+        "generated-baseline": 2
       }
     },
     "visual": {
       "dimension": "visual",
       "positiveWeight": 3,
-      "negativeWeight": 0,
-      "mixedWeight": 0,
-      "evidenceCount": 4,
-      "confidence": 0.75,
-      "lastUpdated": "2026-05-14T23:56:34.179Z",
+      "negativeWeight": 16.1,
+      "mixedWeight": 4.1,
+      "evidenceCount": 32,
+      "confidence": 0.725,
+      "lastUpdated": "2026-07-13T10:12:03.898Z",
       "activityCounts": {
-        "wheel-of-fortune": 4
+        "wheel-of-fortune": 4,
+        "generated-baseline": 28
       }
     },
     "help": {
@@ -533,9 +575,82 @@
       "activityCounts": {
         "project-sunny-_-wheel-of-fortune": 1
       }
+    },
+    "challenge": {
+      "dimension": "challenge",
+      "positiveWeight": 0,
+      "negativeWeight": 16.8,
+      "mixedWeight": 4.1,
+      "evidenceCount": 29,
+      "confidence": 0.721,
+      "lastUpdated": "2026-07-13T10:12:03.898Z",
+      "activityCounts": {
+        "generated-baseline": 28,
+        "quest": 1
+      }
+    },
+    "practice": {
+      "dimension": "practice",
+      "positiveWeight": 0.7,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 1,
+      "confidence": 0.7,
+      "lastUpdated": "2026-07-12T18:48:36.991Z",
+      "activityCounts": {
+        "generated-baseline": 1
+      }
+    },
+    "puzzle": {
+      "dimension": "puzzle",
+      "positiveWeight": 0.7,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 1,
+      "confidence": 0.7,
+      "lastUpdated": "2026-07-12T18:48:55.239Z",
+      "activityCounts": {
+        "generated-baseline": 1
+      }
+    },
+    "thinking": {
+      "dimension": "thinking",
+      "positiveWeight": 0.7,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 1,
+      "confidence": 0.7,
+      "lastUpdated": "2026-07-12T18:48:55.239Z",
+      "activityCounts": {
+        "generated-baseline": 1
+      }
+    },
+    "story": {
+      "dimension": "story",
+      "positiveWeight": 0,
+      "negativeWeight": 0.7,
+      "mixedWeight": 0,
+      "evidenceCount": 1,
+      "confidence": 0.7,
+      "lastUpdated": "2026-07-12T18:49:35.954Z",
+      "activityCounts": {
+        "quest": 1
+      }
+    },
+    "puzzle (manipulable gear-lock mechanic)": {
+      "dimension": "puzzle (manipulable gear-lock mechanic)",
+      "positiveWeight": 1.4,
+      "negativeWeight": 0,
+      "mixedWeight": 0,
+      "evidenceCount": 2,
+      "confidence": 0.7,
+      "lastUpdated": "2026-07-13T08:30:15.009Z",
+      "activityCounts": {
+        "generated-baseline": 2
+      }
     }
   },
-  "selectedHomeworkDomain": "spelling",
+  "selectedHomeworkDomain": "math",
   "tamagotchi": {
     "hunger": 1,
     "happiness": 0.8500000000000001,
@@ -562,6 +677,249 @@
     "companionCareDir": "companion_care/"
   },
   "homeworkIntakeHistory": [
+    {
+      "decidedAt": "2026-07-13T03:44:20.570Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-13T03:04:39.705Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-13T02:32:49.832Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-13T02:13:13.010Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-13T01:44:30.439Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-12T05:09:55.242Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-12T04:14:45.366Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-12T04:00:00.794Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-12T03:41:48.275Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-12T03:09:56.146Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-12T02:52:10.984Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T22:22:19.852Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T22:17:44.294Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:58:14.540Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:49:55.683Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:43:56.360Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:36:49.197Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:29:59.453Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:25:36.852Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:21:26.375Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:14:14.112Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T21:10:43.919Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T20:53:09.368Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T20:36:45.182Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T20:24:02.086Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T19:41:44.626Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
+    {
+      "decidedAt": "2026-07-11T18:17:01.766Z",
+      "source": "cli",
+      "selectedDomain": "math",
+      "classifierDomain": "math",
+      "homeworkId": "hw-math-6b68e575",
+      "title": "pashley math 2 multiplication",
+      "note": "Domain accepted."
+    },
     {
       "decidedAt": "2026-05-27T19:28:05.818Z",
       "source": "cli",
@@ -598,5 +956,6 @@
       "title": "Benchmark Advance Spelling Unit 9 Week 3",
       "note": "Domain accepted."
     }
-  ]
+  ],
+  "learningTheoryDecisions": []
 }

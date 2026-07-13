@@ -1,968 +1,360 @@
 {
   "version": 1,
   "childId": "reina",
-  "selectedDomain": "spelling",
+  "selectedDomain": "math",
   "current": {
-    "weekOf": "2026-05-27",
-    "testDate": "2026-05-29",
-    "testDateSource": "cli",
-    "testDateConfirmed": true,
-    "returnTag": "#sunny_reina_hw_spelling_test_6727f1c8",
-    "wordList": [
-      "sign",
-      "know",
-      "write",
-      "among",
-      "building",
-      "circle"
-    ],
+    "weekOf": "2026-07-13",
+    "testDate": null,
+    "returnTag": "#sunny_reina_hw-math-a179d2a0",
+    "wordList": [],
     "contentProfile": {
-      "practiceDomain": "spelling",
-      "contentDomain": "language_arts",
-      "topic": "Silent Letters and High-Frequency Word Recognition",
-      "primarySkill": "Orthographic pattern spelling and automatic word recognition",
-      "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
-      "concepts": [
-        "Silent letter patterns (kn-, -gn, wr-)",
-        "High-frequency word automaticity",
-        "Visual orthographic memory"
-      ],
-      "sourceEvidence": [
-        "No explicit cross-domain topic detected.",
-        "Benchmark Advance Unit 9 Week 3",
-        "Teacher-labeled Silent Letters group",
-        "Teacher-labeled High-Frequency Words group"
-      ]
+      "practiceDomain": "math",
+      "topic": "The Skip-Count Star Vault"
     },
     "capturedContent": {
-      "title": "Benchmark Advance Spelling Unit 9 Week 3",
-      "type": "spelling_test",
-      "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\nSilent Letters\nsign\nknow\nwrite\nHigh-Frequency Words\namong\nbuilding\ncircle",
-      "words": [
-        "sign",
-        "know",
-        "write",
-        "among",
-        "building",
-        "circle"
-      ],
-      "homeworkWords": [
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-          "text": "sign",
-          "normalizedText": "sign",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 0
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-          "text": "know",
-          "normalizedText": "know",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 1
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-          "text": "write",
-          "normalizedText": "write",
-          "wordGroupId": "silent_letters",
-          "purpose": "spell_from_memory",
-          "positionIndex": 2
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-          "text": "among",
-          "normalizedText": "among",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 3
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-          "text": "building",
-          "normalizedText": "building",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 4
-        },
-        {
-          "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5",
-          "text": "circle",
-          "normalizedText": "circle",
-          "wordGroupId": "high_frequency",
-          "purpose": "recognize",
-          "positionIndex": 5
-        }
-      ],
-      "questions": [],
-      "wordGroups": [
-        {
-          "id": "silent_letters",
-          "label": "Silent Letters",
-          "purpose": "spell_from_memory",
-          "words": [
-            "sign",
-            "know",
-            "write"
-          ],
-          "confidence": 0.95,
-          "evidence": [
-            "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-            "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-            "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-          ],
-          "wordGroupId": "silent_letters",
-          "homeworkWordIds": [
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-            "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
-          ]
-        },
-        {
-          "id": "high_frequency",
-          "label": "High-Frequency Words",
-          "purpose": "recognize",
-          "words": [
-            "among",
-            "building",
-            "circle"
-          ],
-          "confidence": 0.9,
-          "evidence": [
-            "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-            "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-            "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-          ],
-          "wordGroupId": "high_frequency",
-          "homeworkWordIds": [
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-            "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
-          ]
-        }
-      ],
-      "assignmentInterpretation": {
-        "schemaVersion": 1,
-        "status": "ready",
-        "wordGroups": [
-          {
-            "id": "silent_letters",
-            "label": "Silent Letters",
-            "purpose": "spell_from_memory",
-            "words": [
-              "sign",
-              "know",
-              "write"
-            ],
-            "confidence": 0.95,
-            "evidence": [
-              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-            ],
-            "wordGroupId": "silent_letters",
-            "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
-            ]
-          },
-          {
-            "id": "high_frequency",
-            "label": "High-Frequency Words",
-            "purpose": "recognize",
-            "words": [
-              "among",
-              "building",
-              "circle"
-            ],
-            "confidence": 0.9,
-            "evidence": [
-              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-            ],
-            "wordGroupId": "high_frequency",
-            "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
-            ]
-          }
-        ],
-        "assertions": [
-          {
-            "id": "silent_letters-planner-source",
-            "claim": "Silent Letters was preserved from the assignment planner source truth.",
-            "confidence": 0.95,
-            "evidence": [
-              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-            ]
-          },
-          {
-            "id": "high_frequency-planner-source",
-            "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
-            "confidence": 0.9,
-            "evidence": [
-              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-            ]
-          }
-        ],
-        "selectedTargets": [
-          {
-            "id": "silent_letters",
-            "label": "Silent Letters",
-            "purpose": "spell_from_memory",
-            "words": [
-              "sign",
-              "know",
-              "write"
-            ],
-            "confidence": 0.95,
-            "evidence": [
-              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-            ],
-            "wordGroupId": "silent_letters",
-            "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
-            ]
-          }
-        ],
-        "heldTargets": [
-          {
-            "id": "high_frequency",
-            "label": "High-Frequency Words",
-            "purpose": "recognize",
-            "words": [
-              "among",
-              "building",
-              "circle"
-            ],
-            "confidence": 0.9,
-            "evidence": [
-              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-            ],
-            "wordGroupId": "high_frequency",
-            "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
-            ]
-          }
-        ],
-        "clarificationQuestions": [],
-        "reviewRecommendations": [
-          {
-            "id": "confirm-mixed-target-purposes",
-            "severity": "confirm",
-            "reason": "The worksheet has multiple target groups with different purposes; parent review should confirm Sunny's routing before the lesson plan is approved.",
-            "targetGroupIds": [
-              "silent_letters",
-              "high_frequency"
-            ]
-          }
-        ],
-        "humanAnswers": [],
-        "memoryMatches": []
-      },
-      "sourceDocuments": [
-        {
-          "filename": "sunny-reina-spelling-persona-proof.txt",
-          "mediaType": "text/plain"
-        }
-      ],
-      "contentProfile": {
-        "practiceDomain": "spelling",
-        "contentDomain": "language_arts",
-        "topic": "Silent Letters and High-Frequency Word Recognition",
-        "primarySkill": "Orthographic pattern spelling and automatic word recognition",
-        "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
-        "concepts": [
-          "Silent letter patterns (kn-, -gn, wr-)",
-          "High-frequency word automaticity",
-          "Visual orthographic memory"
-        ],
-        "sourceEvidence": [
-          "No explicit cross-domain topic detected.",
-          "Benchmark Advance Unit 9 Week 3",
-          "Teacher-labeled Silent Letters group",
-          "Teacher-labeled High-Frequency Words group"
-        ]
-      }
+      "title": "The Skip-Count Star Vault",
+      "rawText": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?"
     },
-    "homeworkId": "hw-spelling_test-6727f1c8",
-    "generatedAt": "2026-05-27T19:28:05.817Z",
+    "homeworkId": "hw-math-a179d2a0",
+    "generatedAt": "2026-07-13T09:49:47.010Z",
     "nodes": [
       {
-        "id": "baseline-silent-letters-wr",
-        "type": "word-radar",
-        "words": [
-          "sign",
-          "know",
-          "write"
+        "id": "gear-lock-facts",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q5"
         ],
         "difficulty": 2,
-        "gameFile": null,
-        "storyFile": null,
+        "source": "chart_planner",
+        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
         "locked": false,
-        "date": "2026-05-27",
-        "approved": false,
-        "wordRadarItems": [
-          {
-            "display": "sign",
-            "acceptedResponses": [
-              "sign"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "know",
-            "acceptedResponses": [
-              "know"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "write",
-            "acceptedResponses": [
-              "write"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          }
+        "masteryUnlockState": "unlocked",
+        "title": "Gearlock Facts Chamber",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+        "contentId": "hw-math-a179d2a0:gear-lock-facts",
+        "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+        "engagementDimensions": [
+          "puzzle"
         ],
-        "wordRadarConfig": {
-          "recallMode": "partial_visual_recall",
-          "inputMode": "letter-by-letter",
-          "speakStyle": "option-a",
-          "showTimer": false,
-          "hideWordDuringResponse": true,
-          "requiresCapturedResponse": true
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png"
+          ]
         }
       },
       {
-        "id": "baseline-silent-letters-spell",
-        "type": "spell-check",
-        "words": [
-          "sign",
-          "know",
-          "write"
+        "id": "gear-lock-word-problems",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2"
         ],
         "difficulty": 2,
-        "gameFile": null,
-        "storyFile": null,
+        "source": "chart_planner",
+        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
         "locked": false,
-        "date": "2026-05-27",
-        "approved": false
-      },
-      {
-        "id": "baseline-hf-recognition",
-        "type": "word-radar",
-        "words": [
-          "among",
-          "building",
-          "circle"
+        "masteryUnlockState": "unlocked",
+        "title": "Gearlock Story Vault",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+        "contentId": "hw-math-a179d2a0:gear-lock-word-problems",
+        "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+        "engagementDimensions": [
+          "puzzle"
         ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "locked": false,
-        "date": "2026-05-27",
-        "approved": false,
-        "wordRadarItems": [
-          {
-            "display": "among",
-            "acceptedResponses": [
-              "among"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "building",
-            "acceptedResponses": [
-              "building"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          },
-          {
-            "display": "circle",
-            "acceptedResponses": [
-              "circle"
-            ],
-            "label": "Spelling",
-            "subject": "spelling"
-          }
-        ],
-        "wordRadarConfig": {
-          "recallMode": "visible_read",
-          "inputMode": "whole-word",
-          "speakStyle": "option-a",
-          "showTimer": false,
-          "hideWordDuringResponse": false,
-          "requiresCapturedResponse": true
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png"
+          ]
         }
       },
       {
-        "id": "baseline-hf-fluency",
-        "type": "pronunciation",
-        "words": [
-          "among",
-          "building",
-          "circle"
-        ],
-        "difficulty": 1,
-        "gameFile": null,
-        "storyFile": null,
-        "locked": false,
-        "date": "2026-05-27",
-        "approved": false
-      },
-      {
-        "id": "mystery-choice",
-        "type": "mystery",
-        "words": [
-          "sign",
-          "know",
-          "write",
-          "among",
-          "building",
-          "circle"
+        "id": "comet-run-facts",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q5"
         ],
         "difficulty": 2,
-        "gameFile": null,
-        "storyFile": null,
-        "choiceMode": "choice_lab",
+        "source": "chart_planner",
+        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
         "locked": false,
-        "date": "2026-05-27",
-        "approved": false
+        "masteryUnlockState": "unlocked",
+        "title": "Comet Trail Facts Sprint",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+        "contentId": "hw-math-a179d2a0:comet-run-facts",
+        "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+        "engagementDimensions": [
+          "speed"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png"
+          ]
+        }
       },
       {
-        "id": "quest-destination",
+        "id": "comet-run-word-problems",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Comet Trail Story Sprint",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+        "contentId": "hw-math-a179d2a0:comet-run-word-problems",
+        "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+        "engagementDimensions": [
+          "speed"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "quest",
         "type": "quest",
-        "words": [
-          "sign",
-          "know",
-          "write"
-        ],
+        "activityId": "quest",
+        "targets": [],
         "difficulty": 2,
-        "gameFile": null,
-        "storyFile": null,
-        "masteryUnlockState": "preparing",
+        "source": "chart_planner",
         "locked": true,
-        "date": "2026-05-27",
-        "approved": false
+        "masteryUnlockState": "preparing",
+        "title": "Quest",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg"
       },
       {
-        "id": "boss-destination",
+        "id": "boss",
         "type": "boss",
-        "words": [],
+        "activityId": "boss",
+        "targets": [],
         "difficulty": 3,
-        "gameFile": null,
-        "storyFile": null,
-        "masteryUnlockState": "preparing",
+        "source": "chart_planner",
         "locked": true,
-        "date": "2026-05-27",
-        "approved": false
+        "masteryUnlockState": "preparing",
+        "title": "Boss",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg"
       }
     ]
   },
   "activeByDomain": {
-    "spelling": {
-      "weekOf": "2026-05-27",
-      "testDate": "2026-05-29",
-      "testDateSource": "cli",
-      "testDateConfirmed": true,
-      "returnTag": "#sunny_reina_hw_spelling_test_6727f1c8",
-      "wordList": [
-        "sign",
-        "know",
-        "write",
-        "among",
-        "building",
-        "circle"
-      ],
+    "math": {
+      "weekOf": "2026-07-13",
+      "testDate": null,
+      "returnTag": "#sunny_reina_hw-math-a179d2a0",
+      "wordList": [],
       "contentProfile": {
-        "practiceDomain": "spelling",
-        "contentDomain": "language_arts",
-        "topic": "Silent Letters and High-Frequency Word Recognition",
-        "primarySkill": "Orthographic pattern spelling and automatic word recognition",
-        "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
-        "concepts": [
-          "Silent letter patterns (kn-, -gn, wr-)",
-          "High-frequency word automaticity",
-          "Visual orthographic memory"
-        ],
-        "sourceEvidence": [
-          "No explicit cross-domain topic detected.",
-          "Benchmark Advance Unit 9 Week 3",
-          "Teacher-labeled Silent Letters group",
-          "Teacher-labeled High-Frequency Words group"
-        ]
+        "practiceDomain": "math",
+        "topic": "The Skip-Count Star Vault"
       },
       "capturedContent": {
-        "title": "Benchmark Advance Spelling Unit 9 Week 3",
-        "type": "spelling_test",
-        "rawText": "Benchmark Advance Spelling\nUnit 9 Week 3\nSilent Letters\nsign\nknow\nwrite\nHigh-Frequency Words\namong\nbuilding\ncircle",
-        "words": [
-          "sign",
-          "know",
-          "write",
-          "among",
-          "building",
-          "circle"
-        ],
-        "homeworkWords": [
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-            "text": "sign",
-            "normalizedText": "sign",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 0
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-            "text": "know",
-            "normalizedText": "know",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 1
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2",
-            "text": "write",
-            "normalizedText": "write",
-            "wordGroupId": "silent_letters",
-            "purpose": "spell_from_memory",
-            "positionIndex": 2
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-            "text": "among",
-            "normalizedText": "among",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 3
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-            "text": "building",
-            "normalizedText": "building",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 4
-          },
-          {
-            "homeworkWordId": "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5",
-            "text": "circle",
-            "normalizedText": "circle",
-            "wordGroupId": "high_frequency",
-            "purpose": "recognize",
-            "positionIndex": 5
-          }
-        ],
-        "questions": [],
-        "wordGroups": [
-          {
-            "id": "silent_letters",
-            "label": "Silent Letters",
-            "purpose": "spell_from_memory",
-            "words": [
-              "sign",
-              "know",
-              "write"
-            ],
-            "confidence": 0.95,
-            "evidence": [
-              "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-              "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-              "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-            ],
-            "wordGroupId": "silent_letters",
-            "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-              "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
-            ]
-          },
-          {
-            "id": "high_frequency",
-            "label": "High-Frequency Words",
-            "purpose": "recognize",
-            "words": [
-              "among",
-              "building",
-              "circle"
-            ],
-            "confidence": 0.9,
-            "evidence": [
-              "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-              "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-              "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-            ],
-            "wordGroupId": "high_frequency",
-            "homeworkWordIds": [
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-              "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
-            ]
-          }
-        ],
-        "assignmentInterpretation": {
-          "schemaVersion": 1,
-          "status": "ready",
-          "wordGroups": [
-            {
-              "id": "silent_letters",
-              "label": "Silent Letters",
-              "purpose": "spell_from_memory",
-              "words": [
-                "sign",
-                "know",
-                "write"
-              ],
-              "confidence": 0.95,
-              "evidence": [
-                "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-                "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-                "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-              ],
-              "wordGroupId": "silent_letters",
-              "homeworkWordIds": [
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
-              ]
-            },
-            {
-              "id": "high_frequency",
-              "label": "High-Frequency Words",
-              "purpose": "recognize",
-              "words": [
-                "among",
-                "building",
-                "circle"
-              ],
-              "confidence": 0.9,
-              "evidence": [
-                "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-                "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-                "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-              ],
-              "wordGroupId": "high_frequency",
-              "homeworkWordIds": [
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
-              ]
-            }
-          ],
-          "assertions": [
-            {
-              "id": "silent_letters-planner-source",
-              "claim": "Silent Letters was preserved from the assignment planner source truth.",
-              "confidence": 0.95,
-              "evidence": [
-                "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-                "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-                "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-              ]
-            },
-            {
-              "id": "high_frequency-planner-source",
-              "claim": "High-Frequency Words was preserved from the assignment planner source truth.",
-              "confidence": 0.9,
-              "evidence": [
-                "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-                "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-                "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-              ]
-            }
-          ],
-          "selectedTargets": [
-            {
-              "id": "silent_letters",
-              "label": "Silent Letters",
-              "purpose": "spell_from_memory",
-              "words": [
-                "sign",
-                "know",
-                "write"
-              ],
-              "confidence": 0.95,
-              "evidence": [
-                "Teacher heading 'Silent Letters' indicates orthographic pattern focus",
-                "Benchmark Advance curriculum treats pattern lists as spelling production targets",
-                "Unit 9 Week 3 scope suggests grade-level spelling construction expectation"
-              ],
-              "wordGroupId": "silent_letters",
-              "homeworkWordIds": [
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:sign:0",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:know:1",
-                "benchmark-advance-spelling-unit-9-week-3:silent_letters:write:2"
-              ]
-            }
-          ],
-          "heldTargets": [
-            {
-              "id": "high_frequency",
-              "label": "High-Frequency Words",
-              "purpose": "recognize",
-              "words": [
-                "among",
-                "building",
-                "circle"
-              ],
-              "confidence": 0.9,
-              "evidence": [
-                "Teacher heading 'High-Frequency Words' distinguishes this group from spelling pattern work",
-                "High-frequency lists in grade 2 typically target automatic recognition and reading fluency",
-                "No orthographic pattern label implies recognition and fluency rather than pattern analysis"
-              ],
-              "wordGroupId": "high_frequency",
-              "homeworkWordIds": [
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:among:3",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:building:4",
-                "benchmark-advance-spelling-unit-9-week-3:high_frequency:circle:5"
-              ]
-            }
-          ],
-          "clarificationQuestions": [],
-          "reviewRecommendations": [
-            {
-              "id": "confirm-mixed-target-purposes",
-              "severity": "confirm",
-              "reason": "The worksheet has multiple target groups with different purposes; parent review should confirm Sunny's routing before the lesson plan is approved.",
-              "targetGroupIds": [
-                "silent_letters",
-                "high_frequency"
-              ]
-            }
-          ],
-          "humanAnswers": [],
-          "memoryMatches": []
-        },
-        "sourceDocuments": [
-          {
-            "filename": "sunny-reina-spelling-persona-proof.txt",
-            "mediaType": "text/plain"
-          }
-        ],
-        "contentProfile": {
-          "practiceDomain": "spelling",
-          "contentDomain": "language_arts",
-          "topic": "Silent Letters and High-Frequency Word Recognition",
-          "primarySkill": "Orthographic pattern spelling and automatic word recognition",
-          "assignmentFormat": "Two-group spelling list with pattern focus and high-frequency recognition",
-          "concepts": [
-            "Silent letter patterns (kn-, -gn, wr-)",
-            "High-frequency word automaticity",
-            "Visual orthographic memory"
-          ],
-          "sourceEvidence": [
-            "No explicit cross-domain topic detected.",
-            "Benchmark Advance Unit 9 Week 3",
-            "Teacher-labeled Silent Letters group",
-            "Teacher-labeled High-Frequency Words group"
-          ]
-        }
+        "title": "The Skip-Count Star Vault",
+        "rawText": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?"
       },
-      "homeworkId": "hw-spelling_test-6727f1c8",
-      "generatedAt": "2026-05-27T19:28:05.817Z",
+      "homeworkId": "hw-math-a179d2a0",
+      "generatedAt": "2026-07-13T09:49:47.010Z",
       "nodes": [
         {
-          "id": "baseline-silent-letters-wr",
-          "type": "word-radar",
-          "words": [
-            "sign",
-            "know",
-            "write"
+          "id": "gear-lock-facts",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "q5"
           ],
           "difficulty": 2,
-          "gameFile": null,
-          "storyFile": null,
+          "source": "chart_planner",
+          "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
           "locked": false,
-          "date": "2026-05-27",
-          "approved": false,
-          "wordRadarItems": [
-            {
-              "display": "sign",
-              "acceptedResponses": [
-                "sign"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "know",
-              "acceptedResponses": [
-                "know"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "write",
-              "acceptedResponses": [
-                "write"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            }
+          "masteryUnlockState": "unlocked",
+          "title": "Gearlock Facts Chamber",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+          "contentId": "hw-math-a179d2a0:gear-lock-facts",
+          "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+          "engagementDimensions": [
+            "puzzle"
           ],
-          "wordRadarConfig": {
-            "recallMode": "partial_visual_recall",
-            "inputMode": "letter-by-letter",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": true,
-            "requiresCapturedResponse": true
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png"
+            ]
           }
         },
         {
-          "id": "baseline-silent-letters-spell",
-          "type": "spell-check",
-          "words": [
-            "sign",
-            "know",
-            "write"
+          "id": "gear-lock-word-problems",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "q1",
+            "q2"
           ],
           "difficulty": 2,
-          "gameFile": null,
-          "storyFile": null,
+          "source": "chart_planner",
+          "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
           "locked": false,
-          "date": "2026-05-27",
-          "approved": false
-        },
-        {
-          "id": "baseline-hf-recognition",
-          "type": "word-radar",
-          "words": [
-            "among",
-            "building",
-            "circle"
+          "masteryUnlockState": "unlocked",
+          "title": "Gearlock Story Vault",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+          "contentId": "hw-math-a179d2a0:gear-lock-word-problems",
+          "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+          "engagementDimensions": [
+            "puzzle"
           ],
-          "difficulty": 1,
-          "gameFile": null,
-          "storyFile": null,
-          "locked": false,
-          "date": "2026-05-27",
-          "approved": false,
-          "wordRadarItems": [
-            {
-              "display": "among",
-              "acceptedResponses": [
-                "among"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "building",
-              "acceptedResponses": [
-                "building"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            },
-            {
-              "display": "circle",
-              "acceptedResponses": [
-                "circle"
-              ],
-              "label": "Spelling",
-              "subject": "spelling"
-            }
-          ],
-          "wordRadarConfig": {
-            "recallMode": "visible_read",
-            "inputMode": "whole-word",
-            "speakStyle": "option-a",
-            "showTimer": false,
-            "hideWordDuringResponse": false,
-            "requiresCapturedResponse": true
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png"
+            ]
           }
         },
         {
-          "id": "baseline-hf-fluency",
-          "type": "pronunciation",
-          "words": [
-            "among",
-            "building",
-            "circle"
-          ],
-          "difficulty": 1,
-          "gameFile": null,
-          "storyFile": null,
-          "locked": false,
-          "date": "2026-05-27",
-          "approved": false
-        },
-        {
-          "id": "mystery-choice",
-          "type": "mystery",
-          "words": [
-            "sign",
-            "know",
-            "write",
-            "among",
-            "building",
-            "circle"
+          "id": "comet-run-facts",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "q5"
           ],
           "difficulty": 2,
-          "gameFile": null,
-          "storyFile": null,
-          "choiceMode": "choice_lab",
+          "source": "chart_planner",
+          "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
           "locked": false,
-          "date": "2026-05-27",
-          "approved": false
+          "masteryUnlockState": "unlocked",
+          "title": "Comet Trail Facts Sprint",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+          "contentId": "hw-math-a179d2a0:comet-run-facts",
+          "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png"
+            ]
+          }
         },
         {
-          "id": "quest-destination",
+          "id": "comet-run-word-problems",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "q1",
+            "q2"
+          ],
+          "difficulty": 2,
+          "source": "chart_planner",
+          "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Comet Trail Story Sprint",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+          "contentId": "hw-math-a179d2a0:comet-run-word-problems",
+          "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+            ]
+          }
+        },
+        {
+          "id": "quest",
           "type": "quest",
-          "words": [
-            "sign",
-            "know",
-            "write"
-          ],
+          "activityId": "quest",
+          "targets": [],
           "difficulty": 2,
-          "gameFile": null,
-          "storyFile": null,
-          "masteryUnlockState": "preparing",
+          "source": "chart_planner",
           "locked": true,
-          "date": "2026-05-27",
-          "approved": false
+          "masteryUnlockState": "preparing",
+          "title": "Quest",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg"
         },
         {
-          "id": "boss-destination",
+          "id": "boss",
           "type": "boss",
-          "words": [],
+          "activityId": "boss",
+          "targets": [],
           "difficulty": 3,
-          "gameFile": null,
-          "storyFile": null,
-          "masteryUnlockState": "preparing",
+          "source": "chart_planner",
           "locked": true,
-          "date": "2026-05-27",
-          "approved": false
+          "masteryUnlockState": "preparing",
+          "title": "Boss",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg"
         }
       ]
     }
   },
-  "updatedAt": "2026-05-27T19:28:05.818Z"
+  "updatedAt": "2026-07-13T10:12:03.941Z"
 }

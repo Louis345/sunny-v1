@@ -76,13 +76,6 @@ function purposeFor(option: AdventureChoiceOption, choiceSet: AdventureChoiceSet
   return "mystery";
 }
 
-function displayLabelFor(option: AdventureChoiceOption): string {
-  if (option.id.includes("pronunciation")) return "Say it out loud";
-  if (option.id.includes("speed")) return "Speed Challenge";
-  if (option.id.includes("story")) return option.label;
-  return option.label;
-}
-
 function CardArt({
   option,
   choiceSet,
@@ -207,7 +200,7 @@ export function AdventureChoiceModal({
             <div className="adventure-choice-modal__cards">
               {choiceSet.options.map((option, idx) => {
                 const accent = accentFor(option, choiceSet);
-                const displayLabel = displayLabelFor(option);
+              const displayLabel = option.label;
                 const locked = option.state === "locked";
                 const Icon = iconMap[(option.icon ?? "sparkles") as keyof typeof iconMap] ?? Sparkles;
                 return (

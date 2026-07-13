@@ -18,6 +18,18 @@ import {
 } from "./debug-helpers";
 import { createThinkingEmoteOnFirstToolInStep } from "./companionThinkingEmote";
 
+async function speakShortRecovery(session: any, reason: string): Promise<void> {
+  const fallback = "I’m having trouble connecting. Please say that again.";
+  session.recordDebugError?.(reason);
+  session.recordDebugEvent?.("companion", "recovery_spoken", { reason });
+  session.send("response_text", { chunk: fallback });
+  if (session.ttsBridge) {
+    session.ttsBridge.sendText(fallback);
+    await session.ttsBridge.finish().catch(() => {});
+  }
+  session.send("audio_done");
+}
+
 export async function finalizePendingSessionEnd(session: any): Promise<boolean> {
   const request = session.pendingSessionEndRequest;
   if (!request) return false;
@@ -42,6 +54,7 @@ export async function runCompanionResponseForSession(
 
     session.currentAbort = new AbortController();
     let fullResponse = "";
+    let responseLogged = false;
     session.toolCallsMadeThisTurn = 0;
 
     // TTS connect and Claude run in parallel — don't serialize the handshake.
@@ -127,6 +140,7 @@ export async function runCompanionResponseForSession(
       const finalTools = session.buildAgentToolkit();
 
       debugPrintClaudePreRun(session, userMessage);
+      console.log(`  🎮 [companion] model_request_started model=${process.env.SUNNY_VOICE_MODEL ?? "claude-sonnet-5"}`);
 
       if (session.options?.sttOnly) {
         session.turnSM.onInterrupt();
@@ -157,6 +171,10 @@ export async function runCompanionResponseForSession(
         experimentalOnToolCallStart: thinkingHooks?.onToolCallStart,
         onToken: (chunk) => {
           fullResponse += chunk;
+          if (!responseLogged) {
+            responseLogged = true;
+            console.log("  🎮 [companion] model_response_received");
+          }
           session.send("response_text", { chunk });
           console.log(
             `  📝 token(${chunk.length}): "${chunk.slice(0, 30).replace(/\n/g, "↵")}"`,
@@ -545,14 +563,17 @@ export async function runCompanionResponseForSession(
         },
       });
 
-      session.turnSM.onAgentComplete();
-      session.flushPendingRoundComplete();
-
       if (!fullResponse.trim()) {
         console.warn(
           "  ⚠️  runAgent completed with empty fullResponse — check onToken wiring",
         );
+        session.turnSM.onInterrupt();
+        await speakShortRecovery(session, "empty_companion_response");
+        return;
       }
+
+      session.turnSM.onAgentComplete();
+      session.flushPendingRoundComplete();
 
       // In math mode every turn should log an answer — warn if tools were skipped entirely
       if (session.lastCanvasWasMath && session.toolCallsMadeThisTurn === 0) {
@@ -587,9 +608,11 @@ export async function runCompanionResponseForSession(
         session.deferredTtsFinish = true;
       } else {
         if (session.ttsBridge) {
+          console.log("  🎮 [companion] tts_started");
           await session.ttsBridge.finish();
         }
         session.send("audio_done");
+        console.log("  🎮 [companion] audio_completed");
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {
@@ -635,7 +658,7 @@ export async function runCompanionResponseForSession(
 
       console.error("  🔴 Agent error:", message);
       session.recordDebugError?.("Agent error", err);
-      session.send("error", { message: "Companion response failed" });
+      await speakShortRecovery(session, "agent_response_failed");
     } finally {
       session.currentAbort = null;
     }

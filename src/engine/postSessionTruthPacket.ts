@@ -53,6 +53,10 @@ export type PostSessionTruthPacket = {
     replays: number;
     frustrationSignals: number;
   };
+  companionObservations: Array<{
+    source: "companion_observation" | "child_signal";
+    observation: string;
+  }>;
   contradictions: string[];
   contaminationWarnings: string[];
   questBossReadiness: {
@@ -227,18 +231,32 @@ function readAdaptationDecision(sessionDir: string): PostSessionTruthPacket["ada
     };
   }
   if (diffStatus === "stay_course" || diffStatus === "unchanged") {
+    const explicitReason = firstString(diff?.reason, diff?.summary);
+    if (!explicitReason) {
+      return {
+        status: "missing",
+        reason: "An unchanged next-plan decision requires an explicit reason.",
+      };
+    }
     return {
       status: "unchanged",
-      reason: firstString(diff?.reason, diff?.summary, "Psychologist next-plan diff chose to stay course."),
+      reason: explicitReason,
       ...(diff ? { source: diff } : {}),
     };
   }
   const nested = object(decision?.adaptationDecision);
   const nestedStatus = firstString(nested.status);
   if (nestedStatus === "changed" || nestedStatus === "unchanged") {
+    const explicitReason = firstString(nested.reason, decision?.reason);
+    if (nestedStatus === "unchanged" && !explicitReason) {
+      return {
+        status: "missing",
+        reason: "An unchanged psychologist decision requires an explicit reason.",
+      };
+    }
     return {
       status: nestedStatus,
-      reason: firstString(nested.reason, decision?.reason, "Psychologist decision recorded."),
+      reason: explicitReason || "Psychologist changed the next plan.",
       ...(decision ? { source: decision } : {}),
     };
   }
@@ -266,6 +284,7 @@ export function buildPostSessionTruthPacket(
 ): PostSessionTruthPacket {
   const resolved = path.resolve(sessionDir);
   const adventure = readNdjson(path.join(resolved, "adventure-log.ndjson"));
+  const gameTraces = readNdjson(path.join(resolved, "game-traces.ndjson"));
   const activityReadings = readActivityReadings(resolved);
   const hasRawTraceEvidence =
     fs.existsSync(path.join(resolved, "game-traces.ndjson")) ||
@@ -310,6 +329,14 @@ export function buildPostSessionTruthPacket(
   let frustrationSignals = 0;
   const contaminationWarnings = new Set<string>();
   const contradictions = new Set<string>();
+  const companionObservations = gameTraces.flatMap((row) => {
+    const type = firstString(row.type);
+    if (type !== "companion_observation" && type !== "child_signal") return [];
+    const observation = firstString(row.observation, row.summary, row.message);
+    return observation
+      ? [{ source: type as "companion_observation" | "child_signal", observation }]
+      : [];
+  });
 
   for (const row of activityReadings) {
     const activity = canonicalActivityId(firstString(row.activityId, row.game, "activity"));
@@ -509,6 +536,7 @@ export function buildPostSessionTruthPacket(
       replays,
       frustrationSignals,
     },
+    companionObservations,
     contradictions: [...contradictions].sort(),
     contaminationWarnings: [...contaminationWarnings].sort(),
     questBossReadiness: {

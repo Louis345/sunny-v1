@@ -21,8 +21,11 @@ import {
   appendDecisionTrace,
   hydrateLearningProfileFromWaterfall,
   slimLearningProfileForDoorway,
+  writeWaterfallContentCatalog,
+  writeWaterfallSessionPlan,
 } from "../profiles/chartWaterfall";
 import { resolveChildContextDir } from "../utils/contextRoot";
+import { appendContentFeedbackLesson } from "./contentFeedbackMemory";
 
 type RootOptions = {
   rootDir?: string;
@@ -332,6 +335,13 @@ export function buildHomeworkContentCatalogItems(args: {
     const isGenerated = Boolean(node.gameFile) || node.type === "karaoke" || node.type === "quest" || node.type === "boss";
     const item: AIContentCatalogItem = {
       contentId: `${args.homeworkId}:${node.id}`,
+      ...(isGenerated
+        ? {
+            theoryDecisionId:
+              node.adaptiveArtifact?.theoryId ??
+              `theory:homework:${args.homeworkId}:ingest`,
+          }
+        : {}),
       homeworkId: args.homeworkId,
       childId: args.childId,
       type,
@@ -360,6 +370,9 @@ export function buildHomeworkContentCatalogItems(args: {
     if (node.type === "karaoke" && node.storyImagePrompt) {
       items.push({
         contentId: `${args.homeworkId}:${node.id}:image`,
+        theoryDecisionId:
+          node.adaptiveArtifact?.theoryId ??
+          `theory:homework:${args.homeworkId}:ingest`,
         homeworkId: args.homeworkId,
         childId: args.childId,
         type: "image",
@@ -431,7 +444,7 @@ export function buildLearningDecisionContext(
   const pending = chart.homework.pending;
   const patternResult = scanChildErrorPatterns(childId, { rootDir, now });
   const questThreshold = evaluateQuestThreshold({
-    totalSessions: profile.sessionStats.totalSessions,
+    totalSessions: profile.sessionStats?.totalSessions ?? 0,
     patterns: patternResult.patterns,
   });
   const due = daysUntil(pending?.testDate, now);
@@ -722,9 +735,23 @@ export function recordGradedHomeworkCalibration(
       ...(profile.learningCalibrationJournal ?? []),
     ].slice(0, 100),
     aiContentCatalog: applyCalibrationToCatalog(profile.aiContentCatalog, input.homeworkId, entry),
+    learningTheoryDecisions: (profile.learningTheoryDecisions ?? []).map((decision) => {
+      const linkedContent = (profile.aiContentCatalog ?? []).some((item) =>
+        item.homeworkId === input.homeworkId && decision.contentIds.includes(item.contentId));
+      if (!linkedContent || decision.status !== "awaiting_calibration") return decision;
+      return {
+        ...decision,
+        status: entry.status,
+        reason: `Graded calibration ${entry.status}: ${entry.nextAdjustment}`,
+        nextAction: entry.nextAdjustment,
+        calibrationId: entry.calibrationId,
+      };
+    }),
     lastUpdated: isoNow(opts),
   };
   writeJson(profilePath(rootDir, childId), nextProfile);
+  writeWaterfallSessionPlan(childId, nextProfile, opts);
+  writeWaterfallContentCatalog(childId, nextProfile, opts);
   return entry;
 }
 
@@ -733,6 +760,12 @@ export function validateContentCatalogItem(
 ): { ok: true } | { ok: false; error: string } {
   if (!item.algorithmTargets.length) {
     return { ok: false, error: "content_missing_algorithm_targets" };
+  }
+  if (
+    (item.source === "generated" || item.source === "generated_shell") &&
+    !item.theoryDecisionId?.trim()
+  ) {
+    return { ok: false, error: "generated_content_missing_theory_decision" };
   }
   return { ok: true };
 }
@@ -792,9 +825,28 @@ export function updateContentCatalogFromActivityEvidence(
       reuseStatus = "reuse";
       reuseReason = "Reuse: completion, accuracy, and frustration evidence are healthy.";
     }
+    if (reuseStatus !== item.reuseStatus) {
+      console.log(
+        `  🎮 [content-catalog] [reuse-transition] ${item.contentId}: ${item.reuseStatus} → ${reuseStatus} (${reuseReason})`,
+      );
+      // Play evidence is a vitality verdict: record it as a feedback lesson so
+      // the next generation's briefs learn from what children actually did.
+      appendContentFeedbackLesson(rootDir, childId, {
+        contentId: item.contentId,
+        decision: reuseStatus === "reuse" ? "approve" : reuseStatus === "revise" ? "revise" : "reject",
+        verdict: reuseStatus === "reuse" ? "strong" : reuseStatus === "revise" ? "revise" : "retire",
+        reason: reuseReason ?? "",
+        source: "vitality",
+        plays: performanceSummary.plays,
+        completionRate: performanceSummary.completionRate,
+      });
+    }
     return { ...item, performanceSummary, reuseStatus, reuseReason };
   });
   const nextProfile = { ...profile, aiContentCatalog: nextCatalog, lastUpdated: isoNow(opts) };
   writeJson(profilePath(rootDir, childId), nextProfile);
+  // The catalog's durable home is the waterfall file; without this the next
+  // ingest's shell-gap detection never sees retire/revise transitions.
+  writeWaterfallContentCatalog(childId, nextProfile, opts);
   return nextProfile;
 }

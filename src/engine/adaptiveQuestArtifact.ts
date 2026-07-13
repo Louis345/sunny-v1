@@ -273,6 +273,7 @@ export function catalogAdaptiveQuestArtifact(
   if (!validation.ok) throw new Error(validation.error);
   return {
     contentId: artifact.contentId,
+    theoryDecisionId: artifact.theoryId,
     homeworkId: artifact.homeworkId,
     childId: args.childId,
     type: "game",

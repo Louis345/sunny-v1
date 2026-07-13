@@ -41,26 +41,49 @@ export function readNatalieContext(childSlug: string): string | null {
  */
 export function buildLatestCycleContext(childId: string): string {
   const cycles = loadCycles(childId);
+  return formatLatestCycleContext(cycles);
+}
+
+type PsychologistCycleView = {
+  schemaVersion?: number;
+  homeworkId?: string;
+  ingestedAt?: string;
+  updatedAt?: string;
+  createdAt?: string;
+  subject?: string;
+  domain?: string;
+  wordList?: string[];
+  assignment?: { targets?: string[] };
+  assumptions?: string | null;
+  academicTheory?: { hypothesis?: string };
+  postAnalysis?: string | null;
+  scanResult?: unknown;
+  metrics?: { accuracyDelta: number; sm2Growth: number; independenceRate: number } | null;
+};
+
+export function formatLatestCycleContext(cycles: PsychologistCycleView[]): string {
   if (cycles.length === 0) return "";
 
-  // Sort by ingestedAt descending, pick most recent
-  const sorted = [...cycles].sort((a, b) => b.ingestedAt.localeCompare(a.ingestedAt));
+  const timestamp = (cycle: PsychologistCycleView): string =>
+    cycle.updatedAt ?? cycle.ingestedAt ?? cycle.createdAt ?? "";
+  const sorted = [...cycles].sort((a, b) => timestamp(b).localeCompare(timestamp(a)));
   const latest = sorted[0]!;
+  const words = latest.wordList ?? latest.assignment?.targets ?? [];
+  const assumptions = latest.assumptions ?? latest.academicTheory?.hypothesis;
 
   const lines: string[] = [
     `## Homework Cycle History`,
     ``,
     `**Most recent cycle:** ${latest.homeworkId}`,
-    `**Ingested:** ${latest.ingestedAt}`,
-    `**Subject:** ${latest.subject}`,
-    `**Words:** ${latest.wordList.join(", ")}`,
-    `**Test date:** ${latest.testDate ?? "not set"}`,
+    `**Updated:** ${timestamp(latest) || "unknown"}`,
+    `**Subject:** ${latest.subject ?? latest.domain ?? "unknown"}`,
+    `**Targets:** ${words.join(", ")}`,
     ``,
   ];
 
-  if (latest.assumptions) {
+  if (assumptions) {
     lines.push(`### Pre-cycle assumptions (what the system predicted)`);
-    lines.push(latest.assumptions);
+    lines.push(assumptions);
     lines.push(``);
   }
 
@@ -68,7 +91,7 @@ export function buildLatestCycleContext(childId: string): string {
     lines.push(`### Post-scan analysis (what actually happened)`);
     lines.push(latest.postAnalysis);
     lines.push(``);
-  } else if (latest.assumptions && !latest.scanResult) {
+  } else if (assumptions && !latest.scanResult) {
     lines.push(`> **Awaiting scan:** No scan received yet for this cycle.`);
     lines.push(``);
   }

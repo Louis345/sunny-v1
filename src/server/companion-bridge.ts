@@ -6,6 +6,7 @@ import { validateCompanionCommand } from "../shared/companions/validateCompanion
 import { isCompanionEmote } from "../shared/companionEmotes";
 
 const EVENT_TO_EMOTE: Partial<Record<SessionEvent["type"], string>> = {
+  game_started: "excited",
   correct_answer: "happy",
   wrong_answer: "concerned",
   streak_3: "celebrating",
@@ -39,6 +40,7 @@ function routeEventToCompanion(event: SessionEvent): void {
 }
 
 const EVENT_TYPES: import("./session-event-bus").SessionEventType[] = [
+  "game_started",
   "correct_answer",
   "wrong_answer",
   "streak_3",

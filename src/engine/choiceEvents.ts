@@ -19,6 +19,12 @@ import {
   hydrateLearningProfileFromWaterfall,
   slimLearningProfileForDoorway,
 } from "../profiles/chartWaterfall";
+import {
+  buildInitialEngagementTheory,
+  readEngagementTheory,
+  updateEngagementTheoryFromChoiceEvents,
+  writeEngagementTheory,
+} from "./engagementTheory";
 
 export type ChoiceEventContext =
   | "mystery"
@@ -73,6 +79,11 @@ export type ChoiceEvent = {
   postActivityAction?: PostActivityAction;
   explicitSentiment?: ChoiceSentiment;
   frustrationScore?: number;
+  theoryId?: string;
+  experimentId?: string;
+  contentId?: string;
+  engagementDimensions?: string[];
+  engagementHypothesis?: string;
   createdAt: string;
 };
 
@@ -553,6 +564,13 @@ export async function applyChoiceEventPreference(
     }),
   };
   writeProfile(event.childId, next, opts);
+  const currentTheory = readEngagementTheory(event.childId, { rootDir: rootDir(opts) }) ??
+    buildInitialEngagementTheory({ childId: event.childId, domain: event.domain });
+  writeEngagementTheory(
+    event.childId,
+    updateEngagementTheoryFromChoiceEvents(currentTheory, [event]),
+    { rootDir: rootDir(opts) },
+  );
   const nodeType = option.nodeType ?? asNodeType(option.activityId);
   if (event.source === "child_choice" && nodeType) {
     const reward = opts.recordBanditReward ?? recordReward;

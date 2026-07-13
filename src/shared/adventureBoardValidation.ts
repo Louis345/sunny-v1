@@ -24,7 +24,10 @@ export type AdventureBoardValidationCode =
   | "board_choice_art_missing"
   | "board_route_layout_order_gap"
   | "board_baseline_layout_order_gap"
-  | "board_palette_not_approved";
+  | "board_palette_not_approved"
+  | "choice_experiment_metadata_missing"
+  | "choice_duplicate_content_identity"
+  | "choice_missing_destination";
 
 export type AdventureBoardValidationIssue = {
   code: AdventureBoardValidationCode;
@@ -134,6 +137,34 @@ export function validateBoardChoices(board: AdventureBoardJson): AdventureBoardV
           choiceSetId: choiceSet.id,
           nodeId: option.nodeId,
           message: `Baseline route choice ${option.id} points to ${option.nodeId}, but that route does not reconnect to Mystery, Quest, or Boss.`,
+        });
+      }
+      const experimentBoard = board.nodes.some((node) => node.theoryId);
+      if (experimentBoard && (!option.theoryId || !option.experimentId || !option.contentId || !option.engagementDimensions?.length)) {
+        issues.push({
+          code: "choice_experiment_metadata_missing",
+          severity: "error",
+          choiceSetId: choiceSet.id,
+          message: `Choice option ${option.id} must declare theory, experiment, content, and engagement metadata.`,
+        });
+      }
+      if (experimentBoard && option.nodeId && !nodeIds.has(option.nodeId)) {
+        issues.push({
+          code: "choice_missing_destination",
+          severity: "error",
+          choiceSetId: choiceSet.id,
+          message: `Choice option ${option.id} points to missing destination ${option.nodeId}.`,
+        });
+      }
+    }
+    if (board.nodes.some((node) => node.theoryId)) {
+      const contentIds = choiceSet.options.map((option) => option.contentId).filter(Boolean);
+      if (new Set(contentIds).size !== contentIds.length) {
+        issues.push({
+          code: "choice_duplicate_content_identity",
+          severity: "error",
+          choiceSetId: choiceSet.id,
+          message: `Choice set ${choiceSet.id} contains duplicate content identities.`,
         });
       }
     }

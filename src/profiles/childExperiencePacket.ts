@@ -14,13 +14,18 @@ export type ChildExperiencePacket = {
     companionCare: ChildChart["companionCare"];
     economy: ChildChart["economy"];
     adventureMapProfile: AdventureMapProfile;
+    learningCycle?: {
+      homeworkId: string;
+      lifecycle: string;
+      revision: number;
+    };
   };
   activeSessionPlan: ChildChart["activeSessionPlan"];
 };
 
 export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePacket {
   const selectedDomain = chart.homework.selectedDomain ?? undefined;
-  const selectedDomainPlan = selectedDomain
+  const legacySelectedDomainPlan = selectedDomain
     ? chart.sessionPlan?.waterfall.activeByDomain[selectedDomain] ??
       (chart as ChildChart & { activeSessionPlanByDomain?: Record<string, ChildChart["activeSessionPlan"]> })
         .activeSessionPlanByDomain?.[selectedDomain]
@@ -37,7 +42,16 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       companionCare: chart.companionCare,
       economy: chart.economy,
       adventureMapProfile: chart.adventureMapProfile,
+      learningCycle: chart.learningCycle
+        ? {
+            homeworkId: chart.learningCycle.homeworkId,
+            lifecycle: chart.learningCycle.lifecycle,
+            revision: chart.learningCycle.revision,
+          }
+        : undefined,
     },
-    activeSessionPlan: selectedDomainPlan ?? chart.activeSessionPlan,
+    activeSessionPlan: chart.learningCycle
+      ? chart.activeSessionPlan
+      : legacySelectedDomainPlan ?? chart.activeSessionPlan,
   };
 }

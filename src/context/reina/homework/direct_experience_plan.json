@@ -1,0 +1,1103 @@
+{
+  "version": 1,
+  "childId": "reina",
+  "homeworkId": "hw-math-a179d2a0",
+  "generatedAt": "2026-07-13T09:49:47.010Z",
+  "assignment": {
+    "sourceKind": "embedded_text_pdf",
+    "sourcePath": "/Users/jamaltaylor/Downloads/pashley-math-2-multiplication.pdf",
+    "filename": "pashley-math-2-multiplication.pdf",
+    "mediaType": "application/pdf",
+    "fileHash": "4c080fc532340d7f6a5fefb78aeb8fd357dfc44a817acd498fb1cce92da99a01",
+    "extractionMethod": "unpdf",
+    "pages": [
+      {
+        "pageNumber": 1,
+        "text": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?"
+      }
+    ],
+    "fullText": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?",
+    "warnings": []
+  },
+  "plannerPlan": {
+    "planId": "plan-reina-hw-math-6b68e575-r54",
+    "title": "The Skip-Count Star Vault",
+    "academicTheory": "Assignment targets two distinct sub-skills bundled under \"multiplication\": (1) automatic recall of x2/x5/x10 facts, and (2) translating equal-groups word problems (boxes of pencils, rows of stars) into multiplication sentences. Both need direct, comparable practice today. Reina's engagement theory (evidenceCount 23+, confidence ~0.73-0.92) shows strong positive weight for puzzle (5.0) and speed (5.0) framing, near-zero/negative for competition, control, calm, and generic quiz shells (generated-baseline: 20% completion, dislike, frustration 0.554). Per Keller's ARCS and the child's own nextExperiment (variable: mechanic, arms unset), this board holds academic targets/question count/difficulty/evidence contract constant across two routes while varying MECHANIC (puzzle-lock manipulation vs. timed-speed run) to test which drives higher completion/engagement without adding competitive pressure or heavy control demands.",
+    "profileEvidence": [
+      "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)",
+      "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)",
+      "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail",
+      "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence",
+      "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence",
+      "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well",
+      "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
+    ],
+    "boardWorld": {
+      "title": "The Skip-Count Star Vault",
+      "narrative": "Deep beneath an old observatory, a vault of frozen starlight has locked away its glittering treasure using ancient multiplication seals. Reina has found two entrances carved into the vault door: a Puzzle Gate of interlocking gears and a Comet Gate that only opens for those who move at comet-speed. Both paths lead to the same starlit treasure room, but only one gate will open first tonight.",
+      "backgroundPrompt": "A glowing underground vault carved from deep indigo stone, dotted with softly pulsing star-shaped crystals and faint gold multiplication symbols etched into archways. Two ornate stone gates stand side by side: a left gate covered in interlocking bronze gears, and a right gate shaped like a comet trail with streaking light lines. Warm lantern light, soft particle sparkles, whimsical storybook-painterly style, no text."
+    },
+    "fork": {
+      "question": "Which gate should we open first?",
+      "hypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+      "heldConstant": [
+        "academic targets (x2, x5, x10 facts + 2 equal-groups word problems)",
+        "question count (7 total: 5 fluency facts + 2 word problems)",
+        "difficulty (grade 3, single correct answer per item)",
+        "evidence contract (completion, accuracy, frustration, liked/disliked signal captured identically)"
+      ],
+      "routes": [
+        {
+          "id": "route-a",
+          "label": "Puzzle Gate",
+          "promise": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
+          "engagementVariable": "puzzle (manipulable gear-lock mechanic)",
+          "nodeIds": [
+            "gear-lock-facts",
+            "gear-lock-word-problems"
+          ]
+        },
+        {
+          "id": "route-b",
+          "label": "Comet Gate",
+          "promise": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
+          "engagementVariable": "speed (timed sequential comet-run mechanic)",
+          "nodeIds": [
+            "comet-run-facts",
+            "comet-run-word-problems"
+          ]
+        }
+      ]
+    },
+    "activities": [
+      {
+        "id": "gear-lock-facts",
+        "title": "Gearlock Facts Chamber",
+        "routeId": "route-a",
+        "academicTarget": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+        "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+        "engagementVariable": "puzzle",
+        "visualMock": {
+          "scene": "A round stone door segment shows five nested bronze gear rings, each ring engraved with a multiplication problem in its center hub and a ring of loose numbered teeth floating around its rim.",
+          "layout": "Center-screen circular gear mechanism (large), with a horizontal tray of 4 draggable numbered gear-teeth below it; problem text glows in the gear hub; a progress arc of 5 small star-crystals along the top fills as each gear locks.",
+          "artworkPrompt": "Close-up of an ornate bronze steampunk-fantasy gear lock embedded in indigo stone, glowing gold multiplication symbol in its center, loose numbered gear teeth floating nearby with soft light trails, warm lantern glow, whimsical painterly style, no readable extra text."
+        },
+        "experience": {
+          "objective": "Solve all 5 fact problems by dragging the correct numbered gear-tooth into each gear's empty notch to fully lock the chamber door.",
+          "childAction": "Reina drags a floating numbered gear-tooth from the tray and drops it into the glowing notch on the current gear; she can rotate the gear slightly with a swipe to preview alignment before releasing.",
+          "worldReaction": "Correct tooth: the gear clicks into place with a satisfying chunk, spins once, and locks with a golden flash; a star-crystal on the progress arc ignites. Incorrect tooth: the tooth bounces off with a soft clank and gently floats back to the tray, the gear wobbles but does not break.",
+          "anticipation": "As each gear locks, the whole door mechanism hums louder and thin cracks of golden light spread outward, hinting the vault is close to opening.",
+          "progress": "5 star-crystals along the top arc fill one by one; the gear door visibly brightens and the seams between stone panels glow wider with each solved gear.",
+          "recovery": "On an incorrect drop the tooth simply floats back to the tray with a gentle shimmer and a small owl guide character blinks encouragingly and whispers a hint like 'Try counting by 5s' -- no penalty, unlimited retries on the same gear.",
+          "reward": "All 5 gears lock simultaneously, the chamber door swings open in a burst of golden gear-dust and starlight, revealing a shimmering path forward; a chime plays and a 'Gate Cracked!' banner of light sweeps across the screen."
+        },
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "5 x 2 = ?",
+            "options": [
+              {
+                "label": "10",
+                "correct": true
+              },
+              {
+                "label": "7",
+                "correct": false
+              },
+              {
+                "label": "12",
+                "correct": false
+              },
+              {
+                "label": "52",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q2",
+            "prompt": "5 x 5 = ?",
+            "options": [
+              {
+                "label": "20",
+                "correct": false
+              },
+              {
+                "label": "25",
+                "correct": true
+              },
+              {
+                "label": "10",
+                "correct": false
+              },
+              {
+                "label": "55",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q3",
+            "prompt": "5 x 10 = ?",
+            "options": [
+              {
+                "label": "15",
+                "correct": false
+              },
+              {
+                "label": "50",
+                "correct": true
+              },
+              {
+                "label": "500",
+                "correct": false
+              },
+              {
+                "label": "105",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q4",
+            "prompt": "2 x 7 = ?",
+            "options": [
+              {
+                "label": "14",
+                "correct": true
+              },
+              {
+                "label": "9",
+                "correct": false
+              },
+              {
+                "label": "27",
+                "correct": false
+              },
+              {
+                "label": "21",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q5",
+            "prompt": "10 x 4 = ?",
+            "options": [
+              {
+                "label": "14",
+                "correct": false
+              },
+              {
+                "label": "40",
+                "correct": true
+              },
+              {
+                "label": "104",
+                "correct": false
+              },
+              {
+                "label": "400",
+                "correct": false
+              }
+            ]
+          }
+        ],
+        "acceptanceSteps": [
+          "launch gearlock-facts activity and verify gear chamber renders with 5 gears and progress arc at 0",
+          "drag an incorrect gear-tooth onto the first gear notch and verify it bounces back with recovery hint and no progress increment",
+          "drag the correct gear-tooth onto the first gear and verify it locks and progress arc increments",
+          "repeat correct drags for remaining 4 gears verifying each lock and arc increment",
+          "verify final door-open reward state and completion banner are visible"
+        ],
+        "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/gear-lock-facts');\nawait q('gear-chamber').waitFor({state:'visible'});\nconst arcBefore = await q('progress-arc').getAttribute('data-filled');\nif (arcBefore !== '0') throw new Error('Progress arc should start at 0');\n\n// Attempt incorrect drag on gear 1 (5 x 2 = 10): drag wrong tooth '7'\nconst wrongTooth = q('gear-tooth-7');\nconst gear1Notch = q('gear-notch-gear1');\nawait wrongTooth.dispatchEvent('dragstart');\nawait gear1Notch.dispatchEvent('dragenter');\nawait gear1Notch.dispatchEvent('dragover');\nawait gear1Notch.dispatchEvent('drop');\nawait wrongTooth.dispatchEvent('dragend');\nconst recovery = q('recovery-hint-gear1');\nawait recovery.waitFor({state:'visible'});\nconst arcAfterWrong = await q('progress-arc').getAttribute('data-filled');\nif (arcAfterWrong !== '0') throw new Error('Progress should not advance on incorrect drop');\nconst gear1Locked = await q('gear1').getAttribute('data-locked');\nif (gear1Locked === 'true') throw new Error('Gear should not lock on incorrect answer');\n\n// Correct drag for gear 1\nconst rightTooth10 = q('gear-tooth-10');\nawait rightTooth10.dispatchEvent('dragstart');\nawait gear1Notch.dispatchEvent('dragenter');\nawait gear1Notch.dispatchEvent('dragover');\nawait gear1Notch.dispatchEvent('drop');\nawait rightTooth10.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"gear1\"]')?.getAttribute('data-locked') === 'true');\nlet arc = await q('progress-arc').getAttribute('data-filled');\nif (arc !== '1') throw new Error('Progress arc should be 1 after gear1 locked');\n\nconst answers = [\n  {gear:'gear2', tooth:'gear-tooth-25', notch:'gear-notch-gear2'},\n  {gear:'gear3', tooth:'gear-tooth-50', notch:'gear-notch-gear3'},\n  {gear:'gear4', tooth:'gear-tooth-14', notch:'gear-notch-gear4'},\n  {gear:'gear5', tooth:'gear-tooth-40', notch:'gear-notch-gear5'}\n];\nfor (const a of answers) {\n  const tooth = q(a.tooth);\n  const notch = q(a.notch);\n  await tooth.dispatchEvent('dragstart');\n  await notch.dispatchEvent('dragenter');\n  await notch.dispatchEvent('dragover');\n  await notch.dispatchEvent('drop');\n  await tooth.dispatchEvent('dragend');\n  await page.waitForFunction((g) => document.querySelector(`[data-testid=\"${g}\"]`)?.getAttribute('data-locked') === 'true', a.gear);\n}\n\nconst finalArc = await q('progress-arc').getAttribute('data-filled');\nif (finalArc !== '5') throw new Error('All 5 gears should be locked');\nconst doorState = await q('chamber-door').getAttribute('data-open');\nif (doorState !== 'true') throw new Error('Chamber door should be open after all gears locked');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      },
+      {
+        "id": "gear-lock-word-problems",
+        "title": "Gearlock Story Vault",
+        "routeId": "route-a",
+        "academicTarget": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+        "engagementVariable": "puzzle",
+        "visualMock": {
+          "scene": "Two large story-gears sit in a smaller inner vault room; each gear's hub shows a short illustrated scene (pencil boxes, star rows) with an empty answer notch, and a tray of numbered teeth below.",
+          "layout": "Two large gear panels side-by-side, each with an illustrated mini-scene at center (boxes of pencils / rows of stars) and a single answer notch beneath; draggable number teeth in a shared tray at bottom.",
+          "artworkPrompt": "Two ornate bronze story-gears in a glowing indigo stone vault room, one gear showing tiny illustrated pencil boxes arranged in rows, the other showing tiny glowing star rows, warm gold light, whimsical fantasy-steampunk painterly style, no readable extra text."
+        },
+        "experience": {
+          "objective": "Read each story scene, determine the multiplication sentence it represents, and drag the correct total onto the gear's answer notch to unlock the inner vault room.",
+          "childAction": "Reina taps to reveal the illustrated scene animation (boxes filling with pencils, or stars arranging into rows), then drags the correct numbered gear-tooth onto the answer notch.",
+          "worldReaction": "Correct answer: gear locks with a golden flash, the illustrated scene glows and completes itself (all boxes full, all star rows lit). Incorrect answer: tooth clanks back to tray, the scene gently pulses to invite a recount without penalty.",
+          "anticipation": "As the first story-gear locks, a second illustrated gear panel slides into view, hinting a second scene puzzle to unlock the inner treasure alcove.",
+          "progress": "A 2-star mini progress arc above the gears fills as each story-gear locks; the inner vault room visibly brightens.",
+          "recovery": "An owl guide gently re-narrates the scene ('Count the boxes, then count what's inside each one') and the tooth floats back for another try, no time pressure.",
+          "reward": "Both story-gears lock, the inner vault alcove doors slide open revealing a glimmering treasure chest silhouette (locked for now) and a 'Story Solved!' light-burst plays."
+        },
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all?",
+            "options": [
+              {
+                "label": "20",
+                "correct": true
+              },
+              {
+                "label": "9",
+                "correct": false
+              },
+              {
+                "label": "45",
+                "correct": false
+              },
+              {
+                "label": "54",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q2",
+            "prompt": "There are 3 rows of 10 stars. How many stars are there?",
+            "options": [
+              {
+                "label": "13",
+                "correct": false
+              },
+              {
+                "label": "30",
+                "correct": true
+              },
+              {
+                "label": "103",
+                "correct": false
+              },
+              {
+                "label": "33",
+                "correct": false
+              }
+            ]
+          }
+        ],
+        "acceptanceSteps": [
+          "launch gearlock-word-problems and verify two story-gear panels render with progress arc at 0",
+          "drag an incorrect tooth onto the pencil-box gear and verify recovery pulse with no lock",
+          "drag correct answer 20 onto pencil-box gear and verify it locks and progress increments",
+          "drag correct answer 30 onto star-rows gear and verify it locks and progress completes",
+          "verify inner vault alcove opens and completion banner is visible"
+        ],
+        "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/gear-lock-word-problems');\nawait q('story-gear-pencils').waitFor({state:'visible'});\nconst arcStart = await q('story-progress-arc').getAttribute('data-filled');\nif (arcStart !== '0') throw new Error('Story progress should start at 0');\n\nconst wrongTooth = q('gear-tooth-9');\nconst pencilNotch = q('gear-notch-pencils');\nawait wrongTooth.dispatchEvent('dragstart');\nawait pencilNotch.dispatchEvent('dragenter');\nawait pencilNotch.dispatchEvent('dragover');\nawait pencilNotch.dispatchEvent('drop');\nawait wrongTooth.dispatchEvent('dragend');\nawait q('recovery-pulse-pencils').waitFor({state:'visible'});\nconst lockedWrong = await q('story-gear-pencils').getAttribute('data-locked');\nif (lockedWrong === 'true') throw new Error('Pencil gear should not lock on wrong answer');\n\nconst rightTooth20 = q('gear-tooth-20');\nawait rightTooth20.dispatchEvent('dragstart');\nawait pencilNotch.dispatchEvent('dragenter');\nawait pencilNotch.dispatchEvent('dragover');\nawait pencilNotch.dispatchEvent('drop');\nawait rightTooth20.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-gear-pencils\"]')?.getAttribute('data-locked') === 'true');\nlet arc = await q('story-progress-arc').getAttribute('data-filled');\nif (arc !== '1') throw new Error('Progress should be 1 after pencil gear locked');\n\nconst rightTooth30 = q('gear-tooth-30');\nconst starNotch = q('gear-notch-stars');\nawait rightTooth30.dispatchEvent('dragstart');\nawait starNotch.dispatchEvent('dragenter');\nawait starNotch.dispatchEvent('dragover');\nawait starNotch.dispatchEvent('drop');\nawait rightTooth30.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-gear-stars\"]')?.getAttribute('data-locked') === 'true');\n\nconst finalArc = await q('story-progress-arc').getAttribute('data-filled');\nif (finalArc !== '2') throw new Error('Both story gears should be locked');\nconst alcoveOpen = await q('inner-vault-alcove').getAttribute('data-open');\nif (alcoveOpen !== 'true') throw new Error('Inner vault alcove should open after both gears locked');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      },
+      {
+        "id": "comet-run-facts",
+        "title": "Comet Trail Facts Sprint",
+        "routeId": "route-b",
+        "academicTarget": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+        "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+        "engagementVariable": "speed",
+        "visualMock": {
+          "scene": "A horizontal starfield track where a glowing comet flies left to right toward a stone seal on the right edge; three number-orbs drift down from the top, one correct.",
+          "layout": "Wide horizontal comet-trail track spanning the screen, comet on the left animating toward the seal on the right; three tappable number-orbs fall in the mid-zone; a trail-light meter along the bottom shows how many seals are lit.",
+          "artworkPrompt": "A glowing comet with a long sparkling tail streaking across a deep-space starfield toward a glowing stone seal, three softly glowing number orbs falling mid-scene, vibrant blues and golds, dynamic motion-blur, whimsical painterly style, no readable extra text."
+        },
+        "experience": {
+          "objective": "Tap the correct number-orb for each of the 5 fact problems before the comet reaches the seal, lighting all 5 trail segments to complete the sprint.",
+          "childAction": "Reina watches the comet approach and taps the falling orb showing the correct product; she can tap again immediately if she misses, since the comet loops back for another pass.",
+          "worldReaction": "Correct tap: the orb bursts into starlight, the comet's tail brightens and streaks forward, lighting a trail segment. Incorrect tap: the orb fizzles softly and the comet gently slows and loops back for a fresh pass, no crash or loss.",
+          "anticipation": "As trail segments light up, the comet's tail grows longer and more radiant, building visible momentum toward the final seal.",
+          "progress": "A 5-segment trail-light meter along the bottom fills as each correct tap lands; the comet visibly speeds up and glows brighter with each success.",
+          "recovery": "On a miss, the comet visibly eases off (no timer penalty), loops in a gentle arc, and re-presents three fresh orbs including the correct one, with a soft chime cue drawing attention to it.",
+          "reward": "The comet reaches the final seal with a full-lit trail, bursts into a shower of golden sparks across the starfield, and a 'Comet Cracked It!' banner streaks across the screen with a whoosh sound."
+        },
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "5 x 2 = ?",
+            "options": [
+              {
+                "label": "10",
+                "correct": true
+              },
+              {
+                "label": "7",
+                "correct": false
+              },
+              {
+                "label": "12",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q2",
+            "prompt": "5 x 5 = ?",
+            "options": [
+              {
+                "label": "25",
+                "correct": true
+              },
+              {
+                "label": "20",
+                "correct": false
+              },
+              {
+                "label": "10",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q3",
+            "prompt": "5 x 10 = ?",
+            "options": [
+              {
+                "label": "50",
+                "correct": true
+              },
+              {
+                "label": "15",
+                "correct": false
+              },
+              {
+                "label": "500",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q4",
+            "prompt": "2 x 7 = ?",
+            "options": [
+              {
+                "label": "14",
+                "correct": true
+              },
+              {
+                "label": "9",
+                "correct": false
+              },
+              {
+                "label": "21",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q5",
+            "prompt": "10 x 4 = ?",
+            "options": [
+              {
+                "label": "40",
+                "correct": true
+              },
+              {
+                "label": "14",
+                "correct": false
+              },
+              {
+                "label": "104",
+                "correct": false
+              }
+            ]
+          }
+        ],
+        "acceptanceSteps": [
+          "launch comet-run-facts and verify comet track renders with trail meter at 0",
+          "tap an incorrect falling orb for seal 1 and verify comet loops back with no trail advance",
+          "tap the correct orb for seal 1 and verify trail segment lights and comet advances",
+          "repeat correct taps for remaining 4 seals verifying trail fill each time",
+          "verify final comet-reaches-seal reward and completion banner are visible"
+        ],
+        "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/comet-run-facts');\nawait q('comet-track').waitFor({state:'visible'});\nconst trailStart = await q('trail-meter').getAttribute('data-lit');\nif (trailStart !== '0') throw new Error('Trail meter should start at 0');\n\nconst wrongOrb = q('orb-seal1-7');\nawait wrongOrb.dispatchEvent('pointerdown');\nawait wrongOrb.dispatchEvent('pointerup');\nawait q('comet-loop-indicator').waitFor({state:'visible'});\nconst trailAfterWrong = await q('trail-meter').getAttribute('data-lit');\nif (trailAfterWrong !== '0') throw new Error('Trail should not advance on incorrect tap');\n\nconst rightOrb1 = q('orb-seal1-10');\nawait rightOrb1.dispatchEvent('pointerdown');\nawait rightOrb1.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"trail-meter\"]')?.getAttribute('data-lit') === '1');\n\nconst seals = [\n  {orb:'orb-seal2-25'},\n  {orb:'orb-seal3-50'},\n  {orb:'orb-seal4-14'},\n  {orb:'orb-seal5-40'}\n];\nlet i = 2;\nfor (const s of seals) {\n  const orb = q(s.orb);\n  await orb.dispatchEvent('pointerdown');\n  await orb.dispatchEvent('pointerup');\n  const expected = String(i);\n  await page.waitForFunction((exp) => document.querySelector('[data-testid=\"trail-meter\"]')?.getAttribute('data-lit') === exp, expected);\n  i++;\n}\n\nconst finalTrail = await q('trail-meter').getAttribute('data-lit');\nif (finalTrail !== '5') throw new Error('All 5 trail segments should be lit');\nconst cometArrived = await q('comet-track').getAttribute('data-arrived');\nif (cometArrived !== 'true') throw new Error('Comet should have arrived at final seal');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      },
+      {
+        "id": "comet-run-word-problems",
+        "title": "Comet Trail Story Sprint",
+        "routeId": "route-b",
+        "academicTarget": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+        "engagementVariable": "speed",
+        "visualMock": {
+          "scene": "The comet track continues into an inner starfield where two larger story-seals appear one at a time, each showing a brief illustrated scene (pencil boxes filling, star rows lighting up) with three falling total-orbs.",
+          "layout": "Same horizontal comet-track format but with a larger illustrated scene panel above each seal and a 2-segment trail meter; three total-orbs fall per scenario.",
+          "artworkPrompt": "A glowing comet streaking toward a large stone story-seal showing tiny illustrated pencil boxes and star rows glowing in gold, three softly lit number orbs falling nearby, deep-space starfield background, vibrant motion-blur, whimsical painterly style, no readable extra text."
+        },
+        "experience": {
+          "objective": "Read each story scene as the comet approaches and tap the correct total-orb before the comet reaches the story-seal, lighting both trail segments to finish the sprint.",
+          "childAction": "Reina watches the illustrated scene play (boxes filling with pencils, or star rows appearing), then taps the falling orb with the correct total before the comet arrives.",
+          "worldReaction": "Correct tap: orb bursts into light, the scene locks in fully illustrated form, and the comet surges forward lighting a trail segment. Incorrect tap: orb fizzles gently, comet loops back and the scene gently replays for another read.",
+          "anticipation": "After the first story-seal lights, the comet visibly picks up speed heading toward the second, larger story-seal, building momentum toward the treasure alcove beyond.",
+          "progress": "A 2-segment trail meter fills as each story scenario resolves correctly; the comet's glow intensifies with each success.",
+          "recovery": "On a miss, the scene calmly replays its key visual (boxes filling one by one, or star rows counting aloud visually) and three fresh orbs fall, with the correct one gently pulsing.",
+          "reward": "The comet reaches the final story-seal, both trail segments fully lit, and it bursts through into a hidden alcove of swirling starlight revealing a locked treasure silhouette, with a 'Story Sprint Complete!' banner and whoosh."
+        },
+        "questions": [
+          {
+            "id": "q1",
+            "prompt": "Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all?",
+            "options": [
+              {
+                "label": "20",
+                "correct": true
+              },
+              {
+                "label": "9",
+                "correct": false
+              },
+              {
+                "label": "45",
+                "correct": false
+              }
+            ]
+          },
+          {
+            "id": "q2",
+            "prompt": "There are 3 rows of 10 stars. How many stars are there?",
+            "options": [
+              {
+                "label": "30",
+                "correct": true
+              },
+              {
+                "label": "13",
+                "correct": false
+              },
+              {
+                "label": "103",
+                "correct": false
+              }
+            ]
+          }
+        ],
+        "acceptanceSteps": [
+          "launch comet-run-word-problems and verify story-seal track renders with trail meter at 0",
+          "tap an incorrect orb for the pencil-box story seal and verify comet loops back with no trail advance",
+          "tap the correct orb (20) for pencil-box seal and verify trail lights and comet advances",
+          "tap the correct orb (30) for star-rows seal and verify trail completes",
+          "verify comet reaches final story-seal, alcove opens, and completion banner is visible"
+        ],
+        "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/comet-run-word-problems');\nawait q('story-comet-track').waitFor({state:'visible'});\nconst trailStart = await q('story-trail-meter').getAttribute('data-lit');\nif (trailStart !== '0') throw new Error('Story trail meter should start at 0');\n\nconst wrongOrb = q('orb-pencils-9');\nawait wrongOrb.dispatchEvent('pointerdown');\nawait wrongOrb.dispatchEvent('pointerup');\nawait q('comet-loop-indicator').waitFor({state:'visible'});\nconst trailAfterWrong = await q('story-trail-meter').getAttribute('data-lit');\nif (trailAfterWrong !== '0') throw new Error('Trail should not advance on incorrect tap');\n\nconst rightOrbPencils = q('orb-pencils-20');\nawait rightOrbPencils.dispatchEvent('pointerdown');\nawait rightOrbPencils.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-trail-meter\"]')?.getAttribute('data-lit') === '1');\n\nconst rightOrbStars = q('orb-stars-30');\nawait rightOrbStars.dispatchEvent('pointerdown');\nawait rightOrbStars.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-trail-meter\"]')?.getAttribute('data-lit') === '2');\n\nconst finalTrail = await q('story-trail-meter').getAttribute('data-lit');\nif (finalTrail !== '2') throw new Error('Both story trail segments should be lit');\nconst cometArrived = await q('story-comet-track').getAttribute('data-arrived');\nif (cometArrived !== 'true') throw new Error('Comet should have arrived at final story seal');\nconst alcoveOpen = await q('story-alcove').getAttribute('data-open');\nif (alcoveOpen !== 'true') throw new Error('Story alcove should open after both seals lit');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      }
+    ],
+    "quest": {
+      "title": "Quest",
+      "locked": true,
+      "teaser": "Somewhere past the vault, a shimmering star-map hints at a Quest: chaining skip-counting patterns across x2, x5, and x10 to chart a path to a hidden constellation. Locked until the vault gates open.",
+      "artworkPrompt": "A glowing starlit path leading away from the vault into a swirling nebula shaped like a locked treasure map, faint constellation lines forming multiplication symbols, deep purples and golds, mysterious and inviting, painterly fantasy style, no readable text."
+    },
+    "boss": {
+      "title": "Boss",
+      "locked": true,
+      "teaser": "Deep within the final chamber waits the Star Warden, a guardian who tests every fact and every story at once. Its challenge stays sealed until both vault gates have been cracked.",
+      "artworkPrompt": "A massive shadowy guardian made of interlocking gear-rings and comet-light, standing before a colossal sealed door glowing with faint multiplication symbols, dramatic warm backlighting, epic but friendly fantasy style, no readable text."
+    }
+  },
+  "activeSessionPlan": {
+    "planId": "plan-reina-hw-math-6b68e575-r54",
+    "childId": "reina",
+    "createdAt": "2026-07-13T09:49:47.009Z",
+    "source": "ingest_human_loop",
+    "activeHomeworkId": "hw-math-a179d2a0",
+    "domain": "math",
+    "testDate": null,
+    "nodePlan": [
+      {
+        "id": "gear-lock-facts",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q5"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Gearlock Facts Chamber",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+        "contentId": "hw-math-a179d2a0:gear-lock-facts",
+        "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+        "engagementDimensions": [
+          "puzzle"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "gear-lock-word-problems",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Gearlock Story Vault",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+        "contentId": "hw-math-a179d2a0:gear-lock-word-problems",
+        "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+        "engagementDimensions": [
+          "puzzle"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "comet-run-facts",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2",
+          "q3",
+          "q4",
+          "q5"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Comet Trail Facts Sprint",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+        "contentId": "hw-math-a179d2a0:comet-run-facts",
+        "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+        "engagementDimensions": [
+          "speed"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "comet-run-word-problems",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Comet Trail Story Sprint",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+        "contentId": "hw-math-a179d2a0:comet-run-word-problems",
+        "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+        "engagementDimensions": [
+          "speed"
+        ],
+        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "quest",
+        "type": "quest",
+        "activityId": "quest",
+        "targets": [],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "locked": true,
+        "masteryUnlockState": "preparing",
+        "title": "Quest",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg"
+      },
+      {
+        "id": "boss",
+        "type": "boss",
+        "activityId": "boss",
+        "targets": [],
+        "difficulty": 3,
+        "source": "chart_planner",
+        "locked": true,
+        "masteryUnlockState": "preparing",
+        "title": "Boss",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg"
+      }
+    ],
+    "learningRoutes": [
+      {
+        "id": "route-a",
+        "label": "Puzzle Gate",
+        "rationale": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
+        "nodeIds": [
+          "gear-lock-facts",
+          "gear-lock-word-problems",
+          "quest",
+          "boss"
+        ]
+      },
+      {
+        "id": "route-b",
+        "label": "Comet Gate",
+        "rationale": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
+        "nodeIds": [
+          "comet-run-facts",
+          "comet-run-word-problems",
+          "quest",
+          "boss"
+        ]
+      }
+    ],
+    "adventureBoard": {
+      "schemaVersion": 1,
+      "boardId": "direct:hw-math-a179d2a0",
+      "planId": "plan-reina-hw-math-6b68e575-r54",
+      "childId": "reina",
+      "domain": "math",
+      "title": "The Skip-Count Star Vault",
+      "theme": {
+        "background": {
+          "type": "image",
+          "value": "/generated/direct-math/hw-math-a179d2a0-background.jpeg"
+        },
+        "palette": {
+          "path": "#fff4c2",
+          "completed": "#34d399",
+          "available": "#7c3aed",
+          "locked": "#64748b",
+          "current": "#f59e0b",
+          "preview": "#94a3b8",
+          "text": "#ffffff",
+          "panel": "rgba(15,23,42,.82)"
+        }
+      },
+      "layout": {
+        "preset": "horizontal-adventure-spine",
+        "companionSlot": "right",
+        "routeChoiceBehavior": "parallel"
+      },
+      "plannerRationale": {
+        "agencyDesign": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "evidenceDesign": "academic targets (x2, x5, x10 facts + 2 equal-groups word problems); question count (7 total: 5 fluency facts + 2 word problems); difficulty (grade 3, single correct answer per item); evidence contract (completion, accuracy, frustration, liked/disliked signal captured identically)",
+        "layoutChoice": "Two visible choose-your-adventure routes converge on a locked Quest."
+      },
+      "nodes": [
+        {
+          "id": "start",
+          "kind": "start",
+          "label": "Start",
+          "state": "completed",
+          "position": {
+            "x": 0.08,
+            "y": 0.78
+          }
+        },
+        {
+          "id": "choose-path",
+          "kind": "choice-gate",
+          "label": "Which gate should we open first?",
+          "state": "current",
+          "position": {
+            "x": 0.2,
+            "y": 0.58
+          },
+          "action": {
+            "type": "open-choice-set",
+            "payloadId": "direct-route-choice"
+          },
+          "choiceSetId": "direct-route-choice"
+        },
+        {
+          "id": "gear-lock-facts",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Gearlock Facts Chamber",
+          "state": "available",
+          "position": {
+            "x": 0.37,
+            "y": 0.32
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "gear-lock-facts"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+          "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+          "engagementDimensions": [
+            "puzzle"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:gear-lock-facts"
+        },
+        {
+          "id": "gear-lock-word-problems",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Gearlock Story Vault",
+          "state": "available",
+          "position": {
+            "x": 0.49,
+            "y": 0.32
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "gear-lock-word-problems"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+          "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+          "engagementDimensions": [
+            "puzzle"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:gear-lock-word-problems"
+        },
+        {
+          "id": "comet-run-facts",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Comet Trail Facts Sprint",
+          "state": "available",
+          "position": {
+            "x": 0.37,
+            "y": 0.72
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "comet-run-facts"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+          "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:comet-run-facts"
+        },
+        {
+          "id": "comet-run-word-problems",
+          "kind": "activity",
+          "activityId": "generated-baseline",
+          "label": "Comet Trail Story Sprint",
+          "state": "available",
+          "position": {
+            "x": 0.49,
+            "y": 0.72
+          },
+          "action": {
+            "type": "launch-activity",
+            "payloadId": "comet-run-word-problems"
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+          "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "contentId": "hw-math-a179d2a0:comet-run-word-problems"
+        },
+        {
+          "id": "quest",
+          "kind": "quest",
+          "label": "Quest",
+          "state": "locked",
+          "position": {
+            "x": 0.68,
+            "y": 0.48
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-quest.jpeg",
+          "lock": {
+            "reason": "Complete your adventure routes to reveal the Quest.",
+            "label": "Locked"
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "quest"
+          }
+        },
+        {
+          "id": "boss",
+          "kind": "boss",
+          "label": "Boss",
+          "state": "locked",
+          "position": {
+            "x": 0.91,
+            "y": 0.28
+          },
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-boss.jpeg",
+          "lock": {
+            "reason": "Complete the Quest before facing the Boss.",
+            "label": "Locked"
+          },
+          "action": {
+            "type": "show-locked-reason",
+            "payloadId": "boss"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "start-choice",
+          "from": "start",
+          "to": "choose-path",
+          "state": "available"
+        },
+        {
+          "id": "choose-path-gear-lock-facts",
+          "from": "choose-path",
+          "to": "gear-lock-facts",
+          "state": "available"
+        },
+        {
+          "id": "gear-lock-facts-gear-lock-word-problems",
+          "from": "gear-lock-facts",
+          "to": "gear-lock-word-problems",
+          "state": "available"
+        },
+        {
+          "id": "gear-lock-word-problems-quest",
+          "from": "gear-lock-word-problems",
+          "to": "quest",
+          "state": "locked"
+        },
+        {
+          "id": "choose-path-comet-run-facts",
+          "from": "choose-path",
+          "to": "comet-run-facts",
+          "state": "available"
+        },
+        {
+          "id": "comet-run-facts-comet-run-word-problems",
+          "from": "comet-run-facts",
+          "to": "comet-run-word-problems",
+          "state": "available"
+        },
+        {
+          "id": "comet-run-word-problems-quest",
+          "from": "comet-run-word-problems",
+          "to": "quest",
+          "state": "locked"
+        },
+        {
+          "id": "quest-boss",
+          "from": "quest",
+          "to": "boss",
+          "state": "locked"
+        }
+      ],
+      "choiceSets": [
+        {
+          "id": "direct-route-choice",
+          "kind": "baseline-route",
+          "title": "Which gate should we open first?",
+          "options": [
+            {
+              "id": "route-a",
+              "label": "Puzzle Gate",
+              "description": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
+              "state": "available",
+              "nodeId": "gear-lock-facts",
+              "engagementDimensions": [
+                "puzzle (manipulable gear-lock mechanic)"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "puzzle (manipulable gear-lock mechanic)"
+                ],
+                "expectedEvidence": "selection, start, completion, abandonment, replay",
+                "preferenceNotMastery": true
+              }
+            },
+            {
+              "id": "route-b",
+              "label": "Comet Gate",
+              "description": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
+              "state": "available",
+              "nodeId": "comet-run-facts",
+              "engagementDimensions": [
+                "speed (timed sequential comet-run mechanic)"
+              ],
+              "choiceSignal": {
+                "algorithmFeed": "choicePolicy",
+                "traits": [
+                  "speed (timed sequential comet-run mechanic)"
+                ],
+                "expectedEvidence": "selection, start, completion, abandonment, replay",
+                "preferenceNotMastery": true
+              }
+            }
+          ]
+        }
+      ],
+      "companion": {
+        "id": "elli",
+        "name": "Elli"
+      },
+      "progress": {
+        "currentNodeId": "choose-path",
+        "completedNodeIds": [
+          "start"
+        ],
+        "activeChoiceSetId": "direct-route-choice"
+      }
+    },
+    "variationPolicy": {
+      "avoidExactPreviousNodeOrder": true,
+      "avoidExactPreviousWordOrder": true,
+      "seed": "hw-math-a179d2a0",
+      "previousCompletedNodeCount": 0
+    },
+    "companionPolicy": {
+      "companionId": "elli",
+      "displayName": "Elli",
+      "openingLinePolicy": "context_start_short",
+      "verbosity": "low",
+      "maxMicroProbes": 1
+    },
+    "evidenceUsed": [
+      {
+        "id": "planner-evidence-1",
+        "type": "child_chart",
+        "summary": "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)"
+      },
+      {
+        "id": "planner-evidence-2",
+        "type": "child_chart",
+        "summary": "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)"
+      },
+      {
+        "id": "planner-evidence-3",
+        "type": "child_chart",
+        "summary": "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail"
+      },
+      {
+        "id": "planner-evidence-4",
+        "type": "child_chart",
+        "summary": "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence"
+      },
+      {
+        "id": "planner-evidence-5",
+        "type": "child_chart",
+        "summary": "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence"
+      },
+      {
+        "id": "planner-evidence-6",
+        "type": "child_chart",
+        "summary": "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well"
+      },
+      {
+        "id": "planner-evidence-7",
+        "type": "child_chart",
+        "summary": "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
+      }
+    ],
+    "openQuestions": [],
+    "approvalStatus": "approved",
+    "planTheory": {
+      "hypothesis": "Assignment targets two distinct sub-skills bundled under \"multiplication\": (1) automatic recall of x2/x5/x10 facts, and (2) translating equal-groups word problems (boxes of pencils, rows of stars) into multiplication sentences. Both need direct, comparable practice today. Reina's engagement theory (evidenceCount 23+, confidence ~0.73-0.92) shows strong positive weight for puzzle (5.0) and speed (5.0) framing, near-zero/negative for competition, control, calm, and generic quiz shells (generated-baseline: 20% completion, dislike, frustration 0.554). Per Keller's ARCS and the child's own nextExperiment (variable: mechanic, arms unset), this board holds academic targets/question count/difficulty/evidence contract constant across two routes while varying MECHANIC (puzzle-lock manipulation vs. timed-speed run) to test which drives higher completion/engagement without adding competitive pressure or heavy control demands.",
+      "evidenceSummary": [
+        "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)",
+        "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)",
+        "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail",
+        "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence",
+        "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence",
+        "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well",
+        "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
+      ],
+      "intervention": "Deep beneath an old observatory, a vault of frozen starlight has locked away its glittering treasure using ancient multiplication seals. Reina has found two entrances carved into the vault door: a Puzzle Gate of interlocking gears and a Comet Gate that only opens for those who move at comet-speed. Both paths lead to the same starlit treasure room, but only one gate will open first tonight.",
+      "supportCriteria": [
+        "Real child evidence supports transfer."
+      ],
+      "reviseCriteria": [
+        "Real child evidence is mixed."
+      ],
+      "falsifyCriteria": [
+        "Real child evidence contradicts the theory."
+      ]
+    }
+  },
+  "artifacts": [
+    {
+      "childId": "reina",
+      "homeworkId": "hw-math-a179d2a0",
+      "nodeId": "gear-lock-facts",
+      "title": "Gearlock Facts Chamber",
+      "htmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+      "artworkUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
+      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/gear-lock-facts');\nawait q('gear-chamber').waitFor({state:'visible'});\nconst arcBefore = await q('progress-arc').getAttribute('data-filled');\nif (arcBefore !== '0') throw new Error('Progress arc should start at 0');\n\n// Attempt incorrect drag on gear 1 (5 x 2 = 10): drag wrong tooth '7'\nconst wrongTooth = q('gear-tooth-7');\nconst gear1Notch = q('gear-notch-gear1');\nawait wrongTooth.dispatchEvent('dragstart');\nawait gear1Notch.dispatchEvent('dragenter');\nawait gear1Notch.dispatchEvent('dragover');\nawait gear1Notch.dispatchEvent('drop');\nawait wrongTooth.dispatchEvent('dragend');\nconst recovery = q('recovery-hint-gear1');\nawait recovery.waitFor({state:'visible'});\nconst arcAfterWrong = await q('progress-arc').getAttribute('data-filled');\nif (arcAfterWrong !== '0') throw new Error('Progress should not advance on incorrect drop');\nconst gear1Locked = await q('gear1').getAttribute('data-locked');\nif (gear1Locked === 'true') throw new Error('Gear should not lock on incorrect answer');\n\n// Correct drag for gear 1\nconst rightTooth10 = q('gear-tooth-10');\nawait rightTooth10.dispatchEvent('dragstart');\nawait gear1Notch.dispatchEvent('dragenter');\nawait gear1Notch.dispatchEvent('dragover');\nawait gear1Notch.dispatchEvent('drop');\nawait rightTooth10.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"gear1\"]')?.getAttribute('data-locked') === 'true');\nlet arc = await q('progress-arc').getAttribute('data-filled');\nif (arc !== '1') throw new Error('Progress arc should be 1 after gear1 locked');\n\nconst answers = [\n  {gear:'gear2', tooth:'gear-tooth-25', notch:'gear-notch-gear2'},\n  {gear:'gear3', tooth:'gear-tooth-50', notch:'gear-notch-gear3'},\n  {gear:'gear4', tooth:'gear-tooth-14', notch:'gear-notch-gear4'},\n  {gear:'gear5', tooth:'gear-tooth-40', notch:'gear-notch-gear5'}\n];\nfor (const a of answers) {\n  const tooth = q(a.tooth);\n  const notch = q(a.notch);\n  await tooth.dispatchEvent('dragstart');\n  await notch.dispatchEvent('dragenter');\n  await notch.dispatchEvent('dragover');\n  await notch.dispatchEvent('drop');\n  await tooth.dispatchEvent('dragend');\n  await page.waitForFunction((g) => document.querySelector(`[data-testid=\"${g}\"]`)?.getAttribute('data-locked') === 'true', a.gear);\n}\n\nconst finalArc = await q('progress-arc').getAttribute('data-filled');\nif (finalArc !== '5') throw new Error('All 5 gears should be locked');\nconst doorState = await q('chamber-door').getAttribute('data-open');\nif (doorState !== 'true') throw new Error('Chamber door should be open after all gears locked');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+    },
+    {
+      "childId": "reina",
+      "homeworkId": "hw-math-a179d2a0",
+      "nodeId": "gear-lock-word-problems",
+      "title": "Gearlock Story Vault",
+      "htmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+      "artworkUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
+      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/gear-lock-word-problems');\nawait q('story-gear-pencils').waitFor({state:'visible'});\nconst arcStart = await q('story-progress-arc').getAttribute('data-filled');\nif (arcStart !== '0') throw new Error('Story progress should start at 0');\n\nconst wrongTooth = q('gear-tooth-9');\nconst pencilNotch = q('gear-notch-pencils');\nawait wrongTooth.dispatchEvent('dragstart');\nawait pencilNotch.dispatchEvent('dragenter');\nawait pencilNotch.dispatchEvent('dragover');\nawait pencilNotch.dispatchEvent('drop');\nawait wrongTooth.dispatchEvent('dragend');\nawait q('recovery-pulse-pencils').waitFor({state:'visible'});\nconst lockedWrong = await q('story-gear-pencils').getAttribute('data-locked');\nif (lockedWrong === 'true') throw new Error('Pencil gear should not lock on wrong answer');\n\nconst rightTooth20 = q('gear-tooth-20');\nawait rightTooth20.dispatchEvent('dragstart');\nawait pencilNotch.dispatchEvent('dragenter');\nawait pencilNotch.dispatchEvent('dragover');\nawait pencilNotch.dispatchEvent('drop');\nawait rightTooth20.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-gear-pencils\"]')?.getAttribute('data-locked') === 'true');\nlet arc = await q('story-progress-arc').getAttribute('data-filled');\nif (arc !== '1') throw new Error('Progress should be 1 after pencil gear locked');\n\nconst rightTooth30 = q('gear-tooth-30');\nconst starNotch = q('gear-notch-stars');\nawait rightTooth30.dispatchEvent('dragstart');\nawait starNotch.dispatchEvent('dragenter');\nawait starNotch.dispatchEvent('dragover');\nawait starNotch.dispatchEvent('drop');\nawait rightTooth30.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-gear-stars\"]')?.getAttribute('data-locked') === 'true');\n\nconst finalArc = await q('story-progress-arc').getAttribute('data-filled');\nif (finalArc !== '2') throw new Error('Both story gears should be locked');\nconst alcoveOpen = await q('inner-vault-alcove').getAttribute('data-open');\nif (alcoveOpen !== 'true') throw new Error('Inner vault alcove should open after both gears locked');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+    },
+    {
+      "childId": "reina",
+      "homeworkId": "hw-math-a179d2a0",
+      "nodeId": "comet-run-facts",
+      "title": "Comet Trail Facts Sprint",
+      "htmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+      "artworkUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
+      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/comet-run-facts');\nawait q('comet-track').waitFor({state:'visible'});\nconst trailStart = await q('trail-meter').getAttribute('data-lit');\nif (trailStart !== '0') throw new Error('Trail meter should start at 0');\n\nconst wrongOrb = q('orb-seal1-7');\nawait wrongOrb.dispatchEvent('pointerdown');\nawait wrongOrb.dispatchEvent('pointerup');\nawait q('comet-loop-indicator').waitFor({state:'visible'});\nconst trailAfterWrong = await q('trail-meter').getAttribute('data-lit');\nif (trailAfterWrong !== '0') throw new Error('Trail should not advance on incorrect tap');\n\nconst rightOrb1 = q('orb-seal1-10');\nawait rightOrb1.dispatchEvent('pointerdown');\nawait rightOrb1.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"trail-meter\"]')?.getAttribute('data-lit') === '1');\n\nconst seals = [\n  {orb:'orb-seal2-25'},\n  {orb:'orb-seal3-50'},\n  {orb:'orb-seal4-14'},\n  {orb:'orb-seal5-40'}\n];\nlet i = 2;\nfor (const s of seals) {\n  const orb = q(s.orb);\n  await orb.dispatchEvent('pointerdown');\n  await orb.dispatchEvent('pointerup');\n  const expected = String(i);\n  await page.waitForFunction((exp) => document.querySelector('[data-testid=\"trail-meter\"]')?.getAttribute('data-lit') === exp, expected);\n  i++;\n}\n\nconst finalTrail = await q('trail-meter').getAttribute('data-lit');\nif (finalTrail !== '5') throw new Error('All 5 trail segments should be lit');\nconst cometArrived = await q('comet-track').getAttribute('data-arrived');\nif (cometArrived !== 'true') throw new Error('Comet should have arrived at final seal');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+    },
+    {
+      "childId": "reina",
+      "homeworkId": "hw-math-a179d2a0",
+      "nodeId": "comet-run-word-problems",
+      "title": "Comet Trail Story Sprint",
+      "htmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+      "artworkUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
+      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/comet-run-word-problems');\nawait q('story-comet-track').waitFor({state:'visible'});\nconst trailStart = await q('story-trail-meter').getAttribute('data-lit');\nif (trailStart !== '0') throw new Error('Story trail meter should start at 0');\n\nconst wrongOrb = q('orb-pencils-9');\nawait wrongOrb.dispatchEvent('pointerdown');\nawait wrongOrb.dispatchEvent('pointerup');\nawait q('comet-loop-indicator').waitFor({state:'visible'});\nconst trailAfterWrong = await q('story-trail-meter').getAttribute('data-lit');\nif (trailAfterWrong !== '0') throw new Error('Trail should not advance on incorrect tap');\n\nconst rightOrbPencils = q('orb-pencils-20');\nawait rightOrbPencils.dispatchEvent('pointerdown');\nawait rightOrbPencils.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-trail-meter\"]')?.getAttribute('data-lit') === '1');\n\nconst rightOrbStars = q('orb-stars-30');\nawait rightOrbStars.dispatchEvent('pointerdown');\nawait rightOrbStars.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-trail-meter\"]')?.getAttribute('data-lit') === '2');\n\nconst finalTrail = await q('story-trail-meter').getAttribute('data-lit');\nif (finalTrail !== '2') throw new Error('Both story trail segments should be lit');\nconst cometArrived = await q('story-comet-track').getAttribute('data-arrived');\nif (cometArrived !== 'true') throw new Error('Comet should have arrived at final story seal');\nconst alcoveOpen = await q('story-alcove').getAttribute('data-open');\nif (alcoveOpen !== 'true') throw new Error('Story alcove should open after both seals lit');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+    }
+  ],
+  "playwrightReport": {
+    "passed": true,
+    "failures": [],
+    "screenshots": [
+      "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png",
+      "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png",
+      "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png",
+      "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+    ]
+  }
+}

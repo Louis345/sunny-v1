@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Shade Fourths thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <circle cx="120" cy="72" r="46" fill="#eff6ff" stroke="#1e3a8a" stroke-width="4"/>
+  <path d="M120 26A46 46 0 0 1 166 72L120 72Z" fill="#f59e0b"/>
+  <path d="M120 26v92M74 72h92" stroke="#1e3a8a" stroke-width="4"/>
+  <text x="120" y="148" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#fef08a">1/4</text>
+</svg>

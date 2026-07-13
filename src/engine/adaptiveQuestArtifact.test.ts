@@ -223,6 +223,7 @@ describe("adaptive quest artifact", () => {
     });
     expect(catalogItem).toMatchObject<Partial<AIContentCatalogItem>>({
       contentId: artifact.contentId,
+      theoryDecisionId: theory.theoryId,
       homeworkId: "hw-1",
       childId: "reina",
       type: "game",

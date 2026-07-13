@@ -150,6 +150,8 @@ export interface AdventureBoardNode {
   shortLabel?: string;
   icon?: string;
   thumbnailUrl?: string;
+  /** Grok/designer prompt for on-demand per-node illustrations. */
+  thumbnailPrompt?: string;
   slot?: AdventureBoardSlot;
   position?: {
     x: number;
@@ -180,6 +182,14 @@ export interface AdventureBoardNode {
     type: AdventureBoardActionType;
     payloadId: string;
   };
+  theoryId?: string;
+  experimentId?: string;
+  contentId?: string;
+  engagementDimensions?: string[];
+  engagementHypothesis?: string;
+  mechanic?: string;
+  sfxProfile?: string;
+  companionPolicy?: string;
 }
 
 export interface AdventureBoardEdge {
@@ -212,8 +222,20 @@ export interface AdventureChoiceOption {
   thumbnailUrl?: string;
   state: "available" | "locked" | "completed";
   nodeId?: string;
+  activityId?: string;
+  gameHtmlPath?: string;
+  activityConfigPath?: string;
   tags?: string[];
   choiceSignal?: AdventureChoiceSignal;
+  theoryId?: string;
+  experimentId?: string;
+  contentId?: string;
+  engagementDimensions?: string[];
+  engagementHypothesis?: string;
+  mechanic?: string;
+  theme?: string;
+  sfxProfile?: string;
+  companionPolicy?: string;
   lock?: {
     reason: string;
     label: string;

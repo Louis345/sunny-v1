@@ -3,6 +3,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import type { WebSocket } from "ws";
 import {
+  ELLI,
   getCompanionConfig,
   type ChildName,
   type CompanionConfig,
@@ -31,6 +32,8 @@ import {
   childIdFromName,
 } from "../engine/learningEngine";
 import { computeProgression } from "../engine/progression";
+import { writePostSessionTruthPacket } from "../engine/postSessionTruthPacket";
+import { persistLearningTheoryDecision } from "../engine/learningTheoryDecision";
 import { finalizeClockSession } from "../engine/clockTracker";
 import {
   applyWordRadarResultToWordBank,
@@ -763,7 +766,13 @@ export class SessionManager {
     this.sessionTtsLabel = getTtsNameForSessionChild(childName);
     this.options = options;
     this.chartChildId = normalizeSessionChartChildId(childName, options?.chartChildId);
-    this.companion = getCompanionConfig(childName);
+    const requestedCompanion = process.env.SUNNY_COMPANION_ID?.trim().toLowerCase();
+    this.companion = requestedCompanion === "elli"
+      ? { ...ELLI, childName }
+      : getCompanionConfig(childName);
+    if (requestedCompanion === "elli") {
+      console.log(`  🎮 [companion] acceptance override child=${childName} companion=Elli`);
+    }
     this.debugRecorder = createProcessSessionDebugRecorder({
       sessionId: this.sessionId,
       childName,
@@ -1325,6 +1334,17 @@ export class SessionManager {
         sessionNotesWritten: shouldPersistSessionData(),
         rewardsWritten: shouldPersistSessionData(),
       });
+      if (
+        shouldPersistSessionData() &&
+        this.debugRecorder.enabled !== false &&
+        this.debugRecorder.sessionDir
+      ) {
+        const truth = writePostSessionTruthPacket(this.debugRecorder.sessionDir);
+        const decision = persistLearningTheoryDecision(this.chartChildId, truth);
+        console.log(
+          `  🎮 [learning-loop] [session-finalize] status=${decision?.status ?? "not_a_learning_session"}`,
+        );
+      }
       this.send("session_ended", {
         summary: `Session ended. ${this.conversationHistory.length} turns.`,
         duration_ms: Date.now() - this.sessionStartTime,

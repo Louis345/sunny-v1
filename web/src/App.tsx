@@ -11,6 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
+import { postCanonicalNodeCompletion } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
@@ -532,6 +533,10 @@ function App() {
     adventureMapEnabled &&
     runtimeConfig.subject === "homework" &&
     Boolean(adventureChildId);
+  // Homework is a board product surface. Keep the legacy voice canvas for
+  // other subjects, but never let homework silently fall through to it.
+  const homeworkBoardMode =
+    runtimeConfig.subject === "homework" && Boolean(adventureChildId);
 
   useEffect(() => {
     if (!adventureMapEnabled || !adventureChildId) {
@@ -596,10 +601,9 @@ function App() {
 
   const lastSessionCompleteTsRef = useRef<number | null>(null);
 
-  const mapReady =
-    !adventureChildId ||
-    !plannerBoardRuntimeRequested ||
-    plannerBoardRuntimeActive;
+  const mapReady = homeworkBoardMode
+    ? Boolean(plannerBoardPacket)
+    : !adventureChildId || !plannerBoardRuntimeRequested || plannerBoardRuntimeActive;
   const voiceReady =
     !adventureChildId ||
     !theaterLoadingEnabled ||
@@ -1126,13 +1130,42 @@ function App() {
         nodeType: launch.node.type,
         eventType: data.type,
       });
-      showPlannerBoardEngagementOverlay(launch.node, payload);
+      const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+      if (!adventureChildId || !homeworkId) {
+        console.error(" 🎮 [AdventureBoard] canonical_completion_failed missing child or homework identity");
+        setPostActivityEngagement({
+          node: launch.node,
+          outcome: { completed: false },
+          title: "Progress could not be saved",
+          stats: [],
+          canTryHarder: false,
+        });
+        return;
+      }
+      void postCanonicalNodeCompletion({
+        childId: adventureChildId,
+        homeworkId,
+        nodeId: launch.node.id,
+        result: payload,
+      }).then(() => {
+        showPlannerBoardEngagementOverlay(launch.node, payload);
+      }).catch((error: unknown) => {
+        console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
+        setPostActivityEngagement({
+          node: launch.node,
+          outcome: { completed: false },
+          title: "Progress could not be saved",
+          stats: [],
+          canTryHarder: false,
+        });
+      });
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [
     adventureChildId,
     plannerBoardLaunch,
+    plannerBoardPacket,
     showPlannerBoardEngagementOverlay,
   ]);
 
@@ -1331,7 +1364,7 @@ function App() {
 
   let main: ReactNode = null;
 
-  if (plannerBoardRuntimeRequested && adventureChildId) {
+  if (homeworkBoardMode) {
     if (plannerBoardPacket) {
       main = (
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">

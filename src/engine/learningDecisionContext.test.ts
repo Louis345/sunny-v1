@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFreshSM2Track } from "../context/schemas/wordBank";
-import type { AIContentCatalogItem } from "../context/schemas/learningProfile";
+import type { AIContentCatalogItem, LearningProfile } from "../context/schemas/learningProfile";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import {
   appendChildActivityEvidence,
@@ -35,7 +35,7 @@ function readJson<T>(root: string, rel: string): T {
   return JSON.parse(fs.readFileSync(path.join(root, rel), "utf8")) as T;
 }
 
-function baseProfile(childId: string) {
+function baseProfile(childId: string): LearningProfile {
   const profile = initializeLearningProfile({
     childId,
     age: 8,
@@ -86,6 +86,7 @@ function catalogItem(
 ): AIContentCatalogItem {
   return {
     contentId: "story-erosion-1",
+    theoryDecisionId: "theory:homework:hw-reading-erosion:ingest",
     homeworkId: "hw-reading-erosion",
     childId: "reina",
     type: "story",
@@ -244,6 +245,30 @@ describe("LearningDecisionContext", () => {
     ]);
   });
 
+  it("tolerates learning profiles missing sessionStats (demo child ingest path)", () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "demo-pashley";
+    const profile = baseProfile(childId);
+    delete (profile as { sessionStats?: unknown }).sessionStats;
+    writeJson(root, `src/context/${childId}/learning_profile.json`, profile);
+    writeJson(root, `src/context/${childId}/word_bank.json`, {
+      childId,
+      version: 1,
+      lastUpdated: "2026-07-10T00:00:00.000Z",
+      words: [],
+    });
+
+    const context = buildLearningDecisionContext(childId, {
+      rootDir: root,
+      now: new Date("2026-07-10T12:00:00.000Z"),
+    });
+
+    expect(context.diagnostics.questThreshold.totalSessions).toBe(0);
+    expect(context.diagnostics.questThreshold.unlocked).toBe(false);
+    expect(context.diagnostics.questThreshold.reason).toBe("needs_more_sessions");
+  });
+
   it("uses measured attention model instead of treating demographics.attentionSpan as static truth", () => {
     const root = makeRoot();
     roots.push(root);
@@ -346,7 +371,28 @@ describe("LearningDecisionContext", () => {
     const root = makeRoot();
     roots.push(root);
     const childId = "reina";
-    writeJson(root, `src/context/${childId}/learning_profile.json`, baseProfile(childId));
+    const seededProfile = baseProfile(childId);
+    seededProfile.aiContentCatalog = [catalogItem()];
+    seededProfile.learningTheoryDecisions = [{
+      theoryDecisionId: "theory:plan-math-1",
+      theoryId: "theory:plan-math-1",
+      theoryVersion: 1,
+      childId,
+      planId: "plan-math-1",
+      domain: "math",
+      sessionDir: "/tmp/session-math-1",
+      hypothesis: "Practice may improve transfer.",
+      intervention: "Targeted retrieval practice.",
+      evidenceIds: ["session:session-math-1"],
+      contentIds: ["story-erosion-1"],
+      academicEvidenceSummary: ["practice improved"],
+      companionObservations: [],
+      status: "awaiting_calibration",
+      reason: "Math transfer needs graded evidence.",
+      nextAction: "Upload graded work.",
+      createdAt: "2026-05-06T15:00:00.000Z",
+    }];
+    writeJson(root, `src/context/${childId}/learning_profile.json`, seededProfile);
     writeJson(root, `src/context/${childId}/homework/cycles/hw-reading-erosion.json`, {
       homeworkId: "hw-reading-erosion",
       subject: "reading",
@@ -392,11 +438,18 @@ describe("LearningDecisionContext", () => {
     expect(entry.predictedPattern).toBe("spelling:vowel_omission");
     expect(entry.observedMisses[0]?.target).toBe("blister");
 
-    const profile = readJson<{ learningCalibrationJournal?: Array<{ status: string }> }>(
+    const profile = readJson<{
+      learningCalibrationJournal?: Array<{ status: string }>;
+      learningTheoryDecisions?: Array<{ status: string; calibrationId?: string }>;
+    }>(
       root,
       `src/context/${childId}/learning_profile.json`,
     );
     expect(profile.learningCalibrationJournal?.[0]?.status).toBe("supported");
+    expect(profile.learningTheoryDecisions?.[0]).toMatchObject({
+      status: "supported",
+      calibrationId: entry.calibrationId,
+    });
 
     const cycle = readJson<{ calibrationJournal?: Array<{ status: string }> }>(
       root,
@@ -410,6 +463,14 @@ describe("LearningDecisionContext", () => {
     expect(validateContentCatalogItem(invalid)).toEqual({
       ok: false,
       error: "content_missing_algorithm_targets",
+    });
+  });
+
+  it("rejects generated content that is not linked to an originating theory decision", () => {
+    const invalid = catalogItem({ theoryDecisionId: undefined });
+    expect(validateContentCatalogItem(invalid)).toEqual({
+      ok: false,
+      error: "generated_content_missing_theory_decision",
     });
   });
 

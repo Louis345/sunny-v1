@@ -5,6 +5,7 @@ import type {
   ScaffoldLevel,
 } from "../algorithms/types";
 import { recordAttempt } from "../engine/learningEngine";
+import { recordFactAttempt } from "../engine/factBankRecorder";
 import { appendAttemptLine } from "../utils/attempts";
 
 const DOMAINS: ReadonlySet<string> = new Set([
@@ -117,6 +118,7 @@ export function normalizeLearningAttemptEvent(
 export function recordLearningAttempt(
   raw: RawLearningAttemptEvent,
   fallbackChildId?: string,
+  opts?: { rootDir?: string },
 ): RecordedLearningAttempt {
   const recorded = normalizeLearningAttemptEvent(raw, fallbackChildId);
   if (recorded.attemptId && !rememberAttemptId(recorded.attemptId)) {
@@ -125,7 +127,21 @@ export function recordLearningAttempt(
     );
     return { ...recorded, skipped: true };
   }
-  recordAttempt(recorded.childId, recorded.attempt);
+  if (recorded.attempt.domain === "math" || recorded.attempt.domain === "clocks") {
+    recordFactAttempt(
+      {
+        childId: recorded.childId,
+        prompt: recorded.attempt.word,
+        answer: recorded.attempt.attemptedValue ?? recorded.attempt.word,
+        correct: recorded.attempt.correct,
+        quality: recorded.attempt.quality,
+        domain: "math",
+      },
+      { rootDir: opts?.rootDir },
+    );
+  } else {
+    recordAttempt(recorded.childId, recorded.attempt);
+  }
   appendAttemptLine(recorded.childId, {
     word: recorded.attempt.word,
     domain: recorded.attempt.domain,

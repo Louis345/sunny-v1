@@ -18,6 +18,9 @@ import {
   planAssignmentFromSourceWithTelemetry,
   parseAssignmentPlannerToolUseResponse,
   normalizeAssignmentNodeType,
+  normalizeLearningRoutesForPlan,
+  classifyMathConceptCluster,
+  enrichMathPlannerDraft,
   parseAssignmentPlannerJson,
   resolveAssignmentPlannerModel,
   summarizeAssignmentPlanForReview,
@@ -354,7 +357,78 @@ function plannerDraftWithAdventureBoard(adventureBoard: unknown): unknown {
 
 describe("assignment planner", () => {
   it("defaults to the current available Sonnet planner model", () => {
-    expect(resolveAssignmentPlannerModel({}, {})).toBe("claude-sonnet-4-6");
+    expect(resolveAssignmentPlannerModel({}, {})).toBe("claude-sonnet-5");
+    expect(resolveAssignmentPlannerModel({}, {
+      SUNNY_EXPERIENCE_PLANNER_MODEL: "claude-legacy",
+    })).toBe("claude-legacy");
+    expect(resolveAssignmentPlannerModel({}, {
+      SUNNY_INGEST_MODEL: "claude-sonnet-5",
+    })).toBe("claude-sonnet-5");
+  });
+
+  it("keeps a multiplication plan on generated math instruments", () => {
+    const result = enrichMathPlannerDraft({
+      draft: {
+        nodePlan: [
+          { id: "facts", type: "vault-cracker", activityId: "vault-cracker", targets: ["5x2"] },
+          { id: "transfer", type: "clock-game", activityId: "clock-game", targets: ["5x2"] },
+          { id: "mystery", type: "mystery", activityId: "mystery", targets: ["5x2"] },
+          { id: "quest", type: "quest", activityId: "quest", targets: ["5x2"] },
+          { id: "boss", type: "boss", activityId: "boss", targets: [] },
+        ],
+        learningRoutes: [],
+      } as never,
+      wordGroups: [{
+        id: "multiplication",
+        label: "Multiplication",
+        purpose: "unknown",
+        words: ["5x2"],
+        confidence: 1,
+        evidence: ["worksheet"],
+      }],
+    });
+
+    expect(result.nodePlan
+      .filter((node) => !["mystery", "quest", "boss"].includes(node.activityId))
+      .every((node) => node.activityId === "generated-baseline"))
+      .toBe(true);
+    expect(result.learningRoutes.map((route) => route.label)).toEqual([
+      "Speed Facts Sprint",
+      "Story Problems Path",
+    ]);
+  });
+
+  it("collapses a superficially valid multiplication spine into exactly two comparable experiment arms", () => {
+    const worksheet = "Fluency: 5 x 2 = __ 5 x 5 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all?";
+    const result = enrichMathPlannerDraft({
+      draft: {
+        nodePlan: [
+          { id: "facts", type: "generated-baseline", activityId: "generated-baseline", targets: ["5x2"] },
+          { id: "timed", type: "generated-baseline", activityId: "generated-baseline", targets: ["5x2"] },
+          { id: "stories", type: "generated-baseline", activityId: "generated-baseline", targets: ["pencils-word-problem"] },
+          { id: "review", type: "generated-baseline", activityId: "generated-baseline", targets: ["5x5"] },
+          { id: "transfer", type: "generated-baseline", activityId: "generated-baseline", targets: ["pencils-word-problem"] },
+          { id: "mystery", type: "mystery", activityId: "mystery", targets: ["5x2"] },
+          { id: "quest", type: "quest", activityId: "quest", targets: ["5x2"] },
+          { id: "boss", type: "boss", activityId: "boss", targets: [] },
+        ],
+        learningRoutes: [],
+      } as never,
+      wordGroups: [{
+        id: "multiplication",
+        label: "Multiplication",
+        purpose: "unknown",
+        words: [worksheet],
+        confidence: 1,
+        evidence: ["worksheet"],
+      }],
+    });
+
+    const arms = result.nodePlan.filter((node) => !["mystery", "quest", "boss"].includes(node.activityId));
+    expect(arms).toHaveLength(2);
+    expect(arms.every((node) => node.activityId === "generated-baseline")).toBe(true);
+    expect(arms[0]?.targets).toEqual(arms[1]?.targets);
+    expect(arms[0]?.difficulty).toBe(arms[1]?.difficulty);
   });
 
   it("parses the first planner JSON object even when the model adds trailing text", () => {
@@ -578,7 +652,7 @@ describe("assignment planner", () => {
     expect(JSON.stringify(packet)).not.toContain("rewardWrapper");
     expect(packet.activityCatalog.some((card) => card.activityId === "word-builder")).toBe(true);
     expect(packet.activityCatalog.some((card) => card.activityId === "wordle")).toBe(true);
-    expect(packet.activityCatalog.length).toBeLessThanOrEqual(15);
+    expect(packet.activityCatalog.length).toBeLessThanOrEqual(16);
     expect(packet.activityCatalog.every((card) => card.sentToPlanner)).toBe(true);
     expect(Buffer.byteLength(JSON.stringify(packet))).toBeLessThan(30_000);
     expect(JSON.stringify(packet.activityCatalog)).not.toContain("goodFitWhen");
@@ -864,8 +938,10 @@ describe("assignment planner", () => {
     const schemaText = JSON.stringify(assignmentPlannerToolJsonSchema());
     const packetText = JSON.stringify(packet);
 
-    expect(prompt.length + schemaText.length).toBeLessThan(36_000);
-    expect(packet.activityCatalog.length).toBeLessThanOrEqual(15);
+    // Budget raised 39k -> 40.5k when generationRequests + per-node rounds
+    // entered the planner contract (new curriculum authority, not prose bloat).
+    expect(prompt.length + schemaText.length).toBeLessThan(40_500);
+    expect(packet.activityCatalog.length).toBeLessThanOrEqual(16);
     expect(schemaText.length).toBeLessThan(9_000);
     expect(packetText).not.toContain("\"boardTemplate\"");
     expect(prompt).not.toContain("Use packet.boardPlanning.boardTemplate.palette exactly");
@@ -1086,7 +1162,7 @@ describe("assignment planner", () => {
       }),
       expect.objectContaining({
         label: "Speed Challenge",
-        nodeId: "mystery-choice",
+        nodeId: "baseline-radar",
         choiceSignal: expect.objectContaining({
           preferenceNotMastery: true,
           traits: expect.arrayContaining(["speed"]),
@@ -1183,6 +1259,14 @@ describe("assignment planner", () => {
       { text: "building", sourceGroupId: "high_frequency_words", purpose: "spell_from_memory" },
       { text: "circle", sourceGroupId: "high_frequency_words", purpose: "spell_from_memory" },
     ];
+    (capturedContent as { homeworkWords?: Array<{ text: string; wordGroupId: string; purpose: string }> }).homeworkWords = [
+      { text: "sign", wordGroupId: "silent_letters", purpose: "spell_from_memory" },
+      { text: "know", wordGroupId: "silent_letters", purpose: "spell_from_memory" },
+      { text: "write", wordGroupId: "silent_letters", purpose: "spell_from_memory" },
+      { text: "among", wordGroupId: "high_frequency_words", purpose: "spell_from_memory" },
+      { text: "building", wordGroupId: "high_frequency_words", purpose: "spell_from_memory" },
+      { text: "circle", wordGroupId: "high_frequency_words", purpose: "spell_from_memory" },
+    ];
     const draft = parseAssignmentPlannerJson(JSON.stringify({
       ...plannerDraft,
       activeSessionPlan: {
@@ -1238,6 +1322,8 @@ describe("assignment planner", () => {
       extraction: extraction(),
       childChart: chart(),
     });
+    packet.capturedHomework.words = [];
+    packet.capturedHomework.wordGroups = capturedContent.wordGroups as never;
     const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet);
 
     const board = parsed.activeSessionPlan.adventureBoard!;
@@ -1340,6 +1426,137 @@ describe("assignment planner", () => {
     } as never);
 
     expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("word-radar");
+  });
+
+  it("unwraps a model that serializes the complete plan inside activeSessionPlan", () => {
+    const draft = plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>;
+    const embedded = JSON.stringify({
+      activeSessionPlan: draft.activeSessionPlan,
+      plannedMeasurements: draft.plannedMeasurements,
+      planTheory: draft.planTheory,
+      reviewQuestions: draft.reviewQuestions,
+    });
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{
+        type: "tool_use",
+        id: "toolu_1",
+        name: ASSIGNMENT_PLANNER_TOOL_NAME,
+        input: { ...draft, activeSessionPlan: embedded },
+      }],
+    } as never);
+
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("word-radar");
+    expect(parsed.plannedMeasurements.length).toBeGreaterThan(0);
+  });
+
+  it("normalizes a serialized plan theory before deriving review questions", () => {
+    const input = plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>;
+    input.planTheory = JSON.stringify({
+      hypothesis: "Test multiplication retrieval.",
+      evidenceSummary: "Captured worksheet",
+      intervention: "Use a short fact round.",
+      supportCriteria: "Four correct answers",
+      reviseCriteria: "Two misses",
+      falsifyCriteria: "No usable response",
+    });
+    delete input.reviewQuestions;
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{
+        type: "tool_use",
+        id: "toolu_1",
+        name: ASSIGNMENT_PLANNER_TOOL_NAME,
+        input,
+      }],
+    } as never);
+
+    expect(parsed.planTheory.supportCriteria).toEqual(["Four correct answers"]);
+    expect(parsed.reviewQuestions).toContain("Four correct answers");
+  });
+
+  it("unwraps a double-encoded active session plan from the provider", () => {
+    const draft = plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>;
+    const embedded = JSON.stringify(JSON.stringify({
+      activeSessionPlan: draft.activeSessionPlan,
+      plannedMeasurements: draft.plannedMeasurements,
+      planTheory: draft.planTheory,
+      reviewQuestions: draft.reviewQuestions,
+    }));
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{
+        type: "tool_use",
+        id: "toolu_1",
+        name: ASSIGNMENT_PLANNER_TOOL_NAME,
+        input: { ...draft, activeSessionPlan: embedded },
+      }],
+    } as never);
+
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("word-radar");
+  });
+
+  it("repairs the provider's extra wrapper brace before plannedMeasurements", () => {
+    const draft = plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>;
+    const embedded = JSON.stringify({
+      planId: "provider-wrapper",
+      activeSessionPlan: draft.activeSessionPlan,
+      generationRequests: [],
+      generatedExperienceBriefs: [],
+      plannedMeasurements: draft.plannedMeasurements,
+      planTheory: draft.planTheory,
+      reviewQuestions: draft.reviewQuestions,
+    }, null, 2).replace(',\n  "plannedMeasurements"', '\n  },\n  "plannedMeasurements"');
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{ type: "tool_use", id: "toolu_1", name: ASSIGNMENT_PLANNER_TOOL_NAME, input: { activeSessionPlan: embedded } }],
+    } as never);
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("word-radar");
+    expect(parsed.plannedMeasurements.length).toBeGreaterThan(0);
+  });
+
+  it("repairs a flattened active plan string with an extra brace before measurements", () => {
+    const draft = plannerDraftWithAdventureBoard(undefined) as Record<string, any>;
+    const flattened = JSON.stringify({
+      ...draft.activeSessionPlan,
+      plannedMeasurements: draft.plannedMeasurements,
+      planTheory: draft.planTheory,
+      reviewQuestions: draft.reviewQuestions,
+    }).replace(',"plannedMeasurements"', '},"plannedMeasurements"');
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{ type: "tool_use", id: "toolu_1", name: ASSIGNMENT_PLANNER_TOOL_NAME, input: { activeSessionPlan: flattened } }],
+    } as never);
+
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("word-radar");
+    expect(parsed.plannedMeasurements.length).toBeGreaterThan(0);
+  });
+
+  it("caps verbose provider review questions at the planner contract limit", () => {
+    const input = plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>;
+    input.reviewQuestions = Array.from({ length: 12 }, (_, index) => `review-${index}`);
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{
+        type: "tool_use",
+        id: "toolu_1",
+        name: ASSIGNMENT_PLANNER_TOOL_NAME,
+        input,
+      }],
+    } as never);
+
+    expect(parsed.reviewQuestions).toHaveLength(8);
+  });
+
+  it("synthesizes a recoverable math node when the provider omits nodePlan", () => {
+    const input = plannerDraftWithAdventureBoard(undefined) as Record<string, unknown>;
+    const active = input.activeSessionPlan as Record<string, unknown>;
+    delete active.nodePlan;
+    const parsed = parseAssignmentPlannerToolUseResponse({
+      content: [{
+        type: "tool_use",
+        id: "toolu_1",
+        name: ASSIGNMENT_PLANNER_TOOL_NAME,
+        input,
+      }],
+    } as never);
+
+    expect(parsed.activeSessionPlan.nodePlan.length).toBeGreaterThan(0);
+    expect(parsed.activeSessionPlan.nodePlan[0]?.activityId).toBe("generated-baseline");
   });
 
   it("derives a compact plan theory when the tool output omits only that summary", () => {
@@ -1959,5 +2176,256 @@ describe("assignment planner", () => {
 
     expect(review.match(/Reina needs spelling production for silent letters/g)).toHaveLength(1);
     expect(review.match(/High-frequency words are being used to check fluent reading/g)).toHaveLength(1);
+  });
+});
+
+describe("normalizeLearningRoutesForPlan", () => {
+  const nodePlan = [
+    { id: "node-a", activityId: "generated-baseline", type: "generated-baseline" },
+    { id: "node-b", activityId: "generated-baseline", type: "generated-baseline" },
+    { id: "node-mystery", activityId: "mystery", type: "mystery" },
+    { id: "node-quest", activityId: "quest", type: "quest" },
+  ];
+
+  it("drops routes whose non-destination node sets are identical and reports why", () => {
+    const out = normalizeLearningRoutesForPlan(
+      [
+        { id: "route-1", nodeIds: ["node-a", "node-mystery", "node-quest"] },
+        { id: "route-2", nodeIds: ["node-a", "node-quest"] },
+      ],
+      nodePlan,
+    );
+    expect(out.routes).toEqual([]);
+    expect(out.warnings[0]).toContain("learning_routes_dropped_identical_node_sets");
+  });
+
+  it("keeps routes with route-exclusive nodes", () => {
+    const routes = [
+      { id: "route-1", nodeIds: ["node-a", "node-quest"] },
+      { id: "route-2", nodeIds: ["node-b", "node-quest"] },
+    ];
+    const out = normalizeLearningRoutesForPlan(routes, nodePlan);
+    expect(out.routes).toEqual(routes);
+    expect(out.warnings).toEqual([]);
+  });
+});
+
+describe("classifyMathConceptCluster", () => {
+  it("classifies worksheet lines into concept clusters", () => {
+    expect(classifyMathConceptCluster("What time is shown on the clock? 2:30")).toBe("time_telling");
+    expect(classifyMathConceptCluster("Sara has 2 quarters and 3 dimes. How much money?")).toBe("money_reasoning");
+    expect(classifyMathConceptCluster("5 x 2 = __")).toBe("multiplication");
+    expect(classifyMathConceptCluster("Which is larger: 1/3 or 1/4?")).toBe("fractions");
+    expect(classifyMathConceptCluster("Draw a picture of your family")).toBeNull();
+  });
+});
+
+describe("enrichMathPlannerDraft", () => {
+  const fractionWordGroups = [
+    {
+      id: "fractions",
+      label: "Fractions",
+      purpose: "unknown" as const,
+      confidence: 0.9,
+      evidence: ["Fraction worksheet lines"],
+      words: [
+        "Shade 1/3 of the shape",
+        "Shade 1/4 of the shape",
+        "Which is larger: 1/3 or 1/4?",
+      ],
+    },
+  ];
+
+  it("rebuilds a thin math spine with per-concept lanes and route-exclusive nodes", () => {
+    const brokenDraft = {
+      nodePlan: [
+        { id: "node-q1", type: "quest" as const, activityId: "quest" as const, targets: ["1/3"], difficulty: 1 as const, locked: false, masteryUnlockState: "preparing" as const },
+        { id: "node-q2", type: "quest" as const, activityId: "quest" as const, targets: ["1/4"], difficulty: 1 as const, locked: false, masteryUnlockState: "preparing" as const },
+        { id: "node-mystery", type: "mystery" as const, activityId: "mystery" as const, targets: ["1/3"], difficulty: 1 as const, locked: false, masteryUnlockState: "preparing" as const },
+        { id: "node-quest", type: "quest" as const, activityId: "quest" as const, targets: ["1/3"], difficulty: 2 as const, locked: true, masteryUnlockState: "preparing" as const },
+        { id: "node-boss", type: "boss" as const, activityId: "boss" as const, targets: [], difficulty: 3 as const, locked: true, masteryUnlockState: "preparing" as const },
+      ],
+      learningRoutes: [
+        { id: "route-a", label: "A", rationale: "a", nodeIds: ["node-q1", "node-quest", "node-boss"] },
+        { id: "route-b", label: "B", rationale: "b", nodeIds: ["node-q1", "node-quest", "node-boss"] },
+      ],
+    };
+
+    const enriched = enrichMathPlannerDraft({ draft: brokenDraft, wordGroups: fractionWordGroups });
+    const teaching = enriched.nodePlan.filter((node) => !["mystery", "quest", "boss"].includes(node.activityId));
+
+    expect(teaching.length).toBeGreaterThanOrEqual(3);
+    expect(enriched.learningRoutes?.length).toBe(2);
+    const routeAExclusive = enriched.learningRoutes![0]!.nodeIds.find((id) => id.startsWith("node-route-a-"));
+    const routeBExclusive = enriched.learningRoutes![1]!.nodeIds.find((id) => id.startsWith("node-route-b-"));
+    expect(routeAExclusive).toBeTruthy();
+    expect(routeBExclusive).toBeTruthy();
+    expect(routeAExclusive).not.toBe(routeBExclusive);
+  });
+
+  it("preserves a valid multi-lane math spine without rebuilding", () => {
+    const validDraft = {
+      nodePlan: [
+        { id: "node-a", type: "generated-baseline" as const, activityId: "generated-baseline" as const, targets: ["1/3"], targetLane: "fraction_shade_thirds", difficulty: 1 as const, locked: false, masteryUnlockState: "preparing" as const },
+        { id: "node-b", type: "generated-baseline" as const, activityId: "generated-baseline" as const, targets: ["1/4"], targetLane: "fraction_shade_fourths", difficulty: 1 as const, locked: false, masteryUnlockState: "preparing" as const },
+        { id: "node-c", type: "concept-check" as const, activityId: "concept-check" as const, targets: ["compare"], targetLane: "fraction_compare", difficulty: 1 as const, locked: false, masteryUnlockState: "preparing" as const },
+        { id: "node-mystery", type: "mystery" as const, activityId: "mystery" as const, targets: ["1/3"], difficulty: 1 as const, locked: false, masteryUnlockState: "preparing" as const },
+        { id: "node-quest", type: "quest" as const, activityId: "quest" as const, targets: ["1/3"], difficulty: 2 as const, locked: true, masteryUnlockState: "preparing" as const },
+        { id: "node-boss", type: "boss" as const, activityId: "boss" as const, targets: [], difficulty: 3 as const, locked: true, masteryUnlockState: "preparing" as const },
+      ],
+      learningRoutes: [] as Array<{ id: string; label: string; rationale: string; nodeIds: string[] }>,
+    };
+
+    const enriched = enrichMathPlannerDraft({ draft: validDraft, wordGroups: fractionWordGroups });
+    expect(enriched.nodePlan).toEqual(validDraft.nodePlan);
+  });
+
+  it("splits one captured multiplication worksheet blob into fact and story lanes", () => {
+    const raw = "Fluency: 5 x 2 = __ 5 x 5 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?";
+    const enriched = enrichMathPlannerDraft({
+      draft: { nodePlan: [{ id: "bad", type: "clock-game", activityId: "clock-game", targets: [raw] }], learningRoutes: [] } as never,
+      wordGroups: [{ id: "multiplication", label: "Multiplication", purpose: "unknown", confidence: 1, evidence: [raw], words: [raw] }],
+    });
+    const teaching = enriched.nodePlan.filter((node) => node.activityId === "generated-baseline");
+    expect(teaching).toHaveLength(2);
+    expect(teaching[0]?.targets).toEqual(teaching[1]?.targets);
+    expect(teaching[0]?.difficulty).toBe(teaching[1]?.difficulty);
+    expect(teaching.some((node) => node.targetLane === "multiplication_fluency" && node.targets.includes("5x2"))).toBe(true);
+    expect(teaching.some((node) => node.targetLane === "multiplication_word_problems" && node.targets.some((target) => target.includes("pencils")))).toBe(true);
+    expect(teaching.every((node) => node.targets.every((target) => target.length < raw.length))).toBe(true);
+  });
+});
+
+describe("generation requests and planner rounds", () => {
+  function packet() {
+    return buildAssignmentPlanningPacket({
+      childId: "reina",
+      extraction: extraction(),
+      childChart: chart(),
+    });
+  }
+
+  function draftWithGeneratedNode(overrides: {
+    generationRequests?: unknown;
+    nodeExtras?: Record<string, unknown>;
+    extraNodes?: unknown[];
+  } = {}): ReturnType<typeof parseAssignmentPlannerJson> {
+    const base = plannerDraftWithAdventureBoard(undefined) as Record<string, any>;
+    return parseAssignmentPlannerJson(JSON.stringify({
+      ...base,
+      ...(overrides.generationRequests !== undefined
+        ? { generationRequests: overrides.generationRequests }
+        : {}),
+      activeSessionPlan: {
+        ...base.activeSessionPlan,
+        nodePlan: [
+          {
+            id: "node-generated",
+            type: "generated-baseline",
+            activityId: "generated-baseline",
+            targets: ["sign"],
+            difficulty: 1,
+            targetLane: "silent_letters",
+            ...(overrides.nodeExtras ?? {}),
+          },
+          ...(overrides.extraNodes ?? []),
+          ...adventureSpineNodes(),
+        ],
+      },
+    }));
+  }
+
+  it("parses planner rounds and generationRequests and carries them through hydrate", () => {
+    const rounds = [{
+      id: "r1",
+      prompt: "Spell the word for a written signal",
+      options: [
+        { id: "a", label: "sign", correct: true },
+        { id: "b", label: "sine", correct: false },
+      ],
+    }];
+    const draft = draftWithGeneratedNode({
+      generationRequests: [{
+        id: "genreq-1",
+        skillTarget: "silent_letters",
+        targetLane: "silent_letters",
+        domain: "spelling",
+        mechanicConstraints: "letter-drop catch game",
+        reason: "no launchable instrument for this lane",
+      }],
+      nodeExtras: { rounds },
+    });
+
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
+
+    expect(parsed.generationRequests).toHaveLength(1);
+    expect(parsed.generationRequests?.[0]).toMatchObject({ id: "genreq-1", targetLane: "silent_letters" });
+    const node = parsed.activeSessionPlan.nodePlan.find((entry) => entry.id === "node-generated");
+    expect(node?.rounds).toHaveLength(1);
+    expect(node?.rounds?.[0]).toMatchObject({ id: "r1" });
+  });
+
+  it("synthesizes a generation request for an orphan generated-baseline node", () => {
+    const draft = draftWithGeneratedNode();
+
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
+
+    expect(parsed.generationRequests).toHaveLength(1);
+    expect(parsed.generationRequests?.[0]).toMatchObject({
+      id: "genreq-node-generated",
+      targetLane: "silent_letters",
+    });
+  });
+
+  it("drops generation requests when no generated-baseline node exists", () => {
+    const base = plannerDraftWithAdventureBoard(undefined) as Record<string, any>;
+    const draft = parseAssignmentPlannerJson(JSON.stringify({
+      ...base,
+      generationRequests: [{
+        id: "genreq-stale",
+        skillTarget: "anything",
+        domain: "spelling",
+        mechanicConstraints: "any",
+        reason: "stale",
+      }],
+    }));
+
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
+
+    expect(parsed.generationRequests).toEqual([]);
+  });
+
+  it("demotes an earlier quest-typed route node so only the final quest stays a destination", () => {
+    const draft = draftWithGeneratedNode({
+      extraNodes: [{
+        id: "route-quest-prep",
+        type: "quest",
+        activityId: "quest",
+        targets: ["sign"],
+        difficulty: 2,
+        targetLane: "silent_letters",
+        locked: false,
+      }],
+    });
+
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
+    const questNodes = parsed.activeSessionPlan.nodePlan.filter((entry) => entry.activityId === "quest");
+    const demoted = parsed.activeSessionPlan.nodePlan.find((entry) => entry.id === "route-quest-prep");
+
+    expect(questNodes.map((entry) => entry.id)).toEqual(["quest-transfer"]);
+    expect(demoted?.activityId).toBe("generated-baseline");
+    expect(demoted?.locked).toBe(false);
+    expect(parsed.activeSessionPlan.openQuestions.join(" ")).toContain("planner_duplicate_destination_demoted");
+  });
+
+  it("keeps old drafts without generationRequests or rounds valid", () => {
+    const draft = parseAssignmentPlannerJson(
+      JSON.stringify(plannerDraftWithAdventureBoard(undefined)),
+    );
+
+    const parsed = hydrateAssignmentPlannerOutputFromDraft(draft, packet());
+
+    expect(parsed.generationRequests).toEqual([]);
+    expect(parsed.activeSessionPlan.nodePlan[0]?.rounds).toBeUndefined();
   });
 });

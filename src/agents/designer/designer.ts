@@ -116,6 +116,8 @@ const NODE_THUMBNAIL_PROMPTS: Record<NodeType, string> = {
   quest:
     "Treasure chest bursting open with gold stars and letters, adventure game icon, cartoon style",
   boss: "A golden trophy with stars exploding around it, triumphant, cartoon style",
+  "generated-baseline":
+    "A glowing reusable game shell icon with config gears and playful stars, child-friendly cartoon",
   "wheel-of-fortune": "Colorful carnival wheel spinning in space, gold coins flying, arcade-cute cartoon style",
 };
 

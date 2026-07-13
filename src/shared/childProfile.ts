@@ -116,6 +116,7 @@ export interface ChildProfile {
   dyslexiaMode?: boolean;
   companionColor?: string;
   dueWords?: string[];
+  dueFacts?: Array<{ factId: string; prompt: string; answer: string }>;
   sm2Stats?: Record<
     string,
     {

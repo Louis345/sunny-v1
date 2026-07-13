@@ -5,6 +5,7 @@ import type { LanguageModelUsage } from "ai";
 import { z } from "zod";
 import type {
   ActiveSessionPlan,
+  EngagementTheory,
   GeneratedExperienceBrief,
   LearningRoutePrescription,
   PlanTheory,
@@ -34,6 +35,7 @@ import {
   type ContentProfile,
   type HomeworkTargetPurpose,
   type HomeworkType,
+  type HomeworkWordGroup,
 } from "../scripts/contentAwareHomeworkPlanner";
 import {
   type AssignmentSourceExtraction,
@@ -99,6 +101,7 @@ export type AssignmentPlanningChildChartSummary = {
   carePlanSummary?: string | null;
   recentEvidence: string[];
   learningSignals?: AssignmentPlanningChildLearningSignals;
+  engagementTheory?: Pick<EngagementTheory, "theoryId" | "hypothesis" | "preferredDimensions" | "avoidedDimensions" | "promptDirectives" | "nextExperiment"> | null;
 };
 
 export type AssignmentPlanningChildLearningSignals = {
@@ -195,6 +198,8 @@ export type AssignmentPlannerOutput = {
   plannedMeasurements: PlannedMeasurement[];
   planTheory: PlanTheory;
   reviewQuestions: string[];
+  /** Planner-declared instrument gaps; always set by hydrate, optional for legacy fixtures. */
+  generationRequests?: PlannerGenerationRequest[];
   generatedExperienceBriefs?: GeneratedExperienceBrief[];
 };
 
@@ -341,7 +346,9 @@ export const ASSIGNMENT_PLANNER_PERSONA = [
   "Treat homework as the reality anchor.",
   "Use the child chart and activity catalog to choose a concise evidence-based learning plan.",
 ].join(" ");
-const ASSIGNMENT_PLANNER_MAX_TOKENS = 6_000;
+// Per-node rounds + generationRequests add ~1.5-2k output tokens on math plans;
+// 8k keeps the single tool call from truncating mid-plan.
+const ASSIGNMENT_PLANNER_MAX_TOKENS = 16_000;
 
 export const ASSIGNMENT_PLANNER_REFERENCE_DOCS: AssignmentPlannerReferenceDoc[] = [
   {
@@ -576,6 +583,16 @@ const compactTargetsSchema = z.preprocess((value) => {
     .filter(Boolean);
 }, z.array(z.string().min(1)));
 
+const baselineRoundSchema = z.object({
+  id: z.string().min(1),
+  prompt: z.string().min(1),
+  options: z.array(z.object({
+    id: z.string().min(1),
+    label: z.string().min(1),
+    correct: z.boolean(),
+  })).min(2).max(3),
+});
+
 const compactNodePlanSchema = z.object({
   id: z.string().min(1),
   type: z.enum(PLANNER_NODE_ACTIVITY_IDS),
@@ -590,7 +607,22 @@ const compactNodePlanSchema = z.object({
     (value) => value === null ? undefined : value,
     wordRadarNodeConfigSchema.optional(),
   ),
+  rounds: z.preprocess(
+    (value) => value === null ? undefined : value,
+    z.array(baselineRoundSchema).max(6).optional(),
+  ),
 });
+
+const generationRequestSchema = z.object({
+  id: z.string().min(1),
+  skillTarget: z.string().min(1),
+  targetLane: z.preprocess((value) => value === null ? undefined : value, z.string().optional()),
+  domain: z.string().min(1),
+  mechanicConstraints: z.string().min(1),
+  reason: z.string().min(1),
+});
+
+export type PlannerGenerationRequest = z.infer<typeof generationRequestSchema>;
 
 const learningRouteSchema: z.ZodType<LearningRoutePrescription> = z.object({
   id: z.string().min(1),
@@ -601,7 +633,7 @@ const learningRouteSchema: z.ZodType<LearningRoutePrescription> = z.object({
 
 const compactActiveSessionPlanSchema = z.object({
   planId: z.string().min(1).optional(),
-  nodePlan: z.array(compactNodePlanSchema).min(1).max(9),
+  nodePlan: z.array(compactNodePlanSchema).min(1).max(12),
   learningRoutes: z.array(learningRouteSchema).min(2).max(3).default([]),
   evidenceUsed: z.array(z.object({
     id: z.string().min(1),
@@ -631,6 +663,10 @@ export const assignmentPlannerDraftSchema = z.object({
   plannedMeasurements: z.array(plannedMeasurementSchema).max(12),
   planTheory: planTheorySchema,
   reviewQuestions: z.array(z.string().min(1)).max(8),
+  generationRequests: z.preprocess(
+    (value) => value === null ? undefined : value,
+    z.array(generationRequestSchema).max(6).default([]),
+  ),
   generatedExperienceBriefs: z.array(z.object({
     kind: z.enum(["quest", "boss", "visual-explainer"]),
     title: z.string().min(1),
@@ -640,7 +676,13 @@ export const assignmentPlannerDraftSchema = z.object({
   })).max(3).optional(),
 }).passthrough();
 
-function realChildAllowedActivityIds(childId: string): Set<string> | null {
+function realChildAllowedActivityIds(
+  childId: string,
+  extraction?: AssignmentSourceExtraction,
+): Set<string> | null {
+  if (childId.trim().toLowerCase() === "demo-pashley" || inferPlannerCatalogDomain(extraction) === "math") {
+    return null;
+  }
   try {
     return new Set(
       certifySpellingAdaptation({ rootDir: process.cwd(), childId }).games
@@ -653,23 +695,29 @@ function realChildAllowedActivityIds(childId: string): Set<string> | null {
 }
 
 function inferPlannerCatalogDomain(extraction?: AssignmentSourceExtraction): LearningDomain {
-  const text = [
+  const contentText = [
     extraction?.filename,
-    extraction?.sourcePath,
     extraction?.fullText,
     ...(extraction?.pages ?? []).map((page) => page.text),
   ].filter(Boolean).join("\n").toLowerCase();
+  const domainFromContent = classifyPlannerCatalogDomainFromText(contentText);
+  if (domainFromContent) return domainFromContent;
+  const pathText = (extraction?.sourcePath ?? "").toLowerCase();
+  return classifyPlannerCatalogDomainFromText(pathText) ?? "reading";
+}
+
+function classifyPlannerCatalogDomainFromText(text: string): LearningDomain | null {
   if (/(^|[^a-z])(spelling|spell|word list|silent letters?|high-frequency)([^a-z]|$)/.test(text)) return "spelling";
-  if (/(^|[^a-z])(clock|coin|math|add|subtract|multiply|divide|fraction)([^a-z]|$)/.test(text)) return "math";
+  if (/(^|[^a-z])(clock|coin|math|add|subtract|multiply|divide|fractions?)([^a-z]|$)/.test(text)) return "math";
   if (/(^|[^a-z])(read|reading|fluency|passage|comprehension)([^a-z]|$)/.test(text)) return "reading";
-  return "reading";
+  return null;
 }
 
 function activityCatalog(
   childId = "demo_adaptive",
   extraction?: AssignmentSourceExtraction,
 ): AssignmentActivityCard[] {
-  const allowed = realChildAllowedActivityIds(childId);
+  const allowed = realChildAllowedActivityIds(childId, extraction);
   const domain = inferPlannerCatalogDomain(extraction);
   return listActivityToolContracts()
     .filter((contract) =>
@@ -821,6 +869,16 @@ function childChartSummaryForPacket(
     carePlanSummary: summarizeCarePlan(chart),
     recentEvidence,
     learningSignals: childLearningSignalsForPacket(chart),
+    engagementTheory: chart.engagementTheory
+      ? {
+          theoryId: chart.engagementTheory.theoryId,
+          hypothesis: chart.engagementTheory.hypothesis,
+          preferredDimensions: chart.engagementTheory.preferredDimensions,
+          avoidedDimensions: chart.engagementTheory.avoidedDimensions,
+          promptDirectives: chart.engagementTheory.promptDirectives,
+          nextExperiment: chart.engagementTheory.nextExperiment,
+        }
+      : null,
   };
 }
 
@@ -984,33 +1042,124 @@ function spellingGroupsFromSourceText(extraction: AssignmentSourceExtraction): A
   ];
 }
 
+const MATH_CONCEPT_CLUSTERS: Array<{ id: string; label: string; keywords: RegExp }> = [
+  { id: "time_telling", label: "Telling Time", keywords: /\b(time|clock|hour|minute|o'clock)\b/i },
+  { id: "money_reasoning", label: "Money", keywords: /\b(money|cent|cents|dollar|quarter|nickel|dime|penny|coins?|change)\b/i },
+  { id: "multiplication", label: "Multiplication", keywords: /\b(multiply|multiplication|times|product|equal groups|rows? of)\b|\d\s*[x×]\s*\d/i },
+  { id: "fractions", label: "Fractions", keywords: /\b(fraction|numerator|denominator|half|halves|third|thirds|fourth|fourths|\d\/\d)\b|\d\/\d/i },
+  { id: "addition_subtraction", label: "Addition and Subtraction", keywords: /\b(add|addition|sum|plus|subtract|subtraction|difference|minus)\b|\d\s*[+\-]\s*\d/i },
+];
+
+export function classifyMathConceptCluster(text: string): string | null {
+  const cluster = MATH_CONCEPT_CLUSTERS.find((candidate) => candidate.keywords.test(text));
+  return cluster?.id ?? null;
+}
+
+function mathGroupsFromSourceText(extraction: AssignmentSourceExtraction): HomeworkWordGroup[] {
+  const text = extraction.fullText.trim();
+  if (!text) return [];
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const problems = lines
+    .filter((line) =>
+      /^\d+\./.test(line) ||
+      /(time|money|clock|quarter|dime|cent|multiply|multiplication|fraction|÷|\+|\-|×|x\s*\d|\d\s*x\s*\d|=)/i.test(line),
+    )
+    .slice(0, 16);
+  if (problems.length === 0) return [];
+
+  const clustered = new Map<string, string[]>();
+  const leftovers: string[] = [];
+  for (const problem of problems) {
+    const cluster = MATH_CONCEPT_CLUSTERS.find((candidate) => candidate.keywords.test(problem));
+    if (cluster) {
+      clustered.set(cluster.id, [...(clustered.get(cluster.id) ?? []), problem]);
+    } else {
+      leftovers.push(problem);
+    }
+  }
+
+  const groups: HomeworkWordGroup[] = [];
+  for (const cluster of MATH_CONCEPT_CLUSTERS) {
+    const words = clustered.get(cluster.id);
+    if (!words?.length) continue;
+    groups.push({
+      id: cluster.id,
+      label: cluster.label,
+      purpose: "unknown",
+      words,
+      confidence: 0.75,
+      evidence: [`Clustered math worksheet lines by ${cluster.label.toLowerCase()} keywords.`],
+    });
+  }
+  if (leftovers.length > 0 || groups.length === 0) {
+    groups.push({
+      id: slugForSourceHeading("Math Problems", "math-problems").replace(/-/g, "_"),
+      label: "Math Problems",
+      purpose: "unknown",
+      words: leftovers.length > 0 ? leftovers : problems,
+      confidence: 0.7,
+      evidence: ["Parsed math worksheet lines from assignment source text."],
+    });
+  }
+  return groups;
+}
+
 function capturedHomeworkFromSource(extraction: AssignmentSourceExtraction): AssignmentPlanningCapturedHomework {
   const spellingGroups = isSpellingTestExtraction(extraction)
     ? spellingGroupsFromSourceText(extraction)
     : [];
-  const words = spellingGroups.flatMap((group) => group.words);
+  const mathGroups = spellingGroups.length === 0 ? mathGroupsFromSourceText(extraction) : [];
+  const sourceGroups = spellingGroups.length > 0 ? spellingGroups : mathGroups;
+  const words = sourceGroups.flatMap((group) => group.words);
+  const isMath = mathGroups.length > 0;
   const title = isSpellingTestExtraction(extraction)
     ? "Benchmark Advance Spelling Unit 9 Week 3"
-    : extraction.filename;
+    : isMath
+      ? extraction.filename.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim() || extraction.filename
+      : extraction.filename;
   const captured = buildCapturedHomeworkContent({
     title,
-    type: isSpellingTestExtraction(extraction) ? "spelling_test" : "generic",
+    type: isSpellingTestExtraction(extraction) ? "spelling_test" : isMath ? "math" : "generic",
     rawText: extraction.fullText,
     words,
-    questions: [],
-    wordGroups: spellingGroups,
+    questions: isMath
+      ? words.map((question, index) => ({
+          id: index + 1,
+          question,
+          type: "multiple_choice" as const,
+          options: null,
+          correctAnswer: null,
+          hint: "",
+        }))
+      : [],
+    wordGroups: sourceGroups,
     sourceDocuments: [{ filename: extraction.filename, mediaType: extraction.mediaType }],
     contentProfile: {
-      practiceDomain: isSpellingTestExtraction(extraction) ? "spelling" : "generic",
-      contentDomain: "language_arts",
-      topic: isSpellingTestExtraction(extraction) ? "Silent letters and high-frequency words" : extraction.filename,
-      primarySkill: isSpellingTestExtraction(extraction) ? "Spell words from memory" : "content_understanding",
+      practiceDomain: isSpellingTestExtraction(extraction) ? "spelling" : isMath ? "math" : "generic",
+      contentDomain: isSpellingTestExtraction(extraction) ? "language_arts" : isMath ? "math" : "language_arts",
+      topic: isSpellingTestExtraction(extraction)
+        ? "Silent letters and high-frequency words"
+        : isMath
+          ? title
+          : extraction.filename,
+      primarySkill: isSpellingTestExtraction(extraction)
+        ? "Spell words from memory"
+        : isMath
+          ? "Solve math problems"
+          : "content_understanding",
       assignmentFormat: isSpellingTestExtraction(extraction)
         ? "Spelling test word list"
-        : "worksheet",
+        : isMath
+          ? "Math worksheet"
+          : "worksheet",
       concepts: isSpellingTestExtraction(extraction)
         ? ["silent letter patterns", "high-frequency word spelling"]
-        : [],
+        : isMath
+          ? ["math fluency", "math problem solving"]
+          : [],
       sourceEvidence: [
         extraction.filename,
         ...extraction.warnings,
@@ -1076,8 +1225,8 @@ export function buildAssignmentPlanningPacket(args: {
       "When evidence conflicts, probe contradictory targets first and explain the uncertainty.",
       "High-frequency groups whose purpose is recognize or read_fluently should usually be measured by visible_read or pronunciation, not spelling production, unless source or evidence explicitly says spelling is the gap.",
       "If a child needs shorter cohorts, shorten target lists and vary instruments by purpose instead of repeating many same-activity nodes.",
-      "Keep the returned plan compact.",
-      "Design two named learning routes when the catalog has enough launchable instruments; each route should feel like a real child choice and test a distinct route hypothesis.",
+      "Size the spine to the captured concepts and the child chart: every distinct source group (concept lane) gets at least one measurement node, and a group containing clearly distinct sub-skills may split into multiple nodes on the same lane with different target subsets.",
+      "Design two named learning routes when the catalog has enough launchable instruments; each route should feel like a real child choice and test a distinct route hypothesis, and each route must contain at least one nodePlan node exclusive to that route.",
       "Each learning route needs a child-specific rationale, target groups, nodeIds, and activities that measure the route hypothesis.",
       "Each activity must be chosen because its measured skills fit that declared purpose.",
       "Always include reviewQuestions with concise tutor-facing explanations for the activity choices and evidence checks.",
@@ -1150,7 +1299,9 @@ export function validateAssignmentPlannerOutput(
     }
     const nodeTargetKeys = new Set(node.targets.map((target) => target.trim().toLowerCase()).filter(Boolean));
     const declaredLaneGroup = node.targetLane ? groups.find((group) => group.id === node.targetLane) : undefined;
-    if (declaredLaneGroup) {
+    // Math targets are problem statements, not captured lane words, so the
+    // out-of-lane check only applies to word-driven domains.
+    if (declaredLaneGroup && output.capturedContent.contentProfile.practiceDomain !== "math") {
       const laneTargets = new Set(declaredLaneGroup.words.map((word) => word.trim().toLowerCase()).filter(Boolean));
       const outOfLaneTargets = [...nodeTargetKeys].filter((target) => !laneTargets.has(target));
       if (outOfLaneTargets.length > 0) {
@@ -1206,9 +1357,9 @@ export function summarizeAssignmentPlanForReview(output: AssignmentPlannerOutput
 
 export function resolveAssignmentPlannerModel(
   opts: AssignmentPlanningOptions = {},
-  env: Partial<Pick<NodeJS.ProcessEnv, "SUNNY_EXPERIENCE_PLANNER_MODEL">> = process.env,
+  env: Partial<Pick<NodeJS.ProcessEnv, "SUNNY_EXPERIENCE_PLANNER_MODEL" | "SUNNY_INGEST_MODEL">> = process.env,
 ): string {
-  return opts.model ?? env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? "claude-sonnet-4-6";
+  return opts.model ?? env.SUNNY_EXPERIENCE_PLANNER_MODEL ?? env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
 }
 
 function imageMediaType(filePath: string): "image/png" | "image/jpeg" | "image/webp" | null {
@@ -1257,13 +1408,16 @@ Output contract:
 - Do not use an activity just because it is fun or nearby; use the activity catalog as the instrument list.
 - If parentDialogue is present in the packet, this is human-in-the-loop context. Use it to revise the plan without overriding captured source evidence.
 - Choose nodePlan directly. Do not merely explain a prebuilt board.
-- Keep the tool output compact: no prose outside fields, no repeated rationales, no more nodes than the adventure spine needs.
-- Create activeSessionPlan.learningRoutes with two named learning routes when the activity catalog has enough launchable instruments. Each route must include a route hypothesis, child-specific rationale, and nodeIds that refer to real nodePlan entries.
+- Keep the tool output compact: no prose outside fields, no repeated rationales. Compact means no filler, not fewer teaching nodes: size the spine to the captured concepts and the child chart. Every distinct source group (concept lane) gets at least one measurement node. A single group containing clearly distinct sub-skills (for example shading unit fractions vs comparing fraction magnitude) should split into multiple nodes on the same targetLane with different target subsets.
+- nodePlan is capped at 12 entries including mystery, quest, and boss; if the spine would exceed it, drop route nodes before dropping baseline coverage of any sub-skill.
+- Create activeSessionPlan.learningRoutes with two named learning routes when the activity catalog has enough launchable instruments. Each route must include a route hypothesis, child-specific rationale, and nodeIds that refer to real nodePlan entries. Each route must contain at least one non-destination node exclusive to that route; two routes listing identical nodeIds are cosmetic and will be dropped by code. When only one instrument type is launchable, make routes distinct by giving each route its own node with a different target subset, difficulty, or capability mode.
 - Every activeSessionPlan.nodePlan entry must have exactly one corresponding plannedMeasurements entry with id "measure-\${node.id}". That measurement must state what would support, revise, or falsify the planner's theory for that exact node.
 - Treat childChart.adventureMapProfile as delivery preference and layout intent. It is not today's board.
 - Code owns board ids, edges, locks, choice gates, and payload ids. You own the learning journey, route names, route hypotheses, target groups, and why those routes fit the child.
 - Use packet.activityCatalog as the instrument list. Unavailable activities are visible for context but must not appear as launchable academic board nodes.
 - Use activityCatalog evidence fields as the instrument truth table; do not treat all modes of one activity as equivalent.
+- When no launchable instrument serves a sub-skill, emit a generationRequests entry (targetLane = the generated-baseline node's lane) with mechanicConstraints distinct from every other request.
+- Give each generated-baseline node rounds from the captured worksheet problems: id, prompt, 2-3 options, exactly one correct; extend fact families, do not invent unrelated problems.
 - Use packet.masteryContext as the clock, deadline, and proof plan. The goal is demonstrated homework mastery by testDate, not merely completing a cute board.
 - If one node mixes targets from multiple source groups, omit targetLane or split the node. Never claim targetLane "silent_letters" for a node containing high-frequency targets.
 - Every word-radar node must include wordRadarConfig from the activity catalog capability modes. recallMode allows only visible_read, partial_visual_recall, hidden_word_recall. Never emit audio_cued_letter_recall as recallMode; cite capability ids only in rationale. If you choose the catalog's audio_cued_letter_recall capability mode, emit recallMode partial_visual_recall with audio-cued config values. Use partial_visual_recall for new/weak spelling construction, hidden_word_recall only with prior recall evidence, and visible_read for recognition/fluency. Omit wordRadarConfig on non-word-radar nodes.
@@ -1274,6 +1428,8 @@ Output contract:
 - In planTheory or reviewQuestions, explain why the journey you chose fits this child today.
 - Use the packet as the only source of assignment truth.${revisionInstruction}
 - Return one valid tool-call JSON object directly; the tool schema enforces activeSessionPlan.nodePlan, activeSessionPlan.learningRoutes, plannedMeasurements, planTheory, and reviewQuestions.
+- If childChart.engagementTheory exists, preserve its theoryId and use its preferred/avoided dimensions to design the next controlled experiment. Hold academic targets constant while varying only the declared engagement variable.
+- Every route and Mystery option must declare a different experiment arm when it claims to test a preference. Do not use cosmetic labels for identical content.
 
 Packet:
 ${JSON.stringify(packet)}`;
@@ -1360,14 +1516,123 @@ function fallbackPlanTheoryForToolInput(input: Record<string, unknown>): PlanThe
   };
 }
 
+function parseEmbeddedPlannerObject(value: string): Record<string, unknown> | undefined {
+  let candidate = value.trim();
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (!candidate) break;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (typeof parsed === "string") {
+        candidate = parsed.trim();
+        continue;
+      }
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      const repairedWrapper = candidate.replace(
+        /(\"generatedExperienceBriefs\"\s*:\s*\[[\s\S]*?\])\s*\}\s*,\s*(\"plannedMeasurements\"\s*:)/,
+        "$1,$2",
+      );
+      if (repairedWrapper !== candidate) {
+        candidate = repairedWrapper;
+        continue;
+      }
+      const repairedFlattenedPlan = candidate.replace(
+        /\}\s*,\s*(\"plannedMeasurements\"\s*:)/,
+        ",$1",
+      );
+      if (repairedFlattenedPlan !== candidate) {
+        candidate = repairedFlattenedPlan;
+        continue;
+      }
+      const bounded = firstJsonObject(candidate);
+      if (bounded !== candidate) {
+        candidate = bounded;
+        continue;
+      }
+      break;
+    }
+    break;
+  }
+  return undefined;
+}
+
+function stringArrayOrFallback(value: unknown, fallback: string[]): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (typeof value === "string" && value.trim()) return [value.trim()];
+  return fallback;
+}
+
+function normalizePlannerTheory(value: unknown, fallback: PlanTheory): PlanTheory {
+  const candidate = typeof value === "string"
+    ? parseEmbeddedPlannerObject(value)
+    : jsonObject(value);
+  if (!candidate) return fallback;
+  return {
+    hypothesis: typeof candidate.hypothesis === "string" && candidate.hypothesis.trim()
+      ? candidate.hypothesis
+      : fallback.hypothesis,
+    evidenceSummary: stringArrayOrFallback(candidate.evidenceSummary, fallback.evidenceSummary),
+    intervention: typeof candidate.intervention === "string" && candidate.intervention.trim()
+      ? candidate.intervention
+      : fallback.intervention,
+    supportCriteria: stringArrayOrFallback(candidate.supportCriteria, fallback.supportCriteria),
+    reviseCriteria: stringArrayOrFallback(candidate.reviseCriteria, fallback.reviseCriteria),
+    falsifyCriteria: stringArrayOrFallback(candidate.falsifyCriteria, fallback.falsifyCriteria),
+  };
+}
+
 function normalizeAssignmentPlannerToolInput(input: unknown): unknown {
   if (!input || typeof input !== "object" || Array.isArray(input)) return input;
-  const record = input as Record<string, unknown>;
+  let record = { ...(input as Record<string, unknown>) };
+  if (typeof record.activeSessionPlan === "string") {
+    const embedded = parseEmbeddedPlannerObject(record.activeSessionPlan);
+    if (embedded) {
+      record = {
+        ...record,
+        ...embedded,
+        activeSessionPlan: jsonObject(embedded.activeSessionPlan) ?? embedded,
+      };
+    }
+  }
+  const activeSessionPlan = jsonObject(record.activeSessionPlan);
+  if (activeSessionPlan && !Array.isArray(activeSessionPlan.nodePlan)) {
+    const captured = jsonObject(record.capturedContent);
+    const capturedWords = Array.isArray(captured?.words)
+      ? captured.words.map((item) => String(item)).filter(Boolean)
+      : [];
+    const homeworkWords = Array.isArray(record.homeworkWords)
+      ? record.homeworkWords
+        .map((item) => jsonObject(item)?.text)
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      : [];
+    const targetLane = Array.isArray(captured?.wordGroups)
+      ? jsonObject(captured.wordGroups[0])?.id
+      : undefined;
+    const recoveredTargets = [...capturedWords, ...homeworkWords].slice(0, 5).filter(Boolean);
+    record.activeSessionPlan = {
+      ...activeSessionPlan,
+      nodePlan: [{
+        id: "node-planner-recovery",
+        type: "generated-baseline",
+        activityId: "generated-baseline",
+        targets: recoveredTargets.length ? recoveredTargets : ["captured-homework"],
+        ...(typeof targetLane === "string" ? { targetLane } : {}),
+        difficulty: 1,
+        locked: false,
+        masteryUnlockState: "preparing",
+      }],
+    };
+  }
   if (!record.activeSessionPlan || !record.plannedMeasurements) return input;
-  const planTheory = record.planTheory ?? fallbackPlanTheoryForToolInput(record);
+  const planTheory = normalizePlannerTheory(record.planTheory, fallbackPlanTheoryForToolInput(record));
   const normalized: Record<string, unknown> = {
     ...record,
     planTheory,
+    ...(Array.isArray(record.reviewQuestions)
+      ? { reviewQuestions: record.reviewQuestions.slice(0, 8) }
+      : {}),
   };
   if (!record.reviewQuestions) {
     const theory = planTheory as PlanTheory;
@@ -1472,13 +1737,15 @@ async function callAssignmentPlannerTool(args: {
   images?: ReturnType<typeof assignmentPlannerSourceImages>;
 }): Promise<{ draft: AssignmentPlannerResponseObject; usage?: LanguageModelUsage }> {
   const client = new Anthropic();
+  const timeoutMs = Math.max(10_000, Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120_000));
+  const signal = AbortSignal.timeout(timeoutMs);
   const response = await client.messages.create({
     model: args.model,
-    max_tokens: ASSIGNMENT_PLANNER_MAX_TOKENS,
+    max_tokens: Math.max(8_000, Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? ASSIGNMENT_PLANNER_MAX_TOKENS)),
     system: ASSIGNMENT_PLANNER_PERSONA,
     tools: [{
       name: ASSIGNMENT_PLANNER_TOOL_NAME,
-      description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory.",
+      description: "Write Sunny's captured homework interpretation, active intervention node plan, measurements, and mastery theory. Populate every tool field directly as its declared object or array type. Never serialize the plan or any tool field into a JSON string.",
       input_schema: assignmentPlannerToolJsonSchema() as Anthropic.Messages.Tool.InputSchema,
     }],
     tool_choice: { type: "tool", name: ASSIGNMENT_PLANNER_TOOL_NAME },
@@ -1496,7 +1763,7 @@ async function callAssignmentPlannerTool(args: {
         { type: "text" as const, text: args.prompt },
       ],
     }],
-  });
+  }, { signal });
   return {
     draft: parseAssignmentPlannerToolUseResponse(response),
     usage: usageFromAnthropic(response),
@@ -1554,14 +1821,35 @@ export function hydrateAssignmentPlannerOutputFromDraft(
     : legacyHomeworkWords.success ? legacyHomeworkWords.data : [];
 
   const generatedExperienceBriefs = hydrateGeneratedExperienceBriefs(draft.generatedExperienceBriefs, packet);
+  const sourceWordGroups = capturedContent.assignmentInterpretation?.wordGroups
+    ?? packet.capturedHomework.wordGroups
+    ?? [];
+  const enrichedActiveSessionPlan = demoteDuplicateDestinations(defaultTargetLaneFromSingleGroup(
+    capturedContent.contentProfile.practiceDomain === "math"
+      ? enrichMathPlannerDraft({
+          draft: draft.activeSessionPlan,
+          wordGroups: sourceWordGroups,
+        })
+      : draft.activeSessionPlan,
+    sourceWordGroups,
+  ));
+  const plannedMeasurements = syncPlannedMeasurementsForNodePlan(
+    enrichedActiveSessionPlan.nodePlan,
+    draft.plannedMeasurements,
+  );
   const activeSessionPlan = hydrateActiveSessionPlanFromDraft({
-    draft: draft.activeSessionPlan,
+    draft: enrichedActiveSessionPlan,
     packet,
     capturedContent,
     homeworkWords: plannerHomeworkWords,
     planTheory: draft.planTheory,
-    plannedMeasurements: draft.plannedMeasurements,
+    plannedMeasurements,
     generatedExperienceBriefs,
+  });
+  const generationRequests = reconcileGenerationRequests({
+    requests: draft.generationRequests ?? [],
+    nodePlan: enrichedActiveSessionPlan.nodePlan,
+    domain: capturedContent.contentProfile.practiceDomain,
   });
 
   return {
@@ -1569,11 +1857,89 @@ export function hydrateAssignmentPlannerOutputFromDraft(
     assignmentInterpretation: capturedContent.assignmentInterpretation!,
     homeworkWords: plannerHomeworkWords,
     activeSessionPlan,
-    plannedMeasurements: draft.plannedMeasurements,
+    plannedMeasurements,
     planTheory: draft.planTheory,
     reviewQuestions: draft.reviewQuestions,
+    generationRequests,
     generatedExperienceBriefs,
   };
+}
+
+/**
+ * The planner contract allows exactly one quest and one boss destination, but
+ * the LLM occasionally types an evidence route node "quest"; the board would
+ * then promote that route node to the destination and drop the real quest.
+ * Keep the last quest/boss-typed node (the planner is instructed to place
+ * destinations at the end of the spine) and demote earlier duplicates to
+ * generated-baseline evidence nodes.
+ */
+function demoteDuplicateDestinations(plan: PlannerDraftPlan): PlannerDraftPlan {
+  const demoted: string[] = [];
+  const nextNodePlan = [...plan.nodePlan];
+  for (const destination of ["quest", "boss"] as const) {
+    const indexes = nextNodePlan
+      .map((node, index) => (node.activityId === destination || node.type === destination ? index : -1))
+      .filter((index) => index >= 0);
+    for (const index of indexes.slice(0, -1)) {
+      const node = nextNodePlan[index]!;
+      nextNodePlan[index] = {
+        ...node,
+        type: "generated-baseline" as PlannerDraftNode["type"],
+        activityId: "generated-baseline" as PlannerDraftNode["activityId"],
+        locked: false,
+        masteryUnlockState: undefined,
+      };
+      demoted.push(`${node.id} (${destination})`);
+    }
+  }
+  if (demoted.length === 0) return plan;
+  const warning = `planner_duplicate_destination_demoted: ${demoted.join(", ")} retyped to generated-baseline; only the final quest/boss stay destinations.`;
+  console.log(`  🎮 [assignment-planner] [destination-warning] ${warning}`);
+  return {
+    ...plan,
+    nodePlan: nextNodePlan,
+    openQuestions: [...(plan.openQuestions ?? []), warning],
+  };
+}
+
+/**
+ * Every generated-baseline node needs a generation request to drive the shell
+ * factory; synthesize requests the planner forgot and drop requests whose
+ * lane is already served by a hand-built instrument node.
+ */
+function reconcileGenerationRequests(args: {
+  requests: PlannerGenerationRequest[];
+  nodePlan: PlannerDraftPlan["nodePlan"];
+  domain: string;
+}): PlannerGenerationRequest[] {
+  const generatedNodes = args.nodePlan.filter((node) => node.activityId === "generated-baseline");
+  if (generatedNodes.length === 0) return [];
+  const laneHasGeneratedNode = new Set(
+    generatedNodes.map((node) => node.targetLane?.trim().toLowerCase()).filter(Boolean),
+  );
+  const kept = args.requests.filter((request) => {
+    const lane = request.targetLane?.trim().toLowerCase();
+    return !lane || laneHasGeneratedNode.has(lane);
+  });
+  const coveredLanes = new Set(
+    kept.map((request) => request.targetLane?.trim().toLowerCase()).filter(Boolean),
+  );
+  const synthesized: PlannerGenerationRequest[] = [];
+  for (const node of generatedNodes) {
+    const lane = node.targetLane?.trim().toLowerCase();
+    if (lane && coveredLanes.has(lane)) continue;
+    if (!lane && kept.length + synthesized.length > 0) continue;
+    coveredLanes.add(lane ?? node.id);
+    synthesized.push({
+      id: `genreq-${node.id}`,
+      skillTarget: node.targetLane ?? node.targets[0] ?? "practice",
+      targetLane: node.targetLane,
+      domain: args.domain,
+      mechanicConstraints: `Practice instrument for targets: ${node.targets.slice(0, 4).join(", ")}`,
+      reason: "Synthesized: generated-baseline node had no planner generation request.",
+    });
+  }
+  return [...kept, ...synthesized];
 }
 
 const ASSIGNMENT_BOARD_THEME: AdventureBoardJson["theme"] = {
@@ -1614,6 +1980,11 @@ function labelForAssignmentBoardNode(
   if (node.activityId === "quest") return "Quest";
   if (node.activityId === "boss") return "Boss";
   if (node.activityId === "mystery") return "Mystery";
+  // Child-facing boards name the concept, not the engine plumbing: fall through
+  // to the concept-lane labels in adventureBoardFromPlan.
+  if (node.activityId === "generated-baseline" || node.activityId === "concept-check") {
+    return undefined;
+  }
   if (node.activityId === "spell-check" && lanePrefix) return `${lanePrefix} Spell`;
   if (node.activityId === "word-radar") {
     const wordRadarLabel = labelForWordRadarBoardNode(node);
@@ -1644,6 +2015,7 @@ function labelForWordRadarBoardNode(node: ActiveSessionPlan["nodePlan"][number])
 }
 
 function thumbnailForAssignmentBoardNode(node: ActiveSessionPlan["nodePlan"][number]): string | undefined {
+  if (node.thumbnailUrl) return node.thumbnailUrl;
   return ASSIGNMENT_BOARD_THUMBNAILS[node.activityId] ?? ASSIGNMENT_BOARD_THUMBNAILS[node.type];
 }
 
@@ -1678,6 +2050,337 @@ async function planAssignmentFromSourceInternal(
   };
 }
 
+function synthesizePlannedMeasurementForNode(node: {
+  id: string;
+  activityId: string;
+  targets: string[];
+  targetLane?: string;
+}): PlannedMeasurement {
+  const targetSummary = node.targets.slice(0, 3).join(", ") || node.targetLane || "captured concept";
+  return {
+    id: `measure-${node.id}`,
+    activityId: node.activityId,
+    target: targetSummary,
+    evidenceType: node.activityId === "concept-check" ? "practice:concept_check" : "practice:math_baseline",
+    supportCriteria: `Child completes ${node.activityId} on ${targetSummary} with usable target-level evidence.`,
+    reviseCriteria: `Misses, retries, or help requests on ${targetSummary} suggest scaffold or lane refill change.`,
+    falsifyCriteria: `Strong independent accuracy on ${targetSummary} without contamination supports advancing the lane.`,
+  };
+}
+
+function syncPlannedMeasurementsForNodePlan(
+  nodePlan: Array<{ id: string; activityId: string; targets: string[]; targetLane?: string }>,
+  plannedMeasurements: PlannedMeasurement[],
+): PlannedMeasurement[] {
+  const byId = new Map(plannedMeasurements.map((measurement) => [measurement.id, measurement]));
+  for (const node of nodePlan) {
+    if (isPlannerDestinationActivity(node.activityId)) continue;
+    const measureId = `measure-${node.id}`;
+    if (!byId.has(measureId)) {
+      byId.set(measureId, synthesizePlannedMeasurementForNode(node));
+      console.log(`  🎮 [assignment-planner] [measurement-sync] added ${measureId} for ${node.activityId}`);
+    }
+  }
+  return [...byId.values()];
+}
+
+function expandMathConceptLanes(groups: HomeworkWordGroup[]): Array<HomeworkWordGroup & { activityId?: string }> {
+  const lanes: Array<HomeworkWordGroup & { activityId?: string }> = [];
+  for (const group of groups) {
+    if (group.id === "multiplication") {
+      const source = group.words.join(" ");
+      const facts = [...source.matchAll(/\b(\d+)\s*[x×]\s*(\d+)\s*=\s*(?:_+|\?)/gi)]
+        .map((match) => `${match[1]}x${match[2]}`);
+      const problemSource = source.split(/word\s*problems?\s*:/i)[1] ?? "";
+      const stories = problemSource.split("?")
+        .map((part) => part.replace(/\s+/g, " ").trim())
+        .filter((part) => part.length > 12 && /\b(each|rows?|groups?|boxes?|in all|total)\b/i.test(part))
+        .map((part) => `${part}?`);
+      if (facts.length > 0) {
+        lanes.push({
+          ...group,
+          id: "multiplication_fluency",
+          label: "Multiplication Facts",
+          words: [...new Set(facts)],
+          activityId: "generated-baseline",
+        });
+      }
+      if (stories.length > 0) {
+        lanes.push({
+          ...group,
+          id: "multiplication_word_problems",
+          label: "Equal-Groups Stories",
+          words: [...new Set(stories)],
+          activityId: "generated-baseline",
+        });
+      }
+      if (facts.length > 0 || stories.length > 0) continue;
+    }
+    if (group.id === "fractions" && group.words.length >= 2) {
+      const shadeThirds = group.words.filter((word) => /\b(third|thirds|1\/3)\b/i.test(word));
+      const shadeFourths = group.words.filter((word) => /\b(fourth|fourths|1\/4)\b/i.test(word));
+      const compare = group.words.filter((word) => /\b(larger|compare|greater|smaller|which)\b/i.test(word));
+      if (shadeThirds.length) {
+        lanes.push({
+          ...group,
+          id: "fraction_shade_thirds",
+          label: "Shade Thirds",
+          words: shadeThirds,
+          activityId: "generated-baseline",
+        });
+      }
+      if (shadeFourths.length) {
+        lanes.push({
+          ...group,
+          id: "fraction_shade_fourths",
+          label: "Shade Fourths",
+          words: shadeFourths,
+          activityId: "generated-baseline",
+        });
+      }
+      if (compare.length) {
+        lanes.push({
+          ...group,
+          id: "fraction_compare",
+          label: "Compare Fractions",
+          words: compare,
+          activityId: "concept-check",
+        });
+      }
+      if (lanes.length > 0) continue;
+      const splitLabels = ["Shade Thirds", "Shade Fourths", "Compare Fractions"] as const;
+      const splitIds = ["fraction_shade_thirds", "fraction_shade_fourths", "fraction_compare"] as const;
+      const splitActivities = ["generated-baseline", "generated-baseline", "concept-check"] as const;
+      for (const [index, word] of group.words.slice(0, 3).entries()) {
+        lanes.push({
+          ...group,
+          id: splitIds[index]!,
+          label: splitLabels[index]!,
+          words: [word],
+          activityId: splitActivities[index],
+        });
+      }
+      continue;
+    }
+    lanes.push({
+      ...group,
+      activityId:
+        group.id === "time_telling"
+          ? "clock-game"
+          : group.id === "money_reasoning"
+            ? "coin-counter"
+            : "generated-baseline",
+    });
+  }
+  return lanes.slice(0, 4);
+}
+
+type PlannerDraftNode = z.infer<typeof compactNodePlanSchema>;
+type PlannerDraftPlan = z.infer<typeof compactActiveSessionPlanSchema>;
+
+/**
+ * With exactly one source group the lane is unambiguous, so fill it in when
+ * the planner omitted targetLane; board labels then use the concept-lane name
+ * (e.g. "Times Tables") instead of the node's raw first target.
+ */
+function defaultTargetLaneFromSingleGroup(
+  plan: PlannerDraftPlan,
+  wordGroups: HomeworkWordGroup[],
+): PlannerDraftPlan {
+  const onlyGroupId = wordGroups.length === 1 ? wordGroups[0]?.id?.trim() : undefined;
+  if (!onlyGroupId) return plan;
+  return {
+    ...plan,
+    nodePlan: plan.nodePlan.map((node) =>
+      node.targetLane || isPlannerDestinationActivity(node.activityId)
+        ? node
+        : { ...node, targetLane: onlyGroupId },
+    ),
+  };
+}
+
+/** When the LLM emits a thin or mis-typed math spine, rebuild from captured concept lanes. */
+export function enrichMathPlannerDraft(args: {
+  draft: PlannerDraftPlan;
+  wordGroups: HomeworkWordGroup[];
+}): PlannerDraftPlan {
+  const conceptLanes = expandMathConceptLanes(args.wordGroups);
+  if (conceptLanes.length === 0) return args.draft;
+
+  const teachingNodes = args.draft.nodePlan.filter(
+    (node) => !isPlannerDestinationActivity(node.activityId),
+  );
+  const validTeaching = teachingNodes.filter(
+    (node) => !["quest", "boss", "mystery"].includes(node.activityId),
+  );
+  const multiplicationExperiment = conceptLanes.some(
+    (lane) => lane.id === "multiplication" || lane.id.startsWith("multiplication_"),
+  );
+  const generatedMathLane = conceptLanes.length === 1 && conceptLanes[0]?.activityId === "generated-baseline";
+  const usesUnalignedMathInstrument = generatedMathLane && validTeaching.some(
+    (node) => node.activityId !== "generated-baseline",
+  );
+  if (
+    !multiplicationExperiment &&
+    !usesUnalignedMathInstrument &&
+    validTeaching.length >= Math.min(3, conceptLanes.length) &&
+    validTeaching.length >= 2
+  ) {
+    return args.draft;
+  }
+
+  console.log(
+    `  🎮 [assignment-planner] [math-enrich] rebuilding spine lanes=${conceptLanes.length} validTeaching=${validTeaching.length}`,
+  );
+
+  const baselineNodes: PlannerDraftNode[] = conceptLanes.map((lane, index) => ({
+    id: `node-baseline-${lane.id}`,
+    type: (lane.activityId ?? "generated-baseline") as PlannerDraftNode["type"],
+    activityId: (lane.activityId ?? "generated-baseline") as PlannerDraftNode["activityId"],
+    targets: lane.words.slice(0, 4),
+    targetLane: lane.id,
+    difficulty: 1,
+    locked: false,
+    masteryUnlockState: "preparing",
+  }));
+
+  const routeExclusiveA: PlannerDraftNode = {
+    id: `node-route-a-${conceptLanes[0]!.id}`,
+    type: baselineNodes[0]!.activityId,
+    activityId: baselineNodes[0]!.activityId,
+    targets: conceptLanes[0]!.words.slice(0, 4),
+    targetLane: conceptLanes[0]!.id,
+    difficulty: 2,
+    locked: false,
+    masteryUnlockState: "preparing",
+  };
+  const routeLane = conceptLanes[1] ?? conceptLanes[0]!;
+  const routeExclusiveB: PlannerDraftNode = {
+    id: `node-route-b-${routeLane.id}`,
+    type: (conceptLanes[1]?.activityId ?? conceptLanes[0]?.activityId ?? "generated-baseline") as PlannerDraftNode["type"],
+    activityId: (conceptLanes[1]?.activityId ?? conceptLanes[0]?.activityId ?? "generated-baseline") as PlannerDraftNode["activityId"],
+    targets: routeLane.words.slice(0, 4),
+    targetLane: routeLane.id,
+    difficulty: 2,
+    locked: false,
+    masteryUnlockState: "preparing",
+  };
+
+  const allTargets = conceptLanes.flatMap((lane) => lane.words).slice(0, 6);
+  if (multiplicationExperiment) {
+    routeExclusiveA.targets = [...allTargets];
+    routeExclusiveA.difficulty = 2;
+    routeExclusiveB.targets = [...allTargets];
+    routeExclusiveB.difficulty = 2;
+  }
+  const existingMystery = args.draft.nodePlan.find((node) => node.activityId === "mystery");
+  const existingQuest = args.draft.nodePlan.find((node) => node.activityId === "quest");
+  const existingBoss = args.draft.nodePlan.find((node) => node.activityId === "boss");
+
+  const mystery: PlannerDraftNode = existingMystery ?? {
+    id: "node-mystery",
+    type: "mystery",
+    activityId: "mystery",
+    targets: allTargets,
+    difficulty: 1,
+    choiceMode: "choice_lab",
+    locked: false,
+    masteryUnlockState: "preparing",
+  };
+  const quest: PlannerDraftNode = {
+    ...(existingQuest ?? {
+      id: "node-quest",
+      type: "quest",
+      activityId: "quest",
+      targets: allTargets.slice(0, 3),
+      difficulty: 2,
+    }),
+    locked: true,
+    masteryUnlockState: "preparing",
+  };
+  const boss: PlannerDraftNode = {
+    ...(existingBoss ?? {
+      id: "node-boss",
+      type: "boss",
+      activityId: "boss",
+      targets: [],
+      difficulty: 3,
+    }),
+    locked: true,
+    masteryUnlockState: "preparing",
+  };
+
+  const nodePlan = multiplicationExperiment
+    ? [routeExclusiveA, routeExclusiveB, mystery, quest, boss]
+    : [...baselineNodes.slice(0, 3), routeExclusiveA, routeExclusiveB, mystery, quest, boss];
+
+  return {
+    ...args.draft,
+    nodePlan,
+    learningRoutes: [
+      {
+        id: multiplicationExperiment ? "route-speed-facts" : "route-visual-first",
+        label: multiplicationExperiment ? "Speed Facts Sprint" : "Picture It First",
+        rationale: multiplicationExperiment
+          ? "Test a competitive, timed fact-retrieval presentation while holding multiplication targets and difficulty constant."
+          : "Build the visual unit-fraction model before comparing sizes.",
+        nodeIds: [
+          routeExclusiveA.id,
+          mystery.id,
+          quest.id,
+          boss.id,
+        ],
+      },
+      {
+        id: multiplicationExperiment ? "route-story-problems" : "route-compare-first",
+        label: multiplicationExperiment ? "Story Problems Path" : "Compare First",
+        rationale: multiplicationExperiment
+          ? "Test an untimed equal-groups story presentation while holding the same multiplication target family constant."
+          : "Probe magnitude reasoning before more shading practice.",
+        nodeIds: [
+          routeExclusiveB.id,
+          mystery.id,
+          quest.id,
+          boss.id,
+        ],
+      },
+    ],
+  };
+}
+
+type DraftLearningRoute = NonNullable<AssignmentPlannerResponseObject["activeSessionPlan"]["learningRoutes"]>[number];
+
+/**
+ * Routes whose non-destination nodeIds are identical are cosmetic: the board
+ * compiler cannot render a real fork from them, so drop them and say why.
+ */
+export function normalizeLearningRoutesForPlan<TRoute extends { id: string; nodeIds: string[] }>(
+  routes: TRoute[] | undefined,
+  nodePlan: Array<{ id: string; activityId: string; type?: string }>,
+): { routes: TRoute[]; warnings: string[] } {
+  if (!routes?.length) return { routes: [], warnings: [] };
+  const destinationIds = new Set(
+    nodePlan
+      .filter((node) => PLANNER_DESTINATION_ACTIVITY_IDS.has((node.activityId ?? node.type ?? "").toLowerCase()))
+      .map((node) => node.id),
+  );
+  const knownIds = new Set(nodePlan.map((node) => node.id));
+  const routeKeys = routes.map((route) =>
+    [...new Set(route.nodeIds.filter((id) => knownIds.has(id) && !destinationIds.has(id)))]
+      .sort()
+      .join("|"),
+  );
+  const allIdentical = routeKeys.length >= 2 && routeKeys.every((key) => key === routeKeys[0]);
+  if (allIdentical) {
+    const warning =
+      `learning_routes_dropped_identical_node_sets: routes [${routes.map((route) => route.id).join(", ")}] ` +
+      "list identical non-destination nodeIds, so no real fork can render. Planner must give each route an exclusive node.";
+    console.log(`  🎮 [assignment-planner] [route-warning] ${warning}`);
+    return { routes: [], warnings: [warning] };
+  }
+  return { routes, warnings: [] };
+}
+
 function hydrateActiveSessionPlanFromDraft(args: {
   draft: AssignmentPlannerResponseObject["activeSessionPlan"];
   packet: AssignmentPlanningPacket;
@@ -1696,18 +2399,32 @@ function hydrateActiveSessionPlanFromDraft(args: {
       word.text,
     ]));
   }
+  // Math node targets are problem statements ("5x2"), not captured lane
+  // words, so the word-membership anti-mislabel check only applies to
+  // word-driven domains; math lanes just need to be real source group ids.
+  const knownLaneIds = new Set(
+    (args.capturedContent.wordGroups ?? []).map((group) => group.id),
+  );
+  const requiresLaneWordMatch =
+    args.capturedContent.contentProfile.practiceDomain !== "math";
   const nodePlan = args.draft.nodePlan.map((node) => ({
     ...node,
     type: normalizeAssignmentNodeType(node.type, node.activityId),
     difficulty: node.difficulty ?? 1,
     targetLane: node.targetLane &&
-      node.targets.length > 0 &&
-      node.targets.every((target) => wordsByLane.get(node.targetLane!)?.has(target))
+      knownLaneIds.has(node.targetLane) &&
+      (!requiresLaneWordMatch ||
+        (node.targets.length > 0 &&
+          node.targets.every((target) => wordsByLane.get(node.targetLane!)?.has(target))))
       ? node.targetLane
       : undefined,
     wordRadarConfig: node.activityId === "word-radar" ? node.wordRadarConfig : undefined,
     source: "chart_planner" as const,
   }));
+  const normalizedRoutes = normalizeLearningRoutesForPlan<DraftLearningRoute>(
+    args.draft.learningRoutes,
+    nodePlan,
+  );
   return {
     planId,
     childId: args.packet.childId,
@@ -1716,14 +2433,14 @@ function hydrateActiveSessionPlanFromDraft(args: {
     domain: args.capturedContent.contentProfile.practiceDomain,
     testDate: null,
     nodePlan,
-    learningRoutes: args.draft.learningRoutes,
+    learningRoutes: normalizedRoutes.routes,
     adventureBoard: buildAdventureBoardFromActiveSessionPlan({
       plan: {
         planId,
         childId: args.packet.childId,
         domain: args.capturedContent.contentProfile.practiceDomain,
         nodePlan,
-        learningRoutes: args.draft.learningRoutes,
+        learningRoutes: normalizedRoutes.routes,
       },
       boardId: `assignment-board-${args.packet.childId}-${args.packet.sourceDocument.fileHash.slice(0, 8)}`,
       title: args.capturedContent.title,
@@ -1762,7 +2479,7 @@ function hydrateActiveSessionPlanFromDraft(args: {
     evidenceUsed: args.draft.evidenceUsed?.length
       ? args.draft.evidenceUsed
       : [{ id: "assignment-source", type: "assignment_source", summary: "AI planner used the stored assignment source packet." }],
-    openQuestions: args.draft.openQuestions ?? [],
+    openQuestions: [...(args.draft.openQuestions ?? []), ...normalizedRoutes.warnings],
     plannerConfidence: args.draft.plannerConfidence,
     approvalStatus: "pending",
     planTheory: args.planTheory,
@@ -1771,22 +2488,41 @@ function hydrateActiveSessionPlanFromDraft(args: {
   };
 }
 
+function defaultBriefEvidenceFromPacket(packet: AssignmentPlanningPacket): string[] {
+  const groups = packet.capturedHomework.wordGroups ?? [];
+  const groupEvidence = groups.flatMap((group) =>
+    group.words.slice(0, 2).map((word) => `captured:${group.id}:${word}`),
+  );
+  const sourceEvidence = [`assignment_source:${packet.sourceDocument.filename}`];
+  return [...groupEvidence, ...sourceEvidence].slice(0, 8);
+}
+
 function hydrateGeneratedExperienceBriefs(
   briefs: AssignmentPlannerResponseObject["generatedExperienceBriefs"] | undefined,
   packet: AssignmentPlanningPacket,
 ): GeneratedExperienceBrief[] | undefined {
-  if (!briefs?.length) return undefined;
-  return briefs.map((brief, index) => ({
+  const fallbackEvidence = defaultBriefEvidenceFromPacket(packet);
+  const sourceBriefs = briefs?.length
+    ? briefs
+    : [{
+        kind: "quest" as const,
+        title: `Quest: ${packet.capturedHomework.title || "Apply captured homework"}`,
+        learningGoal: "Transfer captured worksheet concepts with evidence-backed challenge design.",
+        targetWords: packet.capturedHomework.words.slice(0, 6),
+        evidenceUsed: fallbackEvidence,
+      }];
+
+  return sourceBriefs.map((brief, index) => ({
     briefId: `${packet.childId}-${brief.kind}-${index + 1}`,
     kind: brief.kind,
     title: brief.title,
     learningGoal: brief.learningGoal,
     targetSkills: [],
-    targetConcepts: [],
+    targetConcepts: (packet.capturedHomework.wordGroups ?? []).map((group) => group.id),
     targetWords: brief.targetWords,
     engagementHooks: [],
     algorithmTargets: ["assignment_planner"],
-    evidenceUsed: brief.evidenceUsed,
+    evidenceUsed: brief.evidenceUsed?.length ? brief.evidenceUsed : fallbackEvidence,
     artifactStatus: "brief_only",
     validationRequired: true,
   }));

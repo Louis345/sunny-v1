@@ -1,11 +1,13 @@
 import fs from "fs";
 import path from "path";
+import { assertLearningCycleProjectionWrite } from "../engine/learningCycleRepository";
 import type {
   ActiveSessionPlan,
   AIContentCatalogItem,
   HomeworkDomain,
   LearningExperiment,
   LearningProfile,
+  LearningTheoryDecision,
   PlanTheory,
   PlannedMeasurement,
 } from "../context/schemas/learningProfile";
@@ -44,6 +46,7 @@ export type WaterfallCarePlanFile = {
   theory?: PlanTheory;
   plannedMeasurements: PlannedMeasurement[];
   learningExperiments: LearningExperiment[];
+  theoryDecisions: LearningTheoryDecision[];
   updatedAt: string;
 };
 
@@ -63,7 +66,8 @@ export type DecisionTraceEvent = {
     | "session_plan_write"
     | "quest_generation"
     | "boss_generation"
-    | "content_catalog_update";
+    | "content_catalog_update"
+    | "theory_decision";
   evidenceRead: string[];
   theoryUsed?: string;
   changeSummary: string;
@@ -202,6 +206,7 @@ export function hydrateLearningProfileFromWaterfall(
     activeSessionPlanByDomain: profile.activeSessionPlanByDomain ?? sessionPlan.activeByDomain,
     aiContentCatalog: profile.aiContentCatalog ?? catalog.items,
     learningExperiments: profile.learningExperiments ?? carePlan.learningExperiments,
+    learningTheoryDecisions: profile.learningTheoryDecisions ?? carePlan.theoryDecisions,
     selectedHomeworkDomain: profile.selectedHomeworkDomain ?? homework.selectedDomain,
   };
 }
@@ -248,6 +253,7 @@ export function buildWaterfallCarePlanFile(
     ...(profile.activeSessionPlan?.planTheory ? { theory: profile.activeSessionPlan.planTheory } : {}),
     plannedMeasurements: profile.activeSessionPlan?.plannedMeasurements ?? [],
     learningExperiments: profile.learningExperiments ?? profile.activeSessionPlan?.learningExperiments ?? [],
+    theoryDecisions: profile.learningTheoryDecisions ?? [],
     updatedAt: nowIso(opts),
   };
 }
@@ -270,6 +276,9 @@ export function writeWaterfallSessionPlan(
   profile: LearningProfile,
   opts: WaterfallOptions = {},
 ): void {
+  if (profile.activeSessionPlan) {
+    assertLearningCycleProjectionWrite(childId, profile.activeSessionPlan, opts);
+  }
   const links = resolveWaterfallLinks(childId, profile.chartLinks, opts);
   writeJson(links.currentSessionPlan, buildWaterfallSessionPlanFile(childId, profile, opts));
   writeJson(links.currentCarePlan, buildWaterfallCarePlanFile(childId, profile, opts));

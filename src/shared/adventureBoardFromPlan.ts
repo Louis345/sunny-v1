@@ -18,7 +18,21 @@ export interface ActiveSessionPlanBoardNodeSnapshot {
   activityId?: string;
   targets?: string[];
   targetLane?: string;
+  thumbnailUrl?: string;
+  thumbnailPrompt?: string;
+  theoryId?: string;
+  experimentId?: string;
+  contentId?: string;
+  engagementDimensions?: string[];
+  engagementHypothesis?: string;
+  mechanic?: string;
+  theme?: string;
+  sfxProfile?: string;
+  companionPolicy?: string;
+  gameHtmlPath?: string;
+  activityConfigPath?: string;
   locked?: boolean;
+  title?: string;
   choiceMode?: string;
   masteryUnlockState?: string;
   difficulty?: number;
@@ -149,8 +163,8 @@ export function buildAdventureBoardFromActiveSessionPlan(
     : baselineNodes.slice(requiredBaselineCount);
   const hasRealRouteChoice = routeNodes.length >= 2;
   const mysteryNode = options.plan.nodePlan.find((node) => activityIdForPlanNode(node) === "mystery");
-  const questNode = options.plan.nodePlan.find((node) => activityIdForPlanNode(node) === "quest");
-  const bossNode = options.plan.nodePlan.find((node) => activityIdForPlanNode(node) === "boss");
+  const questNode = pickDestinationNode(options.plan.nodePlan, "quest");
+  const bossNode = pickDestinationNode(options.plan.nodePlan, "boss");
   const firstRequired = requiredNodes[0] ?? baselineNodes[0] ?? mysteryNode ?? questNode ?? bossNode;
   const currentNodeId =
     options.progress?.currentNodeId ??
@@ -163,7 +177,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
       index,
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, index) ?? labelForPlanNode(node),
-      thumbnailUrl: options.thumbnailForNode?.(node, index),
+      thumbnailUrl: options.thumbnailForNode?.(node, index) ?? thumbnailForPlanNode(node),
       slot: index === 0 ? "2" : "3",
       role: "baseline",
       lane: "main",
@@ -190,7 +204,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
       index: requiredNodes.length + index,
       state: stateForPlanNode(node, completedNodeIds, currentNodeId),
       label: options.labelForNode?.(node, requiredNodes.length + index) ?? labelForPlanNode(node),
-      thumbnailUrl: options.thumbnailForNode?.(node, requiredNodes.length + index),
+      thumbnailUrl: options.thumbnailForNode?.(node, requiredNodes.length + index) ?? thumbnailForPlanNode(node),
       slot: routeSlot,
       role: hasRealRouteChoice ? "evidence-route" : "baseline",
       lane: routeLane,
@@ -215,7 +229,9 @@ export function buildAdventureBoardFromActiveSessionPlan(
   const choiceGate = hasRealRouteChoice
     ? buildChoiceGate(options, requiredNodes.length)
     : undefined;
+  const startNode = buildStartNode();
   const nodes = [
+    startNode,
     ...requiredBoardNodes,
     ...(choiceGate ? [choiceGate] : []),
     ...routeBoardNodes,
@@ -238,6 +254,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
     plannerRationale: options.plannerRationale,
     nodes,
     edges: buildPresentationEdges({
+      startNode,
       requiredNodes: requiredBoardNodes,
       routeNodes: routeBoardNodes,
       destinationNodes,
@@ -256,6 +273,7 @@ export function buildAdventureBoardFromActiveSessionPlan(
       }),
       ...buildMysteryChoiceSets({
         mysteryNode,
+        variantNodes: baselineNodes,
         completedNodeIds,
         thumbnailForNode: options.thumbnailForNode,
         index: baselineNodes.length,
@@ -335,11 +353,49 @@ function buildBoardNode(input: {
         }
       : undefined,
     choiceSetId,
+    theoryId: input.planNode.theoryId,
+    experimentId: input.planNode.experimentId,
+    contentId: input.planNode.contentId,
+    engagementDimensions: input.planNode.engagementDimensions,
+    engagementHypothesis: input.planNode.engagementHypothesis,
+    mechanic: input.planNode.mechanic,
+    sfxProfile: input.planNode.sfxProfile,
+    companionPolicy: input.planNode.companionPolicy,
     action: input.planNode.locked || input.state === "locked"
       ? { type: "show-locked-reason", payloadId: input.planNode.id }
       : choiceSetId
         ? { type: "open-choice-set", payloadId: choiceSetId }
         : { type: "launch-activity", payloadId: input.planNode.id },
+  };
+}
+
+/**
+ * Planner contract allows one quest/boss destination, but LLM drafts sometimes
+ * type a route node "quest" too; prefer the locked mastery-gated node (real
+ * destinations are always locked at plan time) and the last one when tied.
+ */
+function pickDestinationNode(
+  nodePlan: ActiveSessionPlanBoardNodeSnapshot[],
+  destination: "quest" | "boss",
+): ActiveSessionPlanBoardNodeSnapshot | undefined {
+  const candidates = nodePlan.filter((node) => activityIdForPlanNode(node) === destination);
+  if (candidates.length <= 1) return candidates[0];
+  const gated = candidates.filter((node) => node.locked || node.masteryUnlockState);
+  const pool = gated.length > 0 ? gated : candidates;
+  return pool[pool.length - 1];
+}
+
+/** Journey anchor: the child's entry point before the first measurement node. */
+function buildStartNode(): AdventureBoardNode {
+  return {
+    id: "start",
+    kind: "start",
+    label: "Start",
+    shortLabel: "Start",
+    icon: "flag",
+    slot: "1",
+    layout: { role: "start", lane: "main", order: 0 },
+    state: "completed",
   };
 }
 
@@ -369,6 +425,7 @@ function buildChoiceGate(
 }
 
 function buildPresentationEdges(args: {
+  startNode: AdventureBoardNode;
   requiredNodes: AdventureBoardNode[];
   routeNodes: AdventureBoardNode[];
   destinationNodes: AdventureBoardNode[];
@@ -376,6 +433,9 @@ function buildPresentationEdges(args: {
   choiceGate?: AdventureBoardNode;
 }): AdventureBoardEdge[] {
   const edges: AdventureBoardEdge[] = [];
+  const firstOnPath =
+    args.requiredNodes[0] ?? args.routeNodes[0] ?? args.destinationNodes[0];
+  if (firstOnPath) edges.push(edgeBetween(args.startNode, firstOnPath));
   for (let index = 0; index < args.requiredNodes.length - 1; index += 1) {
     const from = args.requiredNodes[index]!;
     const to = args.requiredNodes[index + 1]!;
@@ -476,6 +536,18 @@ function buildRouteChoiceSets(args: {
               : "available",
           nodeId: node.id,
           choiceSignal: choiceSignalForNode(node),
+          theoryId: node.theoryId,
+          experimentId: route.id,
+          contentId: node.contentId,
+          activityId: node.activityId,
+          gameHtmlPath: node.gameHtmlPath,
+          activityConfigPath: node.activityConfigPath,
+          engagementDimensions: node.engagementDimensions,
+          engagementHypothesis: node.engagementHypothesis,
+          mechanic: node.mechanic,
+          theme: node.theme,
+          sfxProfile: node.sfxProfile,
+          companionPolicy: node.companionPolicy,
         };
       }),
     }];
@@ -500,6 +572,18 @@ function buildRouteChoiceSets(args: {
             : "available",
         nodeId: node.id,
         choiceSignal: choiceSignalForNode(node),
+        theoryId: node.theoryId,
+        experimentId: route?.id ?? node.experimentId,
+        contentId: node.contentId,
+        activityId: node.activityId,
+        gameHtmlPath: node.gameHtmlPath,
+        activityConfigPath: node.activityConfigPath,
+        engagementDimensions: node.engagementDimensions,
+        engagementHypothesis: node.engagementHypothesis,
+        mechanic: node.mechanic,
+        theme: node.theme,
+        sfxProfile: node.sfxProfile,
+        companionPolicy: node.companionPolicy,
       };
     }),
   }];
@@ -507,6 +591,7 @@ function buildRouteChoiceSets(args: {
 
 function buildMysteryChoiceSets(args: {
   mysteryNode?: ActiveSessionPlanBoardNodeSnapshot;
+  variantNodes?: ActiveSessionPlanBoardNodeSnapshot[];
   completedNodeIds: string[];
   thumbnailForNode?: (node: ActiveSessionPlanBoardNodeSnapshot, index: number) => string | undefined;
   index: number;
@@ -520,11 +605,34 @@ function buildMysteryChoiceSets(args: {
   const base = {
     thumbnailUrl: args.thumbnailForNode?.(args.mysteryNode, args.index),
     nodeId: args.mysteryNode.id,
+    theoryId: args.mysteryNode.theoryId,
+    experimentId: args.mysteryNode.experimentId,
+    contentId: args.mysteryNode.contentId,
+    activityId: args.mysteryNode.activityId,
+    gameHtmlPath: args.mysteryNode.gameHtmlPath,
+    activityConfigPath: args.mysteryNode.activityConfigPath,
+    engagementHypothesis: args.mysteryNode.engagementHypothesis,
+    sfxProfile: args.mysteryNode.sfxProfile,
+    companionPolicy: args.mysteryNode.companionPolicy,
     state,
     lock: args.mysteryNode.locked
       ? { reason: args.mysteryNode.masteryUnlockState ?? "planner_locked", label: "Preparing" }
       : undefined,
   };
+  const variants = args.variantNodes ?? [];
+  const storyNode = variants.find((node) => node.targets?.some((target) => /word|pencil|star|row|box|group/i.test(target)));
+  const speedNode = variants.find((node) => !node.targets?.some((target) => /word|pencil|star|row|box|group/i.test(target)));
+  const puzzleNode = variants.find((node) => node.id !== storyNode?.id && node.id !== speedNode?.id);
+  const optionBase = (node: ActiveSessionPlanBoardNodeSnapshot | undefined) => ({
+    ...(node ? {
+      nodeId: node.id,
+      activityId: node.activityId,
+      gameHtmlPath: node.gameHtmlPath,
+      activityConfigPath: node.activityConfigPath,
+      contentId: node.contentId,
+      theoryId: node.theoryId,
+    } : {}),
+  });
   return [{
     id: mysteryChoiceSetId(args.mysteryNode),
     kind: "mystery",
@@ -543,6 +651,13 @@ function buildMysteryChoiceSets(args: {
           preferenceNotMastery: true,
         },
         ...base,
+        ...optionBase(storyNode),
+        thumbnailUrl: "/thumbnails/activities/math-generic.svg",
+        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:story`,
+        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:story`,
+        engagementDimensions: ["story", "visual", "calm"],
+        mechanic: "equal-groups-story",
+        theme: "story-solver",
       },
       {
         id: `${args.mysteryNode.id}-speed`,
@@ -557,6 +672,13 @@ function buildMysteryChoiceSets(args: {
           preferenceNotMastery: true,
         },
         ...base,
+        ...optionBase(speedNode),
+        thumbnailUrl: "/thumbnails/activities/math-multiplication.svg",
+        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:speed`,
+        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:speed`,
+        engagementDimensions: ["speed", "competition"],
+        mechanic: "fact-retrieval-speed",
+        theme: "fact-blaster",
       },
       {
         id: `${args.mysteryNode.id}-puzzle`,
@@ -571,6 +693,13 @@ function buildMysteryChoiceSets(args: {
           preferenceNotMastery: true,
         },
         ...base,
+        ...optionBase(puzzleNode),
+        thumbnailUrl: "/thumbnails/activities/math-coins.svg",
+        contentId: `${args.mysteryNode.contentId ?? args.mysteryNode.id}:puzzle`,
+        experimentId: `${args.mysteryNode.experimentId ?? args.mysteryNode.id}:puzzle`,
+        engagementDimensions: ["puzzle", "control", "visual"],
+        mechanic: "equal-groups-puzzle",
+        theme: "array-builder",
       },
     ],
   }];
@@ -605,8 +734,7 @@ function isDestinationNode(node: ActiveSessionPlanBoardNodeSnapshot): boolean {
 }
 
 function destinationStateForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): AdventureBoardNodeState {
-  if (activityIdForPlanNode(node) === "mystery") return node.locked ? "locked" : "available";
-  return "locked";
+  return node.locked ? "locked" : "available";
 }
 
 function destinationSlotForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): AdventureBoardNode["slot"] {
@@ -635,17 +763,87 @@ function layoutRoleForKind(kind: AdventureBoardNodeKind): AdventureBoardLayoutRo
 }
 
 function labelForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): string {
+  if (node.title?.trim()) return node.title.trim();
   const activityId = activityIdForPlanNode(node);
   if (activityId === "word-radar") return "Word Radar";
   if (activityId === "spell-check") return "Spell Check";
   if (activityId === "mystery") return "Mystery";
   if (activityId === "quest") return "Quest";
   if (activityId === "boss") return "Boss";
+  const conceptLabel = conceptLabelForPlanNode(node, activityId);
+  if (conceptLabel) return conceptLabel;
   return activityId
     .split(/[-_]/)
     .filter(Boolean)
     .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
     .join(" ");
+}
+
+/** Child-facing names for math concept lanes; internal ids stay unchanged. */
+const CONCEPT_LANE_LABELS: Record<string, string> = {
+  fraction_shade_thirds: "Shade Thirds",
+  fraction_shade_fourths: "Shade Fourths",
+  fraction_compare: "Fraction Face-Off",
+  fractions: "Fraction Lab",
+  time_telling: "Clock Time",
+  money_reasoning: "Money Count",
+  multiplication: "Times Tables",
+  addition_subtraction: "Add & Subtract",
+};
+
+/**
+ * "Generated Baseline" is an engine term, not a child-facing name. Derive the
+ * label from the concept lane or the node's first target instead.
+ */
+function conceptLabelForPlanNode(
+  node: ActiveSessionPlanBoardNodeSnapshot,
+  activityId: string,
+): string | undefined {
+  if (activityId !== "generated-baseline" && activityId !== "concept-check") return undefined;
+  const lane = node.targetLane?.trim().toLowerCase();
+  if (lane && CONCEPT_LANE_LABELS[lane]) return CONCEPT_LANE_LABELS[lane];
+  const target = node.targets?.[0]?.trim();
+  if (target) {
+    const normalized = target.toLowerCase();
+    if (/shade/.test(normalized) && /third/.test(normalized)) return "Shade Thirds";
+    if (/shade/.test(normalized) && /fourth/.test(normalized)) return "Shade Fourths";
+    if (/shade/.test(normalized) && /half|halves/.test(normalized)) return "Shade Halves";
+    if (/compare|larger|greater|smaller/.test(normalized) && /third|fourth|half|fraction|\d\/\d/.test(normalized)) {
+      return "Fraction Face-Off";
+    }
+    const words = target
+      .split(/[-_\s]+/)
+      .filter((word) => word && word.toLowerCase() !== "vs")
+      .slice(0, 3)
+      .map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`);
+    if (words.length > 0) return words.join(" ");
+  }
+  return activityId === "concept-check" ? "Quick Check" : "Skill Builder";
+}
+
+/** Concept thumbnails keyed by the resolved concept label. */
+const CONCEPT_LABEL_THUMBNAILS: Record<string, string> = {
+  "Shade Thirds": "/thumbnails/activities/math-shade-thirds.svg",
+  "Shade Fourths": "/thumbnails/activities/math-shade-fourths.svg",
+  "Shade Halves": "/thumbnails/activities/math-shade-thirds.svg",
+  "Fraction Face-Off": "/thumbnails/activities/math-fraction-compare.svg",
+  "Fraction Lab": "/thumbnails/activities/math-fraction-compare.svg",
+  "Clock Time": "/thumbnails/activities/math-clock.svg",
+  "Money Count": "/thumbnails/activities/math-coins.svg",
+  "Times Tables": "/thumbnails/activities/math-multiplication.svg",
+  "Add & Subtract": "/thumbnails/activities/math-generic.svg",
+};
+
+/**
+ * Fallback thumbnail for nodes whose builder did not supply one, so math
+ * concept nodes get a visual identity instead of a bare icon circle.
+ */
+function thumbnailForPlanNode(node: ActiveSessionPlanBoardNodeSnapshot): string | undefined {
+  if (node.thumbnailUrl) return node.thumbnailUrl;
+  const activityId = activityIdForPlanNode(node);
+  const conceptLabel = conceptLabelForPlanNode(node, activityId);
+  if (!conceptLabel) return undefined;
+  return CONCEPT_LABEL_THUMBNAILS[conceptLabel] ?? "/thumbnails/activities/math-generic.svg";
 }
 
 function iconForPlanNode(
@@ -675,10 +873,12 @@ function mysteryChoiceSetId(node: ActiveSessionPlanBoardNodeSnapshot): string {
 function choiceSignalForNode(node: ActiveSessionPlanBoardNodeSnapshot) {
   return {
     algorithmFeed: "choicePolicy" as const,
-    traits: [
-      activityIdForPlanNode(node) === "pronunciation" ? "voice" : "practice",
-      activityIdForPlanNode(node) === "spell-check" ? "typing" : "control",
-    ],
+    traits: node.engagementDimensions?.length
+      ? [...node.engagementDimensions]
+      : [
+          activityIdForPlanNode(node) === "pronunciation" ? "voice" : "practice",
+          activityIdForPlanNode(node) === "spell-check" ? "typing" : "control",
+        ],
     expectedEvidence: `shown/chosen/skipped/completed outcome for ${activityIdForPlanNode(node)}; preference only`,
     preferenceNotMastery: true as const,
   };

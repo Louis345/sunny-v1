@@ -16,6 +16,7 @@ import {
   saveCompanionCarePlan,
 } from "../profiles/companionCarePlan";
 import type { NodeResult } from "../shared/adventureTypes";
+import { listChildProfileIds } from "../shared/childRegistry";
 import {
   applyNodeResult,
   broadcastTestMapCompanionAct,
@@ -72,6 +73,7 @@ import {
   generateExperienceHtmlWithSonnet,
 } from "../engine/generatedExperienceArtifact";
 import { recordQuestBossArtifactReview } from "../engine/generatedArtifactReview";
+import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
 import {
   readQuestBossArtifactPreparationStatus,
   startQuestBossArtifactPreparation,
@@ -122,6 +124,16 @@ import {
 } from "./companionVideoCallTrace";
 import type { SunnyRuntimeOverrides } from "../shared/runtimeConfig";
 import { resolveSunnyRuntimeConfig } from "../shared/runtimeConfig";
+import { companionPickerIdentity } from "./companionPickerRows";
+import { recordCanonicalNodeCompletion } from "../engine/learningCycleRuntime";
+import { generateCanonicalProgressionArtifact } from "../engine/canonicalProgressionGenerator";
+import {
+  buildInitialEngagementTheory,
+  updateEngagementTheoryFromActivityEvidence,
+  writeEngagementTheory,
+} from "../engine/engagementTheory";
+import { getLearningCycle } from "../engine/learningCycleRepository";
+import { engagementDimensionsForCanonicalNode } from "./canonicalNodeEngagement";
 
 const companions = {
   Ila: ELLI,
@@ -131,7 +143,7 @@ const companions = {
 type ChildName = keyof typeof companions;
 
 const GAME_GRADE_HAIKU_MODEL = "claude-haiku-4-5-20251001";
-const HOMEWORK_SONNET_MODEL = "claude-sonnet-4-20250514";
+const HOMEWORK_SONNET_MODEL = process.env.SUNNY_HOMEWORK_MODEL ?? "claude-sonnet-5";
 const DEFAULT_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventName>([
   "call_started",
@@ -166,6 +178,11 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
 
 function isValidChild(name: string): name is ChildName {
   return name === "Ila" || name === "Reina";
+}
+
+function isValidRegistryChildId(childId: string): boolean {
+  const normalized = childId.trim().toLowerCase();
+  return normalized.length > 0 && listChildProfileIds().includes(normalized);
 }
 
 function stripJsonFences(raw: string): string {
@@ -592,6 +609,79 @@ export function setupRoutes(app: Express): void {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  app.post("/api/learning-cycle/node-complete", (req: Request, res: Response) => {
+    const body = req.body as {
+      childId?: unknown;
+      homeworkId?: unknown;
+      nodeId?: unknown;
+      result?: Record<string, unknown>;
+    };
+    const childId = String(body.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(body.homeworkId ?? "").trim();
+    const nodeId = String(body.nodeId ?? "").trim();
+    if (!childId || !homeworkId || !nodeId || !body.result) {
+      return res.status(400).json({ error: "childId, homeworkId, nodeId, and result are required" });
+    }
+    try {
+      const accuracy = Number(body.result.accuracy ?? 0);
+      const updated = recordCanonicalNodeCompletion({
+        childId,
+        homeworkId,
+        nodeId,
+        sessionId: String(body.result.sessionId ?? randomUUID()),
+        result: {
+          completed: body.result.completed === true,
+          accuracy: Number.isFinite(accuracy) ? accuracy : 0,
+          timeSpent_ms: Math.max(0, Number(body.result.timeSpent_ms ?? 0) || 0),
+          targetResults: Array.isArray(body.result.targetResults)
+            ? body.result.targetResults as Array<{ target: string; correct: boolean; responseTime_ms?: number; scaffoldLevel?: number }>
+            : undefined,
+          frustrationSignals: Array.isArray(body.result.frustrationSignals)
+            ? body.result.frustrationSignals.map(String)
+            : undefined,
+          replay: body.result.replay === true,
+          companionInteractions: Array.isArray(body.result.companionInteractions)
+            ? body.result.companionInteractions.map(String)
+            : undefined,
+        },
+      });
+      if (!updated) return res.status(404).json({ error: "learning_cycle_not_found" });
+      const completedNode = updated.nodes.find((node) => node.nodeId === nodeId);
+      if (completedNode && body.result.completed === true) {
+        const theory = updated.engagementTheory ?? buildInitialEngagementTheory({
+          childId,
+          domain: updated.domain,
+          homeworkId,
+        });
+        const enrichedTheory = updateEngagementTheoryFromActivityEvidence(theory, {
+          activityId: completedNode.nodeId,
+          contentId: completedNode.artifactBinding?.contentId,
+          experimentId: completedNode.experimentId,
+          dimensions: engagementDimensionsForCanonicalNode(completedNode),
+          completed: true,
+          frustrationScore: Array.isArray(body.result.frustrationSignals) && body.result.frustrationSignals.length > 0 ? 0.75 : 0,
+          replayRequested: body.result.replay === true,
+        });
+        writeEngagementTheory(childId, enrichedTheory);
+      }
+      const finalCycle = getLearningCycle(childId, homeworkId) ?? updated;
+      console.log(` 🎮 [learning-cycle-route] [completion] [saved] child=${childId} node=${nodeId} lifecycle=${updated.lifecycle} revision=${updated.revision}`);
+      if (updated.lifecycle === "quest_generating" || updated.lifecycle === "boss_generating") {
+        void generateCanonicalProgressionArtifact({ childId, homeworkId })
+          .then((generated) => {
+            console.log(` 🎮 [learning-cycle-route] [progression] [bound] lifecycle=${generated.lifecycle} revision=${generated.revision}`);
+          })
+          .catch((error: unknown) => {
+            console.error(` 🎮 [learning-cycle-route] [progression] [failed] ${error instanceof Error ? error.message : String(error)}`);
+          });
+      }
+      return res.json({ lifecycle: finalCycle.lifecycle, revision: finalCycle.revision });
+    } catch (error) {
+      console.error(" 🎮 [learning-cycle-route] [completion] [failed]", error);
+      return res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   app.post("/api/diag/trigger-reward", (req: Request, res: Response) => {
     const out = handleDiagTriggerReward(req.body ?? {}, process.env);
     res.status(out.status).json(out.body);
@@ -767,8 +857,7 @@ export function setupRoutes(app: Express): void {
     try {
       const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
       const childId = rawChildId.toLowerCase();
-      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
-      if (!childId || !isValidChild(childName)) {
+      if (!childId || !isValidRegistryChildId(childId)) {
         return res.status(400).json({ ok: false, error: "invalid_child_id" });
       }
       const status = startQuestBossArtifactPreparation({ childId });
@@ -786,8 +875,7 @@ export function setupRoutes(app: Express): void {
     try {
       const rawChildId = typeof req.query.childId === "string" ? req.query.childId.trim() : "";
       const childId = rawChildId.toLowerCase();
-      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
-      if (!childId || !isValidChild(childName)) {
+      if (!childId || !isValidRegistryChildId(childId)) {
         return res.status(400).json({ ok: false, error: "invalid_child_id" });
       }
       const status = readQuestBossArtifactPreparationStatus({ childId });
@@ -805,9 +893,8 @@ export function setupRoutes(app: Express): void {
     try {
       const rawChildId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
       const childId = rawChildId.toLowerCase();
-      const childName = rawChildId.slice(0, 1).toUpperCase() + rawChildId.slice(1).toLowerCase();
       const decision = req.body?.decision;
-      if (!childId || !isValidChild(childName)) {
+      if (!childId || !isValidRegistryChildId(childId)) {
         return res.status(400).json({ ok: false, error: "invalid_child_id" });
       }
       if (decision !== "approve" && decision !== "revise" && decision !== "reject" && decision !== "regenerate") {
@@ -888,6 +975,32 @@ export function setupRoutes(app: Express): void {
     try {
       const event = recordChoiceEvent(eventInput);
       const applied = await applyChoiceEventPreference(event);
+      if (
+        event.context === "baseline_route" &&
+        event.source === "child_choice" &&
+        event.selectedOptionId
+      ) {
+        const selected = event.shownOptions.find(
+          (option) => option.optionId === event.selectedOptionId,
+        );
+        if (selected) {
+          const skippedLabels = event.shownOptions
+            .filter((option) => option.optionId !== event.selectedOptionId)
+            .map((option) => option.label);
+          appendContentFeedbackLesson(process.cwd(), childId, {
+            contentId: selected.contentId,
+            theoryId: selected.theoryId,
+            experimentId: selected.experimentId,
+            engagementDimensions: selected.engagementDimensions,
+            mechanic: selected.label,
+            theme: selected.preferenceTraits?.join(", ") || undefined,
+            domain: event.domain,
+            decision: "approve",
+            reason: `Child chose route "${selected.label}"${skippedLabels.length ? ` over ${skippedLabels.join(", ")}` : ""} at the board fork.`,
+            source: "child_choice",
+          });
+        }
+      }
       return res.json({
         ok: true,
         applied: applied.applied,
@@ -984,13 +1097,34 @@ export function setupRoutes(app: Express): void {
       Object.entries(companions).map(async ([childName, config]) => {
         const profile = await buildProfile(childName.toLowerCase());
         const ui = profile?.ui as { accentColor?: string; accentBg?: string } | undefined;
+        let chartCompanionId: string | undefined;
+        let chartDisplayName: string | undefined;
+        try {
+          const chart = getChildChart(childName.toLowerCase());
+          chartCompanionId = chart.companion.config.companionId;
+          chartDisplayName = chart.companion.displayName;
+        } catch (error) {
+          console.warn(
+            ` 🎮 [companion-picker] [chart_identity] [fallback] child=${childName.toLowerCase()} reason=${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+        const identity = companionPickerIdentity({
+          legacyName: config.name,
+          chartCompanionId,
+          chartDisplayName,
+        });
+        const companionMetadata = identity.companionId === "elli"
+          ? ELLI
+          : identity.companionId === "matilda"
+            ? MATILDA
+            : config;
         return {
           childName,
-          companionName: config.name,
-          emoji: config.emoji,
-          voiceId: config.voiceId,
-          openingLine: config.openingLine,
-          goodbye: config.goodbye,
+          companionName: identity.companionName,
+          emoji: companionMetadata.emoji,
+          voiceId: companionMetadata.voiceId,
+          openingLine: companionMetadata.openingLine,
+          goodbye: companionMetadata.goodbye,
           accentColor: ui?.accentColor ?? "#7C3AED",
           accentBg: ui?.accentBg ?? "#F3E8FF",
           avatarImagePath: profile?.avatarImagePath ?? null,
@@ -1648,10 +1782,30 @@ export function setupRoutes(app: Express): void {
       profile?.games?.quest?.generatedGamePath,
       profile?.games?.boss?.generatedGamePath,
     ].filter((p): p is string => typeof p === "string" && p.trim().length > 0);
+    const contextGamesDir = path.join(process.cwd(), "src", "context", childId, "homework", "games");
+    const contextCandidate = path.join(contextGamesDir, filename);
     const resolved = configuredPaths
       .map((p) => path.resolve(p))
-      .find((p) => path.basename(p) === filename && fs.existsSync(p));
+      .find((p) => path.basename(p) === filename && fs.existsSync(p))
+      ?? (fs.existsSync(contextCandidate) ? path.resolve(contextCandidate) : undefined);
     if (!resolved) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    res.type("html");
+    return res.sendFile(resolved);
+  });
+
+  app.get("/api/homework/game/:childId/:homeworkId/:filename", (req: Request, res: Response) => {
+    const childId = typeof req.params.childId === "string" ? req.params.childId.trim().toLowerCase() : "";
+    const homeworkId = typeof req.params.homeworkId === "string" ? req.params.homeworkId.trim() : "";
+    const filename = typeof req.params.filename === "string" ? req.params.filename.trim() : "";
+    if (!childId || !/^[\w.-]+$/.test(homeworkId) || !/^[\w.\- ]+$/.test(filename)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+    const gamesRoot = path.resolve(process.cwd(), "src", "context", childId, "homework", "games");
+    const cycleRoot = path.resolve(gamesRoot, homeworkId);
+    const resolved = path.resolve(cycleRoot, filename);
+    if (!cycleRoot.startsWith(`${gamesRoot}${path.sep}`) || !resolved.startsWith(`${cycleRoot}${path.sep}`) || !fs.existsSync(resolved)) {
       return res.status(404).json({ error: "File not found" });
     }
     res.type("html");
@@ -2011,6 +2165,20 @@ Return plain text only.`,
       return res.status(422).json({ error: "invalid_activity_config", findings: ["invalid_json"] });
     }
     const activityId = activityIdFromConfig(parsed);
+    if (activityId === "generated-baseline") {
+      if (
+        !parsed ||
+        typeof parsed !== "object" ||
+        Array.isArray(parsed) ||
+        !Array.isArray((parsed as { rounds?: unknown }).rounds)
+      ) {
+        return res.status(422).json({
+          error: "invalid_activity_config",
+          findings: ["generated_baseline_requires_rounds"],
+        });
+      }
+      return res.json(parsed);
+    }
     if (activityId !== "concept-check" && activityId !== "letter-rush") {
       return res.status(422).json({
         error: "unsupported_activity_engine",

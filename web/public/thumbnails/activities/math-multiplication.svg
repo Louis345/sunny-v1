@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-label="Times Tables thumbnail">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ea580c"/>
+      <stop offset="1" stop-color="#db2777"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="160" rx="8" fill="url(#bg)"/>
+  <g fill="#fef08a">
+    <circle cx="76" cy="52" r="12"/><circle cx="120" cy="52" r="12"/><circle cx="164" cy="52" r="12"/>
+    <circle cx="76" cy="94" r="12"/><circle cx="120" cy="94" r="12"/><circle cx="164" cy="94" r="12"/>
+  </g>
+  <text x="120" y="146" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="bold" fill="#ffffff">2 × 3 = 6</text>
+</svg>

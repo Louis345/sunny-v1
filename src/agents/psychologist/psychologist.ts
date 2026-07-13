@@ -525,7 +525,7 @@ export async function extractHomeworkProblems(
   }
 
   const { text } = await generateText({
-    model: anthropic("claude-sonnet-4-20250514"),
+    model: anthropic(process.env.SUNNY_PSYCHOLOGIST_MODEL ?? "claude-sonnet-5"),
     system: GENERIC_EXTRACTOR_SYSTEM,
     maxOutputTokens: 4096,
     prompt: `${GENERIC_EXTRACTOR_INSTRUCTIONS}\n\n--- HOMEWORK ---\n${trimmed.slice(0, 120_000)}`,

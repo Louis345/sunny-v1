@@ -143,6 +143,8 @@ export function resolvePlannerBoardLaunchNode(
     targetLane: planNode?.targetLane ?? boardNode.target?.laneId,
     difficulty: difficulty(planNode?.difficulty),
     thumbnailUrl: boardNode.thumbnailUrl,
+    thumbnailPrompt: source?.thumbnailPrompt,
+    rewardWrapper: source?.rewardWrapper,
     gameFile: source?.gameFile,
     gameHtmlPath: source?.gameHtmlPath,
     storyFile: source?.storyFile,
@@ -151,6 +153,14 @@ export function resolvePlannerBoardLaunchNode(
     storyImagePrompt: source?.storyImagePrompt,
     date: source?.date,
     activityConfigPath: source?.activityConfigPath,
+    contentId: source?.contentId ?? boardNode.contentId,
+    theoryId: source?.theoryId ?? boardNode.theoryId,
+    experimentId: source?.experimentId ?? boardNode.experimentId,
+    engagementDimensions: source?.engagementDimensions ?? boardNode.engagementDimensions,
+    engagementHypothesis: source?.engagementHypothesis ?? boardNode.engagementHypothesis,
+    mechanic: source?.mechanic ?? boardNode.mechanic,
+    sfxProfile: source?.sfxProfile ?? boardNode.sfxProfile,
+    companionPolicy: source?.companionPolicy ?? boardNode.companionPolicy,
     choiceSetId: boardNode.choiceSetId,
     isLocked: false,
     isCompleted: boardNode.state === "completed",
@@ -166,7 +176,18 @@ export function resolvePlannerBoardChoiceLaunchNode(
   const boardNode = packet.activeSessionPlan?.adventureBoard?.nodes.find(
     (node) => node.id === option.nodeId,
   );
-  return boardNode
-    ? resolvePlannerBoardLaunchNode(packet, boardNode, { allowLocked: true })
-    : null;
+  if (!boardNode) return null;
+  const launchNode = resolvePlannerBoardLaunchNode(packet, boardNode, { allowLocked: true });
+  if (!launchNode) return null;
+  return {
+    ...launchNode,
+    ...(option.activityId ? { activityId: option.activityId } : {}),
+    ...(option.gameHtmlPath ? { gameHtmlPath: option.gameHtmlPath } : {}),
+    ...(option.contentId ? { contentId: option.contentId } : {}),
+    ...(option.theoryId ? { theoryId: option.theoryId } : {}),
+    ...(option.experimentId ? { experimentId: option.experimentId } : {}),
+    ...(option.engagementDimensions ? { engagementDimensions: option.engagementDimensions } : {}),
+    ...(option.engagementHypothesis ? { engagementHypothesis: option.engagementHypothesis } : {}),
+    ...(option.mechanic ? { mechanic: option.mechanic } : {}),
+  };
 }
