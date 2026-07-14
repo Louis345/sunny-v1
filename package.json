@@ -52,6 +52,7 @@
     "sunny": "npm run sunny:run -- --subject review",
     "sunny:homework": "npm run sunny:run -- --subject homework",
     "sunny:homework:preflight": "npx tsx src/scripts/preflightHomeworkSession.ts",
+    "sunny:route-launch:verify": "npx tsx src/scripts/verifyPublishedRouteLaunch.ts",
     "sunny:homework:spelling": "npm run sunny:run -- --subject homework --homework-domain spelling",
     "sunny:spelling": "npm run sunny:homework:spelling",
     "sunny:math": "npm run sunny:run -- --subject homework --homework-domain math",

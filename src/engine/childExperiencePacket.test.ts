@@ -2,6 +2,33 @@ import { describe, expect, it } from "vitest";
 import { buildChildExperiencePacket } from "../profiles/childExperiencePacket";
 
 describe("buildChildExperiencePacket", () => {
+  it("projects the active homework identity onto generated playable nodes", () => {
+    const packet = buildChildExperiencePacket({
+      childId: "reina",
+      identity: { displayName: "Reina" },
+      companion: { presetId: "elli", displayName: "Elli", config: {} },
+      companionCare: {},
+      economy: {},
+      adventureMapProfile: {},
+      homework: { selectedDomain: "math" },
+      activeSessionPlan: {
+        planId: "published-math-board",
+        activeHomeworkId: "hw-math-cycle",
+        nodePlan: [{
+          id: "comet-check",
+          type: "generated-baseline",
+          activityId: "generated-baseline",
+          targets: [],
+          difficulty: 1,
+          source: "chart_planner",
+          gameHtmlPath: "/games/comet-check.html",
+        }],
+      },
+    } as never);
+
+    expect(packet.activeSessionPlan?.nodePlan[0]?.date).toBe("hw-math-cycle");
+  });
+
   it("prefers the compiled selected-domain active session board over stale chart board data", () => {
     const packet = buildChildExperiencePacket({
       childId: "ila",

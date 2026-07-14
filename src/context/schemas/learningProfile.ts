@@ -196,6 +196,8 @@ export interface ActiveSessionPlan {
     rewardWrapper?: RewardWrapperConfig;
     /** Approved generated shell HTML; required for generated-baseline nodes to launch from the board. */
     gameHtmlPath?: string;
+    /** Canonical homework identity used to route the generated artifact. */
+    date?: string;
     /** Planner/designer-selected artwork for this exact node. */
     thumbnailUrl?: string;
     thumbnailPrompt?: string;

@@ -686,6 +686,7 @@ export function projectLearningCycle(cycle: LearningCycleRecordV2): LearningCycl
       sfxProfile: node.sfxContract.join("-"),
       companionPolicy: "cycle-contract",
       gameHtmlPath: node.artifactBinding?.localArtifactPath,
+      date: node.artifactBinding?.localArtifactPath ? cycle.homeworkId : undefined,
       activityConfigPath: node.artifactBinding?.activityConfigPath,
       validationProof: node.artifactBinding?.validationProof,
       thumbnailUrl: node.artwork.localPath ?? node.artifactBinding?.localArtworkPath ?? undefined,

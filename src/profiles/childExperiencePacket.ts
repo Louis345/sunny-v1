@@ -23,6 +23,24 @@ export type ChildExperiencePacket = {
   activeSessionPlan: ChildChart["activeSessionPlan"];
 };
 
+function projectPlayableHomeworkIdentity(
+  plan: ChildChart["activeSessionPlan"],
+): ChildChart["activeSessionPlan"] {
+  if (!plan?.activeHomeworkId || !plan.nodePlan) return plan;
+  const needsProjection = plan.nodePlan.some(
+    (node) => node.type === "generated-baseline" && node.gameHtmlPath && node.date !== plan.activeHomeworkId,
+  );
+  if (!needsProjection) return plan;
+  return {
+    ...plan,
+    nodePlan: plan.nodePlan.map((node) =>
+      node.type === "generated-baseline" && node.gameHtmlPath
+        ? { ...node, date: plan.activeHomeworkId }
+        : node,
+    ),
+  };
+}
+
 export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePacket {
   const selectedDomain = chart.homework.selectedDomain ?? undefined;
   const legacySelectedDomainPlan = selectedDomain
@@ -30,6 +48,9 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
       (chart as ChildChart & { activeSessionPlanByDomain?: Record<string, ChildChart["activeSessionPlan"]> })
         .activeSessionPlanByDomain?.[selectedDomain]
     : undefined;
+  const selectedPlan = chart.learningCycle
+    ? chart.activeSessionPlan
+    : legacySelectedDomainPlan ?? chart.activeSessionPlan;
   return {
     childChart: {
       childId: chart.childId,
@@ -50,8 +71,6 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
           }
         : undefined,
     },
-    activeSessionPlan: chart.learningCycle
-      ? chart.activeSessionPlan
-      : legacySelectedDomainPlan ?? chart.activeSessionPlan,
+    activeSessionPlan: projectPlayableHomeworkIdentity(selectedPlan),
   };
 }

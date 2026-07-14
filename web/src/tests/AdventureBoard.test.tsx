@@ -747,6 +747,55 @@ describe("AdventureBoardExperience", () => {
     });
   });
 
+  it("launches a generated route destination using only fields in the published packet", () => {
+    const board: AdventureBoardJson = {
+      ...grokFullExperienceBoard,
+      nodes: [{
+        id: "generated-route-node",
+        kind: "activity",
+        activityId: "generated-baseline",
+        label: "Comet Check",
+        state: "available",
+        action: { type: "launch-activity", payloadId: "generated-route-node" },
+      }],
+      edges: [],
+      choiceSets: [{
+        id: "generated-routes",
+        kind: "baseline-route",
+        title: "Choose a route",
+        options: [{ id: "route-a", label: "Comet Route", state: "available", nodeId: "generated-route-node" }],
+      }],
+    };
+    const packet: ChildExperiencePacket = {
+      ...packetForBoard(board),
+      activeSessionPlan: {
+        ...packetForBoard(board).activeSessionPlan!,
+        activeHomeworkId: "hw-math-cycle",
+        adventureBoard: board,
+        nodePlan: [{
+          id: "generated-route-node",
+          type: "generated-baseline",
+          activityId: "generated-baseline",
+          targets: [],
+          difficulty: 1,
+          source: "chart_planner",
+          gameHtmlPath: "/games/comet-check.html",
+          date: "hw-math-cycle",
+        }],
+      },
+    };
+
+    const launchNode = resolvePlannerBoardChoiceLaunchNode(packet, board.choiceSets![0]!.options[0]!);
+    expect(buildNodeLaunchAction(launchNode!, {
+      childId: "reina",
+      companion: "elli",
+      isDiagMode: false,
+    })).toMatchObject({
+      kind: "iframe",
+      url: expect.stringContaining("/api/homework/game/reina/hw-math-cycle/comet-check.html"),
+    });
+  });
+
   it("turns Quest wrapper card selection into a validated regenerate request and launch node", () => {
     const board = boardWithSpecialChoice("quest");
     const packet: ChildExperiencePacket = {

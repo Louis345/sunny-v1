@@ -262,6 +262,7 @@ describe("canonical learning cycle repository", () => {
     }, { rootDir });
 
     expect(projectLearningCycle(bound).activeSessionPlan.nodePlan[0]?.validationProof).toEqual(proof);
+    expect(projectLearningCycle(bound).activeSessionPlan.nodePlan[0]?.date).toBe("hw-math-cycle");
   });
 
   it("turns baseline evidence into the Quest prompt without mixing evidence streams", () => {
