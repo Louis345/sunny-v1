@@ -2,7 +2,7 @@
   "childId": "qa_map",
   "version": 1,
   "createdAt": "2026-04-29T21:38:35.912Z",
-  "lastUpdated": "2026-05-17T19:19:59.475Z",
+  "lastUpdated": "2026-07-12T22:57:07.655Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -86,55 +86,55 @@
   "activityModel": {
     "word-radar": {
       "activityId": "word-radar",
-      "plays": 34,
-      "completions": 34,
+      "plays": 37,
+      "completions": 37,
       "completionRate": 1,
       "averageAccuracy": 1,
       "averageTimePerTarget_ms": 5000,
       "engagementScore": 1,
       "frustrationScore": 0.1,
-      "likedCount": 34,
+      "likedCount": 37,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.427Z",
+      "lastPlayed": "2026-07-12T22:57:07.642Z",
       "domains": {
-        "spelling": 34
+        "spelling": 37
       },
       "missedWords": []
     },
     "riddle": {
       "activityId": "riddle",
-      "plays": 68,
-      "completions": 68,
+      "plays": 74,
+      "completions": 74,
       "completionRate": 1,
       "averageAccuracy": 0.95,
       "averageTimePerTarget_ms": 6000,
       "engagementScore": 0.95,
       "frustrationScore": 0.1,
-      "likedCount": 68,
+      "likedCount": 74,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.472Z",
+      "lastPlayed": "2026-07-12T22:57:07.654Z",
       "domains": {
-        "general": 68
+        "general": 74
       },
       "missedWords": []
     },
     "letter-rush": {
       "activityId": "letter-rush",
-      "plays": 34,
-      "completions": 34,
+      "plays": 37,
+      "completions": 37,
       "completionRate": 1,
       "averageAccuracy": 0.5,
       "averageTimePerTarget_ms": 6000,
       "engagementScore": 0.85,
       "frustrationScore": 0.45,
-      "likedCount": 34,
+      "likedCount": 37,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.475Z",
+      "lastPlayed": "2026-07-12T22:57:07.655Z",
       "domains": {
-        "general": 34
+        "general": 37
       },
       "missedWords": [
         "farmer"
@@ -142,19 +142,19 @@
     },
     "pronunciation": {
       "activityId": "pronunciation",
-      "plays": 6,
-      "completions": 6,
+      "plays": 9,
+      "completions": 9,
       "completionRate": 1,
       "averageAccuracy": 0.5,
       "averageTimePerTarget_ms": 6000,
       "engagementScore": 0.85,
       "frustrationScore": 0.45,
-      "likedCount": 6,
+      "likedCount": 9,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-05-17T19:19:59.432Z",
+      "lastPlayed": "2026-07-12T22:57:07.644Z",
       "domains": {
-        "spelling": 6
+        "spelling": 9
       },
       "missedWords": []
     }
@@ -172,7 +172,7 @@
         "targetCount": 2,
         "frustrationScore": 0.45,
         "strongEvidence": false,
-        "occurredAt": "2026-05-17T19:19:59.432Z"
+        "occurredAt": "2026-07-12T22:57:07.644Z"
       }
     },
     "general": {
@@ -187,7 +187,7 @@
         "targetCount": 2,
         "frustrationScore": 0.45,
         "strongEvidence": false,
-        "occurredAt": "2026-05-17T19:19:59.475Z"
+        "occurredAt": "2026-07-12T22:57:07.655Z"
       }
     }
   },

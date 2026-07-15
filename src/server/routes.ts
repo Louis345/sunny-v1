@@ -1293,10 +1293,13 @@ export function setupRoutes(app: Express): void {
       const talkModel = talk.activityReaction
         ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
         : process.env.SUNNY_COMPANION_TALK_MODEL || HOMEWORK_SONNET_MODEL;
+      // Game beats need one short line + one gesture call; a tight cap bounds
+      // tail latency on fast-model turns.
+      const talkMaxTokens = talk.activityReaction ? 120 : 180;
       const claudeStartedAt = Date.now();
       const msg = await client.messages.create({
         model: talkModel,
-        max_tokens: 180,
+        max_tokens: talkMaxTokens,
         system,
         messages: messages as Anthropic.MessageParam[],
         tools: showroomTools,

@@ -353,8 +353,9 @@ describe("companion showroom talk contract", () => {
     expect(prompt).toContain("1-3 short sentences");
     expect(prompt).toContain("companionAct");
     expect(prompt).toContain("show emotion through movement");
-    expect(prompt).toContain("in the message text of this same response");
+    expect(prompt).toContain("first write the words you say aloud as plain message text");
     expect(prompt).toContain("Never wait for tool results before speaking");
+    expect(prompt).toContain("Never send a tool-only response when the child asked you something");
     expect(prompt).not.toContain("award coins");
     expect(prompt).not.toContain("award XP");
   });

@@ -838,6 +838,176 @@
       "improvement": 0,
       "predictionMet": true,
       "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:27:57.096Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-wr",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-07-12T22:27:57.112Z",
+      "baselineAccuracy": 0.65,
+      "interventionAccuracy": 0.65,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:27:57.120Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:27:57.129Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:27:57.141Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:54:17.741Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:54:17.751Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-wr",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-07-12T22:54:17.771Z",
+      "baselineAccuracy": 0.65,
+      "interventionAccuracy": 0.65,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:54:17.781Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:54:17.787Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:54:17.803Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:57:09.457Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:57:09.467Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-wr",
+      "nodeType": "word-radar",
+      "measuredAt": "2026-07-12T22:57:09.483Z",
+      "baselineAccuracy": 0.65,
+      "interventionAccuracy": 0.65,
+      "improvement": 0,
+      "predictionMet": false,
+      "status": "falsified"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:57:09.491Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:57:09.499Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
+    },
+    {
+      "nodeId": "n-spell",
+      "nodeType": "spell-check",
+      "measuredAt": "2026-07-12T22:57:09.515Z",
+      "baselineAccuracy": 0.9,
+      "interventionAccuracy": 0.9,
+      "improvement": 0,
+      "predictionMet": true,
+      "status": "supported"
     }
   ]
 }

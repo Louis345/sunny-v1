@@ -6,12 +6,16 @@ import type { AddressInfo } from "net";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const anthropicCreate = vi.hoisted(() =>
-  vi.fn(async () => ({
+  vi.fn(async (_request: Record<string, unknown>) => ({
     content: [{ type: "text", text: "Hi friend, great move!" }],
   })),
 );
 
-const elevenLabsConvert = vi.hoisted(() => vi.fn(async () => Buffer.from("mp3-bytes")));
+const elevenLabsConvert = vi.hoisted(() =>
+  vi.fn(async (_voiceId: string, _options: Record<string, unknown>) =>
+    Buffer.from("mp3-bytes"),
+  ),
+);
 
 vi.mock("@anthropic-ai/sdk", () => ({
   default: vi.fn().mockImplementation(() => ({
@@ -112,7 +116,7 @@ describe("POST /api/companions/:companionId/talk model + TTS routing", () => {
     expect(anthropicCreate).toHaveBeenCalledTimes(1);
     expect(anthropicCreate.mock.calls[0]?.[0]).toMatchObject({ model: GAME_MODEL });
     expect(elevenLabsConvert).toHaveBeenCalledTimes(1);
-    const [, ttsOptions] = elevenLabsConvert.mock.calls[0] as [string, Record<string, unknown>];
+    const ttsOptions = elevenLabsConvert.mock.calls[0]?.[1] ?? {};
     expect(ttsOptions.modelId).toBe(FLASH_TTS_MODEL);
     expect(ttsOptions.pronunciationDictionaryLocators).toBeUndefined();
   });
@@ -130,7 +134,7 @@ describe("POST /api/companions/:companionId/talk model + TTS routing", () => {
 
     expect(result.status).toBe(200);
     expect(anthropicCreate.mock.calls[0]?.[0]).toMatchObject({ model: SOCIAL_MODEL });
-    const [, ttsOptions] = elevenLabsConvert.mock.calls[0] as [string, Record<string, unknown>];
+    const ttsOptions = elevenLabsConvert.mock.calls[0]?.[1] ?? {};
     expect(ttsOptions.modelId).toBe(FLASH_TTS_MODEL);
   });
 
@@ -142,7 +146,7 @@ describe("POST /api/companions/:companionId/talk model + TTS routing", () => {
     });
 
     expect(result.status).toBe(200);
-    const [, ttsOptions] = elevenLabsConvert.mock.calls[0] as [string, Record<string, unknown>];
+    const ttsOptions = elevenLabsConvert.mock.calls[0]?.[1] ?? {};
     expect(ttsOptions.modelId).toBe("eleven_multilingual_v2");
     expect(ttsOptions.pronunciationDictionaryLocators).toEqual([
       { pronunciationDictionaryId: "dict_1", versionId: "v_1" },

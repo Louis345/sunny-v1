@@ -480,6 +480,22 @@
         "date": "2026-05-27",
         "approved": false
       }
+    ],
+    "completedAdventureNodeIds": [
+      "n-spell-check-hw-spelling_test-perfect",
+      "n-spell-check-hw-spelling_test-quest-artifact",
+      "n-word-radar-hw-spelling_test-adaptive",
+      "n-word-radar-hw-spelling_test-cohort-split",
+      "n-spell-check-hw-spelling_test-pronunciation-expand",
+      "onboarding-bubble-pop"
+    ],
+    "reinforceWords": [
+      "slowly",
+      "lucky",
+      "messy",
+      "rainy",
+      "friendly",
+      "above"
     ]
   },
   "activeByDomain": {
@@ -961,8 +977,24 @@
           "date": "2026-05-27",
           "approved": false
         }
+      ],
+      "completedAdventureNodeIds": [
+        "n-spell-check-hw-spelling_test-perfect",
+        "n-spell-check-hw-spelling_test-quest-artifact",
+        "n-word-radar-hw-spelling_test-adaptive",
+        "n-word-radar-hw-spelling_test-cohort-split",
+        "n-spell-check-hw-spelling_test-pronunciation-expand",
+        "onboarding-bubble-pop"
+      ],
+      "reinforceWords": [
+        "slowly",
+        "lucky",
+        "messy",
+        "rainy",
+        "friendly",
+        "above"
       ]
     }
   },
-  "updatedAt": "2026-05-27T19:28:05.818Z"
+  "updatedAt": "2026-07-12T22:57:07.663Z"
 }

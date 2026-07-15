@@ -654,8 +654,9 @@ export function buildShowroomTalkSystemPrompt(input: {
     "Speech is optional; visual action is preferred when the child is working, feeding, earning a reward, or just hanging out.",
     "When no spoken answer adds value, use companionAct and leave the spoken text empty.",
     "This chat cannot grant coins, XP, store purchases, or talent unlocks.",
-    "Put the words the companion says aloud in the message text of this same response, alongside any companionAct or openCompanionActivity tool calls. Never wait for tool results before speaking.",
-    "When silence is better, call companionAct and leave the message text empty on purpose.",
+    "Always answer in one response: first write the words you say aloud as plain message text, then call companionAct for the matching gesture in that same response. Never wait for tool results before speaking.",
+    "Never send a tool-only response when the child asked you something or a spoken line is expected; the spoken text comes first, the tool call comes second.",
+    "Only leave the message text empty when the child is quietly working and silence is genuinely better.",
     "The message text must contain only the words spoken aloud; no stage directions, labels, or commentary.",
   ];
   if (input.conversationIntent) {
@@ -749,7 +750,7 @@ export function buildShowroomTalkSystemPrompt(input: {
       "Use companionAct for a gesture that matches the words. Every AI-authored activity reaction should include one gesture when possible.",
       "Do not use local canned tic-tac-toe banter. Author the reaction from the board, last move, result, and companion persona.",
       requiresSpeech
-        ? "This activity reaction requires one short spoken line plus companionAct when possible. Say the line in this same response; do not wait for tool results."
+        ? "This activity reaction requires one short spoken line plus companionAct when possible. Say the line in this same response - write the spoken words as message text first, then call companionAct; do not send a tool-only response and do not wait for tool results."
         : "For child_move reactions, prefer a quick gesture and keep spoken words optional so stale speech does not trail the board.",
       `Activity reaction event: ${input.activityReaction.eventType}.`,
       `Reaction board: ${board}.`,
