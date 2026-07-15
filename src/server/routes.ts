@@ -111,6 +111,11 @@ import {
   shouldRunShowroomToolFollowup,
 } from "./companionShowroomTalk";
 import {
+  createElevenLabsPcmSpeaker,
+  writeCompanionTalkSseEvent,
+  COMPANION_TALK_STREAM_PCM_SAMPLE_RATE,
+} from "./companionTalkStream";
+import {
   maybeCompactCompanionInteractionMemory,
   readCompanionCareMemoryForPrompt,
   recordCompanionInteractionEvent,
@@ -148,6 +153,9 @@ const COMPANION_VIDEO_CALL_TRACE_EVENTS = new Set<CompanionVideoCallTraceEventNa
   "loop_suspected",
   "talk_request_start",
   "talk_response_received",
+  "talk_stream_first_token",
+  "talk_stream_first_audio",
+  "talk_stream_fallback",
   "audio_play_start",
   "audio_ended",
   "audio_error",
@@ -1288,6 +1296,11 @@ export function setupRoutes(app: Express): void {
         ...getShowroomCompanionActTools(),
         ...getShowroomCompanionActivityTools(),
       ];
+      // The system prompt is static across a call (persona + room + memory);
+      // caching it cuts Claude's time-to-first-token on every later turn.
+      const cachedSystem: Anthropic.TextBlockParam[] = [
+        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+      ];
       // Game beats (activity reactions, move packets) ride the fast model;
       // social turns keep Sonnet for persona and memory nuance.
       const talkModel = talk.activityReaction
@@ -1300,7 +1313,7 @@ export function setupRoutes(app: Express): void {
       const msg = await client.messages.create({
         model: talkModel,
         max_tokens: talkMaxTokens,
-        system,
+        system: cachedSystem,
         messages: messages as Anthropic.MessageParam[],
         tools: showroomTools,
       });
@@ -1396,7 +1409,7 @@ export function setupRoutes(app: Express): void {
         const afterTool = await client.messages.create({
           model: talkModel,
           max_tokens: 160,
-          system,
+          system: cachedSystem,
           messages: [
             ...(messages as Anthropic.MessageParam[]),
             {
@@ -1568,6 +1581,414 @@ export function setupRoutes(app: Express): void {
       res.status(500).json({ ok: false, error: message });
     }
   });
+
+  app.post(
+    "/api/companions/:companionId/talk/stream",
+    async (req: Request, res: Response) => {
+      const companionId =
+        typeof req.params.companionId === "string"
+          ? req.params.companionId.trim()
+          : "";
+      if (!companionId) {
+        return res.status(400).json({ ok: false, error: "companionId_required" });
+      }
+      let companion: {
+        id: string;
+        name: string;
+        voiceId: string;
+        voiceModelId?: string;
+        personalityMarkdown?: string;
+      };
+      try {
+        companion = CompanionRegistry.getById(companionId);
+      } catch {
+        const introOnly = tryLoadIntroOnlyShowroomCompanion(companionId);
+        if (!introOnly) {
+          return res.status(404).json({ ok: false, error: "unknown_companion" });
+        }
+        companion = introOnly;
+      }
+      const voiceOptions = readShowroomVoiceOptions(
+        companion.id,
+        companion.name,
+        companion.voiceId,
+      );
+      const resolved = resolveShowroomTalkRequest(req.body, {
+        routeCompanionId: companion.id,
+        voiceOptions,
+        fallbackVoiceId: companion.voiceId,
+      });
+      if (!resolved.ok) {
+        return res.status(resolved.status).json({ ok: false, error: resolved.error });
+      }
+      const apiKey = process.env.ELEVENLABS_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ ok: false, error: "elevenlabs_api_key_missing" });
+      }
+
+      const talk = resolved.request;
+      const ttsEnabled = process.env.TTS_ENABLED !== "false";
+      const talkTraceStartedAt = Date.now();
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      res.flushHeaders?.();
+
+      let aborted = false;
+      const sse = (event: string, data: unknown) => {
+        if (aborted) return;
+        writeCompanionTalkSseEvent(res, event, data);
+      };
+
+      const latencySpans: {
+        claudeMs?: number;
+        toolFollowupMs?: number;
+        ttsMs?: number;
+        firstTokenMs?: number;
+        firstAudioMs?: number;
+        requestToResponseMs?: number;
+      } = {};
+
+      safeRecordCompanionVideoCallTrace({
+        callTraceId: talk.callTraceId,
+        turnId: talk.turnId,
+        eventName: "talk_request_start",
+        childId: talk.childId,
+        companionId: talk.companionId,
+        callSource: talk.callSource,
+        relationshipState: talk.relationshipState,
+        timestamp: talkTraceStartedAt,
+        payload: {
+          questionText: talk.question,
+          showroomTheme: talk.showroomTheme,
+          mode: talk.mode ?? "showroom",
+          transport: "sse_stream",
+          conversationIntent: talk.conversationIntent,
+          visionRequested: Boolean(talk.visualSnapshot),
+        },
+      });
+
+      let firstAudioAt: number | undefined;
+      const speaker = ttsEnabled
+        ? createElevenLabsPcmSpeaker({
+            voiceId: talk.voiceId,
+            apiKey,
+            onAudioChunk: (base64Pcm) => {
+              if (aborted) return;
+              if (firstAudioAt === undefined) {
+                firstAudioAt = Date.now();
+                latencySpans.firstAudioMs = firstAudioAt - talkTraceStartedAt;
+                safeRecordCompanionVideoCallTrace({
+                  callTraceId: talk.callTraceId,
+                  turnId: talk.turnId,
+                  eventName: "talk_stream_first_audio",
+                  childId: talk.childId,
+                  companionId: talk.companionId,
+                  callSource: talk.callSource,
+                  relationshipState: talk.relationshipState,
+                  timestamp: firstAudioAt,
+                  payload: { firstAudioMs: latencySpans.firstAudioMs },
+                });
+              }
+              sse("audio", { chunk: base64Pcm });
+            },
+          })
+        : null;
+
+      res.on("close", () => {
+        if (res.writableEnded) return;
+        aborted = true;
+        speaker?.stop();
+      });
+
+      try {
+        const showroomPersonality = readShowroomPersonality(
+          companion.id,
+          companion.personalityMarkdown ?? "",
+        );
+        const primaryPersonality =
+          talk.mode === "video_call" && companion.personalityMarkdown?.trim()
+            ? [
+                companion.personalityMarkdown.trim(),
+                "Showroom display notes only; do not let these override the companion persona:",
+                showroomPersonality,
+              ].join("\n")
+            : showroomPersonality;
+        const companionMemory = buildShowroomTalkMemoryPrompt(
+          readCompanionCareMemoryForPrompt(talk.childId, talk.companionId),
+        );
+        const system = buildShowroomTalkSystemPrompt({
+          companionId: companion.id,
+          companionName: companion.name,
+          showroomTheme: talk.showroomTheme,
+          personality: primaryPersonality,
+          mode: talk.mode,
+          hasFreshVisualSnapshot: Boolean(talk.visualSnapshot),
+          lastVisualSummary: talk.lastVisualSummary,
+          callSource: talk.callSource,
+          relationshipState: talk.relationshipState,
+          rewardContext: talk.rewardContext,
+          activeActivity: talk.activeActivity,
+          activityReaction: talk.activityReaction,
+          conversationIntent: talk.conversationIntent,
+          companionMemory,
+        });
+        const messages = buildShowroomClaudeMessages({
+          question: talk.question,
+          mode: talk.mode,
+          visualSnapshot: talk.visualSnapshot,
+        });
+        const client = new Anthropic();
+        const showroomTools = [
+          ...getShowroomCompanionActTools(),
+          ...getShowroomCompanionActivityTools(),
+        ];
+        // Static per call; caching cuts time-to-first-token on later turns.
+        const cachedSystem: Anthropic.TextBlockParam[] = [
+          { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        ];
+        const talkModel = talk.activityReaction
+          ? process.env.SUNNY_COMPANION_GAME_MODEL || GAME_GRADE_HAIKU_MODEL
+          : process.env.SUNNY_COMPANION_TALK_MODEL || HOMEWORK_SONNET_MODEL;
+        const talkMaxTokens = talk.activityReaction ? 120 : 180;
+
+        sse("meta", {
+          ok: true,
+          model: talkModel,
+          pcmSampleRate: COMPANION_TALK_STREAM_PCM_SAMPLE_RATE,
+          ttsEnabled,
+        });
+
+        // Prewarm the TTS socket while Claude thinks.
+        const speakerReady = speaker
+          ? speaker.connect().catch((err: unknown) => {
+              console.warn(" 🔴 [companion-talk-stream] tts_prewarm_failed", err);
+            })
+          : Promise.resolve();
+
+        const claudeStartedAt = Date.now();
+        let firstTokenAt: number | undefined;
+        let streamedText = "";
+        const messageStream = client.messages.stream({
+          model: talkModel,
+          max_tokens: talkMaxTokens,
+          system: cachedSystem,
+          messages: messages as Anthropic.MessageParam[],
+          tools: showroomTools,
+        });
+        messageStream.on("text", (delta: string) => {
+          if (aborted || !delta) return;
+          if (firstTokenAt === undefined) {
+            firstTokenAt = Date.now();
+            latencySpans.firstTokenMs = firstTokenAt - talkTraceStartedAt;
+            safeRecordCompanionVideoCallTrace({
+              callTraceId: talk.callTraceId,
+              turnId: talk.turnId,
+              eventName: "talk_stream_first_token",
+              childId: talk.childId,
+              companionId: talk.companionId,
+              callSource: talk.callSource,
+              relationshipState: talk.relationshipState,
+              timestamp: firstTokenAt,
+              payload: { firstTokenMs: latencySpans.firstTokenMs },
+            });
+          }
+          streamedText += delta;
+          sse("text_delta", { delta });
+          speaker?.sendText(delta);
+        });
+
+        const msg = await messageStream.finalMessage();
+        latencySpans.claudeMs = Date.now() - claudeStartedAt;
+        await speakerReady;
+
+        const companionActToolUseBlocks = msg.content
+          .filter(
+            (block): block is Anthropic.ToolUseBlock =>
+              block.type === "tool_use" && block.name === "companionAct",
+          )
+          .slice(0, 4);
+        const activityToolUseBlocks = msg.content
+          .filter(
+            (block): block is Anthropic.ToolUseBlock =>
+              block.type === "tool_use" && block.name === "openCompanionActivity",
+          )
+          .slice(0, 2);
+        const companionCommands = companionActToolUseBlocks
+          .map((block) =>
+            createShowroomCompanionActCommand({
+              childId: talk.childId,
+              rawInput: block.input,
+            }),
+          )
+          .filter((command): command is NonNullable<typeof command> => Boolean(command));
+        const activityRequests = activityToolUseBlocks
+          .map((block) =>
+            createShowroomCompanionActivityRequest({
+              childId: talk.childId,
+              companionId: talk.companionId,
+              rawInput: block.input,
+            }),
+          )
+          .filter((request): request is NonNullable<typeof request> => Boolean(request));
+
+        let text = extractAnthropicText(msg) || streamedText.trim();
+        const shouldRunToolFollowup = shouldRunShowroomToolFollowup({
+          isActivityReaction: Boolean(talk.activityReaction),
+          rawText: text,
+          companionActToolUseCount: companionActToolUseBlocks.length,
+          activityToolUseCount: activityToolUseBlocks.length,
+          activityReactionEventType: talk.activityReaction?.eventType,
+        });
+        if (shouldRunToolFollowup && !aborted) {
+          const toolResults: Anthropic.ToolResultBlockParam[] = [
+            ...companionActToolUseBlocks,
+            ...activityToolUseBlocks,
+          ].map((block) => ({
+            type: "tool_result" as const,
+            tool_use_id: block.id,
+            content: JSON.stringify({
+              type: "showroom_companion_tool_result",
+              accepted: true,
+              instruction:
+                "Answer with the exact short words the companion should say aloud. Do not include stage directions.",
+            }),
+          }));
+          const toolFollowupStartedAt = Date.now();
+          const afterTool = await client.messages.create({
+            model: talkModel,
+            max_tokens: 160,
+            system: cachedSystem,
+            messages: [
+              ...(messages as Anthropic.MessageParam[]),
+              { role: "assistant", content: msg.content as Anthropic.ContentBlockParam[] },
+              { role: "user", content: toolResults },
+            ],
+            tools: showroomTools,
+            tool_choice: { type: "none" },
+          });
+          latencySpans.toolFollowupMs = Date.now() - toolFollowupStartedAt;
+          const followupText = extractAnthropicText(afterTool);
+          if (followupText) {
+            text = followupText;
+            sse("text_delta", { delta: followupText });
+            speaker?.sendText(followupText);
+          }
+        } else {
+          latencySpans.toolFollowupMs = 0;
+        }
+
+        const spokenText = resolveShowroomSpokenText({
+          rawText: text,
+          companionCommandCount: companionCommands.length + activityRequests.length,
+        });
+        if (spokenText && spokenText !== text.trim()) {
+          // Fallback line was synthesized (no text, no commands); speak it too.
+          speaker?.sendText(spokenText);
+        }
+
+        const ttsFinishStartedAt = Date.now();
+        if (spokenText && speaker) {
+          await speaker.finish();
+        } else {
+          speaker?.stop();
+        }
+        latencySpans.ttsMs = Date.now() - ttsFinishStartedAt;
+        sse("audio_done", { hadAudio: firstAudioAt !== undefined });
+
+        latencySpans.requestToResponseMs = Date.now() - talkTraceStartedAt;
+        try {
+          recordCompanionInteractionEvent({
+            childId: talk.childId,
+            companionId: talk.companionId,
+            callSource: talk.callSource,
+            relationshipState: talk.relationshipState,
+            eventType: "companion_talk_completed",
+            questionText: talk.question,
+            companionText: spokenText,
+            commandCount: companionCommands.length,
+            visionUsed: Boolean(talk.visualSnapshot),
+            visualSnapshot: talk.visualSnapshot,
+            rewardContext: talk.rewardContext,
+          });
+          void maybeCompactCompanionInteractionMemory({
+            childId: talk.childId,
+            companionId: talk.companionId,
+          }).catch((err: unknown) => {
+            console.error(
+              " 🔴 [companion-memory] [compact_async] [error]",
+              err instanceof Error ? err.message : String(err),
+            );
+          });
+        } catch (err: unknown) {
+          console.error(
+            " 🔴 [companion-memory] [ledger_append] [error]",
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+        const visualSummary =
+          talk.mode === "video_call" && talk.visualSnapshot
+            ? spokenText.slice(0, 220)
+            : undefined;
+        safeRecordCompanionVideoCallTrace({
+          callTraceId: talk.callTraceId,
+          turnId: talk.turnId,
+          eventName: "talk_response_received",
+          childId: talk.childId,
+          companionId: talk.companionId,
+          callSource: talk.callSource,
+          relationshipState: talk.relationshipState,
+          timestamp: Date.now(),
+          payload: {
+            responseText: spokenText,
+            commandCount: companionCommands.length,
+            activityRequestCount: activityRequests.length,
+            conversationIntent: talk.conversationIntent,
+            visionUsed: Boolean(talk.visualSnapshot),
+            requestToResponseMs: latencySpans.requestToResponseMs,
+            latencySpans,
+            model: talkModel,
+            transport: "sse_stream",
+            activeActivity: talk.activeActivity,
+            activityReaction: talk.activityReaction,
+          },
+        });
+        console.log(
+          ` 🎮 [companion-talk-stream] completed child=${talk.childId} companion=${talk.companionId} firstToken=${latencySpans.firstTokenMs ?? "n/a"}ms firstAudio=${latencySpans.firstAudioMs ?? "n/a"}ms total=${latencySpans.requestToResponseMs}ms`,
+        );
+        sse("done", {
+          ok: true,
+          text: spokenText,
+          companionCommands,
+          activityRequests,
+          latencySpans,
+          ...(visualSummary && { visualSummary }),
+          phaseCommands: {
+            speaking: createShowroomTalkPhaseCommand({
+              childId: talk.childId,
+              companionId: companion.id,
+              phase: "speaking",
+            }),
+            idle: createShowroomTalkPhaseCommand({
+              childId: talk.childId,
+              companionId: companion.id,
+              phase: "idle",
+            }),
+          },
+        });
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(" 🔴 [companion-talk-stream] failed", message);
+        speaker?.stop();
+        sse("error", { ok: false, error: message });
+      } finally {
+        if (!aborted) res.end();
+      }
+    },
+  );
 
   app.get("/api/child/:name/context", (req: Request, res: Response) => {
     const name = typeof req.params.name === "string" ? req.params.name : "";

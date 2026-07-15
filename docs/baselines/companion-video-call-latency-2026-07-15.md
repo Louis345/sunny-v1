@@ -50,3 +50,19 @@ the gated move packet the latency is spent inside the companion thinking beat
 (the previous local-only think delay was 2200-2850ms). Wave 2 (streaming TTS)
 is the structural fix; alternatively the lab could score packet-gated turns
 against the packet timeout budget.
+
+## Wave 2 addendum: streaming pipeline (2026-07-15, trace_20260715t072607_6wwuo)
+
+Video-call social turns now stream: Claude tokens -> sentence-chunked
+ElevenLabs websocket TTS (PCM 24kHz) -> SSE audio chunks -> gapless WebAudio
+playback through the lip-sync analyser. `?companionStream=off` falls back to
+the buffered JSON path, as does any stream failure before first audio.
+
+- Social first-audio average: 3204ms (p95 4200ms) vs 4-5.6s full-response wait
+  on the buffered path measured in the same session with the flag off.
+- System prompts are now cache_control'd; warm-turn time-to-first-token
+  dropped from ~1981ms to ~1570-1645ms.
+- Game move packets are unchanged (still buffered JSON, gated reveal):
+  3/3 arrived, 0 timeouts, 0 stale drops, useful speech 100%.
+- Remaining blocker is unchanged from wave 1: activity p95 vs the 2500ms
+  ungated ceiling (threshold-semantics decision pending).

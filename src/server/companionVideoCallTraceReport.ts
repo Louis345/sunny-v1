@@ -12,6 +12,8 @@ export type CompanionVideoCallTraceScoreReport = {
     socialResponseP50Ms?: number;
     socialResponseP95Ms?: number;
     socialResponseAverageMs?: number;
+    socialFirstAudioP95Ms?: number;
+    socialFirstAudioAverageMs?: number;
     activityResponseCount: number;
     activityResponseP95Ms?: number;
     activityResponseAverageMs?: number;
@@ -37,6 +39,7 @@ type LatencySpans = {
   claudeMs?: number;
   toolFollowupMs?: number;
   ttsMs?: number;
+  firstAudioMs?: number;
   requestToResponseMs?: number;
 };
 
@@ -72,6 +75,7 @@ function latencySpans(record: CompanionVideoCallTraceRecord): LatencySpans {
     claudeMs: finiteNumber(spans.claudeMs),
     toolFollowupMs: finiteNumber(spans.toolFollowupMs),
     ttsMs: finiteNumber(spans.ttsMs),
+    firstAudioMs: finiteNumber(spans.firstAudioMs),
     requestToResponseMs: finiteNumber(spans.requestToResponseMs),
   };
 }
@@ -108,6 +112,9 @@ export function buildCompanionVideoCallTraceScoreReport(
   const activityResponses = ordered.filter(isActivityResponse);
   const socialLatencies = socialResponses
     .map(responseLatencyMs)
+    .filter((value): value is number => value !== undefined);
+  const socialFirstAudioLatencies = socialResponses
+    .map((record) => latencySpans(record).firstAudioMs)
     .filter((value): value is number => value !== undefined);
   const activityLatencies = activityResponses
     .map(responseLatencyMs)
@@ -190,6 +197,12 @@ export function buildCompanionVideoCallTraceScoreReport(
       ...(average(socialLatencies) !== undefined && {
         socialResponseAverageMs: average(socialLatencies),
       }),
+      ...(percentile(socialFirstAudioLatencies, 0.95) !== undefined && {
+        socialFirstAudioP95Ms: percentile(socialFirstAudioLatencies, 0.95),
+      }),
+      ...(average(socialFirstAudioLatencies) !== undefined && {
+        socialFirstAudioAverageMs: average(socialFirstAudioLatencies),
+      }),
       activityResponseCount: activityResponses.length,
       ...(activityP95 !== undefined && { activityResponseP95Ms: activityP95 }),
       ...(average(activityLatencies) !== undefined && {
@@ -256,6 +269,8 @@ export function renderCompanionVideoCallTraceScoreMarkdown(
     `- Social response p50: ${ms(report.metrics.socialResponseP50Ms)}`,
     `- Social response p95: ${ms(report.metrics.socialResponseP95Ms)}`,
     `- Social response average: ${ms(report.metrics.socialResponseAverageMs)}`,
+    `- Social first-audio p95: ${ms(report.metrics.socialFirstAudioP95Ms)}`,
+    `- Social first-audio average: ${ms(report.metrics.socialFirstAudioAverageMs)}`,
     `- Activity response p95: ${ms(report.metrics.activityResponseP95Ms)}`,
     `- Activity response average: ${ms(report.metrics.activityResponseAverageMs)}`,
     `- Activity AI-authored responses: ${report.metrics.activityAiAuthoredCount}`,

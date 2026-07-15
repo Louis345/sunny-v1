@@ -31,6 +31,13 @@ import { COMPANION_CAPABILITIES } from "../../../src/shared/companions/registry"
 import { validateCompanionCommand } from "../../../src/shared/companions/validateCompanionCommand";
 import { mergeCompanionConfigWithDefaults } from "../../../src/shared/companionTypes";
 import { ensurePlaybackAnalyser } from "../utils/audioAnalyser";
+import {
+  CompanionTalkStreamUnavailableError,
+  getCompanionTalkAudioContextCtor,
+  isCompanionTalkStreamDisabledByQuery,
+  isCompanionTalkStreamSupported,
+  streamCompanionTalk,
+} from "../utils/companionTalkStream";
 import { useDeepgramVideoCallStt } from "../hooks/useDeepgramVideoCallStt";
 import {
   buildCompanionVideoTraceUrl,
@@ -3471,6 +3478,9 @@ export function CompanionShowroom({
     options?: ShowroomActivityReactionRequestOptions;
   } | null>(null);
   const activityReactionQueueGuardRef = useRef(0);
+  const streamingSpeechRef = useRef<{ stop: () => void; context: AudioContext } | null>(
+    null,
+  );
   const activityReactionRequesterRef = useRef<
     | ((
         reaction: ShowroomActivityReactionContext,
@@ -3839,6 +3849,11 @@ export function CompanionShowroom({
     speechAudioRef.current?.audio.pause();
     void speechAudioRef.current?.context.close();
     speechAudioRef.current = null;
+    if (streamingSpeechRef.current) {
+      streamingSpeechRef.current.stop();
+      void streamingSpeechRef.current.context.close().catch(() => undefined);
+      streamingSpeechRef.current = null;
+    }
     speechAnalyserRef.current = null;
     if (speechUrlRef.current) {
       URL.revokeObjectURL(speechUrlRef.current);
@@ -4646,6 +4661,196 @@ export function CompanionShowroom({
               lastVisualSummary: showroomVideoLastVisualSummary,
             }),
         });
+
+        const streamingEligible =
+          talkMode === "video_call" &&
+          isCompanionTalkStreamSupported() &&
+          !isCompanionTalkStreamDisabledByQuery();
+        if (streamingEligible) {
+          const StreamAudioContextCtor = getCompanionTalkAudioContextCtor();
+          const streamContext = new StreamAudioContextCtor!();
+          const streamAnalyser = ensurePlaybackAnalyser(streamContext);
+          streamAnalyser.connect(streamContext.destination);
+          try {
+            const stream = await streamCompanionTalk({
+              url: `/api/companions/${encodeURIComponent(current.id)}/talk/stream`,
+              payload,
+              context: streamContext,
+              sink: streamAnalyser,
+              onFirstAudio: (latencyMs) => {
+                speechAnalyserRef.current = streamAnalyser;
+                setShowroomTalkPhase("speaking");
+                playCurrentCompanionAnimation("talking", { loop: true });
+                console.log(
+                  ` 🎮 [showroom-talk] audio_play_start companion=${current.id} mode=${talkMode} latencyMs=${latencyMs} transport=sse_stream`,
+                );
+                emitShowroomVideoCallTrace({
+                  eventName: "audio_play_start",
+                  turnId: traceTurnId,
+                  payload: { latencyMs, transport: "sse_stream" },
+                });
+              },
+            });
+            const data = stream.data;
+            const responseText =
+              (typeof data.text === "string" && data.text.trim()) ||
+              `${current.name} is thinking.`;
+            lastVideoCallResponseRef.current = responseText;
+            const companionCommands = (data.companionCommands ?? []) as CompanionCommand[];
+            const activityRequests = (data.activityRequests ??
+              []) as ShowroomCompanionActivityRequest[];
+            const phaseCommands = data.phaseCommands as
+              | { speaking?: CompanionCommand; idle?: CompanionCommand }
+              | undefined;
+            console.log(
+              ` 🎮 [showroom-talk] response_received companion=${current.id} mode=${talkMode} latencyMs=${Math.round(performance.now() - talkStartMs)} transport=sse_stream`,
+            );
+            emitShowroomVideoCallTrace({
+              eventName: "talk_response_received",
+              turnId: traceTurnId,
+              payload: {
+                responseText,
+                latencyMs: Math.round(performance.now() - talkStartMs),
+                conversationIntent,
+                commandCount: companionCommands.length,
+                activityRequestCount: activityRequests.length,
+                visionUsed: Boolean(visualSnapshot),
+                transport: "sse_stream",
+                latencySpans: data.latencySpans,
+              },
+            });
+            setShowroomTalkResponse(responseText);
+            if (data.visualSummary?.trim()) {
+              setShowroomVideoLastVisualSummary(data.visualSummary.trim());
+            }
+            const nextActivityRequest = activityRequests.find(
+              (request) =>
+                request.companionId === current.id &&
+                request.activityId === "tic_tac_toe" &&
+                request.surface === "video_call_overlay",
+            );
+            if (nextActivityRequest) {
+              if (stream.hadAudio) {
+                queuedVideoCallActivityRequestRef.current = nextActivityRequest;
+                console.log(
+                  ` 🎮 [showroom-video-chat] openCompanionActivity deferred reason=activity_open_interrupted_audio activity=${nextActivityRequest.activityId}`,
+                );
+              } else {
+                openVideoCallActivityRequest(nextActivityRequest, "immediate");
+              }
+            }
+            if (!stream.hadAudio) {
+              setShowroomTalkPhase("speaking");
+            }
+            videoChatNoSpeechRetryCountRef.current = 0;
+            const applyStreamTalkCommand = (command: CompanionCommand) => {
+              if (!shouldApplyShowroomTalkCommand(command, current.id)) return;
+              processShowroomCommand(motorsRef.current.current, command);
+              processShowroomCommand(cardMotorRef.current, command);
+              processShowroomCommand(videoChatMotorRef.current, command);
+            };
+            const requestedAnimation = getShowroomTalkRequestedAnimation({
+              question,
+              specialDance: current.showroom?.gestureProfile.specialDance,
+            });
+            const playbackCommands = selectShowroomTalkPlaybackCommands(
+              companionCommands,
+              { requestedAnimation },
+            );
+            const hasPlaybackAnimation = playbackCommands.some(
+              (command) => command.type === "animate",
+            );
+            const speakingCommand = phaseCommands?.speaking;
+            if (
+              !hasPlaybackAnimation &&
+              speakingCommand &&
+              shouldApplyShowroomTalkCommand(speakingCommand, current.id)
+            ) {
+              applyStreamTalkCommand(speakingCommand);
+            } else if (!hasPlaybackAnimation && !stream.hadAudio) {
+              playCurrentCompanionAnimation("talking", { loop: true });
+            }
+            for (const command of playbackCommands) {
+              applyStreamTalkCommand(command);
+            }
+
+            if (!stream.hadAudio) {
+              void streamContext.close().catch(() => undefined);
+              if (speechAnalyserRef.current === streamAnalyser) {
+                speechAnalyserRef.current = null;
+              }
+              if (shouldIdleImmediatelyAfterSilentTalk(playbackCommands)) {
+                applyStreamTalkCommand(toShowroomIdleLoopCommand(phaseCommands?.idle));
+              }
+              setShowroomTalkPhase("idle");
+              emitShowroomVideoCallTrace({
+                eventName: "audio_ended",
+                turnId: traceTurnId,
+                payload: { reason: "no_audio", transport: "sse_stream" },
+              });
+              flushQueuedVideoCallActivityRequest("no_audio");
+              videoChatHandsFreeRearmRef.current?.(
+                "no_audio",
+                shouldIdleImmediatelyAfterSilentTalk(playbackCommands)
+                  ? SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS
+                  : SHOWROOM_VIDEO_CHAT_VISUAL_ACTION_REARM_MS,
+              );
+              return;
+            }
+
+            streamingSpeechRef.current = { stop: stream.stop, context: streamContext };
+            void stream.waitForPlaybackEnd().then(() => {
+              console.log(
+                ` 🎮 [showroom-talk] audio_ended companion=${current.id} mode=${talkMode} transport=sse_stream`,
+              );
+              emitShowroomVideoCallTrace({
+                eventName: "audio_ended",
+                turnId: traceTurnId,
+                payload: {
+                  latencyMs: Math.round(performance.now() - talkStartMs),
+                  transport: "sse_stream",
+                },
+              });
+              flushQueuedVideoCallActivityRequest("audio_ended");
+              applyStreamTalkCommand(toShowroomIdleLoopCommand(phaseCommands?.idle));
+              setShowroomTalkPhase("idle");
+              if (streamingSpeechRef.current?.context === streamContext) {
+                streamingSpeechRef.current = null;
+              }
+              if (speechAnalyserRef.current === streamAnalyser) {
+                speechAnalyserRef.current = null;
+              }
+              void streamContext.close().catch(() => undefined);
+              videoChatHandsFreeRearmRef.current?.(
+                "audio_ended",
+                SHOWROOM_VIDEO_CHAT_HANDS_FREE_REARM_MS,
+              );
+            });
+            return;
+          } catch (streamErr: unknown) {
+            void streamContext.close().catch(() => undefined);
+            if (speechAnalyserRef.current === streamAnalyser) {
+              speechAnalyserRef.current = null;
+            }
+            if (streamingSpeechRef.current?.context === streamContext) {
+              streamingSpeechRef.current = null;
+            }
+            if (streamErr instanceof CompanionTalkStreamUnavailableError) {
+              console.warn(
+                ` 🎮 [showroom-talk] stream_fallback companion=${current.id} reason=${streamErr.message}`,
+              );
+              emitShowroomVideoCallTrace({
+                eventName: "talk_stream_fallback",
+                turnId: traceTurnId,
+                payload: { reason: streamErr.message },
+              });
+              // Fall through to the buffered JSON path below.
+            } else {
+              throw streamErr;
+            }
+          }
+        }
+
         const response = await fetch(
           `/api/companions/${encodeURIComponent(current.id)}/talk`,
           {

@@ -157,6 +157,37 @@ describe("companion video call trace score report", () => {
     expect(report.blockers).toEqual([]);
   });
 
+  it("reports social first-audio metrics when streamed turns include firstAudioMs", () => {
+    const records: CompanionVideoCallTraceRecord[] = [
+      record("call_started", 0),
+      record("talk_response_received", 2400, {
+        turnId: "turn_stream_1",
+        payload: {
+          conversationIntent: "social",
+          requestToResponseMs: 2300,
+          latencySpans: { firstAudioMs: 900, requestToResponseMs: 2300 },
+        },
+      }),
+      record("talk_response_received", 5400, {
+        turnId: "turn_stream_2",
+        payload: {
+          conversationIntent: "social",
+          requestToResponseMs: 2500,
+          latencySpans: { firstAudioMs: 1300, requestToResponseMs: 2500 },
+        },
+      }),
+      record("call_ended", 6000),
+    ];
+
+    const report = buildCompanionVideoCallTraceScoreReport(records);
+    expect(report.metrics.socialFirstAudioP95Ms).toBe(1300);
+    expect(report.metrics.socialFirstAudioAverageMs).toBe(1100);
+
+    const markdown = renderCompanionVideoCallTraceScoreMarkdown(report);
+    expect(markdown).toContain("Social first-audio p95: 1300ms");
+    expect(markdown).toContain("Social first-audio average: 1100ms");
+  });
+
   it("reports move packet metrics without changing pass thresholds", () => {
     const records: CompanionVideoCallTraceRecord[] = [
       record("call_started", 0),

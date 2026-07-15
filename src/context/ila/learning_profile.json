@@ -2,7 +2,7 @@
   "childId": "ila",
   "version": 1,
   "createdAt": "2026-04-03T21:20:33.923Z",
-  "lastUpdated": "2026-07-15T03:56:38.288Z",
+  "lastUpdated": "2026-07-15T07:39:39.274Z",
   "demographics": {
     "age": 8,
     "grade": 2,
@@ -48,7 +48,7 @@
   },
   "moodHistory": [
     {
-      "date": "2026-07-15T03:46:19.117Z",
+      "date": "2026-07-15T07:19:38.034Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -56,7 +56,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:46:54.081Z",
+      "date": "2026-07-15T07:24:24.978Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -64,7 +64,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:47:49.522Z",
+      "date": "2026-07-15T07:27:16.299Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -72,7 +72,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:48:35.090Z",
+      "date": "2026-07-15T07:28:50.747Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -80,7 +80,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:49:16.124Z",
+      "date": "2026-07-15T07:30:04.369Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -88,7 +88,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:52:08.018Z",
+      "date": "2026-07-15T07:31:03.377Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -96,7 +96,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:55:00.811Z",
+      "date": "2026-07-15T07:31:26.132Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -104,7 +104,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:55:42.051Z",
+      "date": "2026-07-15T07:31:54.060Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -112,7 +112,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:56:06.786Z",
+      "date": "2026-07-15T07:33:33.388Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -120,7 +120,7 @@
       "notableSignals": []
     },
     {
-      "date": "2026-07-15T03:56:38.286Z",
+      "date": "2026-07-15T07:36:21.112Z",
       "startMood": "neutral",
       "endMood": "neutral",
       "bondQuality": "moderate",
@@ -147,14 +147,14 @@
     "dyslexiaMode": true
   },
   "sessionStats": {
-    "totalSessions": 66,
-    "averageAccuracy": 0.038112662163895555,
+    "totalSessions": 77,
+    "averageAccuracy": 0.03266799614048191,
     "averageDurationMinutes": 0,
     "currentWilsonStep": 1,
     "streakRecord": 11,
     "totalWordsMastered": 0,
     "perfectSessions": 0,
-    "lastSessionDate": "2026-07-15T03:56:38.286Z"
+    "lastSessionDate": "2026-07-15T07:36:21.112Z"
   },
   "rewardPreferences": {
     "favoriteGames": [],
@@ -234,7 +234,7 @@
     "toggledOff": false
   },
   "lastMysteryGame": "wheel-of-fortune",
-  "companionCurrency": 15800,
+  "companionCurrency": 15950,
   "tamagotchi": {
     "hunger": 1,
     "happiness": 0.8500000000000001,
@@ -245,19 +245,19 @@
   "activityModel": {
     "spell-check": {
       "activityId": "spell-check",
-      "plays": 148,
-      "completions": 147,
-      "completionRate": 0.993,
-      "averageAccuracy": 0.692,
-      "averageTimePerTarget_ms": 22032.885,
-      "engagementScore": 0.832,
-      "frustrationScore": 0.31,
-      "likedCount": 109,
-      "dislikedCount": 39,
+      "plays": 155,
+      "completions": 154,
+      "completionRate": 0.994,
+      "averageAccuracy": 0.693,
+      "averageTimePerTarget_ms": 21369.032,
+      "engagementScore": 0.835,
+      "frustrationScore": 0.309,
+      "likedCount": 115,
+      "dislikedCount": 40,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T22:57:09.510Z",
+      "lastPlayed": "2026-07-15T07:39:39.268Z",
       "domains": {
-        "spelling": 143,
+        "spelling": 150,
         "reading": 4,
         "general": 1
       },
@@ -270,20 +270,20 @@
     },
     "word-radar": {
       "activityId": "word-radar",
-      "plays": 32,
-      "completions": 27,
-      "completionRate": 0.844,
+      "plays": 33,
+      "completions": 28,
+      "completionRate": 0.848,
       "averageAccuracy": 0.643,
-      "averageTimePerTarget_ms": 19273.25,
-      "engagementScore": 0.826,
-      "frustrationScore": 0.363,
-      "likedCount": 32,
+      "averageTimePerTarget_ms": 18971.03,
+      "engagementScore": 0.827,
+      "frustrationScore": 0.366,
+      "likedCount": 33,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T22:57:09.478Z",
+      "lastPlayed": "2026-07-15T07:39:39.237Z",
       "domains": {
         "reading": 1,
-        "spelling": 26,
+        "spelling": 27,
         "general": 5
       },
       "missedWords": [
@@ -397,7 +397,7 @@
         "targetCount": 3,
         "frustrationScore": 0.1,
         "strongEvidence": true,
-        "occurredAt": "2026-07-12T22:57:09.510Z"
+        "occurredAt": "2026-07-15T07:39:39.268Z"
       }
     },
     "reading": {

@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-07-12T22:57:07.663Z",
+  "lastUpdated": "2026-07-15T07:39:37.963Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -272,37 +272,37 @@
   "activityModel": {
     "spell-check": {
       "activityId": "spell-check",
-      "plays": 113,
-      "completions": 113,
+      "plays": 116,
+      "completions": 116,
       "completionRate": 1,
       "averageAccuracy": 1,
-      "averageTimePerTarget_ms": 4401.971,
+      "averageTimePerTarget_ms": 4381.23,
       "engagementScore": 0.992,
       "frustrationScore": 0.1,
-      "likedCount": 113,
+      "likedCount": 116,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T22:57:07.638Z",
+      "lastPlayed": "2026-07-15T07:39:37.937Z",
       "domains": {
-        "spelling": 113
+        "spelling": 116
       },
       "missedWords": []
     },
     "word-radar": {
       "activityId": "word-radar",
-      "plays": 76,
-      "completions": 76,
+      "plays": 78,
+      "completions": 78,
       "completionRate": 1,
       "averageAccuracy": 0.66,
-      "averageTimePerTarget_ms": 2060.618,
+      "averageTimePerTarget_ms": 2053.935,
       "engagementScore": 0.859,
       "frustrationScore": 0.271,
-      "likedCount": 76,
+      "likedCount": 78,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T22:57:07.633Z",
+      "lastPlayed": "2026-07-15T07:39:37.931Z",
       "domains": {
-        "spelling": 76
+        "spelling": 78
       },
       "missedWords": [
         "slowly",
@@ -315,19 +315,19 @@
     },
     "bubble-pop": {
       "activityId": "bubble-pop",
-      "plays": 37,
-      "completions": 37,
+      "plays": 38,
+      "completions": 38,
       "completionRate": 1,
       "averageAccuracy": 0.82,
       "averageTimePerTarget_ms": 5333,
       "engagementScore": 0.85,
       "frustrationScore": 0.1,
-      "likedCount": 37,
+      "likedCount": 38,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T22:57:07.661Z",
+      "lastPlayed": "2026-07-15T07:39:37.960Z",
       "domains": {
-        "attention": 37
+        "attention": 38
       },
       "missedWords": []
     },
@@ -416,7 +416,7 @@
         "targetCount": 5,
         "frustrationScore": 0.1,
         "strongEvidence": true,
-        "occurredAt": "2026-07-12T22:57:07.638Z"
+        "occurredAt": "2026-07-15T07:39:37.937Z"
       }
     },
     "attention": {
@@ -431,7 +431,7 @@
         "targetCount": 12,
         "frustrationScore": 0.1,
         "strongEvidence": false,
-        "occurredAt": "2026-07-12T22:57:07.661Z"
+        "occurredAt": "2026-07-15T07:39:37.960Z"
       }
     }
   },

@@ -3,14 +3,14 @@
   "childId": "ila",
   "selectedDomain": "spelling",
   "current": {
-    "weekOf": "2026-07-12",
+    "weekOf": "2026-07-15",
     "homeworkId": "hw-spelling_test-session-state",
-    "testDate": "2026-07-12",
+    "testDate": "2026-07-15",
     "wordList": [
       "above",
       "ago"
     ],
-    "generatedAt": "2026-07-12T22:57:14.393Z",
+    "generatedAt": "2026-07-15T07:39:44.384Z",
     "contentProfile": {
       "practiceDomain": "spelling",
       "contentDomain": "spelling",
@@ -767,5 +767,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-15T03:56:38.288Z"
+  "updatedAt": "2026-07-15T07:40:03.889Z"
 }
