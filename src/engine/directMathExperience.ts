@@ -248,6 +248,11 @@ Each activity must be a bespoke vibrant game world, never a quiz card placed on 
 Use profile evidence as broad motivators; do not repeat one literal interest across every activity.
 Quest and Boss are exciting locked teaser destinations. Do not create playable Quest or Boss content.
 Every math question must have exactly one correct answer grounded in the assignment.
+The first required action must be understandable within ten seconds. For any unfamiliar drag, construction, or manipulation mechanic, provide an optional visible demonstration instead of front-loading instructions.
+A question asking “how many” must accept the final quantity. If the child must construct or show a representation, the prompt must explicitly ask them to build or show it.
+Use one active problem at a time when simultaneous problems add unnecessary cognitive load, and keep instructions short and child-facing.
+Design intentional interaction, recovery, progress, and completion sounds that support the experience without distracting from it.
+Initial board activities create teaching and practice evidence only. Completion cannot establish mastery or unlock Quest or Boss.
 For each activity, write acceptanceScript before its UI exists. It is an async Playwright JavaScript function body with access to page and BASE_URL. It must use page locators and stable data-testid selectors to open /activities/{activityId}, take an incorrect path, verify recovery, complete every question correctly, verify visible world/progress changes, and return {passed:true} only when completion is visible. It must throw when any promise is broken. The activity implementation will be generated against this exact test.
 
 Return JSON only with this shape:
@@ -345,14 +350,17 @@ async function generateActivityHtml(input: {
 The ExperienceSpec is authoritative. Do not reinterpret it, rename it, or turn it into a generic quiz/card shell.
 Make the opening viewport vibrant, polished, and immediately understandable to a child. The central mechanic must visibly perform the promised child action and world reaction.
 Use the supplied artwork as part of the world, not as a decorative thumbnail: ${input.artworkUrl}
-Use the exact deterministic questions and answers from the specification.
+Implement the AI Planner's saved questions and correct answers faithfully so the mathematical quantities, accepted responses, activity UI, and browser QA agree.
+The first required action must be understandable within ten seconds. Keep instructions short and child-facing, and show an optional visible demonstration for unfamiliar drag, construction, or manipulation mechanics.
+A question asking “how many” must accept the final quantity. A construction response is valid only when the prompt explicitly asks the child to build or show it. Use one active problem at a time when simultaneous problems create unnecessary cognitive load.
+Include intentional interaction, recovery, progress, and completion sounds using browser-native audio after a child gesture. These initial activities produce teaching and practice evidence only; do not make a mastery claim or unlock Quest or Boss.
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",targetId,correct,responseTimeMs}},"*") for each answer and {type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true}},"*") on completion.
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
 The planner wrote the browser acceptance test before this UI. Build the DOM, data-testid hooks, behavior, and completion flow so this exact script passes through real interactions. Do not rewrite or embed the test in the activity:
 ${input.activity.acceptanceScript}
 Apply observable state attributes synchronously in the order the test asserts them; animations may continue afterward but must not delay the tested state transition.
 Keep the complete HTML under 18,000 characters. Prefer concise CSS and JavaScript; do not duplicate rules or add hidden alternate implementations. The document must end with </html>.
-Do not include external libraries. Sound may be included creatively but is not an acceptance requirement.
+Do not include external libraries.
 Return raw HTML only.
 
 Child: ${input.childId}

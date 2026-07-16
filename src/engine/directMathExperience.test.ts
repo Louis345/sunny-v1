@@ -107,6 +107,21 @@ describe("direct math experience", () => {
     expect(isCompleteGeneratedHtml("<!doctype html><html><style>.game{")).toBe(false);
   });
 
+  it("gives the Planner and Creator the child-visible clarity and practice-only rules", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    for (const required of [
+      "understandable within ten seconds",
+      "optional visible demonstration",
+      "A question asking “how many” must accept the final quantity",
+      "one active problem at a time",
+      "interaction, recovery, progress, and completion sounds",
+      "teaching and practice evidence only",
+      "AI Planner's saved questions and correct answers faithfully",
+    ]) expect(source).toContain(required);
+    expect(source).not.toContain("Use the exact deterministic questions and answers from the specification.");
+    expect(source).not.toContain("Sound may be included creatively but is not an acceptance requirement.");
+  });
+
   it("lets a FULL direct math plan bypass the stale legacy homework-cycle selector", () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "sunny-direct-math-"));
     const directDir = path.join(rootDir, "src", "context", "reina", "homework");
