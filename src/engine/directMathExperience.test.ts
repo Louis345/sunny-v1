@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   EXPERIENCE_DESIGN_CONSTITUTION,
+  applyDirectArtifactEdits,
   acceptanceScriptBody,
   boardPosition,
   buildDirectActivityCreatorPrompt,
@@ -134,6 +135,23 @@ describe("direct math experience", () => {
     expect(prompt).toContain("activity-1:browser_error:missing element");
     expect(prompt).toContain(activity.creatorPrompt);
     expect(prompt).toContain("Do not change the questions");
+    expect(prompt).toContain("oldText");
+    expect(prompt).not.toContain("Return one complete raw HTML document");
+  });
+
+  it("applies only unique exact replacements to a generated artifact", () => {
+    const html = "<!doctype html><html><style>.answer{animation:bob 2s infinite}</style><button>7</button></html>";
+    expect(applyDirectArtifactEdits(html, [{
+      oldText: ".answer{animation:bob 2s infinite}",
+      newText: ".answer{animation:none}",
+    }])).toBe("<!doctype html><html><style>.answer{animation:none}</style><button>7</button></html>");
+  });
+
+  it("rejects ambiguous or invented surgical repair anchors", () => {
+    expect(() => applyDirectArtifactEdits("same same", [{ oldText: "same", newText: "fixed" }]))
+      .toThrow("direct_activity_repair_anchor_ambiguous");
+    expect(() => applyDirectArtifactEdits("<html></html>", [{ oldText: "missing", newText: "fixed" }]))
+      .toThrow("direct_activity_repair_anchor_missing");
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {

@@ -460,7 +460,25 @@ ${JSON.stringify(input.activity, null, 2)}
 Current HTML:
 ${input.html}
 
-Return one complete raw HTML document ending in </html>.`;
+Return only minimal exact replacements through the repair tool. Each edit must contain an oldText snippet copied exactly once from the current HTML and the smallest possible newText replacement. Do not return a rewritten HTML document. Do not include unchanged sections.`;
+}
+
+export type DirectArtifactEdit = { oldText: string; newText: string };
+
+export function applyDirectArtifactEdits(html: string, edits: DirectArtifactEdit[]): string {
+  if (edits.length === 0 || edits.length > 12) throw new Error("direct_activity_repair_edit_count_invalid");
+  let repaired = html;
+  for (const edit of edits) {
+    if (!edit.oldText || edit.oldText === edit.newText) throw new Error("direct_activity_repair_edit_invalid");
+    const first = repaired.indexOf(edit.oldText);
+    if (first < 0) throw new Error("direct_activity_repair_anchor_missing");
+    if (repaired.indexOf(edit.oldText, first + edit.oldText.length) >= 0) {
+      throw new Error("direct_activity_repair_anchor_ambiguous");
+    }
+    repaired = `${repaired.slice(0, first)}${edit.newText}${repaired.slice(first + edit.oldText.length)}`;
+  }
+  if (!isCompleteGeneratedHtml(repaired)) throw new Error("direct_activity_repair_html_incomplete");
+  return repaired;
 }
 
 async function generateActivityHtml(input: {
@@ -568,16 +586,44 @@ export async function repairDirectArtifactsOnce(input: {
     const activity = input.plan.activities.find((candidate) => candidate.id === artifact.nodeId);
     if (!activity) continue;
     const html = fs.readFileSync(artifact.htmlPath, "utf8");
+    const toolName = "repair_activity_with_exact_edits";
     const response = await client.messages.create({
       model,
-      max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 12000),
+      max_tokens: 6000,
       thinking: { type: "disabled" },
       messages: [{ role: "user", content: buildDirectActivityRepairPrompt({ activity, html, failures }) }],
+      tools: [{
+        name: toolName,
+        description: "Return minimal exact text replacements for the existing activity artifact.",
+        input_schema: {
+          type: "object",
+          properties: {
+            edits: {
+              type: "array",
+              minItems: 1,
+              maxItems: 12,
+              items: {
+                type: "object",
+                properties: { oldText: { type: "string" }, newText: { type: "string" } },
+                required: ["oldText", "newText"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["edits"],
+          additionalProperties: false,
+        },
+      }],
+      tool_choice: { type: "tool", name: toolName },
     }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-    const repairedHtml = stripHtml(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n"));
-    if (!isCompleteGeneratedHtml(repairedHtml)) {
-      throw new Error(`direct_activity_repair_html_incomplete:${artifact.nodeId}`);
-    }
+    const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
+    if (!tool || tool.type !== "tool_use") throw new Error(`direct_activity_repair_edits_missing:${artifact.nodeId}`);
+    const toolInput = tool.input as { edits?: Array<{ oldText?: unknown; newText?: unknown }> };
+    const edits = (toolInput.edits ?? []).map((edit) => ({
+      oldText: typeof edit.oldText === "string" ? edit.oldText : "",
+      newText: typeof edit.newText === "string" ? edit.newText : "",
+    }));
+    const repairedHtml = applyDirectArtifactEdits(html, edits);
     fs.writeFileSync(artifact.htmlPath, repairedHtml, "utf8");
     repaired += 1;
   }
