@@ -81,6 +81,9 @@ describe("direct math experience", () => {
     expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visually dominant and readable");
     expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("Show me");
     expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visible sound toggle");
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("Keep required input targets stationary");
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visible activity title");
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("load the assigned artwork URL");
     expect(EXPERIENCE_DESIGN_CONSTITUTION).not.toContain("exactly two activities");
     expect(EXPERIENCE_DESIGN_CONSTITUTION).not.toContain("Gearlock");
   });

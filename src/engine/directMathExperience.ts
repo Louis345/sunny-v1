@@ -49,8 +49,11 @@ export const EXPERIENCE_DESIGN_CONSTITUTION = `Experience Design Constitution:
 - Show one active problem unless simultaneous comparison is academically necessary.
 - Make the requested response match the accepted response.
 - Use drag only when movement represents the concept; otherwise use a lower-friction interaction.
+- Keep required input targets stationary while the child acts; animate the surrounding world instead of moving buttons, tiles, or drop zones away from the pointer.
 - For unfamiliar mechanics, provide visible toggleable “Show me” and “Let me try” controls. The demonstration must remain replayable and must not reveal the answer.
 - Include a visible sound toggle plus interaction, recovery, progress, and completion sounds initialized after the first child gesture.
+- Show the exact visible activity title in the opening viewport.
+- Visibly load the assigned artwork URL as part of the world rather than silently replacing or omitting it.
 - Keep Quest and Boss locked at ingestion.
 - Treat initial activities as teaching and practice evidence only, never mastery.`;
 
