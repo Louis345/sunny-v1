@@ -440,6 +440,29 @@ ExperienceSpec:
 ${JSON.stringify(input.activity, null, 2)}`;
 }
 
+export function buildDirectActivityRepairPrompt(input: {
+  activity: DirectActivity;
+  html: string;
+  failures: string[];
+}): string {
+  return `Repair this generated activity implementation only.
+Keep the Planner's exact Creator prompt authoritative:
+${input.activity.creatorPrompt}
+
+Fix every supplied browser failure. Do not change the questions, correct answers, learning target, mechanic, title, evidence claim, or board identity. Keep required controls stationary while they are being used. Remove references to missing DOM elements. Preserve all runtime evidence events.
+
+Browser failures:
+${input.failures.join("\n")}
+
+Activity specification:
+${JSON.stringify(input.activity, null, 2)}
+
+Current HTML:
+${input.html}
+
+Return one complete raw HTML document ending in </html>.`;
+}
+
 async function generateActivityHtml(input: {
   activity: DirectActivity;
   artworkUrl: string;
@@ -527,6 +550,38 @@ export async function generateDirectArtifacts(input: {
     });
   }
   return { artifacts, backgroundUrl, questArtworkUrl, bossArtworkUrl };
+}
+
+export async function repairDirectArtifactsOnce(input: {
+  plan: DirectLearningExperiencePlan;
+  artifacts: DirectArtifact[];
+  failures: string[];
+  client?: Anthropic;
+  model?: string;
+}): Promise<number> {
+  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const model = input.model ?? process.env.SUNNY_GENERATION_MODEL ?? "claude-sonnet-5";
+  let repaired = 0;
+  for (const artifact of input.artifacts) {
+    const failures = input.failures.filter((failure) => failure.startsWith(`${artifact.nodeId}:`));
+    if (failures.length === 0) continue;
+    const activity = input.plan.activities.find((candidate) => candidate.id === artifact.nodeId);
+    if (!activity) continue;
+    const html = fs.readFileSync(artifact.htmlPath, "utf8");
+    const response = await client.messages.create({
+      model,
+      max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 12000),
+      thinking: { type: "disabled" },
+      messages: [{ role: "user", content: buildDirectActivityRepairPrompt({ activity, html, failures }) }],
+    }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+    const repairedHtml = stripHtml(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n"));
+    if (!isCompleteGeneratedHtml(repairedHtml)) {
+      throw new Error(`direct_activity_repair_html_incomplete:${artifact.nodeId}`);
+    }
+    fs.writeFileSync(artifact.htmlPath, repairedHtml, "utf8");
+    repaired += 1;
+  }
+  return repaired;
 }
 
 function contentType(file: string): string {

@@ -9,6 +9,7 @@ import {
   generateDirectArtifacts,
   parseDirectLearningExperiencePlan,
   persistDirectExperience,
+  repairDirectArtifactsOnce,
   runDirectPlaywrightAcceptance,
 } from "../engine/directMathExperience";
 import {
@@ -52,7 +53,13 @@ async function main(): Promise<void> {
     model: process.env.SUNNY_GENERATION_MODEL,
   });
   console.log("[4/4] Running one Playwright acceptance suite");
-  const report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: path.join(process.cwd(), "src", "context", childId, "homework", "direct-playwright", homeworkId) });
+  const playwrightOutputDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-playwright", homeworkId);
+  let report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: playwrightOutputDir });
+  if (!report.passed) {
+    console.log("[4/4] Creator repairing failed implementations once");
+    await repairDirectArtifactsOnce({ plan: plannerPlan, artifacts: generated.artifacts, failures: report.failures });
+    report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: playwrightOutputDir });
+  }
   if (!report.passed) {
     console.log("Done — BLOCKED");
     console.log(report.failures.join("\n"));

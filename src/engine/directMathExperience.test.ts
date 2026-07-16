@@ -7,6 +7,7 @@ import {
   acceptanceScriptBody,
   boardPosition,
   buildDirectActivityCreatorPrompt,
+  buildDirectActivityRepairPrompt,
   creatorPromptHash,
   hasReadyDirectMathExperience,
   isCompleteGeneratedHtml,
@@ -120,6 +121,19 @@ describe("direct math experience", () => {
     const changedHash = creatorPromptHash(changed, "claude-sonnet-5", "claude-sonnet-5");
     expect(changedHash).not.toBe(originalHash);
     expect(shouldReuseDirectArtifact({ htmlComplete: true, savedPromptHash: originalHash, expectedPromptHash: changedHash })).toBe(false);
+  });
+
+  it("gives the same Creator one bounded implementation-only repair prompt", () => {
+    const activity = parseDirectLearningExperiencePlan(plan(3)).activities[0]!;
+    const prompt = buildDirectActivityRepairPrompt({
+      activity,
+      html: "<!doctype html><html><body>broken</body></html>",
+      failures: ["activity-1:browser_error:missing element"],
+    });
+    expect(prompt).toContain("implementation only");
+    expect(prompt).toContain("activity-1:browser_error:missing element");
+    expect(prompt).toContain(activity.creatorPrompt);
+    expect(prompt).toContain("Do not change the questions");
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
