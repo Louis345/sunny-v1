@@ -144,6 +144,12 @@ describe("direct math experience", () => {
     expect(hasReadyDirectMathExperience("ila", rootDir)).toBe(false);
   });
 
+  it("launches a ready direct math board without requiring an explicit domain flag", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/sunnyRun.ts"), "utf8");
+    expect(source).toContain("const directMathReady = Boolean(args.childId)");
+    expect(source).not.toContain('args.homeworkDomain === "math"');
+  });
+
   it("writes board coordinates in the renderer's normalized 0-to-1 space", () => {
     expect(boardPosition(8, 78)).toEqual({ x: 0.08, y: 0.78 });
   });
