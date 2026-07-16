@@ -2,7 +2,17 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { acceptanceScriptBody, boardPosition, hasReadyDirectMathExperience, isCompleteGeneratedHtml, parseDirectLearningExperiencePlan } from "./directMathExperience";
+import {
+  EXPERIENCE_DESIGN_CONSTITUTION,
+  acceptanceScriptBody,
+  boardPosition,
+  buildDirectActivityCreatorPrompt,
+  creatorPromptHash,
+  hasReadyDirectMathExperience,
+  isCompleteGeneratedHtml,
+  parseDirectLearningExperiencePlan,
+  shouldReuseDirectArtifact,
+} from "./directMathExperience";
 
 function plan(activityCount = 3) {
   const activities = Array.from({ length: activityCount }, (_, index) => ({
@@ -24,6 +34,13 @@ function plan(activityCount = 3) {
     },
     questions: [{ id: "q1", prompt: "5 x 2 = ?", options: [{ label: "10", correct: true }, { label: "15", correct: false }] }],
     acceptanceSteps: ["launch", "answer incorrectly", "recover", "answer correctly", "complete"],
+    creatorPrompt: `Create a distinct ${index % 2 === 0 ? "strategy" : "visual"} multiplication experience.`,
+    designPrediction: "The child will understand the first action without adult help.",
+    preserve: ["clear progress"],
+    change: ["make the learning target larger"],
+    explore: ["short optional demonstration"],
+    avoid: ["hidden drag mechanics"],
+    measurementKeys: ["interaction.timeToFirstValidActionMs", "interaction.demoRequested"],
     acceptanceScript: `
       const wrong = document.querySelector('[data-testid="answer-wrong"]');
       const correct = document.querySelector('[data-testid="answer-correct"]');
@@ -58,6 +75,48 @@ describe("direct math experience", () => {
   it("keeps the planner-selected activity count instead of forcing two nodes", () => {
     expect(parseDirectLearningExperiencePlan(plan(3)).activities).toHaveLength(3);
     expect(parseDirectLearningExperiencePlan(plan(5)).activities).toHaveLength(5);
+  });
+
+  it("keeps usability constraints stable without fixing activity count, mechanics, or themes", () => {
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visually dominant and readable");
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("Show me");
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visible sound toggle");
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).not.toContain("exactly two activities");
+    expect(EXPERIENCE_DESIGN_CONSTITUTION).not.toContain("Gearlock");
+  });
+
+  it("preserves different Planner-authored Creator prompts and adaptive directives", () => {
+    const parsed = parseDirectLearningExperiencePlan(plan(3));
+    expect(parsed.activities[0]?.creatorPrompt).not.toBe(parsed.activities[1]?.creatorPrompt);
+    expect(parsed.activities[0]).toMatchObject({
+      designPrediction: "The child will understand the first action without adult help.",
+      preserve: ["clear progress"],
+      change: ["make the learning target larger"],
+      explore: ["short optional demonstration"],
+      avoid: ["hidden drag mechanics"],
+    });
+  });
+
+  it("hands the exact Planner prompt and constitution to the Creator", () => {
+    const activity = parseDirectLearningExperiencePlan(plan(3)).activities[0]!;
+    const prompt = buildDirectActivityCreatorPrompt({
+      activity,
+      artworkUrl: "/generated/activity.jpeg",
+      childId: "reina",
+    });
+    expect(prompt).toContain(EXPERIENCE_DESIGN_CONSTITUTION);
+    expect(prompt).toContain(activity.creatorPrompt);
+    expect(prompt).toContain(JSON.stringify(activity.questions, null, 2));
+  });
+
+  it("regenerates HTML when adaptive Planner directives change", () => {
+    const activity = parseDirectLearningExperiencePlan(plan(3)).activities[0]!;
+    const originalHash = creatorPromptHash(activity, "claude-sonnet-5", "claude-sonnet-5");
+    expect(shouldReuseDirectArtifact({ htmlComplete: true, savedPromptHash: originalHash, expectedPromptHash: originalHash })).toBe(true);
+    const changed = { ...activity, change: [...activity.change, "replace drag with tapping"] };
+    const changedHash = creatorPromptHash(changed, "claude-sonnet-5", "claude-sonnet-5");
+    expect(changedHash).not.toBe(originalHash);
+    expect(shouldReuseDirectArtifact({ htmlComplete: true, savedPromptHash: originalHash, expectedPromptHash: changedHash })).toBe(false);
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {

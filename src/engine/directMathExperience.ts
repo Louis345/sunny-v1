@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -31,9 +32,27 @@ export type DirectActivity = {
     options: Array<{ label: string; correct: boolean }>;
   }>;
   acceptanceSteps: string[];
+  creatorPrompt: string;
+  designPrediction: string;
+  preserve: string[];
+  change: string[];
+  explore: string[];
+  avoid: string[];
+  measurementKeys: string[];
   /** Planner-authored browser test, created before the activity HTML. */
   acceptanceScript: string;
 };
+
+export const EXPERIENCE_DESIGN_CONSTITUTION = `Experience Design Constitution:
+- Make the learning target visually dominant and readable.
+- Make the first required action understandable within ten seconds.
+- Show one active problem unless simultaneous comparison is academically necessary.
+- Make the requested response match the accepted response.
+- Use drag only when movement represents the concept; otherwise use a lower-friction interaction.
+- For unfamiliar mechanics, provide visible toggleable “Show me” and “Let me try” controls. The demonstration must remain replayable and must not reveal the answer.
+- Include a visible sound toggle plus interaction, recovery, progress, and completion sounds initialized after the first child gesture.
+- Keep Quest and Boss locked at ingestion.
+- Treat initial activities as teaching and practice evidence only, never mastery.`;
 
 export type DirectLearningExperiencePlan = {
   planId: string;
@@ -66,6 +85,10 @@ export type DirectArtifact = {
   htmlPath: string;
   artworkUrl: string;
   acceptanceScript: string;
+  creatorPrompt: string;
+  promptHash: string;
+  plannerModel: string;
+  creatorModel: string;
 };
 
 export type DirectPlaywrightReport = {
@@ -177,6 +200,13 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       },
       questions,
       acceptanceSteps: stringArray(activity.acceptanceSteps, "acceptance_steps"),
+      creatorPrompt: requiredString(activity, "creatorPrompt"),
+      designPrediction: requiredString(activity, "designPrediction"),
+      preserve: stringArray(activity.preserve, "preserve"),
+      change: stringArray(activity.change, "change"),
+      explore: stringArray(activity.explore, "explore"),
+      avoid: stringArray(activity.avoid, "avoid"),
+      measurementKeys: stringArray(activity.measurementKeys, "measurement_keys"),
       acceptanceScript: requiredString(activity, "acceptanceScript"),
     };
   });
@@ -237,9 +267,12 @@ export async function askDirectMathPlanner(input: {
   extraction: AssignmentSourceExtraction;
   client?: Anthropic;
   model?: string;
+  priorOutcomes?: unknown;
 }): Promise<DirectLearningExperiencePlan> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const prompt = `You are Sunny's sole learning-experience planner and creative director.
+${EXPERIENCE_DESIGN_CONSTITUTION}
+
 Create one coherent choose-your-adventure math board for this exact child and assignment.
 You decide how many baseline activities are educationally necessary. Do not force two activities.
 The board must include exactly two meaningful routes so the child has agency and Sunny can compare one engagement variable while holding the academic need comparable.
@@ -253,6 +286,7 @@ A question asking “how many” must accept the final quantity. If the child mu
 Use one active problem at a time when simultaneous problems add unnecessary cognitive load, and keep instructions short and child-facing.
 Design intentional interaction, recovery, progress, and completion sounds that support the experience without distracting from it.
 Initial board activities create teaching and practice evidence only. Completion cannot establish mastery or unlock Quest or Boss.
+For every activity, write a bespoke creatorPrompt that tells a separate Experience Creator how to realize this activity. Derive it from the assignment, child chart, prior factual outcomes, recent themes, and engagement theory. Also preregister designPrediction and list preserve, change, explore, avoid, and namespaced measurementKeys. These values must vary when evidence supports a change; do not hardcode a game, theme, layout, mechanic, or activity count.
 For each activity, write acceptanceScript before its UI exists. It is an async Playwright JavaScript function body with access to page and BASE_URL. It must use page locators and stable data-testid selectors to open /activities/{activityId}, take an incorrect path, verify recovery, complete every question correctly, verify visible world/progress changes, and return {passed:true} only when completion is visible. It must throw when any promise is broken. The activity implementation will be generated against this exact test.
 
 Return JSON only with this shape:
@@ -260,7 +294,7 @@ Return JSON only with this shape:
   "planId":"...", "title":"...", "academicTheory":"...", "profileEvidence":["evidence reference"],
   "boardWorld":{"title":"...","narrative":"...","backgroundPrompt":"..."},
   "fork":{"question":"...","hypothesis":"...","heldConstant":["..."],"routes":[{"id":"route-a","label":"...","promise":"...","engagementVariable":"...","nodeIds":["..."]},{"id":"route-b","label":"...","promise":"...","engagementVariable":"...","nodeIds":["..."]}]},
-  "activities":[{"id":"...","title":"...","routeId":"route-a","academicTarget":"...","mechanic":"...","engagementVariable":"...","visualMock":{"scene":"...","layout":"...","artworkPrompt":"..."},"experience":{"objective":"...","childAction":"...","worldReaction":"...","anticipation":"...","progress":"...","recovery":"...","reward":"..."},"questions":[{"id":"q1","prompt":"...","options":[{"label":"...","correct":true},{"label":"...","correct":false}]}],"acceptanceSteps":["launch","perform real action","exercise incorrect recovery","exercise correct path","complete"],"acceptanceScript":"JavaScript async-function body that uses real DOM interactions, throws on failure, and returns {passed:true} after completion"}],
+  "activities":[{"id":"...","title":"...","routeId":"route-a","academicTarget":"...","mechanic":"...","engagementVariable":"...","visualMock":{"scene":"...","layout":"...","artworkPrompt":"..."},"experience":{"objective":"...","childAction":"...","worldReaction":"...","anticipation":"...","progress":"...","recovery":"...","reward":"..."},"questions":[{"id":"q1","prompt":"...","options":[{"label":"...","correct":true},{"label":"...","correct":false}]}],"creatorPrompt":"Adaptive instructions for the Experience Creator","designPrediction":"A preregistered prediction about the child's interaction","preserve":["successful element"],"change":["evidence-supported correction"],"explore":["one bounded variation"],"avoid":["known failure"],"measurementKeys":["interaction.timeToFirstValidActionMs"],"acceptanceSteps":["launch","perform real action","exercise incorrect recovery","exercise correct path","complete"],"acceptanceScript":"JavaScript async-function body that uses real DOM interactions, throws on failure, and returns {passed:true} after completion"}],
   "quest":{"title":"Quest","locked":true,"teaser":"...","artworkPrompt":"..."},
   "boss":{"title":"Boss","locked":true,"teaser":"...","artworkPrompt":"..."}
 }
@@ -269,7 +303,10 @@ Assignment:
 ${input.extraction.fullText}
 
 Child chart:
-${JSON.stringify(chartForPlanner(input.chart), null, 2)}`;
+${JSON.stringify(chartForPlanner(input.chart), null, 2)}
+
+Prior factual outcomes and Planner interpretations:
+${JSON.stringify(input.priorOutcomes ?? [], null, 2)}`;
   const toolName = "create_learning_experience_plan";
   const response = await client.messages.create({
     model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
@@ -347,21 +384,45 @@ export function acceptanceScriptBody(script: string): string {
   return wrapped?.[1]?.trim() ?? trimmed;
 }
 
-async function generateActivityHtml(input: {
+export function creatorPromptHash(
+  activity: DirectActivity,
+  plannerModel: string,
+  creatorModel: string,
+): string {
+  return crypto.createHash("sha256").update(JSON.stringify({
+    constitution: EXPERIENCE_DESIGN_CONSTITUTION,
+    plannerModel,
+    creatorModel,
+    activity,
+  })).digest("hex");
+}
+
+export function shouldReuseDirectArtifact(input: {
+  htmlComplete: boolean;
+  savedPromptHash?: string;
+  expectedPromptHash: string;
+}): boolean {
+  return input.htmlComplete && input.savedPromptHash === input.expectedPromptHash;
+}
+
+export function buildDirectActivityCreatorPrompt(input: {
   activity: DirectActivity;
   artworkUrl: string;
   childId: string;
-  client: Anthropic;
-  model: string;
-}): Promise<string> {
-  const prompt = `Build the complete child-facing activity below as one self-contained HTML file with inline CSS and JavaScript.
+}): string {
+  return `Build the complete child-facing activity below as one self-contained HTML file with inline CSS and JavaScript.
+${EXPERIENCE_DESIGN_CONSTITUTION}
+
+The AI Planner's exact Creator prompt is authoritative:
+${input.activity.creatorPrompt}
+
 The ExperienceSpec is authoritative. Do not reinterpret it, rename it, or turn it into a generic quiz/card shell.
 Make the opening viewport vibrant, polished, and immediately understandable to a child. The central mechanic must visibly perform the promised child action and world reaction.
 Use the supplied artwork as part of the world, not as a decorative thumbnail: ${input.artworkUrl}
 Implement the AI Planner's saved questions and correct answers faithfully so the mathematical quantities, accepted responses, activity UI, and browser QA agree.
-The first required action must be understandable within ten seconds. Keep instructions short and child-facing, and show an optional visible demonstration for unfamiliar drag, construction, or manipulation mechanics.
-A question asking “how many” must accept the final quantity. A construction response is valid only when the prompt explicitly asks the child to build or show it. Use one active problem at a time when simultaneous problems create unnecessary cognitive load.
-Include intentional interaction, recovery, progress, and completion sounds using browser-native audio after a child gesture. These initial activities produce teaching and practice evidence only; do not make a mastery claim or unlock Quest or Boss.
+Saved questions/content:
+${JSON.stringify(input.activity.questions, null, 2)}
+Emit interaction evidence with window.parent.postMessage for demoRequested, demoReplayCount, timeToFirstValidActionMs, invalidActionCount, and soundMuted. Include those factual values in the node_complete payload with attempt results.
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",targetId,correct,responseTimeMs}},"*") for each answer and {type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true}},"*") on completion.
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
 The planner wrote the browser acceptance test before this UI. Build the DOM, data-testid hooks, behavior, and completion flow so this exact script passes through real interactions. Do not rewrite or embed the test in the activity:
@@ -374,6 +435,16 @@ Return raw HTML only.
 Child: ${input.childId}
 ExperienceSpec:
 ${JSON.stringify(input.activity, null, 2)}`;
+}
+
+async function generateActivityHtml(input: {
+  activity: DirectActivity;
+  artworkUrl: string;
+  childId: string;
+  client: Anthropic;
+  model: string;
+}): Promise<string> {
+  const prompt = buildDirectActivityCreatorPrompt(input);
   const response = await input.client.messages.create({
     model: input.model,
     max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 8000),
@@ -394,11 +465,13 @@ export async function generateDirectArtifacts(input: {
   rootDir?: string;
   client?: Anthropic;
   model?: string;
+  plannerModel?: string;
 }): Promise<{ artifacts: DirectArtifact[]; backgroundUrl: string; questArtworkUrl: string; bossArtworkUrl: string }> {
   const rootDir = input.rootDir ?? process.cwd();
   const publicDir = path.join(rootDir, "web", "public");
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const model = input.model ?? process.env.SUNNY_GENERATION_MODEL ?? "claude-sonnet-5";
+  const plannerModel = input.plannerModel ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
   process.env.SUNNY_IMAGE_GENERATION_MAX_PER_RUN = String(input.plan.activities.length + 3);
   const artworkJobs = [
     { prompt: input.plan.boardWorld.backgroundPrompt, filename: `${input.homeworkId}-background.jpeg` },
@@ -415,12 +488,40 @@ export async function generateDirectArtifacts(input: {
   for (const [index, activity] of input.plan.activities.entries()) {
     const artworkUrl = activityArt[index]!;
     const htmlPath = path.join(gamesDir, `${activity.id}.html`);
+    const metadataPath = path.join(gamesDir, `${activity.id}.artifact.json`);
     const existingHtml = fs.existsSync(htmlPath) ? fs.readFileSync(htmlPath, "utf8") : "";
-    if (!isCompleteGeneratedHtml(existingHtml)) {
+    const expectedPromptHash = creatorPromptHash(activity, plannerModel, model);
+    let savedPromptHash: string | undefined;
+    try {
+      savedPromptHash = (JSON.parse(fs.readFileSync(metadataPath, "utf8")) as { promptHash?: string }).promptHash;
+    } catch {
+      savedPromptHash = undefined;
+    }
+    if (!shouldReuseDirectArtifact({ htmlComplete: isCompleteGeneratedHtml(existingHtml), savedPromptHash, expectedPromptHash })) {
       const html = await generateActivityHtml({ activity, artworkUrl, childId: input.childId, client, model });
       fs.writeFileSync(htmlPath, html, "utf8");
+      fs.writeFileSync(metadataPath, `${JSON.stringify({
+        version: 1,
+        nodeId: activity.id,
+        creatorPrompt: activity.creatorPrompt,
+        promptHash: expectedPromptHash,
+        plannerModel,
+        creatorModel: model,
+      }, null, 2)}\n`, "utf8");
     }
-    artifacts.push({ childId: input.childId, homeworkId: input.homeworkId, nodeId: activity.id, title: activity.title, htmlPath, artworkUrl, acceptanceScript: activity.acceptanceScript });
+    artifacts.push({
+      childId: input.childId,
+      homeworkId: input.homeworkId,
+      nodeId: activity.id,
+      title: activity.title,
+      htmlPath,
+      artworkUrl,
+      acceptanceScript: activity.acceptanceScript,
+      creatorPrompt: activity.creatorPrompt,
+      promptHash: expectedPromptHash,
+      plannerModel,
+      creatorModel: model,
+    });
   }
   return { artifacts, backgroundUrl, questArtworkUrl, bossArtworkUrl };
 }
