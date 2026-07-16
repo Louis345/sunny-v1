@@ -339,6 +339,14 @@ export function isCompleteGeneratedHtml(html: string): boolean {
   return /<!doctype html/i.test(html) && /<\/html>\s*$/i.test(html.trim());
 }
 
+export function acceptanceScriptBody(script: string): string {
+  const trimmed = script.trim();
+  const wrapped = trimmed.match(
+    /^async\s+function\s*\(\s*\{\s*page\s*,\s*BASE_URL\s*\}\s*\)\s*\{([\s\S]*)\}\s*;?$/,
+  );
+  return wrapped?.[1]?.trim() ?? trimmed;
+}
+
 async function generateActivityHtml(input: {
   activity: DirectActivity;
   artworkUrl: string;
@@ -499,7 +507,7 @@ export async function runDirectPlaywrightAcceptance(input: {
       if (!artworkLoaded) failures.push(`${artifact.nodeId}:artwork_not_rendered`);
       let acceptanceError = "";
       const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => (...args: unknown[]) => Promise<{ passed?: boolean }>;
-      const result = await new AsyncFunction("page", "BASE_URL", artifact.acceptanceScript)(page, `http://127.0.0.1:${address.port}`)
+      const result = await new AsyncFunction("page", "BASE_URL", acceptanceScriptBody(artifact.acceptanceScript))(page, `http://127.0.0.1:${address.port}`)
         .catch((error: Error) => { acceptanceError = error.message; return { passed: false }; });
       if (!result?.passed) failures.push(`${artifact.nodeId}:acceptance_run_failed${acceptanceError ? `:${acceptanceError}` : ""}`);
       const messages = await page.evaluate<Array<{ type?: string }>>(`window.__sunnyMessages||[]`);

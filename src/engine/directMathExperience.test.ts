@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { boardPosition, hasReadyDirectMathExperience, isCompleteGeneratedHtml, parseDirectLearningExperiencePlan } from "./directMathExperience";
+import { acceptanceScriptBody, boardPosition, hasReadyDirectMathExperience, isCompleteGeneratedHtml, parseDirectLearningExperiencePlan } from "./directMathExperience";
 
 function plan(activityCount = 3) {
   const activities = Array.from({ length: activityCount }, (_, index) => ({
@@ -74,6 +74,15 @@ describe("direct math experience", () => {
     const missing = plan();
     delete (missing.activities[0] as Partial<(typeof missing.activities)[number]>).acceptanceScript;
     expect(() => parseDirectLearningExperiencePlan(missing)).toThrow("direct_plan_missing_acceptanceScript");
+  });
+
+  it("unwraps a planner-authored async acceptance function before execution", () => {
+    const wrapped = "async function({ page, BASE_URL }) { await page.goto(BASE_URL); return { passed: true }; }";
+    const body = acceptanceScriptBody(wrapped);
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+
+    expect(body).toBe("await page.goto(BASE_URL); return { passed: true };");
+    expect(() => new AsyncFunction("page", "BASE_URL", body)).not.toThrow();
   });
 
   it("derives route membership from each planner-authored activity instead of a duplicate node list", () => {
