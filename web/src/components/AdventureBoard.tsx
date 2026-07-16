@@ -29,6 +29,7 @@ import "./AdventureBoard.css";
 
 type AdventureBoardProps = {
   board: AdventureBoardJson;
+  completedNodeIds?: readonly string[];
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
 };
@@ -104,12 +105,22 @@ function resolveNodePosition(node: AdventureBoardNode): PositionedAdventureBoard
 
 export function AdventureBoard({
   board,
+  completedNodeIds = [],
   onNodeClick,
   onChoiceClick,
 }: AdventureBoardProps): React.ReactElement {
+  const completedNodeIdSet = new Set(completedNodeIds);
   const resolvedNodes = board.nodes.flatMap((node) => {
     const positionedNode = resolveNodePosition(node);
-    return positionedNode ? [positionedNode] : [];
+    if (!positionedNode) return [];
+    if (
+      completedNodeIdSet.has(positionedNode.id) &&
+      positionedNode.state !== "locked" &&
+      positionedNode.state !== "hidden"
+    ) {
+      return [{ ...positionedNode, state: "completed" as const }];
+    }
+    return [positionedNode];
   });
   const choiceSetsById = new Map((board.choiceSets ?? []).map((set) => [set.id, set]));
   const [openChoiceSetId, setOpenChoiceSetId] = useState<string | null>(null);

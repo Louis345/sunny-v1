@@ -743,6 +743,14 @@ export function projectLearningCycle(cycle: LearningCycleRecordV2): LearningCycl
       layoutChoice: "Render the canonical intervention sequence without semantic rewrites.",
     },
     companion: { id: "elli", name: "Elli" },
+    progress: {
+      completedNodeIds: cycle.nodes
+        .filter((node) => node.state === "completed")
+        .map((node) => node.nodeId),
+      currentNodeId: cycle.nodes.find(
+        (node) => node.state === "active" || node.state === "ready",
+      )?.nodeId,
+    },
     labelForNode: (node) => node.title,
     thumbnailForNode: (node) => node.thumbnailUrl,
   });

@@ -28,6 +28,7 @@ export type PostActivityChoiceOutcome = {
   accuracy?: number;
   activePlayTime_ms?: number;
   frustrationScore?: number;
+  funRating?: number;
 };
 
 type PostChoiceEventOptions = {
@@ -135,6 +136,13 @@ export function buildAdventureBoardPostActivityChoiceEventInput(
     typeof outcome.accuracy === "number" && Number.isFinite(outcome.accuracy)
       ? outcome.accuracy > 1 ? outcome.accuracy / 100 : outcome.accuracy
       : undefined;
+  const funRating =
+    typeof outcome.funRating === "number" &&
+    Number.isInteger(outcome.funRating) &&
+    outcome.funRating >= 1 &&
+    outcome.funRating <= 5
+      ? outcome.funRating
+      : undefined;
   return {
     eventName:
       action === "replay_same" || action === "replay_harder"
@@ -167,6 +175,7 @@ export function buildAdventureBoardPostActivityChoiceEventInput(
     ...(typeof outcome.frustrationScore === "number"
       ? { frustrationScore: outcome.frustrationScore }
       : {}),
+    ...(funRating != null ? { funRating } : {}),
     createdAt: options.createdAt ?? new Date().toISOString(),
   };
 }

@@ -14,6 +14,7 @@ export type AdventureBoardExperienceProps = {
   showCompanion?: boolean;
   idlePose?: "flank" | "center";
   companionBehavior?: CompanionBehavior | null;
+  completedNodeIds?: readonly string[];
   onNodeClick?: (node: AdventureBoardNode) => void;
   onChoiceClick?: (option: AdventureChoiceOption, choiceSet: AdventureChoiceSet) => void;
 };
@@ -23,6 +24,7 @@ export function AdventureBoardExperience({
   showCompanion = true,
   idlePose = "center",
   companionBehavior = null,
+  completedNodeIds,
   onNodeClick,
   onChoiceClick,
 }: AdventureBoardExperienceProps): React.ReactElement | null {
@@ -37,6 +39,7 @@ export function AdventureBoardExperience({
     <>
       <AdventureBoard
         board={board}
+        completedNodeIds={completedNodeIds}
         onNodeClick={onNodeClick}
         onChoiceClick={onChoiceClick}
       />

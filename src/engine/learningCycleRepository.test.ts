@@ -209,6 +209,29 @@ describe("canonical learning cycle repository", () => {
     expect(first.adventureBoard.nodes.find((node) => node.id === "boss")?.label).toBe("Boss");
   });
 
+  it("projects completed canonical nodes as replayable completed board nodes", () => {
+    const rootDir = root();
+    const cycle = createLearningCycle(input(), { rootDir });
+    const completed = transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
+      type: "baseline_completed",
+      nodeId: "baseline-facts",
+      academicEvidence: [{ evidenceId: "attempt:complete", summary: "Completed", accuracy: 1 }],
+      engagementEvidence: [],
+      companionObservations: [],
+      decision: {
+        status: "supported",
+        reason: "The activity was completed.",
+        nextAction: "Wait for the next instrument.",
+      },
+    }, { rootDir });
+
+    const boardNode = projectLearningCycle(completed).adventureBoard.nodes
+      .find((node) => node.id === "baseline-facts");
+
+    expect(boardNode?.state).toBe("completed");
+    expect(boardNode?.action?.type).toBe("launch-activity");
+  });
+
   it("rejects a compatibility plan that drifts from the canonical projection", () => {
     const rootDir = root();
     const cycle = createLearningCycle(input(), { rootDir });

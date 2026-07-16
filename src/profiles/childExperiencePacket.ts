@@ -1,6 +1,7 @@
 import type { AdventureMapProfile } from "../context/schemas/learningProfile";
 import type { ChildChart } from "./childChart";
 import type { CompanionConfig } from "../shared/companionTypes";
+import { readChoiceEvents } from "../engine/choiceEvents";
 
 export type ChildExperiencePacket = {
   childChart: {
@@ -41,6 +42,42 @@ function projectPlayableHomeworkIdentity(
   };
 }
 
+function projectRecordedCompletions(
+  chart: ChildChart,
+  plan: ChildChart["activeSessionPlan"],
+): ChildChart["activeSessionPlan"] {
+  if (!plan?.adventureBoard) return plan;
+  const completedNodeIds = new Set(
+    readChoiceEvents(chart.childId, { rootDir: chart.rootDir })
+      .filter((event) =>
+        event.sessionId === plan.planId &&
+        event.completed === true &&
+        event.postActivityAction !== "abandon" &&
+        Boolean(event.nodeId),
+      )
+      .map((event) => event.nodeId as string),
+  );
+  if (completedNodeIds.size === 0) return plan;
+  for (const nodeId of plan.adventureBoard.progress?.completedNodeIds ?? []) {
+    completedNodeIds.add(nodeId);
+  }
+  return {
+    ...plan,
+    adventureBoard: {
+      ...plan.adventureBoard,
+      nodes: plan.adventureBoard.nodes.map((node) =>
+        completedNodeIds.has(node.id) && node.state !== "locked" && node.state !== "hidden"
+          ? { ...node, state: "completed" }
+          : node,
+      ),
+      progress: {
+        ...plan.adventureBoard.progress,
+        completedNodeIds: [...completedNodeIds],
+      },
+    },
+  };
+}
+
 export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePacket {
   const selectedDomain = chart.homework.selectedDomain ?? undefined;
   const legacySelectedDomainPlan = selectedDomain
@@ -71,6 +108,9 @@ export function buildChildExperiencePacket(chart: ChildChart): ChildExperiencePa
           }
         : undefined,
     },
-    activeSessionPlan: projectPlayableHomeworkIdentity(selectedPlan),
+    activeSessionPlan: projectRecordedCompletions(
+      chart,
+      projectPlayableHomeworkIdentity(selectedPlan),
+    ),
   };
 }

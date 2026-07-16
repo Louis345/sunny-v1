@@ -165,6 +165,24 @@ function boardWithSpecialChoice(
 }
 
 describe("AdventureBoard", () => {
+  it("shows a just-completed node as completed and keeps it replayable", () => {
+    const onNodeClick = vi.fn();
+    render(
+      <AdventureBoard
+        board={rawHorizontalBoard}
+        completedNodeIds={["verify"]}
+        onNodeClick={onNodeClick}
+      />,
+    );
+
+    const node = screen.getByRole("button", { name: "Verify" });
+    expect(node).toHaveClass("adventure-board__node--completed");
+    fireEvent.click(node);
+    expect(onNodeClick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "verify", state: "completed" }),
+    );
+  });
+
   it("renders JSON-provided background and node thumbnails", () => {
     const { container } = render(<AdventureBoard board={grokFullExperienceBoard} />);
 
@@ -420,6 +438,7 @@ describe("AdventureBoard", () => {
         accuracy: 0.88,
         activePlayTime_ms: 31_000,
         frustrationScore: 0.1,
+        funRating: 4,
       },
       { createdAt: "2026-05-27T12:06:00.000Z" },
     );
@@ -438,6 +457,7 @@ describe("AdventureBoard", () => {
       postActivityAction: "back_to_map",
       completed: true,
       replayRequested: false,
+      funRating: 4,
     });
   });
 

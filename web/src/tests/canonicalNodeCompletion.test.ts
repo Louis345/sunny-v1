@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { postCanonicalNodeCompletion } from "../utils/canonicalNodeCompletion";
+import { hasCanonicalLearningCycle, postCanonicalNodeCompletion } from "../utils/canonicalNodeCompletion";
 
 describe("canonical node completion handoff", () => {
+  it("keeps direct full-board practice completion out of the canonical mastery path", () => {
+    expect(hasCanonicalLearningCycle({ childChart: {}, activeSessionPlan: { activeHomeworkId: "direct-hw" } } as never)).toBe(false);
+    expect(hasCanonicalLearningCycle({ childChart: { learningCycle: { homeworkId: "cycle-hw" } } } as never)).toBe(true);
+  });
+
   afterEach(() => vi.unstubAllGlobals());
 
   it("posts the actual node identity and completion payload before showing post-activity UI", async () => {

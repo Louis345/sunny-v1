@@ -79,6 +79,7 @@ export type ChoiceEvent = {
   postActivityAction?: PostActivityAction;
   explicitSentiment?: ChoiceSentiment;
   frustrationScore?: number;
+  funRating?: number;
   theoryId?: string;
   experimentId?: string;
   contentId?: string;

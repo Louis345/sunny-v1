@@ -11,7 +11,7 @@ import {
 import { useSession } from "./hooks/useSession";
 import { useAdventureState } from "./hooks/useAdventureState";
 import { ChildPicker } from "./components/ChildPicker";
-import { postCanonicalNodeCompletion } from "./utils/canonicalNodeCompletion";
+import { hasCanonicalLearningCycle, postCanonicalNodeCompletion } from "./utils/canonicalNodeCompletion";
 import { SessionScreen } from "./components/SessionScreen";
 import { SessionEnd } from "./components/SessionEnd";
 import { SessionLoadingOverlay } from "./components/SessionLoadingOverlay";
@@ -504,6 +504,7 @@ function App() {
     stats: Array<{ label: string; value: string | number }>;
     canTryHarder: boolean;
   } | null>(null);
+  const [locallyCompletedPlannerNodeIds, setLocallyCompletedPlannerNodeIds] = useState<string[]>([]);
   const plannerBoardIframeCompletionKeyRef = useRef<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [selectedChildName, setSelectedChildName] = useState<string | null>(null);
@@ -837,6 +838,7 @@ function App() {
 
   useEffect(() => {
     setPlannerBoardLaunch(null);
+    setLocallyCompletedPlannerNodeIds([]);
   }, [adventureChildId, plannerBoardPacket?.activeSessionPlan?.planId]);
 
   const launchPlannerBoardNode = useCallback(
@@ -1012,13 +1014,17 @@ function App() {
       action: PostActivityAction,
       node: NodeConfig,
       outcome: PostActivityOutcome,
+      funRating?: 1 | 2 | 3 | 4 | 5,
     ) => {
       if (!plannerBoardPacket) return;
       const event = buildAdventureBoardPostActivityChoiceEventInput(
         plannerBoardPacket,
         node,
         action,
-        choiceOutcomeFromOverlay(outcome),
+        {
+          ...choiceOutcomeFromOverlay(outcome),
+          ...(funRating != null ? { funRating } : {}),
+        },
       );
       void postAdventureBoardChoiceEvent(event, { preview: mapPreviewMode })
         .then((out) => {
@@ -1027,6 +1033,7 @@ function App() {
             nodeId: node.id,
             nodeType: node.type,
             action,
+            funRating: funRating ?? null,
             applied: out.applied,
             skippedPersistence: out.skippedPersistence,
           });
@@ -1042,6 +1049,21 @@ function App() {
         });
     },
     [adventureChildId, mapPreviewMode, plannerBoardPacket],
+  );
+
+  const handlePlannerBoardFunRating = useCallback(
+    (rating: 1 | 2 | 3 | 4 | 5 | null) => {
+      const current = postActivityEngagement;
+      if (!current) return;
+      recordPlannerBoardPostActivityAction(
+        "back_to_map",
+        current.node,
+        current.outcome,
+        rating ?? undefined,
+      );
+      closePlannerBoardLaunch();
+    },
+    [closePlannerBoardLaunch, postActivityEngagement, recordPlannerBoardPostActivityAction],
   );
 
   const showPlannerBoardEngagementOverlay = useCallback(
@@ -1130,9 +1152,8 @@ function App() {
         nodeType: launch.node.type,
         eventType: data.type,
       });
-      const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
-      if (!adventureChildId || !homeworkId) {
-        console.error(" 🎮 [AdventureBoard] canonical_completion_failed missing child or homework identity");
+      if (!adventureChildId) {
+        console.error(" 🎮 [AdventureBoard] completion_failed missing child identity");
         setPostActivityEngagement({
           node: launch.node,
           outcome: { completed: false },
@@ -1142,12 +1163,19 @@ function App() {
         });
         return;
       }
-      void postCanonicalNodeCompletion({
-        childId: adventureChildId,
-        homeworkId,
-        nodeId: launch.node.id,
-        result: payload,
-      }).then(() => {
+      const homeworkId = plannerBoardPacket?.childChart.learningCycle?.homeworkId;
+      const completionWrite = hasCanonicalLearningCycle(plannerBoardPacket) && homeworkId
+        ? postCanonicalNodeCompletion({
+            childId: adventureChildId,
+            homeworkId,
+            nodeId: launch.node.id,
+            result: payload,
+          })
+        : Promise.resolve(null);
+      void completionWrite.then(() => {
+        setLocallyCompletedPlannerNodeIds((current) =>
+          current.includes(launch.node.id) ? current : [...current, launch.node.id],
+        );
         showPlannerBoardEngagementOverlay(launch.node, payload);
       }).catch((error: unknown) => {
         console.error(" 🎮 [AdventureBoard] canonical_completion_failed", error);
@@ -1370,6 +1398,7 @@ function App() {
         <div className="w-screen h-screen overflow-hidden relative bg-zinc-950">
           <AdventureBoardExperience
             packet={plannerBoardPacket}
+            completedNodeIds={locallyCompletedPlannerNodeIds}
             showCompanion={false}
             idlePose="center"
             onNodeClick={handlePlannerBoardNodeClick}
@@ -1731,6 +1760,7 @@ function App() {
               canReplay
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
+              onFunRating={handlePlannerBoardFunRating}
             />
           ) : null}
         </FlowGameOverlay>
@@ -1790,6 +1820,7 @@ function App() {
               canReplay
               canTryHarder={postActivityEngagement.canTryHarder}
               onAction={handlePlannerBoardPostActivityAction}
+              onFunRating={handlePlannerBoardFunRating}
             />
           ) : null}
         </FlowGameOverlay>

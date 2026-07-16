@@ -9,6 +9,12 @@ export type CanonicalNodeCompletionInput = {
   };
 };
 
+export function hasCanonicalLearningCycle(packet: {
+  childChart?: { learningCycle?: unknown };
+} | null | undefined): boolean {
+  return packet?.childChart?.learningCycle != null;
+}
+
 export async function postCanonicalNodeCompletion(input: CanonicalNodeCompletionInput): Promise<{
   lifecycle: string;
   revision: number;

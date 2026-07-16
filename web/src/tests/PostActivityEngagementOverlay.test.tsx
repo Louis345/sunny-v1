@@ -59,4 +59,31 @@ describe("PostActivityEngagementOverlay", () => {
     fireEvent.click(screen.getByRole("button", { name: "Harder replay" }));
     expect(onAction).toHaveBeenCalledWith("replay_harder");
   });
+
+  it("records a one-tap fun rating or skip", () => {
+    const onFunRating = vi.fn();
+    const { rerender } = render(
+      <PostActivityEngagementOverlay
+        title="Puzzle Vault"
+        outcome={{ completed: true, accuracy: 1 }}
+        onAction={vi.fn()}
+        onFunRating={onFunRating}
+      />,
+    );
+
+    expect(screen.getByText("How fun was this activity?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "4 stars" }));
+    expect(onFunRating).toHaveBeenCalledWith(4);
+
+    rerender(
+      <PostActivityEngagementOverlay
+        title="Puzzle Vault"
+        outcome={{ completed: true, accuracy: 1 }}
+        onAction={vi.fn()}
+        onFunRating={onFunRating}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Skip fun rating" }));
+    expect(onFunRating).toHaveBeenLastCalledWith(null);
+  });
 });

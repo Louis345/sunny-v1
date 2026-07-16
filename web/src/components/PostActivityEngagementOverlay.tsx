@@ -21,6 +21,7 @@ export type PostActivityEngagementOverlayProps = {
   canTryHarder?: boolean;
   children?: ReactNode;
   onAction: (action: PostActivityAction) => void;
+  onFunRating?: (rating: 1 | 2 | 3 | 4 | 5 | null) => void;
 };
 
 function accuracyLabel(value: number | undefined): string | null {
@@ -42,6 +43,7 @@ export function PostActivityEngagementOverlay({
   canTryHarder = false,
   children,
   onAction,
+  onFunRating,
 }: PostActivityEngagementOverlayProps) {
   const fallbackStats: PostActivityStat[] = [
     ...(accuracyLabel(outcome.accuracy)
@@ -91,6 +93,33 @@ export function PostActivityEngagementOverlay({
         ) : null}
 
         {children ? <div className="mt-5">{children}</div> : null}
+
+        {outcome.completed && onFunRating ? (
+          <div className="mt-6" aria-label="Activity fun rating">
+            <p className="text-lg font-black">How fun was this activity?</p>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {([1, 2, 3, 4, 5] as const).map((rating) => (
+                <button
+                  key={rating}
+                  type="button"
+                  aria-label={`${rating} ${rating === 1 ? "star" : "stars"}`}
+                  className="h-12 w-12 text-4xl leading-none text-amber-300 transition-transform hover:scale-110"
+                  onClick={() => onFunRating(rating)}
+                >
+                  ★
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-label="Skip fun rating"
+                className="ml-2 px-3 py-2 text-sm font-bold text-white/65 underline"
+                onClick={() => onFunRating(null)}
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-7 flex flex-wrap justify-center gap-3">
           {canReplay ? (
