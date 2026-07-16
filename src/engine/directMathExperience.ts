@@ -465,6 +465,31 @@ Return only minimal exact replacements through the repair tool. Each edit must c
 
 export type DirectArtifactEdit = { oldText: string; newText: string };
 
+export function normalizeDirectArtifactEdits(value: unknown): DirectArtifactEdit[] {
+  let candidate = value;
+  if (candidate && typeof candidate === "object" && !Array.isArray(candidate) && "edits" in candidate) {
+    candidate = (candidate as { edits?: unknown }).edits;
+  }
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate) as unknown;
+    } catch {
+      throw new Error("direct_activity_repair_edits_invalid_json");
+    }
+  }
+  if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+    candidate = Object.values(candidate as Record<string, unknown>);
+  }
+  if (!Array.isArray(candidate)) throw new Error("direct_activity_repair_edits_invalid");
+  return candidate.map((raw) => {
+    const edit = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+    return {
+      oldText: typeof edit.oldText === "string" ? edit.oldText : "",
+      newText: typeof edit.newText === "string" ? edit.newText : "",
+    };
+  });
+}
+
 export function applyDirectArtifactEdits(html: string, edits: DirectArtifactEdit[]): string {
   if (edits.length === 0 || edits.length > 12) throw new Error("direct_activity_repair_edit_count_invalid");
   let repaired = html;
@@ -618,11 +643,7 @@ export async function repairDirectArtifactsOnce(input: {
     }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
     const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
     if (!tool || tool.type !== "tool_use") throw new Error(`direct_activity_repair_edits_missing:${artifact.nodeId}`);
-    const toolInput = tool.input as { edits?: Array<{ oldText?: unknown; newText?: unknown }> };
-    const edits = (toolInput.edits ?? []).map((edit) => ({
-      oldText: typeof edit.oldText === "string" ? edit.oldText : "",
-      newText: typeof edit.newText === "string" ? edit.newText : "",
-    }));
+    const edits = normalizeDirectArtifactEdits(tool.input);
     const repairedHtml = applyDirectArtifactEdits(html, edits);
     fs.writeFileSync(artifact.htmlPath, repairedHtml, "utf8");
     repaired += 1;

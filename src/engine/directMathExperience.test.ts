@@ -14,6 +14,7 @@ import {
   isCompleteGeneratedHtml,
   parseDirectLearningExperiencePlan,
   shouldReuseDirectArtifact,
+  normalizeDirectArtifactEdits,
 } from "./directMathExperience";
 
 function plan(activityCount = 3) {
@@ -152,6 +153,12 @@ describe("direct math experience", () => {
       .toThrow("direct_activity_repair_anchor_ambiguous");
     expect(() => applyDirectArtifactEdits("<html></html>", [{ oldText: "missing", newText: "fixed" }]))
       .toThrow("direct_activity_repair_anchor_missing");
+  });
+
+  it("normalizes harmless AI tool wrappers before validating exact edits", () => {
+    const edit = { oldText: "animation:bob", newText: "animation:none" };
+    expect(normalizeDirectArtifactEdits({ edits: { "0": edit } })).toEqual([edit]);
+    expect(normalizeDirectArtifactEdits({ edits: JSON.stringify([edit]) })).toEqual([edit]);
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
