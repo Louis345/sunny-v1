@@ -57,6 +57,7 @@ import {
   recordChoiceEvent,
   type ChoiceEventInput,
 } from "../engine/choiceEvents";
+import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import {
   companionCareFeedShouldPersist,
   previewCompanionCareMirror,
@@ -975,6 +976,13 @@ export function setupRoutes(app: Express): void {
     try {
       const event = recordChoiceEvent(eventInput);
       const applied = await applyChoiceEventPreference(event);
+      if (event.context === "homework_required" && event.eventName === "activity_completed") {
+        void interpretDirectExperienceOutcome(event).catch((error: unknown) => {
+          console.warn(
+            ` 🎮 [direct-feedback] [deferred] child=${event.childId} node=${event.nodeId ?? "unknown"} reason=${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+      }
       if (
         event.context === "baseline_route" &&
         event.source === "child_choice" &&

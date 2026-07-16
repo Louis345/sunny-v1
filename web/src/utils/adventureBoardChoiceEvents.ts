@@ -29,6 +29,11 @@ export type PostActivityChoiceOutcome = {
   activePlayTime_ms?: number;
   frustrationScore?: number;
   funRating?: number;
+  demoRequested?: boolean;
+  demoReplayCount?: number;
+  timeToFirstValidActionMs?: number;
+  invalidActionCount?: number;
+  soundMuted?: boolean;
 };
 
 type PostChoiceEventOptions = {
@@ -176,6 +181,11 @@ export function buildAdventureBoardPostActivityChoiceEventInput(
       ? { frustrationScore: outcome.frustrationScore }
       : {}),
     ...(funRating != null ? { funRating } : {}),
+    ...(typeof outcome.demoRequested === "boolean" ? { demoRequested: outcome.demoRequested } : {}),
+    ...(typeof outcome.demoReplayCount === "number" ? { demoReplayCount: outcome.demoReplayCount } : {}),
+    ...(typeof outcome.timeToFirstValidActionMs === "number" ? { timeToFirstValidActionMs: outcome.timeToFirstValidActionMs } : {}),
+    ...(typeof outcome.invalidActionCount === "number" ? { invalidActionCount: outcome.invalidActionCount } : {}),
+    ...(typeof outcome.soundMuted === "boolean" ? { soundMuted: outcome.soundMuted } : {}),
     createdAt: options.createdAt ?? new Date().toISOString(),
   };
 }

@@ -80,6 +80,11 @@ export type ChoiceEvent = {
   explicitSentiment?: ChoiceSentiment;
   frustrationScore?: number;
   funRating?: number;
+  demoRequested?: boolean;
+  demoReplayCount?: number;
+  timeToFirstValidActionMs?: number;
+  invalidActionCount?: number;
+  soundMuted?: boolean;
   theoryId?: string;
   experimentId?: string;
   contentId?: string;

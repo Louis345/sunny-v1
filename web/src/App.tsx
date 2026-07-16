@@ -392,6 +392,11 @@ function plannerOutcomeFromResult(result: Record<string, unknown>): PostActivity
         : result.completed === false
           ? 0.7
           : 0.1,
+    demoRequested: typeof result.demoRequested === "boolean" ? result.demoRequested : undefined,
+    demoReplayCount: typeof result.demoReplayCount === "number" ? result.demoReplayCount : undefined,
+    timeToFirstValidActionMs: typeof result.timeToFirstValidActionMs === "number" ? result.timeToFirstValidActionMs : undefined,
+    invalidActionCount: typeof result.invalidActionCount === "number" ? result.invalidActionCount : undefined,
+    soundMuted: typeof result.soundMuted === "boolean" ? result.soundMuted : undefined,
   };
 }
 
@@ -426,6 +431,11 @@ function choiceOutcomeFromOverlay(outcome: PostActivityOutcome): PostActivityCho
     ...(typeof outcome.frustrationScore === "number"
       ? { frustrationScore: outcome.frustrationScore }
       : {}),
+    ...(typeof outcome.demoRequested === "boolean" ? { demoRequested: outcome.demoRequested } : {}),
+    ...(typeof outcome.demoReplayCount === "number" ? { demoReplayCount: outcome.demoReplayCount } : {}),
+    ...(typeof outcome.timeToFirstValidActionMs === "number" ? { timeToFirstValidActionMs: outcome.timeToFirstValidActionMs } : {}),
+    ...(typeof outcome.invalidActionCount === "number" ? { invalidActionCount: outcome.invalidActionCount } : {}),
+    ...(typeof outcome.soundMuted === "boolean" ? { soundMuted: outcome.soundMuted } : {}),
   };
 }
 

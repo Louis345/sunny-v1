@@ -11,6 +11,10 @@ import {
   persistDirectExperience,
   runDirectPlaywrightAcceptance,
 } from "../engine/directMathExperience";
+import {
+  interpretPendingDirectExperienceOutcomes,
+  readDirectFeedbackContext,
+} from "../engine/directExperienceFeedback";
 import { getChildChart } from "../profiles/childChart";
 
 function arg(name: string): string {
@@ -31,14 +35,22 @@ async function main(): Promise<void> {
   const homeworkId = `hw-math-${crypto.createHash("sha256").update(extraction.fileHash).digest("hex").slice(0, 8)}`;
   const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
   const draftFile = path.join(draftDir, "planner-plan.json");
+  await interpretPendingDirectExperienceOutcomes(childId);
+  const priorOutcomes = readDirectFeedbackContext(childId);
   console.log("[2/4] AI planning board and experiences");
   const plannerPlan = flag("resume") && fs.existsSync(draftFile)
     ? parseDirectLearningExperiencePlan(JSON.parse(fs.readFileSync(draftFile, "utf8")))
-    : await askDirectMathPlanner({ childId, chart: getChildChart(childId), extraction });
+    : await askDirectMathPlanner({ childId, chart: getChildChart(childId), extraction, priorOutcomes });
   fs.mkdirSync(draftDir, { recursive: true });
   fs.writeFileSync(draftFile, `${JSON.stringify(plannerPlan, null, 2)}\n`, "utf8");
   console.log(`[3/4] Building ${plannerPlan.activities.length} planner-selected activities`);
-  const generated = await generateDirectArtifacts({ plan: plannerPlan, childId, homeworkId });
+  const generated = await generateDirectArtifacts({
+    plan: plannerPlan,
+    childId,
+    homeworkId,
+    plannerModel: process.env.SUNNY_INGEST_MODEL,
+    model: process.env.SUNNY_GENERATION_MODEL,
+  });
   console.log("[4/4] Running one Playwright acceptance suite");
   const report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: path.join(process.cwd(), "src", "context", childId, "homework", "direct-playwright", homeworkId) });
   if (!report.passed) {

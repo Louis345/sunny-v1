@@ -19,10 +19,16 @@ vi.mock("../engine/contentFeedbackMemory", async (importOriginal) => {
   };
 });
 
+vi.mock("../engine/directExperienceFeedback", () => ({
+  interpretDirectExperienceOutcome: vi.fn(() => new Promise(() => {})),
+}));
+
 import { appendContentFeedbackLesson } from "../engine/contentFeedbackMemory";
+import { interpretDirectExperienceOutcome } from "../engine/directExperienceFeedback";
 import { setupRoutes } from "./routes";
 
 const mockedAppendLesson = vi.mocked(appendContentFeedbackLesson);
+const mockedInterpretOutcome = vi.mocked(interpretDirectExperienceOutcome);
 
 describe("choice-event route feedback lessons", () => {
   const servers: Array<{ close: () => void }> = [];
@@ -100,5 +106,22 @@ describe("choice-event route feedback lessons", () => {
 
     expect(out.status).toBe(200);
     expect(mockedAppendLesson).not.toHaveBeenCalled();
+  });
+
+  it("returns immediately while direct-experience interpretation continues in the background", async () => {
+    const out = await postChoiceEvent({
+      ...routeChoicePayload,
+      eventName: "activity_completed",
+      choiceSetId: "post_activity:plan:array-forge",
+      context: "homework_required",
+      nodeId: "array-forge",
+      completed: true,
+      funRating: 3,
+      demoRequested: true,
+    });
+
+    expect(out.status).toBe(200);
+    expect(out.body.ok).toBe(true);
+    expect(mockedInterpretOutcome).toHaveBeenCalledTimes(1);
   });
 });

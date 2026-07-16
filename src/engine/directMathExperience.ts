@@ -707,7 +707,25 @@ export function persistDirectExperience(input: {
   const contextDir = path.join(rootDir, "src", "context", input.childId);
   const directPath = path.join(contextDir, "homework", "direct_experience_plan.json");
   const now = new Date().toISOString();
-  const record = { version: 1, childId: input.childId, homeworkId: input.homeworkId, generatedAt: now, assignment: input.extraction, plannerPlan: input.plannerPlan, activeSessionPlan: input.activeSessionPlan, artifacts: input.artifacts, playwrightReport: input.report };
+  let priorFeedback: { feedbackObservations?: unknown[]; feedbackDecisions?: unknown[] } = {};
+  try {
+    priorFeedback = JSON.parse(fs.readFileSync(directPath, "utf8")) as typeof priorFeedback;
+  } catch {
+    priorFeedback = {};
+  }
+  const record = {
+    version: 2,
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    generatedAt: now,
+    assignment: input.extraction,
+    plannerPlan: input.plannerPlan,
+    activeSessionPlan: input.activeSessionPlan,
+    artifacts: input.artifacts,
+    playwrightReport: input.report,
+    feedbackObservations: priorFeedback.feedbackObservations ?? [],
+    feedbackDecisions: priorFeedback.feedbackDecisions ?? [],
+  };
   fs.mkdirSync(path.dirname(directPath), { recursive: true });
   fs.writeFileSync(directPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
   const planFile = { version: 1, childId: input.childId, selectedDomain: "math", current: input.activeSessionPlan, activeByDomain: { math: input.activeSessionPlan }, updatedAt: now };

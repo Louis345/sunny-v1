@@ -439,6 +439,11 @@ describe("AdventureBoard", () => {
         activePlayTime_ms: 31_000,
         frustrationScore: 0.1,
         funRating: 4,
+        demoRequested: true,
+        demoReplayCount: 2,
+        timeToFirstValidActionMs: 12_000,
+        invalidActionCount: 1,
+        soundMuted: false,
       },
       { createdAt: "2026-05-27T12:06:00.000Z" },
     );
@@ -458,6 +463,11 @@ describe("AdventureBoard", () => {
       completed: true,
       replayRequested: false,
       funRating: 4,
+      demoRequested: true,
+      demoReplayCount: 2,
+      timeToFirstValidActionMs: 12_000,
+      invalidActionCount: 1,
+      soundMuted: false,
     });
   });
 

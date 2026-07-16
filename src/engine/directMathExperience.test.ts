@@ -164,6 +164,13 @@ describe("direct math experience", () => {
     ]) expect(source).not.toContain(forbidden);
   });
 
+  it("loads prior direct outcomes before asking the Planner for a new program", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
+    expect(source).toContain("interpretPendingDirectExperienceOutcomes");
+    expect(source).toContain("readDirectFeedbackContext");
+    expect(source).toContain("priorOutcomes");
+  });
+
   it("validates the registered homework launch URL instead of a private artifact shortcut", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).not.toContain('url.pathname.startsWith("/artifact/")');

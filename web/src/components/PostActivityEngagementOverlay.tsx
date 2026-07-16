@@ -6,6 +6,11 @@ export type PostActivityOutcome = {
   accuracy?: number;
   activePlayTimeMs?: number;
   frustrationScore?: number;
+  demoRequested?: boolean;
+  demoReplayCount?: number;
+  timeToFirstValidActionMs?: number;
+  invalidActionCount?: number;
+  soundMuted?: boolean;
 };
 
 export type PostActivityStat = {
