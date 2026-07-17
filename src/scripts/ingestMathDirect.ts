@@ -9,6 +9,7 @@ import {
   generateDirectArtifacts,
   parseDirectLearningExperiencePlan,
   persistDirectExperience,
+  readDirectCanonicalLearningContext,
   repairDirectArtifactsOnce,
   runDirectAcceptanceRepairLoop,
   runDirectPlaywrightAcceptance,
@@ -38,7 +39,10 @@ async function main(): Promise<void> {
   const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
   const draftFile = path.join(draftDir, "planner-plan.json");
   await interpretPendingDirectExperienceOutcomes(childId);
-  const priorOutcomes = readDirectFeedbackContext(childId);
+  const priorOutcomes = {
+    directExperience: readDirectFeedbackContext(childId),
+    canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
+  };
   console.log("[2/4] AI planning board and experiences");
   const plannerPlan = flag("resume") && fs.existsSync(draftFile)
     ? parseDirectLearningExperiencePlan(JSON.parse(fs.readFileSync(draftFile, "utf8")))

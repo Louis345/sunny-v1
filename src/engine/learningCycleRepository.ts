@@ -76,6 +76,11 @@ export type LearningCycleNodeContract = {
     purpose: string;
   };
   generationPrompt: LearningCyclePrompt | null;
+  prediction?: {
+    claim: string;
+    createdAt: string;
+    evidenceLimit: "practice_only" | "independent_performance" | "provisional_transfer" | "calibrated_mastery";
+  };
   artifactBinding: LearningCycleArtifactBinding | null;
   artwork: {
     status: "pending" | "placeholder" | "ready" | "failed";
@@ -101,6 +106,22 @@ export type LearningCycleAcademicTheory = {
   falsifyCriteria: string[];
 };
 
+export type LearningCycleCalibration = {
+  calibrationId: string;
+  gradedAt: string;
+  score: number | null;
+  status: Extract<LearningTheoryDecisionStatus, "supported" | "falsified" | "inconclusive">;
+  gradedItems: Array<{
+    target: string;
+    correct: boolean;
+    observedErrorType?: string;
+    note?: string;
+  }>;
+  sourceFile: string;
+  reason: string;
+  nextAction: string;
+};
+
 export type LearningCycleDecision = {
   decisionId: string;
   eventType: LearningCycleEvent["type"];
@@ -124,6 +145,9 @@ export type LearningCycleRecordV2 = {
     contentFingerprint: string;
     capturedEvidenceIds: string[];
     targets: string[];
+    returnTag?: string;
+    rawText?: string;
+    sourceFilename?: string;
   };
   lifecycle: LearningCycleLifecycle;
   academicTheory: LearningCycleAcademicTheory;
@@ -135,6 +159,7 @@ export type LearningCycleRecordV2 = {
     companionObservations: LearningCycleEvidenceSummary[];
   };
   decisionHistory: LearningCycleDecision[];
+  calibrations?: LearningCycleCalibration[];
   createdAt: string;
   updatedAt: string;
 };
@@ -172,6 +197,7 @@ export type LearningCycleEvent =
   | { type: "artifact_bound"; nodeId: string; artifact: LearningCycleArtifactBinding }
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
+  | { type: "graded_work_received"; calibration: LearningCycleCalibration }
   | { type: "block"; reason: string };
 
 export type LearningCycleRepositoryOptions = {
@@ -610,6 +636,22 @@ export function transitionLearningCycle(
     else next.lifecycle = "baseline_ready";
     reason = `Validated ${node.role} artifact bound to canonical node contract.`;
     evidenceIds = node.generationPrompt?.createdFromEvidenceIds ?? [];
+  } else if (event.type === "graded_work_received") {
+    next.calibrations = [...(next.calibrations ?? []), structuredClone(event.calibration)];
+    next.evidence.academic = uniqueEvidence([...next.evidence.academic, {
+      evidenceId: event.calibration.calibrationId,
+      summary: `Returned graded work: ${event.calibration.status} (${event.calibration.score ?? "score unavailable"}).`,
+      ...(event.calibration.score != null ? { accuracy: event.calibration.score } : {}),
+    }]);
+    evidenceIds = [event.calibration.calibrationId];
+    reason = event.calibration.reason;
+    nextAction = event.calibration.nextAction;
+    status = event.calibration.status;
+    next.lifecycle = event.calibration.status === "supported"
+      ? "complete"
+      : event.calibration.status === "falsified"
+        ? "baseline_ready"
+        : "awaiting_calibration";
   } else if (event.type === "engagement_theory_updated") {
     next.engagementTheory = structuredClone(event.theory);
     reason = event.reason;
@@ -651,6 +693,23 @@ export function transitionLearningCycle(
   atomicWrite(cyclePath(next.childId, next.homeworkId, opts), next);
   appendDecisionTrace(next, decision, opts);
   return next;
+}
+
+export function recordLearningCycleCalibration(
+  childId: string,
+  homeworkId: string,
+  calibration: LearningCycleCalibration,
+  opts: LearningCycleRepositoryOptions = {},
+): LearningCycleRecordV2 {
+  const cycle = getLearningCycle(childId, homeworkId, opts);
+  if (!cycle) throw new Error(`learning_cycle_missing:${homeworkId}`);
+  if ((cycle.calibrations ?? []).some((entry) => entry.calibrationId === calibration.calibrationId)) {
+    return cycle;
+  }
+  return transitionLearningCycle(childId, homeworkId, cycle.revision, {
+    type: "graded_work_received",
+    calibration,
+  }, opts);
 }
 
 function nodeActivityType(node: LearningCycleNodeContract): ActiveSessionPlan["nodePlan"][number]["type"] {

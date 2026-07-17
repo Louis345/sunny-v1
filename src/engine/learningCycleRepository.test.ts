@@ -9,6 +9,7 @@ import {
   getLearningCycle,
   repairHistoricalLearningCycleBeforePlanning,
   projectLearningCycle,
+  recordLearningCycleCalibration,
   transitionLearningCycle,
   assertLearningCycleProjectionWrite,
 } from "./learningCycleRepository";
@@ -134,6 +135,33 @@ function minimalProfile(): LearningProfile {
 }
 
 describe("canonical learning cycle repository", () => {
+  it("appends returned graded work to the same assignment cycle and records one reality decision", () => {
+    const rootDir = root();
+    createLearningCycle(input(), { rootDir, now: new Date("2026-07-17T12:00:00.000Z") });
+    const updated = recordLearningCycleCalibration("reina", "hw-math-cycle", {
+      calibrationId: "calibration-returned-1",
+      gradedAt: "2026-07-24T12:00:00.000Z",
+      score: 0.8,
+      status: "supported",
+      gradedItems: [
+        { target: "5x2", correct: true },
+        { target: "pencils-word-problem", correct: false, note: "added groups" },
+      ],
+      sourceFile: "returned-math.pdf",
+      reason: "Returned assignment broadly supported the preregistered theory.",
+      nextAction: "Preserve fact practice and revise story translation support.",
+    }, { rootDir, now: new Date("2026-07-24T12:00:00.000Z") });
+
+    expect(updated.homeworkId).toBe("hw-math-cycle");
+    expect(updated.calibrations).toHaveLength(1);
+    expect(updated.calibrations?.[0]?.gradedItems).toHaveLength(2);
+    expect(updated.decisionHistory.at(-1)).toMatchObject({
+      eventType: "graded_work_received",
+      status: "supported",
+      evidenceIds: ["calibration-returned-1"],
+    });
+  });
+
   it("repairs impossible historical progression before child-chart planning begins", () => {
     const rootDir = root();
     const created = createLearningCycle(input(), { rootDir });

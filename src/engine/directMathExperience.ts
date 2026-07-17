@@ -8,6 +8,13 @@ import type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
+import {
+  createLearningCycle,
+  getLearningCycle,
+  transitionLearningCycle,
+  type CreateLearningCycleInput,
+  type LearningCycleNodeContract,
+} from "./learningCycleRepository";
 
 export type DirectActivity = {
   id: string;
@@ -115,6 +122,10 @@ export function hasReadyDirectMathExperience(childId: string, rootDir = process.
   } catch {
     return false;
   }
+}
+
+export function readDirectCanonicalLearningContext(childId: string, homeworkId: string, rootDir = process.cwd()): unknown {
+  return getLearningCycle(childId, homeworkId, { rootDir });
 }
 
 export function boardPosition(percentX: number, percentY: number): { x: number; y: number } {
@@ -278,6 +289,10 @@ ${EXPERIENCE_DESIGN_CONSTITUTION}
 
 Create one coherent choose-your-adventure math board for this exact child and assignment.
 You decide how many baseline activities are educationally necessary. Do not force two activities.
+First decompose the assignment into distinct learning responsibilities before deciding how many activities are necessary.
+Give each activity one primary learning responsibility. Do not merge materially different responsibilities merely to reduce the node count.
+Keep the two routes academically comparable while allowing their presentation and engagement variable to differ.
+There is no fixed activity count.
 The board must include exactly two meaningful routes so the child has agency and Sunny can compare one engagement variable while holding the academic need comparable.
 fork.question is child-facing copy: at most 10 words, inviting, and easy to say aloud. Put the detailed research claim only in fork.hypothesis.
 Each activity must be a bespoke vibrant game world, never a quiz card placed on a background. Describe the complete visual mock, child action, world reaction, anticipation, progress transformation, recovery, and reward.
@@ -849,6 +864,120 @@ export function buildDirectActiveSessionPlan(input: {
   };
 }
 
+function canonicalReturnTag(childId: string, homeworkId: string): string {
+  const normalize = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return `#sunny_${normalize(childId)}_${normalize(homeworkId)}`;
+}
+
+export function buildDirectLearningCycleInput(input: {
+  childId: string;
+  homeworkId: string;
+  extraction: AssignmentSourceExtraction;
+  plannerPlan: DirectLearningExperiencePlan;
+  activeSessionPlan: ActiveSessionPlan;
+  artifacts: DirectArtifact[];
+  createdAt?: string;
+}): CreateLearningCycleInput {
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  const artifactById = new Map(input.artifacts.map((artifact) => [artifact.nodeId, artifact]));
+  const planNodeById = new Map(input.activeSessionPlan.nodePlan.map((node) => [node.id, node]));
+  const theoryId = `${input.homeworkId}:academic-theory`;
+  const baselineNodes: LearningCycleNodeContract[] = input.plannerPlan.activities.map((activity) => {
+    const artifact = artifactById.get(activity.id);
+    if (!artifact) throw new Error(`direct_cycle_artifact_missing:${activity.id}`);
+    const sessionNode = planNodeById.get(activity.id);
+    return {
+      nodeId: activity.id,
+      role: "baseline",
+      title: activity.title,
+      state: "ready",
+      academicTarget: {
+        domain: "math",
+        skill: activity.academicTarget,
+        targets: activity.questions.map((question) => question.prompt),
+      },
+      algorithmOwner: "ai_tutor",
+      theoryId,
+      experimentId: `${input.homeworkId}:${activity.routeId}:${activity.engagementVariable}`,
+      mechanic: activity.mechanic,
+      theme: activity.visualMock.scene,
+      openingScreen: { title: activity.title, purpose: activity.experience.objective },
+      generationPrompt: {
+        promptId: `${input.homeworkId}:${activity.id}:creator`,
+        createdFromEvidenceIds: [`assignment:${input.extraction.fileHash}`],
+        text: activity.creatorPrompt,
+      },
+      prediction: {
+        claim: activity.designPrediction,
+        createdAt,
+        evidenceLimit: "practice_only",
+      },
+      artifactBinding: {
+        contentId: `${input.homeworkId}:${activity.id}`,
+        artifactId: artifact.promptHash,
+        localArtifactPath: artifact.htmlPath,
+        localArtworkPath: artifact.artworkUrl,
+        contractFingerprint: artifact.promptHash,
+        validationStatus: "passed",
+        validationProof: sessionNode?.validationProof,
+      },
+      artwork: { status: "ready", localPath: artifact.artworkUrl, prompt: activity.visualMock.artworkPrompt },
+      sfxContract: ["interaction", "recovery", "progress", "completion"],
+      companionContract: { events: ["completion", "frustration", "replay"] },
+      evidenceContract: { academic: true, engagement: true, companionObservations: true },
+      evidenceIds: [],
+    };
+  });
+  const lockedNode = (role: "quest" | "boss"): LearningCycleNodeContract => {
+    const teaser = input.plannerPlan[role];
+    const sessionNode = planNodeById.get(role);
+    return {
+      nodeId: role,
+      role,
+      title: role === "quest" ? "Quest" : "Boss",
+      state: "locked",
+      academicTarget: { domain: "math", skill: role === "quest" ? "novel transfer" : "novel synthesis", targets: [] },
+      algorithmOwner: "ai_tutor",
+      theoryId,
+      experimentId: `${input.homeworkId}:${role}`,
+      mechanic: "locked-teaser",
+      theme: teaser.teaser,
+      openingScreen: { title: role === "quest" ? "Quest" : "Boss", purpose: teaser.teaser },
+      generationPrompt: null,
+      artifactBinding: null,
+      artwork: { status: sessionNode?.thumbnailUrl ? "ready" : "placeholder", localPath: sessionNode?.thumbnailUrl ?? null, prompt: teaser.artworkPrompt },
+      sfxContract: [],
+      companionContract: { events: [] },
+      evidenceContract: { academic: true, engagement: false, companionObservations: true },
+      evidenceIds: [],
+    };
+  };
+  return {
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    domain: "math",
+    assignment: {
+      title: input.plannerPlan.title,
+      contentFingerprint: input.extraction.fileHash,
+      capturedEvidenceIds: [`assignment:${input.extraction.fileHash}`],
+      targets: [...new Set(input.plannerPlan.activities.map((activity) => activity.academicTarget))],
+      returnTag: canonicalReturnTag(input.childId, input.homeworkId),
+      rawText: input.extraction.fullText,
+      sourceFilename: input.extraction.filename,
+    },
+    academicTheory: {
+      theoryId,
+      revision: 1,
+      hypothesis: input.plannerPlan.academicTheory,
+      supportCriteria: ["Real child evidence and returned work support the prediction."],
+      reviseCriteria: ["Observed performance is mixed or a confound limits the claim."],
+      falsifyCriteria: ["Returned work contradicts the prediction."],
+    },
+    engagementTheory: null,
+    nodes: [...baselineNodes, lockedNode("quest"), lockedNode("boss")],
+  };
+}
+
 export function persistDirectExperience(input: {
   rootDir?: string;
   childId: string;
@@ -882,6 +1011,28 @@ export function persistDirectExperience(input: {
     feedbackObservations: priorFeedback.feedbackObservations ?? [],
     feedbackDecisions: priorFeedback.feedbackDecisions ?? [],
   };
+  const canonicalInput = buildDirectLearningCycleInput({
+    childId: input.childId,
+    homeworkId: input.homeworkId,
+    extraction: input.extraction,
+    plannerPlan: input.plannerPlan,
+    activeSessionPlan: input.activeSessionPlan,
+    artifacts: input.artifacts,
+    createdAt: now,
+  });
+  const existingCycle = getLearningCycle(input.childId, input.homeworkId, { rootDir });
+  if (existingCycle) {
+    transitionLearningCycle(input.childId, input.homeworkId, existingCycle.revision, {
+      type: "plan_reconciled",
+      assignment: canonicalInput.assignment,
+      academicTheory: canonicalInput.academicTheory,
+      engagementTheory: canonicalInput.engagementTheory,
+      nodes: canonicalInput.nodes,
+      reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
+    }, { rootDir, now: new Date(now) });
+  } else {
+    createLearningCycle(canonicalInput, { rootDir, now: new Date(now) });
+  }
   fs.mkdirSync(path.dirname(directPath), { recursive: true });
   fs.writeFileSync(directPath, `${JSON.stringify(record, null, 2)}\n`, "utf8");
   const planFile = { version: 1, childId: input.childId, selectedDomain: "math", current: input.activeSessionPlan, activeByDomain: { math: input.activeSessionPlan }, updatedAt: now };

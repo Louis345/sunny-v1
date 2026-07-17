@@ -5,7 +5,11 @@ import readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import type { HomeworkCycle } from "../context/schemas/homeworkCycle";
 import { generateContentFingerprint } from "../context/schemas/homeworkCycle";
+import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
 import { recordGradedHomeworkCalibration } from "../engine/learningDecisionContext";
+import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+
+type HomeworkCycleCandidateRecord = HomeworkCycle | LearningCycleRecordV2;
 
 export type GradedHomeworkUpload = {
   childId: string;
@@ -32,7 +36,7 @@ export type HomeworkMatchCandidate = {
   title: string;
   confidence: number;
   evidence: string[];
-  cycle: HomeworkCycle;
+  cycle: HomeworkCycleCandidateRecord;
 };
 
 type CliArgs = {
@@ -95,25 +99,33 @@ function dateProximityScore(a?: string | null, b?: string | null): number {
   return 0;
 }
 
-function cycleTitle(cycle: HomeworkCycle): string {
-  return cycle.capturedContent?.title ?? cycle.contentProfile?.topic ?? cycle.homeworkId;
+function isCanonicalCycle(cycle: HomeworkCycleCandidateRecord): cycle is LearningCycleRecordV2 {
+  return "schemaVersion" in cycle && cycle.schemaVersion === 2;
+}
+
+function cycleTitle(cycle: HomeworkCycleCandidateRecord): string {
+  return isCanonicalCycle(cycle)
+    ? cycle.assignment.title
+    : cycle.capturedContent?.title ?? cycle.contentProfile?.topic ?? cycle.homeworkId;
 }
 
 function filenameStem(value: string): string {
   return path.basename(value).replace(/\.[^.]+$/, "");
 }
 
-function sourceNames(cycle: HomeworkCycle): string[] {
+function sourceNames(cycle: HomeworkCycleCandidateRecord): string[] {
+  if (isCanonicalCycle(cycle)) return cycle.assignment.sourceFilename ? [cycle.assignment.sourceFilename] : [];
   return cycle.capturedContent?.sourceDocuments.map((doc) => doc.filename) ?? [];
 }
 
 export function scoreHomeworkCycleCandidate(
   upload: GradedHomeworkUpload,
-  cycle: HomeworkCycle,
+  cycle: HomeworkCycleCandidateRecord,
 ): HomeworkMatchCandidate {
   let score = 0;
   const evidence: string[] = [];
-  const expectedReturnTag = cycle.returnTag ?? fallbackReturnTag(upload.childId, cycle.homeworkId);
+  const expectedReturnTag = (isCanonicalCycle(cycle) ? cycle.assignment.returnTag : cycle.returnTag)
+    ?? fallbackReturnTag(upload.childId, cycle.homeworkId);
   const tagHaystack = normalize(
     [
       upload.returnTag,
@@ -127,7 +139,8 @@ export function scoreHomeworkCycleCandidate(
     evidence.push("return tag match");
   }
 
-  if (upload.contentFingerprint && cycle.contentFingerprint === upload.contentFingerprint) {
+  const cycleFingerprint = isCanonicalCycle(cycle) ? cycle.assignment.contentFingerprint : cycle.contentFingerprint;
+  if (upload.contentFingerprint && cycleFingerprint === upload.contentFingerprint) {
     score += 0.55;
     evidence.push("exact content fingerprint");
   }
@@ -150,20 +163,22 @@ export function scoreHomeworkCycleCandidate(
 
   const conceptOverlap = overlapScore(
     upload.concepts,
-    cycle.contentProfile?.concepts ?? cycle.capturedContent?.contentProfile.concepts ?? [],
+    isCanonicalCycle(cycle)
+      ? cycle.assignment.targets
+      : cycle.contentProfile?.concepts ?? cycle.capturedContent?.contentProfile.concepts ?? [],
   );
   if (conceptOverlap > 0) {
     score += conceptOverlap * 0.2;
     evidence.push(`concept overlap ${(conceptOverlap * 100).toFixed(0)}%`);
   }
 
-  const wordOverlap = overlapScore(upload.words, cycle.wordList);
+  const wordOverlap = overlapScore(upload.words, isCanonicalCycle(cycle) ? [] : cycle.wordList ?? []);
   if (wordOverlap > 0) {
     score += wordOverlap * 0.25;
     evidence.push(`word overlap ${(wordOverlap * 100).toFixed(0)}%`);
   }
 
-  const dateScore = dateProximityScore(upload.testDate, cycle.testDate);
+  const dateScore = dateProximityScore(upload.testDate, isCanonicalCycle(cycle) ? null : cycle.testDate);
   if (dateScore > 0) {
     score += dateScore * 0.15;
     evidence.push(`test date proximity ${(dateScore * 100).toFixed(0)}%`);
@@ -180,7 +195,7 @@ export function scoreHomeworkCycleCandidate(
 
 export function rankHomeworkCycleCandidates(
   upload: GradedHomeworkUpload,
-  cycles: HomeworkCycle[],
+  cycles: HomeworkCycleCandidateRecord[],
 ): HomeworkMatchCandidate[] {
   return cycles
     .map((cycle) => scoreHomeworkCycleCandidate(upload, cycle))
@@ -192,19 +207,19 @@ function cyclesDir(rootDir: string, childId: string): string {
   return path.join(rootDir, "src", "context", childId, "homework", "cycles");
 }
 
-function loadCycles(rootDir: string, childId: string): HomeworkCycle[] {
+function loadCycles(rootDir: string, childId: string): HomeworkCycleCandidateRecord[] {
   const dir = cyclesDir(rootDir, childId);
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir)
     .filter((file) => file.endsWith(".json"))
     .map((file) => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as HomeworkCycle;
+        return JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as HomeworkCycleCandidateRecord;
       } catch {
         return null;
       }
     })
-    .filter((cycle): cycle is HomeworkCycle => cycle != null);
+    .filter((cycle): cycle is HomeworkCycleCandidateRecord => cycle != null);
 }
 
 function parseCliArgs(argv: string[]): CliArgs {
@@ -222,10 +237,13 @@ function parseCliArgs(argv: string[]): CliArgs {
   };
 }
 
-function uploadFromFile(args: CliArgs): GradedHomeworkUpload {
+async function uploadFromFile(args: CliArgs): Promise<GradedHomeworkUpload> {
   const sourceFile = path.resolve(args.pdfPath);
   const isText = /\.(txt|md|json)$/i.test(sourceFile);
-  const rawText = isText && fs.existsSync(sourceFile) ? fs.readFileSync(sourceFile, "utf8") : "";
+  let rawText = isText && fs.existsSync(sourceFile) ? fs.readFileSync(sourceFile, "utf8") : "";
+  if (/\.pdf$/i.test(sourceFile)) {
+    rawText = (await extractAssignmentSource(sourceFile)).fullText;
+  }
   let structured: Partial<GradedHomeworkUpload> = {};
   if (/\.json$/i.test(sourceFile) && rawText.trim()) {
     try {
@@ -307,7 +325,7 @@ export async function runUploadGradedHomework(
   const rootDir = opts.rootDir ?? process.cwd();
   const now = opts.now ?? new Date();
   const logger = opts.logger ?? console;
-  const upload = uploadFromFile(args);
+  const upload = await uploadFromFile(args);
   const candidates = rankHomeworkCycleCandidates(upload, loadCycles(rootDir, args.childId));
   logger.log(`📄 Graded upload: ${path.basename(upload.sourceFile)}`);
   if (candidates.length === 0 || (candidates[0]?.confidence ?? 0) < MIN_CONFIDENT_MATCH) {
@@ -338,6 +356,7 @@ export async function runUploadGradedHomework(
       score: upload.score ?? null,
       gradedItems: upload.gradedItems,
       teacherNotes: `Uploaded graded homework from ${path.basename(upload.sourceFile)}.`,
+      sourceFile: path.basename(upload.sourceFile),
     }, {
       rootDir,
       now,

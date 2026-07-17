@@ -7,8 +7,10 @@ import {
   applyDirectArtifactEdits,
   acceptanceScriptBody,
   boardPosition,
+  buildDirectActiveSessionPlan,
   buildDirectActivityCreatorPrompt,
   buildDirectActivityRepairPrompt,
+  buildDirectLearningCycleInput,
   creatorPromptHash,
   hasReadyDirectMathExperience,
   isCompleteGeneratedHtml,
@@ -80,6 +82,69 @@ describe("direct math experience", () => {
   it("keeps the planner-selected activity count instead of forcing two nodes", () => {
     expect(parseDirectLearningExperiencePlan(plan(3)).activities).toHaveLength(3);
     expect(parseDirectLearningExperiencePlan(plan(5)).activities).toHaveLength(5);
+  });
+
+  it("requires coherent learning responsibilities without fixing the activity count", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    expect(source).toContain("decompose the assignment into distinct learning responsibilities");
+    expect(source).toContain("Give each activity one primary learning responsibility");
+    expect(source).toContain("There is no fixed activity count");
+    expect(source).not.toContain("Generate exactly four activities");
+  });
+
+  it("projects every AI-selected node and prediction into one canonical assignment cycle", () => {
+    const plannerPlan = parseDirectLearningExperiencePlan(plan(3));
+    const artifacts = plannerPlan.activities.map((activity) => ({
+      childId: "reina",
+      homeworkId: "hw-math-assignment",
+      nodeId: activity.id,
+      title: activity.title,
+      htmlPath: `/tmp/${activity.id}.html`,
+      artworkUrl: `/generated/${activity.id}.jpeg`,
+      acceptanceScript: activity.acceptanceScript,
+      creatorPrompt: activity.creatorPrompt,
+      promptHash: `hash-${activity.id}`,
+      plannerModel: "claude-sonnet-5",
+      creatorModel: "claude-sonnet-5",
+    }));
+    const activeSessionPlan = buildDirectActiveSessionPlan({
+      childId: "reina",
+      homeworkId: "hw-math-assignment",
+      plan: plannerPlan,
+      artifacts,
+      backgroundUrl: "/generated/background.jpeg",
+      questArtworkUrl: "/generated/quest.jpeg",
+      bossArtworkUrl: "/generated/boss.jpeg",
+      report: { passed: true, failures: [], screenshots: [] },
+      createdAt: "2026-07-17T12:00:00.000Z",
+    });
+    const cycle = buildDirectLearningCycleInput({
+      childId: "reina",
+      homeworkId: "hw-math-assignment",
+      extraction: {
+        sourceKind: "embedded_text_pdf",
+        sourcePath: "/tmp/assignment.pdf",
+        filename: "assignment.pdf",
+        mediaType: "application/pdf",
+        fileHash: "assignment-file-hash",
+        extractionMethod: "unpdf",
+        pages: [{ pageNumber: 1, text: "Multiplication facts and equal groups" }],
+        fullText: "Multiplication facts and equal groups",
+        warnings: [],
+      },
+      plannerPlan,
+      activeSessionPlan,
+      artifacts,
+      createdAt: "2026-07-17T12:00:00.000Z",
+    });
+    expect(cycle.homeworkId).toBe("hw-math-assignment");
+    expect(cycle.assignment.contentFingerprint).toBe("assignment-file-hash");
+    expect(cycle.assignment.returnTag).toBe("#sunny_reina_hw_math_assignment");
+    expect(cycle.nodes.filter((node) => node.role === "baseline")).toHaveLength(3);
+    expect(cycle.nodes.find((node) => node.nodeId === "activity-1")?.prediction?.claim)
+      .toBe(plannerPlan.activities[0]?.designPrediction);
+    expect(cycle.nodes.find((node) => node.role === "quest")?.state).toBe("locked");
+    expect(cycle.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
   });
 
   it("keeps usability constraints stable without fixing activity count, mechanics, or themes", () => {

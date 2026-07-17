@@ -26,6 +26,10 @@ import {
 } from "../profiles/chartWaterfall";
 import { resolveChildContextDir } from "../utils/contextRoot";
 import { appendContentFeedbackLesson } from "./contentFeedbackMemory";
+import {
+  recordLearningCycleCalibration,
+  type LearningCycleRecordV2,
+} from "./learningCycleRepository";
 
 type RootOptions = {
   rootDir?: string;
@@ -59,6 +63,7 @@ export type GradedHomeworkCalibrationInput = {
     note?: string;
   }>;
   teacherNotes?: string;
+  sourceFile?: string;
 };
 
 export type HomeworkCatalogNode = {
@@ -694,8 +699,10 @@ export function recordGradedHomeworkCalibration(
   const rootDir = opts.rootDir ?? process.cwd();
   const profile = readProfile(rootDir, childId);
   const file = cyclePath(rootDir, childId, input.homeworkId);
-  const cycle = readJson<HomeworkCycle>(file);
+  const cycle = readJson<HomeworkCycle | LearningCycleRecordV2>(file);
   if (!cycle) throw new Error(`Homework cycle not found: ${input.homeworkId}`);
+  const canonicalCycle = "schemaVersion" in cycle && cycle.schemaVersion === 2 ? cycle : null;
+  const legacyCycle = canonicalCycle ? null : cycle as HomeworkCycle;
   const observedMisses = input.gradedItems
     .filter((item) => !item.correct)
     .map((item) => ({
@@ -704,30 +711,47 @@ export function recordGradedHomeworkCalibration(
       ...(item.note ? { note: item.note } : {}),
     }));
   const gradedAt = input.gradedAt ?? isoNow(opts);
-  const status = calibrationStatus({
-    predictedPattern: cycle.theory?.predictedPattern,
-    observedMisses,
-    score: input.score ?? null,
-  });
+  const status = canonicalCycle
+    ? "inconclusive"
+    : calibrationStatus({
+      predictedPattern: legacyCycle?.theory?.predictedPattern,
+      observedMisses,
+      score: input.score ?? null,
+    });
   const entry: HomeworkCalibrationEntry = {
     calibrationId: calibrationId(input.homeworkId, gradedAt),
     homeworkId: input.homeworkId,
     gradedAt,
-    ...(cycle.theory?.theoryId ? { theoryId: cycle.theory.theoryId } : {}),
-    ...(cycle.theory?.predictedPattern ? { predictedPattern: cycle.theory.predictedPattern } : {}),
-    predictedRiskWords: cycle.theory?.predictedRiskWords ?? [],
+    ...((canonicalCycle?.academicTheory.theoryId ?? legacyCycle?.theory?.theoryId)
+      ? { theoryId: canonicalCycle?.academicTheory.theoryId ?? legacyCycle?.theory?.theoryId }
+      : {}),
+    ...(legacyCycle?.theory?.predictedPattern ? { predictedPattern: legacyCycle.theory.predictedPattern } : {}),
+    predictedRiskWords: legacyCycle?.theory?.predictedRiskWords ?? [],
     observedMisses,
     score: input.score ?? null,
     status,
     ...(input.teacherNotes ? { teacherNotes: input.teacherNotes } : {}),
     nextAdjustment: nextAdjustment(status),
   };
-  const nextCycle: HomeworkCycle = {
-    ...cycle,
-    calibrationStatus: status,
-    calibrationJournal: [entry, ...(cycle.calibrationJournal ?? [])].slice(0, 50),
-  };
-  writeJson(file, nextCycle);
+  if (canonicalCycle) {
+    recordLearningCycleCalibration(childId, input.homeworkId, {
+      calibrationId: entry.calibrationId,
+      gradedAt,
+      score: input.score ?? null,
+      status,
+      gradedItems: input.gradedItems,
+      sourceFile: input.sourceFile ?? "returned-homework",
+      reason: "Returned graded work was recorded as reality evidence; the AI Planner must interpret what it means for the theory.",
+      nextAction: entry.nextAdjustment,
+    }, opts);
+  } else {
+    const nextCycle: HomeworkCycle = {
+      ...legacyCycle!,
+      calibrationStatus: status,
+      calibrationJournal: [entry, ...(legacyCycle?.calibrationJournal ?? [])].slice(0, 50),
+    };
+    writeJson(file, nextCycle);
+  }
   const nextProfile: LearningProfile = {
     ...profile,
     learningCalibrationJournal: [

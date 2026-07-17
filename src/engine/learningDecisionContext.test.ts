@@ -20,6 +20,7 @@ import {
   rankHomeworkCycleCandidates,
   runUploadGradedHomework,
 } from "../scripts/uploadGradedHomework";
+import { createLearningCycle, getLearningCycle } from "./learningCycleRepository";
 
 function makeRoot(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "sunny-decision-context-"));
@@ -754,5 +755,58 @@ describe("LearningDecisionContext", () => {
 
     const unmatchedDir = path.join(root, `src/context/${childId}/homework/unmatched`);
     expect(fs.readdirSync(unmatchedDir).some((file) => file.endsWith(".json"))).toBe(true);
+  });
+
+  it("matches a returned assignment id and calibrates the canonical V2 math cycle", async () => {
+    const root = makeRoot();
+    roots.push(root);
+    const childId = "reina";
+    const homeworkId = "hw-math-a179d2a0";
+    writeJson(root, `src/context/${childId}/learning_profile.json`, baseProfile(childId));
+    createLearningCycle({
+      childId,
+      homeworkId,
+      domain: "math",
+      assignment: {
+        title: "Pashley multiplication",
+        contentFingerprint: "assignment-fingerprint",
+        capturedEvidenceIds: ["assignment:pdf:1"],
+        targets: ["5 x 2", "equal groups word problems"],
+        returnTag: "#sunny_reina_hw_math_a179d2a0",
+        rawText: "Mrs K puts 5 pencils in each of 4 boxes",
+        sourceFilename: "pashley-math-2-multiplication.pdf",
+      },
+      academicTheory: {
+        theoryId: "theory-math-1",
+        revision: 1,
+        hypothesis: "Fact recall will be stronger than word-problem translation.",
+        supportCriteria: ["returned work supports the predicted pattern"],
+        reviseCriteria: ["returned work is mixed"],
+        falsifyCriteria: ["returned work contradicts the predicted pattern"],
+      },
+      engagementTheory: null,
+      nodes: [],
+    }, { rootDir: root, now: new Date("2026-07-17T12:00:00.000Z") });
+    const returnedFile = path.join(root, "returned-pashley.json");
+    writeJson(root, "returned-pashley.json", {
+      title: "Returned Pashley multiplication",
+      returnTag: "#sunny_reina_hw_math_a179d2a0",
+      score: 0.8,
+      gradedItems: [
+        { target: "5 x 2", correct: true },
+        { target: "equal groups word problems", correct: false, note: "added the factors" },
+      ],
+    });
+
+    await runUploadGradedHomework([
+      `--child=${childId}`,
+      `--pdf=${returnedFile}`,
+      "--yes",
+    ], { rootDir: root, logger: { log: () => undefined }, now: new Date("2026-07-24T12:00:00.000Z") });
+
+    const cycle = getLearningCycle(childId, homeworkId, { rootDir: root });
+    expect(cycle?.calibrations).toHaveLength(1);
+    expect(cycle?.calibrations?.[0]).toMatchObject({ score: 0.8, sourceFile: "returned-pashley.json" });
+    expect(cycle?.decisionHistory.at(-1)?.eventType).toBe("graded_work_received");
   });
 });
