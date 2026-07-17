@@ -652,6 +652,21 @@ export async function repairDirectArtifactsOnce(input: {
   return repaired;
 }
 
+export async function runDirectAcceptanceRepairLoop(input: {
+  runAcceptance: () => Promise<DirectPlaywrightReport>;
+  repair: (failures: string[]) => Promise<number>;
+  maxRepairs?: number;
+}): Promise<DirectPlaywrightReport> {
+  const maxRepairs = Math.max(0, Math.min(10, input.maxRepairs ?? 5));
+  let report = await input.runAcceptance();
+  for (let attempt = 1; !report.passed && attempt <= maxRepairs; attempt += 1) {
+    console.log(`[4/4] Creator surgical repair ${attempt}/${maxRepairs}`);
+    await input.repair(report.failures);
+    report = await input.runAcceptance();
+  }
+  return report;
+}
+
 function contentType(file: string): string {
   if (/\.html$/i.test(file)) return "text/html; charset=utf-8";
   if (/\.jpe?g$/i.test(file)) return "image/jpeg";

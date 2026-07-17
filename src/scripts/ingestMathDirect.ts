@@ -10,6 +10,7 @@ import {
   parseDirectLearningExperiencePlan,
   persistDirectExperience,
   repairDirectArtifactsOnce,
+  runDirectAcceptanceRepairLoop,
   runDirectPlaywrightAcceptance,
 } from "../engine/directMathExperience";
 import {
@@ -54,12 +55,11 @@ async function main(): Promise<void> {
   });
   console.log("[4/4] Running one Playwright acceptance suite");
   const playwrightOutputDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-playwright", homeworkId);
-  let report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: playwrightOutputDir });
-  if (!report.passed) {
-    console.log("[4/4] Creator repairing failed implementations once");
-    await repairDirectArtifactsOnce({ plan: plannerPlan, artifacts: generated.artifacts, failures: report.failures });
-    report = await runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: playwrightOutputDir });
-  }
+  const report = await runDirectAcceptanceRepairLoop({
+    runAcceptance: () => runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: playwrightOutputDir }),
+    repair: (failures) => repairDirectArtifactsOnce({ plan: plannerPlan, artifacts: generated.artifacts, failures }),
+    maxRepairs: 5,
+  });
   if (!report.passed) {
     console.log("Done — BLOCKED");
     console.log(report.failures.join("\n"));

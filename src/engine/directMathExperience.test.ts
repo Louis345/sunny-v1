@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   EXPERIENCE_DESIGN_CONSTITUTION,
   applyDirectArtifactEdits,
@@ -15,6 +15,7 @@ import {
   parseDirectLearningExperiencePlan,
   shouldReuseDirectArtifact,
   normalizeDirectArtifactEdits,
+  runDirectAcceptanceRepairLoop,
 } from "./directMathExperience";
 
 function plan(activityCount = 3) {
@@ -160,6 +161,29 @@ describe("direct math experience", () => {
     expect(normalizeDirectArtifactEdits({ edits: { "0": edit } })).toEqual([edit]);
     expect(normalizeDirectArtifactEdits({ edits: JSON.stringify([edit]) })).toEqual([edit]);
     expect(normalizeDirectArtifactEdits({ edits: `\`\`\`json\n${JSON.stringify([edit])}\n\`\`\`` })).toEqual([edit]);
+  });
+
+  it("repairs and reruns the same frozen acceptance until it passes", async () => {
+    let runs = 0;
+    const repair = vi.fn(async () => 1);
+    const report = await runDirectAcceptanceRepairLoop({
+      runAcceptance: async () => ({ passed: ++runs >= 3, failures: runs >= 3 ? [] : [`node:failure-${runs}`], screenshots: [] }),
+      repair,
+      maxRepairs: 5,
+    });
+    expect(report.passed).toBe(true);
+    expect(repair).toHaveBeenCalledTimes(2);
+  });
+
+  it("caps surgical repair attempts instead of looping forever", async () => {
+    const repair = vi.fn(async () => 1);
+    const report = await runDirectAcceptanceRepairLoop({
+      runAcceptance: async () => ({ passed: false, failures: ["node:still-broken"], screenshots: [] }),
+      repair,
+      maxRepairs: 5,
+    });
+    expect(report.passed).toBe(false);
+    expect(repair).toHaveBeenCalledTimes(5);
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
