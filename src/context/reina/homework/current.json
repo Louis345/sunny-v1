@@ -3,23 +3,56 @@
   "childId": "reina",
   "selectedDomain": "math",
   "current": {
-    "weekOf": "2026-07-13",
+    "weekOf": "2026-07-17",
     "testDate": null,
     "returnTag": "#sunny_reina_hw-math-a179d2a0",
     "wordList": [],
     "contentProfile": {
       "practiceDomain": "math",
-      "topic": "The Skip-Count Star Vault"
+      "topic": "Reina's Multiplication Facts Adventure: x2, x5, x10"
     },
     "capturedContent": {
-      "title": "The Skip-Count Star Vault",
+      "title": "Reina's Multiplication Facts Adventure: x2, x5, x10",
       "rawText": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?"
     },
     "homeworkId": "hw-math-a179d2a0",
-    "generatedAt": "2026-07-13T09:49:47.010Z",
+    "generatedAt": "2026-07-17T20:17:02.992Z",
     "nodes": [
       {
-        "id": "gear-lock-facts",
+        "id": "skip-count-glider",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Skyglider Skip-Count Run",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-glider.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-glider.jpeg",
+        "contentId": "hw-math-a179d2a0:skip-count-glider",
+        "mechanic": "tap-to-advance skip counting along a floating number path",
+        "engagementDimensions": [
+          "speed"
+        ],
+        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-glider-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "fact-dash-harbor",
         "type": "generated-baseline",
         "activityId": "generated-baseline",
         "targets": [
@@ -31,30 +64,30 @@
         ],
         "difficulty": 2,
         "source": "chart_planner",
-        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+        "targetLane": "multiplication facts x2, x5, x10",
         "locked": false,
         "masteryUnlockState": "unlocked",
-        "title": "Gearlock Facts Chamber",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+        "title": "Harbor Fact Dash",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-dash-harbor.html",
         "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
-        "contentId": "hw-math-a179d2a0:gear-lock-facts",
-        "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-dash-harbor.jpeg",
+        "contentId": "hw-math-a179d2a0:fact-dash-harbor",
+        "mechanic": "rapid tap-select of correct product from stationary answer tiles",
         "engagementDimensions": [
-          "puzzle"
+          "speed"
         ],
-        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
         "validationProof": {
           "engine": "playwright",
           "passed": true,
           "worldStateChanged": true,
           "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png"
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-dash-harbor-complete.png"
           ]
         }
       },
       {
-        "id": "gear-lock-word-problems",
+        "id": "word-problem-delivery",
         "type": "generated-baseline",
         "activityId": "generated-baseline",
         "targets": [
@@ -63,30 +96,63 @@
         ],
         "difficulty": 2,
         "source": "chart_planner",
-        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
         "locked": false,
         "masteryUnlockState": "unlocked",
-        "title": "Gearlock Story Vault",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+        "title": "Skyharbor Delivery Dash",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-delivery.html",
         "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
-        "contentId": "hw-math-a179d2a0:gear-lock-word-problems",
-        "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-delivery.jpeg",
+        "contentId": "hw-math-a179d2a0:word-problem-delivery",
+        "mechanic": "tap the stationary total that matches the delivered word problem scene",
         "engagementDimensions": [
-          "puzzle"
+          "speed"
         ],
-        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
         "validationProof": {
           "engine": "playwright",
           "passed": true,
           "worldStateChanged": true,
           "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png"
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-delivery-complete.png"
           ]
         }
       },
       {
-        "id": "comet-run-facts",
+        "id": "skip-count-blocks",
+        "type": "generated-baseline",
+        "activityId": "generated-baseline",
+        "targets": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "difficulty": 2,
+        "source": "chart_planner",
+        "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+        "locked": false,
+        "masteryUnlockState": "unlocked",
+        "title": "Harbor Block Builder: Skip Count",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-blocks.html",
+        "date": "hw-math-a179d2a0",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-blocks.jpeg",
+        "contentId": "hw-math-a179d2a0:skip-count-blocks",
+        "mechanic": "tap glowing blocks to snap them into a stationary grouping frame, building the count",
+        "engagementDimensions": [
+          "puzzle"
+        ],
+        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
+        "validationProof": {
+          "engine": "playwright",
+          "passed": true,
+          "worldStateChanged": true,
+          "screenshotPaths": [
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-blocks-complete.png"
+          ]
+        }
+      },
+      {
+        "id": "fact-vault-blocks",
         "type": "generated-baseline",
         "activityId": "generated-baseline",
         "targets": [
@@ -98,30 +164,30 @@
         ],
         "difficulty": 2,
         "source": "chart_planner",
-        "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+        "targetLane": "multiplication facts x2, x5, x10",
         "locked": false,
         "masteryUnlockState": "unlocked",
-        "title": "Comet Trail Facts Sprint",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+        "title": "Fact Vault Builder",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-vault-blocks.html",
         "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
-        "contentId": "hw-math-a179d2a0:comet-run-facts",
-        "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-vault-blocks.jpeg",
+        "contentId": "hw-math-a179d2a0:fact-vault-blocks",
+        "mechanic": "tap the correct product block to build a vault door combination",
         "engagementDimensions": [
-          "speed"
+          "puzzle"
         ],
-        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
         "validationProof": {
           "engine": "playwright",
           "passed": true,
           "worldStateChanged": true,
           "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png"
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-vault-blocks-complete.png"
           ]
         }
       },
       {
-        "id": "comet-run-word-problems",
+        "id": "word-problem-crane",
         "type": "generated-baseline",
         "activityId": "generated-baseline",
         "targets": [
@@ -130,25 +196,25 @@
         ],
         "difficulty": 2,
         "source": "chart_planner",
-        "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+        "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
         "locked": false,
         "masteryUnlockState": "unlocked",
-        "title": "Comet Trail Story Sprint",
-        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+        "title": "Crane Crate Puzzle",
+        "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-crane.html",
         "date": "hw-math-a179d2a0",
-        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
-        "contentId": "hw-math-a179d2a0:comet-run-word-problems",
-        "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+        "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-crane.jpeg",
+        "contentId": "hw-math-a179d2a0:word-problem-crane",
+        "mechanic": "tap the correct total block to load a crane's crate matching the word problem",
         "engagementDimensions": [
-          "speed"
+          "puzzle"
         ],
-        "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+        "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
         "validationProof": {
           "engine": "playwright",
           "passed": true,
           "worldStateChanged": true,
           "screenshotPaths": [
-            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+            "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-crane-complete.png"
           ]
         }
       },
@@ -180,23 +246,56 @@
   },
   "activeByDomain": {
     "math": {
-      "weekOf": "2026-07-13",
+      "weekOf": "2026-07-17",
       "testDate": null,
       "returnTag": "#sunny_reina_hw-math-a179d2a0",
       "wordList": [],
       "contentProfile": {
         "practiceDomain": "math",
-        "topic": "The Skip-Count Star Vault"
+        "topic": "Reina's Multiplication Facts Adventure: x2, x5, x10"
       },
       "capturedContent": {
-        "title": "The Skip-Count Star Vault",
+        "title": "Reina's Multiplication Facts Adventure: x2, x5, x10",
         "rawText": "Pashley Grade 3 - Multiplication Facts x2, x5, x10 Name: ____________________ Date: ____________________ Unit 3: Multiplication Facts x2, x5, x10 Fluency: 5 x 2 = __ 5 x 5 = __ 5 x 10 = __ 2 x 7 = __ 10 x 4 = __ Word Problems: Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all? There are 3 rows of 10 stars. How many stars are there?"
       },
       "homeworkId": "hw-math-a179d2a0",
-      "generatedAt": "2026-07-13T09:49:47.010Z",
+      "generatedAt": "2026-07-17T20:17:02.992Z",
       "nodes": [
         {
-          "id": "gear-lock-facts",
+          "id": "skip-count-glider",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "q1",
+            "q2",
+            "q3"
+          ],
+          "difficulty": 2,
+          "source": "chart_planner",
+          "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Skyglider Skip-Count Run",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-glider.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-glider.jpeg",
+          "contentId": "hw-math-a179d2a0:skip-count-glider",
+          "mechanic": "tap-to-advance skip counting along a floating number path",
+          "engagementDimensions": [
+            "speed"
+          ],
+          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-glider-complete.png"
+            ]
+          }
+        },
+        {
+          "id": "fact-dash-harbor",
           "type": "generated-baseline",
           "activityId": "generated-baseline",
           "targets": [
@@ -208,30 +307,30 @@
           ],
           "difficulty": 2,
           "source": "chart_planner",
-          "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+          "targetLane": "multiplication facts x2, x5, x10",
           "locked": false,
           "masteryUnlockState": "unlocked",
-          "title": "Gearlock Facts Chamber",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-facts.html",
+          "title": "Harbor Fact Dash",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-dash-harbor.html",
           "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-facts.jpeg",
-          "contentId": "hw-math-a179d2a0:gear-lock-facts",
-          "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-dash-harbor.jpeg",
+          "contentId": "hw-math-a179d2a0:fact-dash-harbor",
+          "mechanic": "rapid tap-select of correct product from stationary answer tiles",
           "engagementDimensions": [
-            "puzzle"
+            "speed"
           ],
-          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
           "validationProof": {
             "engine": "playwright",
             "passed": true,
             "worldStateChanged": true,
             "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-facts-complete.png"
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-dash-harbor-complete.png"
             ]
           }
         },
         {
-          "id": "gear-lock-word-problems",
+          "id": "word-problem-delivery",
           "type": "generated-baseline",
           "activityId": "generated-baseline",
           "targets": [
@@ -240,30 +339,63 @@
           ],
           "difficulty": 2,
           "source": "chart_planner",
-          "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+          "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
           "locked": false,
           "masteryUnlockState": "unlocked",
-          "title": "Gearlock Story Vault",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/gear-lock-word-problems.html",
+          "title": "Skyharbor Delivery Dash",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-delivery.html",
           "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-gear-lock-word-problems.jpeg",
-          "contentId": "hw-math-a179d2a0:gear-lock-word-problems",
-          "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-delivery.jpeg",
+          "contentId": "hw-math-a179d2a0:word-problem-delivery",
+          "mechanic": "tap the stationary total that matches the delivered word problem scene",
           "engagementDimensions": [
-            "puzzle"
+            "speed"
           ],
-          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
           "validationProof": {
             "engine": "playwright",
             "passed": true,
             "worldStateChanged": true,
             "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/gear-lock-word-problems-complete.png"
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-delivery-complete.png"
             ]
           }
         },
         {
-          "id": "comet-run-facts",
+          "id": "skip-count-blocks",
+          "type": "generated-baseline",
+          "activityId": "generated-baseline",
+          "targets": [
+            "q1",
+            "q2",
+            "q3"
+          ],
+          "difficulty": 2,
+          "source": "chart_planner",
+          "targetLane": "skip-counting and array grouping for x2, x5, x10 facts",
+          "locked": false,
+          "masteryUnlockState": "unlocked",
+          "title": "Harbor Block Builder: Skip Count",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/skip-count-blocks.html",
+          "date": "hw-math-a179d2a0",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-skip-count-blocks.jpeg",
+          "contentId": "hw-math-a179d2a0:skip-count-blocks",
+          "mechanic": "tap glowing blocks to snap them into a stationary grouping frame, building the count",
+          "engagementDimensions": [
+            "puzzle"
+          ],
+          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
+          "validationProof": {
+            "engine": "playwright",
+            "passed": true,
+            "worldStateChanged": true,
+            "screenshotPaths": [
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/skip-count-blocks-complete.png"
+            ]
+          }
+        },
+        {
+          "id": "fact-vault-blocks",
           "type": "generated-baseline",
           "activityId": "generated-baseline",
           "targets": [
@@ -275,30 +407,30 @@
           ],
           "difficulty": 2,
           "source": "chart_planner",
-          "targetLane": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
+          "targetLane": "multiplication facts x2, x5, x10",
           "locked": false,
           "masteryUnlockState": "unlocked",
-          "title": "Comet Trail Facts Sprint",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-facts.html",
+          "title": "Fact Vault Builder",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/fact-vault-blocks.html",
           "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-facts.jpeg",
-          "contentId": "hw-math-a179d2a0:comet-run-facts",
-          "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-fact-vault-blocks.jpeg",
+          "contentId": "hw-math-a179d2a0:fact-vault-blocks",
+          "mechanic": "tap the correct product block to build a vault door combination",
           "engagementDimensions": [
-            "speed"
+            "puzzle"
           ],
-          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
           "validationProof": {
             "engine": "playwright",
             "passed": true,
             "worldStateChanged": true,
             "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-facts-complete.png"
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/fact-vault-blocks-complete.png"
             ]
           }
         },
         {
-          "id": "comet-run-word-problems",
+          "id": "word-problem-crane",
           "type": "generated-baseline",
           "activityId": "generated-baseline",
           "targets": [
@@ -307,25 +439,25 @@
           ],
           "difficulty": 2,
           "source": "chart_planner",
-          "targetLane": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
+          "targetLane": "multiplicative word problem solving using x2, x5, x10 facts",
           "locked": false,
           "masteryUnlockState": "unlocked",
-          "title": "Comet Trail Story Sprint",
-          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/comet-run-word-problems.html",
+          "title": "Crane Crate Puzzle",
+          "gameHtmlPath": "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/games/hw-math-a179d2a0/word-problem-crane.html",
           "date": "hw-math-a179d2a0",
-          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-comet-run-word-problems.jpeg",
-          "contentId": "hw-math-a179d2a0:comet-run-word-problems",
-          "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
+          "thumbnailUrl": "/generated/direct-math/hw-math-a179d2a0-word-problem-crane.jpeg",
+          "contentId": "hw-math-a179d2a0:word-problem-crane",
+          "mechanic": "tap the correct total block to load a crane's crate matching the word problem",
           "engagementDimensions": [
-            "speed"
+            "puzzle"
           ],
-          "engagementHypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+          "engagementHypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
           "validationProof": {
             "engine": "playwright",
             "passed": true,
             "worldStateChanged": true,
             "screenshotPaths": [
-              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/comet-run-word-problems-complete.png"
+              "/Users/jamaltaylor/Development/sunny/src/context/reina/homework/direct-playwright/hw-math-a179d2a0/word-problem-crane-complete.png"
             ]
           }
         },
@@ -356,5 +488,5 @@
       ]
     }
   },
-  "updatedAt": "2026-07-13T10:12:03.941Z"
+  "updatedAt": "2026-07-17T21:08:42.656Z"
 }

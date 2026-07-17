@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "nodeId": "fact-dash-harbor",
+  "creatorPrompt": "Build 'Harbor Fact Dash': a fixed multiplication-fact crate appears top-center of a harbor scene, with exactly 3 stationary answer tiles (data-testid='answer-option') in a row beneath it that never move location. Use the 5 fluency facts from the assignment exactly as listed: 5x2, 5x5, 5x10, 2x7, 10x4, one per round, presented one at a time (single active problem). Background boats/gulls/water animate continuously to convey pace; tiles and crate stay still so the child's tap target is predictable. Include a toggleable 'Show me' demo showing an EXAMPLE fact (not one of the 5 real ones) being solved, and a 'Let me try' toggle. Sound toggle visible; init audio after first gesture. Wrong tap: tile dims/shakes in place, soft recovery chime, no navigation, tiles remain. Correct tap: crate departs on a boat animation, correct tile glows, satisfying chime, one lantern flag added to a fixed-position progress dock. After all 5, play completion fanfare and show 'Fact Dash Champion' banner. This is practice/teaching evidence only -- no mastery claims or unlocks. Title 'Harbor Fact Dash' visible in opening viewport with background artwork loaded.",
+  "promptHash": "d33644c16dc47e4c41764a78812b96ee949b4fecef8cb4488fc58171e73b326d",
+  "plannerModel": "claude-sonnet-5",
+  "creatorModel": "claude-sonnet-5"
+}

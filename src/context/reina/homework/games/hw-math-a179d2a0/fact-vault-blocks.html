@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fact Vault Builder</title>
+<style>
+  * { box-sizing: border-box; }
+  html,body { margin:0; padding:0; height:100%; font-family:'Trebuchet MS', 'Segoe UI', sans-serif; overflow-x:hidden; }
+  body {
+    background: linear-gradient(180deg,#0b1e3a 0%, #123a5e 40%, #0a2a45 100%);
+    background-image: url('/generated/direct-math/hw-math-a179d2a0-fact-vault-blocks.jpeg');
+    background-size: cover;
+    background-position: center;
+    background-blend-mode: overlay;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    color:#fff;
+    position:relative;
+  }
+  .lantern {
+    position:absolute;
+    width:18px; height:26px;
+    background:radial-gradient(circle,#ffe27a,#ff9d2f);
+    border-radius:50% 50% 40% 40%;
+    box-shadow:0 0 20px 8px rgba(255,190,60,0.6);
+    animation:flicker 2.4s infinite ease-in-out;
+  }
+  @keyframes flicker { 0%,100%{opacity:0.85;} 50%{opacity:0.4;} }
+  .l1{top:8%; left:6%;} .l2{top:12%; right:8%; animation-delay:0.6s;}
+  .l3{top:70%; left:4%; animation-delay:1.1s;} .l4{top:75%; right:5%; animation-delay:1.6s;}
+
+  header {
+    text-align:center;
+    padding:14px 10px 6px;
+    z-index:5;
+  }
+  h1 {
+    margin:0;
+    font-size:2rem;
+    text-shadow:0 0 12px #ffce7a, 0 0 2px #000;
+    letter-spacing:1px;
+  }
+  #topbar {
+    position:absolute;
+    top:10px; right:10px;
+    display:flex; gap:8px;
+    z-index:20;
+  }
+  .ctrl-btn {
+    background:#1c3f66;
+    border:2px solid #ffce7a;
+    color:#ffe;
+    border-radius:10px;
+    padding:8px 12px;
+    font-size:0.85rem;
+    cursor:pointer;
+    font-weight:bold;
+  }
+  .ctrl-btn.active { background:#ffce7a; color:#123a5e; }
+
+  #primary-instruction {
+    font-size:1.15rem;
+    background:rgba(10,30,50,0.6);
+    padding:8px 18px;
+    border-radius:14px;
+    margin:4px 0 10px;
+    text-align:center;
+    max-width:90%;
+  }
+
+  #fact-banner {
+    font-size:1.7rem;
+    font-weight:bold;
+    background:rgba(255,206,122,0.15);
+    border:2px solid #ffce7a;
+    border-radius:16px;
+    padding:8px 26px;
+    margin-bottom:14px;
+    text-shadow:0 0 8px #ffce7a;
+  }
+
+  #vault-wrap {
+    position:relative;
+    width:320px;
+    height:230px;
+    margin:0 auto 18px;
+  }
+  #vault-door {
+    width:100%; height:100%;
+    background: radial-gradient(circle at 50% 30%, #4a3418, #1a1006 80%);
+    border:8px solid #ffce7a;
+    border-radius:20px;
+    box-shadow: inset 0 0 20px #000, 0 0 10px rgba(255,206,122,0.3);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    transition: box-shadow 0.6s, filter 0.6s;
+    position:relative;
+    overflow:hidden;
+  }
+  #vault-door.glow0{filter:brightness(0.8);}
+  #vault-door.glow1{filter:brightness(0.95); box-shadow: inset 0 0 20px #000, 0 0 25px rgba(255,206,122,0.5);}
+  #vault-door.glow2{filter:brightness(1.05); box-shadow: inset 0 0 20px #000, 0 0 35px rgba(255,206,122,0.65);}
+  #vault-door.glow3{filter:brightness(1.15); box-shadow: inset 0 0 15px #000, 0 0 45px rgba(255,206,122,0.8);}
+  #vault-door.glow4{filter:brightness(1.3); box-shadow: inset 0 0 10px #000, 0 0 60px rgba(255,230,150,0.9);}
+  #vault-door.glow5{filter:brightness(1.5); box-shadow: 0 0 90px rgba(255,240,180,1);}
+  #vault-door.open {
+    animation: swingOpen 1s forwards;
+  }
+  @keyframes swingOpen {
+    to { transform:perspective(600px) rotateY(-60deg); opacity:0.3; }
+  }
+  #slot {
+    width:130px; height:80px;
+    background:radial-gradient(circle,#0a0a0a,#000);
+    border:4px solid #8a6a2f;
+    border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:2.2rem; font-weight:bold;
+    color:#ffe27a;
+    animation: pulseSlot 1.6s infinite;
+    box-shadow: inset 0 0 15px #000;
+  }
+  @keyframes pulseSlot {
+    0%,100%{ box-shadow: inset 0 0 15px #000, 0 0 6px rgba(255,206,122,0.4);}
+    50%{ box-shadow: inset 0 0 15px #000, 0 0 22px rgba(255,206,122,0.9);}
+  }
+  #slot.filled { animation:none; background:radial-gradient(circle,#3a2c0f,#171105); }
+
+  #dots {
+    display:flex; gap:8px; margin-top:10px;
+  }
+  .dot { width:14px; height:14px; border-radius:50%; background:#3a4f66; border:2px solid #ffce7a55; }
+  .dot.done { background:#ffce7a; box-shadow:0 0 8px #ffce7a; }
+
+  #blocks-row {
+    display:flex;
+    gap:20px;
+    justify-content:center;
+    margin-top:6px;
+    z-index:5;
+    flex-wrap:wrap;
+  }
+  .block {
+    width:86px; height:86px;
+    background: linear-gradient(160deg,#e8b95a,#a9722a);
+    border:3px solid #fff3d1;
+    border-radius:14px;
+    font-size:1.7rem;
+    font-weight:bold;
+    color:#3a2408;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    box-shadow:0 4px 8px rgba(0,0,0,0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+    user-select:none;
+  }
+  .block:hover { transform:translateY(-3px); box-shadow:0 8px 14px rgba(0,0,0,0.5); }
+  .block:active { transform:scale(0.94); }
+  .block.wrong-flash { animation: buzz 0.4s; }
+  @keyframes buzz {
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-6px);}
+    40%{transform:translateX(6px);}
+    60%{transform:translateX(-4px);}
+    80%{transform:translateX(4px);}
+  }
+  .block.correct-fly {
+    animation: flyToSlot 0.5s forwards;
+  }
+  @keyframes flyToSlot {
+    to { transform: translateY(-160px) scale(0.6); opacity:0; }
+  }
+
+  #recovery-feedback, #demo-note {
+    min-height:26px;
+    text-align:center;
+    font-size:1rem;
+    color:#ffb3b3;
+    font-weight:bold;
+    margin-top:6px;
+    visibility:hidden;
+  }
+  #recovery-feedback.show { visibility:visible; }
+
+  #demo-panel {
+    position:relative;
+    margin:10px auto;
+    max-width:420px;
+    background:rgba(0,0,0,0.4);
+    border:2px dashed #ffce7a;
+    border-radius:14px;
+    padding:10px;
+    text-align:center;
+    display:none;
+  }
+  #demo-panel.show { display:block; }
+  .demo-fact { font-size:1.3rem; font-weight:bold; margin-bottom:6px; }
+  .demo-blocks { display:flex; gap:10px; justify-content:center; }
+  .demo-block {
+    width:60px; height:60px;
+    background:linear-gradient(160deg,#7fd3ff,#2c8fc9);
+    border:3px solid #fff;
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:bold; font-size:1.2rem; color:#032033;
+  }
+  .demo-block.picked { outline:4px solid #ffe27a; }
+
+  #action-row {
+    display:flex; gap:10px; margin-top:14px; z-index:5;
+  }
+
+  #completion-badge {
+    display:none;
+    margin-top:16px;
+    background:radial-gradient(circle,#ffe27a,#ff9d2f);
+    color:#3a2408;
+    padding:16px 28px;
+    border-radius:20px;
+    font-size:1.4rem;
+    font-weight:bold;
+    text-align:center;
+    box-shadow:0 0 40px rgba(255,220,120,0.9);
+    animation: badgePop 0.6s ease-out;
+  }
+  @keyframes badgePop {
+    0%{ transform:scale(0); opacity:0;}
+    70%{ transform:scale(1.15);}
+    100%{ transform:scale(1); opacity:1;}
+  }
+  .sparkle {
+    position:absolute;
+    width:8px; height:8px;
+    background:#fff8c8;
+    border-radius:50%;
+    box-shadow:0 0 10px 4px #ffe27a;
+    animation: sparkleUp 1.2s ease-out forwards;
+  }
+  @keyframes sparkleUp {
+    0%{ opacity:1; transform:translateY(0) scale(1); }
+    100%{ opacity:0; transform:translateY(-120px) scale(0.3); }
+  }
+  footer { margin-top:20px; opacity:0.7; font-size:0.8rem; }
+</style>
+</head>
+<body>
+<div class="lantern l1"></div>
+<div class="lantern l2"></div>
+<div class="lantern l3"></div>
+<div class="lantern l4"></div>
+
+<div id="topbar">
+  <button class="ctrl-btn" id="sound-toggle" data-testid="sound-toggle">🔊 Sound On</button>
+</div>
+
+<header>
+  <h1 data-testid="activity-title">Fact Vault Builder</h1>
+</header>
+
+<div id="primary-instruction" data-testid="primary-instruction">Tap the block that matches the fact to fill the glowing vault slot!</div>
+
+<div id="fact-banner" data-testid="current-fact">5 x 2 = ?</div>
+
+<div id="vault-wrap">
+  <div id="vault-door" class="glow0">
+    <div id="slot" data-testid="vault-slot"></div>
+  </div>
+</div>
+
+<div id="dots">
+  <div class="dot" id="dot0"></div>
+  <div class="dot" id="dot1"></div>
+  <div class="dot" id="dot2"></div>
+  <div class="dot" id="dot3"></div>
+  <div class="dot" id="dot4"></div>
+</div>
+
+<div id="blocks-row"></div>
+<div id="recovery-feedback" data-testid="recovery-feedback">Not quite — try another block!</div>
+
+<div id="action-row">
+  <button class="ctrl-btn" id="show-me-btn" data-testid="show-me-btn">👀 Show me</button>
+  <button class="ctrl-btn" id="let-try-btn" data-testid="let-try-btn">✋ Let me try</button>
+</div>
+
+<div id="demo-panel">
+  <div class="demo-fact">Example: 3 x 4 = ?</div>
+  <div class="demo-blocks">
+    <div class="demo-block" data-val="10">10</div>
+    <div class="demo-block" data-val="12">12</div>
+    <div class="demo-block" data-val="9">9</div>
+  </div>
+  <div id="demo-note">Watch how the correct block glides into place!</div>
+</div>
+
+<div id="completion-badge" data-testid="completion-badge">🏆 Vault Keeper Badge Earned! 🏆<br><span style="font-size:0.9rem;font-weight:normal;">Great practice today!</span></div>
+
+<div id="sunny-companion"></div>
+<footer>Practice round — keep building your fact skills!</footer>
+
+<script>
+(function(){
+  const questions = [
+    {id:'q1',prompt:'5 x 2 = ?',options:[{label:'10',correct:true},{label:'7',correct:false},{label:'12',correct:false}]},
+    {id:'q2',prompt:'5 x 5 = ?',options:[{label:'20',correct:false},{label:'25',correct:true},{label:'30',correct:false}]},
+    {id:'q3',prompt:'5 x 10 = ?',options:[{label:'50',correct:true},{label:'15',correct:false},{label:'55',correct:false}]},
+    {id:'q4',prompt:'2 x 7 = ?',options:[{label:'9',correct:false},{label:'14',correct:true},{label:'12',correct:false}]},
+    {id:'q5',prompt:'10 x 4 = ?',options:[{label:'14',correct:false},{label:'40',correct:true},{label:'44',correct:false}]}
+  ];
+
+  let currentIndex = 0;
+  let completedItems = 0;
+  const totalItems = questions.length;
+  let soundMuted = false;
+  let audioCtx = null;
+  let demoRequested = false;
+  let demoReplayCount = 0;
+  let timeToFirstValidActionMs = null;
+  let invalidActionCount = 0;
+  let startTime = performance.now();
+  let questionStartTime = performance.now();
+  let attemptResults = [];
+  let firstGestureDone = false;
+  let showingDemo = false;
+  let currentAnswered = false;
+
+  const factBanner = document.getElementById('fact-banner');
+  const blocksRow = document.getElementById('blocks-row');
+  const slotEl = document.getElementById('slot');
+  const vaultDoor = document.getElementById('vault-door');
+  const recoveryEl = document.getElementById('recovery-feedback');
+  const dots = [0,1,2,3,4].map(i=>document.getElementById('dot'+i));
+  const soundToggle = document.getElementById('sound-toggle');
+  const demoPanel = document.getElementById('demo-panel');
+  const showMeBtn = document.getElementById('show-me-btn');
+  const letTryBtn = document.getElementById('let-try-btn');
+  const completionBadge = document.getElementById('completion-badge');
+  const demoNote = document.getElementById('demo-note');
+
+  function post(type, payload){
+    window.parent.postMessage({type, payload}, "*");
+  }
+
+  post("activity_ready", {nodeId:"fact-vault-blocks"});
+
+  function ensureAudio(){
+    if(!audioCtx){
+      try{
+        audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      }catch(e){ audioCtx = null; }
+    }
+  }
+
+  function tone(freq, dur, type, vol){
+    if(soundMuted || !audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    g.gain.value = vol || 0.15;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.stop(audioCtx.currentTime + dur);
+  }
+
+  function soundCorrect(){
+    tone(523,0.12,'triangle',0.2);
+    setTimeout(()=>tone(784,0.18,'triangle',0.2),100);
+  }
+  function soundWrong(){
+    tone(150,0.25,'sawtooth',0.12);
+  }
+  function soundProgress(){
+    tone(660,0.15,'sine',0.15);
+  }
+  function soundComplete(){
+    [523,659,784,1046].forEach((f,i)=>{
+      setTimeout(()=>tone(f,0.3,'triangle',0.22), i*140);
+    });
+  }
+
+  function firstGesture(){
+    if(firstGestureDone) return;
+    firstGestureDone = true;
+    ensureAudio();
+  }
+
+  soundToggle.addEventListener('click', ()=>{
+    firstGesture();
+    soundMuted = !soundMuted;
+    soundToggle.textContent = soundMuted ? '🔇 Sound Off' : '🔊 Sound On';
+    soundToggle.classList.toggle('active', soundMuted);
+  });
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  function renderQuestion(){
+    const q = questions[currentIndex];
+    currentAnswered = false;
+    factBanner.textContent = q.prompt;
+    slotEl.textContent = '';
+    slotEl.classList.remove('filled');
+    recoveryEl.classList.remove('show');
+    blocksRow.innerHTML = '';
+    const shuffled = shuffle(q.options);
+    shuffled.forEach(opt=>{
+      const btn = document.createElement('div');
+      btn.className = 'block';
+      btn.setAttribute('data-testid','answer-option');
+      btn.textContent = opt.label;
+      btn.addEventListener('click', ()=> handleAnswer(opt, btn, q));
+      blocksRow.appendChild(btn);
+    });
+    questionStartTime = performance.now();
+  }
+
+  function updateDots(){
+    dots.forEach((d,i)=>{
+      d.classList.toggle('done', i < completedItems);
+    });
+  }
+
+  function updateVaultGlow(){
+    vaultDoor.className = 'glow' + completedItems;
+  }
+
+  function spawnSparkles(){
+    for(let i=0;i<14;i++){
+      const s = document.createElement('div');
+      s.className = 'sparkle';
+      s.style.left = (110 + Math.random()*100) + 'px';
+      s.style.top = (100 + Math.random()*60) + 'px';
+      document.getElementById('vault-wrap').appendChild(s);
+      setTimeout(()=>s.remove(), 1300);
+    }
+  }
+
+  function handleAnswer(opt, btn, q){
+    firstGesture();
+    if(currentAnswered) return;
+    if(!btn.isConnected) return;
+    const responseTimeMs = Math.round(performance.now() - questionStartTime);
+
+    if(opt.correct){
+      currentAnswered = true;
+      if(timeToFirstValidActionMs === null){
+        timeToFirstValidActionMs = Math.round(performance.now() - startTime);
+      }
+      post("attempt_event", {domain:"math", targetId:q.id, correct:true, responseTimeMs});
+      attemptResults.push({id:q.id, correct:true, responseTimeMs});
+
+      slotEl.textContent = opt.label;
+      slotEl.classList.add('filled');
+      soundCorrect();
+      btn.style.pointerEvents = 'none';
+
+      completedItems++;
+      updateDots();
+      updateVaultGlow();
+      post("progress_event", {nodeId:"fact-vault-blocks", completedItems, totalItems});
+
+      btn.classList.add('correct-fly');
+      if(completedItems >= totalItems){
+        finishVault();
+      } else {
+        currentIndex++;
+        renderQuestion();
+      }
+    } else {
+      invalidActionCount++;
+      post("attempt_event", {domain:"math", targetId:q.id, correct:false, responseTimeMs});
+      attemptResults.push({id:q.id, correct:false, responseTimeMs});
+      btn.classList.add('wrong-flash');
+      soundWrong();
+      recoveryEl.classList.add('show');
+      setTimeout(()=>{
+        btn.classList.remove('wrong-flash');
+        recoveryEl.classList.remove('show');
+      }, 420);
+    }
+  }
+
+  function finishVault(){
+    vaultDoor.classList.add('open');
+    spawnSparkles();
+    soundComplete();
+    completionBadge.style.display = 'block';
+    post("node_complete", {
+      nodeId:"fact-vault-blocks",
+      completed:true,
+      demoRequested,
+      demoReplayCount,
+      timeToFirstValidActionMs,
+      invalidActionCount,
+      soundMuted,
+      attempts: attemptResults
+    });
+  }
+
+  // Demo logic - different fact: 3x4=12
+  function runDemo(){
+    demoNote.textContent = 'Watch how the correct block glides into place!';
+    const blocks = demoPanel.querySelectorAll('.demo-block');
+    blocks.forEach(b=>b.classList.remove('picked'));
+    setTimeout(()=>{
+      const correctBlock = Array.from(blocks).find(b=>b.getAttribute('data-val')==='12');
+      if(correctBlock){
+        correctBlock.classList.add('picked');
+        soundProgress();
+        demoNote.textContent = '12 is correct because 3 x 4 = 12!';
+      }
+    }, 900);
+  }
+
+  showMeBtn.addEventListener('click', ()=>{
+    firstGesture();
+    if(!showingDemo){
+      showingDemo = true;
+      demoPanel.classList.add('show');
+      demoRequested = true;
+      demoReplayCount++;
+      runDemo();
+    } else {
+      demoReplayCount++;
+      runDemo();
+    }
+  });
+
+  letTryBtn.addEventListener('click', ()=>{
+    firstGesture();
+    showingDemo = false;
+    demoPanel.classList.remove('show');
+  });
+
+  renderQuestion();
+  updateDots();
+  updateVaultGlow();
+})();
+</script>
+</body>
+</html>

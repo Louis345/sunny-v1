@@ -1,74 +1,217 @@
 {
-  "planId": "plan-reina-hw-math-6b68e575-r54",
-  "title": "The Skip-Count Star Vault",
-  "academicTheory": "Assignment targets two distinct sub-skills bundled under \"multiplication\": (1) automatic recall of x2/x5/x10 facts, and (2) translating equal-groups word problems (boxes of pencils, rows of stars) into multiplication sentences. Both need direct, comparable practice today. Reina's engagement theory (evidenceCount 23+, confidence ~0.73-0.92) shows strong positive weight for puzzle (5.0) and speed (5.0) framing, near-zero/negative for competition, control, calm, and generic quiz shells (generated-baseline: 20% completion, dislike, frustration 0.554). Per Keller's ARCS and the child's own nextExperiment (variable: mechanic, arms unset), this board holds academic targets/question count/difficulty/evidence contract constant across two routes while varying MECHANIC (puzzle-lock manipulation vs. timed-speed run) to test which drives higher completion/engagement without adding competitive pressure or heavy control demands.",
+  "planId": "plan-reina-mult-x2x5x10-001",
+  "title": "Reina's Multiplication Facts Adventure: x2, x5, x10",
+  "academicTheory": "Grounded in Grade 3 multiplication fluency progression: children first need concrete/skip-counting grounding for x2, x5, x10 fact families (CRA framework - Concrete-Representational-Abstract), then need rapid retrieval practice to build automaticity (fluency = accuracy + speed per NCTM), and finally need to transfer facts into two-step word-problem contexts (multiplicative reasoning applied to real quantities, per CCSS.3.OA.A.3). Reina's engagement theory shows strong positive weight for puzzle (5.0, conf .92) and speed (5.0, conf .875) with story mildly positive (2.0, conf .75), while competition, control, and calm are net negative or mixed-negative. Her generated-baseline history shows very low completion (14.3%) and high frustration (0.579) on prior math baseline attempts, and she explicitly disliked the locked 'quest' node (frustration 0.75, dislike). A recent gearworks-crate-builder node was abandoned with frustration 0.75 while skybird-delivery-run (fast, low invalid actions) was completed with low frustration (0.1) -- supporting speed/low-friction mechanics over fiddly construction/gear mechanics. Design favors quick-tap/quick-select retrieval and skip-count visual builders over drag-heavy gear-lock puzzles, replayable 'Show me' demos (never front-loading instructions), and stationary answer targets so the world animates instead of the input.",
   "profileEvidence": [
-    "engagementTheory.preferredDimensions: puzzle, speed, story (positiveWeight 5.0, 5.0, 2.0)",
-    "engagementTheory.avoidedDimensions: competition, control, calm (all negative/mixed, low confidence-worthy positives)",
-    "activityModel.generated-baseline: completionRate 0.2, engagementScore 0.205, frustrationScore 0.554, lastRating dislike — generic quiz shells fail",
-    "activityModel.quest: completionRate 0, frustrationScore 0.75, dislike — confirms quest/boss format alone is not yet trustworthy evidence",
-    "recentDecision.theoryUsed: re-test same targets through puzzle- and story-framed instruments before trusting Quest/Boss evidence",
-    "activityModel.bubble-pop: engagementScore 0.85, frustrationScore 0.1 — fast tap-based mechanics land well",
-    "nextExperiment.variable: mechanic, holdConstant academic targets/question count/difficulty/evidence contract"
+    "activityTraitModel.puzzle positiveWeight=5.0 confidence=0.92 (engagementTheory)",
+    "activityTraitModel.speed positiveWeight=5.0 confidence=0.875 (engagementTheory)",
+    "avoidedDimensions: competition, control, calm (engagementTheory.preferredDimensions vs avoidedDimensions)",
+    "generated-baseline activityModel: completionRate=0.143, frustrationScore=0.579, dislikedCount=25 -- prior baseline math activities were aversive",
+    "directExperience.observations: gearworks-crate-builder abandoned (frustration 0.75, not completed) vs skybird-delivery-run completed fast (timeToFirstValidActionMs 5986, frustration 0.1) -- favors low-friction quick-response mechanics over gear/construction drag",
+    "quest activityModel: dislike, frustration 0.75, completionRate 0 -- Reina resists heavy narrative-locked pressure framing",
+    "factBankSummary: 7 facts due, all related to x2/x5/x10 -- small tight fact set suits quick retrieval game",
+    "'puzzle (manipulable gear-lock mechanic)' trait shows only mixed/limited positive evidence (2 plays) -- use lightly, not as primary mechanic"
   ],
   "boardWorld": {
-    "title": "The Skip-Count Star Vault",
-    "narrative": "Deep beneath an old observatory, a vault of frozen starlight has locked away its glittering treasure using ancient multiplication seals. Reina has found two entrances carved into the vault door: a Puzzle Gate of interlocking gears and a Comet Gate that only opens for those who move at comet-speed. Both paths lead to the same starlit treasure room, but only one gate will open first tonight.",
-    "backgroundPrompt": "A glowing underground vault carved from deep indigo stone, dotted with softly pulsing star-shaped crystals and faint gold multiplication symbols etched into archways. Two ornate stone gates stand side by side: a left gate covered in interlocking bronze gears, and a right gate shaped like a comet trail with streaking light lines. Warm lantern light, soft particle sparkles, whimsical storybook-painterly style, no text."
+    "title": "Reina's Multiplication Facts Adventure: x2, x5, x10",
+    "narrative": "A shimmering sky-harbor world where floating cargo-islands need quick delivery counts. Reina pilots a nimble glider between islands, tapping stacks and groups to keep the harbor running -- each correct answer lights up a lantern bridge toward the locked Quest tower and Boss beacon on the horizon.",
+    "backgroundPrompt": "A vibrant sky-harbor at golden hour with floating islands connected by glowing lantern bridges, small cargo gliders zipping between platforms, soft clouds, warm sunbeams, a distant misty tower and beacon silhouette on the horizon representing locked Quest and Boss destinations, colorful but uncluttered, child-friendly flat illustration style"
   },
+  "learningResponsibilities": [
+    {
+      "id": "skip-counting",
+      "title": "Skip-Counting Foundations for x2, x5, x10",
+      "purpose": "Build concrete understanding of what multiplication by 2, 5, and 10 means through grouping and skip-counting, before speeding up recall",
+      "academicTarget": "skip-counting and array grouping for x2, x5, x10 facts"
+    },
+    {
+      "id": "fact-fluency",
+      "title": "Rapid Fact Retrieval",
+      "purpose": "Practice quick, accurate recall of x2, x5, x10 multiplication facts including the specific fluency items assigned (5x2, 5x5, 5x10, 2x7, 10x4)",
+      "academicTarget": "multiplication facts x2, x5, x10"
+    },
+    {
+      "id": "word-problems",
+      "title": "Applying Facts to Word Problems",
+      "purpose": "Transfer multiplication facts to solve real-world grouping word problems (pencils in boxes, stars in rows) by identifying groups and total quantity",
+      "academicTarget": "multiplicative word problem solving using x2, x5, x10 facts"
+    }
+  ],
   "fork": {
-    "question": "Which gate should we open first?",
-    "hypothesis": "Given her positive weights for both puzzle (5.0) and speed (5.0), Reina will complete either route, but comparing completion rate, replay choice, and frustration between the two mechanics will tell us which single mechanic to scale up next, since generic non-puzzle/non-speed shells (generated-baseline) have already failed her (0.2 completion).",
+    "question": "Zoom fast with taps, or build with blocks?",
+    "hypothesis": "Reina's engagement theory shows strong positive weight for speed (5.0, confidence .875) and puzzle (5.0, confidence .92) dimensions, while her prior gearworks-crate-builder (a drag/construction mechanic) was abandoned with high frustration (0.75) whereas the fast tap-based skybird-delivery-run was completed with low frustration (0.1). This fork tests whether a low-friction rapid-tap engagement variable outperforms a slightly slower deliberate block-building/placement engagement variable, while holding academic targets, question count, and difficulty constant across both routes.",
     "heldConstant": [
-      "academic targets (x2, x5, x10 facts + 2 equal-groups word problems)",
-      "question count (7 total: 5 fluency facts + 2 word problems)",
-      "difficulty (grade 3, single correct answer per item)",
-      "evidence contract (completion, accuracy, frustration, liked/disliked signal captured identically)"
+      "academic targets per responsibility",
+      "question count per activity",
+      "difficulty of facts (x2, x5, x10 only)",
+      "evidence contract (teaching/practice only, no mastery claim)",
+      "stationary answer targets",
+      "sound toggle availability",
+      "Show me / Let me try demo availability"
     ],
     "routes": [
       {
         "id": "route-a",
-        "label": "Puzzle Gate",
-        "promise": "Rotate glowing gear-locks into place by solving each multiplication seal to crack open the vault gate.",
-        "engagementVariable": "puzzle (manipulable gear-lock mechanic)",
+        "label": "Skyglider Speed Run",
+        "promise": "Zip between islands making quick taps to deliver counts fast",
+        "engagementVariable": "speed (rapid tap-and-confirm pacing)",
         "nodeIds": [
-          "gear-lock-facts",
-          "gear-lock-word-problems"
+          "skip-count-glider",
+          "fact-dash-harbor",
+          "word-problem-delivery"
         ]
       },
       {
         "id": "route-b",
-        "label": "Comet Gate",
-        "promise": "Race a streaking comet across the sky, answering each seal before it passes to keep your speed trail lit.",
-        "engagementVariable": "speed (timed sequential comet-run mechanic)",
+        "label": "Harbor Block Builder",
+        "promise": "Snap glowing blocks into place to build each group",
+        "engagementVariable": "puzzle (deliberate block-placement construction)",
         "nodeIds": [
-          "comet-run-facts",
-          "comet-run-word-problems"
+          "skip-count-blocks",
+          "fact-vault-blocks",
+          "word-problem-crane"
         ]
       }
     ]
   },
   "activities": [
     {
-      "id": "gear-lock-facts",
-      "title": "Gearlock Facts Chamber",
+      "id": "skip-count-glider",
+      "title": "Skyglider Skip-Count Run",
       "routeId": "route-a",
-      "academicTarget": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
-      "mechanic": "Drag-and-rotate gear puzzle: child drags a numbered gear tooth onto the correct notch to complete each multiplication seal, then rotates the whole lock to confirm.",
-      "engagementVariable": "puzzle",
+      "responsibilityId": "skip-counting",
+      "learningPurpose": "Build concrete understanding of what multiplication by 2, 5, and 10 means through grouping and skip-counting, before speeding up recall",
+      "academicTarget": "skip-counting and array grouping for x2, x5, x10 facts",
+      "mechanic": "tap-to-advance skip counting along a floating number path",
+      "engagementVariable": "speed",
       "visualMock": {
-        "scene": "A round stone door segment shows five nested bronze gear rings, each ring engraved with a multiplication problem in its center hub and a ring of loose numbered teeth floating around its rim.",
-        "layout": "Center-screen circular gear mechanism (large), with a horizontal tray of 4 draggable numbered gear-teeth below it; problem text glows in the gear hub; a progress arc of 5 small star-crystals along the top fills as each gear locks.",
-        "artworkPrompt": "Close-up of an ornate bronze steampunk-fantasy gear lock embedded in indigo stone, glowing gold multiplication symbol in its center, loose numbered gear teeth floating nearby with soft light trails, warm lantern glow, whimsical painterly style, no readable extra text."
+        "scene": "A glowing sky path of lily-pad-like platforms floats between two cargo islands, each platform showing the next skip-count number in a glowing lantern",
+        "layout": "Glider fixed center-screen; a horizontal row of 5-6 stationary lantern platforms ahead of it; child taps the correct next-count lantern which stays in place while background clouds and islands drift slowly past to show motion",
+        "artworkPrompt": "Cheerful sky glider vehicle hovering over a row of lantern-lit lily-pad platforms numbered in glowing digits, soft moving clouds and distant islands, warm sunset palette"
       },
       "experience": {
-        "objective": "Solve all 5 fact problems by dragging the correct numbered gear-tooth into each gear's empty notch to fully lock the chamber door.",
-        "childAction": "Reina drags a floating numbered gear-tooth from the tray and drops it into the glowing notch on the current gear; she can rotate the gear slightly with a swipe to preview alignment before releasing.",
-        "worldReaction": "Correct tooth: the gear clicks into place with a satisfying chunk, spins once, and locks with a golden flash; a star-crystal on the progress arc ignites. Incorrect tooth: the tooth bounces off with a soft clank and gently floats back to the tray, the gear wobbles but does not break.",
-        "anticipation": "As each gear locks, the whole door mechanism hums louder and thin cracks of golden light spread outward, hinting the vault is close to opening.",
-        "progress": "5 star-crystals along the top arc fill one by one; the gear door visibly brightens and the seams between stone panels glow wider with each solved gear.",
-        "recovery": "On an incorrect drop the tooth simply floats back to the tray with a gentle shimmer and a small owl guide character blinks encouragingly and whispers a hint like 'Try counting by 5s' -- no penalty, unlimited retries on the same gear.",
-        "reward": "All 5 gears lock simultaneously, the chamber door swings open in a burst of golden gear-dust and starlight, revealing a shimmering path forward; a chime plays and a 'Gate Cracked!' banner of light sweeps across the screen."
+        "objective": "Tap the platform that continues the skip-counting pattern (by 2s, 5s, or 10s) so the glider can hop forward",
+        "childAction": "Child taps the one stationary lantern platform ahead that shows the correct next number in the skip-count sequence",
+        "worldReaction": "The glider hops onto the correct platform with a light flash and forward whoosh; wrong taps make the platform gently dim and shake without moving, glider stays put",
+        "anticipation": "Approaching platforms glow brighter as the glider nears, hinting a tap is coming due within ten seconds of load",
+        "progress": "A lantern bridge behind the glider lights up piece by piece, visibly extending toward the Quest tower silhouette on the horizon",
+        "recovery": "On a wrong tap, the platform flashes soft amber, plays a gentle 'try again' chime, and the same set of platform options remains stationary for another try -- no penalty, glider does not fall",
+        "reward": "On finishing the run, the glider does a joyful loop, fireworks of lanterns burst, and a cheerful chime plays; a badge 'Skip-Count Pilot' appears"
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "prompt": "Skip count by 5s: 5, 10, 15, __?",
+          "options": [
+            {
+              "label": "20",
+              "correct": true
+            },
+            {
+              "label": "16",
+              "correct": false
+            },
+            {
+              "label": "25",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "q2",
+          "prompt": "Skip count by 2s: 2, 4, 6, __?",
+          "options": [
+            {
+              "label": "7",
+              "correct": false
+            },
+            {
+              "label": "8",
+              "correct": true
+            },
+            {
+              "label": "10",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "q3",
+          "prompt": "Skip count by 10s: 10, 20, 30, __?",
+          "options": [
+            {
+              "label": "35",
+              "correct": false
+            },
+            {
+              "label": "40",
+              "correct": true
+            },
+            {
+              "label": "31",
+              "correct": false
+            }
+          ]
+        }
+      ],
+      "acceptanceSteps": [
+        "launch /activities/skip-count-glider",
+        "take an incorrect path on first question",
+        "verify recovery (platform stays, no navigation change, chime/visual recovery cue present)",
+        "answer all 3 questions correctly in sequence",
+        "verify visible progress (lantern bridge segments) and completion state (badge/fanfare) become visible"
+      ],
+      "creatorPrompt": "Build a sky-harbor 'Skyglider Skip-Count Run' where a small glider character sits fixed in the center-left of the screen. Ahead of it, present a horizontal row of exactly 3 stationary lantern-platform buttons (data-testid='answer-option') showing candidate numbers continuing a skip-count sequence (by 2s, 5s, or 10s per question). Only one platform per question is correct. The glider and platforms must NOT move location when tapped except the glider's forward hop animation triggered by a correct tap; background clouds/islands should drift to imply motion instead. Include a toggleable 'Show me' demo (data-testid='show-me-toggle') that plays a short replayable animation of the glider hopping on an EXAMPLE sequence only (never the actual question's answer) and a 'Let me try' control (data-testid='let-me-try-toggle') that hands control back to the child. Include a visible sound toggle (data-testid='sound-toggle') and initialize all audio only after the first child gesture. On wrong tap: platform dims/shakes in place, plays a soft recovery chime, no penalty, same options remain. On correct tap: glider hops forward with whoosh sound, lantern bridge segment lights up (progress bar made of lantern icons), question count is exactly 3 matching the questions array. On completing all 3, play a completion fanfare, glider does a loop animation, and show a 'Skip-Count Pilot' badge. Keep this as teaching/practice evidence only -- do not display any mastery or unlock language. The activity title 'Skyglider Skip-Count Run' must be visible in the opening viewport alongside the loaded background artwork.",
+      "designPrediction": "Reina will identify the tap target within 10 seconds without needing the Show me demo, given her fast, low-invalid-action completion of the similar skybird-delivery-run node (5986ms to first valid action, 0 invalid actions).",
+      "preserve": [
+        "stationary answer platforms",
+        "moving background world instead of buttons",
+        "fast single-tap interaction pace"
+      ],
+      "change": [
+        "remove drag/gear-lock construction entirely given gearworks-crate-builder abandonment"
+      ],
+      "explore": [
+        "whether a 3-question rapid run sustains engagement better than a longer sequence"
+      ],
+      "avoid": [
+        "competitive countdown timers or scoreboards (avoidedDimensions: competition)",
+        "multi-step drag placement (linked to prior frustration)"
+      ],
+      "measurementKeys": [
+        "interaction.timeToFirstValidActionMs",
+        "interaction.invalidActionCount",
+        "interaction.demoRequested",
+        "interaction.demoReplayCount",
+        "engagement.replayRequested",
+        "engagement.frustrationScore",
+        "academic.completed",
+        "academic.accuracy"
+      ],
+      "acceptanceScript": "await page.goto(`${BASE_URL}/activities/skip-count-glider`); await page.waitForSelector('[data-testid=\"activity-title\"]'); const title = await page.locator('[data-testid=\"activity-title\"]').innerText(); if (!title.includes('Skyglider Skip-Count Run')) throw new Error('Title not visible'); const options = page.locator('[data-testid=\"answer-option\"]'); await options.first().waitFor({state:'visible'}); const count = await options.count(); if (count < 2) throw new Error('Not enough options'); const optionTexts = await options.allTextContents(); const wrongIndex = optionTexts.findIndex(t => t.trim() !== '20'); if (wrongIndex === -1) throw new Error('No wrong option found'); await options.nth(wrongIndex).click(); const recovery = page.locator('[data-testid=\"recovery-feedback\"]'); await recovery.waitFor({state:'visible', timeout:5000}); const stillThere = await options.count(); if (stillThere < 2) throw new Error('Options disappeared after wrong answer'); for (const target of ['20','8','40']) { const opts = page.locator('[data-testid=\"answer-option\"]'); const texts = await opts.allTextContents(); const idx = texts.findIndex(t => t.trim() === target); if (idx === -1) throw new Error('Correct option not found for ' + target); await opts.nth(idx).click(); await page.waitForTimeout(500); } const progress = page.locator('[data-testid=\"progress-indicator\"]'); await progress.waitFor({state:'visible'}); const completion = page.locator('[data-testid=\"completion-badge\"]'); await completion.waitFor({state:'visible', timeout:8000}); const isVisible = await completion.isVisible(); if (!isVisible) throw new Error('Completion not visible'); return {passed:true};"
+    },
+    {
+      "id": "fact-dash-harbor",
+      "title": "Harbor Fact Dash",
+      "routeId": "route-a",
+      "responsibilityId": "fact-fluency",
+      "learningPurpose": "Practice quick, accurate recall of x2, x5, x10 multiplication facts including the specific fluency items assigned (5x2, 5x5, 5x10, 2x7, 10x4)",
+      "academicTarget": "multiplication facts x2, x5, x10",
+      "mechanic": "rapid tap-select of correct product from stationary answer tiles",
+      "engagementVariable": "speed",
+      "visualMock": {
+        "scene": "A busy cargo harbor dock with crates arriving; each crate displays a multiplication fact and three stationary lantern-number tiles wait beside the dock",
+        "layout": "Fact crate is fixed top-center; three answer tiles are fixed in a stationary row below it; cargo boats and gulls animate in the background to show pace without moving the tiles",
+        "artworkPrompt": "A busy stylized cargo harbor dock at sunset with crates on a conveyor, glowing number tiles beside the dock, small boats and seagulls animating in the background"
+      },
+      "experience": {
+        "objective": "Tap the correct product tile for the multiplication fact on the incoming crate",
+        "childAction": "Child taps the one stationary tile showing the correct product",
+        "worldReaction": "Correct tile glows and the crate zips off on a departing boat; wrong tile shakes gently and dims, crate stays waiting",
+        "anticipation": "The next crate visibly slides in from the right edge before its numbers pop in, giving a beat of anticipation each round",
+        "progress": "A harbor scoreboard-free progress dock fills with lantern flags, one per correct crate shipped",
+        "recovery": "Wrong tap triggers a soft 'try again' chime, tile flashes amber then returns to normal, same tiles remain clickable",
+        "reward": "After all crates ship, fireworks over the harbor, a triumphant horn sound, and a 'Fact Dash Champion' banner unfurls"
       },
       "questions": [
         {
@@ -86,10 +229,6 @@
             {
               "label": "12",
               "correct": false
-            },
-            {
-              "label": "52",
-              "correct": false
             }
           ]
         },
@@ -106,7 +245,21 @@
               "correct": true
             },
             {
-              "label": "10",
+              "label": "30",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "q3",
+          "prompt": "5 x 10 = ?",
+          "options": [
+            {
+              "label": "50",
+              "correct": true
+            },
+            {
+              "label": "15",
               "correct": false
             },
             {
@@ -116,45 +269,19 @@
           ]
         },
         {
-          "id": "q3",
-          "prompt": "5 x 10 = ?",
-          "options": [
-            {
-              "label": "15",
-              "correct": false
-            },
-            {
-              "label": "50",
-              "correct": true
-            },
-            {
-              "label": "500",
-              "correct": false
-            },
-            {
-              "label": "105",
-              "correct": false
-            }
-          ]
-        },
-        {
           "id": "q4",
           "prompt": "2 x 7 = ?",
           "options": [
-            {
-              "label": "14",
-              "correct": true
-            },
             {
               "label": "9",
               "correct": false
             },
             {
-              "label": "27",
-              "correct": false
+              "label": "14",
+              "correct": true
             },
             {
-              "label": "21",
+              "label": "12",
               "correct": false
             }
           ]
@@ -172,50 +299,73 @@
               "correct": true
             },
             {
-              "label": "104",
-              "correct": false
-            },
-            {
-              "label": "400",
+              "label": "44",
               "correct": false
             }
           ]
         }
       ],
       "acceptanceSteps": [
-        "launch gearlock-facts activity and verify gear chamber renders with 5 gears and progress arc at 0",
-        "drag an incorrect gear-tooth onto the first gear notch and verify it bounces back with recovery hint and no progress increment",
-        "drag the correct gear-tooth onto the first gear and verify it locks and progress arc increments",
-        "repeat correct drags for remaining 4 gears verifying each lock and arc increment",
-        "verify final door-open reward state and completion banner are visible"
+        "launch /activities/fact-dash-harbor",
+        "attempt an incorrect tile on first fact",
+        "verify recovery cue and tile persistence",
+        "answer all 5 facts correctly",
+        "verify progress flags and completion banner visible"
       ],
-      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/gear-lock-facts');\nawait q('gear-chamber').waitFor({state:'visible'});\nconst arcBefore = await q('progress-arc').getAttribute('data-filled');\nif (arcBefore !== '0') throw new Error('Progress arc should start at 0');\n\n// Attempt incorrect drag on gear 1 (5 x 2 = 10): drag wrong tooth '7'\nconst wrongTooth = q('gear-tooth-7');\nconst gear1Notch = q('gear-notch-gear1');\nawait wrongTooth.dispatchEvent('dragstart');\nawait gear1Notch.dispatchEvent('dragenter');\nawait gear1Notch.dispatchEvent('dragover');\nawait gear1Notch.dispatchEvent('drop');\nawait wrongTooth.dispatchEvent('dragend');\nconst recovery = q('recovery-hint-gear1');\nawait recovery.waitFor({state:'visible'});\nconst arcAfterWrong = await q('progress-arc').getAttribute('data-filled');\nif (arcAfterWrong !== '0') throw new Error('Progress should not advance on incorrect drop');\nconst gear1Locked = await q('gear1').getAttribute('data-locked');\nif (gear1Locked === 'true') throw new Error('Gear should not lock on incorrect answer');\n\n// Correct drag for gear 1\nconst rightTooth10 = q('gear-tooth-10');\nawait rightTooth10.dispatchEvent('dragstart');\nawait gear1Notch.dispatchEvent('dragenter');\nawait gear1Notch.dispatchEvent('dragover');\nawait gear1Notch.dispatchEvent('drop');\nawait rightTooth10.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"gear1\"]')?.getAttribute('data-locked') === 'true');\nlet arc = await q('progress-arc').getAttribute('data-filled');\nif (arc !== '1') throw new Error('Progress arc should be 1 after gear1 locked');\n\nconst answers = [\n  {gear:'gear2', tooth:'gear-tooth-25', notch:'gear-notch-gear2'},\n  {gear:'gear3', tooth:'gear-tooth-50', notch:'gear-notch-gear3'},\n  {gear:'gear4', tooth:'gear-tooth-14', notch:'gear-notch-gear4'},\n  {gear:'gear5', tooth:'gear-tooth-40', notch:'gear-notch-gear5'}\n];\nfor (const a of answers) {\n  const tooth = q(a.tooth);\n  const notch = q(a.notch);\n  await tooth.dispatchEvent('dragstart');\n  await notch.dispatchEvent('dragenter');\n  await notch.dispatchEvent('dragover');\n  await notch.dispatchEvent('drop');\n  await tooth.dispatchEvent('dragend');\n  await page.waitForFunction((g) => document.querySelector(`[data-testid=\"${g}\"]`)?.getAttribute('data-locked') === 'true', a.gear);\n}\n\nconst finalArc = await q('progress-arc').getAttribute('data-filled');\nif (finalArc !== '5') throw new Error('All 5 gears should be locked');\nconst doorState = await q('chamber-door').getAttribute('data-open');\nif (doorState !== 'true') throw new Error('Chamber door should be open after all gears locked');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      "creatorPrompt": "Build 'Harbor Fact Dash': a fixed multiplication-fact crate appears top-center of a harbor scene, with exactly 3 stationary answer tiles (data-testid='answer-option') in a row beneath it that never move location. Use the 5 fluency facts from the assignment exactly as listed: 5x2, 5x5, 5x10, 2x7, 10x4, one per round, presented one at a time (single active problem). Background boats/gulls/water animate continuously to convey pace; tiles and crate stay still so the child's tap target is predictable. Include a toggleable 'Show me' demo showing an EXAMPLE fact (not one of the 5 real ones) being solved, and a 'Let me try' toggle. Sound toggle visible; init audio after first gesture. Wrong tap: tile dims/shakes in place, soft recovery chime, no navigation, tiles remain. Correct tap: crate departs on a boat animation, correct tile glows, satisfying chime, one lantern flag added to a fixed-position progress dock. After all 5, play completion fanfare and show 'Fact Dash Champion' banner. This is practice/teaching evidence only -- no mastery claims or unlocks. Title 'Harbor Fact Dash' visible in opening viewport with background artwork loaded.",
+      "designPrediction": "Because Reina's speed dimension is strongly positive (5.0, confidence .875) and she completed the fast-paced skybird-delivery-run with 0 invalid actions, she will complete this 5-question fact dash with minimal recovery events and no demo requests.",
+      "preserve": [
+        "stationary tiles",
+        "one fact at a time",
+        "fast pacing via background animation"
+      ],
+      "change": [
+        "ensure exactly the 5 assigned fluency facts appear, matching the worksheet verbatim"
+      ],
+      "explore": [
+        "whether flag-based non-competitive progress display sustains motivation as well as a numeric streak would"
+      ],
+      "avoid": [
+        "scoreboard/competition framing",
+        "timers that create pressure (avoidedDimensions: competition, control)"
+      ],
+      "measurementKeys": [
+        "interaction.timeToFirstValidActionMs",
+        "interaction.invalidActionCount",
+        "academic.accuracy",
+        "academic.completed",
+        "engagement.frustrationScore",
+        "engagement.replayRequested"
+      ],
+      "acceptanceScript": "await page.goto(`${BASE_URL}/activities/fact-dash-harbor`); await page.waitForSelector('[data-testid=\"activity-title\"]'); const title = await page.locator('[data-testid=\"activity-title\"]').innerText(); if (!title.includes('Harbor Fact Dash')) throw new Error('Title missing'); const answers = ['10','25','50','14','40']; for (let i=0;i<5;i++){ const opts = page.locator('[data-testid=\"answer-option\"]'); await opts.first().waitFor({state:'visible'}); const texts = await opts.allTextContents(); const correctIdx = texts.findIndex(t=>t.trim()===answers[i]); if (correctIdx===-1) throw new Error('Correct answer missing for round '+i); if (i===0){ const wrongIdx = texts.findIndex((t,idx)=>idx!==correctIdx); await opts.nth(wrongIdx).click(); const recovery = page.locator('[data-testid=\"recovery-feedback\"]'); await recovery.waitFor({state:'visible', timeout:5000}); const stillThere = await page.locator('[data-testid=\"answer-option\"]').count(); if (stillThere<2) throw new Error('Tiles vanished after wrong tap'); } const opts2 = page.locator('[data-testid=\"answer-option\"]'); const texts2 = await opts2.allTextContents(); const idx2 = texts2.findIndex(t=>t.trim()===answers[i]); await opts2.nth(idx2).click(); await page.waitForTimeout(400); } const completion = page.locator('[data-testid=\"completion-badge\"]'); await completion.waitFor({state:'visible', timeout:8000}); if (!(await completion.isVisible())) throw new Error('Completion not visible'); return {passed:true};"
     },
     {
-      "id": "gear-lock-word-problems",
-      "title": "Gearlock Story Vault",
+      "id": "word-problem-delivery",
+      "title": "Skyharbor Delivery Dash",
       "routeId": "route-a",
-      "academicTarget": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
-      "mechanic": "Drag-and-rotate gear puzzle applied to two story-scenario gears, where the child must first build the array visually (drag groups into place) then lock the matching answer gear.",
-      "engagementVariable": "puzzle",
+      "responsibilityId": "word-problems",
+      "learningPurpose": "Transfer multiplication facts to solve real-world grouping word problems (pencils in boxes, stars in rows) by identifying groups and total quantity",
+      "academicTarget": "multiplicative word problem solving using x2, x5, x10 facts",
+      "mechanic": "tap the stationary total that matches the delivered word problem scene",
+      "engagementVariable": "speed",
       "visualMock": {
-        "scene": "Two large story-gears sit in a smaller inner vault room; each gear's hub shows a short illustrated scene (pencil boxes, star rows) with an empty answer notch, and a tray of numbered teeth below.",
-        "layout": "Two large gear panels side-by-side, each with an illustrated mini-scene at center (boxes of pencils / rows of stars) and a single answer notch beneath; draggable number teeth in a shared tray at bottom.",
-        "artworkPrompt": "Two ornate bronze story-gears in a glowing indigo stone vault room, one gear showing tiny illustrated pencil boxes arranged in rows, the other showing tiny glowing star rows, warm gold light, whimsical fantasy-steampunk painterly style, no readable extra text."
+        "scene": "A delivery glider drops visible grouped cargo (boxes of pencils, rows of stars) onto a dock while a word problem banner unfurls above",
+        "layout": "Word problem text and animated grouped cargo fixed top area; three stationary total-answer tiles fixed below, child taps once to answer; glider animates delivering next scene after correct tap",
+        "artworkPrompt": "A small cargo glider dropping neat rows of pencil boxes and star crates onto a sunny dock, animated sparkle trail, glowing answer tiles below"
       },
       "experience": {
-        "objective": "Read each story scene, determine the multiplication sentence it represents, and drag the correct total onto the gear's answer notch to unlock the inner vault room.",
-        "childAction": "Reina taps to reveal the illustrated scene animation (boxes filling with pencils, or stars arranging into rows), then drags the correct numbered gear-tooth onto the answer notch.",
-        "worldReaction": "Correct answer: gear locks with a golden flash, the illustrated scene glows and completes itself (all boxes full, all star rows lit). Incorrect answer: tooth clanks back to tray, the scene gently pulses to invite a recount without penalty.",
-        "anticipation": "As the first story-gear locks, a second illustrated gear panel slides into view, hinting a second scene puzzle to unlock the inner treasure alcove.",
-        "progress": "A 2-star mini progress arc above the gears fills as each story-gear locks; the inner vault room visibly brightens.",
-        "recovery": "An owl guide gently re-narrates the scene ('Count the boxes, then count what's inside each one') and the tooth floats back for another try, no time pressure.",
-        "reward": "Both story-gears lock, the inner vault alcove doors slide open revealing a glimmering treasure chest silhouette (locked for now) and a 'Story Solved!' light-burst plays."
+        "objective": "Read the delivery scene and tap the total that matches how many items in all",
+        "childAction": "Child taps the one stationary tile showing the correct total quantity",
+        "worldReaction": "Correct tile glows, cargo gets stamped 'Delivered!' with a stamp animation and glider zooms off to the next island",
+        "anticipation": "The cargo visibly arrives and arranges itself into groups before the tap options settle, giving a moment to count",
+        "progress": "A delivery route map lights up with a new star-icon for each completed delivery",
+        "recovery": "Wrong tap: tile dims/shakes, gentle chime, cargo groups remain visible and stationary answer tiles remain for another attempt",
+        "reward": "After both deliveries, a celebration blimp flies overhead trailing 'Deliveries Complete!' banner with cheerful music"
       },
       "questions": [
         {
           "id": "q1",
-          "prompt": "Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all?",
+          "prompt": "Mrs. K puts 5 pencils in each of 4 boxes. How many pencils in all?",
           "options": [
             {
               "label": "20",
@@ -226,18 +376,14 @@
               "correct": false
             },
             {
-              "label": "45",
-              "correct": false
-            },
-            {
-              "label": "54",
+              "label": "15",
               "correct": false
             }
           ]
         },
         {
           "id": "q2",
-          "prompt": "There are 3 rows of 10 stars. How many stars are there?",
+          "prompt": "There are 3 rows of 10 stars. How many stars in all?",
           "options": [
             {
               "label": "13",
@@ -248,10 +394,6 @@
               "correct": true
             },
             {
-              "label": "103",
-              "correct": false
-            },
-            {
               "label": "33",
               "correct": false
             }
@@ -259,34 +401,175 @@
         }
       ],
       "acceptanceSteps": [
-        "launch gearlock-word-problems and verify two story-gear panels render with progress arc at 0",
-        "drag an incorrect tooth onto the pencil-box gear and verify recovery pulse with no lock",
-        "drag correct answer 20 onto pencil-box gear and verify it locks and progress increments",
-        "drag correct answer 30 onto star-rows gear and verify it locks and progress completes",
-        "verify inner vault alcove opens and completion banner is visible"
+        "launch /activities/word-problem-delivery",
+        "attempt incorrect tile on first problem",
+        "verify recovery cue and tile persistence",
+        "answer both problems correctly",
+        "verify progress route map update and completion celebration visible"
       ],
-      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/gear-lock-word-problems');\nawait q('story-gear-pencils').waitFor({state:'visible'});\nconst arcStart = await q('story-progress-arc').getAttribute('data-filled');\nif (arcStart !== '0') throw new Error('Story progress should start at 0');\n\nconst wrongTooth = q('gear-tooth-9');\nconst pencilNotch = q('gear-notch-pencils');\nawait wrongTooth.dispatchEvent('dragstart');\nawait pencilNotch.dispatchEvent('dragenter');\nawait pencilNotch.dispatchEvent('dragover');\nawait pencilNotch.dispatchEvent('drop');\nawait wrongTooth.dispatchEvent('dragend');\nawait q('recovery-pulse-pencils').waitFor({state:'visible'});\nconst lockedWrong = await q('story-gear-pencils').getAttribute('data-locked');\nif (lockedWrong === 'true') throw new Error('Pencil gear should not lock on wrong answer');\n\nconst rightTooth20 = q('gear-tooth-20');\nawait rightTooth20.dispatchEvent('dragstart');\nawait pencilNotch.dispatchEvent('dragenter');\nawait pencilNotch.dispatchEvent('dragover');\nawait pencilNotch.dispatchEvent('drop');\nawait rightTooth20.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-gear-pencils\"]')?.getAttribute('data-locked') === 'true');\nlet arc = await q('story-progress-arc').getAttribute('data-filled');\nif (arc !== '1') throw new Error('Progress should be 1 after pencil gear locked');\n\nconst rightTooth30 = q('gear-tooth-30');\nconst starNotch = q('gear-notch-stars');\nawait rightTooth30.dispatchEvent('dragstart');\nawait starNotch.dispatchEvent('dragenter');\nawait starNotch.dispatchEvent('dragover');\nawait starNotch.dispatchEvent('drop');\nawait rightTooth30.dispatchEvent('dragend');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-gear-stars\"]')?.getAttribute('data-locked') === 'true');\n\nconst finalArc = await q('story-progress-arc').getAttribute('data-filled');\nif (finalArc !== '2') throw new Error('Both story gears should be locked');\nconst alcoveOpen = await q('inner-vault-alcove').getAttribute('data-open');\nif (alcoveOpen !== 'true') throw new Error('Inner vault alcove should open after both gears locked');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      "creatorPrompt": "Build 'Skyharbor Delivery Dash' using the two exact word problems from the assignment: (1) 5 pencils in each of 4 boxes, (2) 3 rows of 10 stars. Show the cargo visually grouped and animated arriving (pencil boxes arranged 4 groups of 5; stars arranged 3 rows of 10) so the visual matches the math structure. Present ONE word problem at a time. Below the animated scene, present exactly 3 stationary answer-total tiles (data-testid='answer-option') that never change position when tapped. Include 'Show me' demo using a different example (e.g., 2 groups of 2) and 'Let me try' toggle. Sound toggle visible, audio initializes after first gesture. Wrong tap: tile dims/shakes, soft chime, cargo and tiles remain in place for retry. Correct tap: 'Delivered!' stamp animation, chime, glider flies to next island, one star icon added to a fixed progress route map. After both problems solved, play a full completion celebration (blimp banner + music) — practice/teaching evidence only, no mastery/unlock claims. Title 'Skyharbor Delivery Dash' visible in opening viewport with background artwork loaded.",
+      "designPrediction": "Because Reina responds well to fast, low-friction confirm mechanics and the word problems have a single correct numeric total, she will complete this 2-question activity quickly with high accuracy given the concrete grouped-cargo visual scaffolds provided by the prior skip-counting activity.",
+      "preserve": [
+        "single active word problem at a time",
+        "stationary answer tiles",
+        "visually grouped cargo matching problem structure"
+      ],
+      "change": [
+        "ensure word problems are copied verbatim from assignment, only 2 questions to match assignment count"
+      ],
+      "explore": [
+        "whether visually pre-grouped cargo reduces need for the Show me demo compared to abstract number-only presentation"
+      ],
+      "avoid": [
+        "timed countdown pressure",
+        "multiple simultaneous word problems shown together (avoid unnecessary cognitive load)"
+      ],
+      "measurementKeys": [
+        "interaction.timeToFirstValidActionMs",
+        "interaction.invalidActionCount",
+        "interaction.demoRequested",
+        "academic.accuracy",
+        "academic.completed",
+        "engagement.frustrationScore"
+      ],
+      "acceptanceScript": "await page.goto(`${BASE_URL}/activities/word-problem-delivery`); await page.waitForSelector('[data-testid=\"activity-title\"]'); const title = await page.locator('[data-testid=\"activity-title\"]').innerText(); if (!title.includes('Skyharbor Delivery Dash')) throw new Error('Title missing'); const answers=['20','30']; for (let i=0;i<2;i++){ const opts = page.locator('[data-testid=\"answer-option\"]'); await opts.first().waitFor({state:'visible'}); const texts = await opts.allTextContents(); const correctIdx = texts.findIndex(t=>t.trim()===answers[i]); if (correctIdx===-1) throw new Error('Correct total missing round '+i); if (i===0){ const wrongIdx = texts.findIndex((t,idx)=>idx!==correctIdx); await opts.nth(wrongIdx).click(); const recovery = page.locator('[data-testid=\"recovery-feedback\"]'); await recovery.waitFor({state:'visible', timeout:5000}); const stillThere= await page.locator('[data-testid=\"answer-option\"]').count(); if (stillThere<2) throw new Error('Tiles vanished'); } const opts2=page.locator('[data-testid=\"answer-option\"]'); const texts2=await opts2.allTextContents(); const idx2=texts2.findIndex(t=>t.trim()===answers[i]); await opts2.nth(idx2).click(); await page.waitForTimeout(500);} const completion = page.locator('[data-testid=\"completion-badge\"]'); await completion.waitFor({state:'visible', timeout:8000}); if(!(await completion.isVisible())) throw new Error('Completion not visible'); return {passed:true};"
     },
     {
-      "id": "comet-run-facts",
-      "title": "Comet Trail Facts Sprint",
+      "id": "skip-count-blocks",
+      "title": "Harbor Block Builder: Skip Count",
       "routeId": "route-b",
-      "academicTarget": "Recall multiplication facts for x2, x5, x10 (5 x 2, 5 x 5, 5 x 10, 2 x 7, 10 x 4)",
-      "mechanic": "Timed sequential tap-run: a comet streaks across a starfield toward a seal; child taps the correct falling number-orb before the comet reaches it to keep the trail lit and advance to the next seal.",
-      "engagementVariable": "speed",
+      "responsibilityId": "skip-counting",
+      "learningPurpose": "Build concrete understanding of what multiplication by 2, 5, and 10 means through grouping and skip-counting, before speeding up recall",
+      "academicTarget": "skip-counting and array grouping for x2, x5, x10 facts",
+      "mechanic": "tap glowing blocks to snap them into a stationary grouping frame, building the count",
+      "engagementVariable": "puzzle",
       "visualMock": {
-        "scene": "A horizontal starfield track where a glowing comet flies left to right toward a stone seal on the right edge; three number-orbs drift down from the top, one correct.",
-        "layout": "Wide horizontal comet-trail track spanning the screen, comet on the left animating toward the seal on the right; three tappable number-orbs fall in the mid-zone; a trail-light meter along the bottom shows how many seals are lit.",
-        "artworkPrompt": "A glowing comet with a long sparkling tail streaking across a deep-space starfield toward a glowing stone seal, three softly glowing number orbs falling mid-scene, vibrant blues and golds, dynamic motion-blur, whimsical painterly style, no readable extra text."
+        "scene": "A stationary wooden grouping frame sits on a dock; glowing number blocks float nearby and the child taps them in order to snap them into the frame's slots, building the skip-count sequence",
+        "layout": "Frame with empty slots fixed center screen; floating candidate blocks arranged in a stationary row below; background cranes and gulls move to add life without moving the frame or blocks' base positions",
+        "artworkPrompt": "A wooden harbor-dock number frame with glowing empty slots, softly floating number blocks nearby, small cranes and gulls animating in the background, warm inviting colors"
       },
       "experience": {
-        "objective": "Tap the correct number-orb for each of the 5 fact problems before the comet reaches the seal, lighting all 5 trail segments to complete the sprint.",
-        "childAction": "Reina watches the comet approach and taps the falling orb showing the correct product; she can tap again immediately if she misses, since the comet loops back for another pass.",
-        "worldReaction": "Correct tap: the orb bursts into starlight, the comet's tail brightens and streaks forward, lighting a trail segment. Incorrect tap: the orb fizzles softly and the comet gently slows and loops back for a fresh pass, no crash or loss.",
-        "anticipation": "As trail segments light up, the comet's tail grows longer and more radiant, building visible momentum toward the final seal.",
-        "progress": "A 5-segment trail-light meter along the bottom fills as each correct tap lands; the comet visibly speeds up and glows brighter with each success.",
-        "recovery": "On a miss, the comet visibly eases off (no timer penalty), loops in a gentle arc, and re-presents three fresh orbs including the correct one, with a soft chime cue drawing attention to it.",
-        "reward": "The comet reaches the final seal with a full-lit trail, bursts into a shower of golden sparks across the starfield, and a 'Comet Cracked It!' banner streaks across the screen with a whoosh sound."
+        "objective": "Tap the correct next block to snap it into the frame and complete the skip-count sequence",
+        "childAction": "Child taps the one stationary block showing the correct next number, which then snaps into the frame slot",
+        "worldReaction": "Block glows, slides smoothly into its slot with a satisfying click sound; wrong-block taps cause a gentle bounce-back with no slot change",
+        "anticipation": "The next empty slot pulses softly, showing exactly where the next tap belongs",
+        "progress": "Each snapped block lights up a section of a stationary bridge track model on the dock, visibly nearing the Quest tower",
+        "recovery": "Wrong tap: block bounces back to its row position, soft chime, frame remains as-is, child can try again immediately",
+        "reward": "When frame is fully built, blocks light up in sequence like a marquee, a cheerful fanfare plays, and a 'Builder Badge' stamps onto the dock"
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "prompt": "Build the skip-count by 5s: 5, 10, 15, __?",
+          "options": [
+            {
+              "label": "20",
+              "correct": true
+            },
+            {
+              "label": "16",
+              "correct": false
+            },
+            {
+              "label": "25",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "q2",
+          "prompt": "Build the skip-count by 2s: 2, 4, 6, __?",
+          "options": [
+            {
+              "label": "7",
+              "correct": false
+            },
+            {
+              "label": "8",
+              "correct": true
+            },
+            {
+              "label": "10",
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "q3",
+          "prompt": "Build the skip-count by 10s: 10, 20, 30, __?",
+          "options": [
+            {
+              "label": "35",
+              "correct": false
+            },
+            {
+              "label": "40",
+              "correct": true
+            },
+            {
+              "label": "31",
+              "correct": false
+            }
+          ]
+        }
+      ],
+      "acceptanceSteps": [
+        "launch /activities/skip-count-blocks",
+        "attempt incorrect block tap",
+        "verify recovery (bounce-back, chime, frame unchanged)",
+        "tap correct blocks for all 3 rounds",
+        "verify progress bridge-track update and completion badge visible"
+      ],
+      "creatorPrompt": "Build 'Harbor Block Builder: Skip Count'. Show a stationary wooden frame with one empty slot at a time, fixed center screen. Below it, present exactly 3 stationary candidate number blocks (data-testid='answer-option') the child taps (NOT drags -- since gearworks-crate-builder drag mechanic caused frustration/abandonment for this child, use tap-to-snap instead of drag-and-drop, even though this is presented as the 'puzzle/building' route). Tapping the correct block animates it sliding into the frame slot; blocks and frame do not change screen position on wrong taps. Include toggleable 'Show me' demo using a DIFFERENT example sequence, and 'Let me try' toggle. Sound toggle visible, init audio after first gesture. Wrong tap: block bounces back in place, soft chime, no penalty. Correct tap: satisfying click/slide sound, frame slot fills, a bridge-track progress model (fixed position) lights up one more segment. After 3 rounds, marquee light animation + fanfare + 'Builder Badge'. Practice/teaching evidence only, no mastery/unlock claims. Title 'Harbor Block Builder: Skip Count' visible in opening viewport with loaded background artwork.",
+      "designPrediction": "Given the prior gearworks-crate-builder drag mechanic caused high frustration and abandonment, this tap-to-snap (not drag) variant of the puzzle/building engagement variable will still show more hesitation and possibly higher timeToFirstValidActionMs than the route-a speed variant, testing whether it's the 'puzzle framing' or the 'drag mechanic specifically' that drove frustration.",
+      "preserve": [
+        "stationary frame and blocks",
+        "tap-to-snap instead of drag",
+        "single slot at a time"
+      ],
+      "change": [
+        "explicitly avoid drag-and-drop given prior frustration evidence, even in the 'puzzle' branded route"
+      ],
+      "explore": [
+        "whether puzzle-framed tap mechanic performs comparably to speed-framed tap mechanic when drag is removed"
+      ],
+      "avoid": [
+        "any drag-and-drop requirement",
+        "competition/timer pressure"
+      ],
+      "measurementKeys": [
+        "interaction.timeToFirstValidActionMs",
+        "interaction.invalidActionCount",
+        "interaction.demoRequested",
+        "engagement.frustrationScore",
+        "engagement.replayRequested",
+        "academic.accuracy",
+        "academic.completed"
+      ],
+      "acceptanceScript": "await page.goto(`${BASE_URL}/activities/skip-count-blocks`); await page.waitForSelector('[data-testid=\"activity-title\"]'); const title= await page.locator('[data-testid=\"activity-title\"]').innerText(); if(!title.includes('Harbor Block Builder')) throw new Error('Title missing'); const answers=['20','8','40']; for(let i=0;i<3;i++){ const opts=page.locator('[data-testid=\"answer-option\"]'); await opts.first().waitFor({state:'visible'}); const texts=await opts.allTextContents(); const correctIdx=texts.findIndex(t=>t.trim()===answers[i]); if(correctIdx===-1) throw new Error('Correct block missing round '+i); if(i===0){ const wrongIdx=texts.findIndex((t,idx)=>idx!==correctIdx); await opts.nth(wrongIdx).click(); const recovery=page.locator('[data-testid=\"recovery-feedback\"]'); await recovery.waitFor({state:'visible',timeout:5000}); const stillThere= await page.locator('[data-testid=\"answer-option\"]').count(); if(stillThere<2) throw new Error('Blocks vanished after wrong tap'); } const opts2=page.locator('[data-testid=\"answer-option\"]'); const texts2=await opts2.allTextContents(); const idx2=texts2.findIndex(t=>t.trim()===answers[i]); await opts2.nth(idx2).click(); await page.waitForTimeout(500);} const completion=page.locator('[data-testid=\"completion-badge\"]'); await completion.waitFor({state:'visible',timeout:8000}); if(!(await completion.isVisible())) throw new Error('Completion not visible'); return {passed:true};"
+    },
+    {
+      "id": "fact-vault-blocks",
+      "title": "Fact Vault Builder",
+      "routeId": "route-b",
+      "responsibilityId": "fact-fluency",
+      "learningPurpose": "Practice quick, accurate recall of x2, x5, x10 multiplication facts including the specific fluency items assigned (5x2, 5x5, 5x10, 2x7, 10x4)",
+      "academicTarget": "multiplication facts x2, x5, x10",
+      "mechanic": "tap the correct product block to build a vault door combination",
+      "engagementVariable": "puzzle",
+      "visualMock": {
+        "scene": "A glowing harbor vault door with number slots waiting to be filled; each fact appears above and product blocks float beside the vault",
+        "layout": "Vault door fixed center screen; stationary product-block row beneath it; background dock lanterns flicker for ambiance without moving key elements",
+        "artworkPrompt": "A glowing ornate harbor vault door with softly lit number slots, warm lantern glow, floating number blocks nearby, gentle ambient sparkle"
+      },
+      "experience": {
+        "objective": "Tap the correct product block to fill the next vault slot",
+        "childAction": "Child taps the one stationary block matching the multiplication fact's product",
+        "worldReaction": "Block snaps into the vault slot with a soft clunk and glow; wrong block taps cause a light buzz and the block stays put",
+        "anticipation": "The vault slot pulses gently to show where the next correct block will go",
+        "progress": "Each filled slot makes part of the vault door glow brighter, building anticipation toward it fully lighting up",
+        "recovery": "Wrong tap: gentle buzz, block returns to normal appearance, vault slot remains empty and ready, no penalty",
+        "reward": "When all slots fill, the vault door glows fully and swings open with treasure sparkle animation and a triumphant chime; a 'Vault Keeper' badge appears"
       },
       "questions": [
         {
@@ -312,15 +595,15 @@
           "prompt": "5 x 5 = ?",
           "options": [
             {
-              "label": "25",
-              "correct": true
-            },
-            {
               "label": "20",
               "correct": false
             },
             {
-              "label": "10",
+              "label": "25",
+              "correct": true
+            },
+            {
+              "label": "30",
               "correct": false
             }
           ]
@@ -338,7 +621,7 @@
               "correct": false
             },
             {
-              "label": "500",
+              "label": "55",
               "correct": false
             }
           ]
@@ -348,15 +631,15 @@
           "prompt": "2 x 7 = ?",
           "options": [
             {
-              "label": "14",
-              "correct": true
-            },
-            {
               "label": "9",
               "correct": false
             },
             {
-              "label": "21",
+              "label": "14",
+              "correct": true
+            },
+            {
+              "label": "12",
               "correct": false
             }
           ]
@@ -366,54 +649,81 @@
           "prompt": "10 x 4 = ?",
           "options": [
             {
-              "label": "40",
-              "correct": true
-            },
-            {
               "label": "14",
               "correct": false
             },
             {
-              "label": "104",
+              "label": "40",
+              "correct": true
+            },
+            {
+              "label": "44",
               "correct": false
             }
           ]
         }
       ],
       "acceptanceSteps": [
-        "launch comet-run-facts and verify comet track renders with trail meter at 0",
-        "tap an incorrect falling orb for seal 1 and verify comet loops back with no trail advance",
-        "tap the correct orb for seal 1 and verify trail segment lights and comet advances",
-        "repeat correct taps for remaining 4 seals verifying trail fill each time",
-        "verify final comet-reaches-seal reward and completion banner are visible"
+        "launch /activities/fact-vault-blocks",
+        "attempt incorrect block on first fact",
+        "verify recovery (buzz, slot unfilled, block remains)",
+        "answer all 5 facts correctly",
+        "verify vault fully glowing and completion badge visible"
       ],
-      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/comet-run-facts');\nawait q('comet-track').waitFor({state:'visible'});\nconst trailStart = await q('trail-meter').getAttribute('data-lit');\nif (trailStart !== '0') throw new Error('Trail meter should start at 0');\n\nconst wrongOrb = q('orb-seal1-7');\nawait wrongOrb.dispatchEvent('pointerdown');\nawait wrongOrb.dispatchEvent('pointerup');\nawait q('comet-loop-indicator').waitFor({state:'visible'});\nconst trailAfterWrong = await q('trail-meter').getAttribute('data-lit');\nif (trailAfterWrong !== '0') throw new Error('Trail should not advance on incorrect tap');\n\nconst rightOrb1 = q('orb-seal1-10');\nawait rightOrb1.dispatchEvent('pointerdown');\nawait rightOrb1.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"trail-meter\"]')?.getAttribute('data-lit') === '1');\n\nconst seals = [\n  {orb:'orb-seal2-25'},\n  {orb:'orb-seal3-50'},\n  {orb:'orb-seal4-14'},\n  {orb:'orb-seal5-40'}\n];\nlet i = 2;\nfor (const s of seals) {\n  const orb = q(s.orb);\n  await orb.dispatchEvent('pointerdown');\n  await orb.dispatchEvent('pointerup');\n  const expected = String(i);\n  await page.waitForFunction((exp) => document.querySelector('[data-testid=\"trail-meter\"]')?.getAttribute('data-lit') === exp, expected);\n  i++;\n}\n\nconst finalTrail = await q('trail-meter').getAttribute('data-lit');\nif (finalTrail !== '5') throw new Error('All 5 trail segments should be lit');\nconst cometArrived = await q('comet-track').getAttribute('data-arrived');\nif (cometArrived !== 'true') throw new Error('Comet should have arrived at final seal');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      "creatorPrompt": "Build 'Fact Vault Builder' using the 5 exact fluency facts from the assignment (5x2, 5x5, 5x10, 2x7, 10x4), one at a time (single active problem). Show a stationary vault door with one empty slot lit at a time, fixed center screen. Below it present exactly 3 stationary product-block options (data-testid='answer-option') the child taps (tap-to-fill, not drag, consistent with avoiding drag mechanics given this child's prior frustration with gearworks-crate-builder). Correct tap: block snaps into vault slot with clunk+glow sound, vault brightens incrementally. Wrong tap: gentle buzz, block stays in row, slot remains empty, no penalty. Include 'Show me' demo with a DIFFERENT example fact, and 'Let me try' toggle. Sound toggle visible, audio initializes after first gesture. After all 5 facts placed, vault fully glows and opens with treasure sparkle + triumphant chime + 'Vault Keeper' badge. Practice/teaching evidence only, no mastery/unlock claims. Title 'Fact Vault Builder' visible in opening viewport with background artwork loaded.",
+      "designPrediction": "This puzzle-framed tap-to-fill mechanic will likely produce similar accuracy to the route-a fact dash since underlying interaction is a single tap, but slightly longer average time per question due to the anticipatory vault-slot animation pacing versus the faster boat-departure pacing in route-a.",
+      "preserve": [
+        "stationary vault and blocks",
+        "tap-to-fill instead of drag",
+        "single fact at a time"
+      ],
+      "change": [
+        "confirm no drag interaction is required despite puzzle framing"
+      ],
+      "explore": [
+        "whether vault/treasure reward framing sustains motivation as well as harbor-shipping framing"
+      ],
+      "avoid": [
+        "drag-and-drop",
+        "competitive scoring displays"
+      ],
+      "measurementKeys": [
+        "interaction.timeToFirstValidActionMs",
+        "interaction.invalidActionCount",
+        "academic.accuracy",
+        "academic.completed",
+        "engagement.frustrationScore",
+        "engagement.replayRequested"
+      ],
+      "acceptanceScript": "await page.goto(`${BASE_URL}/activities/fact-vault-blocks`); await page.waitForSelector('[data-testid=\"activity-title\"]'); const title=await page.locator('[data-testid=\"activity-title\"]').innerText(); if(!title.includes('Fact Vault Builder')) throw new Error('Title missing'); const answers=['10','25','50','14','40']; for(let i=0;i<5;i++){ const opts=page.locator('[data-testid=\"answer-option\"]'); await opts.first().waitFor({state:'visible'}); const texts=await opts.allTextContents(); const correctIdx=texts.findIndex(t=>t.trim()===answers[i]); if(correctIdx===-1) throw new Error('Correct block missing round '+i); if(i===0){ const wrongIdx=texts.findIndex((t,idx)=>idx!==correctIdx); await opts.nth(wrongIdx).click(); const recovery=page.locator('[data-testid=\"recovery-feedback\"]'); await recovery.waitFor({state:'visible',timeout:5000}); const stillThere=await page.locator('[data-testid=\"answer-option\"]').count(); if(stillThere<2) throw new Error('Blocks vanished'); } const opts2=page.locator('[data-testid=\"answer-option\"]'); const texts2=await opts2.allTextContents(); const idx2=texts2.findIndex(t=>t.trim()===answers[i]); await opts2.nth(idx2).click(); await page.waitForTimeout(500);} const completion=page.locator('[data-testid=\"completion-badge\"]'); await completion.waitFor({state:'visible',timeout:8000}); if(!(await completion.isVisible())) throw new Error('Completion not visible'); return {passed:true};"
     },
     {
-      "id": "comet-run-word-problems",
-      "title": "Comet Trail Story Sprint",
+      "id": "word-problem-crane",
+      "title": "Crane Crate Puzzle",
       "routeId": "route-b",
-      "academicTarget": "Translate equal-groups word problems into multiplication (5 pencils x 4 boxes; 3 rows x 10 stars)",
-      "mechanic": "Timed sequential tap-run applied to two story scenarios: the comet approaches a story-seal showing an illustrated scene, and the child taps the correct total-orb before it arrives.",
-      "engagementVariable": "speed",
+      "responsibilityId": "word-problems",
+      "learningPurpose": "Transfer multiplication facts to solve real-world grouping word problems (pencils in boxes, stars in rows) by identifying groups and total quantity",
+      "academicTarget": "multiplicative word problem solving using x2, x5, x10 facts",
+      "mechanic": "tap the correct total block to load a crane's crate matching the word problem",
+      "engagementVariable": "puzzle",
       "visualMock": {
-        "scene": "The comet track continues into an inner starfield where two larger story-seals appear one at a time, each showing a brief illustrated scene (pencil boxes filling, star rows lighting up) with three falling total-orbs.",
-        "layout": "Same horizontal comet-track format but with a larger illustrated scene panel above each seal and a 2-segment trail meter; three total-orbs fall per scenario.",
-        "artworkPrompt": "A glowing comet streaking toward a large stone story-seal showing tiny illustrated pencil boxes and star rows glowing in gold, three softly lit number orbs falling nearby, deep-space starfield background, vibrant motion-blur, whimsical painterly style, no readable extra text."
+        "scene": "A harbor crane holds an empty crate above a dock; grouped cargo (pencil boxes or star rows) is displayed beside the crane, with a word problem banner above",
+        "layout": "Word problem and grouped cargo fixed top/center; crane with empty crate fixed center; three stationary total-answer blocks fixed below; background dock workers and gulls animate",
+        "artworkPrompt": "A friendly cartoon harbor crane holding an empty glowing crate above neatly grouped cargo (pencil boxes, star rows), warm dock background with small moving figures and gulls"
       },
       "experience": {
-        "objective": "Read each story scene as the comet approaches and tap the correct total-orb before the comet reaches the story-seal, lighting both trail segments to finish the sprint.",
-        "childAction": "Reina watches the illustrated scene play (boxes filling with pencils, or star rows appearing), then taps the falling orb with the correct total before the comet arrives.",
-        "worldReaction": "Correct tap: orb bursts into light, the scene locks in fully illustrated form, and the comet surges forward lighting a trail segment. Incorrect tap: orb fizzles gently, comet loops back and the scene gently replays for another read.",
-        "anticipation": "After the first story-seal lights, the comet visibly picks up speed heading toward the second, larger story-seal, building momentum toward the treasure alcove beyond.",
-        "progress": "A 2-segment trail meter fills as each story scenario resolves correctly; the comet's glow intensifies with each success.",
-        "recovery": "On a miss, the scene calmly replays its key visual (boxes filling one by one, or star rows counting aloud visually) and three fresh orbs fall, with the correct one gently pulsing.",
-        "reward": "The comet reaches the final story-seal, both trail segments fully lit, and it bursts through into a hidden alcove of swirling starlight revealing a locked treasure silhouette, with a 'Story Sprint Complete!' banner and whoosh."
+        "objective": "Tap the total block that matches how many items are in the grouped cargo, to load the crane's crate",
+        "childAction": "Child taps the one stationary block showing the correct total quantity",
+        "worldReaction": "Correct block flies up and fills the crate with a satisfying clunk and glow; crane lifts the loaded crate happily; wrong block causes a soft buzz and the crate stays empty",
+        "anticipation": "The crate pulses gently, showing it is ready and waiting to be filled",
+        "progress": "A stationary harbor progress shelf gains one more loaded crate icon per correct answer",
+        "recovery": "Wrong tap: gentle buzz, block returns to its row, crate remains empty and ready, no penalty, try again immediately",
+        "reward": "After both crates loaded, the crane does a happy swing dance, cheerful music plays, and a 'Crane Master' badge appears"
       },
       "questions": [
         {
           "id": "q1",
-          "prompt": "Mrs. K puts 5 pencils in each of 4 boxes. How many pencils are there in all?",
+          "prompt": "Mrs. K puts 5 pencils in each of 4 boxes. How many pencils in all?",
           "options": [
             {
               "label": "20",
@@ -424,50 +734,75 @@
               "correct": false
             },
             {
-              "label": "45",
+              "label": "15",
               "correct": false
             }
           ]
         },
         {
           "id": "q2",
-          "prompt": "There are 3 rows of 10 stars. How many stars are there?",
+          "prompt": "There are 3 rows of 10 stars. How many stars in all?",
           "options": [
-            {
-              "label": "30",
-              "correct": true
-            },
             {
               "label": "13",
               "correct": false
             },
             {
-              "label": "103",
+              "label": "30",
+              "correct": true
+            },
+            {
+              "label": "33",
               "correct": false
             }
           ]
         }
       ],
       "acceptanceSteps": [
-        "launch comet-run-word-problems and verify story-seal track renders with trail meter at 0",
-        "tap an incorrect orb for the pencil-box story seal and verify comet loops back with no trail advance",
-        "tap the correct orb (20) for pencil-box seal and verify trail lights and comet advances",
-        "tap the correct orb (30) for star-rows seal and verify trail completes",
-        "verify comet reaches final story-seal, alcove opens, and completion banner is visible"
+        "launch /activities/word-problem-crane",
+        "attempt incorrect block on first problem",
+        "verify recovery (buzz, crate empty, block returns)",
+        "answer both problems correctly",
+        "verify progress shelf update and completion badge visible"
       ],
-      "acceptanceScript": "const q = (id) => page.locator(`[data-testid=\"${id}\"]`);\nawait page.goto(BASE_URL + '/activities/comet-run-word-problems');\nawait q('story-comet-track').waitFor({state:'visible'});\nconst trailStart = await q('story-trail-meter').getAttribute('data-lit');\nif (trailStart !== '0') throw new Error('Story trail meter should start at 0');\n\nconst wrongOrb = q('orb-pencils-9');\nawait wrongOrb.dispatchEvent('pointerdown');\nawait wrongOrb.dispatchEvent('pointerup');\nawait q('comet-loop-indicator').waitFor({state:'visible'});\nconst trailAfterWrong = await q('story-trail-meter').getAttribute('data-lit');\nif (trailAfterWrong !== '0') throw new Error('Trail should not advance on incorrect tap');\n\nconst rightOrbPencils = q('orb-pencils-20');\nawait rightOrbPencils.dispatchEvent('pointerdown');\nawait rightOrbPencils.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-trail-meter\"]')?.getAttribute('data-lit') === '1');\n\nconst rightOrbStars = q('orb-stars-30');\nawait rightOrbStars.dispatchEvent('pointerdown');\nawait rightOrbStars.dispatchEvent('pointerup');\nawait page.waitForFunction(() => document.querySelector('[data-testid=\"story-trail-meter\"]')?.getAttribute('data-lit') === '2');\n\nconst finalTrail = await q('story-trail-meter').getAttribute('data-lit');\nif (finalTrail !== '2') throw new Error('Both story trail segments should be lit');\nconst cometArrived = await q('story-comet-track').getAttribute('data-arrived');\nif (cometArrived !== 'true') throw new Error('Comet should have arrived at final story seal');\nconst alcoveOpen = await q('story-alcove').getAttribute('data-open');\nif (alcoveOpen !== 'true') throw new Error('Story alcove should open after both seals lit');\nawait q('completion-banner').waitFor({state:'visible'});\nreturn {passed:true};"
+      "creatorPrompt": "Build 'Crane Crate Puzzle' using the two exact word problems from the assignment (5 pencils x 4 boxes; 3 rows of 10 stars), one at a time. Show grouped cargo visually matching the problem structure (4 groups of 5 pencil-boxes; 3 rows of 10 stars) fixed near top/center, with a friendly crane holding an empty crate fixed center screen. Present exactly 3 stationary total-answer blocks (data-testid='answer-option') below that the child taps (tap only, no drag) to load the crate. Include 'Show me' demo using a different simple example, and 'Let me try' toggle. Sound toggle visible, audio initializes after first gesture. Wrong tap: buzz, block returns to row, crate stays empty, no penalty. Correct tap: block flies into crate with clunk+glow, crane lifts crate happily, one loaded-crate icon added to a fixed progress shelf. After both problems solved, crane victory dance + music + 'Crane Master' badge. Practice/teaching evidence only, no mastery/unlock claims. Title 'Crane Crate Puzzle' visible in opening viewport with background artwork loaded.",
+      "designPrediction": "This puzzle-framed word-problem activity will show comparable accuracy to route-a's delivery dash since both use identical single-tap total-selection mechanics; any engagement difference will show in replay/liked signals rather than accuracy given held-constant difficulty.",
+      "preserve": [
+        "single word problem at a time",
+        "stationary crate and answer blocks",
+        "visually grouped cargo matching problem structure"
+      ],
+      "change": [
+        "ensure exact assignment wording is preserved verbatim"
+      ],
+      "explore": [
+        "whether crane/loading framing feels more satisfying than glider/delivery framing to this child"
+      ],
+      "avoid": [
+        "drag-and-drop",
+        "simultaneous multiple problems on screen"
+      ],
+      "measurementKeys": [
+        "interaction.timeToFirstValidActionMs",
+        "interaction.invalidActionCount",
+        "interaction.demoRequested",
+        "academic.accuracy",
+        "academic.completed",
+        "engagement.frustrationScore"
+      ],
+      "acceptanceScript": "await page.goto(`${BASE_URL}/activities/word-problem-crane`); await page.waitForSelector('[data-testid=\"activity-title\"]'); const title=await page.locator('[data-testid=\"activity-title\"]').innerText(); if(!title.includes('Crane Crate Puzzle')) throw new Error('Title missing'); const answers=['20','30']; for(let i=0;i<2;i++){ const opts=page.locator('[data-testid=\"answer-option\"]'); await opts.first().waitFor({state:'visible'}); const texts=await opts.allTextContents(); const correctIdx=texts.findIndex(t=>t.trim()===answers[i]); if(correctIdx===-1) throw new Error('Correct total missing round '+i); if(i===0){ const wrongIdx=texts.findIndex((t,idx)=>idx!==correctIdx); await opts.nth(wrongIdx).click(); const recovery=page.locator('[data-testid=\"recovery-feedback\"]'); await recovery.waitFor({state:'visible',timeout:5000}); const stillThere=await page.locator('[data-testid=\"answer-option\"]').count(); if(stillThere<2) throw new Error('Blocks vanished'); } const opts2=page.locator('[data-testid=\"answer-option\"]'); const texts2=await opts2.allTextContents(); const idx2=texts2.findIndex(t=>t.trim()===answers[i]); await opts2.nth(idx2).click(); await page.waitForTimeout(500);} const completion=page.locator('[data-testid=\"completion-badge\"]'); await completion.waitFor({state:'visible',timeout:8000}); if(!(await completion.isVisible())) throw new Error('Completion not visible'); return {passed:true};"
     }
   ],
   "quest": {
     "title": "Quest",
     "locked": true,
-    "teaser": "Somewhere past the vault, a shimmering star-map hints at a Quest: chaining skip-counting patterns across x2, x5, and x10 to chart a path to a hidden constellation. Locked until the vault gates open.",
-    "artworkPrompt": "A glowing starlit path leading away from the vault into a swirling nebula shaped like a locked treasure map, faint constellation lines forming multiplication symbols, deep purples and golds, mysterious and inviting, painterly fantasy style, no readable text."
+    "teaser": "A legendary trading tower awaits beyond the harbor -- unlock it by mastering your facts!",
+    "artworkPrompt": "A tall misty tower rising above the clouds at the edge of the sky-harbor world, glowing faintly with locked golden chains and sparkling light, seen from a distance"
   },
   "boss": {
     "title": "Boss",
     "locked": true,
-    "teaser": "Deep within the final chamber waits the Star Warden, a guardian who tests every fact and every story at once. Its challenge stays sealed until both vault gates have been cracked.",
-    "artworkPrompt": "A massive shadowy guardian made of interlocking gear-rings and comet-light, standing before a colossal sealed door glowing with faint multiplication symbols, dramatic warm backlighting, epic but friendly fantasy style, no readable text."
+    "teaser": "A giant beacon puzzle waits on the horizon for true multiplication masters.",
+    "artworkPrompt": "A massive glowing beacon lighthouse on a distant cliff at the edge of the sky-harbor world, wrapped in soft locked chains, glimmering under a starry dusk sky"
   }
 }

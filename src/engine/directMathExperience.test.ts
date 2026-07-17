@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   EXPERIENCE_DESIGN_CONSTITUTION,
+  askDirectMathPlanner,
   applyDirectArtifactEdits,
   acceptanceScriptBody,
   boardPosition,
@@ -12,9 +13,11 @@ import {
   buildDirectActivityRepairPrompt,
   buildDirectLearningCycleInput,
   creatorPromptHash,
+  directArtifactContractFailures,
   hasReadyDirectMathExperience,
   isCompleteGeneratedHtml,
   parseDirectLearningExperiencePlan,
+  routeNodePosition,
   shouldReuseDirectArtifact,
   normalizeDirectArtifactEdits,
   normalizeGeneratedHtml,
@@ -29,6 +32,7 @@ function plan(activityCount = 3) {
     academicTarget: "multiplication",
     mechanic: `mechanic-${index + 1}`,
     engagementVariable: index % 2 === 0 ? "strategy" : "visual",
+    responsibilityId: "equal-groups",
     visualMock: { scene: "A vivid interactive world", layout: "Clear play area", artworkPrompt: "Vibrant child-safe game icon" },
     experience: {
       objective: "Practice multiplication",
@@ -62,6 +66,12 @@ function plan(activityCount = 3) {
     title: "Multiplication Adventure",
     academicTheory: "Measure multiplication understanding through meaningful play.",
     profileEvidence: ["chart:reina"],
+    learningResponsibilities: [{
+      id: "equal-groups",
+      title: "Equal Groups",
+      purpose: "Connect equal groups to multiplication and solve the resulting quantity.",
+      academicTarget: "multiplication",
+    }],
     boardWorld: { title: "The Hidden Signal", narrative: "Choose a route to restore the signal.", backgroundPrompt: "Magical strategy landscape" },
     fork: {
       question: "Which route should we explore?",
@@ -79,6 +89,26 @@ function plan(activityCount = 3) {
 }
 
 describe("direct math experience", () => {
+  it("asks the same Planner once to complete an invalid board instead of blocking ingestion", async () => {
+    const validPlan = plan(4);
+    const create = vi.fn()
+      .mockResolvedValueOnce({ content: [{ type: "tool_use", name: "create_learning_experience_plan", input: { ...validPlan, activities: [] } }] })
+      .mockResolvedValueOnce({ content: [{ type: "tool_use", name: "create_learning_experience_plan", input: validPlan }] });
+    const parsed = await askDirectMathPlanner({
+      childId: "reina",
+      chart: {
+        identity: {}, demographics: {}, engagementTheory: null, factBankSummary: {},
+        learningProfile: { rewardPreferences: [], sessionStats: {}, activityModel: {}, activityTraitModel: {} },
+        decisionTrace: { latest: null },
+      } as never,
+      extraction: { fullText: "Multiplication assignment" } as never,
+      client: { messages: { create } } as never,
+    });
+    expect(parsed.activities).toHaveLength(4);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[1]?.[0]?.messages?.[0]?.content).toContain("direct_plan_requires_activities");
+  });
+
   it("keeps the planner-selected activity count instead of forcing two nodes", () => {
     expect(parseDirectLearningExperiencePlan(plan(3)).activities).toHaveLength(3);
     expect(parseDirectLearningExperiencePlan(plan(5)).activities).toHaveLength(5);
@@ -88,8 +118,65 @@ describe("direct math experience", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("decompose the assignment into distinct learning responsibilities");
     expect(source).toContain("Give each activity one primary learning responsibility");
+    expect(source).toContain("never return an empty activity list");
     expect(source).toContain("There is no fixed activity count");
     expect(source).not.toContain("Generate exactly four activities");
+    expect(source).toContain("SUNNY_PLANNER_MAX_TOKENS ?? 20000");
+    expect(source).toContain("SUNNY_GENERATION_MAX_TOKENS ?? 12000");
+  });
+
+  it("requires every route to cover every AI-declared responsibility in a coherent order", () => {
+    const complete = plan(4);
+    complete.learningResponsibilities = [
+      { id: "facts", title: "Fact Relationships", purpose: "Reason through x2, x5, and x10 facts.", academicTarget: "multiplication facts" },
+      { id: "stories", title: "Equal-Group Stories", purpose: "Translate equal-group stories into multiplication.", academicTarget: "word problems" },
+    ];
+    complete.activities.forEach((activity, index) => {
+      const responsibility = index < 2 ? complete.learningResponsibilities[0]! : complete.learningResponsibilities[1]!;
+      activity.responsibilityId = responsibility.id;
+      activity.academicTarget = responsibility.academicTarget;
+    });
+    const parsed = parseDirectLearningExperiencePlan(complete);
+    expect(parsed.activities).toHaveLength(4);
+    expect(parsed.activities.map((activity) => activity.learningPurpose)).toEqual([
+      complete.learningResponsibilities[0]!.purpose,
+      complete.learningResponsibilities[0]!.purpose,
+      complete.learningResponsibilities[1]!.purpose,
+      complete.learningResponsibilities[1]!.purpose,
+    ]);
+
+    const incomplete = structuredClone(complete);
+    incomplete.activities[3]!.responsibilityId = "facts";
+    incomplete.activities[3]!.academicTarget = "multiplication facts";
+    expect(() => parseDirectLearningExperiencePlan(incomplete))
+      .toThrow("direct_plan_route_missing_responsibility:route-b:stories");
+
+    const outOfOrder = structuredClone(complete);
+    [outOfOrder.activities[0]!.responsibilityId, outOfOrder.activities[2]!.responsibilityId] = [
+      outOfOrder.activities[2]!.responsibilityId,
+      outOfOrder.activities[0]!.responsibilityId,
+    ];
+    [outOfOrder.activities[0]!.academicTarget, outOfOrder.activities[2]!.academicTarget] = [
+      outOfOrder.activities[2]!.academicTarget,
+      outOfOrder.activities[0]!.academicTarget,
+    ];
+    expect(() => parseDirectLearningExperiencePlan(outOfOrder))
+      .toThrow("direct_plan_route_responsibility_order_invalid:route-a");
+  });
+
+  it("accepts an AI-selected curriculum with three responsibilities and six activities", () => {
+    const variable = plan(6);
+    variable.learningResponsibilities = [
+      { id: "facts", title: "Fact Relationships", purpose: "Reason through multiplication facts.", academicTarget: "facts" },
+      { id: "groups", title: "Equal Groups", purpose: "Build equal groups.", academicTarget: "groups" },
+      { id: "stories", title: "Story Translation", purpose: "Translate stories into multiplication.", academicTarget: "stories" },
+    ];
+    variable.activities.forEach((activity, index) => {
+      const responsibility = variable.learningResponsibilities[Math.floor(index / 2)]!;
+      activity.responsibilityId = responsibility.id;
+      activity.academicTarget = responsibility.academicTarget;
+    });
+    expect(parseDirectLearningExperiencePlan(variable).activities).toHaveLength(6);
   });
 
   it("projects every AI-selected node and prediction into one canonical assignment cycle", () => {
@@ -182,6 +269,24 @@ describe("direct math experience", () => {
     expect(prompt).toContain(JSON.stringify(activity.questions, null, 2));
     expect(prompt).toContain("render the next question synchronously");
     expect(prompt).toContain("separate reward marker");
+    expect(prompt).toContain('data-testid="primary-instruction"');
+    expect(prompt).toContain('data-testid="sound-toggle"');
+    expect(prompt).toContain('type:"activity_ready"');
+    expect(prompt).toContain('type:"progress_event"');
+  });
+
+  it("requires generated artifacts to contain sound and the factual runtime protocol", () => {
+    const valid = `<!doctype html><html><body><p data-testid="primary-instruction">Tap a group to begin.</p><button data-testid="sound-toggle">Sound</button><script>const audio=new AudioContext();window.parent.postMessage({type:"activity_ready"},"*");window.parent.postMessage({type:"attempt_event"},"*");window.parent.postMessage({type:"progress_event"},"*");window.parent.postMessage({type:"node_complete"},"*");</script></body></html>`;
+    expect(directArtifactContractFailures(valid)).toEqual([]);
+    expect(directArtifactContractFailures("<!doctype html><html><body></body></html>")).toEqual([
+      "primary_instruction_missing",
+      "sound_toggle_missing",
+      "audio_implementation_missing",
+      "activity_ready_event_missing",
+      "attempt_event_missing",
+      "progress_event_missing",
+      "node_complete_event_missing",
+    ]);
   });
 
   it("regenerates HTML when adaptive Planner directives change", () => {
@@ -254,6 +359,20 @@ describe("direct math experience", () => {
     });
     expect(report.passed).toBe(false);
     expect(repair).toHaveBeenCalledTimes(5);
+  });
+
+  it("keeps the bounded browser loop alive when one AI patch names a missing anchor", async () => {
+    let runs = 0;
+    const repair = vi.fn()
+      .mockRejectedValueOnce(new Error("direct_activity_repair_anchor_missing"))
+      .mockResolvedValue(1);
+    const report = await runDirectAcceptanceRepairLoop({
+      runAcceptance: async () => ({ passed: ++runs >= 3, failures: runs >= 3 ? [] : ["node:contract-failure"], screenshots: [] }),
+      repair,
+      maxRepairs: 5,
+    });
+    expect(report.passed).toBe(true);
+    expect(repair).toHaveBeenCalledTimes(2);
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
@@ -363,5 +482,7 @@ describe("direct math experience", () => {
 
   it("writes board coordinates in the renderer's normalized 0-to-1 space", () => {
     expect(boardPosition(8, 78)).toEqual({ x: 0.08, y: 0.78 });
+    expect(routeNodePosition(0, 4, 0).x).toBeLessThan(routeNodePosition(3, 4, 0).x);
+    expect(routeNodePosition(3, 4, 0).x).toBeLessThan(0.82);
   });
 });

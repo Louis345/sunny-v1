@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "nodeId": "word-problem-delivery",
+  "creatorPrompt": "Build 'Skyharbor Delivery Dash' using the two exact word problems from the assignment: (1) 5 pencils in each of 4 boxes, (2) 3 rows of 10 stars. Show the cargo visually grouped and animated arriving (pencil boxes arranged 4 groups of 5; stars arranged 3 rows of 10) so the visual matches the math structure. Present ONE word problem at a time. Below the animated scene, present exactly 3 stationary answer-total tiles (data-testid='answer-option') that never change position when tapped. Include 'Show me' demo using a different example (e.g., 2 groups of 2) and 'Let me try' toggle. Sound toggle visible, audio initializes after first gesture. Wrong tap: tile dims/shakes, soft chime, cargo and tiles remain in place for retry. Correct tap: 'Delivered!' stamp animation, chime, glider flies to next island, one star icon added to a fixed progress route map. After both problems solved, play a full completion celebration (blimp banner + music) — practice/teaching evidence only, no mastery/unlock claims. Title 'Skyharbor Delivery Dash' visible in opening viewport with background artwork loaded.",
+  "promptHash": "51b6e1770d72842931ef3e0690abfdaa70a4dcafd799d4f73bec764fde2bc4d9",
+  "plannerModel": "claude-sonnet-5",
+  "creatorModel": "claude-sonnet-5"
+}

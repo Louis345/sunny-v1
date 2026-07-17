@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crane Crate Puzzle</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: 'Comic Sans MS', 'Trebuchet MS', sans-serif;
+    background: linear-gradient(180deg, #8fd3f4 0%, #a1e9c5 55%, #f6e58d 100%);
+    overflow-x: hidden; min-height: 100vh;
+  }
+  .world {
+    background-image: url('/generated/direct-math/hw-math-a179d2a0-word-problem-crane.jpeg');
+    background-size: cover; background-position: center 30%;
+    min-height: 100vh; position: relative;
+    background-color: rgba(135,206,250,0.3); background-blend-mode: overlay;
+    padding-bottom: 20px;
+  }
+  header {
+    text-align: center; padding: 10px 10px 4px;
+    background: rgba(255,255,255,0.75); border-bottom: 4px solid #2874a6;
+  }
+  h1[data-testid="activity-title"] {
+    margin: 2px 0; font-size: 2em; color: #1a4e73; text-shadow: 1px 1px 0 #fff;
+  }
+  #primary-instruction {
+    background: #fff8dc; border: 3px dashed #e67e22; border-radius: 14px;
+    padding: 8px 14px; margin: 6px auto; max-width: 700px; font-size: 1.15em;
+    font-weight: bold; color: #7a3e00; text-align: center;
+  }
+  .topbar { display:flex; justify-content:center; gap:10px; margin-top:4px; flex-wrap:wrap;}
+  button.ctrl {
+    background:#2874a6; color:#fff; border:none; border-radius:10px; padding:8px 14px;
+    font-size:0.95em; cursor:pointer; font-weight:bold;
+  }
+  button.ctrl.active { background:#1e8449; }
+  #sound-toggle { background:#8e44ad; }
+  .problem-banner {
+    margin: 10px auto; max-width: 700px; background: rgba(255,255,255,0.92);
+    border-radius: 16px; padding: 10px 16px; text-align:center; font-size:1.2em;
+    color:#154360; font-weight:bold; box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+  }
+  .cargo-area {
+    display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap;
+    margin: 8px auto; max-width: 720px; min-height: 90px;
+  }
+  .pencilbox-group {
+    background:#deb887; border:2px solid #8b5a2b; border-radius:8px; padding:6px 8px;
+    display:flex; gap:3px;
+  }
+  .pencil { width:8px; height:36px; background:linear-gradient(#f1c40f,#e67e22); border-radius:2px; }
+  .star-row { display:flex; gap:4px; background:#2c3e50; border-radius:8px; padding:6px 10px; }
+  .star { font-size:1.4em; color:#f1c40f; }
+
+  .stage {
+    position: relative; height: 220px; display:flex; justify-content:center; align-items:flex-end;
+    margin-top: 4px;
+  }
+  .crane-wrap { position:relative; width:220px; text-align:center; }
+  .crane-arm {
+    width: 140px; height: 10px; background:#c0392b; margin: 0 auto; border-radius:4px;
+    position:relative; left: -10px;
+  }
+  .crane-tower { width:16px; height:100px; background:#7f8c8d; margin:0 auto; }
+  .cable { width:2px; height:40px; background:#555; margin:0 auto; }
+  .crate {
+    width:70px; height:60px; background: linear-gradient(#a5673f,#7b4a26);
+    border:3px solid #5a3417; border-radius:6px; margin:0 auto;
+    display:flex; align-items:center; justify-content:center; font-size:1.6em; color:#fff;
+    transition: transform 0.4s, box-shadow 0.4s;
+  }
+  .crate.pulse { animation: pulseGlow 1.4s infinite; }
+  @keyframes pulseGlow {
+    0%,100% { box-shadow: 0 0 6px 2px rgba(255,255,0,0.4); }
+    50% { box-shadow: 0 0 16px 8px rgba(255,255,0,0.7); }
+  }
+  .crate.loaded { background: linear-gradient(#f9e79f,#d4ac0d); box-shadow: 0 0 20px 10px gold; }
+  .crane-lift { transform: translateY(-25px); }
+  .crane-dance { animation: dance 0.6s ease-in-out infinite; }
+  @keyframes dance {
+    0%,100% { transform: rotate(-6deg); }
+    50% { transform: rotate(6deg); }
+  }
+  .fly-token {
+    position:absolute; font-size:1.5em; font-weight:bold; color:#154360;
+    background:#f9e79f; border:2px solid #d4ac0d; border-radius:8px; padding:4px 10px;
+    transition: all 0.6s ease-in;
+    z-index: 10;
+  }
+
+  .answers {
+    display:flex; justify-content:center; gap:20px; margin: 14px auto; flex-wrap:wrap;
+  }
+  .answer-option {
+    background:#3498db; color:#fff; border:none; border-radius:14px;
+    font-size:1.6em; font-weight:bold; padding:18px 28px; cursor:pointer;
+    box-shadow:0 4px 0 #21618c; transition: transform 0.15s;
+    min-width:90px;
+  }
+  .answer-option:active { transform: translateY(3px); box-shadow:0 1px 0 #21618c; }
+  .answer-option.wrong-shake { animation: shake 0.4s; background:#e74c3c; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0);} 25%{transform:translateX(-8px);} 75%{transform:translateX(8px);}
+  }
+  .answer-option.correct-fade { visibility: hidden; }
+
+  #recovery-feedback {
+    text-align:center; color:#c0392b; font-weight:bold; font-size:1.1em;
+    min-height: 26px; margin-top: -4px;
+  }
+
+  .shelf {
+    position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,0.9); border-radius: 12px; padding: 8px 14px;
+    display:flex; gap:8px; align-items:center; font-weight:bold; color:#154360;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3); z-index: 20;
+  }
+  .shelf .icon { font-size:1.4em; }
+
+  #completion-badge {
+    display:none; position: fixed; top: 50%; left:50%; transform: translate(-50%,-50%);
+    background: radial-gradient(circle, #fff8dc, #f1c40f);
+    border: 6px solid #b7950b; border-radius: 20px; padding: 24px 34px;
+    text-align:center; font-size:1.6em; color:#7a3e00; font-weight:bold;
+    box-shadow: 0 0 40px rgba(0,0,0,0.4); z-index: 50;
+  }
+  .gull { position:absolute; font-size:1.4em; animation: flygull 8s linear infinite; opacity:0.8; }
+  @keyframes flygull {
+    from { transform: translateX(-50px); } to { transform: translateX(110vw); }
+  }
+  .demo-box {
+    max-width: 700px; margin: 6px auto; background:#eafaf1; border:2px dashed #27ae60;
+    border-radius: 12px; padding: 8px 12px; text-align:center; display:none;
+  }
+  .demo-box.show { display:block; }
+  #sunny-companion { position: fixed; bottom: 60px; right: 10px; z-index: 15; }
+</style>
+</head>
+<body>
+<div class="world" id="world">
+  <span class="gull" style="top:20px;">🕊️</span>
+  <span class="gull" style="top:60px; animation-delay:3s;">🕊️</span>
+  <header>
+    <h1 data-testid="activity-title">Crane Crate Puzzle</h1>
+    <div id="primary-instruction" data-testid="primary-instruction">Tap the block that shows the correct total to load the crane's crate!</div>
+    <div class="topbar">
+      <button class="ctrl" id="show-me-btn">🎬 Show me</button>
+      <button class="ctrl" id="let-try-btn">✋ Let me try</button>
+      <button class="ctrl" id="sound-toggle" data-testid="sound-toggle">🔊 Sound On</button>
+    </div>
+  </header>
+
+  <div class="demo-box" id="demo-box">
+    <strong>Demo: 2 groups of 3 apples</strong>
+    <div style="display:flex; justify-content:center; gap:14px; margin:6px 0;">
+      <span>🍎🍎🍎</span><span>🍎🍎🍎</span>
+    </div>
+    <div id="demo-anim" style="font-size:1.3em;">Watch the crate fill with the correct total... (this is just an example, not today's answer!)</div>
+  </div>
+
+  <div class="problem-banner" data-testid="problem-banner" id="problem-banner"></div>
+  <div class="cargo-area" id="cargo-area"></div>
+
+  <div class="stage">
+    <div class="crane-wrap" id="crane-wrap">
+      <div class="crane-tower"></div>
+      <div class="crane-arm"></div>
+      <div class="cable"></div>
+      <div class="crate pulse" id="crate">📦</div>
+    </div>
+  </div>
+
+  <div id="recovery-feedback" data-testid="recovery-feedback" style="visibility:hidden;">Oops! Try again — the crate is still empty!</div>
+
+  <div class="answers" id="answers"></div>
+
+  <div class="shelf" id="shelf">
+    <span>🏗️ Loaded crates:</span>
+    <span id="shelf-icons"></span>
+  </div>
+
+  <div id="completion-badge" data-testid="completion-badge">
+    🏆 Crane Master! 🏆<br>
+    <span style="font-size:0.7em;">Great practice today, Reina!</span>
+  </div>
+</div>
+<div id="sunny-companion"></div>
+
+<script>
+(function(){
+  const questions = [
+    {id:'q1', prompt:"Mrs. K puts 5 pencils in each of 4 boxes. How many pencils in all?",
+     options:[{label:'20',correct:true},{label:'9',correct:false},{label:'15',correct:false}],
+     cargoType:'pencils'},
+    {id:'q2', prompt:"There are 3 rows of 10 stars. How many stars in all?",
+     options:[{label:'13',correct:false},{label:'30',correct:true},{label:'33',correct:false}],
+     cargoType:'stars'}
+  ];
+
+  let currentIndex = 0;
+  let completedItems = 0;
+  let soundMuted = false;
+  let audioCtx = null;
+  let firstGestureDone = false;
+  let demoRequested = 0;
+  let demoReplayCount = 0;
+  let invalidActionCount = 0;
+  let timeToFirstValidActionMs = null;
+  const startTime = performance.now();
+  let letTryMode = false;
+
+  function post(type, payload){
+    window.parent.postMessage({type, payload}, "*");
+  }
+
+  function initAudio(){
+    if (audioCtx || soundMuted) return;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e){ audioCtx = null; }
+  }
+
+  function tone(freq, dur, type, vol){
+    if (!audioCtx || soundMuted) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = vol || 0.15;
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.stop(audioCtx.currentTime + dur);
+  }
+
+  function soundInteraction(){ tone(440, 0.15, 'sine', 0.12); }
+  function soundRecovery(){ tone(180, 0.3, 'sawtooth', 0.12); }
+  function soundProgress(){ tone(660, 0.12, 'triangle', 0.15); setTimeout(()=>tone(880,0.18,'triangle',0.15), 130); }
+  function soundCompletion(){
+    [523,659,784,1046].forEach((f,i)=> setTimeout(()=>tone(f,0.3,'sine',0.16), i*180));
+  }
+
+  function firstGesture(){
+    if (!firstGestureDone){
+      firstGestureDone = true;
+      initAudio();
+    }
+  }
+
+  function renderCargo(q){
+    const area = document.getElementById('cargo-area');
+    area.innerHTML = '';
+    if (q.cargoType === 'pencils'){
+      for (let g=0; g<4; g++){
+        const grp = document.createElement('div');
+        grp.className = 'pencilbox-group';
+        for (let p=0;p<5;p++){
+          const pen = document.createElement('div');
+          pen.className='pencil';
+          grp.appendChild(pen);
+        }
+        area.appendChild(grp);
+      }
+    } else if (q.cargoType === 'stars'){
+      for (let r=0;r<3;r++){
+        const row = document.createElement('div');
+        row.className = 'star-row';
+        for (let s=0;s<10;s++){
+          const st = document.createElement('span');
+          st.className='star'; st.textContent='⭐';
+          row.appendChild(st);
+        }
+        area.appendChild(row);
+      }
+    }
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for (let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  let currentOptionOrder = [];
+
+  function renderQuestion(){
+    const q = questions[currentIndex];
+    document.getElementById('problem-banner').textContent = q.prompt;
+    renderCargo(q);
+    const crate = document.getElementById('crate');
+    crate.classList.remove('loaded','crane-lift');
+    crate.classList.add('pulse');
+    crate.textContent = '📦';
+    document.getElementById('crane-wrap').classList.remove('crane-lift');
+    document.getElementById('recovery-feedback').style.visibility = 'hidden';
+
+    const answersDiv = document.getElementById('answers');
+    answersDiv.innerHTML = '';
+    currentOptionOrder = shuffle(q.options);
+    currentOptionOrder.forEach((opt) => {
+      const btn = document.createElement('button');
+      btn.className = 'answer-option';
+      btn.setAttribute('data-testid','answer-option');
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => handleAnswer(opt, btn, q));
+      answersDiv.appendChild(btn);
+    });
+  }
+
+  function handleAnswer(opt, btnEl, q){
+    firstGesture();
+    if (timeToFirstValidActionMs === null){
+      // record on first tap attempt regardless of correctness (first valid interaction)
+      timeToFirstValidActionMs = Math.round(performance.now() - startTime);
+    }
+    const responseTimeMs = Math.round(performance.now() - startTime);
+    const targetId = q.id;
+
+    if (!opt.correct){
+      invalidActionCount++;
+      post('attempt_event', {domain:'math', targetId, correct:false, responseTimeMs});
+      btnEl.classList.add('wrong-shake');
+      soundRecovery();
+      const rec = document.getElementById('recovery-feedback');
+      rec.style.visibility = 'visible';
+      rec.textContent = 'Oops! Try again — the crate is still empty!';
+      setTimeout(() => {
+        btnEl.classList.remove('wrong-shake');
+      }, 400);
+      return;
+    }
+
+    // Correct
+    post('attempt_event', {domain:'math', targetId, correct:true, responseTimeMs});
+    soundInteraction();
+    document.getElementById('recovery-feedback').style.visibility = 'hidden';
+
+    // fly animation
+    const rect = btnEl.getBoundingClientRect();
+    const crateEl = document.getElementById('crate');
+    const crateRect = crateEl.getBoundingClientRect();
+    const flying = document.createElement('div');
+    flying.className = 'fly-token';
+    flying.textContent = opt.label;
+    flying.style.left = rect.left + 'px';
+    flying.style.top = rect.top + 'px';
+    document.body.appendChild(flying);
+    requestAnimationFrame(() => {
+      flying.style.left = (crateRect.left + crateRect.width/2 - 20) + 'px';
+      flying.style.top = (crateRect.top + crateRect.height/2 - 15) + 'px';
+      flying.style.transform = 'scale(0.4)';
+      flying.style.opacity = '0.3';
+    });
+
+    btnEl.classList.add('correct-fade');
+
+    setTimeout(() => {
+      flying.remove();
+      crateEl.classList.remove('pulse');
+      crateEl.classList.add('loaded');
+      crateEl.textContent = '🎁';
+      document.getElementById('crane-wrap').classList.add('crane-lift');
+      tone(523,0.25,'square',0.15);
+      setTimeout(()=>tone(392,0.15,'square',0.1), 120);
+
+      // progress shelf
+      completedItems++;
+      const shelfIcons = document.getElementById('shelf-icons');
+      const icon = document.createElement('span');
+      icon.className = 'icon';
+      icon.textContent = '📦✅ ';
+      shelfIcons.appendChild(icon);
+      soundProgress();
+      post('progress_event', {nodeId:'word-problem-crane', completedItems, totalItems: questions.length});
+
+      setTimeout(() => {
+        if (currentIndex < questions.length - 1){
+          currentIndex++;
+          renderQuestion();
+        } else {
+          finishActivity();
+        }
+      }, 900);
+    }, 620);
+  }
+
+  function finishActivity(){
+    const craneWrap = document.getElementById('crane-wrap');
+    craneWrap.classList.add('crane-dance');
+    soundCompletion();
+    const badge = document.getElementById('completion-badge');
+    badge.style.display = 'block';
+    post('node_complete', {
+      nodeId: 'word-problem-crane',
+      completed: true,
+      attempts: {
+        timeToFirstValidActionMs,
+        invalidActionCount,
+        demoRequested,
+        demoReplayCount,
+        soundMuted
+      }
+    });
+  }
+
+  document.getElementById('sound-toggle').addEventListener('click', (e) => {
+    firstGesture();
+    soundMuted = !soundMuted;
+    const btn = e.currentTarget;
+    btn.textContent = soundMuted ? '🔇 Sound Off' : '🔊 Sound On';
+    btn.classList.toggle('active', !soundMuted);
+  });
+
+  document.getElementById('show-me-btn').addEventListener('click', () => {
+    firstGesture();
+    const demoBox = document.getElementById('demo-box');
+    const wasShown = demoBox.classList.contains('show');
+    if (wasShown){
+      demoReplayCount++;
+    } else {
+      demoRequested++;
+    }
+    demoBox.classList.add('show');
+    const demoAnim = document.getElementById('demo-anim');
+    demoAnim.textContent = 'Two groups of three apples makes six apples total — the crate would fill with 6! (Just an example)';
+    soundInteraction();
+    setTimeout(() => {
+      demoAnim.textContent = 'Try the real problem below now — tap the total that matches the cargo!';
+    }, 2200);
+  });
+
+  document.getElementById('let-try-btn').addEventListener('click', (e) => {
+    firstGesture();
+    letTryMode = !letTryMode;
+    const demoBox = document.getElementById('demo-box');
+    demoBox.classList.remove('show');
+    e.currentTarget.classList.toggle('active', letTryMode);
+  });
+
+  // init
+  renderQuestion();
+  post('activity_ready', {nodeId:'word-problem-crane'});
+})();
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
   "childId": "reina",
   "version": 1,
   "createdAt": "2026-04-04T00:00:00.000Z",
-  "lastUpdated": "2026-07-13T10:12:03.941Z",
+  "lastUpdated": "2026-07-17T21:08:42.644Z",
   "demographics": {
     "age": 7,
     "grade": 2,
@@ -222,7 +222,7 @@
       0,
       0,
       0,
-      17,
+      20,
       0
     ],
     "values": [
@@ -250,7 +250,7 @@
       0,
       0,
       0,
-      0.18067226890756305,
+      0.18857142857142858,
       0
     ]
   },
@@ -274,37 +274,37 @@
   "activityModel": {
     "spell-check": {
       "activityId": "spell-check",
-      "plays": 161,
-      "completions": 161,
+      "plays": 167,
+      "completions": 167,
       "completionRate": 1,
       "averageAccuracy": 1,
-      "averageTimePerTarget_ms": 4162.874,
+      "averageTimePerTarget_ms": 4142.651,
       "engagementScore": 0.992,
       "frustrationScore": 0.1,
-      "likedCount": 161,
+      "likedCount": 167,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T14:20:24.491Z",
+      "lastPlayed": "2026-07-17T16:25:37.054Z",
       "domains": {
-        "spelling": 161
+        "spelling": 167
       },
       "missedWords": []
     },
     "word-radar": {
       "activityId": "word-radar",
-      "plays": 108,
-      "completions": 108,
+      "plays": 112,
+      "completions": 112,
       "completionRate": 1,
       "averageAccuracy": 0.655,
-      "averageTimePerTarget_ms": 1983.396,
+      "averageTimePerTarget_ms": 1976.846,
       "engagementScore": 0.859,
       "frustrationScore": 0.271,
-      "likedCount": 108,
+      "likedCount": 112,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T14:20:24.478Z",
+      "lastPlayed": "2026-07-17T16:25:37.049Z",
       "domains": {
-        "spelling": 108
+        "spelling": 112
       },
       "missedWords": [
         "slowly",
@@ -317,19 +317,19 @@
     },
     "bubble-pop": {
       "activityId": "bubble-pop",
-      "plays": 53,
-      "completions": 53,
+      "plays": 55,
+      "completions": 55,
       "completionRate": 1,
       "averageAccuracy": 0.82,
       "averageTimePerTarget_ms": 5333,
       "engagementScore": 0.85,
       "frustrationScore": 0.1,
-      "likedCount": 53,
+      "likedCount": 55,
       "dislikedCount": 0,
       "lastRating": "like",
-      "lastPlayed": "2026-07-12T14:20:24.536Z",
+      "lastPlayed": "2026-07-17T16:25:37.079Z",
       "domains": {
-        "attention": 53
+        "attention": 55
       },
       "missedWords": []
     },
@@ -406,18 +406,18 @@
     },
     "generated-baseline": {
       "activityId": "generated-baseline",
-      "plays": 32,
-      "completions": 4,
-      "completionRate": 0.125,
-      "averageAccuracy": 0.559,
-      "engagementScore": 0.193,
-      "frustrationScore": 0.583,
+      "plays": 40,
+      "completions": 7,
+      "completionRate": 0.175,
+      "averageAccuracy": 0.585,
+      "engagementScore": 0.205,
+      "frustrationScore": 0.568,
       "likedCount": 4,
-      "dislikedCount": 23,
+      "dislikedCount": 28,
       "lastRating": "dislike",
-      "lastPlayed": "2026-07-13T10:12:03.898Z",
+      "lastPlayed": "2026-07-17T21:08:42.636Z",
       "domains": {
-        "math": 32
+        "math": 40
       },
       "missedWords": []
     },
@@ -452,7 +452,7 @@
         "targetCount": 5,
         "frustrationScore": 0.1,
         "strongEvidence": true,
-        "occurredAt": "2026-07-12T14:20:24.491Z"
+        "occurredAt": "2026-07-17T16:25:37.054Z"
       }
     },
     "attention": {
@@ -467,7 +467,7 @@
         "targetCount": 12,
         "frustrationScore": 0.1,
         "strongEvidence": false,
-        "occurredAt": "2026-07-12T14:20:24.536Z"
+        "occurredAt": "2026-07-17T16:25:37.079Z"
       }
     }
   },
@@ -487,28 +487,28 @@
     "novelty": {
       "dimension": "novelty",
       "positiveWeight": 3,
-      "negativeWeight": 16.8,
-      "mixedWeight": 4.1,
-      "evidenceCount": 33,
-      "confidence": 0.724,
-      "lastUpdated": "2026-07-13T10:12:03.898Z",
+      "negativeWeight": 20.3,
+      "mixedWeight": 6.5,
+      "evidenceCount": 41,
+      "confidence": 0.727,
+      "lastUpdated": "2026-07-17T21:08:42.636Z",
       "activityCounts": {
         "wheel-of-fortune": 4,
-        "generated-baseline": 28,
+        "generated-baseline": 36,
         "quest": 1
       }
     },
     "competition": {
       "dimension": "competition",
       "positiveWeight": 3.731,
-      "negativeWeight": 16.8,
-      "mixedWeight": 4.1,
-      "evidenceCount": 34,
-      "confidence": 0.724,
-      "lastUpdated": "2026-07-13T10:12:03.898Z",
+      "negativeWeight": 20.3,
+      "mixedWeight": 6.5,
+      "evidenceCount": 42,
+      "confidence": 0.727,
+      "lastUpdated": "2026-07-17T21:08:42.636Z",
       "activityCounts": {
         "wheel-of-fortune": 5,
-        "generated-baseline": 28,
+        "generated-baseline": 36,
         "quest": 1
       }
     },
@@ -529,14 +529,14 @@
     "visual": {
       "dimension": "visual",
       "positiveWeight": 3,
-      "negativeWeight": 16.1,
-      "mixedWeight": 4.1,
-      "evidenceCount": 32,
-      "confidence": 0.725,
-      "lastUpdated": "2026-07-13T10:12:03.898Z",
+      "negativeWeight": 19.6,
+      "mixedWeight": 6.5,
+      "evidenceCount": 40,
+      "confidence": 0.728,
+      "lastUpdated": "2026-07-17T21:08:42.636Z",
       "activityCounts": {
         "wheel-of-fortune": 4,
-        "generated-baseline": 28
+        "generated-baseline": 36
       }
     },
     "help": {
@@ -579,13 +579,13 @@
     "challenge": {
       "dimension": "challenge",
       "positiveWeight": 0,
-      "negativeWeight": 16.8,
-      "mixedWeight": 4.1,
-      "evidenceCount": 29,
-      "confidence": 0.721,
-      "lastUpdated": "2026-07-13T10:12:03.898Z",
+      "negativeWeight": 20.3,
+      "mixedWeight": 6.5,
+      "evidenceCount": 37,
+      "confidence": 0.724,
+      "lastUpdated": "2026-07-17T21:08:42.636Z",
       "activityCounts": {
-        "generated-baseline": 28,
+        "generated-baseline": 36,
         "quest": 1
       }
     },
