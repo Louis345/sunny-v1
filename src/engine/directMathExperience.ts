@@ -471,8 +471,9 @@ export function normalizeDirectArtifactEdits(value: unknown): DirectArtifactEdit
     candidate = (candidate as { edits?: unknown }).edits;
   }
   if (typeof candidate === "string") {
+    const serialized = candidate.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
     try {
-      candidate = JSON.parse(candidate) as unknown;
+      candidate = JSON.parse(serialized) as unknown;
     } catch {
       throw new Error("direct_activity_repair_edits_invalid_json");
     }

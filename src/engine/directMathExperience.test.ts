@@ -159,6 +159,7 @@ describe("direct math experience", () => {
     const edit = { oldText: "animation:bob", newText: "animation:none" };
     expect(normalizeDirectArtifactEdits({ edits: { "0": edit } })).toEqual([edit]);
     expect(normalizeDirectArtifactEdits({ edits: JSON.stringify([edit]) })).toEqual([edit]);
+    expect(normalizeDirectArtifactEdits({ edits: `\`\`\`json\n${JSON.stringify([edit])}\n\`\`\`` })).toEqual([edit]);
   });
 
   it("requires a genuine mandatory fork and enforces locked static Quest/Boss product roles", () => {
