@@ -379,6 +379,20 @@ export function isCompleteGeneratedHtml(html: string): boolean {
   return /^\s*<!doctype html/i.test(html) && /<\/html>\s*$/i.test(html.trim());
 }
 
+export function normalizeGeneratedHtml(html: string): string {
+  const trimmed = html.trim();
+  if (isCompleteGeneratedHtml(trimmed)) return trimmed;
+  const count = (pattern: RegExp) => trimmed.match(pattern)?.length ?? 0;
+  const structurallyClosed = /^<!doctype html/i.test(trimmed)
+    && count(/<html\b/gi) === 1
+    && count(/<\/html>/gi) === 0
+    && count(/<script\b/gi) === count(/<\/script>/gi)
+    && count(/<style\b/gi) === count(/<\/style>/gi)
+    && (/<\/script>\s*$/i.test(trimmed) || /<\/body>\s*$/i.test(trimmed));
+  if (!structurallyClosed) return html;
+  return `${trimmed}${/<\/body>\s*$/i.test(trimmed) ? "" : "</body>"}</html>`;
+}
+
 export function acceptanceScriptBody(script: string): string {
   const trimmed = script.trim();
   const wrapped = trimmed.match(
@@ -393,6 +407,7 @@ export function creatorPromptHash(
   creatorModel: string,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
+    creatorContractVersion: 2,
     constitution: EXPERIENCE_DESIGN_CONSTITUTION,
     plannerModel,
     creatorModel,
@@ -430,7 +445,7 @@ Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",targ
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
 The planner wrote the browser acceptance test before this UI. Build the DOM, data-testid hooks, behavior, and completion flow so this exact script passes through real interactions. Do not rewrite or embed the test in the activity:
 ${input.activity.acceptanceScript}
-Apply observable state attributes synchronously in the order the test asserts them; animations may continue afterward but must not delay the tested state transition.
+Apply observable state attributes synchronously in the order the test asserts them; animations may continue afterward but must not delay the tested state transition. After a successful item, keep its celebration in a separate reward marker and render the next question synchronously before accepting another action. Never advance the logical item index while leaving stale controls on screen.
 Keep the complete HTML under 18,000 characters. Prefer concise CSS and JavaScript; do not duplicate rules or add hidden alternate implementations. The document must end with </html>.
 Do not include external libraries.
 Return raw HTML only.
@@ -449,7 +464,7 @@ export function buildDirectActivityRepairPrompt(input: {
 Keep the Planner's exact Creator prompt authoritative:
 ${input.activity.creatorPrompt}
 
-Fix every supplied browser failure. Do not change the questions, correct answers, learning target, mechanic, title, evidence claim, or board identity. Keep required controls stationary while they are being used. Remove references to missing DOM elements. Preserve all runtime evidence events.
+Fix every supplied browser failure. Do not change the questions, correct answers, learning target, mechanic, title, evidence claim, or board identity. The acceptance script is an immutable interaction contract: after a correct or incorrect action, its next tested state must be usable synchronously even if decorative animation continues. If a visual target moves continuously, give it a stationary interactive hit target while preserving the moving visual. Remove references to missing DOM elements. Preserve all runtime evidence events.
 
 Browser failures:
 ${input.failures.join("\n")}
@@ -521,7 +536,7 @@ async function generateActivityHtml(input: {
     thinking: { type: "disabled" },
     messages: [{ role: "user", content: prompt }],
   }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-  const html = stripHtml(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n"));
+  const html = normalizeGeneratedHtml(stripHtml(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n")));
   if (!isCompleteGeneratedHtml(html)) {
     throw new Error(`direct_activity_html_truncated:${input.activity.id}:stop=${response.stop_reason ?? "unknown"}:chars=${html.length}`);
   }

@@ -15,6 +15,7 @@ import {
   parseDirectLearningExperiencePlan,
   shouldReuseDirectArtifact,
   normalizeDirectArtifactEdits,
+  normalizeGeneratedHtml,
   runDirectAcceptanceRepairLoop,
 } from "./directMathExperience";
 
@@ -114,6 +115,8 @@ describe("direct math experience", () => {
     expect(prompt).toContain(EXPERIENCE_DESIGN_CONSTITUTION);
     expect(prompt).toContain(activity.creatorPrompt);
     expect(prompt).toContain(JSON.stringify(activity.questions, null, 2));
+    expect(prompt).toContain("render the next question synchronously");
+    expect(prompt).toContain("separate reward marker");
   });
 
   it("regenerates HTML when adaptive Planner directives change", () => {
@@ -138,6 +141,8 @@ describe("direct math experience", () => {
     expect(prompt).toContain(activity.creatorPrompt);
     expect(prompt).toContain("Do not change the questions");
     expect(prompt).toContain("oldText");
+    expect(prompt).toContain("next tested state must be usable synchronously");
+    expect(prompt).toContain("stationary interactive hit target");
     expect(prompt).not.toContain("Return one complete raw HTML document");
   });
 
@@ -248,6 +253,13 @@ describe("direct math experience", () => {
     expect(isCompleteGeneratedHtml("<!doctype html><html><body>ready</body></html>")).toBe(true);
     expect(isCompleteGeneratedHtml("<!doctype html><html><style>.game{")).toBe(false);
     expect(isCompleteGeneratedHtml("Here is the fix:\n<!doctype html><html><body>ready</body></html>")).toBe(false);
+  });
+
+  it("normalizes only a missing closing document wrapper", () => {
+    expect(normalizeGeneratedHtml("<!doctype html><html><body><script>window.ready=true;</script>"))
+      .toBe("<!doctype html><html><body><script>window.ready=true;</script></body></html>");
+    expect(normalizeGeneratedHtml("<!doctype html><html><body><script>window.ready="))
+      .toBe("<!doctype html><html><body><script>window.ready=");
   });
 
   it("gives the Planner and Creator the child-visible clarity and practice-only rules", () => {
