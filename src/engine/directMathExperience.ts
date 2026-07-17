@@ -376,7 +376,7 @@ function stripHtml(text: string): string {
 }
 
 export function isCompleteGeneratedHtml(html: string): boolean {
-  return /<!doctype html/i.test(html) && /<\/html>\s*$/i.test(html.trim());
+  return /^\s*<!doctype html/i.test(html) && /<\/html>\s*$/i.test(html.trim());
 }
 
 export function acceptanceScriptBody(script: string): string {

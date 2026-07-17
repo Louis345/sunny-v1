@@ -223,6 +223,7 @@ describe("direct math experience", () => {
   it("does not reuse a model response truncated before the activity document finishes", () => {
     expect(isCompleteGeneratedHtml("<!doctype html><html><body>ready</body></html>")).toBe(true);
     expect(isCompleteGeneratedHtml("<!doctype html><html><style>.game{")).toBe(false);
+    expect(isCompleteGeneratedHtml("Here is the fix:\n<!doctype html><html><body>ready</body></html>")).toBe(false);
   });
 
   it("gives the Planner and Creator the child-visible clarity and practice-only rules", () => {
