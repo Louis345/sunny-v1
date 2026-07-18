@@ -272,17 +272,21 @@ describe("direct math experience", () => {
     expect(prompt).toContain('data-testid="primary-instruction"');
     expect(prompt).toContain('data-testid="sound-toggle"');
     expect(prompt).toContain('type:"activity_ready"');
+    expect(prompt).toContain('type:"game_state_update"');
+    expect(prompt).toContain("currentChallenge");
+    expect(prompt).toContain("Never include which action is correct");
     expect(prompt).toContain('type:"progress_event"');
   });
 
   it("requires generated artifacts to contain sound and the factual runtime protocol", () => {
-    const valid = `<!doctype html><html><body><p data-testid="primary-instruction">Tap a group to begin.</p><button data-testid="sound-toggle">Sound</button><script>const audio=new AudioContext();window.parent.postMessage({type:"activity_ready"},"*");window.parent.postMessage({type:"attempt_event"},"*");window.parent.postMessage({type:"progress_event"},"*");window.parent.postMessage({type:"node_complete"},"*");</script></body></html>`;
+    const valid = `<!doctype html><html><body><p data-testid="primary-instruction">Tap a group to begin.</p><button data-testid="sound-toggle">Sound</button><script>const audio=new AudioContext();window.parent.postMessage({type:"activity_ready"},"*");window.parent.postMessage({type:"game_state_update"},"*");window.parent.postMessage({type:"attempt_event"},"*");window.parent.postMessage({type:"progress_event"},"*");window.parent.postMessage({type:"node_complete"},"*");</script></body></html>`;
     expect(directArtifactContractFailures(valid)).toEqual([]);
     expect(directArtifactContractFailures("<!doctype html><html><body></body></html>")).toEqual([
       "primary_instruction_missing",
       "sound_toggle_missing",
       "audio_implementation_missing",
       "activity_ready_event_missing",
+      "game_state_update_missing",
       "attempt_event_missing",
       "progress_event_missing",
       "node_complete_event_missing",

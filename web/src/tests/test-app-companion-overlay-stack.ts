@@ -29,6 +29,11 @@ describe("App companion overlay stack", () => {
     expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}plannerBoardLaunch != null/);
   });
 
+  it("shares the launched AI-authored activity context with Elli", () => {
+    expect(src).toContain("buildPlannerBoardCompanionContext(node)");
+    expect(src).toMatch(/type:\s*"game_state_update"[\s\S]{0,300}companionContext/);
+  });
+
   it("karaokeReadingActive triggers portrait mode (story/karaoke canvas)", () => {
     expect(src).toMatch(/companionPortraitMode[\s\S]{0,200}karaokeReadingActive/);
   });

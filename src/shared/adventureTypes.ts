@@ -225,6 +225,8 @@ export interface MysteryChoiceOption {
 
 export interface NodeConfig {
   id: string;
+  /** AI-authored child-facing identity; never substitute the internal node type. */
+  title?: string;
   /** Active session plan that authored this node; used for audit traces. */
   planId?: string;
   type: NodeType;
@@ -276,6 +278,15 @@ export interface NodeConfig {
   mechanic?: string;
   sfxProfile?: string;
   companionPolicy?: string;
+  /** Factual activity context supplied to Elli; contains no answer key. */
+  companionContext?: {
+    activityTitle?: string;
+    learningFocus?: string;
+    mechanic?: string;
+    currentChallenge?: string;
+    availableActions?: string[];
+    totalItems?: number;
+  };
   /** Quest/boss artifact contract carried from homework generation into map evidence. */
   adaptiveArtifact?: {
     artifactId: string;

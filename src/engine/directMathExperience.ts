@@ -482,6 +482,7 @@ export function directArtifactContractFailures(html: string): string[] {
   if (!/data-testid\s*=\s*["']sound-toggle["']/i.test(html)) failures.push("sound_toggle_missing");
   if (!/(?:AudioContext|webkitAudioContext|new\s+Audio\s*\(|<audio\b)/i.test(html)) failures.push("audio_implementation_missing");
   if (!/["']activity_ready["']/.test(html)) failures.push("activity_ready_event_missing");
+  if (!/["']game_state_update["']/.test(html)) failures.push("game_state_update_missing");
   if (!/["']attempt_event["']/.test(html)) failures.push("attempt_event_missing");
   if (!/["']progress_event["']/.test(html)) failures.push("progress_event_missing");
   if (!/["']node_complete["']/.test(html)) failures.push("node_complete_event_missing");
@@ -502,7 +503,7 @@ export function creatorPromptHash(
   creatorModel: string,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
-    creatorContractVersion: 2,
+    creatorContractVersion: 3,
     constitution: EXPERIENCE_DESIGN_CONSTITUTION,
     plannerModel,
     creatorModel,
@@ -539,6 +540,7 @@ Saved questions/content:
 ${JSON.stringify(input.activity.questions, null, 2)}
 Emit interaction evidence with window.parent.postMessage for demoRequested, demoReplayCount, timeToFirstValidActionMs, invalidActionCount, and soundMuted. Include those factual values in the node_complete payload with attempt results.
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") when the experience is ready.
+Whenever the activity opens or the active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*"). currentChallenge must be the child-visible prompt and availableActions must contain only the visible action labels. Never include which action is correct, the answer key, or hidden solution data.
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",targetId,correct,responseTimeMs}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 Emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true}},"*") on completion.
@@ -916,6 +918,15 @@ export function buildDirectActiveSessionPlan(input: {
     return {
       id: activity.id, type: "generated-baseline", activityId: "generated-baseline", targets: activity.questions.map((q) => q.id), difficulty: 2,
       source: "chart_planner", targetLane: activity.academicTarget, locked: false, masteryUnlockState: "unlocked", title: activity.title,
+      rounds: activity.questions.map((question) => ({
+        id: question.id,
+        prompt: question.prompt,
+        options: question.options.map((option, optionIndex) => ({
+          id: `${question.id}:option-${optionIndex + 1}`,
+          label: option.label,
+          correct: option.correct,
+        })),
+      })),
       gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: artifact.artworkUrl, contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
       engagementDimensions: [activity.engagementVariable as never], engagementHypothesis: input.plan.fork.hypothesis,
       validationProof: { engine: "playwright", passed: true, worldStateChanged: true, screenshotPaths: input.report.screenshots.filter((file) => file.includes(activity.id)) },

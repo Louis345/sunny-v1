@@ -44,6 +44,41 @@ describe("CurrentBoardSnapshot", () => {
     expect(context).not.toContain("Word Radar");
   });
 
+  it("gives Elli the AI-authored math activity and live challenge without exposing correctness", () => {
+    const snapshot = buildCurrentBoardSnapshot({
+      childId: "reina",
+      sessionId: "voice-1",
+      state: {
+        game: "generated-baseline",
+        activityId: "skip-count-glider",
+        nodeId: "skip-count-glider",
+        phase: "question",
+        activityTitle: "Skyglider Skip-Count Run",
+        learningFocus: "skip-counting by 2s, 5s, and 10s",
+        mechanic: "tap the lantern that continues the count",
+        currentChallenge: "Skip count by 5s: 5, 10, 15, __?",
+        availableActions: ["20", "16", "25"],
+        itemIndex: 0,
+        totalItems: 3,
+        answerVisibility: "hidden",
+      },
+    });
+
+    expect(snapshot).toMatchObject({
+      activityTitle: "Skyglider Skip-Count Run",
+      learningFocus: "skip-counting by 2s, 5s, and 10s",
+      mechanic: "tap the lantern that continues the count",
+      currentChallenge: "Skip count by 5s: 5, 10, 15, __?",
+      availableActions: ["20", "16", "25"],
+    });
+    const context = buildCurrentBoardSnapshotContext(snapshot);
+    expect(context).toContain("Activity title: Skyglider Skip-Count Run");
+    expect(context).toContain("Learning focus: skip-counting by 2s, 5s, and 10s");
+    expect(context).toContain("Current challenge: Skip count by 5s: 5, 10, 15, __?");
+    expect(context).toContain("Available child actions: 20 | 16 | 25");
+    expect(context).not.toContain("Correct answer");
+  });
+
   it("does not expose hidden Wheel answers to Elli", () => {
     const snapshot = buildCurrentBoardSnapshot({
       childId: "ila",

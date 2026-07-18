@@ -57,6 +57,7 @@ import { FlowGameOverlay } from "./components/FlowGameOverlay";
 import { DIAG_WORD_RADAR_ITEMS } from "./fixtures/wordRadarDiagItems";
 import { getCompanionCareFromProfile } from "./utils/companionCareProfile";
 import {
+  buildPlannerBoardCompanionContext,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "./utils/adventureBoardLaunch";
@@ -899,6 +900,14 @@ function App() {
         });
         return;
       }
+      const companionContext = buildPlannerBoardCompanionContext(node);
+      sendMessage("game_event", {
+        event: {
+          type: "game_state_update",
+          version: "1.0",
+          payload: companionContext,
+        },
+      });
       setPostActivityEngagement(null);
       plannerBoardIframeCompletionKeyRef.current = null;
       setPlannerBoardLaunch({
@@ -914,6 +923,7 @@ function App() {
       plannerBoardPacket,
       profileCompanionCurrency,
       profileDyslexiaMode,
+      sendMessage,
     ],
   );
 

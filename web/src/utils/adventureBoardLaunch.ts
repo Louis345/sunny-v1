@@ -127,9 +127,14 @@ export function resolvePlannerBoardLaunchNode(
         }))
       : undefined;
   const source = planNode as Partial<NodeConfig> | undefined;
+  const firstRound = planNode?.rounds?.[0];
+  const activityTitle = planNode?.title ?? boardNode.label;
+  const learningFocus = planNode?.targetLane ?? boardNode.target?.laneId;
+  const mechanic = source?.mechanic ?? boardNode.mechanic;
 
   return {
     id: planNode?.id ?? boardNode.id,
+    title: activityTitle,
     planId: packet.activeSessionPlan?.planId,
     type,
     words,
@@ -158,13 +163,48 @@ export function resolvePlannerBoardLaunchNode(
     experimentId: source?.experimentId ?? boardNode.experimentId,
     engagementDimensions: source?.engagementDimensions ?? boardNode.engagementDimensions,
     engagementHypothesis: source?.engagementHypothesis ?? boardNode.engagementHypothesis,
-    mechanic: source?.mechanic ?? boardNode.mechanic,
+    mechanic,
     sfxProfile: source?.sfxProfile ?? boardNode.sfxProfile,
     companionPolicy: source?.companionPolicy ?? boardNode.companionPolicy,
+    companionContext: {
+      activityTitle,
+      ...(learningFocus ? { learningFocus } : {}),
+      ...(mechanic ? { mechanic } : {}),
+      ...(firstRound?.prompt ? { currentChallenge: firstRound.prompt } : {}),
+      ...(firstRound?.options?.length
+        ? { availableActions: firstRound.options.map((option) => option.label) }
+        : {}),
+      ...(planNode?.rounds?.length ? { totalItems: planNode.rounds.length } : {}),
+    },
     choiceSetId: boardNode.choiceSetId,
     isLocked: false,
     isCompleted: boardNode.state === "completed",
     isGoal: type === "boss",
+  };
+}
+
+/** Build the answer-key-free snapshot injected into Elli when a board node opens. */
+export function buildPlannerBoardCompanionContext(
+  node: NodeConfig,
+): Record<string, unknown> {
+  const context = node.companionContext ?? {};
+  const activityTitle = context.activityTitle ?? node.title ?? node.type;
+  return {
+    game: node.type,
+    activityId: node.id,
+    nodeId: node.id,
+    phase: "launched",
+    activityTitle,
+    ...(context.learningFocus ? { learningFocus: context.learningFocus } : {}),
+    ...(context.mechanic ? { mechanic: context.mechanic } : {}),
+    ...(context.currentChallenge ? { currentChallenge: context.currentChallenge } : {}),
+    ...(context.availableActions?.length
+      ? { availableActions: context.availableActions }
+      : {}),
+    ...(context.currentChallenge ? { itemIndex: 0 } : {}),
+    ...(typeof context.totalItems === "number" ? { totalItems: context.totalItems } : {}),
+    answerVisibility: "hidden",
+    progress: `${activityTitle} started.`,
   };
 }
 

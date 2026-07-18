@@ -24,6 +24,7 @@ import { cloneCompanionDefaults } from "../../../src/shared/companionTypes";
 import { buildNodeLaunchAction } from "../../../src/shared/homeworkNodeRouting";
 import type { NodeConfig } from "../../../src/shared/adventureTypes";
 import {
+  buildPlannerBoardCompanionContext,
   resolvePlannerBoardChoiceLaunchNode,
   resolvePlannerBoardLaunchNode,
 } from "../utils/adventureBoardLaunch";
@@ -674,6 +675,18 @@ describe("AdventureBoardExperience", () => {
             difficulty: 2,
             source: "chart_planner",
             targetLane: "silent_letters",
+            title: "Silent Letter Signal Hunt",
+            mechanic: "tap the word matching the spoken clue",
+            rounds: [
+              {
+                id: "round-1",
+                prompt: "Which word begins with a silent letter?",
+                options: [
+                  { id: "sign", label: "sign", correct: true },
+                  { id: "song", label: "song", correct: false },
+                ],
+              },
+            ],
             wordRadarConfig: board.nodes[0].wordRadarConfig as NonNullable<
               ChildExperiencePacket["activeSessionPlan"]
             >["nodePlan"][number]["wordRadarConfig"],
@@ -688,11 +701,27 @@ describe("AdventureBoardExperience", () => {
       type: "word-radar",
       words: ["sign", "know"],
       targetLane: "silent_letters",
+      title: "Silent Letter Signal Hunt",
       difficulty: 2,
       wordRadarItems: [
         { display: "sign", acceptedResponses: ["sign"], label: "Spelling" },
         { display: "know", acceptedResponses: ["know"], label: "Spelling" },
       ],
+    });
+    expect(buildPlannerBoardCompanionContext(node!)).toEqual({
+      game: "word-radar",
+      activityId: "wr-node",
+      nodeId: "wr-node",
+      phase: "launched",
+      activityTitle: "Silent Letter Signal Hunt",
+      learningFocus: "silent_letters",
+      mechanic: "tap the word matching the spoken clue",
+      currentChallenge: "Which word begins with a silent letter?",
+      availableActions: ["sign", "song"],
+      itemIndex: 0,
+      totalItems: 1,
+      answerVisibility: "hidden",
+      progress: "Silent Letter Signal Hunt started.",
     });
 
     const action = buildNodeLaunchAction(node!, {
