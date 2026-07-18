@@ -13,6 +13,7 @@ import {
   getLearningCycle,
   transitionLearningCycle,
   type CreateLearningCycleInput,
+  type AcademicPrediction,
   type LearningCycleNodeContract,
 } from "./learningCycleRepository";
 
@@ -43,6 +44,7 @@ export type DirectActivity = {
   acceptanceSteps: string[];
   creatorPrompt: string;
   designPrediction: string;
+  academicPrediction: Omit<AcademicPrediction, "predictionId" | "theoryId" | "createdAt" | "lockedAt">;
   preserve: string[];
   change: string[];
   explore: string[];
@@ -165,6 +167,12 @@ function stringArray(value: unknown, label: string): string[] {
   return value.map(String);
 }
 
+function requiredNumber(record: Record<string, unknown>, key: string): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`direct_plan_invalid_${key}`);
+  return value;
+}
+
 export function parseDirectLearningExperiencePlan(value: unknown): DirectLearningExperiencePlan {
   const root = object(value);
   if (!root) throw new Error("direct_plan_must_be_object");
@@ -206,7 +214,9 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
     const activity = object(raw);
     const visualMock = object(activity?.visualMock);
     const experience = object(activity?.experience);
-    if (!activity || !visualMock || !experience) throw new Error("direct_plan_invalid_activity");
+    const academicPrediction = object(activity?.academicPrediction);
+    const expectedMetric = object(academicPrediction?.expectedMetric);
+    if (!activity || !visualMock || !experience || !academicPrediction || !expectedMetric) throw new Error("direct_plan_invalid_activity");
     const responsibilityId = requiredString(activity, "responsibilityId");
     const responsibility = learningResponsibilities.find((candidate) => candidate.id === responsibilityId);
     if (!responsibility) throw new Error(`direct_plan_activity_responsibility_unknown:${responsibilityId}`);
@@ -255,6 +265,27 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       acceptanceSteps: stringArray(activity.acceptanceSteps, "acceptance_steps"),
       creatorPrompt: requiredString(activity, "creatorPrompt"),
       designPrediction: requiredString(activity, "designPrediction"),
+      academicPrediction: {
+        constructId: requiredString(academicPrediction, "constructId"),
+        context: requiredString(academicPrediction, "context"),
+        horizon: requiredString(academicPrediction, "horizon"),
+        expectedMetric: {
+          key: requiredString(expectedMetric, "key"),
+          min: requiredNumber(expectedMetric, "min"),
+          max: requiredNumber(expectedMetric, "max"),
+        },
+        predictedErrorPatterns: stringArray(academicPrediction.predictedErrorPatterns, "predicted_error_patterns"),
+        confidence: requiredNumber(academicPrediction, "confidence"),
+        evidenceIds: stringArray(academicPrediction.evidenceIds, "academic_prediction_evidence_ids"),
+        intervention: requiredString(academicPrediction, "intervention"),
+        evidenceLimit: (() => {
+          const value = requiredString(academicPrediction, "evidenceLimit");
+          if (!["practice_only", "independent_performance", "provisional_transfer", "calibrated_mastery"].includes(value)) {
+            throw new Error("direct_plan_invalid_academic_prediction_evidence_limit");
+          }
+          return value as DirectActivity["academicPrediction"]["evidenceLimit"];
+        })(),
+      },
       preserve: stringArray(activity.preserve, "preserve"),
       change: stringArray(activity.change, "change"),
       explore: stringArray(activity.explore, "explore"),
@@ -323,6 +354,7 @@ function chartForPlanner(chart: ChildChart): unknown {
     engagementTheory: chart.engagementTheory,
     factBankSummary: chart.factBankSummary,
     recentDecision: chart.decisionTrace.latest,
+    longitudinalLearning: chart.learningHistory,
   };
 }
 
@@ -358,6 +390,7 @@ A question asking “how many” must accept the final quantity. If the child mu
 Use one active problem at a time when simultaneous problems add unnecessary cognitive load, and keep instructions short and child-facing.
 Design intentional interaction, recovery, progress, and completion sounds that support the experience without distracting from it.
 Initial board activities create teaching and practice evidence only. Completion cannot establish mastery or unlock Quest or Boss.
+For every activity, preregister academicPrediction separately from designPrediction. academicPrediction must name a stable namespaced construct, external or independent context, time horizon, expected metric range, predicted error patterns, confidence, evidence IDs, intervention, and maximum evidence claim. Use the longitudinal child history when available. Never infer academic ability from interests or engagement ratings.
 For every activity, write a bespoke creatorPrompt that tells a separate Experience Creator how to realize this activity. Derive it from the assignment, child chart, prior factual outcomes, recent themes, and engagement theory. Also preregister designPrediction and list preserve, change, explore, avoid, and namespaced measurementKeys. These values must vary when evidence supports a change; do not hardcode a game, theme, layout, mechanic, or activity count.
 For each activity, write acceptanceScript before its UI exists. It is an async Playwright JavaScript function body with access to page and BASE_URL. It must use page locators and stable data-testid selectors to open /activities/{activityId}, take an incorrect path, verify recovery, complete every question correctly, verify visible world/progress changes, and return {passed:true} only when completion is visible. It must throw when any promise is broken. The activity implementation will be generated against this exact test.
 
@@ -367,7 +400,7 @@ Return JSON only with this shape:
   "learningResponsibilities":[{"id":"facts","title":"Fact Relationships","purpose":"What this instrument helps the child learn or demonstrate","academicTarget":"multiplication facts"}],
   "boardWorld":{"title":"...","narrative":"...","backgroundPrompt":"..."},
   "fork":{"question":"...","hypothesis":"...","heldConstant":["..."],"routes":[{"id":"route-a","label":"...","promise":"...","engagementVariable":"...","nodeIds":["..."]},{"id":"route-b","label":"...","promise":"...","engagementVariable":"...","nodeIds":["..."]}]},
-  "activities":[{"id":"...","title":"...","routeId":"route-a","responsibilityId":"facts","academicTarget":"multiplication facts","mechanic":"...","engagementVariable":"...","visualMock":{"scene":"...","layout":"...","artworkPrompt":"..."},"experience":{"objective":"...","childAction":"...","worldReaction":"...","anticipation":"...","progress":"...","recovery":"...","reward":"..."},"questions":[{"id":"q1","prompt":"...","options":[{"label":"...","correct":true},{"label":"...","correct":false}]}],"creatorPrompt":"Adaptive instructions for the Experience Creator","designPrediction":"A preregistered prediction about the child's interaction","preserve":["successful element"],"change":["evidence-supported correction"],"explore":["one bounded variation"],"avoid":["known failure"],"measurementKeys":["interaction.timeToFirstValidActionMs"],"acceptanceSteps":["launch","perform real action","exercise incorrect recovery","exercise correct path","complete"],"acceptanceScript":"JavaScript async-function body that uses real DOM interactions, throws on failure, and returns {passed:true} after completion"}],
+  "activities":[{"id":"...","title":"...","routeId":"route-a","responsibilityId":"facts","academicTarget":"multiplication facts","mechanic":"...","engagementVariable":"...","visualMock":{"scene":"...","layout":"...","artworkPrompt":"..."},"experience":{"objective":"...","childAction":"...","worldReaction":"...","anticipation":"...","progress":"...","recovery":"...","reward":"..."},"questions":[{"id":"q1","prompt":"...","options":[{"label":"...","correct":true},{"label":"...","correct":false}]}],"creatorPrompt":"Adaptive instructions for the Experience Creator","designPrediction":"A preregistered prediction about the child's interaction","academicPrediction":{"constructId":"math.multiplication.equal_groups","context":"unassisted returned schoolwork","horizon":"within_7_days","expectedMetric":{"key":"academic.accuracy","min":0.7,"max":0.9},"predictedErrorPatterns":["operation_selection"],"confidence":0.65,"evidenceIds":["assignment evidence"],"intervention":"What this activity changes","evidenceLimit":"calibrated_mastery"},"preserve":["successful element"],"change":["evidence-supported correction"],"explore":["one bounded variation"],"avoid":["known failure"],"measurementKeys":["interaction.timeToFirstValidActionMs"],"acceptanceSteps":["launch","perform real action","exercise incorrect recovery","exercise correct path","complete"],"acceptanceScript":"JavaScript async-function body that uses real DOM interactions, throws on failure, and returns {passed:true} after completion"}],
   "quest":{"title":"Quest","locked":true,"teaser":"...","artworkPrompt":"..."},
   "boss":{"title":"Boss","locked":true,"teaser":"...","artworkPrompt":"..."}
 }
@@ -1086,6 +1119,13 @@ export function buildDirectLearningCycleInput(input: {
     },
     engagementTheory: null,
     nodes: [...baselineNodes, lockedNode("quest"), lockedNode("boss")],
+    academicPredictions: input.plannerPlan.activities.map((activity) => ({
+      predictionId: `${input.homeworkId}:prediction:${activity.id}`,
+      theoryId,
+      ...structuredClone(activity.academicPrediction),
+      createdAt,
+      lockedAt: createdAt,
+    })),
   };
 }
 
@@ -1139,6 +1179,7 @@ export function persistDirectExperience(input: {
       academicTheory: canonicalInput.academicTheory,
       engagementTheory: canonicalInput.engagementTheory,
       nodes: canonicalInput.nodes,
+      academicPredictions: canonicalInput.academicPredictions,
       reason: "Re-ingestion reconciled the AI-authored board with the existing assignment cycle.",
     }, { rootDir, now: new Date(now) });
   } else {

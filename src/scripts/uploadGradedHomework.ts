@@ -1,4 +1,5 @@
 import "dotenv/config";
+import crypto from "node:crypto";
 import fs from "fs";
 import path from "path";
 import readline from "readline/promises";
@@ -8,6 +9,12 @@ import { generateContentFingerprint } from "../context/schemas/homeworkCycle";
 import { extractAssignmentSource } from "../engine/assignmentSourceExtraction";
 import { recordGradedHomeworkCalibration } from "../engine/learningDecisionContext";
 import type { LearningCycleRecordV2 } from "../engine/learningCycleRepository";
+import {
+  interpretReturnedWorkBatch,
+  recordConfirmedReturnedWork,
+  type TheoryDecisionContent,
+} from "../engine/longitudinalLearning";
+import { resolveChildContextDir } from "../utils/contextRoot";
 
 type HomeworkCycleCandidateRecord = HomeworkCycle | LearningCycleRecordV2;
 
@@ -42,6 +49,7 @@ export type HomeworkMatchCandidate = {
 type CliArgs = {
   childId: string;
   pdfPath: string;
+  homeworkId?: string;
   dryRun: boolean;
   yes: boolean;
 };
@@ -51,6 +59,7 @@ type UploadRunOptions = {
   now?: Date;
   logger?: Pick<Console, "log">;
   confirm?: (candidate: HomeworkMatchCandidate) => Promise<boolean> | boolean;
+  interpret?: (cycle: LearningCycleRecordV2, sourceId: string) => Promise<TheoryDecisionContent>;
 };
 
 const MIN_CONFIDENT_MATCH = 0.3;
@@ -203,6 +212,16 @@ export function rankHomeworkCycleCandidates(
     .sort((a, b) => b.confidence - a.confidence);
 }
 
+export function selectHomeworkMatch(
+  candidates: HomeworkMatchCandidate[],
+  selectedHomeworkId?: string,
+): HomeworkMatchCandidate | null {
+  if (!selectedHomeworkId) return candidates[0] ?? null;
+  const selected = candidates.find((candidate) => candidate.homeworkId === selectedHomeworkId);
+  if (!selected) throw new Error(`returned_work_selected_assignment_missing:${selectedHomeworkId}`);
+  return selected;
+}
+
 function cyclesDir(rootDir: string, childId: string): string {
   return path.join(rootDir, "src", "context", childId, "homework", "cycles");
 }
@@ -227,11 +246,13 @@ function parseCliArgs(argv: string[]): CliArgs {
   const pdfArg = argv.find((arg) => arg.startsWith("--pdf="));
   const childId = childArg?.slice("--child=".length).trim().toLowerCase() ?? "";
   const pdfPath = pdfArg?.slice("--pdf=".length).trim() ?? "";
+  const homeworkArg = argv.find((arg) => arg.startsWith("--homework="));
   if (!childId) throw new Error("Missing --child=<childId>");
   if (!pdfPath) throw new Error("Missing --pdf=<path>");
   return {
     childId,
     pdfPath,
+    homeworkId: homeworkArg?.slice("--homework=".length).trim(),
     dryRun: argv.includes("--dry-run"),
     yes: argv.includes("--yes"),
   };
@@ -301,6 +322,67 @@ function unmatchedPath(rootDir: string, childId: string, now: Date): string {
   return path.join(dir, `graded-upload-${now.toISOString().replace(/[:.]/g, "-")}.json`);
 }
 
+async function recordCanonicalUpload(input: {
+  rootDir: string;
+  now: Date;
+  upload: GradedHomeworkUpload;
+  candidate: HomeworkMatchCandidate & { cycle: LearningCycleRecordV2 };
+  explicitSelection: boolean;
+  interpret?: UploadRunOptions["interpret"];
+}): Promise<{ status: string; calibrationId: string }> {
+  if (input.upload.gradedItems.length === 0) {
+    throw new Error("returned_work_item_review_required");
+  }
+  const bytes = fs.readFileSync(input.upload.sourceFile);
+  const fileFingerprint = crypto.createHash("sha256").update(bytes).digest("hex");
+  const sourceId = `returned-work:${crypto.createHash("sha256").update(`${input.upload.childId}:${input.candidate.homeworkId}:${fileFingerprint}`).digest("hex").slice(0, 20)}`;
+  const sourceDir = path.join(resolveChildContextDir(input.upload.childId, { rootDir: input.rootDir }), "homework", "returned-work", "sources", sourceId.replace(/:/g, "-"));
+  fs.mkdirSync(sourceDir, { recursive: true });
+  const sourceFile = path.join(sourceDir, path.basename(input.upload.sourceFile));
+  if (!fs.existsSync(sourceFile)) fs.copyFileSync(input.upload.sourceFile, sourceFile, fs.constants.COPYFILE_EXCL);
+  const cycle = recordConfirmedReturnedWork({
+    childId: input.upload.childId,
+    homeworkId: input.candidate.homeworkId,
+    source: {
+      sourceId,
+      type: "graded_work",
+      fileFingerprint,
+      sourceFile,
+      provenance: "caregiver",
+      capturedAt: input.now.toISOString(),
+      assignmentLink: {
+        homeworkId: input.candidate.homeworkId,
+        method: input.explicitSelection ? "explicit_selection" : "content_match",
+        confidence: input.explicitSelection ? 1 : input.candidate.confidence,
+        confirmedBy: "caregiver",
+      },
+      status: "confirmed",
+    },
+    ...(typeof input.upload.score === "number" ? { score: { earned: input.upload.score, possible: input.upload.score <= 1 ? 1 : 100 } } : {}),
+    items: input.upload.gradedItems.map((item, index) => ({
+      itemId: `item-${index + 1}`,
+      prompt: item.target,
+      correct: item.correct,
+      ...(item.observedErrorType ? { observedErrorType: item.observedErrorType } : {}),
+      ...(item.note ? { teacherNote: item.note } : {}),
+      extractionConfidence: 1,
+      constructLinks: [{ constructId: item.target, role: "primary", confidence: 1 }],
+    })),
+  }, { rootDir: input.rootDir, now: input.now });
+  const result = await interpretReturnedWorkBatch({
+    childId: input.upload.childId,
+    homeworkId: input.candidate.homeworkId,
+    sourceId,
+    rootDir: input.rootDir,
+    now: input.now,
+    interpret: input.interpret,
+  });
+  return {
+    status: result.reason === "already_interpreted" ? "already_interpreted" : cycle.calibrations?.at(-1)?.status ?? "inconclusive",
+    calibrationId: cycle.calibrations?.at(-1)?.calibrationId ?? sourceId,
+  };
+}
+
 async function confirmCandidate(
   candidate: HomeworkMatchCandidate,
   autoYes: boolean,
@@ -327,12 +409,21 @@ export async function runUploadGradedHomework(
   const logger = opts.logger ?? console;
   const upload = await uploadFromFile(args);
   const candidates = rankHomeworkCycleCandidates(upload, loadCycles(rootDir, args.childId));
+  const selected = args.homeworkId
+    ? selectHomeworkMatch(
+        loadCycles(rootDir, args.childId).map((cycle) => scoreHomeworkCycleCandidate(upload, cycle)),
+        args.homeworkId,
+      )
+    : null;
+  const orderedCandidates = selected
+    ? [selected, ...candidates.filter((candidate) => candidate.homeworkId !== selected.homeworkId)]
+    : candidates;
   logger.log(`📄 Graded upload: ${path.basename(upload.sourceFile)}`);
-  if (candidates.length === 0 || (candidates[0]?.confidence ?? 0) < MIN_CONFIDENT_MATCH) {
+  if (orderedCandidates.length === 0 || (!selected && (orderedCandidates[0]?.confidence ?? 0) < MIN_CONFIDENT_MATCH)) {
     logger.log("⚠️  No confident assignment match found.");
-    if (candidates[0]) {
+    if (orderedCandidates[0]) {
       logger.log(
-        `Best guess was ${candidates[0].homeworkId} at confidence ${candidates[0].confidence.toFixed(2)}; queued for human remap.`,
+        `Best guess was ${orderedCandidates[0].homeworkId} at confidence ${orderedCandidates[0].confidence.toFixed(2)}; queued for human remap.`,
       );
     }
     if (!args.dryRun) {
@@ -341,7 +432,7 @@ export async function runUploadGradedHomework(
     return;
   }
   logger.log("Likely assignment matches:");
-  candidates.slice(0, 5).forEach((candidate, idx) => {
+  orderedCandidates.slice(0, 5).forEach((candidate, idx) => {
     logger.log(`${idx + 1}. ${candidate.homeworkId} — ${candidate.title} — confidence ${candidate.confidence.toFixed(2)}`);
     logger.log(`   evidence: ${candidate.evidence.join(", ") || "weak metadata match"}`);
   });
@@ -349,18 +440,40 @@ export async function runUploadGradedHomework(
     logger.log("Dry run: no calibration written.");
     return;
   }
-  for (const candidate of candidates) {
-    if (!(await confirmCandidate(candidate, args.yes, opts.confirm))) continue;
-    const entry = recordGradedHomeworkCalibration(args.childId, {
-      homeworkId: candidate.homeworkId,
-      score: upload.score ?? null,
-      gradedItems: upload.gradedItems,
-      teacherNotes: `Uploaded graded homework from ${path.basename(upload.sourceFile)}.`,
-      sourceFile: path.basename(upload.sourceFile),
-    }, {
-      rootDir,
-      now,
-    });
+  for (const candidate of orderedCandidates) {
+    if (!(await confirmCandidate(candidate, args.yes || candidate.homeworkId === args.homeworkId, opts.confirm))) continue;
+    let entry: { status: string; calibrationId: string };
+    if (isCanonicalCycle(candidate.cycle)) {
+      try {
+        entry = await recordCanonicalUpload({
+          rootDir,
+          now,
+          upload,
+          candidate: { ...candidate, cycle: candidate.cycle },
+          explicitSelection: candidate.homeworkId === args.homeworkId,
+          interpret: opts.interpret,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message === "returned_work_item_review_required") {
+          fs.writeFileSync(unmatchedPath(rootDir, args.childId, now), JSON.stringify(upload, null, 2), "utf8");
+          logger.log("⚠️  Item-level review is required; queued the upload without changing learning state.");
+          return;
+        }
+        logger.log(`⚠️  Evidence saved; Planner interpretation is pending: ${error instanceof Error ? error.message : String(error)}`);
+        return;
+      }
+    } else {
+      entry = recordGradedHomeworkCalibration(args.childId, {
+        homeworkId: candidate.homeworkId,
+        score: upload.score ?? null,
+        gradedItems: upload.gradedItems,
+        teacherNotes: `Uploaded graded homework from ${path.basename(upload.sourceFile)}.`,
+        sourceFile: path.basename(upload.sourceFile),
+      }, {
+        rootDir,
+        now,
+      });
+    }
     logger.log(`✅ Calibration written: ${entry.status} (${entry.calibrationId})`);
     return;
   }

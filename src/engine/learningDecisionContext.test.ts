@@ -786,6 +786,20 @@ describe("LearningDecisionContext", () => {
       },
       engagementTheory: null,
       nodes: [],
+      academicPredictions: [{
+        predictionId: "prediction-math-1",
+        theoryId: "theory-math-1",
+        constructId: "math.multiplication.equal_groups",
+        context: "returned schoolwork",
+        horizon: "within_7_days",
+        expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
+        predictedErrorPatterns: ["operation_selection"],
+        confidence: 0.6,
+        evidenceIds: ["assignment:pdf:1"],
+        intervention: "equal-groups teaching",
+        evidenceLimit: "calibrated_mastery",
+        createdAt: "2026-07-17T12:00:00.000Z",
+      }],
     }, { rootDir: root, now: new Date("2026-07-17T12:00:00.000Z") });
     const returnedFile = path.join(root, "returned-pashley.json");
     writeJson(root, "returned-pashley.json", {
@@ -793,8 +807,8 @@ describe("LearningDecisionContext", () => {
       returnTag: "#sunny_reina_hw_math_a179d2a0",
       score: 0.8,
       gradedItems: [
-        { target: "5 x 2", correct: true },
-        { target: "equal groups word problems", correct: false, note: "added the factors" },
+        { target: "math.multiplication.equal_groups", correct: true },
+        { target: "math.multiplication.equal_groups", correct: false, observedErrorType: "operation_selection", note: "added the factors" },
       ],
     });
 
@@ -802,11 +816,28 @@ describe("LearningDecisionContext", () => {
       `--child=${childId}`,
       `--pdf=${returnedFile}`,
       "--yes",
-    ], { rootDir: root, logger: { log: () => undefined }, now: new Date("2026-07-24T12:00:00.000Z") });
+    ], {
+      rootDir: root,
+      logger: { log: () => undefined },
+      now: new Date("2026-07-24T12:00:00.000Z"),
+      interpret: async (cycle) => ({
+        status: "revised",
+        reason: "Returned work was mixed.",
+        nextAction: "Preserve equal groups and test operation selection.",
+        evidenceIds: cycle.observations.map((observation) => observation.observationId),
+        predictionEvaluationIds: cycle.predictionEvaluations.map((evaluation) => evaluation.evaluationId),
+        preserve: ["equal groups"],
+        change: ["operation selection support"],
+        testNext: ["unseen word problem"],
+        nextEvidenceRequired: ["delayed unassisted item"],
+      }),
+    });
 
     const cycle = getLearningCycle(childId, homeworkId, { rootDir: root });
     expect(cycle?.calibrations).toHaveLength(1);
-    expect(cycle?.calibrations?.[0]).toMatchObject({ score: 0.8, sourceFile: "returned-pashley.json" });
-    expect(cycle?.decisionHistory.at(-1)?.eventType).toBe("graded_work_received");
+    expect(cycle?.calibrations?.[0]?.score).toBe(0.8);
+    expect(cycle?.calibrations?.[0]?.sourceFile).toMatch(/returned-pashley\.json$/);
+    expect(cycle?.evidenceSources).toHaveLength(1);
+    expect(cycle?.decisionHistory.at(-1)?.eventType).toBe("theory_decided");
   });
 });

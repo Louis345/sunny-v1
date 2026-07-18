@@ -135,6 +135,12 @@ import {
 } from "../engine/engagementTheory";
 import { getLearningCycle } from "../engine/learningCycleRepository";
 import { engagementDimensionsForCanonicalNode } from "./canonicalNodeEngagement";
+import {
+  confirmReturnedWorkDraft,
+  createReturnedWorkDraft,
+  listReturnedWorkAssignments,
+} from "../engine/returnedWorkPipeline";
+import type { ConfirmedReturnedWorkItem } from "../engine/longitudinalLearning";
 
 const companions = {
   Ila: ELLI,
@@ -608,6 +614,67 @@ export function setupRoutes(app: Express): void {
 
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  app.get("/api/learning/:childId/assignments", (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    if (!isValidRegistryChildId(childId)) {
+      return res.status(404).json({ error: "child_not_found" });
+    }
+    try {
+      return res.json({ assignments: listReturnedWorkAssignments(childId) });
+    } catch (error) {
+      console.error(" 🎮 [returned-work] [assignments] [failed]", error);
+      return res.status(500).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning/:childId/assignments/:homeworkId/returned-work/extract", async (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    const filename = typeof req.body?.filename === "string" ? req.body.filename.trim() : "";
+    const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType.trim() : "";
+    const dataBase64 = typeof req.body?.dataBase64 === "string" ? req.body.dataBase64.trim() : "";
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!childId || !homeworkId || !filename || !mimeType || !dataBase64) {
+      return res.status(400).json({ error: "childId, homeworkId, filename, mimeType, and dataBase64 are required" });
+    }
+    try {
+      const draft = await createReturnedWorkDraft({ childId, homeworkId, filename, mimeType, dataBase64 });
+      console.log(` 🎮 [returned-work] [extract] [pending-confirmation] child=${childId} homework=${homeworkId} source=${draft.source.sourceId}`);
+      return res.json({ draft });
+    } catch (error) {
+      console.error(" 🎮 [returned-work] [extract] [failed]", error);
+      return res.status(422).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post("/api/learning/:childId/assignments/:homeworkId/returned-work/:sourceId/confirm", async (req: Request, res: Response) => {
+    const childId = String(req.params.childId ?? "").trim().toLowerCase();
+    const homeworkId = String(req.params.homeworkId ?? "").trim();
+    const sourceId = String(req.params.sourceId ?? "").trim();
+    if (!isValidRegistryChildId(childId)) return res.status(404).json({ error: "child_not_found" });
+    if (!childId || !homeworkId || !sourceId) {
+      return res.status(400).json({ error: "childId, homeworkId, and sourceId are required" });
+    }
+    try {
+      const score = req.body?.score && typeof req.body.score.earned === "number" && typeof req.body.score.possible === "number"
+        ? { earned: req.body.score.earned, possible: req.body.score.possible }
+        : undefined;
+      const items = Array.isArray(req.body?.items) ? req.body.items as ConfirmedReturnedWorkItem[] : undefined;
+      const result = await confirmReturnedWorkDraft({
+        childId,
+        homeworkId,
+        sourceId,
+        ...(score ? { score } : {}),
+        ...(items ? { items } : {}),
+      });
+      console.log(` 🎮 [returned-work] [confirm] [${result.interpretationStatus}] child=${childId} homework=${homeworkId} source=${sourceId}`);
+      return res.json(result);
+    } catch (error) {
+      console.error(" 🎮 [returned-work] [confirm] [failed]", error);
+      return res.status(422).json({ error: error instanceof Error ? error.message : String(error) });
+    }
   });
 
   app.post("/api/learning-cycle/node-complete", (req: Request, res: Response) => {

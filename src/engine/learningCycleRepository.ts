@@ -122,6 +122,80 @@ export type LearningCycleCalibration = {
   nextAction: string;
 };
 
+export type LearningEvidenceSourceType =
+  | "assignment"
+  | "graded_work"
+  | "delayed_reassessment"
+  | "teacher_note"
+  | "school_report"
+  | "caregiver_observation";
+
+export type LearningEvidenceSourceRef = {
+  sourceId: string;
+  type: LearningEvidenceSourceType;
+  fileFingerprint: string;
+  sourceFile: string;
+  provenance: "real_child" | "caregiver" | "teacher" | "school" | "system";
+  capturedAt: string;
+  assignmentLink: {
+    homeworkId: string;
+    method: "explicit_selection" | "return_tag" | "fingerprint" | "content_match";
+    confidence: number;
+    confirmedBy?: "caregiver" | "teacher" | "system";
+  };
+  status: "pending_confirmation" | "confirmed";
+};
+
+export type LearningConstructLink = {
+  constructId: string;
+  role: "primary" | "secondary";
+  confidence: number;
+};
+
+export type LearningObservation = {
+  observationId: string;
+  sourceId: string;
+  itemId: string;
+  prompt?: string;
+  childResponse?: string;
+  constructLinks: LearningConstructLink[];
+  result: { correct?: boolean; score?: number; observedErrorType?: string; teacherNote?: string };
+  assistance: { status: "unassisted" | "assisted" | "unknown"; scaffolds: string[] };
+  exposure: "unseen" | "previously_taught" | "previously_practiced" | "unknown";
+  provenance: "graded_work" | "delayed_reassessment" | "independent_probe" | "practice" | "teacher_note";
+  observedAt: string;
+  confounds: string[];
+};
+
+export type AcademicPrediction = {
+  predictionId: string;
+  theoryId: string;
+  constructId: string;
+  context: string;
+  horizon: string;
+  expectedMetric: { key: string; min: number; max: number };
+  predictedErrorPatterns: string[];
+  confidence: number;
+  evidenceIds: string[];
+  intervention: string;
+  evidenceLimit: "practice_only" | "independent_performance" | "provisional_transfer" | "calibrated_mastery";
+  createdAt: string;
+  lockedAt?: string;
+};
+
+export type PredictionEvaluation = {
+  evaluationId: string;
+  predictionId: string;
+  sourceId: string;
+  observationIds: string[];
+  predictedMetric: { min: number; max: number };
+  observedMetric: number | null;
+  predictionError: number | null;
+  observedErrorPatterns: string[];
+  sufficiency: "sufficient" | "insufficient";
+  evaluatedAt: string;
+};
+
 export type LearningCycleDecision = {
   decisionId: string;
   eventType: LearningCycleEvent["type"];
@@ -132,6 +206,11 @@ export type LearningCycleDecision = {
   fromLifecycle: LearningCycleLifecycle;
   toLifecycle: LearningCycleLifecycle;
   createdAt: string;
+  preserve?: string[];
+  change?: string[];
+  testNext?: string[];
+  nextEvidenceRequired?: string[];
+  predictionEvaluationIds?: string[];
 };
 
 export type LearningCycleRecordV2 = {
@@ -160,14 +239,28 @@ export type LearningCycleRecordV2 = {
   };
   decisionHistory: LearningCycleDecision[];
   calibrations?: LearningCycleCalibration[];
+  evidenceSources: LearningEvidenceSourceRef[];
+  academicPredictions: AcademicPrediction[];
+  observations: LearningObservation[];
+  predictionEvaluations: PredictionEvaluation[];
   createdAt: string;
   updatedAt: string;
 };
 
 export type CreateLearningCycleInput = Omit<
   LearningCycleRecordV2,
-  "schemaVersion" | "revision" | "lifecycle" | "evidence" | "decisionHistory" | "createdAt" | "updatedAt"
->;
+  | "schemaVersion"
+  | "revision"
+  | "lifecycle"
+  | "evidence"
+  | "decisionHistory"
+  | "evidenceSources"
+  | "academicPredictions"
+  | "observations"
+  | "predictionEvaluations"
+  | "createdAt"
+  | "updatedAt"
+> & { academicPredictions?: AcademicPrediction[] };
 
 type OutcomeDecision = {
   status: LearningTheoryDecisionStatus;
@@ -189,6 +282,7 @@ export type LearningCycleEvent =
       academicTheory: LearningCycleAcademicTheory;
       engagementTheory: EngagementTheory | null;
       nodes: LearningCycleNodeContract[];
+      academicPredictions?: AcademicPrediction[];
       reason: string;
     }
   | ({ type: "baseline_completed"; decision: OutcomeDecision } & OutcomeEvidence)
@@ -198,6 +292,28 @@ export type LearningCycleEvent =
   | { type: "artifact_rejected"; nodeId: string; reason: string }
   | { type: "engagement_theory_updated"; theory: EngagementTheory; reason: string }
   | { type: "graded_work_received"; calibration: LearningCycleCalibration }
+  | {
+      type: "returned_work_confirmed";
+      source: LearningEvidenceSourceRef;
+      calibration: LearningCycleCalibration;
+      observations: LearningObservation[];
+      evaluations: PredictionEvaluation[];
+    }
+  | {
+      type: "theory_decided";
+      decision: {
+        status: LearningTheoryDecisionStatus;
+        reason: string;
+        nextAction: string;
+        evidenceIds: string[];
+        predictionEvaluationIds: string[];
+        preserve: string[];
+        change: string[];
+        testNext: string[];
+        nextEvidenceRequired: string[];
+        revisedHypothesis?: string;
+      };
+    }
   | { type: "block"; reason: string };
 
 export type LearningCycleRepositoryOptions = {
@@ -264,6 +380,15 @@ function assertCycle(value: LearningCycleRecordV2): void {
   if (!value.childId || !value.homeworkId || !value.assignment.contentFingerprint) {
     throw new Error("learning_cycle_identity_invalid");
   }
+  if (!Array.isArray(value.evidenceSources) || !Array.isArray(value.academicPredictions) ||
+      !Array.isArray(value.observations) || !Array.isArray(value.predictionEvaluations)) {
+    throw new Error("learning_cycle_longitudinal_evidence_invalid");
+  }
+  for (const prediction of value.academicPredictions) {
+    if (!prediction.predictionId || !prediction.constructId || prediction.confidence < 0 || prediction.confidence > 1) {
+      throw new Error("learning_cycle_academic_prediction_invalid");
+    }
+  }
   const ids = value.nodes.map((node) => node.nodeId);
   if (new Set(ids).size !== ids.length) throw new Error("learning_cycle_duplicate_node_id");
   const titles = value.nodes.filter((node) => node.role !== "quest" && node.role !== "boss").map((node) => node.title);
@@ -284,6 +409,16 @@ function assertCycle(value: LearningCycleRecordV2): void {
     }
     if (node.artwork.localPath) assertLocalPath(node.artwork.localPath, "artwork_path");
   }
+}
+
+function hydrateLongitudinalFields(value: LearningCycleRecordV2): LearningCycleRecordV2 {
+  return {
+    ...value,
+    evidenceSources: value.evidenceSources ?? [],
+    academicPredictions: value.academicPredictions ?? [],
+    observations: value.observations ?? [],
+    predictionEvaluations: value.predictionEvaluations ?? [],
+  };
 }
 
 function atomicWrite(file: string, cycle: LearningCycleRecordV2): void {
@@ -332,6 +467,10 @@ export function createLearningCycle(
     lifecycle: "baseline_ready",
     evidence: { academic: [], engagement: [], companionObservations: [] },
     decisionHistory: [],
+    evidenceSources: [],
+    academicPredictions: structuredClone(input.academicPredictions ?? []),
+    observations: [],
+    predictionEvaluations: [],
     createdAt: at,
     updatedAt: at,
   };
@@ -349,7 +488,7 @@ export function getLearningCycle(
   if (!fs.existsSync(file)) return null;
   const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as { schemaVersion?: unknown };
   if (parsed.schemaVersion !== 2) return null;
-  const cycle = parsed as LearningCycleRecordV2;
+  const cycle = hydrateLongitudinalFields(parsed as LearningCycleRecordV2);
   assertCycle(cycle);
   return cycle;
 }
@@ -374,7 +513,7 @@ export function repairInvalidLearningCycleForReingestion(
 ): LearningCycleRecordV2 {
   const file = cyclePath(input.childId, input.homeworkId, opts);
   if (!fs.existsSync(file)) throw new Error(`learning_cycle_missing:${input.homeworkId}`);
-  const raw = JSON.parse(fs.readFileSync(file, "utf8")) as LearningCycleRecordV2;
+  const raw = hydrateLongitudinalFields(JSON.parse(fs.readFileSync(file, "utf8")) as LearningCycleRecordV2);
   if (raw.schemaVersion !== 2 || raw.childId !== input.childId || raw.homeworkId !== input.homeworkId) {
     throw new Error("learning_cycle_reingestion_repair_identity_invalid");
   }
@@ -427,7 +566,7 @@ export function repairHistoricalLearningCycleBeforePlanning(
 ): LearningCycleRecordV2 | null {
   const file = cyclePath(childId, homeworkId, opts);
   if (!fs.existsSync(file)) return null;
-  const raw = JSON.parse(fs.readFileSync(file, "utf8")) as LearningCycleRecordV2;
+  const raw = hydrateLongitudinalFields(JSON.parse(fs.readFileSync(file, "utf8")) as LearningCycleRecordV2);
   try {
     assertCycle(raw);
     return raw;
@@ -546,6 +685,21 @@ export function transitionLearningCycle(
 
   if (event.type === "plan_reconciled") {
     const previousById = new Map(next.nodes.map((node) => [node.nodeId, node]));
+    if (event.academicPredictions) {
+      const launched = next.observations.length > 0 || next.nodes.some((node) => node.state === "active" || node.state === "completed");
+      if (launched) {
+        const incomingById = new Map(event.academicPredictions.map((prediction) => [prediction.predictionId, prediction]));
+        for (const previous of next.academicPredictions) {
+          const incoming = incomingById.get(previous.predictionId);
+          if (incoming && JSON.stringify(incoming) !== JSON.stringify(previous)) {
+            throw new Error(`learning_cycle_prediction_immutable:${previous.predictionId}`);
+          }
+        }
+      }
+      const priorById = new Map(next.academicPredictions.map((prediction) => [prediction.predictionId, prediction]));
+      next.academicPredictions = event.academicPredictions.map((prediction) =>
+        structuredClone(priorById.get(prediction.predictionId) ?? prediction));
+    }
     next.assignment = structuredClone(event.assignment);
     next.academicTheory = structuredClone(event.academicTheory);
     next.engagementTheory = structuredClone(event.engagementTheory);
@@ -636,6 +790,23 @@ export function transitionLearningCycle(
     else next.lifecycle = "baseline_ready";
     reason = `Validated ${node.role} artifact bound to canonical node contract.`;
     evidenceIds = node.generationPrompt?.createdFromEvidenceIds ?? [];
+  } else if (event.type === "returned_work_confirmed") {
+    if (!next.evidenceSources.some((source) => source.sourceId === event.source.sourceId)) {
+      next.evidenceSources.push(structuredClone(event.source));
+    }
+    const observationIds = new Set(next.observations.map((observation) => observation.observationId));
+    next.observations.push(...event.observations.filter((observation) => !observationIds.has(observation.observationId)).map((observation) => structuredClone(observation)));
+    const evaluationIds = new Set(next.predictionEvaluations.map((evaluation) => evaluation.evaluationId));
+    next.predictionEvaluations.push(...event.evaluations.filter((evaluation) => !evaluationIds.has(evaluation.evaluationId)).map((evaluation) => structuredClone(evaluation)));
+    next.calibrations = [...(next.calibrations ?? []), structuredClone(event.calibration)];
+    next.evidence.academic = uniqueEvidence([...next.evidence.academic, ...event.observations.map((observation) => ({
+      evidenceId: observation.observationId,
+      summary: `Returned work item ${observation.itemId}: ${observation.result.correct === true ? "correct" : observation.result.correct === false ? "incorrect" : "observed"}.`,
+      ...(typeof observation.result.score === "number" ? { accuracy: observation.result.score } : {}),
+    }))]);
+    evidenceIds = event.observations.map((observation) => observation.observationId);
+    reason = "Confirmed returned work was recorded as factual evidence pending one Planner interpretation.";
+    nextAction = "Interpret the prediction evaluations without changing the observations.";
   } else if (event.type === "graded_work_received") {
     next.calibrations = [...(next.calibrations ?? []), structuredClone(event.calibration)];
     next.evidence.academic = uniqueEvidence([...next.evidence.academic, {
@@ -646,12 +817,18 @@ export function transitionLearningCycle(
     evidenceIds = [event.calibration.calibrationId];
     reason = event.calibration.reason;
     nextAction = event.calibration.nextAction;
-    status = event.calibration.status;
-    next.lifecycle = event.calibration.status === "supported"
-      ? "complete"
-      : event.calibration.status === "falsified"
-        ? "baseline_ready"
-        : "awaiting_calibration";
+  } else if (event.type === "theory_decided") {
+    ({ status, reason, nextAction } = event.decision);
+    evidenceIds = [...event.decision.evidenceIds];
+    if (event.decision.revisedHypothesis && event.decision.revisedHypothesis !== next.academicTheory.hypothesis) {
+      next.academicTheory = {
+        ...next.academicTheory,
+        revision: next.academicTheory.revision + 1,
+        hypothesis: event.decision.revisedHypothesis,
+      };
+    }
+    // A theory status describes the evidence interpretation, not a board transition.
+    // Progression remains an explicit, separately authorized learning-cycle event.
   } else if (event.type === "engagement_theory_updated") {
     next.engagementTheory = structuredClone(event.theory);
     reason = event.reason;
@@ -687,6 +864,13 @@ export function transitionLearningCycle(
     fromLifecycle,
     toLifecycle: next.lifecycle,
     createdAt: at,
+    ...(event.type === "theory_decided" ? {
+      preserve: event.decision.preserve,
+      change: event.decision.change,
+      testNext: event.decision.testNext,
+      nextEvidenceRequired: event.decision.nextEvidenceRequired,
+      predictionEvaluationIds: event.decision.predictionEvaluationIds,
+    } : {}),
   };
   next.decisionHistory.push(decision);
   assertCycle(next);

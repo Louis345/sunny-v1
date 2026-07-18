@@ -9,11 +9,14 @@ import { VisualExplainerMapDemo } from "./components/VisualExplainer/VisualExpla
 import { VisualExplainerRenderRoute } from "./components/VisualExplainer/VisualExplainerRenderRoute";
 import { TransitionProvider } from "./context/TransitionContext";
 import { resolveSunnyRuntimeConfig } from "../../src/shared/runtimeConfig";
+import { ReturnedWorkPage } from "./components/ReturnedWorkPage";
 
 const runtimeConfig = resolveSunnyRuntimeConfig(import.meta.env);
 const diagReadingEnabled = import.meta.env.VITE_DIAG_READING === "true";
 const companionDiagEnabled = import.meta.env.VITE_COMPANION_DIAG === "true";
 const visualExplainerRenderEnabled = window.location.pathname === "/__render";
+const returnedWorkEnabled = window.location.pathname === "/parent/returned-work";
+const returnedWorkChildId = new URLSearchParams(window.location.search).get("child")?.trim().toLowerCase() || "reina";
 const visualExplainerDemoEnabled =
   runtimeConfig.demoRoute === "visual-explainer" ||
   window.location.pathname === "/visual-explainer" ||
@@ -26,7 +29,9 @@ const visualExplainerMapDemoEnabled =
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <TransitionProvider>
-      {visualExplainerRenderEnabled ? (
+      {returnedWorkEnabled ? (
+        <ReturnedWorkPage childId={returnedWorkChildId} />
+      ) : visualExplainerRenderEnabled ? (
         <VisualExplainerRenderRoute />
       ) : visualExplainerMapDemoEnabled ? (
         <VisualExplainerMapDemo />

@@ -135,7 +135,7 @@ function minimalProfile(): LearningProfile {
 }
 
 describe("canonical learning cycle repository", () => {
-  it("appends returned graded work to the same assignment cycle and records one reality decision", () => {
+  it("records returned graded work as fact without interpreting or changing lifecycle", () => {
     const rootDir = root();
     createLearningCycle(input(), { rootDir, now: new Date("2026-07-17T12:00:00.000Z") });
     const updated = recordLearningCycleCalibration("reina", "hw-math-cycle", {
@@ -155,11 +155,12 @@ describe("canonical learning cycle repository", () => {
     expect(updated.homeworkId).toBe("hw-math-cycle");
     expect(updated.calibrations).toHaveLength(1);
     expect(updated.calibrations?.[0]?.gradedItems).toHaveLength(2);
+    expect(updated.lifecycle).toBe("baseline_ready");
     expect(updated.decisionHistory.at(-1)).toMatchObject({
       eventType: "graded_work_received",
-      status: "supported",
       evidenceIds: ["calibration-returned-1"],
     });
+    expect(updated.decisionHistory.at(-1)).not.toHaveProperty("status");
   });
 
   it("repairs impossible historical progression before child-chart planning begins", () => {
@@ -462,6 +463,7 @@ describe("canonical learning cycle repository", () => {
 
     const chart = getChildChart("reina", { rootDir });
     expect(chart.learningCycle).toEqual(cycle);
+    expect(chart.learningHistory.childId).toBe("reina");
     expect(chart.activeSessionPlan?.planId).toContain("learning-cycle:hw-math-cycle");
     expect(chart.activeSessionPlan?.nodePlan.map((node) => node.title)).toEqual([
       "Fact Blaster",
@@ -499,5 +501,45 @@ describe("canonical learning cycle repository", () => {
     expect(reconciled.lifecycle).toBe("baseline_ready");
     expect(reconciled.nodes.find((node) => node.role === "quest")?.state).toBe("locked");
     expect(reconciled.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
+  });
+
+  it("rejects changing a preregistered prediction after real observations exist", () => {
+    const rootDir = root();
+    const initial = input();
+    const prediction = {
+      predictionId: "prediction:equal-groups",
+      theoryId: initial.academicTheory.theoryId,
+      constructId: "math.multiplication.equal_groups",
+      context: "returned work",
+      horizon: "within_7_days",
+      expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
+      predictedErrorPatterns: [],
+      confidence: 0.6,
+      evidenceIds: ["assignment:pdf:1"],
+      intervention: "equal-groups practice",
+      evidenceLimit: "calibrated_mastery" as const,
+      createdAt: "2026-07-18T12:00:00.000Z",
+      lockedAt: "2026-07-18T12:00:00.000Z",
+    };
+    const cycle = createLearningCycle({ ...initial, academicPredictions: [prediction] }, { rootDir });
+    const withObservation = structuredClone(cycle);
+    withObservation.observations.push({
+      observationId: "obs:1", sourceId: "source:1", itemId: "item:1",
+      constructLinks: [{ constructId: prediction.constructId, role: "primary", confidence: 1 }],
+      result: { correct: true }, assistance: { status: "unassisted", scaffolds: [] },
+      exposure: "unseen", provenance: "graded_work", observedAt: "2026-07-24T12:00:00.000Z", confounds: [],
+    });
+    const file = path.join(rootDir, "src/context/reina/homework/cycles/hw-math-cycle.json");
+    fs.writeFileSync(file, JSON.stringify(withObservation, null, 2), "utf8");
+
+    expect(() => transitionLearningCycle("reina", "hw-math-cycle", cycle.revision, {
+      type: "plan_reconciled",
+      assignment: initial.assignment,
+      academicTheory: initial.academicTheory,
+      engagementTheory: null,
+      nodes: initial.nodes,
+      academicPredictions: [{ ...prediction, expectedMetric: { ...prediction.expectedMetric, min: 0.9 } }],
+      reason: "Attempted retrospective rewrite.",
+    }, { rootDir })).toThrow("learning_cycle_prediction_immutable:prediction:equal-groups");
   });
 });

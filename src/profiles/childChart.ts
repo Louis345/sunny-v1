@@ -45,6 +45,7 @@ import {
   projectLearningCycle,
   type LearningCycleRecordV2,
 } from "../engine/learningCycleRepository";
+import { buildLongitudinalLearningHistory, type LongitudinalLearningHistory } from "../engine/longitudinalLearning";
 
 export type ChildProfileManifest = {
   childId: string;
@@ -118,6 +119,8 @@ export type ChildChart = {
   };
   /** Canonical decision record for the selected homework cycle, when migrated to V2. */
   learningCycle: LearningCycleRecordV2 | null;
+  /** Read-only cross-cycle projection; canonical cycles remain authoritative. */
+  learningHistory: LongitudinalLearningHistory;
   plannerTrust: LearningProfile["plannerTrust"] | null;
   activeSessionPlan: LearningProfile["activeSessionPlan"] | null;
   sessionPlan: {
@@ -408,6 +411,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
   const learningCycle = selectedHomeworkId
     ? getLearningCycle(childId, selectedHomeworkId, { rootDir })
     : null;
+  const learningHistory = buildLongitudinalLearningHistory(childId, { rootDir });
   const cycleProjection = learningCycle ? projectLearningCycle(learningCycle) : null;
   const selectedActiveSessionPlan = directActiveSessionPlan ?? cycleProjection?.activeSessionPlan ?? legacySelectedActiveSessionPlan;
   const catalogItems = contentCatalogWaterfall.items;
@@ -444,6 +448,7 @@ export function getChildChart(childIdRaw: string, opts: ChildChartOptions = {}):
       waterfall: homeworkWaterfall,
     },
     learningCycle: directActiveSessionPlan ? null : learningCycle,
+    learningHistory,
     plannerTrust: learningProfile.plannerTrust ?? null,
     activeSessionPlan: selectedActiveSessionPlan,
     sessionPlan: {

@@ -1,5 +1,7 @@
 # Bugs
 
+- 2026-07-18: Full root Vitest has three pre-existing fixture/catalog failures outside the longitudinal evidence milestone. `mathPlanDefinitionOfDone.test.ts` and `baselinePlannerIntegration.test.ts` request `demo-pashley`, whose learning profile fixture is absent; `baselineShellGap.test.ts` expects an approved generated shell to satisfy a gap but current catalog matching returns `needsGeneration: true`. None of the failing files or baseline-shell implementation changed in this milestone. Focused longitudinal tests, the production build, and all 703 web tests pass. Status: deferred to preserve milestone scope.
+
 - 2026-06-01: Full root Vitest has one unrelated companion video-call trace regression in `src/server/game-event-handler.test.ts`: `companion_tic_tac_toe_child_move` is recorded as `{ type, game: "unknown" }` instead of the expected payload with `activityId`, `companionId`, and `square`. Expected: companion video-call activity events should preserve the structured payload in the shared session game trace stream. Status: discovered while verifying Sunny ingest main port; deferred to keep the ingest merge scoped.
 
 - 2026-05-16: Product complaints inside a spelling session can still remain only in transcript if they do not match the current complaint detector. Example: Ila saying Spell Check does not say the word before spelling should become a bounded `product_issue` chart record automatically. Status: deferred from Spelling Session Trust Patch to keep the patch scoped.

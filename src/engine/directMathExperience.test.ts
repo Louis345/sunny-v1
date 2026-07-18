@@ -47,6 +47,17 @@ function plan(activityCount = 3) {
     acceptanceSteps: ["launch", "answer incorrectly", "recover", "answer correctly", "complete"],
     creatorPrompt: `Create a distinct ${index % 2 === 0 ? "strategy" : "visual"} multiplication experience.`,
     designPrediction: "The child will understand the first action without adult help.",
+    academicPrediction: {
+      constructId: "math.multiplication.equal_groups",
+      context: "unassisted returned schoolwork",
+      horizon: "within_7_days",
+      expectedMetric: { key: "academic.accuracy", min: 0.7, max: 0.9 },
+      predictedErrorPatterns: ["operation_selection"],
+      confidence: 0.65,
+      evidenceIds: ["chart:reina"],
+      intervention: "equal-groups practice",
+      evidenceLimit: "calibrated_mastery",
+    },
     preserve: ["clear progress"],
     change: ["make the learning target larger"],
     explore: ["short optional demonstration"],
@@ -109,9 +120,69 @@ describe("direct math experience", () => {
     expect(create.mock.calls[1]?.[0]?.messages?.[0]?.content).toContain("direct_plan_requires_activities");
   });
 
+  it("includes prior prediction errors and theory decisions in the next Planner prompt", async () => {
+    const create = vi.fn().mockResolvedValue({ content: [{ type: "tool_use", name: "create_learning_experience_plan", input: plan(3) }] });
+    await askDirectMathPlanner({
+      childId: "reina",
+      chart: {
+        identity: {}, demographics: {}, engagementTheory: null, factBankSummary: {},
+        learningProfile: { rewardPreferences: [], sessionStats: {}, activityModel: {}, activityTraitModel: {} },
+        decisionTrace: { latest: null },
+        learningHistory: {
+          childId: "reina",
+          constructs: {
+            "math.multiplication.equal_groups": {
+              constructId: "math.multiplication.equal_groups",
+              predictions: [{ predictionId: "prediction:prior" }],
+              observations: [{ observationId: "observation:returned" }],
+              evaluations: [{ evaluationId: "evaluation:prior", predictionError: 0.2 }],
+              decisions: [{ decisionId: "decision:prior", change: ["operation selection"] }],
+            },
+          },
+          recentDecisions: [{ decisionId: "decision:prior" }],
+          pendingInterpretation: [],
+        },
+      } as never,
+      extraction: { fullText: "New multiplication assignment" } as never,
+      client: { messages: { create } } as never,
+    });
+    const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    expect(prompt).toContain("prediction:prior");
+    expect(prompt).toContain("evaluation:prior");
+    expect(prompt).toContain("decision:prior");
+  });
+
   it("keeps the planner-selected activity count instead of forcing two nodes", () => {
     expect(parseDirectLearningExperiencePlan(plan(3)).activities).toHaveLength(3);
     expect(parseDirectLearningExperiencePlan(plan(5)).activities).toHaveLength(5);
+  });
+
+  it("preregisters academic predictions separately from UX design predictions", () => {
+    const parsed = parseDirectLearningExperiencePlan(plan(3));
+    const artifacts = parsed.activities.map((activity) => ({
+      childId: "reina", homeworkId: "hw-math-test", nodeId: activity.id, title: activity.title,
+      htmlPath: `/games/${activity.id}.html`, artworkUrl: `/art/${activity.id}.png`,
+      acceptanceScript: activity.acceptanceScript, creatorPrompt: activity.creatorPrompt, promptHash: activity.id,
+      plannerModel: "planner", creatorModel: "creator",
+    }));
+    const cycle = buildDirectLearningCycleInput({
+      childId: "reina",
+      homeworkId: "hw-math-test",
+      extraction: { fileHash: "hash", fullText: "equal groups", filename: "math.pdf" } as never,
+      plannerPlan: parsed,
+      activeSessionPlan: buildDirectActiveSessionPlan({
+        childId: "reina", homeworkId: "hw-math-test", plan: parsed, artifacts,
+        backgroundUrl: "/background.png", questArtworkUrl: "/quest.png", bossArtworkUrl: "/boss.png",
+        report: { passed: true, failures: [], screenshots: [] },
+      }),
+      artifacts,
+    });
+    expect(cycle.academicPredictions).toHaveLength(3);
+    expect(cycle.academicPredictions?.[0]).toMatchObject({
+      constructId: "math.multiplication.equal_groups",
+      expectedMetric: { min: 0.7, max: 0.9 },
+    });
+    expect(cycle.nodes[0]?.prediction?.claim).toBe("The child will understand the first action without adult help.");
   });
 
   it("requires coherent learning responsibilities without fixing the activity count", () => {
