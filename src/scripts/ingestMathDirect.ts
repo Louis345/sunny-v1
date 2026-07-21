@@ -10,14 +10,9 @@ import {
   parseDirectLearningExperiencePlan,
   persistDirectExperience,
   readDirectCanonicalLearningContext,
-  repairDirectArtifactsOnce,
-  runDirectAcceptanceRepairLoop,
   runDirectPlaywrightAcceptance,
 } from "../engine/directMathExperience";
-import {
-  interpretPendingDirectExperienceOutcomes,
-  readDirectFeedbackContext,
-} from "../engine/directExperienceFeedback";
+import { readDirectFeedbackContext } from "../engine/directExperienceFeedback";
 import { getChildChart } from "../profiles/childChart";
 
 function arg(name: string): string {
@@ -38,7 +33,6 @@ async function main(): Promise<void> {
   const homeworkId = `hw-math-${crypto.createHash("sha256").update(extraction.fileHash).digest("hex").slice(0, 8)}`;
   const draftDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-drafts", homeworkId);
   const draftFile = path.join(draftDir, "planner-plan.json");
-  await interpretPendingDirectExperienceOutcomes(childId);
   const priorOutcomes = {
     directExperience: readDirectFeedbackContext(childId),
     canonicalCycle: readDirectCanonicalLearningContext(childId, homeworkId),
@@ -58,11 +52,8 @@ async function main(): Promise<void> {
     model: process.env.SUNNY_GENERATION_MODEL,
   });
   console.log("[4/4] Running one Playwright acceptance suite");
-  const playwrightOutputDir = path.join(process.cwd(), "src", "context", childId, "homework", "direct-playwright", homeworkId);
-  const report = await runDirectAcceptanceRepairLoop({
-    runAcceptance: () => runDirectPlaywrightAcceptance({ artifacts: generated.artifacts, outputDir: playwrightOutputDir }),
-    repair: (failures) => repairDirectArtifactsOnce({ plan: plannerPlan, artifacts: generated.artifacts, failures }),
-    maxRepairs: 5,
+  const report = await runDirectPlaywrightAcceptance({
+    artifacts: generated.artifacts,
   });
   if (!report.passed) {
     console.log("Done — BLOCKED");

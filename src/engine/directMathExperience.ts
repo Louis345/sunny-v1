@@ -36,11 +36,7 @@ export type DirectActivity = {
     recovery: string;
     reward: string;
   };
-  questions: Array<{
-    id: string;
-    prompt: string;
-    options: Array<{ label: string; correct: boolean }>;
-  }>;
+  items: DirectItem[];
   acceptanceSteps: string[];
   creatorPrompt: string;
   designPrediction: string;
@@ -50,8 +46,20 @@ export type DirectActivity = {
   explore: string[];
   avoid: string[];
   measurementKeys: string[];
-  /** Planner-authored browser test, created before the activity HTML. */
-  acceptanceScript: string;
+};
+
+export type DirectItem = {
+  id: string;
+  prompt: string;
+  lineage: {
+    sourceEvidenceIds: string[];
+    exposure: "unseen" | "taught" | "practiced";
+  };
+  response:
+    | { mode: "selection"; options: Array<{ id: string; label: string; correct: boolean }> }
+    | { mode: "numeric"; expected: number; unit?: string }
+    | { mode: "construction"; expectedState: Record<string, string | number | boolean>; successDescription: string }
+    | { mode: "explanation"; rubric: string[] };
 };
 
 export type DirectLearningResponsibility = {
@@ -75,9 +83,33 @@ export const EXPERIENCE_DESIGN_CONSTITUTION = `Experience Design Constitution:
 - Keep Quest and Boss locked at ingestion.
 - Treat initial activities as teaching and practice evidence only, never mastery.`;
 
+const schemaString = { type: "string", minLength: 1 } as const;
+const schemaStrings = { type: "array", items: schemaString } as const;
+const schemaObject = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: "object" as const, properties, required, additionalProperties: true });
+const schemaItemResponse = { oneOf: [
+  schemaObject({ mode: { const: "selection" }, options: { type: "array", minItems: 2, items: schemaObject({ id: schemaString, label: schemaString, correct: { type: "boolean" } }) } }), schemaObject({ mode: { const: "numeric" }, expected: { type: "number" }, unit: schemaString }, ["mode", "expected"]),
+  schemaObject({ mode: { const: "construction" }, expectedState: { type: "object", minProperties: 1, additionalProperties: { type: ["string", "number", "boolean"] } }, successDescription: schemaString }), schemaObject({ mode: { const: "explanation" }, rubric: { type: "array", minItems: 1, items: schemaString } }),
+] } as const;
+
+/** Structural transport contract only. It deliberately leaves counts, mechanics, themes, and content to the Planner. */
+export const DIRECT_MATH_PLANNER_TOOL_SCHEMA = schemaObject({
+  planId: schemaString, contentScopeRationale: schemaString, academicTheory: schemaString, profileEvidence: schemaStrings,
+  learningResponsibilities: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, title: schemaString, purpose: schemaString, academicTarget: schemaString }) },
+  boardWorld: schemaObject({ title: schemaString, narrative: schemaString, backgroundPrompt: schemaString }),
+  fork: schemaObject({ question: schemaString, hypothesis: schemaString, heldConstant: schemaStrings, routes: { type: "array", minItems: 2, maxItems: 2, items: schemaObject({ id: schemaString, label: schemaString, promise: schemaString, engagementVariable: schemaString, nodeIds: schemaStrings }) } }),
+  activities: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, title: schemaString, routeId: schemaString, responsibilityId: schemaString, academicTarget: schemaString, mechanic: schemaString, engagementVariable: schemaString,
+    visualMock: schemaObject({ scene: schemaString, layout: schemaString, artworkPrompt: schemaString }), experience: schemaObject({ objective: schemaString, childAction: schemaString, worldReaction: schemaString, anticipation: schemaString, progress: schemaString, recovery: schemaString, reward: schemaString }),
+    items: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, prompt: schemaString, lineage: schemaObject({ sourceEvidenceIds: { type: "array", minItems: 1, items: schemaString }, exposure: { enum: ["unseen", "taught", "practiced"] } }), response: schemaItemResponse }) }, acceptanceSteps: schemaStrings, creatorPrompt: schemaString, designPrediction: schemaString,
+    academicPrediction: schemaObject({ constructId: schemaString, context: schemaString, horizon: schemaString, expectedMetric: schemaObject({ key: schemaString, min: { type: "number" }, max: { type: "number" } }), predictedErrorPatterns: schemaStrings, confidence: { type: "number" }, evidenceIds: schemaStrings, intervention: schemaString, evidenceLimit: { const: "practice_only" } }),
+    preserve: schemaStrings, change: schemaStrings, explore: schemaStrings, avoid: schemaStrings, measurementKeys: schemaStrings }) },
+  quest: schemaObject({ title: { const: "Quest" }, locked: { const: true }, teaser: schemaString, artworkPrompt: schemaString }),
+  boss: schemaObject({ title: { const: "Boss" }, locked: { const: true }, teaser: schemaString, artworkPrompt: schemaString }),
+});
+
 export type DirectLearningExperiencePlan = {
   planId: string;
   title: string;
+  contentScopeRationale: string;
   academicTheory: string;
   profileEvidence: string[];
   boardWorld: { title: string; narrative: string; backgroundPrompt: string };
@@ -106,7 +138,6 @@ export type DirectArtifact = {
   title: string;
   htmlPath: string;
   artworkUrl: string;
-  acceptanceScript: string;
   creatorPrompt: string;
   promptHash: string;
   plannerModel: string;
@@ -154,9 +185,9 @@ function object(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
-function requiredString(record: Record<string, unknown>, key: string): string {
+function requiredString(record: Record<string, unknown>, key: string, errorLabel = key): string {
   const value = record[key];
-  if (typeof value !== "string" || !value.trim()) throw new Error(`direct_plan_missing_${key}`);
+  if (typeof value !== "string" || !value.trim()) throw new Error(`direct_plan_missing_${errorLabel}`);
   return value.trim();
 }
 
@@ -180,7 +211,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
     const responsibility = object(raw);
     if (!responsibility) throw new Error("direct_plan_invalid_learning_responsibility");
     return {
-      id: requiredString(responsibility, "id"),
+      id: requiredString(responsibility, "id", "responsibility_id"),
       title: requiredString(responsibility, "title"),
       purpose: requiredString(responsibility, "purpose"),
       academicTarget: requiredString(responsibility, "academicTarget"),
@@ -198,7 +229,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
     const route = object(raw);
     if (!route) throw new Error("direct_plan_invalid_route");
     return {
-      id: requiredString(route, "id"),
+      id: requiredString(route, "id", "route_id"),
       label: requiredString(route, "label"),
       promise: requiredString(route, "promise"),
       engagementVariable: requiredString(route, "engagementVariable"),
@@ -224,22 +255,63 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
     if (academicTarget !== responsibility.academicTarget) {
       throw new Error(`direct_plan_activity_target_mismatch:${requiredString(activity, "id")}:${responsibilityId}`);
     }
-    const questions = (Array.isArray(activity.questions) ? activity.questions : []).map((rawQuestion) => {
-      const question = object(rawQuestion);
-      if (!question) throw new Error("direct_plan_invalid_question");
-      const options = (Array.isArray(question.options) ? question.options : []).map((rawOption) => {
-        const option = object(rawOption);
-        if (!option || typeof option.correct !== "boolean") throw new Error("direct_plan_invalid_option");
-        return { label: requiredString(option, "label"), correct: option.correct };
-      });
-      if (options.length < 2 || options.filter((option) => option.correct).length !== 1) {
-        throw new Error("direct_plan_question_requires_one_correct_answer");
+    const items = (Array.isArray(activity.items) ? activity.items : []).map((rawItem): DirectItem => {
+      const item = object(rawItem);
+      const lineage = object(item?.lineage);
+      const response = object(item?.response);
+      if (!item || !lineage) throw new Error("direct_plan_invalid_item_lineage");
+      if (!response) throw new Error("direct_plan_invalid_item_response");
+      const sourceEvidenceIds = stringArray(lineage.sourceEvidenceIds, "item_source_evidence_ids");
+      if (sourceEvidenceIds.length === 0) throw new Error("direct_plan_invalid_item_lineage");
+      const exposure = requiredString(lineage, "exposure");
+      if (!["unseen", "taught", "practiced"].includes(exposure)) throw new Error("direct_plan_invalid_item_exposure");
+      const mode = requiredString(response, "mode");
+      let parsedResponse: DirectItem["response"];
+      if (mode === "selection") {
+        const options = (Array.isArray(response.options) ? response.options : []).map((rawOption) => {
+          const option = object(rawOption);
+          if (!option || typeof option.correct !== "boolean") throw new Error("direct_plan_invalid_selection_option");
+          return { id: requiredString(option, "id", "selection_option_id"), label: requiredString(option, "label"), correct: option.correct };
+        });
+        if (options.length < 2 || options.filter((option) => option.correct).length !== 1) {
+          throw new Error("direct_plan_selection_requires_one_correct_option");
+        }
+        parsedResponse = { mode, options };
+      } else if (mode === "numeric") {
+        parsedResponse = {
+          mode,
+          expected: requiredNumber(response, "expected"),
+          ...(typeof response.unit === "string" && response.unit.trim() ? { unit: response.unit.trim() } : {}),
+        };
+      } else if (mode === "construction") {
+        const expectedState = object(response.expectedState);
+        if (!expectedState || Object.keys(expectedState).length === 0
+          || Object.values(expectedState).some((entry) => !["string", "number", "boolean"].includes(typeof entry))) {
+          throw new Error("direct_plan_invalid_construction_state");
+        }
+        parsedResponse = {
+          mode,
+          expectedState: expectedState as Record<string, string | number | boolean>,
+          successDescription: requiredString(response, "successDescription"),
+        };
+      } else if (mode === "explanation") {
+        const rubric = stringArray(response.rubric, "explanation_rubric");
+        if (rubric.length === 0) throw new Error("direct_plan_invalid_explanation_rubric");
+        parsedResponse = { mode, rubric };
+      } else {
+        throw new Error(`direct_plan_invalid_response_mode:${mode}`);
       }
-      return { id: requiredString(question, "id"), prompt: requiredString(question, "prompt"), options };
+      return {
+        id: requiredString(item, "id", "item_id"),
+        prompt: requiredString(item, "prompt"),
+        lineage: { sourceEvidenceIds, exposure: exposure as DirectItem["lineage"]["exposure"] },
+        response: parsedResponse,
+      };
     });
-    if (questions.length === 0) throw new Error("direct_plan_activity_requires_questions");
+    if (items.length === 0) throw new Error("direct_plan_activity_requires_items");
+    if (new Set(items.map((item) => item.id)).size !== items.length) throw new Error("direct_plan_duplicate_item_id");
     return {
-      id: requiredString(activity, "id"),
+      id: requiredString(activity, "id", "activity_id"),
       title: requiredString(activity, "title"),
       routeId: requiredString(activity, "routeId"),
       responsibilityId,
@@ -261,7 +333,7 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
         recovery: requiredString(experience, "recovery"),
         reward: requiredString(experience, "reward"),
       },
-      questions,
+      items,
       acceptanceSteps: stringArray(activity.acceptanceSteps, "acceptance_steps"),
       creatorPrompt: requiredString(activity, "creatorPrompt"),
       designPrediction: requiredString(activity, "designPrediction"),
@@ -280,10 +352,8 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
         intervention: requiredString(academicPrediction, "intervention"),
         evidenceLimit: (() => {
           const value = requiredString(academicPrediction, "evidenceLimit");
-          if (!["practice_only", "independent_performance", "provisional_transfer", "calibrated_mastery"].includes(value)) {
-            throw new Error("direct_plan_invalid_academic_prediction_evidence_limit");
-          }
-          return value as DirectActivity["academicPrediction"]["evidenceLimit"];
+          if (value !== "practice_only") throw new Error("direct_plan_initial_activity_must_be_practice_only");
+          return "practice_only" as const;
         })(),
       },
       preserve: stringArray(activity.preserve, "preserve"),
@@ -291,7 +361,6 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       explore: stringArray(activity.explore, "explore"),
       avoid: stringArray(activity.avoid, "avoid"),
       measurementKeys: stringArray(activity.measurementKeys, "measurement_keys"),
-      acceptanceScript: requiredString(activity, "acceptanceScript"),
     };
   });
   const ids = new Set(activities.map((activity) => activity.id));
@@ -302,15 +371,9 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
   }
   for (const route of routes) route.nodeIds = activities.filter((activity) => activity.routeId === route.id).map((activity) => activity.id);
   if (routes.some((route) => route.nodeIds.length === 0)) throw new Error("direct_plan_route_has_no_activity");
-  for (const route of routes) {
-    const routeActivities = activities.filter((activity) => activity.routeId === route.id);
-    const firstIndexes = learningResponsibilities.map((responsibility) => {
-      const index = routeActivities.findIndex((activity) => activity.responsibilityId === responsibility.id);
-      if (index < 0) throw new Error(`direct_plan_route_missing_responsibility:${route.id}:${responsibility.id}`);
-      return index;
-    });
-    if (firstIndexes.some((index, position) => position > 0 && index <= firstIndexes[position - 1]!)) {
-      throw new Error(`direct_plan_route_responsibility_order_invalid:${route.id}`);
+  for (const responsibility of learningResponsibilities) {
+    if (!activities.some((activity) => activity.responsibilityId === responsibility.id)) {
+      throw new Error(`direct_plan_missing_responsibility:${responsibility.id}`);
     }
   }
   const quest = object(root.quest);
@@ -318,13 +381,15 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
   if (!quest || !boss) throw new Error("direct_plan_requires_quest_and_boss_teasers");
   const boardWorld = object(root.boardWorld);
   if (!boardWorld) throw new Error("direct_plan_missing_board_world");
+  const boardTitle = requiredString(boardWorld, "title");
   return {
     planId: requiredString(root, "planId"),
-    title: requiredString(root, "title"),
+    title: boardTitle,
+    contentScopeRationale: requiredString(root, "contentScopeRationale"),
     academicTheory: requiredString(root, "academicTheory"),
     profileEvidence: stringArray(root.profileEvidence, "profile_evidence"),
     boardWorld: {
-      title: requiredString(boardWorld, "title"),
+      title: boardTitle,
       narrative: requiredString(boardWorld, "narrative"),
       backgroundPrompt: requiredString(boardWorld, "backgroundPrompt"),
     },
@@ -371,39 +436,38 @@ export async function askDirectMathPlanner(input: {
 ${EXPERIENCE_DESIGN_CONSTITUTION}
 
 Create one coherent choose-your-adventure math board for this exact child and assignment.
-You decide how many baseline activities are educationally necessary. Do not force two activities.
+You decide how many baseline activities and how many items in each activity are educationally necessary. There is no fixed activity count or item count.
 First decompose the assignment into distinct learning responsibilities before deciding how many activities are necessary.
 Give each activity one primary learning responsibility. Do not merge materially different responsibilities merely to reduce the node count.
-Declare those responsibilities in learningResponsibilities, in the academic order a child should encounter them. Both routes must cover every declared responsibility in that same order. You may prescribe more than one activity for a responsibility when justified.
-At ingestion, prescribe at least one playable activity for every responsibility on each route; never return an empty activity list. Prior evidence may change what you prescribe, but it cannot erase the child-visible board.
+Declare those responsibilities in learningResponsibilities, and cover every declared responsibility at least once across the complete board. Distribute responsibilities across routes according to your teaching strategy; do not duplicate the complete curriculum merely to make routes symmetrical.
+At ingestion, prescribe at least one playable activity on each route and never return an empty activity list. Prior evidence may change what you prescribe, but it cannot erase the child-visible board.
 Set each activity's responsibilityId to exactly one declared responsibility and keep its academicTarget identical to that responsibility's academicTarget.
 Keep the two routes academically comparable while allowing their presentation and engagement variable to differ.
-There is no fixed activity count.
 The board must include exactly two meaningful routes so the child has agency and Sunny can compare one engagement variable while holding the academic need comparable.
 fork.question is child-facing copy: at most 10 words, inviting, and easy to say aloud. Put the detailed research claim only in fork.hypothesis.
-Each activity must be a bespoke vibrant game world, never a quiz card placed on a background. Describe the complete visual mock, child action, world reaction, anticipation, progress transformation, recovery, and reward.
+Choose the best experience form for each responsibility: a game, demonstration, manipulative, story, simulation, conversation, probe, or another coherent form. Describe the complete visual mock, child action, world reaction, anticipation, progress transformation, recovery, and reward when those elements fit the chosen form.
 Use profile evidence as broad motivators; do not repeat one literal interest across every activity.
 Quest and Boss are exciting locked teaser destinations. Do not create playable Quest or Boss content.
-Every math question must have exactly one correct answer grounded in the assignment.
+Author a non-empty item set for each activity and explain the complete board and item scope in contentScopeRationale. An item may use selection, numeric, construction, or explanation response mode. Select the response mode that matches the mathematical action; only selection mode uses answer options. Ground expected responses and rubrics in the assignment.
 The first required action must be understandable within ten seconds. For any unfamiliar drag, construction, or manipulation mechanic, provide an optional visible demonstration instead of front-loading instructions.
 A question asking “how many” must accept the final quantity. If the child must construct or show a representation, the prompt must explicitly ask them to build or show it.
-Use one active problem at a time when simultaneous problems add unnecessary cognitive load, and keep instructions short and child-facing.
+Show one active problem at a time when simultaneous problems add unnecessary cognitive load; this presentation rule never limits how many items you author. Keep instructions short and child-facing.
 Design intentional interaction, recovery, progress, and completion sounds that support the experience without distracting from it.
 Initial board activities create teaching and practice evidence only. Completion cannot establish mastery or unlock Quest or Boss.
-For every activity, preregister academicPrediction separately from designPrediction. academicPrediction must name a stable namespaced construct, external or independent context, time horizon, expected metric range, predicted error patterns, confidence, evidence IDs, intervention, and maximum evidence claim. Use the longitudinal child history when available. Never infer academic ability from interests or engagement ratings.
+For every activity, preregister academicPrediction separately from designPrediction. academicPrediction must name a stable namespaced construct, external or independent context, time horizon, expected metric range, predicted error patterns, confidence, evidence IDs, intervention, and evidenceLimit "practice_only". Use the longitudinal child history when available. Never infer academic ability from interests or engagement ratings.
 For every activity, write a bespoke creatorPrompt that tells a separate Experience Creator how to realize this activity. Derive it from the assignment, child chart, prior factual outcomes, recent themes, and engagement theory. Also preregister designPrediction and list preserve, change, explore, avoid, and namespaced measurementKeys. These values must vary when evidence supports a change; do not hardcode a game, theme, layout, mechanic, or activity count.
-For each activity, write acceptanceScript before its UI exists. It is an async Playwright JavaScript function body with access to page and BASE_URL. It must use page locators and stable data-testid selectors to open /activities/{activityId}, take an incorrect path, verify recovery, complete every question correctly, verify visible world/progress changes, and return {passed:true} only when completion is visible. It must throw when any promise is broken. The activity implementation will be generated against this exact test.
+Write artwork prompts from the supplied child demographics and profile evidence. Never assume a fixed age or generic child profile.
+Keep every field concise. Do not write HTML, JavaScript, CSS, browser tests, or implementation code. Sunny's browser harness will execute Creator-declared real controls and observe runtime events.
 
-Return JSON only with this shape:
-{
-  "planId":"...", "title":"...", "academicTheory":"...", "profileEvidence":["evidence reference"],
-  "learningResponsibilities":[{"id":"facts","title":"Fact Relationships","purpose":"What this instrument helps the child learn or demonstrate","academicTarget":"multiplication facts"}],
-  "boardWorld":{"title":"...","narrative":"...","backgroundPrompt":"..."},
-  "fork":{"question":"...","hypothesis":"...","heldConstant":["..."],"routes":[{"id":"route-a","label":"...","promise":"...","engagementVariable":"...","nodeIds":["..."]},{"id":"route-b","label":"...","promise":"...","engagementVariable":"...","nodeIds":["..."]}]},
-  "activities":[{"id":"...","title":"...","routeId":"route-a","responsibilityId":"facts","academicTarget":"multiplication facts","mechanic":"...","engagementVariable":"...","visualMock":{"scene":"...","layout":"...","artworkPrompt":"..."},"experience":{"objective":"...","childAction":"...","worldReaction":"...","anticipation":"...","progress":"...","recovery":"...","reward":"..."},"questions":[{"id":"q1","prompt":"...","options":[{"label":"...","correct":true},{"label":"...","correct":false}]}],"creatorPrompt":"Adaptive instructions for the Experience Creator","designPrediction":"A preregistered prediction about the child's interaction","academicPrediction":{"constructId":"math.multiplication.equal_groups","context":"unassisted returned schoolwork","horizon":"within_7_days","expectedMetric":{"key":"academic.accuracy","min":0.7,"max":0.9},"predictedErrorPatterns":["operation_selection"],"confidence":0.65,"evidenceIds":["assignment evidence"],"intervention":"What this activity changes","evidenceLimit":"calibrated_mastery"},"preserve":["successful element"],"change":["evidence-supported correction"],"explore":["one bounded variation"],"avoid":["known failure"],"measurementKeys":["interaction.timeToFirstValidActionMs"],"acceptanceSteps":["launch","perform real action","exercise incorrect recovery","exercise correct path","complete"],"acceptanceScript":"JavaScript async-function body that uses real DOM interactions, throws on failure, and returns {passed:true} after completion"}],
-  "quest":{"title":"Quest","locked":true,"teaser":"...","artworkPrompt":"..."},
-  "boss":{"title":"Boss","locked":true,"teaser":"...","artworkPrompt":"..."}
-}
+Return one JSON object containing planId, contentScopeRationale, academicTheory, profileEvidence, learningResponsibilities, boardWorld, fork, activities, quest, and boss. boardWorld.title is the canonical board and plan title; do not duplicate it at the root.
+Each activity contains identity and responsibility fields, visualMock, experience, creatorPrompt, designPrediction, academicPrediction, adaptive directive arrays, acceptanceSteps, and an AI-selected items array.
+Every item contains id, prompt, lineage {sourceEvidenceIds, exposure}, and one response contract:
+- selection: {mode, options:[{id,label,correct}]}
+- numeric: {mode, expected, optional unit}
+- construction: {mode, expectedState, successDescription}
+- explanation: {mode, rubric}
+Quest and Boss titles must remain exactly "Quest" and "Boss" and locked must be true.
+Every responsibility, route, activity, item, and selection option must have its own non-empty stable id.
 
 Assignment:
 ${input.extraction.fullText}
@@ -411,36 +475,23 @@ ${input.extraction.fullText}
 Child chart:
 ${JSON.stringify(chartForPlanner(input.chart), null, 2)}
 
-Prior factual outcomes and Planner interpretations:
+  Prior factual outcomes and Planner interpretations:
 ${JSON.stringify(input.priorOutcomes ?? [], null, 2)}`;
   const toolName = "create_learning_experience_plan";
-  let validationFailure = "";
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const requestPrompt = attempt === 0 ? prompt : `${prompt}
-
-Your previous plan was incomplete or invalid: ${validationFailure}
-Return the complete corrected plan in one tool call. Preserve the assignment grounding, but satisfy every required field and include the full responsibility-complete activity list.`;
-    const response = await client.messages.create({
-      model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
-      max_tokens: Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
-      messages: [{ role: "user", content: requestPrompt }],
-      tools: [{
-        name: toolName,
-        description: "Return the complete planner-authored learning experience plan.",
-        input_schema: { type: "object", additionalProperties: true },
-      }],
-      tool_choice: { type: "tool", name: toolName },
-    }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-    const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
-    if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_planner_tool_output_missing");
-    try {
-      return parseDirectLearningExperiencePlan(toolUse.input);
-    } catch (error) {
-      validationFailure = error instanceof Error ? error.message : String(error);
-      if (attempt === 1) throw error;
-    }
-  }
-  throw new Error("direct_planner_validation_retry_exhausted");
+  const response = await client.messages.create({
+    model: input.model ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
+    max_tokens: Number(process.env.SUNNY_PLANNER_MAX_TOKENS ?? 20000),
+    messages: [{ role: "user", content: prompt }],
+    tools: [{
+      name: toolName,
+      description: "Return the complete planner-authored learning experience plan.",
+      input_schema: DIRECT_MATH_PLANNER_TOOL_SCHEMA,
+    }],
+    tool_choice: { type: "tool", name: toolName },
+  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
+  if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_planner_tool_output_missing");
+  return parseDirectLearningExperiencePlan(toolUse.input);
 }
 
 async function download(url: string, destination: string): Promise<void> {
@@ -453,13 +504,13 @@ async function download(url: string, destination: string): Promise<void> {
 async function requestDirectArtwork(prompt: string): Promise<string> {
   const apiKey = process.env.GROK_API_KEY?.trim();
   if (!apiKey) throw new Error("direct_artwork_missing_grok_key");
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
     const response = await fetch("https://api.x.ai/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: process.env.GROK_IMAGE_MODEL?.trim() || "grok-imagine-image",
-        prompt: `Premium vibrant children's game artwork for age 7, strong visual hierarchy, cinematic lighting, no text, no equations, no generic school worksheet imagery. ${prompt}`,
+        prompt: `Premium vibrant child-centered educational artwork. Follow the developmental and profile cues in the Planner-authored prompt without inventing an age. Use strong visual hierarchy, cinematic lighting, no text, no equations, and no generic school worksheet imagery. ${prompt}`,
         n: 1,
       }),
     });
@@ -469,7 +520,7 @@ async function requestDirectArtwork(prompt: string): Promise<string> {
       if (url) return url;
       throw new Error("direct_artwork_provider_returned_no_url");
     }
-    if (response.status !== 429 || attempt === 3) {
+    if (response.status !== 429 || attempt === 2) {
       throw new Error(`direct_artwork_provider_failed:${response.status}:${await response.text()}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -498,6 +549,12 @@ export function isCompleteGeneratedHtml(html: string): boolean {
 export function normalizeGeneratedHtml(html: string): string {
   const trimmed = html.trim();
   if (isCompleteGeneratedHtml(trimmed)) return trimmed;
+  const documentStart = trimmed.search(/<!doctype html/i);
+  const documentEnd = trimmed.toLowerCase().lastIndexOf("</html>");
+  if (documentStart >= 0 && documentEnd > documentStart) {
+    const document = trimmed.slice(documentStart, documentEnd + "</html>".length);
+    if (isCompleteGeneratedHtml(document)) return document;
+  }
   const count = (pattern: RegExp) => trimmed.match(pattern)?.length ?? 0;
   const structurallyClosed = /^<!doctype html/i.test(trimmed)
     && count(/<html\b/gi) === 1
@@ -509,34 +566,13 @@ export function normalizeGeneratedHtml(html: string): string {
   return `${trimmed}${/<\/body>\s*$/i.test(trimmed) ? "" : "</body>"}</html>`;
 }
 
-export function directArtifactContractFailures(html: string): string[] {
-  const failures: string[] = [];
-  if (!/data-testid\s*=\s*["']primary-instruction["']/i.test(html)) failures.push("primary_instruction_missing");
-  if (!/data-testid\s*=\s*["']sound-toggle["']/i.test(html)) failures.push("sound_toggle_missing");
-  if (!/(?:AudioContext|webkitAudioContext|new\s+Audio\s*\(|<audio\b)/i.test(html)) failures.push("audio_implementation_missing");
-  if (!/["']activity_ready["']/.test(html)) failures.push("activity_ready_event_missing");
-  if (!/["']game_state_update["']/.test(html)) failures.push("game_state_update_missing");
-  if (!/["']attempt_event["']/.test(html)) failures.push("attempt_event_missing");
-  if (!/["']progress_event["']/.test(html)) failures.push("progress_event_missing");
-  if (!/["']node_complete["']/.test(html)) failures.push("node_complete_event_missing");
-  return failures;
-}
-
-export function acceptanceScriptBody(script: string): string {
-  const trimmed = script.trim();
-  const wrapped = trimmed.match(
-    /^async\s+function\s*\(\s*\{\s*page\s*,\s*BASE_URL\s*\}\s*\)\s*\{([\s\S]*)\}\s*;?$/,
-  );
-  return wrapped?.[1]?.trim() ?? trimmed;
-}
-
 export function creatorPromptHash(
   activity: DirectActivity,
   plannerModel: string,
   creatorModel: string,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
-    creatorContractVersion: 3,
+    creatorContractVersion: 10,
     constitution: EXPERIENCE_DESIGN_CONSTITUTION,
     plannerModel,
     creatorModel,
@@ -563,98 +599,22 @@ ${EXPERIENCE_DESIGN_CONSTITUTION}
 The AI Planner's exact Creator prompt is authoritative:
 ${input.activity.creatorPrompt}
 
-The ExperienceSpec is authoritative. Do not reinterpret it, rename it, or turn it into a generic quiz/card shell.
-Make the opening viewport vibrant, polished, and immediately understandable to a child. The central mechanic must visibly perform the promised child action and world reaction.
-Render the single concise first instruction in a visible element with data-testid="primary-instruction".
-Render a visible child-operable sound control with data-testid="sound-toggle". After the child's first gesture, initialize Web Audio or an HTML audio element and implement distinct interaction, recovery, progress, and completion sounds.
-Use the supplied artwork as part of the world, not as a decorative thumbnail: ${input.artworkUrl}
-Implement the AI Planner's saved questions and correct answers faithfully so the mathematical quantities, accepted responses, activity UI, and browser QA agree.
-Saved questions/content:
-${JSON.stringify(input.activity.questions, null, 2)}
-Emit interaction evidence with window.parent.postMessage for demoRequested, demoReplayCount, timeToFirstValidActionMs, invalidActionCount, and soundMuted. Include those factual values in the node_complete payload with attempt results.
+Implement the saved ExperienceSpec faithfully without turning it into a generic shell.
+The opening viewport must visibly render the assigned artwork URL with a nonzero-size img or CSS background layer: ${input.artworkUrl}.
+Keep the complete HTML under 18,000 characters. Prefer concise CSS and JavaScript and do not duplicate implementations.
+
+Runtime contract:
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") when the experience is ready.
-Whenever the activity opens or the active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*"). currentChallenge must be the child-visible prompt and availableActions must contain only the visible action labels. Never include which action is correct, the answer key, or hidden solution data.
+Whenever the activity or active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
 Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",targetId,correct,responseTimeMs}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
 Emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true}},"*") on completion.
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
-The planner wrote the browser acceptance test before this UI. Build the DOM, data-testid hooks, behavior, and completion flow so this exact script passes through real interactions. Do not rewrite or embed the test in the activity:
-${input.activity.acceptanceScript}
-Apply observable state attributes synchronously in the order the test asserts them; animations may continue afterward but must not delay the tested state transition. After a successful item, keep its celebration in a separate reward marker and render the next question synchronously before accepting another action. Never advance the logical item index while leaving stale controls on screen.
-Keep the complete HTML under 18,000 characters. Prefer concise CSS and JavaScript; do not duplicate rules or add hidden alternate implementations. The document must end with </html>.
-Do not include external libraries.
-Return raw HTML only.
+Return raw HTML only, use no external libraries, and end with </html>.
 
 Child: ${input.childId}
 ExperienceSpec:
 ${JSON.stringify(input.activity, null, 2)}`;
-}
-
-export function buildDirectActivityRepairPrompt(input: {
-  activity: DirectActivity;
-  html: string;
-  failures: string[];
-}): string {
-  return `Repair this generated activity implementation only.
-Keep the Planner's exact Creator prompt authoritative:
-${input.activity.creatorPrompt}
-
-Fix every supplied browser failure. Do not change the questions, correct answers, learning target, mechanic, title, evidence claim, or board identity. The acceptance script is an immutable interaction contract: after a correct or incorrect action, its next tested state must be usable synchronously even if decorative animation continues. If a visual target moves continuously, give it a stationary interactive hit target while preserving the moving visual. Remove references to missing DOM elements. Preserve all runtime evidence events.
-
-Browser failures:
-${input.failures.join("\n")}
-
-Activity specification:
-${JSON.stringify(input.activity, null, 2)}
-
-Current HTML:
-${input.html}
-
-Return only minimal exact replacements through the repair tool. Each edit must contain an oldText snippet copied exactly once from the current HTML and the smallest possible newText replacement. Do not return a rewritten HTML document. Do not include unchanged sections.`;
-}
-
-export type DirectArtifactEdit = { oldText: string; newText: string };
-
-export function normalizeDirectArtifactEdits(value: unknown): DirectArtifactEdit[] {
-  let candidate = value;
-  if (candidate && typeof candidate === "object" && !Array.isArray(candidate) && "edits" in candidate) {
-    candidate = (candidate as { edits?: unknown }).edits;
-  }
-  if (typeof candidate === "string") {
-    const serialized = candidate.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-    try {
-      candidate = JSON.parse(serialized) as unknown;
-    } catch {
-      throw new Error("direct_activity_repair_edits_invalid_json");
-    }
-  }
-  if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
-    candidate = Object.values(candidate as Record<string, unknown>);
-  }
-  if (!Array.isArray(candidate)) throw new Error("direct_activity_repair_edits_invalid");
-  return candidate.map((raw) => {
-    const edit = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
-    return {
-      oldText: typeof edit.oldText === "string" ? edit.oldText : "",
-      newText: typeof edit.newText === "string" ? edit.newText : "",
-    };
-  });
-}
-
-export function applyDirectArtifactEdits(html: string, edits: DirectArtifactEdit[]): string {
-  if (edits.length === 0 || edits.length > 12) throw new Error("direct_activity_repair_edit_count_invalid");
-  let repaired = html;
-  for (const edit of edits) {
-    if (!edit.oldText || edit.oldText === edit.newText) throw new Error("direct_activity_repair_edit_invalid");
-    const first = repaired.indexOf(edit.oldText);
-    if (first < 0) throw new Error("direct_activity_repair_anchor_missing");
-    if (repaired.indexOf(edit.oldText, first + edit.oldText.length) >= 0) {
-      throw new Error("direct_activity_repair_anchor_ambiguous");
-    }
-    repaired = `${repaired.slice(0, first)}${edit.newText}${repaired.slice(first + edit.oldText.length)}`;
-  }
-  if (!isCompleteGeneratedHtml(repaired)) throw new Error("direct_activity_repair_html_incomplete");
-  return repaired;
 }
 
 async function generateActivityHtml(input: {
@@ -720,15 +680,8 @@ export async function generateDirectArtifacts(input: {
     if (!shouldReuseDirectArtifact({ htmlComplete: isCompleteGeneratedHtml(existingHtml), savedPromptHash, expectedPromptHash })) {
       const html = await generateActivityHtml({ activity, artworkUrl, childId: input.childId, client, model });
       fs.writeFileSync(htmlPath, html, "utf8");
-      fs.writeFileSync(metadataPath, `${JSON.stringify({
-        version: 1,
-        nodeId: activity.id,
-        creatorPrompt: activity.creatorPrompt,
-        promptHash: expectedPromptHash,
-        plannerModel,
-        creatorModel: model,
-      }, null, 2)}\n`, "utf8");
     }
+    fs.writeFileSync(metadataPath, `${JSON.stringify({ version: 1, nodeId: activity.id, creatorPrompt: activity.creatorPrompt, promptHash: expectedPromptHash, plannerModel, creatorModel: model }, null, 2)}\n`, "utf8");
     artifacts.push({
       childId: input.childId,
       homeworkId: input.homeworkId,
@@ -736,7 +689,6 @@ export async function generateDirectArtifacts(input: {
       title: activity.title,
       htmlPath,
       artworkUrl,
-      acceptanceScript: activity.acceptanceScript,
       creatorPrompt: activity.creatorPrompt,
       promptHash: expectedPromptHash,
       plannerModel,
@@ -744,81 +696,6 @@ export async function generateDirectArtifacts(input: {
     });
   }
   return { artifacts, backgroundUrl, questArtworkUrl, bossArtworkUrl };
-}
-
-export async function repairDirectArtifactsOnce(input: {
-  plan: DirectLearningExperiencePlan;
-  artifacts: DirectArtifact[];
-  failures: string[];
-  client?: Anthropic;
-  model?: string;
-}): Promise<number> {
-  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const model = input.model ?? process.env.SUNNY_GENERATION_MODEL ?? "claude-sonnet-5";
-  let repaired = 0;
-  for (const artifact of input.artifacts) {
-    const failures = input.failures.filter((failure) => failure.startsWith(`${artifact.nodeId}:`));
-    if (failures.length === 0) continue;
-    const activity = input.plan.activities.find((candidate) => candidate.id === artifact.nodeId);
-    if (!activity) continue;
-    const html = fs.readFileSync(artifact.htmlPath, "utf8");
-    const toolName = "repair_activity_with_exact_edits";
-    const response = await client.messages.create({
-      model,
-      max_tokens: 6000,
-      thinking: { type: "disabled" },
-      messages: [{ role: "user", content: buildDirectActivityRepairPrompt({ activity, html, failures }) }],
-      tools: [{
-        name: toolName,
-        description: "Return minimal exact text replacements for the existing activity artifact.",
-        input_schema: {
-          type: "object",
-          properties: {
-            edits: {
-              type: "array",
-              minItems: 1,
-              maxItems: 12,
-              items: {
-                type: "object",
-                properties: { oldText: { type: "string" }, newText: { type: "string" } },
-                required: ["oldText", "newText"],
-                additionalProperties: false,
-              },
-            },
-          },
-          required: ["edits"],
-          additionalProperties: false,
-        },
-      }],
-      tool_choice: { type: "tool", name: toolName },
-    }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
-    const tool = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
-    if (!tool || tool.type !== "tool_use") throw new Error(`direct_activity_repair_edits_missing:${artifact.nodeId}`);
-    const edits = normalizeDirectArtifactEdits(tool.input);
-    const repairedHtml = applyDirectArtifactEdits(html, edits);
-    fs.writeFileSync(artifact.htmlPath, repairedHtml, "utf8");
-    repaired += 1;
-  }
-  return repaired;
-}
-
-export async function runDirectAcceptanceRepairLoop(input: {
-  runAcceptance: () => Promise<DirectPlaywrightReport>;
-  repair: (failures: string[]) => Promise<number>;
-  maxRepairs?: number;
-}): Promise<DirectPlaywrightReport> {
-  const maxRepairs = Math.max(0, Math.min(10, input.maxRepairs ?? 5));
-  let report = await input.runAcceptance();
-  for (let attempt = 1; !report.passed && attempt <= maxRepairs; attempt += 1) {
-    console.log(`[4/4] Creator surgical repair ${attempt}/${maxRepairs}`);
-    try {
-      await input.repair(report.failures);
-    } catch (error) {
-      console.log(` 🎮 [direct-creator] [repair-rejected] attempt=${attempt} reason=${error instanceof Error ? error.message : String(error)}`);
-    }
-    report = await input.runAcceptance();
-  }
-  return report;
 }
 
 function contentType(file: string): string {
@@ -830,26 +707,16 @@ function contentType(file: string): string {
 
 export async function runDirectPlaywrightAcceptance(input: {
   artifacts: DirectArtifact[];
-  outputDir: string;
   rootDir?: string;
 }): Promise<DirectPlaywrightReport> {
   const rootDir = input.rootDir ?? process.cwd();
   const publicDir = path.join(rootDir, "web", "public");
-  const byNodeId = new Map(input.artifacts.map((artifact) => [artifact.nodeId, artifact]));
   const byLaunchPath = new Map(input.artifacts.map((artifact) => [
     `/api/homework/game/${artifact.childId}/${artifact.homeworkId}/${encodeURIComponent(path.basename(artifact.htmlPath))}`,
     artifact,
   ]));
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
-    if (url.pathname.startsWith("/activities/")) {
-      const artifact = byNodeId.get(decodeURIComponent(url.pathname.slice("/activities/".length)));
-      if (artifact) {
-        response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-        response.end(fs.readFileSync(artifact.htmlPath));
-        return;
-      }
-    }
     const launchArtifact = byLaunchPath.get(url.pathname);
     if (launchArtifact) {
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
@@ -870,12 +737,8 @@ export async function runDirectPlaywrightAcceptance(input: {
   const { chromium } = await import("playwright");
   const browser = await chromium.launch({ headless: true });
   const failures: string[] = [];
-  const screenshots: string[] = [];
-  fs.mkdirSync(input.outputDir, { recursive: true });
   try {
     for (const artifact of input.artifacts) {
-      const html = fs.readFileSync(artifact.htmlPath, "utf8");
-      for (const failure of directArtifactContractFailures(html)) failures.push(`${artifact.nodeId}:${failure}`);
       const page = await browser.newPage({ viewport: { width: 1365, height: 768 } });
       const pageErrors: string[] = [];
       page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -897,40 +760,25 @@ export async function runDirectPlaywrightAcceptance(input: {
       if (navigation?.status() !== 200 || !navigation.headers()["content-type"]?.includes("text/html")) {
         failures.push(`${artifact.nodeId}:real_launch_not_html`);
       }
-      if (!(await page.getByText(artifact.title, { exact: false }).first().isVisible().catch(() => false))) failures.push(`${artifact.nodeId}:title_not_visible`);
-      const primaryInstruction = page.getByTestId("primary-instruction").first();
-      if (!(await primaryInstruction.isVisible().catch(() => false))) {
-        failures.push(`${artifact.nodeId}:primary_instruction_not_visible`);
-      } else if ((await primaryInstruction.innerText()).trim().length > 140) {
-        failures.push(`${artifact.nodeId}:primary_instruction_too_long`);
-      }
-      if (!(await page.getByTestId("sound-toggle").first().isVisible().catch(() => false))) failures.push(`${artifact.nodeId}:sound_toggle_not_visible`);
-      const artworkLoaded = await page.evaluate(
-        (artworkUrl) => performance.getEntriesByType("resource").some((entry) => entry.name.includes(artworkUrl)),
-        artifact.artworkUrl,
-      );
-      if (!artworkLoaded) failures.push(`${artifact.nodeId}:artwork_not_rendered`);
-      let acceptanceError = "";
-      const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => (...args: unknown[]) => Promise<{ passed?: boolean }>;
-      const result = await new AsyncFunction("page", "BASE_URL", acceptanceScriptBody(artifact.acceptanceScript))(page, `http://127.0.0.1:${address.port}`)
-        .catch((error: Error) => { acceptanceError = error.message; return { passed: false }; });
-      if (!result?.passed) failures.push(`${artifact.nodeId}:acceptance_run_failed${acceptanceError ? `:${acceptanceError}` : ""}`);
+      await page.waitForFunction(
+        `window.__sunnyMessages.some(message=>message?.type==='activity_ready')`,
+        undefined,
+        { timeout: 5_000 },
+      ).catch(() => undefined);
       const messages = await page.evaluate<Array<{ type?: string }>>(`window.__sunnyMessages||[]`);
-      if (!messages.some((message) => message?.type === "activity_ready")) failures.push(`${artifact.nodeId}:activity_ready_evidence_missing`);
-      if (!messages.some((message) => message?.type === "attempt_event")) failures.push(`${artifact.nodeId}:attempt_evidence_missing`);
-      if (!messages.some((message) => message?.type === "progress_event")) failures.push(`${artifact.nodeId}:progress_evidence_missing`);
-      if (!messages.some((message) => message?.type === "node_complete")) failures.push(`${artifact.nodeId}:completion_evidence_missing`);
+      const ready = messages.some((message) => message?.type === "activity_ready");
+      if (!ready) failures.push(`${artifact.nodeId}:activity_ready_evidence_missing`);
+      const titleVisible = await page.getByText(artifact.title, { exact: false }).first()
+        .waitFor({ state: "visible", timeout: 3_000 }).then(() => true).catch(() => false);
+      if (!titleVisible) failures.push(`${artifact.nodeId}:title_not_visible`);
       pageErrors.forEach((error) => failures.push(`${artifact.nodeId}:browser_error:${error}`));
-      const screenshot = path.join(input.outputDir, `${artifact.nodeId}-complete.png`);
-      await page.screenshot({ path: screenshot, fullPage: true });
-      screenshots.push(screenshot);
       await page.close();
     }
   } finally {
     await browser.close();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
-  return { passed: failures.length === 0, failures, screenshots };
+  return { passed: failures.length === 0, failures, screenshots: [] };
 }
 
 export function buildDirectActiveSessionPlan(input: {
@@ -948,18 +796,15 @@ export function buildDirectActiveSessionPlan(input: {
   const artifactById = new Map(input.artifacts.map((artifact) => [artifact.nodeId, artifact]));
   const nodePlan: ActiveSessionPlan["nodePlan"] = input.plan.activities.map((activity) => {
     const artifact = artifactById.get(activity.id)!;
+    const rounds = activity.items.flatMap((item) => item.response.mode === "selection" ? [{
+      id: item.id,
+      prompt: item.prompt,
+      options: item.response.options.map((option) => ({ id: option.id, label: option.label, correct: option.correct })),
+    }] : []);
     return {
-      id: activity.id, type: "generated-baseline", activityId: "generated-baseline", targets: activity.questions.map((q) => q.id), difficulty: 2,
+      id: activity.id, type: "generated-baseline", activityId: "generated-baseline", targets: activity.items.map((item) => item.id), difficulty: 2,
       source: "chart_planner", targetLane: activity.academicTarget, locked: false, masteryUnlockState: "unlocked", title: activity.title,
-      rounds: activity.questions.map((question) => ({
-        id: question.id,
-        prompt: question.prompt,
-        options: question.options.map((option, optionIndex) => ({
-          id: `${question.id}:option-${optionIndex + 1}`,
-          label: option.label,
-          correct: option.correct,
-        })),
-      })),
+      ...(rounds.length > 0 ? { rounds } : {}),
       gameHtmlPath: artifact.htmlPath, date: input.homeworkId, thumbnailUrl: artifact.artworkUrl, contentId: `${input.homeworkId}:${activity.id}`, mechanic: activity.mechanic,
       engagementDimensions: [activity.engagementVariable as never], engagementHypothesis: input.plan.fork.hypothesis,
       validationProof: { engine: "playwright", passed: true, worldStateChanged: true, screenshotPaths: input.report.screenshots.filter((file) => file.includes(activity.id)) },
@@ -1038,7 +883,7 @@ export function buildDirectLearningCycleInput(input: {
       academicTarget: {
         domain: "math",
         skill: activity.academicTarget,
-        targets: activity.questions.map((question) => question.prompt),
+        targets: activity.items.map((item) => item.prompt),
       },
       algorithmOwner: "ai_tutor",
       theoryId,

@@ -11,6 +11,7 @@ import {
   ensureQuestHtmlContract,
   finalizePlannedHomeworkNodes,
   appendHomeworkIntakeHistory,
+  assertLegacyMathIngestAllowed,
   inferIngestDomainFromExtraction,
   listIngestChildIds,
   mergeNormalizedPlan,
@@ -106,6 +107,14 @@ describe("ingestHomework", () => {
       ...overrides,
     };
   }
+
+  it("hard-quarantines math from the legacy homework ingestion path", () => {
+    expect(() => assertLegacyMathIngestAllowed("math"))
+      .toThrow("legacy_math_ingest_quarantined:use_npm_run_sunny_ingest_math");
+    expect(() => assertLegacyMathIngestAllowed("spelling")).not.toThrow();
+    expect(() => assertLegacyMathIngestAllowed("reading")).not.toThrow();
+    expect(() => assertLegacyMathIngestAllowed("science")).not.toThrow();
+  });
 
   it("parseCliArgs accepts --testDate flag", () => {
     const childId = sampleChildIdFromConfig();

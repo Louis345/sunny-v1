@@ -261,6 +261,10 @@ function normalizeIngestDomain(raw: string | null): IngestHomeworkDomain | undef
   return undefined;
 }
 
+export function assertLegacyMathIngestAllowed(domain: HomeworkDomain | undefined): void {
+  if (domain === "math") throw new Error("legacy_math_ingest_quarantined:use_npm_run_sunny_ingest_math");
+}
+
 export function inferIngestDomainFromExtraction(extracted: Pick<ExtractionShape, "type" | "contentProfile">): IngestHomeworkDomain {
   return (
     normalizeHomeworkDomain(extracted.contentProfile.practiceDomain) ??
@@ -1826,13 +1830,6 @@ function homeworkNodesFromAssignmentPlan(plan: ActiveSessionPlan, weekOf: string
 
 export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs): Promise<void> {
   const today = (args.approvedAt ?? new Date().toISOString()).slice(0, 10);
-  const contextBase = path.join(process.cwd(), "src", "context", args.childId, "homework");
-  const pendingDir = path.join(contextBase, "pending", today);
-  fs.mkdirSync(pendingDir, { recursive: true });
-  if (fs.existsSync(args.sourceFile)) {
-    storeOriginalAssignmentSource(args.sourceFile, pendingDir);
-  }
-
   const extracted = buildHomeworkExtractionFromAssignmentPlan({
     childId: args.childId,
     assignmentSource: args.assignmentSource,
@@ -1841,6 +1838,13 @@ export async function applyPlannedHomeworkIngest(args: PlannedHomeworkIngestArgs
   });
   const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
   const selectedHomeworkDomain = args.homeworkDomain ?? classifierHomeworkDomain;
+  assertLegacyMathIngestAllowed(selectedHomeworkDomain);
+  const contextBase = path.join(process.cwd(), "src", "context", args.childId, "homework");
+  const pendingDir = path.join(contextBase, "pending", today);
+  fs.mkdirSync(pendingDir, { recursive: true });
+  if (fs.existsSync(args.sourceFile)) {
+    storeOriginalAssignmentSource(args.sourceFile, pendingDir);
+  }
   const testDate = validIsoDate(args.testDate)
     ? args.testDate
     : validIsoDate(extracted.assignmentPlannerOutput.activeSessionPlan.testDate)
@@ -2065,6 +2069,7 @@ async function runIngestHomeworkInternal(
     homeworkDomain: cliHomeworkDomain,
     interactive,
   });
+  assertLegacyMathIngestAllowed(homeworkDomain);
   const childId = await resolveIngestChildId({
     childId: cliChildId,
     childIds: listIngestChildIds(),
@@ -2123,6 +2128,7 @@ async function runIngestHomeworkInternal(
   );
   const classifierHomeworkDomain = inferIngestDomainFromExtraction(extracted);
   const selectedHomeworkDomain = homeworkDomain ?? classifierHomeworkDomain;
+  assertLegacyMathIngestAllowed(selectedHomeworkDomain);
   const intakeDecisionSource: "human_menu" | "cli" | "classifier" = cliHomeworkDomain
     ? "cli"
     : homeworkDomain

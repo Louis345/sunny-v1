@@ -53,6 +53,8 @@ Give Cursor this to add to AGENTS.md:
 
 ## Development Laws
 
+**Math Prompt Chain Boundary:** Math has one production ingestion path: assignment and child chart → Planner → Experience Creator → Playwright runtime verification. The only AI roles are the Planner and Experience Creator. No new math production module, model call, fallback, renderer, or pipeline may be added without explicit human approval. New abstractions must replace an existing one in the same change, and math hot-path production line count must remain neutral or decrease. Code owns truth, provenance, lifecycle safety, and runtime behavior; AI owns activity count, item count, pedagogy, mechanics, themes, and response format.
+
 ### Autonomous Milestone Mode
 
 When the human explicitly approves a defined milestone and asks the agent to work unattended (for example, "finish this while I sleep" or "run without checkpoints"), that approval covers the complete stated milestone.
