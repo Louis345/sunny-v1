@@ -3,18 +3,20 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
-  EXPERIENCE_DESIGN_CONSTITUTION,
   DIRECT_MATH_PLANNER_TOOL_SCHEMA,
+  askDirectCreativeDirector,
   askDirectMathPlanner,
   boardPosition,
   buildDirectActiveSessionPlan,
   buildDirectActivityCreatorPrompt,
+  buildAdaptiveProgressionCreatorPrompt,
   buildDirectLearningCycleInput,
   creatorPromptHash,
   hasReadyDirectMathExperience,
   isCompleteGeneratedHtml,
   parseDirectLearningExperiencePlan,
   routeNodePosition,
+  safeRunDirectTasteReview,
   shouldReuseDirectArtifact,
   normalizeGeneratedHtml,
 } from "./directMathExperience";
@@ -92,7 +94,195 @@ function plan(activityCount = 3): any {
   };
 }
 
+function creativeRevision(sourcePlan: any): any {
+  return {
+    planId: sourcePlan.planId,
+    rationale: "Turn every activity into a visible mission while preserving the academic prescription.",
+    qualityPrediction: "The revised worlds will make route differences and progress visible before the first answer.",
+    activities: sourcePlan.activities.map((activity: any) => ({
+      id: activity.id,
+      visualMock: {
+        scene: `${activity.visualMock.scene} with a visible mission consequence`,
+        layout: `${activity.visualMock.layout}; progress and payoff remain visible`,
+        artworkPrompt: "Atmospheric child-facing world art without words, letters, numbers, equations, labels, or instructional content",
+      },
+      experience: {
+        ...activity.experience,
+        objective: `${activity.experience.objective} to advance the shared mission`,
+        worldReaction: "Each valid action visibly repairs or transforms the world.",
+        progress: "A large persistent mission object visibly changes after every item.",
+        recovery: "The world supplies a visual clue while preserving the challenge.",
+        reward: "The completed mission reveals a distinct finale and board payoff.",
+      },
+      creatorPrompt: `${activity.creatorPrompt} Build a consequential mission with visible progression and payoff.`,
+      designPrediction: "The first viewport will show the mission, action, progress, and anticipated payoff.",
+      preserve: [...activity.preserve, "clear mathematical action"],
+      change: [...activity.change, "replace cosmetic answer selection with a world-changing action"],
+      explore: [...activity.explore, "visible mission consequences"],
+      avoid: [...activity.avoid, "instructional text or numbers inside generated artwork"],
+    })),
+  };
+}
+
 describe("direct math experience", () => {
+  it("runs one bounded Creative Director rewrite without changing the academic prescription", async () => {
+    const original = parseDirectLearningExperiencePlan(plan(4));
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "tool_use", name: "direct_creative_revision", input: creativeRevision(original) }],
+    });
+
+    const result = await askDirectCreativeDirector({
+      childId: "reina",
+      plan: original,
+      priorOutcomes: { ratings: [{ nodeId: "activity-1", funRating: 5 }] },
+      previousTasteReview: { concerns: ["Sparse first viewport"] },
+      client: { messages: { create } } as never,
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(result.revision.rationale).toContain("visible mission");
+    expect(result.plan.activities[0]?.creatorPrompt).toContain("visible progression and payoff");
+    expect(result.plan.activities.map((activity) => ({
+      id: activity.id,
+      routeId: activity.routeId,
+      responsibilityId: activity.responsibilityId,
+      academicTarget: activity.academicTarget,
+      items: activity.items,
+      academicPrediction: activity.academicPrediction,
+      measurementKeys: activity.measurementKeys,
+    }))).toEqual(original.activities.map((activity) => ({
+      id: activity.id,
+      routeId: activity.routeId,
+      responsibilityId: activity.responsibilityId,
+      academicTarget: activity.academicTarget,
+      items: activity.items,
+      academicPrediction: activity.academicPrediction,
+      measurementKeys: activity.measurementKeys,
+    })));
+    expect(result.plan.fork).toEqual(original.fork);
+    expect(result.plan.learningResponsibilities).toEqual(original.learningResponsibilities);
+
+    const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    expect(prompt).toContain("Skyglider");
+    expect(prompt).toContain("Crane");
+    expect(prompt).toContain("Moonlit Cargo");
+    expect(prompt).toContain("Rope-and-Peg");
+    expect(prompt).toContain("without words, letters, numbers, equations, labels");
+    expect(prompt).toContain("Sparse first viewport");
+    expect(prompt).toContain("funRating");
+  });
+
+  it("rejects an incomplete Creative Director revision without retrying", async () => {
+    const original = parseDirectLearningExperiencePlan(plan(3));
+    const incomplete = creativeRevision(original);
+    incomplete.activities = incomplete.activities.slice(0, 2);
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "tool_use", name: "direct_creative_revision", input: incomplete }],
+    });
+
+    await expect(askDirectCreativeDirector({
+      childId: "reina",
+      plan: original,
+      client: { messages: { create } } as never,
+    })).rejects.toThrow("direct_creative_revision_missing_activity");
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it("places Creative Direction before generation and removes post-build taste from normal ingestion", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
+    const director = source.indexOf("await askDirectCreativeDirector");
+    const generation = source.indexOf("await generateDirectArtifacts");
+    expect(director).toBeGreaterThan(-1);
+    expect(director).toBeLessThan(generation);
+    expect(source).not.toContain("safeRunDirectTasteReview");
+    expect(source).not.toContain("Taste: REVIEWED");
+  });
+
+  it("keeps taste review advisory and separate from child preference or learning evidence", async () => {
+    const parsed = parseDirectLearningExperiencePlan(plan(2));
+    const reviewed = await safeRunDirectTasteReview({
+      childId: "reina",
+      homeworkId: "hw-math-taste",
+      plan: parsed,
+      screenshots: ["/tmp/activity-1-opening.png", "/tmp/activity-2-opening.png"],
+      review: async () => ({
+        summary: "The activities are visually intentional but one mission needs a clearer payoff.",
+        strengths: ["Distinct worlds"],
+        concerns: ["Activity 2 has a weak payoff"],
+        nodeReviews: parsed.activities.map((activity) => ({
+          nodeId: activity.id,
+          clarity: 4,
+          craft: 4,
+          responsiveness: 3,
+          missionPayoff: 3,
+          originality: 4,
+          strengths: ["Purposeful visual identity"],
+          concerns: [],
+        })),
+      }),
+    });
+
+    expect(reviewed.status).toBe("reviewed");
+    expect(reviewed.childPreferenceClaim).toBe("not_evaluated");
+    expect(reviewed.learningClaim).toBe("not_evaluated");
+
+    const unavailable = await safeRunDirectTasteReview({
+      childId: "reina",
+      homeworkId: "hw-math-taste",
+      plan: parsed,
+      screenshots: [],
+      review: async () => {
+        throw new Error("provider_overloaded");
+      },
+    });
+    expect(unavailable.status).toBe("unavailable");
+    expect(unavailable.error).toBe("provider_overloaded");
+  });
+
+  it("keeps adaptive Creator calls subordinate to the Planner without leaking source questions", () => {
+    const prompt = buildAdaptiveProgressionCreatorPrompt({
+      cycle: {
+        childId: "reina",
+        homeworkId: "hw-math",
+        assignment: { title: "Multiplication", rawText: "Solve equal-groups stories." },
+        academicTheory: { hypothesis: "Connect equal groups to notation." },
+        engagementTheory: { hypothesis: "Reina may prefer visible strategy choices." },
+        observations: [{ itemId: "practice-3x4" }],
+      } as never,
+      node: {
+        nodeId: "quest",
+        title: "Quest",
+        role: "quest",
+        academicTarget: { skill: "novel transfer" },
+        openingScreen: { title: "Quest", purpose: "Test transfer in a new context." },
+        mechanic: "AI selected",
+        theme: "AI selected",
+        generationPrompt: { text: "Create unseen transfer and do not reuse practice-3x4." },
+        artwork: { localPath: "/generated/quest.jpeg" },
+      } as never,
+      childContext: { identity: { displayName: "Reina" }, motivators: ["strategy"] },
+    });
+
+    expect(prompt).toContain("Create unseen transfer and do not reuse practice-3x4");
+    expect(prompt).toContain("practice-3x4");
+    expect(prompt).not.toContain("Solve equal-groups stories.");
+    expect(prompt).not.toContain("Experience Design Constitution");
+    expect(prompt).toContain('type:"attempt_event"');
+    expect(prompt).toContain("accuracy,targetResults,timeSpent_ms");
+    expect(prompt).toContain("under 18,000 characters");
+  });
+  it("requires generated activities to return a complete factual scorecard", () => {
+    const prompt = buildDirectActivityCreatorPrompt({
+      activity: plan(2).activities[0],
+      artworkUrl: "/generated/math.png",
+      childId: "reina",
+    });
+
+    expect(prompt).toContain("target,correct,attemptedValue,responseTimeMs,scaffoldLevel");
+    expect(prompt).toContain("accuracy,targetResults,timeSpent_ms");
+    expect(prompt).not.toContain("targetId,correct,responseTimeMs");
+  });
+
   it("blocks an invalid Planner response without starting an AI repair loop", async () => {
     const validPlan = plan(4);
     const create = vi.fn().mockResolvedValue({
@@ -291,6 +481,43 @@ describe("direct math experience", () => {
       .toThrow("direct_plan_missing_item_id");
   });
 
+  it("treats locked Quest and Boss as board furniture when the Planner omits teasers", () => {
+    const plannerOutput = plan(2);
+    delete plannerOutput.quest;
+    delete plannerOutput.boss;
+
+    const parsed = parseDirectLearningExperiencePlan(plannerOutput);
+    const artifacts = parsed.activities.map((activity) => ({
+      childId: "reina",
+      homeworkId: "hw-math-assignment",
+      nodeId: activity.id,
+      title: activity.title,
+      htmlPath: `/tmp/${activity.id}.html`,
+      artworkUrl: `/generated/${activity.id}.jpeg`,
+      creatorPrompt: activity.creatorPrompt,
+      promptHash: `hash-${activity.id}`,
+      plannerModel: "claude-sonnet-5",
+      creatorModel: "claude-sonnet-5",
+    }));
+    const session = buildDirectActiveSessionPlan({
+      childId: "reina",
+      homeworkId: "hw-math-assignment",
+      plan: parsed,
+      artifacts,
+      backgroundUrl: "/generated/background.jpeg",
+      questArtworkUrl: "/generated/quest-placeholder.jpeg",
+      bossArtworkUrl: "/generated/boss-placeholder.jpeg",
+      report: { passed: true, failures: [], screenshots: [] },
+    });
+
+    expect(parsed.quest).toMatchObject({ title: "Quest", locked: true });
+    expect(parsed.boss).toMatchObject({ title: "Boss", locked: true });
+    expect(session.adventureBoard?.nodes.find((node) => node.id === "quest"))
+      .toMatchObject({ label: "Quest", state: "locked" });
+    expect(session.adventureBoard?.nodes.find((node) => node.id === "boss"))
+      .toMatchObject({ label: "Boss", state: "locked" });
+  });
+
   it("projects every AI-selected node and prediction into one canonical assignment cycle", () => {
     const plannerPlan = parseDirectLearningExperiencePlan(plan(3));
     const artifacts = plannerPlan.activities.map((activity) => ({
@@ -345,15 +572,18 @@ describe("direct math experience", () => {
     expect(cycle.nodes.find((node) => node.role === "boss")?.state).toBe("locked");
   });
 
-  it("keeps usability constraints stable without fixing activity count, mechanics, or themes", () => {
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visually dominant and readable");
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("Show me");
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visible sound toggle");
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("Keep required input targets stationary");
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("visible activity title");
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).toContain("load the assigned artwork URL");
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).not.toContain("exactly two activities");
-    expect(EXPERIENCE_DESIGN_CONSTITUTION).not.toContain("Gearlock");
+  it("does not impose a hidden game-design constitution on the Planner or Creator", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
+    for (const forbidden of [
+      "EXPERIENCE_DESIGN_CONSTITUTION",
+      "Make the first required action understandable within ten seconds",
+      "Show one active problem",
+      "Use drag only when",
+      "Keep required input targets stationary",
+      "provide visible toggleable “Show me”",
+      "Premium vibrant child-centered educational artwork",
+      "cinematic lighting",
+    ]) expect(source).not.toContain(forbidden);
   });
 
   it("preserves different Planner-authored Creator prompts and adaptive directives", () => {
@@ -368,17 +598,19 @@ describe("direct math experience", () => {
     });
   });
 
-  it("hands the exact Planner prompt and constitution to the Creator", () => {
+  it("hands the exact Planner prompt and only technical integration duties to the Creator", () => {
     const activity = parseDirectLearningExperiencePlan(plan(3)).activities[0]!;
     const prompt = buildDirectActivityCreatorPrompt({
       activity,
       artworkUrl: "/generated/activity.jpeg",
       childId: "reina",
     });
-    expect(prompt).toContain(EXPERIENCE_DESIGN_CONSTITUTION);
     expect(prompt).toContain(activity.creatorPrompt);
+    expect(prompt).not.toContain("Experience Design Constitution");
+    expect(prompt).not.toContain("Use drag only when");
+    expect(prompt).not.toContain("Show one active problem");
     expect(prompt).toContain("Keep the complete HTML under 18,000 characters");
-    expect(prompt).toContain("must visibly render the assigned artwork URL");
+    expect(prompt).toContain("Use this assigned local artwork asset in the experience");
     expect(prompt).not.toContain("Saved items/content:");
     expect(prompt).not.toContain("demoReplayCount");
     expect(prompt).not.toContain("sunny-qa-actions");
@@ -388,6 +620,33 @@ describe("direct math experience", () => {
     expect(prompt).toContain("currentChallenge");
     expect(prompt).toContain("Never expose answers");
     expect(prompt).toContain('type:"progress_event"');
+  });
+
+  it("gives the Planner concept-not-content authority and optional existing instruments", async () => {
+    const create = vi.fn().mockResolvedValue({
+      content: [{ type: "tool_use", name: "create_learning_experience_plan", input: plan(3) }],
+    });
+    await askDirectMathPlanner({
+      childId: "reina",
+      chart: {
+        identity: {}, demographics: {}, engagementTheory: null, factBankSummary: {},
+        learningProfile: { rewardPreferences: [], sessionStats: {}, activityModel: {}, activityTraitModel: {} },
+        decisionTrace: { latest: null },
+      } as never,
+      extraction: { fullText: "Mrs. K puts 5 pencils in each of 4 boxes." } as never,
+      client: { messages: { create } } as never,
+    });
+
+    const prompt = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content);
+    expect(prompt).toContain("Teach the underlying concepts, not its visible questions");
+    expect(prompt).toContain("Available reusable instruments");
+    expect(prompt).toContain("spark-orb-charge");
+    expect(prompt).toContain("vault-cracker");
+    expect(prompt).toContain("reuse, configure, or generate");
+    expect(prompt).toContain("You own the complete learning program");
+    expect(prompt).not.toContain("Show one active problem");
+    expect(prompt).not.toContain("Wrong tap");
+    expect(prompt).not.toContain("no penalty");
   });
 
   it("uses one bounded Creator attempt without an identical retry", () => {
@@ -402,7 +661,6 @@ describe("direct math experience", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     expect(source).toContain("NODE_REGISTRY");
     expect(source).toContain('message?.type === "activity_ready"');
-    expect(source).toContain("artifact.title");
     expect(source).toContain("pageErrors");
     for (const removed of [
       "DirectQaAction",
@@ -416,6 +674,8 @@ describe("direct math experience", () => {
       "progress_evidence_missing",
       "completion_evidence_missing",
       "completion-badge",
+      "title_not_visible",
+      "getByText(artifact.title",
     ]) expect(source).not.toContain(removed);
   });
 
@@ -486,6 +746,12 @@ describe("direct math experience", () => {
     ]) expect(source).not.toContain(forbidden);
   });
 
+  it("does not expose BLOCKED as a math-ingestion outcome", () => {
+    const source = fs.readFileSync(path.join(process.cwd(), "src/scripts/ingestMathDirect.ts"), "utf8");
+    expect(source).not.toContain("Done — BLOCKED");
+    expect(source).toContain("Existing board was not changed");
+  });
+
   it("keeps Elli child-neutral while runtime supplies the active child and activity context", () => {
     const elli = fs.readFileSync(path.join(process.cwd(), "src/companions/elli.md"), "utf8");
     const personality = fs.readFileSync(path.join(process.cwd(), "src/prompts/companions/elli/personality.md"), "utf8");
@@ -545,17 +811,17 @@ describe("direct math experience", () => {
       .toBe("<!doctype html><html><body><script>window.ready=");
   });
 
-  it("gives the Planner and Creator the child-visible clarity and practice-only rules", () => {
+  it("leaves experience design with the Planner while enforcing practice-only evidence", () => {
     const source = fs.readFileSync(path.join(process.cwd(), "src/engine/directMathExperience.ts"), "utf8");
     for (const required of [
-      "understandable within ten seconds",
-      "optional visible demonstration",
-      "A question asking “how many” must accept the final quantity",
-      "one active problem at a time",
-      "interaction, recovery, progress, and completion sounds",
+      "You own the complete learning program",
+      "Teach the underlying concepts, not its visible questions",
+      "reuse, configure, or generate",
       "teaching and practice evidence only",
-      "Implement the saved ExperienceSpec faithfully",
+      "sole design authority",
     ]) expect(source).toContain(required);
+    expect(source).not.toContain("understandable within ten seconds");
+    expect(source).not.toContain("one active problem at a time");
     expect(source).not.toContain("Use the exact deterministic questions and answers from the specification.");
     expect(source).not.toContain("Sound may be included creatively but is not an acceptance requirement.");
   });

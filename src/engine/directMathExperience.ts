@@ -8,6 +8,7 @@ import type { AssignmentSourceExtraction } from "./assignmentSourceExtraction";
 import type { ActiveSessionPlan } from "../context/schemas/learningProfile";
 import type { AdventureBoardJson } from "../shared/adventureBoardJson";
 import { NODE_REGISTRY } from "../shared/nodeRegistry";
+import { listActivityToolContracts } from "./activityToolCatalog";
 import {
   createLearningCycle,
   getLearningCycle,
@@ -15,6 +16,7 @@ import {
   type CreateLearningCycleInput,
   type AcademicPrediction,
   type LearningCycleNodeContract,
+  type LearningCycleRecordV2,
 } from "./learningCycleRepository";
 
 export type DirectActivity = {
@@ -69,20 +71,6 @@ export type DirectLearningResponsibility = {
   academicTarget: string;
 };
 
-export const EXPERIENCE_DESIGN_CONSTITUTION = `Experience Design Constitution:
-- Make the learning target visually dominant and readable.
-- Make the first required action understandable within ten seconds.
-- Show one active problem unless simultaneous comparison is academically necessary.
-- Make the requested response match the accepted response.
-- Use drag only when movement represents the concept; otherwise use a lower-friction interaction.
-- Keep required input targets stationary while the child acts; animate the surrounding world instead of moving buttons, tiles, or drop zones away from the pointer.
-- For unfamiliar mechanics, provide visible toggleable “Show me” and “Let me try” controls. The demonstration must remain replayable and must not reveal the answer.
-- Include a visible sound toggle plus interaction, recovery, progress, and completion sounds initialized after the first child gesture.
-- Show the exact visible activity title in the opening viewport.
-- Visibly load the assigned artwork URL as part of the world rather than silently replacing or omitting it.
-- Keep Quest and Boss locked at ingestion.
-- Treat initial activities as teaching and practice evidence only, never mastery.`;
-
 const schemaString = { type: "string", minLength: 1 } as const;
 const schemaStrings = { type: "array", items: schemaString } as const;
 const schemaObject = (properties: Record<string, unknown>, required = Object.keys(properties)) => ({ type: "object" as const, properties, required, additionalProperties: true });
@@ -92,7 +80,7 @@ const schemaItemResponse = { oneOf: [
 ] } as const;
 
 /** Structural transport contract only. It deliberately leaves counts, mechanics, themes, and content to the Planner. */
-export const DIRECT_MATH_PLANNER_TOOL_SCHEMA = schemaObject({
+const directMathPlannerProperties = {
   planId: schemaString, contentScopeRationale: schemaString, academicTheory: schemaString, profileEvidence: schemaStrings,
   learningResponsibilities: { type: "array", minItems: 1, items: schemaObject({ id: schemaString, title: schemaString, purpose: schemaString, academicTarget: schemaString }) },
   boardWorld: schemaObject({ title: schemaString, narrative: schemaString, backgroundPrompt: schemaString }),
@@ -104,7 +92,12 @@ export const DIRECT_MATH_PLANNER_TOOL_SCHEMA = schemaObject({
     preserve: schemaStrings, change: schemaStrings, explore: schemaStrings, avoid: schemaStrings, measurementKeys: schemaStrings }) },
   quest: schemaObject({ title: { const: "Quest" }, locked: { const: true }, teaser: schemaString, artworkPrompt: schemaString }),
   boss: schemaObject({ title: { const: "Boss" }, locked: { const: true }, teaser: schemaString, artworkPrompt: schemaString }),
-});
+};
+
+export const DIRECT_MATH_PLANNER_TOOL_SCHEMA = schemaObject(
+  directMathPlannerProperties,
+  Object.keys(directMathPlannerProperties).filter((key) => key !== "quest" && key !== "boss"),
+);
 
 export type DirectLearningExperiencePlan = {
   planId: string;
@@ -131,6 +124,25 @@ export type DirectLearningExperiencePlan = {
   boss: { title: "Boss"; locked: true; teaser: string; artworkPrompt: string };
 };
 
+export type DirectCreativeRevision = {
+  planId: string;
+  rationale: string;
+  qualityPrediction: string;
+  model: string;
+  createdAt: string;
+  activities: Array<{
+    id: string;
+    visualMock: DirectActivity["visualMock"];
+    experience: DirectActivity["experience"];
+    creatorPrompt: string;
+    designPrediction: string;
+    preserve: string[];
+    change: string[];
+    explore: string[];
+    avoid: string[];
+  }>;
+};
+
 export type DirectArtifact = {
   childId: string;
   homeworkId: string;
@@ -149,6 +161,276 @@ export type DirectPlaywrightReport = {
   failures: string[];
   screenshots: string[];
 };
+
+export type DirectTasteReview = {
+  status: "reviewed" | "unavailable";
+  childId: string;
+  homeworkId: string;
+  model: string;
+  reviewedAt: string;
+  summary: string;
+  strengths: string[];
+  concerns: string[];
+  nodeReviews: Array<{
+    nodeId: string;
+    clarity: number;
+    craft: number;
+    responsiveness: number;
+    missionPayoff: number;
+    originality: number;
+    strengths: string[];
+    concerns: string[];
+  }>;
+  childPreferenceClaim: "not_evaluated";
+  learningClaim: "not_evaluated";
+  error?: string;
+};
+
+const DIRECT_CREATIVE_REVISION_TOOL_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["planId", "rationale", "qualityPrediction", "activities"],
+  properties: {
+    planId: schemaString,
+    rationale: schemaString,
+    qualityPrediction: schemaString,
+    activities: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "id",
+          "visualMock",
+          "experience",
+          "creatorPrompt",
+          "designPrediction",
+          "preserve",
+          "change",
+          "explore",
+          "avoid",
+        ],
+        properties: {
+          id: schemaString,
+          visualMock: {
+            type: "object",
+            additionalProperties: false,
+            required: ["scene", "layout", "artworkPrompt"],
+            properties: {
+              scene: schemaString,
+              layout: schemaString,
+              artworkPrompt: schemaString,
+            },
+          },
+          experience: {
+            type: "object",
+            additionalProperties: false,
+            required: ["objective", "childAction", "worldReaction", "anticipation", "progress", "recovery", "reward"],
+            properties: {
+              objective: schemaString,
+              childAction: schemaString,
+              worldReaction: schemaString,
+              anticipation: schemaString,
+              progress: schemaString,
+              recovery: schemaString,
+              reward: schemaString,
+            },
+          },
+          creatorPrompt: schemaString,
+          designPrediction: schemaString,
+          preserve: schemaStrings,
+          change: schemaStrings,
+          explore: schemaStrings,
+          avoid: schemaStrings,
+        },
+      },
+    },
+  },
+} as const;
+
+function tasteStrings(value: unknown, label: string): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error(`direct_taste_invalid_${label}`);
+  }
+  return value.map((item) => item.trim()).filter(Boolean);
+}
+
+function tasteScore(value: unknown, label: string): number {
+  if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 5) {
+    throw new Error(`direct_taste_invalid_${label}`);
+  }
+  return Number(value);
+}
+
+function parseDirectTasteReview(value: unknown, plan: DirectLearningExperiencePlan): Pick<
+  DirectTasteReview,
+  "summary" | "strengths" | "concerns" | "nodeReviews"
+> {
+  const record = object(value);
+  if (!record) throw new Error("direct_taste_invalid_output");
+  const rawNodes = record.nodeReviews;
+  if (!Array.isArray(rawNodes)) throw new Error("direct_taste_invalid_node_reviews");
+  const expectedIds = new Set(plan.activities.map((activity) => activity.id));
+  const seen = new Set<string>();
+  const nodeReviews = rawNodes.map((rawNode) => {
+    const node = object(rawNode);
+    if (!node) throw new Error("direct_taste_invalid_node");
+    const nodeId = requiredString(node, "nodeId", "taste_node_id");
+    if (!expectedIds.has(nodeId) || seen.has(nodeId)) throw new Error(`direct_taste_unexpected_node:${nodeId}`);
+    seen.add(nodeId);
+    return {
+      nodeId,
+      clarity: tasteScore(node.clarity, `${nodeId}_clarity`),
+      craft: tasteScore(node.craft, `${nodeId}_craft`),
+      responsiveness: tasteScore(node.responsiveness, `${nodeId}_responsiveness`),
+      missionPayoff: tasteScore(node.missionPayoff, `${nodeId}_mission_payoff`),
+      originality: tasteScore(node.originality, `${nodeId}_originality`),
+      strengths: tasteStrings(node.strengths, `${nodeId}_strengths`),
+      concerns: tasteStrings(node.concerns, `${nodeId}_concerns`),
+    };
+  });
+  if (seen.size !== expectedIds.size) throw new Error("direct_taste_missing_node_review");
+  return {
+    summary: requiredString(record, "summary", "taste_summary"),
+    strengths: tasteStrings(record.strengths, "strengths"),
+    concerns: tasteStrings(record.concerns, "concerns"),
+    nodeReviews,
+  };
+}
+
+export async function safeRunDirectTasteReview(input: {
+  childId: string;
+  homeworkId: string;
+  plan: DirectLearningExperiencePlan;
+  screenshots: string[];
+  model?: string;
+  client?: Anthropic;
+  review?: (input: {
+    plan: DirectLearningExperiencePlan;
+    screenshots: string[];
+  }) => Promise<unknown>;
+  now?: Date;
+}): Promise<DirectTasteReview> {
+  const model = input.model ?? process.env.SUNNY_TASTE_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  const reviewedAt = (input.now ?? new Date()).toISOString();
+  try {
+    let rawReview: unknown;
+    if (input.review) {
+      rawReview = await input.review({ plan: input.plan, screenshots: input.screenshots });
+    } else {
+      const screenshots = input.screenshots.filter((screenshot) => fs.existsSync(screenshot));
+      if (screenshots.length !== input.plan.activities.length) throw new Error("direct_taste_screenshots_incomplete");
+      const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const toolName = "review_direct_math_taste";
+      const content: any[] = [{
+        type: "text",
+        text: `You are Sunny's advisory child-experience quality critic.
+Review the complete generated math board from its saved Planner promises and one opening screenshot per activity.
+Score only the adult-observable quality floor: visual craft, clarity of the first action, apparent responsiveness, mission/payoff, and originality.
+Do not claim that this child likes the experience. Do not infer learning, mastery, attention, or preference. Real child behavior and ratings decide those questions.
+Be candid and specific. This report advises the human and never blocks publication or rewrites content.
+
+Planner-authored board:
+${JSON.stringify({
+  boardWorld: input.plan.boardWorld,
+  fork: input.plan.fork,
+  activities: input.plan.activities.map((activity) => ({
+    id: activity.id,
+    title: activity.title,
+    academicTarget: activity.academicTarget,
+    mechanic: activity.mechanic,
+    objective: activity.experience.objective,
+    childAction: activity.experience.childAction,
+    worldReaction: activity.experience.worldReaction,
+    progress: activity.experience.progress,
+    reward: activity.experience.reward,
+  })),
+}, null, 2)}
+
+The screenshots follow in the same activity order.`,
+      }];
+      screenshots.forEach((screenshot, index) => {
+        content.push({ type: "text", text: `Opening screenshot for ${input.plan.activities[index]!.id}:` });
+        content.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: /\.jpe?g$/i.test(screenshot) ? "image/jpeg" : "image/png",
+            data: fs.readFileSync(screenshot).toString("base64"),
+          },
+        });
+      });
+      const response = await client.messages.create({
+        model,
+        max_tokens: 3000,
+        messages: [{ role: "user", content }],
+        tools: [{
+          name: toolName,
+          description: "Return one advisory quality scorecard for the generated board.",
+          input_schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["summary", "strengths", "concerns", "nodeReviews"],
+            properties: {
+              summary: { type: "string" },
+              strengths: { type: "array", items: { type: "string" } },
+              concerns: { type: "array", items: { type: "string" } },
+              nodeReviews: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["nodeId", "clarity", "craft", "responsiveness", "missionPayoff", "originality", "strengths", "concerns"],
+                  properties: {
+                    nodeId: { type: "string" },
+                    clarity: { type: "integer", minimum: 1, maximum: 5 },
+                    craft: { type: "integer", minimum: 1, maximum: 5 },
+                    responsiveness: { type: "integer", minimum: 1, maximum: 5 },
+                    missionPayoff: { type: "integer", minimum: 1, maximum: 5 },
+                    originality: { type: "integer", minimum: 1, maximum: 5 },
+                    strengths: { type: "array", items: { type: "string" } },
+                    concerns: { type: "array", items: { type: "string" } },
+                  },
+                },
+              },
+            },
+          },
+        }],
+        tool_choice: { type: "tool", name: toolName },
+      } as any, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+      const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
+      if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_taste_tool_output_missing");
+      rawReview = toolUse.input;
+    }
+    const review = parseDirectTasteReview(rawReview, input.plan);
+    return {
+      status: "reviewed",
+      childId: input.childId,
+      homeworkId: input.homeworkId,
+      model,
+      reviewedAt,
+      ...review,
+      childPreferenceClaim: "not_evaluated",
+      learningClaim: "not_evaluated",
+    };
+  } catch (error) {
+    return {
+      status: "unavailable",
+      childId: input.childId,
+      homeworkId: input.homeworkId,
+      model,
+      reviewedAt,
+      summary: "",
+      strengths: [],
+      concerns: [],
+      nodeReviews: [],
+      childPreferenceClaim: "not_evaluated",
+      learningClaim: "not_evaluated",
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 export function hasReadyDirectMathExperience(childId: string, rootDir = process.cwd()): boolean {
   const directPath = path.join(rootDir, "src", "context", childId.trim().toLowerCase(), "homework", "direct_experience_plan.json");
@@ -378,7 +660,12 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
   }
   const quest = object(root.quest);
   const boss = object(root.boss);
-  if (!quest || !boss) throw new Error("direct_plan_requires_quest_and_boss_teasers");
+  const lockedTeaser = <Role extends "Quest" | "Boss">(role: Role, value: Record<string, unknown> | null) => ({
+    title: role,
+    locked: true as const,
+    teaser: value ? requiredString(value, "teaser") : `${role} unlocks when the learning evidence is ready.`,
+    artworkPrompt: value ? requiredString(value, "artworkPrompt") : `Locked ${role} destination placeholder`,
+  });
   const boardWorld = object(root.boardWorld);
   if (!boardWorld) throw new Error("direct_plan_missing_board_world");
   const boardTitle = requiredString(boardWorld, "title");
@@ -401,8 +688,160 @@ export function parseDirectLearningExperiencePlan(value: unknown): DirectLearnin
       routes,
     },
     activities,
-    quest: { title: "Quest", locked: true, teaser: requiredString(quest, "teaser"), artworkPrompt: requiredString(quest, "artworkPrompt") },
-    boss: { title: "Boss", locked: true, teaser: requiredString(boss, "teaser"), artworkPrompt: requiredString(boss, "artworkPrompt") },
+    quest: lockedTeaser("Quest", quest),
+    boss: lockedTeaser("Boss", boss),
+  };
+}
+
+function parseDirectCreativeRevision(
+  value: unknown,
+  plan: DirectLearningExperiencePlan,
+  model: string,
+  createdAt: string,
+): DirectCreativeRevision {
+  const root = object(value);
+  if (!root) throw new Error("direct_creative_revision_invalid_output");
+  const planId = requiredString(root, "planId", "creative_revision_plan_id");
+  if (planId !== plan.planId) throw new Error("direct_creative_revision_plan_mismatch");
+  const rawActivities = Array.isArray(root.activities) ? root.activities : [];
+  const expectedIds = new Set(plan.activities.map((activity) => activity.id));
+  const seen = new Set<string>();
+  const activities = rawActivities.map((raw) => {
+    const activity = object(raw);
+    const visualMock = object(activity?.visualMock);
+    const experience = object(activity?.experience);
+    if (!activity || !visualMock || !experience) throw new Error("direct_creative_revision_invalid_activity");
+    const id = requiredString(activity, "id", "creative_revision_activity_id");
+    if (!expectedIds.has(id)) throw new Error(`direct_creative_revision_unexpected_activity:${id}`);
+    if (seen.has(id)) throw new Error(`direct_creative_revision_duplicate_activity:${id}`);
+    seen.add(id);
+    const artworkPrompt = requiredString(visualMock, "artworkPrompt");
+    const noInstructionalText = "without words, letters, numbers, equations, labels";
+    return {
+      id,
+      visualMock: {
+        scene: requiredString(visualMock, "scene"),
+        layout: requiredString(visualMock, "layout"),
+        artworkPrompt: artworkPrompt.toLowerCase().includes(noInstructionalText)
+          ? artworkPrompt
+          : `${artworkPrompt}. ${noInstructionalText}.`,
+      },
+      experience: {
+        objective: requiredString(experience, "objective"),
+        childAction: requiredString(experience, "childAction"),
+        worldReaction: requiredString(experience, "worldReaction"),
+        anticipation: requiredString(experience, "anticipation"),
+        progress: requiredString(experience, "progress"),
+        recovery: requiredString(experience, "recovery"),
+        reward: requiredString(experience, "reward"),
+      },
+      creatorPrompt: requiredString(activity, "creatorPrompt"),
+      designPrediction: requiredString(activity, "designPrediction"),
+      preserve: stringArray(activity.preserve, "creative_revision_preserve"),
+      change: stringArray(activity.change, "creative_revision_change"),
+      explore: stringArray(activity.explore, "creative_revision_explore"),
+      avoid: stringArray(activity.avoid, "creative_revision_avoid"),
+    };
+  });
+  if (seen.size !== expectedIds.size) throw new Error("direct_creative_revision_missing_activity");
+  return {
+    planId,
+    rationale: requiredString(root, "rationale", "creative_revision_rationale"),
+    qualityPrediction: requiredString(root, "qualityPrediction", "creative_revision_quality_prediction"),
+    model,
+    createdAt,
+    activities,
+  };
+}
+
+export async function askDirectCreativeDirector(input: {
+  childId: string;
+  plan: DirectLearningExperiencePlan;
+  childContext?: unknown;
+  priorOutcomes?: unknown;
+  previousTasteReview?: unknown;
+  client?: Anthropic;
+  model?: string;
+  now?: Date;
+}): Promise<{ plan: DirectLearningExperiencePlan; revision: DirectCreativeRevision }> {
+  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const model = input.model ?? process.env.SUNNY_TASTE_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5";
+  const prompt = `You are Sunny's Creative Director. Strengthen the complete board before artwork or HTML is built.
+
+The Planner is the tutor and its academic prescription is immutable. You may revise only each activity's visualMock, experience presentation, creatorPrompt, designPrediction, preserve, change, explore, and avoid fields. You may not change activity count or IDs, routes, responsibilities, academic targets, item content, response contracts, correct answers, academic predictions, evidence limits, Quest/Boss state, or the board lifecycle. Return one revision for every activity ID, exactly once. Do not write HTML, CSS, JavaScript, tests, or replacement curriculum.
+
+Judge the board as one coherent child experience. Strengthen mission, stakes, visible progression, action-to-world reaction, recovery, anticipation, and payoff. Make the two routes mechanically legible and meaningfully distinct rather than cosmetically different answer-selection screens. The opening view should communicate the current objective, visible progress, and anticipated payoff without adult explanation.
+
+Use these human-labeled references as design evidence, not templates:
+- Skyglider: positive for an immediate objective, clear action, visible journey, and satisfying world movement.
+- Crane: positive when the mathematical representation and mission action are integrated.
+- Vault: positive for strong identity, anticipation, and a challenge that visibly builds toward a payoff.
+- Moonlit Cargo: negative when the viewport is sparse and answer selection feels cosmetic.
+- Tidepool: negative when decorative controls and empty space do not explain the mission.
+- Rope-and-Peg: negative because image-generated instructional text and quantities became corrupted and the promised puzzle was unclear.
+
+All mathematical truth, quantities, equations, labels, and instructions must be rendered in HTML. Every artworkPrompt must describe atmospheric art without instructional content and include this exact direction: "without words, letters, numbers, equations, labels". Generated imagery supplies the world, never the mathematics.
+
+Prior ratings, replay, abandonment, demo use, invalid actions, companion reactions, and taste reports are evidence to consider. They do not prove learning or child preference by themselves. Predict the observable quality improvement your revision is intended to produce; real child behavior remains authoritative.
+
+Child: ${input.childId}
+
+Child context:
+${JSON.stringify(input.childContext ?? {}, null, 2)}
+
+Prior factual outcomes:
+${JSON.stringify(input.priorOutcomes ?? {}, null, 2)}
+
+Previous advisory taste review:
+${JSON.stringify(input.previousTasteReview ?? {}, null, 2)}
+
+Planner-authored board:
+${JSON.stringify({
+  planId: input.plan.planId,
+  boardWorld: input.plan.boardWorld,
+  fork: input.plan.fork,
+  activities: input.plan.activities,
+}, null, 2)}`;
+  const toolName = "direct_creative_revision";
+  const response = await client.messages.create({
+    model,
+    max_tokens: Number(process.env.SUNNY_DIRECTOR_MAX_TOKENS ?? 12000),
+    messages: [{ role: "user", content: prompt }],
+    tools: [{
+      name: toolName,
+      description: "Return one bounded creative revision for every existing activity.",
+      input_schema: DIRECT_CREATIVE_REVISION_TOOL_SCHEMA,
+    }],
+    tool_choice: { type: "tool", name: toolName },
+  } as any, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  const toolUse = response.content.find((block) => block.type === "tool_use" && block.name === toolName);
+  if (!toolUse || toolUse.type !== "tool_use") throw new Error("direct_creative_revision_tool_output_missing");
+  const revision = parseDirectCreativeRevision(
+    toolUse.input,
+    input.plan,
+    model,
+    (input.now ?? new Date()).toISOString(),
+  );
+  const revisionsById = new Map(revision.activities.map((activity) => [activity.id, activity]));
+  return {
+    revision,
+    plan: {
+      ...input.plan,
+      activities: input.plan.activities.map((activity) => {
+        const creative = revisionsById.get(activity.id)!;
+        return {
+          ...activity,
+          visualMock: creative.visualMock,
+          experience: creative.experience,
+          creatorPrompt: creative.creatorPrompt,
+          designPrediction: creative.designPrediction,
+          preserve: creative.preserve,
+          change: creative.change,
+          explore: creative.explore,
+          avoid: creative.avoid,
+        };
+      }),
+    },
   };
 }
 
@@ -423,6 +862,22 @@ function chartForPlanner(chart: ChildChart): unknown {
   };
 }
 
+function availableMathInstrumentsForPlanner(): unknown[] {
+  return listActivityToolContracts()
+    .filter((contract) => contract.domains.includes("math") || contract.domains.includes("reward"))
+    .map((contract) => ({
+      id: contract.id,
+      label: contract.label,
+      purposes: contract.purposes,
+      strengths: contract.strengths,
+      weakFor: contract.weakFor,
+      plannerVisibility: contract.plannerVisibility,
+      runtimeAvailable: Boolean(contract.nodeType && NODE_REGISTRY[contract.nodeType]),
+      configuration: contract.configKnobs,
+      measurements: contract.measures,
+    }));
+}
+
 export async function askDirectMathPlanner(input: {
   childId: string;
   chart: ChildChart;
@@ -432,8 +887,13 @@ export async function askDirectMathPlanner(input: {
   priorOutcomes?: unknown;
 }): Promise<DirectLearningExperiencePlan> {
   const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const prompt = `You are Sunny's sole learning-experience planner and creative director.
-${EXPERIENCE_DESIGN_CONSTITUTION}
+  const prompt = `You are Sunny's autonomous AI math Planner and creative director.
+
+Study the assignment to infer the concepts, relationships, representations, and reasoning the teacher intends the child to learn. Teach the underlying concepts, not its visible questions: never show, drill, or superficially rewrite the assignment's exact problems. The assignment text is private evidence for your planning, not a content bank for the child experience.
+
+You own the complete learning program: activity and item counts, sequence, pedagogy, content, response formats, mechanics, stakes and consequences, recovery, rewards, pacing, sound, visuals, and route design. Make these choices from the assignment, child chart, prior evidence, and your professional judgment.
+
+Available reusable instruments are optional tools, not a required menu. You may reuse, configure, or generate an experience. Reuse only an instrument marked runtimeAvailable and only when its capabilities fit your prescription; otherwise generate the experience you believe is best. Do not force a catalog tool into the board.
 
 Create one coherent choose-your-adventure math board for this exact child and assignment.
 You decide how many baseline activities and how many items in each activity are educationally necessary. There is no fixed activity count or item count.
@@ -445,32 +905,31 @@ Set each activity's responsibilityId to exactly one declared responsibility and 
 Keep the two routes academically comparable while allowing their presentation and engagement variable to differ.
 The board must include exactly two meaningful routes so the child has agency and Sunny can compare one engagement variable while holding the academic need comparable.
 fork.question is child-facing copy: at most 10 words, inviting, and easy to say aloud. Put the detailed research claim only in fork.hypothesis.
-Choose the best experience form for each responsibility: a game, demonstration, manipulative, story, simulation, conversation, probe, or another coherent form. Describe the complete visual mock, child action, world reaction, anticipation, progress transformation, recovery, and reward when those elements fit the chosen form.
+Choose the best experience form for each responsibility. Describe the experience you want the Creator to build.
 Use profile evidence as broad motivators; do not repeat one literal interest across every activity.
-Quest and Boss are exciting locked teaser destinations. Do not create playable Quest or Boss content.
+Quest and Boss are locked board-owned destinations. You may optionally provide teaser and artwork direction for either one, but do not create playable Quest or Boss content.
 Author a non-empty item set for each activity and explain the complete board and item scope in contentScopeRationale. An item may use selection, numeric, construction, or explanation response mode. Select the response mode that matches the mathematical action; only selection mode uses answer options. Ground expected responses and rubrics in the assignment.
-The first required action must be understandable within ten seconds. For any unfamiliar drag, construction, or manipulation mechanic, provide an optional visible demonstration instead of front-loading instructions.
-A question asking “how many” must accept the final quantity. If the child must construct or show a representation, the prompt must explicitly ask them to build or show it.
-Show one active problem at a time when simultaneous problems add unnecessary cognitive load; this presentation rule never limits how many items you author. Keep instructions short and child-facing.
-Design intentional interaction, recovery, progress, and completion sounds that support the experience without distracting from it.
 Initial board activities create teaching and practice evidence only. Completion cannot establish mastery or unlock Quest or Boss.
 For every activity, preregister academicPrediction separately from designPrediction. academicPrediction must name a stable namespaced construct, external or independent context, time horizon, expected metric range, predicted error patterns, confidence, evidence IDs, intervention, and evidenceLimit "practice_only". Use the longitudinal child history when available. Never infer academic ability from interests or engagement ratings.
 For every activity, write a bespoke creatorPrompt that tells a separate Experience Creator how to realize this activity. Derive it from the assignment, child chart, prior factual outcomes, recent themes, and engagement theory. Also preregister designPrediction and list preserve, change, explore, avoid, and namespaced measurementKeys. These values must vary when evidence supports a change; do not hardcode a game, theme, layout, mechanic, or activity count.
 Write artwork prompts from the supplied child demographics and profile evidence. Never assume a fixed age or generic child profile.
 Keep every field concise. Do not write HTML, JavaScript, CSS, browser tests, or implementation code. Sunny's browser harness will execute Creator-declared real controls and observe runtime events.
 
-Return one JSON object containing planId, contentScopeRationale, academicTheory, profileEvidence, learningResponsibilities, boardWorld, fork, activities, quest, and boss. boardWorld.title is the canonical board and plan title; do not duplicate it at the root.
+Return one JSON object containing planId, contentScopeRationale, academicTheory, profileEvidence, learningResponsibilities, boardWorld, fork, and activities. You may optionally include quest and boss teaser objects. boardWorld.title is the canonical board and plan title; do not duplicate it at the root.
 Each activity contains identity and responsibility fields, visualMock, experience, creatorPrompt, designPrediction, academicPrediction, adaptive directive arrays, acceptanceSteps, and an AI-selected items array.
 Every item contains id, prompt, lineage {sourceEvidenceIds, exposure}, and one response contract:
 - selection: {mode, options:[{id,label,correct}]}
 - numeric: {mode, expected, optional unit}
 - construction: {mode, expectedState, successDescription}
 - explanation: {mode, rubric}
-Quest and Boss titles must remain exactly "Quest" and "Boss" and locked must be true.
+If you provide Quest or Boss teaser objects, their titles must remain exactly "Quest" and "Boss" and locked must be true.
 Every responsibility, route, activity, item, and selection option must have its own non-empty stable id.
 
 Assignment:
 ${input.extraction.fullText}
+
+Available reusable instruments:
+${JSON.stringify(availableMathInstrumentsForPlanner(), null, 2)}
 
 Child chart:
 ${JSON.stringify(chartForPlanner(input.chart), null, 2)}
@@ -510,7 +969,7 @@ async function requestDirectArtwork(prompt: string): Promise<string> {
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: process.env.GROK_IMAGE_MODEL?.trim() || "grok-imagine-image",
-        prompt: `Premium vibrant child-centered educational artwork. Follow the developmental and profile cues in the Planner-authored prompt without inventing an age. Use strong visual hierarchy, cinematic lighting, no text, no equations, and no generic school worksheet imagery. ${prompt}`,
+        prompt,
         n: 1,
       }),
     });
@@ -572,8 +1031,7 @@ export function creatorPromptHash(
   creatorModel: string,
 ): string {
   return crypto.createHash("sha256").update(JSON.stringify({
-    creatorContractVersion: 10,
-    constitution: EXPERIENCE_DESIGN_CONSTITUTION,
+    creatorContractVersion: 11,
     plannerModel,
     creatorModel,
     activity,
@@ -594,27 +1052,98 @@ export function buildDirectActivityCreatorPrompt(input: {
   childId: string;
 }): string {
   return `Build the complete child-facing activity below as one self-contained HTML file with inline CSS and JavaScript.
-${EXPERIENCE_DESIGN_CONSTITUTION}
 
-The AI Planner's exact Creator prompt is authoritative:
+The AI Planner's exact Creator prompt is the sole design authority:
 ${input.activity.creatorPrompt}
 
-Implement the saved ExperienceSpec faithfully without turning it into a generic shell.
-The opening viewport must visibly render the assigned artwork URL with a nonzero-size img or CSS background layer: ${input.artworkUrl}.
+Implement the Planner-authored activity and saved content faithfully. Do not add a second design doctrine or reinterpret it as a generic shell.
+Use this assigned local artwork asset in the experience: ${input.artworkUrl}.
 Keep the complete HTML under 18,000 characters. Prefer concise CSS and JavaScript and do not duplicate implementations.
 
 Runtime contract:
 Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${input.activity.id}"}},"*") when the experience is ready.
 Whenever the activity or active problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${input.activity.id}",nodeId:"${input.activity.id}",phase:"question",activityTitle:${JSON.stringify(input.activity.title)},learningFocus:${JSON.stringify(input.activity.academicTarget)},mechanic:${JSON.stringify(input.activity.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
-Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",targetId,correct,responseTimeMs}},"*") for each answer.
+Maintain a factual targetResults array for the full activity. For each answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel}, where target is the stable item id, attemptedValue is what the child submitted, and scaffoldLevel reflects demos, hints, or companion help.
+Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for each answer.
 Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${input.activity.id}",completedItems,totalItems}},"*") whenever visible progress advances.
-Emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true}},"*") on completion.
+On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${input.activity.id}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
 Include <div id="sunny-companion"></div> so the parent app owns Elli.
 Return raw HTML only, use no external libraries, and end with </html>.
 
 Child: ${input.childId}
 ExperienceSpec:
 ${JSON.stringify(input.activity, null, 2)}`;
+}
+
+export function buildAdaptiveProgressionCreatorPrompt(input: {
+  cycle: LearningCycleRecordV2;
+  node: LearningCycleNodeContract;
+  childContext: unknown;
+}): string {
+  const nodeId = input.node.nodeId;
+  return `You are Sunny's Experience Creator. Build one complete child-facing activity as self-contained HTML with inline CSS and JavaScript.
+
+The AI Planner already made the educational decision below. Implement it faithfully without changing the theory, evidence limit, or purpose:
+${input.node.generationPrompt?.text ?? "No Planner prescription was provided."}
+
+Author fresh content appropriate to this assignment and node responsibility. Do not reuse any exposed item identity or exact prompt listed in the cycle. Quest must test unseen transfer. Boss must test unseen synthesis. A generated support node remains teaching/practice evidence. Do not claim mastery.
+The first visible H1 must be exactly ${JSON.stringify(input.node.openingScreen.title)}. A short exciting subtitle may establish the AI-authored world.
+Visibly use the assigned artwork URL as part of the world: ${input.node.artwork.localPath ?? "none"}.
+Keep the complete HTML under 18,000 characters. Prefer concise CSS and JavaScript.
+
+Runtime contract:
+Emit window.parent.postMessage({type:"activity_ready",payload:{nodeId:"${nodeId}"}},"*") when ready.
+Whenever the activity or problem changes, emit window.parent.postMessage({type:"game_state_update",payload:{game:"generated-math",activityId:"${nodeId}",nodeId:"${nodeId}",phase:"question",activityTitle:${JSON.stringify(input.node.title)},learningFocus:${JSON.stringify(input.node.academicTarget.skill)},mechanic:${JSON.stringify(input.node.mechanic)},currentChallenge,availableActions,itemIndex,totalItems,answerVisibility:"hidden"}},"*") so Elli has live context. Never expose answers.
+Maintain a factual targetResults array. For every submitted answer append {target,correct,attemptedValue,responseTimeMs,scaffoldLevel} using a stable fresh item identity.
+Emit window.parent.postMessage({type:"attempt_event",payload:{domain:"math",target,correct,attemptedValue,responseTimeMs,scaffoldLevel}},"*") for every answer.
+Emit window.parent.postMessage({type:"progress_event",payload:{nodeId:"${nodeId}",completedItems,totalItems}},"*") whenever visible progress advances.
+On completion calculate accuracy from targetResults and emit window.parent.postMessage({type:"node_complete",payload:{nodeId:"${nodeId}",completed:true,accuracy,targetResults,timeSpent_ms}},"*").
+Include <div id="sunny-companion"></div>. Return raw HTML only and end with </html>.
+
+Assignment identity and current theory:
+${JSON.stringify({
+    assignment: {
+      homeworkId: input.cycle.homeworkId,
+      title: input.cycle.assignment.title,
+      targets: input.cycle.assignment.targets,
+      fingerprint: input.cycle.assignment.contentFingerprint,
+    },
+    theory: input.cycle.academicTheory,
+    engagementTheory: input.cycle.engagementTheory,
+  }, null, 2)}
+
+Canonical node contract:
+${JSON.stringify(input.node, null, 2)}
+
+Prior factual observations (never rewrite them):
+${JSON.stringify(input.cycle.observations, null, 2)}
+
+Current child context:
+${JSON.stringify(input.childContext, null, 2)}`;
+}
+
+export async function generateAdaptiveProgressionActivityHtml(input: {
+  cycle: LearningCycleRecordV2;
+  node: LearningCycleNodeContract;
+  childContext: unknown;
+  client?: Anthropic;
+  model?: string;
+}): Promise<string> {
+  const client = input.client ?? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const response = await client.messages.create({
+    model: input.model ?? process.env.SUNNY_GENERATION_MODEL ?? process.env.SUNNY_INGEST_MODEL ?? "claude-sonnet-5",
+    max_tokens: Number(process.env.SUNNY_GENERATION_MAX_TOKENS ?? 12000),
+    thinking: { type: "disabled" },
+    messages: [{ role: "user", content: buildAdaptiveProgressionCreatorPrompt(input) }],
+  }, { timeout: Number(process.env.SUNNY_AI_TIMEOUT_MS ?? 120000) });
+  const html = normalizeGeneratedHtml(stripHtml(response.content
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("\n")));
+  if (!isCompleteGeneratedHtml(html)) {
+    throw new Error(`adaptive_activity_html_truncated:${input.node.nodeId}:stop=${response.stop_reason ?? "unknown"}:chars=${html.length}`);
+  }
+  return html;
 }
 
 async function generateActivityHtml(input: {
@@ -737,6 +1266,11 @@ export async function runDirectPlaywrightAcceptance(input: {
   const { chromium } = await import("playwright");
   const browser = await chromium.launch({ headless: true });
   const failures: string[] = [];
+  const screenshots: string[] = [];
+  const screenshotDir = input.artifacts[0]
+    ? path.join(rootDir, "src", "context", input.artifacts[0].childId, "homework", "direct-playwright", input.artifacts[0].homeworkId)
+    : "";
+  if (screenshotDir) fs.mkdirSync(screenshotDir, { recursive: true });
   try {
     for (const artifact of input.artifacts) {
       const page = await browser.newPage({ viewport: { width: 1365, height: 768 } });
@@ -768,17 +1302,20 @@ export async function runDirectPlaywrightAcceptance(input: {
       const messages = await page.evaluate<Array<{ type?: string }>>(`window.__sunnyMessages||[]`);
       const ready = messages.some((message) => message?.type === "activity_ready");
       if (!ready) failures.push(`${artifact.nodeId}:activity_ready_evidence_missing`);
-      const titleVisible = await page.getByText(artifact.title, { exact: false }).first()
-        .waitFor({ state: "visible", timeout: 3_000 }).then(() => true).catch(() => false);
-      if (!titleVisible) failures.push(`${artifact.nodeId}:title_not_visible`);
       pageErrors.forEach((error) => failures.push(`${artifact.nodeId}:browser_error:${error}`));
+      if (screenshotDir) {
+        const screenshotPath = path.join(screenshotDir, `${artifact.nodeId.replace(/[^a-z0-9_-]/gi, "_")}-opening.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: false })
+          .then(() => screenshots.push(screenshotPath))
+          .catch((error) => console.warn(` 🎮 [direct-taste] [screenshot-unavailable] node=${artifact.nodeId} reason=${error instanceof Error ? error.message : String(error)}`));
+      }
       await page.close();
     }
   } finally {
     await browser.close();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
-  return { passed: failures.length === 0, failures, screenshots: [] };
+  return { passed: failures.length === 0, failures, screenshots };
 }
 
 export function buildDirectActiveSessionPlan(input: {
@@ -877,6 +1414,8 @@ export function buildDirectLearningCycleInput(input: {
     const sessionNode = planNodeById.get(activity.id);
     return {
       nodeId: activity.id,
+      routeId: activity.routeId,
+      predictionId: `${input.homeworkId}:prediction:${activity.id}`,
       role: "baseline",
       title: activity.title,
       state: "ready",
@@ -983,6 +1522,8 @@ export function persistDirectExperience(input: {
   activeSessionPlan: ActiveSessionPlan;
   artifacts: DirectArtifact[];
   report: DirectPlaywrightReport;
+  creativeRevision?: DirectCreativeRevision;
+  tasteReview?: DirectTasteReview;
 }): string {
   const rootDir = input.rootDir ?? process.cwd();
   const contextDir = path.join(rootDir, "src", "context", input.childId);
@@ -1004,6 +1545,8 @@ export function persistDirectExperience(input: {
     activeSessionPlan: input.activeSessionPlan,
     artifacts: input.artifacts,
     playwrightReport: input.report,
+    creativeRevision: input.creativeRevision,
+    tasteReview: input.tasteReview,
     feedbackObservations: priorFeedback.feedbackObservations ?? [],
     feedbackDecisions: priorFeedback.feedbackDecisions ?? [],
   };
